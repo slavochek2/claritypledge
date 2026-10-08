@@ -128,11 +128,25 @@ export interface DayIssue {
   technical?: { title: string; point_a: string; obstacle: string; point_b: string }
 }
 
+/**
+ * P1445 C: "Agent on Slava" — the writer's own entity, like an arguer in the Disagreement Pipeline:
+ * its own position (its prediction of where the founder stands, never his answer), its own short
+ * story, and the sources it cites. Shown only when the checker passed it (scripts/day-reflection-check.ts).
+ */
+export interface DayAgentView {
+  name: string
+  /** -3 … 3, the product's 7 levels */
+  position: number
+  story: string
+  sources: { ref: string; quote: string }[]
+}
+
 export interface DayStatement {
   id: string
   /** a provocative "change" statement */
   text: string
   review?: Review
+  agent?: DayAgentView
 }
 
 /** A value that may not be collected yet. `collected: false` renders "not collected yet", never 0. */
@@ -494,10 +508,24 @@ function readNote(x: unknown): DayNote | null {
   return n
 }
 
+/** P1445: an agent view the checker passed, else nothing (an unchecked story is never shown). */
+function readAgent(x: unknown): DayAgentView | undefined {
+  if (!isObj(x) || x.checker !== 'pass' || !str(x.name) || !str(x.story)) return undefined
+  const p = x.position
+  if (typeof p !== 'number' || !Number.isInteger(p) || p < -3 || p > 3) return undefined
+  const sources = Array.isArray(x.sources)
+    ? x.sources.filter((q): q is { ref: string; quote: string } => isObj(q) && !!str(q.ref) && !!str(q.quote)).map((q) => ({ ref: q.ref.slice(0, 300), quote: q.quote.slice(0, 300) }))
+    : []
+  if (!sources.length) return undefined
+  return { name: (x.name as string).slice(0, 60), position: p, story: (x.story as string).slice(0, 900), sources: sources.slice(0, 6) }
+}
+
 function readStatement(x: unknown): DayStatement | null {
   if (!isObj(x) || typeof x.id !== 'string' || !ID.test(x.id) || !str(x.text)) return null
   const s: DayStatement = { id: x.id, text: x.text as string }
   if (REVIEWS.includes(x.review as Review)) s.review = x.review as Review
+  const agent = readAgent(x.agent)
+  if (agent) s.agent = agent
   return s
 }
 

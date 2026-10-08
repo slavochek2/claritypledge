@@ -3,10 +3,12 @@
 //
 //   npx tsx scripts/day-reflection-history.ts --day-dir DIR [--days 14] [--now ISO]
 //       prints the last N days of statements with the founder's answers (and stories), newest first
-//   npx tsx scripts/day-reflection-history.ts --reject-repeats --day-dir DIR [--days 14] [--now ISO] < reflection.json
+//   npx tsx scripts/day-reflection-history.ts --reject-repeats --day-dir DIR [--findings FILE] [--days 14] [--now ISO] < reflection.json
 //       reads the new reflection ({model, statements:[{id,text,review?}]}) on stdin. A statement that
-//       repeats one the founder ANSWERED in the window → exit 1, one stderr line per repeat, nothing
-//       on stdout. Otherwise the input is echoed unchanged and the exit is 0. Not a reflection → exit 2.
+//       repeats one the founder ANSWERED in the window, repeats a title of THIS pass's findings (P1445:
+//       --findings, one title per line — the report already asks it), or is about a personal activity
+//       (P1445 hard filter: refused, never reworded) → exit 1, one stderr line per refusal, nothing on
+//       stdout. Otherwise the input is echoed unchanged and the exit is 0. Not a reflection → exit 2.
 //
 // A "repeat": the same words after lowercasing and keeping only [a-z0-9] runs, or word sets whose
 // Jaccard similarity is at least 0.8. A statement with no such words (another script, only symbols)
@@ -103,6 +105,45 @@ function similarity(a: string[], b: string[]): number {
   return inter / (A.size + B.size - inter)
 }
 
+/**
+ * P1445: a statement about the founder's personal life is never a CP reflection statement (founder,
+ * 2026-10-08: "hikes are personal"). This is the mechanical backstop only — phrases, never single
+ * words, so "run a smaller event", "exercise judgment" and "price hike" pass. The checker agent
+ * enforces the full rule.
+ */
+const PERSONAL: RegExp[] = [
+  /\b(?:go|goes|going|went|gone)\s+(?:hiking|climbing|skiing|surfing|swimming|cycling|camping|running|jogging)\b/,
+  /\b(?:take|takes|taking|took)\s+(?:a\s+)?(?:hike|vacation|holiday|day off|walk)\b/,
+  /\b(?:go|goes|going|went)\s+(?:to\s+the\s+)?gym\b/,
+  /\bhit(?:s|ting)?\s+the\s+gym\b/,
+  /\b(?:go|goes|going|went)\s+for\s+a\s+(?:run|jog|walk|hike|swim|ride)\b/,
+  /\bfamily\s+time\b/,
+  /\bspend(?:s|ing)?\s+(?:more\s+)?time\s+with\s+(?:my|your|his|her|their|the)\s+(?:family|kids|children|partner|friends)\b/,
+]
+/** Words that make "hike" a price rise, before it ("price hike") or after it ("hike the price"). */
+const PRICE = /^(?:price|prices|rate|rates|fee|fees|tax|taxes|wage|wages|salary|cost|costs|interest)$/
+const HIKE = /\bhik(?:e|es|ed|er|ers|ing)\b/g
+
+/**
+ * Any hike / hiker / hiking except the price sense: the founder's hikes are personal (2026-10-08), and
+ * two of that day's five statements were about them ("hike sign-ups", "hike-goers"). Done with a
+ * scan, not a lookbehind (decisions.md 2026-10-07: lookbehind is banned).
+ */
+function mentionsHike(t: string): boolean {
+  for (const m of t.matchAll(HIKE)) {
+    const at = m.index ?? 0
+    const before = t.slice(0, at).match(/([a-z]+)[\s-]*$/)?.[1] ?? ''
+    const after = t.slice(at + m[0].length).match(/^[\s-]+(?:(?:the|our|its|their)\s+)?([a-z]+)/)?.[1] ?? ''
+    if (!PRICE.test(before) && !PRICE.test(after)) return true
+  }
+  return false
+}
+
+export const isPersonal = (s: string): boolean => {
+  const t = s.toLowerCase().replace(/\s+/g, ' ')
+  return mentionsHike(t) || PERSONAL.some((r) => r.test(t))
+}
+
 /** For each new statement: the answered statement it repeats, if any (the most similar one). */
 export function findRepeats(newTexts: string[], answered: string[]): { fresh: string; old: string }[] {
   const out: { fresh: string; old: string }[] = []
@@ -120,8 +161,8 @@ export function findRepeats(newTexts: string[], answered: string[]): { fresh: st
   return out
 }
 
-interface Args { dayDir: string; days: number; now: string; reject: boolean }
-const USAGE = 'usage: [--reject-repeats] --day-dir DIR [--days N] [--now ISO]'
+interface Args { dayDir: string; days: number; now: string; reject: boolean; findings?: string }
+const USAGE = 'usage: [--reject-repeats] --day-dir DIR [--findings FILE] [--days N] [--now ISO]'
 
 function parseArgs(argv: string[]): Args | null {
   const a: Partial<Args> = { days: 14, now: new Date().toISOString(), reject: false }
@@ -133,6 +174,7 @@ function parseArgs(argv: string[]): Args | null {
     const v = argv[i + 1]
     if (v === undefined) return null
     if (argv[i] === '--day-dir') a.dayDir = v
+    else if (argv[i] === '--findings') a.findings = v
     else if (argv[i] === '--days') {
       const n = Number(v)
       if (!Number.isInteger(n) || n < 1 || n > 366) return null
@@ -167,10 +209,25 @@ export function run(argv: string[], stdin: string, io: IO): number {
     say('stdin is not a reflection (model, statements with id and text)')
     return 2
   }
+  // P1445: this pass's finding titles. A --findings that cannot be read is a failure, never "no
+  // findings" — the dedup would then pass every statement silently.
+  let titles: string[] = []
+  if (args.findings !== undefined) {
+    try {
+      titles = readFileSync(args.findings, 'utf-8').split('\n').map(oneLine).filter(Boolean)
+    } catch {
+      say(`cannot read --findings ${args.findings}`)
+      return 2
+    }
+  }
   const answered = pastStatements(args.dayDir, args.days, args.now).filter((p) => p.position !== undefined).map((p) => p.text)
   const repeats = findRepeats(texts, answered)
-  if (repeats.length) {
+  const cards = findRepeats(texts, titles)
+  const personal = texts.filter(isPersonal)
+  if (repeats.length || cards.length || personal.length) {
     for (const r of repeats) io.err(`repeats an answered statement: "${oneLine(r.fresh)}" ~ "${r.old}"\n`)
+    for (const r of cards) io.err(`repeats an issue card on this board: "${oneLine(r.fresh)}" ~ "${r.old}"\n`)
+    for (const t of personal) io.err(`personal activity, not a CP statement: "${oneLine(t)}"\n`)
     return 1
   }
   io.out(stdin)

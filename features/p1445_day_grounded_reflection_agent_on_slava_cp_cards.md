@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 27
 workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, reflection, kanban]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -256,6 +256,11 @@ Consequences the build must handle (Codex, verified against the cited lines befo
 - [ ] Kanban on React 19: full kanban unit suite and both e2e suites pass before and after the upgrade (counts pasted)
 - [ ] Checked at 375px, 320px and desktop
 - [ ] No card detail field restates its title (checker on the 2026-10-08 report: count of dropped repeats pasted), and Part A's board text stays at chip/short-button length
+
+## Pre-deploy Checklist
+
+- [ ] At `/ship`, after the cherry-pick lands on main: replace `~/.claude/commands/day.md` step 9r's body with a pointer to `tools/kanban/scripts/day-reflection.md` (the procedure ships with the scripts it drives; pointing `day.md` at it earlier would break the live `/day`, whose kanban checkout is main). Run `day-step.sh check-sync` and the day suites after.
+- [ ] `~/.agents/bin/hist --jsonl` (added for B/C) is committed in `~/.agents`.
 
 ## Related
 

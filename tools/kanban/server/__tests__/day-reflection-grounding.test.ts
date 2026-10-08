@@ -1,0 +1,265 @@
+import { describe, it, beforeEach, afterEach, expect } from 'vitest'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { run as contextRun } from '../../scripts/day-reflection-context'
+import { run as checkRun } from '../../scripts/day-reflection-check'
+import { parseReport } from '../../src/lib/day'
+import { synthReport } from './fixtures/day-fixture'
+
+/**
+ * P1445 B + C: the reflection writer's grounding block, and the checks between its reply and the
+ * report. Every text here is invented (public repo): no real decision, conversation or story.
+ */
+
+const NOW = '2026-10-08T09:00:00Z'
+let root: string
+let dayDir: string
+
+/** A stand-in for ~/.agents/bin/hist --jsonl: filters a fixture by the last argument (regex) and --since. */
+function fakeHist(turns: object[], exitCode = 0): string {
+  const data = join(root, 'turns.json')
+  writeFileSync(data, JSON.stringify(turns))
+  const bin = join(root, 'hist')
+  writeFileSync(
+    bin,
+    `#!/usr/bin/env node
+const a = process.argv.slice(2)
+if (${exitCode}) process.exit(${exitCode})
+const rx = new RegExp(a[a.length - 1], 'i')
+const since = a[a.indexOf('--since') + 1]
+const hits = JSON.parse(require('fs').readFileSync(${JSON.stringify(data)}, 'utf-8')).filter((t) => rx.test(t.text) && t.ts.slice(0, 10) >= since)
+for (const h of hits) console.log(JSON.stringify(h))
+process.exit(hits.length ? 0 : 1)
+`
+  )
+  chmodSync(bin, 0o755)
+  return bin
+}
+const turn = (ts: string, session: string, text: string) => ({ ts, harness: 'claude', cwd: '/x', role: 'user', session, path: `/x/${session}.jsonl`, text })
+
+function cli(fn: typeof contextRun, argv: string[]) {
+  let out = ''
+  let err = ''
+  return fn(argv, { out: (s) => (out += s), err: (s) => (err += s) }).then((code) => ({ code, out, err }))
+}
+function check(argv: string[], stdin: string) {
+  let out = ''
+  let err = ''
+  return checkRun(argv, stdin, { out: (s) => (out += s), err: (s) => (err += s) }).then((code) => ({ code, out, err }))
+}
+
+const CP_LOG = `# Decisions
+
+## 2026-10-07 [process]: Reflection statements are strategy, never task micromanagement
+**Decision:** statements never repeat an item already on that day's board.
+
+## 2026-09-01 [product]: Venue partners get a monthly slot
+Unrelated to anything below.
+`
+const PP_LOG = `# Personal decisions
+
+## 2026-03-02 — Small rehearsal evenings rebuild motivation after a shaky event — #events
+Decision: after an event that drains motivation, rehearse with a smaller group before the next one.
+
+## 2026-10-06 — Laptop backup moved to a new disk — #infra
+Context: the old disk filled up.
+`
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), 'day-ground-'))
+  dayDir = join(root, 'day')
+  mkdirSync(join(dayDir, 'reports'), { recursive: true })
+  writeFileSync(join(root, 'cp.md'), CP_LOG)
+  writeFileSync(join(root, 'pp.md'), PP_LOG)
+  writeFileSync(join(root, 'findings.txt'), 'Three keys report no billing data\nThe nightly backup is late\n')
+  const r = synthReport({ pass_id: '2026-10-07T05-00-00Z', started_at: '2026-10-07T05:00:00Z', reflection: { model: 'm', statements: [{ id: 'r1', text: 'Run fewer public evenings.' }] } })
+  writeFileSync(join(dayDir, 'reports', '2026-10-07T05-00-00Z.json'), JSON.stringify(r))
+  writeFileSync(
+    join(dayDir, 'decisions.jsonl'),
+    JSON.stringify({ kind: 'reflection', target: 'r1', run_id: '2026-10-07T05-00-00Z', position: -1, story: 'The evening shook my motivation; the evening felt empty.', at: '2026-10-07T10:00:00Z' }) + '\n'
+  )
+})
+afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+const ctxArgs = (hist: string, extra: string[] = []) => ['--day-dir', dayDir, '--now', NOW, '--decisions', `cp=${join(root, 'cp.md')}`, '--decisions', `pp=${join(root, 'pp.md')}`, '--findings', join(root, 'findings.txt'), '--hist', hist, '--sources-out', join(root, 'sources.json'), ...extra]
+
+describe('P1445 B: the grounding block', () => {
+  it('carries the post-event conversation, the dedup rule, an OLDER matching pp decision, every story and the issue cards — each with a citable id', async () => {
+    const hist = fakeHist([
+      turn('2026-10-07T08:07:49', 'sess-post-event', 'After the evening I want to understand what to maximize here: my motivation, honestly.'),
+      turn('2026-10-08T07:00:00', 'sess-infra', 'Fix the backup script please.'),
+      turn('2026-10-08T10:00:00', 'sess-later', 'This turn is after the pass ran and must not appear.'),
+    ])
+    const r = await cli(contextRun, ctxArgs(hist, ['--terms', 'motivation,smaller,event']))
+    expect(r.code).toBe(0)
+    const L = r.out.split('\n')
+    expect(L).toContain('D1 [cp] 2026-10-07 [process]: Reflection statements are strategy, never task micromanagement — Decision: statements never repeat an item already on that day\'s board.')
+    // the older pp entry is outside the 14-day window but matches the draft's terms
+    expect(L.some((l) => /^D\d \[pp\] 2026-03-02 — Small rehearsal evenings rebuild motivation/.test(l))).toBe(true)
+    expect(L.some((l) => /^C\d \[2026-10-07 08:07\] .*my motivation/.test(l))).toBe(true)
+    expect(r.out).not.toContain('after the pass ran')
+    expect(L.some((l) => /^S1 \[2026-10-07 · open · Somewhat disagree\] on "Run fewer public evenings\.": The evening shook my motivation/.test(l))).toBe(true)
+    expect(L).toContain('F1 Three keys report no billing data')
+    expect(r.out).not.toContain('MISSING')
+    const sources = JSON.parse(readFileSync(join(root, 'sources.json'), 'utf-8'))
+    expect(sources.D1).toMatchObject({ kind: 'decision', source: 'cp', date: '2026-10-07' })
+    expect(Object.values(sources).some((s) => (s as { session?: string }).session === 'sess-post-event')).toBe(true)
+  })
+
+  it('a source that cannot be read is named MISSING, never silently empty (pp unreadable, hist failing)', async () => {
+    const hist = fakeHist([], 2)
+    const r = await cli(contextRun, ['--day-dir', dayDir, '--now', NOW, '--decisions', `pp=${join(root, 'nope.md')}`, '--findings', join(root, 'findings.txt'), '--hist', hist])
+    expect(r.code).toBe(0)
+    expect(r.out).toContain(`MISSING: pp decisions — ${join(root, 'nope.md')} unreadable`)
+    expect(r.out).toContain('MISSING: conversations (last 3 days) — hist recent query failed (exit 2)')
+  })
+
+  it('the cap keeps a reserved share per class and counts what it cut', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => turn(`2026-10-07T0${i % 10}:${String(i).padStart(2, '0')}:00`, `s${i}`, `motivation note ${i}`))
+    const r = await cli(contextRun, ctxArgs(fakeHist(many), ['--max-lines', '20', '--terms', 'motivation']))
+    const cov = r.out.split('\n').find((l) => l.startsWith('Coverage:'))!
+    expect(cov).toMatch(/conversations \(terms\) \d+ shown, \d+ truncated/)
+    expect(cov).toMatch(/issue cards 2 shown/)
+    expect(cov).toMatch(/stories 1 shown/)
+  })
+})
+
+/** A writer reply in the shape the brief asks for. */
+const reply = (statements: object[]) => `MODEL: claude-opus-test\n\`\`\`json\n${JSON.stringify({ statements })}\n\`\`\``
+const agent = (sources: object[], position = -2) => ({ position, story: 'Quoted fact: the log says so. My connection: this pattern repeats. Speculation: it may pass.', sources })
+const three = (sources: object[]) => [
+  { text: 'Rehearse with a small group before the next public evening.', agent: agent(sources) },
+  { text: 'Stop building tools while waiting to feel ready.', agent: agent(sources, 1) },
+  { text: 'Charge for the second session.', agent: agent(sources, 0) },
+]
+
+describe('P1445 C: --parse', () => {
+  it('a well-formed reply → ids r1…, the agent named Slava with its own position, story and sources', async () => {
+    const r = await check(['--parse'], reply(three([{ ref: 'D1', quote: 'never task micromanagement' }])))
+    expect(r.code).toBe(0)
+    const o = JSON.parse(r.out)
+    expect(o.model).toBe('claude-opus-test')
+    expect(o.statements.map((s: { id: string }) => s.id)).toEqual(['r1', 'r2', 'r3'])
+    expect(o.statements[1].agent).toMatchObject({ name: 'Slava', position: 1, sources: [{ ref: 'D1', quote: 'never task micromanagement' }] })
+  })
+
+  it.each([
+    ['no source', three([]), 'r1: the story cites no source'],
+    ['a source without a quote', three([{ ref: 'D1', quote: '  ' }]), 'r1: source D1 has no quote'],
+    ['a position outside the scale', [{ text: 'a', agent: { ...agent([{ ref: 'D1', quote: 'q' }]), position: 4 } }, ...three([{ ref: 'D1', quote: 'q' }]).slice(1)], 'r1: agent position must be an integer from -3 to 3'],
+    ['two statements', three([{ ref: 'D1', quote: 'q' }]).slice(1), 'need 3 to 5 statements, got 2'],
+  ])('refuses %s (exit 1, the reason on stderr)', async (_n, st, why) => {
+    const r = await check(['--parse'], reply(st as object[]))
+    expect(r.code).toBe(1)
+    expect(r.out).toBe('')
+    expect(r.err).toBe(`day-reflection-check: ${why}\n`)
+  })
+})
+
+describe('P1445 C: --quotes (the mechanical quote check)', () => {
+  async function parsedWith(sources: object[]) {
+    return (await check(['--parse'], reply(three(sources)))).out
+  }
+  async function grounding(turns: object[]) {
+    const hist = fakeHist(turns)
+    await cli(contextRun, ctxArgs(hist, ['--terms', 'motivation']))
+    return { hist, sources: JSON.parse(readFileSync(join(root, 'sources.json'), 'utf-8')) as Record<string, { kind: string; session?: string }> }
+  }
+
+  it('quotes found verbatim in each kind of source pass, and refs become stable references', async () => {
+    const { hist, sources } = await grounding([turn('2026-10-07T08:07:49', 'sess-post-event', 'what to maximize here: my motivation, honestly.')])
+    const c = Object.keys(sources).find((k) => sources[k].session === 'sess-post-event')!
+    const s = Object.keys(sources).find((k) => sources[k].kind === 'story')!
+    const parsed = await parsedWith([
+      { ref: 'D1', quote: "statements never repeat an item already on that day's board" },
+      { ref: c, quote: 'my motivation, honestly' },
+      { ref: s, quote: 'shook my motivation' },
+      { ref: 'F1', quote: 'no billing data' },
+    ])
+    const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.err).toBe('')
+    expect(r.code).toBe(0)
+    const refs = JSON.parse(r.out).statements[0].agent.sources.map((x: { ref: string }) => x.ref)
+    expect(refs).toEqual([
+      'cp decisions 2026-10-07 [process]: Reflection statements are strategy, never task micromanagement',
+      'conversation sess-post-event at 2026-10-07T08:07:49',
+      'founder story 2026-10-07T05-00-00Z/r1',
+      'issue card: Three keys report no billing data',
+    ])
+  })
+
+  it('FAILING CONTROL — a quote the source does not contain, and an id the block never had → exit 1, one line per miss', async () => {
+    const { hist } = await grounding([turn('2026-10-07T08:07:49', 'sess-post-event', 'my motivation, honestly.')])
+    const parsed = await parsedWith([
+      { ref: 'D1', quote: 'statements must always repeat the board' },
+      { ref: 'D99', quote: 'anything' },
+    ])
+    const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.code).toBe(1)
+    expect(r.out).toBe('')
+    const lines = r.err.split('\n').filter(Boolean)
+    expect(lines).toContain('r1: quote from D1 not found in that source: "statements must always repeat the board"')
+    expect(lines).toContain('r1: quote from D99 cites an id the grounding block never had: "anything"')
+  })
+
+  it('a conversation the history tool cannot reach is "unavailable", not "not found"', async () => {
+    const { sources } = await grounding([turn('2026-10-07T08:07:49', 'sess-post-event', 'my motivation, honestly.')])
+    const c = Object.keys(sources).find((k) => sources[k].session === 'sess-post-event')!
+    const parsed = await parsedWith([{ ref: c, quote: 'my motivation' }])
+    const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', fakeHist([], 2)], parsed)
+    expect(r.code).toBe(1)
+    expect(r.err).toContain(`r1: quote from ${c} unavailable (hist failed (exit 2))`)
+  })
+})
+
+describe('P1445 C: --finalize (the checker verdicts)', () => {
+  async function quoted() {
+    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'billing' }])))).out
+    const o = JSON.parse(parsed)
+    for (const s of o.statements) s.agent.sources = [{ ref: 'issue card: Three keys report no billing data', quote: 'billing' }]
+    return JSON.stringify(o)
+  }
+  const verdicts = (v: object) => {
+    writeFileSync(join(root, 'verdicts.json'), JSON.stringify(v))
+    return join(root, 'verdicts.json')
+  }
+
+  it('FAILING CONTROL — a statement that fails twice is dropped and named; the rest carry checker "pass"', async () => {
+    const r = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r2: ['fail: cites nothing about tools', 'fail: still unsupported'], r3: ['fail: duplicate of a card', 'pass'] })], await quoted())
+    expect(r.code).toBe(0)
+    expect(r.err).toBe('dropped r2 after two failed checks: "Stop building tools while waiting to feel ready."\n')
+    const o = JSON.parse(r.out)
+    expect(o.statements.map((s: { id: string }) => s.id)).toEqual(['r1', 'r3'])
+    expect(o.statements.every((s: { agent: { checker: string } }) => s.agent.checker === 'pass')).toBe(true)
+  })
+
+  it('never published unchecked: one fail with no second check, or no verdict → exit 2', async () => {
+    const once = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r2: ['fail'], r3: ['pass'] })], await quoted())
+    expect(once.code).toBe(2)
+    expect(once.err).toContain('r2 failed the checker once and was not checked again after a rewrite')
+    const none = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r3: ['pass'] })], await quoted())
+    expect(none.code).toBe(2)
+    expect(none.err).toContain('r2 has no checker verdict')
+  })
+
+  it('every statement dropped → exit 1, nothing recorded', async () => {
+    const r = await check(['--finalize', '--verdicts', verdicts({ r1: ['fail', 'fail'], r2: ['fail', 'fail'], r3: ['fail', 'fail'] })], await quoted())
+    expect(r.code).toBe(1)
+    expect(r.out).toBe('')
+  })
+})
+
+describe('P1445 C: the report keeps only a checked agent view', () => {
+  const statement = (agent: object) => ({ id: 'r1', text: 'A statement.', agent })
+  const base = { name: 'Slava', position: -2, story: 'A story.', sources: [{ ref: 'issue card: X', quote: 'X' }] }
+  it('checker "pass" → shown; no checker, or a bad position → the statement stays, the agent view goes', () => {
+    const read = (agent: object) => {
+      const p = parseReport(synthReport({ reflection: { model: 'm', statements: [statement(agent)] } }))
+      return p.kind === 'ok' ? p.report.reflection?.statements[0] : undefined
+    }
+    expect(read({ ...base, checker: 'pass' })?.agent).toEqual(base)
+    expect(read(base)).toEqual({ id: 'r1', text: 'A statement.' })
+    expect(read({ ...base, checker: 'pass', position: 5 })).toEqual({ id: 'r1', text: 'A statement.' })
+  })
+})

@@ -985,6 +985,25 @@ describe('day v2 API (synthetic day dir)', () => {
     expect(d.step).toBe(synthReport().connections[0].fix_step)
   })
 
+  it('P1445 — the agent\'s own position and story never reach decisions.jsonl, even when a request carries them', async () => {
+    const base = synthReport()
+    const agent = { name: 'Slava', position: 3, story: 'AGENT-STORY-MARKER', sources: [{ ref: 'issue card: x', quote: 'x' }], checker: 'pass' }
+    const statements = base.reflection!.statements.map((x) => ({ ...x, agent }))
+    await seed({ [RUN]: { ...base, reflection: { ...base.reflection, statements } } })
+    const id = statements[0].id
+    // the served run shows the agent view …
+    const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
+    expect(run.report.reflection.statements[0].agent.story).toBe('AGENT-STORY-MARKER')
+    // … but an answer, even one smuggling the agent's fields, is written from the founder's fields only
+    const res = await post({ run_id: RUN, decisions: [{ kind: 'reflection', target: id, position: -1, story: 'mine', agent, agent_position: 3, agent_story: 'AGENT-STORY-MARKER' }] })
+    expect(res.status).toBe(200)
+    const text = await decisionsFile()
+    expect(text).not.toContain('AGENT-STORY-MARKER')
+    const line = JSON.parse(text)
+    expect(Object.keys(line).sort()).toEqual(['at', 'kind', 'position', 'run_id', 'story', 'target'])
+    expect(line.position).toBe(-1)
+  })
+
   it('a batch is all-or-nothing', async () => {
     await seed({ [RUN]: synthReport() })
     const res = await post({ run_id: RUN, decisions: [

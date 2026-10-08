@@ -184,3 +184,63 @@ describe('day-reflection-history: --reject-repeats', () => {
     expect(reject(input('--- ...')).code).toBe(0)
   })
 })
+
+describe('P1445 B: --reject-repeats also refuses an issue card on this board and a personal activity', () => {
+  const refl = (texts: string[]) => JSON.stringify({ model: 'm', statements: texts.map((text, i) => ({ id: `r${i + 1}`, text })) })
+  const findings = (titles: string[]) => {
+    const f = join(root, 'findings.txt')
+    writeFileSync(f, titles.join('\n') + '\n')
+    return f
+  }
+
+  it('a statement matching a this-pass finding title → exit 1 naming it; nothing on stdout', () => {
+    const f = findings(['Agent VM monitoring still runs every pass', 'Three keys report no billing data'])
+    const r = cli(['--reject-repeats', '--day-dir', root, '--findings', f, '--now', NOW], refl(['Three keys report no billing data.', 'Stop building tools before the next event.', 'Charge for the second session.']))
+    expect(r.code).toBe(1)
+    expect(r.out).toBe('')
+    expect(r.err).toBe('repeats an issue card on this board: "Three keys report no billing data." ~ "Three keys report no billing data"\n')
+  })
+
+  it('CONTROL — the same statements without --findings pass (the refusal comes from the titles)', () => {
+    const input = refl(['Three keys report no billing data.', 'Stop building tools before the next event.', 'Charge for the second session.'])
+    const r = cli(['--reject-repeats', '--day-dir', root, '--now', NOW], input)
+    expect(r.code).toBe(0)
+    expect(r.out).toBe(input)
+  })
+
+  it('an unreadable --findings is a failure (exit 2), never "no findings"', () => {
+    const r = cli(['--reject-repeats', '--day-dir', root, '--findings', join(root, 'missing.txt'), '--now', NOW], refl(['a b c', 'd e f', 'g h i']))
+    expect(r.code).toBe(2)
+    expect(r.err).toContain('cannot read --findings')
+  })
+
+  it('a personal-activity statement is refused, not reworded (hard filter)', () => {
+    const r = cli(['--reject-repeats', '--day-dir', root, '--now', NOW], refl(['Go hiking on Sunday instead of checking the board.', 'Stop building tools before the next event.', 'Spend more time with your family this week.']))
+    expect(r.code).toBe(1)
+    expect(r.err.split('\n').filter(Boolean)).toEqual([
+      'personal activity, not a CP statement: "Go hiking on Sunday instead of checking the board."',
+      'personal activity, not a CP statement: "Spend more time with your family this week."',
+    ])
+  })
+
+  it('CONTROL — CP statements that share a word with the phrases pass ("run", "exercise", "price hike", "family")', () => {
+    const input = refl(['Run a smaller event within seven days.', 'Exercise judgment before a price hike.', 'Invite the family business owners you met.', 'Hike the price of the second session.'])
+    const r = cli(['--reject-repeats', '--day-dir', root, '--now', NOW], input)
+    expect(r.err).toBe('')
+    expect(r.code).toBe(0)
+  })
+})
+
+describe('P1445 B: the hike filter on the real shape of the 2026-10-08 statements (paraphrased)', () => {
+  it.each([
+    ['Stop counting hike sign-ups as progress.', true],
+    ['Pick one audience, hospital staff or hike-goers.', true],
+    ['Hikers joined but none told a story.', true],
+    ['A price hike for the second session is due.', false],
+    ['Hike the price of the second session.', false],
+    ['Fee hikes scare new groups away.', false],
+  ])('%s → personal: %s', async (text, personal) => {
+    const { isPersonal } = await import('../../scripts/day-reflection-history')
+    expect(isPersonal(text)).toBe(personal)
+  })
+})
