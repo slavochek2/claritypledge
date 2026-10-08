@@ -20,6 +20,10 @@ const OTHER = 'other-user-id';
 const mockGetSession = vi.fn();
 const mockSetSession = vi.fn();
 const mockInsert = vi.fn();
+/** Read of the RSVP row (isUserRsvpd / the cancel's after-check). Default: an error, as before. */
+const mockRsvpRead = vi.fn();
+/** Resolves the cancel's DELETE … RETURNING; a call means a delete was actually sent. */
+const mockDeleteResult = vi.fn();
 
 /** A chainable query builder: every filter returns itself, terminals resolve `result`. */
 function chain(result: unknown) {
@@ -41,8 +45,25 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => {
       if (table === 'event_rsvps') {
         return {
-          ...chain({ data: null, error: { code: 'PGRST116' }, count: 0 }),
+          ...chain(undefined),
+          select: () => {
+            const b = chain(undefined);
+            const res = () => mockRsvpRead() ?? { data: null, error: { code: 'PGRST116' }, count: 0 };
+            b.single = () => Promise.resolve(res());
+            b.maybeSingle = () => Promise.resolve(res());
+            b.then = (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(res()).then(ok, bad);
+            for (const m of ['eq', 'in', 'order', 'limit']) b[m] = () => b;
+            return b;
+          },
           insert: (row: unknown) => mockInsert(row),
+          delete: () => {
+            const d: Record<string, unknown> = {};
+            d.eq = () => d;
+            d.select = () => Promise.resolve(mockDeleteResult());
+            d.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+              Promise.resolve(mockDeleteResult()).then(res, rej);
+            return d;
+          },
         };
       }
       return chain({ data: { id: 'evt-1', max_attendees: null, status: 'upcoming' }, error: null, count: 0 });
@@ -79,6 +100,9 @@ async function load() {
 describe('P1441: session guard', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mockReturnValue; reset the per-test data mocks so nothing leaks.
+    mockRsvpRead.mockReset();
+    mockDeleteResult.mockReset();
     mockInsert.mockResolvedValue({ data: null, error: null });
     mockSetSession.mockResolvedValue({ data: {}, error: null });
     const { guard } = await load();
@@ -144,6 +168,20 @@ describe('P1441: session guard', () => {
     expect(mockSetSession).not.toHaveBeenCalled();
   });
 
+  it('never restores an account signed out while the re-sync was waiting (Codex review)', async () => {
+    const { guard } = await load();
+    guard.noteAppSession(sessionOf(USER) as never);
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: null } })
+      .mockImplementationOnce(async () => {
+        guard.noteAppSession(null); // the person signs out mid-check
+        return { data: { session: null } };
+      })
+      .mockResolvedValue({ data: { session: null } });
+    await expect(guard.ensureClientSessionFor(USER)).resolves.toBe('mismatch');
+    expect(mockSetSession).not.toHaveBeenCalled();
+  });
+
   it('reports mismatch when the re-sync is rejected', async () => {
     const { guard } = await load();
     guard.noteAppSession(sessionOf(USER) as never);
@@ -159,6 +197,9 @@ describe.each([
 ])('P1441: rsvpToEvent via %s', (_name, getRsvp) => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    // clearAllMocks keeps mockReturnValue; reset the per-test data mocks so nothing leaks.
+    mockRsvpRead.mockReset();
+    mockDeleteResult.mockReset();
     mockInsert.mockResolvedValue({ data: null, error: null });
     mockSetSession.mockResolvedValue({ data: {}, error: null });
     (await load()).guard.noteAppSession(null);
@@ -206,5 +247,107 @@ describe.each([
     mockInsert.mockResolvedValue({ data: null, status: 403, error: { code: '42501', message: 'new row violates row-level security policy' } });
     await expect(rsvp('evt-1', USER)).resolves.toBe(false);
     expect(logDbError).toHaveBeenCalledWith('rsvpToEvent', expect.objectContaining({ code: '42501' }));
+  });
+});
+
+/**
+ * P1441 (founder decision): cancelling must never report "cancelled" unless the row is gone.
+ * An anonymous DELETE is not an error — RLS filters it to zero rows — so the old code returned
+ * true and the page showed the seat released while it stayed booked.
+ */
+describe.each([
+  ['events-service-real', async () => (await load()).realEventsService.cancelRsvp.bind((await load()).realEventsService)],
+  ['api.ts', async () => (await load()).api.cancelRsvp],
+])('P1441: cancelRsvp via %s', (_name, getCancel) => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // clearAllMocks keeps mockReturnValue; reset the per-test data mocks so nothing leaks.
+    mockRsvpRead.mockReset();
+    mockDeleteResult.mockReset();
+    mockSetSession.mockResolvedValue({ data: {}, error: null });
+    (await load()).guard.noteAppSession(null);
+  });
+
+  it('a lost session sends no delete and throws SessionMismatchError', async () => {
+    const cancel = await getCancel();
+    const { guard } = await load();
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    await expect(cancel('evt-1', USER)).rejects.toBeInstanceOf(guard.SessionMismatchError);
+    expect(mockDeleteResult).not.toHaveBeenCalled();
+  });
+
+  it('a delete that removed no row while the booking STILL exists is NOT a successful cancel', async () => {
+    const cancel = await getCancel();
+    mockGetSession.mockResolvedValue({ data: { session: sessionOf(USER) } });
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    mockRsvpRead.mockReturnValue({ data: { id: 'rsvp-1' }, error: null });
+    await expect(cancel('evt-1', USER)).resolves.toBe(false);
+  });
+
+  it('a zero-row cancel whose row could not be re-read is NOT reported as cancelled', async () => {
+    const cancel = await getCancel();
+    mockGetSession.mockResolvedValue({ data: { session: sessionOf(USER) } });
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    mockRsvpRead.mockReturnValue({ data: null, error: { code: '500', message: 'read failed' } });
+    await expect(cancel('evt-1', USER)).resolves.toBe(false);
+  });
+
+  it('a zero-row cancel whose row is already gone (double tap, other tab) IS cancelled (Opus review)', async () => {
+    const cancel = await getCancel();
+    mockGetSession.mockResolvedValue({ data: { session: sessionOf(USER) } });
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    mockRsvpRead.mockReturnValue({ data: null, error: null });
+    await expect(cancel('evt-1', USER)).resolves.toBe(true);
+  });
+
+  it('a zero-row cancel with the session gone asks for sign-in — it never re-syncs and silently gives up (Codex review)', async () => {
+    const cancel = await getCancel();
+    const { guard } = await load();
+    guard.noteAppSession(sessionOf(USER) as never); // a valid app copy a re-sync COULD use
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: sessionOf(USER) } }) // pre-check passes
+      .mockResolvedValue({ data: { session: null } }); // gone by the time the delete returned
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    await expect(cancel('evt-1', USER)).rejects.toBeInstanceOf(guard.SessionMismatchError);
+    expect(mockSetSession).not.toHaveBeenCalled();
+  });
+
+  it('a 401 + 42501 on the delete (anonymous) asks for sign-in and is not logged as a DB error (Gemini review)', async () => {
+    const cancel = await getCancel();
+    const { guard } = await load();
+    mockGetSession.mockResolvedValue({ data: { session: sessionOf(USER) } });
+    mockDeleteResult.mockReturnValue({ data: null, status: 401, error: { code: '42501', message: 'permission denied' } });
+    await expect(cancel('evt-1', USER)).rejects.toBeInstanceOf(guard.SessionMismatchError);
+    expect(logDbError).not.toHaveBeenCalled();
+  });
+
+  it('a delete that removed the row is a successful cancel', async () => {
+    const cancel = await getCancel();
+    mockGetSession.mockResolvedValue({ data: { session: sessionOf(USER) } });
+    mockDeleteResult.mockReturnValue({ data: [{ id: 'rsvp-1' }], error: null, status: 200 });
+    await expect(cancel('evt-1', USER)).resolves.toBe(true);
+  });
+
+  it('zero rows because the session vanished mid-request asks for sign-in, not a generic failure', async () => {
+    const cancel = await getCancel();
+    const { guard } = await load();
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: sessionOf(USER) } })
+      .mockResolvedValue({ data: { session: null } });
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    await expect(cancel('evt-1', USER)).rejects.toBeInstanceOf(guard.SessionMismatchError);
+  });
+});
+
+describe('P1441: sign-in-again destination', () => {
+  it('an RSVP keeps its intent so the callback completes it', async () => {
+    const { guard } = await load();
+    expect(guard.signInAgainPath('hike-1')).toBe('/login?redirect=%2Fevents%2Fhike-1&action=rsvp');
+  });
+
+  it('a cancel carries NO action — replaying it through the callback would re-book the seat', async () => {
+    const { guard } = await load();
+    expect(guard.signInAgainPath('hike-1', 'cancel')).toBe('/login?redirect=%2Fevents%2Fhike-1');
+    expect(guard.signInAgainMessage('cancel')).toBe('Please sign in again to cancel your seat.');
   });
 });

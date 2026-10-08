@@ -12,6 +12,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/app/components/pledge/login-form";
 import { analytics } from "@/lib/mixpanel";
 import { useAuth } from "@/auth/AuthContext";
+import { toast } from "sonner";
+import { takeSignInAgainNotice } from "@/lib/session-guard";
 
 export function LoginPage() {
   const location = useLocation();
@@ -42,6 +44,12 @@ export function LoginPage() {
     const val = searchParams.get(key);
     if (val) authGateExtraParams[key] = val;
   }
+
+  // P1441: arriving here because the session was lost mid-RSVP/cancel — say so, once.
+  useEffect(() => {
+    const notice = takeSignInAgainNotice();
+    if (notice) toast.error(notice);
+  }, []);
 
   useEffect(() => {
     analytics.track('login_page_viewed', {

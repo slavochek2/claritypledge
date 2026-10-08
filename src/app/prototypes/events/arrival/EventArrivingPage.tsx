@@ -18,12 +18,15 @@ import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from '../components/EventRoomGate';
 import { useEventRoomAccess } from '../components/EventRoomAccess';
 import { mapsUrl, onTimeLine, venueName } from './arrival-text';
+import { isSessionMismatch } from '@/lib/session-guard';
+import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 
 export function EventArrivingPage() {
   const { slug, event, loading, granted, isLoggedIn, offline } = useEventRoomAccess();
   const { user, session } = useAuth();
   const viewerId = session?.user?.id ?? user?.id ?? null;
   const navigate = useNavigate();
+  const signInAgain = useSignInAgain();
   const [busy, setBusy] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelled, setCancelled] = useState(false);
@@ -56,7 +59,15 @@ export function EventArrivingPage() {
     if (!viewerId) return;
     setBusy(true);
     setCancelFailed(false);
-    const ok = await eventsService.cancelRsvp(event.id, viewerId);
+    let ok: boolean;
+    try {
+      ok = await eventsService.cancelRsvp(event.id, viewerId);
+    } catch (err) {
+      setBusy(false);
+      // P1441: the client could not act as this person, so nothing was deleted.
+      if (isSessionMismatch(err)) return signInAgain(event.slug, 'cancel');
+      throw err;
+    }
     setBusy(false);
     if (ok) setCancelled(true);
     else setCancelFailed(true);

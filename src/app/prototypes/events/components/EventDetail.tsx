@@ -499,13 +499,25 @@ export function EventDetail() {
     if (!canWrite()) return;
     setIsActionLoading(true);
     const sentAt = networkMark();
-    const success = await eventsService.cancelRsvp(event.id, user.id);
+    let success: boolean;
+    try {
+      success = await eventsService.cancelRsvp(event.id, user.id);
+    } catch (err) {
+      setIsActionLoading(false);
+      setShowCancelRsvpDialog(false);
+      // P1441: the client could not act as this person, so nothing was deleted.
+      if (isSessionMismatch(err)) return signInAgain(event.slug, 'cancel');
+      throw err;
+    }
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(false);
     } else if (isNetworkWriteFailure(null, sentAt)) {
       // P1369: the RSVP is still there — say why, rather than closing the dialog silently.
       toast.error(NEEDS_INTERNET_MESSAGE);
+    } else {
+      // P1441: a cancel that removed no row is a failure too — never close the dialog silently.
+      toast.error('Couldn\'t cancel your seat. Please try again.');
     }
     setShowCancelRsvpDialog(false);
   };

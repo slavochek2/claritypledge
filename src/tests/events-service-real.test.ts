@@ -547,9 +547,12 @@ describe('realEventsService', () => {
 
   describe('cancelRsvp', () => {
     it('returns true on successful cancel', async () => {
+      // P1441: success now requires the DELETE to return the removed row.
       mockDelete.mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockResolvedValue({ data: [{ id: 'rsvp-1' }], error: null }),
+          }),
         }),
       });
 

@@ -166,19 +166,28 @@ describe('P1441: auth callback', () => {
   });
 
   it('a lost session asks the person to sign in again and keeps the RSVP intent', async () => {
-    const { SessionMismatchError } = await import('@/lib/session-guard');
-    // The prod shape: the client has lost the session by the time the RSVP is attempted.
-    mockRsvpToEvent.mockImplementation(async () => {
-      mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-      throw new SessionMismatchError(NEW_ID);
-    });
-    renderCallback(RSVP_URL);
-    await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith('/login?redirect=%2Fevents%2Fhike-1&action=rsvp', { replace: true }),
-    );
-    expect(mockToastError).toHaveBeenCalledWith('Please sign in again to reserve your seat.');
-    expect(mockNavigate).not.toHaveBeenCalledWith('/events/hike-1/confirm', expect.anything());
-    expect(mockApiSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    const { SessionMismatchError, takeSignInAgainNotice } = await import('@/lib/session-guard');
+    const assign = vi.fn();
+    const realLocation = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, assign } });
+    try {
+      // The prod shape: the client has lost the session by the time the RSVP is attempted.
+      mockRsvpToEvent.mockImplementation(async () => {
+        mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+        throw new SessionMismatchError(NEW_ID);
+      });
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(assign).toHaveBeenCalledWith('/login?redirect=%2Fevents%2Fhike-1&action=rsvp'));
+      // Codex review: recovery must never call signOut (it would revoke whatever session the
+      // client holds at that instant). The full navigation drops the stale app copy instead.
+      expect(mockApiSignOut).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalledWith('/events/hike-1/confirm', expect.anything());
+      // The reason survives the navigation and is shown once on the login page.
+      expect(takeSignInAgainNotice()).toBe('Please sign in again to reserve your seat.');
+      expect(takeSignInAgainNotice()).toBeNull();
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+    }
   });
 
   it('a client signed in as SOMEONE ELSE is never signed out — the page reloads as that person', async () => {
@@ -194,7 +203,6 @@ describe('P1441: auth callback', () => {
       renderCallback(RSVP_URL);
       await waitFor(() => expect(assign).toHaveBeenCalledWith('/events/hike-1'));
       expect(mockApiSignOut).not.toHaveBeenCalled();
-      expect(mockToastError).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
     }
