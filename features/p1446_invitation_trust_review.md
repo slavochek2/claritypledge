@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 28
 severity: critical
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, letters, agreements, auth]
 disclosure: embargo
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
 related: [p1321, p1215, p1207]
 ---
 
