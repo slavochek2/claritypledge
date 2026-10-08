@@ -279,14 +279,14 @@ Consequences the build must handle (Codex, verified against the cited lines befo
 
 ## Done-When
 
-- [ ] A story answered on the board appears in the next hand-off prompt as a numbered work item, not under "record these"
-- [ ] A story typed with no position is saved and appears in the prompt as "no position"
-- [ ] Editing a story after it was marked done reopens it; a marker for an older version does not close the newer text (test)
-- [ ] A run whose only work is an open story from an earlier run can still start a session (test)
-- [ ] A story from an earlier run with no processed marker appears under "not yet handled"; after the agent marks it, it no longer appears
-- [ ] Every story line older than the ship date is batch-closed (count derived at run time and pasted; 19 on 2026-10-08) and none appears in a prompt
-- [ ] The mark-done CLI writes a valid `story_done` line and refuses an unknown `(run_id, target)` (test)
-- [ ] A decisions file containing the new kind loads without dropping other lines, and a parser without the kind counts it as one skipped line, not corruption (test)
+- [x] A story answered on the board appears in the next hand-off prompt as a numbered work item, not under "record these" (unit day-stories "numbered story items"; real-data copy: prompt built from a copy of decisions.jsonl lists them under "Your stories — act on each one")
+- [x] A story typed with no position is saved and appears in the prompt as "no position" (e2e story-only save; unit asserts "My position: no position")
+- [x] Editing a story after it was marked done reopens it; a marker for an older version does not close the newer text (test) — plus a delayed mark for A after A→B→A is refused (mark carries the version)
+- [x] A run whose only work is an open story from an earlier run can still start a session (test)
+- [x] A story from an earlier run with no processed marker appears under "not yet handled"; after the agent marks it, it no longer appears (route + CLI tests, e2e board list)
+- [x] Every story line older than the ship date is batch-closed (count derived at run time and pasted; 19 on 2026-10-08) and none appears in a prompt — pre-ship on a copy of the real file: `--batch-close-before` closed **17** (19 story lines = 17 stories, two edited once), rerun closed 0, real file untouched. `[post-ship]` run it on ~/.claude-day after the board ships and paste the count.
+- [x] The mark-done CLI writes a valid `story_done` line and refuses an unknown `(run_id, target)` (test)
+- [x] A decisions file containing the new kind loads without dropping other lines, and a parser without the kind counts it as one skipped line, not corruption (test)
 - [ ] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief); a statement about a personal activity is refused (fixture)
 - [ ] A statement matching a this-pass finding title is refused by `--reject-repeats` (failing control shown, exit 1)
 - [ ] Every reflection card shows "Agent on Slava" (CP `AgentByline`) with the agent's own position and a story citing at least one source; the founder's position is never pre-filled by it; the checker's verdict per story is in the pass evidence
