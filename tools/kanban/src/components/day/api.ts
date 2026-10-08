@@ -1,7 +1,7 @@
 // P1399: fetch helpers for the Day page. The page reads runs and writes decisions; nothing it
 // receives is logged or put in browser storage (spec Invariants).
 
-import type { DayReport, DayView, DecisionInput, Review, RunState } from '../../lib/day'
+import type { DayReport, DayView, DecisionInput, Review, RunState, StoryEntry, StoryRequest } from '../../lib/day'
 
 export interface RunSummary {
   id: string
@@ -32,6 +32,8 @@ export type RunPayload =
       lastSentAt?: string | null
       /** P1432: each item key sent from this run (started or pending launches) → when it was first sent */
       sentItems?: Record<string, string>
+      /** P1440: stories with their state and hash — the latest run gets all of them, an earlier run its own (read-only) */
+      stories?: StoryEntry[]
       warnings: ('stale' | 'unfinished')[]
     }
   | { id: string; isLatest: boolean; kind: 'other-schema'; text: string }
@@ -59,6 +61,17 @@ export const postDecisions = (runId: string, decisions: DecisionInput[]) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ run_id: runId, decisions }),
   }).then((r) => json<{ success: true; written: number }>(r))
+
+/**
+ * P1440: mark a story done, or send a stuck one again. The hash is the one the server sent with the
+ * run (the page never computes one). Same-origin, so the browser sends the Origin the server requires.
+ */
+export const postStory = (action: 'done' | 'resend', body: StoryRequest) =>
+  fetch(`/api/day/stories/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((r) => json<{ success: true }>(r))
 
 export interface StartResult {
   status: number

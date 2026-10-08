@@ -5,7 +5,8 @@
 //
 // The directory is PRIVATE and lives outside every repo:
 //   <dir>/reports/<run>.json   one per /day run, read-only here
-//   <dir>/decisions.jsonl      append-only; the ONLY file this server writes
+//   <dir>/decisions.jsonl      append-only; the ONLY file this server writes, always through the
+//                              locked append in dayStore.ts (P1440: the mark-done CLI writes too)
 //
 // PRIVACY (P1317 precedent, spec invariants): nothing derived from a report or a decision is
 // logged. Logs carry a fixed-vocabulary reason or a count at most. Routes accept a run id,
@@ -15,11 +16,14 @@
 // read, by its modification time). A newest file that is unreadable is still the latest: the
 // page says so instead of quietly showing yesterday's run, and no decision can be recorded.
 
-import type { Express, Request } from 'express'
-import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs'
+import type { Express, Request, Response } from 'express'
+import { readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
+import { fileURLToPath } from 'url'
 import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
+import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
+import { ledgerOf, markLine, resendLine } from './dayStories'
 import {
   buildPrompt,
   buildView,
@@ -27,16 +31,22 @@ import {
   collectedKeys,
   decisionTargetExists,
   parseDecisions,
+  parseLaunches,
   parseReport,
   quotaHistory,
   runWarnings,
+  statementsByRun,
   validateDecisionInput,
+  validateStoryRequest,
   traceOf,
   type DayDecision,
+  type LaunchReceipt,
+  type RunStatements,
   type RunTrace,
   type DayReport,
   type DecisionInput,
   type ParsedReport,
+  type StoryEntry,
 } from '../src/lib/day'
 
 const RUN_ID = /^[A-Za-z0-9._-]{1,80}$/
@@ -44,6 +54,10 @@ const RUN_ID = /^[A-Za-z0-9._-]{1,80}$/
 const PASS_ID = /^[A-Za-z0-9._:-]{1,80}$/
 const MAX_TEXT_BYTES = 256 * 1024
 const MAX_BATCH = 200
+/** The mark-done CLI the prompt tells the agent to run, by absolute path: the session may start anywhere. */
+// The command the hand-off session runs to mark a story: this install's own tsx and script, by
+// absolute path. A bare `npx tsx` in a launch dir without tsx would offer to download it (P1440 review).
+const STORY_CLI = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.meta.url))} ${fileURLToPath(new URL('../scripts/day-story-done.ts', import.meta.url))}`
 
 // Read at request time (not module load) so tests and embedders can flip it.
 export function dayDir(): string | null {
@@ -133,6 +147,9 @@ function traces(runs: LoadedRun[]): RunTrace[] {
   return runs.flatMap((r) => (r.parsed.kind === 'ok' ? [traceOf(r.parsed.report)] : []))
 }
 
+/** Every readable run's report. */
+const reportsOf = (runs: LoadedRun[]): DayReport[] => runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))
+
 function readDecisions(dir: string): { lines: DayDecision[]; badLines: number } {
   try {
     const parsed = parseDecisions(readFileSync(join(dir, 'decisions.jsonl'), 'utf-8'))
@@ -146,12 +163,31 @@ function readDecisions(dir: string): { lines: DayDecision[]; badLines: number } 
 }
 
 /** The latest run, only when it is readable. Decisions and the prompt use this. */
-function latestReadable(dir: string): { id: string; report: DayReport; history: RunTrace[] } | { refused: string } {
+function latestReadable(dir: string): { id: string; report: DayReport; history: RunTrace[]; statements: Record<string, RunStatements> } | { refused: string } {
   const list = listRuns(dir)
   const latest = list.runs[0]
   if (!latest) return { refused: 'No run to decide on' }
   if (latest.parsed.kind !== 'ok') return { refused: 'The latest run cannot be read' }
-  return { id: latest.id, report: latest.parsed.report, history: traces(list.runs) }
+  return { id: latest.id, report: latest.parsed.report, history: traces(list.runs), statements: statementsByRun(reportsOf(list.runs)) }
+}
+
+/** P1440: every story of every run, with its state (open / sent / stuck / done). An unreadable file has none. */
+function ledgerFor(dir: string, statements: Record<string, RunStatements>): StoryEntry[] {
+  try {
+    return ledgerOf(parseLines(readDecisionsText(dir)), statements)
+  } catch {
+    return [] // readDecisions has already said the file is unreadable
+  }
+}
+
+/**
+ * The stories a run's page shows: the latest run sees the whole ledger (its own stories and every
+ * earlier one); an earlier run sees its own, plus those of runs before it that are still not done.
+ */
+function storiesFor(report: DayReport, isLatest: boolean, ledger: StoryEntry[]): StoryEntry[] {
+  if (isLatest) return ledger
+  const started = Date.parse(report.started_at)
+  return ledger.filter((e) => e.run_id === report.pass_id || (e.state !== 'done' && e.run_started_at !== null && Date.parse(e.run_started_at) < started))
 }
 
 const isJson = (req: Request) => !!req.is('application/json')
@@ -169,41 +205,19 @@ function fromBoard(req: Request): boolean {
  * spawn and the receipt cannot open a second session), then `started` once the launcher acknowledged
  * Claude, or `failed`. A launch counts as sent while its last line is pending or started.
  */
-interface SentLaunch { id: string; run_id: string; at: string; state: string; items: string[] }
-
-function readSent(dir: string): SentLaunch[] {
-  let text = ''
+function readSent(dir: string): LaunchReceipt[] {
   try {
-    text = readFileSync(join(dir, 'decisions.jsonl'), 'utf-8')
+    return parseLaunches(readDecisionsText(dir))
   } catch {
     return []
   }
-  const byId = new Map<string, SentLaunch>()
-  for (const raw of text.split('\n')) {
-    if (!raw.includes('"sent"')) continue
-    try {
-      const o = JSON.parse(raw) as Partial<SentLaunch> & { kind?: string }
-      if (o.kind !== 'sent' || typeof o.id !== 'string' || typeof o.state !== 'string' || typeof o.at !== 'string') continue
-      const prev = byId.get(o.id)
-      byId.set(o.id, {
-        id: o.id,
-        run_id: typeof o.run_id === 'string' ? o.run_id : prev?.run_id ?? '',
-        at: prev?.at ?? o.at, // when it was first sent, not when it was confirmed
-        state: o.state,
-        items: Array.isArray(o.items) ? o.items.filter((x): x is string => typeof x === 'string') : prev?.items ?? [],
-      })
-    } catch {
-      // unreadable lines are counted by parseDecisions; nothing to do here
-    }
-  }
-  return [...byId.values()]
 }
 
 /**
  * What was already sent from this run: the items (so only changes go next time), when each was first
  * sent (P1432: the card says "Sent"), and when the last launch was. Failed launches never count.
  */
-function sentForRun(dir: string, report: DayReport): { items: Set<string>; itemsAt: Record<string, string>; lastAt?: string; all: SentLaunch[] } {
+function sentForRun(dir: string, report: DayReport): { items: Set<string>; itemsAt: Record<string, string>; lastAt?: string; all: LaunchReceipt[] } {
   const all = readSent(dir).filter((l) => l.state === 'pending' || l.state === 'started')
   const mine = all.filter((l) => l.run_id === report.pass_id).sort((a, b) => a.at.localeCompare(b.at))
   const itemsAt: Record<string, string> = {}
@@ -211,9 +225,8 @@ function sentForRun(dir: string, report: DayReport): { items: Set<string>; items
   return { items: new Set(Object.keys(itemsAt)), itemsAt, lastAt: mine[mine.length - 1]?.at, all }
 }
 
-function appendLine(dir: string, line: object): void {
-  mkdirSync(dir, { recursive: true })
-  appendFileSync(join(dir, 'decisions.jsonl'), JSON.stringify(line) + '\n', { encoding: 'utf-8', mode: 0o600 })
+function appendLine(dir: string, line: object): Promise<unknown> {
+  return appendDecisionLines(dir, () => [line], dayClock)
 }
 
 const LAUNCH_EVERY_MS = 60_000
@@ -263,6 +276,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const view = buildView(run.parsed.report, lines, traces(list.runs))
       // An earlier run shows what was sent from it too (P1432); the bar's lastSentAt stays latest-only.
       const sent = sentForRun(dir, run.parsed.report)
+      // P1440: the stories with their hashes — the page echoes a hash back to mark a story, never computes one.
+      const ledger = ledgerFor(dir, statementsByRun(reportsOf(list.runs)))
       res.json({
         id,
         isLatest,
@@ -271,7 +286,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         view,
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
-        collectedCount: collect(view, isLatest ? sent.items : new Set<string>()).count,
+        collectedCount: isLatest ? collect(view, sent.items, ledger).count : collect(view, new Set<string>()).count,
+        stories: storiesFor(run.parsed.report, isLatest, ledger),
         quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
         lastSentAt: isLatest ? sent.lastAt ?? null : null,
         sentItems: sent.itemsAt,
@@ -285,7 +301,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
 
   // The board's only write. A batch of decisions on the latest run, appended in one write,
   // all-or-nothing. The body names targets, never paths; every target must exist in that run.
-  app.post('/api/day/decisions', (req, res) => {
+  app.post('/api/day/decisions', async (req, res) => {
     const dir = dayDir()
     if (!dir) return res.status(404).json({ error: 'Day page is not enabled' })
     if (!isJson(req)) return res.status(415).json({ error: 'JSON only' })
@@ -307,18 +323,17 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if (body.run_id !== report.pass_id && body.run_id !== latest.id) return res.status(409).json({ error: 'Decisions apply to the latest run only' })
       if (!inputs.every((d) => decisionTargetExists(report, d))) return res.status(409).json({ error: 'Not something in the latest run' })
       if (!inputs.length) return res.json({ success: true, written: 0 })
-      const at = now().toISOString()
       const lines = inputs.map((d) => {
-        const out: DayDecision = { ...d, run_id: report.pass_id, at }
+        // `at` is stamped under the lock (monotonic across both writers)
+        const out: Omit<DayDecision, 'at'> = { ...d, run_id: report.pass_id }
         // Rule 6: the fix step comes from the run, never from the request.
         if (d.kind === 'connection' && !d.remove) {
           const step = report.connections.find((c) => c.id === d.target)?.fix_step
           if (step) out.step = step
         }
-        return JSON.stringify(out)
+        return out
       })
-      mkdirSync(dir, { recursive: true })
-      appendFileSync(join(dir, 'decisions.jsonl'), lines.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 })
+      await appendDecisionLines(dir, () => lines, dayClock)
       res.json({ success: true, written: lines.length })
     } catch {
       console.error('[kanban] POST /api/day/decisions failed')
@@ -355,17 +370,20 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         return res.status(429).json({ error: 'Started less than a minute ago' })
       }
       // After a send, only what changed goes out (Phase C review: a re-send of everything opened a
-      // second session on the same fixes).
-      const c = collect(view, sent.items)
+      // second session on the same fixes) — except stories, which go out again until they are marked
+      // or stuck (P1440: sent is not processed). Open stories of earlier runs count, so a run with
+      // nothing else to send still starts.
+      const ledger = ledgerFor(dir, latest.statements)
+      const c = collect(view, sent.items, ledger)
       if (!c.count) {
         return sent.lastAt
           ? res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
           : res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
       }
-      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt)
+      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI })
       const id = collectionHash(prompt + now.toISOString())
       const base = { kind: 'sent', id, run_id: latest.report.pass_id, target: collectionHash(prompt) }
-      appendLine(dir, { ...base, state: 'pending', at: now.toISOString(), items: collectedKeys(c), count: c.count })
+      await appendLine(dir, { ...base, state: 'pending', items: collectedKeys(c), count: c.count })
       const { file, ack, cleanup } = writePromptFile(prompt)
       let result: Awaited<ReturnType<ReturnType<typeof dayLauncher>>> = { ok: false }
       try {
@@ -376,14 +394,14 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       }
       if (!result.ok) {
         cleanup()
-        appendLine(dir, { ...base, state: 'failed', at: dayClock().toISOString() })
+        await appendLine(dir, { ...base, state: 'failed' })
         console.warn('[kanban] day: terminal launch did not start a session, copy fallback offered')
         return res.status(502).json({ error: 'The terminal could not be opened', fallback: 'copy' })
       }
       // The session is already open: a failed receipt must not report a failure (the pending line
       // reserved above still counts as sent, so nothing can launch twice).
       try {
-        appendLine(dir, { ...base, state: 'started', at: dayClock().toISOString(), how: result.how })
+        await appendLine(dir, { ...base, state: 'started', how: result.how })
       } catch (err) {
         console.warn(`[kanban] day: session started but its receipt was not written (${(err as NodeJS.ErrnoException).code ?? 'error'})`)
       }
@@ -406,10 +424,11 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if ('refused' in latest) return res.status(409).json({ error: latest.refused })
       const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
       const sent = sentForRun(dir, latest.report)
+      const ledger = ledgerFor(dir, latest.statements)
       res.json({
         run_id: latest.report.pass_id,
-        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt),
-        count: collect(view, sent.items).count,
+        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI }),
+        count: collect(view, sent.items, ledger).count,
         lastSentAt: sent.lastAt ?? null,
       })
     } catch {
@@ -417,4 +436,35 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       res.status(500).json({ error: 'Failed to build the prompt' })
     }
   })
+
+  // P1440: "Mark done" and "Send again" for a story — of ANY run, unlike /decisions (latest run
+  // only): an earlier day's story is still open work. Same guard as /start (the board's own page,
+  // JSON only); the body names the story version by its hash, which the server sent. The checks run
+  // under the lock against the file as it is then, and are the ones the CLI uses.
+  const storyRoute = (action: 'done' | 'resend') => async (req: Request, res: Response) => {
+    const dir = dayDir()
+    if (!dir) return res.status(404).json({ error: 'Day page is not enabled' })
+    if (!fromBoard(req)) return res.status(403).json({ error: 'Only the Day page can mark a story' })
+    if (!isJson(req)) return res.status(415).json({ error: 'JSON only' })
+    const v = validateStoryRequest(action, req.body)
+    if (!v.ok) return res.status(400).json({ error: `Invalid request (${v.problem})` })
+    try {
+      const statements = statementsByRun(reportsOf(listRuns(dir).runs))
+      await appendDecisionLines(
+        dir,
+        (existing) => {
+          const ledger = ledgerOf(existing, statements)
+          return [action === 'done' ? markLine(ledger, v.input) : resendLine(ledger, v.input)]
+        },
+        dayClock,
+      )
+      res.json({ success: true })
+    } catch (err) {
+      if (err instanceof Refusal) return res.status(err.status).json({ error: err.message })
+      console.error(`[kanban] POST /api/day/stories/${action} failed (${(err as NodeJS.ErrnoException).code ?? 'error'})`)
+      res.status(500).json({ error: 'Failed to record the story' })
+    }
+  }
+  app.post('/api/day/stories/done', storyRoute('done'))
+  app.post('/api/day/stories/resend', storyRoute('resend'))
 }

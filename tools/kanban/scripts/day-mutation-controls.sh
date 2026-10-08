@@ -89,7 +89,7 @@ control "Rule 4: only the latest run accepts decisions" "not the latest" \
 control "Rule 4: a target must exist in the run" "not the latest" \
   server/day.ts 's/if \(!inputs\.every\(\(d\) => decisionTargetExists\(report, d\)\)\) return/if (false) return/'
 control "Rule 5: reading writes nothing" "writes nothing" \
-  server/day.ts "s/(const \{ lines, badLines \} = readDecisions\(dir\)\n)/\$1      appendFileSync(join(dir, 'decisions.jsonl'), '')\n/"
+  server/day.ts "s/(const \{ lines, badLines \} = readDecisions\(dir\)\n)/\$1      void appendDecisionLines(dir, () => [{ kind: 'sent', id: 'x', run_id: 'x', state: 'failed' }])\n/"
 control "Rule 6: the fix step comes from the run" "carries the step from the run" \
   server/day.ts 's/if \(step\) out\.step = step/out.step = ((body.decisions as { step?: string }[])[inputs.indexOf(d)]?.step) ?? step/'
 control "Rule 9 (Phase A part): non-JSON body refused" "non-JSON content type" \
@@ -191,11 +191,11 @@ control "Launch: the body names the run and nothing else" "carrying prompt text"
 control "Launch: at most one a minute" "within a minute does not launch" \
   server/day.ts 's/now\.getTime\(\) - Date\.parse\(l\.at\) < LAUNCH_EVERY_MS/false/' "$L"
 control "Launch: after a send only changes go out" "only what changed goes out" \
-  server/day.ts 's/const c = collect\(view, sent\.items\)/const c = collect(view)/' "$L"
+  server/day.ts 's/const c = collect\(view, sent\.items, ledger\)/const c = collect(view, new Set(), ledger)/' "$L"
 control "Launch: a failed launch is recorded as failed and cleaned up" "failed launch records nothing" \
-  server/day.ts 's/        cleanup\(\)\n        appendLine/        appendLine/' "$L"
+  server/day.ts 's/        cleanup\(\)\n        await appendLine/        await appendLine/' "$L"
 control "Launch: the send is reserved before spawning" "reserved \\(pending\\) BEFORE" \
-  server/day.ts "s/      appendLine\(dir, \{ \.\.\.base, state: 'pending'[^\n]*\n//" "$L"
+  server/day.ts "s/      await appendLine\(dir, \{ \.\.\.base, state: 'pending'[^\n]*\n//" "$L"
 control "Launch: no acknowledgement, no send" "never started Claude is not a send" \
   server/day.ts 's/if \(result\.ok && !\(await waitForAck\(ack, ackWaitMs\(\)\)\)\) result = \{ ok: false \}//' "$L"
 control "Launch: irreversible actions need a yes" "carries the safety rules" \

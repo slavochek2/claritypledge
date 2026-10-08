@@ -2,16 +2,33 @@
 // (pager · progress · Start fixing). Spec §3 and §7 are the contract.
 //
 // Writes (rule 5): picking an option, "Accept & next" / "Accept" (P1432: written at once, like a
-// pick), rating, a story (on blur, if changed), a budget raise or undo, a connection Fix, the custom
-// answer's text (on blur), Bring back, and the batch on Start fixing / copy (the unanswered agent
-// work). Paging NEVER writes and never accepts: Previous, Next, ← and → only move.
+// pick), rating, a story (on blur, if changed — but never a blur caused by paging: only Accept writes
+// a typed story then, P1440), a budget raise or undo, a connection Fix, the custom answer's text (on
+// blur), Bring back, a story's Mark done / Send again (P1440), and the batch on Start fixing / copy
+// (the unanswered agent work). Paging NEVER writes and never accepts: Previous, Next, ← and → and
+// the statement list only move.
 //
 // PRIVACY: report content lives only in React state. Nothing is put in localStorage or
 // sessionStorage, and nothing is logged.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { OWN, PARK, cardState, isAgentWork, isAnswered, pendingPreselected, stillYours, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
-import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, startRun, type DayIndex, type RunPayload } from './api'
+import {
+  OWN,
+  PARK,
+  cardState,
+  clearPosition,
+  isAgentWork,
+  isAnswered,
+  pendingPreselected,
+  stillYours,
+  storyAnswer,
+  type ConnectionView,
+  type DayView,
+  type DecisionInput,
+  type IssueView,
+  type StoryEntry,
+} from '../../lib/day'
+import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab } from './ReflectionTab'
@@ -68,6 +85,12 @@ export function DayPage() {
   const agentModeRef = useRef(agentMode)
   agentModeRef.current = agentMode
   const [reflIdx, setReflIdx] = useState(0)
+  const reflIdxRef = useRef(reflIdx)
+  reflIdxRef.current = reflIdx
+  /** P1440: story text being typed, per statement — here, so Accept can save what is not saved yet */
+  const [storyDrafts, setStoryDrafts] = useState<Record<string, string>>({})
+  /** a press on a pager control is under way: the story box's blur it causes must not save (P1432) */
+  const pagerDown = useRef(false)
   const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -149,6 +172,7 @@ export function DayPage() {
     setReflIdx(0)
     setChoice({})
     setDrafts({})
+    setStoryDrafts({})
     setOpening(false)
     stories.current = {}
     pending.current = new Map()
@@ -158,7 +182,8 @@ export function DayPage() {
       const sent = r.sentItems ?? {}
       const y = r.view.issues.filter((i) => !isAgentWork(i)).findIndex((i) => !isAnswered(cardState(i, sent)))
       if (y > 0) setIdx((s) => ({ ...s, yours: y }))
-      const k = (r.report.reflection?.statements ?? []).findIndex((x) => typeof r.view.reflection[x.id]?.position !== 'number')
+      // a story alone is an answer too (P1440)
+      const k = (r.report.reflection?.statements ?? []).findIndex((x) => typeof r.view.reflection[x.id]?.position !== 'number' && !r.view.reflection[x.id]?.story)
       if (k > 0) setReflIdx(k)
     })
   }, [runId, reload])
@@ -304,15 +329,45 @@ export function DayPage() {
     },
     [readOnly, storyOf, write, remember],
   )
-  const removePosition = useCallback((id: string) => remember(id, null, write([{ kind: 'reflection', target: id, remove: true }])), [write, remember])
+  /** P1440: clearing a position keeps the story (a story-only answer); never an older story than the one saved last. */
+  const removePosition = useCallback((id: string) => remember(id, null, write([clearPosition(id, storyOf(id))])), [write, remember, storyOf])
+  /** Save a story with the position as it is now; with or without one (P1440). An empty story deletes it. */
   const setStory = useCallback(
     (id: string, story: string) => {
-      const pos = posOf(id)
-      if (readOnly || pos === null) return
+      if (readOnly) return
       stories.current[id] = story
-      void write([{ kind: 'reflection', target: id, position: pos, ...(story ? { story } : {}) }])
+      void write([storyAnswer(id, posOf(id), story)])
     },
     [readOnly, posOf, write],
+  )
+  /** The story box lost focus: save it, unless a pager press took the focus (paging never writes). */
+  const storyBlur = useCallback(
+    (id: string, story: string) => {
+      if (pagerDown.current) return
+      setStory(id, story)
+    },
+    [setStory],
+  )
+  /** The story as it would be saved now: what is being typed, else the last one saved. */
+  const storyNow = useCallback((id: string) => (storyDrafts[id] ?? storyOf(id)).trim(), [storyDrafts, storyOf])
+
+  /** P1440: Mark done (outcome "acted") or Send again, in click order with the other writes. */
+  const storyAction = useCallback(
+    (action: 'done' | 'resend', e: StoryEntry) => {
+      if (!runId || readOnly) return
+      const id = runId
+      const base = { run_id: e.run_id, target: e.target, story_hash: e.hash }
+      chain.current = chain.current.then(async () => {
+        try {
+          await postStory(action, action === 'done' ? { ...base, outcome: 'acted', note: 'marked on the board' } : base)
+          say(action === 'done' ? 'Story marked done' : 'Story will go out with the next send')
+        } catch (err) {
+          say(`Not saved: ${(err as Error).message}`)
+        }
+        await reload(id)
+      })
+    },
+    [runId, readOnly, reload, say],
   )
 
   // ---- what Start fixing sends (decision 1B) --------------------------------------------
@@ -435,6 +490,9 @@ export function DayPage() {
     const cur = tab === 'report' && !readOnly && mode !== 'agent' ? issues[nav?.i ?? -1] : undefined
     return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
   }, [tab, readOnly, mode, issues, nav, choice])
+  /** P1440 / spec E: on Reflection, Accept is offered once the founder has a position or a story (saved or typed). */
+  const reflCur = tab === 'reflection' && !readOnly && nav ? statements[nav.i] : undefined
+  const reflAccepting = !!reflCur && (posOf(reflCur.id) !== null || !!storyNow(reflCur.id))
 
   /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
@@ -478,6 +536,39 @@ export function DayPage() {
       acceptingNow.current = false
     }
   }, [accepting, nav, issues, write, runId])
+
+  /**
+   * Reflection "Accept & next" / "Accept": writes the founder's own position and the story as it is
+   * now (typed or saved) in one write, waits for it, and moves on only when it was saved and the
+   * founder is still on that statement. A failed write stays on the card with the error shown.
+   * There is no recommended position: it never saves anything the founder did not pick or type.
+   */
+  const acceptStatement = useCallback(
+    async (clicks = 1) => {
+      if (!reflCur || !reflAccepting || !nav || acceptingNow.current || clicks > 1) return
+      const at = nav.i
+      const id = reflCur.id
+      const story = storyNow(id)
+      const prev = stories.current[id]
+      acceptingNow.current = true
+      try {
+        stories.current[id] = story
+        const r = await write([storyAnswer(id, posOf(id), story)])
+        if (!r.ok) {
+          if (prev === undefined) stories.current = Object.fromEntries(Object.entries(stories.current).filter(([k]) => k !== id))
+          else stories.current[id] = prev
+          return
+        }
+        if (runIdRef.current === runId && reflIdxRef.current === at && at + 1 < statements.length) {
+          setReflIdx(at + 1)
+          toTop()
+        }
+      } finally {
+        acceptingNow.current = false
+      }
+    },
+    [reflCur, reflAccepting, nav, storyNow, posOf, write, runId, statements.length],
+  )
 
   const review = useCallback(() => {
     setAgentMode(true)
@@ -560,10 +651,21 @@ export function DayPage() {
     return !!i.decision || kind !== undefined
   }).length
   const firstYours = yoursLeft[0]
-  const rated = statements.filter((s) => view?.reflection[s.id]).length
+  // rated = has a position; a story alone is kept but is not a rating (P1440)
+  const rated = statements.filter((s) => typeof view?.reflection[s.id]?.position === 'number').length
 
   return (
-    <div className="day-root" ref={rootRef}>
+    <div
+      className="day-root"
+      ref={rootRef}
+      onPointerDownCapture={(e) => {
+        // A press on the pager or the statement list fires before the story box's blur: mark it so
+        // that blur does not save (paging never writes). Cleared once the blur has run.
+        if (!(e.target instanceof Element) || !e.target.closest('.d-bnav, [data-list-statement]')) return
+        pagerDown.current = true
+        window.setTimeout(() => (pagerDown.current = false), 0)
+      }}
+    >
       <header className="d-topbar">
         <div className="d-col">
           <div className="d-tabs" role="tablist" aria-label="Day">
@@ -689,11 +791,17 @@ export function DayPage() {
                   index={reflIdx}
                   onPosition={setPosition}
                   onRemove={removePosition}
-                  onStory={setStory}
+                  onStoryBlur={storyBlur}
                   onJump={(k) => {
                     setReflIdx(k)
                     toTop()
                   }}
+                  runId={ok.report.pass_id}
+                  stories={ok.stories ?? []}
+                  draftOf={(id) => storyDrafts[id]}
+                  onDraft={(id, text) => setStoryDrafts((d) => ({ ...d, [id]: text }))}
+                  onMarkDone={(e) => storyAction('done', e)}
+                  onResend={(e) => storyAction('resend', e)}
                 />
               )}
             </>
@@ -734,8 +842,16 @@ export function DayPage() {
                   <button type="button" className="d-nbtn" aria-label={`Next ${nav.lab}`} title="Next (→)" disabled={nav.i >= nav.n - 1} onClick={() => page(1)}>
                     <span className="d-nl">Next</span>›
                   </button>
-                  {accepting && (
-                    <button type="button" className="d-nbtn d-accept" data-accept aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'} title="Save the recommended answer" disabled={busy} onClick={(e) => void accept(e.detail)}>
+                  {(accepting || reflAccepting) && (
+                    <button
+                      type="button"
+                      className="d-nbtn d-accept"
+                      data-accept
+                      aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'}
+                      title={tab === 'reflection' ? 'Save your position and story' : 'Save the recommended answer'}
+                      disabled={busy}
+                      onClick={(e) => void (tab === 'reflection' ? acceptStatement(e.detail) : accept(e.detail))}
+                    >
                       <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
                       <span className="d-ns">Accept</span>
                     </button>

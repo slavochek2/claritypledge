@@ -396,7 +396,7 @@
 .d-story { margin-top: 14px; }
 .d-slab { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .d-slab span { font-weight: 400; color: var(--fg3); }
-.d-stxt { width: 100%; font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 88px; resize: vertical; background: #fff; color: var(--fg); }
+.d-stxt { width: 100%; font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 88px; resize: vertical; background: #fff; color: var(--fg); overflow: hidden; }
 .d-story-ro { margin-top: 12px; font-size: 14px; color: var(--fg2); }
 
 @container day (max-width: 359px) {
