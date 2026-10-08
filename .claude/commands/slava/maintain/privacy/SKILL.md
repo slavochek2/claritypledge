@@ -21,6 +21,31 @@ This is a **privacy + personal harm** scan: things that are technically safe to 
 
 Don't match patterns. Read with judgment. Ask: "If this person googled themselves and found this page, would they be hurt, embarrassed, or angry?" If yes, flag it. The categories below are examples, not an exhaustive list.
 
+### Why this needs a reader, not just the scanner
+
+`scripts/audit-privacy.sh` blocks what has a shape (emails, phone numbers with a `+CC`/`tel:`/keyword mark, the founder's own identifiers) and the names `.private/` already holds — the seed `.private/docs/privacy-names.txt`, CRM `name:` fields, and business person files. It cannot block a person it has never been told about, a company named only in conversation, or a sentence that identifies someone **without naming them**. In CI `.private/` does not exist, so the server-side check knows no names at all. Everything below is your job.
+
+**The test is identifiability, not the presence of a name.** A fact becomes personal data when a reader who knows the community could work out who it is about. Two harmless facts can combine into one identifying one: "an operations lead at a school" is no one; "the operations lead at the only language school in <town>" is one person. So read for **combinations**: role + organisation, role + place + date, a quote + an event someone attended.
+
+**Worked examples** (all names are synthetic):
+
+A rewrite removes the direct identifier; it does not make the paragraph anonymous. After rewriting, re-read the surrounding paragraph and the commit message as one text — the date, venue or role you kept next to it can re-identify the person.
+
+| Draft line | Problem | Safer rewrite (then re-read in context) |
+|---|---|---|
+| "Met Zorbalina Quextor of Acme Fixture Ltd; she wants a pilot." | Third-party name + employer + intent | "A distribution partner wants a pilot." Name goes to `.private/crm/`. |
+| "The pilot with Acme Fixture stalled because their CFO resisted." | Company name identifies the contact; behavioural claim about a findable person | "One partner pilot stalled at budget approval." |
+| "The operations lead at the only language school in town replied." | No name, still one person — role + org + place | "A school contact replied." |
+| "Partner fee: 30% rev-share, €4k floor, Acme signs by Friday." | Deal terms + counterparty — useful to competitors, embarrassing to the partner | Keep the decision ("we offer rev-share to host partners"); terms go to `.private/docs/business/`. |
+| "Interviewed a co-founder pair at the Tuesday meetup in <small town>; one said they're splitting up." | Place + date + group size pin the people; private relationship detail | Drop place and date; keep the learning ("conflict between co-founders came up unprompted"). |
+| "Hosted at a public coworking space in Lisbon." (a business acting publicly) | Public business acting publicly — fine | Leave it. |
+
+**Places:** a city or country alone is not personal data — the founder's own work is public and so are public venues. A place becomes a flag when it **narrows a private person down**: a small venue + a date, a neighbourhood + a role, a home or street address (always a hard flag). That judgment is why places are left to you rather than to the scanner: no regex separates "Lisbon" in a market note from "the café on <street> where she works".
+
+**Company and account names** are a flag when the company *is* the contact (a one-person business, a small partner, a named prospect in a pipeline) or when it's paired with a deal stage, terms or a quote. A large public company mentioned as market context ("Slack has threads") is not.
+
+**When you find a new real name or company** in a draft, after moving it out: add it to `.private/docs/privacy-names.txt` (one per line) so the scanner blocks it next time — that's how the deterministic layer learns.
+
 ### Hard red flags (must flag, definitely move to `.private/`)
 - Personal email addresses (non-project addresses)
 - Phone numbers, home addresses, passport/ID info
@@ -104,6 +129,6 @@ Don't match patterns. Read with judgment. Ask: "If this person googled themselve
 
 ## Notes
 
-- The pre-commit hook (section 16 of `scripts/pre-commit-checks.sh`) catches known email patterns mechanically. This skill catches what the hook misses — nuanced content that requires reading.
+- The pre-commit hook (section 17 of `scripts/pre-commit-checks.sh`, which runs `scripts/audit-privacy.sh`) catches shaped identifiers and names `.private/` already holds. This skill catches what it misses — see "Why this needs a reader" above.
 - When in doubt: if you'd hesitate to show it to a journalist writing a profile of the founder, flag it.
 - `.private/` is double-gitignored (`*` in `.private/.gitignore` + `.private/` in root `.gitignore`). Always move sensitive content there, never delete it — the owner still needs it.

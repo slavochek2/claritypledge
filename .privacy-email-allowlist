@@ -2,8 +2,8 @@
 # Used by scripts/audit-privacy.sh (P936). An email in an ADDED diff line that matches NO
 # entry here is flagged as a possible third-party PII leak.
 #
-# Scope: the email check runs on DIFF CONTENT ONLY — commit messages are never email-scanned
-# (they carry Co-Authored-By: <noreply@...> trailers). Existing emails in untouched files are
+# Scope: the email check runs on added diff lines AND commit messages (since the P1438 follow-up;
+# Co-Authored-By trailers are noreply@ addresses, covered below). Existing emails in untouched files are
 # not re-scanned (the scanner only sees added/modified lines), so this list need only cover
 # addresses/domains that legitimately recur in NEW commits — not every address in the tree.
 #
@@ -12,6 +12,8 @@
 #   *.example.com        domain-suffix        -> any address whose domain ends .example.com
 #   noreply@*            local-part wildcard   -> any address with local part 'noreply'
 #   jack@greensock.com   full address          -> that exact address only
+#   tel:15550100         phone, exact          -> that number (digits only; + and spaces ignored)
+#   tel:1555*            phone, digit prefix   -> any number starting with those digits
 #
 # To add a safe address: append the NARROWEST entry that covers it. Prefer @example.com for
 # NEW test fixtures over allowlisting a real domain. A real third-party person's address does
@@ -32,6 +34,13 @@ domain.tld
 bar.com
 company.com
 mail.company.com
+
+# --- fictional phone ranges reserved for fiction/tests (use these in fixtures) ---
+# +1 555 ... (NANP area code 555 is not assigned to any region) and Ofcom 07700 900xxx (UK drama
+# range). NOTE: the classic NANP fiction range is <any area code>-555-01xx, which a digit-prefix
+# entry cannot express — for fixtures use +1 555 ... or +44 7700 900 ... instead.
+tel:1555*
+tel:447700900*
 
 # --- project domains ---
 claritypledge.com

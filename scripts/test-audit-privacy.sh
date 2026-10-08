@@ -252,14 +252,27 @@ assert_range_blocks "email: address not on allowlist blocks (allowlist is load-b
   "add file" "docs/notes.md" "author jeremy@jezweb.net" "" "$EMAIL_AL"
 assert_range_allows "email: unknown email in path-allowlisted file is exempt (path filter runs first)" \
   "add script" "scripts/audit-privacy.sh" "stranger@notlisted.invalid" "scripts/audit-privacy.sh" "$EMAIL_AL"
-assert_range_allows "email: unknown email in commit MESSAGE is not flagged (diff-only)" \
+# Commit messages ARE email-scanned since the P1438 follow-up (was diff-only): the old exemption
+# existed for Co-Authored-By trailers, which noreply@* already allowlists.
+assert_range_blocks "email: unknown email in commit MESSAGE blocks (messages scanned)" \
   "contact stranger@notlisted.invalid please" "docs/notes.md" "safe content here" "" "$EMAIL_AL"
+assert_range_allows "email: Co-Authored-By noreply trailer in commit MESSAGE passes" \
+  "add doc
+
+Co-Authored-By: Bot <noreply@vendor-fixture.example>" "docs/notes.md" "safe content here" "" "$EMAIL_AL"
 assert_range_allows "email: no email-allowlist => check skipped (fail-open)" \
   "add file" "docs/notes.md" "stranger@notlisted.invalid for info"
 assert_staged_blocks "email: --staged unknown email blocks (pre-commit path)" \
   "docs/notes.md" "contact stranger@notlisted.invalid" "$EMAIL_AL"
-assert_msg_allows "email: --msg skips email check even with allowlist + unknown email (diff-only guard)" \
-  "contact stranger@notlisted.invalid please" "$EMAIL_AL"
+assert_msg_allows "email: --msg with allowlisted trailer only passes" \
+  "Co-Authored-By: Bot <noreply@vendor-fixture.example>" "$EMAIL_AL"
+# --msg with an unknown email now BLOCKS (the commit-msg hook path) — inverse of the old guard test.
+_msgrepo=$(mktemp -d); git -C "$_msgrepo" init -q
+printf '%s\n' "$EMAIL_AL" > "$_msgrepo/.privacy-email-allowlist"
+printf 'contact stranger@notlisted.invalid please\n' > "$_msgrepo/msg.txt"
+set +e; (cd "$_msgrepo" && bash "$AUDIT" --msg msg.txt >/dev/null 2>&1); _rc=$?; set -e
+rm -rf "$_msgrepo"
+if [ "$_rc" = "1" ]; then echo "  ✓ email: --msg unknown email blocks (commit-msg hook path)"; PASS=$((PASS+1)); else echo "  ✗ email: --msg unknown email blocks (exit $_rc, wanted 1)"; FAIL=$((FAIL+1)); fi
 
 # P919/D2 email co-commit guard — mirrors the path co-commit guard above for the P936
 # email allowlist. privacy-scan.yml swaps .privacy-email-allowlist to its base-SHA copy
@@ -293,6 +306,28 @@ names_case() {
     : > "$repo/.private/crm/opportunities/pelmora-vashti.md"
     : > "$repo/.private/crm/opportunities/solo.md"
   fi
+  # Registry derivation (P1438 follow-up): CRM `name:` frontmatter + business person-file H1s.
+  if [ "$seed" = "full" ] || [ "$seed" = "generic" ]; then
+    mkdir -p "$repo/.private/docs/business/partners"
+    printf -- '---\nname: Quillan Brostrup — Vandermint Fixture / Orblex Labs CNX (head of ops)\nstage: lead\n---\n# body\n' \
+      > "$repo/.private/crm/opportunities/quillan-vandermint.md"
+    printf -- '---\nname: Ostrava Pell — Commonterm Widget\n---\n' > "$repo/.private/crm/opportunities/ostrava.md"
+    printf '# Marrow Teslin — Glimmerhaus partner (warm)\n' > "$repo/.private/docs/business/partners/marrow-teslin-partner.md"
+    printf '# Deep Fixturewords — Analysis\n' > "$repo/.private/docs/business/partners/marrow-teslin-analysis-2026-01-01.md"
+    # Round-1 review regressions: quoted YAML value, no-space em dash, name particle, accented initial.
+    printf -- '---\nname: "Tobrin Halvask — Quorrel Systems"\n---\n' > "$repo/.private/crm/opportunities/tobrin.md"
+    printf -- '---\nname: Ysolde van Brackel—Pintervale\n---\n' > "$repo/.private/crm/opportunities/ysolde.md"
+    printf '# \xc3\x89mrik Dovanne — advisor\n' > "$repo/.private/docs/business/partners/emrik-dovanne.md"
+    # Final-review regressions: comma-separated legal suffix; planning-note titles in business/.
+    printf -- '---\nname: Pelko Strandvik — Fernquay, Inc.\n---\n' > "$repo/.private/crm/opportunities/pelko.md"
+    printf '# Growth Fixturestrategy — Notes\n' > "$repo/.private/docs/business/partners/growth-plan.md"
+    printf '# Q3 Fixtureroadmap — Draft\n' > "$repo/.private/docs/business/partners/q3-fixtureroadmap.md"
+  fi
+  if [ "$seed" = "generic" ]; then
+    # 3 tracked public files already use the derived company term => it is skipped as generic.
+    for g in g1 g2 g3; do echo "the Commonterm Widget pattern" > "$repo/$g.md"; done
+    git -C "$repo" add g1.md g2.md g3.md; git -C "$repo" commit -qm generic
+  fi
   if [ "$mode" = "range" ]; then
     echo base > "$repo/a.md"; git -C "$repo" add a.md; git -C "$repo" commit -qm base
     echo next > "$repo/a.md"; git -C "$repo" add a.md; git -C "$repo" commit -qm "$content"
@@ -325,7 +360,122 @@ mkdir -p "$nonascii_repo/.private/docs"; printf 'Östen Müllerby\n' > "$nonasci
 echo "met ÖSTEN MÜLLERBY" > "$nonascii_repo/n.md"; git -C "$nonascii_repo" add n.md
 (cd "$nonascii_repo" && LC_ALL=C "$AUDIT" --staged >/dev/null 2>&1); rc=$?; rm -rf "$nonascii_repo"
 if [ "$rc" = 1 ]; then echo "  ✓ non-ASCII name blocks under LC_ALL=C"; PASS=$((PASS+1)); else echo "  ✗ non-ASCII name under LC_ALL=C (exit $rc, wanted 1)"; FAIL=$((FAIL+1)); fi
+# Registry derivation — one known member per derivation path (gate 7e) plus must-allow controls.
+names_case "registry: person from CRM name: field blocks" "lunch with Quillan Brostrup" 1
+names_case "registry: company from CRM name: field blocks" "the Vandermint Fixture pilot stalled" 1
+names_case "registry: company with acronym suffix stripped blocks" "Orblex Labs replied" 1
+names_case "registry: company in a COMMIT MESSAGE blocks (range)" "notes: Vandermint Fixture call" 1 range
+names_case "registry: person from business-file H1 blocks" "Marrow Teslin agreed" 1
+names_case "registry: parenthesised role is NOT derived" "the head of ops role" 0
+names_case "registry: free-text H1 tail is NOT derived" "Glimmerhaus style" 0
+names_case "registry: analysis-file H1 is NOT derived" "a Deep Fixturewords pass" 0
+names_case "registry: company in 3+ public files skipped as generic" "the Commonterm Widget pattern again" 0 staged generic
+names_case "registry: person is never generic-filtered" "Ostrava Pell said" 1 staged generic
+names_case "r1: quoted YAML name: person blocks" "Tobrin Halvask wrote" 1
+names_case "r1: quoted YAML name: company blocks (no stray quote)" "the Quorrel Systems deal" 1
+names_case "r1: em dash without spaces + particle: person blocks" "Ysolde van Brackel agreed" 1
+names_case "r1: em dash without spaces: company blocks" "Pintervale pilot" 1
+names_case "r1: accented initial person blocks" "$(printf '\xc3\x89mrik Dovanne joined')" 1
+names_case "r2: reversed 'Last, First' blocks" "attendees: Quenwick, Zorblat" 1
+names_case "r3: company before ', Inc.' blocks" "the Fernquay renewal" 1
+names_case "r3: lone legal suffix after a comma is NOT derived" "Example Widgets Inc. filed" 0
+names_case "r3: business title not matching its filename is NOT a person" "our Growth Fixturestrategy" 0
+names_case "r3: title with digits is NOT a person" "the Q3 Fixtureroadmap" 0
+names_case "r2: name padded with 4 spaces blocks" "Zorblat    Quenwick" 1
 set -e
+
+# r2: an email in an ADDED FILE PATH blocks (paths run through the email check, not only names).
+_er=$(mktemp -d); git -C "$_er" init -q
+printf 'example.com\n' > "$_er/.privacy-email-allowlist"
+mkdir -p "$_er/docs"; echo neutral > "$_er/docs/contact-stranger@notlisted.invalid.md"
+git -C "$_er" add .privacy-email-allowlist docs
+set +e; (cd "$_er" && bash "$AUDIT" --staged >/dev/null 2>&1); _rc=$?; set -e; rm -rf "$_er"
+if [ "$_rc" = "1" ]; then echo "  ✓ r2: email in an added file path blocks"; PASS=$((PASS+1)); else echo "  ✗ r2: email in path (exit $_rc, wanted 1)"; FAIL=$((FAIL+1)); fi
+
+# r3: a phone number in a RENAMED file path blocks (content-preserving rename adds no content line);
+# a dated filename is the must-allow control (Codex final F1).
+_pr=$(mktemp -d); git -C "$_pr" init -q; git -C "$_pr" config user.email t@t.invalid; git -C "$_pr" config user.name t
+mkdir -p "$_pr/docs"; echo neutral > "$_pr/docs/a.md"; git -C "$_pr" add docs; git -C "$_pr" commit -qm base
+git -C "$_pr" mv docs/a.md "docs/tel:+99012345678.md"
+set +e; (cd "$_pr" && bash "$AUDIT" --staged >/dev/null 2>&1); _rc=$?; set -e
+if [ "$_rc" = "1" ]; then echo "  ✓ r3: phone number in a renamed file path blocks"; PASS=$((PASS+1)); else echo "  ✗ r3: phone in path (exit $_rc, wanted 1)"; FAIL=$((FAIL+1)); fi
+git -C "$_pr" mv "docs/tel:+99012345678.md" docs/notes-2026-10-08-build-20261008.1234.md
+set +e; (cd "$_pr" && bash "$AUDIT" --staged >/dev/null 2>&1); _rc=$?; set -e; rm -rf "$_pr"
+if [ "$_rc" = "0" ]; then echo "  ✓ r3: dated file path is not a phone"; PASS=$((PASS+1)); else echo "  ✗ r3: dated path flagged (exit $_rc, wanted 0)"; FAIL=$((FAIL+1)); fi
+
+# r2: three-dot range resolves a real base (merge-base), so the generic guard still holds.
+_tr=$(mktemp -d); git -C "$_tr" init -q -b main
+git -C "$_tr" config user.email t@example.com; git -C "$_tr" config user.name T
+mkdir -p "$_tr/.private/crm/opportunities"
+printf -- '---\nname: Halder Moss — Brindlecove Partners\n---\n' > "$_tr/.private/crm/opportunities/h.md"
+echo base > "$_tr/a.md"; git -C "$_tr" add a.md; git -C "$_tr" commit -qm base
+git -C "$_tr" checkout -q -b topic
+for g in g1 g2 g3; do echo "Brindlecove Partners note" > "$_tr/$g.md"; done
+git -C "$_tr" add g1.md g2.md g3.md; git -C "$_tr" commit -qm "add three"
+set +e; (cd "$_tr" && bash "$AUDIT" main...topic >/dev/null 2>&1); _rc=$?; set -e; rm -rf "$_tr"
+# A...B is rejected by the range validator (exit 2) — it must never come back clean (exit 0).
+if [ "$_rc" != "0" ]; then echo "  ✓ r2: three-dot range fails closed (exit $_rc)"; PASS=$((PASS+1)); else echo "  ✗ r2: three-dot range passed clean"; FAIL=$((FAIL+1)); fi
+
+# r1: the generic filter counts at the range BASE, so a push that adds a company term to 3 files
+# cannot make its own term "generic" (Codex round 1).
+_gr=$(mktemp -d); git -C "$_gr" init -q
+git -C "$_gr" config user.email t@example.com; git -C "$_gr" config user.name T
+mkdir -p "$_gr/.private/crm/opportunities"
+printf -- '---\nname: Halder Moss — Brindlecove Partners\n---\n' > "$_gr/.private/crm/opportunities/h.md"
+echo base > "$_gr/a.md"; git -C "$_gr" add a.md; git -C "$_gr" commit -qm base
+for g in g1 g2 g3; do echo "Brindlecove Partners note" > "$_gr/$g.md"; done
+git -C "$_gr" add g1.md g2.md g3.md; git -C "$_gr" commit -qm "add three"
+set +e; (cd "$_gr" && bash "$AUDIT" HEAD~1..HEAD >/dev/null 2>&1); _rc=$?; set -e; rm -rf "$_gr"
+if [ "$_rc" = "1" ]; then echo "  ✓ r1: leak in 3 files of the SAME push is still blocked"; PASS=$((PASS+1)); else echo "  ✗ r1: same-push generic self-disable (exit $_rc, wanted 1)"; FAIL=$((FAIL+1)); fi
+
+# r1: a known name in a RENAMED/ADDED file path blocks (no content line carries it).
+_pr=$(mktemp -d); git -C "$_pr" init -q
+git -C "$_pr" config user.email t@example.com; git -C "$_pr" config user.name T
+mkdir -p "$_pr/.private/docs" "$_pr/docs"; printf 'Zorblat Quenwick\n' > "$_pr/.private/docs/privacy-names.txt"
+echo "neutral" > "$_pr/docs/a.md"; git -C "$_pr" add docs/a.md; git -C "$_pr" commit -qm base
+git -C "$_pr" mv docs/a.md docs/zorblat-quenwick.md
+set +e; (cd "$_pr" && bash "$AUDIT" --staged >/dev/null 2>&1); _rc=$?; set -e; rm -rf "$_pr"
+if [ "$_rc" = "1" ]; then echo "  ✓ r1: known name in a renamed file path blocks"; PASS=$((PASS+1)); else echo "  ✗ r1: name in renamed path (exit $_rc, wanted 1)"; FAIL=$((FAIL+1)); fi
+
+# r1: output never carries redirect/pipe tokens (shell-safety.md).
+_sr=$(mktemp -d); printf 'see /Users/slavochek/x > out.txt | tee\n' > "$_sr/m.txt"
+set +e; _out=$(bash "$AUDIT" --msg "$_sr/m.txt" 2>/dev/null); _rc=$?; set -e; rm -rf "$_sr"
+[ "$_rc" = "1" ] || { echo "  ✗ r1: shell-safety probe did not block (exit $_rc) — probe is blind"; FAIL=$((FAIL+1)); }
+if printf '%s' "$_out" | grep -q '[<>|]'; then echo "  ✗ r1: output contains a redirect/pipe token"; FAIL=$((FAIL+1)); else echo "  ✓ r1: output has no redirect/pipe tokens"; PASS=$((PASS+1)); fi
+
+echo ""
+echo "=== Phone numbers (--msg and diff) ==="
+assert_blocks "phone: +CC international" "reach me on +990 1234 5678"
+assert_blocks "phone: +CC dashed" "ring +990-12-3456789"
+assert_blocks "phone: tel: URI" '<a href="tel:+99012345678">call</a>'
+assert_blocks "phone: keyword + local number" "WhatsApp: 0900 000 0000"
+assert_allows "phone: ISO date + build id (no phone mark)" "shipped 2026-10-08, build 20261008.1234"
+assert_allows "phone: verb 'call' + date is not a phone" "call 2026-10-08 with the team"
+assert_allows "phone: arithmetic plus" "count 3+12345678"
+assert_allows "phone: allowlisted fictional NANP range" "demo +1 555 0100 123"
+assert_allows "phone: bare local digits without a mark (accepted residual)" "ring 0900 000 0000"
+assert_staged_blocks "phone: --staged diff, +CC number blocks (diff '+' marker not mistaken)" \
+  "docs/notes.md" "office line +990 1234 5678"
+assert_blocks "r1 phone: number + adjacent digits cannot escape via a length ceiling" "+990 30 12345678 123456"
+assert_blocks "r1 phone: JSON \"phone\": \"...\" blocks" '{"phone": "0900000000"}'
+assert_allows "r1 phone: signed 8-digit code literal is not a phone" "int x = +10000000;"
+assert_allows "r1 phone: signed coordinate is not a phone" "lat: +12.345678"
+assert_allows "r1 phone: keyword + ISO date is not a phone" "Phone: 2026-10-08"
+assert_allows "r1 phone: keyword + build id is not a phone" "mobile 20261008.1234"
+assert_blocks "r2 phone: keyword number followed by a date still blocks" "Phone: 0900000000 2026-10-08"
+assert_blocks "r2 phone: keyword number with dotted extension blocks" "phone: 0900000000.1234"
+assert_blocks "r3 phone: number whose last 8 digits are date-shaped still blocks" "Phone: +990 20 2026-10-08"
+assert_blocks "r3 phone: keyword number whose tail is date-shaped still blocks" "mobile 0900 2026-10-08"
+assert_blocks "r4 phone: a date BEFORE the number does not hide it" "Phone: 2026-10-08 0900000000"
+assert_blocks "r4 phone: an allowlisted number does not vouch for its ' / ' neighbour" "Phone: +1 555 0100 123 / 0900000000"
+assert_blocks "r4 phone: an allowlist prefix does not vouch for a 16+ digit run" "Phone: +1 555 0100 123/0900000000"
+assert_blocks "r2 phone: North American (NXX) NXX-XXXX shape blocks" "Reach out at (415) 555-2671"
+assert_blocks "r2 phone: North American NXX-NXX-XXXX shape blocks" "Reach out at 212-555-2671"
+assert_allows "r2 phone: unary-plus 10-digit epoch is not a phone" "const epoch = +1700000000;"
+assert_allows "r2 phone: signed 20-digit literal is not a phone" "score +12345678901234567890"
+assert_allows "r2 phone: UUID-ish dashed hex is not NANP" "id 123e4567-e89b-12d3-a456-426614174000"
+assert_range_allows "phone: diff line starting with digits is not read as +CC via the diff marker" \
+  "add file" "docs/notes.md" "20261008 12345678 tally"
 
 echo ""
 echo "=== Summary ==="

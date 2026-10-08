@@ -48,6 +48,7 @@ MSGS=""  # commit messages for range mode (scanned separately, no allowlist)
 case "$MODE" in
   --staged)
     DIFF=$(git diff --cached -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
+    PATHS_ADDED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACR 2>/dev/null)
     ;;
   --msg)
     shift
@@ -72,6 +73,14 @@ case "$MODE" in
           exit 2
         }
     }
+    # Generic-term count ref: the range base. Single-ref mode (scan all history reachable from REF)
+    # has no clean base; REF^ is used and does NOT carry the same no-self-disable guarantee.
+    # (A...B never reaches here: the range validation above rejects it with exit 2.)
+    case "$MODE" in
+      *..*)  GENERIC_REF="${MODE%%..*}" ;;
+      *)     GENERIC_REF="${MODE}^" ;;
+    esac
+    PATHS_ADDED=$(git -c core.quotePath=false log --format= --name-only --diff-filter=ACR "$MODE" 2>/dev/null | sort -u)
     DIFF=$(git log -p "$MODE" -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
     # Commit messages are not prefixed with + in git log -p output — scan them separately
     MSGS=$(git log --format='%B' "$MODE" 2>/dev/null | tr -d '\r')
@@ -213,18 +222,135 @@ known_names() {
     base="$(basename "$f" .md)"
     case "$base" in *-*) printf '%s\n' "$base" | tr '-' ' ' ;; esac
   done
+  registry_names "$priv"
+}
+
+# Registry-derived names (P1438 follow-up). A filename slug like "first-last-company" yields the
+# string "first last company", which never matches the person or the company on their own — and a
+# company/account name identifies a private contact as surely as their personal name does
+# ("the operations lead at <company>"). The registries already state both, in one shape:
+#   .private/crm/opportunities/*.md         frontmatter   name: Person — Company / Brand (role)
+#   .private/docs/business/*/*.md           first H1      # Person — free-text notes
+# Parse: text before the first dash separator is the person (emitted when 2-4 capitalised words —
+# a lone first name would flag every use of that word). From the CRM field only (the one place the
+# tail is defined as the company), the tail minus (...) and "...", split on / , ; + and middle dot,
+# gives company candidates (capitalised phrases with letters; a legal/acronym suffix is also tried
+# stripped: "Acme CNX" also yields "Acme"). Lines with no dash separator are skipped.
+# Generic filter — evidence, not a word list: a derived COMPANY candidate already present in 3+
+# tracked public files is a common term (or an old leak the founder has accepted), so blocking it
+# would be noise; it is skipped with a stderr note. Person names are never filtered. To force a
+# skipped term, put it in privacy-names.txt (the seed is never filtered).
+_split_registry_line() {
+  # stdin: one "Person — rest" string. stdout: "P<TAB>name" / "C<TAB>name" lines.
+  # Quotes around a YAML value are dropped first (name: "A B — C" is valid YAML). Em/en dash split
+  # with or without spaces; an ASCII hyphen only with spaces (it occurs inside names).
+  local em en
+  em="$(printf '\xe2\x80\x94')"; en="$(printf '\xe2\x80\x93')"
+  sed -E "s/^[[:space:]]*[\"']//; s/[\"'][[:space:]]*\$//; s/ *${em} */ | /; s/ *${en} */ | /; s/ - / | /" \
+  | LC_ALL=C awk -F' [|] ' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    # A proper-noun phrase: first and last word start with a capital, a digit or a non-ASCII byte
+    # (accented initials: "Emile" spelled with an accent); middle words may be name particles.
+    function cap(x) { return x ~ /^[A-Z0-9]/ || x ~ /^[\200-\377]/ }
+    function proper(s,   n, i, w) {
+      n = split(s, w, /[[:space:]]+/)
+      if (n < 1 || n > 5) return 0
+      for (i = 1; i <= n; i++) {
+        if (cap(w[i])) continue
+        if (i > 1 && i < n && w[i] ~ /^(de|da|di|du|del|della|der|den|van|von|le|la|bin|binti|al|el|y|dos|das)$/) continue
+        return 0
+      }
+      return n
+    }
+    NF < 2 { next }
+    {
+      person = trim($1); gsub(/\([^)]*\)/, "", person); person = trim(person)
+      n = proper(person)
+      # A person name has no digits ("Q3 Roadmap", "2026 Planning" are document titles).
+      if (n >= 2 && n <= 4 && person !~ /[0-9]/) print "P\t" person
+      rest = $2; for (i = 3; i <= NF; i++) rest = rest " " $i
+      gsub(/\([^)]*\)/, " ", rest); gsub(/\(.*$/, " ", rest); gsub(/"[^"]*"/, " ", rest)
+      m = split(rest, seg, /[\/,;+]/)
+      for (j = 1; j <= m; j++) {
+        c = trim(seg[j]); gsub(/[*_`]+$/, "", c); c = trim(c)
+        if (length(c) < 4 || c !~ /[A-Za-z][A-Za-z]/ || !proper(c)) continue
+        # A lone legal suffix split off by a comma ("Acme, Inc.") is not a company name.
+        if (c ~ /^(GmbH|Ltd|LLC|Inc|Corp|AG|Co|Pte|SA|BV|Oy|AS|Limited|Corporation|Incorporated)\.?$/) continue
+        print "C\t" c
+        k = split(c, w, /[[:space:]]+/)
+        if (k >= 2 && (w[k] ~ /^(GmbH|Ltd|LLC|Inc|Corp|AG|Co|Pte|SA|BV|Oy|AS|Limited|Corporation|Incorporated)\.?$/ || w[k] ~ /^[A-Z]{2,4}$/)) {
+          s = w[1]; for (q = 2; q < k; q++) s = s " " w[q]
+          if (length(s) >= 4) print "C\t" s
+        }
+      }
+    }'
+}
+registry_candidates() {
+  local priv="$1" f mdot
+  mdot="$(printf '\xc2\xb7')"
+  # CRM: name: is a structured "Person — Company" field, so it yields person AND company candidates.
+  for f in "$priv"/crm/opportunities/*.md; do
+    [ -e "$f" ] || continue
+    awk 'NR==1 && $0!="---" {exit} NR>1 && $0=="---" {exit} /^name:/ {sub(/^name:[[:space:]]*/, ""); print; exit}' "$f"
+  done | sed "s/${mdot}/\//g" | _split_registry_line
+  # Business person files: the H1 tail is free text with no fixed company slot, so only the PERSON
+  # is taken. Analysis and transcript files derive from a person file and carry document titles
+  # in that position, so they are skipped.
+  for f in "$priv"/docs/business/*/*.md; do
+    [ -e "$f" ] || continue
+    case "$(basename "$f")" in
+      *-analysis-*|*-transcript-*) continue ;;
+    esac
+    # The folder also holds planning notes ("# Growth Strategy — Notes"). A person file is named
+    # after its person (first-last-....md), so an ASCII person candidate whose slug does not start
+    # the filename is a document title and is dropped. A name with non-ASCII letters is kept either
+    # way (its filename may be transliterated) — fail closed.
+    local title cand slug
+    title=$(awk '/^# / {sub(/^# +/, ""); print; exit}' "$f")
+    [ -n "$title" ] || continue
+    cand=$(printf '%s\n' "$title" | _split_registry_line | grep '^P' | cut -f2-)
+    [ -n "$cand" ] || continue
+    if LC_ALL=C grep -q '[^ -~]' <<<"$cand"; then printf 'P\t%s\n' "$cand"; continue; fi
+    slug=$(printf '%s' "$cand" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')
+    case "$(basename "$f" .md)" in "$slug"|"$slug"-*) printf 'P\t%s\n' "$cand" ;; esac
+  done
+}
+registry_names() {
+  local priv="$1" kind name n out=""
+  while IFS="$(printf '\t')" read -r kind name; do
+    [ -z "$name" ] && continue
+    if [ "$kind" = "C" ]; then
+      # Counted at GENERIC_REF — the range BASE in range mode, HEAD otherwise — never at the tip
+      # being scanned, so content added by the scanned commits cannot make its own term "generic".
+      # A git grep failure counts 0, i.e. the term is KEPT (fails toward blocking).
+      n=$(git grep -I -i -w -F -l -e "$name" "${GENERIC_REF:-HEAD}" -- . 2>/dev/null | grep -c . || true)
+      if [ "${n:-0}" -ge 3 ]; then
+        echo "audit-privacy: derived company term skipped as generic (in $n public files at ${GENERIC_REF:-HEAD} — if it is not a common phrase, that is an existing leak): $name" >&2
+        continue
+      fi
+    fi
+    out="${out}${name}"$'\n'
+  done < <(registry_candidates "$priv" | sort -u)
+  printf '%s' "$out"
 }
 # Literal bytes (bash 3.2 $'' supports \x, grep ERE does not): NBSP and U+2010..U+2015 dashes.
 NAME_SEP="([[:space:][:punct:]]|"$'\xc2\xa0'
 for _b in 90 91 92 93 94 95; do NAME_SEP="${NAME_SEP}|"$'\xe2\x80'"$(printf "\\x$_b")"; done
-NAME_SEP="${NAME_SEP}){1,3}"
+NAME_SEP="${NAME_SEP}){1,6}"  # 1-6: "First    Last" (padded columns) must not escape
+# Computed ONCE per run: derivation runs a git grep per company candidate, and the scan below is
+# called from command substitutions, which cannot write a cache back.
+KNOWN_NAMES=""
+_priv="$(resolve_private_dir)" || _priv=""
+if [ -z "$_priv" ]; then
+  echo "audit-privacy: .private/ not found — known-names check skipped (expected in CI and fresh clones)" >&2
+else
+  KNOWN_NAMES="$(known_names "$_priv" | sort -u)"
+  [ -z "$KNOWN_NAMES" ] && echo "audit-privacy: .private/ has no known names (privacy-names.txt, crm/opportunities, docs/business) — known-names check found nothing to match" >&2
+fi
 scan_known_names() {
-  local content="$1" priv name pat rc hits=""
-  priv="$(resolve_private_dir)" || priv=""
-  if [ -z "$priv" ]; then
-    echo "audit-privacy: .private/ not found — known-names check skipped" >&2
-    return 0
-  fi
+  local content="$1" name pat rc hits=""
+  local names="$KNOWN_NAMES"
+  [ -z "$names" ] && return 0
   # Case-folding and word boundaries for non-ASCII names need a UTF-8 locale; a hook launched
   # under LC_ALL=C would otherwise pass "ÖSTEN MÜLLER" silently. Pick one that exists.
   local LC_ALL loc
@@ -232,51 +358,161 @@ scan_known_names() {
     if locale -a 2>/dev/null | grep -qx "$loc"; then LC_ALL="$loc"; break; fi
   done
   [ -n "$LC_ALL" ] && export LC_ALL || echo "audit-privacy: no UTF-8 locale — known-names matching of non-ASCII names may miss case variants" >&2
-  local names
-  names="$(known_names "$priv" | sort -u)"
-  if [ -z "$names" ]; then
-    echo "audit-privacy: .private/ has no known names (privacy-names.txt, crm/opportunities) — known-names check found nothing to match" >&2
-    return 0
-  fi
   while IFS= read -r name; do
     [ -z "$name" ] && continue
-    # Between tokens: any run of 1-3 whitespace/punctuation chars (space, tab, hyphen, comma,
-    # underscore, dashes, NBSP). Word-bounded both ends. Not covered: a name split across lines,
-    # decomposed-Unicode spellings — the agent's own read stays the primary gate.
+    # Between tokens: any run of 1-6 whitespace/punctuation chars (space, tab, hyphen, comma,
+    # underscore, dashes, NBSP). Word-bounded both ends. A two-word name also matches reversed
+    # ("Last, First" — attendee lists and invites). Not covered: a name split across lines,
+    # initials, decomposed-Unicode spellings — the agent's own read stays the primary gate.
     pat=$(printf '%s' "$name" | sed -E 's/[][\.*^$+?(){}|/]/\\&/g; s/[[:space:]]+/ /g')
+    case "$pat" in
+      *' '*' '*) ;;
+      *' '*) pat="${pat}|${pat#* } ${pat%% *}" ;;
+    esac
     pat="${pat// /$NAME_SEP}"
-    grep -qiE "(^|[^[:alnum:]_])${pat}([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); rc=$?
+    grep -qiE "(^|[^[:alnum:]_])(${pat})([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); rc=$?
     if [ "$rc" = 0 ]; then
       hits="${hits}known name from .private: ${name}"$'\n'
     elif [ "$rc" -gt 1 ]; then
       # Fail closed: a check that errored has not shown the name is absent.
       hits="${hits}known-names check ERROR (grep exit $rc) on entry: ${name}"$'\n'
     fi
-  done <<< "$names"
+  done < <(printf '%s\n' "$names")  # not <<<: a here-string needs a temp file, and its failure read as "no hits"
+  printf '%s' "$hits"
+}
+
+# Phone numbers. A person's number is as identifying as their email, and unlike a name it has a
+# shape. The shape alone is not enough — dates, build ids, SHAs and counters are digit runs too —
+# so a candidate must carry a mark a human writes ONLY on a phone number:
+#   (a) an international "+CC" prefix:     +66 81 234 5678, +49-30-1234567
+#   (b) a tel: URI:                        tel:+15550100
+#   (c) a phone keyword right before it:   "phone: 081 234 5678", "WhatsApp 0812345678"
+#   (d) the North American 3-3-4 shape:   "(415) 555-2671", "212-555-2671"
+# Digit floors: (a) with separators needs 10+, contiguous needs 11-15 — "+10000000", "delta
+# +12345678", "lat +12.345678", a unary-plus epoch "+1700000000" are signed values; (b)/(c) 8+.
+# Separated (a) has no digit ceiling (a ceiling let "+49 30 12345678 123456" escape); the match
+# itself is capped at ~40 characters. A trailing date or build id is cut off the candidate.
+# NOT caught, deliberately: a bare "081 234 5678" with no mark (indistinguishable from dotted
+# dates and versions), and short international numbers under 10 digits ("+298 212345").
+# Allowlist: "tel:<digits>" (exact) or "tel:<digit-prefix>*" lines in .privacy-email-allowlist
+# (one allowlist file, so the CI base-SHA co-commit swap covers both). $2 = "diff" strips the
+# leading diff '+' marker per line first, so the marker is never read as a "+CC" prefix.
+# Keywords are nouns that only name a phone. Verbs like "call"/"text" are excluded: "call
+# 2026-10-08" is a date, and a dated sentence must not read as an 8-digit number.
+PHONE_KW='(phone|telephone|tel|mobile|cellphone|whatsapp|telefon|handy|sms)'
+# Does candidate $2 (scanner kind $1: I = +CC, U = North American, else keyword/tel:) have a
+# phone's digit count?
+_phone_ok() {
+  local k="$1" t="$2" d
+  d=$(printf '%s' "$t" | tr -cd '0-9')
+  case "$k" in
+    I) # contiguous "+NNNN": 11-15 digits (unary-plus literals like +1700000000 are 10, and
+       # +12345678901234567890 is past E.164's 15); with separators: 10+.
+       if [[ "$t" =~ ^[^0-9]*\+[0-9]+$ ]]; then
+         [ "${#d}" -ge 11 ] && [ "${#d}" -le 15 ]
+       else
+         [ "${#d}" -ge 10 ]
+       fi ;;
+    U) [ "${#d}" -eq 10 ] ;;
+    *) [ "${#d}" -ge 8 ] ;;
+  esac
+}
+scan_phones() {
+  local content="$1" kind="$2" cands tok marked piece num digits hits="" entry safe nums
+  [ "$kind" = "diff" ] && content=$(printf '%s\n' "$content" | sed 's/^+//')
+  cands=$(
+    {
+      printf '%s\n' "$content" | grep -oE '(^|[^[:alnum:]+/=_.-])\+[1-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/I /' || true
+      printf '%s\n' "$content" | grep -oiE 'tel:[+0-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/T /' || true
+      # (d) North American shape, unmistakable without a keyword: "(415) 555-2671", "212-555-2671".
+      #     Exactly 3-3-4 with a dash before the last 4; not part of a longer digit/dash run.
+      printf '%s\n' "$content" | grep -oE '(^|[^[:alnum:]-])(\([2-9][0-9]{2}\) ?|[2-9][0-9]{2}[-. ])[2-9][0-9]{2}-[0-9]{4}([^[:alnum:]-]|$)' | sed 's/^/U /' || true
+      printf '%s\n' "$content" | grep -oiE "(^|[^[:alnum:]])${PHONE_KW}[\"'[:space:]]*[:=#.]?[\"'[:space:]]*(number|no\.?|nr\.?)?[\"'[:space:]]*[:=#]?[\"'[:space:]]*[+(]?[0-9][0-9 ()/.-]{6,40}[0-9]" | sed 's/^/K /' || true
+    }
+  )
+  [ -z "$cands" ] && return 0
+  local kind_c
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    kind_c="${tok%% *}"; tok="${tok#* }"
+    # A candidate can hold several things: "0900000000 2026-10-08", "2026-10-08 0900000000",
+    # "<allowlisted> / <private>". Dates and build ids are cut OUT (not everything after them), and
+    # " / " separates numbers; each piece is judged on its own, so neither a date nor an allowlisted
+    # neighbour hides a number (Codex final F2 + round 2). When no piece is a phone but digits sat
+    # before a date, the "date" may be the number's own last eight digits ("+44 20 2026-10-08"):
+    # then the whole candidate is judged.
+    marked=$(printf '%s' "$tok" | sed -E 's/(19|20)[0-9]{2}-[0-9]{2}-[0-9]{2}/|/g; s/(19|20)[0-9]{6}\.[0-9]+/|/g; s# +/ +#|#g')
+    nums=()
+    while IFS= read -r piece; do
+      _phone_ok "$kind_c" "$piece" && nums+=("$piece")
+    done < <(printf '%s\n' "$marked" | tr '|' '\n')
+    if [ "${#nums[@]}" -eq 0 ] && [ "$marked" != "$tok" ] \
+       && [ -n "$(printf '%s' "${marked%%|*}" | tr -cd '0-9')" ] && _phone_ok "$kind_c" "$tok"; then
+      nums=("$tok")
+    fi
+    for num in "${nums[@]}"; do
+      digits=$(printf '%s' "$num" | tr -cd '0-9')
+      safe=0
+      # An allowlist prefix only vouches for ONE number (E.164: at most 15 digits), never for a
+      # run that merely starts with an allowed prefix.
+      if [ -f "$EMAIL_ALLOWLIST" ] && [ "${#digits}" -le 15 ]; then
+        while IFS= read -r entry; do
+          case "$entry" in
+            tel:*'*') case "$digits" in "$(printf '%s' "${entry#tel:}" | tr -cd '0-9')"*) safe=1 ;; esac ;;
+            tel:*)    [ "$digits" = "$(printf '%s' "${entry#tel:}" | tr -cd '0-9')" ] && safe=1 ;;
+          esac
+          [ "$safe" = "1" ] && break
+        done < "$EMAIL_ALLOWLIST"
+      fi
+      [ "$safe" = "0" ] && hits="${hits}phone number: $(printf '%s' "$num" | sed -E 's/^[^[:alnum:]+]+//; s/[[:space:]]+$//')"$'\n'
+    done
+  done < <(printf '%s\n' "$cands" | sort -u)
   printf '%s' "$hits"
 }
 
 HITS=$(scan_content "$ADDED")
+[ -n "$HITS" ] && HITS="${HITS}"$'\n'
 NAME_HITS=$(scan_known_names "$ADDED")
-[ -n "$NAME_HITS" ] && HITS="${HITS}${NAME_HITS}"
-
-# Diff-only third-party email check: never on commit messages (--msg / MSGS) — they carry
-# Co-Authored-By trailers that would otherwise be flagged with no allowlist applied.
-if [ "$MODE" != "--msg" ]; then
-  EMAIL_HITS=$(scan_unknown_emails "$ADDED")
-  [ -n "$EMAIL_HITS" ] && HITS="${HITS}${EMAIL_HITS}"
+[ -n "$NAME_HITS" ] && HITS="${HITS}${NAME_HITS}"$'\n'
+# File paths are public too: a rename to docs/first-last.md adds no content line but publishes the
+# name. Added/copied/renamed paths (unquoted, so accented names stay literal) run through the
+# hard-pattern, known-name, email and phone checks. This deliberately ignores .privacy-allowlist: that
+# list exempts a file's CONTENT; its path is published either way.
+if [ -n "${PATHS_ADDED:-}" ]; then
+  PATH_HITS=$( { scan_content "$PATHS_ADDED"; echo; scan_known_names "$PATHS_ADDED"; echo; scan_unknown_emails "$PATHS_ADDED"; echo; scan_phones "$PATHS_ADDED" msg; } | grep . | sed 's/^/(in a file path) /')
+  [ -n "$PATH_HITS" ] && HITS="${HITS}${PATH_HITS}"$'\n'
 fi
+if [ "$MODE" = "--msg" ]; then
+  PHONE_HITS=$(scan_phones "$ADDED" msg)
+else
+  PHONE_HITS=$(scan_phones "$ADDED" diff)
+fi
+[ -n "$PHONE_HITS" ] && HITS="${HITS}${PHONE_HITS}"$'\n'
 
-# Also scan commit messages for range mode (no allowlist — messages have no file path)
+# Third-party email check — diff content AND commit messages. Messages were exempt until the
+# P1438 follow-up because of Co-Authored-By trailers; those trailers are noreply@ addresses, which
+# the allowlist already covers (noreply@*), so the exemption bought nothing and let any address
+# through a commit message. Same allowlist, same fail-open-if-absent rule as the diff check.
+EMAIL_HITS=$(scan_unknown_emails "$ADDED")
+[ -n "$EMAIL_HITS" ] && HITS="${HITS}${EMAIL_HITS}"$'\n'
+
+# Also scan commit messages for range mode (no path allowlist — messages have no file path)
 if [ -n "$MSGS" ]; then
   MSG_HITS=$(scan_content "$MSGS")
-  [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"
+  [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"$'\n'
   MSG_NAME_HITS=$(scan_known_names "$MSGS")
-  [ -n "$MSG_NAME_HITS" ] && HITS="${HITS}${MSG_NAME_HITS}"
+  [ -n "$MSG_NAME_HITS" ] && HITS="${HITS}${MSG_NAME_HITS}"$'\n'
+  MSG_PHONE_HITS=$(scan_phones "$MSGS" msg)
+  [ -n "$MSG_PHONE_HITS" ] && HITS="${HITS}${MSG_PHONE_HITS}"$'\n'
+  MSG_EMAIL_HITS=$(scan_unknown_emails "$MSGS")
+  [ -n "$MSG_EMAIL_HITS" ] && HITS="${HITS}${MSG_EMAIL_HITS}"$'\n'
 fi
 
 if [ -n "$HITS" ]; then
-  printf '%s\n' "$HITS" | head -20
+  # Shell-safety (.claude/rules/shell-safety.md): hit lines quote scanned content and seed names,
+  # which may contain redirect/pipe tokens; those are neutralised. This does NOT make the output
+  # eval-safe (backticks, $(), ; can remain) — callers must treat it strictly as data.
+  printf '%s\n' "$HITS" | tr '<>|' '???' | head -20
   exit 1
 fi
 
