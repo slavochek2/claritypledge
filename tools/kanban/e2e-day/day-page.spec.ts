@@ -2042,7 +2042,7 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 1 story only · 4 statements')
     await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated · 1 story only')
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
     // O4: emptying a saved story and pressing Accept deletes it (no position: the answer goes)
     await storyBox(page).fill('')
     await acceptBtn(page).click()
@@ -2117,9 +2117,9 @@ test.describe('P1440: stories reach the agent', () => {
     await openDay(page)
     await reflTab(page).click()
     await storyBox(page).fill(STORY)
-    await expect(page.locator('.d-pcard [data-story-unsaved]')).toHaveText('Not saved — press Accept to save')
-    await expect(page.locator('[data-list-statement="c1"]')).toContainText('Story not saved')
-    await expect(page.locator('[data-unsaved-stories]')).toHaveText('1 typed story not saved yet — Accept it first')
+    await expect(page.locator('.d-pcard [data-story-unsaved]')).toHaveText('Not saved')
+    await expect(page.locator('[data-list-statement="c1"]')).toContainText('Unsaved')
+    await expect(page.locator('[data-unsaved-stories]')).toHaveText('1 unsaved')
     // another run and back: still there
     await page.getByRole('button', { name: 'Previous run' }).click()
     await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
@@ -2205,15 +2205,15 @@ test.describe('P1440: stories reach the agent', () => {
     await reopen(page)
     await reflTab(page).click()
     const earlier = page.locator('[data-earlier-stories]')
-    await expect(earlier).toContainText('Earlier stories not yet handled (1)')
+    await expect(earlier).toContainText('Earlier stories (1)')
     await expect(earlier).toContainText('Invented story from an earlier day.')
-    await expect(earlier.locator('[data-story-line]')).toHaveText('Story: not sent yet')
+    await expect(earlier.locator('[data-story-line]')).toHaveText('Not sent')
     // this run's story: saved by Accept, then marked done on its card
     await storyBox(page).fill(STORY)
     await acceptBtn(page).click()
     await expect(bpos(page)).toHaveText('2 of 4')
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
     // O5: a slow Mark done clicked twice posts once
     let posts = 0
     await page.route('**/api/day/stories/done', async (r) => {
@@ -2223,7 +2223,7 @@ test.describe('P1440: stories reach the agent', () => {
     })
     await page.locator('.d-pcard [data-story-done]').click()
     await page.locator('.d-pcard [data-story-done]').click({ force: true })
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: done · acted on')
+    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Done · acted')
     expect(posts).toBe(1)
     expect(lines().filter((l) => l.kind === 'story_done')).toHaveLength(1)
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', target: 'c1', outcome: 'acted', note: 'marked on the board' }))
@@ -2236,7 +2236,7 @@ test.describe('P1440: stories reach the agent', () => {
     await storyBox(page).fill(`${STORY} And one more line.`)
     await acceptBtn(page).click()
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
   })
 
   test('O5: Mark done waits while the card has an unsaved story, and says why', async ({ page }) => {
@@ -2250,8 +2250,11 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('.d-pcard [data-story-done]')).toBeDisabled()
     // one line says both, and it outweighs the grey state line (review visual 4)
     const marker = page.locator('.d-pcard [data-story-unsaved]')
-    await expect(marker).toHaveText('Not saved — press Accept to save. Mark done waits until you do.')
+    await expect(marker).toHaveText('Not saved')
     await expect(page.locator('.d-pcard [data-story-done-hint]')).toHaveCount(0)
+    // the reason lives on the disabled Done only (tooltip and accessible name)
+    await expect(page.locator('.d-pcard [data-story-done]')).toHaveAttribute('title', /Accept the edited story first/)
+    await expect(page.locator('.d-pcard [data-story-done]')).toHaveAccessibleName(/^Mark done: .*Accept the edited story first/)
     const look = (sel: string) => page.locator(sel).evaluate((e) => ({ color: getComputedStyle(e).color, weight: getComputedStyle(e).fontWeight }))
     expect(await look('.d-pcard [data-story-unsaved]')).toEqual({ color: 'rgb(146, 64, 14)', weight: '600' }) // --amber-800, the "needs you" colour
     expect((await look('.d-pcard [data-story-state]')).color).not.toBe('rgb(146, 64, 14)')
@@ -2264,7 +2267,7 @@ test.describe('P1440: stories reach the agent', () => {
     await page.getByRole('button', { name: 'Previous run' }).click()
     await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
     await reflTab(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
     await expect(page.locator('.d-story-ro')).toHaveText('Invented story on the earlier run.')
     await expect(page.locator('[data-story-done], [data-story-resend]')).toHaveCount(0)
   })
@@ -2372,12 +2375,12 @@ test.describe('P1440: stories reach the agent', () => {
       await collapseSidebar(page)
       await reflTab(page).click()
       const earlier = page.locator('[data-earlier-stories]')
-      await expect(earlier).toContainText('Earlier stories not yet handled (3)')
-      await expect(earlier.locator('[data-story-state="stuck"] [data-story-line]')).toHaveText('Story: stuck — sent 3 times, still open')
+      await expect(earlier).toContainText('Earlier stories (3)')
+      await expect(earlier.locator('[data-story-state="stuck"] [data-story-line]')).toHaveText('Stuck')
       // O6: no horizontal overflow, anywhere on the page or in a story
       const over = await page.evaluate(() => {
         const r = document.querySelector('.day-root')
-        const wide = [...document.querySelectorAll('.d-story-ro, [data-earlier-story] *, .d-pcard *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline').length
+        const wide = [...document.querySelectorAll('.d-story-ro, [data-earlier-story] *, .d-pcard *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline' && getComputedStyle(e).textOverflow !== 'ellipsis').length
         return { root: r ? r.scrollWidth - r.clientWidth : -1, wide }
       })
       expect(over).toEqual({ root: 0, wide: 0 })

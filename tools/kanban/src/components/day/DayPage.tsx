@@ -429,7 +429,6 @@ export function DayPage() {
       chain.current = chain.current.then(async () => {
         try {
           await postStory(action, action === 'done' ? { ...base, outcome: 'acted', note: 'marked on the board' } : base)
-          say(action === 'done' ? 'Story marked done' : 'Story will go out with the next send')
         } catch (err) {
           say(`Not saved: ${(err as Error).message}`)
         }
@@ -968,13 +967,12 @@ export function DayPage() {
                     type="button"
                     className="d-still"
                     data-unsaved-stories
-                    data-short={`unsaved: ${unsavedIds.length}`}
                     onClick={() => {
                       setTab('reflection')
                       if (firstUnsaved >= 0) setReflIdx(firstUnsaved)
                     }}
                   >
-                    {unsavedIds.length === 1 ? '1 typed story not saved yet — Accept it first' : `${unsavedIds.length} typed stories not saved yet — Accept them first`}
+                    {unsavedIds.length} unsaved
                   </button>
                 )}
                 {tab === 'report' && mode === 'agent' && yours.length > 0 && (

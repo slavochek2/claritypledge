@@ -406,6 +406,12 @@
 .d-wrap { overflow-wrap: anywhere; min-width: 0; }
 /* an unsaved story edit needs the founder: amber, like every other "needs you" */
 .d-unsaved { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--amber-800); }
+/* P1440 story state: a chip, then its actions, on one line */
+.d-schips { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; margin-top: 6px; }
+.d-schip { background: var(--soft); color: var(--fg2); }
+.d-schip.stuck { background: var(--amber); color: #fff; }
+.d-schip.done { background: var(--green-50); color: var(--green-800); }
+.d-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 @container day (max-width: 359px) {
   .d-gin { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nav nav" "prog act"; }

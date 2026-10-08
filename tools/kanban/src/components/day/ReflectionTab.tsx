@@ -143,7 +143,7 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
                 done: p !== null || hasStory(x.id),
                 kind: 'open',
                 // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
-                word: unsaved(x.id) ? 'Story not saved' : p === null ? (hasStory(x.id) ? 'Story, no position' : 'Not rated') : LONG[p],
+                word: unsaved(x.id) ? 'Unsaved' : p === null ? (hasStory(x.id) ? 'Story, no position' : 'Not rated') : LONG[p],
                 attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (hasStory(x.id) ? 'story' : 'unrated') : 'rated' },
               }
             })}
@@ -227,9 +227,9 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
               </div>
               <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
               {unsaved(s.id) && (
-                // one line for both facts: the edit is not saved, and Mark done waits for it (it would close the older version)
-                <p className="d-unsaved d-wrap" data-story-unsaved>
-                  {entry && entry.state !== 'done' ? 'Not saved — press Accept to save. Mark done waits until you do.' : 'Not saved — press Accept to save'}
+                // Accept is right below in the bar; why Done waits is in Done's own tooltip
+                <p className="d-unsaved" data-story-unsaved>
+                  Not saved
                 </p>
               )}
               {entry && (
@@ -237,7 +237,7 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
                   entry={entry}
                   readOnly={readOnly}
                   busy={busy}
-                  blocked={unsaved(s.id) ? 'Accept the edited story first: Mark done would close the version saved before.' : undefined}
+                  blocked={unsaved(s.id) ? 'Accept the edited story first: Done would close the version saved before.' : undefined}
                   onMarkDone={onMarkDone}
                   onResend={onResend}
                 />
@@ -251,9 +251,9 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
   )
 }
 
-const OUTCOME: Record<string, string> = { acted: 'acted on', answered: 'answered', declined: 'declined', 'batch-closed': 'closed in a batch' }
+const OUTCOME: Record<string, string> = { acted: 'acted', answered: 'answered', declined: 'declined', 'batch-closed': 'closed' }
 
-/** P1440: where a story is — the founder sees whether the agent got it and whether it was handled. */
+/** P1440: where a story is, as a chip (grey · amber when stuck · green when done), and its one or two actions. */
 function StoryState({
   entry,
   readOnly,
@@ -265,51 +265,45 @@ function StoryState({
   entry: StoryEntry
   readOnly: boolean
   busy: ReadonlySet<string>
-  /** why Mark done must wait (an edited story not saved yet), if it must: disables it, said by its tooltip (the card's unsaved line says it too) */
+  /** why Done must wait (an edited story not saved yet): disables it; said in its tooltip and accessible name only */
   blocked?: string
   onMarkDone: (e: StoryEntry) => void
   onResend: (e: StoryEntry) => void
 }) {
-  const line =
+  const chip =
     entry.state === 'done'
-      ? `Story: done · ${OUTCOME[entry.outcome ?? ''] ?? entry.outcome ?? 'marked'}`
+      ? `Done · ${OUTCOME[entry.outcome ?? ''] ?? entry.outcome ?? ''}`
       : entry.state === 'stuck'
-        ? `Story: stuck — sent ${entry.sends} times, still open`
+        ? 'Stuck'
         : entry.state === 'sent'
-          ? `Story: sent to the agent (${entry.sends}×)`
-          : 'Story: not sent yet'
+          ? `Sent ×${entry.sends}`
+          : 'Not sent'
   const inFlight = busy.has(`${entry.run_id}\u0000${entry.target}`)
   const open = !readOnly && entry.state !== 'done'
   return (
-    <>
-      <div className="d-sub d-wrap" data-story-state={entry.state}>
-        <span data-story-line>{line}</span>
-        {open && entry.state === 'stuck' && (
-          <>
-            {' · '}
-            <button type="button" className="d-link d-tap" data-story-resend aria-label={`Send again: ${entry.statement}`} disabled={inFlight} onClick={() => onResend(entry)}>
-              Send again
-            </button>
-          </>
-        )}
-        {open && (
-          <>
-            {' · '}
-            <button
-              type="button"
-              className="d-link d-tap"
-              data-story-done
-              aria-label={`Mark done: ${entry.statement}`}
-              disabled={inFlight || !!blocked}
-              title={blocked}
-              onClick={() => onMarkDone(entry)}
-            >
-              Mark done
-            </button>
-          </>
-        )}
-      </div>
-    </>
+    <div className="d-schips" data-story-state={entry.state}>
+      <span className={`d-pill d-schip ${entry.state}`} data-story-line title={entry.state === 'stuck' ? `Sent ${entry.sends} times, still open` : undefined}>
+        {chip}
+      </span>
+      {open && entry.state === 'stuck' && (
+        <button type="button" className="d-link d-tap" data-story-resend aria-label={`Send again: ${entry.statement}`} disabled={inFlight} onClick={() => onResend(entry)}>
+          Resend
+        </button>
+      )}
+      {open && (
+        <button
+          type="button"
+          className="d-link d-tap"
+          data-story-done
+          aria-label={`Mark done: ${entry.statement}${blocked ? ` (${blocked})` : ''}`}
+          disabled={inFlight || !!blocked}
+          title={blocked}
+          onClick={() => onMarkDone(entry)}
+        >
+          Done
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -329,11 +323,11 @@ function EarlierStories({
 }) {
   return (
     <section className="d-card d-pad d-notes d-wrap" data-earlier-stories aria-label="Earlier stories not yet handled">
-      <h3 className="d-sub1">Earlier stories not yet handled ({entries.length})</h3>
+      <h3 className="d-sub1">Earlier stories ({entries.length})</h3>
       {entries.map((e) => (
         <div className="d-note-item" key={`${e.run_id}/${e.target}`} data-earlier-story={`${e.run_id}/${e.target}`}>
-          <p className="d-sub d-wrap">
-            {dayLabel(e.run_started_at ?? e.edited_at)} · “{e.statement}”
+          <p className="d-sub d-ell" title={e.statement}>
+            {dayLabel(e.run_started_at ?? e.edited_at)} · {e.statement}
           </p>
           <p className="d-story-ro">{e.story}</p>
           <StoryState entry={e} readOnly={readOnly} busy={busy} onMarkDone={onMarkDone} onResend={onResend} />
