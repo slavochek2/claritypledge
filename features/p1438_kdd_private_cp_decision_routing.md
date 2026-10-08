@@ -127,3 +127,7 @@ Hostile review of the implementation, public files only (private files not sent:
 - `/kdd` commit block lacked the scan command; 6.25 read ran before staging → block now stages, reads `git diff --cached`, runs the scan, then commits.
 - **Accepted, not fixed:** CI cannot run the known-names check (no `.private/` there, by design — names must not be shipped to CI); decomposed-Unicode and line-split names; a hyphenated non-person CRM filename would be treated as a name; "never quote private into public" is an instruction, not an enforced boundary. The agent's own read of the public half stays the primary gate.
 - **Out of scope, noted:** `/kdd` step 4.6 tells the agent to `git add .private/...` from the public repo (pre-existing; `.private/` is a separate repo).
+
+## Re-review (Codex, 2026-10-08) — 1 of 1 report received
+
+Verified FIXED by its own commands: range-mode commit messages, separator bypasses, empty-sources warning, `/kdd` commit-block order. Two new defects, both fixed and re-tested: max-hits `0` / oversized accepted (now 1–9999, else exit 2); a grep error inside the known-names check passed as "no name" (now fails closed — proven with a fault-injected grep, exit 1). Evidence gap it named: GNU grep under a UTF-8 locale not tested (BSD grep only).

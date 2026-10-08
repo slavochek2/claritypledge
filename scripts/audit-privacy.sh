@@ -219,7 +219,7 @@ NAME_SEP="([[:space:][:punct:]]|"$'\xc2\xa0'
 for _b in 90 91 92 93 94 95; do NAME_SEP="${NAME_SEP}|"$'\xe2\x80'"$(printf "\\x$_b")"; done
 NAME_SEP="${NAME_SEP}){1,3}"
 scan_known_names() {
-  local content="$1" priv name pat hits=""
+  local content="$1" priv name pat rc hits=""
   priv="$(resolve_private_dir)" || priv=""
   if [ -z "$priv" ]; then
     echo "audit-privacy: .private/ not found — known-names check skipped" >&2
@@ -238,8 +238,12 @@ scan_known_names() {
     # decomposed-Unicode spellings — the agent's own read stays the primary gate.
     pat=$(printf '%s' "$name" | sed -E 's/[][\.*^$+?(){}|/]/\\&/g; s/[[:space:]]+/ /g')
     pat="${pat// /$NAME_SEP}"
-    if grep -qiE "(^|[^[:alnum:]_])${pat}([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); then
+    grep -qiE "(^|[^[:alnum:]_])${pat}([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); rc=$?
+    if [ "$rc" = 0 ]; then
       hits="${hits}known name from .private: ${name}"$'\n'
+    elif [ "$rc" -gt 1 ]; then
+      # Fail closed: a check that errored has not shown the name is absent.
+      hits="${hits}known-names check ERROR (grep exit $rc) on entry: ${name}"$'\n'
     fi
   done <<< "$names"
   printf '%s' "$hits"

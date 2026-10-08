@@ -19,7 +19,7 @@
 PATTERN="${1:-}"
 MAX="${2:-20}"
 [ -n "$PATTERN" ] || { echo "usage: $0 <extended-regex> [max-hits-per-log]" >&2; exit 2; }
-case "$MAX" in ''|*[!0-9]*) echo "search-decisions: max-hits must be a positive integer: $MAX" >&2; exit 2 ;; esac
+case "$MAX" in ''|*[!0-9]*|0*|?????*) echo "search-decisions: max-hits must be an integer 1-9999: $MAX" >&2; exit 2 ;; esac
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "search-decisions: not a git repo" >&2; exit 2; }
 COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
