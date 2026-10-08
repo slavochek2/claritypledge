@@ -296,15 +296,31 @@ control "Phase D: Qualified is not amber" "COLOURS" \
   src/components/PipelinePage.tsx "s/color: '#64748b'/color: '#f59e0b'/" "$C"
 # 7. the pipeline funnel
 control "Phase D: the pipeline folder is found from any working directory" "the repo root is still found" \
-  scripts/day-pipeline.ts 's/process\.env\.KANBAN_PROJECT_ROOT \?\? REPO_ROOT/process.env.KANBAN_PROJECT_ROOT ?? join(process.cwd(), "..", "..")/' "$P"
+  scripts/day-pipeline.ts 's/process\.env\.KANBAN_PROJECT_ROOT \?\? mainCheckoutRoot\(\)/process.env.KANBAN_PROJECT_ROOT ?? join(process.cwd(), "..", "..")/' "$P"
 control "Phase D: an opposite angle is not a repeat" "opposite angle" \
   scripts/day-reflection-history.ts 's/  if \(pa\.size !== pb\.size \|\| \[\.\.\.pa\]\.some\(\(w\) => !pb\.has\(w\)\)\) return 0\n//' "$H"
 control "Phase D: closed is not a funnel column" "counts each Pipeline column" \
-  scripts/day-pipeline.ts 's/    if \(stage === .closed.\) continue\n//' "$P"
-control "Phase D: no or unknown stage counts as contacted" "counts each Pipeline column" \
-  scripts/day-pipeline.ts 's/: .contacted.\]\+\+/: "active"]++/' "$P"
+  scripts/day-pipeline.ts "s/if \(o\.stage !== 'closed'\) counts/if (true) counts/" "$P"
+control "Phase D: no or unknown stage counts as unknown, not a real column" "counts each Pipeline column" \
+  scripts/day-pipeline.ts "s/\(s as Stage\) : 'unknown'/(s as Stage) : 'contacted'/" "$P"
+control "Phase D: an unparseable file is counted, never dropped" "counted as unknown, never dropped" \
+  scripts/day-pipeline.ts "s/      out\.push\(\{ stage: 'unknown', name: id, why: [^\n]*\n//" "$P"
+control "Pipeline summary: booked is committed or active" "booked = committed" \
+  scripts/day-pipeline.ts "s/\['committed', 'active'\]/['active']/" "$P"
+control "Pipeline summary: contacted is not a conversation" "unanswered outreach is not a conversation" \
+  scripts/day-pipeline.ts "s/\['in-conversation', 'qualified', 'committed', 'active'\]/['contacted', 'in-conversation', 'qualified', 'committed', 'active']/" "$P"
+control "Pipeline summary: the board-note line carries no name" "only the detail line may name" \
+  scripts/day-pipeline.ts 's/overdue\(opps, today\)\.length\}/overdue(opps, today).map((o) => o.name).join()}/' "$P"
+control "Pipeline summary: a filename cannot break the line" "cannot break the one-line contract" \
+  scripts/day-pipeline.ts "s/const id = oneLine\(n\.slice\(0, -3\)\)/const id = (n.slice(0, -3))/" "$P"
+control "Pipeline summary: target is read from goals.md" "target from goals.md" \
+  scripts/day-pipeline.ts "s/m \? Number\(m\[1\]\) : null/m ? 5 : null/" "$P"
+control "Pipeline summary: booked and closed are not overdue" "overdue lists open" \
+  scripts/day-pipeline.ts "s/o\.stage !== 'closed' && !\(BOOKED as readonly string\[\]\)\.includes\(o\.stage\) && o\.next_date/o.next_date/" "$P"
 control "Phase D: a missing folder is none, not zeros" "empty folder is real zeros" \
-  scripts/day-pipeline.ts 's/  \} catch \{\n    return null\n  \}\n  const counts/  } catch {\n    names = []\n  }\n  const counts/' "$P"
+  scripts/day-pipeline.ts "s/if \(\(err as NodeJS\.ErrnoException\)\.code === 'ENOENT'\) return null/if ((err as NodeJS.ErrnoException).code === 'ENOENT') names = []; else/" "$P"
+control "Pipeline summary: an unreadable folder throws, never reads as none" "cannot be read throws" \
+  scripts/day-pipeline.ts "s/    throw err\n  \}/    return null\n  }/" "$P"
 # 8. reflection memory
 control "Phase D: a near-identical statement is a repeat (threshold disabled)" "Jaccard of the word sets" \
   scripts/day-reflection-history.ts 's/const REPEAT_JACCARD = 0\.8/const REPEAT_JACCARD = 2/' "$H"

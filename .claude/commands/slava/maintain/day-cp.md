@@ -1230,13 +1230,29 @@ the dispatcher records them.
 ```
 
 The outreach pipeline is counted by a script, not read by you. Run it **from the repo root** — it
-prints one line of counts (no names) from the board's Pipeline columns, and copy that line as the
-`pipeline:` line of the block below:
+reads the CRM opportunity files from the **main** checkout (`.private/` is gitignored, so a worktree
+has none) and prints three lines. Copy the first as the `pipeline:` line of the block below (counts
+only, no names). The second, the `PIPELINE` line, is the founder's reading of goals.md's outreach
+goal, also counts only: copy it verbatim as the **first body line of the `whats-next` note** (Step 6),
+where the board shows it. The third, `PIPELINE detail`, names overdue contacts and broken files: show
+it to the founder in the terminal and **never copy it into a note, the report block or any file** —
+opportunity names and filenames are private contacts. The count rules (booked = committed|active, unknown stage never dropped, the target read
+from goals.md) live in the script's header, not here. A non-zero exit means the folder exists but
+could not be read — the line says why; record it as a finding (`--fault-key pipeline:unreadable`),
+never as "none":
 
 ```bash
 npx tsx tools/kanban/scripts/day-pipeline.ts
-# pipeline: contacted=N in-conversation=N qualified=N committed=N active=N   (or: pipeline: none)
+# pipeline: contacted=N in-conversation=N qualified=N committed=N active=N unknown=N   (or: pipeline: none)
+# PIPELINE  N conversations (… by stage) · N contacted · N booked — target: N conversations → 1 booking; overdue next_date: N
+# PIPELINE detail (terminal only, never copy to the board): overdue: … ; fix the file: …   (or: nothing to name)
 ```
+
+`unknown` above zero means an opportunity file whose stage the script could not read — the
+detail line names the file and why. The board leaves an unparseable file out entirely, so these lines
+are the only place it shows: record it as a finding (the count, not the filename), `--check cp.health --fault-key pipeline:unknown-stage
+--severity low`, never fold it into a column. `target: unparseable` means goals.md no longer states
+"N conversations with 0 bookings" — say so; do not substitute a number.
 
 End your reply with this block — the dispatcher reads it and records it (its Step 9d); nothing in
 it is printed for the founder. Leave a line out rather than guess it:
@@ -1253,7 +1269,7 @@ REPORT FOR THE DISPATCHER
   funnel_story_authors: <N> (<+change>)
   funnel_position_users: <N> (<+change>)
   funnel_agreements: <N> (<+change>)
-  pipeline: <the line day-pipeline.ts printed: contacted=N in-conversation=N qualified=N committed=N active=N, or none; leave the line out when the script did not run>
+  pipeline: <the line day-pipeline.ts printed: contacted=N in-conversation=N qualified=N committed=N active=N unknown=N, or none; leave the line out when the script did not run>
   events_per_week: <Wave 2's events_per_week= value as printed; leave the line out when it is unknown>
   people: <N recorded>
 ```
@@ -1486,7 +1502,7 @@ this pass has content for:
 | id | title | content |
 |---|---|---|
 | `shipped` | Shipped since the last run | Step 2c's SINCE LAST /day, BUSINESS, INSIGHT and CHALLENGE lines, in user-value words |
-| `whats-next` | What's next | Step 3's WHAT'S NEXT (or its "unavailable" line), DO and DON'T |
+| `whats-next` | What's next | the `PIPELINE` line from day-pipeline.ts first (the "REPORT block" section), then Step 3's WHAT'S NEXT (or its "unavailable" line), DO and DON'T |
 | `branches` | Branches and specs | Step 4's BRANCHES block and the stranded-spec list from Wave 1 |
 | `cloud-spend` | Cloud spend estimate | Wave 1's `EST_PER_DAY` / `EST_SINCE_LAST` line, as "about €X a day, €Y since the last run (an estimate from running resources, not billed)" |
 | `weekly-review` | Weekly review | the review's measurements: Metrics, product pulse, user health, SEO pulse, GCP spend, Evidence Signals (review `weekly`) |
