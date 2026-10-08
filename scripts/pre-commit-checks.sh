@@ -554,6 +554,22 @@ else
 fi
 echo ""
 
+# 4.7h. Table/column grant drift checker canary (P1321) — runs when the checker is
+# staged. Offline: proves the migration-replay model still scores the shapes this
+# schema uses (table revoke + column re-grant, PUBLIC inheritance, a grant inside a
+# function body that is NOT a grant) and still models event_room_members as
+# column-scoped in the real tree. A model that drifted would make every live run
+# report "no drift" against a wrong expectation.
+TABLE_GRANT_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/table-grant-drift-check\.py$' || true)
+if [ -n "$TABLE_GRANT_STAGED" ]; then
+    if ! run_quiet "Table grant drift checker self-test (P1321)" python3 scripts/table-grant-drift-check.py --self-test; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Table grant drift checker self-test skipped (checker not staged)"
+fi
+echo ""
+
 # 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
 # canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
 # identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
