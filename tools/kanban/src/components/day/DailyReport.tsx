@@ -3,7 +3,7 @@
 // reports clicks.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { OWN, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
@@ -412,6 +412,7 @@ function IssueCard(p: Props) {
   const issue = issues[Math.min(p.index, issues.length - 1)]
   const sel = issue ? p.selected(issue) : null
   const tech = issue ? technicalDetail(issue) : null
+  const detail = issue ? cardDetail(issue).show : {}
 
   // Focus the custom answer's box only when it is picked — never when paging lands here.
   useEffect(() => {
@@ -506,20 +507,29 @@ function IssueCard(p: Props) {
         </div>
         <StateLine st={cardState(issue, p.sent)} readOnly={readOnly} />
         <h2>{issue.title}</h2>
-        <dl className="d-abc">
-          <div>
-            <dt>Point A</dt>
-            <dd>{issue.point_a}</dd>
-          </div>
-          <div>
-            <dt>Obstacle</dt>
-            <dd>{issue.obstacle}</dd>
-          </div>
-          <div>
-            <dt>Point B</dt>
-            <dd>{issue.point_b}</dd>
-          </div>
-        </dl>
+        {/* P1445 F: a field that only restates the title (or a field above it) is not shown */}
+        {(detail.point_a || detail.obstacle || detail.point_b) && (
+          <dl className="d-abc">
+            {detail.point_a && (
+              <div>
+                <dt>Point A</dt>
+                <dd>{detail.point_a}</dd>
+              </div>
+            )}
+            {detail.obstacle && (
+              <div>
+                <dt>Obstacle</dt>
+                <dd>{detail.obstacle}</dd>
+              </div>
+            )}
+            {detail.point_b && (
+              <div>
+                <dt>Point B</dt>
+                <dd>{detail.point_b}</dd>
+              </div>
+            )}
+          </dl>
+        )}
         <button type="button" className="d-morebtn" aria-expanded={more} onClick={() => setMoreOpen((m) => ({ ...m, [issue.fp]: !more }))}>
           <span className="d-tri">▶</span>More info
         </button>
@@ -541,16 +551,16 @@ function IssueCard(p: Props) {
                 <dd>{issue.source}</dd>
               </div>
             )}
-            {issue.evidence_text && (
+            {detail.evidence_text && (
               <div>
                 <dt>What the check found</dt>
-                <dd>{issue.evidence_text}</dd>
+                <dd>{detail.evidence_text}</dd>
               </div>
             )}
-            {issue.more_info && (
+            {detail.more_info && (
               <div>
                 <dt>Details</dt>
-                <dd>{issue.more_info}</dd>
+                <dd>{detail.more_info}</dd>
               </div>
             )}
             {tech && (

@@ -1526,3 +1526,42 @@ export function runWarnings(report: Pick<DayReport, 'state' | 'started_at'>, now
   if (report.state !== 'complete') out.push('unfinished')
   return out
 }
+
+// ---------------------------------------------------------------------------------------
+// P1445 F: less text, no repetition. A detail field that says nothing the title (or a field shown
+// before it) has not already said is dropped, not shown.
+
+const DETAIL_STOP = new Set(
+  'the a an and or of to in on at for with by is are was were be been it its this that these those as from into not no but so if then than there their our your we you they he she i'.split(' '),
+)
+const contentWords = (s: string): string[] => (s.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 2 && !DETAIL_STOP.has(w))
+/** At least this share of a field's content words already said → the field restates. */
+const RESTATE_SHARE = 0.8
+
+/** Does `field` say nothing beyond `said`? An empty field restates trivially. */
+export function restates(field: string, ...said: string[]): boolean {
+  const w = contentWords(field)
+  if (!w.length) return true
+  const known = new Set(said.flatMap(contentWords))
+  return w.filter((x) => known.has(x)).length / w.length >= RESTATE_SHARE
+}
+
+export type DetailKey = 'point_a' | 'obstacle' | 'point_b' | 'evidence_text' | 'more_info'
+const DETAIL_KEYS: DetailKey[] = ['point_a', 'obstacle', 'point_b', 'evidence_text', 'more_info']
+
+/** The card's detail fields that add something, in order; each is measured against the title and the fields kept before it. */
+export function cardDetail(issue: Pick<DayIssue, 'title' | DetailKey>): { show: Partial<Record<DetailKey, string>>; dropped: DetailKey[] } {
+  const show: Partial<Record<DetailKey, string>> = {}
+  const dropped: DetailKey[] = []
+  const said = [issue.title]
+  for (const k of DETAIL_KEYS) {
+    const v = issue[k]
+    if (typeof v !== 'string' || !v.trim()) continue
+    if (restates(v, ...said)) dropped.push(k)
+    else {
+      show[k] = v
+      said.push(v)
+    }
+  }
+  return { show, dropped }
+}

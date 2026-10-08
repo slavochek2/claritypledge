@@ -179,7 +179,6 @@
   .d-mdmain.d-pwrap { margin: 0; max-width: 640px; }
   /* the decision fits the first screen: less air above and inside the card, never smaller text */
   .d-mdmain { gap: 8px; }
-  .d-mdmain .d-aline { min-height: 32px; }
   .d-mdmain .d-focus { padding: 18px 22px; }
   .d-mdmain .d-focus h2 { margin: 4px 0 10px; }
   .d-mdmain .d-state { margin-top: 6px; }
@@ -223,9 +222,6 @@
 
 /* Phase D: agent line, cause tag, fit and risk, technical detail, the custom answer */
 .d-issues > * { min-width: 0; }
-.d-aline > span { min-width: 0; }
-.d-aline { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; min-height: 40px; font-size: 13px; color: var(--fg2); }
-.d-aline .d-link { font-size: 13px; }
 .d-cause { font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--soft); border: 1px solid var(--line2); border-radius: 99px; padding: 1px 9px; white-space: nowrap; }
 .d-rec.dim { color: var(--fg3); background: var(--soft); border-color: var(--line); font-weight: 500; }
 .d-risk { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; color: var(--fg3); overflow-wrap: anywhere; }
@@ -371,32 +367,7 @@
 
 /* reflection: the product's point card look */
 .d-pwrap { max-width: 640px; margin: 8px auto 0; }
-.d-pcard { display: flex; gap: 12px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-left: 4px solid rgba(100, 116, 139, .5); border-radius: 8px; box-shadow: var(--sh); padding: 20px 20px 18px; }
-.d-pin { width: 32px; height: 32px; border-radius: 99px; background: var(--soft); color: var(--fg2); display: grid; place-items: center; flex-shrink: 0; }
-.d-pbody { flex: 1; min-width: 0; }
 .d-pst { font-size: 17px; font-weight: 500; line-height: 1.45; margin: 0 0 6px; overflow-wrap: anywhere; }
-.d-pbwrap { margin-top: 8px; position: relative; }
-.d-pbrow { display: inline-flex; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-.d-pbseg { position: relative; flex: 1; min-width: 0; }
-.d-pbseg + .d-pbseg .d-pb { border-left: 1px solid var(--line); }
-.d-pb { width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 8px 4px; border: 0; background: #fff; color: #374151; font-size: 12px; font-weight: 500; text-align: center; overflow-wrap: anywhere; }
-.d-pb svg { flex-shrink: 0; }
-.d-pbseg:first-child .d-pb { border-radius: 8px 0 0 8px; }
-.d-pbseg:last-child .d-pb { border-radius: 0 8px 8px 0; }
-.d-pb:hover:not(:disabled) { background: #f9fafb; }
-.d-pb.on { background: var(--blue); color: #fff; }
-.d-pb.on:hover:not(:disabled) { background: var(--blue-d); }
-.d-pb .dim { opacity: .5; }
-.d-pmenu { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1); padding: 4px 0; min-width: 170px; }
-.d-pbseg:last-child .d-pmenu { left: auto; right: 0; }
-.d-pbseg:nth-child(2) .d-pmenu { left: 50%; transform: translateX(-50%); }
-.d-pmenu.up { top: auto; bottom: calc(100% + 4px); }
-.d-pmenu { max-width: calc(100cqw - 32px); }
-.d-pmenu button { display: flex; gap: 8px; align-items: center; width: 100%; min-height: 40px; border: 0; background: none; text-align: left; padding: 8px 12px; font-size: 14px; }
-.d-pmenu button:hover { background: #f9fafb; }
-.d-ck { width: 14px; color: var(--fg); }
-.d-psep { border-top: 1px solid #f3f4f6; margin: 4px 0; }
-.d-pmenu .d-prm { color: var(--fg2); }
 .d-story { margin-top: 14px; }
 .d-slab { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .d-slab span { font-weight: 400; color: var(--fg3); }
@@ -436,16 +407,12 @@
   .d-bline { display: none; }
   .d-gin { padding: 6px 0; gap: 6px 8px; }
   .d-nbtn { height: 44px; }
-  .d-pcard { padding: 14px 12px 12px; gap: 8px; }
-  .d-pin { display: none; }
-  .d-pb { font-size: 11.5px; }
   /* P1440: with the unsaved-stories link in the bar too, the links take their short labels */
   .d-tight .d-still[data-short] { font-size: 0; }
   .d-tight .d-still[data-short]::after { content: attr(data-short); font-size: 12px; }
 }
 
 @container day (max-width: 360px) {
-  .d-pb svg { display: none; }
   /* "0/13" instead of "0 of 13 resolved"; the full text stays in the DOM for readers */
   [data-progress][data-short] { font-size: 0; }
   [data-progress][data-short]::after { content: attr(data-short); font-size: 12px; }
@@ -465,9 +432,6 @@
   .d-nbtn .d-nl { display: inline; }
   .d-nbtn .d-ns { display: none; }
   .d-bpos { min-width: 58px; font-size: 14px; }
-  .d-pbrow { width: auto; }
-  .d-pbseg { flex: initial; min-width: 90px; }
-  .d-pb { padding: 8px 12px; }
   .d-rd .d-pad { padding: 16px; }
   .d-sn { font-size: 13px; }
   .d-sv { font-size: 26px; }
