@@ -129,14 +129,14 @@ permanent claim; it cannot prove the approval happened.
 
 ## Done-When
 
-- [ ] A withdrawn or retracted spec with no branch closes through `git-ops.sh ship pN` with both SKIP lines and no founder input; a `type: comment`-only spec refuses (canary)
-- [ ] The same spec with a `feature/pN-*` branch carrying a code commit ahead of main refuses (canary)
-- [ ] A spec relabelled to withdrawn/retracted within the closing range refuses (canary)
-- [ ] A closing commit touching any path besides the spec and its UAT file refuses (canary)
-- [ ] A real spec on a red gate refuses without approval, and refuses when approval is declined (canary, keychain read injected only in the test harness that calls the extracted decision function)
-- [ ] A defeated or indeterminate access list on the approval item refuses (canary)
-- [ ] The refusal text no longer says "run this in your Terminal"; it names the one-click approval
-- [ ] `closure-gate.yml` re-derives the administrative close from committed blobs (local run of its logic against a fixture commit pasted)
+- [x] A withdrawn or retracted spec with no branch closes through `git-ops.sh ship pN` with both SKIP lines and no founder input; a `type: comment`-only spec refuses (canary) (L1, L1d; real-repo P1274 dry run)
+- [x] The same spec with a `feature/pN-*` branch carrying a code commit ahead of main refuses (canary) (L2 local, L2b remote-only, C4 CI)
+- [x] A spec relabelled to withdrawn/retracted within the closing range refuses (canary) (L3, L3b, L3c, C2, C9)
+- [x] A closing commit touching any path besides the spec and its UAT file refuses (canary) (L4 under the lock, C3, C15)
+- [x] A real spec on a red gate refuses without approval, and refuses when approval is declined (canary, keychain read injected only in the test harness that calls the extracted decision function) (R1, D2, E2)
+- [x] A defeated or indeterminate access list on the approval item refuses (canary) (D3–D6, E3, E4)
+- [x] The refusal text no longer says "run this in your Terminal"; it names the one-click approval (R1, test-pipeline-gates B2)
+- [x] `closure-gate.yml` re-derives the administrative close from committed blobs (local run of its logic against a fixture commit pasted) (C0–C15 run the workflow's own run: blocks; C1 log in the suite output)
 - [x] P1274 qualifies for the administrative path. Pre-ship evidence (2026-10-08, real repo, `bash scripts/ship-gates.sh p1274`): `[GATE ADMIN] NOT ELIGIBLE: origin/main does not carry scripts/lib/admin-close.sh yet — ship P1444 first ...; every other condition passed`. The ordering check runs last, so every other condition passed against the real history, refs and review log. `[post-ship]` once P1444 is on origin/main: close P1274 with `./scripts/git-ops.sh ship p1274`, then re-check that CI passes on the pushed close.
 
 ## Alternatives Considered
