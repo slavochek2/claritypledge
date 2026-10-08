@@ -9,7 +9,9 @@ clause is PUBLIC) -- silently defaulting to PUBLIC, i.e. every role
 including unauthenticated. This exact pattern has recurred once already in
 this codebase's history (see the P1039 spec for the two-incident timeline).
 
-A flagged migration must declare its intent:
+A flagged migration must declare its intent (the annotation counts only as a
+genuine `--` comment, never inside a string, block comment or dollar-quoted
+body, and an exempted file says EXEMPTED rather than reading as clean, P1044):
   -- intentionally-public: <reason>
       the author affirms the policy is deliberately open to all roles,
       mirroring the existing "-- client-safe: <reason>" convention
@@ -20,7 +22,9 @@ A flagged migration must declare its intent:
 Detected shape (best-effort, NOT exhaustive -- see P1039 Non-Goals):
   CREATE POLICY ... FOR <ALL|INSERT|UPDATE|DELETE>  (SELECT is never
   flagged -- public reads are a normal, common pattern in this schema)
-  ... USING(true) or WITH CHECK(true), or referencing a role-identity
+  ... a CONSTANT USING/WITH CHECK (one naming no column and no function --
+  `true`, `((true))`, `1=1`, `NOT false`, `true AND true`, ...; a plain
+  `false` deny is exempt, P1044), or one referencing a role-identity
   function ... with no TO <role> clause, or a TO clause whose role list
   includes PUBLIC. ALTER POLICY ... TO PUBLIC (widening an existing
   policy) is flagged independently of CREATE POLICY.
@@ -79,17 +83,37 @@ ROLE_IDENTITY_RE = re.compile(
     r"|auth\.jwt\s*\(\s*\)\s*->>?\s*(['\"])role\3",
     re.IGNORECASE,
 )
+# P1044: a predicate is CONSTANT when, with strings and comments blanked, it
+# names nothing but these keywords plus numbers and operators -- no column, no
+# function, so it cannot tell one row or caller from another. This replaces
+# enumerating spellings of `true`, which P1207 showed is a losing game
+# (`true AND true`, `2 > 1`, `NOT false` defeated an allowlist in a minute).
+# Known limit, stated: a predicate calling a function that ignores the caller
+# (e.g. `now() IS NOT NULL`) is not constant by this test and is not flagged.
+CONSTANT_WORDS = frozenset(
+    "true false null not and or is distinct from select cast as case when then "
+    "else end in between like unknown boolean bool int integer int2 int4 int8 "
+    "smallint bigint numeric text".split()
+)
+_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
+_PREDICATE_HEAD_RE = re.compile(r"\b(USING|WITH\s+CHECK)\s*\(", re.IGNORECASE)
 NAME_RE = re.compile(r'(?:CREATE|ALTER)\s+POLICY\s+("[^"]+"|\S+)', re.IGNORECASE)
 
 _DOLLAR_TAG_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$")
 
 
-def _strip_noise(text):
+def _strip_noise(text, keep_line_comments=False):
     """Blank single-quoted strings, double-quoted identifiers, nesting-aware
     `/* */` block comments, `$$...$$`/`$tag$...$tag$` dollar-quoted strings,
     and `--` line comments (length/newlines preserved) so keyword matching
     only sees real SQL syntax -- never literal content, an identifier's own
     text, or comment prose.
+
+    keep_line_comments=True leaves genuine `--` comments verbatim (and still
+    blanks everything else). That is the view the exemption annotation is
+    matched against: the annotation IS a line comment, so the normal view
+    would erase it, while the raw text lets a string, block comment or
+    dollar-quoted body carry the phrase and exempt the file (P1044).
     """
     out = []
     i = 0
@@ -203,7 +227,7 @@ def _strip_noise(text):
             continue
         if ch == "-" and i + 1 < n and text[i + 1] == "-":
             while i < n and text[i] != "\n":
-                out.append(" ")
+                out.append(text[i] if keep_line_comments else " ")
                 i += 1
             continue
         m = _DOLLAR_TAG_RE.match(text, i)
@@ -216,6 +240,46 @@ def _strip_noise(text):
         out.append(ch)
         i += 1
     return "".join(out)
+
+
+def _predicates(stmt_code_only):
+    """Yield the body of every USING(...) / WITH CHECK(...) in a cleaned
+    statement, matching parens so `((true))` and `(SELECT true)` stay whole."""
+    for m in _PREDICATE_HEAD_RE.finditer(stmt_code_only):
+        depth = 1
+        i = m.end()
+        while i < len(stmt_code_only) and depth:
+            if stmt_code_only[i] == "(":
+                depth += 1
+            elif stmt_code_only[i] == ")":
+                depth -= 1
+            i += 1
+        yield stmt_code_only[m.end() : i - 1]
+
+
+_PLAIN_FALSE_NOISE = frozenset(("select", "cast", "as", "boolean", "bool", "::"))
+_TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*|[^\sA-Za-z_()]+")
+
+
+def _is_plain_false(body):
+    """`(false)`, `((false))`, `false::boolean`, `(SELECT false)` -- a deny.
+
+    Only this exact spelling is let through. Any other constant -- including
+    false ones like `1 = 0` or `NOT true` -- is still flagged: the gate does not
+    evaluate SQL, and a deny written obscurely is worth rewriting as `false`.
+    Without this, every "... blocked" policy in the migration history (11 of
+    them, all `(false)`) would read as a violation.
+    """
+    tokens = [t.lower() for t in _TOKEN_RE.findall(body)]
+    return [t for t in tokens if t not in _PLAIN_FALSE_NOISE] == ["false"]
+
+
+def _has_constant_predicate(stmt_code_only):
+    for body in _predicates(stmt_code_only):
+        words = _WORD_RE.findall(body)
+        if all(w.lower() in CONSTANT_WORDS for w in words) and not _is_plain_false(body):
+            return True
+    return False
 
 
 def _to_clause_is_insufficient(stmt_code_only):
@@ -248,7 +312,11 @@ def find_violations(content):
         if not _to_clause_is_insufficient(stmt_code_only):
             continue
 
-        risky = bool(LITERAL_TRUE_RE.search(stmt_raw)) or bool(ROLE_IDENTITY_RE.search(stmt_raw))
+        risky = (
+            bool(LITERAL_TRUE_RE.search(stmt_raw))
+            or bool(ROLE_IDENTITY_RE.search(stmt_raw))
+            or _has_constant_predicate(stmt_code_only)
+        )
         if not risky:
             continue
 
@@ -281,7 +349,9 @@ def main(argv):
             fail = True
             continue
 
-        has_annotation = bool(ANNOTATION_RE.search(content))
+        has_annotation = bool(
+            ANNOTATION_RE.search(_strip_noise(content, keep_line_comments=True))
+        )
         violations = find_violations(content)
         base = os.path.basename(path)
 
@@ -298,6 +368,16 @@ def main(argv):
             print("      -- intentionally-public: {why this policy is deliberately open to all roles}")
             print("      Or scope it: CREATE POLICY ... TO service_role ...")
             fail = True
+        elif violations:
+            # Exempted, not clean -- say so, so a reviewer can see the
+            # annotation is doing work (P1044). Still exit 0: the author
+            # declared intent, which is the contract.
+            names = ", ".join(f"{name} ({command})" for name, command in violations)
+            print(
+                f"  ok: {base} ({len(violations)} unscoped polic"
+                f"{'y' if len(violations) == 1 else 'ies'} EXEMPTED by "
+                f"-- intentionally-public: {names})"
+            )
         else:
             print(f"  ok: {base} (no unscoped role-restricting policies)")
 

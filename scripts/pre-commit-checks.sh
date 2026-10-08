@@ -527,9 +527,9 @@ echo ""
 # including the P1041 tokenizer-bypass shapes (double-quoted names, block
 # comments, dollar-quoting, TO PUBLIC) -- and still ALLOWS scoped, annotated,
 # and public-SELECT policies, so it can't silently regress.
-RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-rls-scope\.py|src/tests/p103[19]-reproduce\.test\.ts)$' || true)
+RLS_SCOPE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/check-rls-scope\.py|src/tests/p103[19]-reproduce\.test\.ts|src/tests/p1044-reproduce\.test\.ts)$' || true)
 if [ -n "$RLS_SCOPE_STAGED" ]; then
-    if ! run_quiet "RLS scope gate canary (P1039/P1041)" npx vitest run src/tests/p1039-reproduce.test.ts src/tests/p1041-reproduce.test.ts; then
+    if ! run_quiet "RLS scope gate canary (P1039/P1041/P1044)" npx vitest run src/tests/p1039-reproduce.test.ts src/tests/p1041-reproduce.test.ts src/tests/p1044-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
     fi
 else
