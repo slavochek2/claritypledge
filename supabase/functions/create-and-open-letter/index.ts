@@ -12,8 +12,9 @@
  *
  * P1446: a session credential is returned ONLY for an account this call has just created.
  * For an account that already exists (linked, matched by email, or an orphan auth user) the
- * response is redirectTo alone: the token is not proof of being that account, so its owner
- * signs in the normal way. The client already handles a response without hashedToken.
+ * response is { signInRequired, redirectTo }: the token is not proof of being that account,
+ * so its owner signs in the normal way and the client sends them to /login with redirectTo.
+ * Deploy the client before this function: an older client reads the letter signed out.
  *
  * Cloned from create-and-sign, adapted for letter delivery flow.
  */
@@ -162,6 +163,7 @@ serve(async (req: Request) => {
     if (existingReceiverId) {
       return jsonResponse({
         ok: true,
+        signInRequired: true,
         redirectTo: `/letter/${deliveryId}`,
       }, 200, corsHeaders);
     }
@@ -174,11 +176,17 @@ serve(async (req: Request) => {
 
     // -- Check for existing user with this email ------------------------------
 
-    const { data: existingProfile } = await supabase
+    // Case-insensitive, but EXACT: ilike treats `_` and `%` as wildcards, so a match is
+    // confirmed by string equality before it names anyone as this delivery's receiver (P1446).
+    const { data: emailCandidates } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, email')
       .ilike('email', normalizedEmail)
-      .maybeSingle();
+      .limit(20);
+    const exactMatches = (emailCandidates ?? []).filter(
+      (p: { email: string | null }) => (p.email ?? '').trim().toLowerCase() === normalizedEmail,
+    );
+    const existingProfile = exactMatches.length === 1 ? exactMatches[0] : null;
 
     if (existingProfile) {
       // User already exists — link delivery; no credential (P1446).
@@ -199,6 +207,7 @@ serve(async (req: Request) => {
 
       return jsonResponse({
         ok: true,
+        signInRequired: true,
         redirectTo: `/letter/${deliveryId}`,
       }, 200, corsHeaders);
     }
@@ -271,6 +280,7 @@ serve(async (req: Request) => {
       // The auth account already existed — no credential (P1446).
       return jsonResponse({
         ok: true,
+        signInRequired: true,
         redirectTo: `/letter/${deliveryId}`,
       }, 200, corsHeaders);
     }

@@ -669,6 +669,12 @@ export function LetterReadingPage() {
 
         setIsAuthenticating(false);
         setViewState('reading');
+      } else if (result.signInRequired) {
+        // P1446: the recipient's account already exists, and the token is not proof of being
+        // it — they sign in, then land on the letter by its delivery id.
+        if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
+        setIsAuthenticating(false);
+        navigate(`/login?redirect=${encodeURIComponent(result.redirectTo)}`, { replace: true });
       } else {
         // No hashedToken — delivery was already linked, just proceed
         if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
@@ -689,7 +695,7 @@ export function LetterReadingPage() {
           : 'Something went wrong. Please try again.';
       setConsentError(message);
     }
-  }, [token, delivery, letter, snapshots.length]);
+  }, [token, delivery, letter, snapshots.length, navigate]);
 
   // P683: check stale terms for authenticated users before opening
   useEffect(() => {
