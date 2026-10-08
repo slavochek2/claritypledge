@@ -14,7 +14,7 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1440: /day — stories reach the agent, reflection is grounded, reflection cards are CP's cards
+# P1440: /day — stories reach the agent (Part A; grounded reflection and CP's cards moved to P1445)
 
 ## Problem
 
@@ -116,6 +116,8 @@ medium — five founder calls, marked below.
 
 ## Solution
 
+> **Scope (2026-10-08):** P1440 ships Part A and the Reflection half of E. Parts B, C, D, the info-area half of E and the founder's less-text requirement moved to **P1445**.
+
 ### A. Stories become work items (finding 1)
 
 - `buildPrompt` replaces the "record these in the decisions log" block with **"Your stories — act
@@ -152,101 +154,7 @@ medium — five founder calls, marked below.
 - **Backfill (founder: batch-close):** one `story_done` line with `outcome:"batch-closed"` per
   pre-ship story version, written once by the same operation; the 19 do not appear in any prompt.
 
-### B. Grounded statement writer (findings 2, 8)
-
-The step 9r brief gains, inline (the writer cannot read files):
-
-1. **Earlier decisions** — pp and cp `docs/decisions.md` entries from the last 14 days plus keyword
-   matches (files are ~11k and ~38k lines; never pasted whole). `scripts/search-decisions.sh` covers
-   cp public + cp private only (verified: it never reads pp), so pp needs its own path — extend the
-   helper with a pp source or add a sibling; tested with an older matching pp decision.
-2. **Recent conversations** — founder turns from `~/.agents/bin/hist --role user --since <14 days>`.
-   Topics are not taken from the issue cards (the 10-08 cards were all infra; the missed context was
-   about events and motivation). Query terms = words from the candidate statements' drafts, the
-   founder's stories in the window, and the last 3 days of founder turns unfiltered (capped).
-3. **Every founder story** from the 14-day window and every still-open story (A).
-4. **This pass's issue-card titles**, with the founder's 2026-10-07 rule (cp decisions.md
-   2026-10-07 [process]): strategic only, never repeat an item already on that day's board.
-5. **Retrieval contract:** each source carries a stable reference (decision: file + date + heading;
-   conversation: `hist` session id + timestamp; finding: title). Hard cap on pasted lines with a **reserved share for each source class** (conversations included,
-   never squeezed to zero); within a class, newest first. Anything fetched but cut by the cap is
-   reported as truncated (count per class), and a source that cannot be fetched is named as missing.
-6. **Scope rules:** strategy, not task micromanagement. **Hard filter:** a statement about a
-   personal activity (hikes, personal life) is refused, not reworded.
-
-Mechanical backstop: `--reject-repeats` also rejects a statement matching a this-pass finding title
-(same normaliser + Jaccard). Paraphrases are the checker's job (C).
-
-### C. "Agent on Slava" — an agent entity with its own position and story (finding 3)
-
-Same shape as a Disagreement Pipeline arguer (`/slava:disagreement:positions`,
-`/slava:disagreement:story-draft`), reused as-is:
-
-- **Entity:** one agent identity, "Agent on Slava", rendered with CP's `AgentByline`. Local to the
-  Day board — no `agent_accounts` row, nothing written to Supabase. CP decides "is agent" from
-  `useAgentAccountIds`; the extracted renderers take `isAgent` as a prop instead, and Day passes
-  `true`. Report shape (per statement, written by step 9r into the report, never into
-  `decisions.jsonl`): `agent: {name: "Slava", position: -3..3, story, sources: [{ref, quote}],
-  checker: "pass"|"dropped"}`.
-- **Its own position** on each statement, on the 7-level scale (-3…+3; CP's `PositionType` covers
-  all seven, `src/app/types/index.ts:1121`), rendered with CP's stance renderer `PositionBadge`
-  (`src/app/components/shared/PositionBadge.tsx`, as used for `authorPosition` in
-  `StoryCardDetail.tsx`). The inference-strength label from `/slava:disagreement:positions` stays
-  in the agent's brief and evidence only: CP has no renderer for it, and the card reuses CP as-is. It is the agent's prediction of where the founder
-  stands, shown beside the founder's control. It never pre-fills or writes the founder's position.
-- **Its own story** per statement, under the story-draft rules: one short story per (agent,
-  statement), three-tier accuracy (quoted fact / agent's connection / speculation, labelled),
-  citing sources by stable reference (B.5).
-- **Checker (PS-3):** every source the writer cites carries a verbatim `quote`; the dispatcher
-  first checks each quote mechanically (`grep -F` against the cited decisions file, `hist` for the
-  cited session) — a quote not found fails. Then a separate agent (spawned by the dispatcher with
-  the sources and quotes pasted inline) judges whether the story says what the quotes support, and rejects duplicates of issue cards. Two failed rounds → the statement is dropped and
-  named in the pass evidence; never published unchecked.
-- UNTESTED that the agent's story and position change how the founder answers; falsifier: after two
-  weeks the founder still reports statements he cannot weigh.
-- Not the product's Mirror Agent (P1431); no shared service is created.
-
-### D. Reflection card = CP's point card, by reuse (finding 4)
-
-**Codex advice, 2026-10-08 (option D, recommended; founder delegated this choice):** extract CP's
-actual rendering and interaction code — `PositionButtons` (incl. the red clear control), the point
-card body, the agent story row with `AgentByline` and the agent's own stance — into presentational
-components with no analytics, Supabase, auth or context imports. CP keeps thin wrappers that supply
-persistence, analytics and identity, so CP behaviour is unchanged. Kanban consumes the same
-components through a source alias, after aligning React to CP's version (19), deduplicating React
-resolution (CP's `vite.config.ts:236` pattern), and adding Tailwind scoped to the Day page with CP's
-theme tokens (also supplied to body-level portals, which `PositionButtons` uses:
-`PositionButton.tsx:536`). Rejected: direct import with stubbed providers (impersonates
-Supabase-backed providers); moving the board into CP's app (couples private Day data to the product
-shell); a re-skin (what drifted).
-
-**Import inventory and injection contract** (Opus review, checked against the files):
-
-| Component | Import | Presentational? | In the extracted core |
-|---|---|---|---|
-| `PositionButton.tsx` | react, react-dom portal, `./menu-clamp`, types, `position-helpers`, `position-labels`, lucide | yes | kept |
-| | `@/components/ui/button`, `@/components/ui/tooltip` (radix) | yes, but new deps for kanban | kept; kanban adds shadcn's `button`/`tooltip` sources via the alias and radix as a dependency |
-| | `@/lib/mixpanel` | no | removed → `onEvent?(name, props)` prop; CP wrapper passes analytics |
-| | `use-intensity-learned`, `use-intensity-preview-seen` | no (per-user state) | removed → `intensityLearned` / `previewSeen` + setters as props; CP wrapper passes the hooks; Day passes local values |
-| | lazy `IntensityTutorialModal` | no (product flow) | removed → optional `renderTutorial` slot; Day passes none |
-| `feed-point-card.tsx` | `useAuth`, `useAnonPosition`, `useReturnState`, online-write guard, `sonner`, `useOpenPath` | no | only the card body markup is extracted; the controller stays in CP |
-| `StoryCardDetail` / `point-card-with-links` story row | `useAgentAccountIds`, `useEmbedNavigation`, `GravatarAvatar`, router | no | story row body extracted with `isAgent`, `authorPosition`, `onOpen?` props |
-| `AgentByline`, `PositionBadge` | `MachineChip`, `stripAgentPrefix`, tooltip | yes | reused directly |
-
-CP regressions for each removed dependency: intensity learning, tutorial trigger, analytics event
-names, clear, author stance, unknown write outcome — all with CP's existing tests, run before and
-after extraction.
-
-Consequences the build must handle (Codex, verified against the cited lines before relying on them):
-- `tools/kanban/server/__tests__/day.test.ts:1108` is P1399's rule 10 ("the board bundle imports no
-  product code"). This spec replaces it, recorded as a decisions.md entry at ship: a **transitive**
-  boundary check — approved shared renderers allowed; any module that reaches auth, Supabase,
-  telemetry or service code, directly or through an approved renderer, fails.
-- Day e2e selectors change to CP semantics (`listbox`/`option`, "Clear position") while keeping the
-  persistence assertions; keyboard cycling and menus above the sticky bottom bar stay covered.
-- CP regressions run for every extracted component (clear, author stance, unknown write outcome).
-
-### E. One Accept pattern; cards that need no action are not cards (finding 5)
+### E. One Accept pattern on Reflection (finding 5, first half)
 
 - P1432 holds: paging never accepts. Narrowing recorded at ship: on reflection, Accept saves the
   founder's own pick (there is no recommended answer); only the Accept button writes a typed story,
@@ -254,28 +162,16 @@ Consequences the build must handle (Codex, verified against the cited lines befo
   story, awaiting the write; advances only on success; stays on the card on failure. Captures a
   story still being typed. Offered once the founder has a position or a story; the agent's own
   position is never what Accept saves.
-- **A card that needs no founder action is not a card.** Agent-only work ("Give to the agent" with
-  nothing for the founder to choose) and other info-only items move out of the card pager into the
-  monitoring/info area as a list, still sent by Start fixing, each row keeping P1432's state line
-  (not sent yet / sent to the agent). The pager then holds only cards the
-  founder answers, so every card has Accept, and Next only moves.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
 | Parser rejects the new `story_done` kind | MITIGATE | `parseDecisions` has a fixed `KINDS` list (`day.ts:603`); add the kind and test that an unknown kind is skipped, not fatal |
-| Brief grows past what one agent reads well | MITIGATE | Retrieval by window + keyword, hard cap on pasted lines, stated in the brief |
-| Mirror story cites a source that does not say what it claims | MITIGATE | Separate checker (PS-3); failure means rewrite, never edit |
 | Private text leaks into a public file via fixtures or commits | MITIGATE | Invariant above; fixtures use invented text |
-| Shared extraction regresses CP | MITIGATE | CP keeps thin wrappers; CP regression tests per extracted component |
-| React 19 upgrade breaks the rest of the board | MITIGATE | Full kanban unit + both e2e suites before and after |
 
 **Non-Goals**
 - Do NOT merge Next and Accept, or make paging write anything.
-- Do NOT build the product's Mirror Agent (P1431) or a shared mirror-agent service.
-- Do NOT write the agent entity to Supabase or create an `agent_accounts` row.
-- Do NOT change CP's product behaviour while extracting components.
 
 ## Done-When
 
@@ -286,17 +182,9 @@ Consequences the build must handle (Codex, verified against the cited lines befo
 - [x] A story from an earlier run with no processed marker appears under "not yet handled"; after the agent marks it, it no longer appears (route + CLI tests, e2e board list)
 - [x] Every story line older than the ship date is batch-closed (count derived at run time and pasted; 19 on 2026-10-08) and none appears in a prompt — pre-ship on a copy of the real file: `--batch-close-before` closed **17** (19 story lines = 17 stories, two edited once), rerun closed 0, real file untouched. `[post-ship]` run it on ~/.claude-day after the board ships and paste the count.
 - [x] The mark-done CLI writes a valid `story_done` line and refuses an unknown `(run_id, target)` (test)
+- [x] Reflection has `Accept & next` that awaits the write and stays on failure, and Next never writes on mouse or touch (e2e)
 - [x] A decisions file containing the new kind loads without dropping other lines, and a parser without the kind counts it as one skipped line, not corruption (test)
-- [ ] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief); a statement about a personal activity is refused (fixture)
-- [ ] A statement matching a this-pass finding title is refused by `--reject-repeats` (failing control shown, exit 1)
-- [ ] Every reflection card shows "Agent on Slava" (CP `AgentByline`) with the agent's own position and a story citing at least one source; the founder's position is never pre-filled by it; the checker's verdict per story is in the pass evidence
-- [ ] The reflection card renders CP's extracted components (no copied markup); the clear control's computed colour equals CP's destructive red in a browser check; CP's own regression tests for the extracted components pass
-- [ ] The kanban boundary test allows the shared renderers and refuses an import of a Supabase/analytics module (failing control shown)
-- [ ] Reflection has `Accept & next` that awaits the write and stays on failure (e2e); the report pager holds only founder-answerable cards and agent-only items are listed in the info area
-- [ ] The agent's position and story never appear in `decisions.jsonl` (test)
-- [ ] A statement whose story fails the checker twice is dropped and named in the evidence (fixture, failing control)
-- [ ] Kanban on React 19: full kanban unit suite and both e2e suites pass before and after the upgrade (counts pasted)
-- [ ] Checked at 375px, 320px and desktop
+- [x] Part A's board checked at 375px, 320px and desktop (e2e overflow and 40px-target assertions at all three widths; screenshots reviewed by a separate visual-QA agent)
 
 ## Alternatives Considered
 
