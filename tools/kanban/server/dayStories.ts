@@ -8,7 +8,6 @@ import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import {
   parseReport,
-  sentKey,
   statementsByRun,
   storyLedger,
   type DayReport,
@@ -28,7 +27,6 @@ export function storyHash(s: string): string {
   return createHash('sha256').update(normaliseStory(s), 'utf8').digest('hex')
 }
 
-export const storyKey = sentKey.story
 
 export function ledgerOf(existing: Pick<ParsedLines, 'lines' | 'markers' | 'launches'>, runs: Record<string, RunStatements>): StoryEntry[] {
   return storyLedger(existing.lines, existing.markers, runs, existing.launches, storyHash)

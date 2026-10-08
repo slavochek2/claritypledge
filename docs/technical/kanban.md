@@ -154,6 +154,15 @@ The Focus page shows all active features in a flat sorted table, ordered by rank
 - Drag-and-drop reordering updates rank
 - Feature count and status breakdown shown in header
 
+## Day page — founder stories (P1440)
+
+A story typed on a Reflection statement is work for the next agent, not a log entry. The hand-off
+prompt lists each open story with a command the agent runs when done:
+`tools/kanban/scripts/day-story-done.ts --run <run> --target <rN> --hash <h> --version <iso> --outcome acted|answered|declined`
+(also `--list`, and `--batch-close-before <ISO>` for a one-time backfill). It appends a
+`story_done` line to the day dir's `decisions.jsonl` (`story_resend` for the board's Resend);
+an edit to the story reopens it. All appends go through one lock (`server/dayStore.ts`).
+
 ## Architecture
 
 ```
