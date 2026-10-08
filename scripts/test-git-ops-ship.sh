@@ -1766,6 +1766,95 @@ if [[ -f "$SCRATCH/main/.claude/worktrees/main.lock" ]]; then
 fi
 pass "HH: branch-born AA ship completes cleanly (seed-to-match prevention works)"
 
+# ── HH2/HH3/HH4 (P1439) ──────────────────────────────────────────────────────
+# HH pre-seeds main by hand, so need_seed=0 and Layer 1 never ran in any test.
+# HH2 drives the REAL seed path: spec exists only on the branch, ends with a
+# newline (heredoc), and is edited after creation — the common shape. Before
+# P1439 the seed went through "$(...)", lost the trailing newline, and the
+# creation pick conflicted add/add.
+scratch_branch_only_spec() {
+  local pn="$1"
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b "feature/${pn}-only"
+    printf -- '---\nstatus: in-progress\npipeline_ran: [fix]\ntype: task\nrank: 1\ntags: [demo]\n---\n# %s: only\n\nStub.\n\n## Done-When\n\n- [x] fixture criterion\n' "$pn" > "features/${pn}_only.md"
+    git add "features/${pn}_only.md"; git commit -qm "${pn}: start"
+    printf -- '---\nstatus: qa\npipeline_ran: [fix]\ntype: task\nrank: 1\ntags: [demo]\n---\n# %s: only\n\nFinal.\n\n## Done-When\n\n- [x] fixture criterion\n' "$pn" > "features/${pn}_only.md"
+    echo "code ${pn}" > "${pn}-code.txt"
+    git add "features/${pn}_only.md" "${pn}-code.txt"; git commit -qm "chore: ${pn} ready for QA"
+    git checkout -q main
+  ) >/dev/null
+}
+
+scratch_branch_only_spec p190
+HH2_CREATION_BLOB="$(cd "$SCRATCH/main" && git rev-parse "$(git log --diff-filter=A --format=%H feature/p190-only -- features/p190_only.md | tail -1):features/p190_only.md")"
+HH2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p190 2>&1)" || true
+HH2_SEED="$(cd "$SCRATCH/main" && git log --format=%H --grep='seed p190 spec for ship' -1)"
+[[ -n "$HH2_SEED" ]] || { echo "$HH2_OUT" >&2; fail "HH2: real seed path did not run (no seed commit)"; }
+HH2_SEED_BLOB="$(cd "$SCRATCH/main" && git rev-parse "${HH2_SEED}:features/p190_only.md")"
+[[ "$HH2_SEED_BLOB" == "$HH2_CREATION_BLOB" ]] || { echo "$HH2_OUT" >&2; fail "HH2: seed blob $HH2_SEED_BLOB != creation blob $HH2_CREATION_BLOB (byte drift, e.g. lost trailing newline)"; }
+if echo "$HH2_OUT" | grep -qE 'CONFLICT|CP_DIAGNOSTIC_BEGIN'; then echo "$HH2_OUT" >&2; fail "HH2: seed path still conflicted"; fi
+echo "$HH2_OUT" | grep -qF 'Ready to push' || { echo "$HH2_OUT" >&2; fail "HH2: ship did not complete"; }
+if echo "$HH2_OUT" | grep -q 'Traceback'; then echo "$HH2_OUT" >&2; fail "HH2: python traceback on the seed path (journal read before it exists)"; fi
+pass "HH2: real seed path writes the creation blob byte-exact; edited branch-born spec ships with no conflict"
+
+# HH3: a co-tenant's uncommitted edit to a file a pending commit changes → refuse
+# BEFORE any pick or seed; main HEAD unchanged; file named.
+scratch_branch_only_spec p191
+echo "base" > "$SCRATCH/main/p191-code.txt"
+( cd "$SCRATCH/main" && git add p191-code.txt && git commit -qm "base p191-code" ) >/dev/null
+echo "co-tenant edit" >> "$SCRATCH/main/p191-code.txt"
+HH3_HEAD_BEFORE="$(cd "$SCRATCH/main" && git rev-parse HEAD)"
+set +e
+HH3_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p191 2>&1)"; HH3_RC=$?
+set -e
+HH3_HEAD_AFTER="$(cd "$SCRATCH/main" && git rev-parse HEAD)"
+[[ "$HH3_RC" != 0 ]] || { echo "$HH3_OUT" >&2; fail "HH3: ship exited 0 despite a blocking co-tenant edit"; }
+echo "$HH3_OUT" | grep -qF 'refusing before any cherry-pick' || { echo "$HH3_OUT" >&2; fail "HH3: no up-front refusal message"; }
+echo "$HH3_OUT" | grep -qF 'p191-code.txt' || { echo "$HH3_OUT" >&2; fail "HH3: refusal does not name the blocking file"; }
+[[ "$HH3_HEAD_BEFORE" == "$HH3_HEAD_AFTER" ]] || fail "HH3: main HEAD moved (seed or pick happened before refusal)"
+grep -qF 'co-tenant edit' "$SCRATCH/main/p191-code.txt" || fail "HH3: co-tenant edit was destroyed"
+pass "HH3: tracked-dirty overlap refused up front, main untouched, co-tenant edit preserved"
+# cleanup for later tests: commit the co-tenant edit away, drop the p191 branch/journal
+( cd "$SCRATCH/main" && git checkout -q -- p191-code.txt && git branch -qD feature/p191-only ) >/dev/null 2>&1
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p191.json" "$SCRATCH/main/.claude/worktrees/main.lock"
+
+# HH4 (control, gate 7c): a co-tenant edit to a file NO pending commit touches must not block.
+scratch_branch_only_spec p192
+echo "unrelated" > "$SCRATCH/main/p192-unrelated.txt"
+( cd "$SCRATCH/main" && git add p192-unrelated.txt && git commit -qm "base unrelated" ) >/dev/null
+echo "co-tenant edit" >> "$SCRATCH/main/p192-unrelated.txt"
+HH4_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p192 2>&1)" || true
+echo "$HH4_OUT" | grep -qF 'Ready to push' || { echo "$HH4_OUT" >&2; fail "HH4: unrelated dirty file blocked the ship (false positive)"; }
+grep -qF 'co-tenant edit' "$SCRATCH/main/p192-unrelated.txt" || fail "HH4: unrelated co-tenant edit was destroyed"
+( cd "$SCRATCH/main" && git checkout -q -- p192-unrelated.txt ) >/dev/null 2>&1
+pass "HH4: unrelated co-tenant edit does not block the ship"
+
+# HH5 (Codex review): unstaged kanban noise on THIS spec, with a pending commit that
+# edits the spec, must not be refused — the discard step downstream owns it.
+scratch_branch_only_spec p193
+( cd "$SCRATCH/main" && git show "$(git log --diff-filter=A --format=%H feature/p193-only -- features/p193_only.md | tail -1):features/p193_only.md" > features/p193_only.md )
+( cd "$SCRATCH/main" && git add features/p193_only.md && git commit -qm "p193 spec on main" ) >/dev/null
+echo "locked_at: kanban" >> "$SCRATCH/main/features/p193_only.md"
+HH5_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p193 2>&1)" || true
+if echo "$HH5_OUT" | grep -qF 'refusing before any cherry-pick'; then echo "$HH5_OUT" >&2; fail "HH5: kanban noise on own spec was refused by the preflight"; fi
+echo "$HH5_OUT" | grep -qF 'Ready to push' || { echo "$HH5_OUT" >&2; fail "HH5: ship with kanban noise did not complete"; }
+pass "HH5: unstaged kanban noise on the feature's own spec does not trip the preflight"
+
+# HH6 (Codex review): a staged co-tenant RENAME of a file a pending commit edits must be
+# caught (rename-aware diff would report only the destination).
+scratch_branch_only_spec p194
+echo "base" > "$SCRATCH/main/p194-code.txt"
+( cd "$SCRATCH/main" && git add p194-code.txt && git commit -qm "base p194" ) >/dev/null
+( cd "$SCRATCH/main" && git mv p194-code.txt p194-renamed.txt ) >/dev/null
+set +e
+HH6_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p194 2>&1)"; HH6_RC=$?
+set -e
+echo "$HH6_OUT" | grep -qF 'refusing before any cherry-pick' && echo "$HH6_OUT" | grep -qF '  p194-code.txt' && [[ "$HH6_RC" != 0 ]] || { echo "$HH6_OUT" >&2; fail "HH6: staged rename source not detected by the preflight"; }
+( cd "$SCRATCH/main" && git reset -q HEAD -- p194-code.txt p194-renamed.txt && rm -f p194-renamed.txt && git checkout -q -- p194-code.txt && git branch -qD feature/p194-only ) >/dev/null 2>&1
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p194.json" "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "HH6: staged rename of a pending-commit file is refused up front"
+
 # ── II: anti-widening — non-spec UU and body-mismatch AA still die ──────────
 
 # II-a: real non-spec UU conflict must not be auto-resolved.
@@ -2413,10 +2502,10 @@ echo "# decisions" > "$SCRATCH/main/docs/decisions.md"
 ( cd "$SCRATCH/main" && git add docs/decisions.md && \
     git commit -qm "seed docs/decisions.md" ) >/dev/null
 
-scratch_feature p160 1
+scratch_feature p190 1
 # The link must be COMMITTED: an uncommitted body edit is stray kanban noise to
 # the discard block and would be reverted before Phase 1 ever runs.
-cat >> "$SCRATCH/main/features/p160_demo.md" <<'EOF'
+cat >> "$SCRATCH/main/features/p190_demo.md" <<'EOF'
 
 See [decisions](../docs/decisions.md) for the rationale.
 
@@ -2425,12 +2514,12 @@ See [decisions](../docs/decisions.md) for the rationale.
 - [x] fixture criterion (P1246: the closure gate reads completion
       checkboxes, so a fixture spec must model a shippable one)
 EOF
-( cd "$SCRATCH/main" && git add features/p160_demo.md && \
-    git commit -qm "p160: add relative doc link" ) >/dev/null
+( cd "$SCRATCH/main" && git add features/p190_demo.md && \
+    git commit -qm "p190: add relative doc link" ) >/dev/null
 
 PP_RC=0
-PP_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p160 2>&1)" || PP_RC=$?
-PP_FINAL="$SCRATCH/main/features/done/2026-04-22/p160_demo.md"
+PP_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p190 2>&1)" || PP_RC=$?
+PP_FINAL="$SCRATCH/main/features/done/2026-04-22/p190_demo.md"
 if [[ ! -f "$PP_FINAL" ]]; then
   echo "$PP_OUT" >&2
   fail "PP: spec was not moved to features/done/2026-04-22/ (rc=$PP_RC)"
@@ -2447,8 +2536,8 @@ if [[ -n "$PP_DEAD" ]]; then
   echo "$PP_OUT" >&2
   fail "PP: relative link(s) dead after move —$PP_DEAD (resolved from $PP_DIR) (P1094 item 1)"
 fi
-scratch_reset p160
-rm -f "$SCRATCH/main/features/done/2026-04-22/p160_demo.md"
+scratch_reset p190
+rm -f "$SCRATCH/main/features/done/2026-04-22/p190_demo.md"
 pass "PP: relative links in a closed spec still resolve from features/done/<sprint>/ (P1094 item 1)"
 
 # -----------------------------------------------------------------------------

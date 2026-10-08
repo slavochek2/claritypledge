@@ -2521,6 +2521,7 @@ ship_journal_flag() {
   local flag="$2"
   local journal="$SHIP_JOURNAL_DIR/${pn}.json"
   local val
+  [[ -f "$journal" ]] || return 1   # P1439: no journal yet = flag not set (was a traceback)
   val="$(python3 - "$journal" "$flag" <<'PY'
 import json, sys
 j = json.load(open(sys.argv[1]))
@@ -3966,6 +3967,37 @@ The branch is authoritative for shipped migrations. Compare each file with
   # Gating the merge would deadlock against ship.md:66, which mandates
   # merge-first-then-migrate, so the prod stamp a pre-merge gate waits for cannot
   # exist until after the merge it blocks.
+  # P1439 (INBOX-42): refuse BEFORE the first pick if a tracked file that a pending
+  # commit touches is modified in main's working tree or index (a co-tenant's edit).
+  # git would refuse that pick anyway — but partway through the sequence, leaving main
+  # half-landed. Scope: only files of commits not yet landed, so --resume does not
+  # refuse on files already applied. Runs before the seed, so a refusal leaves main
+  # untouched. Skipped while our own pick is paused (the dirty files are then the
+  # operator's conflict resolution).
+  if [[ ! -f "$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )/CHERRY_PICK_HEAD" ]]; then
+    local _touched _dirty _blocking
+    local _pf_commits
+    if [[ -f "$journal" ]]; then _pf_commits="$(ship_pending_source_shas "$journal")"
+    else _pf_commits="$( cd "$REPO_ROOT" && git rev-list --reverse "main..${branch}" )"; fi
+    _touched="$( cd "$REPO_ROOT" && while IFS= read -r _s; do if [[ -n "$_s" ]]; then git diff-tree --no-renames --no-commit-id --name-only -r "$_s"; fi; done <<< "$_pf_commits" | sort -u )"
+    # --no-renames: a staged rename must report its source path too. Unstaged edits
+    # to this feature's own spec are kanban noise the discard step below removes —
+    # exempt them (staged ones are kept: they may be an operator's resolution).
+    _dirty="$( cd "$REPO_ROOT" && {
+      git diff --no-renames --name-only | grep -v -E "^features/${pn}_[^/]*\.md\$" || true
+      git diff --cached --no-renames --name-only
+    } | sort -u )"
+    _blocking="$( comm -12 <(printf '%s\n' "$_touched") <(printf '%s\n' "$_dirty") | sed '/^$/d' )"
+    if [[ -n "$_blocking" ]]; then
+      {
+        echo "ship: refusing before any cherry-pick — these files are modified on main (uncommitted, likely another session) and a pending commit changes them:"
+        printf '%s\n' "$_blocking" | sed 's/^/  /'
+        echo "Nothing was picked. Wait for that session to commit, then run: git-ops ship $pn --resume"
+      } >&2
+      exit 1
+    fi
+  fi
+
   local _disc_spec="${branch_spec_file:-$spec_file}"
   if [[ "$(ship_spec_disclosure "$branch" "$_disc_spec")" == "embargo" ]]; then
     ship_embargoed=1
@@ -3986,10 +4018,16 @@ The branch is authoritative for shipped migrations. Compare each file with
     _head_seed="$( cd "$REPO_ROOT" && git symbolic-ref --short -q HEAD || true )"
     [[ "$_head_seed" == "main" ]] || \
       die "ship: HEAD is '$_head_seed', not main (co-tenant switched the checkout) — aborting branch-born seed"
-    local _creation_blob
-    _creation_blob="$(ship_spec_creation_blob "$branch" "$branch_spec_file")" || \
+    # P1439: redirect straight to the file — never through "$(...)", which strips the
+    # trailing newline, so the seed was 1 byte off the creation blob on every ship and
+    # the creation pick conflicted add/add instead of replaying as a no-op.
+    # Write to a temp file first so a failed extraction never leaves a truncated spec.
+    local _seed_tmp="$REPO_ROOT/${branch_spec_file}.seed-tmp.$$"
+    if ! ship_spec_creation_blob "$branch" "$branch_spec_file" > "$_seed_tmp"; then
+      rm -f "$_seed_tmp"
       die "ship: cannot find creation commit for $branch_spec_file on $branch (seed-to-match failed)"
-    printf '%s' "$_creation_blob" > "$REPO_ROOT/$branch_spec_file"
+    fi
+    mv -f "$_seed_tmp" "$REPO_ROOT/$branch_spec_file"
     ( cd "$REPO_ROOT" && git add -- "$branch_spec_file" ) >/dev/null
     # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
     # (held for this whole block); see its own comment for why.
@@ -4199,9 +4237,11 @@ The branch is authoritative for shipped migrations. Compare each file with
         _all_aa=0
       fi
       if (( _all_aa == 1 )) && [[ -n "$_aa_spec" ]]; then
+        # P1439: compare blob ids, not "$(git show)" strings — substitution strips
+        # trailing newlines, so content differing only there compared equal.
         local _main_content _branch_content
-        _main_content="$( cd "$REPO_ROOT" && git show "HEAD:${_aa_spec}" 2>/dev/null )" || _main_content=""
-        _branch_content="$( cd "$REPO_ROOT" && git show "${branch}:${_aa_spec}" 2>/dev/null )" || _branch_content=""
+        _main_content="$( cd "$REPO_ROOT" && git rev-parse -q --verify "HEAD:${_aa_spec}" 2>/dev/null )" || _main_content=""
+        _branch_content="$( cd "$REPO_ROOT" && git rev-parse -q --verify "${branch}:${_aa_spec}" 2>/dev/null )" || _branch_content=""
         if [[ -n "$_main_content" && "$_main_content" == "$_branch_content" ]]; then
           # Content matches: safe to resolve with --ours (keep main, finding 2).
           ( cd "$REPO_ROOT" && git checkout --ours -- "$_aa_spec" && git add -- "$_aa_spec" ) >/dev/null
