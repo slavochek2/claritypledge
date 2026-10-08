@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-07
+Last updated: 2026-10-08
 
 ---
 
@@ -414,6 +414,7 @@ Last updated: 2026-10-07
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1438** (Oct 08) Private companion decisions log + privacy gate before `/kdd` commits — a search that reads only the public log misses private rulings silently, so the helper prints whether the private log was searched; judgment must run before the commit, not after; the new known-names check found a June leak a manual redaction had half-fixed
 - **P1432** (Oct 26) Day page shows which cards are answered — Accept writes at once; Next only moves; "Sent" per item from launch receipts, failed never counts
 - **P1435** (Oct 26) Day page — decide without scrolling — list beside the card via container query; a view that updates only after save+reload lets a fast second key press read stale state
 - **P1318** (Oct 06) Remove plaintext copies of the critical credential half — locked set = what reaches prod; a test-only credential is de-registered, not locked; env-file removal ≠ unreadable
