@@ -7,8 +7,8 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 ## Next Steps
 
 1. [x] Event #2 ran 2026-10-06. **Founder-run public nights are paused** — [decisions.md](decisions.md) 2026-10-07 [product].
-2. [ ] Choose whom in the network to approach (incl. a change-management/AI-integration contact and a hackathon/community organizer).
-3. [ ] Time-box 1–2 days of pivot thinking: P1431, P1400 reframed as outreach to event organizers, the team/hackathon route.
+2. [x] Choose whom in the network to approach (incl. a change-management/AI-integration contact and a hackathon/community organizer). *2026-10-08: a hospital management contact (discovery meeting requested) and a local partner (building a quick-jobs prototype together); details private (CRM).*
+3. [ ] Time-box 1–2 days of pivot thinking: P1431, P1400 reframed as outreach to event organizers, the team/hackathon route. *2026-10-08: the hackathon route is parked: nobody is asking for it, and without a paid follow-on it repeats the one-off-room pattern of public nights. Reopen if a host or organisation requests one.*
 4. [ ] Outreach and discovery conversations until one **group** (works or decides together repeatedly) with a **real need** (names, in its own words, where misunderstanding costs it) **books a dated session** on its own topic, unchased. 5 conversations with 0 bookings ⟹ change the pitch.
 5. [ ] Before a pilot, agree success criteria with the champion, and never include a follow-up request.
 
