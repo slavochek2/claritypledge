@@ -17,12 +17,18 @@
 //       ("not found" or "unavailable"). Otherwise prints the reflection with each ref replaced by the
 //       stable reference (file + date + heading, session + time, …).
 //
-//   npx tsx scripts/day-reflection-check.ts --finalize --verdicts FILE < quoted.json
+//   (--parse --rewrite r2,r4: round 2 — exactly those statements, each keeping its "id";
+//    --merge --base candidate.json: puts a checked rewrite back by id; --quotes --lenient: prints the
+//    reflection despite misses, so a miss becomes a "fail: mechanical" verdict, not a dead end)
+//
+//   npx tsx scripts/day-reflection-check.ts --finalize --verdicts FILE --sources FILE --day-dir DIR [--hist BIN] < quoted.json
 //       the checker agent's verdicts per statement, as {"r1":["pass"],"r2":["fail","pass"],"r3":["fail","fail"]}
 //       (round 1, then round 2 after a rewrite; "fail: why" is a fail). The last verdict decides; two
 //       fails drop the statement (its id and text on stderr: "dropped r3 …" — quote that line in the
 //       pass evidence). A statement whose last verdict is a fail it was not re-checked after, or that
-//       has no verdict, is refused (exit 2): never published unchecked. Every statement dropped → exit 1.
+//       has no verdict, or has more than two verdicts, is refused (exit 2): never published unchecked.
+//       Every kept quote is verified AGAIN here — a `source` already on the input is never trusted.
+//       Every statement dropped → exit 1.
 //       Prints the reflection with agent.checker = "pass" on every kept statement.
 //
 // The agent ("Agent on Slava") is the writer's own entity: its position is ITS prediction, shown beside
@@ -204,7 +210,8 @@ export async function checkQuotes(r: Reflection, sources: Record<string, Source>
   let hits: Hit[] | string = []
   if (convo.length) {
     const since = convo.map((q) => (sources[q.ref] as Extract<Source, { kind: 'conversation' }>).ts.slice(0, 10)).sort()[0]
-    const words = (q: string) => norm(q).split(' ').slice(0, 6).map(escapeRx).join('\\s+')
+    // the raw turn may carry ** or ` between words that norm() drops: let the search step over them
+    const words = (q: string) => norm(q).split(' ').slice(0, 6).map(escapeRx).join('[\\s*`]+')
     hits = await histHits(hist, ['--role', 'user', '--jsonl', '--since', since, convo.map((q) => `(?:${words(q.quote)})`).join('|')])
   }
 
@@ -213,7 +220,12 @@ export async function checkQuotes(r: Reflection, sources: Record<string, Source>
     const resolved: AgentSource[] = []
     for (const q of st.agent.sources) {
       const src = sources[q.ref]
-      const miss = (why: string) => misses.push(`${st.id}: quote from ${q.ref} ${why}: "${norm(q.quote).slice(0, 80)}"`)
+      // a miss keeps its source, unresolved (no `source`): dropping it would leave a statement whose
+      // every quote failed with nothing left to verify
+      const miss = (why: string) => {
+        misses.push(`${st.id}: quote from ${q.ref} ${why}: "${norm(q.quote).slice(0, 80)}"`)
+        resolved.push({ ref: q.ref, quote: q.quote })
+      }
       if (!src) {
         miss('cites an id the grounding block never had')
         continue
@@ -266,7 +278,11 @@ export function merge(base: Reflection, rewritten: Reflection): Reflection {
 
 // ------------------------------------------------------------------ --finalize
 
-export function finalize(r: Reflection, verdicts: unknown): { out: Reflection; dropped: Statement[] } {
+/**
+ * verify: re-runs the quote check on every statement about to be kept — the `source` field on the
+ * input is never trusted (a hand-edited or skipped --quotes would otherwise publish an unverified quote).
+ */
+export async function finalize(r: Reflection, verdicts: unknown, verify: (r: Reflection) => Promise<{ out: Reflection; misses: string[] }>): Promise<{ out: Reflection; dropped: Statement[] }> {
   if (!isObj(verdicts)) throw new Refused('verdicts must be an object of statement id → ["pass"|"fail", …]')
   const kept: Statement[] = []
   const dropped: Statement[] = []
@@ -274,21 +290,28 @@ export function finalize(r: Reflection, verdicts: unknown): { out: Reflection; d
     const v = verdicts[st.id]
     if (!Array.isArray(v) || !v.length || !v.every((x) => typeof x === 'string' && /^(pass|fail)\b/i.test(x.trim())))
       throw new Refused(`${st.id} has no checker verdict: never published unchecked`)
+    if (v.length > 2) throw new Refused(`${st.id} has ${v.length} verdicts: a statement gets at most two checker rounds`)
     const fails = v.filter((x) => /^fail/i.test(x.trim())).length
     const last = (v[v.length - 1] as string).trim().toLowerCase()
-    if (last.startsWith('pass')) {
-      if (!st.agent.sources.length || st.agent.sources.some((q) => !q.source)) throw new Refused(`${st.id} has a source the quote check never resolved: run --quotes first`)
-      kept.push({ ...st, agent: { ...st.agent, checker: 'pass', sources: st.agent.sources.map((q) => ({ ref: q.source as string, quote: q.quote })) } })
-    }
+    if (last.startsWith('pass')) kept.push(st)
     else if (fails >= 2) dropped.push(st)
     else throw new Refused(`${st.id} failed the checker once and was not checked again after a rewrite: never published unchecked`)
   }
-  return { out: { ...r, statements: kept }, dropped }
+  if (!kept.length) return { out: { ...r, statements: [] }, dropped }
+  const fresh = { ...r, statements: kept.map((st) => ({ ...st, agent: { ...st.agent, sources: st.agent.sources.map((q) => ({ ref: q.ref, quote: q.quote })) } })) }
+  const { out, misses } = await verify(fresh)
+  if (misses.length) throw new Refused(`a passed statement has a quote that does not verify: ${misses[0]}`)
+  const bare = out.statements.find((st) => !st.agent.sources.length || st.agent.sources.some((q) => !q.source))
+  if (bare) throw new Refused(`${bare.id} has no verified source`)
+  return {
+    out: { ...r, statements: out.statements.map((st) => ({ ...st, agent: { ...st.agent, checker: 'pass' as const, sources: st.agent.sources.map((q) => ({ ref: q.source as string, quote: q.quote })) } })) },
+    dropped,
+  }
 }
 
 // ------------------------------------------------------------------ cli
 
-const USAGE = 'usage: --parse [--rewrite r2,r4] | --merge --base FILE | --quotes --sources FILE --day-dir DIR [--hist BIN] | --finalize --verdicts FILE'
+const USAGE = 'usage: --parse [--rewrite r2,r4] | --merge --base FILE | --quotes [--lenient] --sources FILE --day-dir DIR [--hist BIN] | --finalize --verdicts FILE --sources FILE --day-dir DIR [--hist BIN]'
 
 export async function run(argv: string[], stdin: string, io: IO): Promise<number> {
   const say = (m: string) => io.err(`day-reflection-check: ${m}\n`)
@@ -337,16 +360,19 @@ export async function run(argv: string[], stdin: string, io: IO): Promise<number
         return 2
       }
       const { out, misses } = await checkQuotes(readReflection(stdin), sources, dayDir, opt('--hist') ?? join(homedir(), '.agents/bin/hist'))
-      if (misses.length) {
-        for (const m of misses) io.err(`${m}\n`)
-        return 1
-      }
+      for (const m of misses) io.err(`${m}\n`)
+      // --lenient (round 1 only): print the reflection anyway, misses on stderr, so a statement that
+      // fails mechanically is recorded as a checker fail ("fail: mechanical: …") and rewritten, not
+      // left outside the two-round count. --finalize re-verifies, so a miss can never be published.
+      if (misses.length && !argv.includes('--lenient')) return 1
       io.out(JSON.stringify(out))
       return 0
     }
     if (argv[0] === '--finalize') {
       const vf = opt('--verdicts')
-      if (!vf) {
+      const sf = opt('--sources')
+      const dayDir = opt('--day-dir')
+      if (!vf || !sf || !dayDir) {
         say(USAGE)
         return 2
       }
@@ -357,9 +383,17 @@ export async function run(argv: string[], stdin: string, io: IO): Promise<number
         say(`cannot read --verdicts ${vf}`)
         return 2
       }
-      let res: ReturnType<typeof finalize>
+      let sources: Record<string, Source>
       try {
-        res = finalize(readReflection(stdin), verdicts)
+        sources = JSON.parse(readFileSync(sf, 'utf-8'))
+      } catch {
+        say(`cannot read --sources ${sf}`)
+        return 2
+      }
+      const hist = opt('--hist') ?? join(homedir(), '.agents/bin/hist')
+      let res: Awaited<ReturnType<typeof finalize>>
+      try {
+        res = await finalize(readReflection(stdin), verdicts, (r) => checkQuotes(r, sources, dayDir, hist))
       } catch (e) {
         if (e instanceof Refused) {
           say(e.message)

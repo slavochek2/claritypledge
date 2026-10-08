@@ -90,21 +90,26 @@ Continue the **same** writer (SendMessage) with `grounding.txt` pasted inline:
 ```bash
 (cd "$KB" && npx tsx scripts/day-reflection-check.ts --parse) <<'REPLY' \
   | (cd "$KB" && npx tsx scripts/day-reflection-history.ts --reject-repeats --day-dir "$HOME/.claude-day" --findings "$W/findings.txt") \
-  | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
-  > "$W/candidate.json"
+  | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --lenient --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
+  > "$W/candidate.json" 2> "$W/quotes.txt"
 <the writer's reply, exactly as returned>
 REPLY
+cat "$W/quotes.txt"   # one line per quote that did not verify
 ```
 
 Each stage refuses with exit 1 and names the problem on stderr: the shape (`--parse`), a repeat of an
 answered statement, a repeat of an issue card on this board, a personal-activity statement
 (`--reject-repeats`), a quote not found in its source or a source that cannot be read (`--quotes`).
-On a refusal, send the writer the stderr lines verbatim and ask for the corrected reply — **never edit
-its words yourself**, never trim a statement, never fix a quote.
+A refusal by `--parse` or `--reject-repeats` stops the pipeline: send the writer the stderr lines
+verbatim and ask for the whole reply again — **never edit its words yourself**, never trim a
+statement, never fix a quote. A second refusal of the whole reply records nothing (say so in the
+evidence). A quote that does not verify does **not** stop it (`--lenient`): that statement gets the
+verdict `"fail: mechanical: <the quotes.txt line>"` and goes to the round-2 rewrite in step 5 like
+any checker fail — so a statement that misses twice is dropped and named, while the others stand.
 
 ## 5. Checker (a separate agent)
 
-Spawn a **second, separate** agent (`subagent_type: general-purpose`, `model: "opus"`) and paste
+Statements with a mechanical fail are not sent to the checker in round 1. Spawn a **second, separate** agent (`subagent_type: general-purpose`, `model: "opus"`) and paste
 inline: each statement with the agent's position, story and sources (ref + quote, from
 `candidate.json`), and this pass's issue-card titles (`findings.txt`). Brief:
 
@@ -123,8 +128,9 @@ then merge and re-check the whole file:
 
 ```bash
 (cd "$KB" && npx tsx scripts/day-reflection-check.ts --merge --base "$W/candidate.json") < "$W/rewrite.json" \
-  | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
-  > "$W/candidate2.json" && mv "$W/candidate2.json" "$W/candidate.json"
+  | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --lenient --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
+  > "$W/candidate2.json" 2> "$W/quotes.txt" && mv "$W/candidate2.json" "$W/candidate.json"
+cat "$W/quotes.txt"   # a rewritten statement listed here gets its second verdict "fail: mechanical: …"
 ```
 
 Check the rewritten statements again with the **same** checker and append the second verdict
@@ -135,14 +141,15 @@ words, matched as whole words.
 ## 6. Record
 
 ```bash
-(cd "$KB" && npx tsx scripts/day-reflection-check.ts --finalize --verdicts "$W/verdicts.json") \
+(cd "$KB" && npx tsx scripts/day-reflection-check.ts --finalize --verdicts "$W/verdicts.json" --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
   < "$W/candidate.json" > "$W/final.json" 2> "$W/dropped.txt"; FIN=$?
 cat "$W/dropped.txt"   # exit 0: "dropped rN …" lines · exit 1: all dropped · exit 2: a REFUSAL (unchecked), not a drop
 [ "$FIN" -eq 0 ] && ~/.claude/scripts/day-step.sh data reflection < "$W/final.json"
 ~/.claude/scripts/day-step.sh attest disp.9r --evidence "writer <MODEL line>; N kept, checker verdicts r1 pass …; <dropped.txt lines or 'none dropped'>; <the Coverage line>; <MISSING lines or 'nothing missing'>"
 ```
 
-`--finalize` keeps a statement only when its last verdict is a pass, drops one that failed twice
+`--finalize` checks every kept quote again itself (it never trusts the file), refuses more than two
+verdicts per statement, keeps a statement only when its last verdict is a pass, drops one that failed twice
 (named on stderr — that line goes in the evidence), and refuses (exit 2) anything that failed once
 and was not checked again: a statement is never published unchecked. When every statement is
 dropped nothing is recorded, and the board shows no statements rather than unchecked ones; say so in

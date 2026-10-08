@@ -41,6 +41,8 @@ const DECISIONS_IN_WINDOW = 0.6
 const MAX_TERMS = 15
 /** Founder turns kept per conversation, per pool. */
 const PER_SESSION = 2
+/** Query terms taken from the recent founder turns. */
+const RECENT_TERMS = 8
 
 export interface IO { out: (s: string) => void; err: (s: string) => void }
 
@@ -206,7 +208,7 @@ function parseArgs(argv: string[]): Args | null {
         break
       case '--max-lines': {
         const n = Number(v)
-        if (!Number.isInteger(n) || n < 8 || n > 2000) return null
+        if (!Number.isInteger(n) || n < 40 || n > 2000) return null
         a.maxLines = n
         break
       }
@@ -252,7 +254,10 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
   const recentSince = day(end - RECENT_DAYS * DAY_MS)
   const missing: string[] = []
   const sources: Record<string, Source> = {}
-  const quota = (share: number) => Math.max(1, Math.floor(args.maxLines * share))
+  // --max-lines caps the WHOLE block: headings, empty markers, Coverage and MISSING lines come off
+  // the top, the rest is shared between the source classes (decided once the MISSING count is known)
+  let rowBudget = args.maxLines
+  const quota = (share: number) => Math.max(1, Math.floor(rowBudget * share))
 
   // S — stories first: their words are query terms for the other classes
   let stories: StoryEntry[] = []
@@ -264,7 +269,17 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
   } catch {
     missing.push(`founder stories — ${join(args.dayDir, 'decisions.jsonl')} unreadable`)
   }
-  const terms = [...new Set([...args.terms, ...keyTerms(stories.map((s) => `${s.story} ${s.statement}`))])].slice(0, MAX_TERMS * 2)
+  // C (part 1) — the last 3 days of founder turns, unfiltered: a pool of their own AND, with the
+  // stories and the drafts, a source of query terms (P1445 B.2)
+  const base = ['--role', 'user', '--jsonl']
+  const recentRes = await runHist(args.hist, [...base, '--since', recentSince, '\\S'])
+  // a turn after --now did not exist when the pass ran (hist's --since is a whole day)
+  const nowTs = new Date(end).toISOString().slice(0, 19)
+  const turn = (h: Hit) => !NOT_A_TURN.test(h.text) && h.ts.slice(0, 19) <= nowTs
+  const recentTurns = recentRes.ok ? recentRes.hits.filter(turn) : []
+  const terms = [
+    ...new Set([...args.terms, ...keyTerms(stories.map((s) => `${s.story} ${s.statement}`)), ...keyTerms(recentTurns.map((h) => h.text), RECENT_TERMS)]),
+  ].slice(0, MAX_TERMS * 2)
   const rx = termRx(terms)
 
   // D — decisions, in window first, then older term matches
@@ -291,37 +306,18 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
   const byDate = (a: Dec, b: Dec) => b.s.date.localeCompare(a.s.date)
   inWindow.sort(byDate)
   older.sort((a, b) => b.score - a.score || byDate(a, b))
+  // fixed lines: 3 header + 4 class headings with a blank before each + 2 coverage, + MISSING lines
+  // (two conversation queries may still add theirs)
+  rowBudget = Math.max(8, args.maxLines - (3 + 8 + 2 + missing.length + 2))
   const dq = quota(SHARE.decisions)
   const dWin = cap(inWindow, Math.max(1, Math.round(dq * DECISIONS_IN_WINDOW)))
   const dOld = cap(older, dq - dWin.kept.length)
 
-  // C — conversations: term hits over the window, and the last 3 days unfiltered (in parallel)
-  const base = ['--role', 'user', '--jsonl']
-  const [termRes, recentRes] = await Promise.all([
-    rx ? runHist(args.hist, [...base, '--since', since, rx.source]) : Promise.resolve({ ok: true as const, hits: [] as Hit[] }),
-    runHist(args.hist, [...base, '--since', recentSince, '\\S']),
-  ])
-  // a turn after --now did not exist when the pass ran (hist's --since is a whole day)
-  const nowTs = new Date(end).toISOString().slice(0, 19)
-  const turn = (h: Hit) => !NOT_A_TURN.test(h.text) && h.ts.slice(0, 19) <= nowTs
+  // C (part 2) — term hits over the whole window
+  const termRes = rx ? await runHist(args.hist, [...base, '--since', since, rx.source]) : { ok: true as const, hits: [] as Hit[] }
   const newest = (a: Hit, b: Hit) => b.ts.localeCompare(a.ts)
   if (!termRes.ok) missing.push(`conversations (term query) — ${termRes.why}`)
   if (!recentRes.ok) missing.push(`conversations (last ${RECENT_DAYS} days) — ${recentRes.why}`)
-  // At most PER_SESSION turns per conversation and pool: one long working session must not fill
-  // the share and hide the other conversations of those days.
-  const seen = new Set<string>()
-  const once = () => {
-    const per = new Map<string, number>()
-    return (h: Hit) => {
-      const k = `${h.session}\u0000${h.ts}`
-      const c = per.get(h.session) ?? 0
-      if (seen.has(k) || c >= PER_SESSION) return false
-      seen.add(k)
-      per.set(h.session, c + 1)
-      return true
-    }
-  }
-  const cq = quota(SHARE.conversations)
   // Term hits rank by how many of the DRAFT's terms they carry (the statement being written is the
   // question; story words only widen the net), then newest first.
   const draftRx = args.terms.map((t) => new RegExp(`\\b${escapeRx(t)}\\b`, 'i'))
@@ -331,11 +327,26 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
     .map((h) => ({ h, k: draftScore(h) }))
     .sort((a, b) => b.k - a.k || newest(a.h, b.h))
     .map((x) => x.h)
-    .filter(once())
-  const recentHits = (recentRes.ok ? recentRes.hits : []).filter(turn).sort(newest).filter(once())
-  const cTerm = cap(termHits, Math.max(1, Math.ceil(cq / 2)))
-  const cRecent = cap(recentHits, cq - cTerm.kept.length)
-
+  const recentHits = [...recentTurns].sort(newest)
+  // Picked in rank order: at most PER_SESSION turns of one conversation per pool (one long working
+  // session must not fill the share), never a turn the other pool already shows. A turn is marked
+  // shown only when it is actually kept, and every fetched turn not shown counts as truncated.
+  const shown = new Set<string>()
+  const key = (h: Hit) => `${h.session}\u0000${h.ts}`
+  const pick = (hits: Hit[], n: number): { kept: Hit[]; cut: number } => {
+    const per = new Map<string, number>()
+    const kept: Hit[] = []
+    const unique = new Set<string>()
+    for (const h of hits) {
+      if (shown.has(key(h))) continue
+      unique.add(key(h))
+      if (kept.length >= n || (per.get(h.session) ?? 0) >= PER_SESSION) continue
+      kept.push(h)
+      shown.add(key(h))
+      per.set(h.session, (per.get(h.session) ?? 0) + 1)
+    }
+    return { kept, cut: unique.size - kept.length }
+  }
   // F — this pass's issue-card titles
   let titles: string[] = []
   if (args.findings !== undefined) {
@@ -345,6 +356,9 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
       missing.push(`this pass's issue cards — ${args.findings} unreadable`)
     }
   } else missing.push("this pass's issue cards — no --findings given")
+  const cq = quota(SHARE.conversations)
+  const cTerm = pick(termHits, Math.max(1, Math.ceil(cq / 2)))
+  const cRecent = pick(recentHits, cq - cTerm.kept.length)
   const f = cap(titles, quota(SHARE.findings))
   const s = cap(stories, quota(SHARE.stories))
 

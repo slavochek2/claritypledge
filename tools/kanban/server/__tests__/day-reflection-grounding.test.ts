@@ -115,13 +115,24 @@ describe('P1445 B: the grounding block', () => {
     expect(r.out).toContain('MISSING: conversations (last 3 days) — hist recent query failed (exit 2)')
   })
 
-  it('the cap keeps a reserved share per class and counts what it cut', async () => {
+  it('the cap holds for the WHOLE block, keeps a share per class, and counts every fetched turn not shown', async () => {
     const many = Array.from({ length: 60 }, (_, i) => turn(`2026-10-07T0${i % 10}:${String(i).padStart(2, '0')}:00`, `s${i}`, `motivation note ${i}`))
-    const r = await cli(contextRun, ctxArgs(fakeHist(many), ['--max-lines', '20', '--terms', 'motivation']))
+    const r = await cli(contextRun, ctxArgs(fakeHist(many), ['--max-lines', '40', '--terms', 'motivation']))
+    expect(r.out.trimEnd().split('\n').length).toBeLessThanOrEqual(40)
     const cov = r.out.split('\n').find((l) => l.startsWith('Coverage:'))!
     expect(cov).toMatch(/conversations \(terms\) \d+ shown, \d+ truncated/)
     expect(cov).toMatch(/issue cards 2 shown/)
     expect(cov).toMatch(/stories 1 shown/)
+  })
+
+  it('one session: at most 2 of its turns per pool, newest first, and the hidden ones are counted (Codex review 4)', async () => {
+    const one = Array.from({ length: 8 }, (_, i) => turn(`2026-10-07T0${7 - i}:00:00`, 'busy', `motivation turn ${i}`))
+    const r = await cli(contextRun, ctxArgs(fakeHist(one), ['--terms', 'motivation']))
+    const C = r.out.split('\n').filter((l) => /^C\d/.test(l))
+    // 2 from the term pool, 2 more (never the same turn) from the recent pool — newest first, none skipped
+    expect(C.map((l) => l.slice(0, 21))).toEqual(['C1 [2026-10-07 07:00]', 'C2 [2026-10-07 06:00]', 'C3 [2026-10-07 05:00]', 'C4 [2026-10-07 04:00]'])
+    expect(r.out).toMatch(/conversations \(terms\) 2 shown, 6 truncated/)
+    expect(r.out).toMatch(/conversations \(last 3 days\) 2 shown, 4 truncated/)
   })
 })
 
@@ -215,40 +226,86 @@ describe('P1445 C: --quotes (the mechanical quote check)', () => {
   })
 })
 
-describe('P1445 C: --finalize (the checker verdicts)', () => {
-  async function quoted() {
-    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'no billing data' }])))).out
-    const o = JSON.parse(parsed)
-    for (const s of o.statements) s.agent.sources = [{ ref: 'F1', quote: 'no billing data', source: 'issue card: Three keys report no billing data' }]
-    return JSON.stringify(o)
+describe('P1445 C: --finalize (the checker verdicts; it re-verifies every kept quote)', () => {
+  let hist: string
+  let fin: (v: object) => string[]
+  async function quoted(sources: object[] = [{ ref: 'F1', quote: 'report no billing data' }]) {
+    hist = fakeHist([])
+    await cli(contextRun, ctxArgs(hist))
+    return (await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], (await check(['--parse'], reply(three(sources)))).out)).out
   }
-  const verdicts = (v: object) => {
-    writeFileSync(join(root, 'verdicts.json'), JSON.stringify(v))
-    return join(root, 'verdicts.json')
-  }
+  beforeEach(() => {
+    fin = (v: object) => {
+      writeFileSync(join(root, 'verdicts.json'), JSON.stringify(v))
+      return ['--finalize', '--verdicts', join(root, 'verdicts.json'), '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist]
+    }
+  })
 
-  it('FAILING CONTROL — a statement that fails twice is dropped and named; the rest carry checker "pass"', async () => {
-    const r = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r2: ['fail: cites nothing about tools', 'fail: still unsupported'], r3: ['fail: duplicate of a card', 'pass'] })], await quoted())
+  it('FAILING CONTROL — a statement that fails twice is dropped and named; the rest carry checker "pass" and stable refs', async () => {
+    const q = await quoted()
+    const r = await check(fin({ r1: ['pass'], r2: ['fail: cites nothing about tools', 'fail: still unsupported'], r3: ['fail: duplicate of a card', 'pass'] }), q)
     expect(r.code).toBe(0)
     expect(r.err).toBe('dropped r2 after two failed checks: "Stop building tools while waiting to feel ready."\n')
     const o = JSON.parse(r.out)
     expect(o.statements.map((s: { id: string }) => s.id)).toEqual(['r1', 'r3'])
     expect(o.statements.every((s: { agent: { checker: string } }) => s.agent.checker === 'pass')).toBe(true)
+    expect(o.statements[0].agent.sources).toEqual([{ ref: 'issue card: Three keys report no billing data', quote: 'report no billing data' }])
   })
 
   it('never published unchecked: one fail with no second check, or no verdict → exit 2', async () => {
-    const once = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r2: ['fail'], r3: ['pass'] })], await quoted())
+    const q = await quoted()
+    const once = await check(fin({ r1: ['pass'], r2: ['fail'], r3: ['pass'] }), q)
     expect(once.code).toBe(2)
     expect(once.err).toContain('r2 failed the checker once and was not checked again after a rewrite')
-    const none = await check(['--finalize', '--verdicts', verdicts({ r1: ['pass'], r3: ['pass'] })], await quoted())
+    const none = await check(fin({ r1: ['pass'], r3: ['pass'] }), q)
     expect(none.code).toBe(2)
     expect(none.err).toContain('r2 has no checker verdict')
   })
 
+  it('a third round is refused (Codex review 2: fail, fail, pass must not survive)', async () => {
+    const r = await check(fin({ r1: ['fail', 'fail', 'pass'], r2: ['pass'], r3: ['pass'] }), await quoted())
+    expect(r.code).toBe(2)
+    expect(r.err).toContain('r1 has 3 verdicts: a statement gets at most two checker rounds')
+  })
+
+  it('a forged "source" does not pass: the quote is checked again (Codex review 1)', async () => {
+    const o = JSON.parse(await quoted())
+    o.statements[0].agent.sources = [{ ref: 'F1', quote: 'Fabricated source text here', source: 'forged stable reference' }]
+    const r = await check(fin({ r1: ['pass'], r2: ['pass'], r3: ['pass'] }), JSON.stringify(o))
+    expect(r.code).toBe(2)
+    expect(r.err).toContain('a passed statement has a quote that does not verify: r1: quote from F1 not found')
+    expect(r.out).toBe('')
+  })
+
   it('every statement dropped → exit 1, nothing recorded', async () => {
-    const r = await check(['--finalize', '--verdicts', verdicts({ r1: ['fail', 'fail'], r2: ['fail', 'fail'], r3: ['fail', 'fail'] })], await quoted())
+    const r = await check(fin({ r1: ['fail', 'fail'], r2: ['fail', 'fail'], r3: ['fail', 'fail'] }), await quoted())
     expect(r.code).toBe(1)
     expect(r.out).toBe('')
+  })
+
+  it('--lenient: a mechanical miss prints the reflection anyway (it becomes a checker fail); finalize still refuses it as a pass', async () => {
+    hist = fakeHist([])
+    await cli(contextRun, ctxArgs(hist))
+    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'words not in the card' }])))).out
+    const r = await check(['--quotes', '--lenient', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.code).toBe(0)
+    expect(r.err).toContain('r1: quote from F1 not found')
+    expect(JSON.parse(r.out).statements).toHaveLength(3)
+    const f = await check(fin({ r1: ['pass'], r2: ['pass'], r3: ['pass'] }), r.out)
+    expect(f.code).toBe(2)
+  })
+})
+
+describe('P1445 C: a quote across markdown in the raw turn is still found (Codex review 6)', () => {
+  it('turn "**Run** a smaller event soon", quote "Run a smaller event" → pass', async () => {
+    const hist = fakeHist([turn('2026-10-07T08:00:00', 'md', '**Run** a smaller event soon, honestly motivation matters')])
+    await cli(contextRun, ctxArgs(hist, ['--terms', 'motivation']))
+    const sources = JSON.parse(readFileSync(join(root, 'sources.json'), 'utf-8')) as Record<string, { session?: string }>
+    const c = Object.keys(sources).find((k) => sources[k].session === 'md')!
+    const parsed = (await check(['--parse'], reply(three([{ ref: c, quote: 'Run a smaller event' }])))).out
+    const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.err).toBe('')
+    expect(r.code).toBe(0)
   })
 })
 
@@ -310,11 +367,14 @@ describe('P1445 review fixes: round 2, re-checking, short quotes', () => {
     expect(r.err).toContain('must carry one of the ids r2 once')
   })
 
-  it('--finalize refuses a source the quote check never resolved', async () => {
+  it('--finalize verifies quotes itself, so a statement that skipped --quotes still gets checked', async () => {
     const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'no billing data' }])))).out
+    const hist = fakeHist([])
+    await cli(contextRun, ctxArgs(hist))
     writeFileSync(join(root, 'v.json'), JSON.stringify({ r1: ['pass'], r2: ['pass'], r3: ['pass'] }))
-    const r = await check(['--finalize', '--verdicts', join(root, 'v.json')], parsed)
-    expect(r.code).toBe(2)
-    expect(r.err).toContain('never resolved')
+    // not run through --quotes: finalize verifies it itself and publishes the stable reference
+    const r = await check(['--finalize', '--verdicts', join(root, 'v.json'), '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.code).toBe(0)
+    expect(JSON.parse(r.out).statements[0].agent.sources[0].ref).toBe('issue card: Three keys report no billing data')
   })
 })
