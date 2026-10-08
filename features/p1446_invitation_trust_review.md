@@ -125,11 +125,59 @@ user able to send a letter; live on production.
 Prior art: P880 (trust-column guard trigger), P1230 (agreement status lock on UPDATE — the INSERT
 side was missed), P1321 L1/L2.
 
+## Triage of the Unverified Claims (2026-10-09)
+
+Each verified against code and the live catalog (read-only), or by a probe on the test project that
+obtained no credential.
+
+1. **`create-and-sign` returns a credential for an unregistered address — CONFIRMED, but NOT the C1
+   shape. Founder decision.** It never returns a credential for an account that already exists: an
+   existing profile gets `USER_EXISTS` (index.ts ~L183–191), and for a case variant of a registered
+   address auth itself refuses the create ("already been registered" — probed on test with a fresh
+   fixture, control `createTestUser` on a new address succeeded). What remains is shared with the
+   new-account branch of `create-and-open-letter`: whoever presents the invitation token (which the
+   creator/sender can read) gets the session of a **newly created** account at the invitee's address,
+   before the invitee has used it. No existing data is exposed; the risk is a pre-created account the
+   presenter keeps a session in. This is the one-click product flow, so it is the founder's call, not
+   fixed here. `[FOUNDER DECISION: keep one-click account creation, or deliver the first sign-in to the
+   mailbox / hide the token from senders]`
+2. **`claim_letter_delivery` / `update_delivery_status_by_token` bind an unassigned delivery to any
+   signed-in token holder (H4) — CONFIRMED as written, NOT an escalation; LOW.** Both bind only a
+   delivery with no receiver, and only for a caller holding its token. Through table reads the token
+   is visible only to the letter's sender and its receiver (SELECT policy); the addressed recipient and
+   anyone they forward the email to are bearers by design, and the sender can only route their own
+   letter to an account of their choosing — nothing they do not already control. Residual hygiene gap:
+   on prod `update_delivery_status_by_token` checks neither invitation expiry nor the sender (the claim
+   RPC checks both). Not changed here: the same function is redefined by the unshipped P1181 branch
+   (live on the test project, not on prod), so a P1446 redefinition would conflict with it and would
+   remove P1181's check from test. Filed for alignment with P1181.
+3. **`confirm-letter-response` enrols without re-checking eligibility (M6) — NOT REACHABLE as an
+   escalation.** It enrols only from a `letter_response_pending` row, which no client role can read
+   or write (prod: anon/authenticated INSERT/UPDATE/SELECT all false), written by
+   `request-letter-response-signin` only after checking the letter is sealed and one-to-many (~L322–330),
+   and matched to the caller and its own expiry. The only gap is staleness within the pending row's
+   lifetime, on a letter that was public when requested. P1181 must add its audience check to both
+   functions when it ships.
+4. **Stale JWT email in P1321's `guard_profile_trust_columns` (M5) — REACHABLE ONLY IN A NARROW
+   WINDOW; LOW.** The INSERT branch takes the email claim from the caller's JWT. After an email change a
+   still-valid old token carries the old address until it expires, so a user who deletes and re-creates
+   their profile row inside that window can store the address they used to own. Requires having
+   controlled that address and a profile re-insert within one token lifetime; UPDATE pins the old value
+   regardless. Recorded on P1321, not fixed here (P1321's migration is not on prod yet).
+
 ## Acceptance Criteria
 
-- [ ] C1: a failing-then-passing integration test shows a token for an already-linked existing account yields no credential, with a control proving the function still opens the letter
-- [ ] H2: a failing-then-passing test shows a client cannot change a delivery's `letter_id` or `receiver_profile_id`, with a control that a legitimate progress update still works
-- [ ] H3: a failing-then-passing test shows a client cannot insert a non-pending agreement or name a partner, with a control that the normal create → accept flow still works
-- [ ] Each of the four unverified claims has a test or a written disposition
+- [ ] C1: the letter-opening function returns no credential for an account that already exists, and still opens the letter. **Evidence standard changed 2026-10-09 (founder):** no test may obtain or exercise a credential for another account, so the evidence is the diff, a Codex review at high effort, and the founder's manual check after deploy — not an integration test.
+  - Diff: commit ed2cd484d. Three branches had the shape, not one; all three now return `redirectTo` only, and the credential remains only in the branch that has just created the account. The client already continues by the token path when no credential comes back. `deno check` passes.
+  - Structural tripwire `src/tests/p1446-invitation-credential-shape.test.ts`: 4/4 green; flags all three branches on the pre-fix file. It reads source order only, so it catches this regression's shape and nothing subtler.
+  - Codex (high, read-only, 1 of 1 reports): no remaining existing-account credential return in the repaired function. Its other findings are recorded privately and not yet verified.
+  - **Open:** edge-function deploy (founder) → founder's manual check.
+- [x] H2: a failing-then-passing test shows a client cannot change a delivery's `letter_id` or `receiver_profile_id`, with a control that a legitimate progress update still works
+  - `e2e/integration/p1446-ownership-columns.spec.ts`: red before migration 20261009090000, green after; refusal is a column-privilege error; control writes to the progress columns land (admin read-back).
+- [x] H3: a failing-then-passing test shows a client cannot insert a non-pending agreement or name a partner, with a control that the normal create → accept flow still works
+  - Same file: red before migration 20261009090100, end to end (a forged ended agreement put an outsider in scope); green after, refusal is the RLS error; control: an app-shaped insert lands pending, then `accept_agreement` makes it active with the partner. 9/9 green.
+- [x] Each of the four unverified claims has a test or a written disposition — see Triage above.
 - [ ] Regression lanes touching letters and agreements pass on test
+  - Integration (69 files): no failure carries either refusal signature; failures were classified as rate limits, teardown, missing functions and test-project drift (P1181), plus P1321's stale anonymous-access tests.
+  - Browser (85 files, chromium): 412 passed, 177 failed, none carrying a refusal signature. In a browser a refusal shows as missing UI, so a with/without comparison on the 52 failing files is running on test.
 - [ ] Fixes applied to test only; prod apply and edge-function deploy left to the founder
