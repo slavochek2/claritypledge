@@ -2447,7 +2447,7 @@ ship_init_journal() {
   local shas
   shas="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" 2>/dev/null )"
   if [[ -z "$shas" ]]; then
-    die "ship: branch '$branch' has no commits ahead of main — nothing to ship"
+    die "ship: branch '$branch' has no commits ahead of main — nothing to ship. If ${pn} is a comment, withdrawn or retracted spec, delete the empty branch (git branch -d $branch) and re-run: with no branch it closes administratively (P1444)."
   fi
 
   # Pre-flight merge-commit warning (2026-08-21, P1135 KDD). Cherry-pick refuses
@@ -3303,6 +3303,8 @@ PYEOF
 # Sets SHIP_GATE_OVERRIDE_REASON (empty when no override was used) for the
 # caller to fold into the closure commit message.
 SHIP_GATE_OVERRIDE_REASON=""
+# P1444 review: set when gates failed under --override; the approval is asked later.
+SHIP_GATE_PENDING_OVERRIDE=""
 
 # ship_close_message <subject> — the closure commit subject, plus an override
 # trailer when a gate was overridden.
@@ -3319,7 +3321,7 @@ SHIP_GATE_OVERRIDE_REASON=""
 ship_close_message() {
   local subject="$1"
   if [[ -n "$SHIP_GATE_OVERRIDE_REASON" ]]; then
-    printf '%s\n\nGate-Override: closure gate failed; closed by human override.\nGate-Override-Reason: %s\nGate-Override-Approval: keychain dialog\n' \
+    printf '%s\n\nGate-Override: closure gate failed; closed by override (keychain dialog).\nGate-Override-Reason: %s\nGate-Override-Approval: keychain dialog\n' \
       "$subject" "$SHIP_GATE_OVERRIDE_REASON"
   else
     printf '%s\n' "$subject"
@@ -3342,6 +3344,7 @@ ship_close_message() {
 ship_run_gates() {
   local pn="$1" want_override="${2:-0}" fresh_journal="${3:-}"
   SHIP_GATE_OVERRIDE_REASON=""
+  SHIP_GATE_PENDING_OVERRIDE=""
   # P1309: set when gate 2.5 passed on an ABSORBING spec's record — the
   # no-branch route then looks for that spec's 'ready for QA' stamp, not pN's.
   SHIP_GATE_ABSORBER=""
@@ -3387,12 +3390,29 @@ ship_run_gates() {
     die "$(gate_override_refusal_text "$pn")"
   fi
 
-  # P1444: the override is approved by ONE keychain dialog, not by typing at
-  # /dev/tty — a pty wrapper answered that prompt (decisions.md 2026-09-08), so it
-  # is no longer an authorization path at all. gate_override_decide verifies the
-  # approval item's access list, reads it (the dialog: Allow approves, Deny
-  # refuses), and verifies the access list again. Every other outcome refuses.
-  # What this approval is and is NOT worth is in gate-override.sh's header.
+  # P1444 review (L-f): the approval is NOT asked here. Every check that can still
+  # refuse this close without a human (the stamp on the no-branch route; the
+  # self-modification and co-located-spec checks on the branch route) runs first,
+  # and the caller asks for the one click immediately before taking main.lock —
+  # a click that a later mechanical refusal throws away is a click wasted, and it
+  # teaches the founder that Allow does nothing.
+  SHIP_GATE_PENDING_OVERRIDE=1
+  echo "ship: $pn's gates failed; --override given — the keychain approval is asked once every other pre-close check has passed." >&2
+  return 0
+}
+
+# ship_approve_pending_override <pN> [journal this run created]
+# The one click. A no-op unless ship_run_gates recorded a pending override.
+#
+# P1444: the override is approved by ONE keychain dialog, not by typing at
+# /dev/tty — a pty wrapper answered that prompt (decisions.md 2026-09-08), so it
+# is no longer an authorization path at all. gate_override_decide verifies the
+# approval item's access list, reads it (the dialog: Allow approves, Deny
+# refuses), and verifies the access list again. Every other outcome refuses.
+# What this approval is and is NOT worth is in gate-override.sh's header.
+ship_approve_pending_override() {
+  local pn="$1" fresh_journal="${2:-}"
+  [[ "${SHIP_GATE_PENDING_OVERRIDE:-}" == 1 ]] || return 0
   if ! command -v gate_override_decide >/dev/null 2>&1; then
     [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
     die "ship: scripts/lib/gate-override.sh is missing or did not load — no override is possible. $pn not closed."
@@ -3405,6 +3425,7 @@ ship_run_gates() {
 
   gate_override_record "$pn" "closure" "$reason"
   SHIP_GATE_OVERRIDE_REASON="$reason"
+  SHIP_GATE_PENDING_OVERRIDE=""
   echo "ship: GATE OVERRIDE approved for $pn by keychain dialog — recorded in the closure commit and in gate-overrides.log" >&2
   return 0
 }
@@ -3640,6 +3661,10 @@ cmd_ship() {
   Then re-run: ./scripts/git-ops.sh ship $pn"
       fi
 
+      # P1444 review (L-f): every mechanical check above has passed — only now is
+      # the founder asked for the override click, if one is pending.
+      ship_approve_pending_override "$pn"
+
       # --- Closure (Decisions C + D). Acquire the main lock exactly once HERE
       #     (this arm returns before the normal path's acquire, so there is no
       #     outer lock and no self-deadlock — never call cmd_commit_to_main).
@@ -3751,7 +3776,7 @@ cmd_ship() {
           _adm_fail="the staged closed copy is unreadable"
         elif ! admin_check_local "$REPO_ROOT" "$pn" "$spec_file" "$_adm_staged"; then
           _adm_fail="$ADMIN_REASON"
-        elif ! admin_paths_ok "$pn" "$spec_file" < <( cd "$REPO_ROOT" && git diff --cached --name-status --no-renames ); then
+        elif ! admin_paths_ok "$pn" "$spec_file" < <( cd "$REPO_ROOT" && git diff --cached --name-status --no-renames -z ); then
           _adm_fail="$ADMIN_REASON"
         fi
         if [[ -n "$_adm_fail" ]]; then
@@ -3767,6 +3792,22 @@ cmd_ship() {
       elif [[ "$_csx_rc" -ne 0 ]]; then
         ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
         die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+      fi
+      # P1444 review (Codex #11): the last check above and git's read of the index
+      # are separated by the pre-commit hook (minutes), and branch creation takes no
+      # main.lock. Re-check what can change in that window AFTER the commit — the
+      # same posture as P1279's post-commit file check: the commit is NOT rolled back
+      # (HEAD~1 on the shared checkout is banned), the exit is non-zero, and the
+      # message says the commit landed.
+      if (( _admin_close == 1 )); then
+        local _post_main _post_base _post_common
+        _post_main="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+        _post_base="$( cd "$REPO_ROOT" && git rev-parse --verify -q "${ADMIN_LOCAL_BASE_REF}^{commit}" || true )"
+        _post_common="$( cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir )"
+        if ! admin_impl_evidence "$REPO_ROOT" "$pn" "$_post_main" "${_post_common}/.finish-reviewed" \
+           || ! admin_refs_ahead "$REPO_ROOT" "$pn" "$_post_main" ${_post_base:+"$_post_base"}; then
+          die "ship: the administrative close of $pn LANDED as ${_post_main:0:9}, but a re-check AFTER the commit failed: $ADMIN_REASON. Nothing was rolled back. Inspect it (git show --stat ${_post_main:0:9}) and revert it with a new commit if the close is wrong — never by moving HEAD on the shared checkout."
+        fi
       fi
 
       echo "ship: no branch — closing $pn directly on main ($sprint_dir)"
@@ -3999,6 +4040,9 @@ The branch is authoritative for shipped migrations. Compare each file with
   if [[ -n "$cospecs_filed" ]]; then
     echo "ship: specs filed (not delivered) on branch ${branch}: $(echo "$cospecs_filed" | tr '\n' ' ') — left untouched, not auto-closed." >&2
   fi
+
+  # P1444 review (L-f): the override click, if pending, after every pre-lock check.
+  ship_approve_pending_override "$pn" "${_fresh_journal:-}"
 
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
   if ! acquire_main_lock "$timeout"; then

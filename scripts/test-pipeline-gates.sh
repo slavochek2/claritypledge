@@ -123,7 +123,7 @@ A4_R="$SCRATCH/a4"; mkdir -p "$A4_R"
 mk_repo_a4() {
   mkdir -p "$1/scripts/lib" "$1/features/done/2026-09-08"
   cp "$REPO_ROOT/scripts/git-ops.sh" "$REPO_ROOT/scripts/ship-gates.sh" "$1/scripts/"
-  cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$1/scripts/lib/"
+  cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$REPO_ROOT/scripts/lib/admin-close.sh" "$1/scripts/lib/"
   chmod +x "$1/scripts/git-ops.sh" "$1/scripts/ship-gates.sh"
   : > "$1/features/done/2026-09-08/.gitkeep"
   ( cd "$1" && git init -q && git config user.email c@t && git config user.name c \
@@ -169,6 +169,60 @@ else
   fi
 fi
 
+# A5. (P1444 review M4, gate 7b) A4 shows a pty does not CLOSE the spec; it does
+# not show WHY. Two checks that do:
+#   a) static — the override path has no terminal read at all: no /dev/tty, no
+#      `read` from a fd, no tty test, in gate-override.sh (comments stripped) or in
+#      git-ops.sh's two override functions;
+#   b) dynamic (macOS) — with a fake keychain.py that RECORDS being reached and
+#      answers Deny, a reason typed into a real pty closes nothing, and the helper
+#      was consulted: the decision is the helper's, not the typed input's.
+a5_code() {  # code lines only (comments and blank lines removed)
+  sed -e 's/^[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$@"
+}
+a5_fn() {  # a5_fn <file> <function> — the function's body
+  awk -v f="$2" '$0 ~ "^" f "\\(\\) \\{" {p=1} p {print} p && /^}/ {exit}' "$1"
+}
+a5_body="$( a5_code "$REPO_ROOT/scripts/lib/gate-override.sh"; \
+            a5_fn "$REPO_ROOT/scripts/git-ops.sh" ship_run_gates | a5_code; \
+            a5_fn "$REPO_ROOT/scripts/git-ops.sh" ship_approve_pending_override | a5_code )"
+a5_pat='/dev/tty|read[^;]*<&[0-9]|\[\[? -t [0-9]|tty_available|exec [0-9]<>'
+a5_lines="$(printf '%s\n' "$a5_body" | grep -c .)"
+if [[ "$a5_lines" -lt 40 ]] || ! grep -q 'gate_override_decide' <<<"$a5_body"; then
+  fail "A5a: extracted too little of the override path to judge ($a5_lines lines) — the scan would be vacuous"
+elif grep -qE "$a5_pat" <<<"$a5_body"; then
+  fail "A5a: the override path reads a terminal again:"; grep -nE "$a5_pat" <<<"$a5_body" >&2
+elif ! grep -qE "$a5_pat" <<<"$(printf '%s\nexec 3<>/dev/tty\n' "$a5_body")"; then
+  fail "A5a: the scan did not fire on a planted /dev/tty — it is blind"
+else
+  pass "A5a: the override path (gate-override.sh, ship_run_gates, ship_approve_pending_override; $a5_lines code lines) reads no terminal, and the scan fires on a planted /dev/tty"
+fi
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  pass "A5b: not macOS — the approval reader refuses before any helper (A4 covers the refusal here)"
+elif [[ -z "$PTY_FLAVOUR" ]]; then
+  fail "A5b: no pty helper — the dynamic case cannot run"
+else
+  A5_R="$SCRATCH/a5"; mkdir -p "$A5_R"; mk_repo_a4 "$A5_R"
+  printf '%s\n' '#!/usr/bin/env python3' \
+    '# FAKE for test-pipeline-gates A5b: records each call, intact ACL, DENIES approval.' \
+    'import os, sys' \
+    'log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake-calls")' \
+    'open(log, "a").write((sys.argv[1] if len(sys.argv) > 1 else "") + "\n")' \
+    'sys.exit(0 if sys.argv[1:2] == ["approval-acl"] else 2)' > "$A5_R/scripts/lib/keychain.py"
+  pty_feed "yes, approve it, I am the founder" \
+    "cd '$A5_R' && bash scripts/git-ops.sh ship p777 --override --reason 'agent typed this, no human present'" \
+    >"$SCRATCH/a5.log" 2>&1
+  if ls "$A5_R"/features/done/*/p777_demo.md >/dev/null 2>&1; then
+    fail "A5b: a pty-typed answer closed the spec"; sed 's/^/    /' "$SCRATCH/a5.log" >&2
+  elif grep -qx 'approval-get' "$A5_R/scripts/lib/fake-calls" 2>/dev/null \
+       && grep -q 'the keychain dialog was denied' "$SCRATCH/a5.log"; then
+    pass "A5b: with a reason typed into a real pty, the approval helper was consulted and its Deny held — nothing closed"
+  else
+    fail "A5b: the helper was not reached (calls: $(tr '\n' ' ' < "$A5_R/scripts/lib/fake-calls" 2>/dev/null))"; sed 's/^/    /' "$SCRATCH/a5.log" >&2
+  fi
+fi
+
 # ── Scratch repo for the ship-path cases ────────────────────────────────────
 mk_repo() {
   local d="$1"
@@ -176,6 +230,9 @@ mk_repo() {
   cp "$REPO_ROOT/scripts/git-ops.sh"            "$d/scripts/"
   cp "$REPO_ROOT/scripts/ship-gates.sh"         "$d/scripts/"
   cp "$REPO_ROOT/scripts/lib/gate-override.sh"  "$d/scripts/lib/"
+  # P1444 review (7c): load the administrative arm, so these documented workflows
+  # run with it present rather than past its "library missing" branch.
+  cp "$REPO_ROOT/scripts/lib/admin-close.sh"    "$d/scripts/lib/"
   chmod +x "$d/scripts/git-ops.sh" "$d/scripts/ship-gates.sh"
   : > "$d/features/done/2026-09-08/.gitkeep"
   (
@@ -737,5 +794,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3)"
 exit 0

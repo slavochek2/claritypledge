@@ -27,14 +27,17 @@
 #  - permissions: contents: read ONLY. Actions publishes the check-run result
 #    itself; a token cannot POST a forged one.
 #
-# KNOWN RESIDUAL, stated rather than implied away: the human override is carried
-# by a `Gate-Override:` trailer on the closing commit, and a commit message is
-# writable by whoever makes the commit. This job therefore cannot distinguish a
-# founder's terminal override from a forged trailer. What it DOES do is convert a
-# silent false close into a loud, greppable, permanent claim that a human
-# authorized this one — reviewable in `git log`, and impossible to produce at all
-# without first defeating the local PreToolUse hook. That is a real improvement
-# over the measured baseline (no gate at any layer), not a proof of authenticity.
+# KNOWN RESIDUAL, stated rather than implied away: an override is carried by
+# trailers on the closing commit (Gate-Override, Gate-Override-Reason,
+# Gate-Override-Approval), and a commit message is writable by whoever makes the
+# commit. This job requires all three, in a real trailer block (`git
+# interpret-trailers --parse`, not any body line) — and that is ALL it can check. It
+# cannot tell a founder-approved override from three typed lines: anyone who can
+# write a commit, by hand or with a script, can produce them, with no hook to
+# defeat (`git commit` with a message is enough). What the job does is make a
+# false close a loud, greppable, permanent claim in `git log`, not prevent one.
+# Same honest label as scripts/lib/gate-override.sh; the fix is a server-side
+# approval bound to a founder-only identity (out of scope for P1444).
 
 name: closure-gate
 
@@ -67,6 +70,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.event.after }}
+          PUSH_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           # A close = a spec file ADDED under features/done/ (UAT copies excluded:
@@ -89,15 +93,27 @@ jobs:
           # same BASE. The closing-commit lookup used to switch back to
           # `origin/main...HEAD`, which on a push to main is empty — so the override
           # trailer was read from no commit at all.
-          #   push with a reachable before: BASE = before (what main was).
-          #   new branch, unreachable before, pull_request: BASE = merge-base with
-          #   origin/main (equal to what the three-dot form diffed against).
+          #
+          # BASE IS ALWAYS ON MAIN'S SIDE (P1444 review, Codex #1/#2). It supplies the
+          # policy scripts and the provenance of an administrative close, so it must
+          # be a commit main has already accepted:
+          #   push to main: BASE = before (what main was). A before that is missing,
+          #     unreachable or not an ancestor of after (force-push) FAILS the job —
+          #     falling back to the merge-base there yields after itself, i.e. an
+          #     empty range that reports green having examined nothing.
+          #   any other push, and pull_request: BASE = merge-base with origin/main.
+          #     A side branch's previous tip is never trusted: two pushes to one
+          #     branch (relabel, then close) must not vouch for each other.
           TIP="$(git rev-parse HEAD)"
           BASE=""
-          if [ "$EVENT_NAME" = "push" ] \
-             && [ -n "${PUSH_BEFORE:-}" ] \
-             && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
-             && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+          if [ "$EVENT_NAME" = "push" ] && [ "${PUSH_REF:-}" = "refs/heads/main" ]; then
+            if [ -z "${PUSH_BEFORE:-}" ] \
+               || [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null \
+               || ! git merge-base --is-ancestor "$PUSH_BEFORE" "$PUSH_AFTER" 2>/dev/null; then
+              echo "::error::closure-gate: this push to main has no usable before (missing, unreachable, or not an ancestor of the pushed tip) — refusing rather than judging an empty range."
+              exit 1
+            fi
             BASE="$(git rev-parse "${PUSH_BEFORE}^{commit}")"
             TIP="$(git rev-parse "${PUSH_AFTER}^{commit}")"
           else
@@ -109,10 +125,23 @@ jobs:
           fi
           RANGE="${BASE}..${TIP}"
           echo "Range: $RANGE (event: $EVENT_NAME)"
-          # git diff runs on its own line so a failure fails the job; piping it
-          # straight into `grep || true` used to turn a git error into "no closes".
-          DIFF="$(git diff --no-renames --name-only --diff-filter=A "$RANGE" -- 'features/done/**')"
-          CLOSED="$(printf '%s\n' "$DIFF" | grep -E '/p[0-9]+[^/]*\.md$' | grep -vE '/uat/' || true)"
+          # git diff writes to a file on its own line so a failure fails the job
+          # (piping it into `grep || true` used to turn a git error into "no
+          # closes"), and NUL-delimited (-z): line output C-quotes a non-ASCII
+          # name, and a quoted name escaped the .md filter — a close CI never saw
+          # (P1444 review, Codex #7). A name containing a newline cannot travel in
+          # the step output below, so it fails the job.
+          DIFFZ="$(mktemp)"
+          git diff -z --no-renames --name-only --diff-filter=A "$RANGE" -- 'features/done/**' > "$DIFFZ"
+          CLOSED=""
+          while IFS= read -r -d '' p; do
+            case "$p" in *$'\n'*) echo "::error::closure-gate: a closed path contains a newline — refusing"; exit 1 ;; esac
+            case "$p" in features/done/*/uat/*) continue ;; esac
+            case "${p##*/}" in p[0-9]*.md) ;; *) continue ;; esac
+            CLOSED="${CLOSED}${p}"$'\n'
+          done < "$DIFFZ"
+          rm -f "$DIFFZ"
+          CLOSED="${CLOSED%$'\n'}"
           {
             echo "range=$RANGE"
             echo "base=$BASE"
@@ -206,7 +235,7 @@ jobs:
             # The commit that performed this close, looked up in the SAME range
             # that discovered it. `sed -n 1p` reads all of its input, so it cannot
             # SIGPIPE the producer under pipefail the way `head -1` can.
-            closing_commit="$(git log --no-renames --diff-filter=A --format='%H' "$RANGE" -- "$spec" | sed -n '1p')"
+            closing_commit="$(git log --no-renames --diff-filter=A --format='%H' "$RANGE" -- ":(literal)$spec" | sed -n '1p')"
             if [ -z "$closing_commit" ]; then
               echo "::error::$pn: no commit in $RANGE adds $spec — cannot attribute the close."
               rc=1; echo "::endgroup::"; continue
@@ -215,27 +244,32 @@ jobs:
             # base's library: the closing commit's parent and its own blob must both
             # classify the spec as comment/withdrawn/retracted with no implementation
             # recorded, the spec must already be classified at BASE (a relabel inside
-            # the range refuses), the commit may touch only the spec and its UAT file,
-            # and no feature/pN-* or fix/pN-* ref may be ahead of it. NO trailer or
-            # message text is read for this verdict.
+            # the range refuses), main's history may hold no implementation evidence
+            # for pN, the commit may touch only the spec and its UAT pair, and no
+            # feature/pN-* or fix/pN-* ref may be ahead of MAIN (origin/main — never
+            # the closing commit, Codex #3). NO trailer or message text is read.
             if [ "$ADMIN_AVAILABLE" = 1 ]; then
-              if admin_out="$(bash -c '. "$1" && if admin_check_commit "$2" "$3" "$4" "$5"; then echo "$ADMIN_MARKER"; else echo "$ADMIN_REASON"; exit 1; fi' \
-                                _ "$TRUSTED_ADMIN" "$GITHUB_WORKSPACE" "$pn" "$closing_commit" "$BASE" 2>&1)"; then
+              if admin_out="$(bash -c '. "$1" && if admin_check_commit "$2" "$3" "$4" "$5" "$6"; then echo "$ADMIN_MARKER"; else echo "$ADMIN_REASON"; exit 1; fi' \
+                                _ "$TRUSTED_ADMIN" "$GITHUB_WORKSPACE" "$pn" "$closing_commit" "$BASE" refs/remotes/origin/main 2>&1)"; then
                 echo "ADMIN: $pn closed administratively ($admin_out) in $closing_commit — re-derived from blobs; gates 2.5 and 2.7 do not apply"
                 echo "::endgroup::"; continue
               fi
               echo "Not an administrative close: $admin_out"
             fi
-            # A human override is carried by a trailer on that same commit. KNOWN
-            # RESIDUAL, unchanged by P1444: a trailer is writable by whoever makes
-            # the commit, so this converts a false close into a loud, permanent
-            # claim rather than preventing it (see the header).
-            reason=$(git log -1 --format='%B' "$closing_commit" 2>/dev/null | grep -m1 '^Gate-Override-Reason:' || true)
-            if [ -n "$reason" ]; then
-              echo "::warning::$pn closed on a FAILING gate under human override — ${reason#Gate-Override-Reason: }"
+            # An override is carried by trailers on that same commit. All three are
+            # required, read from the commit's REAL trailer block — a body line or a
+            # partial set is not an override (P1444 review, Codex #13). KNOWN
+            # RESIDUAL, unchanged: whoever writes the commit can write the trailers,
+            # so this records a loud claim, it does not prove approval (header).
+            trailers="$(git log -1 --format='%B' "$closing_commit" | git interpret-trailers --parse)"
+            if grep -q '^Gate-Override: ' <<<"$trailers" \
+               && grep -qE '^Gate-Override-Reason: .+' <<<"$trailers" \
+               && grep -qx 'Gate-Override-Approval: keychain dialog' <<<"$trailers"; then
+              reason="$(grep -m1 '^Gate-Override-Reason: ' <<<"$trailers")"
+              echo "::warning::$pn closed on a FAILING gate under an override claiming keychain approval — ${reason#Gate-Override-Reason: }"
               echo "OVERRIDE: $pn ($closing_commit)"
             else
-              echo "::error::$pn was closed but does not pass the closure gate, is not an administrative close, and carries no Gate-Override trailer."
+              echo "::error::$pn was closed but does not pass the closure gate, is not an administrative close, and carries no complete Gate-Override trailer set (Gate-Override, Gate-Override-Reason, Gate-Override-Approval)."
               rc=1
             fi
             echo "::endgroup::"

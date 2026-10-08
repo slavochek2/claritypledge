@@ -130,6 +130,9 @@ chmod +x "$SCRATCH/main/scripts/git-ops.sh"
 mkdir -p "$SCRATCH/main/scripts/lib"
 cp "$REPO_ROOT/scripts/ship-gates.sh" "$SCRATCH/main/scripts/ship-gates.sh"
 cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
+# P1444 review (7c): the administrative-closure arm is loaded too, so these
+# documented ship workflows run with it present.
+cp "$REPO_ROOT/scripts/lib/admin-close.sh" "$SCRATCH/main/scripts/lib/admin-close.sh"
 # P1326: ship's worktree teardown consults the dirty-tree helper, and git-ops fails
 # CLOSED (treats every worktree as holding work) when it is absent.
 cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$SCRATCH/main/scripts/lib/worktree-changes.sh"
@@ -144,7 +147,7 @@ chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-o
   git config user.name canary
   git config commit.gpgsign false
   echo "seed" > README.md
-  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh scripts/lib/worktree-changes.sh features/done/2026-04-22/.gitkeep
+  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh scripts/lib/admin-close.sh scripts/lib/worktree-changes.sh features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
 ) >/dev/null

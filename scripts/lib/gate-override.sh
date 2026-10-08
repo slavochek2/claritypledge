@@ -109,9 +109,13 @@ gate_override_acl_state() {
 # gate_override_read_approval <pN> <reason> — exit 0 only when the human clicked
 # Allow and the item decrypted to a non-empty value. Raises the keychain dialog,
 # after the keyring.sh announcement. The value never reaches stdout.
+#
+# stdout is discarded, not trusted to be empty (review: Gemini #5). The helper
+# prints nothing there today, but gate_override_decide's stdout IS the reason that
+# lands in a public commit trailer, so anything a helper wrote would be published.
 gate_override_read_approval() {
   [[ -r "$_GATE_OVERRIDE_KEYCHAIN_PY" ]] || return 3
-  python3 "$_GATE_OVERRIDE_KEYCHAIN_PY" approval-get "approve closing $1 on a red closure gate: $2" </dev/null
+  python3 "$_GATE_OVERRIDE_KEYCHAIN_PY" approval-get "approve closing $1 on a red closure gate: $2" </dev/null >/dev/null
 }
 
 # _gate_override_acl_ok <before|after> — maps the access-list state to a verdict.

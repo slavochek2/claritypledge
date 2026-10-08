@@ -190,7 +190,11 @@ def main():
             "If the gate refuses and the refusal is wrong, the founder approves an\n"
             "override with one click (a keychain dialog):\n"
             "    ./scripts/git-ops.sh ship <pN> --override --reason \"why the gate is wrong\"\n"
-            "A comment, withdrawn or retracted spec with no branch closes without one (P1444).\n"
+            "A comment, withdrawn or retracted spec closes WITHOUT an override (P1444), but only\n"
+            "when: the label is already on origin/main, no feature/pN-* or fix/pN-* branch is\n"
+            "ahead of main, main's history holds no implementation evidence for pN (a commit\n"
+            "naming it that touches code, a 'ready for QA' stamp, a review entry), and the close\n"
+            "moves only the spec and its UAT file. git-ops.sh ship pN checks all of it.\n"
             % offender
         )
         sys.exit(2)

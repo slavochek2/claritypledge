@@ -58,6 +58,17 @@ Technical design by Codex (2026-10-08), as the founder directed.
   `main` before the close**: a relabel inside the closing range (real spec → comment/withdrawn)
   refuses.
 - No `feature/pN-*` or `fix/pN-*` ref (local or remote) is ahead of main.
+- Main's history holds no implementation evidence for pN: no non-revert commit whose subject
+  names pN and touches a path outside `features/`, is a merge, or is a `ready for QA` stamp,
+  and (locally) no code-review entry naming pN. Applied locally and in CI (CI: git history
+  only). This is what separates a real withdrawal from implemented work relabelled in an
+  earlier push (review round 1, H1).
+- Whether `type: comment` alone qualifies is ONE switch, `ADMIN_TYPE_COMMENT_ELIGIBLE` in
+  `scripts/lib/admin-close.sh` (default 1, as written above).
+  [FOUNDER DECISION: keep it, or narrow the route to withdrawn/retracted only? At review, 13 of
+  14 open `type: comment` specs would be agent-closable while it is 1.]
+- Locally the route also refuses until `origin/main` carries `scripts/lib/admin-close.sh`
+  ("ship P1444 first"), because CI judges a close with origin/main's copy.
 - The closing commit changes only the spec's own path (move into `features/done/`) and its UAT
   file.
 - Gates print `[GATE 2.5] SKIP: administrative closure; no completion asserted` and
@@ -93,7 +104,7 @@ that tries to answer the dialog by script would settle the question, and it need
 
 | Risk | Label | Note |
 |---|---|---|
-| A real spec relabelled `type: comment` to skip gates | MITIGATE | Classification must predate the close on main; relabel in range refuses; branch-ahead check |
+| A real spec relabelled `type: comment` / `withdrawn:` to skip gates | MITIGATE | Classification must predate the close on main (relabel in range refuses); no implementation evidence for pN in main's history; branch-ahead check. **Residual:** an earlier-push relabel of a spec with NO implementation evidence still closes administratively |
 | Work done on a deleted or never-pushed branch | ACCEPT | Unobservable from the repo; the guarantee is scoped to observable evidence and says so |
 | Keychain dialog answerable by UI scripting | DEFER | Unverified; labelled honestly; the probe needs the founder present |
 | "Always Allow" silently disables the approval | MITIGATE | Access list verified before and after the read |
@@ -114,7 +125,7 @@ that tries to answer the dialog by script would settle the question, and it need
 - [ ] A defeated or indeterminate access list on the approval item refuses (canary)
 - [ ] The refusal text no longer says "run this in your Terminal"; it names the one-click approval
 - [ ] `closure-gate.yml` re-derives the administrative close from committed blobs (local run of its logic against a fixture commit pasted)
-- [ ] P1274 closed through the administrative path. `[post-ship]` re-check that CI passes on the pushed close.
+- [x] P1274 qualifies for the administrative path. Pre-ship evidence (2026-10-08, real repo, `bash scripts/ship-gates.sh p1274`): `[GATE ADMIN] NOT ELIGIBLE: origin/main does not carry scripts/lib/admin-close.sh yet — ship P1444 first ...; every other condition passed`. The ordering check runs last, so every other condition passed against the real history, refs and review log. `[post-ship]` once P1444 is on origin/main: close P1274 with `./scripts/git-ops.sh ship p1274`, then re-check that CI passes on the pushed close.
 
 ## Alternatives Considered
 
