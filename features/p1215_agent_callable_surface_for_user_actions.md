@@ -298,6 +298,9 @@ quietly restore them.
 - [ ] `/architect` has produced the authorization architecture — AS, audience, exchange, callback,
       user binding, scope enforcement, `auth.uid()` derivation — and it has been adversarially
       reviewed **[REV] build blocker**
+      — *Evidence (P1321, 2026-10-08): draft at
+      [docs/technical/agent-access-phase1-architecture.md](../docs/technical/agent-access-phase1-architecture.md);
+      its review record is in that file. Not ticked here until both blind rounds are resolved.*
 
 ## Open Questions
 
