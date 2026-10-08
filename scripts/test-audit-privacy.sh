@@ -319,6 +319,12 @@ names_case "single-token CRM filename is NOT derived" "solo work today" 0
 names_case "name-free text passes" "a local event organiser" 0
 names_case "name embedded in a longer word passes" "Zorblat Quenwickshire" 0
 names_case "no name sources: passes (warns on stderr)" "met Zorblat Quenwick today" 0 staged none
+# Non-ASCII name, uppercased, under LC_ALL=C (a hook launcher without a UTF-8 locale).
+nonascii_repo=$(mktemp -d); git -C "$nonascii_repo" init -q
+mkdir -p "$nonascii_repo/.private/docs"; printf 'Östen Müllerby\n' > "$nonascii_repo/.private/docs/privacy-names.txt"
+echo "met ÖSTEN MÜLLERBY" > "$nonascii_repo/n.md"; git -C "$nonascii_repo" add n.md
+(cd "$nonascii_repo" && LC_ALL=C "$AUDIT" --staged >/dev/null 2>&1); rc=$?; rm -rf "$nonascii_repo"
+if [ "$rc" = 1 ]; then echo "  ✓ non-ASCII name blocks under LC_ALL=C"; PASS=$((PASS+1)); else echo "  ✗ non-ASCII name under LC_ALL=C (exit $rc, wanted 1)"; FAIL=$((FAIL+1)); fi
 set -e
 
 echo ""

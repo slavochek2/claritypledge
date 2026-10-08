@@ -212,7 +212,7 @@ grep "\[technical\]" docs/decisions.md
 grep "\[product\]" docs/decisions.md
 scripts/search-decisions.sh "{nouns from the spec's Solution}" 20   # also searches the private log (P1438)
 ```
-State the helper's first line (`PRIVATE LOG: searched` / `NOT AVAILABLE`) in the review. Cite a private hit as `private ruling YYYY-MM-DD` — never quote it into the spec.
+State the helper's first line (`PRIVATE LOG: searched` / `NOT AVAILABLE`) in the review. A `private:` hit counts as a prior decision for the contradiction check, but cite it as `private ruling YYYY-MM-DD` only — the "quote the exact text" rule does not apply to private entries.
 Check whether this spec contradicts any prior `[technical]` or `[product]` decision. If a contradiction exists, flag it as BLOCK with the exact decision entry date and title. If the spec intentionally supersedes a prior decision, it should say so explicitly — flag as WARN if it doesn't.
 
 **Output rules:**

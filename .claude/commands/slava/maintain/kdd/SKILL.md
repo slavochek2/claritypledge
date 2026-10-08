@@ -106,7 +106,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Domain concepts changed? → decisions.md + **hand off** (`definitions.md`)
    - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
-3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase. If the concept is found with the same conclusion, do NOT propose — cite the existing entry instead. If the concept is found but the session produced a different conclusion, updated evidence, or changed direction — propose an update to the existing entry (not a new one). Only propose a new entry if the file read confirms the topic is absent entirely. State what you'll update and why, then proceed.
+3. **Propose updates** — before proposing, cross-check against the git log from step 1. If a commit in the Step 1 log (`git log --oneline -10`) shows the doc file was updated AND the commit message references the same topic as the current KDD update — skip it; it's already captured. A doc file touched for a different feature in a prior commit does not count as captured. When in doubt, read the target doc file directly and grep for the topic's key noun phrase — for decisions, use `scripts/search-decisions.sh "<noun phrase>"`, which also checks the private log so a re-run does not duplicate a private half. If the concept is found with the same conclusion, do NOT propose — cite the existing entry instead. If the concept is found but the session produced a different conclusion, updated evidence, or changed direction — propose an update to the existing entry (not a new one). Only propose a new entry if the file read confirms the topic is absent entirely. State what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
    - Don't ask repeatedly for confirmation — be decisive
 
@@ -199,7 +199,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Read `.private/docs/business/stakeholder-qa.md` first. If the same question exists, update the entry only if this session changed the answer, evidence, or confidence. Otherwise skip — don't duplicate.
    - Append new questions using the template at the top of that file (Q / Asked-by / Short answer / Why+evidence / Status / Source).
    - Set `Status` honestly: `firm` (evidence-backed), `provisional` (reasoned, untested), `needs-validation` (claim outruns evidence). A `needs-validation` answer must say so — never present inference as confirmed.
-   - Commit with the other KDD edits: `git add .private/docs/business/stakeholder-qa.md`.
+   - Commit it in the private repo with the private half of step 4.4 (from inside `.private/`: `git add docs/business/stakeholder-qa.md` — explicit path only).
 
    **Skip this step if:** the session produced no stakeholder-facing Q&A (e.g. a pure technical/refactor session).
 
@@ -252,7 +252,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Run `/maintain:privacy` before committing if the session involved:
    - **claude-conversations:** doc updates synthesized from personal claude.ai conversations (reading from `~/projects/private/claude-conversations/` or user mentioned a conversation by name)
    - **sifter sessions:** any use of `/slava:sifter-story` or `/slava:sifter-point` — brain dumps contain real names and private context; verify no session file landed in `content/sifter/` before committing
-   - **client/sales sessions:** any work involving client names, testimonials, referral flows, WhatsApp messages, or post-session follow-ups. Decisions about the *model* (pay-what-it's-worth, referral structure) go in decisions.md; client-specific details (names, links, templates) go in `.private/docs/client-lifecycle.md` only.
+   - **client/sales sessions:** any work involving client names, testimonials, referral flows, WhatsApp messages, or post-session follow-ups. Decisions about the *model* (pay-what-it's-worth, referral structure) go in decisions.md; a decision whose reasons name a client goes to `.private/docs/decisions.md` (step 4 split); operational client detail (names, links, templates) goes in `.private/docs/client-lifecycle.md`.
 
    **Security disclosure check — if session involved security/vulnerability work:**
 
@@ -282,7 +282,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Report kanban result as returned by the curl command.
    - If `.finish-reviewed` is missing or empty: "Reminder: `/finish` wasn't run this session. Run it to review changes before shipping."
 
-7. **Meta-reflection** — presented in chat, then persisted (confirmed items land in `decisions.md` as `(Status: proposed)` per 7.2; gate-dropped items land in the suppression log per 7.X). It is not chat-only:
+7. **Meta-reflection** — presented in chat, then persisted (confirmed items land in `decisions.md` as `(Status: proposed)` per 7.2; gate-dropped items land in the suppression log per 7.X). **Persisted items go through the step 4 privacy split and the step 4.4 gate like any other entry** — 7.2's evidence often quotes the founder or names people, and that text belongs in the private log, not the public one. It is not chat-only:
 
    > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
 

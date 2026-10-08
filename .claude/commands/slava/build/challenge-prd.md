@@ -221,7 +221,6 @@ Before running the eight dimensions, read these project context files:
 docs/hypotheses.md        — Active hypotheses (does this spec test one?)
 docs/lean-canvas.md       — Business model alignment
 docs/decisions.md         — Past decisions (does this spec conflict?)
-                            + run scripts/search-decisions.sh "<spec nouns>" for private rulings (P1438)
 docs/definitions.md       — Terminology accuracy
 docs/philosophy.md        — Mission alignment
 ```
@@ -250,6 +249,13 @@ not by capability:
      `docs/philosophy.md`
 3. **Name the search terms.** List the spec's key concepts so the challenger greps those docs
    rather than reading them end to end.
+   **Prior rulings — run this yourself and inline the output (P1438):**
+   `scripts/search-decisions.sh "<key concepts, a|b>" 20`. It searches the public log AND the
+   private one (rulings whose reasons name people), which the challenger cannot reach by grepping
+   `docs/decisions.md`. Pass its first line (`PRIVATE LOG: searched` / `NOT AVAILABLE`) through
+   verbatim, and tell the challenger: a `private:` hit is a real ruling — cite it as
+   `private ruling YYYY-MM-DD` with a name-free summary, never quote it (the spec and the
+   writeback below are public).
 
 Then spawn a general-purpose agent with this directive. **Model:** `sonnet` by default; use the
 reasoning tier when the spec touches prod writes, a DB migration, or generated-column semantics.

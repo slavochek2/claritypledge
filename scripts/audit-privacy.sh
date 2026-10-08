@@ -225,6 +225,13 @@ scan_known_names() {
     echo "audit-privacy: .private/ not found — known-names check skipped" >&2
     return 0
   fi
+  # Case-folding and word boundaries for non-ASCII names need a UTF-8 locale; a hook launched
+  # under LC_ALL=C would otherwise pass "ÖSTEN MÜLLER" silently. Pick one that exists.
+  local LC_ALL loc
+  for loc in en_US.UTF-8 C.UTF-8 en_US.utf8 C.utf8; do
+    if locale -a 2>/dev/null | grep -qx "$loc"; then LC_ALL="$loc"; break; fi
+  done
+  [ -n "$LC_ALL" ] && export LC_ALL || echo "audit-privacy: no UTF-8 locale — known-names matching of non-ASCII names may miss case variants" >&2
   local names
   names="$(known_names "$priv" | sort -u)"
   if [ -z "$names" ]; then

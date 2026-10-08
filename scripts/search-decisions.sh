@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/search-decisions.sh — search the public AND private decision logs in one call (P1438).
 #
-# Usage: scripts/search-decisions.sh <extended-regex> [max-hits-per-log]
+# Usage: scripts/search-decisions.sh REGEX [MAX]   (REGEX is ERE, case-insensitive: escape parens, a|b for alternatives)
 #
 # Why one helper: a privately recorded ruling (a rejected idea whose reasons name people) is
 # invisible to a grep of docs/decisions.md alone, and nothing reports the miss. Every consumer that
@@ -18,7 +18,7 @@
 
 PATTERN="${1:-}"
 MAX="${2:-20}"
-[ -n "$PATTERN" ] || { echo "usage: $0 <extended-regex> [max-hits-per-log]" >&2; exit 2; }
+[ -n "$PATTERN" ] || { echo "usage: search-decisions.sh REGEX [MAX]" >&2; exit 2; }
 case "$MAX" in ''|*[!0-9]*|0*|?????*) echo "search-decisions: max-hits must be an integer 1-9999: $MAX" >&2; exit 2 ;; esac
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "search-decisions: not a git repo" >&2; exit 2; }

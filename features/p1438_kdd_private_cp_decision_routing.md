@@ -131,3 +131,7 @@ Hostile review of the implementation, public files only (private files not sent:
 ## Re-review (Codex, 2026-10-08) — 1 of 1 report received
 
 Verified FIXED by its own commands: range-mode commit messages, separator bypasses, empty-sources warning, `/kdd` commit-block order. Two new defects, both fixed and re-tested: max-hits `0` / oversized accepted (now 1–9999, else exit 2); a grep error inside the known-names check passed as "no name" (now fails closed — proven with a fault-injected grep, exit 1). Evidence gap it named: GNU grep under a UTF-8 locale not tested (BSD grep only).
+
+## Follow-up (not in scope)
+
+Rulings lookups outside the three spec skills still read only the public log: `build/fix.md` (prior-decision grep per edited file), `build/create-bug.md` (rejected-alternatives check), `build/create-prd/agent.md`, and CLAUDE.md "Before Starting Work" item 5. Found by the `/finish` skills review. To be filed in the task inbox (`docs/process-learnings.md` was held by another session's uncommitted edit at ship time).

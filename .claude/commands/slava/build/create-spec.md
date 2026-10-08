@@ -355,7 +355,7 @@ scripts/search-decisions.sh "{subject terms}" 10              # job 1 — duplic
 scripts/search-decisions.sh "{nouns from your Solution}" 20    # job 2 — rulings
 ```
 
-**Both logs, every time (P1438).** `scripts/search-decisions.sh` searches `docs/decisions.md` and the private `.private/docs/decisions.md` (rulings whose reasons name people). Its first line says whether the private log was searched — **copy that line into your report verbatim**; `PRIVATE LOG: NOT AVAILABLE` means private rulings are unknown, not absent. A `private:` hit is a real ruling: route it into the spec as `private ruling YYYY-MM-DD` with a name-free one-line summary — **never quote private text into the spec**, which is public.
+**Both logs, every time (P1438).** `scripts/search-decisions.sh` searches `docs/decisions.md` and the private `.private/docs/decisions.md` (rulings whose reasons name people). Patterns are ERE, case-insensitive (escape parentheses; `a|b` for alternatives); exit 2 means the search failed (bad pattern, unreadable log) — fix the pattern, never read it as "no rulings". Its first line says whether the private log was searched — **copy that line into your report verbatim**; `PRIVATE LOG: NOT AVAILABLE` means private rulings are unknown, not absent. A `private:` hit is a real ruling: route it into the spec as `private ruling YYYY-MM-DD` with a name-free one-line summary — **never quote private text into the spec**, which is public.
 
 Report job 2 separately — **`RULINGS: <n> found — <one line each>`** or **`RULINGS: none — searched "<terms>"`** — and route anything found into `## Invariants` or `## Risks`, cited by date. Observed 2026-08-26: the run that filed P1158 searched subject terms, returned `NONE`, and harvested no rulings. One grep reporting one verdict is how that happens.
 
@@ -408,7 +408,7 @@ Before creating the file, verify. **Every gate checks something the sections abo
 - [ ] **Nothing invented to fill a section.** If a risk, non-goal or criterion exists because the template asked, delete it — a throwaway constraint on every spec trains the next agent to skim the real ones.
 - [ ] **Done-When items observable without reading the code**; for feature specs, Acceptance Criteria observable by a *person using the product*.
 - [ ] **Risks carry `MITIGATE | ACCEPT | DEFER`.**
-- [ ] **Both `decisions.md` verdicts in the output** — `DUPLICATE|RELATED|NONE` *and* `RULINGS:`, each naming its terms.
+- [ ] **Both `decisions.md` verdicts in the output** — `DUPLICATE|RELATED|NONE` *and* `RULINGS:`, each naming its terms, plus the helper's `PRIVATE LOG:` line verbatim.
 - [ ] **Frontmatter carries every field `.claude/rules/features.md` requires** — check against that file, not from memory.
 - [ ] **P-number from the script**, path is `features/p{N}_{slug}.md`.
 
