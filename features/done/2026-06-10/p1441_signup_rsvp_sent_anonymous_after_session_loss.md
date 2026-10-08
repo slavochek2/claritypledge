@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 26
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [auth, rsvp, rls, signup]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [reproduce, create-bug, fix]
 reproduce_artifact:
   test_file: src/tests/p1441-session-guard.test.ts
@@ -25,6 +24,7 @@ reproduce_artifact:
 date_resolved: 2026-10-08
 root_cause: "The supabase client lost its stored session while AuthContext kept its copy, so seat writes went out anonymous and failed RLS (prod trigger not reproduced)"
 resolution: "Session guard before every seat write (one quiet re-sync, else Please sign in again with the RSVP intent kept, never signOut); server 401/42501 and zero-row cancels mapped; unreachable auth server reported as a network failure; callback runs once; auto-RSVP failures reach Sentry; canceller leaves Participants"
+completed_at: 2026-10-08
 ---
 
 # P1441: New signup's RSVP is sent anonymously after the browser loses its session; the page still shows them signed in
