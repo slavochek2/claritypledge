@@ -194,7 +194,7 @@ async function writeWithGemini(meta, segs, revise) {
     headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: writerPrompt(meta, segs, revise) }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: WRITER_SCHEMA, temperature: 0.2 },
+      generationConfig: { responseMimeType: 'application/json', responseSchema: WRITER_SCHEMA },
     }),
   });
   const body = await res.json().catch(() => ({}));
