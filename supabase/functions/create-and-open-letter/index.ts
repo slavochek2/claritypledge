@@ -10,6 +10,11 @@
  *
  * Idempotent: if delivery already has receiver_profile_id, skip creation.
  *
+ * P1446: a session credential is returned ONLY for an account this call has just created.
+ * For an account that already exists (linked, matched by email, or an orphan auth user) the
+ * response is redirectTo alone: the token is not proof of being that account, so its owner
+ * signs in the normal way. The client already handles a response without hashedToken.
+ *
  * Cloned from create-and-sign, adapted for letter delivery flow.
  */
 
@@ -152,31 +157,9 @@ serve(async (req: Request) => {
     }
 
     // -- Idempotent: if delivery already linked, return success ----------------
+    // No credential (P1446): the receiver's account already exists.
 
     if (existingReceiverId) {
-      // Generate session for existing receiver
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('id', existingReceiverId)
-        .single();
-
-      if (existingProfile?.email) {
-        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-          type: 'magiclink',
-          email: existingProfile.email,
-        });
-
-        if (!linkError && linkData?.properties?.hashed_token) {
-          return jsonResponse({
-            ok: true,
-            hashedToken: linkData.properties.hashed_token,
-            redirectTo: `/letter/${deliveryId}`,
-          }, 200, corsHeaders);
-        }
-      }
-
-      // Even if session generation fails, the delivery is linked — return success
       return jsonResponse({
         ok: true,
         redirectTo: `/letter/${deliveryId}`,
@@ -198,9 +181,8 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingProfile) {
-      // User already exists — link delivery and generate session.
-      // Invalidate the invitation token on link so the same token cannot be
-      // reused to mint fresh sessions for the receiver (token-replay defense).
+      // User already exists — link delivery; no credential (P1446).
+      // Invalidate the invitation token on link (token-replay defense).
       const nowIso = new Date().toISOString();
       await supabase
         .from('letter_deliveries')
@@ -215,21 +197,10 @@ serve(async (req: Request) => {
       // GDPR audit row — existing users still accepted the current terms version in this flow.
       await recordTermsAcceptance(existingProfile.id);
 
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: normalizedEmail,
-      });
-
-      if (!linkError && linkData?.properties?.hashed_token) {
-        return jsonResponse({
-          ok: true,
-          hashedToken: linkData.properties.hashed_token,
-          redirectTo: `/letter/${deliveryId}`,
-        }, 200, corsHeaders);
-      }
-
-      // Session generation failed but delivery is linked
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500, corsHeaders);
+      return jsonResponse({
+        ok: true,
+        redirectTo: `/letter/${deliveryId}`,
+      }, 200, corsHeaders);
     }
 
     // -- Orphan recovery: auth.users row exists, profiles row missing ----------
@@ -297,20 +268,11 @@ serve(async (req: Request) => {
 
       await recordTermsAcceptance(recoveredUserId);
 
-      const { data: recoveryLinkData, error: recoveryLinkError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: normalizedEmail,
-      });
-
-      if (!recoveryLinkError && recoveryLinkData?.properties?.hashed_token) {
-        return jsonResponse({
-          ok: true,
-          hashedToken: recoveryLinkData.properties.hashed_token,
-          redirectTo: `/letter/${deliveryId}`,
-        }, 200, corsHeaders);
-      }
-
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Linked but session creation failed' }, 500, corsHeaders);
+      // The auth account already existed — no credential (P1446).
+      return jsonResponse({
+        ok: true,
+        redirectTo: `/letter/${deliveryId}`,
+      }, 200, corsHeaders);
     }
 
     // -- Create auth user -----------------------------------------------------
