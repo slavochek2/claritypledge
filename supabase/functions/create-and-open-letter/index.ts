@@ -176,13 +176,15 @@ serve(async (req: Request) => {
 
     // -- Check for existing user with this email ------------------------------
 
-    // Case-insensitive, but EXACT: ilike treats `_` and `%` as wildcards, so a match is
-    // confirmed by string equality before it names anyone as this delivery's receiver (P1446).
+    // Case-insensitive, but EXACT (P1446): `_`, `%` and `\` are escaped so ilike compares them
+    // literally, and string equality confirms the match before it names anyone as this
+    // delivery's receiver (PostgREST also reads `*` as a wildcard; equality covers that case).
+    const literalPattern = normalizedEmail.replace(/[\\%_]/g, (c) => `\\${c}`);
     const { data: emailCandidates } = await supabase
       .from('profiles')
       .select('id, email')
-      .ilike('email', normalizedEmail)
-      .limit(20);
+      .ilike('email', literalPattern)
+      .limit(50);
     const exactMatches = (emailCandidates ?? []).filter(
       (p: { email: string | null }) => (p.email ?? '').trim().toLowerCase() === normalizedEmail,
     );

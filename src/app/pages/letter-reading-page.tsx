@@ -310,9 +310,11 @@ export function LetterReadingPage() {
               // P717: email guard for unclaimed deliveries (receiver_profile_id = null).
               // receiver_profile_id is null until claimed, so the existing guard above
               // never fires — wrong authenticated user would fall through to 'ready'.
-              if (readData.delivery?.receiver_email) {
-                const intendedEmail = readData.delivery.receiver_email.toLowerCase();
-                const currentEmail = (currentUser.email ?? '').toLowerCase();
+              // A delivery already linked to this user is theirs by id, so the guard is skipped
+              // there; P1446 sends existing-account recipients here after sign-in.
+              if (readData.delivery?.receiver_email && !readData.delivery.receiver_profile_id) {
+                const intendedEmail = readData.delivery.receiver_email.trim().toLowerCase();
+                const currentEmail = (currentUser.email ?? '').trim().toLowerCase();
                 if (currentEmail !== intendedEmail) {
                   setSafe('wrong_user');
                   return;
