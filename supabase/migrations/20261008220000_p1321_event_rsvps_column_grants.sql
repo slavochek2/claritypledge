@@ -1,0 +1,31 @@
+-- Migration: P1321 re-audit finding R1 — withhold event_rsvps' email-dispatch bookkeeping
+-- Created: 2026-10-08
+-- Spec: features/p1321_agent_access_security_gate_and_phase1_design.md
+--
+-- requires-frontend: 4b29965e1
+--   The bundle before that commit counts attendees with select('*') in src/app/data/api.ts
+--   (reached by signup's auto-RSVP); `*` expands to every column and is refused once any column
+--   is withheld, so this cannot reach prod ahead of the frontend that selects `id` instead.
+--   /ship cherry-picks, so repoint this sha to the cherry-picked commit afterwards (P1106).
+--
+-- Every other client read of event_rsvps names only id, event_id, profile_id and the
+-- profiles embed (src/app/data/events-service-real.ts, organizations-service.ts,
+-- useTonightsEvent.ts). INSERT and DELETE are untouched (table-level privileges
+-- are not changed for them); RLS policies elsewhere that read this table use event_id and
+-- profile_id only (event_private_info, event_preparations); the invoker trigger
+-- p1336_prep_guard reads id, event_id, profile_id. Every writer of the withheld columns runs as
+-- the service role (set_rsvp_message_ids is executable by service_role only).
+--
+-- Why: the SELECT policy on event_rsvps is `USING (true)` — the attendee list on a public event
+-- page is the product. But P1425 later added provider message ids and send-scheduling timestamps
+-- to the same rows, so every logged-out visitor and every signed-in user could read when each
+-- attendee was emailed and the provider's message id for it. P1336 had already noted that this
+-- table cannot carry private columns for exactly this reason
+-- (20261001120000_p1336_event_preparations.sql:13). Row visibility is unchanged; column
+-- visibility now matches what the app renders.
+--
+-- Same pattern as event_room_members (P1114) and profiles (P877): revoke the table-level SELECT,
+-- grant the readable columns.
+
+REVOKE SELECT ON public.event_rsvps FROM anon, authenticated;
+GRANT SELECT (id, event_id, profile_id, rsvped_at) ON public.event_rsvps TO anon, authenticated;
