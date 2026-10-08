@@ -183,6 +183,13 @@ closes it there — `git mv` to the sprint folder, frontmatter rewrite, doc-link
 skipping the cherry-pick entirely. It refuses unless a `pN ready for QA`-class stamp commit proves
 the implementation actually landed, so it cannot close a spec whose work was never done.
 
+**Exception — administrative closure (P1444).** A spec with nothing to gate (`type: comment`, a
+dated `withdrawn:`, or a `retracted` tag) closes with gates 2.5/2.7 and the stamp skipped, when
+`ship-gates.sh` prints `[GATE ADMIN] ELIGIBLE: pN`: the label is already on origin/main, no
+`feature/pN-*`/`fix/pN-*` branch is ahead of main, main's history holds no implementation evidence
+for pN, and the close moves only the spec (and its UAT pair). Every refusal names its reason. No
+stamp is ever written for such a spec — it would record work that did not happen.
+
 This matters because `/dev` step 0 *deliberately* routes skill-file specs to main with no branch
 (a skill edited on a branch is not the skill that runs). Before P1169 this section told you to skip
 `/ship` for exactly that work — so nothing set a terminal status and nothing moved the file. Four
