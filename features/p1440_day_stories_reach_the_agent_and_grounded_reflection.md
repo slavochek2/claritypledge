@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, reflection, kanban, ai-keys]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
