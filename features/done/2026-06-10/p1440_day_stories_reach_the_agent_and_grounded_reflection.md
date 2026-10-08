@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 23
 workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, reflection, kanban, ai-keys]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-08
 ---
 
 # P1440: /day — stories reach the agent (Part A; grounded reflection and CP's cards moved to P1445)
