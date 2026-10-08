@@ -496,11 +496,21 @@ Steps:
    - SOFT: private business strategy, personal struggles, negative opinions about named people, unannounced decisions
 4. Return findings concisely — file, what was found, category (hard/soft), suggested action.
 5. If nothing found: "Privacy: ✅ no issues in [N] docs scanned"
+6. Names-list refresh. The commit gate blocks only names it knows: CRM `name:` fields, business
+   person files, and `.private/docs/privacy-names.txt`. List full names (2+ words) of people, and
+   company/account names that point to a private contact, that appear in .private/ files modified
+   since [SINCE] (events, meetings, campaigns, outreach, docs) and are in none of those sources.
+   Do not write the list; return it as candidates. Skip public figures and generic phrases. A
+   wrong entry blocks every commit that uses the phrase, so when unsure, leave it out.
 ```
+
+The main session appends the candidates to `.private/docs/privacy-names.txt` (one per line, private
+file, no approval needed), then shows the founder the added names in one line so a wrong one can be
+removed.
 
 Merge into Evidence Picture as:
 ```
-PRIVACY:      ✅ clean (N docs) / ⚠️ [N findings — hard/soft breakdown]
+PRIVACY:      ✅ clean (N docs) / ⚠️ [N findings — hard/soft breakdown] · names list +N
 ```
 
 If hard flags found: add to ACTIONS (step 5): "· Fix privacy issue in [file] before next commit"
