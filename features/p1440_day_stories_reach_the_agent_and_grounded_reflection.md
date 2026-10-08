@@ -14,7 +14,7 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1440: /day — stories reach the agent, reflection is grounded, key cards are complete
+# P1440: /day — stories reach the agent, reflection is grounded, reflection cards are CP's cards
 
 ## Problem
 
@@ -98,149 +98,167 @@ medium — five founder calls, marked below.
 - **Statement text stays unedited by the dispatcher** (step 9r rule): a refused statement goes back
   to its writer, never trimmed by hand. The same holds for mirror stories.
 
+## Founder decisions (2026-10-08, relayed by the lead session)
+
+- Split: this spec keeps stories + reflection cards; key cards moved to P1442, VM removal to P1443.
+- Close the 19 pre-ship stories in one batch; start clean.
+- A story without a position is kept.
+- Personal activities (hikes) are a **hard filter**: never a CP reflection statement.
+- Byline: **"Agent on Slava"** — CP's existing `AgentByline` already renders `[AGENT] on <Name>`
+  (`src/app/components/shared/agent-byline.tsx`), so the byline is that component, not new text.
+- The agent is an **entity with its own position and its own story**, exactly like an arguer agent
+  in the Disagreement Pipeline. The founder picks his own position; the agent never picks it for
+  him, and shows its own alongside.
+- **Reuse, don't rebuild.** The symptom to eliminate: the reflection card's remove-position control
+  is not red like CP's. Story design, agent position, agent story and position buttons are CP's and
+  the Disagreement Pipeline's, reused as-is. Technical mechanism delegated to Codex (below).
+- A card that needs no founder action is not a card: it moves to the monitoring/info area.
+
 ## Solution
 
 ### A. Stories become work items (finding 1)
 
 - `buildPrompt` replaces the "record these in the decisions log" block with **"Your stories — act
-  on each one"**: one numbered item per story, carrying the statement, the founder's position and
-  the story verbatim (quoted as data), plus the instruction to do what it asks, or answer it, or say
-  why not.
+  on each one"**: one numbered item per story, carrying the statement, the founder's position (or
+  "no position") and the story verbatim (quoted as data), plus the instruction to do what it asks,
+  or answer it, or say why not.
 - A second block, **"Stories from earlier days not yet handled"**, lists every story from any
-  earlier run whose latest version has no processed marker — not limited to the last run. Latest
-  edit per `(run_id, target)` wins, as today.
-- **Processed marker:** a new decisions line, e.g. `{kind:"story_done", run_id:"<run of the
-  story>", target:"rN", story_hash:"<hash of the story text marked>", outcome:"acted|answered|declined",
-  note, at}` — same `(run_id, target)` keying as the reflection line, so no composite target to
-  parse. The marker closes **that version** only: editing a story after it was marked reopens it,
-  and a marker whose `story_hash` no longer matches the latest text is ignored (a late agent cannot
-  close a newer edit). Removing the position/story leaves nothing to process.
-- **Write path:** today the board's write route accepts decisions only for the latest run and its
-  targets (`tools/kanban/server/day.ts:308-309`), and `parseDecisions` requires `run_id`. Add one
-  validated "mark story done" operation that accepts a historical `(run_id, target, story_hash)`,
-  used by both the board's "mark done" control and the CLI the hand-off agent calls. The prompt's
-  closing table gains a "story marked" column. The board shows each story's state (open / sent /
-  done · outcome).
+  earlier run whose latest version has no processed marker. Latest edit per `(run_id, target)` wins.
+- **Processed marker:** a new decisions line `{kind:"story_done", run_id:"<run of the story>",
+  target:"rN", story_hash, outcome:"acted|answered|declined|batch-closed", note, at}` — same
+  `(run_id, target)` keying as the reflection line. `story_hash` = lowercase hex sha256 of the UTF-8 story after
+  `\r\n`→`\n`, trim, and runs of whitespace collapsed to one space — one shared function used by
+  board, server, prompt builder and CLI. A marker applies only if its `at` is later than the latest
+  edit of that story (so A→B→A still reopens) and its hash matches. It closes **that version** only: editing a story
+  after it was marked reopens it; a marker whose `story_hash` no longer matches is ignored.
+- **Write path:** today the write route accepts decisions only for the latest run
+  (`tools/kanban/server/day.ts:308-309`). Add one validated "mark story done" operation that accepts
+  a historical `(run_id, target, story_hash)`, used by the board's "mark done" control and by a CLI
+  the hand-off agent calls. The prompt's closing table gains a "story marked" column. The board shows
+  each story's state (open / sent / done · outcome).
 - **Launch:** `collect()` (`day.ts:953`) and the launch route (`server/day.ts:359-365`, refuses when
-  the count is 0) must count open stories from earlier runs, so a run whose only work is an old open
-  story can still start a session. Sent-receipt keys stay per story version.
-- A story that is only sent stays open. Sent is not processed.
-- **A story needs a position today:** `setStory` returns without writing when no position is set
-  (`DayPage.tsx:310`), so a story typed on an unrated statement is lost. [FOUNDER DECISION: allow a
-  story without a position, or keep requiring a pick and say so on the card?]
-- **Backfill:** the first run after shipping surfaces all existing stories as open (the ones already
-  sent were never handled as work). [FOUNDER DECISION: surface all 19, or mark the pre-ship ones
-  done in one batch and start clean?]
+  the count is 0) count open stories from earlier runs.
+- A story that is only sent stays open. Sent is not processed. After a story has been sent 3 times
+  without a marker it leaves the prompt body and is listed by one line ("3 stories sent 3+ times
+  and still open — see the board") and shown as **stuck** on the board, where the founder can
+  re-send or mark it; it is never dropped.
+- **Clearing a position never deletes a story.** Today `removePosition` writes `remove:true` and
+  `buildView` drops the whole answer. Clearing the position keeps the story (story-only answer);
+  deleting a story is its own action (empty the text and save), with a regression test.
+- **Story without a position (founder: keep):** today `setStory` returns without writing when no
+  position is set (`DayPage.tsx:310`). The reflection line's `position` becomes optional when a
+  story is present; validation in `day.ts` (`kind === 'reflection'` branch) accepts story-only;
+  `rated` counting treats story-only as "story, no position".
+- **Backfill (founder: batch-close):** one `story_done` line with `outcome:"batch-closed"` per
+  pre-ship story version, written once by the same operation; the 19 do not appear in any prompt.
 
 ### B. Grounded statement writer (findings 2, 8)
 
 The step 9r brief gains, inline (the writer cannot read files):
 
-1. **Earlier decisions** — entries from pp `docs/decisions.md` and cp `docs/decisions.md` dated in
-   the last 14 days, plus older entries matched by keyword. The files are ~11k and ~38k lines, so
-   whole-file pasting is not an option; retrieval is by date window + `scripts/search-decisions.sh`
-   on the candidate topics.
-2. **Recent conversations** — founder turns from `~/.agents/bin/hist --role user --since <14 days>`
-   on the topics the pass raises (the 10-07 post-event reflection is the regression case).
+1. **Earlier decisions** — pp and cp `docs/decisions.md` entries from the last 14 days plus keyword
+   matches (files are ~11k and ~38k lines; never pasted whole). `scripts/search-decisions.sh` covers
+   cp public + cp private only (verified: it never reads pp), so pp needs its own path — extend the
+   helper with a pp source or add a sibling; tested with an older matching pp decision.
+2. **Recent conversations** — founder turns from `~/.agents/bin/hist --role user --since <14 days>`.
+   Topics are not taken from the issue cards (the 10-08 cards were all infra; the missed context was
+   about events and motivation). Query terms = words from the candidate statements' drafts, the
+   founder's stories in the window, and the last 3 days of founder turns unfiltered (capped).
 3. **Every founder story** from the 14-day window and every still-open story (A).
-4. **This pass's issue-card titles**, with the rule "never restate an issue the report already
-   carries" — titles are already in the brief today. The founder already made this a rule on
-   2026-10-07 (decisions.md 2026-10-07 [process], "/day 2026-10-07 reflection": challenges must be
-   strategic and must not repeat an item already on that day's board) but it never reached the
-   brief; this puts it there.
-5. **Retrieval contract:** each pasted source carries a stable reference (decision: file + date +
-   heading; conversation: `hist` session id + timestamp; finding: fingerprint title). A hard cap on
-   pasted lines with a stated priority (open stories, then this pass's findings, then last-14-day
-   decisions, then keyword matches, then conversations). A source that cannot be fetched is named as
-   missing in the brief, never silently dropped.
-6. **Scope rules:** strategy, not task micromanagement; personal activities are not framed as CP
-   work. [FOUNDER DECISION: is "personal vs CP" a hard filter or only a framing rule?]
+4. **This pass's issue-card titles**, with the founder's 2026-10-07 rule (cp decisions.md
+   2026-10-07 [process]): strategic only, never repeat an item already on that day's board.
+5. **Retrieval contract:** each source carries a stable reference (decision: file + date + heading;
+   conversation: `hist` session id + timestamp; finding: title). Hard cap on pasted lines with a **reserved share for each source class** (conversations included,
+   never squeezed to zero); within a class, newest first. Anything fetched but cut by the cap is
+   reported as truncated (count per class), and a source that cannot be fetched is named as missing.
+6. **Scope rules:** strategy, not task micromanagement. **Hard filter:** a statement about a
+   personal activity (hikes, personal life) is refused, not reworded.
 
-Mechanical backstop: `--reject-repeats` also rejects a statement that matches a this-pass finding
-title (same normaliser + Jaccard), named on stderr, same retry loop as today. It cannot catch a
-paraphrase; the checker in C does.
+Mechanical backstop: `--reject-repeats` also rejects a statement matching a this-pass finding title
+(same normaliser + Jaccard). Paraphrases are the checker's job (C).
 
-### C. Mirror Agent story per statement (finding 3)
+### C. "Agent on Slava" — an agent entity with its own position and story (finding 3)
 
-Reuse the Disagreement Pipeline's story pattern from `/slava:disagreement:story-draft`, not its
-filing: a machine account's reading on a named person's behalf, **one short story per (person,
-statement)**, three-tier accuracy (quoted fact / agent's connection / speculation, labelled), and
-**PS-3: the agent that checks a story is not the agent that wrote it**. Concretely:
+Same shape as a Disagreement Pipeline arguer (`/slava:disagreement:positions`,
+`/slava:disagreement:story-draft`), reused as-is:
 
-- The statement writer returns each statement with a story (short — a few sentences) explaining why
-  it matters, citing its sources by reference (decision date + heading, conversation date, report
-  finding), shown on the card as *"Mirror Agent on behalf of Slava"*.
-- A separate checker agent verifies each cited source exists and says what the story claims, and
-  rejects duplicates of issue cards (B.4). A failed check sends the statement back to the writer;
-  after two failed rounds the statement is dropped (3–5 rule permitting) and the drop is named in
-  the pass evidence, never published unchecked.
-- Why not B alone with a one-line "why": the founder asked for reasoning with references, and the
-  10-08 failure was a claim with no source behind it — a checker is the only part that tests a
-  source. UNTESTED that the story changes how the founder answers; falsifier: after two weeks the
-  founder still reports statements he cannot weigh.
-- The product's Mirror Agent is a design, not a shipped surface (`docs/definitions.md` "Mirror
-  Agent", decisions 2026-08-19); P1431 is building the in-app one. This spec uses the label on the
-  Day board only and does not create a shared mirror-agent component.
-- [FOUNDER DECISION: the exact byline text.]
+- **Entity:** one agent identity, "Agent on Slava", rendered with CP's `AgentByline`. Local to the
+  Day board — no `agent_accounts` row, nothing written to Supabase. CP decides "is agent" from
+  `useAgentAccountIds`; the extracted renderers take `isAgent` as a prop instead, and Day passes
+  `true`. Report shape (per statement, written by step 9r into the report, never into
+  `decisions.jsonl`): `agent: {name: "Slava", position: -3..3, story, sources: [{ref, quote}],
+  checker: "pass"|"dropped"}`.
+- **Its own position** on each statement, on the 7-level scale (-3…+3; CP's `PositionType` covers
+  all seven, `src/app/types/index.ts:1121`), rendered with CP's stance renderer `PositionBadge`
+  (`src/app/components/shared/PositionBadge.tsx`, as used for `authorPosition` in
+  `StoryCardDetail.tsx`). The inference-strength label from `/slava:disagreement:positions` stays
+  in the agent's brief and evidence only: CP has no renderer for it, and the card reuses CP as-is. It is the agent's prediction of where the founder
+  stands, shown beside the founder's control. It never pre-fills or writes the founder's position.
+- **Its own story** per statement, under the story-draft rules: one short story per (agent,
+  statement), three-tier accuracy (quoted fact / agent's connection / speculation, labelled),
+  citing sources by stable reference (B.5).
+- **Checker (PS-3):** every source the writer cites carries a verbatim `quote`; the dispatcher
+  first checks each quote mechanically (`grep -F` against the cited decisions file, `hist` for the
+  cited session) — a quote not found fails. Then a separate agent (spawned by the dispatcher with
+  the sources and quotes pasted inline) judges whether the story says what the quotes support, and rejects duplicates of issue cards. Two failed rounds → the statement is dropped and
+  named in the pass evidence; never published unchecked.
+- UNTESTED that the agent's story and position change how the founder answers; falsifier: after two
+  weeks the founder still reports statements he cannot weigh.
+- Not the product's Mirror Agent (P1431); no shared service is created.
 
-### D. Reflection card = the CP point card (finding 4)
+### D. Reflection card = CP's point card, by reuse (finding 4)
 
-The kanban app is a separate package (React 18, plain CSS; CP is React 19 + Tailwind) and imports
-nothing from `src/` today. CP's `PositionButtons` (`src/app/components/shared/PositionButton.tsx`)
-imports `@/lib/mixpanel`, `@/components/ui/button`, `@/hooks/*`, a lazy tutorial modal and portals,
-so importing it as-is would pull product analytics and Tailwind into the founder tool. Options:
+**Codex advice, 2026-10-08 (option D, recommended; founder delegated this choice):** extract CP's
+actual rendering and interaction code — `PositionButtons` (incl. the red clear control), the point
+card body, the agent story row with `AgentByline` and the agent's own stance — into presentational
+components with no analytics, Supabase, auth or context imports. CP keeps thin wrappers that supply
+persistence, analytics and identity, so CP behaviour is unchanged. Kanban consumes the same
+components through a source alias, after aligning React to CP's version (19), deduplicating React
+resolution (CP's `vite.config.ts:236` pattern), and adding Tailwind scoped to the Day page with CP's
+theme tokens (also supplied to body-level portals, which `PositionButtons` uses:
+`PositionButton.tsx:536`). Rejected: direct import with stubbed providers (impersonates
+Supabase-backed providers); moving the board into CP's app (couples private Day data to the product
+shell); a re-skin (what drifted).
 
-- **D1:** import CP's component directly. Rejected — the dependencies above.
-- **D2 (recommended):** extract the position vocabulary (levels, labels, side mapping, icons) and
-  the clear behaviour into a dependency-free module both apps use, re-skin `ReflectionTab.tsx` to
-  CP's point-card look, and add a parity test that fails when the two label/level sets differ.
-  Recommend D2 because of *correctness*: the shared module removes vocabulary drift and the parity
-  test catches the rest, without adding Mixpanel and Tailwind as runtime dependencies (*runtime
-  complexity*) of a local tool.
+**Import inventory and injection contract** (Opus review, checked against the files):
 
-/architect decides the extraction boundary. Removing a position must be a
-visible control as on CP, not only a menu item. The mirror story renders where CP renders a linked story.
+| Component | Import | Presentational? | In the extracted core |
+|---|---|---|---|
+| `PositionButton.tsx` | react, react-dom portal, `./menu-clamp`, types, `position-helpers`, `position-labels`, lucide | yes | kept |
+| | `@/components/ui/button`, `@/components/ui/tooltip` (radix) | yes, but new deps for kanban | kept; kanban adds shadcn's `button`/`tooltip` sources via the alias and radix as a dependency |
+| | `@/lib/mixpanel` | no | removed → `onEvent?(name, props)` prop; CP wrapper passes analytics |
+| | `use-intensity-learned`, `use-intensity-preview-seen` | no (per-user state) | removed → `intensityLearned` / `previewSeen` + setters as props; CP wrapper passes the hooks; Day passes local values |
+| | lazy `IntensityTutorialModal` | no (product flow) | removed → optional `renderTutorial` slot; Day passes none |
+| `feed-point-card.tsx` | `useAuth`, `useAnonPosition`, `useReturnState`, online-write guard, `sonner`, `useOpenPath` | no | only the card body markup is extracted; the controller stays in CP |
+| `StoryCardDetail` / `point-card-with-links` story row | `useAgentAccountIds`, `useEmbedNavigation`, `GravatarAvatar`, router | no | story row body extracted with `isAgent`, `authorPosition`, `onOpen?` props |
+| `AgentByline`, `PositionBadge` | `MachineChip`, `stripAgentPrefix`, tooltip | yes | reused directly |
 
-### E. One Accept pattern (finding 5)
+CP regressions for each removed dependency: intensity learning, tutorial trigger, analytics event
+names, clear, author stance, unknown write outcome — all with CP's existing tests, run before and
+after extraction.
 
-Keep P1432's split. Change what is inconsistent:
+Consequences the build must handle (Codex, verified against the cited lines before relying on them):
+- `tools/kanban/server/__tests__/day.test.ts:1108` is P1399's rule 10 ("the board bundle imports no
+  product code"). This spec replaces it, recorded as a decisions.md entry at ship: a **transitive**
+  boundary check — approved shared renderers allowed; any module that reaches auth, Supabase,
+  telemetry or service code, directly or through an approved renderer, fails.
+- Day e2e selectors change to CP semantics (`listbox`/`option`, "Clear position") while keeping the
+  persistence assertions; keyboard cycling and menus above the sticky bottom bar stay covered.
+- CP regressions run for every extracted component (clear, author stance, unknown write outcome).
 
-- Reflection gets `Accept & next`: saves the current position + story and advances. Order is
-  fixed: capture the story draft as typed (not only on blur), await the write, and advance only on
-  success; on failure stay on the card and say so. Covers typing then clicking Accept, and keyboard
-  activation. A statement has no recommended position, so Accept is offered only once a position is
-  picked (recommended: P1432 rejected approving unread choices).
-  [FOUNDER DECISION: confirm Accept needs a pick, or should the writer propose a position?]
-- On cards with nothing to accept (agent cards, answered cards) the pager shows `Next`; the card's
-  state line says why there is no Accept. An always-present but disabled Accept is banned by the
-  P955 gate. [FOUNDER DECISION: is that acceptable, or is a different shape wanted?]
+### E. One Accept pattern; cards that need no action are not cards (finding 5)
 
-### F. Key cards (finding 6)
-
-- **Term:** "key card" = one AI key with its project, its budgets (cap and/or alert), its cap state
-  and this month's spend. [FOUNDER DECISION: the term.] Definition lives in the private AI-keys
-  infra doc (pp `docs/infra/`) and the ai-keys skill; the board shows it, cp docs do not define it.
-- The Monitor tab lists **every budget on the billing account**, grouped: account budget, leak
-  alarms, then one key card per key showing spend vs cap, cap state (`spendCap.outputState`), and
-  alert budget present or missing.
-- Three distinct states, never one sentence: **spent** (a number), **unused this month** (positive
-  evidence of zero use), **unmeasurable** (no source answered). Proposed oracle for "unused": the
-  project's Gemini API request count from Cloud Monitoring is 0 for the month. This is a project
-  metric; it is a per-key answer only because each key sits in its own project (`day.md` AI KEYS
-  section: "each in its own project"). The board asserts that 1:1 mapping from the registry and
-  shows "unmeasurable" for any project holding more than one key. A metric query that returns no
-  time series is "unmeasurable", not zero. UNVERIFIED — /architect must run it against one key known
-  to be used and one known to be unused; if both return the same answer the oracle is rejected.
-
-### G. Remove agent-VM monitoring (finding 7)
-
-Remove `disp.3`, `disp.3h` from `day-steps.tsv`, `disp.vm` from `day-checks.tsv`, the step prose in
-`~/.claude/commands/day.md` (~lines 1115–1195) and the VM references in
-`tools/kanban/server/__tests__/day-render.test.ts`, in **one change**: `day-step.sh check-sync`
-fails in both directions when manifest and day.md disagree. Also check
-`~/.claude/commands/slava/util/agent-vm-heal.md`, which references the step. The `agent-vm-health`
-/ `agent-vm-heal` skills stay. Sequencing: day.md currently has another session's staged edits — G
-lands after that session commits.
+- P1432 holds: paging never accepts. Narrowing recorded at ship: on reflection, Accept saves the
+  founder's own pick (there is no recommended answer); only the Accept button writes a typed story,
+  never Next. Reflection gets `Accept & next`: saves the founder's position +
+  story, awaiting the write; advances only on success; stays on the card on failure. Captures a
+  story still being typed. Offered once the founder has a position or a story; the agent's own
+  position is never what Accept saves.
+- **A card that needs no founder action is not a card.** Agent-only work ("Give to the agent" with
+  nothing for the founder to choose) and other info-only items move out of the card pager into the
+  monitoring/info area as a list, still sent by Start fixing, each row keeping P1432's state line
+  (not sent yet / sent to the agent). The pager then holds only cards the
+  founder answers, so every card has Accept, and Next only moves.
 
 ## Risks / Non-Goals
 
@@ -250,35 +268,35 @@ lands after that session commits.
 | Brief grows past what one agent reads well | MITIGATE | Retrieval by window + keyword, hard cap on pasted lines, stated in the brief |
 | Mirror story cites a source that does not say what it claims | MITIGATE | Separate checker (PS-3); failure means rewrite, never edit |
 | Private text leaks into a public file via fixtures or commits | MITIGATE | Invariant above; fixtures use invented text |
-| "Unused" oracle is blind (returns 0 for everything) | MITIGATE | Known-used + known-unused control before trust |
-| Backfilled stories flood the first prompt | ACCEPT | One-time; the founder decision above can batch-close |
-| Re-skinned card drifts from CP's point card again | MITIGATE | Shared vocabulary module + parity test (D2) |
+| Shared extraction regresses CP | MITIGATE | CP keeps thin wrappers; CP regression tests per extracted component |
+| React 19 upgrade breaks the rest of the board | MITIGATE | Full kanban unit + both e2e suites before and after |
 
 **Non-Goals**
 - Do NOT merge Next and Accept, or make paging write anything.
 - Do NOT build the product's Mirror Agent (P1431) or a shared mirror-agent service.
-- Do NOT change budgets, caps or keys — the board reads them only.
-- Do NOT delete the agent-VM skills or the VM itself.
-- Do NOT edit `~/.claude/commands/day.md` while another session holds staged edits there.
+- Do NOT write the agent entity to Supabase or create an `agent_accounts` row.
+- Do NOT change CP's product behaviour while extracting components.
 
 ## Done-When
 
 - [ ] A story answered on the board appears in the next hand-off prompt as a numbered work item, not under "record these"
+- [ ] A story typed with no position is saved and appears in the prompt as "no position"
 - [ ] Editing a story after it was marked done reopens it; a marker for an older version does not close the newer text (test)
 - [ ] A run whose only work is an open story from an earlier run can still start a session (test)
-- [ ] Accept & next on reflection with a just-typed story saves both before advancing, and stays on the card when the write fails (e2e)
-- [ ] A story from an earlier run with no processed marker appears in today's prompt under "not yet handled"; after the agent marks it, it no longer appears
-- [ ] The board shows each story as open / sent / done, and a story can be marked done by hand
-- [ ] A decisions file containing the new kind loads on the board without dropping other lines (test)
-- [ ] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief, deterministic); a checker test refuses a fixture story whose cited source does not contain the claimed text
+- [ ] A story from an earlier run with no processed marker appears under "not yet handled"; after the agent marks it, it no longer appears
+- [ ] Every story line older than the ship date is batch-closed (count derived at run time and pasted; 19 on 2026-10-08) and none appears in a prompt
+- [ ] The mark-done CLI writes a valid `story_done` line and refuses an unknown `(run_id, target)` (test)
+- [ ] A decisions file containing the new kind loads without dropping other lines, and a parser without the kind counts it as one skipped line, not corruption (test)
+- [ ] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief); a statement about a personal activity is refused (fixture)
 - [ ] A statement matching a this-pass finding title is refused by `--reject-repeats` (failing control shown, exit 1)
-- [ ] Every reflection card shows a Mirror Agent story with at least one source reference, and the checker's verdict per story is in the pass evidence
-- [ ] The reflection card uses the shared position vocabulary (parity test fails on a deliberately changed label), and its visible clear control writes a remove line (e2e), checked at 375px, 320px and desktop
-- [ ] Reflection has `Accept & next`; on report and reflection, every card either has Accept or a state line saying why not
-- [ ] The Monitor tab lists every budget `gcloud billing budgets list` returns at render time (count matches; 10 on 2026-10-08), each key card showing spend vs cap, cap state, and one of spent / unused / unmeasurable
-- [ ] The "unused" oracle returns different answers for a known-used and a known-unused key (pasted)
-- [ ] `day-step.sh check-sync` prints SYNC OK after G; a /day pass runs with no VM step or check
-- [ ] All [FOUNDER DECISION] items answered in this spec
+- [ ] Every reflection card shows "Agent on Slava" (CP `AgentByline`) with the agent's own position and a story citing at least one source; the founder's position is never pre-filled by it; the checker's verdict per story is in the pass evidence
+- [ ] The reflection card renders CP's extracted components (no copied markup); the clear control's computed colour equals CP's destructive red in a browser check; CP's own regression tests for the extracted components pass
+- [ ] The kanban boundary test allows the shared renderers and refuses an import of a Supabase/analytics module (failing control shown)
+- [ ] Reflection has `Accept & next` that awaits the write and stays on failure (e2e); the report pager holds only founder-answerable cards and agent-only items are listed in the info area
+- [ ] The agent's position and story never appear in `decisions.jsonl` (test)
+- [ ] A statement whose story fails the checker twice is dropped and named in the evidence (fixture, failing control)
+- [ ] Kanban on React 19: full kanban unit suite and both e2e suites pass before and after the upgrade (counts pasted)
+- [ ] Checked at 375px, 320px and desktop
 
 ## Alternatives Considered
 
@@ -304,14 +322,25 @@ a tested property before ship).
 | # | Source | Finding | Resolution | Rationale |
 |---|--------|---------|-----------|-----------|
 | 1 | /challenge-prd | [BLOCK] Founder quote may mean Accept bundles stories without review | Rejected | The full sentence (hist, 2026-10-08 10:10) continues "We accept the stories that I put in because I put some very important stories"; quote extended in Problem |
-| 2 | /challenge-prd | [BLOCK] D1 not viable (PositionButton imports mixpanel, ui/button, hooks) | Applied — D2 recommended + parity test | Imports verified with grep |
+| 2 | /challenge-prd | [BLOCK] D1 not viable (PositionButton imports mixpanel, ui/button, hooks) | Superseded — founder rejected re-skins; Codex option D (extract presentational cores) | Imports verified with grep; Codex advice 2026-10-08 |
 | 3 | /challenge-prd, Codex | [WARN/BLOCK] story_done keying, version, and edits | Applied — `(run_id, target, story_hash)`, edit reopens | Same keying as reflection lines |
 | 4 | Codex | [BLOCK] Old open stories cannot launch (count 0 refusal) | Applied — collect/launch count open stories | Verified `server/day.ts:359-365` |
 | 5 | Codex | [BLOCK] Historical writes refused by latest-run-only route | Applied — dedicated mark-done operation | Verified `server/day.ts:308-309` |
-| 6 | Codex, Gemini, /challenge-prd | [BLOCK/WARN] Accept on reflection: save ordering, no recommended position | Applied — await write, require a pick (founder confirms) | Verified `setStory` fires an unawaited write and drops a story with no position |
+| 6 | Codex, Gemini, /challenge-prd | [BLOCK/WARN] Accept on reflection: save ordering, no recommended position | Applied — await write; superseded on the pick: founder keeps story-only answers, so Accept is offered with a position or a story | Verified `setStory` fires an unawaited write and drops a story with no position |
 | 7 | Codex | [WARN] No retrieval contract | Applied — B.5 | — |
 | 8 | Codex, Gemini | [WARN/BLOCK] Project metric is not per-key | Applied partly — 1:1 key/project asserted, multi-key projects read unmeasurable | Gemini's multi-key failure does not apply today: each key has its own project (day.md AI KEYS) |
 | 9 | /challenge-prd | [WARN] Done-When items weak/nondeterministic | Applied — rewritten as deterministic checks | — |
 | 10 | /challenge-prd | [WARN] C may be unnecessary | Kept, with UNTESTED label and falsifier | Founder asked for referenced reasoning explicitly |
-| 11 | /challenge-prd | [WARN] Split F and G into own specs | [FOUNDER DECISION: one spec or three (A–E / F / G)?] | Independent code; recommend split so G ships once day.md is free |
+| 11 | /challenge-prd | [WARN] Split F and G into own specs | Split: P1442 key cards, P1443 VM removal | Founder decision 2026-10-08 |
 | 12 | /challenge-prd | [NOTE] Many open founder decisions | Accepted | They are listed for one answer pass |
+| 13 | founder | Reflection card remove control not red like CP | Reuse CP components via extraction (D) | Re-skins drifted |
+| 14 | founder | Why do cards with nothing to accept exist? | They move to the info area (E) | A card is something the founder answers |
+| 15 | Codex re-review | Clearing a position discards its story | Applied — clear keeps story; separate delete | Probe reproduced it |
+| 16 | Codex re-review | search-decisions.sh never reads pp | Applied — pp path required | Verified by grep |
+| 17 | Codex re-review | Hash A→B→A closes the new edit | Applied — marker must postdate latest edit | — |
+| 18 | Codex re-review | Cap can starve conversations | Applied — reserved share per class, truncation reported | — |
+| 19 | Gemini re-review | Topics from issue cards miss off-board context | Applied — topics from drafts, stories, recent turns | — |
+| 20 | Gemini re-review | Hash normalisation undefined | Applied — one shared function, defined | — |
+| 21 | Gemini re-review | Unbounded re-injection of open stories | Applied — stuck after 3 sends, listed by count | — |
+| 22 | Gemini re-review | Checker cannot read files | Applied — mechanical quote check by dispatcher, then judge agent | — |
+| 23 | Gemini re-review | Reverted parser crashes on story_done | Rejected — `parseDecisions` skips unknown kinds as bad lines (day.ts:667-689) | Verified |

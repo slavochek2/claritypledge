@@ -1222,7 +1222,7 @@ registered check nobody reported reads "not proven" on the board.
 Before moving on, walk that registry once. Every check should have written or recorded a status
 (the Sentry and Mixpanel ones are yours to record); every `problem` should have a finding with a
 fault key; Sentry's `not-run` and Mixpanel's `not called (no users)` stay distinct (`not-run` vs
-`skipped`). The GCP credits, AI keys and Agent VM checks are **not** yours — they are personal and
+`skipped`). The GCP credits and AI keys checks are **not** yours — they are personal and
 the dispatcher records them.
 
 ```bash
