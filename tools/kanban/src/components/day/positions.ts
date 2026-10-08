@@ -11,3 +11,9 @@ export function cycle(p: number): number {
   const next = a === 2 ? 3 : a === 3 ? 1 : 2
   return p < 0 ? -next : p > 0 ? next : 0
 }
+
+/** P1445: the product's position names for the same 7 levels (CP's PositionButtons speak these). */
+export type PositionName = 'strongly_disagree' | 'disagree' | 'somewhat_disagree' | 'unsure' | 'somewhat_agree' | 'agree' | 'strongly_agree'
+const NAMES: PositionName[] = ['strongly_disagree', 'disagree', 'somewhat_disagree', 'unsure', 'somewhat_agree', 'agree', 'strongly_agree']
+export const toName = (p: number): PositionName => NAMES[Math.max(-3, Math.min(3, Math.round(p))) + 3]
+export const fromName = (n: PositionName): number => NAMES.indexOf(n) - 3

@@ -32,6 +32,7 @@ import {
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { StoryQuoteRow } from '@/app/components/shared/presentational/story-quote-row';
 import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -211,10 +212,14 @@ export function StoryCardDetail({
 
   // Quote pattern rendering - when viewing Stories in a Point's position sections
   if (showQuotePattern) {
+    // P1445: the markup is the shared StoryQuoteRow (the Day board renders the same row for its
+    // agent's story); this branch supplies identity, navigation and the product's badges.
     return (
-      <div className="bg-card rounded-lg overflow-hidden">
-        {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-        <div className={`flex items-center gap-1.5 mb-2 text-sm text-foreground${isAgent ? ' agent-card-drained' : ''}`} {...(isAgent ? { 'data-agent-row': 'true' } : {})}>
+      <StoryQuoteRow
+        name={story.authorName}
+        isAgent={isAgent}
+        authorPosition={authorPosition}
+        avatar={
           <GravatarAvatar
             name={story.authorName}
             photoUrl={story.authorAvatarUrl}
@@ -225,60 +230,28 @@ export function StoryCardDetail({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className={"inline-flex items-center gap-1.5"}>
-            {/* P1141 amendment: an agent account is named the same way on every surface;
-                the raw stored `Agent · {Name}` used to leak through here. */}
-            {/* P1259 — THE ROUTE, added after adversarial review found this branch.
-                This is a whole agent STORY card (the quote-pattern early return renders
-                `story.content` below), and it never carried the footer even before this spec —
-                `main` had exactly one AgentStoryFooter call site, in the OTHER branch. So while
-                the footer existed elsewhere it was backstopped by redundancy; once P1259 removed
-                the footer globally, this became a surface rendering a machine-written reading of
-                a real named person with NO path to the disclosure at all. That is the Invariant
-                this spec is not allowed to break. */}
-            {isAgent ? (
-              <AgentByline
-                name={story.authorName}
-                onNameClick={e => {
-                  e.stopPropagation();
-                  navigate(profileRoute(story.authorSlug));
-                }}
-              />
-            ) : (
-              <span className="font-medium">{story.authorName}</span>
-            )}
-            {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
-            <PositionBadge position={authorPosition} />
-          </span>
-        </div>
-
-        {/* Quoted Story box */}
-        <div
-          role="button"
-          tabIndex={0}
-          className="bg-muted border border-border rounded-lg p-3 cursor-pointer hover:bg-accent hover:border-border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-          onClick={handleCardClick}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleCardClick();
-            }
-          }}
-        >
-          {/* Role + date + visibility (name/avatar already shown outside) */}
+        }
+        /* P1141 amendment: an agent account is named the same way on every surface. P1259: this
+           is a whole agent STORY card, so the agent route (the name link) must stay. */
+        onNameClick={e => {
+          e.stopPropagation();
+          navigate(profileRoute(story.authorSlug));
+        }}
+        badges={!isAgent && !identityPending ? <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} /> : null}
+        meta={
+          /* Role + date + visibility (name/avatar already shown outside) */
           <p className="text-xs text-muted-foreground mb-2 inline-flex items-center gap-1">
             <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
             <InlineVisibilityIcon visibility={story.visibility} />
           </p>
-
-          {/* Story text */}
-          <p className={`text-foreground break-words ${compact ? 'text-base line-clamp-[40]' : 'text-base'}`}>
-            {/* P1212 §1 — the quote label is StoryVideoQuotes' heading. This branch renders
-                no quote block, so it renders no heading. */}
-            {linkifyText(storyTextForDisplay(story.content, story.tags))}
-          </p>
-        </div>
-      </div>
+        }
+        onOpen={handleCardClick}
+        textClassName={compact ? 'text-base line-clamp-[40]' : 'text-base'}
+      >
+        {/* P1212 §1 — the quote label is StoryVideoQuotes' heading. This branch renders
+            no quote block, so it renders no heading. */}
+        {linkifyText(storyTextForDisplay(story.content, story.tags))}
+      </StoryQuoteRow>
     );
   }
 

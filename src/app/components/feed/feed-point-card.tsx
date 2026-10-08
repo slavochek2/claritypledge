@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useOpenPath } from '@/app/components/shared/links-in-new-tab';
-import { Pin } from 'lucide-react';
+import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { toast } from 'sonner';
 import { linkifyText } from '@/app/utils/linkify';
 import { stripHashtags } from '@/lib/utils';
@@ -283,8 +283,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         phones the whole-card tap kept sending readers away by accident). `Details →` in the
         footer opens the point; the links inside the card open what they name. So no
         role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */}
-    <article
-      className="bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border"
+    /* P1445: the frame (card, pin, statement row) is the shared PointCardShell — the Day board renders
+       its reflection statements in the same one. Everything product-side stays here. */
+    <PointCardShell
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
@@ -294,24 +295,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       data-card="point"
       /* P1391: the preparation scrolls to the first unanswered card by this id. */
       data-point-id={point.id}
-    >
-      {/* P1415: the card's name, referenced by `Details →` (aria-describedby). `hidden`: read only
-          through that reference, never in the page flow. */}
-      <span id={cardId} hidden>{`Point: ${point.statement}`}</span>
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Pin icon */}
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-            <Pin className="w-4 h-4 rotate-45" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            {/* Statement with inline visibility icon. P1296 item 6 — `text-base` and 40 lines,
-                the story cards' measure (arbitrary value: see feed-story-card.tsx).
-                P1366 — this is the card's top row, so the `⋯` menu joins it, top-right. Its
-                negative margins let the 44px target sit in the card's padding instead of
-                pushing the statement down. */}
-            <div className="flex items-start justify-between gap-2">
+      statement={
+        <>
+          {/* P1415: the card's name, referenced by `Details →` (aria-describedby). `hidden`: read only
+              through that reference, never in the page flow. */}
+          <span id={cardId} hidden>{`Point: ${point.statement}`}</span>
               <p
                 ref={statementRef}
                 className={`min-w-0 flex-1 text-base font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-[40]'}`}
@@ -319,6 +307,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 <InlineVisibilityIcon visibility={point.visibility} />{' '}
                 {linkifyText(stripHashtags(point.statement, point.tags))}
               </p>
+        </>
+      }
+      corner={
               <CardMenu
                 type="point"
                 id={point.id}
@@ -326,60 +317,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 description={point.statement.slice(0, 100)}
                 className="-mt-2 -mr-2"
               />
-            </div>
-            {statementOverflows && !statementExpanded && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setStatementExpanded(true); }}
-                className="text-sm text-blue-600 font-medium mt-1"
-              >
-                show more
-              </button>
-            )}
-            {statementExpanded && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setStatementExpanded(false); }}
-                className="text-sm text-muted-foreground mt-1"
-              >
-                show less
-              </button>
-            )}
-
-            {/* Tag pills */}
-            <TagPills tags={point.tags} systemTags={point.systemTags} context="feed" activeTag={activeTag} className="mt-2" />
-            {/* A replaced wording, shown when the feed lists every version: without this the old
-                and new wording of one st sit side by side, indistinguishable (the #v pill is hidden). */}
-            {point.supersededBy && (
-              <p className="mt-1 text-sm text-muted-foreground" data-testid="earlier-wording">Earlier wording</p>
-            )}
-
-            {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
-                (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
-                tabbing through it no longer lands on an unrelated control between the last
-                position and the story list. */}
-            <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
-              <PositionButtons
-                userPosition={effectivePosition}
-                counts={counts}
-                onPositionClick={handlePositionClick}
-                onClear={async () => {
-                  if (!session?.user) {
-                    setAnonPositionState(null);
-                    setAnonPosition(point.id, null);
-                    return;
-                  }
-                  if (!(await canSendWrite())) return;
-                  await guardedRemovePosition(point.id);
-                }}
-              />
-            </div>
-            {/* P502: Anonymous position CTA */}
-            {!hideAnonSignupCta && !session?.user && anonPosition && (
-              <AnonPositionCTA pointId={point.id} position={anonPosition} />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+      footer={
+        <>
       {/* P1296 item 1, laid out by P1366 — the footer every story and point card carries, on
           /feed, /stake and the profile: the solid story expander and the viewer's slot left,
           `Details →` right (card-footer-controls.tsx). Share lives in the `⋯` up top. */}
@@ -477,7 +417,59 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           </div>
         )}
       </div>
-    </article>
+        </>
+      }
+    >
+            {statementOverflows && !statementExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setStatementExpanded(true); }}
+                className="text-sm text-blue-600 font-medium mt-1"
+              >
+                show more
+              </button>
+            )}
+            {statementExpanded && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setStatementExpanded(false); }}
+                className="text-sm text-muted-foreground mt-1"
+              >
+                show less
+              </button>
+            )}
+
+            {/* Tag pills */}
+            <TagPills tags={point.tags} systemTags={point.systemTags} context="feed" activeTag={activeTag} className="mt-2" />
+            {/* A replaced wording, shown when the feed lists every version: without this the old
+                and new wording of one st sit side by side, indistinguishable (the #v pill is hidden). */}
+            {point.supersededBy && (
+              <p className="mt-1 text-sm text-muted-foreground" data-testid="earlier-wording">Earlier wording</p>
+            )}
+
+            {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
+                (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
+                tabbing through it no longer lands on an unrelated control between the last
+                position and the story list. */}
+            <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <PositionButtons
+                userPosition={effectivePosition}
+                counts={counts}
+                onPositionClick={handlePositionClick}
+                onClear={async () => {
+                  if (!session?.user) {
+                    setAnonPositionState(null);
+                    setAnonPosition(point.id, null);
+                    return;
+                  }
+                  if (!(await canSendWrite())) return;
+                  await guardedRemovePosition(point.id);
+                }}
+              />
+            </div>
+            {/* P502: Anonymous position CTA */}
+            {!hideAnonSignupCta && !session?.user && anonPosition && (
+              <AnonPositionCTA pointId={point.id} position={anonPosition} />
+            )}
+    </PointCardShell>
     </>
   );
 }

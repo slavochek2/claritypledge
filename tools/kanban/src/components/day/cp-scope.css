@@ -1,0 +1,30 @@
+/* P1445 D: CP's utilities for CP's shared renderers (scoped by tailwind.config.js `important`). */
+@tailwind components;
+@tailwind utilities;
+
+/* The scoped part of Tailwind's preflight the renderers rely on: without it a `border` class has a
+   width but no style (no border at all) and buttons keep the browser's grey. Only inside .cp-reset. */
+.cp-reset,
+.cp-reset *,
+.cp-reset *::before,
+.cp-reset *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: hsl(var(--border));
+}
+.cp-reset button {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.cp-reset p {
+  margin: 0;
+}
+.cp-reset svg {
+  display: block;
+  vertical-align: middle;
+}

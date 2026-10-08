@@ -1,9 +1,10 @@
+import { boundaryOffenders } from '../boundary'
 import { describe, it, beforeAll, afterAll, beforeEach, afterEach, expect, vi } from 'vitest'
 import { app } from '../api'
 import { createServer, request as httpRequest } from 'http'
 import type { AddressInfo } from 'net'
 import { mkdtemp, mkdir, writeFile, readFile, rm, utimes, readdir, chmod } from 'fs/promises'
-import { join, resolve } from 'path'
+import { join, relative, resolve } from 'path'
 import { tmpdir } from 'os'
 import {
   allIssues,
@@ -1124,24 +1125,40 @@ describe('day v2 API (synthetic day dir)', () => {
   })
 })
 
-describe('day v2: rule 10 — the board bundle imports no product code', () => {
-  it('no file under tools/kanban/src imports Supabase or anything outside tools/kanban', async () => {
-    const root = resolve(__dirname, '../../src')
-    const offenders: string[] = []
-    async function walk(d: string) {
-      for (const e of await readdir(d, { withFileTypes: true })) {
-        const p = join(d, e.name)
-        if (e.isDirectory()) { await walk(p); continue }
-        if (!/\.(tsx?|css)$/.test(e.name)) continue
-        const text = await readFile(p, 'utf-8')
-        for (const m of text.matchAll(/(?:from\s+|import\s*\(\s*|import\s+)['"]([^'"]+)['"]/g)) {
-          const spec = m[1]
-          if (/supabase|@\/|auth/i.test(spec)) offenders.push(`${p}: ${spec}`)
-          if (spec.startsWith('.') && !resolve(d, spec).startsWith(resolve(__dirname, '../..'))) offenders.push(`${p}: ${spec}`)
-        }
-      }
+describe('P1445 D (replaces P1399 rule 10): the board reaches CP only through approved renderers, and nothing reaches product state', () => {
+  const repo = resolve(__dirname, '../../../..')
+  it('the real board source: approved renderers allowed, no offender anywhere in their import graph', () => {
+    expect(boundaryOffenders(resolve(__dirname, '../../src'), repo)).toEqual([])
+  })
+
+  it('FAILING CONTROL — a board file importing an analytics or Supabase module is refused, and so is an unapproved CP file', async () => {
+    const tmp = await mkdtemp(join(repo, 'tools/kanban/.boundary-'))
+    try {
+      await mkdir(join(tmp, 'src'), { recursive: true })
+      await writeFile(join(tmp, 'src/a.tsx'), "import { analytics } from '@/lib/mixpanel'\nimport { supabase } from '@/lib/supabase'\nimport { PositionButtons } from '@/app/components/shared/PositionButton'\n")
+      const out = boundaryOffenders(join(tmp, 'src'), repo)
+      expect(out).toEqual([
+        expect.stringMatching(/a\.tsx → @\/lib\/mixpanel: product state$/),
+        expect.stringMatching(/a\.tsx → @\/lib\/supabase: product state$/),
+        expect.stringMatching(/a\.tsx → @\/app\/components\/shared\/PositionButton: not an approved shared renderer$/),
+      ])
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
     }
-    await walk(root)
-    expect(offenders).toEqual([])
+  })
+
+  it('FAILING CONTROL — an approved renderer that imports product state is caught transitively', async () => {
+    const tmp = await mkdtemp(join(repo, 'tools/kanban/.boundary-'))
+    try {
+      await mkdir(join(tmp, 'src'), { recursive: true })
+      await mkdir(join(tmp, 'cp'), { recursive: true })
+      await writeFile(join(tmp, 'cp/ok.tsx'), "import { x } from './deep'\n")
+      await writeFile(join(tmp, 'cp/deep.ts'), "import { track } from '@/lib/mixpanel'\nexport const x = 1\n")
+      await writeFile(join(tmp, 'src/a.tsx'), "import { x } from '../cp/ok'\n")
+      const out = boundaryOffenders(join(tmp, 'src'), repo, [relative(repo, join(tmp, 'cp/ok.tsx'))])
+      expect(out).toEqual([expect.stringMatching(/deep\.ts → @\/lib\/mixpanel: product state$/)])
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
   })
 })

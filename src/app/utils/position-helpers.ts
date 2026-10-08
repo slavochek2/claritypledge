@@ -7,7 +7,7 @@
  */
 
 import { POSITION_LABELS, type PositionType, type PositionButtonGroup } from '@/app/types';
-import type { SevenPointCounts } from '@/app/components/shared/PositionButton';
+import type { SevenPointCounts } from '@/app/components/shared/presentational/position-buttons';
 
 export interface PositionCTACopy {
   symbol: string;

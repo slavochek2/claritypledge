@@ -490,3 +490,30 @@
   /* the Subscriptions chart is drawn at its true size: shrinking it would shrink its labels */
   .d-svg[data-subs-chart] { max-height: none; }
 }
+
+/* P1445 D: the reflection card is CP's PointCardShell (cp-scope.css styles it); these only place it */
+.day-root .d-cpcard {
+  width: 100%;
+}
+.day-root .d-cpcard .d-keyhint {
+  margin-top: 4px;
+}
+.day-root .d-agent-src {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--cp-ink3, #6b7280);
+}
+.day-root .d-agent-src summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 40px; /* a tap target (visual QA: the bare line was 16px) */
+  display: flex;
+  align-items: center;
+}
+.day-root .d-agent-src ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+.day-root .d-agent-ref {
+  font-weight: 600;
+}

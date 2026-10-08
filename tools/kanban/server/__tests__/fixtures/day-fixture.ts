@@ -2,7 +2,7 @@
 // mockup's sample run: no real report content enters the repo, its tests or its screenshots
 // (spec Invariants; P1317 precedent). Used by the unit tests, the e2e suite and the QA shots.
 
-import type { DayReport, DayIssue, DayCheck } from '../../../src/lib/day'
+import type { DayStatement, DayReport, DayIssue, DayCheck } from '../../../src/lib/day'
 
 export const SECRET = 'FIXTURE-SECRET-DAY-91c2'
 
@@ -161,7 +161,18 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
       model: 'Opus',
       statements: [
         { id: 'c1', text: 'Building features this week was a way to avoid reach-outs.' },
-        { id: 'c2', text: 'Weekly events are a hobby until one produces a champion talk.' },
+        {
+          id: 'c2',
+          text: 'Weekly events are a hobby until one produces a champion talk.',
+          // P1445: "Agent on Slava" — invented text (public repo), checked by the checker
+          agent: {
+            name: 'Slava',
+            position: -1,
+            story: 'Fact: the last two events produced "no champion talk yet". Connection: the format is unproven, not a hobby. Speculation: one more month decides it.',
+            sources: [{ ref: 'issue card: Weekly measurements', quote: 'no champion talk yet' }],
+            checker: 'pass',
+          },
+        } as DayStatement,
         { id: 'c3', text: 'If no pilot is agreed by 31 Oct, the pitch is wrong, not the timing.' },
         { id: 'c4', text: 'The morning report should take five minutes, or it is the new busywork.' },
       ],

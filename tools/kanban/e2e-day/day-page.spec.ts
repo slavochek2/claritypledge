@@ -775,13 +775,13 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('[data-note="shipped"] .d-notebody')).toHaveCount(0)
   })
 
-  test('Reflection: the story box is there before a position; keys 1 2 3 rate and cycle; Remove position keeps the story', async ({ page }) => {
+  test('Reflection: the story box is there before a position; keys 1 2 3 rate and cycle; Clear position keeps the story', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' }).click()
-    const cardR = page.locator('.d-pcard')
+    const cardR = page.locator('.d-cpcard')
     // P1440: a story without a position is kept, so the box no longer waits for a position
     await expect(cardR.getByLabel(/Add your story/)).toBeVisible()
-    await cardR.locator('[data-side=agree]').click()
+    await cardR.locator('[data-testid=agree-group]').click()
     await expect(cardR.getByLabel(/Add your story/)).toBeVisible()
     await expect.poll(() => lines().at(-1)?.position).toBe(2)
     await cardR.getByLabel(/Add your story/).fill('Spent Tuesday on a feature instead of calls.')
@@ -790,12 +790,12 @@ test.describe('monitoring, stats, reflection', () => {
     await expect.poll(() => lines().at(-1)?.story).toBe('Spent Tuesday on a feature instead of calls.')
     await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
     await page.locator('[data-bottom-bar]').getByRole('button', { name: /^Previous/ }).click()
-    await cardR.locator('[data-side=agree]').click()
-    await page.getByRole('menuitemradio', { name: /Strongly Agree/ }).click()
+    await cardR.locator('[data-testid=agree-group]').click()
+    await page.getByRole('option', { name: /Strongly Agree/ }).click()
     await expect.poll(() => lines().at(-1)?.position).toBe(3)
     expect(lines().at(-1)?.story).toBe('Spent Tuesday on a feature instead of calls.')
-    await cardR.locator('[data-side=agree]').click()
-    await page.getByRole('menuitem', { name: 'Remove position' }).click()
+    await cardR.locator('[data-testid=agree-group]').click()
+    await page.getByRole('option', { name: 'Clear position' }).click()
     // P1440: clearing the position keeps the story (a story-only answer), never remove:true
     await expect.poll(() => lines().length).toBe(4)
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'reflection', target: 'c1', story: 'Spent Tuesday on a feature instead of calls.' }))
@@ -814,7 +814,7 @@ test.describe('monitoring, stats, reflection', () => {
     expect(lines().at(-1)).toMatchObject({ kind: 'reflection', target: 'c2', position: 2 })
     await page.keyboard.press('3')
     await expect.poll(() => lines().at(-1)?.position).toBe(3)
-    await expect(page.locator('.d-pb.on')).toHaveText('Agree+')
+    await expect(page.locator('.d-cpcard [aria-pressed=true]')).toHaveText('Agree+')
     await expect(page.locator('[data-progress]')).toHaveText('1 of 4 rated · 1 story only')
   })
 
@@ -829,7 +829,7 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(card(page).locator('.d-topic .d-runbadge')).toHaveText('Weekly review')
     await page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' }).click()
     for (let k = 0; k < 4; k++) await nextBtn(page).click()
-    await expect(page.locator('.d-pcard .d-runbadge')).toHaveText('Weekly review')
+    await expect(page.locator('.d-cpcard .d-runbadge')).toHaveText('Weekly review')
   })
 
   test('a monthly-review run shows its badge and its proposals in Issues and Reflection', async ({ page }) => {
@@ -843,7 +843,7 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(card(page).locator('.d-topic .d-runbadge')).toHaveText('Monthly review')
     await page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' }).click()
     for (let k = 0; k < 4; k++) await nextBtn(page).click()
-    await expect(page.locator('.d-pcard .d-runbadge')).toHaveText('Monthly review')
+    await expect(page.locator('.d-cpcard .d-runbadge')).toHaveText('Monthly review')
   })
 })
 
@@ -1010,16 +1010,16 @@ test.describe('review round 2', () => {
     await openDay(page)
     await collapseSidebar(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' }).click()
-    const card = page.locator('.d-pcard')
-    await card.locator('[data-side=disagree]').click()
-    await expect(card.locator('[data-side=disagree]')).toHaveAttribute('aria-pressed', 'true')
-    const clipped = await page.locator('.d-pb').evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1).length)
+    const card = page.locator('.d-cpcard')
+    await card.locator('[data-testid=disagree-group]').click()
+    await expect(card.locator('[data-testid=disagree-group]')).toHaveAttribute('aria-pressed', 'true')
+    const clipped = await page.locator('.d-cpcard [data-testid$=-group]').evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1).length)
     expect(clipped).toBe(0)
     const cardBox = await rectOf(card, 'card')
-    const rowBox = await rectOf(page.locator('.d-pbrow'), 'position control')
+    const rowBox = await rectOf(page.locator('[data-position-control]'), 'position control')
     expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width)
-    await card.locator('[data-side=disagree]').click()
-    const menu = page.locator('.d-pmenu')
+    await card.locator('[data-testid=disagree-group]').click()
+    const menu = page.locator('[data-cp-portal] [role=listbox]')
     await expect(menu).toBeVisible()
     for (const h of await menu.locator('button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) {
       expect(h, 'menu item height').toBeGreaterThanOrEqual(40)
@@ -1948,9 +1948,9 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await expect(page.locator('[data-list-summary]')).toHaveText('4 not rated · 4 statements')
     await expect(rows.first()).toContainText('Not rated')
     expect(await inView(page, '.d-pst'), 'statement').toBe(true)
-    expect(await inView(page, '.d-pbrow'), 'position buttons').toBe(true)
+    expect(await inView(page, '[data-position-control]'), 'position buttons').toBe(true)
     // Unsure is a position (0), never "Not rated"
-    await page.locator('.d-pcard [data-side=unsure]').click()
+    await page.locator('.d-cpcard [data-testid=unsure-group]').click()
     await expect.poll(() => lines().at(-1)?.position).toBe(0)
     await expect(rows.first()).toContainText('Unsure')
     await expect(rows.first()).toHaveAttribute('data-list-state', 'rated')
@@ -1972,7 +1972,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await page.keyboard.press('3')
     await page.keyboard.press('3') // no wait: the first save has not been reloaded yet
     await expect.poll(() => lines().filter((d) => d.kind === 'reflection').map((d) => d.position)).toEqual([2, 3])
-    await expect(page.locator('.d-pb.on')).toHaveText('Agree+')
+    await expect(page.locator('.d-cpcard [aria-pressed=true]')).toHaveText('Agree+')
   })
 
   test('when every statement is rated the list says so, in green', async ({ page }) => {
@@ -1980,7 +1980,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await reflTab(page).click()
     for (let k = 0; k < 4; k++) {
       await page.locator('[data-list-statement]').nth(k).click()
-      await page.locator('.d-pcard [data-side=agree]').click()
+      await page.locator('.d-cpcard [data-testid=agree-group]').click()
       await expect(page.locator('[data-list-statement]').nth(k)).toHaveAttribute('data-list-state', 'rated')
     }
     await expect(page.locator('[data-list-summary]')).toHaveText('✓ All 4 rated')
@@ -2014,7 +2014,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
 
 test.describe('P1440: stories reach the agent', () => {
   const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
-  const storyBox = (page: Page) => page.locator('.d-pcard').getByLabel(/Add your story/)
+  const storyBox = (page: Page) => page.locator('.d-cpcard').getByLabel(/Add your story/)
   const reflLines = () => lines().filter((d) => d.kind === 'reflection')
   const bpos = (page: Page) => page.locator('.d-bpos')
   const STORY = 'Invented story: the test widget took two tries.'
@@ -2042,21 +2042,21 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 1 story only · 4 statements')
     await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated · 1 story only')
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
     // O4: emptying a saved story and pressing Accept deletes it (no position: the answer goes)
     await storyBox(page).fill('')
     await acceptBtn(page).click()
     await expect.poll(() => reflLines().at(-1)?.remove).toBe(true)
     expect(reflLines()).toHaveLength(2)
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveCount(0)
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveCount(0)
   })
 
   test('O3: Accept is offered only when there is something to save, writes once, and on the last statement saves and stays', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
     await expect(acceptBtn(page)).toHaveCount(0) // nothing picked or typed
-    await page.locator('.d-pcard [data-side=disagree]').click() // a pick is saved at once …
+    await page.locator('.d-cpcard [data-testid=disagree-group]').click() // a pick is saved at once …
     await expect.poll(() => reflLines().length).toBe(1)
     await expect(acceptBtn(page)).toHaveCount(0) // … so there is nothing left to accept
     await storyBox(page).fill(STORY) // typed, never left
@@ -2117,7 +2117,7 @@ test.describe('P1440: stories reach the agent', () => {
     await openDay(page)
     await reflTab(page).click()
     await storyBox(page).fill(STORY)
-    await expect(page.locator('.d-pcard [data-story-unsaved]')).toHaveText('Not saved')
+    await expect(page.locator('.d-cpcard [data-story-unsaved]')).toHaveText('Not saved')
     await expect(page.locator('[data-list-statement="c1"]')).toContainText('Unsaved')
     await expect(page.locator('[data-unsaved-stories]')).toHaveText('1 unsaved')
     // another run and back: still there
@@ -2142,7 +2142,9 @@ test.describe('P1440: stories reach the agent', () => {
     await acceptBtn(page).click()
     await expect.poll(() => reflLines().length).toBe(1)
     await expect(page.locator('[data-unsaved-stories]')).toHaveCount(0)
-    expect(await page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).not.toContain('two tries')
+    // the page clears its draft when the save RESPONSE arrives, which is after the server wrote the
+    // line: poll, never read once (P1445 — a single read raced the response under load)
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).not.toContain('two tries')
     await reopen(page)
     await reflTab(page).click()
     await page.locator('[data-list-statement="c1"]').click()
@@ -2213,7 +2215,7 @@ test.describe('P1440: stories reach the agent', () => {
     await acceptBtn(page).click()
     await expect(bpos(page)).toHaveText('2 of 4')
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
     // O5: a slow Mark done clicked twice posts once
     let posts = 0
     await page.route('**/api/day/stories/done', async (r) => {
@@ -2221,9 +2223,9 @@ test.describe('P1440: stories reach the agent', () => {
       await new Promise((res) => setTimeout(res, 400))
       await r.continue()
     })
-    await page.locator('.d-pcard [data-story-done]').click()
-    await page.locator('.d-pcard [data-story-done]').click({ force: true })
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Done · acted')
+    await page.locator('.d-cpcard [data-story-done]').click()
+    await page.locator('.d-cpcard [data-story-done]').click({ force: true })
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Done · acted')
     expect(posts).toBe(1)
     expect(lines().filter((l) => l.kind === 'story_done')).toHaveLength(1)
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', target: 'c1', outcome: 'acted', note: 'marked on the board' }))
@@ -2236,7 +2238,7 @@ test.describe('P1440: stories reach the agent', () => {
     await storyBox(page).fill(`${STORY} And one more line.`)
     await acceptBtn(page).click()
     await prevBtn(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
   })
 
   test('O5: Mark done waits while the card has an unsaved story, and says why', async ({ page }) => {
@@ -2245,19 +2247,19 @@ test.describe('P1440: stories reach the agent', () => {
     await reopen(page)
     await reflTab(page).click()
     await page.locator('[data-list-statement="c1"]').click()
-    await expect(page.locator('.d-pcard [data-story-done]')).toBeEnabled()
+    await expect(page.locator('.d-cpcard [data-story-done]')).toBeEnabled()
     await storyBox(page).fill(`${STORY} Edited.`)
-    await expect(page.locator('.d-pcard [data-story-done]')).toBeDisabled()
+    await expect(page.locator('.d-cpcard [data-story-done]')).toBeDisabled()
     // one line says both, and it outweighs the grey state line (review visual 4)
-    const marker = page.locator('.d-pcard [data-story-unsaved]')
+    const marker = page.locator('.d-cpcard [data-story-unsaved]')
     await expect(marker).toHaveText('Not saved')
-    await expect(page.locator('.d-pcard [data-story-done-hint]')).toHaveCount(0)
+    await expect(page.locator('.d-cpcard [data-story-done-hint]')).toHaveCount(0)
     // the reason lives on the disabled Done only (tooltip and accessible name)
-    await expect(page.locator('.d-pcard [data-story-done]')).toHaveAttribute('title', /Accept the edited story first/)
-    await expect(page.locator('.d-pcard [data-story-done]')).toHaveAccessibleName(/^Mark done: .*Accept the edited story first/)
+    await expect(page.locator('.d-cpcard [data-story-done]')).toHaveAttribute('title', /Accept the edited story first/)
+    await expect(page.locator('.d-cpcard [data-story-done]')).toHaveAccessibleName(/^Mark done: .*Accept the edited story first/)
     const look = (sel: string) => page.locator(sel).evaluate((e) => ({ color: getComputedStyle(e).color, weight: getComputedStyle(e).fontWeight }))
-    expect(await look('.d-pcard [data-story-unsaved]')).toEqual({ color: 'rgb(146, 64, 14)', weight: '600' }) // --amber-800, the "needs you" colour
-    expect((await look('.d-pcard [data-story-state]')).color).not.toBe('rgb(146, 64, 14)')
+    expect(await look('.d-cpcard [data-story-unsaved]')).toEqual({ color: 'rgb(146, 64, 14)', weight: '600' }) // --amber-800, the "needs you" colour
+    expect((await look('.d-cpcard [data-story-state]')).color).not.toBe('rgb(146, 64, 14)')
   })
 
   test('an earlier run shows its stories without buttons', async ({ page }) => {
@@ -2267,7 +2269,7 @@ test.describe('P1440: stories reach the agent', () => {
     await page.getByRole('button', { name: 'Previous run' }).click()
     await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
     await reflTab(page).click()
-    await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Not sent')
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
     await expect(page.locator('.d-story-ro')).toHaveText('Invented story on the earlier run.')
     await expect(page.locator('[data-story-done], [data-story-resend]')).toHaveCount(0)
   })
@@ -2380,7 +2382,7 @@ test.describe('P1440: stories reach the agent', () => {
       // O6: no horizontal overflow, anywhere on the page or in a story
       const over = await page.evaluate(() => {
         const r = document.querySelector('.day-root')
-        const wide = [...document.querySelectorAll('.d-story-ro, [data-earlier-story] *, .d-pcard *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline' && getComputedStyle(e).textOverflow !== 'ellipsis').length
+        const wide = [...document.querySelectorAll('.d-story-ro, [data-earlier-story] *, .d-cpcard *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline' && getComputedStyle(e).textOverflow !== 'ellipsis').length
         return { root: r ? r.scrollWidth - r.clientWidth : -1, wide }
       })
       expect(over).toEqual({ root: 0, wide: 0 })
@@ -2399,4 +2401,45 @@ test.describe('P1440: stories reach the agent', () => {
       expect(b.y + b.height).toBeLessThanOrEqual(bar.y)
     })
   }
+})
+
+test.describe('P1445 D: the reflection card is CP\'s point card, with "Agent on Slava"', () => {
+  const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
+  const open = async (page: Page, id: string) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator(`[data-list-statement="${id}"]`).click()
+  }
+
+  test('the clear control is CP\'s: "Clear position", in CP\'s red (computed), and it clears', async ({ page }) => {
+    await open(page, 'c1')
+    const card = page.locator('.d-cpcard')
+    await card.locator('[data-testid=agree-group]').click()
+    await expect(card.locator('[data-testid=agree-group]')).toHaveAttribute('aria-pressed', 'true')
+    await card.locator('[data-testid=agree-group]').click()
+    const clear = page.getByRole('option', { name: 'Clear position' })
+    await expect(clear).toBeVisible()
+    // CP renders Clear as text-red-600; Tailwind's red-600 is rgb(220, 38, 38)
+    expect(await clear.evaluate((e) => getComputedStyle(e).color)).toBe('rgb(220, 38, 38)')
+    // the card frame is CP's too: its left stripe (border-l-4 border-l-slate-300) is drawn
+    expect(await card.locator('article').evaluate((e) => [getComputedStyle(e).borderLeftWidth, getComputedStyle(e).borderLeftStyle])).toEqual(['4px', 'solid'])
+    await clear.click()
+    await expect(card.locator('[aria-pressed=true]')).toHaveCount(0)
+  })
+
+  test('a statement with a checked agent view shows AGENT on Slava, its own stance and its sources — and never sets the founder\'s position', async ({ page }) => {
+    await open(page, 'c2')
+    const row = page.locator('.d-cpcard [data-agent-view]')
+    await expect(row.getByTestId('agent-byline')).toContainText('on')
+    await expect(row.getByTestId('agent-byline-name')).toHaveText('Slava')
+    await expect(row).toContainText('Disagrees−') // CP's PositionBadge for the agent's -1
+    await expect(row).toContainText('no champion talk yet')
+    await row.locator('summary').click()
+    await expect(row.locator('.d-agent-src li')).toHaveText(/issue card: Weekly measurements/)
+    // the founder's own control is untouched by the agent's view
+    await expect(page.locator('.d-cpcard [data-position-control] [aria-pressed=true]')).toHaveCount(0)
+    // a statement without one shows no agent row
+    await page.locator('[data-list-statement="c1"]').click()
+    await expect(page.locator('.d-cpcard [data-agent-view]')).toHaveCount(0)
+  })
 })
