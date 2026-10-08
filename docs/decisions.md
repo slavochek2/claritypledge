@@ -8,6 +8,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-08 [process]: /day 2026-10-08 reflection — five challenges and the founder's verdicts
+
+**Context:** The 2026-10-08 /day reflection put five challenges to the founder. Recorded with verdicts as given (gate 8: record under uncertainty). The founder's answer to the fifth became P1440.
+
+**Decisions:**
+- *Stop counting hike sign-ups as progress (3 hikers joined, none told a story)* — Strongly agree.
+- *Pick one audience this month and drop the other (hospital staff or hike-goers)* — Agree, with a correction: hikes are the founder's personal activity, not CP. **Rule:** a personal activity is never a CP reflection statement (P1440 makes it a hard filter). UNTESTED. Falsifier: a later reflection still proposes a statement about a personal activity.
+- *Ask today's 4 new people one question each before building more group features* — Agree. Founder asked for their names and contact details; an open request, served privately (never in this log).
+- *Pause the LinkedIn automation until it brings one qualified lead* — Disagree, and "don't ask more": do not raise it again as a reflection item.
+- *After an event shakes motivation, run a smaller one within 7 days* — Unsure, and rejected as ungrounded: it ignored the post-event reflection the founder held in conversation on 2026-10-07. The founder asked that statements draw on private decisions and past conversations, that each carry a referenced story by an agent speaking on his behalf (as in the Disagreement Pipeline), that the reflection card be CP's point card (red clear control), and that reflection get Accept & next. All four are P1440. UNTESTED. Falsifier: two weeks after P1440 ships the founder still reports statements he cannot weigh.
+
+---
+
+## 2026-10-08 [process]: /day 2026-10-04 reflection — four challenges and the founder's verdicts
+
+**Context:** The 2026-10-04 afternoon /day run put four challenges to the founder. Recorded late, on 2026-10-08, because the hand-off prompt only ever asked an agent to "record" stories and none did (P1440 finding 1). Verdicts as given (gate 8).
+
+**Decisions:**
+- *Stop building internal tooling until event #2 is done* — Disagree.
+- *Message every new sign-up personally within 24 hours* — Disagree as a rule; the founder likes the personal approach in general.
+- *Run an event every single week, even a tiny one* — Agree; founder plans to move to weekly in about two weeks. UNTESTED. Falsifier: no weekly cadence by end of October. (Superseded in part by 2026-10-07 [product] "Pause founder-run public Clarity Nights".)
+- *Fix the email confirmation step this week or delete the alert* — Strongly agree. Open question from the founder: what the email confirmation step is and how to fix it. Not answered at the time; carried as an open story under P1440.
+
+---
+
 ## 2026-10-08 [technical]: `/ship`'s add/add prevention never worked — the seed lost the spec's trailing newline; co-tenant edits are now refused before any pick (P1439)
 
 **Context:** The 2026-06-27 [process] fix for branch-born add/add conflicts seeds the spec's creation blob on main so the creation cherry-pick replays as a no-op. It wrote the blob through `x="$(…)"; printf '%s' "$x"`, and command substitution strips trailing newlines — so all 25 recent seeds on main were 1 byte off and every edited branch-born spec still conflicted, resolved by hand each time. The Layer-2 net compared `$()` strings and hid the same difference; the only test (HH) pre-seeded main by hand, so the seed path never ran under test. Found during P1438's `/kdd` by an Opus critic that falsified the first diagnosis and reproduced with real bytes. Separately, INBOX-42 (second instance): a co-tenant's uncommitted edit to a file a pending commit changes stopped `/ship` mid-sequence, leaving main half-landed.
