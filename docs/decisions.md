@@ -25701,7 +25701,7 @@ For touch-target / bounding-box assertions: target the role=option button contai
 1. **An existing cofounder-pair client** (FCO retainer, workshop graduate, or active prospect) explicitly asks "where does our canvas live?" — primary signal, matches the validated ICP.
 2. **Slava personally needs to share his own lean canvas publicly** as a founder-transparency artifact for a specific external invitation (pitch, article, investor doc). Triggers the minimum read-only renderer.
 3. **Two or more letter recipients** independently ask for a canvas-view of a letter they received — signal that the letter↔canvas toggle has demand.
-4. **A pair-builder program** (Antler, EF, CE) or a therapist-partner channel (e.g., Cofounder Clarity / Matthew Jones) asks for canvas as part of their cohort/practice — distribution signal.
+4. **A pair-builder program** (Antler, EF, CE) or a therapist-partner channel (e.g., a cofounder-coaching practice) asks for canvas as part of their cohort/practice — distribution signal.
 
 Until one fires, canvas stays parked. v9-mvp.html in the playground serves as a demo artifact if needed.
 

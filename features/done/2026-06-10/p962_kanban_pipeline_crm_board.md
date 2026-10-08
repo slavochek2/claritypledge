@@ -19,7 +19,7 @@ completed_at: 2026-06-26
 
 ## Problem
 
-**Situation:** Live GTM opportunities (Matt Jones / Cofounder Clarity, Kai) have no
+**Situation:** Live GTM opportunities (a cofounder-coach prospect, Kai) have no
 per-deal home. Cold candidate lists live in `pp/crm/shortlists/*.csv` (cross-venture
 rolodex); GTM motion + target research lives in `cp/.private/research/` and
 `cp/.private/docs/coach-partner-journey.md`. But the *state of an active deal* —
@@ -46,12 +46,12 @@ One opportunity pipeline, `type` as a tag (not separate boards per type).
 - **Data:** `cp/.private/crm/opportunities/*.md`, one file per deal, gitignored via
   `.private`. Frontmatter drives the board:
   ```yaml
-  name: Matthew Jones
+  name: Sam Example
   type: coach            # founder | coach | distribution-partner | investor
   stage: in-conversation # drives board columns
   next_step: "..."
   next_date: 2026-06-30
-  contact_ref: "pp/crm — Cofounder Clarity"   # link to rolodex, no dup
+  contact_ref: "pp/crm — prospect"   # link to rolodex, no dup
   ```
 - **Stages (columns):** `contacted → in-conversation → qualified → committed → active → closed`.
 - **Scanner:** new opportunities scan dir in `tools/kanban/server/api.ts`, mirroring the
@@ -60,7 +60,7 @@ One opportunity pipeline, `type` as a tag (not separate boards per type).
 - **Board view:** new "Pipeline" page/tab in the kanban frontend, mirroring `ContentPage`.
 - **Person vs opportunity:** the person stays in `pp/crm` (cross-venture); the opportunity
   file is cp-local and references the rolodex via `contact_ref`.
-- **Seed:** create `matt-jones.md` and `kai.md` as the first two opportunities.
+- **Seed:** create `sam-example.md` and `kai.md` as the first two opportunities.
 
 ## Risks / Non-Goals
 
@@ -99,7 +99,7 @@ or be deleted independently. Single-feature revert, no data migration.
 - [x] `tools/kanban` shows a "Pipeline" board scanning `.private/crm/opportunities/`
 - [x] Board renders columns: contacted / in-conversation / qualified / committed / active / closed
 - [x] Each opportunity card shows name, `type`, `next_step`, `next_date` (next_date shows when populated; seed deals have it empty)
-- [x] `matt-jones.md` and `kai.md` exist and appear on the board in their stages (Kai → Contacted, Matthew Jones → In Conversation)
+- [x] `sam-example.md` and `kai.md` exist and appear on the board in their stages (Kai → Contacted, Sam Example → In Conversation)
 - [x] `.private/crm/` confirmed gitignored — no deal data is committable
 - [x] Existing feature/Content boards unaffected (regression check — 93 unrelated tests pass; the 10 failing predate P962, in goals/CORS)
 

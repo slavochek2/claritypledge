@@ -80,7 +80,7 @@ After 2026-04-28 buyer-pain research surfaced that buyers articulate the problem
 
 **Risk:** some therapists are explicitly anti-measurement (find it reductive). The DM tests this directly. Either answer is data.
 
-**When to use:** outreach to Cofounder Clarity (Matthew Jones, PsyD), therapy-informed founder coaches, Mochary Method (potential partnership/integration). Audience: psychology-trained cofounder operators.
+**When to use:** outreach to a psychology-trained cofounder-coaching practice, therapy-informed founder coaches, Mochary Method (potential partnership/integration). Audience: psychology-trained cofounder operators.
 
 ### Buyer-pain quote bank (use verbatim in outreach copy)
 

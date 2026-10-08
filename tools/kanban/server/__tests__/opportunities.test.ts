@@ -127,13 +127,13 @@ describe('P962: GET /api/opportunities — basic scanning', () => {
   useTestWorktree();
 
   it('returns all opportunities parsed from the scan dir', async () => {
-    await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
       next_step: 'Send proposal',
       next_date: '2026-06-30',
-      contact_ref: 'pp/crm — Cofounder Clarity',
+      contact_ref: 'pp/crm — prospect',
     });
     await createTestOpportunity('kai.md', {
       name: 'Kai',
@@ -151,7 +151,7 @@ describe('P962: GET /api/opportunities — basic scanning', () => {
     expect(data.length).toBe(2);
 
     const ids = data.map((o: any) => o.id).sort();
-    expect(ids).toEqual(['kai', 'matt-jones']);
+    expect(ids).toEqual(['kai', 'sam-example']);
   });
 
   it('returns an empty array when the scan dir does not exist (no error)', async () => {
@@ -166,8 +166,8 @@ describe('P962: GET /api/opportunities — basic scanning', () => {
   });
 
   it('ignores non-.md files', async () => {
-    await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
     });
@@ -179,7 +179,7 @@ describe('P962: GET /api/opportunities — basic scanning', () => {
 
     expect(status).toBe(200);
     expect(data.length).toBe(1);
-    expect(data[0].id).toBe('matt-jones');
+    expect(data[0].id).toBe('sam-example');
   });
 });
 
@@ -191,13 +191,13 @@ describe('P962: Field surfacing', () => {
   useTestWorktree();
 
   it('surfaces id, path, name, type, stage, next_step, next_date, contact_ref', async () => {
-    const filePath = await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    const filePath = await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
       next_step: 'Send proposal',
       next_date: '2026-06-30',
-      contact_ref: 'pp/crm — Cofounder Clarity',
+      contact_ref: 'pp/crm — prospect',
     });
 
     const { status, data } = await fetchOpportunities(TEST_WORKTREE_PATH, true);
@@ -206,14 +206,14 @@ describe('P962: Field surfacing', () => {
     expect(data.length).toBe(1);
     const opp = data[0];
 
-    expect(opp.id).toBe('matt-jones');
+    expect(opp.id).toBe('sam-example');
     expect(opp.path).toBe(filePath);
-    expect(opp.name).toBe('Matthew Jones');
+    expect(opp.name).toBe('Sam Example');
     expect(opp.type).toBe('coach');
     expect(opp.stage).toBe('in-conversation');
     expect(opp.next_step).toBe('Send proposal');
     expect(opp.next_date).toBe('2026-06-30');
-    expect(opp.contact_ref).toBe('pp/crm — Cofounder Clarity');
+    expect(opp.contact_ref).toBe('pp/crm — prospect');
   });
 });
 
@@ -352,8 +352,8 @@ describe('P962: Cache logic', () => {
   useTestWorktree();
 
   it('returns cached data on subsequent calls without refresh', async () => {
-    await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
     });
@@ -373,8 +373,8 @@ describe('P962: Cache logic', () => {
   });
 
   it('?refresh=true busts the cache and picks up a new file', async () => {
-    await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
     });
@@ -391,7 +391,7 @@ describe('P962: Cache logic', () => {
     expect(refreshed.length).toBe(2);
 
     const ids = refreshed.map((o: any) => o.id).sort();
-    expect(ids).toEqual(['kai', 'matt-jones']);
+    expect(ids).toEqual(['kai', 'sam-example']);
   });
 });
 
@@ -403,8 +403,8 @@ describe('P962: PATCH /api/opportunities/:id', () => {
   useTestWorktree();
 
   it('updates stage in frontmatter on disk', async () => {
-    const filePath = await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    const filePath = await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
       next_step: 'Send proposal',
@@ -413,7 +413,7 @@ describe('P962: PATCH /api/opportunities/:id', () => {
     // Seed the cache
     await fetchOpportunities(TEST_WORKTREE_PATH, true);
 
-    const { status, data } = await patchOpportunity('matt-jones', { stage: 'qualified' }, TEST_WORKTREE_PATH);
+    const { status, data } = await patchOpportunity('sam-example', { stage: 'qualified' }, TEST_WORKTREE_PATH);
 
     expect(status).toBe(200);
     expect(data.success).toBe(true);
@@ -421,13 +421,13 @@ describe('P962: PATCH /api/opportunities/:id', () => {
     const updatedContent = await readFile(filePath, 'utf-8');
     expect(updatedContent).toContain('stage: qualified');
     // Other fields must be preserved
-    expect(updatedContent).toContain('Matthew Jones');
+    expect(updatedContent).toContain('Sam Example');
     expect(updatedContent).toContain('Send proposal');
   });
 
   it('rejects an invalid stage value with 400', async () => {
-    const filePath = await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    const filePath = await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
     });
@@ -436,7 +436,7 @@ describe('P962: PATCH /api/opportunities/:id', () => {
     await fetchOpportunities(TEST_WORKTREE_PATH, true);
 
     const { status, data } = await patchOpportunity(
-      'matt-jones',
+      'sam-example',
       { stage: 'not-a-real-stage' },
       TEST_WORKTREE_PATH
     );
@@ -463,19 +463,19 @@ describe('P962: PATCH /api/opportunities/:id', () => {
   });
 
   it('cache is updated after PATCH — subsequent GET reflects new stage', async () => {
-    await createTestOpportunity('matt-jones.md', {
-      name: 'Matthew Jones',
+    await createTestOpportunity('sam-example.md', {
+      name: 'Sam Example',
       type: 'coach',
       stage: 'in-conversation',
     });
 
     await fetchOpportunities(TEST_WORKTREE_PATH, true);
 
-    await patchOpportunity('matt-jones', { stage: 'qualified' }, TEST_WORKTREE_PATH);
+    await patchOpportunity('sam-example', { stage: 'qualified' }, TEST_WORKTREE_PATH);
 
     // No refresh flag — should still see updated stage via cache-update path
     const { data } = await fetchOpportunities(TEST_WORKTREE_PATH);
-    const opp = data.find((o: any) => o.id === 'matt-jones');
+    const opp = data.find((o: any) => o.id === 'sam-example');
     expect(opp).toBeDefined();
     expect(opp.stage).toBe('qualified');
   });
