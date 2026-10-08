@@ -3,7 +3,7 @@
 // budget raise is a decision that joins Start fixing.
 
 import { useState } from 'react'
-import type { DayCloud, DayQuota, DayReport, DayView } from '../../lib/day'
+import { capRatio, compareKeyCards, keyCard, type DayBudget, type DayCloud, type DayQuota, type DayReport, type DayView, type KeyState } from '../../lib/day'
 import { Legend, LineChart, SubscriptionsChart, SubscriptionsLegend } from './charts'
 import { projectQuota, resetLabel, type QuotaLine } from './quota'
 import { Phrases } from './status'
@@ -20,6 +20,17 @@ interface Props {
 }
 
 const eur = (v: number) => `€${Math.round(v)}`
+/** Small key caps (€1–€3) need the cents, or €1.40 of €2 reads as €1 of €2. */
+const eurK = (v: number) => (v < 10 && !Number.isInteger(v) ? `€${v.toFixed(2)}` : eur(v))
+const STATE_LABEL: Record<KeyState, string> = { spent: 'Spent', unused: 'Unused this month', 'no-spend': 'No spend recorded', unmeasurable: 'Unmeasurable' }
+/** Google's enum words (ENFORCED, LIFTED…) in sentence case, like every other label here. */
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+/** Google's cap state as-is, plus one line of meaning where we know it. */
+const capMeaning = (s: string) => (s === 'CONFIGURED' ? 'set up' : sentence(s))
+const CAP_LEGEND = 'Cap set up: Google reports the cap as Configured. That is not proof it stops spend.'
+/** A budget's amount: euros, or its own currency named — a foreign amount is never shown as €. */
+const amt = (b: DayBudget) => (b.amount_eur !== undefined ? eurK(b.amount_eur) : `amount in ${b.currency ?? 'unknown currency'}`)
+const thr = (b: DayBudget) => (typeof b.thresholds === 'number' ? ` · ${b.thresholds} threshold${b.thresholds === 1 ? '' : 's'}` : '')
 /** A missing number is never shown as €0. */
 const eurOr = (v: number | undefined) => (typeof v === 'number' ? eur(v) : '—')
 const weekday = (iso?: string) => (iso && !Number.isNaN(Date.parse(iso)) ? new Date(iso).toLocaleDateString('en-GB', { weekday: 'short' }) : null)
@@ -91,23 +102,35 @@ function Segs({ per, onPer }: { per: 'week' | 'month'; onPer: (p: 'week' | 'mont
 
 function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { cloud?: DayCloud; per: 'week' | 'month' }) {
   const [open, setOpen] = useState<string | null>(null)
-  if (!cloud?.collected) {
-    return (
-      <div className="d-card d-pad">
-        <b>Google Cloud spend</b> <span className="d-prop">not collected yet</span>
-      </div>
-    )
-  }
+  const notCollected = (
+    <div className="d-card d-pad" data-cloud-not-collected>
+      <b>Google Cloud spend</b> <span className="d-prop">not collected yet</span>
+    </div>
+  )
+  // budgets and key cards still show when spend collection failed: every card then reads unmeasurable
+  if (!cloud || (!cloud.collected && !cloud.budgets?.length && !cloud.keys?.length)) return notCollected
   const wk = per === 'week'
   const pts = (wk ? cloud.week : cloud.month) ?? []
   const pace = pts.map((p, i) => (typeof p.budget_pace === 'number' ? ([i, p.budget_pace] as [number, number]) : null)).filter(Boolean) as [number, number][]
   const hasProj = pts.some((p) => typeof p.projected === 'number')
-  const keys = [...(cloud.keys ?? [])].sort((a, b) => ratio(b) - ratio(a))
+  const keys = [...(cloud.keys ?? [])].sort(compareKeyCards(cloud))
   const toggle = (k: string) => setOpen((o) => (o === k ? null : k))
+  const budgets = cloud.budgets ?? []
+  // the account budget shows once: the list row with the same amount merges onto the account card (W7)
+  const acctMerged = cloud.budget_eur !== undefined ? budgets.find((b) => b.kind === 'account' && b.amount_eur === cloud.budget_eur) : undefined
+  const accountRows = budgets.filter((b) => b.kind === 'account' && b !== acctMerged)
+  const anyConfigured = budgets.some((b) => b.kind === 'key-cap' && b.cap_state === 'CONFIGURED') || (cloud.keys ?? []).some((k) => k.cap_state === 'CONFIGURED')
+  const alarms = budgets.filter((b) => b.kind === 'alarm')
+  // a cap/alert row whose key is not among the cards still has to show somewhere
+  const unmatched = budgets.filter((b) => b.kind === 'unmatched' || ((b.kind === 'key-cap' || b.kind === 'key-alert') && !keys.some((k) => k.id === b.key_id)))
+  // rows not of a known kind cannot occur (the parser drops them); every row lands in exactly one place
+  // only a report that lists budgets (or key cap facts) can say "No cap"; an older report stays silent
+  const cardsKnown = Array.isArray(cloud.budgets) || keys.some((k) => k.cap_state !== undefined || k.alert_budget_eur !== undefined)
 
   return (
     <>
-      {pts.length > 0 && (
+      {!cloud.collected && notCollected}
+      {cloud.collected && pts.length > 0 && (
         <div className="d-card d-chart">
           <div className="d-ct">
             <span>Account {wk ? 'this week' : 'this month'}</span>
@@ -135,12 +158,13 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
           />
         </div>
       )}
-      {cloud.credits && (
+      {cloud.collected && cloud.credits && (
         <div className="d-credits">
           Credits <b>~{eur(cloud.credits.amount_eur)}</b>
           {cloud.credits.caveat ? ` · ${cloud.credits.caveat}` : ''}
         </div>
       )}
+      {(cloud.budget_eur !== undefined || accountRows.length > 0) && <h3 className="d-h3">Account budget</h3>}
       {cloud.budget_eur !== undefined && (
         <>
           <button
@@ -150,51 +174,136 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
             disabled={readOnly}
             onClick={() => toggle('account')}
           >
-            Account budget {eur(cloud.budget_eur)}/month {!readOnly && <span className="d-go">Raise ›</span>}
+            <span>
+              Account budget {eur(cloud.budget_eur)}/month
+              {acctMerged && (
+                <span className="d-acctsub" data-budget={acctMerged.name}>
+                  {`${acctMerged.name}${thr(acctMerged)}`}
+                </span>
+              )}
+            </span>
+            {!readOnly && <span className="d-go">Raise ›</span>}
           </button>
           {open === 'account' && <Raise target="account" current={cloud.budget_eur} view={view} onRaise={onRaise} onUndoRaise={onUndoRaise} />}
         </>
       )}
+      {accountRows.length > 0 && <BudgetRows rows={accountRows} section="account" />}
+      {alarms.length > 0 && (
+        <>
+          <h3 className="d-h3">Alarms</h3>
+          <BudgetRows rows={alarms} section="alarm" />
+        </>
+      )}
       {keys.length > 0 && (
         <>
-          <h3 className="d-h3">Keys · closest to limit first</h3>
-          <div className="d-card">
+          <h3 className="d-h3">
+            <span>AI prepaid key cards ·</span> <span className="d-nowrap">closest to limit first</span>
+          </h3>
+          {cardsKnown && anyConfigured && (
+            <p className="d-klegend" data-cap-legend>
+              {CAP_LEGEND}
+            </p>
+          )}
+          <div className="d-card" data-section="keys">
             {keys.map((k) => {
-              const nod = !k.collected || typeof k.spent_eur !== 'number'
-              // the report may say why a key has no data (Phase D); else "not collected yet"
-              const why = (k as { why?: string }).why
-              const r = nod || !k.budget_eur ? 0 : (k.spent_eur as number) / k.budget_eur
-              const need = nod || r > 0.8
+              const c = keyCard(cloud, k)
+              const spent = c.state === 'spent'
+              const r = spent ? capRatio(cloud, k) : 0
+              const need = !spent || r > 0.8
+              const metaId = `d-kmeta-${k.id}`
               return (
-                <div key={k.id} data-key={k.id}>
-                  <button type="button" className="d-keyrow" aria-expanded={open === k.id} disabled={readOnly} onClick={() => toggle(k.id)}>
+                <div key={k.id} data-key={k.id} data-state={c.state}>
+                  <button
+                    type="button"
+                    className="d-keyrow"
+                    aria-expanded={open === k.id}
+                    aria-describedby={cardsKnown ? metaId : undefined}
+                    disabled={readOnly}
+                    onClick={() => toggle(k.id)}
+                  >
                     <span className="d-kn">{k.label}</span>
-                    {nod ? (
-                      <span className="d-kwhy need">{why ?? 'not collected yet'}</span>
+                    {spent ? (
+                      <span className={`d-kv ${need ? 'need' : ''}`}>{`${eurK(k.spent_eur as number)}${c.cap_eur !== undefined ? ` of ${eurK(c.cap_eur)}` : ' · no cap'}`}</span>
                     ) : (
-                      <>
-                        <span className={`d-kv ${need ? 'need' : ''}`}>{`${eur(k.spent_eur as number)}${k.budget_eur !== undefined ? ` of ${eur(k.budget_eur)}` : ''}`}</span>
-                        <span className={`d-kbar ${need ? 'need' : ''}`}>
-                          <span style={{ width: `${Math.min(100, r * 100)}%` }} />
-                        </span>
-                      </>
+                      <span className="d-kv">{c.cap_eur !== undefined ? `cap ${eurK(c.cap_eur)}` : ''}</span>
                     )}
+                    {/* a track only where it is true: measured spend, or a measured zero, against a cap.
+                        Unmeasurable, no-spend-recorded and no-cap cards show their state instead (QA pass 2). */}
+                    {c.cap_eur !== undefined && (spent || c.state === 'unused') && (
+                      <span className={`d-kbar ${spent && need ? 'need' : ''}`} data-track={spent ? 'spend' : 'zero'}>
+                        <span style={{ width: spent ? `${Math.min(100, r * 100)}%` : '0%' }} />
+                      </span>
+                    )}
+                    <span className="d-kwhy">
+                      <span className={`d-kstate ${c.state === 'spent' || c.state === 'unused' ? '' : 'need'}`} data-kstate={c.state}>
+                        {STATE_LABEL[c.state]}
+                      </span>
+                      {!spent && c.why && <span className={c.state === 'unused' ? '' : 'need'}>{c.why}</span>}
+                      {!readOnly && <span className="d-go">Raise ›</span>}
+                    </span>
                   </button>
-                  {open === k.id && <Raise target={k.id} current={k.budget_eur} view={view} onRaise={onRaise} onUndoRaise={onUndoRaise} />}
+                  {cardsKnown && (
+                    <div className="d-kmeta" id={metaId}>
+                      {c.cap_rows.length === 0 ? (
+                        c.cap_unknown ? (
+                          <span data-cap="unknown" className="d-kstate need">{`Cap state unknown${k.cap_note ? `: ${k.cap_note}` : ''}`}</span>
+                        ) : (
+                          <span data-cap={c.has_cap ? 'set' : 'none'} className={c.has_cap ? '' : 'd-kstate need'}>
+                            {c.has_cap ? `Cap: ${c.cap_state ? capMeaning(c.cap_state) : 'state not reported'}` : 'No cap'}
+                          </span>
+                        )
+                      ) : (
+                        c.cap_rows.map((b, i) => (
+                          <span data-cap="set" data-budget={b.name} key={`cap-${i}`} title={b.cap_state === 'CONFIGURED' ? CAP_LEGEND : undefined}>
+                            {`Cap ${amt(b)} (${b.name}): ${b.cap_state ? capMeaning(b.cap_state) : 'state not reported'}`}
+                          </span>
+                        ))
+                      )}
+                      {c.cap_mismatch && (
+                        <span className="need" data-cap-mismatch>{`Cap row ${eurK(c.cap_eur as number)} ≠ recorded budget ${eurK(c.recorded_budget_eur as number)}`}</span>
+                      )}
+                      {c.alert_mismatch && (
+                        <span className="need" data-alert-mismatch>{`Alert row ${eurK(c.alert_eur as number)} ≠ recorded alert ${eurK(c.recorded_alert_eur as number)}`}</span>
+                      )}
+                      {c.alert_rows.length === 0 ? (
+                        <span data-alert={c.alert_eur !== undefined ? 'set' : 'none'}>{c.alert_eur !== undefined ? `Alert budget ${eurK(c.alert_eur)}` : 'No alert budget'}</span>
+                      ) : (
+                        c.alert_rows.map((b, i) => (
+                          <span data-alert="set" data-budget={b.name} key={`alert-${i}`}>{`Alert budget ${amt(b)} (${b.name})`}</span>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {open === k.id && <Raise target={k.id} current={c.cap_eur} view={view} onRaise={onRaise} onUndoRaise={onUndoRaise} />}
                 </div>
               )
             })}
           </div>
         </>
       )}
+      {unmatched.length > 0 && (
+        <>
+          <h3 className="d-h3">Unmatched budgets</h3>
+          <BudgetRows rows={unmatched} section="unmatched" />
+        </>
+      )}
     </>
   )
 }
 
-/** Not-collected keys first (they need a look), then closest to the limit. */
-function ratio(k: { collected: boolean; spent_eur?: number; budget_eur?: number }) {
-  if (!k.collected || typeof k.spent_eur !== 'number') return Infinity
-  return k.budget_eur ? k.spent_eur / k.budget_eur : 0
+/** Budget rows shown by display name and amount only — never a project id or filter. */
+function BudgetRows({ rows, section }: { rows: DayBudget[]; section: string }) {
+  return (
+    <div className="d-card" data-section={section}>
+      {rows.map((b, i) => (
+        <div className="d-brow" key={`${b.name}-${i}`} data-budget={b.name}>
+          <span className="d-kn">{b.name}</span>
+          <span className="d-kv">{`${amt(b)}/month${thr(b)}`}</span>
+          {b.why && <span className="d-kmeta">{b.why}</span>}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function Raise({
@@ -244,17 +353,19 @@ function Raise({
           aria-label="New monthly budget in euros"
         />
       </label>
-      <button
-        type="button"
-        className="d-btn sm"
-        disabled={!valid}
-        onClick={async () => {
-          const e = await onRaise(target, n)
-          if (e) setErr(e === 'conflict' ? tooLowMsg : e)
-        }}
-      >
-        Add
-      </button>
+      {/* P955: no disabled Add as decoration — it appears once the amount is valid */}
+      {valid && (
+        <button
+          type="button"
+          className="d-btn sm"
+          onClick={async () => {
+            const e = await onRaise(target, n)
+            if (e) setErr(e === 'conflict' ? tooLowMsg : e)
+          }}
+        >
+          Add
+        </button>
+      )}
       {(tooLow || err) && (
         <span className="d-err" role="alert">
           {tooLow ? tooLowMsg : err}

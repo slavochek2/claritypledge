@@ -704,14 +704,15 @@ export default function App() {
           </h1>
 
           {/* Search */}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-6)' }}>
+          {/* minWidth 0 + a shrinkable input: at 320px the header fits instead of pushing Refresh off-screen (P1442 QA) */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-6)', minWidth: 0 }}>
             <input
               type="text"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="kb-input"
-              style={{ width: 180 }}
+              style={{ width: 180, flex: '0 1 180px', minWidth: 64 }}
             />
 
             {/* Refresh button */}

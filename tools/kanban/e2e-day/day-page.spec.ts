@@ -8,8 +8,23 @@ import { createRequire } from 'module'
 import { DAY_E2E_DIR, OFF, ON } from '../playwright.day.config'
 import { EARLIER_ID, LATEST_ID, NEWER_ID, seedDay, type Variant } from '../scripts/day-seed'
 import { CHECKS, synthReport } from '../server/__tests__/fixtures/day-fixture'
-import { sentKey, type DayReport } from '../src/lib/day'
+import { sentKey, type DayCloud, type DayReport } from '../src/lib/day'
 import { storyHash } from '../server/dayStories'
+
+/** P1442: budget rows + AI prepaid key cards, invented names only. */
+const CARDS_CLOUD = JSON.parse(readFileSync(new URL('../server/__tests__/fixtures/day-cloud-cards.json', import.meta.url), 'utf-8')) as DayCloud
+
+type CardsCloud = DayCloud & { budgets: NonNullable<DayCloud['budgets']>; keys: NonNullable<DayCloud['keys']> }
+function cardsCloud(): CardsCloud {
+  const c = JSON.parse(JSON.stringify(CARDS_CLOUD)) as DayCloud
+  if (!c.budgets || !c.keys) throw new Error('day-cloud-cards fixture lost budgets or keys')
+  return c as CardsCloud
+}
+function keyOf(c: CardsCloud, id: string): CardsCloud['keys'][number] {
+  const k = c.keys.find((x) => x.id === id)
+  if (!k) throw new Error(`fixture has no key ${id}`)
+  return k
+}
 
 const DECISIONS = join(DAY_E2E_DIR, 'decisions.jsonl')
 const fileText = () => (existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf-8') : '')
@@ -513,9 +528,9 @@ test.describe('monitoring, stats, reflection', () => {
     const input = page.getByLabel('New monthly budget in euros')
     const add = page.getByRole('button', { name: 'Add', exact: true })
     await expect(input).toHaveValue('')
-    await expect(add).toBeDisabled()
+    await expect(add).toHaveCount(0) // P955: no disabled Add as decoration
     await input.fill('300')
-    await expect(add).toBeDisabled()
+    await expect(add).toHaveCount(0)
     await expect(page.locator('[data-raise="account"]')).toContainText('Must be more than €400')
     await input.fill('600')
     await add.click()
@@ -716,6 +731,235 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('[data-key="key-search"]')).not.toContainText('not collected yet')
     await expect(page.locator('[data-key="key-translate"]')).toContainText('not collected yet')
     await expect(page.locator('[data-key="key-gemini"]')).toContainText('€16 of €60')
+  })
+
+  test('P1442: every budget row shows, grouped account / alarms / key cards / unmatched; each card has one state, cap and alert facts', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.report?.monitoring) b.report.monitoring.cloud = CARDS_CLOUD
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    await expect(page.locator('.d-h3')).toHaveText(['Account budget', 'Alarms', 'AI prepaid key cards · closest to limit first', 'Unmatched budgets'])
+    // W7: the €400 account budget shows once — the list row merges onto the account card
+    await expect(page.locator('[data-section="account"]')).toHaveCount(0)
+    await expect(page.locator('.d-acctrow [data-budget="Whole account monthly"]')).toHaveText('Whole account monthly · 3 thresholds')
+    await expect(page.locator('.d-acctrow')).toHaveText(/^Account budget €400\/month/)
+    await expect(page.locator('[data-section="alarm"] [data-budget]')).toHaveText([/Leak alarm.*€100\/month/])
+    await expect(page.locator('[data-section="unmatched"] [data-budget]')).toHaveText([/Old sandbox budget.*€5\/month/])
+    // every one of the 11 budget rows is on the page by display name
+    for (const b of CARDS_CLOUD.budgets ?? []) await expect(page.locator('.d-main')).toContainText(b.name)
+    // the four states, exactly one label per card
+    const cards = page.locator('[data-section="keys"] [data-key]')
+    await expect(cards).toHaveCount(6)
+    for (let i = 0; i < 6; i++) await expect(cards.nth(i).locator('[data-kstate]')).toHaveCount(1)
+    const st = (id: string) => page.locator(`[data-key="${id}"] [data-kstate]`)
+    await expect(st('key-owl')).toHaveText('Spent')
+    await expect(st('key-heron')).toHaveText('Unused this month')
+    await expect(st('key-lynx')).toHaveText('No spend recorded')
+    await expect(st('key-otter')).toHaveText('Unmeasurable')
+    // QA2: measured keys first by their own ratio (Owl 70%, Badger 20%), then the keys with no measured spend
+    const order = await page.locator('[data-section="keys"] [data-key]').evaluateAll((els) => els.map((e) => e.getAttribute('data-key')))
+    expect(order.slice(0, 2)).toEqual(['key-owl', 'key-badger'])
+    // QA2: every closed card shows its Raise affordance
+    await expect(page.locator('[data-section="keys"] [data-key] .d-keyrow .d-go')).toHaveCount(6)
+    await expect(page.locator('[data-key="key-otter"]')).toContainText('billing export 3 days stale')
+    await expect(page.locator('[data-key="key-owl"]')).toContainText('€1.40 of €2')
+    // cap state with its meaning; no cap reads as a warning; alert present / missing
+    await expect(page.locator('[data-key="key-owl"] [data-cap="set"]')).toHaveText('Cap €2 (Owl cap): set up')
+    await expect(page.locator('[data-key="key-owl"] [data-cap="set"]')).toHaveAttribute('title', /Configured.*not proof it stops spend/)
+    await expect(page.locator('[data-cap-legend]')).toHaveCount(1)
+    // W8: every card has the same shape — a track, filled only for spend
+    // QA2: a track only for measured spend or a measured zero against a cap; no bar for unmeasurable / no spend recorded / no cap
+    await expect(page.locator('[data-section="keys"] [data-key] [data-track]')).toHaveCount(3)
+    await expect(page.locator('[data-key="key-heron"] [data-track]')).toHaveAttribute('data-track', 'zero')
+    for (const id of ['key-otter', 'key-lynx', 'key-mole']) await expect(page.locator(`[data-key="${id}"] [data-track]`)).toHaveCount(0)
+    await expect(page.locator('[data-key="key-owl"] [data-alert="set"]')).toHaveText('Alert budget €1 (Owl alert)')
+    // the cap meaning and alert line describe the button; they are not part of its name
+    const owlBtn = page.locator('[data-key="key-owl"] .d-keyrow')
+    await expect(owlBtn).toHaveAccessibleName(/^Owl/)
+    expect(await owlBtn.getAttribute('aria-label')).toBeNull()
+    expect(await owlBtn.evaluate((b) => b.textContent ?? '')).not.toContain('Cap')
+    await expect(owlBtn).toHaveAccessibleDescription(/Cap €2 \(Owl cap\): set up/)
+    expect(await page.locator('[data-kstate]').first().evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12)
+    await expect(page.locator('[data-key="key-otter"] [data-alert="none"]')).toHaveText('No alert budget')
+    await expect(page.locator('[data-key="key-mole"] [data-cap="none"]')).toHaveText('No cap')
+    await expect(page.locator('[data-key="key-mole"] [data-cap="none"]')).toHaveClass(/need/)
+    await page.locator('[data-key="key-owl"]').screenshot({ path: 'test-results/p1442-owl-raise-closed-1280.png' })
+    // the Raise button still works on a card; no dead Add until an amount is valid (P955)
+    await page.locator('[data-key="key-owl"] .d-keyrow').click()
+    await expect(page.locator('[data-raise="key-owl"]')).toBeVisible()
+    await expect(page.locator('[data-raise="key-owl"]').getByRole('button', { name: 'Add' })).toHaveCount(0)
+    await page.locator('[data-raise="key-owl"]').getByLabel('New monthly budget in euros').fill('5')
+    await expect(page.locator('[data-raise="key-owl"]').getByRole('button', { name: 'Add' })).toBeEnabled()
+    await page.locator('[data-key="key-owl"]').screenshot({ path: 'test-results/p1442-owl-raise-open-typed-1280.png' })
+    await page.locator('[data-key="key-badger"]').screenshot({ path: 'test-results/p1442-badger-1280.png' })
+    await page.locator('[data-section="unmatched"]').screenshot({ path: 'test-results/p1442-unmatched-1280.png' })
+    // W5: the budget-pace line stays inside the chart
+    const paceOut = await page.locator('.d-chart svg').first().evaluate((svg) => {
+      const r = svg.getBoundingClientRect()
+      return [...svg.querySelectorAll('polyline')].some((p) => { const b = p.getBoundingClientRect(); return b.top < r.top - 0.5 || b.bottom > r.bottom + 0.5 })
+    })
+    expect(paceOut).toBe(false)
+    await page.locator('.d-chart').first().screenshot({ path: 'test-results/p1442-chart-1280.png' })
+    await page.locator('[data-key="key-owl"] .d-keyrow').click()
+    for (const w of [1280, 375, 320]) {
+      await page.setViewportSize({ width: w, height: 1400 })
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(w)
+      if (w === 375) await collapseSidebar(page)
+      // B1: nothing on the page scrolls sideways once the sidebar is collapsed
+      if (w < 900) expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+      // nothing in a budget section or key card sticks out of its card
+      const escapes = await page.locator('[data-section]').evaluateAll((cards) =>
+        cards.flatMap((card) => {
+          const r = card.getBoundingClientRect()
+          return [...card.querySelectorAll('*')]
+            .filter((c) => {
+              const b = c.getBoundingClientRect()
+              return b.width > 0 && (b.left < r.left - 0.5 || b.right > r.right + 0.5)
+            })
+            .map((c) => `${w}px: ${c.textContent}`)
+        }),
+      )
+      expect(escapes).toEqual([])
+      // QA2: each section label sits closer to its own card than to the one above
+      const gaps = await page.locator('.d-main .d-h3').evaluateAll((hs) =>
+        hs.map((h) => {
+          const r = h.getBoundingClientRect()
+          const prev = h.previousElementSibling?.getBoundingClientRect()
+          const next = h.nextElementSibling?.getBoundingClientRect()
+          return { t: h.textContent, above: prev ? r.top - prev.bottom : 99, below: next ? next.top - r.bottom : 0 }
+        }),
+      )
+      for (const g of gaps) expect(g.above, `${w}px space above vs below "${g.t}"`).toBeGreaterThan(g.below)
+      // QA2: the "closest to limit first" part never wraps, so no orphan word
+      expect(await page.locator('.d-h3 .d-nowrap').evaluate((e) => e.getClientRects().length)).toBe(1)
+      // QA2: Raise tap targets are at least 40px tall
+      for (const sel of ['.d-acctrow', '[data-key="key-owl"] .d-keyrow']) expect((await rectOf(page.locator(sel), sel)).height).toBeGreaterThanOrEqual(40)
+      // QA2: scrolled to the end, the sticky footer covers no card
+      await page.setViewportSize({ width: w, height: 700 })
+      await page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight)
+        for (const e of document.querySelectorAll('*')) if (e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowY)) e.scrollTop = e.scrollHeight
+      })
+      const lastBottom = await page.locator('.d-main [data-section]').last().evaluate((e) => e.getBoundingClientRect().bottom)
+      const footTop = (await rectOf(page.locator('[data-bottom-bar]'), 'footer')).y
+      expect(lastBottom, `${w}px last card bottom vs footer top`).toBeLessThanOrEqual(footTop)
+      // full-page screenshot at a viewport tall enough that nothing scrolls under the sticky bars
+      await page.setViewportSize({ width: w, height: 3600 })
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await page.screenshot({ path: `test-results/p1442-monitor-${w}.png`, fullPage: true })
+      await page.setViewportSize({ width: w, height: 1400 })
+    }
+  })
+
+  test('P1442 review: two caps and two alerts all show on the key card; a cap row unlike the recorded budget shows both; nothing lands in unmatched', async ({ page }) => {
+    await patchRun(page, (b) => {
+      const c = cardsCloud()
+      c.budgets.push({ name: 'Owl cap spare', amount_eur: 3, kind: 'key-cap', key_id: 'key-owl' }, { name: 'Owl alert spare', amount_eur: 1.5, kind: 'key-alert', key_id: 'key-owl' })
+      keyOf(c, 'key-badger').budget_eur = 4 // recorded budget differs from its €1 cap row
+      if (b.report?.monitoring) b.report.monitoring.cloud = c
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    const owl = page.locator('[data-key="key-owl"]')
+    await expect(owl.locator('[data-cap="set"]')).toHaveCount(2)
+    await expect(owl.locator('[data-alert="set"]')).toHaveCount(2)
+    await expect(owl).toContainText('Owl cap spare')
+    await expect(owl).toContainText('Owl alert spare')
+    // each cap row shows its OWN state: the spare row reported none (G4)
+    await expect(owl.locator('[data-cap="set"][data-budget="Owl cap spare"]')).toHaveText('Cap €3 (Owl cap spare): state not reported')
+    await expect(page.locator('[data-section="unmatched"] [data-budget]')).toHaveCount(1)
+    await expect(page.locator('[data-key="key-badger"] [data-cap-mismatch]')).toHaveText('Cap row €1 ≠ recorded budget €4')
+    await expect(page.locator('[data-key="key-badger"]')).toContainText('€0.20 of €1')
+    // Raise floor is the same cap the card shows
+    await page.locator('[data-key="key-badger"] .d-keyrow').click()
+    await page.getByLabel('New monthly budget in euros').fill('1')
+    await expect(page.locator('[data-raise="key-badger"]')).toContainText('Must be more than €1')
+  })
+
+  test('P1442 round 3: blind cap list reads "Cap state unknown" (not a cap); a non-EUR budget names its currency; spend with no cap sorts first', async ({ page }) => {
+    await patchRun(page, (b) => {
+      const c = cardsCloud()
+      c.budgets = c.budgets.filter((x) => x.key_id !== 'key-mole')
+      c.budgets.push({ name: 'Dollar budget', currency: 'USD', kind: 'unmatched', why: 'does not bound this key: currency:USD' })
+      Object.assign(keyOf(c, 'key-mole'), { collected: true, spent_eur: 0.5, state: 'spent', cap_state: 'UNKNOWN', cap_note: 'the budget list showed no caps this run, so caps cannot be checked' })
+      if (b.report?.monitoring) b.report.monitoring.cloud = c
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    const mole = page.locator('[data-key="key-mole"]')
+    await expect(mole.locator('[data-cap="unknown"]')).toHaveText('Cap state unknown: the budget list showed no caps this run, so caps cannot be checked')
+    await expect(mole.locator('[data-cap="set"]')).toHaveCount(0)
+    await expect(mole).toContainText('€0.50 · no cap')
+    await expect(page.locator('[data-section="keys"] [data-key]').first()).toHaveAttribute('data-key', 'key-mole')
+    const usd = page.locator('[data-section="unmatched"] [data-budget="Dollar budget"]')
+    await expect(usd).toContainText('amount in USD/month')
+    await expect(usd).not.toContainText('€')
+    await expect(usd).toContainText('does not bound this key: currency:USD')
+  })
+
+  test('P1442 review: spend collection failed — budgets and key cards still render, every card unmeasurable with a reason', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.report?.monitoring) b.report.monitoring.cloud = { ...CARDS_CLOUD, collected: false }
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    await expect(page.locator('[data-cloud-not-collected]')).toBeVisible()
+    await expect(page.locator('.d-h3')).toHaveText(['Account budget', 'Alarms', 'AI prepaid key cards · closest to limit first', 'Unmatched budgets'])
+    const states = page.locator('[data-section="keys"] [data-kstate]')
+    await expect(states).toHaveCount(6)
+    await expect(states).toHaveText(Array(6).fill('Unmeasurable'))
+    await expect(page.locator('[data-key="key-badger"]')).toContainText('spend collection failed this run')
+  })
+
+  test('P1442 review: a 120-character why stays inside its card at 320px', async ({ page }) => {
+    const why = 'Billing export query failed: the table for this month was not found, so spend for this key cannot be read today.'
+    expect(why.length).toBeGreaterThanOrEqual(110)
+    await patchRun(page, (b) => {
+      const c = cardsCloud()
+      keyOf(c, 'key-otter').why = why
+      if (b.report?.monitoring) b.report.monitoring.cloud = c
+    })
+    await page.setViewportSize({ width: 320, height: 1400 })
+    await openDay(page)
+    await collapseSidebar(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    await expect(page.locator('[data-key="key-otter"]')).toContainText(why)
+    const escapes = await page.locator('[data-section]').evaluateAll((cards) =>
+      cards.flatMap((card) => {
+        const r = card.getBoundingClientRect()
+        return [...card.querySelectorAll('*')].filter((c) => {
+          const b = c.getBoundingClientRect()
+          return b.width > 0 && (b.left < r.left - 0.5 || b.right > r.right + 0.5)
+        }).map((c) => c.textContent)
+      }),
+    )
+    expect(escapes).toEqual([])
+    // B3: the whole reason is visible (no clipping box), and the footer keeps its gutters
+    const clipped = await page.locator('[data-key="key-otter"] .d-kwhy').evaluate((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)
+    expect(clipped).toBe(false)
+    const prog = await rectOf(page.locator('[data-progress]'), 'progress')
+    const copy = await rectOf(page.getByRole('button', { name: 'Copy prompt' }), 'copy')
+    expect(prog.x).toBeGreaterThanOrEqual(44 + 8)
+    expect(copy.x + copy.width).toBeLessThanOrEqual(320)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+    await page.locator('[data-key="key-otter"]').screenshot({ path: 'test-results/p1442-why120-320.png' })
+    await page.locator('[data-bottom-bar]').screenshot({ path: 'test-results/p1442-footer-320.png' })
+  })
+
+  test('P1442: an older report (no budgets, no key states) shows no cap/alert lines and no new sections', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    await expect(page.locator('.d-h3')).toHaveText(['Account budget', 'AI prepaid key cards · closest to limit first'])
+    await expect(page.locator('[data-cap]')).toHaveCount(0)
+    await expect(page.locator('[data-key="key-search"] [data-kstate]')).toHaveText('Unmeasurable')
+    await expect(page.locator('[data-key="key-gemini"] [data-kstate]')).toHaveText('Spent')
   })
 
   test('Stats: the funnel shows the Pipeline columns with real zeros; what is not collected says so', async ({ page }) => {

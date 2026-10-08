@@ -938,7 +938,11 @@ export function DayPage() {
                   )
                 ) : issues.length > 0 ? (
                   <>
-                    <span data-progress data-short={`${resolvedN}/${issues.length}`}>
+                    {/* W6: this counts cards; Start fixing counts changes to send — labelled so the two never read as one number */}
+                    <span className="d-plab" data-progress-label>
+                      Cards
+                    </span>
+                    <span data-progress data-short={`${resolvedN}/${issues.length}`} title="Cards answered on the Daily report">
                       {resolvedN} of {issues.length} resolved
                     </span>
                     <span className="d-bline">
@@ -991,7 +995,13 @@ export function DayPage() {
                         Send {sendCount} change{sendCount === 1 ? '' : 's'}
                       </button>
                     ) : (
-                      <button type="button" className="d-btn primary sm" disabled={busy || sendCount === 0} onClick={() => void startFixing('start')}>
+                      <button
+                        type="button"
+                        className="d-btn primary sm"
+                        title={`${sendCount} change${sendCount === 1 ? '' : 's'} ready to send: card answers (recommended ones included), budget raises, connections, reflection ratings`}
+                        disabled={busy || sendCount === 0}
+                        onClick={() => void startFixing('start')}
+                      >
                         Start fixing ({sendCount})
                       </button>
                     )}

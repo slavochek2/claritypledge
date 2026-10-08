@@ -181,7 +181,117 @@ export interface DayCloud {
   week?: SpendPoint[]
   month?: SpendPoint[]
   /** `why` = one line (≤ 120) on why a key has no data: "unused, or not in the billing export" */
-  keys?: { id: string; label: string; collected: boolean; spent_eur?: number; budget_eur?: number; why?: string }[]
+  keys?: DayCloudKey[]
+  /** P1442: every row of the billing account's budget list, grouped by kind. Absent in older reports. */
+  budgets?: DayBudget[]
+}
+
+/**
+ * P1442: one AI prepaid key card's spend state, exactly one per card.
+ * spent = billing rows this month · unused = no rows AND the request count says 0 ·
+ * no-spend = no rows, request count unavailable or untrusted · unmeasurable = billing query failed or stale.
+ */
+export type KeyState = 'spent' | 'unused' | 'no-spend' | 'unmeasurable'
+export const KEY_STATES: KeyState[] = ['spent', 'unused', 'no-spend', 'unmeasurable']
+export interface DayCloudKey {
+  id: string
+  label: string
+  collected: boolean
+  spent_eur?: number
+  /** the key's cap budget, € per month */
+  budget_eur?: number
+  why?: string
+  state?: KeyState
+  /** Google's spendCap.outputState, as-is (e.g. CONFIGURED) */
+  cap_state?: string
+  /** why the cap state is what it is, e.g. why it is UNKNOWN (P1442) */
+  cap_note?: string
+  alert_budget_eur?: number
+  /** required for state "unused": the request-count reading that proves zero use this month */
+  unused_evidence?: UnusedEvidence
+}
+export interface UnusedEvidence { metric: string; requests: 0; window: string }
+export type BudgetKind = 'account' | 'alarm' | 'key-cap' | 'key-alert' | 'unmatched'
+export const BUDGET_KINDS: BudgetKind[] = ['account', 'alarm', 'key-cap', 'key-alert', 'unmatched']
+export interface DayBudget {
+  /** the budget's display name — never a project id or filter */
+  name: string
+  /** absent when the budget is not in EUR: a foreign amount is never shown as euros */
+  amount_eur?: number
+  /** set instead of amount_eur when the budget is not in EUR */
+  currency?: string
+  kind: BudgetKind
+  /** one line on why a budget does not bound a key (unmatched rows) */
+  why?: string
+  /** set for key-cap / key-alert: the registry key it belongs to */
+  key_id?: string
+  cap_state?: string
+  thresholds?: number
+}
+
+const DEFAULT_WHY: Record<Exclude<KeyState, 'spent'>, string> = {
+  unused: '0 requests this month',
+  'no-spend': 'no billing rows this month',
+  unmeasurable: 'not collected yet',
+}
+
+/** One card's facts, joined from the key and its budget rows. The state is always exactly one value. */
+export function keyCard(cloud: DayCloud, k: DayCloudKey) {
+  const rows = (cloud.budgets ?? []).filter((b) => b.key_id === k.id)
+  const cap_rows = rows.filter((b) => b.kind === 'key-cap')
+  const alert_rows = rows.filter((b) => b.kind === 'key-alert')
+  const measured = cloud.collected && k.collected && typeof k.spent_eur === 'number'
+  // billing rows win: a key with spend is spent whatever it is labelled; "spent" needs a number;
+  // a run whose spend collection failed cannot say anything about any key
+  const state: KeyState = measured ? 'spent' : cloud.collected && k.state && k.state !== 'spent' ? k.state : 'unmeasurable'
+  const why = !cloud.collected ? k.why ?? 'spend collection failed this run' : k.why ?? (state === 'spent' ? undefined : DEFAULT_WHY[state])
+  const cap_state = k.cap_state ?? cap_rows.find((b) => b.cap_state)?.cap_state
+  // UNKNOWN (the budget list was blind) is never a cap
+  const cap_unknown = cap_rows.length === 0 && cap_state === 'UNKNOWN'
+  // one cap for sort, bar and Raise: the cap budget row when there is one, else the recorded budget
+  const cap_eur = cap_rows[0]?.amount_eur ?? k.budget_eur
+  // same precedence as the cap: the budget row first, the key's own field only when there is no row
+  const alert_eur = alert_rows[0]?.amount_eur ?? k.alert_budget_eur
+  return {
+    state,
+    why,
+    cap_eur,
+    recorded_budget_eur: k.budget_eur,
+    cap_mismatch: cap_rows.length > 0 && k.budget_eur !== undefined && k.budget_eur !== cap_rows[0].amount_eur,
+    cap_state,
+    has_cap: cap_rows.length > 0 || (!!cap_state && !cap_unknown),
+    cap_unknown,
+    alert_eur,
+    recorded_alert_eur: k.alert_budget_eur,
+    alert_mismatch: alert_rows.length > 0 && k.alert_budget_eur !== undefined && k.alert_budget_eur !== alert_rows[0].amount_eur,
+    cap_rows,
+    alert_rows,
+  }
+}
+
+/** A key with no measured spend sorts after every measured key: "closest to limit first" ranks measured spend only (QA pass 2). */
+const NO_DATA_RATIO = -1
+/** finite, so two such keys compare equal and the tie-breaks decide (never Infinity - Infinity) */
+const OVER_RATIO = 1e6
+const STATE_ORDER: Record<KeyState, number> = { unmeasurable: 0, 'no-spend': 1, unused: 2, spent: 3 }
+
+/** Spend over the card's cap, for "closest to limit first". */
+export function capRatio(cloud: DayCloud, k: DayCloudKey): number {
+  const c = keyCard(cloud, k)
+  if (c.state !== 'spent') return NO_DATA_RATIO
+  // spend with no cap at all, or any spend over a €0 cap, is past the limit: it sorts first
+  if (c.cap_eur === undefined) return OVER_RATIO
+  if (c.cap_eur === 0) return (k.spent_eur as number) > 0 ? OVER_RATIO : 0
+  return (k.spent_eur as number) / c.cap_eur
+}
+
+/** Total, deterministic order: ratio desc, then state (unmeasurable first), then label, then id. */
+export function compareKeyCards(cloud: DayCloud) {
+  return (a: DayCloudKey, b: DayCloudKey): number =>
+    capRatio(cloud, b) - capRatio(cloud, a) ||
+    STATE_ORDER[keyCard(cloud, a).state] - STATE_ORDER[keyCard(cloud, b).state] ||
+    a.label.localeCompare(b.label) ||
+    a.id.localeCompare(b.id)
 }
 
 export interface DayMonitoring {
@@ -550,7 +660,7 @@ function rows<T>(x: unknown, read: (r: unknown) => T | null, key: (r: T) => stri
   return out
 }
 
-function readMonitoring(x: unknown): DayMonitoring | undefined {
+function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefined {
   if (!isObj(x)) return undefined
   const m: DayMonitoring = {}
   if (Array.isArray(x.quotas)) {
@@ -564,14 +674,64 @@ function readMonitoring(x: unknown): DayMonitoring | undefined {
       collected: c.collected === true,
       keys: Array.isArray(c.keys)
         ? c.keys.filter((k) => isObj(k) && typeof k.id === 'string' && ID.test(k.id) && typeof k.label === 'string').map((k) => {
-          const { why, ...rest } = k as typeof k & { why?: unknown }
-          const line = oneLine(why, MAX_KEY_WHY)
-          return { ...rest, collected: k.collected === true, ...(line ? { why: line } : {}) }
+          const { why, state, cap_state, cap_note, alert_budget_eur, spent_eur, budget_eur, unused_evidence, ...rest } = k as typeof k & Record<string, unknown>
+          const money = (v: unknown) => (num(v) !== undefined && (v as number) >= 0 ? (v as number) : undefined)
+          const spent = money(spent_eur)
+          const budget = money(budget_eur)
+          const bad = [spent_eur !== undefined && spent === undefined ? 'spend' : '', budget_eur !== undefined && budget === undefined ? 'budget' : ''].filter(Boolean)
+          const line = bad.length ? `${bad.join(' and ')} value invalid in the report` : oneLine(why, MAX_KEY_WHY)
+          const cs = oneLine(cap_state, 40)
+          const ev = isObj(unused_evidence) && str(unused_evidence.metric) && unused_evidence.requests === 0 && str(unused_evidence.window)
+            ? { metric: oneLine(unused_evidence.metric, 80) as string, requests: 0 as const, window: oneLine(unused_evidence.window, 40) as string }
+            : undefined
+          let st = KEY_STATES.includes(state as KeyState) ? (state as KeyState) : undefined
+          // "unused" is said only on positive evidence: a zero request count for the month
+          // ...and only for the report's own month
+          if (st === 'unused' && (!ev || ev.window !== startedAt?.slice(0, 7))) st = 'no-spend'
+          if (spent_eur !== undefined && spent === undefined) st = 'unmeasurable'
+          return {
+            ...rest,
+            collected: k.collected === true && !(spent_eur !== undefined && spent === undefined),
+            ...(spent !== undefined ? { spent_eur: spent } : {}),
+            ...(budget !== undefined ? { budget_eur: budget } : {}),
+            ...(line ? { why: line } : {}),
+            ...(st ? { state: st } : {}),
+            ...(st === 'unused' && ev ? { unused_evidence: ev } : {}),
+            ...(cs ? { cap_state: cs } : {}),
+            ...(oneLine(cap_note, 200) ? { cap_note: oneLine(cap_note, 200) } : {}),
+            ...(money(alert_budget_eur) !== undefined ? { alert_budget_eur: money(alert_budget_eur) } : {}),
+          } as DayCloudKey
         })
         : undefined,
     }
+    if (Array.isArray(c.budgets)) m.cloud.budgets = c.budgets.map(readBudget).filter((b): b is DayBudget => !!b)
+    else delete m.cloud.budgets
   }
   return m
+}
+
+function readBudget(x: unknown): DayBudget | null {
+  if (!isObj(x)) return null
+  const raw = oneLine(x.name, 80)
+  // a display name that looks like a project id or a filter never reaches the board
+  const name = raw && (/projects\//i.test(raw) || /billingAccounts/i.test(raw) || /^\d{6,}$/.test(raw) || /\b[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}\b/i.test(raw)) ? 'unnamed budget' : raw
+  const amount = num(x.amount_eur)
+  const currency = oneLine(x.currency, 8)
+  if (!name || (amount === undefined && !currency) || !BUDGET_KINDS.includes(x.kind as BudgetKind)) return null
+  const b: DayBudget = { name, kind: x.kind as BudgetKind }
+  if (amount !== undefined) b.amount_eur = amount
+  else b.currency = currency
+  const why = oneLine(x.why, 80)
+  if (why) b.why = why
+  if (x.key_id !== undefined) {
+    if (typeof x.key_id !== 'string' || !ID.test(x.key_id)) return null
+    b.key_id = x.key_id
+  }
+  const cs = oneLine(x.cap_state, 40)
+  if (cs) b.cap_state = cs
+  const t = num(x.thresholds)
+  if (t !== undefined) b.thresholds = t
+  return b
 }
 
 function readStats(x: unknown): DayStats | undefined {
@@ -623,7 +783,7 @@ export function parseReport(raw: unknown): ParsedReport {
   if (Array.isArray(raw.reviews)) report.reviews = raw.reviews.filter((r): r is Review => REVIEWS.includes(r as Review))
   const unpushed = num(raw.unpushed_commits)
   if (unpushed !== undefined) report.unpushed_commits = unpushed
-  const monitoring = readMonitoring(raw.monitoring)
+  const monitoring = readMonitoring(raw.monitoring, raw.started_at as string)
   if (monitoring) report.monitoring = monitoring
   const stats = readStats(raw.stats)
   if (stats) report.stats = stats
@@ -695,7 +855,9 @@ export function decisionTargetExists(report: DayReport, d: DecisionInput): boole
       const cloud = report.monitoring?.cloud
       if (!cloud) return false
       // "Raise monthly budget": the amount must be above the current one (removes always pass).
-      const current = d.target === 'account' ? cloud.budget_eur : cloud.keys?.find((k) => k.id === d.target)?.budget_eur
+      const tk = cloud.keys?.find((k) => k.id === d.target)
+      // the same cap the card shows and sorts by (P1442)
+      const current = d.target === 'account' ? cloud.budget_eur : tk ? keyCard(cloud, tk).cap_eur : undefined
       const exists = d.target === 'account' ? cloud.budget_eur !== undefined : !!cloud.keys?.some((k) => k.id === d.target)
       return exists && (d.remove === true || current === undefined || (d.amount ?? 0) > current)
     }
@@ -1438,7 +1600,7 @@ export function buildPrompt(
     for (const d of c.budgets) {
       const isAccount = d.target === 'account'
       const k = cloud?.keys?.find((x) => x.id === d.target)
-      const before = isAccount ? cloud?.budget_eur : k?.budget_eur
+      const before = isAccount ? cloud?.budget_eur : k && cloud ? keyCard(cloud, k).cap_eur : undefined
       L.push(`- ${isAccount ? 'Google Cloud account budget' : `Key "${k?.label ?? d.target}"`}: ${before !== undefined ? `€${before} → ` : ''}€${d.amount}/month`)
     }
   }

@@ -1,0 +1,31 @@
+{
+  "_comment": "P1442 fixture: monitoring.cloud with budget rows and AI prepaid key cards. Every name is invented.",
+  "collected": true,
+  "budget_eur": 400,
+  "spent_week_eur": 19,
+  "spent_month_eur": 70,
+  "projected_month_eur": 95,
+  "week": [{ "x": "Mon", "spent": 2, "budget_pace": 0 }, { "x": "Thu", "spent": 11 }, { "x": "Sun", "spent": 19, "budget_pace": 93 }],
+  "month": [{ "x": "1", "spent": 0, "budget_pace": 0 }, { "x": "15", "spent": 48 }, { "x": "29", "projected": 95, "budget_pace": 400 }],
+  "budgets": [
+    { "name": "Whole account monthly", "amount_eur": 400, "kind": "account", "thresholds": 3 },
+    { "name": "Leak alarm", "amount_eur": 100, "kind": "alarm", "thresholds": 1 },
+    { "name": "Owl cap", "amount_eur": 2, "kind": "key-cap", "key_id": "key-owl", "cap_state": "CONFIGURED", "thresholds": 1 },
+    { "name": "Owl alert", "amount_eur": 1, "kind": "key-alert", "key_id": "key-owl", "thresholds": 2 },
+    { "name": "Heron cap", "amount_eur": 2, "kind": "key-cap", "key_id": "key-heron", "cap_state": "CONFIGURED", "thresholds": 1 },
+    { "name": "Heron alert", "amount_eur": 1, "kind": "key-alert", "key_id": "key-heron", "thresholds": 2 },
+    { "name": "Lynx cap", "amount_eur": 2, "kind": "key-cap", "key_id": "key-lynx", "cap_state": "CONFIGURED", "thresholds": 1 },
+    { "name": "Lynx alert", "amount_eur": 1, "kind": "key-alert", "key_id": "key-lynx", "thresholds": 2 },
+    { "name": "Otter cap", "amount_eur": 1, "kind": "key-cap", "key_id": "key-otter", "cap_state": "CONFIGURED", "thresholds": 1 },
+    { "name": "Badger cap", "amount_eur": 1, "kind": "key-cap", "key_id": "key-badger", "cap_state": "CONFIGURED", "thresholds": 1 },
+    { "name": "Old sandbox budget", "amount_eur": 5, "kind": "unmatched", "thresholds": 1 }
+  ],
+  "keys": [
+    { "id": "key-owl", "label": "Owl", "collected": true, "spent_eur": 1.4, "budget_eur": 2, "state": "spent", "cap_state": "CONFIGURED", "alert_budget_eur": 1 },
+    { "id": "key-heron", "label": "Heron", "collected": false, "budget_eur": 2, "state": "unused", "unused_evidence": { "metric": "generativelanguage request_count", "requests": 0, "window": "2026-10" }, "cap_state": "CONFIGURED", "alert_budget_eur": 1, "why": "0 requests this month" },
+    { "id": "key-lynx", "label": "Lynx", "collected": false, "budget_eur": 2, "state": "no-spend", "cap_state": "CONFIGURED", "alert_budget_eur": 1, "why": "no billing rows; request count not trusted yet" },
+    { "id": "key-otter", "label": "Otter", "collected": false, "budget_eur": 1, "state": "unmeasurable", "cap_state": "CONFIGURED", "why": "billing export 3 days stale" },
+    { "id": "key-badger", "label": "Badger", "collected": true, "spent_eur": 0.2, "budget_eur": 1, "state": "spent", "cap_state": "CONFIGURED" },
+    { "id": "key-mole", "label": "Mole", "collected": false, "state": "no-spend", "why": "no billing rows" }
+  ]
+}
