@@ -8,8 +8,9 @@
 // (the unanswered agent work). Paging NEVER writes and never accepts: Previous, Next, ← and → and
 // the statement list only move.
 //
-// PRIVACY: report content lives only in React state. Nothing is put in localStorage or
-// sessionStorage, and nothing is logged.
+// PRIVACY: report content lives only in React state, and nothing is logged. The one exception is
+// the founder's own unsaved story drafts (P1440 review O1): they are kept in this browser's
+// localStorage, so a reload does not lose what he typed, and removed once Accept saved them.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
@@ -62,6 +63,26 @@ function isTyping(el: EventTarget | null): boolean {
   return false
 }
 
+/** P1440 review O1: unsaved story drafts survive a reload. Storage may be missing or refuse: then they live in memory only. */
+const DRAFTS_KEY = 'day:story-drafts'
+function readDrafts(): Record<string, string> {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(DRAFTS_KEY) ?? '{}') as unknown
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  } catch {
+    return {}
+  }
+}
+function writeDrafts(d: Record<string, string>): void {
+  try {
+    if (Object.keys(d).length) window.localStorage.setItem(DRAFTS_KEY, JSON.stringify(d))
+    else window.localStorage.removeItem(DRAFTS_KEY)
+  } catch {
+    // storage refused: the drafts stay in memory for this visit
+  }
+}
+
 const CopyIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <rect x="9" y="9" width="13" height="13" rx="2" />
@@ -87,10 +108,13 @@ export function DayPage() {
   const [reflIdx, setReflIdx] = useState(0)
   const reflIdxRef = useRef(reflIdx)
   reflIdxRef.current = reflIdx
-  /** P1440: story text being typed, per statement — here, so Accept can save what is not saved yet */
-  const [storyDrafts, setStoryDrafts] = useState<Record<string, string>>({})
-  /** a press on a pager control is under way: the story box's blur it causes must not save (P1432) */
-  const pagerDown = useRef(false)
+  /**
+   * P1440: story text being typed, per (run, statement). Only Accept saves it — leaving the box,
+   * paging, the list, a tab or another run never does (P1440 review: blur-saving wrote stories the
+   * founder had not accepted, on touch above all). Kept across runs and reloads until accepted.
+   */
+  const [storyDrafts, setStoryDrafts] = useState<Record<string, string>>(readDrafts)
+  useEffect(() => writeDrafts(storyDrafts), [storyDrafts])
   const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -172,7 +196,6 @@ export function DayPage() {
     setReflIdx(0)
     setChoice({})
     setDrafts({})
-    setStoryDrafts({})
     setOpening(false)
     stories.current = {}
     pending.current = new Map()
@@ -331,32 +354,28 @@ export function DayPage() {
   )
   /** P1440: clearing a position keeps the story (a story-only answer); never an older story than the one saved last. */
   const removePosition = useCallback((id: string) => remember(id, null, write([clearPosition(id, storyOf(id))])), [write, remember, storyOf])
-  /** Save a story with the position as it is now; with or without one (P1440). An empty story deletes it. */
-  const setStory = useCallback(
-    (id: string, story: string) => {
-      if (readOnly) return
-      stories.current[id] = story
-      void write([storyAnswer(id, posOf(id), story)])
-    },
-    [readOnly, posOf, write],
-  )
-  /** The story box lost focus: save it, unless a pager press took the focus (paging never writes). */
-  const storyBlur = useCallback(
-    (id: string, story: string) => {
-      if (pagerDown.current) return
-      setStory(id, story)
-    },
-    [setStory],
-  )
+  /** Drafts are keyed by run and statement: the same statement id on another day is another story. */
+  const passId = ok?.report.pass_id ?? ''
+  const draftKey = useCallback((id: string) => `${passId}\u0000${id}`, [passId])
+  const storyDraftOf = useCallback((id: string): string | undefined => storyDrafts[draftKey(id)], [storyDrafts, draftKey])
+  const setStoryDraft = useCallback((id: string, text: string) => setStoryDrafts((d) => ({ ...d, [draftKey(id)]: text })), [draftKey])
   /** The story as it would be saved now: what is being typed, else the last one saved. */
-  const storyNow = useCallback((id: string) => (storyDrafts[id] ?? storyOf(id)).trim(), [storyDrafts, storyOf])
+  const storyNow = useCallback((id: string) => (storyDraftOf(id) ?? storyOf(id)).trim(), [storyDraftOf, storyOf])
+  /** Typed but not saved: the box says something other than the saved story (P1440 review O2). */
+  const isUnsaved = useCallback((id: string) => !readOnly && storyDraftOf(id) !== undefined && storyNow(id) !== storyOf(id).trim(), [readOnly, storyDraftOf, storyNow, storyOf])
+  const unsavedIds = statements.filter((s) => isUnsaved(s.id)).map((s) => s.id)
 
-  /** P1440: Mark done (outcome "acted") or Send again, in click order with the other writes. */
+  /** P1440: Mark done (outcome "acted") or Send again, in click order with the other writes; one at a time per story. */
+  const storyBusy = useRef(new Set<string>())
+  const [busyStories, setBusyStories] = useState<ReadonlySet<string>>(new Set())
   const storyAction = useCallback(
     (action: 'done' | 'resend', e: StoryEntry) => {
-      if (!runId || readOnly) return
+      const k = `${e.run_id}\u0000${e.target}`
+      if (!runId || readOnly || storyBusy.current.has(k)) return
+      storyBusy.current.add(k)
+      setBusyStories(new Set(storyBusy.current))
       const id = runId
-      const base = { run_id: e.run_id, target: e.target, story_hash: e.hash }
+      const base = { run_id: e.run_id, target: e.target, story_hash: e.hash, version: e.edited_at }
       chain.current = chain.current.then(async () => {
         try {
           await postStory(action, action === 'done' ? { ...base, outcome: 'acted', note: 'marked on the board' } : base)
@@ -365,6 +384,8 @@ export function DayPage() {
           say(`Not saved: ${(err as Error).message}`)
         }
         await reload(id)
+        storyBusy.current.delete(k)
+        setBusyStories(new Set(storyBusy.current))
       })
     },
     [runId, readOnly, reload, say],
@@ -490,9 +511,13 @@ export function DayPage() {
     const cur = tab === 'report' && !readOnly && mode !== 'agent' ? issues[nav?.i ?? -1] : undefined
     return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
   }, [tab, readOnly, mode, issues, nav, choice])
-  /** P1440 / spec E: on Reflection, Accept is offered once the founder has a position or a story (saved or typed). */
+  /**
+   * P1440 / spec E: on Reflection, Accept is offered when there is something to save. A position is
+   * saved the moment it is picked, so that is a story typed (or emptied) and not saved yet (review O3:
+   * Accept on a card already saved wrote the same line again).
+   */
   const reflCur = tab === 'reflection' && !readOnly && nav ? statements[nav.i] : undefined
-  const reflAccepting = !!reflCur && (posOf(reflCur.id) !== null || !!storyNow(reflCur.id))
+  const reflAccepting = !!reflCur && isUnsaved(reflCur.id)
 
   /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
@@ -548,6 +573,7 @@ export function DayPage() {
       if (!reflCur || !reflAccepting || !nav || acceptingNow.current || clicks > 1) return
       const at = nav.i
       const id = reflCur.id
+      const typed = storyDraftOf(id)
       const story = storyNow(id)
       const prev = stories.current[id]
       acceptingNow.current = true
@@ -559,6 +585,9 @@ export function DayPage() {
           else stories.current[id] = prev
           return
         }
+        // saved: the draft goes, unless the founder kept typing while it was being written
+        const k = draftKey(id)
+        setStoryDrafts((d) => (d[k] !== typed ? d : Object.fromEntries(Object.entries(d).filter(([key]) => key !== k))))
         if (runIdRef.current === runId && reflIdxRef.current === at && at + 1 < statements.length) {
           setReflIdx(at + 1)
           toTop()
@@ -567,7 +596,7 @@ export function DayPage() {
         acceptingNow.current = false
       }
     },
-    [reflCur, reflAccepting, nav, storyNow, posOf, write, runId, statements.length],
+    [reflCur, reflAccepting, nav, storyDraftOf, draftKey, storyNow, posOf, write, runId, statements.length],
   )
 
   const review = useCallback(() => {
@@ -652,20 +681,13 @@ export function DayPage() {
   }).length
   const firstYours = yoursLeft[0]
   // rated = has a position; a story alone is kept but is not a rating (P1440)
+  // rated = has a position; a story alone is answered (with a story) but not rated (P1440 review O5)
   const rated = statements.filter((s) => typeof view?.reflection[s.id]?.position === 'number').length
+  const storyOnly = statements.filter((s) => typeof view?.reflection[s.id]?.position !== 'number' && !!view?.reflection[s.id]?.story).length
+  const firstUnsaved = statements.findIndex((s) => s.id === unsavedIds[0])
 
   return (
-    <div
-      className="day-root"
-      ref={rootRef}
-      onPointerDownCapture={(e) => {
-        // A press on the pager or the statement list fires before the story box's blur: mark it so
-        // that blur does not save (paging never writes). Cleared once the blur has run.
-        if (!(e.target instanceof Element) || !e.target.closest('.d-bnav, [data-list-statement]')) return
-        pagerDown.current = true
-        window.setTimeout(() => (pagerDown.current = false), 0)
-      }}
-    >
+    <div className="day-root" ref={rootRef}>
       <header className="d-topbar">
         <div className="d-col">
           <div className="d-tabs" role="tablist" aria-label="Day">
@@ -791,15 +813,16 @@ export function DayPage() {
                   index={reflIdx}
                   onPosition={setPosition}
                   onRemove={removePosition}
-                  onStoryBlur={storyBlur}
                   onJump={(k) => {
                     setReflIdx(k)
                     toTop()
                   }}
                   runId={ok.report.pass_id}
                   stories={ok.stories ?? []}
-                  draftOf={(id) => storyDrafts[id]}
-                  onDraft={(id, text) => setStoryDrafts((d) => ({ ...d, [id]: text }))}
+                  draftOf={storyDraftOf}
+                  unsaved={isUnsaved}
+                  busy={busyStories}
+                  onDraft={setStoryDraft}
                   onMarkDone={(e) => storyAction('done', e)}
                   onResend={(e) => storyAction('resend', e)}
                 />
@@ -864,11 +887,11 @@ export function DayPage() {
                 {readOnly ? null : tab === 'reflection' ? (
                   statements.length > 0 && (
                     <>
-                      <span data-progress data-short={`${rated}/${statements.length}`}>
-                        {rated} of {statements.length} rated
+                      <span data-progress data-short={`${rated + storyOnly}/${statements.length}`}>
+                        {rated} of {statements.length} rated{storyOnly > 0 && ` · ${storyOnly} story only`}
                       </span>
                       <span className="d-bline">
-                        <span style={{ width: `${(rated / statements.length) * 100}%` }} />
+                        <span style={{ width: `${((rated + storyOnly) / statements.length) * 100}%` }} />
                       </span>
                     </>
                   )
@@ -885,6 +908,20 @@ export function DayPage() {
                 {!readOnly && tab === 'report' && mode === 'yours' && firstYours && (
                   <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
                     {yoursLeft.length} still yours
+                  </button>
+                )}
+                {!readOnly && unsavedIds.length > 0 && (
+                  <button
+                    type="button"
+                    className="d-still"
+                    data-unsaved-stories
+                    data-short={`unsaved: ${unsavedIds.length}`}
+                    onClick={() => {
+                      setTab('reflection')
+                      if (firstUnsaved >= 0) setReflIdx(firstUnsaved)
+                    }}
+                  >
+                    {unsavedIds.length === 1 ? '1 typed story not saved yet — Accept it first' : `${unsavedIds.length} typed stories not saved yet — Accept them first`}
                   </button>
                 )}
                 {tab === 'report' && mode === 'agent' && yours.length > 0 && (

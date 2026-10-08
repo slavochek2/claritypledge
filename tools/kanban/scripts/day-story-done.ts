@@ -1,8 +1,9 @@
 // P1440 A: the agent marks a story it handled, so it stops coming back in the hand-off prompt.
 //
-//   npx tsx scripts/day-story-done.ts --run <run_id> --target <rN> --hash <hex> --outcome acted|answered|declined [--note "..."] [--dir <day dir>]
+//   npx tsx scripts/day-story-done.ts --run <run_id> --target <rN> --hash <hex> --version <iso> --outcome acted|answered|declined [--note "..."] [--dir <day dir>]
 //       writes one story_done line. Refused (exit 1, one line on stderr): an unknown (run, statement),
-//       a hash that is not the story's current version (it was edited since), a story already done.
+//       a hash + version that is not the story's current version (it was edited since, even back to
+//       the same text), a story already done.
 //   npx tsx scripts/day-story-done.ts --list [--show-text] [--dir <day dir>]
 //       the stories still open / sent / stuck: run, statement id, hash, state. The story text only
 //       with --show-text.
@@ -10,10 +11,12 @@
 //       the one-time backfill: a batch-closed marker per story version not done whose latest edit is
 //       before <ISO>. A rerun writes 0. Prints the count.
 //
-// The day dir defaults to $KANBAN_DAY_DIR, else ~/.claude-day. Writes go through the same locked
+// The day dir defaults to $KANBAN_DAY_DIR, else ~/.claude-day, and must exist with a reports/
+// folder: the CLI never creates one (a mistyped --dir fails instead). Writes go through the same locked
 // append as the board (server/dayStore.ts) and the same checks as its route (server/dayStories.ts).
 // PRIVACY: prints nothing from a story or a statement beyond the statement id, unless --show-text.
 
+import { statSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
@@ -23,9 +26,17 @@ import { batchCloseLines, ledgerOf, loadRunStatements, markLine } from '../serve
 
 export interface IO { out: (s: string) => void; err: (s: string) => void }
 
+const isDir = (p: string) => {
+  try {
+    return statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 const USAGE =
-  'usage: --run <run_id> --target <id> --hash <hex> --outcome acted|answered|declined [--note "..."] [--dir DIR] | --list [--show-text] [--dir DIR] | --batch-close-before <ISO> [--dir DIR]'
-const VALUED = ['--run', '--target', '--hash', '--outcome', '--note', '--dir', '--batch-close-before']
+  'usage: --run <run_id> --target <id> --hash <hex> --version <iso> --outcome acted|answered|declined [--note "..."] [--dir DIR] | --list [--show-text] [--dir DIR] | --batch-close-before <ISO> [--dir DIR]'
+const VALUED = ['--run', '--target', '--hash', '--version', '--outcome', '--note', '--dir', '--batch-close-before']
 const FLAGS = ['--list', '--show-text']
 
 function parseArgs(argv: string[]): Record<string, string | true> | null {
@@ -47,6 +58,10 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
   }
   const envDir = env.KANBAN_DAY_DIR?.trim()
   const dir = typeof a['--dir'] === 'string' ? a['--dir'] : envDir || join(homedir(), '.claude-day')
+  if (!isDir(dir) || !isDir(join(dir, 'reports'))) {
+    io.err(`refused: ${isDir(dir) ? 'the day dir has no reports folder' : 'no such day dir'} (set --dir or KANBAN_DAY_DIR)\n`)
+    return 1
+  }
   try {
     const runs = loadRunStatements(dir)
 
@@ -64,7 +79,7 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
         io.err('refused: --batch-close-before needs an ISO date or time\n')
         return 2
       }
-      const written = await appendDecisionLines(dir, (existing) => batchCloseLines(ledgerOf(existing, runs), cutoff))
+      const written = await appendDecisionLines(dir, (existing) => batchCloseLines(ledgerOf(existing, runs), cutoff), undefined, { create: false })
       io.out(`batch-closed ${written.length}\n`)
       return 0
     }
@@ -73,6 +88,7 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
       run_id: a['--run'],
       target: a['--target'],
       story_hash: a['--hash'],
+      version: a['--version'],
       outcome: a['--outcome'],
       ...(typeof a['--note'] === 'string' ? { note: a['--note'] } : {}),
     })
@@ -80,7 +96,7 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
       io.err(`refused: bad ${v.problem}\n${USAGE}\n`)
       return 2
     }
-    await appendDecisionLines(dir, (existing) => [markLine(ledgerOf(existing, runs), v.input)])
+    await appendDecisionLines(dir, (existing) => [markLine(ledgerOf(existing, runs), v.input)], undefined, { create: false })
     io.out(`marked ${v.input.target} done (${v.input.outcome})\n`)
     return 0
   } catch (err) {

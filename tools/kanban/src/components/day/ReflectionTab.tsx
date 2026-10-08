@@ -1,8 +1,9 @@
 // P1399: Reflection — one "change" statement at a time in the product's point-card look, with
 // its Disagree / Unsure / Agree control on the product's 7-level scale (-3 … 3).
 // P1440: the story box is there with or without a position (a story alone is an answer), its draft
-// lives in DayPage (Accept saves a story still being typed), each story says where it is (not sent /
-// sent n× / stuck / done), and stories from earlier days that are still open are listed below.
+// lives in DayPage and only Accept saves it (a typed story that is not saved says so here and in the
+// list), each story says where it is (not sent / sent n× / stuck / done), and stories from earlier
+// days that are still open are listed below.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DayStatement, DayView, StoryEntry } from '../../lib/day'
@@ -44,22 +45,24 @@ interface Props {
   index: number
   onPosition: (id: string, position: number) => void
   onRemove: (id: string) => void
-  /** the story box lost focus with this text (DayPage decides whether that saves) */
-  onStoryBlur: (id: string, story: string) => void
   /** P1435: open statement k from the list */
   onJump: (k: number) => void
   /** this run's pass_id: which ledger entries are this run's own */
   runId: string
   /** P1440: the ledger entries the server sent with the run */
   stories: StoryEntry[]
-  /** the story text being typed, if it differs from nothing yet saved */
+  /** the story text being typed for a statement, if any (saved only by Accept) */
   draftOf: (id: string) => string | undefined
+  /** the box says something the saved story does not */
+  unsaved: (id: string) => boolean
+  /** stories (run, statement) with a Mark done / Send again in flight */
+  busy: ReadonlySet<string>
   onDraft: (id: string, text: string) => void
   onMarkDone: (e: StoryEntry) => void
   onResend: (e: StoryEntry) => void
 }
 
-export function ReflectionTab({ statements, view, readOnly, index, onPosition, onRemove, onStoryBlur, onJump, runId, stories, draftOf, onDraft, onMarkDone, onResend }: Props) {
+export function ReflectionTab({ statements, view, readOnly, index, onPosition, onRemove, onJump, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend }: Props) {
   const [menu, setMenu] = useState<string | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -90,7 +93,7 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
   }, [menu])
 
   const earlier = stories.filter((e) => e.run_id !== runId && e.state !== 'done')
-  const earlierList = earlier.length > 0 && <EarlierStories entries={earlier} readOnly={readOnly} onMarkDone={onMarkDone} onResend={onResend} />
+  const earlierList = earlier.length > 0 && <EarlierStories entries={earlier} readOnly={readOnly} busy={busy} onMarkDone={onMarkDone} onResend={onResend} />
   if (!s)
     return (
       <>
@@ -117,7 +120,15 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
     return typeof v === 'number' ? v : null
   }
   const hasStory = (id: string) => !!view.reflection[id]?.story
-  const unrated = statements.filter((x) => posOf(x.id) === null).length
+  // P1440 review O5: a story alone is an answer (done, with a story) — just not a rating
+  const storyOnly = statements.filter((x) => posOf(x.id) === null && hasStory(x.id)).length
+  const unanswered = statements.filter((x) => posOf(x.id) === null && !hasStory(x.id)).length
+  const summary =
+    unanswered === 0
+      ? storyOnly
+        ? `All ${statements.length} answered · ${storyOnly} story only`
+        : `All ${statements.length} rated`
+      : `${unanswered} not rated${storyOnly ? ` · ${storyOnly} story only` : ''} · ${statements.length} statements`
   return (
     <section className="d-issues" aria-label="Statements">
       <div className="d-md">
@@ -129,16 +140,16 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
               return {
                 key: x.id,
                 title: x.text,
-                done: p !== null,
+                done: p !== null || hasStory(x.id),
                 kind: 'open',
-                // P1440: a story without a position is kept, and is not "Not rated" — it is not rated yet
-                word: p === null ? (hasStory(x.id) ? 'Story, no position' : 'Not rated') : LONG[p],
-                attrs: { 'data-list-statement': x.id, 'data-list-state': p === null ? (hasStory(x.id) ? 'story' : 'unrated') : 'rated' },
+                // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
+                word: unsaved(x.id) ? 'Story not saved' : p === null ? (hasStory(x.id) ? 'Story, no position' : 'Not rated') : LONG[p],
+                attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (hasStory(x.id) ? 'story' : 'unrated') : 'rated' },
               }
             })}
             current={Math.min(index, statements.length - 1)}
-            summary={unrated === 0 ? `All ${statements.length} rated` : `${unrated} not rated · ${statements.length} statements`}
-            allDone={unrated === 0}
+            summary={summary}
+            allDone={unanswered === 0}
             onPick={onJump}
           />
         )}
@@ -214,8 +225,22 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
                   </div>
                 )}
               </div>
-              <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} onBlur={onStoryBlur} />
-              {entry && <StoryState entry={entry} readOnly={readOnly} onMarkDone={onMarkDone} onResend={onResend} />}
+              <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
+              {unsaved(s.id) && (
+                <p className="d-sub d-wrap" data-story-unsaved>
+                  Not saved — press Accept to save
+                </p>
+              )}
+              {entry && (
+                <StoryState
+                  entry={entry}
+                  readOnly={readOnly}
+                  busy={busy}
+                  blocked={unsaved(s.id) ? 'Accept the edited story first: Mark done would close the version saved before.' : undefined}
+                  onMarkDone={onMarkDone}
+                  onResend={onResend}
+                />
+              )}
             </div>
           </article>
           {earlierList}
@@ -228,7 +253,22 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
 const OUTCOME: Record<string, string> = { acted: 'acted on', answered: 'answered', declined: 'declined', 'batch-closed': 'closed in a batch' }
 
 /** P1440: where a story is — the founder sees whether the agent got it and whether it was handled. */
-function StoryState({ entry, readOnly, onMarkDone, onResend }: { entry: StoryEntry; readOnly: boolean; onMarkDone: (e: StoryEntry) => void; onResend: (e: StoryEntry) => void }) {
+function StoryState({
+  entry,
+  readOnly,
+  busy,
+  blocked,
+  onMarkDone,
+  onResend,
+}: {
+  entry: StoryEntry
+  readOnly: boolean
+  busy: ReadonlySet<string>
+  /** why Mark done must wait (an edited story not saved yet), if it must */
+  blocked?: string
+  onMarkDone: (e: StoryEntry) => void
+  onResend: (e: StoryEntry) => void
+}) {
   const line =
     entry.state === 'done'
       ? `Story: done · ${OUTCOME[entry.outcome ?? ''] ?? entry.outcome ?? 'marked'}`
@@ -237,41 +277,70 @@ function StoryState({ entry, readOnly, onMarkDone, onResend }: { entry: StoryEnt
         : entry.state === 'sent'
           ? `Story: sent to the agent (${entry.sends}×)`
           : 'Story: not sent yet'
+  const inFlight = busy.has(`${entry.run_id}\u0000${entry.target}`)
+  const open = !readOnly && entry.state !== 'done'
   return (
-    <div className="d-sub" data-story-state={entry.state}>
-      <span data-story-line>{line}</span>
-      {!readOnly && entry.state === 'stuck' && (
-        <>
-          {' · '}
-          <button type="button" className="d-link d-tap" data-story-resend onClick={() => onResend(entry)}>
-            Send again
-          </button>
-        </>
+    <>
+      <div className="d-sub d-wrap" data-story-state={entry.state}>
+        <span data-story-line>{line}</span>
+        {open && entry.state === 'stuck' && (
+          <>
+            {' · '}
+            <button type="button" className="d-link d-tap" data-story-resend aria-label={`Send again: ${entry.statement}`} disabled={inFlight} onClick={() => onResend(entry)}>
+              Send again
+            </button>
+          </>
+        )}
+        {open && (
+          <>
+            {' · '}
+            <button
+              type="button"
+              className="d-link d-tap"
+              data-story-done
+              aria-label={`Mark done: ${entry.statement}`}
+              disabled={inFlight || !!blocked}
+              title={blocked}
+              onClick={() => onMarkDone(entry)}
+            >
+              Mark done
+            </button>
+          </>
+        )}
+      </div>
+      {open && blocked && (
+        <p className="d-sub d-wrap" data-story-done-hint>
+          {blocked}
+        </p>
       )}
-      {!readOnly && entry.state !== 'done' && (
-        <>
-          {' · '}
-          <button type="button" className="d-link d-tap" data-story-done onClick={() => onMarkDone(entry)}>
-            Mark done
-          </button>
-        </>
-      )}
-    </div>
+    </>
   )
 }
 
 /** P1440: stories from earlier runs that are not done — still the agent's work, so still on the board. */
-function EarlierStories({ entries, readOnly, onMarkDone, onResend }: { entries: StoryEntry[]; readOnly: boolean; onMarkDone: (e: StoryEntry) => void; onResend: (e: StoryEntry) => void }) {
+function EarlierStories({
+  entries,
+  readOnly,
+  busy,
+  onMarkDone,
+  onResend,
+}: {
+  entries: StoryEntry[]
+  readOnly: boolean
+  busy: ReadonlySet<string>
+  onMarkDone: (e: StoryEntry) => void
+  onResend: (e: StoryEntry) => void
+}) {
   return (
-    <section className="d-card d-pad d-notes" data-earlier-stories aria-label="Earlier stories not yet handled">
+    <section className="d-card d-pad d-notes d-wrap" data-earlier-stories aria-label="Earlier stories not yet handled">
       <h3 className="d-sub1">Earlier stories not yet handled ({entries.length})</h3>
       {entries.map((e) => (
         <div className="d-note-item" key={`${e.run_id}/${e.target}`} data-earlier-story={`${e.run_id}/${e.target}`}>
-          <p className="d-sub">
+          <p className="d-sub d-wrap">
             {dayLabel(e.run_started_at ?? e.edited_at)} · “{e.statement}”
           </p>
           <p className="d-story-ro">{e.story}</p>
-          <StoryState entry={e} readOnly={readOnly} onMarkDone={onMarkDone} onResend={onResend} />
+          <StoryState entry={e} readOnly={readOnly} busy={busy} onMarkDone={onMarkDone} onResend={onResend} />
         </div>
       ))}
     </section>
@@ -284,14 +353,12 @@ function Story({
   draft,
   readOnly,
   onDraft,
-  onBlur,
 }: {
   id: string
   saved: string
   draft: string | undefined
   readOnly: boolean
   onDraft: (id: string, text: string) => void
-  onBlur: (id: string, story: string) => void
 }) {
   const text = draft ?? saved
   // The box grows with its text instead of scrolling inside the page (the board has one scroller).
@@ -316,9 +383,6 @@ function Story({
         placeholder="What happened that makes you think so?"
         value={text}
         onChange={(e) => onDraft(id, e.target.value)}
-        onBlur={() => {
-          if (text.trim() !== saved.trim()) onBlur(id, text.trim())
-        }}
       />
     </div>
   )

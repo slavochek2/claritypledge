@@ -384,11 +384,16 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const id = collectionHash(prompt + now.toISOString())
       const base = { kind: 'sent', id, run_id: latest.report.pass_id, target: collectionHash(prompt) }
       await appendLine(dir, { ...base, state: 'pending', items: collectedKeys(c), count: c.count })
-      const { file, ack, cleanup } = writePromptFile(prompt)
+      // From here on every failure — writing the prompt file included — ends the launch as failed: a
+      // pending receipt left behind would count as a send, and 3 of them make a story nobody ever
+      // received "stuck" (P1440 review C4).
       let result: Awaited<ReturnType<ReturnType<typeof dayLauncher>>> = { ok: false }
+      let cleanup = () => {}
       try {
-        result = await dayLauncher()(file, ack, launchWorkdir())
-        if (result.ok && !(await waitForAck(ack, ackWaitMs()))) result = { ok: false }
+        const f = writePromptFile(prompt)
+        cleanup = f.cleanup
+        result = await dayLauncher()(f.file, f.ack, launchWorkdir())
+        if (result.ok && !(await waitForAck(f.ack, ackWaitMs()))) result = { ok: false }
       } catch {
         result = { ok: false }
       }

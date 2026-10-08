@@ -197,7 +197,7 @@ control "Launch: a failed launch is recorded as failed and cleaned up" "failed l
 control "Launch: the send is reserved before spawning" "reserved \\(pending\\) BEFORE" \
   server/day.ts "s/      await appendLine\(dir, \{ \.\.\.base, state: 'pending'[^\n]*\n//" "$L"
 control "Launch: no acknowledgement, no send" "never started Claude is not a send" \
-  server/day.ts 's/if \(result\.ok && !\(await waitForAck\(ack, ackWaitMs\(\)\)\)\) result = \{ ok: false \}//' "$L"
+  server/day.ts 's/if \(result\.ok && !\(await waitForAck\(f\.ack, ackWaitMs\(\)\)\)\) result = \{ ok: false \}//' "$L"
 control "Launch: irreversible actions need a yes" "carries the safety rules" \
   src/lib/day.ts "s/    'Anything that cannot be undone[^\n]*\n//" "$L"
 control "Launch: only the latest run" "only the latest run can be launched" \

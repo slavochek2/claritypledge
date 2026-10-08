@@ -7,7 +7,8 @@ import { join } from 'path'
 import { DAY_E2E_DIR, OFF, ON } from '../playwright.day.config'
 import { EARLIER_ID, LATEST_ID, NEWER_ID, seedDay, type Variant } from '../scripts/day-seed'
 import { CHECKS, synthReport } from '../server/__tests__/fixtures/day-fixture'
-import type { DayReport } from '../src/lib/day'
+import { sentKey, type DayReport } from '../src/lib/day'
+import { storyHash } from '../server/dayStories'
 
 const DECISIONS = join(DAY_E2E_DIR, 'decisions.jsonl')
 const fileText = () => (existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf-8') : '')
@@ -784,8 +785,11 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(cardR.getByLabel(/Add your story/)).toBeVisible()
     await expect.poll(() => lines().at(-1)?.position).toBe(2)
     await cardR.getByLabel(/Add your story/).fill('Spent Tuesday on a feature instead of calls.')
-    await page.locator('.d-pst').click()
+    // P1440 review: a story is saved by Accept only (leaving the box saves nothing)
+    await page.locator('[data-bottom-bar] [data-accept]').click()
     await expect.poll(() => lines().at(-1)?.story).toBe('Spent Tuesday on a feature instead of calls.')
+    await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
+    await page.locator('[data-bottom-bar]').getByRole('button', { name: /^Previous/ }).click()
     await cardR.locator('[data-side=agree]').click()
     await page.getByRole('menuitemradio', { name: /Strongly Agree/ }).click()
     await expect.poll(() => lines().at(-1)?.position).toBe(3)
@@ -797,7 +801,8 @@ test.describe('monitoring, stats, reflection', () => {
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'reflection', target: 'c1', story: 'Spent Tuesday on a feature instead of calls.' }))
     expect(lines().at(-1)?.position).toBeUndefined()
     expect(lines().at(-1)?.remove).toBeUndefined()
-    await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated')
+    // a story alone is answered, not rated (P1440 review O5)
+    await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated · 1 story only')
 
     // keyboard: next statement, 3 = Agree (2), 3 again = Strongly agree (3)
     await page.locator('.d-pst').click()
@@ -810,7 +815,7 @@ test.describe('monitoring, stats, reflection', () => {
     await page.keyboard.press('3')
     await expect.poll(() => lines().at(-1)?.position).toBe(3)
     await expect(page.locator('.d-pb.on')).toHaveText('Agree+')
-    await expect(page.locator('[data-progress]')).toHaveText('1 of 4 rated')
+    await expect(page.locator('[data-progress]')).toHaveText('1 of 4 rated · 1 story only')
   })
 
   test('a weekly-review run shows its badge and its items in Issues and Reflection', async ({ page }) => {
@@ -2011,46 +2016,65 @@ test.describe('P1440: stories reach the agent', () => {
   const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
   const storyBox = (page: Page) => page.locator('.d-pcard').getByLabel(/Add your story/)
   const reflLines = () => lines().filter((d) => d.kind === 'reflection')
+  const bpos = (page: Page) => page.locator('.d-bpos')
   const STORY = 'Invented story: the test widget took two tries.'
+  const LATEST_PASS = '2026-10-04T05-37-45Z'
+  const EARLIER_PASS = '2026-10-03T05-05-00Z'
+  const writeLines = (ls: object[]) => writeFileSync(DECISIONS, ls.map((l) => JSON.stringify(l)).join('\n') + '\n')
+  const refl = (target: string, extra: object, run_id = LATEST_PASS, at = '2026-10-04T09:00:00.000Z') => ({ kind: 'reflection', target, run_id, at, ...extra })
 
-  test('a story with no position is saved, says "Story, no position" and "not sent yet", and is not a rating', async ({ page }) => {
+  test('a story with no position is saved by Accept, says "Story, no position" and "not sent yet", and is answered, not rated', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
     await storyBox(page).fill(STORY)
-    await page.locator('.d-pst').click() // leaving the box saves it
-    await expect.poll(() => reflLines().length).toBe(1)
+    await page.locator('.d-pst').click() // leaving the box saves nothing (P1440 review)
+    await page.waitForTimeout(300)
+    expect(fileText()).toBe('')
+    await acceptBtn(page).click()
+    await expect(bpos(page)).toHaveText('2 of 4')
+    expect(reflLines()).toHaveLength(1)
     expect(reflLines()[0]).toEqual(expect.objectContaining({ kind: 'reflection', target: 'c1', story: STORY }))
     expect(reflLines()[0].position).toBeUndefined()
-    await expect(page.locator('[data-list-statement="c1"]')).toContainText('Story, no position')
+    const row = page.locator('[data-list-statement="c1"]')
+    await expect(row).toContainText('Story, no position')
+    await expect(row).toHaveAttribute('data-list-state', 'story')
+    await expect(row.locator('.d-sdot')).toHaveClass(/done/)
+    await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 1 story only · 4 statements')
+    await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated · 1 story only')
+    await prevBtn(page).click()
     await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
-    await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated')
-    // emptying the story and saving deletes it (no position: the answer goes)
+    // O4: emptying a saved story and pressing Accept deletes it (no position: the answer goes)
     await storyBox(page).fill('')
-    await page.locator('.d-pst').click()
+    await acceptBtn(page).click()
     await expect.poll(() => reflLines().at(-1)?.remove).toBe(true)
+    expect(reflLines()).toHaveLength(2)
+    await prevBtn(page).click()
     await expect(page.locator('.d-pcard [data-story-line]')).toHaveCount(0)
   })
 
-  test('Accept & next saves the story still being typed (and the position) in one write, then moves on', async ({ page }) => {
+  test('O3: Accept is offered only when there is something to save, writes once, and on the last statement saves and stays', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
-    await expect(acceptBtn(page)).toHaveCount(0) // nothing picked or typed: nothing to accept
+    await expect(acceptBtn(page)).toHaveCount(0) // nothing picked or typed
+    await page.locator('.d-pcard [data-side=disagree]').click() // a pick is saved at once …
+    await expect.poll(() => reflLines().length).toBe(1)
+    await expect(acceptBtn(page)).toHaveCount(0) // … so there is nothing left to accept
     await storyBox(page).fill(STORY) // typed, never left
     await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept and next')
     await acceptBtn(page).click()
-    await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
-    expect(reflLines()).toHaveLength(1) // one write: the box's blur did not save a second line
-    expect(reflLines()[0]).toEqual(expect.objectContaining({ target: 'c1', story: STORY }))
-    // a position alone is accepted as it is
-    await page.locator('.d-pcard [data-side=disagree]').click()
-    await expect.poll(() => reflLines().length).toBe(2)
-    await acceptBtn(page).click()
-    await expect(page.locator('.d-bpos')).toHaveText('3 of 4')
-    expect(reflLines()[2]).toEqual(expect.objectContaining({ target: 'c2', position: -2 }))
-    // the last statement says Accept, and stays
+    await expect(bpos(page)).toHaveText('2 of 4')
+    expect(reflLines()).toHaveLength(2)
+    expect(reflLines()[1]).toEqual(expect.objectContaining({ target: 'c1', position: -2, story: STORY }))
+    await prevBtn(page).click()
+    await expect(acceptBtn(page)).toHaveCount(0) // saved as shown: nothing to accept
+    // the last statement: Accept saves and stays
     await page.locator('[data-list-statement="c4"]').click()
-    await page.locator('.d-pcard [data-side=agree]').click()
+    await storyBox(page).fill('Invented story for the last statement.')
     await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept')
+    await acceptBtn(page).click()
+    await expect.poll(() => reflLines().length).toBe(3)
+    await expect(bpos(page)).toHaveText('4 of 4')
+    await expect(acceptBtn(page)).toHaveCount(0)
   })
 
   test('a failed Accept stays on the statement, says so, and keeps the typed story', async ({ page }) => {
@@ -2064,61 +2088,123 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('.d-toast')).toHaveText('Not saved: Failed to record decisions')
     await reread
     await page.waitForTimeout(200)
-    await expect(page.locator('.d-bpos')).toHaveText('1 of 4')
+    await expect(bpos(page)).toHaveText('1 of 4')
     await expect(storyBox(page)).toHaveValue(STORY)
+    await expect(page.locator('[data-story-unsaved]')).toBeVisible()
     expect(fileText()).toBe('')
   })
 
-  test('Next, Previous and the statement list never write a typed story', async ({ page }) => {
+  test('Next, Previous, the statement list and the tabs never write a typed story', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
     await storyBox(page).fill(STORY)
     await nextBtn(page).click()
-    await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
+    await expect(bpos(page)).toHaveText('2 of 4')
     await prevBtn(page).click()
-    await expect(page.locator('.d-bpos')).toHaveText('1 of 4')
+    await expect(bpos(page)).toHaveText('1 of 4')
     await expect(storyBox(page)).toHaveValue(STORY) // the draft is kept on the page
     await page.locator('[data-list-statement="c3"]').click()
-    await expect(page.locator('.d-bpos')).toHaveText('3 of 4')
+    await expect(bpos(page)).toHaveText('3 of 4')
+    await page.locator('[data-list-statement="c1"]').click()
+    await storyBox(page).focus()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await page.keyboard.press('Tab')
     await page.waitForTimeout(300)
     expect(fileText()).toBe('')
   })
 
-  test('each story says where it is; Mark done closes it; earlier open stories are listed until marked', async ({ page }) => {
+  test('O1 + O2: a typed story is kept across runs and reloads, and shows as not saved on the card, the list and the bar', async ({ page }) => {
     await openDay(page)
-    const earlierRun = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string } }
-    writeFileSync(
-      DECISIONS,
-      JSON.stringify({ kind: 'reflection', target: 'c2', story: 'Invented story from an earlier day.', run_id: earlierRun.report.pass_id, at: '2026-10-03T09:00:00.000Z' }) + '\n',
-    )
+    await reflTab(page).click()
+    await storyBox(page).fill(STORY)
+    await expect(page.locator('.d-pcard [data-story-unsaved]')).toHaveText('Not saved — press Accept to save')
+    await expect(page.locator('[data-list-statement="c1"]')).toContainText('Story not saved')
+    await expect(page.locator('[data-unsaved-stories]')).toHaveText('1 typed story not saved yet — Accept it first')
+    // another run and back: still there
+    await page.getByRole('button', { name: 'Previous run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
+    await page.getByRole('button', { name: 'Next run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sun 4 Oct')
+    await reflTab(page).click()
+    await expect(storyBox(page)).toHaveValue(STORY)
+    // a reload: still there
+    await reopen(page)
+    await reflTab(page).click()
+    await expect(storyBox(page)).toHaveValue(STORY)
+    await expect(page.locator('[data-unsaved-stories]')).toBeVisible()
+    // Start fixing never writes a draft
+    await page.getByRole('button', { name: /^Start fixing/ }).click()
+    await expect(page.locator('.d-toast')).toBeVisible()
+    expect(reflLines()).toHaveLength(0)
+    // Accept saves it, and the draft is gone (also from the browser's storage)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    await acceptBtn(page).click()
+    await expect.poll(() => reflLines().length).toBe(1)
+    await expect(page.locator('[data-unsaved-stories]')).toHaveCount(0)
+    expect(await page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).not.toContain('two tries')
+    await reopen(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    await expect(storyBox(page)).toHaveValue(STORY)
+    await expect(page.locator('[data-story-unsaved]')).toHaveCount(0)
+  })
+
+  test('each story says where it is; Mark done closes it once; earlier open stories are listed by name until marked', async ({ page }) => {
+    await openDay(page)
+    writeLines([refl('c2', { story: 'Invented story from an earlier day.' }, EARLIER_PASS, '2026-10-03T09:00:00.000Z')])
     await reopen(page)
     await reflTab(page).click()
     const earlier = page.locator('[data-earlier-stories]')
     await expect(earlier).toContainText('Earlier stories not yet handled (1)')
     await expect(earlier).toContainText('Invented story from an earlier day.')
     await expect(earlier.locator('[data-story-line]')).toHaveText('Story: not sent yet')
-    // this run's story: written, then marked done on its card
+    // this run's story: saved by Accept, then marked done on its card
     await storyBox(page).fill(STORY)
-    await page.locator('.d-pst').click()
+    await acceptBtn(page).click()
+    await expect(bpos(page)).toHaveText('2 of 4')
+    await prevBtn(page).click()
     await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+    // O5: a slow Mark done clicked twice posts once
+    let posts = 0
+    await page.route('**/api/day/stories/done', async (r) => {
+      posts++
+      await new Promise((res) => setTimeout(res, 400))
+      await r.continue()
+    })
     await page.locator('.d-pcard [data-story-done]').click()
+    await page.locator('.d-pcard [data-story-done]').click({ force: true })
     await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: done · acted on')
+    expect(posts).toBe(1)
+    expect(lines().filter((l) => l.kind === 'story_done')).toHaveLength(1)
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', target: 'c1', outcome: 'acted', note: 'marked on the board' }))
     expect(lines().at(-1)?.story_hash).toMatch(/^[0-9a-f]{64}$/)
-    // the earlier one: Mark done takes it off the list
-    await earlier.locator('[data-story-done]').click()
+    // the earlier one, by its accessible name: Mark done takes it off the list
+    await earlier.getByRole('button', { name: 'Mark done: Weekly events are a hobby until one produces a champion talk.' }).click()
     await expect(page.locator('[data-earlier-stories]')).toHaveCount(0)
-    expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', run_id: earlierRun.report.pass_id, target: 'c2' }))
-    // editing a done story reopens it
+    expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', run_id: EARLIER_PASS, target: 'c2' }))
+    // editing a done story reopens it once saved
     await storyBox(page).fill(`${STORY} And one more line.`)
-    await page.locator('.d-pst').click()
+    await acceptBtn(page).click()
+    await prevBtn(page).click()
     await expect(page.locator('.d-pcard [data-story-line]')).toHaveText('Story: not sent yet')
+  })
+
+  test('O5: Mark done waits while the card has an unsaved story, and says why', async ({ page }) => {
+    await openDay(page)
+    writeLines([refl('c1', { position: 2, story: STORY })])
+    await reopen(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    await expect(page.locator('.d-pcard [data-story-done]')).toBeEnabled()
+    await storyBox(page).fill(`${STORY} Edited.`)
+    await expect(page.locator('.d-pcard [data-story-done]')).toBeDisabled()
+    await expect(page.locator('.d-pcard [data-story-done-hint]')).toHaveText('Accept the edited story first: Mark done would close the version saved before.')
   })
 
   test('an earlier run shows its stories without buttons', async ({ page }) => {
     await openDay(page)
-    const earlierRun = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string } }
-    writeFileSync(DECISIONS, JSON.stringify({ kind: 'reflection', target: 'c1', story: 'Invented story on the earlier run.', run_id: earlierRun.report.pass_id, at: '2026-10-03T09:00:00.000Z' }) + '\n')
+    writeLines([refl('c1', { story: 'Invented story on the earlier run.' }, EARLIER_PASS, '2026-10-03T09:00:00.000Z')])
     await reopen(page)
     await page.getByRole('button', { name: 'Previous run' }).click()
     await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
@@ -2127,4 +2213,90 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('.d-story-ro')).toHaveText('Invented story on the earlier run.')
     await expect(page.locator('[data-story-done], [data-story-resend]')).toHaveCount(0)
   })
+
+  test.describe('on a phone (touch, 375px)', () => {
+    test.use({ hasTouch: true, viewport: { width: 375, height: 760 } })
+
+    test('O7: typing a story then tapping Next writes nothing; tapping Accept writes exactly one line', async ({ page }) => {
+      await openDay(page)
+      await collapseSidebar(page)
+      await reflTab(page).tap()
+      await storyBox(page).tap()
+      await storyBox(page).fill(STORY)
+      await nextBtn(page).tap()
+      await expect(bpos(page)).toHaveText('2 of 4')
+      await page.waitForTimeout(300)
+      expect(fileText()).toBe('')
+      await prevBtn(page).tap()
+      await expect(storyBox(page)).toHaveValue(STORY)
+      await acceptBtn(page).tap()
+      await expect(bpos(page)).toHaveText('2 of 4')
+      await page.waitForTimeout(300)
+      expect(reflLines()).toHaveLength(1)
+      expect(reflLines()[0]).toEqual(expect.objectContaining({ target: 'c1', story: STORY }))
+    })
+
+    test('O7: the folded statement list never writes a typed story', async ({ page }) => {
+      await openDay(page)
+      await collapseSidebar(page)
+      await reflTab(page).tap()
+      await storyBox(page).tap()
+      await storyBox(page).fill(STORY)
+      await page.locator('[data-card-list] .d-cltog').tap()
+      await page.locator('[data-list-statement="c3"]').tap()
+      await expect(bpos(page)).toHaveText('3 of 4')
+      await page.waitForTimeout(300)
+      expect(fileText()).toBe('')
+    })
+  })
+
+  const stuckEarlier = (texts: string[]) => {
+    const ls: object[] = []
+    texts.forEach((story, k) => {
+      const target = `c${k + 1}`
+      ls.push(refl(target, { story }, EARLIER_PASS, '2026-10-03T09:00:00.000Z'))
+    })
+    // three launches that carried the first one: it is stuck
+    const key = sentKey.story(EARLIER_PASS, 'c1', storyHash(texts[0]))
+    for (const n of [1, 2, 3]) {
+      ls.push({ kind: 'sent', id: `l${n}`, run_id: LATEST_PASS, state: 'pending', at: `2026-10-04T0${n}:00:00.000Z`, items: [key] })
+      ls.push({ kind: 'sent', id: `l${n}`, run_id: LATEST_PASS, state: 'started', at: `2026-10-04T0${n}:00:01.000Z` })
+    }
+    writeLines(ls)
+  }
+  const LONG = `https://example.invalid/${'a'.repeat(200)}`
+
+  for (const width of [375, 320]) {
+    test(`${width}px: earlier stories wrap long words, their buttons are 40px tall, and the last one scrolls clear of the bottom bar`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 700 })
+      await openDay(page)
+      stuckEarlier([`Invented stuck story ${LONG}`, 'Invented second earlier story.', `Invented third earlier story ${LONG}`])
+      await reopen(page)
+      await collapseSidebar(page)
+      await reflTab(page).click()
+      const earlier = page.locator('[data-earlier-stories]')
+      await expect(earlier).toContainText('Earlier stories not yet handled (3)')
+      await expect(earlier.locator('[data-story-state="stuck"] [data-story-line]')).toHaveText('Story: stuck — sent 3 times, still open')
+      // O6: no horizontal overflow, anywhere on the page or in a story
+      const over = await page.evaluate(() => {
+        const r = document.querySelector('.day-root')
+        const wide = [...document.querySelectorAll('.d-story-ro, [data-earlier-story] *, .d-pcard *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).display !== 'inline').length
+        return { root: r ? r.scrollWidth - r.clientWidth : -1, wide }
+      })
+      expect(over).toEqual({ root: 0, wide: 0 })
+      // V1: touch targets
+      for (const b of await earlier.locator('[data-story-done], [data-story-resend]').all()) {
+        expect((await rectOf(b, 'story button')).height, 'story button height').toBeGreaterThanOrEqual(40)
+      }
+      // V2: scrolled to the bottom, the last row's Mark done sits fully above the bar
+      await page.evaluate(() => {
+        const sc = document.querySelector('.day-root')?.parentElement
+        if (sc) sc.scrollTop = sc.scrollHeight
+      })
+      const last = earlier.locator('[data-earlier-story]').last().locator('[data-story-done]')
+      const b = await rectOf(last, 'last Mark done')
+      const bar = await rectOf(page.locator('[data-bottom-bar]'), 'bottom bar')
+      expect(b.y + b.height).toBeLessThanOrEqual(bar.y)
+    })
+  }
 })

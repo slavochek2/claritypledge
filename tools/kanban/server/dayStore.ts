@@ -12,6 +12,7 @@
 //
 // PRIVACY: nothing read from the file is logged; errors carry a code at most.
 
+import { randomUUID } from 'crypto'
 import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, writeSync } from 'fs'
 import { join } from 'path'
 import { parseDecisions, parseLaunches, type DayDecision, type LaunchReceipt, type StoryMarker } from '../src/lib/day'
@@ -21,6 +22,12 @@ const LOCK_RETRY_MS = 50
 const LOCK_WAIT_MS = 5_000
 /** A lock older than this was left by a writer that died mid-append; nothing holds one this long. */
 const LOCK_STALE_MS = 30_000
+/**
+ * An `at` further ahead of now than this is a clock error, not a time: it stays in the file (and is
+ * counted) but does not set the floor for new lines, or one bad line would date every later one in
+ * the future (P1440 review G3). Ten minutes covers ordinary drift between the two writers.
+ */
+const FUTURE_SLACK_MS = 10 * 60_000
 
 /** The decisions file as the writers and the ledger need it. */
 export interface ParsedLines {
@@ -28,8 +35,10 @@ export interface ParsedLines {
   markers: StoryMarker[]
   badLines: number
   launches: LaunchReceipt[]
-  /** the latest `at` recorded on any line (any kind), as epoch ms; null for an empty file */
+  /** the latest believable `at` on any line (any kind), as epoch ms; null for an empty file */
   lastAt: number | null
+  /** lines whose `at` is more than ten minutes ahead of now (left out of lastAt) */
+  future: number
 }
 
 /** A request the file's current state refuses (unknown story, stale version, already done …). */
@@ -48,56 +57,76 @@ export function readDecisionsText(dir: string): string {
   }
 }
 
-export function parseLines(text: string): ParsedLines {
+export function parseLines(text: string, now: number | Date = Date.now()): ParsedLines {
   const { lines, markers, badLines } = parseDecisions(text)
+  const ceiling = +now + FUTURE_SLACK_MS
   let lastAt: number | null = null
+  let future = 0
   for (const raw of text.split('\n')) {
     if (!raw.trim()) continue
     try {
       const at = (JSON.parse(raw) as { at?: unknown }).at
       const t = typeof at === 'string' ? Date.parse(at) : NaN
-      if (Number.isFinite(t) && (lastAt === null || t > lastAt)) lastAt = t
+      if (!Number.isFinite(t)) continue
+      if (t > ceiling) future++
+      else if (lastAt === null || t > lastAt) lastAt = t
     } catch {
       // counted by parseDecisions
     }
   }
-  return { lines, markers, badLines, launches: parseLaunches(text), lastAt }
+  return { lines, markers, badLines, launches: parseLaunches(text), lastAt, future }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const readOwner = (lock: string) => readFileSync(lock, 'utf-8')
 
-async function acquire(lock: string): Promise<void> {
+/**
+ * Take the lock: create it exclusively, holding a owner only this writer knows. A lock older than
+ * 30s is removed — but only the one judged stale: its owner is read again right before the unlink,
+ * so a fresh lock another writer took in between is left alone (P1440 review C3).
+ *
+ * Residual window, accepted: between that second read and the unlink (microseconds, one process),
+ * another writer could remove the same stale lock and take its own, which this unlink would then
+ * remove. Reaching it needs a writer dead for 30s plus two others racing on the same instant.
+ *
+ * `hooks.afterStaleCheck` exists for the test that reproduces the interleaving.
+ */
+export async function acquireLock(lock: string, hooks: { afterStaleCheck?: () => void } = {}): Promise<string> {
+  const owner = randomUUID()
   const until = Date.now() + LOCK_WAIT_MS
   for (;;) {
     try {
       const fd = openSync(lock, 'wx', 0o600)
       try {
-        writeSync(fd, String(process.pid))
+        writeSync(fd, owner)
       } finally {
         closeSync(fd)
       }
-      return
+      return owner
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code !== 'EEXIST') throw err
     }
     try {
+      const seen = readOwner(lock)
       if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) {
-        unlinkSync(lock)
+        hooks.afterStaleCheck?.()
+        if (readOwner(lock) === seen) unlinkSync(lock)
         continue
       }
     } catch {
-      continue // released between the open and the stat: try again at once
+      continue // released between the open and the read: try again at once
     }
     if (Date.now() >= until) throw Object.assign(new Error('decisions file is locked'), { code: 'ELOCKED' })
     await sleep(LOCK_RETRY_MS)
   }
 }
 
-function release(lock: string): void {
+/** Let go of the lock — only while it still holds this writer's owner (it may have been taken over as stale). */
+export function releaseLock(lock: string, owner: string): void {
   try {
-    unlinkSync(lock)
+    if (readOwner(lock) === owner) unlinkSync(lock)
   } catch {
-    // already gone (removed as stale by another writer): nothing to release
+    // already gone: nothing to release
   }
 }
 
@@ -106,24 +135,31 @@ function release(lock: string): void {
  * lines to write (without `at`), or throws a Refusal; an empty list writes nothing. The lines get one
  * `at` = max(now, the latest recorded at + 1ms): every append is strictly later than everything
  * before it, so the file's times never go backwards. Returns the lines as written.
+ * `create: false` (the CLI) never makes the day dir: a mistyped --dir must fail, not grow a folder.
  */
 export async function appendDecisionLines(
   dir: string,
   build: (existing: ParsedLines) => object[],
   now: () => Date = () => new Date(),
+  opts: { create?: boolean } = {},
 ): Promise<Record<string, unknown>[]> {
-  mkdirSync(dir, { recursive: true })
+  if (opts.create !== false) mkdirSync(dir, { recursive: true })
   const lock = join(dir, `${DECISIONS_FILE}.lock`)
-  await acquire(lock)
+  const owner = await acquireLock(lock)
   try {
-    const existing = parseLines(readDecisionsText(dir))
+    const text = readDecisionsText(dir)
+    const stamp = now()
+    const existing = parseLines(text, stamp)
     const out = build(existing)
     if (!out.length) return []
-    const at = new Date(Math.max(now().getTime(), (existing.lastAt ?? -Infinity) + 1)).toISOString()
+    const at = new Date(Math.max(stamp.getTime(), (existing.lastAt ?? -Infinity) + 1)).toISOString()
     const stamped = out.map((o) => ({ ...(o as Record<string, unknown>), at }))
-    appendFileSync(join(dir, DECISIONS_FILE), stamped.map((l) => JSON.stringify(l)).join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 })
+    // A writer that died mid-line left a torn tail: start on a fresh line, so the fragment stays one
+    // bad line instead of swallowing the first new one (P1440 review C2).
+    const lead = text && !text.endsWith('\n') ? '\n' : ''
+    appendFileSync(join(dir, DECISIONS_FILE), lead + stamped.map((l) => JSON.stringify(l)).join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 })
     return stamped
   } finally {
-    release(lock)
+    releaseLock(lock, owner)
   }
 }

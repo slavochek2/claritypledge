@@ -71,6 +71,7 @@
 .d-link { background: none; border: 0; padding: 0; color: var(--blue); font-weight: 600; font-size: 14px; white-space: nowrap; text-decoration: none; }
 .d-tap { min-height: 40px; display: inline-flex; align-items: center; }
 .d-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.d-link:disabled { color: var(--fg3); text-decoration: none; cursor: default; }
 .d-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--r); font-size: 14px; font-weight: 600; border: 1px solid var(--line2); background: var(--card); color: var(--fg); white-space: nowrap; text-decoration: none; }
 .d-btn:hover:not(:disabled) { background: var(--soft); }
 .d-btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
@@ -397,7 +398,9 @@
 .d-slab { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .d-slab span { font-weight: 400; color: var(--fg3); }
 .d-stxt { width: 100%; font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 88px; resize: vertical; background: #fff; color: var(--fg); overflow: hidden; }
-.d-story-ro { margin-top: 12px; font-size: 14px; color: var(--fg2); }
+.d-story-ro { margin-top: 12px; font-size: 14px; color: var(--fg2); overflow-wrap: anywhere; white-space: pre-wrap; }
+/* P1440: founder text and statements can hold a long unbroken token (a URL): wrap it, never widen the page */
+.d-wrap { overflow-wrap: anywhere; min-width: 0; }
 
 @container day (max-width: 359px) {
   .d-gin { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nav nav" "prog act"; }

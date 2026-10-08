@@ -54,10 +54,11 @@ export function loadRunStatements(dir: string): Record<string, RunStatements> {
   return statementsByRun(reports)
 }
 
-function entryFor(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'target' | 'story_hash'>): StoryEntry {
+function entryFor(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'target' | 'story_hash' | 'version'>): StoryEntry {
   const e = ledger.find((x) => x.run_id === req.run_id && x.target === req.target)
   if (!e) throw new Refusal('No story on that run and statement')
-  if (e.hash !== req.story_hash) throw new Refusal('That story was edited since: this version is gone')
+  // Both: the same text can come back (A → B → A) as a new version with a new edit time.
+  if (e.hash !== req.story_hash || e.edited_at !== req.version) throw new Refusal('That story was edited since: this version is gone')
   return e
 }
 
@@ -69,7 +70,7 @@ export function markLine(ledger: StoryEntry[], req: StoryRequest): object {
 }
 
 /** "Send again" for a stuck story: resets its send count for this version. */
-export function resendLine(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'target' | 'story_hash'>): object {
+export function resendLine(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'target' | 'story_hash' | 'version'>): object {
   const e = entryFor(ledger, req)
   if (e.state !== 'stuck') throw new Refusal('Only a stuck story can be sent again')
   return { kind: 'story_resend', run_id: e.run_id, target: e.target, story_hash: e.hash }
