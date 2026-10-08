@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 23
 created_date: '2026-10-08'
 tags: [kdd, privacy, docs-routing, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-08
 ---
 
 # P1438: KDD routing for private cp decisions — where business/GTM decisions with names go
