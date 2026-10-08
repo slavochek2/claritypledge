@@ -3952,7 +3952,9 @@ export async function getEventAttendees(eventId: string): Promise<EventAttendee[
 export async function getEventAttendeeCount(eventId: string): Promise<number> {
   const { count, error } = await supabase
     .from('event_rsvps')
-    .select('*', { count: 'exact', head: true })
+    // `id`, not `*`: event_rsvps withholds its email-dispatch columns from clients (P1321), and
+    // `*` expands to every column, so a head count over `*` is refused.
+    .select('id', { count: 'exact', head: true })
     .eq('event_id', eventId);
 
   if (error) {
