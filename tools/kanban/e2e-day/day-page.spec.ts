@@ -69,8 +69,12 @@ const OWN_LABEL = 'Your answer or question…'
 const ownRow = (page: Page) => card(page).locator('.d-optrow').filter({ hasText: OWN_LABEL })
 const ownBox = (page: Page) => card(page).getByRole('textbox', { name: 'Your answer or question' })
 const stillYours = (page: Page) => page.locator('[data-still-yours]')
-const agentLine = (page: Page) => page.locator('[data-agent-line]')
-const agentPager = (page: Page) => page.locator('[data-agent-pager]')
+/** P1445 E: agent work is a list under the card, not pager cards */
+const agentList = (page: Page) => page.locator('[data-agent-list]')
+const openAgentList = async (page: Page) => {
+  const fold = agentList(page).locator('.d-fold')
+  if ((await fold.getAttribute('aria-expanded')) !== 'true') await fold.click()
+}
 /** The seed's Stats has one series; this adds one the run did not collect (a placeholder to measure). */
 const withUncollectedSeries = (b: RunBody) =>
   b.report?.stats?.series?.unshift({ id: 'reachouts', label: 'Reach-outs per week', collected: false, target: 10, target_proposed: true, points: [] })
@@ -150,8 +154,9 @@ test.describe('status panel', () => {
     await expect(panel.locator('button[data-check="chats"]')).toHaveCount(0)
     // known-bad control: the unknown check with no write-up is an issue, never "worked"
     await expect(panel.locator('.d-plist [data-check="mystery"]')).toHaveCount(0)
+    // its issue is agent work (P1445 E): the row opens the list on it
     await panel.locator('button[data-check="mystery"]').click()
-    await expect(cardTitle(page)).toContainText('Mystery check')
+    await expect(agentList(page).locator('.d-focusrow')).toContainText('Mystery check')
   })
 
   test('Fix records the decision, never shows ✓, and the panel collapses to a line that reopens', async ({ page, context }) => {
@@ -1304,13 +1309,10 @@ test.describe('Phase D: one custom option', () => {
     await expect(card(page).locator('[data-own-text]')).toHaveText('old question?')
     await expect(card(page).locator('textarea')).toHaveCount(0)
     expect(await card(page).locator('input[type=radio]:enabled').count()).toBe(0)
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await nextBtn(page).click()
-    await expect(cardTitle(page)).toHaveText('Some guests may be turned away on Tuesday')
-    await expect(card(page).locator('[data-own-text]')).toHaveText('old other answer')
-    // known-bad control: a card with no decision shows no own text
-    await prevBtn(page).click()
-    await expect(card(page).locator('[data-own-text]')).toHaveCount(0)
+    // P1445 E: that run's agent work is a read-only list — titles and state, nothing to answer
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Some guests may be turned away on Tuesday' })).toHaveCount(1)
+    await expect(agentList(page).locator('input, textarea')).toHaveCount(0)
   })
 })
 
@@ -1363,20 +1365,13 @@ test.describe('Phase D: fit, risk and cause on the card', () => {
     await expect(tech).toContainText('First pilot runs cleanly.')
   })
 
-  test('an agent card carries the same: Fit, Main risk, and "Cause suspected" when the cause is unverified', async ({ page }) => {
+  test('P1445 E: agent work shows no card detail at all — a row is its title and where it is', async ({ page }) => {
     await openDay(page)
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(cardTitle(page)).toHaveText('Database rules are live before review')
-    const rec = card(page).locator('.d-opt').filter({ hasText: 'Give to the agent' })
-    await expect(rec.locator('.d-rec')).toHaveText('Recommended · Fit 85%')
-    await expect(rec.locator('.d-risk')).toHaveText('Main risk: A rollback could drop the rules Tuesday’s event needs.')
-    await expect(card(page).locator('.d-cause')).toHaveText('Cause checked')
-    await nextBtn(page).click()
-    await expect(cardTitle(page)).toHaveText('Some guests may be turned away on Tuesday')
-    await expect(card(page).locator('.d-cause')).toHaveText('Cause suspected')
-    await expect(card(page).locator('.d-opt').filter({ hasText: 'Give to the agent' }).locator('.d-rec')).toHaveText('Recommended · Fit 75%')
-    // a synthesised card (no evidence field in the report) and an old-schema card show no made-up cause
-    await expect(card(page).locator('.d-rec')).toHaveCount(1)
+    await openAgentList(page)
+    const row = agentList(page).locator('[data-agent-item]').filter({ hasText: 'Database rules are live before review' })
+    await expect(row.locator('.d-ptitle')).toHaveText('Database rules are live before review')
+    await expect(row.locator('[data-agent-state]')).toHaveText('Not sent')
+    await expect(row.locator('.d-opt, .d-rec, .d-risk, .d-cause')).toHaveCount(0)
   })
 })
 
@@ -1398,9 +1393,9 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     // back on the first, which was accepted: answered, so no Accept
     await prevBtn(page).click()
     await expect(acceptBtn(page)).toHaveCount(0)
-    // agent cards are not the founder's to accept
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(acceptBtn(page)).toHaveCount(0)
+    // P1445 E: agent work is not in the pager at all: every card it walks is the founder's
+    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
+    await expect(agentList(page)).toBeVisible()
   })
 
   test('the last founder card can be accepted: an enabled Accept, no paging, written at once, and Start fixing includes it', async ({ page }) => {
@@ -1539,117 +1534,52 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
   }
 })
 
-test.describe('Phase D: agent work folded', () => {
-  test('one line above the card; Review walks the agent cards with the same card and keys; Back to yours returns', async ({ page }) => {
+test.describe('P1445 E: agent work is a list, not cards', () => {
+  test('the pager walks only the founder\'s cards; the list holds the agent work with its state, and Start fixing still sends it', async ({ page }) => {
     await openDay(page)
     const v = await runView(page)
     const yours = yoursOf(v)
     const agents = agentOf(v)
-    await expect(agentLine(page)).toHaveText(`${agents.length} things an agent can fix — they go with Start fixing · Review`)
-    // the line sits above the card; the pager walks only the founder's cards
-    expect((await rectOf(agentLine(page), 'agent line')).y + (await rectOf(agentLine(page), 'agent line')).height).toBeLessThanOrEqual((await rectOf(card(page), 'card')).y + 1)
     await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
-    await expect(agentPager(page)).toHaveCount(0)
-    await acceptBtn(page).click()
-    await acceptBtn(page).click()
-    await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
-
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${agents.length}`)
-    await expect(stillYours(page)).toHaveCount(0) // "Back to yours" is the way back; the count would mix sets
-    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${agents.length}`)
-    await expect(cardTitle(page)).toHaveText(agents[0].title)
-    await expect(agentLine(page)).toHaveCount(0)
-    await expect(page.locator('[data-progress]')).toHaveText(`0 of ${agents.length} resolved`)
-    await page.keyboard.press('ArrowRight')
-    await expect(agentPager(page)).toContainText(`Agent work · 2 of ${agents.length}`)
-    await expect(cardTitle(page)).toHaveText(agents[1].title)
-    // P1432: a card only paged past is not resolved
-    await expect(page.locator('[data-progress]')).toHaveText(`0 of ${agents.length} resolved`)
-    await page.keyboard.press('ArrowLeft')
-    await expect(cardTitle(page)).toHaveText(agents[0].title)
-
-    // the founder can change an agent card's answer: Park is option 3 on this card
-    await cardTitle(page).click()
-    await page.keyboard.press('3')
-    await expect.poll(() => lines().length).toBe(3) // the two Accepts above (P1432: written at once), then this pick
-    expect(lines()[2]).toMatchObject({ kind: 'option', target: agents[0].fp, option_id: 'park' })
-    // a Park made on this run keeps the card in the pager (it shows Park selected); it is simply not sent
-    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${agents.length}`)
-    await expect(card(page).locator('.d-opt').nth(2).locator('input')).toBeChecked()
-    await expect(startBtn(page)).toHaveText(`Start fixing (${agents.length - 1 + 2})`) // the parked card is out; the two accepted founder cards are in
-    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${agents.length} resolved`)
-
-    await agentPager(page).getByRole('button', { name: 'Back to yours' }).click()
-    await expect(agentPager(page)).toHaveCount(0)
-    await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length}`) // where we left off
-    await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
-    await expect(agentLine(page)).toHaveText(`${agents.length} things an agent can fix — they go with Start fixing · Review`)
+    await expect(agentList(page).locator('.d-fold')).toHaveText(`▶With the agent (${agents.length})`)
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(agents.length)
+    await expect(agentList(page).locator('[data-agent-item] .d-ptitle')).toHaveText(agents.map((a) => a.title))
+    await expect(agentList(page).locator('[data-agent-state="not-sent"]')).toHaveCount(agents.length)
+    // every card the pager walks can be accepted (none is agent work); paging the whole set never shows one
+    for (let i = 0; i < yours.length; i++) {
+      await expect(cardTitle(page)).toHaveText(yours[i].title)
+      await expect(acceptBtn(page)).toBeVisible()
+      if (i < yours.length - 1) await nextBtn(page).click()
+    }
+    // agent work still goes with Start fixing, without an answer from the founder
+    await expect(startBtn(page)).toHaveText(`Start fixing (${agents.length})`)
   })
 
-  for (const [width, height] of [[1440, 900], [375, 812], [320, 640]] as const) {
-    test(`agent mode keeps "Back to yours" in the bottom bar without changing its height at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height })
-      await openDay(page)
-      if (width < 900) await collapseSidebar(page)
-      const bar = page.locator('[data-bottom-bar]')
-      await expect(bar.locator('[data-back-yours]')).toHaveCount(0) // on the founder's own cards it is not needed
-      const h0 = (await rectOf(bar, 'bar')).height
-      await agentLine(page).getByRole('button', { name: 'Review' }).click()
-      const back = bar.locator('[data-back-yours]')
-      await expect(back).toBeVisible()
-      expect((await rectOf(back, 'back')).height, 'touch target').toBeGreaterThanOrEqual(40)
-      expect(Math.abs((await rectOf(bar, 'bar')).height - h0)).toBeLessThan(0.5)
-      const bs = await rectOf(back, 'back')
-      expect(bs.x + bs.width).toBeLessThanOrEqual(width + 0.5)
-      await back.click()
-      await expect(bar.locator('[data-back-yours]')).toHaveCount(0)
-      await expect(agentLine(page)).toBeVisible()
-    })
-  }
-
-  test('a check row in Status opens its agent card, and Back to yours leaves it', async ({ page }) => {
+  test('a check row in Status opens the list on its agent row', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-status button[data-check="bk-c"]').click()
-    await expect(agentPager(page)).toBeVisible()
-    await expect(cardTitle(page)).toContainText('Backup · repo C')
-    await agentPager(page).getByRole('button', { name: 'Back to yours' }).click()
-    await expect(agentPager(page)).toHaveCount(0)
+    const row = agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })
+    await expect(row).toBeVisible()
+    await expect(row).toHaveClass(/d-focusrow/)
   })
 
-  test('with no founder cards the pager opens on the agent work, with no way back', async ({ page }) => {
-    await patchRun(page, (b) => {
-      if (b.view) b.view.issues = b.view.issues.filter((i: ViewIssue) => isAgent(i))
-    })
-    await openDay(page)
-    const n = await page.evaluate(async (id) => ((await (await fetch(`/api/day/runs/${id}`)).json()).view.issues as ViewIssue[]).length, LATEST_ID)
-    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${n}`)
-    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${n}`)
-    await expect(agentPager(page).getByRole('button', { name: 'Back to yours' })).toHaveCount(0)
-    await expect(agentLine(page)).toHaveCount(0)
-    await expect(card(page)).toBeVisible()
-  })
-
-  test('with no agent work the line is hidden', async ({ page }) => {
+  test('with no agent work there is no list', async ({ page }) => {
     await patchRun(page, (b) => {
       if (b.view) b.view.issues = b.view.issues.filter((i: ViewIssue) => !isAgent(i))
     })
     await openDay(page)
     await expect(card(page)).toBeVisible()
-    await expect(agentLine(page)).toHaveCount(0)
-    await expect(agentPager(page)).toHaveCount(0)
+    await expect(agentList(page)).toHaveCount(0)
   })
 
-  test('on a phone the line and the agent pager fit without horizontal scroll', async ({ page }) => {
+  test('on a phone the list fits without horizontal scroll', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await openDay(page)
     await collapseSidebar(page)
-    const over = () => page.evaluate(() => (document.querySelector('.day-root') as HTMLElement).scrollWidth - (document.querySelector('.day-root') as HTMLElement).clientWidth)
-    expect(await over()).toBeLessThanOrEqual(0)
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(agentPager(page)).toBeVisible()
-    expect(await over()).toBeLessThanOrEqual(0)
-    expect((await rectOf(agentPager(page).getByRole('button', { name: 'Back to yours' }), 'back')).height).toBeGreaterThanOrEqual(40)
+    await openAgentList(page)
+    const over = await page.evaluate(() => (document.querySelector('.day-root') as HTMLElement).scrollWidth - (document.querySelector('.day-root') as HTMLElement).clientWidth)
+    expect(over).toBeLessThanOrEqual(0)
   })
 })
 
@@ -1863,9 +1793,9 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect(cardTitle(page)).toHaveText(both.title)
     await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
     await expect(stateOf(page)).toHaveText(/^✓Answered on this run · \d\d:\d\d$/)
-    // the agent work nobody answered on that run
-    await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(stateOf(page)).toHaveText('Not answered on this run')
+    // that run's agent work: a list, read-only, each row saying where it is
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-state]').first()).toHaveText(/^(Not sent|Sent)$/)
   })
 
   test('the list shows every card with its state and jumps to it; parked cards are one row that opens Parked', async ({ page }) => {
@@ -1881,7 +1811,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect(list.locator('[data-list-card]')).toHaveCount(yours.length - 1)
     await expect(list.locator('[data-list-parked]')).toHaveText(/1 parked/)
     await list.locator('[data-list-parked]').click()
-    await expect(page.locator('.d-parked .d-fold')).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.locator('.d-parked:not([data-agent-list]) .d-fold')).toHaveAttribute('aria-expanded', 'true')
     await list.locator('[data-list-card]').nth(2).click()
     await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length - 1}`)
     await expect(list.locator('[data-list-card]').nth(2)).toHaveAttribute('aria-current', 'true')
@@ -2260,6 +2190,25 @@ test.describe('P1440: stories reach the agent', () => {
     const look = (sel: string) => page.locator(sel).evaluate((e) => ({ color: getComputedStyle(e).color, weight: getComputedStyle(e).fontWeight }))
     expect(await look('.d-cpcard [data-story-unsaved]')).toEqual({ color: 'rgb(146, 64, 14)', weight: '600' }) // --amber-800, the "needs you" colour
     expect((await look('.d-cpcard [data-story-state]')).color).not.toBe('rgb(146, 64, 14)')
+  })
+
+  test('P1445: the agent\'s note on a handled story opens from its chip (tap/keyboard), never as a standing line', async ({ page }) => {
+    await openDay(page)
+    const NOTE = 'Answered: the three names went into the follow-up list.'
+    writeLines([
+      refl('c1', { position: 2, story: STORY }, LATEST_PASS, '2026-10-04T09:00:00.000Z'),
+      { kind: 'story_done', run_id: LATEST_PASS, target: 'c1', story_hash: storyHash(STORY), outcome: 'answered', note: NOTE, at: '2026-10-04T10:00:00.000Z' },
+    ])
+    await reopen(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    const chip = page.locator('.d-cpcard [data-story-line]')
+    await expect(chip).toHaveText('Done · answered ⓘ')
+    await expect(page.locator('.d-cpcard [data-story-note]')).toHaveCount(0) // no standing line
+    await chip.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.d-cpcard [data-story-note]')).toHaveText(NOTE)
+    await expect(chip).toHaveAttribute('aria-expanded', 'true')
   })
 
   test('an earlier run shows its stories without buttons', async ({ page }) => {

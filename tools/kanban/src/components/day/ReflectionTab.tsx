@@ -215,6 +215,9 @@ function AgentRow({ agent }: { agent: DayAgentView }) {
   )
 }
 
+/** the note the board's own Mark done writes: not the agent's, so never offered as one */
+export const BOARD_NOTE = 'marked on the board'
+
 const OUTCOME: Record<string, string> = { acted: 'acted', answered: 'answered', declined: 'declined', 'batch-closed': 'closed' }
 
 /** P1440: where a story is, as a chip (grey · amber when stuck · green when done), and its one or two actions. */
@@ -244,11 +247,28 @@ function StoryState({
           : 'Not sent'
   const inFlight = busy.has(`${entry.run_id}\u0000${entry.target}`)
   const open = !readOnly && entry.state !== 'done'
+  // P1445 (founder question 1, Codex): the agent's note on a handled story opens from the chip — tap,
+  // click or keyboard, never hover only — and is never a permanent line. A note that only repeats the
+  // outcome word adds nothing and is not offered.
+  const n = entry.note?.trim() ?? ''
+  const note = entry.state === 'done' && n && n.toLowerCase() !== (entry.outcome ?? '').toLowerCase() && n !== BOARD_NOTE ? n : undefined
+  const [showNote, setShowNote] = useState(false)
   return (
     <div className="d-schips" data-story-state={entry.state}>
-      <span className={`d-pill d-schip ${entry.state}`} data-story-line title={entry.state === 'stuck' ? `Sent ${entry.sends} times, still open` : undefined}>
-        {chip}
-      </span>
+      {note ? (
+        <button type="button" className={`d-pill d-schip ${entry.state} d-notechip`} data-story-line aria-expanded={showNote} aria-label={`${chip} — the agent's note`} title={note} onClick={() => setShowNote((v) => !v)}>
+          {chip} ⓘ
+        </button>
+      ) : (
+        <span className={`d-pill d-schip ${entry.state}`} data-story-line title={entry.state === 'stuck' ? `Sent ${entry.sends} times, still open` : undefined}>
+          {chip}
+        </span>
+      )}
+      {note && showNote && (
+        <p className="d-storynote" data-story-note role="note">
+          {note}
+        </p>
+      )}
       {open && entry.state === 'stuck' && (
         <button type="button" className="d-link d-tap" data-story-resend aria-label={`Send again: ${entry.statement}`} disabled={inFlight} onClick={() => onResend(entry)}>
           Resend

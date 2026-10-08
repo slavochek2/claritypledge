@@ -32,7 +32,7 @@ import {
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
-import { ReflectionTab } from './ReflectionTab'
+import { ReflectionTab, BOARD_NOTE } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
 import './day.css'
@@ -114,14 +114,13 @@ export function DayPage() {
   const [run, setRun] = useState<RunPayload | null>(null)
   const [runErr, setRunErr] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('report')
-  /** where the pager is in each set: the founder's cards, and the agent work after Review */
-  const [idx, setIdx] = useState({ yours: 0, agent: 0 })
-  const [agentMode, setAgentMode] = useState(false)
+  /** where the pager is in the founder's cards (P1445 E: agent work is a list, not pager cards) */
+  const [idx, setIdx] = useState({ yours: 0 })
+  /** P1445 E: the "With the agent" list is open, and the row a Status check asked to show */
+  const [agentList, setAgentList] = useState<{ open: boolean; focus?: string }>({ open: false })
   // read by an Accept whose save finished after the founder moved on
   const idxRef = useRef(idx)
   idxRef.current = idx
-  const agentModeRef = useRef(agentMode)
-  agentModeRef.current = agentMode
   const [reflIdx, setReflIdx] = useState(0)
   const reflIdxRef = useRef(reflIdx)
   reflIdxRef.current = reflIdx
@@ -208,8 +207,8 @@ export function DayPage() {
   useEffect(() => {
     if (!runId) return
     setRun(null)
-    setIdx({ yours: 0, agent: 0 })
-    setAgentMode(false)
+    setIdx({ yours: 0 })
+    setAgentList({ open: false })
     setReflIdx(0)
     setChoice({})
     setDrafts({})
@@ -232,13 +231,15 @@ export function DayPage() {
   const view: DayView | null = ok?.view ?? null
   const readOnly = !ok || !ok.isLatest
   const everyIssue = useMemo(() => view?.issues ?? [], [view])
-  /** Phase D: the pager walks the founder's cards; agent work is one line away (Review). With no founder cards it opens on the agent work. */
+  /**
+   * P1445 E: a card that needs no founder action is not a card. The pager walks only the founder's
+   * cards (each one has Accept); agent work is a list under the card, still sent by Start fixing.
+   */
   const yours = useMemo(() => everyIssue.filter((i) => !isAgentWork(i)), [everyIssue])
   const agentCards = useMemo(() => everyIssue.filter(isAgentWork), [everyIssue])
-  const mode: 'yours' | 'agent' = (agentMode && agentCards.length > 0) || yours.length === 0 ? 'agent' : 'yours'
-  const issues = mode === 'agent' ? agentCards : yours
-  const issueIdx = idx[mode]
-  const setIssueIdx = useCallback((i: number) => setIdx((s) => ({ ...s, [mode]: i })), [mode])
+  const issues = yours
+  const issueIdx = idx.yours
+  const setIssueIdx = useCallback((i: number) => setIdx({ yours: i }), [])
   const statements = ok?.report.reflection?.statements ?? []
 
   useEffect(() => {
@@ -428,7 +429,7 @@ export function DayPage() {
       const base = { run_id: e.run_id, target: e.target, story_hash: e.hash, version: e.edited_at }
       chain.current = chain.current.then(async () => {
         try {
-          await postStory(action, action === 'done' ? { ...base, outcome: 'acted', note: 'marked on the board' } : base)
+          await postStory(action, action === 'done' ? { ...base, outcome: 'acted', note: BOARD_NOTE } : base)
         } catch (err) {
           say(`Not saved: ${(err as Error).message}`)
         }
@@ -445,15 +446,9 @@ export function DayPage() {
   /** Open the card for a fingerprint, in whichever set it belongs to. */
   const jumpTo = useCallback(
     (fp: string) => {
-      const a = agentCards.findIndex((x) => x.fp === fp)
       const y = yours.findIndex((x) => x.fp === fp)
-      if (y >= 0) {
-        setAgentMode(false)
-        setIdx((s) => ({ ...s, yours: y }))
-      } else if (a >= 0) {
-        setAgentMode(true)
-        setIdx((s) => ({ ...s, agent: a }))
-      }
+      if (y >= 0) setIdx({ yours: y })
+      else if (agentCards.some((x) => x.fp === fp)) setAgentList({ open: true, focus: fp })
       setTab('report')
     },
     [agentCards, yours],
@@ -548,18 +543,18 @@ export function DayPage() {
   const nav = useMemo(
     () =>
       tab === 'report' && issues.length
-        ? { i: Math.min(issueIdx, issues.length - 1), n: issues.length, lab: mode === 'agent' ? 'agent card' : 'issue' }
+        ? { i: Math.min(issueIdx, issues.length - 1), n: issues.length, lab: 'issue' }
         : tab === 'reflection' && statements.length
           ? { i: Math.min(reflIdx, statements.length - 1), n: statements.length, lab: 'statement' }
           : null,
-    [tab, issues.length, issueIdx, reflIdx, statements.length, mode],
+    [tab, issues.length, issueIdx, reflIdx, statements.length],
   )
 
   /** The current card is an unanswered founder choice whose recommendation is not Park: Accept is offered. */
   const accepting = useMemo(() => {
-    const cur = tab === 'report' && !readOnly && mode !== 'agent' ? issues[nav?.i ?? -1] : undefined
+    const cur = tab === 'report' && !readOnly ? issues[nav?.i ?? -1] : undefined
     return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
-  }, [tab, readOnly, mode, issues, nav, choice])
+  }, [tab, readOnly, issues, nav, choice])
   /**
    * P1440 / spec E: on Reflection, Accept is offered when there is something to save. A position is
    * saved the moment it is picked, so that is a story typed (or emptied) and not saved yet (review O3:
@@ -601,7 +596,7 @@ export function DayPage() {
       const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
       // move on only if the founder is still on that card: paging during the save wins
       if (r.ok && runIdRef.current === runId && at + 1 < issues.length) {
-        if (idxRef.current.yours === at && !agentModeRef.current) {
+        if (idxRef.current.yours === at) {
           setIdx((s) => ({ ...s, yours: at + 1 }))
           toTop()
         }
@@ -649,15 +644,6 @@ export function DayPage() {
     },
     [reflCur, reflAccepting, nav, storyDraftOf, draftKey, storyNow, posOf, write, runId, statements.length],
   )
-
-  const review = useCallback(() => {
-    setAgentMode(true)
-    toTop()
-  }, [])
-  const backToYours = useCallback(() => {
-    setAgentMode(false)
-    toTop()
-  }, [])
 
   // ---- keyboard: ← → page, 1–9 choose, 1 2 3 rate ---------------------------------------
 
@@ -838,7 +824,7 @@ export function DayPage() {
                   readOnly={readOnly}
                   issues={issues}
                   index={issueIdx}
-                  agent={{ count: agentCards.length, showing: mode === 'agent', canGoBack: yours.length > 0, onReview: review, onBack: backToYours }}
+                  agent={{ items: agentCards, open: agentList.open, focus: agentList.focus, setOpen: (open) => setAgentList({ open }) }}
                   onJump={jumpTo}
                   selected={selected}
                   draftOf={draftOf}
@@ -957,7 +943,7 @@ export function DayPage() {
                     </span>
                   </>
                 ) : null}
-                {!readOnly && tab === 'report' && mode === 'yours' && firstYours && (
+                {!readOnly && tab === 'report' && firstYours && (
                   <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
                     {yoursLeft.length} still yours
                   </button>
@@ -973,11 +959,6 @@ export function DayPage() {
                     }}
                   >
                     {unsavedIds.length} unsaved
-                  </button>
-                )}
-                {tab === 'report' && mode === 'agent' && yours.length > 0 && (
-                  <button type="button" className="d-still" data-back-yours data-short="yours" onClick={backToYours}>
-                    Back to yours
                   </button>
                 )}
                 {!readOnly && nav && unsavedIds.length === 0 && (

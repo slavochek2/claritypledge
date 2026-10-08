@@ -517,3 +517,19 @@
 .day-root .d-agent-ref {
   font-weight: 600;
 }
+/* P1445: the agent's note on a handled story, opened from its chip */
+.day-root .d-notechip {
+  cursor: pointer;
+  border: 0;
+  font: inherit;
+}
+.day-root .d-storynote {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--cp-ink2, #374151);
+}
+/* P1445 E: the agent-work row a Status check opened */
+.day-root .d-focusrow {
+  background: var(--cp-blue-50, #eff6ff);
+}

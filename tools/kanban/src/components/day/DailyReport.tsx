@@ -10,23 +10,23 @@ import { safeUrl } from './api'
 import { NewPeople } from './People'
 import { ListPane } from './ListPane'
 
-/** Phase D: the pager walks the founder's cards; the cards an agent can fix are one line away. */
+/**
+ * P1445 E: a card that needs no founder action is not a card. The work an agent does without a
+ * founder choice is a list under the card — still sent by Start fixing — each row saying where it is.
+ */
 export interface AgentWork {
-  /** how many agent cards there are */
-  count: number
-  /** the pager is on the agent cards */
-  showing: boolean
-  /** there are founder cards to go back to */
-  canGoBack: boolean
-  onReview: () => void
-  onBack: () => void
+  items: IssueView[]
+  open: boolean
+  /** a Status check opened the list on this row */
+  focus?: string
+  setOpen: (open: boolean) => void
 }
 
 interface Props {
   report: DayReport
   view: DayView
   readOnly: boolean
-  /** the cards the pager walks now: the founder's, or the agent work after Review */
+  /** the founder's cards: the pager walks these */
   issues: IssueView[]
   index: number
   agent: AgentWork
@@ -177,6 +177,7 @@ export function DailyReport(p: Props) {
           />
           <div className="d-mdmain">
             <IssueCard {...p} />
+            <AgentList agent={p.agent} sent={p.sent} />
             <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />
           </div>
         </div>
@@ -405,7 +406,7 @@ function firstSeen(issue: IssueView, runStartedAt: string): string {
 }
 
 function IssueCard(p: Props) {
-  const { report, readOnly, issues, agent } = p
+  const { report, readOnly, issues } = p
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
   const focusRef = useRef<HTMLTextAreaElement | null>(null)
   const issue = issues[Math.min(p.index, issues.length - 1)]
@@ -417,32 +418,10 @@ function IssueCard(p: Props) {
     if (p.ownFocus) focusRef.current?.focus({ preventScroll: true })
   }, [p.ownFocus])
 
-  const agentRow = agent.showing ? (
-    <div className="d-aline" data-agent-pager>
-      <span>
-        Agent work · {Math.min(p.index, issues.length - 1) + 1} of {issues.length}
-      </span>
-      {agent.canGoBack && (
-        <button type="button" className="d-link d-tap" onClick={agent.onBack}>
-          Back to yours
-        </button>
-      )}
-    </div>
-  ) : agent.count > 0 ? (
-    <div className="d-aline" data-agent-line>
-      <span>
-        {plural(agent.count, 'thing')} an agent can fix — they go with Start fixing ·{' '}
-        <button type="button" className="d-link d-tap" onClick={agent.onReview}>
-          Review
-        </button>
-      </span>
-    </div>
-  ) : null
 
   if (!issue) {
     return (
       <>
-        {agentRow}
         <div className="d-card d-row">
           <span className="d-ic ok">✓</span>
           <b>No issues today</b>
@@ -510,7 +489,7 @@ function IssueCard(p: Props) {
 
   return (
     <>
-      {agentRow}
+      
       <article className="d-card d-focus" data-issue={issue.fp}>
         <div className="d-ihead">
           <span className="d-topic">
@@ -613,6 +592,36 @@ function IssueCard(p: Props) {
         </div>
       </article>
     </>
+  )
+}
+
+/** P1445 E: the agent's work as rows — title and a state chip (Not sent / Sent), nothing to answer. */
+function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<string, string>> }) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (agent.open && agent.focus) box.current?.querySelector(`[data-agent-item="${CSS.escape(agent.focus)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [agent.open, agent.focus])
+  if (!agent.items.length) return null
+  return (
+    <div className="d-card d-parked" ref={box} data-agent-list>
+      <button type="button" className="d-fold" aria-expanded={agent.open} onClick={() => agent.setOpen(!agent.open)}>
+        <span className="d-tri">▶</span>With the agent ({agent.items.length})
+      </button>
+      {agent.open &&
+        agent.items.map((x) => {
+          const st = cardState(x, sent)
+          return (
+            <div className={`d-row${agent.focus === x.fp ? ' d-focusrow' : ''}`} key={x.fp} data-agent-item={x.fp}>
+              <span className="d-tx">
+                <span className="d-ptitle">{x.title}</span>
+              </span>
+              <span className={`d-pill d-schip ${st.kind === 'sent' ? 'sent' : 'open'}`} data-agent-state={st.kind === 'sent' ? 'sent' : 'not-sent'} title={st.kind === 'sent' ? `Sent ${clock(st.at)}` : undefined}>
+                {st.kind === 'sent' ? 'Sent' : 'Not sent'}
+              </span>
+            </div>
+          )
+        })}
+    </div>
   )
 }
 
