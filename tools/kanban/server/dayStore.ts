@@ -81,13 +81,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const readOwner = (lock: string) => readFileSync(lock, 'utf-8')
 
 /**
- * Take the lock: create it exclusively, holding a owner only this writer knows. A lock older than
- * 30s is removed — but only the one judged stale: its owner is read again right before the unlink,
- * so a fresh lock another writer took in between is left alone (P1440 review C3).
+ * Take the lock: create it exclusively, holding an owner id only this writer knows. A lock older
+ * than 30s is removed — but only the one judged stale: its owner is read again right before the
+ * unlink, so a fresh lock another writer took in between is left alone (P1440 review C3).
  *
- * Residual window, accepted: between that second read and the unlink (microseconds, one process),
- * another writer could remove the same stale lock and take its own, which this unlink would then
- * remove. Reaching it needs a writer dead for 30s plus two others racing on the same instant.
+ * KNOWN RESIDUAL RACE, accepted and NOT handled: the re-read and the unlink are two calls, not one
+ * atomic step. If, in the microseconds between them, a second waiter also removes the same stale
+ * lock and a third writer takes a fresh one, this unlink deletes that fresh lock and two writers then
+ * hold the lock at once. It needs a writer stalled or dead for more than 30s AND two others racing on
+ * the same instant; plain files offer no atomic compare-and-delete to close it.
  *
  * `hooks.afterStaleCheck` exists for the test that reproduces the interleaving.
  */
@@ -135,6 +137,9 @@ export function releaseLock(lock: string, owner: string): void {
  * lines to write (without `at`), or throws a Refusal; an empty list writes nothing. The lines get one
  * `at` = max(now, the latest recorded at + 1ms): every append is strictly later than everything
  * before it, so the file's times never go backwards. Returns the lines as written.
+ * A line may carry `notBefore` (an ISO time; never written): the append is then also stamped at
+ * least 1ms after it. A story marker needs this — it counts only when strictly later than the
+ * story's edit, and that edit may lie beyond the future slack, outside `lastAt`.
  * `create: false` (the CLI) never makes the day dir: a mistyped --dir must fail, not grow a folder.
  */
 export async function appendDecisionLines(
@@ -152,8 +157,12 @@ export async function appendDecisionLines(
     const existing = parseLines(text, stamp)
     const out = build(existing)
     if (!out.length) return []
-    const at = new Date(Math.max(stamp.getTime(), (existing.lastAt ?? -Infinity) + 1)).toISOString()
-    const stamped = out.map((o) => ({ ...(o as Record<string, unknown>), at }))
+    const after = out.map((o) => Date.parse(String((o as { notBefore?: unknown }).notBefore ?? ''))).filter(Number.isFinite)
+    const at = new Date(Math.max(stamp.getTime(), (existing.lastAt ?? -Infinity) + 1, ...after.map((t) => t + 1))).toISOString()
+    const stamped = out.map((o) => {
+      const { notBefore: _hint, ...line } = o as Record<string, unknown>
+      return { ...line, at }
+    })
     // A writer that died mid-line left a torn tail: start on a fresh line, so the fragment stays one
     // bad line instead of swallowing the first new one (P1440 review C2).
     const lead = text && !text.endsWith('\n') ? '\n' : ''

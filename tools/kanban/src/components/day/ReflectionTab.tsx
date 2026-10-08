@@ -227,8 +227,9 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
               </div>
               <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
               {unsaved(s.id) && (
-                <p className="d-sub d-wrap" data-story-unsaved>
-                  Not saved — press Accept to save
+                // one line for both facts: the edit is not saved, and Mark done waits for it (it would close the older version)
+                <p className="d-unsaved d-wrap" data-story-unsaved>
+                  {entry && entry.state !== 'done' ? 'Not saved — press Accept to save. Mark done waits until you do.' : 'Not saved — press Accept to save'}
                 </p>
               )}
               {entry && (
@@ -264,7 +265,7 @@ function StoryState({
   entry: StoryEntry
   readOnly: boolean
   busy: ReadonlySet<string>
-  /** why Mark done must wait (an edited story not saved yet), if it must */
+  /** why Mark done must wait (an edited story not saved yet), if it must: disables it, said by its tooltip (the card's unsaved line says it too) */
   blocked?: string
   onMarkDone: (e: StoryEntry) => void
   onResend: (e: StoryEntry) => void
@@ -308,11 +309,6 @@ function StoryState({
           </>
         )}
       </div>
-      {open && blocked && (
-        <p className="d-sub d-wrap" data-story-done-hint>
-          {blocked}
-        </p>
-      )}
     </>
   )
 }

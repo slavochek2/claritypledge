@@ -62,23 +62,26 @@ function entryFor(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'targ
   return e
 }
 
-/** The story_done line for a request, or a Refusal: unknown (run, target), a stale version, already done. */
+/**
+ * The story_done line for a request, or a Refusal: unknown (run, target), a stale version, already done.
+ * Every marker carries `notBefore: edited_at`, so the writer stamps it after the edit it closes.
+ */
 export function markLine(ledger: StoryEntry[], req: StoryRequest): object {
   const e = entryFor(ledger, req)
   if (e.state === 'done') throw new Refusal('That story is already marked done')
-  return { kind: 'story_done', run_id: e.run_id, target: e.target, story_hash: e.hash, outcome: req.outcome, ...(req.note ? { note: req.note } : {}) }
+  return { kind: 'story_done', run_id: e.run_id, target: e.target, story_hash: e.hash, outcome: req.outcome, ...(req.note ? { note: req.note } : {}), notBefore: e.edited_at }
 }
 
 /** "Send again" for a stuck story: resets its send count for this version. */
 export function resendLine(ledger: StoryEntry[], req: Pick<StoryRequest, 'run_id' | 'target' | 'story_hash' | 'version'>): object {
   const e = entryFor(ledger, req)
   if (e.state !== 'stuck') throw new Refusal('Only a stuck story can be sent again')
-  return { kind: 'story_resend', run_id: e.run_id, target: e.target, story_hash: e.hash }
+  return { kind: 'story_resend', run_id: e.run_id, target: e.target, story_hash: e.hash, notBefore: e.edited_at }
 }
 
 /** Backfill: one batch-closed marker per story version not done whose latest edit is before the cutoff. A rerun finds none. */
 export function batchCloseLines(ledger: StoryEntry[], cutoff: number): object[] {
   return ledger
     .filter((e) => e.state !== 'done' && Date.parse(e.edited_at) < cutoff)
-    .map((e) => ({ kind: 'story_done', run_id: e.run_id, target: e.target, story_hash: e.hash, outcome: 'batch-closed' }))
+    .map((e) => ({ kind: 'story_done', run_id: e.run_id, target: e.target, story_hash: e.hash, outcome: 'batch-closed', notBefore: e.edited_at }))
 }

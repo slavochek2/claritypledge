@@ -2150,6 +2150,55 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('[data-story-unsaved]')).toHaveCount(0)
   })
 
+  test('a draft kept in storage never comes back over a story saved after it (storage failing in between)', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await storyBox(page).fill('Invented draft A, kept in storage.')
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).toContain('draft A')
+    // storage starts refusing writes: the stored copy is stuck at A
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new Error('QuotaExceededError')
+      }
+      Storage.prototype.removeItem = () => {
+        throw new Error('SecurityError')
+      }
+    })
+    await storyBox(page).fill('Invented story B, the one accepted.')
+    await acceptBtn(page).click()
+    await expect.poll(() => reflLines().length).toBe(1)
+    expect(reflLines()[0]).toEqual(expect.objectContaining({ target: 'c1', story: 'Invented story B, the one accepted.' }))
+    expect(await page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).toContain('draft A') // the stale copy is still there
+    await reopen(page) // a fresh page: storage works again and still holds A
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    await expect(storyBox(page)).toHaveValue('Invented story B, the one accepted.')
+    await expect(page.locator('[data-story-unsaved]')).toHaveCount(0)
+    await expect(page.locator('[data-unsaved-stories]')).toHaveCount(0)
+    await expect(acceptBtn(page)).toHaveCount(0)
+  })
+
+  test('text typed while an Accept is being saved is kept as a new unsaved edit, never dropped', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c4"]').click() // the last statement: Accept saves and stays
+    await page.route('**/api/day/decisions', async (r) => {
+      await new Promise((res) => setTimeout(res, 500))
+      await r.continue()
+    })
+    await storyBox(page).fill('Invented story, first part.')
+    await acceptBtn(page).click()
+    await storyBox(page).fill('Invented story, first part. Second part typed during the save.')
+    await expect.poll(() => reflLines().length).toBe(1)
+    await page.waitForTimeout(300)
+    await expect(storyBox(page)).toHaveValue('Invented story, first part. Second part typed during the save.')
+    await expect(page.locator('[data-story-unsaved]')).toBeVisible()
+    await reopen(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c4"]').click()
+    await expect(storyBox(page)).toHaveValue('Invented story, first part. Second part typed during the save.')
+  })
+
   test('each story says where it is; Mark done closes it once; earlier open stories are listed by name until marked', async ({ page }) => {
     await openDay(page)
     writeLines([refl('c2', { story: 'Invented story from an earlier day.' }, EARLIER_PASS, '2026-10-03T09:00:00.000Z')])
@@ -2199,7 +2248,13 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('.d-pcard [data-story-done]')).toBeEnabled()
     await storyBox(page).fill(`${STORY} Edited.`)
     await expect(page.locator('.d-pcard [data-story-done]')).toBeDisabled()
-    await expect(page.locator('.d-pcard [data-story-done-hint]')).toHaveText('Accept the edited story first: Mark done would close the version saved before.')
+    // one line says both, and it outweighs the grey state line (review visual 4)
+    const marker = page.locator('.d-pcard [data-story-unsaved]')
+    await expect(marker).toHaveText('Not saved — press Accept to save. Mark done waits until you do.')
+    await expect(page.locator('.d-pcard [data-story-done-hint]')).toHaveCount(0)
+    const look = (sel: string) => page.locator(sel).evaluate((e) => ({ color: getComputedStyle(e).color, weight: getComputedStyle(e).fontWeight }))
+    expect(await look('.d-pcard [data-story-unsaved]')).toEqual({ color: 'rgb(146, 64, 14)', weight: '600' }) // --amber-800, the "needs you" colour
+    expect((await look('.d-pcard [data-story-state]')).color).not.toBe('rgb(146, 64, 14)')
   })
 
   test('an earlier run shows its stories without buttons', async ({ page }) => {
@@ -2249,6 +2304,48 @@ test.describe('P1440: stories reach the agent', () => {
       expect(fileText()).toBe('')
     })
   })
+
+  /** Every box in the bottom bar stays inside its cell (nav · progress · actions), and the cells do not overlap. */
+  const barOverflow = (page: Page) =>
+    page.evaluate(() => {
+      const bad: string[] = []
+      const cells = [...document.querySelectorAll('[data-bottom-bar] .d-bnav, [data-bottom-bar] .d-bprog, [data-bottom-bar] .d-bact')]
+      const rects = cells.map((c) => c.getBoundingClientRect())
+      const bar = document.querySelector('[data-bottom-bar] .d-col')?.getBoundingClientRect()
+      cells.forEach((cell, i) => {
+        const r = rects[i]
+        if (bar && (r.left < bar.left - 1 || r.right > bar.right + 1)) bad.push(`${cell.className} leaves the bar`)
+        rects.forEach((o, j) => {
+          if (j > i && r.left < o.right - 1 && o.left < r.right - 1 && r.top < o.bottom - 1 && o.top < r.bottom - 1) bad.push(`${cell.className} overlaps ${cells[j].className}`)
+        })
+        for (const el of cell.querySelectorAll('*')) {
+          const e = el as HTMLElement
+          if (!e.offsetParent && getComputedStyle(e).position !== 'fixed') continue
+          const b = e.getBoundingClientRect()
+          if (!b.width) continue
+          // .d-still widens its tap area with a -6px side margin, on purpose
+          const slack = e.classList.contains('d-still') ? 7 : 1
+          if (b.left < r.left - slack || b.right > r.right + slack) bad.push(`${e.className || e.tagName} spills out of ${cell.className} (${Math.round(b.left)}–${Math.round(b.right)} in ${Math.round(r.left)}–${Math.round(r.right)})`)
+          if (e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible') bad.push(`${e.className || e.tagName} clips its text`)
+        }
+      })
+      return bad
+    })
+
+  for (const [width, height] of [[1440, 900], [375, 760], [320, 700]] as const) {
+    test(`${width}px: the bottom bar lays out without clipping when a typed story is not saved`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await openDay(page)
+      if (width < 500) await collapseSidebar(page)
+      await reflTab(page).click()
+      await storyBox(page).fill(STORY)
+      await expect(page.locator('[data-unsaved-stories]')).toBeVisible()
+      expect(await barOverflow(page), 'reflection').toEqual([])
+      await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report', exact: true }).click()
+      await expect(page.locator('[data-unsaved-stories]')).toBeVisible()
+      expect(await barOverflow(page), 'daily report').toEqual([])
+    })
+  }
 
   const stuckEarlier = (texts: string[]) => {
     const ls: object[] = []

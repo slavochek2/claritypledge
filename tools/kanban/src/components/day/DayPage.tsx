@@ -63,18 +63,35 @@ function isTyping(el: EventTarget | null): boolean {
   return false
 }
 
-/** P1440 review O1: unsaved story drafts survive a reload. Storage may be missing or refuse: then they live in memory only. */
+/**
+ * P1440 review O1: unsaved story drafts survive a reload. Storage may be missing or refuse: then they
+ * live in memory only. Each draft records the saved version it was typed against (`base`: the
+ * story's edited_at, '' when none was saved). A stored copy can be stale — storage that failed after
+ * an Accept still holds the text that Accept replaced — so a draft whose base is no longer the saved
+ * version is dropped, never offered over the newer story (Codex re-review).
+ */
+interface StoryDraft {
+  text: string
+  base: string
+}
 const DRAFTS_KEY = 'day:story-drafts'
-function readDrafts(): Record<string, string> {
+/** An Accept of this draft is in flight: its base is taken from the next run payload. */
+const REBASE = '\u0000rebase'
+function readDrafts(): Record<string, StoryDraft> {
   try {
     const v = JSON.parse(window.localStorage.getItem(DRAFTS_KEY) ?? '{}') as unknown
     if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
-    return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string'))
+    // a draft without its base (or in any other shape) cannot be checked against the saved story: dropped
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).filter(
+        (e): e is [string, StoryDraft] => !!e[1] && typeof e[1] === 'object' && typeof (e[1] as StoryDraft).text === 'string' && typeof (e[1] as StoryDraft).base === 'string',
+      ),
+    )
   } catch {
     return {}
   }
 }
-function writeDrafts(d: Record<string, string>): void {
+function writeDrafts(d: Record<string, StoryDraft>): void {
   try {
     if (Object.keys(d).length) window.localStorage.setItem(DRAFTS_KEY, JSON.stringify(d))
     else window.localStorage.removeItem(DRAFTS_KEY)
@@ -113,7 +130,7 @@ export function DayPage() {
    * paging, the list, a tab or another run never does (P1440 review: blur-saving wrote stories the
    * founder had not accepted, on touch above all). Kept across runs and reloads until accepted.
    */
-  const [storyDrafts, setStoryDrafts] = useState<Record<string, string>>(readDrafts)
+  const [storyDrafts, setStoryDrafts] = useState<Record<string, StoryDraft>>(readDrafts)
   useEffect(() => writeDrafts(storyDrafts), [storyDrafts])
   const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
@@ -357,8 +374,41 @@ export function DayPage() {
   /** Drafts are keyed by run and statement: the same statement id on another day is another story. */
   const passId = ok?.report.pass_id ?? ''
   const draftKey = useCallback((id: string) => `${passId}\u0000${id}`, [passId])
-  const storyDraftOf = useCallback((id: string): string | undefined => storyDrafts[draftKey(id)], [storyDrafts, draftKey])
-  const setStoryDraft = useCallback((id: string, text: string) => setStoryDrafts((d) => ({ ...d, [draftKey(id)]: text })), [draftKey])
+  const storyDraftOf = useCallback((id: string): string | undefined => storyDrafts[draftKey(id)]?.text, [storyDrafts, draftKey])
+  /** The saved version a draft is typed against: the story's edited_at on this run, '' when none is saved. */
+  const baseOf = useCallback((id: string) => ok?.stories?.find((e) => e.run_id === passId && e.target === id)?.edited_at ?? '', [ok, passId])
+  const setStoryDraft = useCallback(
+    (id: string, text: string) => setStoryDrafts((d) => ({ ...d, [draftKey(id)]: { text, base: d[draftKey(id)]?.base ?? baseOf(id) } })),
+    [draftKey, baseOf],
+  )
+  // Each run payload checks this run's drafts against what is saved now: a draft typed against an
+  // older version, or one that says what is saved, is dropped; one whose Accept was in flight takes
+  // the version the payload names.
+  useEffect(() => {
+    if (!ok) return
+    const pass = ok.report.pass_id
+    const prefix = `${pass}\u0000`
+    setStoryDrafts((d) => {
+      let changed = false
+      const next: Record<string, StoryDraft> = {}
+      for (const [k, v] of Object.entries(d)) {
+        if (!k.startsWith(prefix)) {
+          next[k] = v
+          continue
+        }
+        const id = k.slice(prefix.length)
+        const base = ok.stories?.find((e) => e.run_id === pass && e.target === id)?.edited_at ?? ''
+        const saved = ok.view.reflection[id]?.story ?? ''
+        if ((v.base !== REBASE && v.base !== base) || v.text.trim() === saved.trim()) {
+          changed = true
+          continue
+        }
+        if (v.base === REBASE) changed = true
+        next[k] = { text: v.text, base }
+      }
+      return changed ? next : d
+    })
+  }, [ok])
   /** The story as it would be saved now: what is being typed, else the last one saved. */
   const storyNow = useCallback((id: string) => (storyDraftOf(id) ?? storyOf(id)).trim(), [storyDraftOf, storyOf])
   /** Typed but not saved: the box says something other than the saved story (P1440 review O2). */
@@ -577,6 +627,9 @@ export function DayPage() {
       const story = storyNow(id)
       const prev = stories.current[id]
       acceptingNow.current = true
+      const k = draftKey(id)
+      // the save moves the story to a new version: whatever is typed meanwhile is rebased onto it
+      setStoryDrafts((d) => (d[k] ? { ...d, [k]: { ...d[k], base: REBASE } } : d))
       try {
         stories.current[id] = story
         const r = await write([storyAnswer(id, posOf(id), story)])
@@ -586,8 +639,7 @@ export function DayPage() {
           return
         }
         // saved: the draft goes, unless the founder kept typing while it was being written
-        const k = draftKey(id)
-        setStoryDrafts((d) => (d[k] !== typed ? d : Object.fromEntries(Object.entries(d).filter(([key]) => key !== k))))
+        setStoryDrafts((d) => (d[k]?.text !== typed ? d : Object.fromEntries(Object.entries(d).filter(([key]) => key !== k))))
         if (runIdRef.current === runId && reflIdxRef.current === at && at + 1 < statements.length) {
           setReflIdx(at + 1)
           toTop()
@@ -883,7 +935,8 @@ export function DayPage() {
               ) : (
                 <div />
               )}
-              <div className="d-bprog">
+              {/* d-tight: the unsaved-stories link takes the room — the key hint goes, phones use the short labels */}
+              <div className={`d-bprog${!readOnly && unsavedIds.length > 0 ? ' d-tight' : ''}`}>
                 {readOnly ? null : tab === 'reflection' ? (
                   statements.length > 0 && (
                     <>
@@ -929,7 +982,7 @@ export function DayPage() {
                     Back to yours
                   </button>
                 )}
-                {!readOnly && nav && (
+                {!readOnly && nav && unsavedIds.length === 0 && (
                   <span className="d-hint" aria-hidden="true">
                     ← → move
                   </span>

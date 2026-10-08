@@ -258,6 +258,9 @@
 .d-bprog { grid-area: prog; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg2); white-space: nowrap; min-width: 0; }
 .d-still { border: 0; background: none; line-height: 16px; padding: 12px 6px; margin: -12px -6px; font-size: 12px; color: var(--fg2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex-shrink: 0; }
 .d-still:hover { color: var(--fg); }
+/* P1440: an unsaved-stories link joins the bar: its row may wrap rather than spill under the buttons */
+.d-bprog.d-tight { flex-wrap: wrap; row-gap: 4px; }
+.d-tight .d-bline { display: none; }
 .d-bline { flex: 1; height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; min-width: 40px; }
 .d-bline span { display: block; height: 100%; background: var(--slate); }
 .d-bact { grid-area: act; display: flex; gap: 6px; justify-content: flex-end; align-items: center; min-width: 0; }
@@ -401,6 +404,8 @@
 .d-story-ro { margin-top: 12px; font-size: 14px; color: var(--fg2); overflow-wrap: anywhere; white-space: pre-wrap; }
 /* P1440: founder text and statements can hold a long unbroken token (a URL): wrap it, never widen the page */
 .d-wrap { overflow-wrap: anywhere; min-width: 0; }
+/* an unsaved story edit needs the founder: amber, like every other "needs you" */
+.d-unsaved { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--amber-800); }
 
 @container day (max-width: 359px) {
   .d-gin { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nav nav" "prog act"; }
@@ -428,6 +433,9 @@
   .d-pcard { padding: 14px 12px 12px; gap: 8px; }
   .d-pin { display: none; }
   .d-pb { font-size: 11.5px; }
+  /* P1440: with the unsaved-stories link in the bar too, the links take their short labels */
+  .d-tight .d-still[data-short] { font-size: 0; }
+  .d-tight .d-still[data-short]::after { content: attr(data-short); font-size: 12px; }
 }
 
 @container day (max-width: 360px) {

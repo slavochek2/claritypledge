@@ -343,7 +343,7 @@ describe('P1440: the shared mark / resend / backfill checks', () => {
     expect(() => markLine(L, { run_id: RUN, target: 'c9', story_hash: storyHash(A), version: v, outcome: 'acted' })).toThrow(/No story/)
     expect(() => markLine(L, { run_id: EARLIER, target: 'c1', story_hash: storyHash(A), version: v, outcome: 'acted' })).toThrow(/No story/)
     expect(() => markLine(L, { run_id: RUN, target: 'c1', story_hash: storyHash(B), version: v, outcome: 'acted' })).toThrow(/edited since/)
-    expect(markLine(L, { run_id: RUN, target: 'c1', story_hash: storyHash(A), version: v, outcome: 'answered', note: 'told him' })).toEqual({ kind: 'story_done', run_id: RUN, target: 'c1', story_hash: storyHash(A), outcome: 'answered', note: 'told him' })
+    expect(markLine(L, { run_id: RUN, target: 'c1', story_hash: storyHash(A), version: v, outcome: 'answered', note: 'told him' })).toEqual({ kind: 'story_done', run_id: RUN, target: 'c1', story_hash: storyHash(A), outcome: 'answered', note: 'told him', notBefore: v })
     const done = ledger(lines, [marker('story_done', 'c1', A, t(1))])
     expect(() => markLine(done, { run_id: RUN, target: 'c1', story_hash: storyHash(A), version: v, outcome: 'acted' })).toThrow(/already/)
     expect(() => resendLine(L, { run_id: RUN, target: 'c1', story_hash: storyHash(A), version: v })).toThrow(/stuck/)
@@ -552,6 +552,22 @@ describe('P1440: writes on disk (temp dirs only)', () => {
     expect((await fileLines()).filter((l) => l.outcome === 'batch-closed').map((l) => l.target)).toEqual(['c1', 'c3'])
     expect((await cli(['--list'])).out.trim().split('\n')).toHaveLength(1)
     expect((await cli(['--batch-close-before', 'yesterday'])).code).toBe(2)
+  })
+
+  it('FUTURE EDIT — a story dated 11 minutes ahead (beyond the slack) is still closed by a mark: the marker is stamped after its edit', async () => {
+    const ahead = new Date(Date.now() + 11 * 60_000).toISOString()
+    await seedLines([refl('c1', ahead, { story: A })])
+    const r = await cli(['--run', RUN, '--target', 'c1', '--hash', storyHash(A), '--version', ahead, '--outcome', 'acted'])
+    expect(r.code).toBe(0)
+    const parsed = parseLines(await readFile(join(dir, 'decisions.jsonl'), 'utf-8'))
+    const marker = parsed.markers[0]
+    expect(Date.parse(marker.at)).toBeGreaterThan(Date.parse(ahead))
+    expect(ledgerOf(parsed, runs())[0].state).toBe('done')
+    expect(Object.keys((await fileLines()).slice(-1)[0])).not.toContain('notBefore') // the hint is never written
+    // the backfill too
+    await seedLines([refl('c1', ahead, { story: A })])
+    expect((await cli(['--batch-close-before', '2099-01-01'])).out).toBe('batch-closed 1\n')
+    expect(ledgerOf(parseLines(await readFile(join(dir, 'decisions.jsonl'), 'utf-8')), runs())[0].state).toBe('done')
   })
 
   it('G4 — the CLI refuses a day dir that does not exist or has no reports, and creates nothing', async () => {
