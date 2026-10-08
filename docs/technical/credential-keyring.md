@@ -261,7 +261,9 @@ makes macOS treat it as *modifying* an item and prompt during enrollment
   does not break it — and does not protect it either. Different attack surface,
   tracked on P1214.
 - **A second local config store** holding four live secrets outside `.env.local`
-  (P1239 Open Question 5) — unresolved.
+  (P1239 Open Question 5) — unresolved. It is the MCP server configuration; the exact
+  paths and its read guard are in `.private/docs/security-log.md` (2026-10-08). Agents
+  cannot read it by design — a task that needs one of these asks the founder.
 - **Read-blocking the plaintext half** via `sandbox.filesystem.denyRead`
   (P1239 Open Question 4) — a founder call, deliberately not taken here. Note
   that `permissions.deny` must *not* be used for this: since Claude Code
