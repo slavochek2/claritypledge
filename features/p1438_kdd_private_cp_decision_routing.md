@@ -5,8 +5,8 @@ rank: 23
 created_date: '2026-10-08'
 tags: [kdd, privacy, docs-routing, process]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
