@@ -107,10 +107,13 @@ resource because its role (§3.6) has no grants beyond `agent.*`.
 RFC 8707 `resource` is not documented by Supabase. The audience is set by the hook, not by the
 request, so a client cannot ask for a different audience.
 
-**Token passthrough.** The MCP spec forbids passing an MCP-audience token to an *upstream*
-API. Here PostgREST's `agent` schema *is* the resource: the Edge Function is a protocol adapter
-in front of it, and no other service accepts the token for anything. The reviewers are asked to
-attack this framing specifically.
+**Token passthrough — not established (round 1, finding 3).** The first draft claimed PostgREST's
+`agent` schema *is* the resource, so forwarding is not passthrough. That is asserted, not shown:
+the same bearer is accepted directly by PostgREST, Storage, Realtime **and Supabase Auth's own
+user endpoints**, so the Edge Function's `aud`/`iss`/`client_id` checks contribute nothing to an
+attacker who skips it. The design no longer claims MCP passthrough compliance. It claims only what
+§6.2 tests: every entry point that accepts the token enforces the same boundary. If Auth's user
+endpoints accept an agent token for account changes (spike S8), the design is dead on this AS.
 
 ### 3.3 Token exchange and lifetime: numbers, not words
 
@@ -119,16 +122,16 @@ attack this framing specifically.
 | Access-token lifetime | Project JWT expiry, 3600 s default. **Not shortened per client**: the hook is not documented to change `exp`, and shortening the project setting also logs out browsers | Supabase Auth |
 | Refresh tokens | **Issued by Supabase and cannot be suppressed** (no documented switch). P1215's "no refresh token" non-goal is unattainable on this AS, so its *purpose* is enforced instead by the next three rows | — |
 | Absolute grant lifetime | **12 hours** from the OAuth session's `created_at`, after which every tool refuses, whether or not the token was refreshed | every `agent.*` function |
-| Idle timeout | **60 minutes** without a tool call (from the audit log) → refused | every `agent.*` function |
+| Idle timeout | **60 minutes** without a *successful* tool call → the grant is marked expired, terminally, and revoked (§6.4) | every `agent.*` function |
 | Concurrent grants | **At most 3** live agent sessions per user; a 4th tool call from a 4th session is refused with a message naming the disconnect page | every `agent.*` function |
-| Re-auth strength at consent | Browser session must have signed in within the last **10 minutes**; otherwise the consent page sends the user to sign in again first | consent page |
+| Re-auth strength at consent | UX only, not a boundary — see §6.5 | consent page |
 | Replay | A bearer token replays until its `exp` (≤ 1 h). Bounded further by the session-row check: revocation (§3.9) deletes the session row, and every tool checks it, so revocation takes effect on the next call, not at `exp` | every `agent.*` function |
 | In-flight at expiry | A call that passed the checks finishes; one call is one transaction, so nothing is half-done | Postgres |
 
-A refreshed token past the absolute lifetime gets a working JWT that every tool refuses. A
-refresh token therefore can't stretch a grant past 12 hours, which is the property the non-goal
-wanted. Expired grants are swept nightly with `revokeGrant` semantics, so refresh tokens don't
-pile up.
+**Superseded by §6.3.** The first draft let a refreshed token past the absolute lifetime exist and
+relied on every tool refusing it, with a nightly sweep. Round 1 showed that bounds tool admission,
+not the credential (a sweep can miss a grant by almost a day), and that P1215's "no refresh token"
+non-goal is a requirement, not a preference.
 
 `[FOUNDER DECISION: 12 h absolute / 60 min idle / 3 concurrent are proposed defaults, not
 product decisions already made]`
@@ -318,14 +321,139 @@ change it.
 | # | Question (UNVERIFIED today) | If it fails |
 |---|---|---|
 | S1 | Can the custom access-token hook set `role` to `agent_reader`, and does PostgREST then run as it? | Design changes to restrictive `client_id IS NULL` policies everywhere. Fail-open (§1 table): needs its own review before going ahead |
-| S2 | On a **refresh** of an OAuth token, does the hook run again and still see `client_id`? | If a refreshed token comes back as `authenticated`, the absolute lifetime must be enforced by revoking at 1 h instead (no refresh at all) |
+| S2 | On a **refresh** of an OAuth token, does the hook run again, still see `client_id`, and can it **refuse issuance** (hook error) when the grant is past its lifetime? | **Kills this AS choice.** A refreshed agent token that comes back `authenticated` is full browser authority (round 1, finding 1); no fallback is safe |
 | S3 | Does PostgREST accept a token whose `aud` is the MCP URI? | Keep `aud=authenticated`; the MCP server checks `client_id` instead of `aud` |
-| S4 | Is `session_id` in the token, does `auth.sessions` hold the OAuth session, and does `revokeGrant` delete it? | Revocation waits for `exp` (≤ 1 h); disclosed at Disconnect |
+| S4 | Is `session_id` in the token, does `auth.sessions` hold the OAuth session, and does `revokeGrant` delete it? | **Kills this AS choice**: P1215 requires the next call after Disconnect to be refused |
 | S5 | What do Storage and Realtime do with role `agent_reader`? | Any reach found is closed by policy before build |
 | S6 | Is the project on asymmetric JWT signing, so the JWKS can verify tokens without a shared secret? | The MCP server would need the JWT secret, which adds a credential; prefer migrating signing keys |
 | S7 | Is the OAuth 2.1 server available on this project's plan, outside beta restrictions? | Phase 1 waits |
+| S8 | Do Supabase Auth's user endpoints (`/auth/v1/user` read and update, factor and identity management) accept an agent token? | **Kills this AS choice** if any account-changing call succeeds |
+| S9 | Is an `authorization_id` bound to the browser that hit `/oauth/authorize`, or can it be approved from any browser? | If unbound, consent phishing (§6.6) is open and needs an AS-side fix before build |
 
 ---
+
+## 6. Revisions after review round 1
+
+Normative. Where this section and §1–§5 disagree, this section wins.
+
+### 6.1 Exposure is a manifest, not a schema (finding 2)
+
+- Default privileges: `ALTER DEFAULT PRIVILEGES FOR ROLE <r> REVOKE EXECUTE ON FUNCTIONS FROM
+  PUBLIC` for **every role that creates functions** (`postgres`, `supabase_admin`, and any
+  migration role), globally, not per schema. A schema-local default cannot subtract a global one.
+- A one-time sweep revokes `PUBLIC` EXECUTE where it is effective today and re-grants the
+  legitimate callers explicitly (the P1063/P1321 pattern, at full scale).
+- Exposure is an exact, committed **tool-signature manifest** (`name(argtypes)`). The reachability
+  test compares `agent_reader`'s effective EXECUTE set to that manifest, never to `agent.*`.
+  Controls: a new ungranted helper in `agent`, and a new overload of an exposed tool, must both be
+  unreachable.
+
+### 6.2 Every entry point that accepts the token, tested (finding 3)
+
+The matrix in §5 covers REST, RPC, Storage (every bucket policy), Realtime (postgres_changes,
+broadcast, presence) **and the Supabase Auth user endpoints**. The Edge Function's checks are
+defence in depth only; no property of the design may rest on them.
+
+### 6.3 The refresh credential itself is bounded (findings 1, 4)
+
+- The access-token hook **refuses issuance** (hook error) for an OAuth session past its absolute
+  lifetime or marked expired, so a refresh after 12 h yields no token at all. Depends on S2; if the
+  hook cannot refuse on refresh, this AS is not used.
+- The grant's origin time is recorded once, at first issuance, in `agent.grants(session_id,
+  issued_at, state)` (write-once), so it cannot drift across refreshes.
+- Revocation and expiry are swept **every 5 minutes**, not nightly.
+- Disconnect racing a refresh: the hook checks `agent.grants.state` inside the issuance call, and
+  Disconnect sets `state = 'revoked'` before calling `revokeGrant`. A successor minted in the race
+  is refused at its first tool call. Tested with simultaneous refresh and Disconnect.
+- `[FOUNDER DECISION: P1215's Non-Goal "no refresh tokens" cannot hold literally on Supabase Auth,
+  which always issues one. Either amend it to "no refresh token outlives 12 h or Disconnect" (what
+  this section enforces), or choose a different authorization server.]`
+
+### 6.4 Idle is terminal, and only success counts as activity (finding 5)
+
+Idle is measured from the last **successful** call, recorded in `agent.grants.last_ok_at`. Once
+idle, `state = 'expired'` permanently and the grant is revoked; a refusal never refreshes activity.
+The first call after issuance counts from `issued_at`.
+
+### 6.5 Consent freshness is UX, not a boundary (finding 6) — ACCEPTED
+
+The approve call is Supabase's, made from the browser session, and cannot be gated server-side by
+this design. Accepted because whoever holds a valid browser session already holds strictly more
+authority (full `authenticated`) than an agent grant gives. The 10-minute check stays as a
+wrong-account safeguard only, and is not described as security.
+
+### 6.6 Consent phishing and framing (finding 7)
+
+- The consent route sends `Content-Security-Policy: frame-ancestors 'none'` and
+  `X-Frame-Options: DENY`; a browser test asserts a cross-origin frame is refused.
+- Phishing via a forwarded `authorization_id`: depends on S9. If the AS does not bind the
+  authorization to the initiating browser, the design is not buildable until it does.
+- Each pre-registered client's callback-to-account binding is tested adversarially before it is
+  registered (an approval in browser A must not land in a session started in browser B).
+
+### 6.7 The definer owner and nested authority (finding 8)
+
+- Tools are owned by a dedicated `agent_owner` role: no `BYPASSRLS`, no ownership of product
+  tables, column-level SELECT only on the columns the manifest's outputs need, INSERT only on
+  `agent.grants`/`agent.audit_log`, fixed `search_path = ''`.
+- A tool may call only existing **authorization predicates** (e.g. the letter receiver/sender
+  checks) from an allowlist, never a privileged RPC.
+- §5 item 2 becomes a **parity matrix**: for each tool, the output must equal what the browser read
+  path returns to the same user across recipient, delivery, membership, visibility and reveal-state
+  fixtures, reusing the browser path's existing fixtures.
+
+### 6.8 Atomic admission and concurrency (finding 9)
+
+Every tool starts with `pg_advisory_xact_lock(hashtext('agent:' || auth.uid()))`, then reads
+counts and grant state, then admits. The same lock covers the concurrent-grant limit. A test fires
+20 simultaneous calls at 299/300 and asserts exactly one is admitted.
+
+### 6.9 Budgets in numbers (finding 10)
+
+| Budget | Value |
+|---|---|
+| Response size | ≤ 256 KB per call, measured on the returned JSON; over → refused |
+| Nested items | ≤ 200 per call (stories, points, responses counted individually) |
+| Page size | ≤ 50 items, cursor pagination |
+| Statement time | `SET statement_timeout = '2s'`, `lock_timeout = '500ms'` on each tool |
+| Concurrent calls per user | ≤ 2 (advisory lock pool) |
+| Refusal logging | individually up to 100 per user per hour, then one aggregated counter row |
+| Delivery after revocation or expiry | admission is checked at call start; the longest a result can still be delivered is the 2 s statement timeout |
+
+`[FOUNDER DECISION: these budgets, alongside the §3.7 ceilings]`
+
+### 6.10 The effect oracle compares contents (finding 11)
+
+The effect test snapshots a hash of **every row** of every table in `public`, `auth`, `storage`
+and `realtime` (excluding `agent.audit_log`/`agent.grants`) before and after each call on a
+fixture database, and checks outbound queues (`net.http_request_queue`, `email_send_log`) for new
+entries. Refusals are **returned** as a structured result, never raised, so the refusal's audit row
+commits.
+
+### 6.11 Protocol conformance tests (finding 12)
+
+With each pre-registered client: wrong `resource`, issuer mix-up (two authorization servers),
+PKCE `plain` and a mismatched verifier, `state` mismatch on callback, and the 401/403
+`WWW-Authenticate` challenges. Delegation does not excuse testing the delegated behaviour.
+
+### 6.12 Consent return route (finding 13)
+
+`/oauth/consent` with exactly one `authorization_id` parameter of the AS's id format is added to
+`src/auth/redirect-allowlist.ts`, so sign-in returns to the same pending authorization. Tested
+alongside the allowlist's existing malicious-redirect cases.
+
+### 6.13 Expiry-friction denominator (finding 15)
+
+`agent.grants` rows (written at first issuance, never deleted, only state-changed) are the
+population. Reported: grants issued per week, the share that hit expiry, the share that reconnected
+within 24 h, the share abandoned.
+
+### 6.14 Automatic derivation (finding 14) — OPEN
+
+Not designed. One hand-written function per tool satisfies "opt-in per action" but not P1215's
+"derivation is automatic" or its Criterion 3. Left open deliberately: the derivation mechanism
+should be designed against a real action once phase 1's boundary is proven, and P1215's Criterion
+3 stays unticked until it is.
 
 ## Review record
 
@@ -333,7 +461,31 @@ Rounds are blind: the reviewer gets this document and the P1215 spec, never the 
 reasoning. Dispositions are written below each round: **resolved** (document changed, with the
 section), or **accepted** (with the reason).
 
-*(Rounds 1 and 2 recorded after they run.)*
+### Round 1 — Codex (gpt-6.1-sol, effort high), 2026-10-08 — verdict NO
+
+1 of 1 reports received. 1 critical, 10 high, 4 medium.
+
+| # | Sev | Finding | Disposition |
+|---|---|---|---|
+| 1 | CRITICAL | S2 fallback leaves a refreshed agent token with full browser authority | **Resolved**: S2 and S4 failures now kill the AS choice (spike table) |
+| 2 | HIGH | Default PUBLIC EXECUTE makes any `agent` helper reachable without opt-in | **Resolved** §6.1 |
+| 3 | HIGH | Passthrough exemption asserted, not shown; direct entry points skip the Edge checks | **Resolved** §3.2 rewritten, §6.2, spike S8 |
+| 4 | HIGH | Refresh credential itself not bounded to 12 h | **Resolved** §6.3, plus a founder decision on the Non-Goal |
+| 5 | HIGH | Refusals resurrect an idle grant | **Resolved** §6.4 |
+| 6 | HIGH | Consent freshness is client-side only | **Accepted** §6.5: a browser session already exceeds an agent grant's authority |
+| 7 | HIGH | Consent phishing via forwarded `authorization_id`; clickjacking | **Resolved** for framing (§6.6); phishing gated on spike S9 |
+| 8 | HIGH | SECURITY DEFINER recreates the confused deputy | **Resolved** §6.7 |
+| 9 | HIGH | Quotas and concurrency not serialized | **Resolved** §6.8 |
+| 10 | HIGH | Export size, query cost, delivery after expiry unbounded | **Resolved** §6.9 |
+| 11 | HIGH | Effect oracle can certify a mutating tool; raised refusals roll back their audit row | **Resolved** §6.10 |
+| 12 | MEDIUM | Protocol conformance unverified | **Resolved** §6.11 |
+| 13 | MEDIUM | Consent return route rejected by the redirect allowlist | **Resolved** §6.12 |
+| 14 | MEDIUM | Automatic derivation omitted | **Open** §6.14, deliberately |
+| 15 | MEDIUM | Expiry friction has no durable denominator | **Resolved** §6.13 |
+
+### Round 2
+
+*(Recorded after it runs.)*
 
 ## Sources
 
