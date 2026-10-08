@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 27
 workstream: infrastructure
@@ -245,17 +245,17 @@ Consequences the build must handle (Codex, verified against the cited lines befo
 
 ## Done-When
 
-- [ ] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief); a statement about a personal activity is refused (fixture)
-- [ ] A statement matching a this-pass finding title is refused by `--reject-repeats` (failing control shown, exit 1)
-- [ ] Every reflection card shows "Agent on Slava" (CP `AgentByline`) with the agent's own position and a story citing at least one source; the founder's position is never pre-filled by it; the checker's verdict per story is in the pass evidence
-- [ ] The reflection card renders CP's extracted components (no copied markup); the clear control's computed colour equals CP's destructive red in a browser check; CP's own regression tests for the extracted components pass
-- [ ] The kanban boundary test allows the shared renderers and refuses an import of a Supabase/analytics module (failing control shown)
-- [ ] The report pager holds only founder-answerable cards and agent-only items are listed in the info area
-- [ ] The agent's position and story never appear in `decisions.jsonl` (test)
-- [ ] A statement whose story fails the checker twice is dropped and named in the evidence (fixture, failing control)
-- [ ] Kanban on React 19: full kanban unit suite and both e2e suites pass before and after the upgrade (counts pasted)
-- [ ] Checked at 375px, 320px and desktop
-- [ ] No card detail field restates its title (checker on the 2026-10-08 report: count of dropped repeats pasted), and Part A's board text stays at chip/short-button length
+- [x] Given the 2026-10-08 inputs, the step 9r brief contains the 10-07 post-event conversation reference and the 10-07 dedup rule (inspect the brief); a statement about a personal activity is refused (fixture)
+- [x] A statement matching a this-pass finding title is refused by `--reject-repeats` (failing control shown, exit 1)
+- [x] Every reflection card shows "Agent on Slava" (CP `AgentByline`) with the agent's own position and a story citing at least one source; the founder's position is never pre-filled by it; the checker's verdict per story is in the pass evidence
+- [x] The reflection card renders CP's extracted components (no copied markup); the clear control's computed colour equals CP's destructive red in a browser check; CP's own regression tests for the extracted components pass
+- [x] The kanban boundary test allows the shared renderers and refuses an import of a Supabase/analytics module (failing control shown)
+- [x] The report pager holds only founder-answerable cards and agent-only items are listed in the info area
+- [x] The agent's position and story never appear in `decisions.jsonl` (test)
+- [x] A statement whose story fails the checker twice is dropped and named in the evidence (fixture, failing control)
+- [x] Kanban on React 19: full kanban unit suite and both e2e suites pass before and after the upgrade (counts pasted)
+- [x] Checked at 375px, 320px and desktop
+- [x] No card detail field restates its title (checker on the 2026-10-08 report: count of dropped repeats pasted), and Part A's board text stays at chip/short-button length
 
 ## Pre-deploy Checklist
 
