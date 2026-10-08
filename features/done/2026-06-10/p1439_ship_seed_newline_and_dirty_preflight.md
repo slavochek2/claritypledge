@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1
 created_date: '2026-10-08'
 tags: [git-ops, ship, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
 severity: medium
+completed_at: 2026-10-08
 ---
 
 # P1439: `/ship` seed loses the spec's trailing newline; no up-front check for co-tenant edits
