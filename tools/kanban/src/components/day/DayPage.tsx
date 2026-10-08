@@ -147,7 +147,7 @@ export function DayPage() {
   const stories = useRef<Record<string, string>>({})
   /** P1435: positions just written, until the reload after them lands (see setPosition) */
   const pending = useRef(new Map<string, number | null>())
-  const toastTimer = useRef<number>()
+  const toastTimer = useRef<number | undefined>(undefined)
   // The selected run, readable from async callbacks: a response for any other run is dropped.
   const runIdRef = useRef<string | null>(null)
   runIdRef.current = runId
@@ -1031,7 +1031,7 @@ export function DayPage() {
   )
 }
 
-function Shell({ note, info, rootRef }: { note: string; info?: boolean; rootRef: RefObject<HTMLDivElement> }) {
+function Shell({ note, info, rootRef }: { note: string; info?: boolean; rootRef: RefObject<HTMLDivElement | null> }) {
   return (
     <div className="day-root" ref={rootRef}>
       <main className="d-main">

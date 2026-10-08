@@ -5,7 +5,7 @@
 // list), each story says where it is (not sent / sent n× / stuck / done), and stories from earlier
 // days that are still open are listed below.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react'
 import type { DayStatement, DayView, StoryEntry } from '../../lib/day'
 import { dayLabel } from './api'
 import { sideOf, DEFAULT_POS, type Side } from './positions'

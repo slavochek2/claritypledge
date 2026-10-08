@@ -616,7 +616,7 @@ function IssueCard(p: Props) {
   )
 }
 
-function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: DayView; readOnly: boolean; onBringBack: (fp: string) => void; open: boolean; setOpen: (o: boolean) => void; boxRef: RefObject<HTMLDivElement> }) {
+function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: DayView; readOnly: boolean; onBringBack: (fp: string) => void; open: boolean; setOpen: (o: boolean) => void; boxRef: RefObject<HTMLDivElement | null> }) {
   if (!view.parked.length) return null
   return (
     <div className="d-card d-parked" ref={boxRef}>

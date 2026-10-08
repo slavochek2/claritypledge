@@ -4,7 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { run as contextRun } from '../../scripts/day-reflection-context'
 import { run as checkRun } from '../../scripts/day-reflection-check'
-import { parseReport } from '../../src/lib/day'
+import { parseReport, type DayStatement } from '../../src/lib/day'
 import { synthReport } from './fixtures/day-fixture'
 
 /**
@@ -310,7 +310,7 @@ describe('P1445 C: a quote across markdown in the raw turn is still found (Codex
 })
 
 describe('P1445 C: the report keeps only a checked agent view', () => {
-  const statement = (agent: object) => ({ id: 'r1', text: 'A statement.', agent })
+  const statement = (agent: object) => ({ id: 'r1', text: 'A statement.', agent }) as unknown as DayStatement
   const base = { name: 'Slava', position: -2, story: 'A story.', sources: [{ ref: 'issue card: X', quote: 'X' }] }
   it('checker "pass" → shown; no checker, or a bad position → the statement stays, the agent view goes', () => {
     const read = (agent: object) => {
