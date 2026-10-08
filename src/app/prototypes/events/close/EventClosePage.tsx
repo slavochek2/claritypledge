@@ -17,6 +17,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Linkedin } from 'lucide-react';
 import { toast } from 'sonner';
+import { isSessionMismatch } from '@/lib/session-guard';
+import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
@@ -149,6 +151,7 @@ export function EventClosePage() {
 
 function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial: CloseState; viewerId: string }) {
   const navigate = useNavigate();
+  const signInAgain = useSignInAgain();
   const [headerRef, headerHeight] = useMeasuredHeight();
   const [barRef, barHeight] = useMeasuredHeight();
 
@@ -711,7 +714,14 @@ function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial
                     label="Reserve my place"
                     disabled={saving}
                     onClick={async () => {
-                      const ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId));
+                      let ok: boolean | undefined;
+                      try {
+                        ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId));
+                      } catch (err) {
+                        // P1441: the client could not act as this person, so nothing was sent.
+                        if (isSessionMismatch(err)) return signInAgain(nextEvent.slug);
+                        throw err;
+                      }
                       if (ok === undefined) return;
                       if (!ok) return toast.error('Could not register. Please try again.');
                       setReserved(true);

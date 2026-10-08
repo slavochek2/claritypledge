@@ -19,6 +19,7 @@ import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-conte
 import { clearOfflineReadCache } from '@/lib/offline-read-cache';
 import { clearAllNavVerifiedHints } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
+import { noteAppSession } from '@/lib/session-guard';
 
 interface AuthState {
   user: Profile | null;
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         setSession(initialSession);
+        noteAppSession(initialSession); // P1441: the guard's re-sync source
         hadSessionRef.current = !!initialSession;  // P1240: seed, so the first
         // transition after mount is classified against a real prior state
         setSessionChecked(true);
@@ -145,6 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         hadSessionRef.current = !!newSession;
 
         setSession(newSession);
+        noteAppSession(newSession);
 
         // Clear user immediately on sign out
         if (!newSession) {
@@ -284,6 +287,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Only clear state after successful sign-out to prevent ghost sessions
     setUser(null);
     setSession(null);
+    noteAppSession(null);
   }, []);
 
   // P537: useMemo prevents context consumers from re-rendering when values haven't changed

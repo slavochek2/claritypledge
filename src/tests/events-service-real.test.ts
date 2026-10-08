@@ -24,6 +24,8 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => mockFrom(table),
     auth: {
       getUser: () => mockGetUser(),
+      // P1441: rsvpToEvent first checks the client holds the RSVPing user.
+      getSession: () => Promise.resolve({ data: { session: { user: { id: 'user-1' } } } }),
     },
   },
 }));

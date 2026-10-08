@@ -17,6 +17,8 @@ import type { LetterMode } from '@/app/types';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
+import { logDbError } from './db-error-logger';
+import { ensureClientSessionFor, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { getSeatSecret, setSeatSecret, clearSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
@@ -4089,16 +4091,26 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
     }
   }
 
+  // P1441: never insert as anyone but `profileId` — an anonymous insert fails RLS and reads to
+  // the person as "event full". Checked right before the insert (not before the reads above),
+  // and the server's 401 answer is mapped too, since the session can still vanish in between.
+  // The caller turns SessionMismatchError into "please sign in again".
+  if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+
   // Insert RSVP
-  const { error } = await supabase
+  const { error, status } = await supabase
     .from('event_rsvps')
     .insert({
       event_id: eventId,
       profile_id: profileId,
     });
 
+  if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
+
   if (error) {
-    console.error('[Events API] Error creating RSVP:', error);
+    // P1441: reported like the manual path (events-service-real) — a failed auto-RSVP used to
+    // reach only the console. 23505 (already RSVP'd) stays quiet, as there (P897).
+    if (error.code !== '23505') logDbError('rsvpToEvent', error);
     return false;
   }
 

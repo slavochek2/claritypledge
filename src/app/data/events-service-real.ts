@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 import { logDbError, throwDbError } from './db-error-logger';
+import { ensureClientSessionFor, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
 
@@ -826,6 +827,7 @@ export const realEventsService: EventsService = {
   async rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
     log(' rsvpToEvent:', { eventId, profileId });
 
+
     // KNOWN LIMITATION: Capacity check is not fully atomic with insert.
     // Under high concurrent load, it's possible for two RSVPs to both pass
     // the capacity check and both insert, exceeding max_attendees by 1.
@@ -867,13 +869,21 @@ export const realEventsService: EventsService = {
       }
     }
 
+    // P1441: never insert as anyone but `profileId` — an anonymous insert fails RLS and reads to
+    // the person as "event full". Checked right before the insert (not before the reads above),
+    // and the server's 401 answer is mapped too, since the session can still vanish in between.
+    // The caller turns SessionMismatchError into "please sign in again".
+    if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+
     // Insert RSVP
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from('event_rsvps')
       .insert({
         event_id: eventId,
         profile_id: profileId,
       });
+
+    if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
 
     if (error) {
       // P897: 23505 = unique violation (already RSVP'd). That is an expected,

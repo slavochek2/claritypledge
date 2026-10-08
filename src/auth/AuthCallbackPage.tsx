@@ -19,7 +19,7 @@
  * This logic is isolated here to prevent race conditions.
  * DO NOT move this logic to a global hook or context.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { resolveAvatarFields } from "./resolve-avatar-fields";
@@ -37,6 +37,8 @@ import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId, isValidUUID 
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 import { organizationsService } from "@/app/data/organizations-service";
+import { isSessionMismatch } from "@/lib/session-guard";
+import { useSignInAgain } from "@/app/hooks/useSignInAgain";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -56,6 +58,12 @@ export function AuthCallbackPage() {
   const location = useLocation();
   const [status, setStatus] = useState("Finalizing authentication...");
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
+  const signInAgain = useSignInAgain();
+  // P1441: the user id whose sign-in this page has processed (set once, never cleared). The effect below re-runs
+  // whenever `user` or `session` changes — and its own refreshProfile() changes `user` — so
+  // without this the whole transaction ran twice per signup in prod: two profile upserts, two
+  // auto-RSVPs, and both profile_created and login_complete tracked.
+  const processedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
@@ -69,6 +77,9 @@ export function AuthCallbackPage() {
     }
 
     const processAuth = async () => {
+      // P1441: once a sign-in has been processed here, later re-runs (a refreshed `user`, a new
+      // session object, or the deliberate local sign-out on a lost session) do nothing.
+      if (processedUserIdRef.current !== null) return;
       if (!session) {
         // P1011: discriminate rather than suppress. `session` comes from useAuth,
         // not from the callback URL, so `!session` is the terminal state for EVERY
@@ -139,6 +150,7 @@ export function AuthCallbackPage() {
       }
 
       const { user: authUser } = session;
+      processedUserIdRef.current = authUser.id;
       const { user_metadata } = authUser;
       // P50/P64: Detect registration source from URL params
       // - source=pledge → user signed up via /sign-pledge (pledger)
@@ -617,6 +629,13 @@ export function AuthCallbackPage() {
               if (import.meta.env.DEV) console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
             }
           } catch (error) {
+            // P1441: the client could not act as this person, so no RSVP was sent. Ask them to
+            // sign in again; the login link carries the same redirect + action, and this page
+            // completes the RSVP after that sign-in.
+            if (isSessionMismatch(error)) {
+              await signInAgain(eventSlug);
+              return;
+            }
             console.error('❌ Error during auto-RSVP:', error);
           }
           // Fall through to normal redirect if auto-RSVP failed
@@ -804,7 +823,7 @@ export function AuthCallbackPage() {
     };
 
     processAuth();
-  }, [isLoading, sessionChecked, session, user, navigate, location.search, refreshProfile]);
+  }, [isLoading, sessionChecked, session, user, navigate, location.search, refreshProfile, signInAgain]);
 
   // Error state - show helpful recovery options
   if (status === "auth_error") {

@@ -35,7 +35,11 @@ vi.mock('@/app/prototypes/events/banner-utils', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
-    auth: { getUser: vi.fn() },
+    auth: {
+      getUser: vi.fn(),
+      // P1441: rsvpToEvent first checks the client holds the RSVPing user.
+      getSession: () => Promise.resolve({ data: { session: { user: { id: 'user-1' } } } }),
+    },
   },
 }));
 

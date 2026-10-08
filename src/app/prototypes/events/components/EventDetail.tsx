@@ -4,6 +4,8 @@ import { renderEventDescription } from '@/lib/markdown';
 import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
+import { isSessionMismatch } from '@/lib/session-guard';
+import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 import {
   ArrowLeft,
   MapPin,
@@ -70,6 +72,7 @@ export function EventDetail() {
 
   // Real auth state
   const { user, session } = useAuth();
+  const signInAgain = useSignInAgain();
   const isLoggedIn = !!session;
   // P844: BottomNav renders only when showUserMenu (verified user, profile loaded).
   // We key the sticky-bar bottom offset on this, NOT isLoggedIn — otherwise during the
@@ -468,7 +471,15 @@ export function EventDetail() {
 
     setIsActionLoading(true);
     const sentAt = networkMark();
-    const success = await eventsService.rsvpToEvent(event.id, user.id);
+    let success: boolean;
+    try {
+      success = await eventsService.rsvpToEvent(event.id, user.id);
+    } catch (err) {
+      setIsActionLoading(false);
+      // P1441: the client could not act as this person, so nothing was sent.
+      if (isSessionMismatch(err)) return signInAgain(event.slug);
+      throw err;
+    }
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(true);
