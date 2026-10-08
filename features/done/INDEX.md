@@ -414,6 +414,7 @@ Last updated: 2026-10-08
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1439** (Oct 08) `/ship` seed lost the spec's trailing newline since June (`$()` strips it), so the add/add fix never worked; up-front refusal on co-tenant edits — never round-trip file bytes through `$()`; a test that pre-builds the state under test exercises nothing
 - **P1438** (Oct 08) Private companion decisions log + privacy gate before `/kdd` commits — a search that reads only the public log misses private rulings silently, so the helper prints whether the private log was searched; judgment must run before the commit, not after; the new known-names check found a June leak a manual redaction had half-fixed
 - **P1432** (Oct 26) Day page shows which cards are answered — Accept writes at once; Next only moves; "Sent" per item from launch receipts, failed never counts
 - **P1435** (Oct 26) Day page — decide without scrolling — list beside the card via container query; a view that updates only after save+reload lets a fast second key press read stale state
