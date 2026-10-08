@@ -179,6 +179,69 @@ test.describe('P1441 UAT', () => {
     await page.context().close();
   });
 
+  test('(f) another tab signed in as a different account is never signed out by recovery', async ({ browser, baseURL }) => {
+    const x = await createTestUser({ name: 'Xeno Quill' });
+    const y = await createTestUser({ name: 'Yuri Zest' });
+    users.push(x.user.id, y.user.id);
+
+    // ONE browser context = shared localStorage, like two tabs of one browser.
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const tabA = await ctx.newPage();
+    // Tab A never hears the other tab's sign-in: supabase-js tells tabs apart over
+    // BroadcastChannel, and a lost notification is what leaves a tab showing a stale person.
+    await tabA.addInitScript(() => {
+      class SilentChannel {
+        constructor(public name: string) {}
+        postMessage() {}
+        addEventListener() {}
+        removeEventListener() {}
+        close() {}
+        onmessage = null;
+      }
+      (window as unknown as { BroadcastChannel: unknown }).BroadcastChannel = SilentChannel;
+    });
+    await signInViaLink(tabA, baseURL!, x.email, { source: 'login', redirect: `/events/${event.slug}` });
+    await expect(tabA).toHaveURL(new RegExp(`/events/${event.slug}$`), { timeout: 30000 });
+    await expect(tabA.getByText('XQ', { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    const reserveA = tabA.getByTestId('rsvp-button').first();
+    await expect(reserveA).toBeVisible({ timeout: 15000 });
+
+    // Tab B signs in as Y in the same browser: the stored session is now Y's.
+    const tabB = await ctx.newPage();
+    await signInViaLink(tabB, baseURL!, y.email, { source: 'login', redirect: `/events/${event.slug}` });
+    await expect(tabB).toHaveURL(new RegExp(`/events/${event.slug}$`), { timeout: 30000 });
+    await expect(tabB.getByText('YZ', { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    const storedUser = await tabA.evaluate(() => {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.endsWith('-auth-token')) return JSON.parse(localStorage.getItem(k) as string)?.user?.id ?? null;
+      }
+      return null;
+    });
+    expect(storedUser).toBe(y.user.id);
+    // Tab A still shows X — the state the recovery has to handle.
+    await expect(tabA.getByText('XQ', { exact: true }).first()).toBeVisible();
+
+    // Reserve in tab A: nothing is sent as X, and tab A reloads as whoever is really signed in.
+    const reloaded = tabA.waitForEvent('load');
+    await reserveA.click();
+    await reloaded;
+    await expect(tabA).toHaveURL(new RegExp(`/events/${event.slug}$`));
+    await expect(tabA.getByText('YZ', { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    await expect(tabA.getByText('XQ', { exact: true })).toHaveCount(0);
+    expect(await rsvpRows(event.id, x.user.id)).toBe(0);
+    await shots(tabA, 'f1-tab-a-reloaded-as-other-account');
+
+    // Y was not signed out: tab B is still Y after a reload, and an authenticated write as Y works.
+    await tabB.reload();
+    await expect(tabB.getByText('YZ', { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    await tabB.getByTestId('rsvp-button').first().click();
+    await expect(tabB).toHaveURL(new RegExp(`/events/${event.slug}/confirm`), { timeout: 20000 });
+    expect(await rsvpRows(event.id, y.user.id)).toBe(1);
+    expect(await rsvpRows(event.id, x.user.id)).toBe(0);
+    await ctx.close();
+  });
+
   test('(c) cancel success', async ({ browser, baseURL }) => {
     const person = await createTestUser({ name: 'UAT Canceller' });
     users.push(person.user.id);
