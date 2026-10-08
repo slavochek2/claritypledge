@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 26
 workstream: infrastructure
 created_date: '2026-10-08'
 tags: [ship, closure-gate, override]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-08
 ---
 
 # P1444: Closure gate — withdrawn and comment specs close on their own; real overrides are one click
