@@ -205,3 +205,74 @@ describe('P1044 gap 3, deny controls: a plain `false` is a deny, not an opening'
     });
   }
 });
+
+// Round 2 — found by Codex review of the first fix (2026-10-08) and reproduced before fixing.
+describe('P1321 review round: forms the first fix still missed', () => {
+  it('ignores the annotation inside a dollar-quoted body with a non-ASCII tag ($é$)', () => {
+    const f = fixture(
+      'DO $é$\nBEGIN\n-- intentionally-public: inside an executable body\nNULL;\nEND\n$é$;\n' +
+        'CREATE POLICY bypass ON public.points FOR INSERT WITH CHECK (1=1);\n',
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).toBe(1);
+  });
+
+  for (const form of [
+    'WITH CHECK (1e0 = 1e0)',
+    'WITH CHECK (0x1F = 0x1F)',
+    "WITH CHECK ('x' SIMILAR TO 'x')",
+    "WITH CHECK (coalesce(true, false))",
+    'WITH CHECK (1.5E+2 > 0)',
+  ]) {
+    it(`flags INSERT ... ${form} with no TO clause`, () => {
+      const f = fixture(`CREATE POLICY "bypass" ON public.points FOR INSERT ${form};\n`);
+      const { status, output } = runChecker([f]);
+      expect(output).toContain('VIOLATION');
+      expect(status).toBe(1);
+    });
+  }
+
+  it('a TO inside the predicate (SIMILAR TO) is not a scoping clause — the P1035 shape still flags', () => {
+    const f = fixture(
+      "CREATE POLICY p ON public.points FOR INSERT WITH CHECK (current_setting('role') SIMILAR TO 'service_role');\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).toBe(1);
+  });
+
+  it('a real TO clause in the header still scopes the policy', () => {
+    const f = fixture(
+      "CREATE POLICY p ON public.points FOR INSERT TO service_role WITH CHECK ('x' SIMILAR TO 'x');\n",
+    );
+    const { status } = runChecker([f]);
+    expect(status).toBe(0);
+  });
+
+  it('does not flag a quoted boolean column ("is_public") as constant', () => {
+    const f = fixture('CREATE POLICY own_flag ON public.points FOR INSERT WITH CHECK ("is_public");\n');
+    const { status, output } = runChecker([f]);
+    expect(output).not.toContain('VIOLATION');
+    expect(status).toBe(0);
+  });
+
+  it('does not flag an unknown helper function call (it may read the caller)', () => {
+    const f = fixture('CREATE POLICY p ON public.points FOR UPDATE USING (public.is_admin());\n');
+    const { status } = runChecker([f]);
+    expect(status).toBe(0);
+  });
+});
+
+describe('P1321 review round: keyword-with-paren forms stay constant', () => {
+  for (const form of ['WITH CHECK (EXISTS (SELECT 1))', 'WITH CHECK (1 IN (1, 2))', 'WITH CHECK (1 = ANY (ARRAY[1]))', 'WITH CHECK (NOT (false))']) {
+    it(`flags INSERT ... ${form}`, () => {
+      const f = fixture(`CREATE POLICY "bypass" ON public.points FOR INSERT ${form};\n`);
+      expect(runChecker([f]).status).toBe(1);
+    });
+  }
+  it('does not flag EXISTS over a real table (it reads rows)', () => {
+    const f = fixture('CREATE POLICY p ON public.points FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid()));\n');
+    expect(runChecker([f]).status).toBe(0);
+  });
+});

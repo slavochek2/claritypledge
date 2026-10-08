@@ -88,21 +88,44 @@ ROLE_IDENTITY_RE = re.compile(
 # function, so it cannot tell one row or caller from another. This replaces
 # enumerating spellings of `true`, which P1207 showed is a losing game
 # (`true AND true`, `2 > 1`, `NOT false` defeated an allowlist in a minute).
-# Known limit, stated: a predicate calling a function that ignores the caller
-# (e.g. `now() IS NOT NULL`) is not constant by this test and is not flagged.
+# A name followed by `(` is a function call: a call to a known PURE function
+# (coalesce, upper, ...) keeps the predicate constant; a call to anything else
+# does not, because an unknown helper may read the caller (`is_admin()`), and a
+# false positive there would teach people to annotate past the gate.
+# Known limit, stated: a constant built from a function NOT in PURE_FUNCTIONS
+# (e.g. `now() IS NOT NULL`), or cast to a type name not listed below, is not
+# flagged. Numeric literals of every form (1e0, 0x1F, 1_000, .5) are skipped as
+# numbers, never read as names (Codex review, 2026-10-08).
 CONSTANT_WORDS = frozenset(
     "true false null not and or is distinct from select cast as case when then "
-    "else end in between like unknown boolean bool int integer int2 int4 int8 "
-    "smallint bigint numeric text".split()
+    "else end in between like ilike similar to escape unknown isnull notnull "
+    "symmetric any some all array of collate exists "
+    "boolean bool int integer int2 int4 int8 smallint bigint numeric decimal "
+    "real float float4 float8 double precision text varchar char character "
+    "varying date time timestamp timestamptz interval with without zone uuid "
+    "json jsonb".split()
 )
-_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
+PURE_FUNCTIONS = frozenset(
+    "coalesce nullif greatest least upper lower length char_length octet_length "
+    "abs round floor ceil ceiling trunc mod power sqrt sign btrim ltrim rtrim trim "
+    "concat concat_ws replace substr substring left right strpos position reverse "
+    "repeat lpad rpad md5 initcap".split()
+)
+_PRED_TOKEN_RE = re.compile(
+    r"(?P<num>0[xXoObB][0-9a-fA-F_]+|(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?\d+)?)"
+    r"|(?P<name>[^\W\d]\w*(?:\s*\.\s*[^\W\d]\w*)*)(?P<call>\s*\()?"
+)
+_HEADER_END_RE = re.compile(r"\bUSING\b|\bWITH\s+CHECK\b", re.IGNORECASE)
 _PREDICATE_HEAD_RE = re.compile(r"\b(USING|WITH\s+CHECK)\s*\(", re.IGNORECASE)
 NAME_RE = re.compile(r'(?:CREATE|ALTER)\s+POLICY\s+("[^"]+"|\S+)', re.IGNORECASE)
 
-_DOLLAR_TAG_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$")
+# Postgres dollar-quote tags follow identifier rules, which include non-ASCII
+# letters: `$é$` is a valid tag. An ASCII-only pattern let a `$é$` body hide the
+# exemption annotation from the tokenizer (Codex review, 2026-10-08).
+_DOLLAR_TAG_RE = re.compile(r"\$([^\W\d]\w*)?\$")
 
 
-def _strip_noise(text, keep_line_comments=False):
+def _strip_noise(text, keep_line_comments=False, fill_quoted_idents=False):
     """Blank single-quoted strings, double-quoted identifiers, nesting-aware
     `/* */` block comments, `$$...$$`/`$tag$...$tag$` dollar-quoted strings,
     and `--` line comments (length/newlines preserved) so keyword matching
@@ -114,6 +137,10 @@ def _strip_noise(text, keep_line_comments=False):
     matched against: the annotation IS a line comment, so the normal view
     would erase it, while the raw text lets a string, block comment or
     dollar-quoted body carry the phrase and exempt the file (P1044).
+
+    fill_quoted_idents=True writes a double-quoted identifier as a run of `q`
+    (same length) instead of blanks, so `("is_public")` still reads as a column
+    name to the constant-predicate test rather than as an empty expression.
     """
     out = []
     i = 0
@@ -163,12 +190,13 @@ def _strip_noise(text, keep_line_comments=False):
             continue
 
         if state == "dquote":
+            fill = "q" if fill_quoted_idents else " "
             if ch == '"':
-                out.append(" ")
+                out.append(fill)
                 state = "normal"
                 i += 1
                 continue
-            out.append(ch if ch == "\n" else " ")
+            out.append(ch if ch == "\n" else fill)
             i += 1
             continue
 
@@ -216,7 +244,7 @@ def _strip_noise(text, keep_line_comments=False):
             continue
         if ch == '"':
             state = "dquote"
-            out.append(" ")
+            out.append("q" if fill_quoted_idents else " ")
             i += 1
             continue
         if ch == "/" and i + 1 < n and text[i + 1] == "*":
@@ -274,18 +302,41 @@ def _is_plain_false(body):
     return [t for t in tokens if t not in _PLAIN_FALSE_NOISE] == ["false"]
 
 
-def _has_constant_predicate(stmt_code_only):
-    for body in _predicates(stmt_code_only):
-        words = _WORD_RE.findall(body)
-        if all(w.lower() in CONSTANT_WORDS for w in words) and not _is_plain_false(body):
+def _is_constant(body):
+    """True when the expression names no column and calls no impure function."""
+    for m in _PRED_TOKEN_RE.finditer(body):
+        if m.group("num"):
+            continue
+        name = re.sub(r"\s+", "", m.group("name")).lower()
+        if m.group("call"):
+            # A keyword before `(` is syntax (CAST(, EXISTS (, ANY(, IN (, NOT (), not a call.
+            if name not in CONSTANT_WORDS and name.split(".")[-1] not in PURE_FUNCTIONS:
+                return False
+        elif name not in CONSTANT_WORDS:
+            return False
+    return True
+
+
+def _has_constant_predicate(stmt_pred_view):
+    for body in _predicates(stmt_pred_view):
+        if _is_constant(body) and not _is_plain_false(body):
             return True
     return False
+
+
+def _header(stmt_code_only):
+    """The policy text before its first USING / WITH CHECK: the only place a
+    FOR command or a TO role list can appear. Searching the whole statement let
+    a `SIMILAR TO` inside a predicate read as a scoping clause (Codex review,
+    2026-10-08) -- which also exempted the original P1035 role-identity shape."""
+    m = _HEADER_END_RE.search(stmt_code_only)
+    return stmt_code_only if not m else stmt_code_only[: m.start()]
 
 
 def _to_clause_is_insufficient(stmt_code_only):
     """True if there's no TO clause, or its role list includes PUBLIC
     (PUBLIC is exactly the unscoped case this gate exists to catch)."""
-    m = TO_CLAUSE_RE.search(stmt_code_only)
+    m = TO_CLAUSE_RE.search(_header(stmt_code_only))
     if not m:
         return True
     return bool(TO_PUBLIC_RE.search(m.group(1)))
@@ -304,7 +355,7 @@ def find_violations(content):
         stmt_raw = content[start:] if end == -1 else content[start : end + 1]
         stmt_code_only = _strip_noise(stmt_raw)
 
-        cmd_match = COMMAND_RE.search(stmt_code_only)
+        cmd_match = COMMAND_RE.search(_header(stmt_code_only))
         command = cmd_match.group(1).upper() if cmd_match else "ALL"  # FOR omitted = ALL (Postgres default)
         if command == "SELECT":
             continue
@@ -315,7 +366,7 @@ def find_violations(content):
         risky = (
             bool(LITERAL_TRUE_RE.search(stmt_raw))
             or bool(ROLE_IDENTITY_RE.search(stmt_raw))
-            or _has_constant_predicate(stmt_code_only)
+            or _has_constant_predicate(_strip_noise(stmt_raw, fill_quoted_idents=True))
         )
         if not risky:
             continue
