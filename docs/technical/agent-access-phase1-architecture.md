@@ -483,9 +483,30 @@ section), or **accepted** (with the reason).
 | 14 | MEDIUM | Automatic derivation omitted | **Open** §6.14, deliberately |
 | 15 | MEDIUM | Expiry friction has no durable denominator | **Resolved** §6.13 |
 
-### Round 2
+### Round 2 — Opus subagent (blind), 2026-10-08 — verdict NO
 
-*(Recorded after it runs.)*
+1 of 1 reports received. 1 critical, 5 high, 7 medium, 4 low. Its judgement of round 1: dispositions
+3 and 9 not resolved; 2, 4, 8, 10, 11 only partly; 6 mostly sound; 12, 13, 15 agreed; 14 an honest open.
+
+**All round-2 findings are OPEN.** Revising the design and marking them resolved without a third
+independent review would be the author judging their own fix.
+
+| # | Sev | Finding (short) | Checked by author |
+|---|---|---|---|
+| C1 | CRITICAL | Existing Edge Functions accept any token `getUser` accepts, then act as service role (send emails, write deliveries, mint signed URLs, paid AI calls); not in the matrix, not covered by the kill switch. This is P1215 Open Question 3 | **Verified**: 15 function entry files read the service-role key, 11 call `auth.getUser`, none checks `client_id`. Whether `getUser` accepts an agent token is a spike |
+| H1 | HIGH | The hook is config, not code: if it is missing or skipped, every OAuth token is full `authenticated`, and nothing detects that; a hook error also breaks browser sign-in | Config claims not re-checked |
+| H2 | HIGH | S2 must test both refresh endpoints and that `session_id` is stable across refresh, or the 12 h limit never fires | Reasoned |
+| H3 | HIGH | `agent_owner` cannot read through this project's policies (predicates granted to `authenticated` only; many permissive PUBLIC policies), and every workaround leaks authority or edits RLS | Not re-checked |
+| H4 | HIGH | Raised lock and statement timeouts roll back the audit row and skip the ceilings; the 2-concurrency limit contradicts the single lock; STABLE tools can't insert their audit row; lock keyspace collides with existing `hashtext` locks | Reasoned |
+| H5 | HIGH | S9 will almost certainly fail on standard OAuth: either accept phishing with bounds plus a post-connect notification email, or declare the design dead | Reasoned |
+| M1–M7 | MEDIUM | Ceilings bound cost, not confidentiality; audit log lacks retention and erasure; schema exposure of hook and tables; default-privilege change at the wrong layer (deny USAGE on `public` instead); matrix expected-set ignores what the anon key already reaches; anomaly detection is daily against a 12 h grant; consent-freshness acceptance is not "strictly more" on persistence | — |
+| L1–L4 | LOW | Public PKCE clients need no paste; `revokeGrant` granularity; `auth.sessions` grantability; a phished grant can take a concurrency slot | — |
+
+Full text: the round-2 report as returned to the P1321 session (not committed; its claims are
+summarised above with their verification status).
+
+**Status after two rounds: not safe to build.** P1321's Done-When "zero unresolved critical or high
+findings" is **not met**. Next: revision 2 addressing C1/H1–H5, then a third blind round.
 
 ## Sources
 
