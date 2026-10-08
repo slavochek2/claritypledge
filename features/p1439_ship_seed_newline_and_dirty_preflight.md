@@ -56,3 +56,13 @@ Non-goals: no change to the add/add auto-resolve rules beyond the comparison; no
 - INBOX-42 (`docs/process-learnings.md`) — implemented here; delete it once the task inbox is free (it held a co-tenant edit at ship time).
 - decisions.md 2026-06-27 [process] (the add/add fix this repairs); 2026-08-28 [process] P1174.
 - P1438 (where both surfaced).
+
+## Review (Codex, 2026-10-08) — 1 of 1 report received
+
+Verdict FIX FIRST; four defects, all fixed and tested:
+- Failed seed extraction left a truncated spec (redirect truncates before `|| die`) → write to a temp file, `mv` only on success.
+- Preflight ran before the kanban-noise discard, so an unstaged edit to the feature's own spec refused a normal ship → unstaged changes to `features/pN_*.md` exempt; staged kept. Test HH5.
+- Rename-aware `git diff --cached` hid a staged rename's source path → `--no-renames` on both sides. Test HH6 (mutation-checked: dropping `--no-renames` fails it).
+- `printf '%s' $_blocking` split filenames with spaces → printed unsplit.
+
+Accepted risks: a CRLF creation blob can still drift if main's `.gitattributes` normalizes on `git add` (not this repo's case); `main..branch` on a fresh run counts commits already landed under a different SHA, refusing conservatively. Suite: 61 PASS.
