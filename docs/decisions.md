@@ -38,12 +38,12 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-10-09 [process]: Production migrations reach prod only through /push, including fixes split off a parked branch (P1448)
+## 2026-10-09 [process]: Prod migrations apply from a commit on main — via /push, or a founder-approved hand-run — never from a feature branch (P1448)
 
 **Context:** Four reviewed database guard fixes sat on a parked branch, applied to test only, while the daily check reported prod open every morning. An agent ran the prod migration by hand from that branch; the agent harness refused it as a production deploy.
-**Decision:** The refusal was correct. The repo's path is: fixes land on main, and `/push` applies exactly the migrations the pushed commit carries before the code goes out — typing `/push` is the authorization and the keychain dialog the physical confirmation. Fixes split from a parked branch get their own embargoed spec (branch-born, neutral stub on main, neutral commit subjects) so they ship without the parked design, and `publish-spec` publishes the spec once prod is verified.
-**Alternatives rejected:** Hand-running `migrate.sh --env prod` from a feature branch. Shipping the whole parked branch to get its fixes.
-**Consequences:** The founder's part is `/push` plus one Allow, never a pasted command. Gaps found and filed: an embargo spec's file was carried onto main inside its own fix commit (caught by the duplicate-spec check before any push), and `publish-spec` does not remove the stub (INBOX-155).
+**Decision:** The defect was the source commit, not the hand-run. CLAUDE.md lists prod migrations as ALWAYS-ASK, so a hand-run with the founder's explicit yes is allowed — and the parent spec's session did exactly that minutes later, from main, successfully (smoke passed, manifest stamped). What must not happen is applying schema whose files are not on main (`--expect-sha` of an unmerged branch), because it breaks the "migrations the pushed SHA carries" model `/push` step 2.5 relies on. Routes: fixes land on main, then `/push` applies them (typing `/push` is the authorization, the keychain dialog the physical confirmation), or a founder-approved `--only` hand-run from main's SHA. Fixes split from a parked branch get their own embargoed spec (branch-born, neutral stub on main, neutral commit subjects), and `publish-spec` publishes it once prod is verified. The agent harness may still refuse a hand-run as a production deploy; that is the harness's constraint, not the repo's rule.
+**Alternatives rejected:** Hand-running `migrate.sh --env prod` with a feature-branch SHA. Shipping the whole parked branch to get its fixes. A "/push only" rule (contradicts CLAUDE.md's ALWAYS-ASK allowance; rejected by the meta-reflection critic).
+**Consequences:** The founder's part is `/push` plus one Allow, or a yes to a hand-run shown from main. Gaps found and filed: an embargo spec's file was carried onto main inside its own fix commit (caught by the duplicate-spec check before any push), and `publish-spec` does not remove the stub (INBOX-155).
 **References:** [p1448](../features/done/2026-06-10/p1448_security_fixes_prod.md), `.claude/commands/slava/build/push.md` step 2.5
 
 ---
