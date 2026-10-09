@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 137
+**Next ID:** 152
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2128,6 +2128,8 @@ Found by /day on 2026-10-06 (check: cp.sentry, severity: medium).
 
 Sentry JAVASCRIPT-REACT-3N: SyntaxError invalid group specifier name, 2 events, 0 users, culprit /events/<slug>/prepare. First seen shortly before this run.
 
+Still open on 2026-10-07 (/day cp.sentry).
+
 ---
 
 ## The GPU billed-hours check cannot run from the day script [day:da4cc7eb]
@@ -2154,6 +2156,8 @@ Found by /day on 2026-10-06 (check: cp.ops, severity: high).
 
 gh issue 18 "Auth canary failing — Google sign-in may be broken", opened 2026-10-06T06:22Z. Overnight signups still succeeded (2 confirmed), so it may be the canary itself.
 
+Still open on 2026-10-07 (/day cp.ops).
+
 ---
 
 ## Stranded signups alert is open and escalated [day:ad204c1c]
@@ -2166,6 +2170,8 @@ gh issue 18 "Auth canary failing — Google sign-in may be broken", opened 2026-
 Found by /day on 2026-10-06 (check: cp.ops, severity: medium).
 
 gh issue 15 "Stranded signups", labels p1155-escalated-2d, p1155-escalated-7d, last updated 2026-10-04. cp.signups reads 0 unconfirmed in the 24h to 7d window.
+
+Still open on 2026-10-07 (/day cp.ops).
 
 ---
 
@@ -2180,6 +2186,8 @@ Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
 
 features/p1181_community_scoped_visibility.md status qa, filed 2026-08-28 (39 days).
 
+Still open on 2026-10-07 (/day cp.w1).
+
 ---
 
 ## P1274 is closed but still sits in features [day:137604a3]
@@ -2193,6 +2201,10 @@ Found by /day on 2026-10-06 (check: cp.w1, severity: low).
 
 features/p1274_the_three_p1053_review_lenses_that_never_ran.md. Agent runs /slava:maintain:fix-kanban.
 
+Still open on 2026-10-07 (/day cp.w1).
+
+Still open on 2026-10-08 (/day cp.w1).
+
 ---
 
 ## A ship of P1389 started and never finished [day:614b4121]
@@ -2205,6 +2217,8 @@ features/p1274_the_three_p1053_review_lenses_that_never_ran.md. Agent runs /slav
 Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
 
 ./scripts/git-ops.sh ship p1389 --resume
+
+Still open on 2026-10-07 (/day cp.w1).
 
 ---
 
@@ -2227,5 +2241,173 @@ Worktrees lack tools/kanban/node_modules, so kanban tests, scripts/inbox.sh and 
 **due:** week
 
 Founder-approved: on the event page, the host's grouped participant rows pass showEarBadge false so names stop truncating to three letters at 375px; keep "understood N/10". One-line change in EventDetail plus an assertion in the P1429 A2 e2e (no ear badge inside the host groups, name not cut off). Not landed because the browser test could not run. Droppable if P1430 is built and covers it.
+
+---
+
+## A browser abort error was logged on a hike event page [day:3571e5ad]
+
+**ID:** INBOX-137
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-07 (check: cp.sentry, severity: low).
+
+JAVASCRIPT-REACT-3P: AbortError, browsing context is going away, 1 event about 4h ago, on the social-hike event page.
+
+---
+
+## The deferred-work inbox holds a large backlog with no exit [day:299d2a5b]
+
+**ID:** INBOX-138
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-07 (check: cp.weekly, severity: low).
+
+Counts from scripts/inbox.sh: public open 123 (next-id 137), private open 73. Zero unparseable. Entries tagged [day:...] were skipped by the loop guard (already on the board). The skill asks for one finding per entry; with this many that would flood the board, so this is one aggregate finding. Deviation reported to the dispatcher.
+
+---
+
+## Transcript efficiency counts are far above last week's baseline [day:658fd703]
+
+**ID:** INBOX-139
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-07 (check: cp.weekly, severity: low).
+
+Report at .private/reports/efficiency/2026-10-07.md. Skill threshold: P3 above 2x baseline and more than 50 percent genuine on spot-check means investigate the top 3 sessions.
+
+---
+
+## CLAUDE.md is at its 350-line budget [day:31f206f8]
+
+**ID:** INBOX-140
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-07 (check: cp.weekly, severity: low).
+
+wc -l CLAUDE.md = 350. No broken links found. 15 technical docs are older than 30 days; not triaged this pass.
+
+---
+
+## A CLAUDE.md change since the last run was not run through the claude-md gate [day:3038e55b]
+
+**ID:** INBOX-141
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-07 (check: cp.reflect, severity: low).
+
+Wave 1 CLAUDE.MD CHANGES listed a4ee700c5. The CLAUDE.md-gate subagent was not run here.
+
+---
+
+## Header event button: refetch while mounted; hoist StaticNavLinks; p887 flake
+
+**ID:** INBOX-142
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Surfaced by P1434 reviews, pre-existing, not fixed there. (1) useTonightsEvent refetches only when userId changes, so a header left mounted past local midnight keeps yesterday's registered event and a new RSVP stays invisible past the 5-minute cache until a remount (src/app/hooks/useTonightsEvent.ts, since P1351). (2) SimpleNavigation declares StaticNavLinks inside its render body, so the nav-links subtree remounts on every re-render, e.g. crossing the 20px scroll threshold. (3) src/tests/p887-reproduce.test.ts failed once under the full pre-commit run and passed alone 11/11. Droppable if no event-night report shows a stale button and p887 does not fail again by the next /monthly.
+
+---
+
+<!-- Resolved 2026-10-09: "Let a withdrawn spec close without the founder override" — delivered by P1444; P1274 closed on that route -->
+
+## Day page: land on the first open card in the same render; test the no-landing paths
+
+**ID:** INBOX-144
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** month
+
+Follow-ups from P1435. (1) On a run's first load the Day page shows card 1 for a frame before jumping to the first open card, because the landing runs in reload().then after setRun; apply the index in the same render. (2) Add e2e tests that an earlier (read-only) run does not jump, and that a fully rated Reflection reloads on statement 1. Done when both hold; droppable if the flash is never noticed.
+
+---
+
+## An event RSVP was refused by a database security rule [day:641f9da8]
+
+**ID:** INBOX-145
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-08 (check: cp.sentry, severity: high).
+
+Sentry JAVASCRIPT-REACT-3Q: Error "DB error in rsvpToEvent: new row violates row-level security policy for table event_rsvps". 1 event, 0 users counted, first and last seen about 4 hours before this run, on the social hike event page of 2026-10-11. Three of today's four new sign-ups came with a hike RSVP, so RSVP works in general; this may be a sign-in timing case.
+
+---
+
+## Event times show the wrong UTC offset in daylight saving, and two pages disagree on format
+
+**ID:** INBOX-146
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** month
+
+getTimezoneLabel (src/app/prototypes/events/utils.ts) maps each zone to a fixed standard-time label, so an event in a daylight-saving period shows the wrong offset (an Oct 11 Los Angeles event reads "UTC-8"; it is UTC-7). The displayed time itself is correct. The RSVP confirmation page (RsvpConfirm) also shows 24-hour time with no zone while the event page shows 12-hour time plus the label. Pre-existing, surfaced by P1441 visual QA. Done when the label is derived from the event's own date (Intl) and both pages use one format; droppable if event timezones stop being displayed.
+
+---
+
+## Event pages show standard-time UTC offset during daylight saving
+
+**ID:** INBOX-147
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** week
+
+getTimezoneLabel (src/app/prototypes/events/utils.ts:230) returns a fixed standard-time string, so a Los Angeles event on 11 Oct 2026 read UTC-8 when LA is UTC-7 until Nov 1; the time itself is correct. The confirmation page also uses 24h with no timezone while the event page uses 12h, so unify them. Done when the label follows the event date's real offset and both pages share one format; droppable if events stop showing an offset label. Found in P1441 browser UAT 2026-10-08.
+
+---
+
+## After P1441 deploys, confirm a failed auto-RSVP reaches Sentry
+
+**ID:** INBOX-148
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** week
+
+After P1441 deploys, confirm a failed auto-RSVP appears in Sentry as "DB error in rsvpToEvent" (the post-signup path previously logged to the console only; locally only the unit test proves it). Droppable if no failure occurs within 30 days.
+
+---
+
+## No-branch spec closes leave the UAT file behind
+
+**ID:** INBOX-149
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** month
+
+No-branch spec closes (git-ops.sh ship: the P920 route and the P1444 administrative route) never move features/uat/pN.md with the spec, so the UAT file is left in features/uat/. Pre-existing for every no-branch close; found by Codex review of P1444 (#10). Decide: move the UAT pair in the no-branch route, or document that UAT files stay.
+
+---
+
+## Repair integration specs that fail at their fixtures before reaching their subject
+
+**ID:** INBOX-150
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** week
+
+Found during P1321 regressions: get_inbox_items(p_user_id) callers in p690, p695 and two 20260412 specs (20260412150407_fix_invitation_token_uuid_cast also fails at its clarity_docs fixture insert); p778 inserts clarity_letters without source_doc_id (23502); p707-db-schema inserts clarity_letters.title, which no longer exists (PGRST204); p511 calls update_last_activity as service role; security-backlog-rls inserts stories.title (PGRST204); p1010 asserts terms_version 4 or 5 but the server writes 6. Done when each either passes or is deleted as superseded; droppable per spec if a newer spec already covers its subject.
+
+---
+
+## Stop integration specs signing in on the shared supabaseAdmin client
+
+**ID:** INBOX-151
+**Date:** 2026-10-08
+**Status:** proposed
+**due:** week
+
+p707-db-schema and p778-db-schema call supabaseAdmin.auth.signInWithPassword, which replaces the client's service-role session, so every later admin read and teardown runs as the signed-in user and test fixtures leak. Sign in on a throwaway client instead (pattern in e2e/integration/p1321-letter-delivery-guard.spec.ts) and grep e2e/ for other instances. Droppable if both specs are deleted under the fixture-repair note.
 
 ---
