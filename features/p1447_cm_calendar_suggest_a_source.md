@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 26
 workstream: events
 created_date: '2026-10-09'
 tags: [cm, events, anon-write, calendar]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -90,12 +90,12 @@ founder's queue.]
 
 ## Acceptance Criteria
 
-- [ ] A signed-out visitor on `/cm` can submit a link and sees a confirmation
-- [ ] A non-link (e.g. `hello`, `javascript:…`) is refused with a readable message, and nothing is stored
-- [ ] Submitting the same link twice stores one row
-- [ ] A signed-out caller cannot read suggestions through any API path (anon REST select and RPC probe both refused) — verified on **test**. `[post-deploy]` re-verify on prod.
-- [ ] Beyond the hourly cap, further submissions are refused with a readable message
-- [ ] The next `/day` run after a submission shows one card listing the new link; with no new submissions, no card
+- [x] A signed-out visitor on `/cm` can submit a link and sees a confirmation — anon submit 204 on test (canary); confirmation screen verified in browser (server reply stubbed while the test cap was full) and by unit test
+- [x] A non-link (e.g. `hello`, `javascript:…`) is refused with a readable message, and nothing is stored — canary + unit + browser at 320px
+- [x] Submitting the same link twice stores one row — canary (www / trailing-slash repeat), and path case kept distinct
+- [x] A signed-out caller cannot read suggestions through any API path (anon REST select and RPC probe both refused) — verified on **test**; canary proven to fail when the admin list is opened to anon. `[post-deploy]` re-verify on prod.
+- [x] Beyond the hourly cap, further submissions are refused with a readable message — canary incl. concurrent submits never overshooting, and a full cap answering known and unseen links alike
+- [x] The next `/day` run after a submission shows one card listing the new link; with no new submissions, no card — `cp.sources` check run against **test** (lists new links; a missing table reads 'query failed', never ok). `[post-deploy]` first prod /day run.
 
 ## UX Notes
 
