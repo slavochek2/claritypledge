@@ -6,7 +6,7 @@ rank: 1000064
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [agents, api, auth, distribution]
-blocked_by: [p1321]
+blocked_by: [p1321, p1452]
 delivery_stage: create-spec
 pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus

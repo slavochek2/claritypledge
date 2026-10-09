@@ -4,10 +4,11 @@
 Criterion 1 for P1215.
 
 **Specifics are deliberately not published here.** Every defect found is fixed on the test database
-and staged as a migration, but none is applied to production yet, so exact tables, functions,
-predicates and reproductions live in `.private/docs/security-log.md` (2026-10-08) — per CLAUDE.md's
-rule on unpatched vulnerability mechanics. This file records the method, the verdict, and what the
-method learned.
+and staged as a migration. On 2026-10-09 the four definer-function fixes were applied to production
+on the founder's go and re-probed there with controls; the column-visibility fix waits for its
+coupled frontend change to deploy. Exact tables, functions, predicates and reproductions live in
+`.private/docs/security-log.md` (2026-10-08, 2026-10-09) — per CLAUDE.md's rule on unpatched
+vulnerability mechanics. This file records the method, the verdict, and what the method learned.
 
 ## Decision Criterion 1 — answered
 

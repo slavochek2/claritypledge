@@ -19,6 +19,9 @@ related: [p1207, p1044, p1065, p1215]
 
 # P1321: Answer the agent-access security gate, and design phase-1 agent access
 
+> **Split 2026-10-09 (founder):** the phase-1 design (Solution step 5) and its open round-2 findings
+> moved to [P1452](p1452_agent_access_phase1_design_revision.md). This spec closes on steps 0–4.
+
 > **Deferred to backlog 2026-09-21 (founder).** Agent access comes after the champion-pilot and weekly-event work ([decisions.md](../docs/decisions.md) 2026-09-21 [product]). Unowned security items here (untriaged anonymous-callable functions) stay open; revisit before any agent work starts.
 
 ## Problem
@@ -97,6 +100,9 @@ Sequential, in one worktree:
    token exchange, callback, user binding, scope enforcement, `auth.uid()` derivation, kill switch, audit log —
    then **two blind adversarial review rounds** by reviewers who did not write it, each finding resolved or
    explicitly accepted in the document.
+   **Moved to [P1452](p1452_agent_access_phase1_design_revision.md) on 2026-10-09 (founder).** The draft and
+   both review rounds were done here; round 2 returned NO with its findings left open, and the revision and
+   third round belong to P1452. This spec keeps steps 0–4.
 
 ## Risks / Non-Goals
 
@@ -116,20 +122,48 @@ Sequential, in one worktree:
 
 ## Done-When
 
-- [ ] `python3 scripts/test-function-grant-drift-check.py` exits 0
-- [ ] RLS-scope gate fixtures for the missed literal-true forms exit 1, a clean fixture exits 0, committed
-- [ ] Column/table-grant drift check exists, exits 0 for test vs migrations after convergence, and its failure path was observed exiting non-zero
-- [ ] `scripts/function-grant-drift-check.py` exits 0 against test, every former gating finding carrying a verdict
-- [ ] Production migration history read (read-only) before and after the run is identical; staged production migrations, if any, are listed
-- [ ] A re-audit report exists with a written Criterion 1 answer, controls shown for every empty result
-- [ ] Phase-1 architecture document exists with two blind review rounds recorded, and zero unresolved critical or high findings
-  - **Evidence (2026-10-09): NOT MET — design PARKED.** Two blind rounds are recorded in
-    `docs/technical/agent-access-phase1-architecture.md` § Review. Round 2 (1 of 1 reports received)
-    returned **NO** with 1 critical and 5 high findings, all **open** (C1, H1–H5 in that table; M1–M7,
-    L1–L4 also open). No revision was made: P1215 is deferred and nothing can be built on this design
-    until Criterion 1 is **Yes**, which the re-audit still answers **No**. Unparking requires revision 2
-    against C1/H1–H5 and a third blind round by a reviewer who has not seen rounds 1–2.
+- [x] `python3 scripts/test-function-grant-drift-check.py` exits 0
+  - **Evidence (2026-10-09):** exit 0, `65/65 assertions held.`
+- [x] RLS-scope gate fixtures for the missed literal-true forms exit 1, a clean fixture exits 0, committed
+  - **Evidence (2026-10-09):** `npx vitest run src/tests/p1044-reproduce.test.ts` — 48/48 passed; the
+    missed forms assert exit 1 (e.g. L67, L74, L86), the clean fixtures exit 0 (L101, L109, L120).
+    Committed in 70fdd73a8 and d32ffa65d.
+- [x] Column/table-grant drift check exists, exits 0 for test vs migrations after convergence, and its failure path was observed exiting non-zero
+  - **Evidence (2026-10-09):** `scripts/table-grant-drift-check.py` (fb588b46c). `--env test` against this
+    branch's tree: **exit 1**, two findings, both `UPDATE letter_deliveries` — P1446's grant narrowing,
+    which is applied on test (and prod) but not yet on main, so not in this tree. That is the failure
+    path, observed on a real divergence. Same run with `--migrations-dir` = this tree plus P1446's two
+    migration files: **exit 0**, `no drift — every compared privilege agrees`, liveness controls passed.
+- [x] `scripts/function-grant-drift-check.py` exits 0 against test, every former gating finding carrying a verdict
+  - **Evidence (2026-10-09):** exit 0, `no unallowlisted anon-executable function, no prod/test grant
+    divergence` (prod 32 / test 34 anon-executable; guard probe rolled back). The run first exited 1 on
+    one gating finding, `submit_calendar_source(text,text)` — P1447's signed-out suggestion box, shipped
+    the same day without an allowlist entry. Verdict: allowlisted with its real anonymous call site
+    (`/cm` is a public route; `src/app/data/calendar-sources.ts:42`). The eleven findings of step 3
+    carry their verdicts in assumptions entry 2.
+- [x] No production write outside founder-approved applies; staged production migrations are listed
+  - **Reworded 2026-10-09.** Original text: *"Production migration history read (read-only) before and
+    after the run is identical; staged production migrations, if any, are listed."* It cannot be met as
+    written and no longer describes the intent: no snapshot was taken before the run (assumptions entry
+    12), and the founder then had four of this spec's fixes applied to prod on purpose (entry 21). The
+    reworded form is the part of Invariant 1 that the Resolved Decisions entry of 2026-09-16 says still
+    holds.
+  - **Evidence (2026-10-09):** prod `supabase_migrations.schema_migrations` from 20261008 on, read
+    read-only: 20261008210000, …230000, …231000, …232000 (this spec; applied on the founder's go,
+    entry 21), 20261009090000, …090100 (P1446; founder's go, same session), 20261009150000, …160000
+    (P1447's own ship). No other version. **Staged, not on prod:** 20261008220000 (R1), held by its
+    `requires-frontend: 4b29965e1` coupling until that commit is on origin/main.
+- [x] A re-audit report exists with a written Criterion 1 answer, controls shown for every empty result
+  - **Evidence:** [docs/audits/p1321-reaudit.md](../docs/audits/p1321-reaudit.md) — Criterion 1:
+    **No**; the Method table pairs each class with its control (class B's positive control, class D's
+    harness control).
+- Phase-1 architecture document with two blind review rounds — **moved to
+  [P1452](p1452_agent_access_phase1_design_revision.md) (2026-10-09).** The document and both rounds
+  exist (`docs/technical/agent-access-phase1-architecture.md` § Review record); round 2 returned NO with
+  C1 and H1–H5 open, which is P1452's starting point.
 - [ ] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
+  - **Status (2026-10-09):** 21 entries; 20 carry date, call and why. **Entry 16 is an open founder
+    decision**, so it has no call yet.
 
 ## Resolved Decisions
 

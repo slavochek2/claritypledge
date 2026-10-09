@@ -132,3 +132,9 @@ get_event_prep_social_proof(uuid)             # public counts + faces on the pre
 
 # --- 2026-10-07, P1347 topics page (day triage) ---
 get_open_topics()                             # the public /topics page lists topics before anyone signs in (P1347) — src/app/data/topic-voting.ts:77
+
+# --- 2026-10-09, P1447 suggest-a-source box on the public /cm page (entry added during P1321 close-out) ---
+# /cm is a public route (src/App.tsx, surface="public"); SuggestSourceDialog submits signed-out. The
+# function is write-only (returns nothing about other rows), rate-limited, and the cap is checked before
+# the de-dup so a full cap does not reveal which links were already suggested (20261009160000).
+submit_calendar_source(text,text)             # signed-out visitors suggest an event source on /cm (P1447) — src/app/data/calendar-sources.ts:42
