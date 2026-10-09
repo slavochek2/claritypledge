@@ -183,6 +183,8 @@ Last updated: 2026-10-09
 - **P1042** (Aug 26) migrate.sh Silently Skips on Version Collision — schema_migrations is keyed on the version prefix ALONE; two files sharing one means the second never runs, exit 0, on prod too. Needs BOTH an in-tree duplicate scan and a ledger `name` check — neither sees the other's case. Allowlist only pairs whose halves you queried in every environment; the ledger cannot tell you.
 - **P1211** (Sep 26) Code no longer reaches prod ahead of its migration — one checker reads prod's ledger on every route to main; the post-merge rollout is P1335, and a completion box that needs the merge cannot gate the merge.
 - **P1335** (Sep 26) schema-ready made a required check on main — GH013 refusal names it alone; live test-DB deadlock proof impossible by construction, first real migration push is INBOX-84
+- **P1447** (Oct 26) "Suggest a source" on /cm — anon write-only RPC: lock the cap, check it before de-dup (no existence oracle)
+- **P1448** (Oct 26) Four P1321 guard fixes shipped alone — prod migrations go through /push; embargo spec branch-born, stub on main
 
 ## Letters
 - **P1368** (Sep 28) Letter story video plays in place, sharp poster — sealed snapshots freeze video at seal time; a later video needs a manual snapshot backfill
@@ -319,6 +321,7 @@ Last updated: 2026-10-09
 - **P1229** (Sep 26) Public-Route Objective UI Defects — a helper that returns a zero sentinel instead of throwing makes the caller's catch dead
 - **P1296** (Sep 14) One card footer on feed, stake and profile — share the controls in one file, never the card; each card keeps its own layout
 - **P500** (Sep 14) Harmonize feed cards with profile card style — delivered under P1296's number and closed on its record, not by override
+- **P1449** (Oct 26) /day reflection = CP agent point + story card — derive Tailwind content from imports; measure computed styles, not screenshots
 
 ## Badge & Certification
 

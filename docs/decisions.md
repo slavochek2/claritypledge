@@ -8,6 +8,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-09 [technical]: Board CSS parity with CP is derived and fail-closed, never copied (P1449)
+
+**Context:** P1445 put CP's components on the /day board, but three things drifted. The board's Tailwind scan list was hand-written globs that missed `position-groups.ts`, so a selected position button rendered white on white (founder-reported: "selecting I agree doesn't work"). CP's `src/index.css` redefines `.rounded*` on `--radius` outside any Tailwind layer, and the board only received the `:root` tokens, so badges were square. And with no `@tailwind base`, `rotate-45` computed `transform: none`.
+**Decision:** Tailwind's `content` for the board is derived from the same import walk the boundary test uses (`reachableCpFiles`), so a renderer or helper the board imports is always scanned. CP's index.css is read at build time (`tools/kanban/cp-scoped-css.ts`): tokens, `@font-face`, single-class rules whose every declaration reads a `:root` token (today exactly `.rounded*`), and the body font, all scoped to the card. The reader throws a build error naming the missing piece when CP's stylesheet changes shape, instead of silently degrading. Tailwind base defaults are rescoped to `.cp-scope`. A theme-parity e2e compares computed styles on the board to CP's own stylesheet applied to the same markup.
+**Alternatives rejected:** A hand-kept safelist (blind to the next class, which is how the white-on-white bug shipped). Copying CP's CSS values into the board (drifts silently). Restyling the board's elements one by one to look right in a screenshot.
+**Consequences:** A new CP renderer on the board needs no Tailwind change. A CP stylesheet refactor that moves `.rounded*` or the font into a layer breaks the board build loudly. The parity test was proven to fail on a font-weight drift a board-only rule had introduced.
+**References:** [p1449](../features/done/2026-06-10/p1449_day_reflection_uses_cp_point_and_story_cards.md), `tools/kanban/cp-scoped-css.ts`, `tools/kanban/server/boundary.ts`
+
+---
+
+## 2026-10-09 [process]: Visual parity is settled by measured computed styles, not by reviewers reading screenshots (P1449)
+
+**Context:** Three independent visual reviewers (Codex, Gemini, Opus) compared the rebuilt reflection card to CP's live agent point card from screenshots, twice. Structure converged. But Codex and Gemini kept reporting typography differences — the AGENT label, badge, toggle and quote heading "lighter", the statement "smaller/larger" — and several outright false structural claims (that CP's position buttons are separate pills, that CP has no footer divider).
+**Decision:** A screenshot reviewer's claim about size, weight, spacing or colour is a hypothesis. It is settled by measuring `getComputedStyle` on the live product page and on the board, element by element. Measured: every disputed property was identical except one real drift (statement weight 500 vs 400, from a board-only CSS rule), which was fixed and added to the parity test. Reviewers stay useful for structure and order, where all three agreed.
+**Alternatives rejected:** Majority vote across reviewers (two of three were wrong together, on screenshots at different scales). Iterating until every reviewer says "same" (unbounded, and chases artifacts).
+**Consequences:** Visual-parity work pairs reviewers with a computed-style probe of the reference. Screenshots given to outside models use synthetic data, never the founder's real board content.
+**References:** [p1449](../features/done/2026-06-10/p1449_day_reflection_uses_cp_point_and_story_cards.md), `tools/kanban/e2e-day/day-page.spec.ts` (theme parity)
+
+---
+
+## 2026-10-09 [technical]: Anonymous suggestion box — write-only RPC, serialised cap checked before de-duplication (P1447)
+
+**Context:** The CM calendar page needed a way for anyone, signed in or not, to suggest an events source. The founder chose open access over the P1347 ruling that typed links need sign-in, because suggesters are mostly not CP users; the text is never shown publicly and only the founder reads it.
+**Decision:** One table with RLS on, no policies and no client grants; one anon-executable SECURITY DEFINER function that stores a bounded http(s) link and returns nothing. A global hourly cap (Postgres cannot see the client IP), held under a transaction advisory lock so concurrent submits cannot overshoot it, and checked before the de-duplication so a full cap answers every link the same way. De-duplication folds only the host's case, never the path. The founder reads new links through a /day check over the read-only role; nothing fetches or publishes a link.
+**Alternatives rejected:** Sign-in to suggest (kills submissions from non-users). De-dup before the cap (lets an anonymous caller learn which links were already suggested). Lower-casing the whole URL (merges distinct case-sensitive pages).
+**Consequences:** A script can still fill the cap for an hour — accepted, as with P1347's votes. Review fixes came from an outside-model review (Codex) and each has a failing-first test; the race test's failure path was not demonstrated (it would need the lock rolled back on test).
+**References:** [p1447](../features/done/2026-06-10/p1447_cm_calendar_suggest_a_source.md), `supabase/migrations/20261009150000_p1447_calendar_source_suggestions.sql`, `20261009160000_p1447_submit_source_review_fixes.sql`
+
+---
+
+## 2026-10-09 [process]: Production migrations reach prod only through /push, including fixes split off a parked branch (P1448)
+
+**Context:** Four reviewed database guard fixes sat on a parked branch, applied to test only, while the daily check reported prod open every morning. An agent ran the prod migration by hand from that branch; the agent harness refused it as a production deploy.
+**Decision:** The refusal was correct. The repo's path is: fixes land on main, and `/push` applies exactly the migrations the pushed commit carries before the code goes out — typing `/push` is the authorization and the keychain dialog the physical confirmation. Fixes split from a parked branch get their own embargoed spec (branch-born, neutral stub on main, neutral commit subjects) so they ship without the parked design, and `publish-spec` publishes the spec once prod is verified.
+**Alternatives rejected:** Hand-running `migrate.sh --env prod` from a feature branch. Shipping the whole parked branch to get its fixes.
+**Consequences:** The founder's part is `/push` plus one Allow, never a pasted command. Gaps found and filed: an embargo spec's file was carried onto main inside its own fix commit (caught by the duplicate-spec check before any push), and `publish-spec` does not remove the stub (INBOX-155).
+**References:** [p1448](../features/done/2026-06-10/p1448_security_fixes_prod.md), `.claude/commands/slava/build/push.md` step 2.5
+
+---
+
 ## 2026-10-09 [process]: Security-fix verification — five ways a probe went blind, and the with/without comparison (P1321, P1446)
 
 **Context:** Verifying two security reviews' database fixes on the test project and then production. Several probes returned a clean verdict for a reason unrelated to the fix; each was caught only by a control.
