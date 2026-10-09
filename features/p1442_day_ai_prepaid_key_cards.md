@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 24
 workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, ai-keys, monitoring, kanban]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -91,12 +91,14 @@ Reversibility: high — git revert. Decision density: zero (term decided).
 
 ## Done-When
 
-- [ ] The report's budget rows equal what `gcloud billing budgets list` returned during that pass (same display names, pasted), and the Monitor tab renders every one of them, grouped account / alarms / key cards / unmatched (10 on 2026-10-08)
-- [ ] Each AI prepaid key card shows spend vs cap, cap state, alert budget present or missing, and exactly one of spent / unused this month / no spend recorded / unmeasurable
-- [ ] The unused oracle returns different answers for a known-used and a known-unused key (pasted); until it does, no card says "unused this month"
-- [ ] An older report without the new fields still renders (test)
-- [ ] The term is defined in the private AI-keys infra doc and the ai-keys skill
-- [ ] Checked at 375px, 320px and desktop
+- [x] The report's budget rows equal what `gcloud billing budgets list` returned during that pass (same display names, pasted), and the Monitor tab renders every one of them, grouped account / alarms / key cards / unmatched (10 on 2026-10-08)
+      Evidence 2026-10-09: the 06:56Z report's 10 budget names are identical to a live `gcloud billing budgets list` (LC_ALL=C diff, mutated-copy control detected); the board's `parseReport` keeps all 10 (account 1, alarm 1, key-cap 5, key-alert 3); grouping rendered by e2e `day-page.spec.ts` (`.d-h3` order assertion).
+- [x] Each AI prepaid key card shows spend vs cap, cap state, alert budget present or missing, and exactly one of spent / unused this month / no spend recorded / unmeasurable
+- [x] The unused oracle returns different answers for a known-used and a known-unused key (pasted); until it does, no card says "unused this month"
+      Evidence 2026-10-09 — oracle control FAILED, pre-registered fallback in force: Cloud Monitoring `api/request_count` (generativelanguage, Oct 1–9) returned 1 series / 226 and 1 series / 4474 for two used key projects, and **no series** (not an explicit zero) for two revoked ones. Absence is "unmeasurable" per the Solution, so the oracle cannot say "unused"; the /day producer emits only spent / no-spend / unmeasurable (`P1442_STATES`), and the board shows "unused" only with same-month request evidence (unit REVIEW 5, ROUND 3 C3).
+- [x] An older report without the new fields still renders (test)
+- [x] The term is defined in the private AI-keys infra doc and the ai-keys skill
+- [x] Checked at 375px, 320px and desktop — e2e asserts no sideways scroll and no element escaping its card at 1280/375/320 (innerWidth polled); independent visual QA pass found one defect (dangling '·' in the key-cards header at 320/375), fixed with a binding test, red→green
 
 ## Related
 
