@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 26
 workstream: events
 created_date: '2026-10-09'
 tags: [cm, events, anon-write, calendar]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-09
 ---
 
 # P1447: "Suggest a source" on the Chiang Mai events calendar
