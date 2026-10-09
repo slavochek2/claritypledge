@@ -6,8 +6,8 @@ workstream: profile
 created_date: '2026-10-09'
 tags: [profile, banner, agents, image-generation]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: challenge-prd
+pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -44,14 +44,15 @@ Decision density: a few (see the founder decisions below).
 
 1. **Picker:** choose one of five eras uniformly (pre-1500, 1500–1800, 1800–1900, 1900–1950, 1950–today), then an artist uniformly within that era, from a checked-in pool with these fields: artist, sig, movement, active, work, era, exclude flag.
 2. **Prompt:** wide banner in the artist's style, evoking their signature work. Scenery or abstract composition. No text, no nudity, no religious figures, faces not in focus. The calm lower-left area stays free for the avatar.
-3. **Signature:** rendered as HTML text over the image, bottom-right, reading `after <sig>`. Never painted into the image, and never imitating the artist's real signature (forgery). Ink (dark sepia or cream) is computed **once at generation** from the corner's luminance and stored with the banner, not computed per viewer.
+2b. **Fidelity check:** after generation, ask a vision model to name the artist/movement; if it cannot, regenerate once. If the image is too dark (mean luminance below a numeric floor set by `/architect`), regenerate once. Max 2 extra generations per banner.
+3. **Signature:** rendered as HTML text over the image, bottom-right, reading `after <sig>`. Never painted into the image, and never imitating the artist's real signature (forgery). Ink (dark sepia or cream) is computed **once at generation** from the bottom-right region **as it appears in the displayed crop** (cover-fit into the 120px/160px strip), not the full source image, and stored with the banner, not computed per viewer.
 4. **Metadata:** store artist, movement and ink alongside the banner. The schema shape is `/architect`'s call.
 5. **Humans:** the existing P504 lazy generation keeps running and uses the new prompt. It never overwrites an existing banner, and the owner keeps the regenerate and remove controls.
-6. **Agents:** generate a banner when the agent avatar is generated. Update `/slava:content:gen-agent-avatar` and `/slava:content:provision-agent` (the founder approved these skill changes in conversation). Apply the agent treatment decided below.
+6. **Agents:** every `/provision-agent` run generates a banner — including the no-portrait branch (Step 2b, `p_avatar_url = NULL`), so the banner is NOT coupled to avatar generation. Generation runs through a service-role/operator path (no website controls); fixing a bad agent banner is done by re-running the skill. Update `/slava:content:gen-agent-avatar` and `/slava:content:provision-agent` (the founder approved these skill changes in conversation). Apply the agent treatment decided below.
 
-**Decided 2026-10-09 (founder):** agent banners use the full, unfiltered art plus a small visible "agent" badge on the banner. No color filter (a grey filter collides with the P1104 finding; the heavy duotone flattened styles).
+**Decided 2026-10-09 (founder, revised after /challenge-prd):** agent banners use the full, unfiltered art and NO banner badge — the profile already discloses via the `Agent ·` name prefix, `AgentByline` and `AgentProfileDisclosure` (P1104/P1259/P1270); a third marker adds clutter and crops at 120px. No color filter (a grey filter collides with the P1104 finding; the heavy duotone flattened styles).
 **Decided 2026-10-09 (founder):** the visible signature reads `after <sig>` only; AI generation is disclosed in the banner's alt text and hover tooltip (e.g. "AI-generated image after Hokusai").
-**Decided 2026-10-09 (founder):** no backfill. Only new users' banners and owner-initiated regenerations use the new style.
+**Decided 2026-10-09 (founder):** no backfill for human users — only new users' banners and owner-initiated regenerations use the new style. **Existing agents ARE backfilled on prod** (they have no banner today, so nothing chosen is replaced; small count).
 
 ## Invariants
 
@@ -68,9 +69,11 @@ Decision density: a few (see the founder decisions below).
 | Risk | Label | Note |
 |---|---|---|
 | Offensive or inappropriate art on a personal profile (religious icons, nudity, politically charged murals) | MITIGATE | `exclude` flag on the pool plus prompt constraints; human review of the pool before ship |
-| Image too dark to read (Caravaggio-type output) | MITIGATE | Reject and regenerate below a corner/overall luminance floor |
-| The image model misrenders a style and outputs a generic painting under a famous name | ACCEPT | Seen 0 times in 16 prototype banners; owner can regenerate |
-| Unchecked LLM-drafted pool contains wrong dates or wrong works | MITIGATE | Human pass over the pool file before ship |
+| Image too dark to read (Caravaggio-type output) | MITIGATE | Regenerate once below a numeric luminance floor (set in /architect) |
+| The image model misrenders a style and outputs a generic painting under a famous name | MITIGATE | Vision-model check + one retry; pass rate measured before ship |
+| Unchecked LLM-drafted pool contains wrong dates or wrong works | MITIGATE | Founder review is an Acceptance Criterion |
+| Social previews (OG image) show the art without credit/disclosure | ACCEPT | Profile OG behaviour unchanged by this spec; revisit if profiles get shared |
+| No evidence users want this beyond one founder remark | ACCEPT | Delight feature, no hypothesis attached; reversible prompt change. UNTESTED — falsifier: no change in profile-banner regenerate/remove rate after 30 days |
 | Backfill spend against the Gemini cap | ACCEPT | No backfill (founder decision); volume = new users + regenerations |
 | Agent treatment reads as editorializing against a real subject (P1104 ruling) | MITIGATE | Measure at rendered size; no menacing treatments |
 
@@ -78,16 +81,37 @@ Decision density: a few (see the founder decisions below).
 - Do NOT change event or story banners.
 - Do NOT change the avatar generator's frozen slate/amber palette (P1104 ruling).
 - Do NOT touch `banner_mobile_url` (P1413, hand-set).
+- Do NOT add website banner controls for agents or operators.
+- Do NOT change the keyword-search banner flow beyond appending the artist style to its prompt.
+- Do NOT backfill human users.
 
 ## Acceptance Criteria
 
-- [ ] A new user visiting their own profile gets a banner clearly in a named artist's style, with "after <name>" readable bottom-right at 320px, 375px and desktop widths.
-- [ ] Across 20 consecutive generations, all five eras appear and no movement repeats more than twice.
+- [ ] A new user visiting their own profile gets an artist-style banner (passing the vision check above), with "after <name>" readable bottom-right at 320px, 375px and desktop widths.
+- [ ] The picker is unit-tested: with a seeded RNG over 1,000 draws, each era is chosen 20% ± 3%.
 - [ ] The signature is readable on both a light-corner and a dark-corner banner (sepia vs. cream ink observed).
 - [ ] An existing user's banner is unchanged after deploy.
-- [ ] Hovering the banner (or reading its alt text) discloses it is AI-generated after the named artist.
-- [ ] A newly provisioned agent has an unfiltered artist banner with a visible "agent" badge, generated in the same run as its avatar.
+- [ ] The banner's alt text and a tooltip (desktop) disclose "AI-generated image after <artist>"; on touch devices the disclosure is reachable without hover (e.g. tap on the signature).
+- [ ] The founder has reviewed the artist pool (names, dates, `exclude` flags) and the review is recorded in this spec.
+- [ ] Over 20 test generations, the vision check names the intended artist or movement for ≥ 80% before retry; the measured rate is recorded here.
+- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed.
+- [ ] The signature font (Caveat 700) loads on prod without CSP errors.
+- [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait.
 - [ ] Regenerate gives a different artist; remove still works.
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|---|---|---|---|
+| 1 | /challenge-prd | [BLOCK] "Clearly in style" untestable | Vision-model check + retry, ≥80% measured over 20 | Repeatable, catches generic output a new user would not regenerate |
+| 2 | /challenge-prd | [BLOCK] Agent badge ignores P1259/P1270 disclosure design | Badge dropped | Profile already discloses; third marker is clutter |
+| 3 | /challenge-prd | [BLOCK] Agent banner tied to avatar; Step 2b agents get none; owner-only path | Banner on every provisioning run; service-role path; no UI | Covers no-portrait agents; no new website surface |
+| 4 | /challenge-prd | [WARN] Ink measured on uncropped source | Measure displayed crop | Signature sits on the visible corner |
+| 5 | /challenge-prd | [WARN] Hover-only disclosure | Alt + tooltip + tap on touch | Touch has no hover |
+| 6 | /challenge-prd | [WARN] Pool review only in Risks | Made an AC | Nothing gated ship before |
+| 7 | /challenge-prd | [WARN] Random-sampling AC | Seeded unit test | Deterministic |
+| 8 | /challenge-prd | [WARN] No desirability evidence | Accepted, labelled UNTESTED | Cheap, reversible delight feature |
+| 9 | founder | Backfill existing agents? | Yes, on prod; humans no | Agents have no banner today; nothing chosen is replaced |
 
 ## UX Notes
 
@@ -103,6 +127,7 @@ Decision density: a few (see the founder decisions below).
 
 - [ ] Redeploy the `generate-banner` edge function to prod (no new secret; uses the existing `GEMINI_API_KEY`).
 - [ ] Apply the prod migration if `/architect` adds metadata columns.
+- [ ] After deploy: run the agent banner backfill on prod (existing agents only), then spot-check every agent profile.
 
 ## Open Questions
 
