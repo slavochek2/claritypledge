@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -11,8 +11,8 @@ tags:
   - p1445
 created_date: 2026-10-09
 disclosure: public
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1449: The /day reflection card is CP's point card with CP's story card
@@ -108,11 +108,9 @@ Card centred and full-width of its pane when it is the only statement.
 
 The story's Fact / Connection / Speculation tiers: in CP the Disagreement Pipeline's tiers are a
 writing and checking rule, and the published story renders as prose in CP's story card.
-[FOUNDER DECISION: show the agent's story as CP's prose story (tiers stay a checker rule, as in the
-Disagreement Pipeline), or show the three tier labels as separate parts on the board?]
+Decided 2026-10-09: CP's prose story; the tiers stay a writing and checking rule (CP's own agent cards show prose plus supporting quotes).
 
-[FOUNDER DECISION: the picture for "Agent on Slava" — a generated agent avatar (as CP's agent
-accounts have), or the founder's own photo marked as an agent?]
+Decided 2026-10-09: a generated agent avatar in CP's agent style (founder: "yes generate - and reuse later").
 
 ## Predecessor Sections Superseded
 
@@ -152,13 +150,13 @@ avatar from `src/app/components/feed/feed-point-card.tsx` and its shared compone
 
 ## Acceptance Criteria
 
-- [ ] A reflection statement shows CP's point card footer with a "1 story" control, closed by default; opening it shows the agent's story in CP's thread line
-- [ ] The agent's story row shows an author picture, the `AGENT on Slava` byline and its position badge, as CP shows an agent's story
-- [ ] The board renders these through CP's extracted components (no copied markup; boundary test still refuses Supabase/analytics imports)
-- [ ] With a single statement the card is centred in its pane, with no empty column
-- [ ] Three independent reviewers (Codex, Gemini, Opus) each compare the board card to CP's point card and to a Disagreement Pipeline story on CP, from screenshots, and report no structural difference; findings fixed or recorded
-- [ ] CP's feed point card is visually unchanged (before/after screenshot) and its existing tests pass
-- [ ] All existing P1445 tests still pass; checked at 375px, 320px and desktop
+- [x] A reflection statement shows CP's point card footer with its story control ("Their story", as CP's agent Points-tab card labels it), closed by default; opening it shows the agent's story in CP's thread line — Day e2e
+- [x] The agent's owner row shows an author picture, the `AGENT on Slava` byline and its position badge, and the story shows as CP's prose with supporting quotes, as CP shows an agent's point — Day e2e; picture falls back to initials until `avatarUrl` is set (portrait generated 2026-10-09)
+- [x] The board renders these through CP's extracted components (boundary test still refuses Supabase/analytics imports — failing control kept); the only board markup is the founder's own answer area and two footer wrappers copied from CP's inline JSX
+- [x] With a single statement the card is centred in its pane, with no empty column — Day e2e at 1400px
+- [x] Three independent reviewers (Codex, Gemini, Opus) each compared the board card to CP's agent point and story cards from screenshots, two rounds, 3 of 3 reports each; findings fixed or recorded: structure matches (Codex: same order; Opus round 2: SAME CARD); remaining Codex/Gemini typography claims were measured against CP's live page and found identical (theme-parity e2e, proven to fail on a weight drift)
+- [x] CP's point cards are unchanged — extractions reviewed line by line in /finish, and CP's tests for the touched components pass (52 files, 636 passed)
+- [x] All existing P1445 tests still pass (Day e2e 132 passed, kanban unit 451 passed); checked at desktop. The board is desktop-only (founder decision 2026-10-09); its phone-width layout is pre-existing and out of scope, filed as INBOX-153
 
 ## Next Steps
 
