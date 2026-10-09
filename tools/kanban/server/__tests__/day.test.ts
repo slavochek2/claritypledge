@@ -1,9 +1,10 @@
-import { boundaryOffenders } from '../boundary'
+import { boundaryOffenders, reachableCpFiles } from '../boundary'
 import { describe, it, beforeAll, afterAll, beforeEach, afterEach, expect, vi } from 'vitest'
 import { app } from '../api'
 import { createServer, request as httpRequest } from 'http'
 import type { AddressInfo } from 'net'
 import { mkdtemp, mkdir, writeFile, readFile, rm, utimes, readdir, chmod } from 'fs/promises'
+import { readFileSync } from 'fs'
 import { join, relative, resolve } from 'path'
 import { tmpdir } from 'os'
 import {
@@ -1129,6 +1130,21 @@ describe('P1445 D (replaces P1399 rule 10): the board reaches CP only through ap
   const repo = resolve(__dirname, '../../../..')
   it('the real board source: approved renderers allowed, no offender anywhere in their import graph', () => {
     expect(boundaryOffenders(resolve(__dirname, '../../src'), repo)).toEqual([])
+  })
+
+  it('P1449: Tailwind scans every CP file the board reaches — including class maps in .ts helpers (the selected button\'s colours)', async () => {
+    const files = reachableCpFiles(resolve(__dirname, '../../src'), repo).map((f) => relative(repo, f))
+    // one known member per path kind: an approved renderer, a .ts helper it imports, a transitive util
+    expect(files).toEqual(expect.arrayContaining([
+      'src/app/components/shared/presentational/position-buttons.tsx',
+      'src/app/components/shared/presentational/position-groups.ts',
+      'src/lib/utils.ts',
+    ]))
+    const twPath: string = '../../tailwind.config.js' // a .js config with no types
+    const { default: tw } = (await import(twPath)) as { default: { content: string[] } }
+    expect(tw.content).toEqual(expect.arrayContaining(files.map((f) => resolve(repo, f))))
+    // the class the bug lost lives in a file Tailwind now scans
+    expect(readFileSync(resolve(repo, 'src/app/components/shared/presentational/position-groups.ts'), 'utf-8')).toContain('bg-blue-600')
   })
 
   it('FAILING CONTROL — a board file importing an analytics or Supabase module is refused, and so is an unapproved CP file', async () => {

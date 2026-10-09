@@ -17,7 +17,6 @@ import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
   PointHeader,
   PositionButtons,
-  PositionBadge,
   ShareButton,
   InlineVisibilityIcon,
   ThreadLineGroup,
@@ -32,6 +31,9 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { PointOwnerRow, QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card';
+import { listPointCardClass } from '@/app/components/shared/card-action-classes';
+import { QuotedStoryShell } from '@/app/components/shared/presentational/quoted-story-shell';
 import {
   CardCountText,
   CardExpander,
@@ -262,7 +264,7 @@ export function PointCardWithLinks({
      focus ring): it is not one. The point page keeps its plain card; embeds and demos keep main's
      hover, because there the card still opens on click. */
   const cardClassName = isDetailView || inListFooter
-    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden`
+    ? listPointCardClass(bgTint)
     : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:border-l-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
   /** A list card is an article named by its content; elsewhere the root stays as it was. */
   const CardRoot = inListFooter ? 'article' : 'div';
@@ -365,88 +367,44 @@ export function PointCardWithLinks({
             {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped.
                 P1366 — in a list this is the card's top row, so the `⋯` joins it on the right; the
                 name truncates and the menu never shrinks, so nothing overlaps at 320px. */}
-            <div
-              className={`${inListFooter ? 'flex items-center justify-between gap-2' : 'flex items-center gap-1.5'} mb-2 text-sm text-gray-700${isOwnerAgent ? ' agent-card-drained' : ''}`}
-              {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
-              {...(inListFooter ? { 'data-testid': 'point-owner-row' } : {})}
-            >
-              <div className={inListFooter ? 'flex min-w-0 items-center gap-1.5' : 'contents'}>
-              <GravatarAvatar
-                name={profileOwner.name}
-                photoUrl={profileOwner.avatarUrl}
-                avatarColor={profileOwner.avatarColor}
-                size="sm"
-                isPledger={profileOwner.hasPledged ?? false}
-                isAgent={isOwnerAgent}
-                identityPending={identityPending}
-                className="!w-5 !h-5 !text-[10px]"
-              />
-              <span className={inListFooter ? 'inline-flex min-w-0 items-center gap-1.5' : 'inline-flex items-center gap-1.5'}>
-              {/* P1141 amendment: an agent account is named the same way on every surface;
-                  the raw stored `Agent · {Name}` used to leak through here. */}
-              {isOwnerAgent ? (
-                <AgentByline name={profileOwner.name} />
-              ) : (
-                <span className={inListFooter ? 'min-w-0 truncate font-medium' : 'font-medium'}>{profileOwner.name}</span>
-              )}
-              {!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
-              <PositionBadge position={profileOwner.position} />
-              </span>
-              </div>
-              {listMenu}
-            </div>
+            <PointOwnerRow
+              inList={!!inListFooter}
+              isAgent={isOwnerAgent}
+              name={profileOwner.name}
+              position={profileOwner.position}
+              avatar={
+                <GravatarAvatar
+                  name={profileOwner.name}
+                  photoUrl={profileOwner.avatarUrl}
+                  avatarColor={profileOwner.avatarColor}
+                  size="sm"
+                  isPledger={profileOwner.hasPledged ?? false}
+                  isAgent={isOwnerAgent}
+                  identityPending={identityPending}
+                  className="!w-5 !h-5 !text-[10px]"
+                />
+              }
+              badges={!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
+              menu={listMenu}
+            />
 
-            {/* Quoted Point box */}
-            <div className="bg-gray-50 border border-border rounded-lg p-3">
-              {/* Two-column layout matching StoryCard structure */}
-              <div className="flex items-start gap-3">
-                {/* Pin icon column - matches StoryCard avatar width */}
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-                  <Pin className="w-4 h-4 rotate-45" />
-                </div>
-
-                {/* Content column */}
-                <div className="flex-1 min-w-0">
-                  {/* Point text with inline visibility icon */}
-                  <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
-                    <InlineVisibilityIcon visibility={point.visibility} />{' '}
-                    {linkifyText(displayText)}
-                    {isTextTruncated && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
-                        className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
-                      >
-                        show more
-                      </button>
-                    )}
-                  </p>
-
-                  {/* P491: Tag pills — after text, before position buttons */}
-                  {tags && tags.length > 0 && (
-                    <TagPills tags={tags} context="detail" className="mt-2" />
-                  )}
-
-                  {/* Position buttons */}
-                  {!hideActions && (
-                    <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
-                      <PositionButtons
-                        userPosition={currentUserId ? userPosition : anonPosition}
-                        counts={counts}
-                        onPositionClick={handlePositionClick}
-                        narrow
-                        disabled={disablePositionButtons}
-                        onClear={onClear}
-                      />
-                      {/* P502: Anonymous position CTA */}
-                      {!currentUserId && anonPosition && (
-                        <AnonPositionCTA pointId={point.id} position={anonPosition} isEmbed={isEmbed} />
+            {/* Quoted Point box — P1449: presentational/quoted-point-card.tsx (the Day board renders it too) */}
+            <QuotedPointBox
+              statement={
+                    <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
+                      <InlineVisibilityIcon visibility={point.visibility} />{' '}
+                      {linkifyText(displayText)}
+                      {isTextTruncated && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); embedNavigate(`/point/${point.id}`); }}
+                          className="ml-1 text-blue-600 hover:text-blue-700 text-sm"
+                        >
+                          show more
+                        </button>
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-
+                    </p>
+              }
+              footer={<>
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap).
                   Non-list only (an embed of someone's point): main's footer. In a LIST the footer
                   is the card-level row below — FOUNDER DECISION 2026-09-28, see there. */}
@@ -520,7 +478,33 @@ export function PointCardWithLinks({
                 )}
               </div>
               )}
-            </div>
+              </>}
+            >
+                  {/* Point text with inline visibility icon */}
+
+                  {/* P491: Tag pills — after text, before position buttons */}
+                  {tags && tags.length > 0 && (
+                    <TagPills tags={tags} context="detail" className="mt-2" />
+                  )}
+
+                  {/* Position buttons */}
+                  {!hideActions && (
+                    <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <PositionButtons
+                        userPosition={currentUserId ? userPosition : anonPosition}
+                        counts={counts}
+                        onPositionClick={handlePositionClick}
+                        narrow
+                        disabled={disablePositionButtons}
+                        onClear={onClear}
+                      />
+                      {/* P502: Anonymous position CTA */}
+                      {!currentUserId && anonPosition && (
+                        <AnonPositionCTA pointId={point.id} position={anonPosition} isEmbed={isEmbed} />
+                      )}
+                    </div>
+                  )}
+            </QuotedPointBox>
           </>
         ) : (
           // Feed view: original layout with pin icon column
@@ -850,44 +834,13 @@ export function QuotedStory({
        first and the bordered box second; this one nested the attribution INSIDE the box.
        Same shape now, so the remaining difference is props rather than structure, which is
        what unblocks merging them later (deferred in the spec's risk table). */
-    <div className="w-full text-left" data-testid="quoted-story">
-      {/* Author info ABOVE the box.
-
-          P1270 §6 — THE GATE IS `author || isAgent`, NOT `author`, AND THAT IS THE FIX.
-          `getStoryAuthor` resolves against POSITION HOLDERS on the embed surface
-          (`point-detail-page.tsx`), and returns undefined whenever a story's author holds no
-          position on the point they filed it under. Nothing tied those two sets together, so
-          this whole block disappeared — avatar, AGENT chip, name and stance at once — and
-          `/point/:id?embed=true` shipped a machine-written reading of a real named person
-          with NO indication a machine wrote it and no route to the disclosure.
-
-          Gating on `isAgent` derives from `story.authorId` and needs no lookup, so the marker
-          can no longer be lost to a failed join. A marker with no name is strictly better
-          than no marker; the name is additive when the lookup succeeds (spec, ACCEPT). */}
-      {(author || isAgent) && (
-        /* `flex-wrap` — P1270 §5, found by measuring at 320px, not by reading the code.
-           The stance badge is `shrink-0`, so on a nested card (measured 179px wide at a 320px
-           viewport) it took the width the NAME needed and the name truncated to "Connor L…".
-           Confirmed by isolation rather than inference: hiding the badge in the live DOM took
-           the name's available width from 78px back to the 95px it needs, un-truncating it.
-           Pre-existing since P1259 put the badge here; §5 made it visible by putting this row
-           under scrutiny, and made it slightly better by moving the row out of the box's
-           padding.
-
-           Wrapping is the documented preference, not a guess. `agent-byline.tsx` reached the
-           same conclusion for the same reason one level down: "Two blind reviewers
-           independently called that the worst thing on the page — WHOSE reading this is, is
-           the one fact the byline exists to carry, and it was the only element being
-           sacrificed." A card naming a real person who never consented is the last place to
-           truncate that person's name to fit a badge. The badge drops to its own line
-           instead; nothing is lost, and `truncate` stays the backstop for a name too long
-           even for a full line. */
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
-          {/* AVATAR + BYLINE ARE ONE UNSPLITTABLE GROUP. The first attempt let the ROW wrap
-              with the avatar as its own flex item, which fixed the truncation and produced a
-              worse result: the avatar was orphaned alone on line 1 with the name on line 3 —
-              the "orphan sibling" the visual-QA checklist names. Only the BADGE may wrap. */}
-          <span className="flex items-center gap-2 min-w-0">
+    <QuotedStoryShell
+      isAgent={isAgent}
+      authorPosition={authorPosition}
+      openViaDetails={openViaDetails}
+      onClick={onClick}
+      header={(author || isAgent) ? (
+          <>
           {/* P1270 §6 — THE AVATAR WRAPPER IS ONLY A CONTROL WHEN THERE IS SOMEWHERE TO GO.
               Same rule already applied to the name below, and the same rule `agent-byline.tsx`
               note 2 states: rendering a focusable `role="button"` whose handler resolves to
@@ -1034,43 +987,9 @@ export function QuotedStory({
               the square black-and-white photo and the word AGENT were not already carrying.
               Those two are the channels now, and §6 shipped in the same change because one
               render branch was carrying neither. */}
-          </span>
-          {authorPosition && (
-            <span data-testid="story-author-stance" className="inline-flex shrink-0">
-              <PositionBadge position={authorPosition} />
-            </span>
-          )}
-        </div>
-      )}
-      {/* THE BOX — content only, from here down. The click target, the border, the hover
-          state and the focus ring all live on this element rather than on the outer
-          container, so the attribution row above is not part of the control: clicking a
-          name navigates to the profile, clicking the box navigates to the story, and the
-          two no longer overlap. `QuotedPointCard` has always been shaped this way. */}
-      {/* P1424: on a list card (`openViaDetails`) the box is NOT a control — no role, tab stop,
-          handlers, pointer cursor or hover state — and its own `Details →` opens the story. */}
-      <div
-        {...(openViaDetails ? {} : {
-        role: 'button',
-        tabIndex: 0,
-        onClick,
-        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
-          // P1212's root guard, on this box too. P1296 folded the supporting quotes behind a
-          // toggle BUTTON inside this box; without the target check, Enter on that toggle (or
-          // on a timecode) was preventDefault()ed here and turned into a navigation, which
-          // made the quotes unreachable by keyboard on every point card.
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
-          }
-        },
-        })}
-        className={`${openViaDetails
-          ? 'w-full text-left p-3 rounded-lg border border-border bg-gray-50'
-          : 'group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'}${isAgent ? ' agent-card-drained' : ''}`}
-        {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-      >
+          </>
+      ) : null}
+    >
       {/* Story media — compact in quoted context.
           P1212 §4, second pass: this surface rendered `StoryImage` alone, so a story whose
           only media is a VIDEO rendered with no media at all. That was survivable while
@@ -1166,7 +1085,6 @@ export function QuotedStory({
           <NestedDetailsButton type="story" onOpen={(e) => onClick(e)} describedBy={textId} />
         </>
       )}
-      </div>
-    </div>
+    </QuotedStoryShell>
   );
 }

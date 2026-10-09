@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { formatTimecode, getTimestampUrl, type VideoQuote } from '@/lib/video';
 
 interface StoryVideoQuotesProps {
@@ -35,13 +35,77 @@ export function StoryVideoQuotes({
   onSeek,
   playerBlocked = false,
 }: StoryVideoQuotesProps) {
+  if (!quotes || quotes.length === 0) return null;
+
+  const canSeek = !!onSeek && !playerBlocked;
+
+  // P1449: the list's markup is SupportingQuotes below (the Day board renders it with no timecode).
+  return (
+    <SupportingQuotes
+      quotes={quotes.map((quote, index) => {
+        const timecode = formatTimecode(quote.seconds);
+        const timestampUrl = getTimestampUrl(videoUrl, quote.seconds);
+        return {
+          key: `${quote.seconds}-${index}`,
+          text: quote.text,
+          lead: canSeek ? (
+                      <button
+                        type="button"
+                        onClick={() => onSeek?.(quote.seconds)}
+                        data-testid="story-video-quote-timecode"
+                        data-seconds={quote.seconds}
+                        aria-label={`Play from ${timecode}`}
+                        className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        {timecode}
+                      </button>
+                    ) : (
+                      <a
+                        href={timestampUrl ?? videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="story-video-quote-timecode"
+                        data-seconds={quote.seconds}
+                        aria-label={`Open the source at ${timecode} in a new tab`}
+                        className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        {timecode}
+                      </a>
+                    ),
+        };
+      })}
+    />
+  );
+}
+
+/**
+ * P1449 — the supporting-quotes list with no product dependencies: the heading, then one row per
+ * quote — an optional lead (StoryVideoQuotes: the timecode control) and the quote in its blockquote.
+ * StoryVideoQuotes renders it with timecodes; the Day board (tools/kanban) renders it with none.
+ * This file imports only '@/lib/video', which is product-free; keep it that way — the kanban
+ * boundary test follows imports transitively.
+ */
+export interface SupportingQuote {
+  key: string;
+  text: ReactNode;
+  /** before the quote (CP: the timecode button / link) */
+  lead?: ReactNode;
+  /** extra attributes on the row (CP: none) */
+  rowProps?: Record<string, string>;
+}
+
+export function SupportingQuotes({ quotes }: { quotes: SupportingQuote[] }) {
   const listId = useId();
 
   if (!quotes || quotes.length === 0) return null;
 
-  const canSeek = !!onSeek && !playerBlocked;
   const count = quotes.length;
-
   return (
     <section className="mt-4" data-testid="story-video-quotes">
       {/* P1141 amendment 2026-08-24: the `{n} marks · {duration}` meta line was removed.
@@ -62,13 +126,9 @@ export function StoryVideoQuotes({
         use. The measurement was never the disagreement; the affordance was.
       */}
       <ul id={listId} aria-labelledby={`${listId}-heading`} className="mt-2 space-y-3" data-testid="story-video-quotes-list">
-          {quotes.map((quote, index) => {
-            const timecode = formatTimecode(quote.seconds);
-            const timestampUrl = getTimestampUrl(videoUrl, quote.seconds);
-
-            return (
+          {quotes.map((quote) => (
               <li
-                key={`${quote.seconds}-${index}`}
+                key={quote.key}
                 // Blind review, round 2, defect 5: at 320px a fixed timecode
                 // column squeezed the quote to a ragged three-words-per-line
                 // ribbon. The row stacks below `sm` and only becomes two columns
@@ -76,46 +136,18 @@ export function StoryVideoQuotes({
                 // timecode and the quote's first line read as one row.
                 className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3"
                 data-testid="story-video-quote"
+                {...quote.rowProps}
               >
-                {canSeek ? (
-                  <button
-                    type="button"
-                    onClick={() => onSeek?.(quote.seconds)}
-                    data-testid="story-video-quote-timecode"
-                    data-seconds={quote.seconds}
-                    aria-label={`Play from ${timecode}`}
-                    className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    {timecode}
-                  </button>
-                ) : (
-                  <a
-                    href={timestampUrl ?? videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-testid="story-video-quote-timecode"
-                    data-seconds={quote.seconds}
-                    aria-label={`Open the source at ${timecode} in a new tab`}
-                    className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    {timecode}
-                  </a>
-                )}
+                {quote.lead}
                 <blockquote className="min-w-0 flex-1 border-l-4 border-border pl-3 text-sm italic text-gray-700 dark:border-gray-700 dark:text-gray-300">
                   {quote.text}
                 </blockquote>
               </li>
-            );
-          })}
+          ))}
       </ul>
     </section>
   );
 }
+
 
 export default StoryVideoQuotes;

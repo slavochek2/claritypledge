@@ -11,6 +11,15 @@ export const APPROVED = [
   'src/app/components/shared/presentational/position-buttons.tsx',
   'src/app/components/shared/presentational/point-card-shell.tsx',
   'src/app/components/shared/presentational/story-quote-row.tsx',
+  // P1449: the point card's footer + stories toggle, the thread line, and the author avatar
+  'src/app/components/shared/presentational/card-footer.tsx',
+  'src/app/components/shared/presentational/quoted-point-card.tsx',
+  'src/app/components/shared/presentational/quoted-story-shell.tsx',
+  'src/app/components/shared/story-video-quotes.tsx',
+  'src/app/components/shared/agent-byline.tsx',
+  'src/app/components/shared/card-action-classes.ts',
+  'src/app/components/shared/ThreadLine.tsx',
+  'src/components/ui/gravatar-avatar.tsx',
 ]
 
 /** A module whose path or specifier matches is product state, not a renderer. */
@@ -34,13 +43,29 @@ function resolveFile(base: string): string | null {
  * Returns readable lines: "<importer> → <specifier>: <why>".
  */
 export function boundaryOffenders(boardSrc: string, repo: string, approved = APPROVED): string[] {
+  return walkBoard(boardSrc, repo, approved).offenders
+}
+
+/**
+ * P1449: every CP file the board reaches (approved renderers and everything they import), absolute.
+ * tailwind.config.js scans exactly these, so a class that lives in a renderer's helper module (the
+ * position buttons' `activeClass` map in position-groups.ts) is generated — a hand-kept glob list
+ * missed it and the selected button rendered with no background.
+ */
+export function reachableCpFiles(boardSrc: string, repo: string, approved = APPROVED): string[] {
+  return walkBoard(boardSrc, repo, approved).cp
+}
+
+function walkBoard(boardSrc: string, repo: string, approved: string[]): { offenders: string[]; cp: string[] } {
   const out: string[] = []
+  const cp: string[] = []
   const ok = new Set(approved.map((a) => resolve(repo, a)))
   const boardRoot = resolve(boardSrc, '..')
   const seen = new Set<string>()
   const walk = (file: string, fromBoard: boolean) => {
     if (seen.has(file)) return
     seen.add(file)
+    if (!file.startsWith(boardRoot + '/')) cp.push(file)
     const text = readFileSync(file, 'utf-8')
     for (const m of text.matchAll(IMPORT)) {
       if (m[2]) continue // import type / export type: erased at build
@@ -75,5 +100,5 @@ export function boundaryOffenders(boardSrc: string, repo: string, approved = APP
   const files = (d: string): string[] =>
     readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(d, e.name)) : /\.(tsx?)$/.test(e.name) ? [join(d, e.name)] : []))
   for (const f of files(boardSrc)) walk(f, true)
-  return out
+  return { offenders: out, cp: cp.sort() }
 }

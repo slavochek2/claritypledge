@@ -75,10 +75,14 @@ Continue the **same** writer (SendMessage) with `grounding.txt` pasted inline:
 > For each, add the view of "Agent on Slava" — you, writing as the founder's mirror agent:
 > - `position`: where you predict Slava stands on the statement, -3 (strongly disagree) to 3 (strongly
 >   agree). It is your prediction, shown beside his own control; it never answers for him.
-> - `story`: one short story (at most 900 characters) explaining why — the Disagreement Pipeline's
->   story-draft rules: three tiers, each labelled — **Fact** (what a cited source says, quoted),
->   **Connection** (what you conclude from it), **Speculation** (what you guess). No sentence that
->   restates the statement.
+> - `story`: one short story (at most 900 characters) explaining why, in plain prose — no labels,
+>   no headings, no "Fact:" / "Connection:" / "Speculation:" (P1449: the board shows it as CP shows a
+>   story, prose with its supporting quotes under it). The Disagreement Pipeline's three-tier rule
+>   still governs every sentence, as in its story-draft: (1) what a source says must map to one of
+>   your `sources` quotes; (2) how it connects — your reasoning between the quotes — is allowed, it is
+>   the story's job; (3) a fact about the world (a name, date, number, event) is banned unless a quote
+>   carries it. A guess must read as a guess ("may", "probably"). No sentence that restates the
+>   statement.
 > - `sources`: 1 to 6 of the grounding lines you rely on, each `{"ref": "<its id, e.g. D3>", "quote":
 >   "<words copied EXACTLY from that source>"}`. A quote that is not in its source fails the check.
 >
@@ -115,8 +119,10 @@ inline: each statement with the agent's position, story and sources (ref + quote
 
 > You check another agent's work; you succeed by finding what is wrong. For each statement, answer
 > `rN: pass` or `rN: fail: <one-line reason>`. Fail it when: the story claims something its quoted
-> sources do not support (judge only from the quotes given); a sentence labelled Fact is not in a
-> quote; the statement repeats or paraphrases an issue card (the titles below); it is about a
+> sources do not support (judge only from the quotes given) — the story is plain prose with no tier
+> labels, so classify each sentence yourself: a sentence that states what happened or what a source
+> says must be backed by one of the quotes, reasoning between the quotes is fine, and a guess must read
+> as a guess; the story carries tier labels ("Fact:", "Connection:", "Speculation:"); the statement repeats or paraphrases an issue card (the titles below); it is about a
 > personal activity; it is task micromanagement rather than strategy; no reasonable founder could take
 > the opposite side; or the story mostly restates the statement. One line per statement, nothing else.
 

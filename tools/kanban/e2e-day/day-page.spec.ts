@@ -3,7 +3,8 @@
 
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
+import { createRequire } from 'module'
 import { DAY_E2E_DIR, OFF, ON } from '../playwright.day.config'
 import { EARLIER_ID, LATEST_ID, NEWER_ID, seedDay, type Variant } from '../scripts/day-seed'
 import { CHECKS, synthReport } from '../server/__tests__/fixtures/day-fixture'
@@ -2382,19 +2383,209 @@ test.describe('P1445 D: the reflection card is CP\'s point card, with "Agent on 
     await expect(card.locator('[aria-pressed=true]')).toHaveCount(0)
   })
 
-  test('a statement with a checked agent view shows AGENT on Slava, its own stance and its sources — and never sets the founder\'s position', async ({ page }) => {
+  test('a statement with a checked agent view shows AGENT on Slava above it, its own stance and its quotes — and never sets the founder\'s position', async ({ page }) => {
     await open(page, 'c2')
+    const owner = page.locator('.d-cpcard [data-agent-owner]')
+    await expect(owner.getByTestId('agent-byline-name')).toHaveText('Slava')
+    await expect(owner).toContainText('Disagrees−') // CP's PositionBadge for the agent's -1
+    // P1449: the story opens from the footer's "Their story" toggle
+    await page.locator('.d-cpcard [data-testid=point-story-expander]').click()
     const row = page.locator('.d-cpcard [data-agent-view]')
-    await expect(row.getByTestId('agent-byline')).toContainText('on')
-    await expect(row.getByTestId('agent-byline-name')).toHaveText('Slava')
-    await expect(row).toContainText('Disagrees−') // CP's PositionBadge for the agent's -1
     await expect(row).toContainText('no champion talk yet')
-    await row.locator('summary').click()
-    await expect(row.locator('.d-agent-src li')).toHaveText(/issue card: Weekly measurements/)
+    await expect(row.getByTestId('story-video-quote')).toHaveText(['no champion talk yet'])
     // the founder's own control is untouched by the agent's view
     await expect(page.locator('.d-cpcard [data-position-control] [aria-pressed=true]')).toHaveCount(0)
     // a statement without one shows no agent row
     await page.locator('[data-list-statement="c1"]').click()
+    await expect(page.locator('.d-cpcard [data-agent-view], .d-cpcard [data-agent-owner]')).toHaveCount(0)
+  })
+})
+
+
+/**
+ * P1449 iteration 4: CP's classes must resolve to CP's CSS on the board. The oracle is CP's own
+ * stylesheet — CP's src/index.css compiled by CP's own Tailwind config (never a copied value) —
+ * applied to the very markup the board rendered; the board's computed styles must match it.
+ */
+const CP_ROOT = resolve(new URL('.', import.meta.url).pathname, '../../..')
+async function compileCpCss(): Promise<string> {
+  const req = createRequire(join(CP_ROOT, 'package.json'))
+  const postcss = req('postcss')
+  const tailwind = req('tailwindcss')
+  const cfg = req('tailwindcss/loadConfig')(join(CP_ROOT, 'tailwind.config.js')) // CP's config as Tailwind itself loads it
+  const css = readFileSync(join(CP_ROOT, 'src/index.css'), 'utf-8')
+  const out = await postcss([tailwind({ ...cfg, content: [join(CP_ROOT, 'src/**/*.{ts,tsx}')] })]).process(css, { from: join(CP_ROOT, 'src/index.css') })
+  return out.css
+}
+const STYLE_PROBES: Record<string, { sel: string; props: string[] }> = {
+  badge: { sel: '[data-testid=point-owner-row] .bg-blue-100', props: ['borderRadius', 'fontWeight'] },
+  avatar: { sel: '[data-testid=point-owner-row] [data-testid=gravatar-avatar]', props: ['borderRadius'] },
+  agentLabel: { sel: '[data-testid=point-owner-row] [data-testid=machine-chip]', props: ['fontWeight', 'letterSpacing', 'fontFamily', 'fontSize'] },
+  statement: { sel: '.d-pst', props: ['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'] },
+  agreeButton: { sel: '[data-testid=agree-group]', props: ['height', 'fontSize'] },
+  pin: { sel: '.lucide-pin', props: ['transform'] },
+}
+async function probeStyles(page: Page, root: string) {
+  return page.evaluate(({ probes, root }) => {
+    const out: Record<string, Record<string, string>> = {}
+    const scope = document.querySelector(root) ?? document
+    for (const [k, { sel, props }] of Object.entries(probes)) {
+      const el = scope.querySelector(sel) as HTMLElement | null
+      if (!el) { out[k] = { missing: sel }; continue }
+      const cs = getComputedStyle(el)
+      out[k] = Object.fromEntries(props.map((p) => [p, p === 'height' ? `${Math.round(el.getBoundingClientRect().height)}px` : (cs as unknown as Record<string, string>)[p]]))
+    }
+    return out
+  }, { probes: STYLE_PROBES, root })
+}
+
+test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s story card', () => {
+  const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
+  const toggle = (page: Page) => page.locator('.d-cpcard [data-testid=point-story-expander]')
+
+  test('owner row ABOVE the statement: avatar, AGENT on Slava, the agent\'s stance', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    const owner = page.locator('.d-cpcard [data-testid=point-owner-row]')
+    await expect(owner.getByTestId('gravatar-avatar')).toHaveAttribute('data-agent', 'true')
+    await expect(owner.getByTestId('gravatar-avatar')).toHaveText('S')
+    await expect(owner.getByTestId('agent-byline')).toContainText(/^Agent/) // shown as AGENT by CSS
+    await expect(owner).toContainText('Disagrees−')
+    const ownerBox = await rectOf(owner, 'owner row')
+    const stmt = await rectOf(page.locator('.d-cpcard .d-pst'), 'statement')
+    expect(ownerBox.y + ownerBox.height).toBeLessThanOrEqual(stmt.y)
+  })
+
+  test('the footer shows CP\'s "Their story" toggle, closed by default, with no Details; a statement without an agent view has none', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    await expect(toggle(page)).toHaveText('Their story')
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
     await expect(page.locator('.d-cpcard [data-agent-view]')).toHaveCount(0)
+    await expect(page.locator('.d-cpcard [data-testid=point-card-footer]').getByRole('button', { name: /Details/ })).toHaveCount(0)
+    await page.locator('[data-list-statement="c1"]').click()
+    await expect(toggle(page)).toHaveCount(0)
+  })
+
+  test('opened: CP\'s story in the thread line — avatar + AGENT byline, prose with no tier labels, supporting quotes with no timecode; paging closes it', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    await toggle(page).click()
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true')
+    const row = page.locator('.d-cpcard [data-agent-view]')
+    await expect(row).toBeVisible()
+    // CP's ThreadLineItem: the horizontal branch sits beside the row
+    await expect(row.locator('xpath=ancestor::div[contains(@class,"pl-4")][1]/div[contains(@class,"w-3")]')).toHaveCount(1)
+    await expect(row.getByTestId('quoted-story')).toHaveCount(1)
+    await expect(row.getByTestId('gravatar-avatar')).toHaveAttribute('data-agent', 'true')
+    await expect(row.getByTestId('agent-byline-name')).toHaveText('Slava')
+    // the stance is the owner row's; the story row carries none (CP passes no authorPosition there)
+    await expect(row.getByTestId('story-author-stance')).toHaveCount(0)
+    await expect(row).not.toContainText(/Fact:|Connection:|Speculation:/)
+    await expect(row.getByTestId('story-video-quotes-heading')).toHaveText('1 supporting quote')
+    await expect(row.getByTestId('story-video-quote')).toHaveText(['no champion talk yet'])
+    await expect(row.getByTestId('story-video-quote-timecode')).toHaveCount(0)
+    await expect(row.locator('details')).toHaveCount(0)
+    await expect(page.locator('.d-cpcard [data-position-control] [aria-pressed=true]')).toHaveCount(0)
+    await page.locator('[data-list-statement="c1"]').click()
+    await page.locator('[data-list-statement="c2"]').click()
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  test('an agent picture (avatarUrl) is shown as CP\'s photo avatar', async ({ page }) => {
+    // a real image, or GravatarAvatar's onError falls back to initials
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    await page.route('https://example.invalid/agent.png', (r) => r.fulfill({ contentType: 'image/png', body: PNG }))
+    await patchRun(page, (b) => {
+      const st = b.report?.reflection?.statements.find((x) => x.id === 'c2')
+      if (st?.agent) st.agent.avatarUrl = 'https://example.invalid/agent.png'
+    })
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    await expect(page.locator('.d-cpcard [data-testid=point-owner-row] img')).toHaveAttribute('src', 'https://example.invalid/agent.png')
+    await toggle(page).click()
+    await expect(page.locator('.d-cpcard [data-agent-view] [data-testid=gravatar-avatar] img')).toHaveAttribute('src', 'https://example.invalid/agent.png')
+  })
+
+  test('a selected position button is visible: Disagree / Unsure / Agree each get a solid background and readable text (computed)', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c1"]').click()
+    for (const g of ['disagree', 'unsure', 'agree']) {
+      const btn = page.locator(`.d-cpcard [data-testid=${g}-group]`)
+      await btn.click()
+      await expect(btn).toHaveAttribute('aria-pressed', 'true')
+      // read after the button's colour transition (transition-colors) has finished, never mid-fade
+      const { bg, fg } = await btn.evaluate(async (e) => {
+        await Promise.all(e.getAnimations().map((a) => a.finished))
+        return { bg: getComputedStyle(e).backgroundColor, fg: getComputedStyle(e).color }
+      })
+      const alpha = Number(bg.match(/rgba?\([^)]*?,[^)]*?,[^)]*?(?:,\s*([\d.]+))?\)/)?.[1] ?? 1)
+      expect(alpha, `${g} selected background ${bg} is opaque`).toBeGreaterThan(0.9)
+      expect(fg, `${g} selected text vs background`).not.toBe(bg)
+    }
+  })
+
+  test('theme parity: CP\'s classes on the board compute to what CP\'s own stylesheet gives the same markup', async ({ page, browser }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    await page.mouse.move(0, 0)
+    const board = await probeStyles(page, '.d-cpcard')
+    const html = await page.locator('.d-cpcard').evaluate((e) => e.outerHTML)
+    const css = await compileCpCss()
+    const cp = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await cp.route('http://cp.test/**', async (r) => {
+      const u = new URL(r.request().url())
+      if (u.pathname.startsWith('/fonts/')) return r.fulfill({ path: join(CP_ROOT, 'public', u.pathname) })
+      return r.fulfill({ contentType: 'text/html', body: `<!doctype html><html><head><style>${css}</style></head><body><div style="max-width:640px;margin:24px auto">${html}</div></body></html>` })
+    })
+    await cp.goto('http://cp.test/')
+    await cp.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => document.fonts.ready)
+    const ref = await probeStyles(cp, '.d-cpcard')
+    await cp.close()
+    console.log('THEME-PARITY ' + JSON.stringify({ board, cp: ref }))
+    expect(board).toEqual(ref)
+    // CP's Inter is really loaded on the board (the stack names it; this proves the face is there)
+    expect(await page.evaluate(() => document.fonts.check('16px Inter'))).toBe(true)
+  })
+
+  test('CP\'s grey box holds only pin, statement and position buttons; the founder\'s story box and chip sit under it; no 1·2·3 row', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('[data-list-statement="c2"]').click()
+    const box = page.locator('.d-cpcard .bg-gray-50').first()
+    await expect(box.locator('[data-position-control]')).toHaveCount(1)
+    await expect(box.getByLabel(/Add your story/)).toHaveCount(0)
+    await expect(page.locator('.d-cpcard .d-founder').getByLabel(/Add your story/)).toHaveCount(1)
+    const b = await rectOf(box, 'grey box')
+    const story = await rectOf(page.locator('.d-cpcard .d-founder'), 'founder')
+    expect(story.y).toBeGreaterThanOrEqual(b.y + b.height)
+    await expect(page.locator('.d-cpcard')).not.toContainText('1 · 2 · 3')
+  })
+
+  test('a single statement: no list, the card is centred and takes the pane', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await patchRun(page, (b) => {
+      const r = b.report?.reflection
+      if (r) r.statements = r.statements.filter((x) => x.id === 'c2')
+    })
+    await openDay(page)
+    await collapseSidebar(page)
+    await reflTab(page).click()
+    await expect(page.locator('[data-reflection-layout=single]')).toBeVisible()
+    await expect(page.locator('[data-list-statement]')).toHaveCount(0)
+    const pane = await rectOf(page.locator('[data-reflection-layout=single]'), 'pane')
+    const cardBox = await rectOf(page.locator('.d-cpcard'), 'card')
+    // centred: equal space each side (±2px); and wide — far more than the 260px list column
+    expect(Math.abs(cardBox.x - pane.x - (pane.x + pane.width - cardBox.x - cardBox.width))).toBeLessThanOrEqual(2)
+    expect(cardBox.width).toBeGreaterThan(pane.width * 0.9)
   })
 })

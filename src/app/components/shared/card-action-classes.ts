@@ -25,3 +25,7 @@ export const DETAILS_BUTTON_CLASS =
  */
 export const NESTED_DETAILS_BUTTON_CLASS =
   `inline-flex h-10 shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted ${CARD_FOCUS_RING}`;
+
+/** P1449: the profile point card's frame for a list / detail card (PointCardWithLinks' `cardClassName`); the Day board uses it too. */
+export const listPointCardClass = (bgTint = 'bg-white') =>
+  `relative ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden`;

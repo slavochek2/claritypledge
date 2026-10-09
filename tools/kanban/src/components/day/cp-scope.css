@@ -1,4 +1,8 @@
 /* P1445 D: CP's utilities for CP's shared renderers (scoped by tailwind.config.js `important`). */
+/* P1449: base emits Tailwind's per-element defaults (--tw-rotate, --tw-ring-*, --tw-shadow …) that
+   transform / ring / shadow utilities read; without them CP's `rotate-45` pin computed `transform: none`.
+   Preflight stays off (corePlugins), so base adds nothing else. */
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 

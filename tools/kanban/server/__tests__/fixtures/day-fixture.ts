@@ -168,7 +168,7 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
           agent: {
             name: 'Slava',
             position: -1,
-            story: 'Fact: the last two events produced "no champion talk yet". Connection: the format is unproven, not a hobby. Speculation: one more month decides it.',
+            story: 'The last two events produced no champion talk yet, so the format is unproven rather than a hobby. One more month will probably decide it.',
             sources: [{ ref: 'issue card: Weekly measurements', quote: 'no champion talk yet' }],
             checker: 'pass',
           },

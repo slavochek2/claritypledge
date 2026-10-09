@@ -139,6 +139,8 @@ export interface DayAgentView {
   position: number
   story: string
   sources: { ref: string; quote: string }[]
+  /** P1449: the agent's picture (https only); without it CP's initials avatar shows */
+  avatarUrl?: string
 }
 
 export interface DayStatement {
@@ -517,7 +519,9 @@ function readAgent(x: unknown): DayAgentView | undefined {
     ? x.sources.filter((q): q is { ref: string; quote: string } => isObj(q) && !!str(q.ref) && !!str(q.quote)).map((q) => ({ ref: q.ref.slice(0, 300), quote: q.quote.slice(0, 300) }))
     : []
   if (!sources.length) return undefined
-  return { name: (x.name as string).slice(0, 60), position: p, story: (x.story as string).slice(0, 900), sources: sources.slice(0, 6) }
+  const a: DayAgentView = { name: (x.name as string).slice(0, 60), position: p, story: (x.story as string).slice(0, 900), sources: sources.slice(0, 6) }
+  if (typeof x.avatarUrl === 'string' && x.avatarUrl.length <= 500 && /^https:\/\/[^\s"'<>]+$/.test(x.avatarUrl)) a.avatarUrl = x.avatarUrl
+  return a
 }
 
 function readStatement(x: unknown): DayStatement | null {

@@ -13,8 +13,17 @@ import { ListPane } from './ListPane'
 // P1445 D: CP's own renderers (extracted, product-free — the boundary test in server/__tests__/day.test.ts
 // follows their imports), styled by CP's Tailwind and tokens inside .cp-scope.
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/presentational/position-buttons'
-import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell'
-import { StoryQuoteRow } from '@/app/components/shared/presentational/story-quote-row'
+// P1449: CP's profile point card (PointCardWithLinks, a point someone holds a position on) and its
+// story (QuotedStory), through their extracted pieces: the owner row above the quoted point, the
+// footer's `Their story` toggle, the thread line, the story box and its supporting quotes.
+import { PointOwnerRow, QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card'
+import { listPointCardClass } from '@/app/components/shared/card-action-classes'
+import { QuotedStoryShell } from '@/app/components/shared/presentational/quoted-story-shell'
+import { SupportingQuotes } from '@/app/components/shared/story-video-quotes'
+import { CardExpander, CardFooterActions } from '@/app/components/shared/presentational/card-footer'
+import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared/ThreadLine'
+import { AgentByline } from '@/app/components/shared/agent-byline'
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar'
 import 'virtual:cp-tokens.css'
 import './cp-scope.css'
 
@@ -110,7 +119,8 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
       : `${unanswered} not rated${storyOnly ? ` · ${storyOnly} story only` : ''} · ${statements.length} statements`
   return (
     <section className="d-issues" aria-label="Statements">
-      <div className="d-md">
+      {/* P1449: one statement has no list beside it, so its card takes the pane, centred */}
+      <div className={statements.length > 1 ? 'd-md' : 'd-md d-single'} data-reflection-layout={statements.length > 1 ? 'list' : 'single'}>
         {statements.length > 1 && (
           <ListPane
             label="Statements"
@@ -134,49 +144,49 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
         )}
         <div className="d-pwrap d-mdmain">
           <div className="cp-reset d-cpcard">
-            <PointCardShell
-              aria-label={`Statement: ${s.text}`}
-              data-statement={s.id}
-              statement={<p className="d-pst min-w-0 flex-1 text-base font-medium text-foreground break-words">{s.text}</p>}
-              footer={s.agent && <AgentRow agent={s.agent} />}
-            >
-              {s.review && <span className="d-runbadge sm">{s.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
-              <div className="mt-2" role="group" aria-label="Your position" data-position-control>
-                <PositionButtons
-                  // a statement of its own: a menu left open never carries over to the next one (Codex review)
-                  key={s.id}
-                  userPosition={pos === null ? null : toName(pos)}
-                  counts={NO_COUNTS}
-                  onPositionClick={(p) => onPosition(s.id, fromName(p))}
-                  onClear={readOnly ? undefined : () => onRemove(s.id)}
-                  disabled={readOnly}
-                  portalContainer={portal}
-                  menuLimit={barTop}
-                />
-                {!readOnly && (
-                  <div className="d-keyhint" aria-hidden="true">
-                    1 · 2 · 3
-                  </div>
+            <article className={listPointCardClass()} aria-label={`Statement: ${s.text}`} data-statement={s.id}>
+              <div className="p-4">
+                {s.agent && <AgentOwnerRow agent={s.agent} />}
+                <QuotedPointBox statement={<p className="d-pst text-gray-900 break-words text-base">{s.text}</p>}>
+                {s.review && <span className="d-runbadge sm">{s.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
+                <div className="mt-3" role="group" aria-label="Your position" data-position-control>
+                  <PositionButtons
+                    // a statement of its own: a menu left open never carries over to the next one (Codex review)
+                    key={s.id}
+                    userPosition={pos === null ? null : toName(pos)}
+                    counts={NO_COUNTS}
+                    onPositionClick={(p) => onPosition(s.id, fromName(p))}
+                    onClear={readOnly ? undefined : () => onRemove(s.id)}
+                    disabled={readOnly}
+                    portalContainer={portal}
+                    menuLimit={barTop}
+                    narrow // as PointCardWithLinks passes it in the quoted point box
+                  />
+                </div>
+                </QuotedPointBox>
+                {/* the founder's own answer: the board's, not CP's — under CP's box, inside the card */}
+                <div className="d-founder">
+                <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
+                {unsaved(s.id) && (
+                  // Accept is right below in the bar; why Done waits is in Done's own tooltip
+                  <p className="d-unsaved" data-story-unsaved>
+                    Not saved
+                  </p>
                 )}
+                {entry && (
+                  <StoryState
+                    entry={entry}
+                    readOnly={readOnly}
+                    busy={busy}
+                    blocked={unsaved(s.id) ? 'Accept the edited story first: Done would close the version saved before.' : undefined}
+                    onMarkDone={onMarkDone}
+                    onResend={onResend}
+                  />
+                )}
+                </div>
               </div>
-              <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
-              {unsaved(s.id) && (
-                // Accept is right below in the bar; why Done waits is in Done's own tooltip
-                <p className="d-unsaved" data-story-unsaved>
-                  Not saved
-                </p>
-              )}
-              {entry && (
-                <StoryState
-                  entry={entry}
-                  readOnly={readOnly}
-                  busy={busy}
-                  blocked={unsaved(s.id) ? 'Accept the edited story first: Done would close the version saved before.' : undefined}
-                  onMarkDone={onMarkDone}
-                  onResend={onResend}
-                />
-              )}
-            </PointCardShell>
+              {s.agent && <AgentStory key={s.id} agent={s.agent} />}
+            </article>
           </div>
           {earlierList}
         </div>
@@ -185,35 +195,63 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
   )
 }
 
+/** the agent's picture as CP passes an author's to GravatarAvatar; initials without one */
+const agentAvatar = (agent: DayAgentView, className: string) => (
+  <GravatarAvatar name={agent.name} photoUrl={agent.avatarUrl} size="sm" isPledger={false} isAgent className={className} />
+)
+
 /**
- * P1445 C+D: "Agent on Slava" — the writer's own entity, rendered as CP renders an agent's story
- * under a point: AgentByline, its own stance (PositionBadge), the quoted story. Its position is a
- * prediction shown beside the founder's control; it never sets his.
+ * P1449: "Agent on Slava" above the statement, as CP's profile point card shows the owner of a
+ * point: avatar, AGENT byline, the agent's own stance. Its position is a prediction shown beside the
+ * founder's control; it never sets his.
  */
-function AgentRow({ agent }: { agent: DayAgentView }) {
+function AgentOwnerRow({ agent }: { agent: DayAgentView }) {
   return (
-    <div className="px-4 py-2.5 border-t border-border" data-agent-view>
-      <StoryQuoteRow
-        name={agent.name}
-        isAgent
-        authorPosition={toName(agent.position)}
-        meta={
-          <details className="d-agent-src">
-            <summary>{agent.sources.length === 1 ? '1 source' : `${agent.sources.length} sources`}</summary>
-            <ul>
-              {agent.sources.map((q, i) => (
-                <li key={i}>
-                  <span className="d-agent-ref">{q.ref}</span> “{q.quote}”
-                </li>
-              ))}
-            </ul>
-          </details>
-        }
-        textClassName="text-sm whitespace-pre-line"
-      >
-        {agent.story}
-      </StoryQuoteRow>
+    <div data-agent-owner>
+      <PointOwnerRow inList isAgent name={agent.name} position={toName(agent.position)} avatar={agentAvatar(agent, '!w-5 !h-5 !text-[10px]')} />
     </div>
+  )
+}
+
+/**
+ * P1445 C, P1449: the agent's story, as CP's profile point card shows its owner's story: the footer
+ * row with `Their story` (closed by default; no `Details →`, the board has no page), then the story in
+ * CP's thread line — QuotedStory's frame, prose text, and its supporting quotes (no timecode: these
+ * quotes have no video time). The footer and story wrappers' classes are PointCardWithLinks' own.
+ */
+function AgentStory({ agent }: { agent: DayAgentView }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <div role="presentation" className="px-4 py-2.5 border-t border-border" data-testid="point-card-footer">
+        <CardFooterActions type="point">
+          <CardExpander label="Their story" expanded={open} onToggle={() => setOpen(!open)} testId="point-story-expander" />
+        </CardFooterActions>
+      </div>
+      {open && (
+        <div className="pl-4 sm:pl-[60px] pr-4 pb-4">
+          <ThreadLineGroup>
+            <ThreadLineItem isLast>
+              <div data-agent-view>
+                <QuotedStoryShell
+                  isAgent
+                  openViaDetails
+                  header={
+                    <>
+                      {agentAvatar(agent, '!w-6 !h-6 !text-[11px]')}
+                      <AgentByline name={agent.name} />
+                    </>
+                  }
+                >
+                  <p className="text-sm text-gray-800 break-words">{agent.story}</p>
+                  <SupportingQuotes quotes={agent.sources.map((q, i) => ({ key: String(i), text: q.quote, rowProps: { 'data-source-ref': q.ref } }))} />
+                </QuotedStoryShell>
+              </div>
+            </ThreadLineItem>
+          </ThreadLineGroup>
+        </div>
+      )}
+    </>
   )
 }
 

@@ -966,7 +966,8 @@ export function DayPage() {
                 )}
                 {!readOnly && nav && unsavedIds.length === 0 && (
                   <span className="d-hint" aria-hidden="true">
-                    ← → move
+                    {/* P1449: the reflection's 1 2 3 keys live here, not as a row under CP's buttons */}
+                    {tab === 'reflection' ? '1 2 3 rate · ← → move' : '← → move'}
                   </span>
                 )}
               </div>
