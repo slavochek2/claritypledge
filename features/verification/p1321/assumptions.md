@@ -143,3 +143,13 @@ contract — changing a test changes the spec, which is ask-first.
 4b29965e1 is on this branch only, not on origin/main, so `migrate.sh --env prod` hard-blocks it until
 that commit is deployed. 20261008210000, …230000, …231000 and …232000 carry no coupling and can be
 applied with `--only`, on the founder's go.
+
+## 21. 2026-10-09 — Production apply of the four uncoupled fixes
+
+**Call:** 20261008210000, …230000, …231000 and …232000 applied to prod on the founder's go, with
+`migrate.sh --env prod --only` from main (where a separate session had already brought them, as
+P1448); prod smoke 8/8; manifest stamped on main (03bfd4523). R1 stays unapplied. **Why/evidence:**
+read-only re-probe after the apply, every fix with a control: the anonymous grant is gone while the
+signed-in grant and an intentionally public function keep theirs; the delivery-creation guard, the
+witness insert check and the profile email rule are the migrated versions. Probe and output are in
+the session record; specifics stay in `.private/docs/security-log.md`.
