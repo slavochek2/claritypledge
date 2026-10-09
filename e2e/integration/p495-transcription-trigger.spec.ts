@@ -188,7 +188,9 @@ test.describe('P495: Transcription Job RPC', () => {
       p_session_id: sessionId,
     });
 
+    // P1321: anon EXECUTE is revoked, so the refusal now happens at the grant, before the
+    // body's participant check ('Not a participant') can run.
     expect(error).toBeTruthy();
-    expect(error!.message).toContain('Not a participant');
+    expect(error!.message).toMatch(/permission denied for function create_transcription_job/i);
   });
 });

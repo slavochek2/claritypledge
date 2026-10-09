@@ -630,7 +630,9 @@ test.describe('P581 Migration — Token validation RPC', () => {
   });
 
   test('get_letter_by_token returns letter data for valid token', async () => {
-    const anonClient = makeAnonClient();
+    // P1321: the only live caller is the create-and-open-letter edge function (service role);
+    // anon EXECUTE is revoked — see the anon-refusal test below.
+    const anonClient = supabaseAdmin;
 
     const { data, error } = await anonClient.rpc('get_letter_by_token', {
       p_token: deliveryToken,
@@ -642,7 +644,9 @@ test.describe('P581 Migration — Token validation RPC', () => {
   });
 
   test('get_letter_by_token returns null for non-existent token', async () => {
-    const anonClient = makeAnonClient();
+    // P1321: the only live caller is the create-and-open-letter edge function (service role);
+    // anon EXECUTE is revoked — see the anon-refusal test below.
+    const anonClient = supabaseAdmin;
     const fakeToken = '00000000-0000-0000-0000-000000000000';
 
     const { data, error } = await anonClient.rpc('get_letter_by_token', {
@@ -669,12 +673,19 @@ test.describe('P581 Migration — Token validation RPC', () => {
 
     if (!expiredDelivery) throw new Error('Expired delivery creation failed');
 
-    const anonClient = makeAnonClient();
+    // P1321: the only live caller is the create-and-open-letter edge function (service role);
+    // anon EXECUTE is revoked — see the anon-refusal test below.
+    const anonClient = supabaseAdmin;
     const { data, error } = await anonClient.rpc('get_letter_by_token', {
       p_token: expiredDelivery.invitation_token,
     });
 
     expect(error).toBeNull();
     expect(data).toBeFalsy();
+  });
+
+  test('anon is refused at the grant (P1321 — no anonymous caller exists)', async () => {
+    const { error } = await makeAnonClient().rpc('get_letter_by_token', { p_token: deliveryToken });
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for function get_letter_by_token/i);
   });
 });

@@ -346,7 +346,9 @@ test.describe('P651 Migration — get_letter_by_token email redaction', () => {
   });
 
   test('get_letter_by_token response does NOT include receiver_email', async () => {
-    const anonClient = makeAnonClient();
+    // P1321: anon EXECUTE is revoked; the function's only live caller is the
+    // create-and-open-letter edge function, which runs as the service role.
+    const anonClient = supabaseAdmin;
 
     const { data, error } = await anonClient.rpc('get_letter_by_token', {
       p_token: deliveryToken,

@@ -63,6 +63,13 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1321 L1 (20261008230000_p1321_letter_delivery_public_only.sql): the existence guard was
+  // NARROWED, not dropped. The lookup now also requires status = 'sealed' AND
+  // mode = 'one-to-many' and raises 'Letter not accessible' — the same message
+  // create_letter_delivery_on_open uses — so a missing letter and a private one are
+  // indistinguishable to the caller. Pinned by e2e/integration/p1321-letter-delivery-guard.spec.ts.
+  'create_letter_delivery:Letter not found',
+
   // P1347 (20261001220000_p1347_signed_in_votes.sql), founder 2026-10-01: "it should be only
   // possible to vote for people". rate_topic now requires auth.uid() and keeps one row per
   // (topic, user), so writes are bounded by accounts, not by a script minting device tokens.

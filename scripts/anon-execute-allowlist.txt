@@ -84,11 +84,12 @@ get_pledgers_page(integer,integer)            # the public /pledgers list pages 
 get_public_agreement(uuid)                    # a public agreement page /agreements/:id renders to a visitor with no account; the table policy is parties-only, so the column-scoped RPC is the only read (P1222) — src/app/data/agreements-service-real.ts:278, route src/App.tsx:506
 get_public_agreements_for_profile(uuid)       # a public profile lists its active agreements to anonymous or non-party visitors, same parties-only policy (P1222) — src/app/data/agreements-service-real.ts:376
 # --- 2026-09-15: the guest seat pair, unlisted since the first P1065 run ---
+# (2026-10-08, P1321: the two-argument claim_joiner_seat(text,text) entry was removed — that
+# overload no longer exists on prod or test, so the entry was stale.)
 # Both were carried as known-open in the baseline rather than classified. Each has a
 # real unauthenticated call site: a guest joins and leaves a live room with no account.
 # An entry covers the grant only; seat-authorization body work is tracked in its own specs,
 # and a future signature change must be re-listed by the change that makes it.
-claim_joiner_seat(text,text)                  # a guest takes the joiner seat by code with no account; the signature prod runs until P1269's migration is applied — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995 with user?.id optional
 claim_joiner_seat(text,text,uuid)             # the same guest join after P1269, the client sending its seat secret when it holds one — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995
 release_joiner_seat(uuid,text,uuid)           # the same guest leaves the room with no account, sending its seat secret when it holds one (P1058, re-listed for P1314 C's signature by P1327) — src/app/data/api.ts:1468 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3652 and src/app/components/session/live-session-bar.tsx:38
 #

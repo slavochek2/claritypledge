@@ -231,7 +231,7 @@ test.describe('P699 Migration — get_letter_results authorization', () => {
     expect(Array.isArray(data) && data.length === 0).toBe(true);
   });
 
-  test('anonymous caller gets NULL from get_letter_results', async () => {
+  test('anonymous caller is refused at the grant for get_letter_results', async () => {
     const anonClient = makeAnonClient();
 
     const { data, error } = await anonClient.rpc('get_letter_results', {
@@ -239,8 +239,10 @@ test.describe('P699 Migration — get_letter_results authorization', () => {
       p_delivery_id: null,
     });
 
-    expect(error).toBeNull();
-    expect(Array.isArray(data) && data.length === 0).toBe(true);
+    // P1321: anon EXECUTE is revoked (no anonymous caller exists), so anon gets no rows
+    // because it cannot execute the function at all — stronger than the body's empty result.
+    expect(error?.message ?? '(no error)').toMatch(/permission denied for function get_letter_results/i);
+    expect(data).toBeNull();
   });
 
   // ── 2d. Receiver WITHOUT delivery_id cannot access (wrong perspective) ────
