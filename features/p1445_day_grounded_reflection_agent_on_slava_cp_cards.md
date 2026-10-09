@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, reflection, kanban]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -259,8 +259,8 @@ Consequences the build must handle (Codex, verified against the cited lines befo
 
 ## Pre-deploy Checklist
 
-- [ ] At `/ship`, after the cherry-pick lands on main: replace `~/.claude/commands/day.md` step 9r's body with a pointer to `tools/kanban/scripts/day-reflection.md` (the procedure ships with the scripts it drives; pointing `day.md` at it earlier would break the live `/day`, whose kanban checkout is main). Run `day-step.sh check-sync` and the day suites after.
-- [ ] `~/.agents/bin/hist --jsonl` (added for B/C) is committed in `~/.agents`.
+- [x] At `/ship`, after the cherry-pick lands on main: replace `~/.claude/commands/day.md` step 9r's body with a pointer to `tools/kanban/scripts/day-reflection.md` (the procedure ships with the scripts it drives; pointing `day.md` at it earlier would break the live `/day`, whose kanban checkout is main). Run `day-step.sh check-sync` and the day suites after.
+- [x] `~/.agents/bin/hist --jsonl` (added for B/C) is committed in `~/.agents`.
 
 ## Related
 
