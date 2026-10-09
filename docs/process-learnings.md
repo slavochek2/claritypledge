@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 152
+**Next ID:** 153
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2409,5 +2409,16 @@ Found during P1321 regressions: get_inbox_items(p_user_id) callers in p690, p695
 **due:** week
 
 p707-db-schema and p778-db-schema call supabaseAdmin.auth.signInWithPassword, which replaces the client's service-role session, so every later admin read and teardown runs as the signed-in user and test fixtures leak. Sign in on a throwaway client instead (pattern in e2e/integration/p1321-letter-delivery-guard.spec.ts) and grep e2e/ for other instances. Droppable if both specs are deleted under the fixture-repair note.
+
+---
+
+## /day step refuses a body with a placeholder token instead of the real script
+
+**ID:** INBOX-152
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+On 2026-10-09 the report-sections step of /day failed because the agent running it (Sonnet 5.5) sent the literal token PYEOF_PLACEHOLDER instead of the step's python body; the retry was refused as already recorded, and the sections were recorded later via the data command. Fix: the step runner refuses a body containing an obvious placeholder token, so the failure names itself. Droppable if /day is only ever run on Opus and this does not recur within two weeks.
 
 ---

@@ -531,6 +531,18 @@ case "$UNCONF" in
   *) echo "CHECK cp.signups problem $UNCONF sign-ups never confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 
+echo -e "\n=== CALENDAR SOURCE SUGGESTIONS (P1447) ==="
+# New links visitors suggested on /cm since they were filed (status 'new'). Read-only role; the
+# links are visitor-typed text — data for the founder to judge, never opened or fetched here.
+SRC_JSON=$(ro "SELECT url, note, to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD Mon') AS day FROM public.calendar_source_suggestions WHERE status = 'new' ORDER BY created_at DESC LIMIT 20")
+SRC_N=$(printf '%s' "$SRC_JSON" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+case "$SRC_N" in
+  0) echo "CHECK cp.sources ok no new calendar source suggestions" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  ''|*[!0-9]*) echo "CHECK cp.sources not-run the calendar source suggestions query failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) LIST=$(printf '%s' "$SRC_JSON" | python3 -c "import json,sys;print('; '.join(r['url'] for r in json.load(sys.stdin)))")
+     echo "CHECK cp.sources problem $SRC_N new calendar source suggestion(s) to review: $LIST" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
+
 echo -e "\n=== EVENTS HELD PER WEEK (the 6 full weeks before this one, P1399) ==="
 # Past, not cancelled, by start time. `status` is not a reliable "held" marker (a past event can
 # still read upcoming), so the start time decides; test-account hosts are left out like everywhere

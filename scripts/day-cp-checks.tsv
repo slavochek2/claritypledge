@@ -31,6 +31,7 @@ cp.backup	cp.w1	Database backup	Backups & mirror	normal	gcloud
 cp.gemini	cp.w1	Gemini production key	Keys	normal
 cp.cost	cp.w1	Cloud cost leak check	Cost-leak tripwire	normal	gcloud
 cp.signups	cp.w2	Unconfirmed sign-ups	Email & sessions	normal
+cp.sources	cp.w2	Calendar source suggestions	Email & sessions	normal
 cp.sessions	cp.w2	Live sessions	Email & sessions	normal
 cp.transcribe	cp.w2	Transcription jobs	Transcription & video	normal
 cp.email	cp.w2	Event email sending	Email & sessions	normal
