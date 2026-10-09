@@ -4,10 +4,9 @@ type: comment
 rank: 1000081
 workstream: infrastructure
 created_date: '2026-09-08'
-completed_at: '2026-09-08'
+completed_at: 2026-10-09
 tags: [security, adversarial-review, retracted]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
 driver: anomaly
@@ -28,8 +27,8 @@ with **3 of 3 lenses reporting** — recorded in P1058 under "Phase 3 — the th
 
 The reading of that branch was taken hours before the spec was written and was not re-checked. It
 was accurate when taken and expired before it was used — the failure
-[.claude/rules/git.md](../.claude/rules/git.md) names as *"volatile state decays — re-check before
-telling the user NOT to act"*, and [epistemic.md](../.claude/rules/epistemic.md) gate 9 in its
+[.claude/rules/git.md](../../../.claude/rules/git.md) names as *"volatile state decays — re-check before
+telling the user NOT to act"*, and [epistemic.md](../../../.claude/rules/epistemic.md) gate 9 in its
 second half: verification can pass and the fact still expire afterwards.
 
 The spec is kept rather than deleted so the P-number sequence carries no gap — a fresh gap in the
