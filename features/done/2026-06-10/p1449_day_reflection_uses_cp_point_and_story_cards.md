@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -11,13 +11,13 @@ tags:
   - p1445
 created_date: 2026-10-09
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [change-request, dev]
+completed_at: 2026-10-09
 ---
 
 # P1449: The /day reflection card is CP's point card with CP's story card
 
-> **Redesign of:** [P1445: /day — grounded reflection, "Agent on Slava", CP's own cards, less text](done/2026-06-10/p1445_day_grounded_reflection_agent_on_slava_cp_cards.md)
+> **Redesign of:** [P1445: /day — grounded reflection, "Agent on Slava", CP's own cards, less text](p1445_day_grounded_reflection_agent_on_slava_cp_cards.md)
 > **What was wrong:** P1445 reused CP's card frame, position buttons and story row, but not the way
 > CP composes them. The agent's story is always open under the statement, with no author picture,
 > no "N stories" control and no thread line; the story's tiers run together as one paragraph; and a
