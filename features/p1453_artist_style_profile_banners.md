@@ -47,11 +47,11 @@ Decision density: a few (see the founder decisions below).
 3. **Signature:** rendered as HTML text over the image, bottom-right, reading `after <sig>`. Never painted into the image, and never imitating the artist's real signature (forgery). Ink (dark sepia or cream) is computed **once at generation** from the corner's luminance and stored with the banner, not computed per viewer.
 4. **Metadata:** store artist, movement and ink alongside the banner. The schema shape is `/architect`'s call.
 5. **Humans:** the existing P504 lazy generation keeps running and uses the new prompt. It never overwrites an existing banner, and the owner keeps the regenerate and remove controls.
-6. **Agents:** generate a banner when the agent avatar is generated. Update `/slava:content:gen-agent-avatar` and `/slava:content:provision-agent` (the founder approved these skill changes in conversation). Apply the agent treatment the founder chooses.
+6. **Agents:** generate a banner when the agent avatar is generated. Update `/slava:content:gen-agent-avatar` and `/slava:content:provision-agent` (the founder approved these skill changes in conversation). Apply the agent treatment decided below.
 
-[FOUNDER DECISION: agent treatment. Options: grayscale; a light partial tint; no filter plus a badge. The prototype rejected the heavy duotone. Note the ruling below: grey alone was shown NOT to mean "machine" at avatar level.]
-[FOUNDER DECISION: signature wording, `after <sig>` (prototype) vs. adding years. Should "AI-generated" be disclosed, and where: alt text, tooltip, or nowhere?]
-[FOUNDER DECISION: backfill existing users' banners, or only new and regenerated ones?]
+**Decided 2026-10-09 (founder):** agent banners use the full, unfiltered art plus a small visible "agent" badge on the banner. No color filter (a grey filter collides with the P1104 finding; the heavy duotone flattened styles).
+**Decided 2026-10-09 (founder):** the visible signature reads `after <sig>` only; AI generation is disclosed in the banner's alt text and hover tooltip (e.g. "AI-generated image after Hokusai").
+**Decided 2026-10-09 (founder):** no backfill. Only new users' banners and owner-initiated regenerations use the new style.
 
 ## Invariants
 
@@ -71,7 +71,7 @@ Decision density: a few (see the founder decisions below).
 | Image too dark to read (Caravaggio-type output) | MITIGATE | Reject and regenerate below a corner/overall luminance floor |
 | The image model misrenders a style and outputs a generic painting under a famous name | ACCEPT | Seen 0 times in 16 prototype banners; owner can regenerate |
 | Unchecked LLM-drafted pool contains wrong dates or wrong works | MITIGATE | Human pass over the pool file before ship |
-| Backfill spend against the Gemini cap | DEFER | Depends on the backfill decision |
+| Backfill spend against the Gemini cap | ACCEPT | No backfill (founder decision); volume = new users + regenerations |
 | Agent treatment reads as editorializing against a real subject (P1104 ruling) | MITIGATE | Measure at rendered size; no menacing treatments |
 
 **Non-Goals**
@@ -84,8 +84,9 @@ Decision density: a few (see the founder decisions below).
 - [ ] A new user visiting their own profile gets a banner clearly in a named artist's style, with "after <name>" readable bottom-right at 320px, 375px and desktop widths.
 - [ ] Across 20 consecutive generations, all five eras appear and no movement repeats more than twice.
 - [ ] The signature is readable on both a light-corner and a dark-corner banner (sepia vs. cream ink observed).
-- [ ] An existing user's banner is unchanged after deploy (unless backfill is chosen).
-- [ ] A newly provisioned agent has a banner with the chosen agent treatment, generated in the same run as its avatar.
+- [ ] An existing user's banner is unchanged after deploy.
+- [ ] Hovering the banner (or reading its alt text) discloses it is AI-generated after the named artist.
+- [ ] A newly provisioned agent has an unfiltered artist banner with a visible "agent" badge, generated in the same run as its avatar.
 - [ ] Regenerate gives a different artist; remove still works.
 
 ## UX Notes
