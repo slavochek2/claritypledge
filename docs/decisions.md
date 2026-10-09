@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-09 [process]: Until P1450 lands, a slot's owner is found by asking live sessions, never by its lock or activity stamp (P1450)
+
+**Context:** A worktree cleanup found 7 slots, every lock PID dead, 6 reading LIVE. Both signals were wrong in opposite directions. w4/w5 had dead lock PIDs yet a live session was committing in them. w1 read "active" only because the cleanup's own read-only probe stamped `.activity`. The PostToolUse hook stamps on any payload that mentions a slot path.
+**Decision:** Before removing or shipping any slot you did not claim, run `ListAgents` and ask every live session (`SendMessage`) which slots it owns. Act only on slots nobody claims, and only when `git cherry` shows 0 unique patches and no user changes. A claimed slot is never touched. Ownership moves between sessions (a session that ended handed w4/w5 to a new one within hours), so re-ask, never reuse an earlier answer.
+**Alternatives rejected:** Trusting `git-ops status` (false LIVE from reads). Trusting a dead lock PID as abandoned (w4's live owner). Removing a slot on "merged and clean" alone (w7 held deliberate uncommitted work).
+**Consequences:** Cleanup costs one round of peer messages. P1450 makes reads stop counting as activity. This entry expires when P1450 ships.
+**References:** [P1450](../features/p1450_worktree_lifecycle_slots_reclaim_and_ship_cleans_up.md)
+
+---
+
 ## 2026-10-09 [technical]: Board CSS parity with CP is derived and fail-closed, never copied (P1449)
 
 **Context:** P1445 put CP's components on the /day board, but three things drifted. The board's Tailwind scan list was hand-written globs that missed `position-groups.ts`, so a selected position button rendered white on white (founder-reported: "selecting I agree doesn't work"). CP's `src/index.css` redefines `.rounded*` on `--radius` outside any Tailwind layer, and the board only received the `:root` tokens, so badges were square. And with no `@tailwind base`, `rotate-45` computed `transform: none`.
