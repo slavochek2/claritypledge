@@ -8,6 +8,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-09 [process]: Security-fix verification — five ways a probe went blind, and the with/without comparison (P1321, P1446)
+
+**Context:** Verifying two security reviews' database fixes on the test project and then production. Several probes returned a clean verdict for a reason unrelated to the fix; each was caught only by a control.
+**Decision:** Adopt these as standing practice for refusal-type fixes:
+- **A refusal test must fail for the reason under test.** A fixture that collides with a UNIQUE constraint is refused before the guard is reached, so "refused" proves nothing. Assert the error *class* (column privilege vs RLS vs constraint), not just that an error occurred.
+- **A catalog snapshot must keep full text.** `pg_attribute.attname` is the `name` type; a UNION that mixes it with policy text truncates every row to 63 characters, so a policy looked altered when it was intact. Cast every column to `::text`.
+- **A probe must confirm its runtime was the one it meant.** A test worker restart silently re-ran setup and the probe read a fresh state; re-read the state under test inside the same run.
+- **Never sign in on the shared service-role test client.** Doing so replaces its credentials, and every later admin call (teardown included) runs as that user and fails or is filtered.
+- **Browser lanes cannot show a refusal by signature** — it appears as missing UI. Prove "no regression" by running the failing files twice on test, with the fix reverted and re-applied (re-apply verified by catalog read), and diff per test. Any with-only failure is then rerun in isolation with the fix confirmed in force before it is called a flake.
+- **Identity lookups never use a pattern match on user-supplied text.** In PostgREST `ilike`, `%`, `_` and `*` are wildcards; escape them and filter for exact equality after the query.
+**Alternatives rejected:** Trusting a red-then-green integration test alone (it was red for the wrong reason once); treating "0 refusal signatures in the browser lane" as evidence (not discriminating).
+**Consequences:** `migrate.sh --env prod` run from a worktree needs the main checkout's `.env.prod` and cannot stamp the manifest — stamp the branch manifest by hand. An embargo stub committed to main must carry `intent: cold-start` or the spec-intent gate refuses it; `/create-bug`'s stub template does not yet include it (skill edit, founder-approval pending).
+**References:** features/verification/p1321/assumptions.md; specifics in `.private/docs/security-log.md`.
+
 ## 2026-10-09 [technical]: The kanban board renders CP's own components through presentational extraction, scoped Tailwind and a derived import boundary (P1445)
 
 **Context:** The /day board's reflection card was a hand-built look-alike of CP's point card and position buttons, and drifted from the product. The board is a separate Vite app (`tools/kanban`) that must not pull CP's services, auth or Supabase client.
