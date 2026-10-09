@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 153
+**Next ID:** 156
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2420,5 +2420,38 @@ p707-db-schema and p778-db-schema call supabaseAdmin.auth.signInWithPassword, wh
 **due:** week
 
 On 2026-10-09 the report-sections step of /day failed because the agent running it (Sonnet 5.5) sent the literal token PYEOF_PLACEHOLDER instead of the step's python body; the retry was refused as already recorded, and the sections were recorded later via the data command. Fix: the step runner refuses a body containing an obvious placeholder token, so the failure names itself. Droppable if /day is only ever run on Opus and this does not recur within two weeks.
+
+---
+
+## Day board overflows below about 340px: header, date bar and Daily-report cards
+
+**ID:** INBOX-153
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+Measured 2026-10-09: at a 320px viewport the Day page lays out at 337-339px (live board and preview alike); the sidebar does not collapse and the tabs overlap at 375px. Pre-existing, not P1449. Fix the board chrome for phone widths, or record that the board is desktop-only. Droppable if the founder never opens the board on a phone.
+
+---
+
+## Reflection answers are keyed by slot id, so a re-recorded reflection shows another statement's answer
+
+**ID:** INBOX-154
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+Found 2026-10-09 redoing a run's reflection: the card showed the founder's story and a Done chip from a different statement that had held the same r-id. Normal runs never re-record, so this bites only on a redo or regeneration. Fix: key answers by the statement hash as well as the id. Droppable if reflections are never regenerated.
+
+---
+
+## publish-spec leaves the embargo stub in place, so the duplicate-spec check blocks it
+
+**ID:** INBOX-155
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+2026-10-09 (P1448): git-ops publish-spec staged the published spec into done/ but did not remove features/pN_security-review-pending.md, so pre-commit refused the commit; also it could not find migrations named after the spec when the files carry the parent spec's name. Fix: publish-spec removes the stub in the same commit and accepts --migrations naming the files. Droppable if no embargo spec is filed again.
 
 ---
