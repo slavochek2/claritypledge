@@ -71,16 +71,16 @@ export function ChiangMaiPage() {
           <ClarityLogo size="xs" className="hidden sm:inline-flex" />
         </Link>
         <div className="flex min-w-0 items-center sm:gap-1">
-        {/* P1447: anyone may suggest an events source; stored for the founder, never auto-added */}
-        <SuggestSourceDialog />
-        <a
-          href={SUBSCRIBE_LINK}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex shrink-0 items-center whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700"
-        >
-          Add this calendar to yours
-        </a>
+          {/* P1447: anyone may suggest an events source; stored for the founder, never auto-added */}
+          <SuggestSourceDialog />
+          <a
+            href={SUBSCRIBE_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700"
+          >
+            Add this calendar to yours
+          </a>
         </div>
       </header>
 

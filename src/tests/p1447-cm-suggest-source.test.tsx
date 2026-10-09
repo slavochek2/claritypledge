@@ -14,7 +14,7 @@ const rpc = vi.fn();
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
 
 import { ChiangMaiPage } from '@/app/pages/chiang-mai-page';
-import { looksLikeSourceUrl } from '@/app/data/calendar-sources';
+import { looksLikeSourceUrl, normalizeSourceUrl } from '@/app/data/calendar-sources';
 
 function renderPage() {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -46,6 +46,16 @@ describe('P1447: looksLikeSourceUrl', () => {
     ['', false],
     [`https://example.org/${'a'.repeat(500)}`, false],
   ])('%s → %s', (v, ok) => expect(looksLikeSourceUrl(v)).toBe(ok));
+});
+
+describe('P1447: normalizeSourceUrl', () => {
+  it('sends a Thai-script host as punycode, which the server hostname check accepts', () => {
+    const out = normalizeSourceUrl('  https://เชียงใหม่.com/events ');
+    expect(out).toMatch(/^https:\/\/xn--[a-z0-9-]+\.com\/events$/);
+  });
+  it('leaves an ordinary link as typed (trimmed)', () => {
+    expect(normalizeSourceUrl(' https://sola.day/event/x ')).toBe('https://sola.day/event/x');
+  });
 });
 
 describe('P1447: Suggest a source dialog on /cm', () => {
@@ -105,5 +115,20 @@ describe('P1447: Suggest a source dialog on /cm', () => {
     expect(await screen.findByRole('button', { name: 'Sending…' })).toBeDisabled();
     resolve({ error: null });
     await waitFor(() => expect(screen.getByTestId('cm-suggest-source-saved')).toBeInTheDocument());
+  });
+
+  it('closing while sending discards the late reply: the next open shows an empty form', async () => {
+    let resolve!: (v: unknown) => void;
+    rpc.mockReturnValue(new Promise((r) => { resolve = r; }));
+    renderPage();
+    openAndType('https://sola.day/event/x');
+    await screen.findByRole('button', { name: 'Sending…' });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    resolve({ error: null });
+    await Promise.resolve();
+    fireEvent.click(screen.getByTestId('cm-suggest-source'));
+    expect(screen.queryByTestId('cm-suggest-source-saved')).toBeNull();
+    expect(screen.getByLabelText('Link')).toHaveValue('');
   });
 });

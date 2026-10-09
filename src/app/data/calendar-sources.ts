@@ -26,9 +26,21 @@ export function looksLikeSourceUrl(raw: string): boolean {
   }
 }
 
+/**
+ * The URL as the browser parses it: an internationalised host (a Thai domain) is sent in its
+ * ASCII punycode form, which is what the server's hostname check accepts.
+ */
+export function normalizeSourceUrl(raw: string): string {
+  try {
+    return new URL(raw.trim()).href;
+  } catch {
+    return raw.trim();
+  }
+}
+
 export async function submitCalendarSource(url: string, note: string): Promise<SubmitSourceResult> {
   const { error } = await supabase.rpc('submit_calendar_source', {
-    p_url: url.trim(),
+    p_url: normalizeSourceUrl(url),
     p_note: note.trim() || null,
   });
   if (!error) return 'ok';

@@ -4,7 +4,7 @@
  * signed in or not, can send. The link is stored for the founder to review and is never fetched,
  * previewed or published from here — the confirmation says so plainly.
  */
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,15 +39,20 @@ export function SuggestSourceDialog() {
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Bumped on every close: a reply that lands after the dialog closed belongs to a form the
+  // visitor already left, so it must not decide what the next open shows.
+  const attempt = useRef(0);
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next && phase === "saved") {
+    if (next) return;
+    attempt.current += 1;
+    setError(null);
+    if (phase !== "editing") {
       setPhase("editing");
       setUrl("");
       setNote("");
     }
-    if (!next) setError(null);
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -58,7 +63,9 @@ export function SuggestSourceDialog() {
     }
     setError(null);
     setPhase("saving");
+    const mine = attempt.current;
     const result = await submitCalendarSource(url, note);
+    if (mine !== attempt.current) return;
     if (result === "ok") {
       setPhase("saved");
     } else {
