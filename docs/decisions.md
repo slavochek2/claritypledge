@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-09 [technical]: The kanban board renders CP's own components through presentational extraction, scoped Tailwind and a derived import boundary (P1445)
+
+**Context:** The /day board's reflection card was a hand-built look-alike of CP's point card and position buttons, and drifted from the product. The board is a separate Vite app (`tools/kanban`) that must not pull CP's services, auth or Supabase client.
+**Decision:** CP's card, position buttons and story quote row were split into dependency-free components under `src/app/components/shared/presentational/` (analytics, intensity and tutorial come in as injected adapters; CP's own `PositionButton` is now a thin wrapper). The kanban app imports them via the `@` alias with its own React 19 install, CP's Tailwind preset scoped with `important: '.cp-scope'` and preflight off, a zero-specificity `:where(.cp-reset …)` reset, and CP's CSS tokens served from `src/index.css` by a Vite virtual module (no copy). A transitive import-boundary test (`tools/kanban/server/boundary.ts`) walks every import form from the approved renderers and fails on any path into services, auth, Supabase or pages. Chosen by Codex, not the founder (technical choice).
+**Alternatives rejected:** copying the components into kanban (drifts, the bug being fixed); a shared package (a build step and version pinning for three files); unscoped Tailwind (CP's preflight and utilities restyle the whole board).
+**Consequences:** A change to a presentational component changes both CP and the board — CP's suite (613 tests) and the board's e2e both cover it. New board-side imports from `src/` must be presentational or the boundary test fails. Main's `tools/kanban` needs `npm ci` after pulling a React bump.
+**References:** [p1445](../features/done/2026-06-10/p1445_day_grounded_reflection_agent_on_slava_cp_cards.md)
+
+## 2026-10-09 [process]: /day reflection statements are grounded, carry the agent's own position, and pass a mechanical quote check plus a separate checker (P1445)
+
+**Context:** Reflection statements were written from the day's facts only, repeated personal topics, and gave the founder nothing to argue against.
+**Decision:** Step 9r follows `tools/kanban/scripts/day-reflection.md`: a writer drafts, a grounding block is built from cp and private decision logs, recent founder turns across all agent transcript stores (`hist --jsonl`) and the day's findings, the writer rewrites with an "Agent on Slava" position (-3…3) and a sourced story. Every quote is checked word-for-word against its source; a separate checker agent judges each story; two failed checks drop the statement by name. Personal-activity and issue-title repeats are refused. The agent's view is display-only and never written to `decisions.jsonl`. The Disagreement Pipeline's selection step is NOT used to pick statements — only its "could a reasonable founder take the other side" test is reused in the writer brief.
+**Alternatives rejected:** writer self-checks (one context cannot falsify itself); semantic quote matching (passes paraphrase, the failure being prevented); letting the agent's position pre-fill the founder's.
+**Consequences:** Only validated by a dry run on 2026-10-08 data until a live /day runs it. Falsifier: if within two weeks most kept statements are skipped or answered "unsure", grounding is not producing arguable statements. (Status: UNTESTED)
+**References:** [p1445](../features/done/2026-06-10/p1445_day_grounded_reflection_agent_on_slava_cp_cards.md)
+
 ## 2026-10-08 [product]: Understanding is checked inside the chat, not through letters; hiring is a use case of the chat, the job page a channel (P1437)
 
 **Context:** The P1431 prototype (your agent turns a transcript into a letter) works, but the founder named its cost: people talk, leave for the app, write a letter, wait for the answer, then talk again — "that's a break". Exploring alternatives produced P1437: groups where any conversation (live, recorded calls, WhatsApp, typing) is a thread, people and their agents are members, and understanding is checked inside the thread (point → private position prediction → story draft → paraphrase rated 0-10, text or voice). A partner meeting the same day proposed a quick-jobs marketplace.

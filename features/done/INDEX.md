@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-08
+Last updated: 2026-10-09
 
 ---
 
@@ -560,6 +560,8 @@ Last updated: 2026-10-08
 - **P130** (Jan 26) Merge Hypotheses Into Milestones — hypotheses become milestone descriptions; reduce planning overhead
 - **P144** (Feb 5) Simplify Planning System — focus on metrics + context; remove competing frameworks
 - **P1253** (Sep 26) Pledgers E2E Shared-State Coupling — track fixture rows as created; Promise.all never yields successes on failure
+
+- **P1445** (Oct 26) /day grounded reflection, Agent on Slava, CP cards on the board — share UI via presentational extraction + scoped Tailwind + derived import-boundary test
 
 ## Product & Docs
 
