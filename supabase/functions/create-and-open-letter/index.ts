@@ -194,7 +194,7 @@ serve(async (req: Request) => {
       // User already exists — link delivery; no credential (P1446).
       // Invalidate the invitation token on link (token-replay defense).
       const nowIso = new Date().toISOString();
-      await supabase
+      const { error: linkExistingError } = await supabase
         .from('letter_deliveries')
         .update({
           receiver_profile_id: existingProfile.id,
@@ -203,9 +203,11 @@ serve(async (req: Request) => {
           invitation_expires_at: nowIso,
         })
         .eq('id', deliveryId);
-
-      // GDPR audit row — existing users still accepted the current terms version in this flow.
-      await recordTermsAcceptance(existingProfile.id);
+      if (linkExistingError) {
+        console.error('[create-and-open-letter] delivery link failed:', linkExistingError.message);
+        return jsonResponse({ error: 'LINK_FAILED', message: 'Failed to open letter' }, 500, corsHeaders);
+      }
+      // No terms-acceptance row here: the presenter has not proven to be this account (P1446).
 
       return jsonResponse({
         ok: true,
@@ -267,7 +269,7 @@ serve(async (req: Request) => {
       }
 
       const recoveryNowIso = new Date().toISOString();
-      await supabase
+      const { error: linkRecoveredError } = await supabase
         .from('letter_deliveries')
         .update({
           receiver_profile_id: recoveredUserId,
@@ -276,8 +278,11 @@ serve(async (req: Request) => {
           invitation_expires_at: recoveryNowIso,
         })
         .eq('id', deliveryId);
-
-      await recordTermsAcceptance(recoveredUserId);
+      if (linkRecoveredError) {
+        console.error('[create-and-open-letter] delivery link failed:', linkRecoveredError.message);
+        return jsonResponse({ error: 'LINK_FAILED', message: 'Failed to open letter' }, 500, corsHeaders);
+      }
+      // No terms-acceptance row here: the presenter has not proven to be this account (P1446).
 
       // The auth account already existed — no credential (P1446).
       return jsonResponse({
