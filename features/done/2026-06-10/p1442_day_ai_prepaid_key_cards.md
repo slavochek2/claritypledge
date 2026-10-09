@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 24
 workstream: infrastructure
 created_date: '2026-10-08'
 tags: [day, ai-keys, monitoring, kanban]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-09
 ---
 
 # P1442: /day — every AI prepaid key card on the Monitor tab
