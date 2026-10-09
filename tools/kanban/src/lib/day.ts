@@ -249,9 +249,10 @@ export function keyCard(cloud: DayCloud, k: DayCloudKey) {
   // UNKNOWN (the budget list was blind) is never a cap
   const cap_unknown = cap_rows.length === 0 && cap_state === 'UNKNOWN'
   // one cap for sort, bar and Raise: the cap budget row when there is one, else the recorded budget
-  const cap_eur = cap_rows[0]?.amount_eur ?? k.budget_eur
+  // a cap row that is not in EUR has no EUR cap: never fall back to the recorded amount
+  const cap_eur = cap_rows.length ? cap_rows[0].amount_eur : k.budget_eur
   // same precedence as the cap: the budget row first, the key's own field only when there is no row
-  const alert_eur = alert_rows[0]?.amount_eur ?? k.alert_budget_eur
+  const alert_eur = alert_rows.length ? alert_rows[0].amount_eur : k.alert_budget_eur
   return {
     state,
     why,
@@ -267,6 +268,12 @@ export function keyCard(cloud: DayCloud, k: DayCloudKey) {
     cap_rows,
     alert_rows,
   }
+}
+
+/** Only a report that lists budget rows, or key cap facts, can say "No cap". An older report, or a blind
+ * (empty) budget list, stays silent rather than contradict the cap amount it shows (review round 4, C6). */
+export function capFactsKnown(cloud: DayCloud): boolean {
+  return (cloud.budgets?.length ?? 0) > 0 || (cloud.keys ?? []).some((k) => k.cap_state !== undefined || k.alert_budget_eur !== undefined)
 }
 
 /** A key with no measured spend sorts after every measured key: "closest to limit first" ranks measured spend only (QA pass 2). */
@@ -554,6 +561,14 @@ function readOptions(x: unknown): DayOption[] {
 }
 
 /** One trimmed line, whitespace runs collapsed, cut to `max`; undefined when nothing is left. */
+/** Ids that never reach the board: a project path, a billing account, an account id, or a GCP project id
+ * (lowercase, ending in a numeric suffix, e.g. a key's own project). Review round 4, C1/C2. */
+const ID_PATTERNS = [/projects\/\S+/gi, /billingAccounts\/?\S*/gi, /\b[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}\b/gi, /\b[a-z][a-z0-9-]{3,28}-\d{4,}\b/g]
+const hasId = (s: string) => ID_PATTERNS.some((re) => new RegExp(re.source, re.flags.replace('g', '')).test(s))
+function scrubIds(s: string | undefined): string | undefined {
+  return s === undefined ? undefined : ID_PATTERNS.reduce((t, re) => t.replace(re, '[id]'), s)
+}
+
 function oneLine(x: unknown, max: number): string | undefined {
   if (typeof x !== 'string') return undefined
   const s = x.replace(/\s+/g, ' ').trim()
@@ -679,9 +694,9 @@ function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefin
           const spent = money(spent_eur)
           const budget = money(budget_eur)
           const bad = [spent_eur !== undefined && spent === undefined ? 'spend' : '', budget_eur !== undefined && budget === undefined ? 'budget' : ''].filter(Boolean)
-          const line = bad.length ? `${bad.join(' and ')} value invalid in the report` : oneLine(why, MAX_KEY_WHY)
+          const line = bad.length ? `${bad.join(' and ')} value invalid in the report` : scrubIds(oneLine(why, MAX_KEY_WHY))
           const cs = oneLine(cap_state, 40)
-          const ev = isObj(unused_evidence) && str(unused_evidence.metric) && unused_evidence.requests === 0 && str(unused_evidence.window)
+          const ev = isObj(unused_evidence) && typeof unused_evidence.metric === 'string' && /(^|[\s/])request_count$/.test(unused_evidence.metric) && unused_evidence.requests === 0 && str(unused_evidence.window)
             ? { metric: oneLine(unused_evidence.metric, 80) as string, requests: 0 as const, window: oneLine(unused_evidence.window, 40) as string }
             : undefined
           let st = KEY_STATES.includes(state as KeyState) ? (state as KeyState) : undefined
@@ -698,12 +713,14 @@ function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefin
             ...(st ? { state: st } : {}),
             ...(st === 'unused' && ev ? { unused_evidence: ev } : {}),
             ...(cs ? { cap_state: cs } : {}),
-            ...(oneLine(cap_note, 200) ? { cap_note: oneLine(cap_note, 200) } : {}),
+            ...(oneLine(cap_note, 200) ? { cap_note: scrubIds(oneLine(cap_note, 200)) } : {}),
             ...(money(alert_budget_eur) !== undefined ? { alert_budget_eur: money(alert_budget_eur) } : {}),
           } as DayCloudKey
         })
         : undefined,
     }
+    if (!Array.isArray(c.week)) delete m.cloud.week
+    if (!Array.isArray(c.month)) delete m.cloud.month
     if (Array.isArray(c.budgets)) m.cloud.budgets = c.budgets.map(readBudget).filter((b): b is DayBudget => !!b)
     else delete m.cloud.budgets
   }
@@ -714,14 +731,16 @@ function readBudget(x: unknown): DayBudget | null {
   if (!isObj(x)) return null
   const raw = oneLine(x.name, 80)
   // a display name that looks like a project id or a filter never reaches the board
-  const name = raw && (/projects\//i.test(raw) || /billingAccounts/i.test(raw) || /^\d{6,}$/.test(raw) || /\b[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}\b/i.test(raw)) ? 'unnamed budget' : raw
+  const name = raw && (hasId(raw) || /^\d{6,}$/.test(raw)) ? 'unnamed budget' : raw
   const amount = num(x.amount_eur)
+  // C9: a negative amount is not a budget
+  if (amount !== undefined && amount < 0) return null
   const currency = oneLine(x.currency, 8)
   if (!name || (amount === undefined && !currency) || !BUDGET_KINDS.includes(x.kind as BudgetKind)) return null
   const b: DayBudget = { name, kind: x.kind as BudgetKind }
   if (amount !== undefined) b.amount_eur = amount
   else b.currency = currency
-  const why = oneLine(x.why, 80)
+  const why = scrubIds(oneLine(x.why, 80))
   if (why) b.why = why
   if (x.key_id !== undefined) {
     if (typeof x.key_id !== 'string' || !ID.test(x.key_id)) return null

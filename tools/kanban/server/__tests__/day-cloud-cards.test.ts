@@ -177,7 +177,7 @@ describe('P1442 cloud budgets + key cards', () => {
     const c = parsedCloud({
       collected: true,
       keys: [
-        { id: 'u', label: 'U', collected: false, state: 'unused', unused_evidence: { metric: 'm', requests: 0, window: '2026-10' } },
+        { id: 'u', label: 'U', collected: false, state: 'unused', unused_evidence: { metric: 'request_count', requests: 0, window: '2026-10' } },
         { id: 'n', label: 'N', collected: false, state: 'no-spend' },
         { id: 'x', label: 'X', collected: false },
       ],
@@ -219,7 +219,7 @@ describe('P1442 cloud budgets + key cards', () => {
   })
 
   it('ROUND 3 C3 — "unused" evidence for another month is downgraded to no-spend', () => {
-    const ev = (window: string) => ({ metric: 'm', requests: 0, window })
+    const ev = (window: string) => ({ metric: 'request_count', requests: 0, window })
     const month = synthReport().started_at.slice(0, 7)
     const c = parsedCloud({
       collected: true,

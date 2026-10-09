@@ -3,7 +3,7 @@
 // budget raise is a decision that joins Start fixing.
 
 import { useState } from 'react'
-import { capRatio, compareKeyCards, keyCard, type DayBudget, type DayCloud, type DayQuota, type DayReport, type DayView, type KeyState } from '../../lib/day'
+import { capFactsKnown, capRatio, compareKeyCards, keyCard, type DayBudget, type DayCloud, type DayQuota, type DayReport, type DayView, type KeyState } from '../../lib/day'
 import { Legend, LineChart, SubscriptionsChart, SubscriptionsLegend } from './charts'
 import { projectQuota, resetLabel, type QuotaLine } from './quota'
 import { Phrases } from './status'
@@ -125,7 +125,7 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
   const unmatched = budgets.filter((b) => b.kind === 'unmatched' || ((b.kind === 'key-cap' || b.kind === 'key-alert') && !keys.some((k) => k.id === b.key_id)))
   // rows not of a known kind cannot occur (the parser drops them); every row lands in exactly one place
   // only a report that lists budgets (or key cap facts) can say "No cap"; an older report stays silent
-  const cardsKnown = Array.isArray(cloud.budgets) || keys.some((k) => k.cap_state !== undefined || k.alert_budget_eur !== undefined)
+  const cardsKnown = capFactsKnown(cloud)
 
   return (
     <>
