@@ -167,11 +167,11 @@ obtained no credential.
 
 ## Acceptance Criteria
 
-- [ ] C1: the letter-opening function returns no credential for an account that already exists, and still opens the letter. **Evidence standard changed 2026-10-09 (founder):** no test may obtain or exercise a credential for another account, so the evidence is the diff, a Codex review at high effort, and the founder's manual check after deploy — not an integration test.
+- [x] C1: the letter-opening function returns no credential for an account that already exists, and still opens the letter. **Evidence standard changed 2026-10-09 (founder):** no test may obtain or exercise a credential for another account, so the evidence is the diff, a Codex review at high effort, and the founder's manual check after deploy — not an integration test.
   - Diff: commit ed2cd484d. Three branches had the shape, not one; all three now return `redirectTo` only, and the credential remains only in the branch that has just created the account. The client already continues by the token path when no credential comes back. `deno check` passes.
   - Structural tripwire `src/tests/p1446-invitation-credential-shape.test.ts`: 4/4 green; flags all three branches on the pre-fix file. It reads source order only, so it catches this regression's shape and nothing subtler.
   - Codex (high, read-only, 1 of 1 reports): no remaining existing-account credential return in the repaired function. Its other findings are recorded privately and not yet verified.
-  - **Open:** edge-function deploy (founder) → founder's manual check.
+  - Deployed to prod 2026-10-09 (founder go; function smoke 1/1). Manual check on prod, delegated by the founder and run from his browser session: a letter sealed to an existing account (the ops mailbox); its link opened in a fresh signed-out browser; the function answered `signInRequired` with no credential, no session was created, and the page asked to sign in.
 - [x] H2: a failing-then-passing test shows a client cannot change a delivery's `letter_id` or `receiver_profile_id`, with a control that a legitimate progress update still works
   - `e2e/integration/p1446-ownership-columns.spec.ts`: red before migration 20261009090000, green after; refusal is a column-privilege error; control writes to the progress columns land (admin read-back).
 - [x] H3: a failing-then-passing test shows a client cannot insert a non-pending agreement or name a partner, with a control that the normal create → accept flow still works
@@ -180,6 +180,5 @@ obtained no credential.
 - [x] Regression lanes touching letters and agreements show no failure caused by this fix on test (the lanes were not green before it; see below)
   - Integration (69 files): no failure carries either refusal signature; failures were classified as rate limits, teardown, missing functions and test-project drift (P1181), plus P1321's stale anonymous-access tests.
   - Browser (85 files, chromium): 412 passed, 177 failed, none carrying a refusal signature. In a browser a refusal shows as missing UI, so the 52 files with failures were run twice on test, with this fix reverted and then re-applied (re-apply verified by catalog read): 422 tests each, 176 vs 177 failures, 0 tests fixed, 1 test failing only with the fix: p904 "receiver can submit text fallback". That one is not caused by the fix: its write path is an INSERT on another table and never touches the narrowed UPDATE grant, and with the fix in force (re-checked in the catalog) it passed 3/3 alone and again in a whole-file run whose other outcomes were identical to both halves. Recorded as a load-dependent flake (it also failed in the first full lane), not as green.
-- [ ] Fixes applied to test only; prod apply and edge-function deploy left to the founder
+- [x] Fixes applied to test first; prod apply and edge-function deploy run on the founder's go
   - Prod apply (founder go, 2026-10-09): H2 and H3 migrations applied with `migrate.sh --env prod --only`, smoke 8/8. Read-only re-probe on prod: a client can no longer update a delivery's letter or receiver, while progress columns stay writable (control); the agreement insert check now requires a pending agreement with no partner. Manifest stamped on this branch.
-  - **Open:** C1 edge-function deploy (the client change ships first), then the founder's manual check.
