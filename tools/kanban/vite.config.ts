@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'fs'
-import postcss from 'postcss'
+import { cpScopedCss } from './cp-scoped-css'
 import { fileURLToPath } from 'url'
 import { KANBAN_CONFIG } from './config'
 
@@ -13,39 +13,6 @@ const CP_PUBLIC = fileURLToPath(new URL('../../public', import.meta.url))
  * src/index.css), served as `.cp-scope { … }`. Read from CP at build time, never copied, so the Day
  * page's CP renderers always see CP's current values.
  */
-/**
- * P1449: what CP's src/index.css gives CP's renderers beyond Tailwind's utilities, read from CP and
- * scoped to the Day page's CP card — never copied:
- *  - the `:root` tokens, on `.cp-scope, .cp-reset` (P1445 D);
- *  - the `@font-face` rules, pointing at CP's own font files;
- *  - top-level single-class overrides (CP redefines `.rounded*` on --radius after its utilities), on
- *    `.cp-scope .cp-reset <class>` so they win over the board's `.cp-scope <class>` utilities as they
- *    win over CP's own by source order;
- *  - the `body` font (family, weight), on `.cp-scope .cp-reset`, where CP's text inherits it.
- * Anything else in index.css is page-level CP layout the board does not have.
- */
-export function cpScopedCss(css: string): string {
-  const root = postcss.parse(css)
-  const out: string[] = []
-  let tokens = false
-  root.each((node) => {
-    if (node.type === 'rule' && node.selector.trim() === ':root') {
-      tokens = true
-      out.push(`.cp-scope, .cp-reset {${node.nodes.map(String).join(';')};}`)
-    } else if (node.type === 'atrule' && node.name === 'font-face') {
-      out.push(String(node).replace(/url\((['"]?)\/fonts\//g, `url($1/@fs${CP_PUBLIC}/fonts/`))
-    } else if (node.type === 'rule' && node.selectors.every((x) => /^\.[\w-]+$/.test(x.trim()))) {
-      const r = node.clone({ selectors: node.selectors.map((x) => `.cp-scope .cp-reset ${x.trim()}`) })
-      out.push(String(r))
-    } else if (node.type === 'rule' && node.selector.trim() === 'body') {
-      const font = node.nodes.filter((d) => d.type === 'decl' && /^font-(family|weight)$/.test(d.prop)).map(String)
-      if (font.length) out.push(`.cp-scope .cp-reset {${font.join(';')};}`)
-    }
-  })
-  if (!tokens) throw new Error('cp-tokens: no :root block in CP src/index.css')
-  return out.join('\n') + '\n'
-}
-
 export function cpTokens(): Plugin {
   const ID = 'virtual:cp-tokens.css'
   const RESOLVED = '\0virtual:cp-tokens.css'
