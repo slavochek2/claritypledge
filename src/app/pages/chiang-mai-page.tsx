@@ -15,6 +15,7 @@ import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { buildEmbedUrl, SUBSCRIBE_URL } from "@/lib/chiang-mai-calendar";
 import { withUtm } from "@/lib/utm";
 import { useIframeLoadOverlay } from "@/components/ui/iframe-load-overlay";
+import { SuggestSourceDialog } from "@/app/components/cm/suggest-source-dialog";
 
 // md breakpoint — below it the week grid is unreadably cramped, agenda list wins
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -69,6 +70,9 @@ export function ChiangMaiPage() {
           <ClarityLogo size="xs" iconOnly className="sm:hidden" />
           <ClarityLogo size="xs" className="hidden sm:inline-flex" />
         </Link>
+        <div className="flex min-w-0 items-center sm:gap-1">
+        {/* P1447: anyone may suggest an events source; stored for the founder, never auto-added */}
+        <SuggestSourceDialog />
         <a
           href={SUBSCRIBE_LINK}
           target="_blank"
@@ -77,6 +81,7 @@ export function ChiangMaiPage() {
         >
           Add this calendar to yours
         </a>
+        </div>
       </header>
 
       {/* P1019: `relative` only — the wrapper carries no sizing of its own, so the
