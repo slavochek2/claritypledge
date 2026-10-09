@@ -7,7 +7,8 @@ created_date: '2026-10-09'
 tags: [security, migrations, p1321]
 disclosure: embargo
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, inline]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
