@@ -6,8 +6,9 @@ workstream: profile
 created_date: '2026-10-09'
 tags: [profile, banner, agents, image-generation]
 disclosure: public
-delivery_stage: challenge-prd
-pipeline_ran: [create-spec, challenge-prd]
+delivery_stage: architect
+pipeline_ran: [create-spec, challenge-prd, architect]
+pipeline_skipped: [ux -- only UI is the signature overlay, designed with the founder in a localhost prototype and captured in UI Contract]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -125,11 +126,191 @@ Decision density: a few (see the founder decisions below).
 
 ## Pre-deploy Checklist
 
-- [ ] Redeploy the `generate-banner` edge function to prod (no new secret; uses the existing `GEMINI_API_KEY`).
+- [ ] Redeploy `generate-banner` and deploy the new `generate-agent-banner` to prod.
+- [ ] Provision the batch Gemini key for `generate-agent-banner` under a distinct secret name (P1236), verified with `scripts/check-edge-function-secrets.sh`.
+- [ ] Self-hosted Caveat font file + OFL licence present in the build.
 - [ ] Apply the prod migration if `/architect` adds metadata columns.
 - [ ] After deploy: run the agent banner backfill on prod (existing agents only), then spot-check every agent profile.
 
-## Open Questions
+## Technical Architecture
 
-1. Should the agent banner generator live in the skill (local script, upload) or in a service-role path of `generate-banner`? `/architect` decides.
-2. Prototype assets (pool, generator, page) are in session scratch. Move `pool500.json` into the repo as part of `/dev`.
+### Technical Analysis
+
+**Reuse inventory (verified by reading each file this session):**
+
+| Existing | Path | Reuse |
+|---|---|---|
+| Generation, fallback model, storage upload, old-banner cleanup, rate limit | `supabase/functions/generate-banner/index.ts` (`generateImage` ~249, `buildProfilePrompt` ~147, `fetchProfileData` ~218) | Extended, not replaced. Event/story paths untouched. |
+| PNG/JPEG/WebP decoder (jsquash, pinned) + `imageSize` + 10M-pixel guard | `supabase/functions/_shared/banner-small.ts` (`decode` is module-private today) | Export `decode`; ink and darkness read pixels through it. No new codec. |
+| `GEMINI_API_KEY` (capped project, P1162) | same function | Vision call uses the same key and function, so no new secret. |
+| Gemini JSON-schema call shape (`responseMimeType` + `responseSchema`) and model id `gemini-3.8-flash` | `scripts/video-summary.mjs:184-197`, `~/.agents/model-defaults.env` | Pattern for the vision check. |
+| Profile read path | `get_profile_by_id` (latest def `20261004200000_p1413...sql`), `get_profile_by_slug` delegates to it (P1259 note); `mapProfileFromDb` `src/app/data/api.ts` ~645; types `src/app/types/index.ts` ~63, ~118 | One new JSON key plus mapping. |
+| Client-write guard pattern | `guard_profile_trust_columns` (P880/P878): trigger on `current_user IN ('anon','authenticated')` | Same technique in a NEW trigger. |
+| Agent registry | `agent_accounts` (P1104; `profile_id`, `operator_name`, no auth identity) | Used as the allow-list for `generate-agent-banner` (Decision 7). |
+| Prod service key access | `scripts/lib/keyring.mjs` `keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', reason)` as in `scripts/event-banner-small.ts:80` | Backfill and skill script. |
+| Self-hosted fonts + CSP | `src/index.css` `@font-face` (Inter, Playfair at `/fonts/*.woff2`); `vercel.json` CSP `font-src 'self' data:` | Caveat self-hosted; no CSP change. |
+| Tooltip primitive | `src/components/ui/tooltip.tsx`; `mobile-tooltip.tsx` is hover plus long-press only (taps pass through), so it does NOT satisfy tap-to-disclose | Build a small controlled tooltip on the primitive. |
+| Banner components | `src/app/components/shared/banner/BannerDisplay.tsx` (shared with events/stories), `profile-page-v2.tsx` ~641-675 (`saveBanner`, lazy generation), ~967 (`BannerDisplay`, `h-[120px] md:h-[160px]`) | Opt-in prop only. |
+| Skills | `.claude/commands/slava/content/provision-agent.md`, `gen-agent-avatar.md`, `disagreement/promote-to-prod.md` (runs provision Step 5 and 5b only) | Banner step added (see Decision 7). |
+
+**Verified facts that shape the design**
+- `generate-banner` never writes `profiles`. It returns `{url}`; the client then calls `updateProfile(banner_url)` (`profile-page-v2.tsx:641`, `api.ts` ~770 is a direct `.update()` as the user). So any metadata the client could write, the client could forge.
+- `profiles` UPDATE is a table-level grant guarded by triggers, not column grants (P886 trap, noted in `20260605150000_p878...sql`). A new column is therefore client-writable unless a trigger pins it.
+- A new `profiles` column is unreadable by anon until `GRANT SELECT (col)` (P877; done the same way in P1413).
+- `upsert_my_profile` (SECURITY DEFINER) lists its columns explicitly and does not mention `banner_mobile_url`; adding a column to `profiles` does not change it, so it need not be redefined.
+- Prototype images were requested with `imageConfig.aspectRatio '21:9'` (`gen.mjs:16`) and came back 1584x672. The live function asks for "16:9" in prose only. The profile path must send the 21:9 `imageConfig`, or the crop math below is wrong.
+- CSP `font-src 'self' data:` means Google Fonts (what the prototype loaded) would be blocked on prod. Caveat must be a local woff2.
+- Pool: 498 entries, eras 100/99/100/100/99; fields `artist, sig, movement, active, work, era`; no `exclude` yet. 10 `sig` values contain characters outside Latin-1 plus U+0152/0153 (macron o/u, s-cedilla and similar), which a Latin-subset Caveat will not draw.
+- Measured on the 16 prototype banners (sharp, gamma-encoded Rec.709 luma): mean luminance ranged 32 (Caravaggio, 73% of pixels < 40) to 188; the next-darkest were 93 and 99. n=16 only, so the floor below is a starting value to be recalibrated on the 20-generation run.
+- Deno tests (`*.test.ts` beside edge code) are not run by CI as far as I found: `grep "deno test"` over `package.json`, `scripts/*.sh`, `.github` returned nothing; only `deno check` runs in pre-commit (`pre-commit-checks.sh:2292`). The vitest config excludes `supabase/functions/**` from collection, but that only stops collection. UNVERIFIED: that a vitest file in `src/tests/` can import a plain TS module from `supabase/functions/_shared/`. To keep the AC testable, the pool, picker and pixel math contain no Deno or esm.sh imports.
+
+**UNVERIFIED (must be probed in `/dev` before relying):** that `gemini-3.8-flash` accepts image `inlineData` on `generateContent` from this key; Supabase edge wall-clock and CPU limits for 3 image generations plus 3 vision calls in one request (worst case, estimated ~60-75 s wall, CPU dominated by two or three 1584x672 decodes at ~200 ms each, per the measurement in `banner-small.ts`'s header).
+
+### Architecture Decisions
+
+**Decision 1: Pool and picker.**
+Chosen: `supabase/functions/_shared/artist-pool.ts` exports `ARTIST_POOL` (typed const array, fields as in the prototype plus `exclude?: boolean`) and `ERAS`. `supabase/functions/_shared/artist-banner.ts` exports `pickArtist(rng, { excludeArtist })`: choose one of 5 eras uniformly, then uniformly among non-excluded entries of that era, re-draw if equal to `excludeArtist`. `rng` is injected (`() => number`); production passes a `crypto.getRandomValues`-backed one; the test passes a seeded mulberry32.
+Rationale: edge-function bundles do not need a runtime JSON import (support under the Supabase Deno runtime is UNVERIFIED); a `.ts` array is type-checked by the existing `deno check` hook, and the founder review diff stays one entry per block. Injected RNG makes the AC (1,000 seeded draws, each era 20% +/- 3%) a deterministic test.
+Trade-off: the pool ships in the function bundle (about 60 KB) and changing it needs a function redeploy.
+Rejected: a database table (new RLS/grant surface for a static list, and the founder review is a code review); a JSON file (runtime import unverified).
+Pool hygiene tests (same file as the picker test): every era present, `sig` matches `/^[\u0020-\u00FF\u0152\u0153]+$/` (so the sig is always drawable in the Latin Caveat subset; the 10 offending sigs are folded by hand, e.g. "Koetsu", during the founder review, since `sig` is the credit line, not the legal name), no duplicate `artist`, and at least one non-excluded entry per era.
+
+**Decision 2: Prompt.**
+Chosen: for `entityType === 'profile'`, `buildArtistProfilePrompt(entry, keywords?)` replaces `buildProfilePrompt`. It names the artist, movement, and signature work, and asks for a wide panoramic scenery or abstract composition, no text/letters/signatures/frames, no nudity, no religious figures, faces not in focus, and the calm lower-left kept uncluttered. User `name`, `role` and `avatar_color` are dropped from the profile prompt: they add nothing to a style piece, and the "warm tones from avatar colour" clause fights style fidelity. `keywords` (keyword-search flow) are appended unchanged inside the existing untrusted `<entity_context>` block with the existing control-char strip and 100-char cap. Artist fields come from the checked-in pool, not from the request. `generateImage` gains an optional `aspectRatio`; the profile path passes `'21:9'`; event and story calls are byte-identical to today.
+Trade-off: a profile banner no longer carries the owner's role or colour.
+
+**Decision 3: Vision fidelity check.**
+Chosen: model `gemini-3.8-flash` (the repo's current Flash id; UNVERIFIED for image input, probe first). Multiple choice, not "does this look like X?": the prompt lists four options (the intended artist plus three artists from other eras, chosen by the same seeded rng) and "none / generic painting", and asks for JSON `{ "choice": <index> }`. Pass = the intended index. The image goes in as `inlineData` (original bytes).
+Rationale: a yes/no question with the intended name in it is anchored toward "yes"; a multiple-choice question with distractors from other eras has a 25% chance baseline, so the AC (>= 80% over 20 generations) means something and a generic painting fails.
+Retry policy: at most 2 extra generations per banner in total. Darkness and vision each get one retry; if both fail on attempt 1 they share the extra generations. After the last attempt the function ships the best candidate (a candidate that passes darkness wins over a brighter-failing one; otherwise the brighter), and never fails a user's banner over fidelity.
+If the vision call itself errors (network, 429), the candidate is accepted with `fidelity: 'unchecked'`. Every attempt logs one structured line `{ artist, attempt, luma, vision }` so the AC pass rate is measured from logs.
+Cost: each request is up to 3 image generations and 3 text calls against the capped key (P1162). The existing per-user rate limit still counts one hit per request; worst case per user per day is therefore 20 requests x 3 generations. ACCEPT given no human backfill and new-user volume only.
+Rejected: asking the model to name the artist freely and string-matching (brittle spelling and movement aliases); trusting the image model's own conformance (that is the thing under test).
+
+**Decision 4: Darkness floor and how it is measured.**
+Chosen: decode the generated image in Deno (the shared jsquash decoder, guarded by `imageSize` and the 10M-pixel budget; over budget skips the check and accepts), compute mean luma `0.2126R + 0.7152G + 0.0722B` on gamma-encoded 0-255 values over the central horizontal band `y in [0.25, 0.75]` (the part of a 21:9 source that stays visible in the 160px strip), sampling every 4th pixel in both axes. Floor: `DARK_FLOOR = 60` as an exported constant. Measured on the prototype: Caravaggio 32, darkest acceptable 93; 60 sits between with margin. Recalibrate on the 20-generation run and record the final number in this spec.
+Rationale: a pixel measurement is deterministic and testable; asking a vision model for "brightness" would be a second unreliable judgment. Same luma metric as the UI Contract threshold (140), so one definition of luminance.
+Trade-off: about 200 ms CPU per attempt; n=16 calibration.
+Rejected: vision-model brightness rating; measuring the whole frame (includes cropped-away top and bottom).
+
+**Decision 5: Ink for the displayed crop.**
+Chosen: `signatureBox(iw, ih)` in a pure `_shared/banner-ink.ts` maps the signature's on-screen rectangle back to source pixels. Display slots considered: phone `375 x 120` and wide `896 x 160` (both cover-fit, `object-fit: cover`, centered). For slot (W, H): scale `s = max(W/iw, H/ih)`, source offset of the visible window `((iw*s - W)/2, (ih*s - H)/2)`. Signature rectangle in display px: `x in [W-14-130, W-14]`, `y in [H-8-34, H-8]` (right 14, bottom 8 per the UI Contract; 130 x 34 is the rotated 22px Caveat text extent for the longest sig of 19 chars, checked by the real render in `/dev`). Map each slot's rectangle through the scale and offset to source px; the sampled region is the bounding box of the two. Mean luma (same metric, same sampling) over that box: `> 140` gives `'sepia'`, else `'cream'`. One stored ink; the dark/light halo from the UI Contract covers the in-between widths.
+For a 1584x672 source this evaluates to roughly x 0.60-0.98, y 0.61-0.83 of the image (hand-derived; `/dev` pins it with a unit test using synthetic images with a bright or dark corner, and the real measurements are re-run on the prototype set to confirm both inks occur).
+Trade-off: one ink must serve two slot widths.
+Rejected: computing in the browser per viewer (spec says once, at generation); sampling the uncropped corner as the prototype did (the cropped-away rows are not what the signature sits on).
+
+**Decision 6: Metadata storage and anti-spoofing.**
+Chosen: ONE new nullable column `profiles.banner_credit jsonb` holding `{ url, artist, sig, movement, ink, fidelity }`. `url` is the banner URL the credit belongs to. The client renders the credit only when `credit.url === banner_url`, so a removed or replaced banner (which the client persists as a plain `banner_url` update) can never show a stale credit and no client write to the credit is ever needed.
+Written only by the edge function with the service role, in `generate-banner` right after upload (before returning `{url}`).
+Guard: new trigger function `guard_profile_banner_credit()` (SECURITY INVOKER, `SET search_path = ''`) plus a `BEFORE INSERT OR UPDATE` trigger. When `current_user IN ('anon','authenticated')` it sets `NEW.banner_credit := NULL` on INSERT and `OLD.banner_credit` on UPDATE. `service_role` and SECURITY DEFINER owners pass through, exactly as P880. A separate function (not an edit of `guard_profile_trust_columns`) avoids redefining the shared P880/P878 function and its provenance requirement.
+Read: `GRANT SELECT (banner_credit) ON public.profiles TO anon, authenticated;` and `get_profile_by_id` redefined with one added key `'banner_credit'` (diffed against `20261004200000_p1413_profile_banner_mobile_url.sql`; REVOKE/GRANT pair re-applied byte-identical, as P1413 did). `get_profile_by_slug` delegates, so it inherits it. `upsert_my_profile` is not touched.
+Constraint: `CHECK (banner_credit IS NULL OR (jsonb_typeof(banner_credit) = 'object' AND banner_credit->>'ink' IN ('cream','sepia')))`.
+Trade-off: untyped inner fields; the read mapper validates them (strings, length <= 80, ink enum) before use, and renders as text only.
+Rejected: three typed columns (more grant/RPC/mapper surface, and no way to bind the credit to a specific banner); letting the client write the metadata (forgeable by any user, which the guard trigger now makes impossible).
+
+**Decision 7: Agent path — a separate operator function (revised at merge to satisfy the security review).**
+Chosen: new edge function `generate-agent-banner` that imports the same `_shared/artist-banner.ts` pipeline (so the prompt, fidelity loop and ink exist once). It authenticates ONLY by a constant-time compare of the bearer against its own service-role env value — no user-JWT path at all. It requires `entityId ∈ agent_accounts` (a human id → 403), never reads an `isAgent`/operator field from the body, writes `banner_url`, `banner_credit` and `banner_generation_attempted` with `WHERE banner_url IS NULL` unless `replace: true` (new key, old object deleted after the new URL is stored), and uses the **batch** Gemini key under a distinct secret name (P1236 rule), so agent work never draws on the interactive fuse.
+Script: `scripts/agent-banner.mjs` — `--env test|prod`; prod key via keyring with a reason; key never in argv. Modes `--profile-id <uuid> [--replace]` (skill) and `--all-missing` (backfill: dry-run default listing ids + count, `--apply` to run, sequential, cap per run, stops on first 429/403, anon read-back confirms `banner_credit.url === banner_url`). Exit 0 all done, 2 if any failed.
+Skills: `provision-agent.md` Step 5c "Banner" on every branch including Step 2b; Step 6 verifies by anon read-back; Regenerating section gains `--replace`. `promote-to-prod.md` (runs Steps 5/5b only) gets the same one-line call — **founder approval needed for this file**. `gen-agent-avatar.md`: note only; its frozen palette is unchanged.
+Rejected: service-role mode as a flag on `generate-banner` (a second door into the internet-facing user route — security review); generator inside the skill with direct upload (duplicates the pipeline in a second language).
+
+**Decision 8: Client rendering.**
+Chosen: `BannerDisplay` gains one optional prop `credit?: { sig: string; artist: string; ink: 'cream' | 'sepia' }`; absent means identical behavior for events and stories. New `src/app/components/shared/banner/BannerCredit.tsx` renders, only when a banner image is showing (so the gradient fallback and the loading shimmer never get a signature): a `<button type="button">` absolutely positioned `right: 14px; bottom: 8px`, text `after {sig}`, Caveat 700, rotate -2deg, size 22px at `md` and a measured smaller size on phones (pinned in `/dev` at 320/375), ink cream `#fff8e7` + dark halo or sepia `#2a1e14` + light halo, with a >= 40px hit area via padding/negative margin. Disclosure: controlled `Tooltip` from `@/components/ui/tooltip` showing "AI-generated image after {artist}", opened by hover/focus and toggled by tap, closed on outside tap. The `title` attribute is not used (it does not fire on touch). The image `alt` is set by the profile page to `AI-generated banner after {artist}` when a valid credit is present, else the existing `{name}'s profile banner`.
+`profile-page-v2.tsx` passes `credit` from `profile.bannerCredit` only when `credit.url === banner.bannerUrl`. Types: `bannerCredit` on `Profile`, `banner_credit` on `DbProfile`, mapped and validated in `mapProfileFromDb`. Regenerate: `generate-banner` reads the current `banner_credit.artist` and passes it to `pickArtist` as `excludeArtist`; the existing `saveBanner` flow is unchanged, and the page also refetches or locally sets the credit from the function response (the response gains `credit` beside `url`, so the UI does not wait for a profile refetch).
+Trade-off: the response shape grows by one field; `generateAIBanner` currently returns only the string, so `use-banner.ts`/`banner-utils.ts` need a small return-shape change (profile callers only; event/story callers keep reading `url`).
+Rejected: baking the signature into the image (forgery, and not editable); `title`-only disclosure (no touch).
+
+**Decision 9: Caveat font and CSP.**
+Chosen: self-host the Caveat 700 Latin woff2 at `public/fonts/caveat-700-latin.woff2` with an `@font-face` in `src/index.css` beside Inter and Playfair (`font-display: swap`, `font-family` fallback `cursive`). CSP unchanged: `font-src 'self' data:` already allows it. Sigs are constrained to the Latin subset by the pool test (Decision 1), so no latin-ext file. Fetching the font file is a download of an OFL-licensed asset, not a package install; if `/dev` prefers `@fontsource/caveat` as a dependency, ask first (install rule). Add the OFL licence text next to the font.
+Rejected: Google Fonts link (blocked by `font-src`, and a third-party request on every profile view).
+
+### Security Review
+
+Merged from the security agent (`/architect`, 2026-10-09). Findings about **existing** banner write and cleanup paths are recorded privately (`.private/docs/security-log.md`, 2026-10-09) and are tracked outside this spec; they are not described here.
+
+**RLS Policies:**
+- ⚠️ New metadata must not be client-writable. → Decision 6: `banner_credit` written only by service role; a `BEFORE INSERT OR UPDATE` guard trigger pins it for `anon`/`authenticated` (NULL on INSERT, OLD on UPDATE). Test must cover INSERT (delete-own-profile then insert) as well as UPDATE.
+- ⚠️ Column reads are default-deny (P877/P886). → `GRANT SELECT (banner_credit)` and add the key to `get_profile_by_id` (P1413 pattern), or the signature silently disappears.
+- ✅ `banners` bucket: INSERT/DELETE service-role only, 5 MB, image MIME allowlist.
+
+**Authentication:**
+- ✅ Human path keeps `getUser(token)` before any work; unchanged.
+- ⚠️ The agent path must not become a second, weaker door into the user route. → Decision 7 (revised): a **separate** function, never a body flag on `generate-banner`; service-role bearer compared in constant time, no user-JWT fallback.
+- ✅ Operator script reads the prod service key via `keyring_require` with a `KEYRING_REASON`, headers via stdin/process substitution, never argv, never under `bash -x`.
+
+**Authorization:**
+- ✅ Human path stays own-profile-only. Do NOT relax `fetchProfileData` for agent ids. Test: a user JWT posting an agent's id → 403.
+- ⚠️ Agent writes must be unable to replace anything by accident. → `UPDATE … WHERE id = $1 AND banner_url IS NULL`, assert exactly one row; targets derived by join through `agent_accounts`, never by name; dry-run prints ids + count; per-run cap; concurrency 1.
+- ⚠️ Re-running for a bad agent banner is a replacement path. → requires explicit `--replace <profile_id>`; new object key, never `upsert: true`; old object deleted only after the new URL is stored.
+
+**Input Validation:**
+- ⚠️ Credit strings rendered in the DOM. → render as text only (no `dangerouslySetInnerHTML`, verified absent in `BannerDisplay`); mapper validates strings (≤ 80 chars, no control/bidi characters) and `ink ∈ {cream, sepia}`; ink maps to one of two static classes, never `style={{color: dbValue}}`.
+- ⚠️ `keywords` reach the image prompt. → strip `<` and `>` in addition to the existing control-char strip and 100-char cap; prompt states the style is fixed and keywords describe subject only; hard constraints placed after the untrusted block; retry budget is a hard cap that returns the last image rather than looping.
+- ✅ `entityId` UUID-validated, `entityType` allowlisted. The artist is picked server-side, never accepted from the request.
+- ⚠️ Font: `font-src 'self' data:` blocks Google Fonts. → self-host (Decision 9), keep the OFL licence beside the file; verify on a prod/preview build, since dev sends no CSP.
+- ⚠️ Image decoding in Deno. → pin exact library version, cap input size before decode, decode failure = default ink and still store (never a 500 after Gemini spend).
+
+**Data Protection:**
+- ⚠️ PII in prompts. → new profile prompt drops name and role (Decision 2); vision prompt carries no profile data; agent prompts never include the subject's name and never depict the subject (P1104).
+- ⚠️ New Gemini calls send the key in the `x-goog-api-key` header, not the URL; log status + fixed error class only — never prompts, vision free text, or image bytes.
+- ✅ Repo hygiene: pool and script committed; agent id lists, prod counts and run logs never committed.
+
+**Spend and rate limiting:**
+- ⚠️ The limiter counts requests, but one request can now make up to ~9 Gemini calls (3 generations, each with a fallback model, plus vision). → count each Gemini call (or weight the row), and insert the rate-limit row **before** generation so concurrent requests cannot all pass the check.
+- ⚠️ Lazy generation can loop on failure (`banner_generation_attempted` is only set on save). → set it server-side on terminal failure; on retry-budget exhaustion store the last image instead of failing.
+- ⚠️ Interactive Gemini fuse is shared with `/chat` (P1162/P1236). → agent banners and the backfill run on the batch fuse via a distinct secret name; run `scripts/check-gemini-prod-key.sh` before backfill, a cap/403 is a hard stop; backfill stops on first 429/403 and is idempotent via `banner_url IS NULL`.
+
+**AI Prompt Security:**
+
+| Variable | Origin | Classification | Required handling |
+|---|---|---|---|
+| name, role | `profiles`, user-chosen | Untrusted, PII | Dropped from the new prompt |
+| avatar_color | `profiles`, user-writable | Untrusted | Dropped (conflicts with artist palette) |
+| keywords | request body | Untrusted, direct | `<>` strip, control-char strip, 100 cap, inside wrapper, subject-only framing |
+| artist name/sig/movement/work | checked-in pool | Trusted, LLM-drafted | Founder review AC; pool test enforces charset; `exclude` filtered at pick |
+| era / RNG | server | Trusted | Never from the request |
+| generated image (vision input) | model output | Untrusted | Blind multiple choice, fixed JSON schema, compared server-side, never forwarded or logged |
+| ink / luminance | computed from pixels | Trusted | Enum only |
+
+- [x] No PII in the new prompts · [x] System prompt holds no secrets · [x] Key server-side only · [x] Rate limiting specified (above)
+
+### Implementation Approach
+
+**Worktree recommended:** yes, via `git-ops.sh claim p1453`. It touches more than 10 files and `.claude/commands/` (three skills), and includes a migration.
+
+#### Build Sequence
+
+1. **Probe first (UNVERIFIED items).** One call: `gemini-3.8-flash` with an image `inlineData` and a JSON schema, against the test key. If it rejects image input, pick the vision model before writing code and update Decision 3.
+2. **Pure modules and tests (vitest, `src/tests/`):** `artist-pool.ts` (data, with founder-review fields), pick function, `banner-ink.ts` (luma, `signatureBox`, ink, `DARK_FLOOR`). Tests: 1,000 seeded draws per era 20% +/- 3%; excluded entries never drawn; `excludeArtist` honored; pool hygiene; synthetic bright/dark corner images give sepia/cream; darkness threshold on synthetic images. Watch the tests fail against a broken picker (mutation) before trusting them.
+3. **Migration** (test first, prod at ship): `banner_credit` column, CHECK, `GRANT SELECT`, guard trigger, `get_profile_by_id` with one added key. Provenance header per the pre-commit gate. A test proves a client-role UPDATE and INSERT cannot set the column and service role can.
+4. **Edge functions:** export `decode` from `banner-small.ts`; add `artist-banner.ts` (prompt with `<>`-stripped keywords and subject-only framing, vision check, hard-capped attempt loop returning the last image, region/luma over decoded pixels, key in `x-goog-api-key` header); wire `generate-banner/index.ts` profile path (21:9, pick, loop, credit write, response `credit`, rate-limit row inserted BEFORE generation and counted per Gemini call, `banner_generation_attempted` set on terminal failure). Create `generate-agent-banner` (Decision 7). Deno tests: agent function rejects a non-agent id (403), rejects a user JWT, refuses when a banner exists without `replace`; `generate-banner` rejects a user JWT posting an agent id (403). `deno check` is the existing pre-commit gate.
+5. **Client:** types and mapper, `BannerCredit`, `BannerDisplay` prop, profile page wiring, `banner-utils`/`use-banner` return shape, font file and `@font-face`.
+6. **Scripts and skills:** `scripts/agent-banner.mjs` (dry-run default), `provision-agent.md` Step 5c plus gates, `promote-to-prod.md` call, `gen-agent-avatar.md` note. Skill edits need the usual approval; the founder pre-approved the provision and avatar skill changes in this spec, `promote-to-prod.md` is the one extra file to confirm.
+7. **Measurement and review gates:** run the 20 test generations, record the vision pass rate and calibrated `DARK_FLOOR` in this spec; founder pool review (names, dates, `exclude`) recorded here; screenshots at 320/375/desktop with one cream and one sepia banner via `/verify`, and a font/CSP check in the console on a preview deployment.
+8. **Ship order:** migration to prod, deploy `generate-banner`, deploy the frontend, then dry-run and apply `agent-banner.mjs --all-missing --env prod`, spot-check every agent profile. State explicitly afterward what is live.
+
+#### Files to Create
+
+- `supabase/functions/_shared/artist-pool.ts`
+- `supabase/functions/_shared/artist-banner.ts`
+- `supabase/functions/_shared/banner-ink.ts`
+- `supabase/migrations/<timestamp>_p1453_profile_banner_credit.sql`
+- `scripts/agent-banner.mjs`
+- `src/app/components/shared/banner/BannerCredit.tsx`
+- `public/fonts/caveat-700-latin.woff2` (plus OFL licence text)
+- `src/tests/p1453-artist-picker.test.ts`, `src/tests/p1453-banner-ink.test.ts`, `src/tests/p1453-banner-credit-render.test.tsx`
+- `supabase/functions/generate-agent-banner/index.ts` + `supabase/functions/generate-agent-banner/p1453-agent-banner.test.ts` (Deno)
+- a migration integration test for the guard trigger, in the existing integration test folder
+
+#### Files to Modify
+
+- `supabase/functions/generate-banner/index.ts` (profile prompt and picker, aspect ratio, attempt loop, credit write, response `credit`, rate-limit ordering)
+- `supabase/functions/_shared/banner-small.ts` (export `decode`)
+- `src/app/components/shared/banner/BannerDisplay.tsx`, `index.ts`, `use-banner.ts`
+- `src/app/prototypes/events/banner-utils.ts` (`generateAIBanner` return shape for profiles)
+- `src/app/pages/profile-page-v2.tsx` (credit, alt text)
+- `src/app/data/api.ts` (`mapProfileFromDb`, `DbProfile`), `src/app/types/index.ts`, `src/app/types/supabase.ts` (if regenerated)
+- `src/index.css` (`@font-face`)
+- `docs/technical/database.md` (new column, trigger, accessor key)
+- `.claude/commands/slava/content/provision-agent.md`, `gen-agent-avatar.md`, `.claude/commands/slava/disagreement/promote-to-prod.md`
+- this spec's Pre-deploy Checklist: add the migration, the font file, and the backfill order from step 8 (the `/architect` decision on the migration: yes, one is needed).
