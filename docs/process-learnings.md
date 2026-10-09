@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 158
+**Next ID:** 159
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2475,5 +2475,16 @@ Found 2026-10-09 while shipping P1442: `npx tsc --noEmit -p .` in tools/kanban e
 **due:** month
 
 Found 2026-10-09: pre-commit warns on console.log('THEME-PARITY ' + ...) in tools/kanban/e2e-day/day-page.spec.ts, landed with P1449 (theme parity). Remove it or route it to an attachment so the warning stops firing on every kanban commit.
+
+---
+
+## Screenshot re-edit hook treats tool output as founder text
+
+**ID:** INBOX-158
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+The hook that blocks UI edits after the founder says a change is not visible scans every transcript entry of type user, and tool results are of that type. So a command that prints its trigger phrases, or a test log, blocks every .tsx edit until a later browser call. Fix: match only entries that are plain user text, with no tool_result blocks. Droppable if the hook is retired. Hit 2026-10-09 by the P1437 v3 builder subagent.
 
 ---
