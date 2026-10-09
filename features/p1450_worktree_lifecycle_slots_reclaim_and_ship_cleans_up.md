@@ -26,7 +26,7 @@ driver: anomaly
 
 1. **Read-only probes refresh liveness.** The PostToolUse activity hook stamps a slot whenever a tool payload *mentions* the slot path. w6 and w7 carried the identical stamp `09:51:27Z`, and w8's stamp moved during a read-only audit. Any audit, `/day` scan or status check therefore keeps dead slots LIVE for another 12h.
    **Counter-evidence that must survive the fix:** the same day, w4's lock PID was dead while a live session (`claritypledge-2d`) was committing there. Activity was the *correct* signal for w4, so the PID cannot replace it.
-2. **A completed ship left its slot behind (w8, p1449).** `worktree_has_user_changes` exempts `test-results/` at the top level only. w8 held `tools/kanban/test-results/`, so ship RETAINED the slot.
+2. **A completed ship left its slot behind (w8, p1449).** `worktree_has_user_changes` exempts `test-results/` at the top level only. w8 held `tools/kanban/test-results/`, so ship RETAINED the slot. **Reproduced live the same day on w2 (p1442 ship):** ship RETAINED it for `!! tools/kanban/test-results/` and `?? tools/kanban/node_modules`. The nested `node_modules` is not even gitignored at that depth, so it shows as untracked user work. Branch had 0 unique patches. Cleaned by hand.
 3. **A ship journal outlived a renamed spec (w3, p1448).** The journal stores `spec_file` by path. The spec was renamed after the journal was written, and `ship p1448 --resume` hard-failed with `spec file missing`, although both commits had landed and the spec was already in `done/`. Cleanup needed a manual `abandon`, branch delete and journal delete.
 4. **A stacked prototype stranded its parent slot (w6, p1390).** Every w6 commit was contained in w7's branch, but nothing noticed. w6 sat 3 days with a dead lock.
 
@@ -45,7 +45,7 @@ Blast radius: medium. These are shared tools (`git-ops.sh`, the activity hook, `
 ## Solution
 
 1. **Reads stop counting as activity.** Only Write, Edit, NotebookEdit, a Bash command whose cwd is the slot, or a git write against the slot (commit, add, index change) stamps `.activity`. A Bash command that only names the slot path in a read (`cat`, `grep`, `ls`, `git log`, `git status`) does not.
-2. **Ignored regenerable output is exempt at any depth.** This covers `test-results/`, `playwright-report/`, `dist/` and `coverage/`, matching the existing `__pycache__` rule (P1381).
+2. **Regenerable output is exempt at any depth, ignored or not.** This covers `test-results/`, `playwright-report/`, `dist/`, `coverage/` and `node_modules/`, matching the existing `__pycache__` rule (P1381). Also gitignore `node_modules/` at any depth.
 3. **Ship's journal resolves the spec by P-number.** It stops trusting the stored path, so a renamed spec does not strand a resume. `--resume` with all commits landed and the spec in `done/` converges to cleanup. Related: P1198, the other resume defect.
 4. **/day turns strandings into proposed actions.** Each stranded slot gets exactly one: *remove* (0 unique patches, no changes, not LIVE), *ship* (passes closure gate), *park* (worktree removed, branch kept), or *ask owner* (LIVE). The founder approves; /day runs it. A branch fully contained in another live branch is proposed for *remove worktree, keep branch*.
 5. **Park threshold** for a slot with no write activity: [FOUNDER DECISION: 7 days proposed. A shorter window clears clutter sooner, while a longer one protects slow prototypes.]

@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 156
+**Next ID:** 158
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2453,5 +2453,27 @@ Found 2026-10-09 redoing a run's reflection: the card showed the founder's story
 **due:** week
 
 2026-10-09 (P1448): git-ops publish-spec staged the published spec into done/ but did not remove features/pN_security-review-pending.md, so pre-commit refused the commit; also it could not find migrations named after the spec when the files carry the parent spec's name. Fix: publish-spec removes the stub in the same commit and accepts --migrations naming the files. Droppable if no embargo spec is filed again.
+
+---
+
+## Kanban typecheck fails on main: 16 errors in lib/scanner-rules.ts
+
+**ID:** INBOX-156
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** week
+
+Found 2026-10-09 while shipping P1442: `npx tsc --noEmit -p .` in tools/kanban exits 2 with 16 errors (all 'Property status/rank/type does not exist on type {}' in lib/scanner-rules.ts:188-204). Identical on main and on the P1442 branch, so pre-existing. The pre-commit checks do not run this typecheck, which is why nothing caught it.
+
+---
+
+## console.log left in day-page e2e (THEME-PARITY, line ~2800)
+
+**ID:** INBOX-157
+**Date:** 2026-10-09
+**Status:** proposed
+**due:** month
+
+Found 2026-10-09: pre-commit warns on console.log('THEME-PARITY ' + ...) in tools/kanban/e2e-day/day-page.spec.ts, landed with P1449 (theme parity). Remove it or route it to an attachment so the warning stops firing on every kanban commit.
 
 ---
