@@ -834,6 +834,8 @@ test.describe('monitoring, stats, reflection', () => {
       for (const g of gaps) expect(g.above, `${w}px space above vs below "${g.t}"`).toBeGreaterThan(g.below)
       // QA2: the "closest to limit first" part never wraps, so no orphan word
       expect(await page.locator('.d-h3 .d-nowrap').evaluate((e) => e.getClientRects().length)).toBe(1)
+      // the "·" separator wraps with its subtitle, never left dangling at a line end (visual QA, 320/375)
+      await expect(page.locator('.d-h3 .d-nowrap')).toHaveText(/^· closest to limit first$/)
       // QA2: Raise tap targets are at least 40px tall
       for (const sel of ['.d-acctrow', '[data-key="key-owl"] .d-keyrow']) expect((await rectOf(page.locator(sel), sel)).height).toBeGreaterThanOrEqual(40)
       // QA2: scrolled to the end, the sticky footer covers no card

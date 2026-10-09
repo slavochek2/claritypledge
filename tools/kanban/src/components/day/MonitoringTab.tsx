@@ -197,7 +197,7 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
       {keys.length > 0 && (
         <>
           <h3 className="d-h3">
-            <span>AI prepaid key cards ·</span> <span className="d-nowrap">closest to limit first</span>
+            <span>AI prepaid key cards</span> <span className="d-nowrap">· closest to limit first</span>
           </h3>
           {cardsKnown && anyConfigured && (
             <p className="d-klegend" data-cap-legend>
