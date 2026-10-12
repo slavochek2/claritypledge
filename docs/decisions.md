@@ -8,6 +8,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [product]: Outreach waits behind two sales-practice events (one in person, one online); 60-day target of 3–7 paid pilots
+
+**Context:** The founder started planning outreach (who to approach, warm vs cold vs intros, Asia vs Europe, which industries). The question underneath was what is being sold and in which format. The Clarity Night #2 retro (2026-10-07) says the method worked in the room (roles held, the observer bell, table rotation). What failed was the **promise**, since people came for a topic and got listening practice, and **carry-out**, since nobody had a next step. The founder's background is B2B sales training, and many people in the local network struggle with selling.
+
+**Decision:** (`UNTESTED`, zero sales events run)
+1. **Sequence:** one free in-person **sales-practice event** → the same format **online once** (the online format is still unproven) → **then outreach**. Who to reach (warmth lanes, geography, industry) is decided *after* the two events, using what they teach.
+2. **Why sales:** it addresses both CN#2 failures. Listening *is* the sales skill, so the topic and the method are the same thing and the promise matches. Each attendee's own deals and accountability give them a reason to return. Framing in buyer language: customer conversations / customer development. **Not** "ethical sales" (a generic compliance label that implies the default is unethical).
+3. **Target:** 3–7 **paid pilots** within 60 days (by 2026-12-11). Offer as the founder states it: a workshop plus onboarding coaching to keep the practice going and spread it (new hires, difficult cases). Delivery is hybrid: the workshop wherever the buyer is, coaching online.
+4. **Event direction:** no live demo (CN#2's demo ran 28 min against 5–8 planned, and the first table talk began about 57 min in). Instead a short video in prepare, volunteers onboard newcomers, and a 2-minute spoken opener of the one rule. Pairs with roles and rotation, and a larger observer role. A plenary where **disagreement is allowed only after the other person scores your explain-back high**, which in a sales setting means *don't pitch or rebut until the customer says you understood them*. Each attendee brings one real stuck customer conversation. Free; transcription opt-in; open to anyone who sells (B2B or B2C). Full structure, so the event tests something.
+
+**This amends 2026-10-07 [product] "Pause founder-run public Clarity Nights".** The pause stays for open-topic Clarity Nights. This is a public founder-run night with a different promise, run as a test of whether a need-driven audience fixes the two failures the pause was based on. It does **not** reopen the rejected H-SalesProductAlignment (2026-07-26). That was the interdepartmental sales↔product pair as the buyer; this is individual sellers practising on their own customer conversations.
+
+**Alternatives rejected:** outreach first, with the industry list from an outside advisor (aviation, medical, AI governance, funds, mediators). Its framing leans on "high-stakes" and "misaligned mental models", which the buyer-language corpus shows never transferred, so it is held as a second-wave hypothesis to score, not a target list · an online-only first event (would confound "the method failed" with "the new format failed") · a long single online session (the format concern is resolved by coaching happening as short online calls).
+
+**Falsifiers** (thresholds agent-proposed, `[FOUNDER DECISION: overwrite]`): at the in-person event, **0 attendees commit unprompted to a next session or to bringing a deal** ⟹ the sales promise did not fix carry-out · attendee feedback again says they came for something other than what they got ⟹ the promise mismatch persists · **fewer than 3 paid pilots by 2026-12-11** ⟹ the sequence or the offer is wrong; re-plan before more events.
+
+**Not moved:** `lean-canvas.md` §Customer Segments `active-market-focus`. The events test the sales angle; a canvas move goes through `/slava:maintain:docs-strategy-update` once there is evidence.
+
+**References:** [goals.md](goals.md) Next Steps · 2026-10-07 [product] (pause) · 2026-07-26 [product] (H-SalesProductAlignment rejected). **Details private:** .private/docs/decisions.md 2026-10-12 "Outreach sequence and sales-practice events — private details"
+
+## 2026-10-12 [product]: Two-party listening is a concept to keep; its public name is deferred (Status: proposed)
+
+**Context:** While positioning the sales event, the founder asked whether a new term is needed and how "deep listening" differs from active listening.
+
+**Decision:** Record the **concept** now; defer the **name**. Active listening is solo: the listener paraphrases and reflects, and nobody checks the result. The practice here takes two people. Both know the rule, both share responsibility for revealing the gap, and **the speaker scores the explain-back**, so the gap is quantified and the loop closes on the speaker's side. That last part is the one difference to *show* at events rather than name.
+
+**Alternatives rejected (for now):** adopting "deep listening" as the public name. It is already used in sales for the solo, listener-side practice (Oscar Trimboli's book and talks link listening to close rate), so a sales audience would hear the very thing being contrasted against. Also rejected: coining "clarity sales" before any event; the buyer-language BLACKLIST shows house terms fail to transfer.
+
+**Consequences:** "Deep listening" stays a working label in founder speech. Pick the name after 2–3 events from what attendees actually call it. The `definitions.md` entry goes through `/slava:maintain:docs-strategy-update` when the founder asks.
+
+**References:** `.private/docs/business/buyer-language-corpus-2026-07-29.md` (BLACKLIST) · [Barrows on deep vs active listening in sales](https://blog.jbarrows.com/blog/deep-and-active-listening-skills-for-sales/)
+
 ## 2026-10-12 [product]: "Alice in Bob's eyes" is a mental model, not an agent — predictions are notes or addressed to their subject
 
 **Context:** Designing Clarity Chat (P1437 → P1467), Bob's mirror agent drafts Bob's guess of Alice's view on a point: a predicted position and a story in her voice. Positions are held only by entities and Bob already holds his own (`story_points_author_point_unique` also allows one story per author per point), so the prediction needed its own holder. Codex falsify ranked B (an "agent on Alice") > nested story > label-on-Bob's-story; prior-art research (Laing's interpersonal perception, the Ideological Turing Test, "on behalf of" mail, AI output labels) found no support for a label alone. The founder then rejected "agent": it cannot act, and "AGENT on Alice" lets Bob hide behind a machine for a claim that is his.
