@@ -70,6 +70,11 @@ Check the result; recrop manually if the head is clipped.
 
 ## Step 2 — Generate (frozen prompt)
 
+> **Banners are not this skill's job (P1453).** An agent's profile banner is an artist-style
+> painting from `/slava:content:provision-agent` Step 5c (`scripts/agent-banner.mjs`), generated
+> for every agent, with or without a portrait. Nothing here changes for it — the avatar prompt and
+> its slate/amber palette stay frozen.
+
 Uses Nano Banana image-to-image, the same family `/slava:content:gen-image` uses. Model chain: `gemini-3-pro-image-preview` → `gemini-3.1-flash-image-preview` → `gemini-2.5-flash-image`.
 
 **The prompt below is frozen at skill version 1.0.0. Do not paraphrase, extend, or "improve" it per-subject.**
