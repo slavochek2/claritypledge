@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [technical]: A comment between JSX children renders as text — guarded by an AST test, not lint
+
+**Context:** P1445 D (`9452b15fc`) left a bare `/* … */` between JSX children in `feed-point-card.tsx`. JSX treats that as a text node, so the code comment rendered on every point card in the prod feed. tsc, eslint and the P1445 review all passed it: the repo has no `eslint-plugin-react`, so the stock `react/jsx-no-comment-textnodes` rule was never available.
+**Decision:** Wrap the comment in `{}` (`66b41bf67`) and add `src/tests/jsx-comment-leak.test.ts`: it parses every `.tsx` under `src/` and `tools/` with the TypeScript compiler and fails on any `JsxText` containing `/*`, `*/`, or a line starting with `//`. A mid-line `//` is allowed because ordinary prose and URLs contain it. Proven against the real unfixed prod file (flags :286). An adversarial review (Codex + Opus, 2 of 2 reported, independently in agreement) found that the first regex matched only comments at the start of a line, so it missed `Hi /* x */` and a stray `*/`. Both cases are now controls that fail on the old regex.
+**Alternatives rejected:** Adding `eslint-plugin-react` for `jsx-no-comment-textnodes`. It is the conventional fix, but it means a new dependency, so it is held for a founder decision rather than installed during a hotfix. If it is adopted, the AST test becomes redundant and can be deleted. A render test of one card was rejected because it would guard one component, not the class.
+**Consequences:** Any future bare comment in JSX fails `npm test` before commit. Falsifier: a comment-shaped text leak reaches prod through a `.tsx` file the guard scans.
+**References:** `src/tests/jsx-comment-leak.test.ts`, `src/app/components/feed/feed-point-card.tsx`
+
 ## 2026-10-09 [process]: Until P1450 lands, a slot's owner is found by asking live sessions, never by its lock or activity stamp (P1450)
 
 **Context:** A worktree cleanup found 7 slots, every lock PID dead, 6 reading LIVE. Both signals were wrong in opposite directions. w4/w5 had dead lock PIDs yet a live session was committing in them. w1 read "active" only because the cleanup's own read-only probe stamped `.activity`. The PostToolUse hook stamps on any payload that mentions a slot path.
