@@ -210,6 +210,65 @@ one primary action. Every number and every story says whose it is.
 - Keep `?variants=eyes` and `?variants=eyes2` reachable as design references; the chosen #9 mark
   becomes one shared component used by S5, S6, S10 and S11 (not a copy per screen).
 
+## Build contract from adversarial review (Codex falsify, 2026-10-12, claims checked against code) — binding
+
+These close the gaps a builder would otherwise guess. Where they refine an S-item above, they win.
+
+**Component reuse (optional props only, defaults keep production identical):**
+- `FeedPointCard`: add `statementPrefix?: ReactNode` (rendered right after the visibility icon;
+  drafts pass the Draft chip) and `hideFooter?: boolean = false` (drafts hide stories/Details).
+  Today the lock and statement are joined directly and the footer is always rendered.
+- `FeedStoryCard`: add `authorOverride?: ReactNode` replacing the visible author block (avatar,
+  profile link, ear badge), keeping accessible authorship. The mental model uses a distinct
+  non-agent fixture id and author name "Alice in Bob's eyes"; "By Bob, in her voice" is a
+  subtitle, never a replacement author. Today the avatar is a hardcoded GravatarAvatar with an
+  EarBadge.
+- Expanded linked stories inside FeedPointCard render via `QuotedStory`; add
+  `renderLinkedStory?: (story) => ReactNode` so the prototype can supply FeedStoryCard with the
+  #9 identity. The #9 mark appears in every representation of the model, expanded or not.
+- Run the existing feed-card tests after each prop; they must stay green.
+
+**State and privacy rules:**
+- **Reveals:** Bob's confidence is revealed only after Alice *confirms* her "Would you say this?"
+  rating; Bob's expectation only after she confirms her understanding rating. A selection alone
+  reveals nothing.
+- **Edits invalidate:** editing a story clears its approval and seal; editing the point clears
+  both stories' approvals and seals. A sent letter is immutable.
+- **Decline:** confirming Decline closes the letter, shows Bob only "Declined", discards Alice's
+  unsent answers, keeps comparisons sealed and releases the pair lock. Cancel returns to the same
+  step. (v4's `isDone` treats decline as completion; the publication boundary is new.)
+- **Skip:** only "What did he miss?" and explain-back are skippable; skipping creates no story and
+  keeps completed ratings.
+- **Second letter:** completed or declined letters release the lock; a blocked Send keeps the
+  draft and offers a secondary "Open existing letter". New letters get new ids; history stays in
+  order.
+- **Preview switching** keeps each person's draft, active step and scroll; Bob's view shows status
+  only until Alice sends (no ratings, correction, transcript or recording). **Reset** clears
+  letters, drafts and the first-encounter dismissal.
+- **First-encounter card:** once per pair per session.
+
+**One primary action per view:**
+- In the digest, selecting a flag reveals its single primary **Explore**; other flags show only
+  secondary actions.
+- Completed messages become read-only with a secondary Edit; sealing appears only after approval.
+  Only the active step has a primary action; earlier controls cannot advance the flow.
+- Step 2 is: confirm rating → reveal → "What did he miss?" or Skip → next. Step 4 (explain-back
+  or Skip) leads to an unnumbered "Review and send". Count every tap (select, confirm, dismiss,
+  skip, send) for goal criterion 3, separately from the 4 numbered steps.
+
+**Mock content (literal fixtures, written once in mock-data):**
+- Flag 1: Bob and Alice, mum's birthday (the existing imported thread: "Are you coming or should I
+  tell her you're busy again?" / "You always try." / "You came for lunch and left before
+  coffee."); why: "You may mean 'I showed up', Alice may mean 'you were present'"; stakes: high.
+- Flag 2: the existing launch-docs exchange with Priya; stakes: medium.
+- Juno's questions, replies and every answer to Alice are written as fixtures; free text from Bob
+  is quoted back, never contradicted; free text from Alice gets a neutral reply that restates the
+  current step.
+
+**320 px:** sidebar collapses; "Alice in Bob's eyes" wraps (never truncated, "Bob's" always
+visible); comparison labels share one height so pills align; action rows stack; message actions
+are reachable by tap; composer and "Jump to latest" never cover the active action.
+
 ## Goal criteria (every reviewer checks these; measure v4 first, v5 must not be worse on any)
 
 1. **Same parts.** Points, stories, scales and letter steps use the same components as stake and
@@ -288,6 +347,8 @@ one primary action. Every number and every story says whose it is.
 - [ ] S11 result for both with lower numbers shown; Skipped/Declined never shows a number.
 - [ ] S12 one shared #9 mark component.
 - [ ] No mock person or agent named Mira; counterparty is Alice.
+- [ ] Build contract from adversarial review: every rule implemented, each with a test or a
+      screenshot.
 
 ## Related
 
