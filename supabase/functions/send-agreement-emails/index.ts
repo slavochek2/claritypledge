@@ -456,16 +456,6 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Agreement not found' }), { status: 404, headers: corsHeaders });
     }
 
-    // Internal callers carry no user identity, so the party check cannot apply to
-    // them — the shared secret is their authorization, and these two checks are
-    // their scope. accept_agreement sets status = 'active' (p443 migration), so an
-    // internal 'accepted' notification is only ever legitimate for an active
-    // agreement; without this, a leaked secret could fire "X co-signed your
-    // agreement" at the creator of a pending, declined or terminated one.
-    if (isInternal && agreementCheck.status !== 'active') {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
-    }
-
     if (!isInternal) {
       const isParty =
         agreementCheck.creator_profile_id === callerId ||
@@ -474,6 +464,26 @@ serve(async (req: Request) => {
       if (!isParty) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
       }
+    }
+
+    // P1451: each notification announces a state, so it is sent only when the
+    // agreement is in that state — whoever asks. P1178 enforced this for internal
+    // 'accepted' calls only; a party could otherwise send "X co-signed", "X ended
+    // the agreement" or a fresh invitation for an agreement in another state. Every
+    // client call follows the write that produces the state: invitation after the
+    // insert, resend after rotate_invitation_token, accepted after accept_agreement,
+    // declined after decline_agreement, terminated after the terminate update.
+    // Internal callers are limited to 'accepted' above, so this is also their scope.
+    // After the party check, so a non-party learns nothing about the agreement's state.
+    const REQUIRED_STATUS: Record<string, string> = {
+      invitation: 'pending',
+      resend: 'pending',
+      accepted: 'active',
+      declined: 'declined',
+      terminated: 'terminated',
+    };
+    if (REQUIRED_STATUS[action] && agreementCheck.status !== REQUIRED_STATUS[action]) {
+      return new Response(JSON.stringify({ error: 'Forbidden', reason: 'state' }), { status: 403, headers: corsHeaders });
     }
 
     switch (action) {
