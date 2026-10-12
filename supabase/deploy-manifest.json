@@ -3,7 +3,7 @@
     "functions": {
       "_shared": "",
       "confirm-letter-response": "a594c8f32a800c35d30023cc7a7657a4a3d70f52434e0e2669e06a953d7e9fd7",
-      "create-and-open-letter": "92e955a34bec3fd82bbc8e968b3b9de0c48da6dc6eb3bb817d37087d451f1694",
+      "create-and-open-letter": "cb6927bea7ddeef9e521d3abd9d0385c41a4b602b86ec67e34039a4c694d736e",
       "create-and-sign": "ad6f5944839eb5fb48333fe67a45c02e7fa03e7411d4efac729ca6e68d74e7a4",
       "dispatch-event-emails": "cdfac24b11a07578454f6823a443f1efb208cd17dd327d515789514487c390cb",
       "enqueue-room-transcription": "fc930a09f3aa5779ecebe77008cc85cb6b6f6f11387edd1aa85ec285159dcd07",
@@ -20,7 +20,7 @@
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
       "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-10-12T09:39:12Z",
+    "functions_deployed_at": "2026-10-09T10:14:00Z",
     "migrations": [
       "20250101",
       "20250117",
