@@ -16,8 +16,11 @@ WHY THIS EXISTS
 
 WHAT COUNTS AS A GATE
   Any one of: a user-identity check (auth.getUser), a shared-secret header
-  (INTERNAL_FN_SECRET, WEBHOOK_SECRET, GCS_UPLOAD_SECRET), or validation of a
-  capability token the caller must already possess.
+  (INTERNAL_FN_SECRET, WEBHOOK_SECRET, GCS_UPLOAD_SECRET), validation of a
+  capability token the caller must already possess, or the caller's bearer
+  compared in constant time against a SERVICE_ROLE_KEY (operator-only functions,
+  P1453 generate-agent-banner). Merely creating a service-role client does not
+  count: every function does that, and it says nothing about the caller.
 
 BOUND ON THIS CHECK (state it, do not overclaim)
   This is a FILE-BASED check. It proves a gate is present in source; it does
@@ -40,6 +43,7 @@ GATE_PATTERNS = {
     # (epistemic.md 7c, P1173).
     "shared secret compared":        r"[A-Z][A-Z0-9_]*SECRET[A-Z0-9_]*\s*(\?\?[^\n]*)?[\s\S]{0,400}?(!==|===|==|!=)",
     "capability token validation":   r"(!==\s*token\b|get_letter_by_token|token_hash|invitation_token)",
+    "service-role bearer compared":  r"secretMatches\s*\([^)]*SERVICE_ROLE_KEY",
 }
 
 # Functions deliberately reachable without a caller identity, each with the

@@ -446,15 +446,16 @@
       "enqueue-transcription": "0290afe00f87b306774b378baf199e457fadcba7445e41ba3ad733634d68bb99",
       "explain-back-signed-url": "84583bb6269af9d7d9b74c4aa5305e76a91fbfc9f4d54e4af158222f706a12ad",
       "gcs-signed-url": "3942eab8ae881648bd517fe2d7b2d2e57ad9f7bfc4186c6ecd51e66a4aeda700",
-      "generate-banner": "5b96686679069aafbb369cb225e3d13d28025e05c9af92e60c9e84cc9535b571",
+      "generate-banner": "c10d0254ce3db190c3e673cb1b92577efa4903af7aab67b471b4f9390b605599",
       "generate-event-banner": "d05ff142159cdc43b4cf6658bcb615be341044e03ae6a8913c993372ab60757d",
       "generate-story-image-url": "6cc90db497ed645a6caa9363cd3ce82511229d8291a6f32bf89b7928d37aeba6",
       "request-letter-response-signin": "956eb682327b8efa503163f559e64f73d7b309b6e4c6176ca49e25d259d35e3a",
       "send-agreement-emails": "3f3032bb97613c3d981397959d5a792f831848fec87ec7a77bd74291256ecb1e",
       "send-event-emails": "ab1041f1264758481f4f63d7454437ec698501a75181f643caef617543744e64",
-      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717"
+      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
+      "generate-agent-banner": "d27433dbb620a72b2f213073b60475b580cc901d619f5364f80c1b52695f2865"
     },
-    "functions_deployed_at": "2026-10-12T09:17:33Z",
+    "functions_deployed_at": "2026-10-12T14:55:02Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -870,8 +871,9 @@
       "20261009160000",
       "20261009180000",
       "20261009181000",
-      "20261009182000"
+      "20261009182000",
+      "20261012200000"
     ],
-    "migrations_deployed_at": "2026-10-12T09:17:33Z"
+    "migrations_deployed_at": "2026-10-12T14:26:18Z"
   }
 }

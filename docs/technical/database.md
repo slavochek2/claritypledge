@@ -25,6 +25,7 @@ The Clarity Pledge uses Supabase (PostgreSQL) with Row Level Security (RLS). All
 | is_verified | boolean | Email verified status |
 | created_at | timestamp | Signup timestamp |
 | updated_at | timestamp | Last update timestamp |
+| banner_credit | jsonb | P1453: `{ url, artist, sig, movement, ink, fidelity }` for an artist-style banner. Written only by the `generate-banner` / `generate-agent-banner` edge functions (service role); the `guard_profile_banner_credit` trigger pins it for anon/authenticated (NULL on INSERT, OLD on UPDATE). `CHECK` limits `ink` to `cream`/`sepia`. Readable via column GRANT and `get_profile_by_id`. The client shows the credit only while `banner_url` equals `banner_credit.url`. Migration `20261012200000` |
 
 ### witnesses
 

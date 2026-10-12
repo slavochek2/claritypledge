@@ -23,6 +23,16 @@
   src: url('/fonts/playfair-display-italic-latin.woff2') format('woff2');
 }
 
+/* P1453: the "after <artist>" banner signature. Self-hosted (CSP font-src 'self'), Latin subset
+   only — the artist pool test keeps every signature inside it. Licence: /fonts/caveat-OFL.txt */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/caveat-700-latin.woff2') format('woff2');
+}
+
 @tailwind base;
 
 @tailwind components;

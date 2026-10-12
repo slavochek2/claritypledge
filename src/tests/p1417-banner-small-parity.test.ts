@@ -34,7 +34,8 @@ describe.each([
   });
 
   it('schedules the small copy after the banner upload, and never awaits it before responding', () => {
-    const upload = src.indexOf('await uploadToStorage(');
+    // generate-banner uploads through the shared helper since P1453; generate-event-banner locally.
+    const upload = src.search(/await (uploadToStorage|uploadBannerImage)\(/);
     const schedule = src.indexOf('scheduleSmallCopy(');
     const respond = src.indexOf('JSON.stringify({ url: ');
     expect(upload).toBeGreaterThan(-1);

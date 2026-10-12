@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode } from '@/lib/room-capability';
 import { clearOfflineReadCacheWithin } from '@/lib/offline-read-cache';
+import { parseBannerCredit } from '@/lib/banner-credit';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
 import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
@@ -644,6 +645,7 @@ export function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 
     links: dbProfile.links ?? [], // P1259: the subject's own public profiles, validated at render
     bannerUrl: dbProfile.banner_url ?? undefined, // P504: AI-generated profile banner
     bannerMobileUrl: dbProfile.banner_mobile_url ?? undefined, // P1413
+    bannerCredit: parseBannerCredit(dbProfile.banner_credit), // P1453: validated before render
     bannerGenerationAttempted: dbProfile.banner_generation_attempted ?? false, // P504
     isTestAccount: dbProfile.is_test_account ?? false, // P1133: Mixpanel is_internal tagging
   };

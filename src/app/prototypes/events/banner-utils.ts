@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { parseBannerCredit, type BannerCredit } from '@/lib/banner-credit';
 
 const NOISE_WORDS = new Set([
   'clarity', 'lab', 'session', 'workshop', 'event',
@@ -35,6 +36,19 @@ export async function generateAIBanner(
   authToken: string,
   keywords?: string,
 ): Promise<string | null> {
+  return (await generateAIBannerResult(entityType, entityId, authToken, keywords))?.url ?? null;
+}
+
+/**
+ * Same call, returning the P1453 artist credit beside the URL (profiles only; validated, and
+ * undefined for events and stories), so the page shows "after <artist>" without a refetch.
+ */
+export async function generateAIBannerResult(
+  entityType: BannerEntityType,
+  entityId: string,
+  authToken: string,
+  keywords?: string,
+): Promise<{ url: string; credit?: BannerCredit } | null> {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) return null;
@@ -51,7 +65,8 @@ export async function generateAIBanner(
     if (!response.ok) return null;
 
     const data = await response.json();
-    return data.url || null;
+    if (typeof data?.url !== 'string' || !data.url) return null;
+    return { url: data.url, credit: parseBannerCredit(data.credit) };
   } catch {
     return null;
   }

@@ -37,6 +37,8 @@ interface BannerImageProps {
   fetchPriority?: 'high' | 'low' | 'auto';
   /** Every source failed and nothing is rendered — the caller keeps its placeholder/fallback. */
   onFail?: () => void;
+  /** The image has painted (P1453: the banner credit waits for it). */
+  onLoad?: () => void;
 }
 
 /**
@@ -51,7 +53,7 @@ interface BannerImageProps {
  *
  * Banners with no derivable copy (story/profile banners, other hosts) render the original as before.
  */
-export function BannerImage({ src, alt, className, sizes, loading = 'lazy', fetchPriority, onFail }: BannerImageProps) {
+export function BannerImage({ src, alt, className, sizes, loading = 'lazy', fetchPriority, onFail, onLoad }: BannerImageProps) {
   const small = bannerSmallUrl(src);
   const wide = useWideScreen();
   const initial: Stage = small ? 'small' : 'original';
@@ -76,7 +78,7 @@ export function BannerImage({ src, alt, className, sizes, loading = 'lazy', fetc
     setState({ src, stage: 'original' });
   };
 
-  const common = { className, loading, decoding: 'async' as const, fetchPriority, onError: handleError };
+  const common = { className, loading, decoding: 'async' as const, fetchPriority, onError: handleError, onLoad };
   if (stage === 'small' && small) {
     return wide ? (
       <img

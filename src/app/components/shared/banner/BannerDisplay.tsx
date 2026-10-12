@@ -1,5 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { BannerImage, BANNER_WIDE_QUERY } from './BannerImage';
+import { BannerCredit } from './BannerCredit';
+import type { BannerCredit as Credit } from '@/lib/banner-credit';
 
 // Mounting only the matching <img> means the browser fetches exactly one banner instead of both
 // (P1354 code review finding #2). P1417: the md breakpoint plus a minimum height, the same rule
@@ -23,6 +25,8 @@ interface BannerDisplayProps {
   fallbackClassName?: string;
   /** Accessibility: set true during banner generation */
   'aria-busy'?: boolean;
+  /** P1453: "after <artist>" credit for `bannerUrl`. Absent (events, stories) = unchanged. */
+  credit?: Credit;
   children?: ReactNode;
 }
 
@@ -39,10 +43,14 @@ export function BannerDisplay({
   heightClassName,
   fallbackClassName,
   'aria-busy': ariaBusy,
+  credit,
   children,
 }: BannerDisplayProps) {
   const [imgError, setImgError] = useState(false);
   const [mobileImgError, setMobileImgError] = useState(false);
+  // P1453: the URL of the credited image once it has loaded — the signature never sits on the
+  // loading placeholder, where its ink was not chosen for.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia(DESKTOP_QUERY).matches);
   const showImage = !!bannerUrl && !imgError;
   const heightClass = heightClassName ?? 'h-48 md:h-64';
@@ -81,6 +89,12 @@ export function BannerDisplay({
   // <img> owns its own error state below, independent of the other.
   const hasMobileVariant = !!bannerUrl && !!mobileBannerUrl;
 
+  // P1453: the credit belongs to `bannerUrl` only. Never on the gradient fallback, never while a
+  // new banner is generating, and never over the hand-set phone variant (a different picture).
+  const showsCreditedImage = hasMobileVariant ? isDesktop && !imgError : showImage;
+  const showCredit = !!credit && credit.url === bannerUrl && loadedUrl === bannerUrl && showsCreditedImage && !ariaBusy;
+  const onCreditedLoad = () => setLoadedUrl(bannerUrl ?? null);
+
   return (
     <div
       className={`w-full ${heightClass} relative overflow-hidden ${className ?? ''}`}
@@ -98,6 +112,7 @@ export function BannerDisplay({
               loading="eager"
               fetchPriority="high"
               onFail={() => setImgError(true)}
+              onLoad={onCreditedLoad}
             />
           ) : (
             renderFallback()
@@ -124,10 +139,12 @@ export function BannerDisplay({
           loading="eager"
           fetchPriority="high"
           onFail={() => setImgError(true)}
+          onLoad={onCreditedLoad}
         />
       ) : (
         renderFallback()
       )}
+      {showCredit && <BannerCredit credit={credit} />}
       {children}
     </div>
   );

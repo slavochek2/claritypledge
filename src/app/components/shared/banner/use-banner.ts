@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { generateAIBanner, type BannerEntityType } from '@/app/prototypes/events/banner-utils';
+import { generateAIBannerResult, type BannerEntityType } from '@/app/prototypes/events/banner-utils';
+import type { BannerCredit } from '@/lib/banner-credit';
 
 interface UseBannerOptions {
   entityType: BannerEntityType;
@@ -13,6 +14,8 @@ interface UseBannerOptions {
 
 interface UseBannerReturn {
   bannerUrl: string | null;
+  /** P1453: credit returned by the last generation in this session (profiles only). */
+  credit: BannerCredit | null;
   isLoading: boolean;
   showSearch: boolean;
   searchError: string;
@@ -28,7 +31,7 @@ async function getAuthToken(): Promise<string | null> {
 
 /**
  * Shared hook for banner state + actions.
- * Calls generateAIBanner from banner-utils and delegates persistence via onSave.
+ * Calls generateAIBannerResult from banner-utils and delegates persistence via onSave.
  */
 export function useBanner({
   entityType,
@@ -43,6 +46,7 @@ export function useBanner({
       setBannerUrl(initialBannerUrl);
     }
   }, [initialBannerUrl]);
+  const [credit, setCredit] = useState<BannerCredit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -60,9 +64,11 @@ export function useBanner({
         return;
       }
 
-      const newUrl = await generateAIBanner(entityType, entityId, token);
+      const result = await generateAIBannerResult(entityType, entityId, token);
+      const newUrl = result?.url ?? null;
 
       if (newUrl) {
+        setCredit(result?.credit ?? null);
         setBannerUrl(newUrl);
         await onSave(newUrl);
         setShowSearch(false);
@@ -111,9 +117,11 @@ export function useBanner({
           return;
         }
 
-        const newUrl = await generateAIBanner(entityType, entityId, token, keywords);
+        const result = await generateAIBannerResult(entityType, entityId, token, keywords);
+        const newUrl = result?.url ?? null;
 
         if (newUrl) {
+          setCredit(result?.credit ?? null);
           setBannerUrl(newUrl);
           await onSave(newUrl);
           setShowSearch(false);
@@ -131,6 +139,7 @@ export function useBanner({
 
   return {
     bannerUrl,
+    credit,
     isLoading,
     showSearch,
     searchError,

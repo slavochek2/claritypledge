@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 27
 workstream: profile
 created_date: '2026-10-09'
 tags: [profile, banner, agents, image-generation]
 disclosure: public
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, architect, dev]
 pipeline_skipped: [ux -- only UI is the signature overlay, designed with the founder in a localhost prototype and captured in UI Contract]
 drafted_by: opus
 exec_model: opus

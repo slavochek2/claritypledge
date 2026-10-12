@@ -62,7 +62,8 @@ export function smallPathFor(path: string): string {
   return `${path}${BANNER_SMALL_SUFFIX}`;
 }
 
-async function decode(bytes: Uint8Array, mime: string): Promise<ImageData> {
+/** Decode PNG/JPEG/WebP to RGBA (P1453 reads pixels through this too). Throws on failure. */
+export async function decode(bytes: Uint8Array, mime: string): Promise<ImageData> {
   const buf = bytes.slice().buffer as ArrayBuffer;
   if (mime === 'image/png') return (await import('https://esm.sh/@jsquash/png@3.1.1/decode.js')).default(buf);
   if (mime === 'image/jpeg') return (await import('https://esm.sh/@jsquash/jpeg@1.6.0/decode.js')).default(buf);

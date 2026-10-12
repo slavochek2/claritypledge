@@ -126,6 +126,12 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1453: operator-only (scripts/agent-banner.mjs), never called by a browser — no OPTIONS
+  // branch, so the method guard answers 405 with no CORS. Measured on TEST.
+  'generate-agent-banner': {
+    options: { status: 405, expectCors: false },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'generate-banner': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },

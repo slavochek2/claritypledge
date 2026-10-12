@@ -17,6 +17,7 @@ import {
 } from "@/lib/list-return-cache";
 import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profile } from "@/app/data/api";
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
+import { creditForBanner } from '@/lib/banner-credit';
 import { SEO } from "@/app/components/seo";
 import { earTooltip } from "@/components/ui/ear-tooltip";
 import { Button } from "@/components/ui/button";
@@ -658,6 +659,10 @@ export function ProfilePageV2() {
     onSave: saveBanner,
   });
 
+  // P1453: the "after <artist>" credit for the banner on screen — a fresh generation's credit,
+  // else the stored one, and only when it belongs to exactly this banner URL.
+  const bannerCredit = creditForBanner(banner.bannerUrl, banner.credit, profile?.bannerCredit);
+
   // P504: Lazy banner generation for profiles without banners
   const lazyBannerTriggered = useRef(false);
   useEffect(() => {
@@ -968,7 +973,9 @@ export function ProfilePageV2() {
               bannerUrl={banner.bannerUrl}
               // P1413: read from `profile`, not `useBanner` — hand-set/read-only, as P1354 for events
               mobileBannerUrl={profile.bannerMobileUrl}
-              altText={`${profile.name}'s profile banner`}
+              // P1453: only a credit bound to the banner on screen; a removed or replaced banner has none
+              credit={bannerCredit}
+              altText={bannerCredit ? `AI-generated banner after ${bannerCredit.artist}` : `${profile.name}'s profile banner`}
               heightClassName="h-[120px] md:h-[160px]"
               fallbackClassName="bg-gradient-to-r from-blue-500/20 via-indigo-400/15 to-purple-500/20"
               aria-busy={banner.isLoading || undefined}
