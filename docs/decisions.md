@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [process]: /dev's code review covers only the commits that existed when it ran (Status: proposed)
+
+**Context:** P1463 was built over three founder-feedback rounds in one session. `/dev` step 9.5 ran the code review once, after round 1 (`.claude/commands/slava/build/dev.md:195-206`). Rounds 2 and 3 rewired the pager and rewrote Status, then reached step 10's ready-for-QA (`dev.md:221`), which never reads `.finish-reviewed`, so "ready" was announced on round 1's review. Only `/ship`'s gate 2.7b warned. A Codex review run then found 2 real MEDIUM bugs: a slow last-card Accept pulled the founder back out of the statements, and "Open card" was offered for parked cards it could not open. `finish/SKILL.md` already says a moved HEAD means the review must re-run, but that applies only when `/finish` is invoked, and nothing in `/dev` re-invokes it.
+**Decision (proposed):** add a step 9.95 "Review freshness" to `dev.md`, before step 10. If the latest `code` stamp for this `pn` is not HEAD, and it is either not an ancestor of HEAD or non-`features/` files changed since, re-run 9.5 and 9.5a first. `/fix` does not need it: its review and stamp sit immediately before its qa write.
+**Alternatives rejected:** making gate 2.7b blocking (it fires after "ready" was claimed, and its Non-Goal is never to block); a stamp-checking script (adds an approval surface for one observed instance, so prose first).
+**Consequences:** a skill edit, so it needs founder approval. Separately, and UNTESTED: gate 2.7b's branch arm compares the stamp time with the latest commit time (`scripts/ship-gates.sh:622`), and `/dev`'s own "ready for QA" commit always lands after the stamp, so it likely warns on every `/dev` ship. That would make it noise people learn to ignore. Falsifier: a `/dev` ship with no edits after the stamp shows 2.7b PASS.
+**References:** [p1463](../features/done/2026-06-10/p1463_day_page_attention_pass.md)
+
 ## 2026-10-12 [product]: Day page — one queue, Status by outcome, every number backed by something visible (P1463)
 
 **Context:** On a real run the founder annotated the Day page: "too much info at once" and "only two cards but says 23?". The same Beeper fault showed three times (connection row, check row, card). The Start fixing count included about 21 agent tasks whose only display was a collapsed list below the fold. Status was sorted by kind (Connections / New people / Checks), and the founder could not tell what belonged to what: "my expectation is I see work, work, work. I see it didn't work. And if I want to expand… then I expand it."
