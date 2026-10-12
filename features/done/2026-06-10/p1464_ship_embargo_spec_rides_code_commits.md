@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 29
 severity: medium
@@ -11,9 +11,9 @@ exec_model: opus
 exec_effort: high
 tags: [ship, git-ops, disclosure]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
 related: [p1255, p1454]
+completed_at: 2026-10-12
 ---
 
 # P1464: `git-ops.sh ship` lands an embargoed spec on main whenever a branch commit touches it
