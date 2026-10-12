@@ -78,6 +78,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** The failure mode is now an orphaned file (storage cost), never a deleted one. Any new privileged delete/overwrite keyed off a stored URL or path must derive or verify ownership the same way.
 **References:** `supabase/functions/_shared/banner-path.ts`, P1453
 
+## 2026-10-12 [process]: Playwright 1.64 for macOS 27, and a dependency bump in a worktree must un-link node_modules first
+
+**Context:** On macOS 27 (arm64), Playwright 1.57's ffmpeg-1011 has a malformed code signature, so the kernel SIGKILLs it. Ad-hoc re-signing fails strict validation. `playwright.config.ts` records video globally, so every local e2e test failed at `newPage` (`spawn … error -88`). CI on Linux was unaffected. The installer also hangs after its download finishes on this machine, which made the failure look like a network problem.
+**Decision:** Upgrade `@playwright/test` to 1.64.0, which ships ffmpeg-1013 with a valid signature (`3a8228c2f`). Under 1.64 one helper's hand-written `page` type no longer matched `Page`, so it now uses Playwright's own `Page` type. A full e2e type-check against a 1.57 control showed that as the only new error. Reviewed by Codex, Opus and Gemini, 3 of 3 reported, no breakage found (Codex inconclusive: offline sandbox).
+**Alternatives rejected:** Running with `video: 'off'` as a permanent setting would hide a broken toolchain and lose failure videos. Re-signing the old binary does not work.
+**Consequences:** (1) Every Mac that runs e2e needs `npm install` after pulling (the postinstall step fetches the 1.64 browsers). CI needs nothing. (2) `scripts/create-worktree.sh` symlinks `node_modules` to the main checkout, so `npm install` of a new version inside a worktree silently mutates every checkout. Before a dependency change in a worktree, replace the symlink with a real install. (3) On this machine, the `/cm` prod smoke can time out over the VPN while waiting for the embedded Google Calendar to go network-idle. The page renders correctly, so this is not a prod error.
+**References:** `package.json`, `e2e/helpers/storage-state.ts`, `scripts/create-worktree.sh`
+
 ## 2026-10-12 [technical]: A comment between JSX children renders as text — guarded by an AST test, not lint
 
 **Context:** P1445 D (`9452b15fc`) left a bare `/* … */` between JSX children in `feed-point-card.tsx`. JSX treats that as a text node, so the code comment rendered on every point card in the prod feed. tsc, eslint and the P1445 review all passed it: the repo has no `eslint-plugin-react`, so the stock `react/jsx-no-comment-textnodes` rule was never available.
