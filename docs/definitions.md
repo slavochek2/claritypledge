@@ -346,7 +346,8 @@ Current AI training faces a calibration gap:
 
 **Key properties:**
 - Not a product persona — no fixed name, no brand identity
-- User can name it after their first story is filed (stored in private user settings, not visible to others)
+- **A person's own acting agent.** It drafts, flags and talks for its owner, and acts toward other people only when its owner asks (e.g. carrying a letter its owner sent). It never starts anything toward others on its own.
+- **May carry a user-chosen name, always shown with its role:** "<Name> · Bob's mirror agent", or "Bob's mirror agent" when unnamed. The app marks agents (AGENT tag + agent avatar); a symbol typed into a name never does. See [decisions.md](decisions.md) 2026-10-12 [product] "'Alice in Bob's eyes' is a mental model, not an agent".
 - Acts as a personal mirror, not a judge or coach — its job is accurate reflection, not improvement
 - Uses NVC scaffolding internally to structure the story; this scaffolding is invisible to the user
 
@@ -354,7 +355,27 @@ Current AI training faces a calibration gap:
 
 ---
 
-### Digital Twin (Mirror Agent)
+### Mental Model of a Person ("Alice in Bob's eyes")
+
+> **Definition:** Bob's approved belief about Alice's view on a point: a predicted position plus a story written in her voice. Every word is Bob's claim. It is **not an agent** — it cannot act.
+
+**One test separates three things that all look like "an AI about a person":** *did a person approve it as their own belief?*
+- **Agent** — acts (a mirror agent drafts, flags, talks for its owner).
+- **Machine reading** — a summary of someone's public words that nobody vouches for as their belief ("AGENT on <public figure>", including transcripts an operator processed but never read).
+- **Mental model** — an approved belief about a person; it belongs to its author and carries the author's name: "Alice in Bob's eyes".
+
+**Properties:**
+- It holds positions, so a prediction never collides with the author's own position on the same point.
+- Every prediction about a person is either a **private note** or **addressed to that person**, who can rate it ("Would you say this?") and correct it. Her rating is her claim, shown as hers; a low rating is not proof the model is false.
+- A prediction, not a rating of the person: it says "I think you'd see it this way", and the subject has the final word.
+- The author's list of them is "How I see people"; each page is visible to its author only.
+- Can be calibrated against its subject through her ratings — the difference from a mirror agent, which predicts under its owner's instructions.
+
+**Falsifier:** if subjects read "Alice in Bob's eyes" as Alice speaking, or as a judgment of Alice, the framing fails — tested by the first-encounter card ([P1465](../features/p1465_clarity_chat_first_encounter_explainer.md)).
+
+---
+
+### Digital Twin
 
 > **Definition:** An AI agent trained on YOUR verified Stories — capable of representing your reasoning, values, and decision-making patterns in conversations where you're not present.
 
