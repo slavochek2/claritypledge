@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 28
 severity: critical
@@ -10,10 +10,10 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, letters, agreements, auth]
-disclosure: embargo
-delivery_stage: fix
+disclosure: public
 pipeline_ran: [create-bug, reproduce, fix]
 related: [p1321, p1215, p1207]
+completed_at: 2026-10-12
 ---
 
 # P1446: Letter and agreement invitation paths trust the wrong party
@@ -97,10 +97,7 @@ As in Root Cause, on production today.
 - `supabase/functions/create-and-open-letter/index.ts` — idempotent existing-receiver branch
 - `supabase/migrations/20260403224331_p581_clarity_letters.sql:204` — delivery UPDATE policy (latest)
 - `supabase/migrations/20260224150000_p422_clarity_agreements.sql:85` — agreement INSERT policy (latest)
-- Suspected, to triage (unverified Codex claims): `create-and-sign` edge function (credential for an
-  unregistered address); `claim_letter_delivery` and `update_delivery_status_by_token`
-  (`20260813170000`, `20260630130000`) binding an uninvited token holder; `confirm-letter-response`
-  not re-checking eligibility; stale JWT email in `guard_profile_trust_columns` (P1321 L3).
+- Further suspected paths were triaged separately; see Triage below.
 
 ## Severity
 
@@ -127,43 +124,17 @@ side was missed), P1321 L1/L2.
 
 ## Triage of the Unverified Claims (2026-10-09)
 
-Each verified against code and the live catalog (read-only), or by a probe on the test project that
-obtained no credential.
+Each claim was checked against code and the live catalog (read-only), or by a probe on the test
+project that obtained no credential. Dispositions only; mechanics for anything still open are kept
+in the private security log.
 
-1. **`create-and-sign` returns a credential for an unregistered address — CONFIRMED, but NOT the C1
-   shape. Founder decision.** It never returns a credential for an account that already exists: an
-   existing profile gets `USER_EXISTS` (index.ts ~L183–191), and for a case variant of a registered
-   address auth itself refuses the create ("already been registered" — probed on test with a fresh
-   fixture, control `createTestUser` on a new address succeeded). What remains is shared with the
-   new-account branch of `create-and-open-letter`: whoever presents the invitation token (which the
-   creator/sender can read) gets the session of a **newly created** account at the invitee's address,
-   before the invitee has used it. No existing data is exposed; the risk is a pre-created account the
-   presenter keeps a session in. This is the one-click product flow, so it is the founder's call, not
-   fixed here. `[FOUNDER DECISION: keep one-click account creation, or deliver the first sign-in to the
-   mailbox / hide the token from senders]`
-2. **`claim_letter_delivery` / `update_delivery_status_by_token` bind an unassigned delivery to any
-   signed-in token holder (H4) — CONFIRMED as written, NOT an escalation; LOW.** Both bind only a
-   delivery with no receiver, and only for a caller holding its token. Through table reads the token
-   is visible only to the letter's sender and its receiver (SELECT policy); the addressed recipient and
-   anyone they forward the email to are bearers by design, and the sender can only route their own
-   letter to an account of their choosing — nothing they do not already control. Residual hygiene gap:
-   on prod `update_delivery_status_by_token` checks neither invitation expiry nor the sender (the claim
-   RPC checks both). Not changed here: the same function is redefined by the unshipped P1181 branch
-   (live on the test project, not on prod), so a P1446 redefinition would conflict with it and would
-   remove P1181's check from test. Filed for alignment with P1181.
-3. **`confirm-letter-response` enrols without re-checking eligibility (M6) — NOT REACHABLE as an
-   escalation.** It enrols only from a `letter_response_pending` row, which no client role can read
-   or write (prod: anon/authenticated INSERT/UPDATE/SELECT all false), written by
-   `request-letter-response-signin` only after checking the letter is sealed and one-to-many (~L322–330),
-   and matched to the caller and its own expiry. The only gap is staleness within the pending row's
-   lifetime, on a letter that was public when requested. P1181 must add its audience check to both
-   functions when it ships.
-4. **Stale JWT email in P1321's `guard_profile_trust_columns` (M5) — REACHABLE ONLY IN A NARROW
-   WINDOW; LOW.** The INSERT branch takes the email claim from the caller's JWT. After an email change a
-   still-valid old token carries the old address until it expires, so a user who deletes and re-creates
-   their profile row inside that window can store the address they used to own. Requires having
-   controlled that address and a profile re-insert within one token lifetime; UPDATE pins the old value
-   regardless. Recorded on P1321, not fixed here (P1321's migration is not on prod yet).
+1. `create-and-sign` credential for an unregistered address: confirmed, not the C1 shape. Open
+   product decision (founder), not fixed here.
+2. `claim_letter_delivery` / `update_delivery_status_by_token` (H4): confirmed, not an escalation;
+   low. A residual hygiene gap is filed for alignment with P1181.
+3. `confirm-letter-response` eligibility (M6): not reachable as an escalation. P1181 adds its audience
+   check when it ships.
+4. Stale-claim window in P1321's profile trust guard (M5): low, narrow. Recorded on P1321.
 
 ## Acceptance Criteria
 
