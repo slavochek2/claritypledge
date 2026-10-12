@@ -78,7 +78,7 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
           </li>
         ))}
         {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
-          <li key={x.title} className={x.dot === 'section' ? 'd-clsec' : undefined}>
+          <li key={x.title} className={x.dot === 'section' || x.attrs['data-list-reflection'] !== undefined ? 'd-clsec' : undefined}>
             <button
               type="button"
               className="d-clrow"
@@ -88,7 +88,9 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
                 x.onClick()
               }}
             >
-              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true" />
+              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true">
+                {x.dot === 'done' ? '✓' : ''}
+              </span>
               <span className="d-clt">{x.title}</span>
               <span className="d-clw">{x.word}</span>
             </button>

@@ -127,7 +127,7 @@ function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; 
         ...(p.parked > 0 ? [{ title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked }] : []),
         // P1463: the queue goes on into the statements — this row is the divider and the jump
         ...(p.reflection
-          ? [{ title: 'Reflection', word: p.reflection.open ? `${p.reflection.open} to rate` : '✓ rated', attrs: { 'data-list-reflection': '' }, onClick: p.reflection.go, dot: 'section' }]
+          ? [{ title: 'Reflection', word: p.reflection.open ? `${p.reflection.open} to rate` : 'rated', attrs: { 'data-list-reflection': '' }, onClick: p.reflection.go, dot: p.reflection.open ? 'section' : 'done' }]
           : []),
       ]}
     />

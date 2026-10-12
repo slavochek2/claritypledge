@@ -57,6 +57,18 @@ An adversarial copy/visual review (screenshots only, no code) went string by str
 
 Deferred (filed to the task inbox, not this spec): answered cards collapsing to "You chose X · Change"; card copy brevity (Point A/Obstacle/Point B, option and risk lines are written by the `/day` run, a Non-Goal here); duplicate agent rows naming the same root problem (`/day` dedup); "Send N changes" not naming what changed; a compact pager. Visual QA should-fix accepted: the panel's "1 check needs attention" is Beeper, since Replies is "see Beeper" and deliberately not counted twice; the agent link uses the same 40px hit-area class the still-yours test measures; chips wrapping to three lines at 320px is the cost of keeping Fix in the line. Rejected: hiding "New people (0)" (P1399 distinguishes *none* from *not collected*); moving the `← → move` hint (it is the only discoverability for the keys).
 
+### Round 3 — one queue, Status by outcome (founder, after preview)
+
+> Founder framing, verbatim: "my expectation is I see work, work, work. I see it didn't work. And if I want to expand and see more details and do any action, then I expand it."
+
+12. **Reflection is not a tab.** Its statements follow the cards in one pager ("N of cards+statements"); the card list's `Reflection` row is the divider and the jump; the last card's Accept & next moves on into the statements. One statement keeps the centred card (P1449). Tabs left: Daily report, Stats, Monitoring (looking only).
+13. **Status by outcome.** Line: `▶ ✓ {n} worked` · `✕ {m} didn’t work`. Panel: `Didn’t work ({m})` — a broken connection with its Fix and the checks it breaks under it, then each other failing check; every row's action is Fix or `Open card ›`; `Worked ({n}) · skipped {k}` folded. Supersedes points 2–3 and 7 (checks with cards are listed again, once, as an index into the cards).
+14. **New people and unpushed commits are not status** — chips beside the line; people open their own box; no chip when there are none.
+15. **An answered card folds** to `You chose: {answer} · Change` (read-only runs: `Show the card`) — only when it was already answered on arrival, never under the cursor.
+16. **Card header:** topic word dropped (the title says it), `Cause checked` dropped (only `Cause suspected` shows), age reads `{n} days open`; the wide card list loses its `All N cards answered` header.
+
+Visual QA (separate reviewer, round 3): no blockers; the Reflection row's "rated" with an empty dot was fixed to a ✓; the phone list fold, the agent link's size and content under the 320px bar were accepted (the fold is the narrow toggle; the link has the tested 40px hit area; the scroll-above-bar test covers 320px).
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
