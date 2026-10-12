@@ -78,6 +78,14 @@
 
 set -euo pipefail
 
+# Skip-safe precondition: git-ops' main.lock records the holder's start time via
+# `ps -o lstart=` and dies without it, so every ship below would fail for a reason
+# unrelated to the code under test. Say so and exit 77 (skipped), never 0.
+if [[ -z "$( { ps -o lstart= -p $$ 2>/dev/null || true; } | tr -d '[:space:]' )" ]]; then
+  echo "SKIP: ps cannot report process start times here (git-ops main.lock needs ps -o lstart); suite NOT run"
+  exit 77
+fi
+
 # P785 — clear inherited git env vars before any nested git invocation, so the
 # outer worktree's index stays untouched.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
