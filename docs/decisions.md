@@ -8,6 +8,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [product]: "Alice in Bob's eyes" is a mental model, not an agent — predictions are notes or addressed to their subject
+
+**Context:** Designing Clarity Chat (P1437 → P1467), Bob's mirror agent drafts Bob's guess of Alice's view on a point: a predicted position and a story in her voice. Positions are held only by entities and Bob already holds his own (`story_points_author_point_unique` also allows one story per author per point), so the prediction needed its own holder. Codex falsify ranked B (an "agent on Alice") > nested story > label-on-Bob's-story; prior-art research (Laing's interpersonal perception, the Ideological Turing Test, "on behalf of" mail, AI output labels) found no support for a label alone. The founder then rejected "agent": it cannot act, and "AGENT on Alice" lets Bob hide behind a machine for a claim that is his.
+
+**Decision:**
+- **Test for what a thing is: did a person approve it as their own belief?** Agents *act* (a mirror agent drafts, flags, talks for its owner). A machine reading of someone's public words is nobody's belief ("AGENT on <public figure>", including transcripts an operator processed but never read). An approved belief about a person belongs to its author and is a **mental model**, shown as **"Alice in Bob's eyes"**: comparison row "Alice: Agree · Alice in Bob's eyes: Disagree"; story author "Alice in Bob's eyes", in her voice; a page only Bob sees. On-screen list: "How I see people".
+- **No "assumed" tag**: the name says it. Draft = the mirror agent suggested it; approved = it belongs to the model; Alice's number shows once she answers.
+- **Visibility rule: every prediction about a person is either a private note or addressed to that person.** Drafts are the author's alone. Sharing beyond the subject is a future option (P1466) and, if ever built, never hidden from her.
+- **Predictions, not ratings.** The product says "I think you'd disagree, here is why" and the subject has the final word; rating apps that judged people (Peeple, Lulu, Sarahah) failed through backlash. Risk lives in content (a motive-judgment dressed as a prediction), not the format. The narrow legal risk zone is a public, searchable page guessing a private person's sensitive views (GDPR Art. 9); the rule above keeps the product out of it. Not legal advice; counsel before launch (P1458).
+- **Picture:** Alice's photo in a graphite pencil tint with a dashed ring, Bob in colour with his pledge ring bottom-right, predicted stance pill graphite and dashed (round-2 variant #9, ranked first by the designer and by Codex).
+- **Mirror agents** may carry a user-chosen name; the role is always shown ("<Name> · Bob's mirror agent"); the app marks agents, never a symbol typed into a name. This resolves the 2026-08-19 overload note: "mirror agent" means a person's own acting agent.
+
+**Alternatives rejected:** "AGENT on Alice · operated by/Bob's model" (accountability dodge); a story by Bob with a label line (no holder; one story per author per point); a story nested in Bob's story (still needs a holder; cropped shares lose attribution); "Bob's Alice" (reads as ownership); an "assumed" tag (redundant); symbols in agent names (fakeable); eye-shaped badge (Bob's face blurs below 40px, reverses accountability); sepia (near banned amber); generated likenesses of private people (consent).
+
+**Consequences:** Production "AGENT on" identity allows one operator per subject and a publicly readable registry; a private mental model needs operator+subject identity and private metadata before it can exist in production (P1458). Whether production public-figure agents should be renamed under the same test is open (P1458). Definitions update (Mirror Agent entry; new mental-model entry) handed to `/slava:maintain:docs-strategy-update`.
+
+**References:** [P1458](../features/p1458_clarity_chat_agents_on_other_people.md), [P1466](../features/p1466_clarity_chat_share_mental_model_beyond_subject.md), [P1465](../features/p1465_clarity_chat_first_encounter_explainer.md), [P1467](../features/p1467_clarity_chat_letter_loop_v5.md)
+
+## 2026-10-12 [product]: Clarity Chat — one letter in a private thread carried by the mirror agent; new `clarity-chat` workstream
+
+**Context:** Walking the P1437 v4 prototype, the founder found the journey started in the wrong place ("Talk to my agent" on one message is really forwarding) and that the value starts earlier: the agent should flag moments worth checking from imported conversations. A morning decision had made delivery a neutral check card with two separate requests.
+
+**Decision:** The loop is: the mirror agent flags likely hidden disagreements (or the user forwards a message) → explores with the user → the user approves "worth checking" → the agent drafts the point with both positions, "Alice in Bob's eyes", and Bob's own story → Bob seals "How well do I understand Alice here?" and "How well will Alice understand this?" → **one letter** → posted by Bob's mirror agent into a **private thread inside the Bob-Alice DM**; Bob sees status only until Alice sends; Alice sets her position, rates "Would you say this?", says what he missed, rates her understanding of Bob's story, optionally explains back (text or voice through the normal composer); the lower number on each story is shown. Voting on a draft point approves it. **Reverses** the same morning's "neutral card, not Bob's agent": the agent now carries the letter with a stated role (delivers and answers questions, never argues Bob's case). The direction gets its own workstream, `clarity-chat`; the build spec is P1467 and follow-ups are filed as placeholders in priority order along the chain *data in → find the moment → show the gap → close the gap*.
+
+**Alternatives rejected:** neutral check card; two separate requests; a per-letter "explain back in voice" setting (voice is just the composer mic in chat); the agent separately DMing Bob on completion (duplicate of the card update); building connection levels, the left menu or imports before the loop is tested.
+
+**Consequences:** Next: build P1467 on the P1437 prototype branch with goal criteria (same components, attribution, steps and words, 10-second test, no leaks, visual QA) measured against v4. Follow-ups: P1455 reply threads, P1456 no-account path, P1457 import, P1458 mental models, P1459 clarity ledger, P1460 connection levels, P1461 channel members, P1462 left menu, P1465 first encounter, P1466 sharing beyond the subject.
+
+**References:** [P1437](../features/p1437_conversation_groups_agents_check_understanding.md), [P1467](../features/p1467_clarity_chat_letter_loop_v5.md), [P1455](../features/p1455_clarity_chat_reply_threads_close_the_gap.md)
+
 ## 2026-10-12 [technical]: A service-role storage delete proves the path is the entity's own — never trusts a row's URL column (P1454)
 
 **Context:** Banner regeneration removes the entity's previous banner file with the service role, naming the file from the row's `banner_url`. That column is client-writable, so it is user input, not a record. Found by the P1453 security review; specifics in `.private/docs/security-log.md` 2026-10-09.
