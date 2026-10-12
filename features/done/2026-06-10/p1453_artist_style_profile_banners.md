@@ -1,18 +1,18 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 27
 workstream: profile
 created_date: '2026-10-09'
 tags: [profile, banner, agents, image-generation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, architect, dev, ship]
 pipeline_skipped: [ux -- only UI is the signature overlay, designed with the founder in a localhost prototype and captured in UI Contract]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-12
 ---
 
 # P1453: Artist-style profile banners, signed "after <artist>"
