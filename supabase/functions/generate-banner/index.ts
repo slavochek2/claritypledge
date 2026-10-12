@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { storeSmallCopy, scheduleSmallCopy, removeBannerAndSmallCopy } from '../_shared/banner-small.ts';
+import { ownedBannerPath } from '../_shared/banner-path.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -339,29 +340,24 @@ async function uploadToStorage(
 
 async function cleanupOldBanner(
   supabase: SupabaseClient,
+  entityType: EntityType,
   entityId: string,
   currentBannerUrl: string | null,
 ): Promise<void> {
   if (!currentBannerUrl) return;
 
-  // Determine which bucket the old banner is in
+  // P1454: the URL comes from a client-writable column — delete only a file in this entity's own
+  // folder. Uploads go to `<type>/<id>/`; the legacy bucket held events only, at `<id>/`.
   const newBucketPrefix = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
   const legacyBucketPrefix = `${SUPABASE_URL}/storage/v1/object/public/${LEGACY_STORAGE_BUCKET}/`;
 
-  let bucket: string;
-  let filePath: string;
-
-  if (currentBannerUrl.startsWith(newBucketPrefix)) {
-    bucket = STORAGE_BUCKET;
-    filePath = currentBannerUrl.replace(newBucketPrefix, '');
-  } else if (currentBannerUrl.startsWith(legacyBucketPrefix)) {
+  let bucket = STORAGE_BUCKET;
+  let filePath = ownedBannerPath(currentBannerUrl, newBucketPrefix, `${entityType}/${entityId}/`);
+  if (!filePath && entityType === 'event') {
     bucket = LEGACY_STORAGE_BUCKET;
-    filePath = currentBannerUrl.replace(legacyBucketPrefix, '');
-  } else {
-    // Not from our storage — skip cleanup (e.g. external URL)
-    return;
+    filePath = ownedBannerPath(currentBannerUrl, legacyBucketPrefix, `${entityId}/`);
   }
-
+  // Not a file this entity owns (external URL, someone else's, malformed) — skip cleanup.
   if (!filePath) return;
 
   // P1417: the old banner's small copy goes with it (a missing copy is not an error).
@@ -515,7 +511,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Cleanup old banner (from either bucket) ───────────────────────────────
-  await cleanupOldBanner(serviceClient, body.entityId, result.data.currentBannerUrl);
+  await cleanupOldBanner(serviceClient, body.entityType, body.entityId, result.data.currentBannerUrl);
 
   // ── Return URL ────────────────────────────────────────────────────────────
   console.log('Banner generated', { userId, entityType: body.entityType, entityId: body.entityId });

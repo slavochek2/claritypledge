@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { storeSmallCopy, scheduleSmallCopy, removeBannerAndSmallCopy } from '../_shared/banner-small.ts';
+import { ownedBannerPath } from '../_shared/banner-path.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -234,11 +235,10 @@ async function cleanupOldBanner(
 ): Promise<void> {
   if (!currentBannerUrl) return;
 
-  // Only cleanup banners from our storage bucket
+  // P1454: the URL comes from a client-writable column — delete only a file in this event's own
+  // folder (uploads go to `<eventId>/`); anything else is skipped.
   const bucketUrlPrefix = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
-  if (!currentBannerUrl.startsWith(bucketUrlPrefix)) return;
-
-  const filePath = currentBannerUrl.replace(bucketUrlPrefix, '');
+  const filePath = ownedBannerPath(currentBannerUrl, bucketUrlPrefix, `${eventId}/`);
   if (!filePath) return;
 
   // P1417: the old banner's small copy goes with it (a missing copy is not an error).
