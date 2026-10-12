@@ -2,7 +2,7 @@
 -- Created: 2026-10-08
 -- Spec: features/p1321_agent_access_security_gate_and_phase1_design.md
 --
--- requires-frontend: 4b29965e1
+-- requires-frontend: 8107dc47f
 --   The bundle before that commit counts attendees with select('*') in src/app/data/api.ts
 --   (reached by signup's auto-RSVP); `*` expands to every column and is refused once any column
 --   is withheld, so this cannot reach prod ahead of the frontend that selects `id` instead.
