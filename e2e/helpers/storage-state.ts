@@ -32,6 +32,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import type { Page } from '@playwright/test';
 
 /** Mirrors SEEN_KEY in src/hooks/use-intensity-preview-seen.tsx. Keep in sync. */
 export const TUTORIAL_SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
@@ -99,9 +100,7 @@ export function buildE2EStorageState(port: number, authFile: string, outDir: str
  * Opt back IN to the first-run dialog. Must run before the navigation that reaches an
  * engage phase, because the gate is read during the initial render of the letter flow.
  */
-export async function clearTutorialSeen(page: {
-  addInitScript: (fn: (key: string) => void, arg: string) => Promise<void>;
-}): Promise<void> {
+export async function clearTutorialSeen(page: Page): Promise<void> {
   await page.addInitScript((key: string) => {
     try {
       localStorage.removeItem(key);
