@@ -120,7 +120,14 @@
 .d-word { font-weight: 600; color: var(--fg2); }
 .d-word.need { color: var(--amber-800); }
 .d-word.okw { color: var(--green-800); }
-.d-sline:hover { border-color: var(--line2); }
+.d-sline { align-items: center; flex-wrap: wrap; }
+/* P1463: the one-line Status — "N OK ▸" opens the panel; problems and Fix sit in the line */
+.d-slt { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 10px 6px; margin: -10px -6px; font-size: 14px; color: var(--fg); white-space: nowrap; }
+.d-slt:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.d-sline > .d-tx { display: inline; min-width: 0; }
+.d-slp { font-size: 14px; padding: 0; min-height: 0; }
+.d-sconn { display: inline-flex; align-items: center; gap: 8px; }
+.d-sconn .d-btn.xs { margin: -6px 0; }
 
 /* status: new people (read-only) */
 .d-pfold { width: 100%; display: flex; align-items: flex-start; gap: 8px; border: 0; background: none; padding: 8px 0 4px; text-align: left; min-height: 40px; }
@@ -148,7 +155,8 @@
 .d-state.open .d-sdot { border-color: var(--fg3); }
 .d-sdot { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line2); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }
 .d-sdot.done, .d-state.done .d-sdot { border-color: transparent; background: var(--green, #16a34a); color: #fff; }
-.d-sdot.before, .d-state.before .d-sdot { border-style: dashed; }
+.d-sdot.before, .d-state.before .d-sdot { border-color: var(--amber); background: var(--amber-50); }
+.d-state.before { color: var(--amber-800); font-weight: 600; }
 .d-sdot.agent, .d-state.agent .d-sdot { border-color: var(--blue); }
 .d-sdot.parked { background: var(--line); border-color: var(--line); }
 .d-clist { padding: 0; overflow: hidden; }
@@ -165,6 +173,13 @@
 .d-md { display: grid; gap: 12px; align-content: start; }
 .d-md > * { min-width: 0; }
 .d-mdmain { min-width: 0; display: grid; gap: 12px; align-content: start; }
+.d-mdside { min-width: 0; display: grid; gap: 12px; align-content: start; }
+/* P1463: problems no card carries — one line each, under the card list; narrow areas count them in the status line instead */
+.d-probs { display: none; padding: 4px 0; }
+.d-probh { font-size: 12px; font-weight: 600; color: var(--amber-800); padding: 8px 16px 4px; }
+.d-prow { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px 16px; text-align: left; font-size: 14px; color: var(--fg); }
+.d-prow:hover { background: var(--blue-50); }
+.d-prow b { font-weight: 600; }
 .d-clist .d-cltog { display: flex; min-height: 44px; }
 .d-clist:not(.open) .d-clrows { display: none; }
 .d-clist.open .d-clrows { border-top: 1px solid var(--line); }
@@ -172,6 +187,7 @@
 @container issues (min-width: 720px) {
   .d-md { grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
   .d-clist .d-cltog { display: none; }
+  .d-probs { display: block; }
   .d-clist:not(.open) .d-clrows { display: block; }
   .d-clhead { display: block; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg2); border-bottom: 1px solid var(--line); }
   .d-clhead.done { color: var(--green-800, #166534); }
@@ -255,6 +271,8 @@
 .d-bprog { grid-area: prog; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg2); white-space: nowrap; min-width: 0; }
 .d-still { border: 0; background: none; line-height: 16px; padding: 12px 6px; margin: -12px -6px; font-size: 12px; color: var(--fg2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex-shrink: 0; }
 .d-still:hover { color: var(--fg); }
+/* P1463: the agent link sits left of "still yours" — no hit-area bleed between the two */
+.d-still[data-agent-link] { margin-right: 0; padding-right: 0; }
 /* P1440: an unsaved-stories link joins the bar: its row may wrap rather than spill under the buttons */
 .d-bprog.d-tight { flex-wrap: wrap; row-gap: 4px; }
 .d-tight .d-bline { display: none; }
@@ -497,3 +515,4 @@
 .day-root .d-focusrow {
   background: var(--cp-blue-50, #eff6ff);
 }
+.d-sep { color: var(--fg3); }

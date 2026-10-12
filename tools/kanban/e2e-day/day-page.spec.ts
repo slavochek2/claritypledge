@@ -65,7 +65,8 @@ const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('but
 /** P1432: Accept is its own button, split from Next; it writes the recommended answer at once. */
 const acceptBtn = (page: Page) => page.locator('[data-bottom-bar] [data-accept]')
 const prevBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Previous/ })
-const startBtn = (page: Page) => page.getByRole('button', { name: /^Start fixing \(\d+\)$/ })
+// P1463: the button says only "Start fixing"; what it sends is named beside it, its count is data-send-count
+const startBtn = (page: Page) => page.getByRole('button', { name: /^Start fixing$/ })
 /** A value that must exist, or the test fails right here with a name. */
 function must<T>(v: T | null | undefined, what: string): T {
   if (v === null || v === undefined) throw new Error(`missing: ${what}`)
@@ -80,7 +81,18 @@ async function collapseSidebar(page: Page) {
   // the collapsed sidebar is 44px wide; the page starts right after it once the animation ends
   await expect.poll(async () => Math.round((await rectOf(page.locator('.day-root'), 'day root')).x)).toBe(44)
 }
-const startCount = (page: Page) => numberIn(startBtn(page), 'Start fixing count')
+const startCount = async (page: Page) => Number(must(await startBtn(page).getAttribute('data-send-count'), 'Start fixing count'))
+/** P1463: no "Cards X of N resolved" bar — the card list's ✓ rows are the progress */
+const answeredRows = (page: Page) => page.locator('[data-card-list] .d-clrow .d-sdot.done')
+/** P1463: the agent's work, named beside Start fixing */
+const agentLink = (page: Page) => page.locator('[data-bottom-bar] [data-agent-link]')
+/** P1463: Status opens as one line; the full panel is one click away */
+const openStatus = async (page: Page) => {
+  await page.locator('.d-sline, .d-status').first().waitFor()
+  const t = page.locator('[data-status-toggle]')
+  if (await t.count()) await t.click()
+  await expect(page.locator('.d-status')).toBeVisible()
+}
 const OWN_LABEL = 'Your answer or question…'
 const ownRow = (page: Page) => card(page).locator('.d-optrow').filter({ hasText: OWN_LABEL })
 const ownBox = (page: Page) => card(page).getByRole('textbox', { name: 'Your answer or question' })
@@ -142,20 +154,25 @@ test.describe('header', () => {
 })
 
 test.describe('status panel', () => {
-  test('lists every check with its status word; an unknown status reads "Not proven" and becomes an issue', async ({ page }) => {
+  test('lists every check without a card, with its status word; an unknown status reads "Not proven" and becomes an issue', async ({ page }) => {
     await openDay(page, 'unknown')
+    await openStatus(page)
     const panel = page.locator('.d-status')
     await panel.getByRole('button', { name: /Worked \(\d+\)/ }).click()
+    // P1463: a check with a card is said once, by its card — never also as a panel row
+    const { view: v0 } = await runView(page)
+    const carded = new Set(v0.checks.filter((c: { issue_fp?: string; covered_by?: string }) => c.issue_fp && !c.covered_by).map((c: { id: string }) => c.id))
+    expect(carded.size).toBeGreaterThan(0) // known-bad control: the seed has checks with cards
+    expect(carded.has('mystery')).toBe(true)
     for (const c of [...CHECKS.map((c) => c.id), 'mystery']) {
-      await expect(panel.locator(`[data-check="${c}"]`)).toHaveCount(1)
+      await expect(panel.locator(`[data-check="${c}"]`)).toHaveCount(carded.has(c) ? 0 : 1)
     }
-    await expect(panel.locator('[data-check="mystery"] [data-status-word]')).toHaveText('Not proven')
     await expect(panel.locator('[data-check="site"] [data-status-word]')).toHaveText('Worked')
-    await expect(panel.locator('[data-check="bk-c"] [data-status-word]')).toHaveText('Problem')
     await expect(panel.locator('[data-check="video"] [data-status-word]')).toHaveText('Skipped')
     // the word is visible, before the detail
-    await expect(panel.locator('[data-check="bk-c"] .d-w')).toHaveText('Problem · last copy 3 days old')
-    await expect(panel.locator('[data-check="keyspend"] .d-w')).toHaveText('Not proven · no result')
+    for (const [id, text] of [['bk-c', 'Problem · last copy 3 days old'], ['keyspend', 'Not proven · no result']] as const) {
+      if (!carded.has(id)) await expect(panel.locator(`[data-check="${id}"] .d-w`)).toHaveText(text)
+    }
     await expect(panel.locator('[data-check="video"] .d-w')).toHaveText('Skipped · not scheduled today')
     // "need you" does not count Chat groups twice: the Beeper row already carries it
     // it counts checks, so it says so: never "need you" (that reads as the founder-card count)
@@ -163,21 +180,22 @@ test.describe('status panel', () => {
     await expect(panel.locator('.d-sum2')).not.toContainText('need you')
     const needYou = await numberIn(panel.locator('.d-sum2 .d-needtx'), 'need-you count')
     const { view } = await runView(page)
-    const expected = view.checks.filter((c: { status: string; covered_by?: string }) => c.status !== 'ok' && c.status !== 'skipped' && !c.covered_by).length + 2
+    const expected = view.checks.filter((c: { id: string; status: string; covered_by?: string }) => c.status !== 'ok' && c.status !== 'skipped' && !c.covered_by && !carded.has(c.id)).length + 2
     expect(needYou).toBe(expected)
     // a broken connection explains Chat groups: "see Beeper", no jump
     await expect(panel.locator('[data-check="chats"]')).toContainText('see Beeper')
     await expect(panel.locator('button[data-check="chats"]')).toHaveCount(0)
     // known-bad control: the unknown check with no write-up is an issue, never "worked"
     await expect(panel.locator('.d-plist [data-check="mystery"]')).toHaveCount(0)
-    // its issue is agent work (P1445 E): the row opens the list on it
-    await panel.locator('button[data-check="mystery"]').click()
-    await expect(agentList(page).locator('.d-focusrow')).toContainText('Mystery check')
+    // its issue is agent work (P1445 E): it is in the agent list, named once
+    await openAgentList(page)
+    await expect(agentList(page)).toContainText('Mystery check')
   })
 
   test('Fix records the decision, never shows ✓, and the panel collapses to a line that reopens', async ({ page, context }) => {
     await context.route('https://sentry.io/**', (r) => r.fulfill({ status: 200, body: 'signin' }))
     await openDay(page)
+    await openStatus(page)
     const panel = page.locator('.d-status')
     const sentryFix = panel.locator('[data-connection="sentry"]').getByRole('link', { name: 'Fix' })
     await expect(sentryFix).toHaveAttribute('rel', 'noopener noreferrer')
@@ -191,13 +209,14 @@ test.describe('status panel', () => {
     expect(lines()[0]).toMatchObject({ kind: 'connection', target: 'sentry' })
 
     await panel.locator('[data-connection="beeper"]').getByRole('button', { name: 'Fix' }).click()
+    await panel.getByRole('button', { name: 'Collapse' }).click()
     const line = page.locator('.d-sline')
     await expect(line).toContainText('2 connection fixes in Start fixing')
     await expect(line).not.toContainText('✓')
     await expect(line).toContainText('12 unpushed commits')
     expect(lines()).toHaveLength(2)
 
-    await line.click()
+    await page.locator('[data-status-toggle]').click()
     await expect(page.locator('.d-status')).toBeVisible()
     await page.locator('.d-status').getByRole('button', { name: 'Collapse' }).click()
     await expect(page.locator('.d-sline')).toBeVisible()
@@ -207,6 +226,7 @@ test.describe('status panel', () => {
 test.describe('new people', () => {
   test('three rows with source, unconfirmed email and a safe LinkedIn link; nothing written', async ({ page }) => {
     await openDay(page)
+    await openStatus(page)
     const panel = page.locator('.d-status')
     const fold = panel.locator('.d-pfold')
     await expect(fold).toContainText('New people (3)')
@@ -237,13 +257,15 @@ test.describe('new people', () => {
 
   test('the collapsed status line counts new people', async ({ page }) => {
     await openDay(page, 'connected')
-    await expect(page.locator('.d-sline')).toContainText(/All connected\s*· \d+ worked · 3 new people · .*unpushed commits/)
+    await expect(page.locator('.d-sline')).toContainText(/\d+ OK\s*·\s*✓\s*All connected · 3 new people · .*unpushed commits/)
   })
 
   test('people: [] says "No new people"; no people field says "not collected yet"', async ({ page }) => {
     await openDay(page, 'no-people')
+    await openStatus(page)
     await expect(page.locator('.d-status')).toContainText('No new people')
     await openDay(page, 'people-absent')
+    await openStatus(page)
     await expect(page.locator('[data-people="not-collected"]')).toHaveText('New people · not collected yet')
   })
 
@@ -251,6 +273,9 @@ test.describe('new people', () => {
     await page.setViewportSize({ width: 375, height: 760 })
     await openDay(page)
     await collapseSidebar(page)
+    // P1463: the one-line status carries it; the phone strip is the opened panel's header
+    await expect(page.locator('.d-sline')).toContainText('3 new people')
+    await openStatus(page)
     await expect(page.locator('.d-strip')).toContainText('3 new')
   })
 })
@@ -317,7 +342,7 @@ test.describe('issues', () => {
 
     await page.waitForTimeout(300)
     expect(fileText()).toBe(before)
-    await expect(page.locator('[data-progress]')).toContainText(`of ${yours.length} resolved`)
+    await expect(page.locator('[data-progress]')).toHaveCount(0) // P1463: no progress bar on the Daily report
   })
 
   test('the bottom bar does not move when More info or the custom answer expands', async ({ page }) => {
@@ -371,7 +396,7 @@ test.describe('issues', () => {
     await reopen(page)
     await listRow(page, 'replies:event-post').click() // P1435: a reload opens on the first card still open
     await expect(card(page).locator('.d-opt').filter({ hasText: 'Agent drafts, you send' }).locator('input')).toBeChecked()
-    await expect(page.locator('[data-progress]')).toContainText('1 of')
+    await expect(answeredRows(page)).toHaveCount(1)
   })
 
   test('keys 1–9 pick the Nth option and write one line', async ({ page }) => {
@@ -397,7 +422,7 @@ test.describe('issues', () => {
     await ownBox(page).fill(QUESTION)
     // the button counts what will be sent: the agent work + the accepted card + the own text
     const expected = agentOf(v).length + 2
-    await expect(startBtn(page)).toHaveText(`Start fixing (${expected})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(expected))
 
     await startBtn(page).click()
     // the suite's server never opens a terminal (KANBAN_DAY_LAUNCH=off): the real 502 path offers Copy
@@ -515,8 +540,11 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('.d-main')).not.toContainText('Money checks')
     // every check still has its one home: Status in Daily report (known-good control for the removal)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
+    await openStatus(page)
     await page.locator('.d-status').getByRole('button', { name: /Worked \(\d+\)/ }).click()
-    for (const c of CHECKS) await expect(page.locator(`.d-status [data-check="${c.id}"]`)).toHaveCount(1)
+    // P1463: one home each — a panel row, or its card when it has one
+    const carded = new Set((await runView(page)).view.checks.filter((c: { issue_fp?: string; covered_by?: string }) => c.issue_fp && !c.covered_by).map((c: { id: string }) => c.id))
+    for (const c of CHECKS) await expect(page.locator(`.d-status [data-check="${c.id}"]`)).toHaveCount(carded.has(c.id) ? 0 : 1)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
 
     await page.getByRole('button', { name: /^Google Cloud/ }).click()
@@ -535,10 +563,10 @@ test.describe('monitoring, stats, reflection', () => {
     await input.fill('600')
     await add.click()
     await expect(page.locator('[data-raise="account"]')).toContainText('✓ Monthly budget → €600 · in Start fixing')
-    await expect(startBtn(page)).toHaveText(`Start fixing (${n0 + 1})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(n0 + 1))
     expect(lines().at(-1)).toMatchObject({ kind: 'budget', target: 'account', amount: 600, scope: 'monthly' })
     await page.locator('[data-raise="account"]').getByRole('button', { name: 'Undo' }).click()
-    await expect(startBtn(page)).toHaveText(`Start fixing (${n0})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(n0))
     expect(lines().at(-1)).toMatchObject({ kind: 'budget', target: 'account', remove: true })
   })
 
@@ -945,7 +973,7 @@ test.describe('monitoring, stats, reflection', () => {
     // B3: the whole reason is visible (no clipping box), and the footer keeps its gutters
     const clipped = await page.locator('[data-key="key-otter"] .d-kwhy').evaluate((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)
     expect(clipped).toBe(false)
-    const prog = await rectOf(page.locator('[data-progress]'), 'progress')
+    const prog = await rectOf(page.locator('[data-bottom-bar] .d-bprog > *').first(), 'progress area')
     const copy = await rectOf(page.getByRole('button', { name: 'Copy prompt' }), 'copy')
     expect(prog.x).toBeGreaterThanOrEqual(44 + 8)
     expect(copy.x + copy.width).toBeLessThanOrEqual(320)
@@ -1073,7 +1101,7 @@ test.describe('monitoring, stats, reflection', () => {
   test('a weekly-review run shows its badge and its items in Issues and Reflection', async ({ page }) => {
     await openDay(page, 'weekly')
     await expect(page.locator('.d-subrow .d-runbadge')).toHaveText('Weekly review')
-    await page.locator('.d-status button[data-check]').first().waitFor()
+    await card(page).waitFor()
     const { view } = await runView(page)
     const i = yoursOf({ view }).findIndex((x) => x.fp === 'weekly:reach-target')
     expect(i).toBeGreaterThanOrEqual(0)
@@ -1087,7 +1115,7 @@ test.describe('monitoring, stats, reflection', () => {
   test('a monthly-review run shows its badge and its proposals in Issues and Reflection', async ({ page }) => {
     await openDay(page, 'monthly')
     await expect(page.locator('.d-subrow .d-runbadge')).toHaveText('Monthly review')
-    await page.locator('.d-status button[data-check]').first().waitFor()
+    await card(page).waitFor()
     const { view } = await runView(page)
     const i = yoursOf({ view }).findIndex((x) => x.fp === 'monthly:archive-stale-specs')
     expect(i).toBeGreaterThanOrEqual(0)
@@ -1102,14 +1130,14 @@ test.describe('monitoring, stats, reflection', () => {
 test.describe('review round 1', () => {
   test('an empty custom answer is not an answer: not resolved, and Start fixing sends you back to it', async ({ page }) => {
     await openDay(page)
-    const n = yoursOf(await runView(page)).length
+    expect(yoursOf(await runView(page)).length).toBeGreaterThan(2)
     await acceptBtn(page).click()
     await acceptBtn(page).click()
     // Accept wrote the two cards left behind; the empty box must not add a third
-    await expect(page.locator('[data-progress]')).toHaveText(new RegExp(`^2 of ${n}`))
+    await expect(answeredRows(page)).toHaveCount(2)
     await ownRow(page).click()
     await expect(ownBox(page)).toBeFocused()
-    await expect(page.locator('[data-progress]')).toHaveText(/^2 of/)
+    await expect(answeredRows(page)).toHaveCount(2)
     await prevBtn(page).click()
     await prevBtn(page).click()
     await expect(page.locator('.d-bpos')).toHaveText(/^1 of/)
@@ -1121,7 +1149,7 @@ test.describe('review round 1', () => {
     await ownBox(page).fill('Which guests hit it?')
     await cardTitle(page).click()
     await expect.poll(() => lines().length).toBe(3)
-    await expect(page.locator('[data-progress]')).toHaveText(/^3 of/)
+    await expect(answeredRows(page)).toHaveCount(3)
   })
 
   test('paging past an issue answered with your own text is not trapped in its text box; ↑ ↓ on a radio change nothing', async ({ page }) => {
@@ -1188,6 +1216,7 @@ test.describe('review round 1', () => {
   test('a queued connection fix can be undone, and offers the sign-in again', async ({ page, context }) => {
     await context.route('https://sentry.io/**', (r) => r.fulfill({ status: 200, body: 'signin' }))
     await openDay(page)
+    await openStatus(page)
     const row = page.locator('[data-connection="sentry"]')
     const popup = context.waitForEvent('page')
     await row.getByRole('link', { name: 'Fix' }).click()
@@ -1204,7 +1233,7 @@ test.describe('review round 1', () => {
     await page.setViewportSize({ width: 375, height: 760 })
     await openDay(page, 'connected')
     await collapseSidebar(page)
-    await page.locator('.d-sline').click()
+    await page.locator('[data-status-toggle]').click()
     await expect(page.locator('.d-spanel')).toBeVisible()
     await page.locator('.d-spanel').getByRole('button', { name: 'Collapse' }).click()
     await expect(page.locator('.d-sline')).toBeVisible()
@@ -1214,6 +1243,7 @@ test.describe('review round 1', () => {
 test.describe('review round 2', () => {
   test('one status word: "Skipped" is never spelled out on the page; both Fix buttons look the same', async ({ page }) => {
     await openDay(page)
+    await openStatus(page)
     expect(await page.locator('.day-root').innerText()).not.toContain('Skipped on purpose')
     await expect(page.locator('[data-check="video"]').first()).toHaveAttribute('title', 'Skipped on purpose')
     const weights = await page.locator('.d-status .d-btn.xs').evaluateAll((els) => els.map((e) => getComputedStyle(e).fontWeight + '/' + getComputedStyle(e).fontSize))
@@ -1231,7 +1261,7 @@ test.describe('review round 2', () => {
     for (const h of await page.locator('.d-tabs [role=tab]').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) {
       expect(h, 'tab height').toBeGreaterThanOrEqual(40)
     }
-    await page.locator('.d-strip').click()
+    await openStatus(page)
     for (const sel of ['.d-strip', '.d-morebtn', '.d-pfold', '.d-sfold']) {
       const h = (await rectOf(page.locator(sel).first(), sel)).height
       expect(h, sel).toBeGreaterThanOrEqual(40)
@@ -1312,17 +1342,19 @@ test.describe('review round 3', () => {
     await page.setViewportSize({ width: 320, height: 640 })
     await openDay(page)
     await collapseSidebar(page)
-    const prog = await rectOf(page.locator('[data-progress]'), 'progress')
+    // P1463: the agent link took the progress bar's place
+    const prog = await rectOf(agentLink(page), 'agent link')
     const start = await rectOf(startBtn(page), 'Start fixing')
     const overlap = prog.x < start.x + start.width && start.x < prog.x + prog.width && prog.y < start.y + start.height && start.y < prog.y + prog.height
     expect(overlap).toBe(false)
-    await expect(page.locator('[data-progress]')).toHaveAttribute('data-short', /^\d+\/\d+$/)
+    await expect(agentLink(page)).toHaveAttribute('data-short', /^agent: \d+$/)
   })
 
   test('status lines never start with a separator', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 760 })
     await openDay(page)
     await collapseSidebar(page)
+    await openStatus(page)
     const starts = await page.locator('.d-strip .d-ph').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()[0]))
     expect(starts.length).toBeGreaterThanOrEqual(2)
     for (const c of starts) expect(c).not.toBe('·')
@@ -1659,11 +1691,11 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     expect(fileText()).toBe('') // paging wrote nothing
     await expect(acceptBtn(page)).toBeEnabled()
     await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept')
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base))
     await acceptBtn(page).click()
     await expect.poll(() => lines().length).toBe(1)
     await expect(page.locator('.d-bpos')).toHaveText(`${yours.length} of ${yours.length}`) // no paging
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 1))
     // the bar returns to its normal state: the last card, answered, has a disabled Next and no Accept
     await expect(nextBtn(page)).toBeDisabled()
     await expect(acceptBtn(page)).toHaveCount(0)
@@ -1676,16 +1708,16 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     const yours = yoursOf(v)
     const base = agentOf(v).length
     expect(base).toBeGreaterThan(0)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base))
     await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
 
     await acceptBtn(page).click()
     await expect.poll(() => lines().length).toBe(1)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 1))
     await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
     await acceptBtn(page).click()
     await expect.poll(() => lines().length).toBe(2)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 2))
     expect(lines().map((d) => d.target)).toEqual([yours[0].fp, yours[1].fp])
     for (const d of lines()) {
       const i = must(v.view.issues.find((x) => x.fp === d.target), 'issue')
@@ -1700,7 +1732,7 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     await nextBtn(page).click()
     await page.waitForTimeout(300)
     expect(fileText()).toBe(before)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 2))
     await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
 
     // the link jumps to the first card nobody answered: not the two that were accepted
@@ -1737,10 +1769,10 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     const yours = yoursOf(v)
     const base = agentOf(v).length
     await ownRow(page).click()
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base))
     await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
     await ownBox(page).fill('A real answer')
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 1))
     await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
   })
 
@@ -1757,7 +1789,7 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
       // nothing in the bar overlaps: progress, still-yours link, Start fixing
       const boxes = async () => {
         const out: [string, { x: number; y: number; width: number; height: number }][] = []
-        for (const [n, l] of [['progress', page.locator('[data-progress]')], ['still', stillYours(page)], ['start', startBtn(page)]] as const) {
+        for (const [n, l] of [['agent', agentLink(page)], ['still', stillYours(page)], ['start', startBtn(page)]] as const) {
           if (await l.count()) out.push([n, await rectOf(l.first(), n)])
         }
         return out
@@ -1804,15 +1836,21 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
       if (i < yours.length - 1) await nextBtn(page).click()
     }
     // agent work still goes with Start fixing, without an answer from the founder
-    await expect(startBtn(page)).toHaveText(`Start fixing (${agents.length})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(agents.length))
   })
 
-  test('a check row in Status opens the list on its agent row', async ({ page }) => {
+  test('P1463: the bottom bar names the agent work beside Start fixing, and opens the list', async ({ page }) => {
     await openDay(page)
-    await page.locator('.d-status button[data-check="bk-c"]').click()
-    const row = agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })
-    await expect(row).toBeVisible()
-    await expect(row).toHaveClass(/d-focusrow/)
+    const k = (await runView(page)).view.issues.filter(isAgent).length
+    expect(k).toBeGreaterThan(1)
+    await expect(agentLink(page)).toHaveText(`Agent will also do ${k} tasks ▸`)
+    await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0) // folded until asked
+    await agentLink(page).click()
+    await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(k)
+    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })).toBeInViewport()
+    // the checks those cards came from are not repeated in Status
+    await openStatus(page)
+    await expect(page.locator('.d-status [data-check="bk-c"]')).toHaveCount(0)
   })
 
   test('with no agent work there is no list', async ({ page }) => {
@@ -1851,10 +1889,10 @@ test.describe('narrow widths', () => {
         expect(right, tab).toBeLessThanOrEqual(width)
       }
       await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
-      const strip = page.locator('.d-strip')
-      await expect(strip).toBeVisible()
-      await expect(page.locator('.d-spanel')).toBeHidden()
-      await strip.click()
+      // P1463: Status is one line until opened
+      await expect(page.locator('.d-sline')).toBeVisible()
+      await expect(page.locator('.d-spanel')).toHaveCount(0)
+      await page.locator('[data-status-toggle]').click()
       await expect(page.locator('.d-spanel')).toBeVisible()
       const nb = await rectOf(nextBtn(page), 'Next')
       expect(nb.height).toBeGreaterThanOrEqual(44)
@@ -1921,10 +1959,10 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect(cardTitle(page)).toHaveText(first.title)
     await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
     await expect(stateOf(page)).toHaveText(/^✓Your answer · saved \d\d:\d\d$/)
-    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${yours.length} resolved`)
+    await expect(answeredRows(page)).toHaveCount(1)
     await expect(listRow(page, first.fp)).toHaveAttribute('data-list-state', 'answered')
     await expect(listRow(page, yours[1].fp)).toHaveAttribute('data-list-state', 'open')
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(startBtn(page)).toHaveAttribute('data-send-count', String(base + 1))
 
     // the same answer already sent: it is not counted again, and the card says Sent
     writeFileSync(DECISIONS, fileText() + receipt('launch-1', [optionKey(first.fp, rec.id)], 'started'))
@@ -2034,7 +2072,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await listRow(page, both.fp).click()
     await expect(cardTitle(page)).toHaveText(both.title)
     await expect(stateOf(page)).toHaveAttribute('data-state', 'before')
-    await expect(stateOf(page)).toHaveText(`You answered on 3 Oct: ${opt.label} · reported again`)
+    await expect(stateOf(page)).toHaveText(`Back again · you answered on 3 Oct: ${opt.label}`)
     await expect(listRow(page, both.fp)).toHaveAttribute('data-list-state', 'before')
 
     // the earlier run, read-only: that card answered, another not

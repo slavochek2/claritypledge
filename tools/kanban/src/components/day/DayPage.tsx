@@ -713,12 +713,12 @@ export function DayPage() {
   const latestId = index.latestId ?? runs[0].id
   const reviews = ok?.report.reviews ?? summary?.reviews ?? []
   const when = dayLabel(ok?.report.started_at ?? summary?.startedAt)
-  // Resolved = answered in the file (or a pick being written); a card only paged past is not.
-  const resolvedN = issues.filter((i) => {
-    const kind = choice[i.fp]
-    if (isFree(kind)) return !freeEmpty(i) && i.decision?.option_id === kind
-    return !!i.decision || kind !== undefined
-  }).length
+  // P1463: the agent's work is named beside Start fixing, so its number is never unexplained
+  const openAgentList = () => {
+    setTab('report')
+    setAgentList({ open: true })
+    requestAnimationFrame(() => rootRef.current?.querySelector('[data-agent-list]')?.scrollIntoView({ block: 'nearest' }))
+  }
   const firstYours = yoursLeft[0]
   // rated = has a position; a story alone is kept but is not a rating (P1440)
   // rated = has a position; a story alone is answered (with a story) but not rated (P1440 review O5)
@@ -936,19 +936,10 @@ export function DayPage() {
                       </span>
                     </>
                   )
-                ) : issues.length > 0 ? (
-                  <>
-                    {/* W6: this counts cards; Start fixing counts changes to send — labelled so the two never read as one number */}
-                    <span className="d-plab" data-progress-label>
-                      Cards
-                    </span>
-                    <span data-progress data-short={`${resolvedN}/${issues.length}`} title="Cards answered on the Daily report">
-                      {resolvedN} of {issues.length} resolved
-                    </span>
-                    <span className="d-bline">
-                      <span style={{ width: `${(resolvedN / issues.length) * 100}%` }} />
-                    </span>
-                  </>
+                ) : agentCards.length > 0 ? (
+                  <button type="button" className="d-still" data-agent-link data-short={`agent: ${agentCards.length}`} onClick={openAgentList}>
+                    Agent will also do {agentCards.length} task{agentCards.length === 1 ? '' : 's'} ▸
+                  </button>
                 ) : null}
                 {!readOnly && tab === 'report' && firstYours && (
                   <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
@@ -999,10 +990,11 @@ export function DayPage() {
                         type="button"
                         className="d-btn primary sm"
                         title={`${sendCount} change${sendCount === 1 ? '' : 's'} ready to send: card answers (recommended ones included), budget raises, connections, reflection ratings`}
+                        data-send-count={sendCount}
                         disabled={busy || sendCount === 0}
                         onClick={() => void startFixing('start')}
                       >
-                        Start fixing ({sendCount})
+                        Start fixing
                       </button>
                     )}
                     <button
