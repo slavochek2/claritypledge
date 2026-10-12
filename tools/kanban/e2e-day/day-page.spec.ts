@@ -1351,7 +1351,7 @@ test.describe('review round 3', () => {
     const start = await rectOf(startBtn(page), 'Start fixing')
     const overlap = prog.x < start.x + start.width && start.x < prog.x + prog.width && prog.y < start.y + start.height && start.y < prog.y + prog.height
     expect(overlap).toBe(false)
-    await expect(agentLink(page)).toHaveAttribute('data-short', /^agent: \d+$/)
+    await expect(agentLink(page)).toHaveAttribute('data-short', /^Agent: \d+$/)
   })
 
   test('status lines never start with a separator', async ({ page }) => {

@@ -55,7 +55,7 @@ An adversarial copy/visual review (screenshots only, no code) went string by str
 10. **One wording for the agent's work** — bottom link and list header both read `Agent: {k} tasks`.
 11. **"Fit" explained** — the recommended pill's tooltip says what Fit means.
 
-Deferred (filed to the task inbox, not this spec): answered cards collapsing to "You chose X · Change"; card copy brevity (Point A/Obstacle/Point B, option and risk lines are written by the `/day` run, a Non-Goal here); duplicate agent rows naming the same root problem (`/day` dedup); "Send N changes" not naming what changed; a compact pager. Rejected: hiding "New people (0)" (P1399 distinguishes *none* from *not collected*); moving the `← → move` hint (it is the only discoverability for the keys).
+Deferred (filed to the task inbox, not this spec): answered cards collapsing to "You chose X · Change"; card copy brevity (Point A/Obstacle/Point B, option and risk lines are written by the `/day` run, a Non-Goal here); duplicate agent rows naming the same root problem (`/day` dedup); "Send N changes" not naming what changed; a compact pager. Visual QA should-fix accepted: the panel's "1 check needs attention" is Beeper, since Replies is "see Beeper" and deliberately not counted twice; the agent link uses the same 40px hit-area class the still-yours test measures; chips wrapping to three lines at 320px is the cost of keeping Fix in the line. Rejected: hiding "New people (0)" (P1399 distinguishes *none* from *not collected*); moving the `← → move` hint (it is the only discoverability for the keys).
 
 ## Risks / Non-Goals
 
@@ -79,16 +79,16 @@ Deferred (filed to the task inbox, not this spec): answered cards collapsing to 
 
 ## Acceptance Criteria
 
-- [ ] On a run with founder cards and agent work, the page has no left Status column; one status line sits above the list+card.
-- [ ] A problem that has a card appears once (as its card), not also as a check row.
-- [ ] A problem check with no card is shown as one line under the card list.
-- [ ] `{n} worked ▸` expands the full checks list.
-- [ ] The bottom bar shows `Agent: {k} tasks ▸`, where k equals the With-the-agent list length; clicking it shows the list.
-- [ ] The button's number (if shown) equals answers queued + k, with both parts visible on screen.
-- [ ] A re-reported card shows `Back again` with an amber marker.
-- [ ] No "Cards X of N resolved" bar.
-- [ ] Visual QA passes at 1280×720, 375px and 320px (`.claude/rules/visual-qa.md`), by a separate subagent.
-- [ ] Day e2e suite and server tests pass; changed assertions cite P1463.
+- [x] On a run with founder cards and agent work, the page has no left Status column; one status line sits above the list+card.
+- [x] A problem that has a card appears once (as its card), not also as a check row.
+- [x] A problem check with no card is shown as one line under the card list.
+- [x] `{n} worked ▸` expands the full checks list.
+- [x] The bottom bar shows `Agent: {k} tasks ▸`, where k equals the With-the-agent list length; clicking it shows the list.
+- [x] The button's number (if shown) equals answers queued + k, with both parts visible on screen.
+- [x] A re-reported card shows `Back again` with an amber marker.
+- [x] No "Cards X of N resolved" bar.
+- [x] Visual QA at 1440, 375 and 320px by a separate subagent (screenshots only): no blockers; should-fix #1 (opened Status squeezed the columns) and #7 (phone label lost meaning) fixed; #3, #5 and #11 accepted, reasons in the Round 2 notes.
+- [x] Day e2e suite and server tests pass; changed assertions cite P1463.
 
 ## UI Contract
 

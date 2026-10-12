@@ -153,7 +153,8 @@ export function DailyReport(p: Props) {
   const cardList = p.issues.length + view.parked.length >= 2
 
   return (
-    <div className={`d-rgrid ${collapsed ? 'collapsed' : ''}`}>
+    // P1463: Status never takes a column — opened, it sits full-width above the cards, so they keep their width
+    <div className="d-rgrid collapsed">
       {collapsed ? (
         <StatusLine view={view} report={p.report} readOnly={readOnly} orphans={orphans.length} onOpen={expand} onFix={p.onFix} />
       ) : (

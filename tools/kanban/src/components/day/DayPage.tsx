@@ -938,7 +938,7 @@ export function DayPage() {
                     </>
                   )
                 ) : agentCards.length > 0 ? (
-                  <button type="button" className="d-still" data-agent-link data-short={`agent: ${agentCards.length}`} onClick={openAgentList}>
+                  <button type="button" className="d-still" data-agent-link data-short={`Agent: ${agentCards.length}`} onClick={openAgentList}>
                     {agentWord(agentCards.length)} ▸
                   </button>
                 ) : null}
