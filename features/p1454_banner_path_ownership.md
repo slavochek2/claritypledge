@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, banners]
 disclosure: embargo
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 related: [p1453, p1417]
 ---
 
