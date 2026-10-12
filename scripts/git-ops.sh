@@ -2486,9 +2486,13 @@ ship_init_journal() {
 
   local tmp
   tmp="$(mktemp "$SHIP_JOURNAL_DIR/.init.XXXXXX")" || die "mktemp failed"
-  SHIP_SHAS="$shas" python3 - "$tmp" "$pn" "$branch" "$spec_file" "$started_at" "$session_id" <<'PY'
+  # P1464: start_head = main's tip when the journal was created. Read only by the
+  # embargo refusal, to prove no pick was ever attempted before deleting it.
+  local start_head=""
+  start_head="$( cd "$REPO_ROOT" && git rev-parse -q --verify main 2>/dev/null )" || start_head=""
+  SHIP_SHAS="$shas" python3 - "$tmp" "$pn" "$branch" "$spec_file" "$started_at" "$session_id" "$start_head" <<'PY'
 import json, os, sys
-tmp, pn, branch, spec_file, started, session = sys.argv[1:]
+tmp, pn, branch, spec_file, started, session, start_head = sys.argv[1:]
 shas = [s for s in os.environ["SHIP_SHAS"].splitlines() if s]
 payload = {
     "p_number": pn,
@@ -2496,6 +2500,7 @@ payload = {
     "session_id": session,
     "source_branch": branch,
     "spec_file": spec_file,
+    "start_head": start_head or None,
     "commits": [{"source_sha": s, "landed_sha": None, "landed_at": None, "pre_pick_head": None} for s in shas],
     "spec_closed": False,
     "branch_deleted": False,
@@ -2572,15 +2577,281 @@ PY
 }
 
 # List pending source_shas (landed_sha null) in journal order.
+# P1464: an entry marked `withheld` (an embargoed-spec-only commit ship
+# deliberately did not pick) is not pending; that is what keeps --resume
+# idempotent. Non-embargo journals never carry the field, so their output is
+# unchanged.
 ship_pending_source_shas() {
   local journal="$1"
   python3 - "$journal" <<'PY'
 import json, sys
 j = json.load(open(sys.argv[1]))
 for c in j.get("commits", []):
-    if not c.get("landed_sha"):
+    if not c.get("landed_sha") and not c.get("withheld"):
         print(c["source_sha"])
 PY
+}
+
+# P1464: mark a journal entry as withheld (embargoed spec content, never picked).
+# landed_sha stays null, so every landed-count reader (INCOMPLETE accounting,
+# reconcile, ship_verify_landed_shas) keeps counting only what reached main.
+ship_record_withheld() {
+  local pn="$1" source_sha="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  python3 - "$journal" "$source_sha" "$(iso_now)" <<'PY'
+import json, os, sys, tempfile
+target, src, at = sys.argv[1:]
+j = json.load(open(target))
+for c in j["commits"]:
+    if c["source_sha"] == src:
+        c["withheld"] = True
+        c["withheld_at"] = at
+        break
+else:
+    raise SystemExit(f"source_sha {src} not in journal")
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=os.path.dirname(target))
+with os.fdopen(fd, "w") as f:
+    json.dump(j, f, indent=2)
+    f.flush()
+    os.fsync(f.fileno())
+os.rename(tmp, target)
+PY
+}
+
+# P1464: is <path> protected under an embargo? Every features/**/pN_*.md at any
+# depth (done/ and archive/ included: a spec placed there is still the spec),
+# EXCEPT the neutral stub at exactly features/pN_security-review-pending.md (top
+# level only), the one artefact that belongs on main; plus features/uat/pN.md.
+# Used to pick pN's own spec files (verdict, publish-spec). WHAT ship withholds
+# is decided by content instead: see ship_embargo_classify.
+# Callers must pass RAW paths (from a -z enumeration), never git's C-quoted form.
+ship_is_embargo_path() {
+  local pn="$1" path="$2"
+  [[ "$path" == "features/uat/${pn}.md" ]] && return 0
+  [[ "$path" == "features/${pn}_security-review-pending.md" ]] && return 1
+  [[ "$path" == features/* && "${path##*/}" == "${pn}_"*.md ]]
+}
+
+# P1464: fill SHIP_EMB_SPECS with every protected spec file on <branch> (the UAT
+# pair excluded), enumerated NUL-delimited so core.quotePath cannot hide one.
+SHIP_EMB_SPECS=()
+ship_collect_branch_specs() {
+  local branch="$1" pn="$2" _p
+  SHIP_EMB_SPECS=()
+  while IFS= read -r -d '' _p; do
+    [[ "$_p" == "features/uat/${pn}.md" ]] && continue
+    ship_is_embargo_path "$pn" "$_p" && SHIP_EMB_SPECS+=("$_p")
+  done < <( cd "$REPO_ROOT" && git ls-tree -r -z --name-only "$branch" -- features 2>/dev/null )
+  return 0
+}
+
+# P1464: the embargo verdict for <branch>. Prints "embargo" when at least one
+# protected spec says disclosure: embargo and ALL of them do; "ambiguous" when
+# one does and another does not (a first-match selector would let the public
+# one decide); nothing otherwise, so non-embargo ships see no change.
+ship_embargo_state() {
+  local branch="$1" pn="$2" _p _d _emb=0 _other=0
+  ship_collect_branch_specs "$branch" "$pn"
+  for _p in ${SHIP_EMB_SPECS[@]+"${SHIP_EMB_SPECS[@]}"}; do
+    _d="$(ship_spec_disclosure "$branch" "$_p")"
+    if [[ "$_d" == "embargo" ]]; then _emb=$((_emb + 1)); else _other=$((_other + 1)); fi
+  done
+  if (( _emb > 0 && _other > 0 )); then echo "ambiguous"
+  elif (( _emb > 0 )); then echo "embargo"
+  fi
+  return 0
+}
+
+# P1464 (content rule): ship withholds by CONTENT, not by path or P-number. A
+# file is protected when it is an added/modified features/**.md whose blob says
+# `disclosure: embargo` in its frontmatter, at any path, depth or P-number (a
+# deletion counts when the deleted blob did), plus features/uat/pX.md for every
+# pX found embargoed. Path rules missed a spec added then deleted at the tip, a
+# stub-named file carrying embargo content, and another P-number's spec.
+EMB_MODE=0; EMB_PNS=""; EMB_WITHHOLD=""; EMB_MIXED=""; EMB_MERGES=""
+
+# Normalizes before parsing, failing toward protected: strips a UTF-8 BOM and
+# every CR, accepts indented `---` fences, indented / any-case / quoted keys and
+# whitespace before the colon, and
+# lower-cases the value. Every disclosure reader in this file goes through here.
+ship_disclosure_of_content() {  # frontmatter disclosure value of stdin
+  LC_ALL=C sed $'1s/^\xef\xbb\xbf//' \
+    | LC_ALL=C tr -d '\r' \
+    | sed -n '/^[[:space:]]*---[[:space:]]*$/,/^[[:space:]]*---[[:space:]]*$/p' \
+    | { /usr/bin/grep -iE "^[[:space:]]*[\"']?disclosure[\"']?[[:space:]]*:" || true; } \
+    | sed -n '1p' \
+    | sed -E "s/^[[:space:]]*[\"']?[Dd][Ii][Ss][Cc][Ll][Oo][Ss][Uu][Rr][Ee][\"']?[[:space:]]*://" \
+    | sed 's/[[:space:]]#.*$//' \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+    | sed "s/^'\\(.*\\)'$/\\1/; s/^\"\\(.*\\)\"$/\\1/" \
+    | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+# Is <path> a markdown document under features/ (.md / .markdown, any case)?
+_ship_is_features_doc() {
+  case "$1" in
+    features/*.[mM][dD]|features/*.[mM][aA][rR][kK][dD][oO][wW][nN]) return 0 ;;
+  esac
+  return 1
+}
+ship_obj_is_embargo() {  # <object spec, e.g. sha:path or :path>
+  [[ "$( cd "$REPO_ROOT" && git cat-file -p "$1" 2>/dev/null | ship_disclosure_of_content )" == "embargo" ]]
+}
+_ship_pns_has() { [[ $'\n'"$EMB_PNS"$'\n' == *$'\n'"$1"$'\n'* ]]; }
+_ship_pns_add() { [[ -z "$1" ]] && return 0; _ship_pns_has "$1" || EMB_PNS="${EMB_PNS:+$EMB_PNS$'\n'}$1"; }
+# pX from pX_<slug>.<ext> or a bare pX.md / pX.markdown (any case), lower-cased.
+_ship_pn_of() {
+  local b; b="$(printf '%s' "${1##*/}" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  if [[ "$b" =~ ^(p[0-9]+)_ || "$b" =~ ^(p[0-9]+)\.(md|markdown)$ ]]; then printf '%s' "${BASH_REMATCH[1]}"; fi
+  return 0
+}
+_ship_is_uat_of_pns() {
+  local f="$1" b="${1##*/}"
+  [[ "$f" == "features/uat/$b" ]] && _ship_is_features_doc "$f" || return 1
+  b="$(printf '%s' "${b%.*}" | LC_ALL=C tr '[:upper:]' '[:lower:]')"
+  _ship_pns_has "$b"
+}
+# NUL stream "status\0path\0" of what picking <sha> would change. A merge is
+# diffed against its first parent (what cherry-pick -m 1 would apply).
+_ship_commit_changes() {
+  local s="$1" n
+  n="$( cd "$REPO_ROOT" && git rev-list --no-walk --parents "$s" | wc -w | tr -d ' ' )"
+  if (( n > 2 )); then
+    ( cd "$REPO_ROOT" && git diff-tree -z --no-renames -r --name-status "${s}^1" "$s" )
+  else
+    ( cd "$REPO_ROOT" && git diff-tree -z --root --no-renames --no-commit-id -r --name-status "$s" )
+  fi
+}
+_ship_change_embargo() {  # <sha> <status> <path>
+  local s="$1" st="$2" f="$3"
+  _ship_is_features_doc "$f" || return 1
+  case "$st" in
+    A|M|T|C*|R*) ship_obj_is_embargo "${s}:${f}" ;;
+    D) ship_obj_is_embargo "${s}^1:${f}" ;;
+    *) return 1 ;;
+  esac
+}
+
+# ship_embargo_classify <pN> <pending sha list> <journal> <seed pNs>
+# Sets EMB_MODE / EMB_PNS / EMB_WITHHOLD / EMB_MIXED / EMB_MERGES. The journal's
+# persisted verdict is merged in and never downgraded.
+ship_embargo_classify() {
+  local pn="$1" pending="$2" journal="$3" seed="$4" s st f n sp ot
+  EMB_MODE=0; EMB_PNS=""; EMB_WITHHOLD=""; EMB_MIXED=""; EMB_MERGES=""
+  local _x
+  while IFS= read -r _x; do _ship_pns_add "$_x"; done <<< "$seed"
+  if [[ -f "$journal" ]]; then
+    local _jv
+    _jv="$( python3 - "$journal" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+if j.get("embargo"):
+    print("MODE")
+for x in j.get("embargo_pns", []):
+    print(x)
+PY
+)" || _jv=""
+    while IFS= read -r _x; do
+      [[ -z "$_x" ]] && continue
+      if [[ "$_x" == "MODE" ]]; then EMB_MODE=1; else _ship_pns_add "$_x"; fi
+    done <<< "$_jv"
+  fi
+  [[ -n "$EMB_PNS" ]] && EMB_MODE=1
+  # Pass 1: find embargo content, and the P-numbers it belongs to.
+  while IFS= read -r s; do
+    [[ -z "$s" ]] && continue
+    while IFS= read -r -d '' st && IFS= read -r -d '' f; do
+      if _ship_change_embargo "$s" "$st" "$f"; then EMB_MODE=1; _ship_pns_add "$(_ship_pn_of "$f")"; fi
+    done < <( _ship_commit_changes "$s" )
+  done <<< "$pending"
+  (( EMB_MODE == 1 )) || return 0
+  # Pass 2: classify each commit.
+  while IFS= read -r s; do
+    [[ -z "$s" ]] && continue
+    n="$( cd "$REPO_ROOT" && git rev-list --no-walk --parents "$s" | wc -w | tr -d ' ' )"
+    if (( n > 2 )); then EMB_MERGES+="$s"$'\n'; continue; fi
+    sp=0; ot=0
+    while IFS= read -r -d '' st && IFS= read -r -d '' f; do
+      if _ship_change_embargo "$s" "$st" "$f" || _ship_is_uat_of_pns "$f"; then sp=$((sp + 1)); else ot=$((ot + 1)); fi
+    done < <( _ship_commit_changes "$s" )
+    if (( sp > 0 && ot > 0 )); then EMB_MIXED+="$s"$'\n'
+    elif (( sp > 0 )); then EMB_WITHHOLD+="$s"$'\n'
+    fi
+  done <<< "$pending"
+  return 0
+}
+
+# P1464: refuse a seed or close commit whose staged blobs carry embargo content.
+# Runs on exactly what is about to be committed (the index vs HEAD), so a spec
+# edited to `disclosure: embargo` after the verdict was taken cannot ride along.
+ship_refuse_staged_embargo() {
+  local what="$1" hits=""
+  hits="$(ship_index_protected)" || hits=""
+  [[ -z "$hits" ]] && return 0
+  {
+    echo "ship: refusing the $what commit — staged content is disclosure: embargo:"
+    printf '%s\n' "$hits"
+    echo "Nothing was committed. Restore the spec's intended disclosure, or publish it via publish-spec."
+  } >&2
+  exit 1
+}
+
+# Persist the embargo verdict so --resume can never downgrade it.
+ship_journal_set_embargo() {
+  local journal="$1"
+  EMB_PNS_ENV="$EMB_PNS" python3 - "$journal" <<'PY'
+import json, os, sys, tempfile
+target = sys.argv[1]
+j = json.load(open(target))
+j["embargo"] = True
+pns = [x for x in os.environ.get("EMB_PNS_ENV", "").splitlines() if x]
+j["embargo_pns"] = sorted(set(j.get("embargo_pns", [])) | set(pns))
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=os.path.dirname(target))
+with os.fdopen(fd, "w") as f:
+    json.dump(j, f, indent=2)
+    f.flush()
+    os.fsync(f.fileno())
+os.rename(tmp, target)
+PY
+}
+
+# Staged paths (vs HEAD, ACMRT, NUL-safe) that are protected by the content rule.
+ship_index_protected() {
+  local f
+  while IFS= read -r -d '' f; do
+    if { _ship_is_features_doc "$f" && ship_obj_is_embargo ":${f}"; } || _ship_is_uat_of_pns "$f"; then
+      printf '  %s\n' "$f" | tr -d '<>|'
+    fi
+  done < <( cd "$REPO_ROOT" && git diff --cached -z --no-renames --name-only --diff-filter=ACMRT HEAD )
+  return 0
+}
+
+# P1464: true only when the journal proves no pick was EVER attempted: no entry
+# has a landed_sha or a pre_pick_head, and main is still at the journal's
+# recorded start_head. "Zero landed_sha" alone is not proof: a pick can commit
+# and be killed before the journal write (the P972 crash window).
+ship_journal_never_picked() {
+  local journal="$1" _main
+  _main="$( cd "$REPO_ROOT" && git rev-parse -q --verify main 2>/dev/null )" || return 1
+  python3 - "$journal" "$_main" <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+ok = j.get("start_head") and j["start_head"] == sys.argv[2] and not any(
+    c.get("landed_sha") or c.get("pre_pick_head") for c in j.get("commits", []))
+sys.exit(0 if ok else 1)
+PY
+}
+
+# P1464: shared tail of every embargo refusal that happens before a pick.
+ship_embargo_refusal_journal() {
+  local pn="$1" journal="$2"
+  [[ -f "$journal" ]] || return 0
+  if ship_journal_never_picked "$journal"; then
+    rm -f "$journal"
+    echo "ship: journal removed (no pick was ever attempted); once fixed run: git-ops ship $pn" >&2
+  else
+    echo "ship: journal kept at $journal because a pick may already have been attempted." >&2
+    echo "  Inspect main (git log main) and the journal; once fixed run: git-ops ship $pn --resume" >&2
+  fi
 }
 
 # Atomically update journal: set landed_sha for a given source_sha.
@@ -3106,14 +3377,7 @@ ship_spec_disclosure() {
   # error message could run. `sed -n 1p` replaces `head -1` for the same reason:
   # head closes the pipe early and SIGPIPEs the upstream grep (141), which
   # pipefail promotes to the pipeline's status (epistemic.md gate 7, P1260).
-  printf '%s\n' "$content" \
-    | sed -n '/^---$/,/^---$/p' \
-    | { /usr/bin/grep -E '^disclosure:' || true; } \
-    | sed -n '1p' \
-    | sed 's/^disclosure://' \
-    | sed 's/[[:space:]]#.*$//' \
-    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
-    | sed "s/^'\\(.*\\)'$/\\1/; s/^\"\\(.*\\)\"$/\\1/"
+  printf '%s\n' "$content" | ship_disclosure_of_content
 }
 
 # ----------------------------------------------------------------------------
@@ -3165,10 +3429,13 @@ cmd_publish_spec() {
   # `local x=""` then `x="$(...)" || x=""` — the file's own safe idiom (L1380).
   # `git ls-tree -r` emits the whole tree, so a `head -1` really would SIGPIPE
   # the upstream grep; and grep exits 1 when the spec is absent.
-  local branch_spec=""
-  branch_spec="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$branch" 2>/dev/null \
-    | { /usr/bin/grep -E "^features/${pn}_[^/]+\.md$" || true; } | sed -n '1p' )" || branch_spec=""
-  [[ -n "$branch_spec" ]] || die "publish-spec: no features/${pn}_*.md on $branch"
+  # P1464: the stub (features/pN_security-review-pending.md) also matches
+  # features/pN_*.md and sorts first for any slug after "s", so exclude it.
+  ship_collect_branch_specs "$branch" "$pn"
+  local _nspec=${#SHIP_EMB_SPECS[@]}
+  (( _nspec > 0 )) || die "publish-spec: no features/${pn}_*.md on $branch"
+  (( _nspec == 1 )) || die "publish-spec: $branch carries $_nspec spec files for $pn — ambiguous; keep exactly one, then re-run"
+  local branch_spec="${SHIP_EMB_SPECS[0]}"
 
   local disc; disc="$(ship_spec_disclosure "$branch" "$branch_spec")"
   [[ "$disc" == "embargo" ]] || \
@@ -3255,12 +3522,33 @@ import sys, re, pathlib
 p = pathlib.Path(sys.argv[1]); t = p.read_text()
 end = t.find("\n---\n", 4)
 fm, rest = t[4:end], t[end + 5:]
-fm = re.sub(r'^disclosure:.*$', 'disclosure: public', fm, count=1, flags=re.M)
+# P1464: the same tolerance as ship_disclosure_of_content (indent, quoted key,
+# any case, space before the colon); every matching line is rewritten.
+fm = re.sub(r'^[ \t]*["\']?disclosure["\']?[ \t]*:.*$', 'disclosure: public', fm, flags=re.M | re.I)
 p.write_text("---\n" + fm + "\n---\n" + rest)
 PYEOF
+  # P1464: never trust the rewrite; read the result back with the ship reader.
+  [[ "$(ship_disclosure_of_content < "$REPO_ROOT/$dest")" == "public" ]] || {
+    rm -f "$REPO_ROOT/$dest"
+    die "publish-spec: after rewriting, $dest still does not read disclosure: public — refusing to publish; nothing was staged"
+  }
 
   ( cd "$REPO_ROOT" && git add -- "$dest" ) || die "publish-spec: git add failed"
-  commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "$dest" \
+  # P1464: the publish commit is also the one that retires the neutral stub, and
+  # that removes any copy of the spec a pre-P1464 ship leaked onto features/ (so
+  # the result is a move, not a duplicate P-number). Both only if tracked on main.
+  local -a _ps_paths=("$dest")
+  local _ps_rm
+  for _ps_rm in "features/${pn}_security-review-pending.md" "$branch_spec"; do
+    [[ "$_ps_rm" == "$dest" ]] && continue
+    if ( cd "$REPO_ROOT" && git ls-files --error-unmatch -- "$_ps_rm" >/dev/null 2>&1 ); then
+      ( cd "$REPO_ROOT" && git rm -q -- "$_ps_rm" ) || die "publish-spec: git rm $_ps_rm failed"
+      _ps_paths+=("$_ps_rm")
+      echo "publish-spec: removing $_ps_rm from main in the same commit" >&2
+    fi
+  done
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=false \
+  commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "${_ps_paths[@]}" \
     || die "publish-spec: the spec-publish commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused) or whether a commit LANDED recording the wrong files. Do not retry until you know which."
   echo "publish-spec: $pn published at $dest" >&2
 
@@ -3786,6 +4074,7 @@ cmd_ship() {
         _close_subject="chore: close $pn (administrative) — $title"
       fi
       local _csx_rc=0
+      ship_refuse_staged_embargo "spec-close"
       commit_staged_exact "$(ship_close_message "$_close_subject")" "$spec_dest" "$spec_file" || _csx_rc=$?
       if [[ "$_csx_rc" -eq 3 ]]; then
         die "ship: the spec-close commit LANDED but records the wrong files (no-branch closure) — nothing was unstaged and nothing was rolled back. Inspect 'git show --stat HEAD' and any co-tenant work it may have absorbed BEFORE re-running ship or touching the index."
@@ -4124,10 +4413,67 @@ The branch is authoritative for shipped migrations. Compare each file with
   fi
 
   local _disc_spec="${branch_spec_file:-$spec_file}"
-  if [[ "$(ship_spec_disclosure "$branch" "$_disc_spec")" == "embargo" ]]; then
-    ship_embargoed=1
+  # P1464: also read the branch's real spec. With the neutral stub on main,
+  # spec_file resolves to the stub (disclosure: public) and the check above it
+  # alone never sees the embargo.
+  local _emb_state=""
+  _emb_state="$(ship_embargo_state "$branch" "$pn")" || _emb_state=""
+  ship_collect_branch_specs "$branch" "$pn"
+  if [[ "$_emb_state" == "ambiguous" ]]; then
+    {
+      echo "ship: refusing before any cherry-pick — $branch carries more than one $pn spec and they disagree on disclosure:"
+      local _ap
+      for _ap in ${SHIP_EMB_SPECS[@]+"${SHIP_EMB_SPECS[@]}"}; do
+        echo "  $_ap: disclosure $(ship_spec_disclosure "$branch" "$_ap")" | tr -d '<>|'
+      done
+      echo "Keep exactly one spec file for $pn on the branch, then re-run ship."
+    } >&2
+    ship_embargo_refusal_journal "$pn" "$journal"
+    exit 1
+  fi
+  # P1464 content rule: classify every pending commit by what it would put on
+  # main, before any pick. Silent, and a no-op, when nothing is embargoed.
+  local _tip_emb=""
+  if [[ "$(ship_spec_disclosure "$branch" "$_disc_spec")" == "embargo" || "$_emb_state" == "embargo" ]]; then
+    _tip_emb="$pn"
+  fi
+  local _cls_pending=""
+  if [[ -f "$journal" ]]; then _cls_pending="$(ship_pending_source_shas "$journal")"
+  else _cls_pending="$( cd "$REPO_ROOT" && git rev-list --reverse "main..${branch}" )"; fi
+  ship_embargo_classify "$pn" "$_cls_pending" "$journal" "$_tip_emb"
+  if [[ -n "$_tip_emb" ]] || _ship_pns_has "$pn"; then ship_embargoed=1; fi
+  if (( EMB_MODE == 1 )) && [[ -n "$EMB_MIXED" || -n "$EMB_MERGES" ]]; then
+    {
+      echo "ship: refusing before any cherry-pick — embargoed spec content is on $branch."
+      if [[ -n "$EMB_MIXED" ]]; then
+        echo "These commits change an embargoed spec AND other files:"
+        printf '%s' "$EMB_MIXED" | while IFS= read -r _s; do
+          [[ -n "$_s" ]] && echo "  $_s $( cd "$REPO_ROOT" && git log -1 --format=%s "$_s" | tr -d '<>|' )"
+        done
+        echo "Picking one would publish the spec on main; skipping it would drop code."
+        echo "Split each into a spec-only commit and a code-only commit on the branch."
+      fi
+      if [[ -n "$EMB_MERGES" ]]; then
+        echo "These are merge commits, whose content cannot be classified safely:"
+        printf '%s' "$EMB_MERGES" | while IFS= read -r _s; do
+          [[ -n "$_s" ]] && echo "  $_s $( cd "$REPO_ROOT" && git log -1 --format=%s "$_s" | tr -d '<>|' )"
+        done
+        echo "Rebase the branch onto main to remove them."
+      fi
+      echo "Nothing was picked by this run."
+    } >&2
+    ship_embargo_refusal_journal "$pn" "$journal"
+    exit 1
+  fi
+  if (( ship_embargoed == 1 )); then
     need_seed=0
     echo "ship: $pn is disclosure: embargo — spec withheld from main (code merges normally)." >&2
+    # A branch-born spec with no stub on main deferred journal init to the seed
+    # block, which an embargo skips. Initialise it here instead.
+    if [[ ! -f "$journal" ]]; then
+      spec_file="${SHIP_EMB_SPECS[0]:-$branch_spec_file}"
+      ship_init_journal "$pn" "$branch" "$spec_file"
+    fi
   fi
 
   if (( need_seed == 1 )); then
@@ -4154,6 +4500,7 @@ The branch is authoritative for shipped migrations. Compare each file with
     fi
     mv -f "$_seed_tmp" "$REPO_ROOT/$branch_spec_file"
     ( cd "$REPO_ROOT" && git add -- "$branch_spec_file" ) >/dev/null
+    ship_refuse_staged_embargo "seed"
     # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
     # (held for this whole block); see its own comment for why.
     commit_staged_exact "seed ${pn} spec for ship (creation blob)" "$branch_spec_file" >/dev/null || \
@@ -4161,6 +4508,18 @@ The branch is authoritative for shipped migrations. Compare each file with
     echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
     spec_file="$(resolve_ship_spec "$pn")"
     ship_init_journal "$pn" "$branch" "$spec_file"
+  fi
+
+  # P1464: persist the embargo verdict (never downgraded on --resume) and journal
+  # the withheld commits. Runs after the seed so a branch-born journal exists.
+  if (( EMB_MODE == 1 )); then
+    ship_journal_set_embargo "$journal"
+    local _ws
+    while IFS= read -r _ws; do
+      [[ -z "$_ws" ]] && continue
+      ship_record_withheld "$pn" "$_ws"
+      echo "ship: withheld from main (embargoed spec only): $_ws" >&2
+    done <<< "$EMB_WITHHOLD"
   fi
 
   # Discard any uncommitted/staged kanban-written changes to this feature's spec file.
@@ -4305,6 +4664,22 @@ The branch is authoritative for shipped migrations. Compare each file with
     # commits but crashes before the landed_sha write. HEAD is the pick's parent
     # in both the fresh and --continue (paused) cases.
     ship_record_pre_pick "$pn" "$sha" "$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+    # P1464: an operator's conflict resolution is staged content this run never
+    # classified. Under embargo, refuse to commit it if it adds or modifies any
+    # protected spec path (NUL-delimited, so a quoted name cannot slip past).
+    if (( _resume_continue == 1 )); then
+      local _staged_hits=""
+      _staged_hits="$(ship_index_protected)" || _staged_hits=""
+      if [[ -n "$_staged_hits" ]]; then
+        {
+          echo "ship: refusing to continue cherry-pick $sha — the staged resolution adds or modifies an embargoed spec:"
+          printf '%s\n' "$_staged_hits"
+          echo "Unstage those paths (git rm --cached, or git checkout HEAD on each), then run: git-ops ship $pn --resume"
+          echo "Nothing was committed."
+        } >&2
+        exit 1
+      fi
+    fi
     set +e
     if (( _resume_continue == 1 )); then
       # --no-edit reuses the original commit message (no interactive editor).
@@ -4499,6 +4874,7 @@ The branch is authoritative for shipped migrations. Compare each file with
       if [[ -n "$(cd "$REPO_ROOT" && git diff --cached --name-only --diff-filter=D -- "$spec_file" 2>/dev/null)" ]]; then
         _expected_paths+=("$spec_file")
       fi
+      ship_refuse_staged_embargo "spec-close"
       commit_staged_exact "$(ship_close_message "chore: close $pn — $title")" "${_expected_paths[@]}" \
         || die "ship: the spec-close commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
       ship_set_journal_flag "$pn" "spec_closed"
@@ -4558,6 +4934,8 @@ The branch is authoritative for shipped migrations. Compare each file with
   # `publish-spec` instead, after the spec has landed on main.
   if (( ship_embargoed == 1 )); then
     echo "ship: $pn branch + worktree retained (disclosure: embargo) — the spec exists only on $branch until it is published." >&2
+  elif (( EMB_MODE == 1 )); then
+    echo "ship: $branch retained — it holds withheld embargoed spec content ($(printf '%s' "$EMB_PNS" | tr '\n' ' ' | sed 's/ $//')) that exists nowhere else; move it to its own branch before deleting this one." >&2
   elif ! ship_journal_flag "$pn" "branch_deleted"; then
     local wt_path
     wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
@@ -4595,7 +4973,11 @@ The branch is authoritative for shipped migrations. Compare each file with
   trap - EXIT
   rm -f "$journal"
 
-  echo "ship: $pn landed on main; branch and journal cleaned up."
+  if (( ship_embargoed == 1 || EMB_MODE == 1 )); then
+    echo "ship: $pn code landed on main; journal cleaned up; branch retained until publish-spec."
+  else
+    echo "ship: $pn landed on main; branch and journal cleaned up."
+  fi
   # P919 D4: cherry-picked commits are new SHAs CI has never seen — staging hop runs
   # the privacy-scan check on them before the human pushes main.
   print_staging_hop "$pn" "$_hop_sha"
