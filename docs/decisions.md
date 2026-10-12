@@ -8,6 +8,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [process]: Daily-check loops the founder could not close are agent work, not founder homework
+
+**Context:** Two /day items came back every morning for over a week. The cloud credit check asked the founder to read a console page and re-seed a number by hand (4 to 12 Oct, never done once); the calendar source check kept surfacing a visitor suggestion that was our own /cm page.
+**Decision:** (1) The credit check moved to per-grant tracking in the founder's private setup, and /day now opens the console itself in the founder's browser, asking only for a login when Google demands one. The old per-currency method was also wrong: the billing export reports every grant in one currency, so one grant's usage was subtracted from another. (2) The source check skips links to our own site, so the founder only sees a suggestion that is a real source decision. (3) Credit amounts never go in this public repo; an amount quoted here since 2026-08-27 was redacted.
+**Why:** A recurring item the founder answers but cannot act on is a loop, and a loop teaches the founder to stop reading the board.
+**Status:** UNTESTED. Falsifier: /day raises a credit or source item in the next 30 days that asks the founder to do the work rather than decide.
+
 ## 2026-10-12 [process]: An embargoed spec is withheld by its content, not its path — `ship` never lands it on main (P1464)
 
 **Context:** P1255's embargo skipped only the spec *seed*; `ship` still cherry-picked every branch commit whole, so any commit touching the spec landed it on main (hit shipping P1454 — no disclosure, the fix was already live and nothing was pushed). The first fix classified commits by path and P-number; five Codex adversarial rounds reproduced 15 leaks, nine of them before the classifier stopped keying on names.
@@ -14216,7 +14223,7 @@ Same spec, second mechanism: the `schema_migrations` ledger fetch ran its JSON p
 
 **Context:** The founder asked for `/day` to show remaining Google Cloud credits and the delta since the last run. Google exposes no API for a promotional-credit balance — confirmed against the Cloud Billing API docs and directly against this account's `billingAccounts.get` response — only the console's Credits page shows it. The only path to a computed equivalent is the Detailed usage cost BigQuery export, which includes a `credits` array per billing row; enabling it is console-only and the export doesn't backfill history from before it was switched on. This is a different metric from P1162 (open, untouched by this work): P1162 caps *ClarityPledge's own* Gemini-key spend against a $75/month ceiling; this tracks the founder's personal multi-thousand-dollar credit pool.
 
-**Decision:** Enable the export (billing account `010089-354936-77CD27`, dataset `billing_export` on `gen-lang-client-0869694595`), seed a one-time starting balance read off the console (`$22,503.16` + `€867.15` as of 2026-08-27, held in gitignored `.private/metrics/gcp-credits.json`), and have `scripts/gcp-credits-check.sh` net `credits.type='PROMOTION'` consumption since the last check against it each `/day` run. Same three-way exit contract as the RLS/function-grant checks (0 clean, 1 alarm, 2 did-not-run) — never render "did not run" as "$0 remaining."
+**Decision:** Enable the export (billing account `010089-354936-77CD27`, dataset `billing_export` on `gen-lang-client-0869694595`), seed a one-time starting balance read off the console (amounts kept private, never in this repo), and have `scripts/gcp-credits-check.sh` net `credits.type='PROMOTION'` consumption since the last check against it each `/day` run. Same three-way exit contract as the RLS/function-grant checks (0 clean, 1 alarm, 2 did-not-run) — never render "did not run" as "$0 remaining."
 
 **A same-session Opus adversarial review (no user-facing findings omitted) found two structural bugs in the first draft, both fixed before commit, both confirmed independently against Google's docs rather than taken on the reviewer's word (epistemic.md gate 9):**
 - The table-discovery query matched `gcp_billing_export_v1_%`, which is the **Standard** export's name. The **Detailed** export — the one actually enabled, because it's the one carrying `credits` at resource granularity — creates `gcp_billing_export_resource_v1_<ACCOUNT_ID>`. The original pattern would never have matched it; every run would have reported "not backfilled yet," forever, and habituated the founder into not reading it.

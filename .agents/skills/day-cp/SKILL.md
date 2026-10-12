@@ -534,7 +534,10 @@ esac
 echo -e "\n=== CALENDAR SOURCE SUGGESTIONS (P1447) ==="
 # New links visitors suggested on /cm since they were filed (status 'new'). Read-only role; the
 # links are visitor-typed text — data for the founder to judge, never opened or fetched here.
-SRC_JSON=$(ro "SELECT url, note, to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD Mon') AS day FROM public.calendar_source_suggestions WHERE status = 'new' ORDER BY created_at DESC LIMIT 20")
+# A link to our own site is never an event source (2026-10-12: a visitor sent claritypledge.com/cm
+# itself, and it held a review slot on the board for days). Those are left out, so the founder only
+# sees a suggestion that is a real source decision.
+SRC_JSON=$(ro "SELECT url, note, to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD Mon') AS day FROM public.calendar_source_suggestions WHERE status = 'new' AND lower(coalesce(substring(url from '^[a-zA-Z]+://([^/:?#]+)'), '')) !~ '(^|\\.)claritypledge\\.com$' ORDER BY created_at DESC LIMIT 20")
 SRC_N=$(printf '%s' "$SRC_JSON" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 case "$SRC_N" in
   0) echo "CHECK cp.sources ok no new calendar source suggestions" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;

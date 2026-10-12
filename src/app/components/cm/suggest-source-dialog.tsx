@@ -85,7 +85,7 @@ export function SuggestSourceDialog() {
         >
           {/* A bare "+" on phones read as the embedded calendar's own add-event button. */}
           <Plus className="hidden h-4 w-4 sm:block" aria-hidden="true" />
-          <span className="sm:hidden">Suggest</span>
+          <span className="sm:hidden">Add event source</span>
           <span className="hidden sm:inline">Suggest a source</span>
         </button>
       </DialogTrigger>
