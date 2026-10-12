@@ -15,6 +15,15 @@ export interface ListRow {
   attrs?: Record<string, string>
 }
 
+interface Extra {
+  title: string
+  word: string
+  attrs: Record<string, string>
+  onClick: () => void
+  /** the dot's look: 'parked' (grey) or 'section' (a link to the other half of the queue) */
+  dot?: string
+}
+
 interface Props {
   label: string
   rows: ListRow[]
@@ -25,10 +34,12 @@ interface Props {
   allDone: boolean
   onPick: (k: number) => void
   /** one row after the list that is not a card (the parked row) */
-  extra?: { title: string; word: string; attrs: Record<string, string>; onClick: () => void }
+  extra?: Extra | Extra[]
+  /** P1463: no summary line above the rows on a wide area (the rows' ✓ and the pager already count) */
+  noHead?: boolean
 }
 
-export function ListPane({ label, rows, current, summary, allDone, onPick, extra }: Props) {
+export function ListPane({ label, rows, current, summary, allDone, onPick, extra, noHead }: Props) {
   const [open, setOpen] = useState(false)
   const rowsId = useId()
   return (
@@ -37,10 +48,12 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
         <span className="d-tri">▶</span>
         {summary}
       </button>
-      <div className={`d-clhead ${allDone ? 'done' : ''}`} data-list-summary>
-        {allDone && '✓ '}
-        {summary}
-      </div>
+      {!noHead && (
+        <div className={`d-clhead ${allDone ? 'done' : ''}`} data-list-summary>
+          {allDone && '✓ '}
+          {summary}
+        </div>
+      )}
       <ul className="d-clrows" id={rowsId}>
         {rows.map((r, k) => (
           <li key={r.key}>
@@ -64,23 +77,23 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
             </button>
           </li>
         ))}
-        {extra && (
-          <li>
+        {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
+          <li key={x.title} className={x.dot === 'section' ? 'd-clsec' : undefined}>
             <button
               type="button"
               className="d-clrow"
-              {...extra.attrs}
+              {...x.attrs}
               onClick={() => {
                 setOpen(false)
-                extra.onClick()
+                x.onClick()
               }}
             >
-              <span className="d-sdot parked" aria-hidden="true" />
-              <span className="d-clt">{extra.title}</span>
-              <span className="d-clw">{extra.word}</span>
+              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true" />
+              <span className="d-clt">{x.title}</span>
+              <span className="d-clw">{x.word}</span>
             </button>
           </li>
-        )}
+        ))}
       </ul>
     </nav>
   )

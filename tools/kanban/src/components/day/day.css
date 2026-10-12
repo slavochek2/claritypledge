@@ -100,7 +100,6 @@
 .d-spanel.open { display: block; }
 .d-sh { display: none; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; }
 .d-sh.can { display: flex; }
-.d-sh.can .d-shtitle { visibility: hidden; }
 .d-sum2 { display: none; font-size: 13px; color: var(--fg2); margin-bottom: 4px; }
 .d-unp { font-size: 12px; color: var(--fg3); margin-bottom: 4px; }
 .d-sgl { font-size: 12px; font-weight: 600; color: var(--fg3); margin: 8px 0 4px; }
@@ -518,3 +517,18 @@ button.d-chip:hover { border-color: var(--amber); }
 .day-root .d-focusrow {
   background: var(--cp-blue-50, #eff6ff);
 }
+/* P1463 round 3: an answered card folds to its answer */
+.d-chose { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; color: var(--fg2); }
+.d-chose b { color: var(--fg); }
+/* P1463 round 3: the row linking cards and statements in the one queue reads as a section divider */
+.d-clsec { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+.d-clsec .d-clt { font-weight: 600; }
+.d-sdot.section { border-color: var(--blue); background: var(--blue-50); }
+/* P1463 round 3: Status by outcome — what didn't work, grouped under its cause */
+.d-sgap { flex: 1; }
+.d-sgl.need { color: var(--amber-800); }
+.d-fgroup { border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 4px; }
+.d-fgroup:last-of-type { border-bottom: 0; }
+.d-under { padding: 2px 0 2px 24px; font-size: 13px; color: var(--fg2); justify-content: space-between; }
+.d-srow > .d-link { margin-left: auto; }
+.d-peoplebox { padding: 4px 16px 8px; }

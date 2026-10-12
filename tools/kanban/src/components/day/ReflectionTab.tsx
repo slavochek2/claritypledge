@@ -62,6 +62,8 @@ function useCpScope(): HTMLElement | null {
 const barTop = () => document.querySelector('[data-bottom-bar]')?.getBoundingClientRect().top ?? window.innerHeight
 
 interface Props {
+  /** P1463: the cards before the statements in the one queue — a row in the list goes back to them */
+  back?: { title: string; word: string; go: () => void }
   statements: DayStatement[]
   view: DayView
   readOnly: boolean
@@ -85,7 +87,7 @@ interface Props {
   onResend: (e: StoryEntry) => void
 }
 
-export function ReflectionTab({ statements, view, readOnly, index, onPosition, onRemove, onJump, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend }: Props) {
+export function ReflectionTab({ statements, view, readOnly, index, onPosition, onRemove, onJump, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend, back }: Props) {
   const portal = useCpScope()
   const s = statements[Math.min(index, statements.length - 1)]
 
@@ -121,6 +123,7 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
     <section className="d-issues" aria-label="Statements">
       {/* P1449: one statement has no list beside it, so its card takes the pane, centred */}
       <div className={statements.length > 1 ? 'd-md' : 'd-md d-single'} data-reflection-layout={statements.length > 1 ? 'list' : 'single'}>
+        {/* P1449: one statement is centred with no list — Previous goes back to the cards */}
         {statements.length > 1 && (
           <ListPane
             label="Statements"
@@ -140,6 +143,8 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
             summary={summary}
             allDone={unanswered === 0}
             onPick={onJump}
+            // P1463: the statements follow the cards in one queue — this row goes back to them
+            extra={back ? { title: back.title, word: back.word, attrs: { 'data-list-cards': '' }, onClick: back.go, dot: 'section' } : undefined}
           />
         )}
         <div className="d-pwrap d-mdmain">

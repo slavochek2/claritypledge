@@ -39,11 +39,12 @@ import { StatsTab } from './StatsTab'
 import './day.css'
 
 type Tab = 'report' | 'stats' | 'monitoring' | 'reflection'
+// P1463 round 3: Reflection is not a tab — its statements follow the cards in the Daily report's
+// one queue ('reflection' stays the internal section the pager is in). Tabs are for looking only.
 const TABS: [Tab, string][] = [
   ['report', 'Daily report'],
   ['stats', 'Stats'],
   ['monitoring', 'Monitoring'],
-  ['reflection', 'Reflection'],
 ]
 
 /** Below ~420px of page width the tabs keep one row with these. */
@@ -225,6 +226,8 @@ export function DayPage() {
       // a story alone is an answer too (P1440)
       const k = (r.report.reflection?.statements ?? []).findIndex((x) => typeof r.view.reflection[x.id]?.position !== 'number' && !r.view.reflection[x.id]?.story)
       if (k > 0) setReflIdx(k)
+      // P1463: every card answered (or none) and a statement still open — the queue opens there
+      if (y === -1 && k >= 0) setTab('reflection')
     })
   }, [runId, reload])
 
@@ -244,7 +247,7 @@ export function DayPage() {
   const issues = yours
   const issueIdx = idx.yours
   const setIssueIdx = useCallback((i: number) => setIdx({ yours: i }), [])
-  const statements = ok?.report.reflection?.statements ?? []
+  const statements = useMemo(() => ok?.report.reflection?.statements ?? [], [ok])
 
   useEffect(() => {
     if (issueIdx > 0 && issueIdx >= issues.length) setIssueIdx(Math.max(0, issues.length - 1))
@@ -567,17 +570,41 @@ export function DayPage() {
   const reflCur = tab === 'reflection' && !readOnly && nav ? statements[nav.i] : undefined
   const reflAccepting = !!reflCur && isUnsaved(reflCur.id)
 
+  /**
+   * P1463: the one queue the bottom bar walks — the founder's cards, then the statements. `nav`
+   * stays the position inside the current section; `queue` is the position in the whole run.
+   */
+  const queue = useMemo(() => {
+    if (!nav || (tab !== 'report' && tab !== 'reflection')) return nav
+    const n = issues.length + statements.length
+    return { i: (tab === 'reflection' ? issues.length : 0) + nav.i, n, lab: nav.lab }
+  }, [nav, tab, issues.length, statements.length])
+  /** Open the first statement still to rate (or the first one). */
+  const toReflection = useCallback(() => {
+    // an earlier run is read-only: nothing to rate there, so it opens on the first statement
+    const k = readOnly ? 0 : statements.findIndex((x) => typeof view?.reflection[x.id]?.position !== 'number' && !view?.reflection[x.id]?.story)
+    setTab('reflection')
+    setReflIdx(Math.max(0, k))
+  }, [statements, view, readOnly])
+
   /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
     (dir: -1 | 1) => {
-      if (!nav) return
-      const to = nav.i + dir
-      if (to < 0 || to >= nav.n) return
-      if (tab === 'report') setIssueIdx(to)
-      else setReflIdx(to)
+      if (!queue) return
+      const to = queue.i + dir
+      if (to < 0 || to >= queue.n) return
+      if (tab === 'report' || tab === 'reflection') {
+        if (to < issues.length) {
+          setTab('report')
+          setIssueIdx(to)
+        } else {
+          setTab('reflection')
+          setReflIdx(to - issues.length)
+        }
+      }
       toTop()
     },
-    [nav, tab, setIssueIdx],
+    [queue, tab, issues.length, setIssueIdx],
   )
 
   /**
@@ -599,16 +626,21 @@ export function DayPage() {
       setChoice((c) => ({ ...c, [cur.fp]: rec }))
       const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
       // move on only if the founder is still on that card: paging during the save wins
-      if (r.ok && runIdRef.current === runId && at + 1 < issues.length) {
-        if (idxRef.current.yours === at) {
+      if (r.ok && runIdRef.current === runId && idxRef.current.yours === at) {
+        if (at + 1 < issues.length) {
           setIdx((s) => ({ ...s, yours: at + 1 }))
+          toTop()
+        } else if (statements.length) {
+          // P1463: the last card's Accept & next goes on to the statements, as Next does
+          setTab('reflection')
+          setReflIdx(0)
           toTop()
         }
       }
     } finally {
       acceptingNow.current = false
     }
-  }, [accepting, nav, issues, write, runId])
+  }, [accepting, nav, issues, write, runId, statements.length])
 
   /**
    * Reflection "Accept & next" / "Accept": writes the founder's own position and the story as it is
@@ -733,7 +765,7 @@ export function DayPage() {
         <div className="d-col">
           <div className="d-tabs" role="tablist" aria-label="Day">
             {TABS.map(([k, label]) => (
-              <button type="button" role="tab" key={k} aria-selected={tab === k} aria-label={label} onClick={() => setTab(k)}>
+              <button type="button" role="tab" key={k} aria-selected={tab === k || (k === 'report' && tab === 'reflection')} aria-label={label} onClick={() => setTab(k)}>
                 <span className="d-tl">{label}</span>
                 <span className="d-ts" aria-hidden="true">
                   {SHORT_TAB[k]}
@@ -840,6 +872,7 @@ export function DayPage() {
                   onUndoFix={undoFix}
                   onBringBack={bringBack}
                   sent={ok.sentItems ?? {}}
+                  reflection={statements.length ? { open: statements.length - rated - storyOnly, go: toReflection } : undefined}
                 />
               )}
               {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} />}
@@ -859,6 +892,18 @@ export function DayPage() {
                     toTop()
                   }}
                   runId={ok.report.pass_id}
+                  back={
+                    issues.length
+                      ? {
+                          title: `${issues.length} card${issues.length === 1 ? '' : 's'}`,
+                          word: yoursLeft.length ? `${yoursLeft.length} still yours` : '✓ answered',
+                          go: () => {
+                            setTab('report')
+                            toTop()
+                          },
+                        }
+                      : undefined
+                  }
                   stories={ok.stories ?? []}
                   draftOf={storyDraftOf}
                   unsaved={isUnsaved}
@@ -897,13 +942,13 @@ export function DayPage() {
             <div className="d-gin">
               {nav ? (
                 <div className="d-bnav">
-                  <button type="button" className="d-nbtn" aria-label={`Previous ${nav.lab}`} title="Previous (←)" disabled={nav.i === 0} onClick={() => page(-1)}>
+                  <button type="button" className="d-nbtn" aria-label={`Previous ${nav.lab}`} title="Previous (←)" disabled={(queue ?? nav).i === 0} onClick={() => page(-1)}>
                     ‹<span className="d-nl">Previous</span>
                   </button>
                   <span className="d-bpos">
-                    {nav.i + 1} of {nav.n}
+                    {(queue ?? nav).i + 1} of {(queue ?? nav).n}
                   </span>
-                  <button type="button" className="d-nbtn" aria-label={`Next ${nav.lab}`} title="Next (→)" disabled={nav.i >= nav.n - 1} onClick={() => page(1)}>
+                  <button type="button" className="d-nbtn" aria-label={`Next ${nav.lab}`} title="Next (→)" disabled={(queue ?? nav).i >= (queue ?? nav).n - 1} onClick={() => page(1)}>
                     <span className="d-nl">Next</span>›
                   </button>
                   {(accepting || reflAccepting) && (
@@ -911,12 +956,12 @@ export function DayPage() {
                       type="button"
                       className="d-nbtn d-accept"
                       data-accept
-                      aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'}
+                      aria-label={(queue ?? nav).i < (queue ?? nav).n - 1 ? 'Accept and next' : 'Accept'}
                       title={tab === 'reflection' ? 'Save your position and story' : 'Save the recommended answer'}
                       disabled={busy}
                       onClick={(e) => void (tab === 'reflection' ? acceptStatement(e.detail) : accept(e.detail))}
                     >
-                      <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
+                      <span className="d-nl">{(queue ?? nav).i < (queue ?? nav).n - 1 ? 'Accept & next' : 'Accept'}</span>
                       <span className="d-ns">Accept</span>
                     </button>
                   )}
