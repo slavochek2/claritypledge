@@ -283,8 +283,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         phones the whole-card tap kept sending readers away by accident). `Details →` in the
         footer opens the point; the links inside the card open what they name. So no
         role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */}
-    /* P1445: the frame (card, pin, statement row) is the shared PointCardShell — the Day board renders
-       its reflection statements in the same one. Everything product-side stays here. */
+    {/* P1445: the frame (card, pin, statement row) is the shared PointCardShell — the Day board renders
+       its reflection statements in the same one. Everything product-side stays here. */}
     <PointCardShell
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
