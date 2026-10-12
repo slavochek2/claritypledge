@@ -126,7 +126,7 @@ Decision density: a few (see the founder decisions below).
 ## Founder pool review (prepared — needs your decision)
 
 - **Signature forms removed (done, reversible):** the credit must never imitate a real signature, and 12 `sig` values were signature forms, tags or signed pseudonyms — e.g. "R. Mutt" (Duchamp), "SAMO©" (Basquiat), "OBEY" (Fairey, also a trademark), "h. Daumier", "Eug. Delacroix", "Fred Leighton". All now read as plain names; a pool test enforces "words of the name or capital initials only". 9 non-Latin sigs were folded to ASCII (Kōetsu → Koetsu, …).
-- **`exclude` candidates [FOUNDER DECISION]:** artists whose signature subject is the human figure or face failed the vision check under the no-portrait rule — Kitagawa Utamaro, Yoshitomo Nara, Leonardo da Vinci, Hans Holbein the Younger, Jaume Huguet. Exclude them, or accept a lower hit rate for figure painters?
+- **`exclude` candidates — DECIDED 2026-10-12 (founder): keep all; revisit only if a banner looks wrong.** Artists whose signature subject is the human figure or face failed the vision check under the no-portrait rule — Kitagawa Utamaro, Yoshitomo Nara, Leonardo da Vinci, Hans Holbein the Younger, Jaume Huguet. Exclude them, or accept a lower hit rate for figure painters?
 - **Still unreviewed by a human:** names, dates, works of all 498 entries (LLM-drafted).
 
 ## Resolved Decisions
@@ -161,7 +161,7 @@ Decision density: a few (see the founder decisions below).
 - [x] Self-hosted Caveat font file + OFL licence present in the build (`public/fonts/caveat-700-latin.woff2`, `caveat-OFL.txt`).
 - [ ] Deploy the frontend.
 - [ ] After deploy: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run), then `--apply`; spot-check every agent profile.
-- [ ] Commit the skill edits on main: `/provision-agent` Step 5c + `gen-agent-avatar` note (drafted), and `promote-to-prod.md` one line (needs founder approval).
+- [x] Skill edits committed on main: `/provision-agent` Step 5c + `gen-agent-avatar` note (`f2ed69c5d`), `promote-to-prod.md` banner step (`35c248c87`, founder-approved 2026-10-12).
 
 ## Technical Architecture
 
