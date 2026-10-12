@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 159
+**Next ID:** 164
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2486,5 +2486,66 @@ Found 2026-10-09: pre-commit warns on console.log('THEME-PARITY ' + ...) in tool
 **due:** week
 
 The hook that blocks UI edits after the founder says a change is not visible scans every transcript entry of type user, and tool results are of that type. So a command that prints its trigger phrases, or a test log, blocks every .tsx edit until a later browser call. Fix: match only entries that are plain user text, with no tool_result blocks. Droppable if the hook is retired. Hit 2026-10-09 by the P1437 v3 builder subagent.
+
+---
+
+## A ship of P1446 started and never finished [day:b2ae844c]
+
+**ID:** INBOX-159
+**Date:** 2026-10-12
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-12 (check: cp.w1, severity: medium).
+
+Journal started 2026-10-09T10:10:34Z, spec_closed=False, branch_deleted=False, 0 commits unlanded. Resume: ./scripts/git-ops.sh ship p1446 --resume. Same fault key as the earlier pass today.
+
+---
+
+## A new calendar source suggestion waits for review [day:81f2fee1]
+
+**ID:** INBOX-160
+**Date:** 2026-10-12
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-12 (check: cp.sources, severity: low).
+
+1 new suggestion: https://claritypledge.com/cm (the site's own page, likely not a real source). Visitor-typed data, never opened.
+
+---
+
+## Open alert: stranded signups, people started signup and never got in [day:443436a1]
+
+**ID:** INBOX-161
+**Date:** 2026-10-12
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-12 (check: cp.ops, severity: medium).
+
+Issue 19 "Stranded signups" opened 2026-10-11T14:20Z. Matches cp.signups: 1 unconfirmed sign-up. Fix command is in the issue body.
+
+---
+
+## Day page: shorten card copy written by /day (P1463 follow-up)
+
+**ID:** INBOX-162
+**Date:** 2026-10-12
+**Status:** proposed
+**due:** month
+
+From the P1463 copy review (2026-10-12). The Day card text is written by the /day run, not the board, so P1463 left it alone. Findings: Point A/Obstacle/Point B repeat the same nouns (~60 words could be ~15); dates show up as an ISO date plus "about 3 days ago" plus the "3 days" pill; option labels and "Main risk" lines run to two lines; agent rows are full sentences, and several agent rows name the same root problem (Beeper token) that already has a founder card. Fix belongs in the /day card-writing step: one short line per field, one date, merge or dedupe agent rows that share a root cause.
+
+---
+
+## Day page: answered cards collapse; Send N names what changed; compact pager (P1463 follow-up)
+
+**ID:** INBOX-163
+**Date:** 2026-10-12
+**Status:** proposed
+**due:** month
+
+Deferred from the P1463 copy and visual review (2026-10-12): (1) an answered card still shows the full Point A/B and four option rows; collapse it to "You chose: X · Change". (2) After sending, "Send N changes" carries a number nothing on screen explains; mark the changed rows or name them. (3) Previous / 1 of N / Next could be one compact "‹ 1/3 ›" control. Board UI only (tools/kanban).
 
 ---
