@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [process]: An embargoed spec is withheld by its content, not its path — `ship` never lands it on main (P1464)
+
+**Context:** P1255's embargo skipped only the spec *seed*; `ship` still cherry-picked every branch commit whole, so any commit touching the spec landed it on main (hit shipping P1454 — no disclosure, the fix was already live and nothing was pushed). The first fix classified commits by path and P-number; five Codex adversarial rounds reproduced 15 leaks, nine of them before the classifier stopped keying on names.
+**Decision:** A file is protected when its **frontmatter content** declares `disclosure: embargo`, at any path, depth or P-number (plus its `uat/` pair). Spec-only commits are withheld and journaled, mixed commits refused before any pick, merges refused, staged blobs re-checked before every `--continue` and every seed/close commit, the embargo verdict persisted in the journal and never downgraded. `publish-spec` lifts the marker, removes the stub, and reads back the result before committing.
+**Alternatives rejected:** Path/P-number allowlists — each round of review found another name the list did not cover. Auto-splitting mixed commits — rewrites branch history without the operator.
+**Consequences:** Commit an embargoed spec in its own commits, never with the code; a mixed commit now stops the ship with the sha to split. Known accepted limits (nested `disclosure:` keys, CRLF/BOM at publish, `ship-gates.sh`'s own reader) are listed in the P1464 spec. A guard that keys on names keeps losing to new names; key on the property the guard exists to protect.
+**References:** `scripts/git-ops.sh`, `scripts/test-p1464-ship-embargo.sh`, P1255, P1454
+
 ## 2026-10-12 [product]: Outreach waits behind two sales-practice events (one in person, one online); 60-day target of 3–7 paid pilots
 
 **Context:** The founder started planning outreach (who to approach, warm vs cold vs intros, Asia vs Europe, which industries). The question underneath was what is being sold and in which format. The Clarity Night #2 retro (2026-10-07) says the method worked in the room (roles held, the observer bell, table rotation). What failed was the **promise**, since people came for a topic and got listening practice, and **carry-out**, since nobody had a next step. The founder's background is B2B sales training, and many people in the local network struggle with selling.
