@@ -213,10 +213,14 @@ resolve_private_dir() {
 }
 known_names() {
   local priv="$1" f base
-  if [ -f "$priv/docs/privacy-names.txt" ]; then
-    grep -vE '^[[:space:]]*(#|$)' "$priv/docs/privacy-names.txt" \
+  # privacy-literals.txt: non-name private values in the same one-per-line format (amounts, account
+  # and grant ids). Machine-maintained by private checks that read them, so the list itself never
+  # appears in this public file. Matched exactly like a name: literal, case-folded, word-bounded.
+  for f in "$priv/docs/privacy-names.txt" "$priv/docs/privacy-literals.txt"; do
+    [ -f "$f" ] || continue
+    grep -vE '^[[:space:]]*(#|$)' "$f" \
       | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true
-  fi
+  done
   for f in "$priv"/crm/opportunities/*.md; do
     [ -e "$f" ] || continue
     base="$(basename "$f" .md)"
