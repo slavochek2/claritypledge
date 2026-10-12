@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 28
 severity: medium
@@ -10,10 +10,10 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, banners]
-disclosure: embargo
-delivery_stage: ship
+disclosure: public
 pipeline_ran: [create-bug, dev, ship]
 related: [p1453, p1417]
+completed_at: 2026-10-12
 ---
 
 # P1454: Banner regeneration can delete another entity's banner file
