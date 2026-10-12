@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-12 [technical]: A service-role storage delete proves the path is the entity's own — never trusts a row's URL column (P1454)
+
+**Context:** Banner regeneration removes the entity's previous banner file with the service role, naming the file from the row's `banner_url`. That column is client-writable, so it is user input, not a record. Found by the P1453 security review; specifics in `.private/docs/security-log.md` 2026-10-09.
+**Decision:** Both banner functions now delete only through `_shared/banner-path.ts` `ownedBannerPath()`: a single plain filename directly inside the entity's own folder (`<type>/<id>/`, legacy events `<id>/`), host and bucket pinned; anything else is skipped and left as an orphan. Same family as 2026-08-17 (P1083): RLS limits rows, not values — any column a client can write is untrusted wherever privileged code reads it.
+**Alternatives rejected:** A DB trigger pinning client writes of `banner_url` — the client writes it legitimately in four places, so it is higher-risk and does not by itself protect the privileged delete; it is folded into P1453's write-path work instead.
+**Consequences:** The failure mode is now an orphaned file (storage cost), never a deleted one. Any new privileged delete/overwrite keyed off a stored URL or path must derive or verify ownership the same way.
+**References:** `supabase/functions/_shared/banner-path.ts`, P1453
+
 ## 2026-10-12 [technical]: A comment between JSX children renders as text — guarded by an AST test, not lint
 
 **Context:** P1445 D (`9452b15fc`) left a bare `/* … */` between JSX children in `feed-point-card.tsx`. JSX treats that as a text node, so the code comment rendered on every point card in the prod feed. tsc, eslint and the P1445 review all passed it: the repo has no `eslint-plugin-react`, so the stock `react/jsx-no-comment-textnodes` rule was never available.
