@@ -278,6 +278,7 @@ For each agent in `envelope.agents`, in order:
 1. Upload the staged avatar to its planned prod key (`upsert:false`). Assert `200` **and** `content-type: image/*`, and that the downloaded bytes hash to the planned sha256.
 2. Run `/slava:content:provision-agent` **Step 5 and Step 5b only** (mint and register, then bio and links from the plan), with the pre-assigned id and the avatar URL from step 1. **Do not run its Steps 2–4.** Step 2 would regenerate the avatar that was carried. Step 3 would upload a second time to the key step 1 already filled. Step 4 is a per-account gate, and the one Stage 4 gate already covered it, with every identity disclosed by name (§1). The prod service key for the mint is read through the per-access lock at this moment, with one dialog: answer **Allow**, never "Always Allow".
 3. Re-resolve from prod by `subject_key`, and assert the result equals the pre-assigned id.
+4. Run `/slava:content:provision-agent` **Step 5c** (the artist banner, P1453) for the id: `node scripts/agent-banner.mjs --env prod --profile-id <id>`. A failure here is **not** a stop for 5b — report it; the `--all-missing` backfill adds the banner later.
 
 **Any mismatch ⟹ STOP before 5b.** The envelope's author ids would then point at the wrong account. Report which identities now exist on prod (they are permanent; see the gate text) and write no rows. **Assert the positive only for avatars, never "not 404"**: a missing object on this host returns `HTTP/2 400`, `content-type: application/json`, `"code":"NoSuchKey"`.
 
