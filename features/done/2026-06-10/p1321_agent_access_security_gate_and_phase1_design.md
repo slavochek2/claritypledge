@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 105
 workstream: infrastructure
 created_date: '2026-09-15'
 tags: [security, agents, rls, audit]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -15,14 +14,15 @@ driver: heuristic
 blocked_by: []
 blocks: [p1215]
 related: [p1207, p1044, p1065, p1215]
+completed_at: 2026-10-12
 ---
 
 # P1321: Answer the agent-access security gate, and design phase-1 agent access
 
 > **Split 2026-10-09 (founder):** the phase-1 design (Solution step 5) and its open round-2 findings
-> moved to [P1452](p1452_agent_access_phase1_design_revision.md). This spec closes on steps 0–4.
+> moved to [P1452](../../p1452_agent_access_phase1_design_revision.md). This spec closes on steps 0–4.
 
-> **Deferred to backlog 2026-09-21 (founder).** Agent access comes after the champion-pilot and weekly-event work ([decisions.md](../docs/decisions.md) 2026-09-21 [product]). Unowned security items here (untriaged anonymous-callable functions) stay open; revisit before any agent work starts.
+> **Deferred to backlog 2026-09-21 (founder).** Agent access comes after the champion-pilot and weekly-event work ([decisions.md](../../../docs/decisions.md) 2026-09-21 [product]). Unowned security items here (untriaged anonymous-callable functions) stay open; revisit before any agent work starts.
 
 ## Problem
 
@@ -100,7 +100,7 @@ Sequential, in one worktree:
    token exchange, callback, user binding, scope enforcement, `auth.uid()` derivation, kill switch, audit log —
    then **two blind adversarial review rounds** by reviewers who did not write it, each finding resolved or
    explicitly accepted in the document.
-   **Moved to [P1452](p1452_agent_access_phase1_design_revision.md) on 2026-10-09 (founder).** The draft and
+   **Moved to [P1452](../../p1452_agent_access_phase1_design_revision.md) on 2026-10-09 (founder).** The draft and
    both review rounds were done here; round 2 returned NO with its findings left open, and the revision and
    third round belong to P1452. This spec keeps steps 0–4.
 
@@ -161,11 +161,11 @@ Sequential, in one worktree:
     (P1447's own ship). No other version. **Staged, not on prod:** 20261008220000 (R1), held by its
     `requires-frontend: 4b29965e1` coupling until that commit is on origin/main.
 - [x] A re-audit report exists with a written Criterion 1 answer, controls shown for every empty result
-  - **Evidence:** [docs/audits/p1321-reaudit.md](../docs/audits/p1321-reaudit.md) — Criterion 1:
+  - **Evidence:** [docs/audits/p1321-reaudit.md](../../../docs/audits/p1321-reaudit.md) — Criterion 1:
     **No**; the Method table pairs each class with its control (class B's positive control, class D's
     harness control).
 - Phase-1 architecture document with two blind review rounds — **moved to
-  [P1452](p1452_agent_access_phase1_design_revision.md) (2026-10-09).** The document and both rounds
+  [P1452](../../p1452_agent_access_phase1_design_revision.md) (2026-10-09).** The document and both rounds
   exist (`docs/technical/agent-access-phase1-architecture.md` § Review record); round 2 returned NO with
   C1 and H1–H5 open, which is P1452's starting point.
 - [x] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
@@ -211,4 +211,4 @@ security finding, an audit result, or any part of the private log.
 - P1207 — the audit whose Criterion 1 this re-answers; method record `docs/audits/p1207-phase1-findings.md`
 - P1044 — the RLS-scope gate gaps (absorbed as step 1)
 - P1065 — the function-grant drift check used in steps 0 and 3
-- [docs/problem-board-process.md](../docs/problem-board-process.md) — why the problem board wants this
+- [docs/problem-board-process.md](../../../docs/problem-board-process.md) — why the problem board wants this
