@@ -146,8 +146,9 @@ export interface AttemptDeps {
   measure: (image: GeneratedImage) => Promise<{ luma: number | null; ink: Ink }>;
   vision: (image: GeneratedImage, question: VisionQuestion) => Promise<VisionVerdict>;
   log?: (line: { artist: string; attempt: number; luma: number | null; vision: VisionVerdict }) => void;
-  /** Called once per image generation attempted (the rate limiter counts generations). */
-  onGenerate?: (attempt: number) => Promise<void> | void;
+  /** Called before each image generation (the rate limiter reserves one per generation).
+   *  Returning false stops the loop before that generation; the best image so far is used. */
+  onGenerate?: (attempt: number) => Promise<boolean | undefined> | boolean | undefined;
 }
 
 export const MAX_ATTEMPTS = 3;
@@ -177,7 +178,7 @@ export async function generateArtistBanner(
   let visionRetry = 1;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    await deps.onGenerate?.(attempt);
+    if ((await deps.onGenerate?.(attempt)) === false) break;
     const image = await deps.generate(prompt);
     if (!image) break; // generation itself failed (both models): stop spending, use what we have
 

@@ -9,7 +9,9 @@ import type { BannerCredit as Credit } from '@/lib/banner-credit';
 // Ink is one of two static class sets — never a colour taken from data.
 const INK_CLASS: Record<Credit['ink'], string> = {
   cream: 'text-[#fff8e7] [text-shadow:0_0_3px_rgba(0,0,0,0.75),0_1px_2px_rgba(0,0,0,0.6)]',
-  sepia: 'text-[#2a1e14] [text-shadow:0_0_3px_rgba(255,248,231,0.85),0_0_1px_rgba(255,248,231,0.9)]',
+  // Wider light halo: the ink is chosen from the corner's MEAN luma, so a dark patch inside a light
+  // corner (a kimono under "af") must still read — caught by P1453 visual QA at 1280px.
+  sepia: 'text-[#2a1e14] [text-shadow:0_0_2px_rgba(255,248,231,0.95),0_0_5px_rgba(255,248,231,0.9),0_0_10px_rgba(255,248,231,0.6)]',
 };
 
 /**
@@ -41,7 +43,7 @@ export function BannerCredit({ credit }: { credit: Credit }) {
           onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHovered(false); }}
           onFocus={() => setHovered(true)}
           onBlur={() => setHovered(false)}
-          className={`absolute right-[6px] bottom-[2px] z-[5] inline-flex min-h-[40px] min-w-[40px] items-end justify-end px-2 pb-[6px] font-['Caveat',cursive] text-[16px] min-[360px]:text-[18px] md:text-[22px] font-bold leading-none -rotate-2 whitespace-nowrap select-none cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded ${INK_CLASS[credit.ink]}`}
+          className={`absolute right-[6px] bottom-[2px] z-[5] inline-flex min-h-[40px] min-w-[40px] items-end justify-end px-2 pb-[6px] font-['Caveat',cursive] text-[16px] min-[360px]:text-[18px] md:text-[22px] font-bold leading-none -rotate-2 whitespace-nowrap select-none cursor-default focus:outline-none focus-visible:ring-1 focus-visible:ring-white/80 rounded ${INK_CLASS[credit.ink]}`}
         >
           after {credit.sig}
         </button>
@@ -49,7 +51,8 @@ export function BannerCredit({ credit }: { credit: Credit }) {
       <PopoverContent
         side="top"
         align="end"
-        className="w-auto max-w-[260px] px-3 py-1.5 text-xs bg-primary text-primary-foreground border-0"
+        sideOffset={-6}
+        className="w-auto max-w-[min(340px,calc(100vw-24px))] px-3 py-1.5 text-xs bg-primary text-primary-foreground border-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {disclosure}

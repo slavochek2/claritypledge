@@ -51,7 +51,16 @@ const handler = createHandler({
     return { bannerUrl: data.banner_url ?? null, artist: typeof artist === 'string' ? artist : null };
   },
 
-  generate: (excludeArtist) => runArtistBanner({ apiKey: GEMINI_BATCH_API_KEY, excludeArtist, logTag: 'Agent banner' }),
+  generate: async (excludeArtist) => {
+    let blocked = false;
+    const r = await runArtistBanner({
+      apiKey: GEMINI_BATCH_API_KEY,
+      excludeArtist,
+      onKeyBlocked: () => { blocked = true; },
+      logTag: 'Agent banner',
+    });
+    return r ?? (blocked ? 'key-blocked' : null);
+  },
 
   upload: (id, result) => uploadBannerImage(db, 'profile', id, result.best.image),
 

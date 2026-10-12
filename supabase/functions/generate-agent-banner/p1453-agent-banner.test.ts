@@ -90,6 +90,14 @@ Deno.test('a banner that appears mid-generation is kept and ours is discarded', 
   assertEquals(calls.removed, ['https://x/new.png']);
 });
 
+Deno.test('a Gemini spend cap or refused key answers 429, so the operator script stops', async () => {
+  const { handler, calls } = fakes({ generate: () => Promise.resolve('key-blocked') });
+  const res = await handler(post({ profileId: AGENT }));
+  assertEquals(res.status, 429);
+  assertEquals((await res.json()).code, 'GEMINI_KEY_BLOCKED');
+  assertEquals(calls.write, []);
+});
+
 Deno.test('secretMatches compares the whole value', () => {
   assertEquals(secretMatches(KEY, KEY), true);
   assertEquals(secretMatches(KEY.slice(0, -1), KEY), false);

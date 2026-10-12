@@ -30,8 +30,17 @@ export const VISION_MODEL = 'gemini-3.8-flash';
 
 const IMAGE_TIMEOUT_MS = 45_000;
 const VISION_TIMEOUT_MS = 20_000;
-/** No new generation starts after this much of the request has elapsed (edge wall-clock budget). */
-const START_DEADLINE_MS = 80_000;
+/**
+ * Every Gemini call of one request finishes within this budget. Supabase cuts a request at 150 s
+ * (504) — before the URL is returned, so the banner is lost and cleanup may already have run. The
+ * remaining ~40 s cover upload, the credit write and cleanup (P1453 review: an "only check before
+ * starting" deadline allowed 79 + 45 + 45 + 20 ≈ 190 s).
+ */
+const BUDGET_MS = 110_000;
+/** Do not start an image call (primary or fallback) with less time than this left. */
+const MIN_IMAGE_MS = 15_000;
+/** Do not start a vision check with less than this left — the image ships 'unchecked'. */
+const MIN_VISION_MS = 4_000;
 
 function geminiUrl(model: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -44,20 +53,31 @@ function geminiUrl(model: string): string {
 export async function geminiGenerateImage(
   apiKey: string,
   prompt: string,
-  opts: { aspectRatio?: string } = {},
+  opts: {
+    aspectRatio?: string;
+    /** Absolute ms: no call starts with less than MIN_IMAGE_MS left, and none runs past it. */
+    deadline?: number;
+    /** Each non-2xx status from Gemini (429 = quota/cap, 403 = key refused). */
+    onHttpStatus?: (status: number) => void;
+  } = {},
 ): Promise<GeneratedImage | null> {
   const generationConfig: Record<string, unknown> = { responseModalities: ['IMAGE'] };
   if (opts.aspectRatio) generationConfig.imageConfig = { aspectRatio: opts.aspectRatio };
   const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig });
 
   for (const model of [IMAGE_MODEL_PRIMARY, IMAGE_MODEL_FALLBACK]) {
+    const left = opts.deadline === undefined ? IMAGE_TIMEOUT_MS : opts.deadline - Date.now();
+    if (left < MIN_IMAGE_MS) {
+      console.error('Gemini image call skipped: request time budget spent', { model });
+      break;
+    }
     let res: Response;
     try {
       res = await fetch(geminiUrl(model), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body,
-        signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.min(IMAGE_TIMEOUT_MS, left)),
       });
     } catch (e) {
       console.error('Gemini image request failed', { model, error: (e as Error).name });
@@ -66,6 +86,7 @@ export async function geminiGenerateImage(
     if (!res.ok) {
       await res.body?.cancel();
       console.error('Gemini image model error', { model, status: res.status });
+      opts.onHttpStatus?.(res.status);
       continue;
     }
     const data = await res.json();
@@ -108,7 +129,14 @@ export async function measureImage(image: GeneratedImage): Promise<{ luma: numbe
 }
 
 /** The blind multiple-choice check. 'unchecked' when the call itself fails. */
-export async function visionCheck(apiKey: string, image: GeneratedImage, q: VisionQuestion): Promise<VisionVerdict> {
+export async function visionCheck(
+  apiKey: string,
+  image: GeneratedImage,
+  q: VisionQuestion,
+  deadline?: number,
+): Promise<VisionVerdict> {
+  const left = deadline === undefined ? VISION_TIMEOUT_MS : deadline - Date.now();
+  if (left < MIN_VISION_MS) return 'unchecked';
   try {
     const res = await fetch(geminiUrl(VISION_MODEL), {
       method: 'POST',
@@ -120,7 +148,7 @@ export async function visionCheck(apiKey: string, image: GeneratedImage, q: Visi
           responseSchema: { type: 'OBJECT', properties: { choice: { type: 'INTEGER' } }, required: ['choice'] },
         },
       }),
-      signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+      signal: AbortSignal.timeout(Math.min(VISION_TIMEOUT_MS, left)),
     });
     if (!res.ok) {
       await res.body?.cancel();
@@ -146,30 +174,33 @@ export interface ArtistBannerResult {
 
 /**
  * Pick an artist (never `excludeArtist`) and generate its banner with the fidelity loop.
- * `onGenerate` runs before each image generation — the rate limiter's hook.
- * Logs one structured line per attempt: { artist, attempt, luma, vision }.
+ * `onGenerate` runs before each image generation — the rate limiter's hook. `onKeyBlocked` fires
+ * when Gemini answers 429 or 403 (spend cap, revoked key), so an operator run can stop.
+ * Every call fits one BUDGET_MS window. Logs one line per attempt: { artist, attempt, luma, vision }.
  */
 export async function runArtistBanner(opts: {
   apiKey: string;
   excludeArtist?: string | null;
   keywords?: string | null;
-  onGenerate?: (attempt: number) => Promise<void> | void;
+  onGenerate?: (attempt: number) => Promise<boolean | undefined> | boolean | undefined;
+  onKeyBlocked?: () => void;
   logTag: string;
 }): Promise<ArtistBannerResult | null> {
-  const started = Date.now();
+  const deadline = Date.now() + BUDGET_MS;
+  const onHttpStatus = (status: number) => {
+    if (status === 429 || status === 403) opts.onKeyBlocked?.();
+  };
   const entry = pickArtist(cryptoRng, { excludeArtist: opts.excludeArtist });
   let generations = 0;
   const result = await generateArtistBanner(entry, opts.keywords, cryptoRng, {
     onGenerate: async (attempt) => {
-      generations++;
-      await opts.onGenerate?.(attempt);
+      const go = await opts.onGenerate?.(attempt);
+      if (go !== false) generations++;
+      return go;
     },
-    generate: (prompt) => {
-      if (Date.now() - started > START_DEADLINE_MS) return Promise.resolve(null);
-      return geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: '21:9' });
-    },
+    generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: '21:9', deadline, onHttpStatus }),
     measure: measureImage,
-    vision: (image, q) => visionCheck(opts.apiKey, image, q),
+    vision: (image, q) => visionCheck(opts.apiKey, image, q, deadline),
     log: (line) => console.log(`${opts.logTag} attempt`, line),
   });
   if (!result) return null;

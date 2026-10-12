@@ -91,6 +91,26 @@ describe('P1453: generate-agent-banner accepts only the service role, only for a
     expect(after.data!.banner_url).toBe(before.data!.banner_url);
   });
 
+  it('generate-banner admits at most 5 of 8 PARALLEL requests (reserve-then-count, no Gemini spend)', async () => {
+    // A fresh user, so their rate-limit window is empty. Each request reserves BEFORE the
+    // ownership check, so admitted requests stop at 403 (not their profile) and spend nothing.
+    const racer = await createTestUser({ name: 'P1453 Racer' });
+    try {
+      const t = (await signedIn(racer)).token;
+      const statuses = await Promise.all(Array.from({ length: 8 }, () =>
+        call('generate-banner', t, { entityType: 'profile', entityId: agentId }).then((r) => r.status)));
+      // AT MOST 5: a request's count can also see inserts that landed after its own, so under
+      // contention fewer may pass — it errs toward refusing, never toward spending. The old
+      // check-then-insert code admitted all 8 (measured on TEST before this fix).
+      expect(statuses.filter((s) => s === 403).length).toBeLessThanOrEqual(5);
+      expect(statuses.filter((s) => s === 429).length).toBeGreaterThanOrEqual(3);
+      expect(statuses.every((s) => s === 403 || s === 429)).toBe(true);
+    } finally {
+      await supabaseAdmin.from('ai_rate_limits').delete().eq('user_id', racer.user.id);
+      await deleteTestUser(racer.user.id);
+    }
+  });
+
   it('generate-banner: a user JWT asking for an agent profile gets 403 (own profile only)', async () => {
     const r = await call('generate-banner', userToken, { entityType: 'profile', entityId: agentId });
     expect(r.status).toBe(403);

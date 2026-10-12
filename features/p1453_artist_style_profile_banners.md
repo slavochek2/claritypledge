@@ -88,17 +88,46 @@ Decision density: a few (see the founder decisions below).
 
 ## Acceptance Criteria
 
-- [ ] A new user visiting their own profile gets an artist-style banner (passing the vision check above), with "after <name>" readable bottom-right at 320px, 375px and desktop widths.
-- [ ] The picker is unit-tested: with a seeded RNG over 1,000 draws, each era is chosen 20% ± 3%.
-- [ ] The signature is readable on both a light-corner and a dark-corner banner (sepia vs. cream ink observed).
-- [ ] An existing user's banner is unchanged after deploy.
-- [ ] The banner's alt text and a tooltip (desktop) disclose "AI-generated image after <artist>"; on touch devices the disclosure is reachable without hover (e.g. tap on the signature).
-- [ ] The founder has reviewed the artist pool (names, dates, `exclude` flags) and the review is recorded in this spec.
-- [ ] Over 20 test generations, the vision check names the intended artist or movement for ≥ 80% before retry; the measured rate is recorded here.
-- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed.
-- [ ] The signature font (Caveat 700) loads on prod without CSP errors.
-- [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait.
-- [ ] Regenerate gives a different artist; remove still works.
+- [x] A new user visiting their own profile gets an artist-style banner (passing the vision check above), with "after <name>" readable bottom-right at 320px, 375px and desktop widths. *Evidence: `e2e/p1453-artist-banner.spec.ts` live test (real lazy generation in a logged-in browser, credit bound to the URL); screenshots at 1280 / 375 / 320 on TEST, independent visual QA PASS after one fix round (see Dev results).*
+- [x] The picker is unit-tested: with a seeded RNG over 1,000 draws, each era is chosen 20% ± 3%. *`src/tests/p1453-artist-picker.test.ts`; plus an unbalanced-pool test, because the real pool (~100 per era) cannot tell "era first" from "uniform over artists" — mutation-checked.*
+- [x] The signature is readable on both a light-corner and a dark-corner banner (sepia vs. cream ink observed). *Sepia: after Utamaro; cream: after Schongauer (TEST agent profiles). Synthetic-corner unit tests in `p1453-banner-ink.test.ts`.*
+- [ ] An existing user's banner is unchanged after deploy. *Code path proven on TEST (e2e: an existing banner without a credit is not regenerated and shows no signature); the prod check belongs to `/ship`.*
+- [x] The banner's alt text and a tooltip (desktop) disclose "AI-generated image after <artist>"; on touch devices the disclosure is reachable without hover (e.g. tap on the signature). *Hover/focus/tap on a Radix Popover (Tooltip closes on touch); render tests + e2e tap + touch-emulated 375px check.*
+- [ ] The founder has reviewed the artist pool (names, dates, `exclude` flags) and the review is recorded in this spec. *Prepared — see "Founder pool review" below.*
+- [x] Over 20 test generations, the vision check names the intended artist or movement for ≥ 80% before retry; the measured rate is recorded here. *Run 1 (first prompt): 16/20 = 80%. Run 2 (final prompt): 18/20 = 90% (1 fail, 1 vision timeout = unchecked). Details in Dev results.*
+- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed. *Prod, at `/ship`. The backfill path works on TEST (`--all-missing --apply --cap 3`: 3/3 with anon read-back).*
+- [ ] The signature font (Caveat 700) loads on prod without CSP errors. *Self-hosted under `font-src 'self'`; loads in dev (`document.fonts.check` true, computed family Caveat). Prod/preview check at `/ship`.*
+- [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait. *The banner step works for an initials-only agent on TEST; `/provision-agent` Step 5c is drafted but not yet committed to main (skill files land on main), and no full provisioning run has exercised it.*
+- [x] Regenerate gives a different artist; remove still works. *Live: regenerate returned a different artist; agent `--replace` changed artist and storage holds exactly one object afterwards. Remove: unchanged client path; the e2e proves a removed banner shows no stale signature.*
+
+## Dev results (P1453 /dev, 2026-10-12)
+
+**Probes that settled the UNVERIFIED items**
+- `gemini-3.8-flash` accepts image `inlineData` + a JSON `responseSchema` (`{"choice": n}`); Decision 3 holds.
+- Decode + measure: 37–166 ms per 1584x672 image after the codec warm-up; the 21:9 `imageConfig` returns 1584x672 as assumed.
+- The profile banner slot is **640 x 160** (`max-w-2xl` with `px-4`), measured 638 x 160 in the browser — not the 896 x 160 Decision 5 assumed. The ink box uses 288/343/640 x 120 and 640 x 160.
+- The platform now injects new-format keys into edge functions (`SUPABASE_SERVICE_ROLE_KEY` is no longer the legacy JWT the operator holds; digest-compared, URL digest as the control). `generate-agent-banner` therefore accepts the function's own key OR any key the Auth admin API answers 200 to — both formats are service-role; a user JWT or the anon key gets 401 (live-tested).
+
+**Calibration**
+- `DARK_FLOOR` recalibrated **60 → 45**: on 36 real banners, near-black art reads 23 (Caravaggio) while deliberately dark but legible art reads 50–53 (Otto Dix, John Martin) and looked fine at banner size; 60 paid for retries of good images.
+- Prompt: "faces not in focus" made the model blur faces (a privacy-blur smudge). Now: no portraits, no close-up faces, people small and distant, never blurred. Re-measured afterwards (run 2 above).
+- Signature size: 22px from `md`, 18px on phones, **16px below 360px** — at 320px the longest sig at 18px ran 10px under the avatar (it overlaps the banner's lower-left by 48px); now 9px clear.
+- Sepia ink got a wider light halo: the ink is chosen from the corner's mean luma, so a dark patch inside a light corner (a kimono under "af") was weak — caught by visual QA.
+
+**Reviews: 3 of 3 reported** (Codex `gpt-6.1-sol`; an Opus reviewer; an independent screenshot-only visual QA).
+- Fixed — rate-limit race (both code reviewers): the limiter checked, then inserted, so parallel requests all passed. Now reserve-then-count (insert first, count own row included, fail closed). Live-tested: 8 parallel requests — old code admitted 8, new code at most 5.
+- Fixed — retries now reserve their own row and stop when refused.
+- Fixed — time budget: one 110 s window for every Gemini call (Supabase cuts at 150 s); no call starts with too little time left.
+- Fixed — a Gemini 429/403 on the batch key returns 429, so the backfill stops instead of walking the list.
+- Fixed — the signature waited for nothing and showed over the loading placeholder; it now appears only once the credited image has loaded.
+- **Known limitation (accepted):** two tabs regenerating at once can leave URL A with credit B; the client then shows no signature (never a wrong one). Fully fixing it means writing the profile URL server-side, which changes the shared client flow.
+- Accepted: one rate-limit row per image generation, not per Gemini call (a fallback call only follows a failed primary; the vision call is text-sized).
+
+## Founder pool review (prepared — needs your decision)
+
+- **Signature forms removed (done, reversible):** the credit must never imitate a real signature, and 12 `sig` values were signature forms, tags or signed pseudonyms — e.g. "R. Mutt" (Duchamp), "SAMO©" (Basquiat), "OBEY" (Fairey, also a trademark), "h. Daumier", "Eug. Delacroix", "Fred Leighton". All now read as plain names; a pool test enforces "words of the name or capital initials only". 9 non-Latin sigs were folded to ASCII (Kōetsu → Koetsu, …).
+- **`exclude` candidates [FOUNDER DECISION]:** artists whose signature subject is the human figure or face failed the vision check under the no-portrait rule — Kitagawa Utamaro, Yoshitomo Nara, Leonardo da Vinci, Hans Holbein the Younger, Jaume Huguet. Exclude them, or accept a lower hit rate for figure painters?
+- **Still unreviewed by a human:** names, dates, works of all 498 entries (LLM-drafted).
 
 ## Resolved Decisions
 
@@ -126,11 +155,13 @@ Decision density: a few (see the founder decisions below).
 
 ## Pre-deploy Checklist
 
-- [ ] Redeploy `generate-banner` and deploy the new `generate-agent-banner` to prod.
-- [ ] Provision the batch Gemini key for `generate-agent-banner` under a distinct secret name (P1236), verified with `scripts/check-edge-function-secrets.sh`.
-- [ ] Self-hosted Caveat font file + OFL licence present in the build.
-- [ ] Apply the prod migration if `/architect` adds metadata columns.
-- [ ] After deploy: run the agent banner backfill on prod (existing agents only), then spot-check every agent profile.
+- [ ] Apply the prod migration `20261012200000_p1453_profile_banner_credit.sql` **first** (additive; the new function code writes `banner_credit`).
+- [ ] Redeploy `generate-banner` and deploy the new `generate-agent-banner` to prod (both deployed and tested on TEST).
+- [ ] Batch Gemini key: `GEMINI_BATCH_API_KEY` already exists on prod (P1236) — confirm by name with `scripts/check-edge-function-secrets.sh --env prod`; no new secret.
+- [x] Self-hosted Caveat font file + OFL licence present in the build (`public/fonts/caveat-700-latin.woff2`, `caveat-OFL.txt`).
+- [ ] Deploy the frontend.
+- [ ] After deploy: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run), then `--apply`; spot-check every agent profile.
+- [ ] Commit the skill edits on main: `/provision-agent` Step 5c + `gen-agent-avatar` note (drafted), and `promote-to-prod.md` one line (needs founder approval).
 
 ## Technical Architecture
 

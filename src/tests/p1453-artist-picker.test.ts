@@ -200,6 +200,13 @@ describe('P1453 attempt loop', () => {
     expect(r!.best.vision).toBe('unchecked');
   });
 
+  it('stops retrying when the rate limiter refuses the next generation, and keeps the best so far', async () => {
+    const d = deps([{ luma: 20, vision: 'fail' }, { luma: 200, vision: 'pass' }]);
+    const r = await generateArtistBanner(entry, null, mulberry32(1), { ...d, onGenerate: (a) => a === 1 });
+    expect(d.generate).toHaveBeenCalledTimes(1);
+    expect(r!.best.attempt).toBe(1);
+  });
+
   it('returns null only when nothing was generated', async () => {
     expect(await generateArtistBanner(entry, null, mulberry32(1), deps([null]))).toBeNull();
   });

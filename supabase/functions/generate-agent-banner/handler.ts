@@ -27,7 +27,8 @@ export interface AgentBannerDeps {
   isAgent: (profileId: string) => Promise<boolean>;
   /** null when the profile does not exist. */
   readBanner: (profileId: string) => Promise<{ bannerUrl: string | null; artist: string | null } | null>;
-  generate: (excludeArtist: string | null) => Promise<ArtistBannerResult | null>;
+  /** 'key-blocked' when Gemini refused the batch key (429/403: spend cap or revoked) and no image came. */
+  generate: (excludeArtist: string | null) => Promise<ArtistBannerResult | 'key-blocked' | null>;
   upload: (profileId: string, result: ArtistBannerResult) => Promise<{ publicUrl: string; fileName: string } | null>;
   /** Writes banner_url + banner_credit + banner_generation_attempted. Returns rows updated.
    *  Without `replace` the write is conditional on banner_url IS NULL. */
@@ -79,6 +80,11 @@ export function createHandler(deps: AgentBannerDeps) {
     }
 
     const result = await deps.generate(current.artist);
+    if (result === 'key-blocked') {
+      // 429 tells scripts/agent-banner.mjs to stop the run: retrying other agents spends nothing
+      // useful against a capped or revoked key.
+      return json(429, { error: 'Gemini refused the batch key (spend cap or key)', code: 'GEMINI_KEY_BLOCKED' });
+    }
     if (!result) return json(502, { error: 'Image generation failed', code: 'GENERATION_FAILED' });
 
     const stored = await deps.upload(profileId, result);

@@ -86,46 +86,42 @@ function validateInput(body: RequestBody): { valid: true } | { valid: false; err
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
-async function checkRateLimit(
+/**
+ * Reserve one image generation for this user: INSERT the row first, THEN count, own row included.
+ * P1453 (Codex review): checking and then inserting let a burst of parallel requests all see zero
+ * and all pass. Insert-then-count cannot: the m-th committed insert sees at least m rows, so at
+ * most LIMIT requests are admitted however many arrive at once. A refused reservation keeps its
+ * row — abuse counts against the abuser. Fails CLOSED: a failed insert or count spends nothing.
+ */
+async function reserveGeneration(
   supabase: SupabaseClient,
   userId: string,
-): Promise<{ allowed: boolean; retryAfterMinutes?: number }> {
-  const now = new Date();
-  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-
-  // Check burst (5 min window)
-  const { count: burstCount } = await supabase
-    .from('ai_rate_limits')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('called_at', fiveMinutesAgo);
-
-  if ((burstCount ?? 0) >= BURST_LIMIT) {
-    return { allowed: false, retryAfterMinutes: 5 };
+): Promise<{ allowed: true } | { allowed: false; retryAfterMinutes?: number; unavailable?: true }> {
+  const { error: insertError } = await supabase.from('ai_rate_limits').insert({ user_id: userId });
+  if (insertError) {
+    console.error('Rate-limit reservation failed', { userId, code: insertError.code });
+    return { allowed: false, unavailable: true };
   }
 
-  // Check daily cap (24 hour window)
-  const { count: dailyCount } = await supabase
-    .from('ai_rate_limits')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('called_at', twentyFourHoursAgo);
+  const now = Date.now();
+  const count = async (sinceMs: number) => {
+    const { count: n, error } = await supabase
+      .from('ai_rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('called_at', new Date(now - sinceMs).toISOString());
+    return error ? null : (n ?? 0);
+  };
 
-  if ((dailyCount ?? 0) >= DAILY_LIMIT) {
-    return { allowed: false, retryAfterMinutes: 60 * 24 };
-  }
+  const burst = await count(5 * 60 * 1000);
+  if (burst === null) return { allowed: false, unavailable: true };
+  if (burst > BURST_LIMIT) return { allowed: false, retryAfterMinutes: 5 };
+
+  const daily = await count(24 * 60 * 60 * 1000);
+  if (daily === null) return { allowed: false, unavailable: true };
+  if (daily > DAILY_LIMIT) return { allowed: false, retryAfterMinutes: 60 * 24 };
 
   return { allowed: true };
-}
-
-async function recordRateLimitHit(
-  supabase: SupabaseClient,
-  userId: string,
-): Promise<void> {
-  await supabase
-    .from('ai_rate_limits')
-    .insert({ user_id: userId });
 }
 
 /**
@@ -340,8 +336,15 @@ Deno.serve(async (req: Request) => {
   // ── Rate limiting (service role — bypasses RLS) ───────────────────────────
   const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { allowed, retryAfterMinutes } = await checkRateLimit(serviceClient, userId);
-  if (!allowed) {
+  const reservation = await reserveGeneration(serviceClient, userId);
+  if (!reservation.allowed && reservation.unavailable) {
+    return new Response(
+      JSON.stringify({ error: 'Service temporarily unavailable' }),
+      { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    );
+  }
+  if (!reservation.allowed) {
+    const { retryAfterMinutes } = reservation;
     return new Response(
       JSON.stringify({
         error: retryAfterMinutes === 5
@@ -384,22 +387,19 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Generate image ────────────────────────────────────────────────────────
-  // P1453: the rate-limit row is written BEFORE generation, so concurrent requests cannot all
-  // pass the check; a failed generation still counts (as before, against rapid retries).
-  await recordRateLimitHit(serviceClient, userId);
-
+  // The first generation was reserved above (a failed generation still counts, as before).
   const jsonHeaders = { 'Content-Type': 'application/json', ...corsHeaders };
   let imageData: { mimeType: string; data: string } | null;
   let artistResult: Awaited<ReturnType<typeof runArtistBanner>> = null;
 
   if (body.entityType === 'profile') {
-    // P1453: artist-style banner with the fidelity loop. Each extra generation is one more
-    // rate-limit row, so the limiter counts generations rather than requests.
+    // P1453: artist-style banner with the fidelity loop. Each extra generation reserves its own
+    // rate-limit row first; a refused reservation stops the retries and ships the best so far.
     artistResult = await runArtistBanner({
       apiKey: GEMINI_API_KEY,
       excludeArtist: result.data.currentArtist,
       keywords: body.keywords,
-      onGenerate: (attempt) => attempt > 1 ? recordRateLimitHit(serviceClient, userId) : undefined,
+      onGenerate: async (attempt) => attempt === 1 || (await reserveGeneration(serviceClient, userId)).allowed,
       logTag: 'Profile banner',
     });
     imageData = artistResult?.best.image ?? null;
