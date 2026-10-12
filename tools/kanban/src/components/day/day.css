@@ -124,10 +124,13 @@
 /* P1463: the one-line Status — "N OK ▸" opens the panel; problems and Fix sit in the line */
 .d-slt { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 10px 6px; margin: -10px -6px; font-size: 14px; color: var(--fg); white-space: nowrap; }
 .d-slt:hover b { text-decoration: underline; text-underline-offset: 3px; }
-.d-sline > .d-tx { display: inline; min-width: 0; }
-.d-slp { font-size: 14px; padding: 0; min-height: 0; }
-.d-sconn { display: inline-flex; align-items: center; gap: 8px; }
-.d-sconn .d-btn.xs { margin: -6px 0; }
+.d-sline { gap: 8px; }
+.d-slt { margin-right: 4px; }
+/* P1463 round 2: Status segments are chips — they wrap as whole units, nothing dangles */
+.d-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 10px; border-radius: 99px; background: var(--soft); border: 1px solid var(--line); font-size: 13px; color: var(--fg2); white-space: nowrap; }
+.d-chip.need { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-800); font-weight: 600; }
+button.d-chip:hover { border-color: var(--amber); }
+.d-sconn { display: inline-flex; align-items: center; gap: 6px; }
 
 /* status: new people (read-only) */
 .d-pfold { width: 100%; display: flex; align-items: flex-start; gap: 8px; border: 0; background: none; padding: 8px 0 4px; text-align: left; min-height: 40px; }
@@ -515,4 +518,3 @@
 .day-root .d-focusrow {
   background: var(--cp-blue-50, #eff6ff);
 }
-.d-sep { color: var(--fg3); }

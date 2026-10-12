@@ -251,13 +251,17 @@ test.describe('new people', () => {
     // the order: Connections, then New people, then the checks
     const text = (await panel.locator('.d-spanel').innerText()).replace(/\s+/g, ' ')
     expect(text.indexOf('Connections')).toBeLessThan(text.indexOf('New people (3)'))
-    expect(text.indexOf('New people (3)')).toBeLessThan(text.indexOf('Checks ·'))
+    expect(text.indexOf('New people (3)')).toBeLessThan(text.indexOf('Checks'))
     expect(fileText()).toBe('')
   })
 
   test('the collapsed status line counts new people', async ({ page }) => {
     await openDay(page, 'connected')
-    await expect(page.locator('.d-sline')).toContainText(/\d+ OK\s*·\s*✓\s*All connected · 3 new people · .*unpushed commits/)
+    // P1463: one chip per fact, in this order, no separators
+    const chips = page.locator('.d-sline > *')
+    await expect(chips.first()).toHaveText(/^▶\d+ worked$/)
+    await expect(page.locator('.d-sline .d-chip')).toHaveText(['✓ All connected', '3 new people', /^\d+ unpushed commits$/])
+    expect(await page.locator('.d-sline').innerText()).not.toContain('·')
   })
 
   test('people: [] says "No new people"; no people field says "not collected yet"', async ({ page }) => {
@@ -1824,7 +1828,7 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     const yours = yoursOf(v)
     const agents = agentOf(v)
     await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
-    await expect(agentList(page).locator('.d-fold')).toHaveText(`▶With the agent (${agents.length})`)
+    await expect(agentList(page).locator('.d-fold')).toHaveText(`▶Agent: ${agents.length} tasks`)
     await openAgentList(page)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(agents.length)
     await expect(agentList(page).locator('[data-agent-item] .d-ptitle')).toHaveText(agents.map((a) => a.title))
@@ -1843,7 +1847,7 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     await openDay(page)
     const k = (await runView(page)).view.issues.filter(isAgent).length
     expect(k).toBeGreaterThan(1)
-    await expect(agentLink(page)).toHaveText(`Agent will also do ${k} tasks ▸`)
+    await expect(agentLink(page)).toHaveText(`Agent: ${k} tasks ▸`)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0) // folded until asked
     await agentLink(page).click()
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(k)
@@ -1969,7 +1973,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await reopen(page)
     await listRow(page, first.fp).click()
     await expect(stateOf(page)).toHaveAttribute('data-state', 'sent')
-    await expect(stateOf(page)).toHaveText(/^✓Sent to the agent \d\d:\d\d$/)
+    await expect(stateOf(page)).toHaveText(/^✓Sent \d\d:\d\d$/)
     await expect(listRow(page, first.fp)).toHaveAttribute('data-list-state', 'sent')
   })
 
@@ -2084,7 +2088,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect(stateOf(page)).toHaveText(/^✓Answered on this run · \d\d:\d\d$/)
     // that run's agent work: a list, read-only, each row saying where it is
     await openAgentList(page)
-    await expect(agentList(page).locator('[data-agent-state]').first()).toHaveText(/^(Not sent|Sent)$/)
+    await expect(agentList(page).locator('[data-agent-state]').first()).toHaveAttribute('data-agent-state', /^(not-sent|sent)$/)
   })
 
   test('the list shows every card with its state and jumps to it; parked cards are one row that opens Parked', async ({ page }) => {

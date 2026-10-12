@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 28
 workstream: infrastructure
 created_date: '2026-10-12'
 tags: [day-page, kanban, ux, attention]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -36,12 +36,26 @@ Blast radius: one page (the founder's Day report). Reversibility: git revert. De
 
 Approved proposal (2026-10-12 conversation):
 
-1. **Status becomes one line** above the list+card, replacing the left column: `{n} OK ▸ · {m} problems without a card · {connection problems with Fix}`. `{n} OK ▸` expands the full checks list inline (nothing becomes unreachable). The page goes from three columns to two, and the card gains the width.
+1. **Status becomes one line** above the list+card, replacing the left column: `{n} worked ▸ · {m} problems without a card · {connection problems with Fix}`. `{n} worked ▸` expands the full checks list inline (nothing becomes unreachable). The page goes from three columns to two, and the card gains the width.
 2. **A check that already has a card is not listed separately** — each problem appears once.
 3. **Problem checks without a card** appear under the card list ("Problems") as one plain-language line each.
 4. **The agent work is visible next to the button**: the bottom bar shows `Agent will also do {k} tasks ▸`, opening the With-the-agent list; the button's count is explained by what sits beside it (founder answers + agent tasks), never an unexplained number.
 5. **Re-reported cards** read `Back again` with an amber marker instead of "Answered before" + empty circle.
 6. **Drop the "Cards X of N resolved" progress bar** — the list's ✓ marks already carry progress.
+
+### Round 2 — text pass (founder, mid-build)
+
+> Founder framing, verbatim: "is all the text needed? I mean, something that is redundant or can be visual or can be smaller or different, more understandable … we have a lot of text generally in this interface"
+
+An adversarial copy/visual review (screenshots only, no code) went string by string over the built page. Folded in:
+
+7. **Status line is chips, not a sentence** — no `·` separators to dangle when it wraps; Fix sits beside its amber chip.
+8. **One word for one number** — the line and the panel both say `{n} worked`; the panel's `Checks · 30` total, which matched nothing visible, is now `Checks`.
+9. **Done is said once** — a done card-list row shows only its ✓ (no "Sent" word); the card's state reads `Sent 16:33` (was "Sent to the agent 16:33"); a sent agent row is a ✓, only "Not sent" stays words.
+10. **One wording for the agent's work** — bottom link and list header both read `Agent: {k} tasks`.
+11. **"Fit" explained** — the recommended pill's tooltip says what Fit means.
+
+Deferred (filed to the task inbox, not this spec): answered cards collapsing to "You chose X · Change"; card copy brevity (Point A/Obstacle/Point B, option and risk lines are written by the `/day` run, a Non-Goal here); duplicate agent rows naming the same root problem (`/day` dedup); "Send N changes" not naming what changed; a compact pager. Rejected: hiding "New people (0)" (P1399 distinguishes *none* from *not collected*); moving the `← → move` hint (it is the only discoverability for the keys).
 
 ## Risks / Non-Goals
 
@@ -68,8 +82,8 @@ Approved proposal (2026-10-12 conversation):
 - [ ] On a run with founder cards and agent work, the page has no left Status column; one status line sits above the list+card.
 - [ ] A problem that has a card appears once (as its card), not also as a check row.
 - [ ] A problem check with no card is shown as one line under the card list.
-- [ ] `{n} OK ▸` expands the full checks list.
-- [ ] The bottom bar shows `Agent will also do {k} tasks ▸`, where k equals the With-the-agent list length; clicking it shows the list.
+- [ ] `{n} worked ▸` expands the full checks list.
+- [ ] The bottom bar shows `Agent: {k} tasks ▸`, where k equals the With-the-agent list length; clicking it shows the list.
 - [ ] The button's number (if shown) equals answers queued + k, with both parts visible on screen.
 - [ ] A re-reported card shows `Back again` with an amber marker.
 - [ ] No "Cards X of N resolved" bar.
@@ -78,9 +92,10 @@ Approved proposal (2026-10-12 conversation):
 
 ## UI Contract
 
-- Status line: `{n} OK ▸ · {m} problems without a card · {Name} disconnected [Fix]` (zero segments omitted).
-- Agent link: `Agent will also do {k} task(s) ▸`.
-- Re-reported label: `Back again`.
+- Status line (chips): `▶ {n} worked` · `{m} problem(s) without a card` · `{Name} disconnected` + [Fix] · `{k} new people` · `{u} unpushed commit(s)` (zero chips omitted).
+- Agent link and list header: `Agent: {k} task(s)` (link adds ` ▸`; phone short form `agent: {k}`).
+- Re-reported label: `Back again` (list word); card state `Back again · you answered on {date}: {answer}`.
+- Sent card state: `Sent {HH:MM}`.
 
 ## Related
 

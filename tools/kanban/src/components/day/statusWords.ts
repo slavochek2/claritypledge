@@ -24,3 +24,6 @@ export function connectionStatus(s: ConnectionState) {
     ? { icon: '✕', word: 'Not connected', cls: 'bad' as const }
     : { icon: '!', word: 'Connected, didn’t work', cls: 'need' as const }
 }
+
+/** P1463: one wording for the agent's work — the bottom bar link and the list header. */
+export const agentWord = (n: number) => `Agent: ${n} task${n === 1 ? '' : 's'}`

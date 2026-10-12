@@ -31,6 +31,7 @@ import {
 } from '../../lib/day'
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
+import { agentWord } from './statusWords'
 import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab, BOARD_NOTE } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
@@ -938,7 +939,7 @@ export function DayPage() {
                   )
                 ) : agentCards.length > 0 ? (
                   <button type="button" className="d-still" data-agent-link data-short={`agent: ${agentCards.length}`} onClick={openAgentList}>
-                    Agent will also do {agentCards.length} task{agentCards.length === 1 ? '' : 's'} ▸
+                    {agentWord(agentCards.length)} ▸
                   </button>
                 ) : null}
                 {!readOnly && tab === 'report' && firstYours && (

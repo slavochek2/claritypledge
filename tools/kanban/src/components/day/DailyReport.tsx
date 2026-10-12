@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
-import { checkStatus, connectionStatus, needsYou } from './statusWords'
+import { agentWord, checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
 import { ListPane } from './ListPane'
@@ -62,7 +62,7 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour:
 function stateText(st: CardState, readOnly: boolean): string {
   switch (st.kind) {
     case 'sent':
-      return `Sent to the agent ${clock(st.at)}`
+      return `Sent ${clock(st.at)}`
     case 'answered':
       return readOnly ? `Answered on this run · ${clock(st.at)}` : `Your answer · saved ${clock(st.at)}`
     case 'before':
@@ -112,7 +112,8 @@ function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; 
         title: i.title,
         done: isDone(states[k]),
         kind: states[k].kind,
-        word: STATE_WORD[states[k].kind],
+        // P1463: a done row's ✓ already says it — the word is only for what is not done
+        word: isDone(states[k]) ? '' : STATE_WORD[states[k].kind],
         attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
       }))}
       current={Math.min(p.index, p.issues.length - 1)}
@@ -215,35 +216,29 @@ function StatusLine(p: { view: DayView; report: DayReport; readOnly: boolean; or
   const queued = broken.filter((c) => c.fix_queued)
   const open = broken.filter((c) => !c.fix_queued)
   const newPeople = report.people?.length ?? 0
+  // P1463 round 2: chips, not a sentence — no separators to dangle when the line wraps
   return (
     <div className="d-sline" data-status-line>
       <button type="button" className="d-slt" aria-expanded="false" data-status-toggle onClick={p.onOpen}>
         <span className="d-tri">▶</span>
-        <b>{good} OK</b>
+        <b>{good} worked</b>
       </button>
-      <span className="d-sep" aria-hidden="true">
-        ·
-      </span>
-      <span className="d-tx">
-        <Phrases
-          items={[
-            p.orphans > 0 && (
-              <button type="button" className="d-link d-needtx d-slp" data-status-problems onClick={p.onOpen}>
-                {plural(p.orphans, 'problem')} without a card
-              </button>
-            ),
-            ...open.map((c) => <StatusConn key={c.id} c={c} readOnly={p.readOnly} onFix={p.onFix} />),
-            queued.length > 0 && <b>{plural(queued.length, 'connection fix', 'connection fixes')} in Start fixing</b>,
-            broken.length === 0 && (
-              <>
-                <span className="ok">✓</span> All connected
-              </>
-            ),
-            newPeople ? `${newPeople} new ${newPeople === 1 ? 'person' : 'people'}` : null,
-            unpushed(report),
-          ]}
-        />
-      </span>
+      {p.orphans > 0 && (
+        <button type="button" className="d-chip need" data-status-problems onClick={p.onOpen}>
+          {plural(p.orphans, 'problem')} without a card
+        </button>
+      )}
+      {open.map((c) => (
+        <StatusConn key={c.id} c={c} readOnly={p.readOnly} onFix={p.onFix} />
+      ))}
+      {queued.length > 0 && <span className="d-chip">{plural(queued.length, 'connection fix', 'connection fixes')} in Start fixing</span>}
+      {broken.length === 0 && (
+        <span className="d-chip okc">
+          <span className="ok">✓</span> All connected
+        </span>
+      )}
+      {newPeople > 0 && <span className="d-chip">{`${newPeople} new ${newPeople === 1 ? 'person' : 'people'}`}</span>}
+      {unpushed(report) && <span className="d-chip">{unpushed(report)}</span>}
     </div>
   )
 }
@@ -253,7 +248,7 @@ function StatusConn({ c, readOnly, onFix }: { c: ConnectionView; readOnly: boole
   const url = safeUrl(c.fix_url)
   return (
     <span className="d-sconn" data-connection={c.id}>
-      <span className="d-needtx">{c.label} disconnected</span>
+      <span className="d-chip need">{c.label} disconnected</span>
       {!readOnly &&
         (url ? (
           <a className="d-btn xs" href={url} target="_blank" rel="noopener noreferrer" onClick={() => onFix(c)}>
@@ -353,7 +348,7 @@ function StatusPanel({ report, view, readOnly, canCollapse, onCollapse, stripOpe
 
         <NewPeople people={report.people} />
 
-        {bad.length > 0 && <div className="d-sgl">Checks · {view.checks.length}</div>}
+        {bad.length > 0 && <div className="d-sgl">Checks</div>}
         {bad.map((c) => {
           const s = checkStatus(c.status)
           return (
@@ -642,7 +637,7 @@ function IssueCard(p: Props) {
               <>
                 <span className="d-l">{o.label}</span>
                 {i === issue.recommended_index && (
-                  <span className={`d-rec ${fitRated ? '' : 'dim'}`}>{fitRated ? `Recommended · Fit ${fit}%` : 'Recommended · Fit not rated'}</span>
+                  <span className={`d-rec ${fitRated ? '' : 'dim'}`} title="Fit: how likely this fixes the real cause without breaking something else">{fitRated ? `Recommended · Fit ${fit}%` : 'Recommended · Fit not rated'}</span>
                 )}
                 {i === issue.recommended_index && issue.risk && <span className="d-risk">Main risk: {issue.risk}</span>}
               </>,
@@ -666,7 +661,8 @@ function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<st
   return (
     <div className="d-card d-parked" ref={box} data-agent-list>
       <button type="button" className="d-fold" aria-expanded={agent.open} onClick={() => agent.setOpen(!agent.open)}>
-        <span className="d-tri">▶</span>With the agent ({agent.items.length})
+        <span className="d-tri">▶</span>
+        {agentWord(agent.items.length)}
       </button>
       {agent.open &&
         agent.items.map((x) => {
@@ -676,9 +672,16 @@ function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<st
               <span className="d-tx">
                 <span className="d-ptitle">{x.title}</span>
               </span>
-              <span className={`d-pill d-schip ${st.kind === 'sent' ? 'sent' : 'open'}`} data-agent-state={st.kind === 'sent' ? 'sent' : 'not-sent'} title={st.kind === 'sent' ? `Sent ${clock(st.at)}` : undefined}>
-                {st.kind === 'sent' ? 'Sent' : 'Not sent'}
-              </span>
+              {/* P1463 round 2: a sent row is a ✓ (eight "Sent" pills said one thing eight times); "Not sent" stays words */}
+              {st.kind === 'sent' ? (
+                <span className="d-sdot done" data-agent-state="sent" role="img" aria-label={`Sent ${clock(st.at)}`} title={`Sent ${clock(st.at)}`}>
+                  ✓
+                </span>
+              ) : (
+                <span className="d-pill d-schip open" data-agent-state="not-sent">
+                  Not sent
+                </span>
+              )}
             </div>
           )
         })}
