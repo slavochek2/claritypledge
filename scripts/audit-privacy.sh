@@ -213,14 +213,10 @@ resolve_private_dir() {
 }
 known_names() {
   local priv="$1" f base
-  # privacy-literals.txt: non-name private values in the same one-per-line format (amounts, account
-  # and grant ids). Machine-maintained by private checks that read them, so the list itself never
-  # appears in this public file. Matched exactly like a name: literal, case-folded, word-bounded.
-  for f in "$priv/docs/privacy-names.txt" "$priv/docs/privacy-literals.txt"; do
-    [ -f "$f" ] || continue
-    grep -vE '^[[:space:]]*(#|$)' "$f" \
+  if [ -f "$priv/docs/privacy-names.txt" ]; then
+    grep -vE '^[[:space:]]*(#|$)' "$priv/docs/privacy-names.txt" \
       | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true
-  done
+  fi
   for f in "$priv"/crm/opportunities/*.md; do
     [ -e "$f" ] || continue
     base="$(basename "$f" .md)"
@@ -351,6 +347,34 @@ else
   KNOWN_NAMES="$(known_names "$_priv" | sort -u)"
   [ -z "$KNOWN_NAMES" ] && echo "audit-privacy: .private/ has no known names (privacy-names.txt, crm/opportunities, docs/business) — known-names check found nothing to match" >&2
 fi
+# Private literals (2026-10-12): non-name values the public repo must never contain (money amounts,
+# account and grant ids), one per line in .private/docs/privacy-literals.txt, machine-maintained by
+# the private checks that read them, so no value is ever named here. Bounded by DIGITS only, not
+# word characters: "credit_<amount>" must still match (codex review), while a longer number that
+# merely contains the value ("3514.75" for "514.75") must not. Values with letters match anywhere.
+KNOWN_LITERALS=""
+if [ -n "$_priv" ] && [ -f "$_priv/docs/privacy-literals.txt" ]; then
+  KNOWN_LITERALS="$( { grep -vE '^[[:space:]]*(#|$)' "$_priv/docs/privacy-literals.txt" || true; } | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | sort -u)"
+fi
+scan_private_literals() {
+  local content="$1" lit pat rc hits=""
+  [ -z "$KNOWN_LITERALS" ] && return 0
+  while IFS= read -r lit; do
+    [ -z "$lit" ] && continue
+    pat=$(printf '%s' "$lit" | sed -E 's/[][\.*^$+?(){}|/]/\\&/g')
+    # An id with letters is long and specific: match it anywhere. A pure number keeps digit bounds.
+    case "$lit" in
+      *[A-Za-z]*) grep -qiE "(${pat})" < <(printf '%s\n' "$content"); rc=$? ;;
+      *) grep -qiE "(^|[^0-9])(${pat})([^0-9]|$)" < <(printf '%s\n' "$content"); rc=$? ;;
+    esac
+    if [ "$rc" = 0 ]; then
+      hits="${hits}private value from .private/docs/privacy-literals.txt (value not printed)"$'\n'
+    elif [ "$rc" -gt 1 ]; then
+      hits="${hits}private-literals check ERROR (grep exit $rc)"$'\n'
+    fi
+  done < <(printf '%s\n' "$KNOWN_LITERALS")
+  printf '%s' "$hits"
+}
 scan_known_names() {
   local content="$1" name pat rc hits=""
   local names="$KNOWN_NAMES"
@@ -476,14 +500,14 @@ scan_phones() {
 
 HITS=$(scan_content "$ADDED")
 [ -n "$HITS" ] && HITS="${HITS}"$'\n'
-NAME_HITS=$(scan_known_names "$ADDED")
+NAME_HITS=$( { scan_known_names "$ADDED"; scan_private_literals "$ADDED"; } )
 [ -n "$NAME_HITS" ] && HITS="${HITS}${NAME_HITS}"$'\n'
 # File paths are public too: a rename to docs/first-last.md adds no content line but publishes the
 # name. Added/copied/renamed paths (unquoted, so accented names stay literal) run through the
 # hard-pattern, known-name, email and phone checks. This deliberately ignores .privacy-allowlist: that
 # list exempts a file's CONTENT; its path is published either way.
 if [ -n "${PATHS_ADDED:-}" ]; then
-  PATH_HITS=$( { scan_content "$PATHS_ADDED"; echo; scan_known_names "$PATHS_ADDED"; echo; scan_unknown_emails "$PATHS_ADDED"; echo; scan_phones "$PATHS_ADDED" msg; } | grep . | sed 's/^/(in a file path) /')
+  PATH_HITS=$( { scan_content "$PATHS_ADDED"; echo; scan_known_names "$PATHS_ADDED"; echo; scan_private_literals "$PATHS_ADDED"; echo; scan_unknown_emails "$PATHS_ADDED"; echo; scan_phones "$PATHS_ADDED" msg; } | grep . | sed 's/^/(in a file path) /')
   [ -n "$PATH_HITS" ] && HITS="${HITS}${PATH_HITS}"$'\n'
 fi
 if [ "$MODE" = "--msg" ]; then
@@ -504,7 +528,7 @@ EMAIL_HITS=$(scan_unknown_emails "$ADDED")
 if [ -n "$MSGS" ]; then
   MSG_HITS=$(scan_content "$MSGS")
   [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"$'\n'
-  MSG_NAME_HITS=$(scan_known_names "$MSGS")
+  MSG_NAME_HITS=$( { scan_known_names "$MSGS"; scan_private_literals "$MSGS"; } )
   [ -n "$MSG_NAME_HITS" ] && HITS="${HITS}${MSG_NAME_HITS}"$'\n'
   MSG_PHONE_HITS=$(scan_phones "$MSGS" msg)
   [ -n "$MSG_PHONE_HITS" ] && HITS="${HITS}${MSG_PHONE_HITS}"$'\n'
