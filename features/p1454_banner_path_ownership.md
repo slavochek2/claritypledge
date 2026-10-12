@@ -65,4 +65,4 @@ Do NOT add a DB trigger or change client writes of `banner_url` here.
 
 ## Pre-deploy Checklist
 
-- [ ] Deploy edge functions `generate-banner` and `generate-event-banner` to prod.
+- [x] Deploy edge functions `generate-banner` and `generate-event-banner` to prod (2026-10-12, both healthy).
