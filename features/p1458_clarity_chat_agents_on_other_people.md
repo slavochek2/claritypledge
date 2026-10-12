@@ -88,29 +88,34 @@ on points. Either we do have an entity or we don't."*
 - **Calibration:** people are calibrated today, mental models are not. A model can be calibrated
   against its subject through her ratings. Mirror agents differ (they predict under their
   owner's instructions); note only.
+- **Later:** a person's page could one day show her own positions, her mirror agent's view, and
+  others' views of her shared with her ("Alice as others see her"). Not designed.
 - **Later:** whether production "AGENT on <public figure>" should be renamed under the same test.
 
-## Legal and platform constraints (research memo 2026-10-12; not legal advice; verify with counsel)
+## Legal and platform constraints (research memo 2026-10-12, corrected same day; not legal advice)
 
-- Bob's private drafts are plausibly within GDPR's household exemption; the **platform is not**
-  (Recital 18) and is likely a controller of what it stores about Alice, user or not.
-- Alice's rights fit the visibility rule: notice within about a month (Art. 14), a supplementary
-  statement (Art. 16, in effect her rating and correction), objection then erasure (Arts. 21, 17).
-- **Biggest risk: special categories (Art. 9).** A guessed stance on politics, religion, health or
-  relationships about a non-consenting person can count as sensitive data even when wrong.
-- **App Store 5.1.1(viii)** (verified 2026-10-12): apps that "compile personal information from
-  any source that is not directly from the user or without the user's explicit consent" are not
-  permitted. Points toward subject opt-in at least on iOS. Guideline 1.2 bans objectification of
-  real people.
-- Precedents (Peeple, Lulu, Sarahah) failed through backlash and app-store rules; opt-in was the
-  usual fix.
-- **Red lines:** public or searchable pages about private people; shares Alice cannot see;
-  sensitive-category claims about non-consenting people; aggregate scores of a person; anonymous
-  authors; seeding people from imported contacts.
-- **Before production:** DPIA, written legitimate-interests test, subject-notice flow, rights for
-  non-users, sensitive-topic gate, DPA with the AI vendor, app-store review, EU/UK counsel.
-- **Fine for a local prototype:** fictional people, no server storage of real data, no real
-  person's data sent to an AI model.
+**Framing (founder, 2026-10-12):** these are **predictions to be corrected by their subject**, not
+ratings or judgments of a person. Rating apps (Peeple, Lulu, Sarahah) judged people and failed
+through backlash; this product says "I think you'd disagree, here is why", and the subject has the
+final word. Risk lives in content (a motive-judgment dressed as a prediction), not in the format.
+
+**Product rule that answers both the design and the legal question:** *every prediction about a
+person is either a private note, or addressed to that person.* Partners may be in the audience;
+she always is too.
+
+| Case | Assessment | Why |
+|---|---|---|
+| Private note predicting her view | fine | purely personal; like any notes app |
+| Sent to her | fine | a message to her about herself |
+| Shared with a few trusted partners (she is in the audience) | very likely fine | like a group thread or email; mail and chat services store these |
+| Public commentary on a public figure's views ("AGENT on <public figure>") | fine | freedom of expression; public figures get less protection |
+| Public, searchable page guessing a private person's politics, religion, health or sex life | the real risk zone | private persons get more protection; those categories most of all, even when the guess is wrong (GDPR Art. 9; inferred data can count) |
+
+- Confidence: principles are well established; their application to this product is untested.
+  Have counsel confirm before launch.
+- Platform obligations at scale (ordinary for any app storing messages and notes about people):
+  answer what is stored about a person, let her correct or remove it.
+- App Store rules do not apply: Clarity Pledge is a web app.
 
 ## Why it matters
 
