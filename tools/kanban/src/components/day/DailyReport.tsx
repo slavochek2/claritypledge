@@ -168,8 +168,8 @@ export function DailyReport(p: Props) {
   const parkedRef = useRef<HTMLDivElement>(null)
   const fails = failures(view)
   const cardList = p.issues.length + view.parked.length >= 2 || !!p.reflection
-  // a card can sit in the pager, the agent list or Parked: "Open card" goes to whichever holds it
-  const shown = new Set([...view.issues, ...view.parked].map((i) => i.fp))
+  // "Open card" goes to the pager or the agent list; a parked card is opened by Bring back, not from here
+  const shown = new Set(view.issues.map((i) => i.fp))
   const toCard = (fp?: string) => (fp && shown.has(fp) ? () => p.onJump(fp) : undefined)
 
   return (

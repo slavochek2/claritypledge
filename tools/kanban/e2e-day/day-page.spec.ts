@@ -1747,6 +1747,27 @@ test.describe('Phase D: Accept writes, Start fixing sends what you answered, the
     expect(lines()).toHaveLength(1) // paging wrote nothing
   })
 
+  test('P1463 Codex review: a slow Accept on the last card never pulls you back after you paged on into the statements', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    for (let k = 0; k < yours.length - 1; k++) await nextBtn(page).click()
+    // hold the save so the founder moves on before it lands
+    let release: () => void = () => {}
+    const held = new Promise<void>((r) => (release = r))
+    await page.route('**/api/day/decisions', async (route) => {
+      await held
+      await route.continue()
+    })
+    await acceptBtn(page).click()
+    await nextBtn(page).click()
+    await nextBtn(page).click()
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(2))
+    release()
+    await expect.poll(() => lines().length).toBe(1)
+    await page.waitForTimeout(300)
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(2)) // stayed where the founder went
+  })
+
   // P1432 replaces "Next accepts in the page only": Accept writes one line per card at once; → and Next write nothing.
   test('"Accept & next" writes one option line per card at once; → and Next write nothing; "N still yours" jumps to the first unanswered card', async ({ page }) => {
     await openDay(page)

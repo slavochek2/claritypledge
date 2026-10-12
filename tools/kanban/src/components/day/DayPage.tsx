@@ -116,6 +116,9 @@ export function DayPage() {
   const [run, setRun] = useState<RunPayload | null>(null)
   const [runErr, setRunErr] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('report')
+  // read by an Accept whose save finished after the founder moved to another section (P1463 Codex review)
+  const tabRef = useRef(tab)
+  tabRef.current = tab
   /** where the pager is in the founder's cards (P1445 E: agent work is a list, not pager cards) */
   const [idx, setIdx] = useState({ yours: 0 })
   /** P1445 E: the "With the agent" list is open, and the row a Status check asked to show */
@@ -626,7 +629,7 @@ export function DayPage() {
       setChoice((c) => ({ ...c, [cur.fp]: rec }))
       const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
       // move on only if the founder is still on that card: paging during the save wins
-      if (r.ok && runIdRef.current === runId && idxRef.current.yours === at) {
+      if (r.ok && runIdRef.current === runId && tabRef.current === 'report' && idxRef.current.yours === at) {
         if (at + 1 < issues.length) {
           setIdx((s) => ({ ...s, yours: at + 1 }))
           toTop()
