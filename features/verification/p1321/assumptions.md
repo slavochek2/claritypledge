@@ -160,7 +160,6 @@ the session record; specifics stay in `.private/docs/security-log.md`.
 (20261008220000) is applied to production right after its coupled frontend (4b29965e1) is an
 ancestor of origin/main, on the founder's go. Commit messages and headers are not reworded.
 **Why:** L1–L4 were applied to production on 2026-10-09 (entry 21), so their mechanics in this
-branch describe closed holes. R1 is the only one still live and it is low severity (send-scheduling
-timestamps and provider message ids readable by anonymous visitors; no addresses). The exposure is
-the minutes between the push and the R1 apply, which the coupling makes unavoidable without a
+branch describe closed holes. R1 is the only one still live and it is low severity (specifics in
+`.private/docs/security-log.md`). The exposure is the minutes between the push and the R1 apply, which the coupling makes unavoidable without a
 history rewrite.

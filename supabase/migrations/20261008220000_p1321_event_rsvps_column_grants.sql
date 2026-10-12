@@ -16,13 +16,11 @@
 -- p1336_prep_guard reads id, event_id, profile_id. Every writer of the withheld columns runs as
 -- the service role (set_rsvp_message_ids is executable by service_role only).
 --
--- Why: the SELECT policy on event_rsvps is `USING (true)` — the attendee list on a public event
--- page is the product. But P1425 later added provider message ids and send-scheduling timestamps
--- to the same rows, so every logged-out visitor and every signed-in user could read when each
--- attendee was emailed and the provider's message id for it. P1336 had already noted that this
--- table cannot carry private columns for exactly this reason
--- (20261001120000_p1336_event_preparations.sql:13). Row visibility is unchanged; column
--- visibility now matches what the app renders.
+-- Why: the attendee list on a public event page is the product, so row visibility is unchanged.
+-- Columns the app never renders do not belong in that public read. P1336 had already noted that
+-- this table cannot carry private columns (20261001120000_p1336_event_preparations.sql:13).
+-- Column visibility now matches what the app renders. Specifics: .private/docs/security-log.md
+-- (P1321 R1).
 --
 -- Same pattern as event_room_members (P1114) and profiles (P877): revoke the table-level SELECT,
 -- grant the readable columns.
