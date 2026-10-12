@@ -91,13 +91,9 @@ Decision density: a few (see the founder decisions below).
 - [x] A new user visiting their own profile gets an artist-style banner (passing the vision check above), with "after <name>" readable bottom-right at 320px, 375px and desktop widths. *Evidence: `e2e/p1453-artist-banner.spec.ts` live test (real lazy generation in a logged-in browser, credit bound to the URL); screenshots at 1280 / 375 / 320 on TEST, independent visual QA PASS after one fix round (see Dev results).*
 - [x] The picker is unit-tested: with a seeded RNG over 1,000 draws, each era is chosen 20% ± 3%. *`src/tests/p1453-artist-picker.test.ts`; plus an unbalanced-pool test, because the real pool (~100 per era) cannot tell "era first" from "uniform over artists" — mutation-checked.*
 - [x] The signature is readable on both a light-corner and a dark-corner banner (sepia vs. cream ink observed). *Sepia: after Utamaro; cream: after Schongauer (TEST agent profiles). Synthetic-corner unit tests in `p1453-banner-ink.test.ts`.*
-- [ ] An existing user's banner is unchanged after deploy. *Code path proven on TEST (e2e: an existing banner without a credit is not regenerated and shows no signature); the prod check belongs to `/ship`.*
 - [x] The banner's alt text and a tooltip (desktop) disclose "AI-generated image after <artist>"; on touch devices the disclosure is reachable without hover (e.g. tap on the signature). *Hover/focus/tap on a Radix Popover (Tooltip closes on touch); render tests + e2e tap + touch-emulated 375px check.*
-- [ ] The founder has reviewed the artist pool (names, dates, `exclude` flags) and the review is recorded in this spec. *Prepared — see "Founder pool review" below.*
+- [x] The founder has reviewed the artist pool (names, dates, `exclude` flags) and the review is recorded in this spec. *Recorded 2026-10-12: founder accepted the pool as-is and kept every artist (no `exclude` flags). The 498 LLM-drafted names, dates and works were NOT read line by line — see "Founder pool review" below.*
 - [x] Over 20 test generations, the vision check names the intended artist or movement for ≥ 80% before retry; the measured rate is recorded here. *Run 1 (first prompt): 16/20 = 80%. Run 2 (final prompt): 18/20 = 90% (1 fail, 1 vision timeout = unchecked). Details in Dev results.*
-- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed. *Prod, at `/ship`. The backfill path works on TEST (`--all-missing --apply --cap 3`: 3/3 with anon read-back).*
-- [ ] The signature font (Caveat 700) loads on prod without CSP errors. *Self-hosted under `font-src 'self'`; loads in dev (`document.fonts.check` true, computed family Caveat). Prod/preview check at `/ship`.*
-- [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait. *The banner step works for an initials-only agent on TEST; `/provision-agent` Step 5c is drafted but not yet committed to main (skill files land on main), and no full provisioning run has exercised it.*
 - [x] Regenerate gives a different artist; remove still works. *Live: regenerate returned a different artist; agent `--replace` changed artist and storage holds exactly one object afterwards. Remove: unchanged client path; the e2e proves a removed banner shows no stale signature.*
 
 ## Dev results (P1453 /dev, 2026-10-12)
@@ -155,13 +151,26 @@ Decision density: a few (see the founder decisions below).
 
 ## Pre-deploy Checklist
 
-- [ ] Apply the prod migration `20261012200000_p1453_profile_banner_credit.sql` **first** (additive; the new function code writes `banner_credit`).
-- [ ] Redeploy `generate-banner` and deploy the new `generate-agent-banner` to prod (both deployed and tested on TEST).
-- [ ] Batch Gemini key: `GEMINI_BATCH_API_KEY` already exists on prod (P1236) — confirm by name with `scripts/check-edge-function-secrets.sh --env prod`; no new secret.
 - [x] Self-hosted Caveat font file + OFL licence present in the build (`public/fonts/caveat-700-latin.woff2`, `caveat-OFL.txt`).
-- [ ] Deploy the frontend.
-- [ ] After deploy: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run), then `--apply`; spot-check every agent profile.
 - [x] Skill edits committed on main: `/provision-agent` Step 5c + `gen-agent-avatar` note (`f2ed69c5d`), `promote-to-prod.md` banner step (`35c248c87`, founder-approved 2026-10-12).
+- [x] Migration and both functions deployed and verified on TEST.
+
+## Post-deploy verification
+
+Moved out of the Acceptance Criteria by founder decision (2026-10-12): each can only be true after the
+code is on prod, and the ship gate runs before the merge. These are not dropped — they run right after
+`/push`, in this order, and are ticked here (in `features/done/`) when verified.
+
+**Deploy steps**
+- [ ] `/push` — applies `20261012200000_p1453_profile_banner_credit.sql` to prod (P1211 schema gate) and deploys the frontend.
+- [ ] `/ship-prod` — deploy `generate-banner` and `generate-agent-banner`; confirm `GEMINI_BATCH_API_KEY` exists on prod by name (`scripts/check-edge-function-secrets.sh --env prod`; P1236, no new secret).
+- [ ] Backfill: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run: 10 agents, 10 without a banner on 2026-10-12), then `--apply`.
+
+**Checks (formerly acceptance criteria)**
+- [ ] An existing user's banner is unchanged after deploy. *Code path proven on TEST (e2e: an existing banner without a credit is not regenerated and shows no signature); the prod check belongs to `/ship`.*
+- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed. *Prod, at `/ship`. The backfill path works on TEST (`--all-missing --apply --cap 3`: 3/3 with anon read-back).*
+- [ ] The signature font (Caveat 700) loads on prod without CSP errors. *Self-hosted under `font-src 'self'`; loads in dev (`document.fonts.check` true, computed family Caveat). Prod/preview check at `/ship`.*
+- [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait. *The banner step works for an initials-only agent on TEST; `/provision-agent` Step 5c is drafted but not yet committed to main (skill files land on main), and no full provisioning run has exercised it.*
 
 ## Technical Architecture
 
