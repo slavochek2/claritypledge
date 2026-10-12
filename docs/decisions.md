@@ -30,7 +30,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Alternatives rejected:** outreach first, with the industry list from an outside advisor (aviation, medical, AI governance, funds, mediators). Its framing leans on "high-stakes" and "misaligned mental models", which the buyer-language corpus shows never transferred, so it is held as a second-wave hypothesis to score, not a target list · an online-only first event (would confound "the method failed" with "the new format failed") · a long single online session (the format concern is resolved by coaching happening as short online calls).
 
-**Falsifiers** (thresholds agent-proposed, `[FOUNDER DECISION: overwrite]`): at the in-person event, **0 attendees commit unprompted to a next session or to bringing a deal** ⟹ the sales promise did not fix carry-out · attendee feedback again says they came for something other than what they got ⟹ the promise mismatch persists · **fewer than 3 paid pilots by 2026-12-11** ⟹ the sequence or the offer is wrong; re-plan before more events.
+**Success signal (founder, 2026-10-12, soft by design):** the founder's own judgement after the event that the format has a social-impact future: he felt he contributed, and attendees were grateful. A hard-coded count was proposed and **rejected by the founder**, because people ask to come back anyway, so a return request does not discriminate. The 60-day pilot target (3–7 paid by 2026-12-11) is the one hard number.
 
 **Not moved:** `lean-canvas.md` §Customer Segments `active-market-focus`. The events test the sales angle; a canvas move goes through `/slava:maintain:docs-strategy-update` once there is evidence.
 
