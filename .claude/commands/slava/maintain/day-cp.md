@@ -1107,6 +1107,21 @@ if [ "$FGD_RC" -ge 2 ]; then echo "CHECK cp.grants not-run the function grant ch
 elif [ "$FGD_RC" -eq 1 ]; then echo "CHECK cp.grants problem a function became callable without sign-in, or the databases disagree" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif printf '%s\n' "$FGD_OUT" | grep -q 'BLIND'; then echo "CHECK cp.grants unproven grants match, but the guard probe could not run" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else echo "CHECK cp.grants ok no function grant outside the recorded baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+echo "=== TABLE GRANT DRIFT (P1321) ==="
+# Fourth catalog: table and column privileges (has_table_privilege / has_column_privilege),
+# which the RLS check and the function-grant check both cannot see. Also gates on a live table
+# no migration creates (unmodelled) that anon/authenticated can touch. Same main-checkout
+# pinning and the same three-way exit contract: exit 2 is "did not run", never clean.
+TGD_OUT="$(python3 "$RLS_MAIN_ROOT/scripts/table-grant-drift-check.py" --summary 2>&1)"
+TGD_RC=$?
+printf '%s\n' "$TGD_OUT"
+if [ "$TGD_RC" -ge 2 ]; then
+  echo "TABLE-GRANT-CHECK-DID-NOT-RUN (exit $TGD_RC) — do NOT report clean"
+fi
+echo "table_grant_exit=$TGD_RC"
+if [ "$TGD_RC" -ge 2 ]; then echo "CHECK cp.tablegrants not-run the table grant check did not run (exit $TGD_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$TGD_RC" -eq 1 ]; then echo "CHECK cp.tablegrants problem table/column grants drifted, or a live table no migration creates is open to anon/authenticated" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.tablegrants ok no table or column grant outside the migrations" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== PRIVILEGE FLOOR (P1207) ==="
 # Third catalog, third blind spot closed. The RLS check reads pg_policies and the function-grant
 # check reads EXECUTE on pg_proc; NEITHER reads table/column privileges or pg_default_acl, so
@@ -1134,7 +1149,7 @@ else echo "CHECK cp.floor ok no banned privilege on prod" | tee -a "${DAY_CHECK_
 exit 0
 STEP
 ```
-Each check above has printed its status (`cp.baseline`, `cp.ops`, `cp.rls`, `cp.grants`, `cp.floor`).
+Each check above has printed its status (`cp.baseline`, `cp.ops`, `cp.rls`, `cp.grants`, `cp.tablegrants`, `cp.floor`).
 Since P1399 the reading rules below decide **findings**, not printed lines — where one says *report*,
 *surface* or *flag*, record:
 

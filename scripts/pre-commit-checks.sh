@@ -554,13 +554,13 @@ else
 fi
 echo ""
 
-# 4.7h. Table/column grant drift checker canary (P1321) — runs when the checker is
-# staged. Offline: proves the migration-replay model still scores the shapes this
+# 4.7h. Table/column grant drift checker canary (P1321) — runs when the checker (or
+# check-rls-scope.py, whose _strip_noise it imports) is staged. Offline: proves the migration-replay model still scores the shapes this
 # schema uses (table revoke + column re-grant, PUBLIC inheritance, a grant inside a
 # function body that is NOT a grant) and still models event_room_members as
 # column-scoped in the real tree. A model that drifted would make every live run
 # report "no drift" against a wrong expectation.
-TABLE_GRANT_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/table-grant-drift-check\.py$' || true)
+TABLE_GRANT_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(table-grant-drift-check|check-rls-scope)\.py$' || true)
 if [ -n "$TABLE_GRANT_STAGED" ]; then
     if ! run_quiet "Table grant drift checker self-test (P1321)" python3 scripts/table-grant-drift-check.py --self-test; then
         ERRORS=$((ERRORS + 1))
@@ -1653,8 +1653,8 @@ echo ""
 
 # 14.95. Unscoped RLS policy gate (P1039 — prevents P1035-class recurrence).
 # A newly staged or modified migration containing a non-SELECT policy whose
-# USING/WITH CHECK looks role-scoped (literal true or a role-identity
-# function) but has no TO <role> clause (or a TO clause including PUBLIC)
+# USING/WITH CHECK looks role-scoped (a constant predicate such as true or
+# 1=1, or a role-identity function) but has no TO <role> clause (or a TO clause including PUBLIC)
 # defaults to PUBLIC, including unauthenticated. Must carry
 # "-- intentionally-public: <reason>" or an explicit non-public TO clause.
 echo ">>> Checking new/modified migrations for unscoped RLS policies (P1039)..."

@@ -276,3 +276,33 @@ describe('P1321 review round: keyword-with-paren forms stay constant', () => {
     expect(runChecker([f]).status).toBe(0);
   });
 });
+
+// P1321 — policies created by dynamic SQL are invisible to the parser; the gate must say so.
+describe('P1321: hidden CREATE POLICY occurrences are surfaced (non-blocking warning)', () => {
+  it('warns, naming the file, when a CREATE POLICY sits inside a DO/EXECUTE string', () => {
+    const f = fixture(
+      "DO $$ BEGIN EXECUTE 'CREATE POLICY hidden ON public.points FOR INSERT WITH CHECK (true)'; END $$;\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('WARNING');
+    expect(output).toContain(f.split('/').pop()!);
+    expect(status).toBe(0); // non-blocking
+  });
+
+  it('does not warn when CREATE POLICY appears only in a comment or a top-level string', () => {
+    const f = fixture(
+      "-- CREATE POLICY mentioned in a comment\n/* CREATE POLICY in a block comment */\n" +
+        "COMMENT ON TABLE public.points IS 'see CREATE POLICY docs';\n",
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).not.toContain('WARNING');
+    expect(status).toBe(0);
+  });
+
+  it('does not warn when every CREATE POLICY was evaluated', () => {
+    const f = fixture('CREATE POLICY "own_rows" ON public.points FOR INSERT WITH CHECK (auth.uid() = user_id);\n');
+    const { status, output } = runChecker([f]);
+    expect(output).not.toContain('WARNING');
+    expect(status).toBe(0);
+  });
+});

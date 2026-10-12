@@ -21,6 +21,10 @@ closed finding (spec invariant): the answer becomes **Yes** only after those mig
 production and the probes below are re-run there with their controls, and after the three low-severity
 leads still open are each fixed or ruled harmless with evidence.
 
+*Status 2026-10-12:* the four definer-function fixes are on production and were re-probed there
+with controls (2026-10-09); the column-visibility fix waits for its coupled frontend. The answer
+stays **No** until that lands and the low-severity leads are closed.
+
 ## Method
 
 Four classes, both caller roles — logged-out (anon) and signed-in as an unrelated user — run against
@@ -34,10 +38,11 @@ had to come back non-empty on the identical probe.
 | C — SECURITY DEFINER functions | Does any definer function act on the caller's say-so instead of their identity? | One independent reviewer over all 100 definer functions, then each lead reproduced by a failing test | 4 defects confirmed; 3 low-severity leads open |
 | D — side channels | Do Realtime, Storage and edge functions bypass the above? | Realtime subscription harness with a control; bucket policy and edge-function caller-gate review | Clean (from the earlier part of this run; not repeated after the fixes) |
 
-Production migration history was read (read-only) after the work: no P1321 migration is present, and
+Production migration history was read (read-only) right after the work, on 2026-10-08: no P1321
+migration was present then (four were applied later, on the founder's go — see the status note above), and
 every version the deploy manifest records for production is in production's ledger. **No snapshot
 was taken before the run**, so before/after identity is not shown directly. What is shown is that
-production holds nothing this run wrote.
+production then held nothing this run wrote.
 
 ## What it found, in transferable terms
 

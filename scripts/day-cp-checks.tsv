@@ -41,5 +41,6 @@ cp.baseline	cp.w3	Tests and lint	Code	normal
 cp.ops	cp.w3	Ops alerts (GitHub)	Servers & blog	normal
 cp.rls	cp.w3	Database access rules	Database	high
 cp.grants	cp.w3	Database function permissions	Database	normal
+cp.tablegrants	cp.w3	Database table and column permissions	Database	high
 cp.floor	cp.w3	Database privilege floor	Database	high
 cp.video	cp.vsum	Story video summaries	Transcription & video	normal

@@ -45,7 +45,14 @@ Exit codes
 ----------
   0  no drift in the compared legs
   1  drift (details on stdout)
-  2  could not run (credentials, API error, a failed liveness control)
+  2  could not run (credentials, API error, a failed liveness control, a missing
+     migrations dir, ANY uncaught exception in replay or the live read — never 1)
+
+Gating beyond grant drift: a live table with NO CREATE in the replayed migrations
+(unmodelled) on which anon or authenticated holds any SELECT/INSERT/UPDATE/DELETE
+(table-level or column-only) exits 1 — its exposure is unexplained by the migrations. An
+unmodelled table with no client privilege stays report-only. A GRANT/REVOKE on a
+table that the replay could not parse also exits 1.
 
 Usage
 -----
@@ -53,6 +60,7 @@ Usage
   scripts/table-grant-drift-check.py --env test         # test vs migrations only
   scripts/table-grant-drift-check.py --env prod
   scripts/table-grant-drift-check.py --json
+  scripts/table-grant-drift-check.py --summary          # one/two lines, for callers like /day
   scripts/table-grant-drift-check.py --migrations-dir DIR   # replay a different tree
   scripts/table-grant-drift-check.py --self-test        # offline: replay model only
 
@@ -74,12 +82,20 @@ ROLES = ("anon", "authenticated")
 PRIVS = ("SELECT", "INSERT", "UPDATE", "DELETE")
 COLUMN_PRIVS = ("SELECT", "INSERT", "UPDATE")
 
-_spec = importlib.util.spec_from_file_location(
-    "_rls_scope", os.path.join(HERE, "check-rls-scope.py")
-)
-_scope = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_scope)
-strip_noise = _scope._strip_noise  # one tokenizer for strings/comments/dollar bodies
+_scope = None
+
+
+def strip_noise(text):
+    """One tokenizer for strings/comments/dollar bodies (check-rls-scope.py's). Loaded lazily so a
+    broken import surfaces inside main's guard as exit 2, never as a bare traceback (exit 1)."""
+    global _scope
+    if _scope is None:
+        spec = importlib.util.spec_from_file_location(
+            "_rls_scope", os.path.join(HERE, "check-rls-scope.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _scope = mod
+    return _scope._strip_noise(text)
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +139,7 @@ class Model:
     def __init__(self):
         self.tables = {}  # name -> {"tbl": {grantee: set(priv)}, "col": {grantee: {priv: set(col)}}}
         self.unparsed = []  # (file, statement) for GRANT/REVOKE on tables we could not read
+        self.unparsed_table = []  # subset that may touch a public table (gating)
         self.applied = 0  # GRANT/REVOKE statements replayed onto a modelled table
 
     def create(self, name, if_not_exists=False):
@@ -276,6 +293,11 @@ def replay(migrations_dir):
                 m = _GRANT.match(body)
                 if not m:
                     model.unparsed.append((fname, body[:160]))
+                    # No ON ... TO shape at all: `GRANT role TO role` membership is not a
+                    # table grant; anything mentioning ON might be one — gate on it.
+                    if re.search(r"\son\s", " " + body + " ", re.I) and not _NOT_A_TABLE.match(
+                            re.sub(r"^.*?\son\s+", "", body, count=1, flags=re.I | re.S)):
+                        model.unparsed_table.append((fname, body[:160]))
                     continue
                 verb, privs_txt, on_txt, roles_txt = m.groups()
                 on_txt = on_txt.strip()
@@ -286,6 +308,7 @@ def replay(migrations_dir):
                     # `GRANT role TO role` (membership) has no ON; a parse failure here is
                     # a table grant we could not read — surface it, never drop it silently.
                     model.unparsed.append((fname, body[:160]))
+                    model.unparsed_table.append((fname, body[:160]))
                     continue
                 if re.match(r"^all\s+tables\s+in\s+schema\s+public$", on_txt, re.I):
                     tables = list(model.tables)
@@ -435,6 +458,29 @@ def object_drift(live):
     return out
 
 
+def exposed_unmodelled(live_env, table):
+    """Client privileges (table-level or column-only) anon/authenticated hold on a live table."""
+    t = live_env[table]
+    out = []
+    for role in ROLES:
+        for priv in sorted(t["tbl"][role]):
+            out.append(f"{role} {priv}")
+        for priv in COLUMN_PRIVS:
+            if priv not in t["tbl"][role] and t["col"][role][priv]:
+                out.append(f"{role} {priv}({len(t['col'][role][priv])} col)")
+    return out
+
+
+def gating_unmodelled(envs, live, unmodelled):
+    """[(env, table, [privs])] for unmodelled tables a client role can touch."""
+    out = []
+    for env, table in unmodelled:
+        privs = exposed_unmodelled(live[env], table)
+        if privs:
+            out.append((env, table, privs))
+    return out
+
+
 def compare(envs, live, model):
     findings, unmodelled = [], []
     if len(envs) == 2:
@@ -459,6 +505,8 @@ def compare(envs, live, model):
 
 
 def render(envs, findings, unmodelled, model, live):
+    gated = gating_unmodelled(envs, live, unmodelled)
+    gated_keys = {(e, t) for e, t, _ in gated}
     print("=" * 78)
     print("TABLE/COLUMN GRANT DRIFT CHECK (P1321) — " + " vs ".join(envs + ["migrations"]))
     print("=" * 78)
@@ -466,8 +514,10 @@ def render(envs, findings, unmodelled, model, live):
         print(f"{env}: {len(live[env])} tables/views in public; liveness controls passed")
     print(f"migrations: {len(model.tables)} tables/views modelled, "
           f"{model.applied} GRANT/REVOKE applications replayed")
-    if not findings:
+    if not findings and not gated and not model.unparsed_table:
         print("\nRESULT: no drift — every compared privilege agrees.")
+    elif not findings:
+        print("\nRESULT: GATING — no grant drift on modelled tables, but see below.")
     else:
         print(f"\nRESULT: DRIFT — {len(findings)} finding(s). A True/False pair is the effective")
         print("privilege on each side. Converge the live side to the migrations with a migration,")
@@ -485,13 +535,24 @@ def render(envs, findings, unmodelled, model, live):
             print(f"\nIN ONE ENVIRONMENT ONLY (report-only schema drift, {len(drift)}):")
             for what, where in drift:
                 print(f"    {what}: {where}")
-    if unmodelled:
-        print(f"\nUNMODELLED (report-only) — live, but no CREATE in the migrations replayed:")
-        for env, t in unmodelled:
+    if gated:
+        print(f"\nUNMODELLED AND CLIENT-REACHABLE (GATING, {len(gated)}) — live, no CREATE in the")
+        print("migrations replayed, and anon/authenticated hold privileges no migration explains:")
+        for env, t, privs in gated:
+            print(f"    {env}: {t}: {', '.join(privs)}")
+    quiet = [(e, t) for e, t in unmodelled if (e, t) not in gated_keys]
+    if quiet:
+        print(f"\nUNMODELLED (report-only, no client privilege) — live, but no CREATE replayed:")
+        for env, t in quiet:
             print(f"    {env}: {t}")
-    if model.unparsed:
-        print(f"\nUNPARSED GRANT/REVOKE statements (report-only, {len(model.unparsed)}):")
-        for fname, stmt in model.unparsed[:20]:
+    if model.unparsed_table:
+        print(f"\nUNPARSED GRANT/REVOKE touching a table (GATING, {len(model.unparsed_table)}):")
+        for fname, stmt in model.unparsed_table[:20]:
+            print(f"    {fname}: {stmt}")
+    other = [u for u in model.unparsed if u not in model.unparsed_table]
+    if other:
+        print(f"\nUNPARSED GRANT/REVOKE, not table-shaped (report-only, {len(other)}):")
+        for fname, stmt in other[:20]:
             print(f"    {fname}: {stmt}")
     print("\nWHAT THIS CHECK DOES NOT COVER: other schemas, sequences, functions, RLS policies,")
     print("TRUNCATE/REFERENCES/TRIGGER/MAINTAIN, and grants issued by dynamic SQL.")
@@ -557,34 +618,149 @@ def self_test():
     else:
         print("  FAIL real tree: event_room_members not modelled")
         failures += 1
+    failures += _self_test_gating()
     print(f"\nself-test: {'ok' if not failures else f'{failures} FAILED'}")
     return 1 if failures else 0
 
 
-def main():
+def _live_table(tbl=(), col=None):
+    """A synthetic live entry: tbl = privileges both roles hold; col = {priv: cols} for anon."""
+    t = {"tbl": {r: set(tbl) for r in ROLES},
+         "col": {r: {p: set() for p in COLUMN_PRIVS} for r in ROLES}, "cols": {"id"}}
+    for p, cols in (col or {}).items():
+        t["col"]["anon"][p] = set(cols)
+    return t
+
+
+def _self_test_gating():
+    """Fixtures for the unmodelled-table gate and the exit-2 contract."""
+    import contextlib
+    import io
+    import tempfile
+    failures = 0
+
+    def check(label, ok, detail=""):
+        nonlocal failures
+        print(f"  {'PASS' if ok else 'FAIL'} {label}" + ("" if ok else f": {detail}"))
+        failures += 0 if ok else 1
+
+    def run(argv, live=None, boom=None):
+        """Run main() with fetch_live stubbed; -> (rc, stdout)."""
+        global fetch_live
+        real = fetch_live
+
+        def fake(env):
+            if boom:
+                raise boom
+            return live
+        fetch_live = fake
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rc = main(argv)
+        finally:
+            fetch_live = real
+        return rc, buf.getvalue()
+
+    with tempfile.TemporaryDirectory() as d:
+        with open(os.path.join(d, "20990101000000_x.sql"), "w") as fh:
+            fh.write("create table public.known (id int);")
+        base = ["--env", "test", "--migrations-dir", d]
+        known = _live_table(PRIVS)
+        rc, out = run(base, {"known": known, "ghost": _live_table(("SELECT",))})
+        check("unmodelled table with anon/authenticated SELECT exits 1", rc == 1 and "ghost" in out, (rc, out[-200:]))
+        rc, out = run(base, {"known": known, "ghost": _live_table((), {"SELECT": ["id"]})})
+        check("unmodelled table with a column-only grant exits 1", rc == 1, (rc, out[-200:]))
+        rc, out = run(base, {"known": known, "ghost": _live_table(())})
+        check("unmodelled table with NO client privilege stays report-only (exit 0)", rc == 0 and "ghost" in out, (rc, out[-200:]))
+        rc, out = run(base, {"known": known})
+        check("everything modelled and agreeing exits 0", rc == 0, (rc, out[-200:]))
+        with open(os.path.join(d, "20990102000000_y.sql"), "w") as fh:
+            fh.write("grant select! on public.known to anon;")
+        rc, out = run(base, {"known": known})
+        check("an unparsed table GRANT exits 1", rc == 1 and "UNPARSED" in out, (rc, out[-200:]))
+        os.remove(os.path.join(d, "20990102000000_y.sql"))
+        rc, out = run(["--env", "test", "--migrations-dir", os.path.join(d, "nope")], {"known": known})
+        check("missing --migrations-dir exits 2", rc == 2, (rc, out[-200:]))
+        rc, out = run(base, boom=KeyError("t"))
+        check("KeyError in the live read exits 2", rc == 2 and "COULD NOT RUN" in out, (rc, out[-200:]))
+        rc, out = run(base, {"known": {"tbl": {}}})
+        check("malformed live shape (KeyError downstream) exits 2", rc == 2, (rc, out[-200:]))
+    # Broken check-rls-scope.py next to a copy of this checker -> exit 2, not a traceback (1).
+    with tempfile.TemporaryDirectory() as d:
+        import shutil
+        shutil.copy(os.path.abspath(__file__), os.path.join(d, "table-grant-drift-check.py"))
+        with open(os.path.join(d, "check-rls-scope.py"), "w") as fh:
+            fh.write("raise RuntimeError('broken import')\n")
+        mig = os.path.join(d, "m")
+        os.mkdir(mig)
+        with open(os.path.join(mig, "20990101000000_x.sql"), "w") as fh:
+            fh.write("create table public.t (id int);")
+        proc = subprocess.run([sys.executable, os.path.join(d, "table-grant-drift-check.py"),
+                               "--env", "test", "--migrations-dir", mig],
+                              capture_output=True, text=True, timeout=60)
+        check("broken check-rls-scope.py import exits 2", proc.returncode == 2
+              and "COULD NOT RUN" in proc.stdout, (proc.returncode, proc.stdout[-200:], proc.stderr[-200:]))
+    return failures
+
+
+def _run(args):
+    envs = [args.env] if args.env else ["prod", "test"]
+    if not os.path.isdir(args.migrations_dir):
+        raise CouldNotRun(f"migrations dir not found: {args.migrations_dir}")
+    model = replay(args.migrations_dir)
+    live = {env: fetch_live(env) for env in envs}
+    findings, unmodelled = compare(envs, live, model)
+    gated = gating_unmodelled(envs, live, unmodelled)
+    gating = bool(findings or gated or model.unparsed_table)
+    if args.json:
+        print(json.dumps({"findings": findings, "unmodelled": unmodelled,
+                          "unmodelled_gating": gated, "unparsed": model.unparsed,
+                          "unparsed_table": model.unparsed_table}, indent=1, default=sorted))
+    elif args.summary:
+        bits = []
+        if findings:
+            bits.append(f"{len(findings)} grant drift finding(s)")
+        if gated:
+            bits.append(f"{len(gated)} unmodelled table(s) reachable by anon/authenticated: "
+                        + ", ".join(f"{e}:{t}" for e, t, _ in gated[:8]))
+        if model.unparsed_table:
+            bits.append(f"{len(model.unparsed_table)} unparsed table GRANT/REVOKE")
+        if bits:
+            print("TABLE GRANT DRIFT: " + "; ".join(bits) + ".")
+        else:
+            quiet = len([1 for e, t in unmodelled if (e, t) not in {(a, b) for a, b, _ in gated}])
+            quiet += len([u for u in model.unparsed if u not in model.unparsed_table])
+            extra = f" (+{quiet} report-only)" if quiet else ""
+            print(f"Table grants: clean ({' vs '.join(envs + ['migrations'])}; "
+                  f"{sum(len(v) for v in live.values())} live tables compared){extra}.")
+    else:
+        render(envs, findings, unmodelled, model, live)
+    return 1 if gating else 0
+
+
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("--env", choices=("prod", "test"))
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--summary", action="store_true",
+                    help="one line of output, for callers like /day")
     ap.add_argument("--migrations-dir",
                     default=os.path.join(os.path.dirname(HERE), "supabase", "migrations"))
     ap.add_argument("--self-test", action="store_true")
-    args = ap.parse_args()
-    if args.self_test:
-        return self_test()
-    envs = [args.env] if args.env else ["prod", "test"]
-    model = replay(args.migrations_dir)
+    args = ap.parse_args(argv)
+    # Exit 1 means "drift found". Anything that stops the check reaching a verdict --
+    # a missing dir, an unexpected row shape, a crash in the replay -- is exit 2, never 1.
     try:
-        live = {env: fetch_live(env) for env in envs}
+        if args.self_test:
+            return self_test()
+        return _run(args)
     except (CouldNotRun, subprocess.TimeoutExpired) as exc:
         print(f"COULD NOT RUN: {exc}")
         return 2
-    findings, unmodelled = compare(envs, live, model)
-    if args.json:
-        print(json.dumps({"findings": findings, "unmodelled": unmodelled,
-                          "unparsed": model.unparsed}, indent=1, default=sorted))
-    else:
-        render(envs, findings, unmodelled, model, live)
-    return 1 if findings else 0
+    except Exception as exc:  # noqa: BLE001 -- deliberate catch-all, see above
+        print(f"COULD NOT RUN: unexpected {type(exc).__name__}: {exc}")
+        return 2
 
 
 if __name__ == "__main__":

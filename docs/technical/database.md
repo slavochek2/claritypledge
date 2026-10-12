@@ -176,6 +176,14 @@ publicly-readable `events` query.
 the pre-renumber P-number; see its header)
 **Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
 
+### event_rsvps column grants (P1321)
+
+`anon` and `authenticated` may SELECT only `id, event_id, profile_id, rsvped_at`
+(`20261008220000_p1321_event_rsvps_column_grants.sql`). The other columns — email-dispatch
+bookkeeping — are read by the service role only. Consequences: `select('*')` on `event_rsvps` from
+a client fails with a permission error (count with `select('id')`); a **new column is unreadable by
+clients until it is added to that grant** — the same default-deny pattern as `profiles` below.
+
 ### event_rsvps.mailgun_message_ids (P947, P1380, P1425 — scheduled event emails)
 
 One jsonb object per RSVP: `{ reminder, feedback, starting_soon, starting_soon_for }`. Each kind's

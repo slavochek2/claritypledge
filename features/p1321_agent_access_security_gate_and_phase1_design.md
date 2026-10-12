@@ -126,7 +126,8 @@ Sequential, in one worktree:
   - **Evidence (2026-10-09):** exit 0, `65/65 assertions held.`
 - [x] RLS-scope gate fixtures for the missed literal-true forms exit 1, a clean fixture exits 0, committed
   - **Evidence (2026-10-09):** `npx vitest run src/tests/p1044-reproduce.test.ts` — 48/48 passed; the
-    missed forms assert exit 1 (e.g. L67, L74, L86), the clean fixtures exit 0 (L101, L109, L120).
+    constant-predicate forms assert exit 1 (L143, L151, L161), annotation bypasses exit 1
+    (L60–L90), and a genuine annotation or a clean file exits 0 (L98, L106, L115).
     Committed in 70fdd73a8 and d32ffa65d.
 - [x] Column/table-grant drift check exists, exits 0 for test vs migrations after convergence, and its failure path was observed exiting non-zero
   - **Evidence (2026-10-09):** `scripts/table-grant-drift-check.py` (fb588b46c). `--env test` against this
@@ -134,6 +135,12 @@ Sequential, in one worktree:
     which is applied on test (and prod) but not yet on main, so not in this tree. That is the failure
     path, observed on a real divergence. Same run with `--migrations-dir` = this tree plus P1446's two
     migration files: **exit 0**, `no drift — every compared privilege agrees`, liveness controls passed.
+  - **Re-run 2026-10-12 after review hardening** (an unmodelled table clients can reach is now
+    gating; any crash exits 2): it flagged two test-only orphan tables no migration creates, fully
+    open to client roles. Founder: drop them on test (done; 54 + 11 rows; nothing on prod; their
+    three stale `rls-drift-allowlist.txt` lines removed). Replay of this tree plus the migrations
+    applied on test from other branches (P1446, P1447, P1451): `Table grants: clean (test vs
+    migrations; 77 live tables compared)`, exit 0. Scheduled daily in `/day` (`cp.tablegrants`).
 - [x] `scripts/function-grant-drift-check.py` exits 0 against test, every former gating finding carrying a verdict
   - **Evidence (2026-10-09):** exit 0, `no unallowlisted anon-executable function, no prod/test grant
     divergence` (prod 32 / test 34 anon-executable; guard probe rolled back). The run first exited 1 on
@@ -161,9 +168,9 @@ Sequential, in one worktree:
   [P1452](p1452_agent_access_phase1_design_revision.md) (2026-10-09).** The document and both rounds
   exist (`docs/technical/agent-access-phase1-architecture.md` § Review record); round 2 returned NO with
   C1 and H1–H5 open, which is P1452's starting point.
-- [ ] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
-  - **Status (2026-10-09):** 21 entries; 20 carry date, call and why. **Entry 16 is an open founder
-    decision**, so it has no call yet.
+- [x] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
+  - **Evidence (2026-10-12):** 22 entries, each with a date, a call and a why. Entry 16 was an open
+    founder decision; entry 22 records the founder's call on it (ship, push, apply R1 at once).
 
 ## Resolved Decisions
 

@@ -153,3 +153,14 @@ read-only re-probe after the apply, every fix with a control: the anonymous gran
 signed-in grant and an intentionally public function keep theirs; the delivery-creation guard, the
 witness insert check and the profile email rule are the migrated versions. Probe and output are in
 the session record; specifics stay in `.private/docs/security-log.md`.
+
+## 22. 2026-10-12 — Entry 16 resolved: ship, push, then apply R1 at once
+
+**Call (founder, 2026-10-12):** P1321 ships to main as it is; the founder pushes; R1
+(20261008220000) is applied to production right after its coupled frontend (4b29965e1) is an
+ancestor of origin/main, on the founder's go. Commit messages and headers are not reworded.
+**Why:** L1–L4 were applied to production on 2026-10-09 (entry 21), so their mechanics in this
+branch describe closed holes. R1 is the only one still live and it is low severity (send-scheduling
+timestamps and provider message ids readable by anonymous visitors; no addresses). The exposure is
+the minutes between the push and the R1 apply, which the coupling makes unavoidable without a
+history rewrite.

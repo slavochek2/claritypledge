@@ -389,6 +389,21 @@ def find_violations(content):
     return violations
 
 
+_DOLLAR_BODY_RE = re.compile(r"(\$(?:[^\W\d]\w*)?\$)(.*?)\1", re.DOTALL)
+_COMMENT_RE = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
+
+
+def count_hidden(content):
+    """CREATE POLICY occurrences inside dollar-quoted bodies (DO blocks, function bodies,
+    EXECUTE strings): real executable SQL the parser blanks and never scope-checks. Mentions in
+    comments or top-level string literals are not counted. Known limit: a policy inside a
+    legacy single-quoted function body is not counted either."""
+    n = 0
+    for m in _DOLLAR_BODY_RE.finditer(content):
+        n += len(POLICY_START_RE.findall(_COMMENT_RE.sub(" ", m.group(2))))
+    return n
+
+
 def main(argv):
     fail = False
     for path in argv:
@@ -406,14 +421,25 @@ def main(argv):
         violations = find_violations(content)
         base = os.path.basename(path)
 
+        hidden = count_hidden(content)
+        if hidden:
+            # Non-blocking: a policy created by dynamic SQL (DO block, EXECUTE
+            # format(...)) is invisible to this gate. Surface it, never pass silently.
+            print(
+                f"  WARNING: {base}: {hidden} 'CREATE POLICY' occurrence(s) inside "
+                f"dollar-quoted bodies (dynamic SQL) were NOT scope-checked. Review by hand.",
+                file=sys.stderr,
+            )
+
         if violations and not has_annotation:
             print(f"  {base}:")
             for name, command in violations:
                 print(
                     f"  VIOLATION: policy {name} ({command}) has no scoping TO clause "
                     f"(e.g. TO service_role) -- either missing entirely or including PUBLIC "
-                    f"-- but its USING/WITH CHECK looks role-scoped (literal true or a "
-                    f"role-identity function) -- defaults to PUBLIC, including unauthenticated."
+                    f"-- but its USING/WITH CHECK looks role-scoped (a constant predicate such as "
+                    f"true or 1=1, or a role-identity function) -- defaults to PUBLIC, "
+                    f"including unauthenticated."
                 )
             print("    Add one of these:")
             print("      -- intentionally-public: {why this policy is deliberately open to all roles}")

@@ -25,11 +25,8 @@
 # Worktree coordination table used only by local dev tooling (git-ops.sh slot
 # locking). Exists on test, never on prod, and correctly so — prod has no
 # worktrees. The spec names this exact case as expected divergence.
-test-only|worktree_status|Allow all operations on worktree_status
-not-in-files|worktree_status|Allow all operations on worktree_status
 # FOR ALL (cmd='ALL'), USING(true), TO public — same local-dev-only table as
 # above. No prod exposure, no real users; caught by the P1138 leg's FOR ALL fix.
-unconditional-write|worktree_status|Allow all operations on worktree_status
 
 # --- 2026-08-21, P1138 ------------------------------------------------------
 
