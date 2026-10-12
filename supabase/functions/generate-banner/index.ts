@@ -90,15 +90,20 @@ function validateInput(body: RequestBody): { valid: true } | { valid: false; err
  * Reserve one image generation for this user: INSERT the row first, THEN count, own row included.
  * P1453 (Codex review): checking and then inserting let a burst of parallel requests all see zero
  * and all pass. Insert-then-count cannot: the m-th committed insert sees at least m rows, so at
- * most LIMIT requests are admitted however many arrive at once. A refused reservation keeps its
- * row — abuse counts against the abuser. Fails CLOSED: a failed insert or count spends nothing.
+ * most LIMIT requests are admitted however many arrive at once. A refused reservation deletes its
+ * own row, so a user clicking during a lockout does not extend it (P1453 re-review); admitted rows
+ * are never deleted, so the bound holds. Fails CLOSED: a failed insert or count spends nothing.
  */
 async function reserveGeneration(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ allowed: true } | { allowed: false; retryAfterMinutes?: number; unavailable?: true }> {
-  const { error: insertError } = await supabase.from('ai_rate_limits').insert({ user_id: userId });
-  if (insertError) {
+  const { data: row, error: insertError } = await supabase
+    .from('ai_rate_limits')
+    .insert({ user_id: userId })
+    .select('id')
+    .single();
+  if (insertError || !row) {
     console.error('Rate-limit reservation failed', { userId, code: insertError.code });
     return { allowed: false, unavailable: true };
   }
@@ -113,13 +118,24 @@ async function reserveGeneration(
     return error ? null : (n ?? 0);
   };
 
+  const release = async () => {
+    const { error } = await supabase.from('ai_rate_limits').delete().eq('id', row.id);
+    if (error) console.error('Rate-limit release failed', { userId, code: error.code });
+  };
+
   const burst = await count(5 * 60 * 1000);
   if (burst === null) return { allowed: false, unavailable: true };
-  if (burst > BURST_LIMIT) return { allowed: false, retryAfterMinutes: 5 };
+  if (burst > BURST_LIMIT) {
+    await release();
+    return { allowed: false, retryAfterMinutes: 5 };
+  }
 
   const daily = await count(24 * 60 * 60 * 1000);
   if (daily === null) return { allowed: false, unavailable: true };
-  if (daily > DAILY_LIMIT) return { allowed: false, retryAfterMinutes: 60 * 24 };
+  if (daily > DAILY_LIMIT) {
+    await release();
+    return { allowed: false, retryAfterMinutes: 60 * 24 };
+  }
 
   return { allowed: true };
 }

@@ -111,6 +111,24 @@ describe('P1453: generate-agent-banner accepts only the service role, only for a
     }
   });
 
+  it('a refused request leaves no row behind, so clicking during a lockout does not extend it', async () => {
+    const clicker = await createTestUser({ name: 'P1453 Clicker' });
+    try {
+      const t = (await signedIn(clicker)).token;
+      const statuses: number[] = [];
+      for (let i = 0; i < 7; i++) {
+        statuses.push((await call('generate-banner', t, { entityType: 'profile', entityId: agentId })).status);
+      }
+      expect(statuses).toEqual([403, 403, 403, 403, 403, 429, 429]);
+      const { count } = await supabaseAdmin.from('ai_rate_limits')
+        .select('*', { count: 'exact', head: true }).eq('user_id', clicker.user.id);
+      expect(count).toBe(5);
+    } finally {
+      await supabaseAdmin.from('ai_rate_limits').delete().eq('user_id', clicker.user.id);
+      await deleteTestUser(clicker.user.id);
+    }
+  });
+
   it('generate-banner: a user JWT asking for an agent profile gets 403 (own profile only)', async () => {
     const r = await call('generate-banner', userToken, { entityType: 'profile', entityId: agentId });
     expect(r.status).toBe(403);

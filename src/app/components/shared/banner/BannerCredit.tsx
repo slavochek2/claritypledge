@@ -51,7 +51,7 @@ export function BannerCredit({ credit }: { credit: Credit }) {
       <PopoverContent
         side="top"
         align="end"
-        sideOffset={-6}
+        sideOffset={0}
         className="w-auto max-w-[min(340px,calc(100vw-24px))] px-3 py-1.5 text-xs bg-primary text-primary-foreground border-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >

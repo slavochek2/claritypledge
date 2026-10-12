@@ -89,8 +89,16 @@ export async function geminiGenerateImage(
       opts.onHttpStatus?.(res.status);
       continue;
     }
-    const data = await res.json();
-    const parts = data?.candidates?.[0]?.content?.parts;
+    // The body is read under the same timeout as the request: an abort mid-body throws here, and
+    // it must count as this model failing — never escape as a 500 that loses earlier attempts.
+    let data: { candidates?: Array<{ content?: { parts?: unknown[] } }> };
+    try {
+      data = await res.json();
+    } catch (e) {
+      console.error('Gemini image response unreadable', { model, error: (e as Error).name });
+      continue;
+    }
+    const parts = data?.candidates?.[0]?.content?.parts as Array<{ inlineData?: { mimeType?: string; data?: string } }> | undefined;
     if (Array.isArray(parts)) {
       for (const part of parts) {
         if (part?.inlineData?.data && part?.inlineData?.mimeType) {

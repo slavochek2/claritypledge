@@ -37,6 +37,16 @@ Deno.test('the fallback model still runs when there is time, and a 429 is report
   } finally { f.restore(); }
 });
 
+Deno.test('a body that fails mid-read counts as that model failing, not as a thrown request', async () => {
+  const broken = () => new Response(new ReadableStream({ start(c) { c.error(new DOMException('aborted', 'TimeoutError')); } }));
+  const f = stubFetch([broken, IMAGE_OK]);
+  try {
+    const img = await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000 });
+    assertEquals(img?.mimeType, 'image/png'); // fell through to the fallback model
+    assertEquals(f.calls(), 2);
+  } finally { f.restore(); }
+});
+
 Deno.test('the vision check is skipped (unchecked) once the budget is spent', async () => {
   const f = stubFetch([IMAGE_OK]);
   try {
