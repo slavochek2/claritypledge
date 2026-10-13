@@ -141,6 +141,23 @@ code fact-finder mapped the letters flow (1 of 1).
     your agent". The DM list shows "AGENT <name>" without a "mirror agent" subtitle (owner's own
     view; Alice never meets Bob's agent in v6).
 
+
+### Codex review fixes (2026-10-13, verdict REVISE, 5 of 5 accepted)
+
+21. **Abandoned letters release the pair.** A letter opened and not finished for 14 days becomes
+    "Not finished": the one-open-letter lock is released, her saved answers are discarded unshared,
+    and Bob may send a new letter. `[FOUNDER DECISION: the period]`
+22. **The sharing boundary is stated before it is crossed.** Her first card says her answers stay
+    private until she sends them; the last card has one explicit button, "Send to Bob", saying what
+    he will see. Skipping a question never sends. (Refines decision 15: finishing is an act, not a
+    side effect of "No thanks".)
+23. **Changing the guess invalidates what depends on it.** A change to Bob's guess clears the
+    approval and seal of "Alice in Bob's eyes". Sharpening the point is a point edit: it clears the
+    vote, the guess, both approvals and both seals, and Bob confirms his position again.
+24. **Bob's seal on her story predicts her rating.** For "Alice in Bob's eyes" Bob is asked how
+    well Alice will say the story captures her meaning (0-10), matching the reveal's measurement,
+    not "How well do you understand Alice here?". `[FOUNDER DECISION: copy]`
+
 ## Solution
 
 ### Bob
@@ -257,6 +274,9 @@ end-of-letter agent offer.
 - [ ] Taps and words per step for Bob and Alice measured against v5 and written into this spec.
 - [ ] Reviews: component fidelity (vs letters and the feed), visual QA at 320 / 375 / 1440 from
       screenshots only, Codex adversarial; `<reports received> of <spawned>` stated; blockers fixed.
+- [ ] An abandoned letter releases the pair after the set period without sharing her answers.
+- [ ] Her answers reach Bob only through "Send to Bob"; skipping never sends.
+- [ ] Changing the guess clears the eyes story's approval and seal; sharpening clears the point's vote, guess, approvals and seals.
 - [ ] Founder walks the loop as Bob and as Alice.
 
 ## Related

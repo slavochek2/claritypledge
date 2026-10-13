@@ -62,6 +62,15 @@ Decision density: high: who the user is decides whether to build at all.
 4. Only if useful: make it a skill (`understanding` namespace), with Codex reviewing the skill's
    text only.
 
+## Decision Criteria (pre-registered, Codex review 2026-10-13)
+
+1. **Ground truth first:** for each test user, the user lists every stuck conversation they recall
+   in a fixed window (e.g. 12 months) before seeing any detector output.
+2. **Measure:** recall on that list, false positives in the top results, and moments per month.
+3. **Build** only if recall on known positives ≥ 2 of 3 and at least half the top results are ones
+   the user would act on; **stop** if recall is below that across 3+ users of the target role.
+   An empty result for one user does not reject the role.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
