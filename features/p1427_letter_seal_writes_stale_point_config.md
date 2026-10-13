@@ -72,7 +72,7 @@ re-read `point_config` immediately before the seal and abort on a change.
 
 ## Acceptance Criteria
 
-- [ ] Hiding a point in another tab before sealing keeps it hidden in the sealed letter
+- [x] Hiding a point in another tab before sealing keeps it hidden in the sealed letter
 - [x] Seal still persists the chosen `order`
 - [x] Regression test covers the two-writer sequence
 
@@ -85,8 +85,8 @@ It skips a story whose current `order` is already non-empty or whose row is gone
 closed: a failed read rejects, so the seal never runs. `letter-compose-page.tsx` `handleSeal` now
 calls it in place of the inline page-load spread.
 
-**Snapshot path (Root Cause UNVERIFIED item):** confirmed by reading the source, not by a
-runtime check. The current seal RPC
+**Snapshot path (Root Cause UNVERIFIED item):** confirmed from the source, and now also at runtime
+by the AC1 integration test below. The current seal RPC
 (`supabase/migrations/20260904120000_p1212_seal_rpc_story_author_name.sql` L132, L141–145) copies
 `ds.point_config` `hidden` / `order` / `lead_count` from the `doc_stories` row at seal time. So
 whatever the pre-seal write leaves in the row is what recipients get.
@@ -99,11 +99,29 @@ whatever the pre-seal write leaves in the row is what recipients get.
 - After the fix: `Tests 14 passed (14)` (P1427 + P837 suites). Full unit suite:
   `Test Files 562 passed | 2 skipped (564)`, `Tests 6216 passed | 19 skipped (6235)`.
 
-**AC1 left unticked on purpose.** The row-level behaviour is proven: `hidden` / `lead_count`
-survive and `order` is merged. But no letter was sealed end to end in a browser or e2e, so "hidden
-in the sealed letter" rests on reading the RPC source. No existing e2e seals a story with 2+ points
-and an empty `order`, which is the only case that reaches the new read. Needs UAT: the two-tab
-repro steps above, then read the letter's snapshot.
+**AC1: real seal against the TEST project.** The test is
+`src/tests/integration/p1427-seal-keeps-concurrent-hidden.test.ts`. It runs in the live vitest
+lane because it needs the app's own `docsService` and `lettersService`; Playwright
+`e2e/integration` can't load those (see `src/tests/integration/vitest.config.ts`).
+
+The test:
+1. Seeds one story with 3 points and `point_config: { order: [] }`.
+2. Loads it with `docsService.getDoc`, which is the composer's page-load view.
+3. Acts as a second writer and hides point 2 with `updatePointConfig`.
+4. Runs `persistDefaultPointOrders`, then `lettersService.createLetter` and `sealLetter`.
+5. Reads `letter_story_snapshots.point_config` from the sealed letter.
+
+Run with
+`npx vitest run --config src/tests/integration/vitest.config.ts src/tests/integration/p1427-seal-keeps-concurrent-hidden.test.ts`.
+- Control (pre-fix behaviour, with `getPointConfigs` temporarily returning the page-load configs):
+  the run fails with `AssertionError: the second writer's hide was reverted by the seal: expected []
+  to deeply equal [ Array(1) ]`, and `Tests 1 failed (1)`. So the sealed snapshot published the
+  hidden point.
+- With the fix: `✓ AC1: hidden survives the seal into the snapshot, and the order is persisted`,
+  `Tests 1 passed (1)`. The snapshot's `hidden` is `[point2]`, `points[point2].hidden` is `true`,
+  and `order` equals the displayed order.
+- Cleanup was checked after the runs. The P1427 doc, story, points, profile and delivery each
+  return `[]` from the TEST REST API, and a known-good control on the same columns returns rows.
 
 **Residual race (deferred):** the fix is read-then-write, not atomic. A `hidden` / `lead_count`
 change that lands between the fresh read and the write (one round trip, milliseconds) is still
