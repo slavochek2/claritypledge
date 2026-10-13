@@ -8,6 +8,69 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-13 [product]: Agents are navy, people are in color — the agent banner treatment is chosen on the whole profile header, not on banner strips (P1483)
+
+**Context:** P1453 (2026-10-09) gave agent banners "the full, unfiltered art", reasoning that grey
+collides with P1104 and a heavy navy duotone flattens styles. Once all 10 prod agents carried
+full-color artist banners, an agent's banner could not be told from a person's. Founder, verbatim:
+"no we do the fitler for agents! to distinishg them from people" — and "color or less/no/diffent
+color is easy".
+
+**Decision:** Agent profile banners get a strong navy layer (`#1e3a8a`, `mix-blend-mode: color`,
+0.75) at display time; people's banners stay in full color. No image is regenerated, so every current
+and future agent gets it at once. `color` blend keeps the painting's own luminance, so the stored
+signature ink (chosen from luminance) stays valid. The image is held invisible while agent identity
+is pending, so an agent never flashes in color before turning navy, and a person is never tinted.
+
+**How it was chosen — and why the first two rounds misled.** Rendered on isolated banner strips,
+texture options (dots, scan lines) looked best and Codex picked dots. The strips were biased twice:
+the strong-navy column was labelled "the one that failed before", and the prompt restated the old
+objection. A blind re-ask still ranked dots first. Only the **whole header** — banner beside the
+generated agent portraits (cool grey-blue), the slate initials square, and a person's profile —
+settled it: navy reads as one coherent agent look, scan lines vanish at real size, dots read as a
+print defect. **Judge a profile treatment on the rendered header with its real avatars, never on the
+banner alone** — the P1104 "measure at rendered size" ruling, extended to "measure in context".
+
+**Alternatives rejected:** grey (P1104); dot screen (Codex's pick — visible but reads as a defect);
+scan lines (invisible at 320–390px); medium navy (reads as a faded photo); a banner badge (P1453
+D-A's "no badge" half stands).
+
+**Consequences:** Two known limits, accepted: light paintings come out pale blue rather than deep
+navy (inherent to `color` blend), and a person can also have a navy banner (the founder's own
+hand-set banner is one) — agents still differ by square avatar, AGENT label, and navy over a painting.
+**Falsifier:** if visitors still cannot tell an agent profile from a person's at a glance, the
+treatment failed and the badge question reopens.
+**References:** [P1483](../features/done/2026-06-10/p1483_agent_banner_navy_treatment.md),
+[P1453](../features/done/2026-06-10/p1453_artist_style_profile_banners.md)
+
+## 2026-10-13 [technical]: A Gemini key has two independent spend caps, and the Cloud one only unlocks in the order lift, raise, save — correcting "raise then lift"
+
+**Context:** The batch Gemini key (`cp-batch`) stopped answering mid-month with `403 Spend cap
+breached`, blocking the P1453 agent backfill after 6 of 10 and, on the same key, room transcription.
+`/day` reported nothing: its key check only covered the interactive key.
+
+**What was true.** (1) There are **two separate caps**: the AI Studio project spend cap and the Cloud
+Billing budget with spend-cap enforcement that `ai-keys` creates. Raising the AI Studio cap to EUR 250
+changed nothing for 30 minutes; the Cloud budget (EUR 75, *Enforced*) was the one refusing. (2) An
+enforced Cloud budget's amount is **locked until the cap is lifted** ("The budget is locked until the
+spend cap is lifted"), so the instruction carried in `day-cp.md` and `check-gemini-prod-key.sh` —
+*raise, then lift* — cannot be performed. The order that works: **lift, raise the amount at once,
+save**; the budget then reads *Spend cap configured* at the new amount and enforces again. Google's
+own dialog says a cap lifted in-month only re-triggers if the amount is increased — which the raise
+supplies. Service resumed within a minute of the lift. (3) Caps count **gross, pre-credit** usage:
+EUR 84 gross against EUR ~1 actually billed, the rest covered by credits. With credits, a cap limits
+usage, not money.
+
+**Decision:** Correct the "raise, then lift" text to "lift, then raise and save in the same visit".
+`check-gemini-prod-key.sh --key batch` now checks the batch key, and `/day` runs it as
+`cp.gemini-batch`. This refines 2026-09-10's "raising it restores service": raising the *right* cap
+does, and only after it is lifted.
+
+**Consequences:** During the lift-to-save window only the AI Studio cap bounds spend, so keep both
+caps set. Size a cap to gross usage (~EUR 190/month at the October pace), not to the bill.
+**References:** 2026-09-10 [process] spend-cap entry (above, older);
+[check-gemini-prod-key.sh](../scripts/check-gemini-prod-key.sh)
+
 ## 2026-10-13 [product]: Day page — one list and one layout for cards and stories; goals read from goals.md, not written by the run (P1468)
 
 **Context:** On the 2026-10-13 run the founder annotated two Day page screenshots: switching from issue cards to stories changed the left side and the top ("keep the left side and be integrated"); the agent's stance sat above the statement instead of inside "Their story"; "Agent: 7 tasks. What's that? … why i need it?" appeared twice; Stats carried run notes (shipped since last run, cloud spend already on Monitoring, a cryptic "what's next") where the founder wanted "goals, what goal and what's next"; chat help requests were a tile to read instead of something to act on.

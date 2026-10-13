@@ -252,6 +252,9 @@ Last updated: 2026-10-13
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+
+- **P1453** (Oct 26) Artist-style profile banners, signed "after <artist>" — ink chosen from the displayed crop's luminance, stored with the banner; rate limit reserves first, then counts
+- **P1483** (Oct 26) Agent banners navy, people in color — judge a profile treatment on the whole header with real avatars, never on banner strips
 - **P1423** (Oct 26) Cards carry one neutral grey left stripe, none on focus screens — the stripe no longer encodes visibility; private = lock + muted background
 - **P1422** (Oct 26) /meet track under Tools on phones — sticky offsets must include env(safe-area-inset-top) and the offline strip
 - **P1393** (Oct 02) Design-system sweep — decide visuals from /tree A/B pages; hex sweeps must skip avatar colour data.
