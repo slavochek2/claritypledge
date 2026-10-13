@@ -14,8 +14,8 @@ tags:
   - day-page
   - kanban
 created_date: 2026-10-13
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P1468: Day page: one list for cards and stories, the agent's work said once, goals instead of "From this run"
