@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 30
 workstream: infrastructure
@@ -7,8 +7,8 @@ created_date: '2026-10-13'
 tags: [kanban, typescript, pre-commit, test-hygiene]
 disclosure: public
 intent: cold-start
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: low
@@ -83,15 +83,58 @@ triggers pre-commit's console.log warning on every commit that stages that file.
 
 ## Done-When
 
-- [ ] `cd tools/kanban && npx tsc --noEmit -p .` exits 0 (paste the output).
-- [ ] `grep -n "console.log('THEME-PARITY" tools/kanban/e2e-day/day-page.spec.ts` returns nothing,
+- [x] `cd tools/kanban && npx tsc --noEmit -p .` exits 0 (paste the output).
+      Evidence (2026-10-13, w9): before, 16 errors and exit 2 (12 TS2339, 4 TS2783). After, no
+      output and `npx tsc rc=0` (tsc 5.9.3).
+- [x] `grep -n "console.log('THEME-PARITY" tools/kanban/e2e-day/day-page.spec.ts` returns nothing,
       and the theme-parity test still passes.
+      Evidence: the grep printed nothing (rc=1). `playwright test --config=playwright.day.config.ts -g "theme parity"`
+      with `DAY_E2E_PORT_BASE=9170` reported `1 passed (52.5s)`.
 - [ ] Gate 7 proof: in a worktree, add a deliberate type error to a kanban `.ts` file and stage it.
       `bash scripts/pre-commit-checks.sh` exits non-zero and names the kanban typecheck. Revert, and
       it passes. Paste both exit codes.
-- [ ] A commit staging no `tools/kanban` TypeScript does not run the kanban typecheck (the output
+      Partial evidence (section level only): the dev subagent may not run the full script, because a
+      session hook blocks it. Section 4.5b was extracted verbatim from the file with `sed` and run
+      against the real w9 index. With `'not a number'` assigned to a `number` in `lib/scanner-rules.ts`
+      and staged, it printed `>>> Kanban typecheck... ✗` and `TS2322`, then `ERRORS=1 rc=1`. After the
+      revert and restage: `✓`, `ERRORS=0 rc=0`. The script ends with `if [ $ERRORS -gt 0 ]` and
+      `exit 1`, but the **full-script exit codes are still to be pasted** from a main session.
+- [x] A commit staging no `tools/kanban` TypeScript does not run the kanban typecheck (the output
       shows it skipped).
-- [ ] The kanban unit tests (`cd tools/kanban && npm test`) pass.
+      Evidence (same section harness): with an empty index, and again with only the spec and
+      `scripts/pre-commit-checks.sh` staged, it printed
+      `>>> Kanban typecheck skipped (no tools/kanban TypeScript staged)` with rc=0. With only
+      `tools/kanban/package.json` staged (temp index) it also skipped.
+- [x] The kanban unit tests (`cd tools/kanban && npm test`) pass.
+      Evidence: `vitest run`. Before: 25 files and 503 tests passed. After: 25 files and 503 tests passed.
+
+## Dev Notes
+
+- **Gate duration:** section 4.5b took about 3.1s wall on a clean tree (`time`, w9, 2026-10-13).
+- **This differs from Solution step 4 in three ways:**
+  - The trigger also matches `tools/kanban/tsconfig.json`, and it includes staged deletions.
+  - It runs the board's own `tools/kanban/node_modules/.bin/tsc` (5.9.3), not `npx tsc` from the
+    root (5.7.3). Without the board's install, the root compiler reported missing modules that are
+    not real errors.
+  - If that install is missing, the commit is blocked rather than skipped. Section 4.5 already
+    fails without the same install (measured: `Cannot find package 'gray-matter'`), so no kanban
+    commit that passes today starts failing here. Worktrees do not get `tools/kanban/node_modules`
+    from `git-ops.sh claim`; w9 used a symlink to the main checkout's copy.
+- **`validateFrontmatter` stays the same:** there is deliberately no `typeof === 'object'` check.
+  A differential run compared the old and new function on 1,469 inputs: every `features/**`
+  frontmatter, primitives, arrays, and a function carrying `status`/`rank`. It found 0 differences.
+  A mutant with the object check that Solution step 1 suggested produced 4 differences, so
+  that check would have changed both an error message and an accept/reject result.
+- **TS2783 differs from Solution step 2.** Deleting the literal `role`/`tabIndex` broke ESLint:
+  `jsx-a11y/no-static-element-interactions` needs a literal `role`, so pre-commit section 2 would
+  have blocked every commit. HEAD passed ESLint, and a dynamic `role={role}` also failed. The fix
+  is the reverse: keep the literals where they were, and take `role`/`tabIndex` out of dnd-kit's
+  spread (`const { role: _dndRole, tabIndex: _dndTabIndex, ...dragAttributes } = attributes`).
+  dnd-kit's values are its defaults, `'button'` and `0`, because neither call passes the
+  `attributes` option. A temporary `renderToStaticMarkup` diff compared HEAD and the new `Card`
+  (2 features) and `FocusPage`. After normalizing dnd-kit's global `DndDescribedBy-N` counter, the
+  markup was byte-identical. The same diff failed on that counter before normalizing, which shows it
+  can detect a difference. The test files were deleted afterwards.
 
 ## Related
 

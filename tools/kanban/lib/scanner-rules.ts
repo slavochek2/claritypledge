@@ -184,40 +184,44 @@ export function validateFrontmatter(frontmatter: unknown): {
     return { success: false, error: 'Frontmatter is missing' };
   }
 
+  // Any non-nullish value supports property reads, so no object check here: a truthy
+  // primitive must keep failing on `status` with the same message as before (P1474).
+  const fm = frontmatter as Record<string, unknown>;
+
   // Validate status (required)
-  if (!isValidStatus(frontmatter.status)) {
+  if (!isValidStatus(fm.status)) {
     return {
       success: false,
-      error: `Invalid status: ${frontmatter.status}. Must be one of: ${VALID_STATUS.join(', ')}`,
+      error: `Invalid status: ${fm.status}. Must be one of: ${VALID_STATUS.join(', ')}`,
     };
   }
 
   // Validate rank (required)
-  if (!isValidRank(frontmatter.rank)) {
+  if (!isValidRank(fm.rank)) {
     return {
       success: false,
-      error: `Invalid rank: ${frontmatter.rank}. Must be a positive number`,
+      error: `Invalid rank: ${fm.rank}. Must be a positive number`,
     };
   }
 
   // Validate type (optional, but if present must be valid)
-  if (frontmatter.type !== undefined && !isValidType(frontmatter.type)) {
+  if (fm.type !== undefined && !isValidType(fm.type)) {
     return {
       success: false,
-      error: `Invalid type: ${frontmatter.type}. Must be one of: ${VALID_TYPE.join(', ')}`,
+      error: `Invalid type: ${fm.type}. Must be one of: ${VALID_TYPE.join(', ')}`,
     };
   }
 
   // Validate size (optional, but if present must be valid)
-  if (frontmatter.size !== undefined && !isValidSize(frontmatter.size)) {
+  if (fm.size !== undefined && !isValidSize(fm.size)) {
     return {
       success: false,
-      error: `Invalid size: ${frontmatter.size}. Must be one of: ${VALID_SIZE.join(', ')}`,
+      error: `Invalid size: ${fm.size}. Must be one of: ${VALID_SIZE.join(', ')}`,
     };
   }
 
   // Validate tags (optional, but if present must be array of strings)
-  if (frontmatter.tags !== undefined && !isValidTags(frontmatter.tags)) {
+  if (fm.tags !== undefined && !isValidTags(fm.tags)) {
     return {
       success: false,
       error: 'Invalid tags: must be an array of strings',

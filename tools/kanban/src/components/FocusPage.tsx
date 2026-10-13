@@ -122,6 +122,11 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
     id: feature.id,
   })
 
+  // dnd-kit's attributes also carry role and tabIndex, with the same values as the literals
+  // below ('button' and 0, its defaults). Leaving them out of the spread gives each prop one
+  // source: TS2783 flags the overwrite, and jsx-a11y can only see a literal role (P1474).
+  const { role: _dndRole, tabIndex: _dndTabIndex, ...dragAttributes } = attributes
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -159,7 +164,7 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
           if ((e.key === 'Enter' || e.key === ' ') && !isDragging) setDialogOpen(true)
         }}
         {...listeners}
-        {...attributes}
+        {...dragAttributes}
       >
         {/* Name */}
         <div style={{ ...cellStyle, flex: 1, minWidth: 0, fontWeight: 'var(--font-weight-regular)' as never }}>

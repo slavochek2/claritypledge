@@ -43,6 +43,11 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
     data: { status: feature.status },
   })
 
+  // dnd-kit's attributes also carry role and tabIndex, with the same values as the literals
+  // below ('button' and 0, its defaults). Leaving them out of the spread gives each prop one
+  // source: TS2783 flags the overwrite, and jsx-a11y can only see a literal role (P1474).
+  const { role: _dndRole, tabIndex: _dndTabIndex, ...dragAttributes } = attributes
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -111,7 +116,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         }
       }}
       {...listeners}
-      {...attributes}
+      {...dragAttributes}
     >
       {/* Title */}
       <div

@@ -234,6 +234,26 @@ else
 fi
 echo ""
 
+# 4.5b. Kanban typecheck (P1474) — nothing typechecked tools/kanban: section 1 compiles
+# tsconfig.app.json only and CI never references the board, so its `tsc` reached 16 errors
+# on main unnoticed. Runs only when kanban TypeScript or its tsconfig is staged (deletions
+# included — removing a file can break an import). Uses the board's own compiler, never the
+# root one: the versions differ, and without the board's deps tsc reports missing modules
+# that are not real errors. A missing install blocks rather than skips; section 4.5 already
+# needs the same install, so no kanban commit that passes today starts failing here.
+KANBAN_TS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '^tools/kanban/(.*\.(ts|tsx)|tsconfig\.json)$' || true)
+if [ -z "$KANBAN_TS_STAGED" ]; then
+    echo ">>> Kanban typecheck skipped (no tools/kanban TypeScript staged)"
+elif [ ! -x tools/kanban/node_modules/.bin/tsc ]; then
+    echo -e ">>> Kanban typecheck... ${RED}✗ could not run — tools/kanban/node_modules is missing. Blocking commit.${NC}"
+    echo "    Main checkout: run npm install in tools/kanban."
+    echo "    Worktree: symlink tools/kanban/node_modules to the main checkout's tools/kanban/node_modules."
+    ERRORS=$((ERRORS + 1))
+elif ! run_quiet "Kanban typecheck" bash -c 'cd tools/kanban && ./node_modules/.bin/tsc --noEmit -p .'; then
+    ERRORS=$((ERRORS + 1))
+fi
+echo ""
+
 # 4.6. Worktree setup canary (P783) — runs when any script that touches worktree
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,

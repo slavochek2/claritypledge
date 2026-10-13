@@ -2971,7 +2971,6 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await page.evaluate(() => document.fonts.ready)
     const ref = await probeStyles(cp, '.d-cpcard')
     await cp.close()
-    console.log('THEME-PARITY ' + JSON.stringify({ board, cp: ref }))
     expect(board).toEqual(ref)
     // CP's Inter is really loaded on the board (the stack names it; this proves the face is there)
     expect(await page.evaluate(() => document.fonts.check('16px Inter'))).toBe(true)
