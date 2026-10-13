@@ -1762,17 +1762,22 @@ echo ""
 # --index: both the staged files AND the corpus they are judged against are read from the
 # index, so an unstaged edit or an untracked migration on disk cannot change the verdict
 # on what is actually being committed (Codex review 2026-10-13).
-echo ">>> Checking new/modified migrations for grant-order contradictions (P1102)..."
-if [ -n "$NEW_MIGRATIONS" ]; then
+# Triggered by ANY staged migration path, renames and deletions included (ACMRD): moving
+# or deleting a re-assert adds no grant, so only --invariant (whole tree, over the index)
+# can see that it left an unacknowledged re-grant as the last word (Opus review 2026-10-14).
+echo ">>> Checking staged migrations for grant-order contradictions (P1102)..."
+GRANT_ORDER_TOUCHED=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+GRANT_ORDER_TARGETS=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+if [ -n "$GRANT_ORDER_TOUCHED" ]; then
     # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
-    if python3 ./scripts/check-migration-grant-order.py --index $NEW_MIGRATIONS; then
+    if python3 ./scripts/check-migration-grant-order.py --index --invariant $GRANT_ORDER_TARGETS; then
         echo -e "${GREEN}✓ No grant-order contradiction${NC}"
     else
-        echo -e "${RED}✗ A staged migration contradicts another migration's grant (see above)${NC}"
+        echo -e "${RED}✗ A staged migration change contradicts another migration's grant (see above)${NC}"
         ERRORS=$((ERRORS + 1))
     fi
 else
-    echo -e "${GREEN}✓ No new migrations staged${NC}"
+    echo -e "${GREEN}✓ No migrations staged${NC}"
 fi
 echo ""
 

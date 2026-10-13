@@ -366,6 +366,133 @@ check("a target that is not in the index exits 2, never 0",
       code == 2 and "did NOT run" in err, f"exit {code}: {out}{err}")
 
 # ---------------------------------------------------------------------------
+print("\nRound 5 (Opus adversarial review 2026-10-14)")
+
+
+def run_gate(d, *targets, invariant=False):
+    cmd = [sys.executable, CHECKER, "--index", "--dir", d]
+    cmd += ["--invariant"] if invariant else []
+    cmd += [f"supabase/migrations/{t}" for t in targets]
+    p = subprocess.run(cmd, capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(d)))
+    return p.returncode, p.stdout, p.stderr
+
+
+def git(root, *args):
+    subprocess.run(["git", "-C", root, *args], check=True, capture_output=True)
+
+
+GA = "GRANT EXECUTE ON FUNCTION public.widget_write(uuid, jsonb) TO anon;\n"
+RA = "REVOKE EXECUTE ON FUNCTION public.widget_write(uuid, jsonb) FROM anon;\n"
+D0101, D0115, D0201 = ("20260101000000_create.sql", "20260115000000_new.sql",
+                       "20260201000000_applied.sql")
+
+# 1. Apply order is not filename order: migrate.sh applies every version missing from
+# remote history, so a NEW file dated before an applied revoke runs AFTER it.
+root, d = git_repo({D0101: "", D0201: RA, D0115: GA}, stage=[D0101, D0201, D0115])
+code, out, err = run_gate(d, D0115)
+check("1: a new GRANT dated before an applied REVOKE is refused (it applies last)",
+      code == 1 and "widens-revoked" in out, out + err)
+root, d = git_repo({D0101: "", D0201: RA,
+                    D0115: "-- widens-revoked-grant: 20260201000000 reopened on purpose (P9)\n" + GA},
+                   stage=[D0101, D0201, D0115])
+code, out, err = run_gate(d, D0115)
+check("1 ACCEPT: the same grant acknowledging the applied revoke", code == 0, out + err)
+code, out, err = run(mig_dir({D0101: "", D0201: RA, D0115: GA}), D0115)
+check("1: the same holds when reading the working tree", code == 1, out + err)
+root, d = git_repo({D0101: "", D0201: GA, D0115: RA}, stage=[D0101, D0201, D0115])
+code, out, err = run_gate(d, D0115)
+check("1: a new REVOKE dated before an existing GRANT is still refused (replay ends granted)",
+      code == 1 and "revoke-undone" in out, out + err)
+
+
+def commit_all(root):
+    """Record the index as HEAD with plumbing (no hooks involved: this is a fixture)."""
+    tree = subprocess.run(["git", "-C", root, "write-tree"], capture_output=True, text=True,
+                          check=True).stdout.strip()
+    c = subprocess.run(["git", "-C", root, "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit-tree", tree, "-m", "fixture"], capture_output=True, text=True,
+                       check=True).stdout.strip()
+    git(root, "update-ref", "HEAD", c)
+
+
+# Gate 7c: an EDIT to an already-committed migration does not move it — migrate.sh never
+# re-runs a version already applied, so its filename position is its real place.
+root, d = git_repo({D0101: "", D0115: GA, D0201: RA}, stage=[D0101, D0115, D0201])
+commit_all(root)
+with open(os.path.join(d, D0115), "a") as fh:
+    fh.write("-- comment-only edit\n")
+git(root, "add", f"supabase/migrations/{D0115}")
+code, out, err = run_gate(d, D0115)
+check("1 ACCEPT: editing an already-committed early GRANT is judged in place, not as last",
+      code == 0, out + err)
+
+# 2. Whole-tree invariant over the index: no UNACKNOWLEDGED revoke-then-grant whose
+# final state is granted. Renames, deletes and edits of a re-assert all reach it.
+BASE = {A: REVOKE_AUTH, B: GRANT_AUTH, C: REVOKE_AUTH}
+root, d = git_repo(BASE, stage=list(BASE))
+code, out, err = run_gate(d, invariant=True)
+check("2 ACCEPT: the invariant passes while the re-assert is last", code == 0, out + err)
+git(root, "mv", f"supabase/migrations/{C}", "supabase/migrations/20260101120000_c.sql")
+code, out, err = run_gate(d, "20260101120000_c.sql", invariant=True)
+check("2: renaming the re-assert to before the grant is refused",
+      code == 1 and "invariant" in out, out + err)
+root, d = git_repo(BASE, stage=list(BASE))
+git(root, "rm", "-q", "--cached", f"supabase/migrations/{C}")
+code, out, err = run_gate(d, invariant=True)
+check("2: deleting the re-assert is refused", code == 1 and "invariant" in out, out + err)
+root, d = git_repo(BASE, stage=list(BASE))
+with open(os.path.join(d, C), "w") as fh:
+    fh.write("SELECT 1;\n")
+git(root, "add", f"supabase/migrations/{C}")
+code, out, err = run_gate(d, C, invariant=True)
+check("2: editing the re-assert so it no longer revokes is refused",
+      code == 1 and "invariant" in out, out + err)
+root, d = git_repo({A: REVOKE_AUTH,
+                    B: "-- widens-revoked-grant: 20260101000000 reopened on purpose (P9)\n" + GRANT_AUTH},
+                   stage=[A, B])
+code, out, err = run_gate(d, invariant=True)
+check("2 ACCEPT: an acknowledged re-grant ending granted passes the invariant", code == 0, out + err)
+
+# 4a. The annotation counts only as a real `--` comment line.
+for where, body in (
+        ("a block comment", "/*\n-- widens-revoked-grant: 20260101000000 sneaky\n*/\n"),
+        ("a string literal", "SELECT '\n-- widens-revoked-grant: 20260101000000 sneaky\n';\n"),
+        ("a DO body", "DO $$\n-- widens-revoked-grant: 20260101000000 sneaky\nBEGIN END $$;\n")):
+    code, out, err = run(mig_dir({A: REVOKE_AUTH, B: body + GRANT_AUTH}), B)
+    check(f"4a: an annotation inside {where} does not count", code == 1, out + err)
+
+# 4b. _T is the internal name of T[].
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(text[]) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(_text) TO anon;\n"}), B)
+check("4b: _text matches text[]", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(int4[]) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(_int4) TO anon;\n"}), B)
+check("4b: _int4 matches integer[]", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(text[]) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(text) TO anon;\n"}), B)
+check("4b ACCEPT: text is not text[]", code == 0, out + err)
+
+# 4c. An argument whose NAME is a type word.
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(timestamptz) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(time timestamptz) TO anon;\n"}), B)
+check("4c: an argument named `time` of type timestamptz is timestamptz", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(timetz) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(time with time zone) TO anon;\n"}), B)
+check("4c: `time with time zone` is still a bare type", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(timestamptz) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(p time) TO anon;\n"}), B)
+check("4c ACCEPT: `p time` is type time, not timestamptz", code == 0, out + err)
+
+# 4d. An argument-less GRANT reaches every overload, so it is judged against each.
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.o(uuid) FROM anon;\n",
+                              B: "DROP FUNCTION public.o(text);\nGRANT EXECUTE ON FUNCTION o TO anon;\n"}), B)
+check("4d: DROP o(text) then GRANT ON FUNCTION o still re-opens o(uuid)", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.o(uuid) FROM anon;\n"
+                                 "GRANT EXECUTE ON FUNCTION public.o(text) TO anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION o TO anon;\n"}), B)
+check("4d: a newer grant on another overload does not hide o(uuid)'s revoke", code == 1, out + err)
+
+# ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")
 INCIDENT_RESTORE = "20260818140000_p1065_restore_authenticated_grant_persist_anonymous_completion.sql"
 INCIDENT_REVOKE = "20260818090000_p1093_close_unchecked_payload_writer.sql"

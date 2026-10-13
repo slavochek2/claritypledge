@@ -30,6 +30,14 @@ migration ever mentions counts as not granted.
                    undo this revoke. No annotation can fix that; re-assert the revoke
                    in a migration ordered last (P1093 did exactly this).
 
+Two orders, because two orders run. A fresh environment or a replay applies migrations
+in filename order; test and prod (migrate.sh) apply every version missing from remote
+history AFTER everything already applied, whatever its timestamp. Staged files that are
+new versions are therefore also judged as applying last, and a contradiction in either
+order is refused. `--invariant` adds a whole-tree rule over the index: no unacknowledged
+revoke-then-grant may end granted — which is what catches a re-assert being renamed
+earlier, deleted, or edited so it no longer revokes.
+
 The asymmetry is deliberate and is the one the grant-drift check makes: a narrowing
 that wins on timestamp is at worst an outage, which is loud; a widening that wins is
 a vulnerability, which is silent. Only the widening needs a human in the loop.
@@ -53,7 +61,19 @@ Known limitations (epistemic gate 7b — the honest list; not fixed, by decision
   - A half-revoke (one source revoked, the other still granted — P1066) is not an
     ordering problem and is not refused here.
   - The annotation is file-wide per version: one `widens-revoked-grant: V` line
-    acknowledges every function in that file whose closing revoke was in V.
+    acknowledges every function in that file whose closing revoke was in V. Only a real
+    `--` comment that starts its line counts (not text in a string, a /* */ comment or
+    a dollar-quoted body).
+  - Merges by cherry-pick. /ship lands commits with cherry-pick, which runs no hook, so
+    a contradiction that exists only once two branches combine is not checked when it
+    forms. `--invariant` catches it on the next commit that stages any migration; until
+    then nothing does. A ship-time / CI run of `--index --invariant` is the follow-up.
+  - Which versions are applied is not known offline. "New version" means added (or
+    renamed/copied to a new path) relative to HEAD; a modified file is judged in its
+    filename position. A migration added earlier on the same branch, not yet applied,
+    and then edited to add a grant is therefore judged in filename order only.
+  - Nested /* */ comments and E'' strings with backslash escapes are not parsed as
+    Postgres does, for both statement parsing and annotation detection.
   - Live state. A grant changed out of band never appears in migration text; the
     grant-drift check (scripts/function-grant-drift-check.py) owns that question.
 
@@ -63,6 +83,8 @@ Usage
   scripts/check-migration-grant-order.py --tree    # audit every revoke→grant transition
   --index                                          # read the git index, not the disk
                                                    # (pre-commit: what will be committed)
+  --invariant                                      # also refuse any unacknowledged
+                                                   # revoke-then-grant that ends granted
   --dir DIR                                        # migrations directory (default:
                                                    # supabase/migrations here)
 
@@ -105,10 +127,9 @@ sql_code = _fgd._sql_code
 CLIENT_ROLES = ("anon", "authenticated", "public")
 # The roles a PUBLIC grant or revoke can open or close.
 EXPANDED_ROLES = ("anon", "authenticated")
-# [ \t] rather than \s throughout: \s crosses the newline, and the next line of SQL
-# would then be read as the annotation's reason.
-MARKER_RE = re.compile(r"^[ \t]*--[ \t]*widens-revoked-grant:[ \t]*(\d{14})\b[ \t]*(\S.*)?$",
-                       re.IGNORECASE | re.MULTILINE)
+# Matched against ONE real `--` comment (see annotation_versions), never the raw file.
+MARKER_RE = re.compile(r"^--[ \t]*widens-revoked-grant:[ \t]*(\d{14})\b[ \t]*(\S.*)?$",
+                       re.IGNORECASE)
 
 _PRIV = r"(?:EXECUTE|ALL(?:\s+PRIVILEGES)?)"
 GRANT_RE = re.compile(
@@ -132,9 +153,20 @@ TYPE_ALIASES = {
     "timetz": "time with time zone", "time without time zone": "time",
     "decimal": "numeric", "char": "character", "bpchar": "character",
 }
-# First words of multi-word type names. An argument whose first word is one of these
-# is a bare type; otherwise a two-or-more-word argument starts with its name.
-MULTIWORD_TYPE_STARTS = {"timestamp", "time", "character", "double", "bit", "interval", "national"}
+# The multi-word type names. A multi-word argument that is NOT one of these starts with
+# its name — including a name that is itself a type word: `time timestamptz` is an
+# argument named time of type timestamptz.
+MULTIWORD_TYPE_RE = re.compile(
+    r"^(?:(?:timestamp|time)(?: (?:with|without) time zone)?"
+    r"|character varying|char varying|double precision|bit varying"
+    r"|national (?:character|char)(?: varying)?"
+    r"|interval(?: (?:year|month|day|hour|minute|second)(?: to (?:month|hour|minute|second))?)?)$")
+# Canonical built-ins whose internal array name is `_<name>` (`_text` IS text[]).
+BUILTIN_TYPES = {
+    "text", "uuid", "integer", "bigint", "smallint", "boolean", "json", "jsonb", "numeric",
+    "character varying", "character", "timestamp with time zone", "timestamp", "time",
+    "time with time zone", "date", "double precision", "real", "bytea", "interval", "oid",
+}
 ARG_MODES = {"in", "out", "inout", "variadic"}
 
 
@@ -172,17 +204,21 @@ def normalise_arg(arg):
         return None
     if tokens and tokens[0].lower() in ARG_MODES:
         tokens = tokens[1:]
-    # Judge the first word without its schema: `pg_catalog.timestamp with time zone` is a
-    # bare type, not an argument named `pg_catalog.timestamp`.
-    if len(tokens) > 1 and tokens[0].lower().strip('"').split(".")[-1] not in MULTIWORD_TYPE_STARTS:
-        tokens = tokens[1:]
+    if len(tokens) > 1:
+        whole = re.sub(r"^(?:pg_catalog|public)\.", "", " ".join(tokens).lower().replace('"', ""))
+        whole = " ".join(re.sub(r"\([^)]*\)", " ", whole).split())
+        if not MULTIWORD_TYPE_RE.match(re.sub(r"(?:\[\])+$", "", whole)):
+            tokens = tokens[1:]
     t = " ".join(tokens).lower().replace('"', "")
     base, brackets = re.match(r"^(.*?)((?:\[\])*)$", t).groups()
     # Built-in types resolve through pg_catalog whether or not it is written, and a
     # function's argument types carry no typmod: f(varchar(32)) IS f(varchar).
     base = re.sub(r"^(?:pg_catalog|public)\.", "", base.strip())
     base = " ".join(re.sub(r"\([^)]*\)", " ", base).split())
-    return TYPE_ALIASES.get(base, base) + brackets
+    base = TYPE_ALIASES.get(base, base)
+    if base.startswith("_") and TYPE_ALIASES.get(base[1:], base[1:]) in BUILTIN_TYPES:
+        base, brackets = TYPE_ALIASES.get(base[1:], base[1:]), brackets + "[]"
+    return base + brackets
 
 
 def parse_function_ref(ref):
@@ -271,12 +307,47 @@ def version(fname):
     return os.path.basename(fname)[:14]
 
 
+def annotation_versions(raw):
+    """Versions cited by `-- widens-revoked-grant: <version> <reason>` annotations.
+
+    Only a real `--` comment that starts its line counts. The same text inside a string
+    literal, a /* */ comment or a dollar-quoted body (a DO block, a function) is not an
+    annotation, and matching the raw file let it acknowledge a widening.
+    """
+    found, i, n = set(), 0, len(raw)
+    while i < n:
+        c = raw[i]
+        if raw.startswith("/*", i):
+            j = raw.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        elif raw.startswith("--", i):
+            j = raw.find("\n", i)
+            j = n if j < 0 else j
+            if not raw[raw.rfind("\n", 0, i) + 1:i].strip():
+                m = MARKER_RE.match(raw[i:j])
+                if m and m.group(2) and m.group(2).strip():
+                    found.add(m.group(1))
+            i = j
+        elif c in "'\"":
+            j = i + 1
+            while j < n and not (raw[j] == c and not raw.startswith(c * 2, j)):
+                j += 2 if raw.startswith(c * 2, j) else 1
+            i = j + 1
+        elif c == "$" and re.match(r"\$\w*\$", raw[i:i + 64]):
+            tag = re.match(r"\$\w*\$", raw[i:i + 64]).group(0)
+            j = raw.find(tag, i + len(tag))
+            i = n if j < 0 else j + len(tag)
+        else:
+            i += 1
+    return found
+
+
 class Ledger:
     """Replays events in migration order. Holds, per function and grant SOURCE (anon,
     authenticated, PUBLIC), the latest GRANT/REVOKE and the file it came from."""
 
     def __init__(self, state=None, seq=0):
-        self.state = dict(state or {})   # (name, args, source) -> (kind, file, seq)
+        self.state = dict(state or {})   # (name, args, source) -> (kind, file, seq, position)
         self.seq = seq
 
     def copy(self):
@@ -306,19 +377,23 @@ class Ledger:
             return True, grants
         return False, [(s, v) for s, v in srcs if v and v[0] == "revoke"]
 
-    def apply(self, fname, events):
+    def overloads(self, name):
+        return {k[1] for k in self.state if k[0] == name}
+
+    def apply(self, fname, events, position):
         for _, kind, (name, args), source in events:
             self.seq += 1
             if kind == "reset":
                 for k in self._reset_keys(name, args):
                     del self.state[k]
             else:
-                self.state[(name, args, source)] = (kind, fname, self.seq)
+                self.state[(name, args, source)] = (kind, fname, self.seq, position)
 
 
 def latest(evidence):
-    """The most recent deciding entry; within one file the direct source wins over PUBLIC."""
-    return max(evidence, key=lambda e: (e[1][1], e[0] != "public"))
+    """The most recent deciding entry, by position in the order replayed; within one file
+    the direct source wins over PUBLIC."""
+    return max(evidence, key=lambda e: (e[1][3], e[0] != "public"))
 
 
 class CannotRun(Exception):
@@ -385,21 +460,31 @@ def load_index(dir_path):
     return files, parsed
 
 
-def analyse(files, parsed, snapshot=()):
-    """Walk the corpus once. Returns (transitions, final_ledger, snapshots).
+def index_added(dir_path):
+    """Migrations that are NEW in the index relative to HEAD (added, or copied/renamed to
+    a new path): new versions, which migrate.sh will apply after everything already
+    applied. A modified file keeps its place — an applied version never re-runs."""
+    out = _git(dir_path, "diff", "--cached", "--relative", "--name-only", "-z",
+               "--diff-filter=ACR", "--", ".")
+    return {p.decode("utf-8") for p in out.split(b"\0") if p}
+
+
+def analyse(order, parsed, snapshot=()):
+    """Replay `order` once. Returns (transitions, final_ledger, snapshots).
 
     A transition is a file after which a client role can execute a function that,
     before it, a REVOKE from an earlier file had closed — counting both of the role's
     grant sources. A grant on a function this file dropped first is a new object and
-    does not count. `snapshots` holds the ledger just after each file in `snapshot`.
+    does not count. An argument-less GRANT reaches every overload, so it is judged
+    against each one's state, never the newest entry across them. `snapshots` holds the
+    ledger just after each file in `snapshot`.
     """
     ledger, transitions, snapshots = Ledger(), [], {}
-    for f in files:
+    for position, f in enumerate(order):
         raw, events = parsed[f]
-        acked = {m.group(1) for m in MARKER_RE.finditer(raw)
-                 if m.group(2) and m.group(2).strip()}
+        acked = annotation_versions(raw)
         before = ledger.copy()
-        ledger.apply(f, events)
+        ledger.apply(f, events, position)
         if f in snapshot:
             snapshots[f] = ledger.copy()
         seen, resets = set(), []
@@ -407,23 +492,28 @@ def analyse(files, parsed, snapshot=()):
             if kind == "reset":
                 resets.append((name, args))
                 continue
-            if kind != "grant" or any(rn == name and (ra is None or ra == args) for rn, ra in resets):
+            if kind != "grant":
                 continue
-            for role in roles_for(source):
-                if (name, args, role) in seen:
+            candidates = {args} if args is not None else (before.overloads(name) | {None})
+            for ov in candidates:
+                if any(rn == name and (ra is None or ra == ov) for rn, ra in resets):
                     continue
-                was_open, closed_by = before.access(name, args, role)
-                now_open, opened_by = ledger.access(name, args, role)
-                if was_open or not closed_by or not now_open:
-                    continue
-                seen.add((name, args, role))
-                rsrc, (_, revoked_in, _) = latest(closed_by)
-                gsrc = latest([e for e in opened_by if e[1][1] == f] or opened_by)[0]
-                transitions.append({
-                    "file": f, "line": line, "function": name, "args": args, "role": role,
-                    "granted_as": label(role, gsrc), "revoked_as": label(role, rsrc),
-                    "revoked_in": revoked_in, "acknowledged": version(revoked_in) in acked,
-                })
+                for role in roles_for(source):
+                    if (name, ov, role) in seen:
+                        continue
+                    was_open, closed_by = before.access(name, ov, role)
+                    now_open, opened_by = ledger.access(name, ov, role)
+                    if was_open or not closed_by or not now_open:
+                        continue
+                    seen.add((name, ov, role))
+                    rsrc, (_, revoked_in, _, _) = latest(closed_by)
+                    gsrc = latest([e for e in opened_by if e[1][1] == f] or opened_by)[0]
+                    transitions.append({
+                        "file": f, "position": position, "line": line, "function": name,
+                        "args": ov, "role": role,
+                        "granted_as": label(role, gsrc), "revoked_as": label(role, rsrc),
+                        "revoked_in": revoked_in, "acknowledged": version(revoked_in) in acked,
+                    })
     return transitions, ledger, snapshots
 
 
@@ -432,14 +522,9 @@ def fmt_fn(name, args):
     return f"{qual}({', '.join(args)})" if args is not None else f"{qual}(…any overload)"
 
 
-def check_files(targets, files, parsed):
-    target_names = {os.path.basename(t) for t in targets}
-    # A target the corpus does not hold has not been checked. Skipping it would report
-    # "ok" for a file nobody read.
-    missing = sorted(target_names - set(parsed))
-    if missing:
-        raise CannotRun(f"not found in the migrations being checked: {', '.join(missing)}")
-    transitions, final, after = analyse(files, parsed, snapshot=target_names)
+def _refusals_in_order(order, target_names, parsed):
+    transitions, final, after = analyse(order, parsed, snapshot=target_names)
+    position = {f: i for i, f in enumerate(order)}
     refusals = []
 
     for t in transitions:
@@ -465,19 +550,70 @@ def check_files(targets, files, parsed):
                 if closed or not any(e[1][1] == f for e in by):
                     continue
                 is_open, opened_by = final.access(name, args, role)
-                later = [e for e in opened_by if e[1][1] > f]
+                later = [e for e in opened_by if e[1][3] > position[f]]
                 if not is_open or not later:
                     continue
                 # An acknowledgement covers the revoke it names, for this function and role.
-                if any(t["acknowledged"] and t["file"] > f and t["function"] == name
+                if any(t["acknowledged"] and t["position"] > position[f] and t["function"] == name
                        and t["args"] == args and t["role"] == role for t in transitions):
                     continue
-                gsrc, (_, gfile, _) = latest(later)
+                gsrc, (_, gfile, _, _) = latest(later)
                 refusals.append(
                     f"{f}:{line}: revoke-undone — REVOKEs {label(role, source)} EXECUTE on "
-                    f"{fmt_fn(name, args)}, but {gfile} sorts later and GRANTs it back "
-                    f"({label(role, gsrc)}), so every ordered apply ends granted. Re-assert "
-                    f"the revoke, from that same source, in a migration ordered after {version(gfile)}.")
+                    f"{fmt_fn(name, args)}, but {gfile} applies later and GRANTs it back "
+                    f"({label(role, gsrc)}), so the run ends granted. Re-assert the revoke, "
+                    f"from that same source, in a migration ordered after {version(gfile)}.")
+    return refusals
+
+
+def check_files(targets, files, parsed, pending=None):
+    """Refusals for the target (staged) files, judged in BOTH orders that will run them.
+
+    Filename order is what a fresh environment or a replay does. Apply order is what
+    test and prod do: migrate.sh applies every version missing from remote history,
+    whatever its timestamp, so a NEW file runs AFTER everything already applied — a
+    GRANT dated before an applied REVOKE still lands last (Opus review 2026-10-14). A
+    contradiction in either order is refused. `pending` names the targets that are new
+    versions (None: all of them); an edited, already-applied file never re-runs, so
+    moving it to the end would refuse comment-only edits to old migrations.
+    """
+    target_names = {os.path.basename(t) for t in targets}
+    # A target the corpus does not hold has not been checked. Skipping it would report
+    # "ok" for a file nobody read.
+    missing = sorted(target_names - set(parsed))
+    if missing:
+        raise CannotRun(f"not found in the migrations being checked: {', '.join(missing)}")
+    moved = target_names if pending is None else target_names & set(pending)
+    apply_order = [f for f in files if f not in moved] + sorted(moved)
+    refusals = []
+    for order in (files, apply_order):
+        for r in _refusals_in_order(order, target_names, parsed):
+            if r not in refusals:
+                refusals.append(r)
+    return refusals
+
+
+def check_invariant(files, parsed):
+    """Whole-tree: no UNACKNOWLEDGED revoke-then-grant whose FINAL state is granted.
+
+    Judging only the staged files' own statements misses every change that removes a
+    re-assert rather than adding a grant: a `git mv` to an earlier timestamp, a delete,
+    or an edit that stops it revoking. Each leaves an older unacknowledged re-grant as
+    the last word. The real corpus holds one such re-grant (P1065), which a later
+    migration re-asserts over, so it ends revoked and passes.
+    """
+    transitions, final, _ = analyse(files, parsed)
+    refusals, seen = [], set()
+    for t in transitions:
+        key = (t["function"], t["args"], t["role"])
+        if t["acknowledged"] or key in seen or not final.access(*key)[0]:
+            continue
+        seen.add(key)
+        refusals.append(
+            f"invariant — {t['file']}:{t['line']} GRANTs {t['granted_as']} EXECUTE on "
+            f"{fmt_fn(t['function'], t['args'])} back after {t['revoked_in']} revoked it, "
+            f"unacknowledged, and nothing later revokes it again. Restore the re-assert, "
+            f"or acknowledge the widening in {t['file']}.")
     return refusals
 
 
@@ -491,14 +627,18 @@ def main():
     ap.add_argument("--index", action="store_true",
                     help="read migrations from the git index (what the commit will hold), "
                          "not the working tree — the mode pre-commit uses")
+    ap.add_argument("--invariant", action="store_true",
+                    help="also refuse any unacknowledged revoke-then-grant in the whole corpus "
+                         "whose final state is granted (pre-commit runs this whenever a staged "
+                         "path is a migration: added, changed, renamed or deleted)")
     args = ap.parse_args()
 
     dir_path = args.dir or os.path.join(os.path.dirname(_HERE), "supabase", "migrations")
     if not os.path.isdir(dir_path):
         print(f"ERROR: migrations directory not found: {dir_path}", file=sys.stderr)
         return 2
-    if not args.tree and not args.files:
-        ap.error("pass migration files, or --tree")
+    if not args.tree and not args.files and not args.invariant:
+        ap.error("pass migration files, --invariant, or --tree")
 
     try:
         files, parsed = load_index(dir_path) if args.index else load(dir_path)
@@ -513,7 +653,10 @@ def main():
                       f"  revoked in {t['revoked_in']}"
                       f"  [{'acknowledged' if t['acknowledged'] else 'UNACKNOWLEDGED'}; final: {now}]")
             return 0
-        refusals = check_files(args.files, files, parsed)
+        pending = index_added(dir_path) if args.index else None
+        refusals = check_files(args.files, files, parsed, pending) if args.files else []
+        if args.invariant:
+            refusals += check_invariant(files, parsed)
     except (OSError, UnicodeDecodeError, CannotRun) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         print("The check did NOT run. This is not a clean result.", file=sys.stderr)
@@ -525,7 +668,8 @@ def main():
         print(f"  {len(refusals)} grant-order contradiction(s). Two migrations disagreeing on a "
               "privilege is resolved by timestamp on every apply, not by which one is right (P1102).")
         return 1
-    print(f"  ok: no grant-order contradiction in {len(args.files)} file(s)")
+    print(f"  ok: no grant-order contradiction in {len(args.files)} file(s)"
+          + (f"; whole-tree invariant holds across {len(files)} migrations" if args.invariant else ""))
     return 0
 
 
