@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -14,8 +14,8 @@ tags:
   - agents
 created_date: 2026-10-13
 disclosure: public
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1483: Agent profile banners get a strong navy treatment

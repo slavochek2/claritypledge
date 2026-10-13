@@ -11,6 +11,8 @@ const DESKTOP_QUERY = BANNER_WIDE_QUERY;
 // P1417: bg-muted shows behind the image while it loads. BannerImage serves event banners' small
 // copy on phones and only reports onFail once every source has failed.
 const IMG_CLASS = 'w-full h-full object-cover rounded-t-xl bg-muted';
+// P1483: founder-chosen agent treatment — strong navy (blue-900) in `color` blend mode.
+const AGENT_TINT_STYLE = { backgroundColor: '#1e3a8a', mixBlendMode: 'color', opacity: 0.75 } as const;
 
 interface BannerDisplayProps {
   bannerUrl?: string | null;
@@ -27,6 +29,8 @@ interface BannerDisplayProps {
   'aria-busy'?: boolean;
   /** P1453: "after <artist>" credit for `bannerUrl`. Absent (events, stories) = unchanged. */
   credit?: Credit;
+  /** P1483: agent profiles get a strong navy layer over the image. Absent = full color (people). */
+  agentTint?: boolean;
   children?: ReactNode;
 }
 
@@ -44,6 +48,7 @@ export function BannerDisplay({
   fallbackClassName,
   'aria-busy': ariaBusy,
   credit,
+  agentTint,
   children,
 }: BannerDisplayProps) {
   const [imgError, setImgError] = useState(false);
@@ -94,6 +99,9 @@ export function BannerDisplay({
   const showsCreditedImage = hasMobileVariant ? isDesktop && !imgError : showImage;
   const showCredit = !!credit && credit.url === bannerUrl && loadedUrl === bannerUrl && showsCreditedImage && !ariaBusy;
   const onCreditedLoad = () => setLoadedUrl(bannerUrl ?? null);
+  // P1483: the navy layer sits over whichever image is on screen — never over the gradient
+  // fallback, and under the signature and the controls (both render after it).
+  const showsAnyImage = hasMobileVariant ? (isDesktop ? !imgError : !mobileImgError) : showImage;
 
   return (
     <div
@@ -143,6 +151,15 @@ export function BannerDisplay({
         />
       ) : (
         renderFallback()
+      )}
+      {agentTint && showsAnyImage && (
+        <div
+          data-testid="banner-agent-tint"
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none rounded-t-xl"
+          // `color` blend keeps the image's own luminance, so the stored signature ink stays valid.
+          style={AGENT_TINT_STYLE}
+        />
       )}
       {showCredit && <BannerCredit credit={credit} />}
       {children}
