@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 167
+**Next ID:** 169
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2578,5 +2578,27 @@ Day page feedback from the founder (2026-10-13, screenshots in ~/Screenshots 14-
 **due:** week
 
 The post-deploy smoke fails on /cm on every run: page.goto waits for networkidle and hits the 45s timeout although the page renders (HTTP 200 in under a second, snapshot shows content). Seen 2026-10-12 before the P1453 push and again after it, so it is not a deploy regression. Likely a persistent request on /cm (P1447 surface) keeps the network busy; fix either that request or the smoke's wait condition for the route. Done when smoke:prod passes 8/8; droppable if /cm leaves the smoke route list. It matters because a permanently red step 6 teaches every /ship to wave real failures through.
+
+---
+
+## Flaky under load: P1364 list-return cache test
+
+**ID:** INBOX-167
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+src/tests/p1364-list-return-cache.test.tsx ('POP serves the cached list on the same tab with no refetch') failed once inside the pre-commit full suite on 2026-10-13 (P1468 build), then passed 5 of 5 run alone in both a worktree and main. Load-dependent timing. Make it deterministic (fake timers or await the cache read) rather than retrying.
+
+---
+
+## Remove day-cp's unread spend estimate after P1468 ships
+
+**ID:** INBOX-168
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** month
+
+P1468 removed the only reader of day-cp Wave 1's spend estimate (the dropped spend line). The EST_PER_DAY computation (day-cp.md Wave 1, ~lines 282-352 on the P1468 branch) still runs every /day and nothing reads it. After P1468 ships: grep for readers again and remove it if none (Monitoring has its own spend source).
 
 ---
