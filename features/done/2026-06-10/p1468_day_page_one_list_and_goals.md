@@ -16,6 +16,7 @@ tags:
 created_date: 2026-10-13
 pipeline_ran: [change-request, dev, ship]
 completed_at: 2026-10-13
+superseded_by: p1471
 ---
 
 # P1468: Day page: one list for cards and stories, the agent's work said once, goals instead of "From this run"
