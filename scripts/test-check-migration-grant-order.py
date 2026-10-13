@@ -81,12 +81,21 @@ check("a revoke-then-grant inside the new file still widens an earlier revoke", 
 code, out, err = run(mig_dir({A: "", B: REVOKE_AUTH + GRANT_AUTH}), B)
 check("ACCEPT: revoke-then-grant in one file with no earlier revoke", code == 0, out + err)
 
-# The house lockdown idiom revokes PUBLIC/anon and grants authenticated. Different
-# roles never contradict each other.
+# The house lockdown idiom revokes PUBLIC/anon and grants authenticated IN ONE FILE —
+# a file's own revoke never constrains its own grant.
+code, out, err = run(mig_dir({
+    A: "",
+    B: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\nREVOKE ALL ON FUNCTION {FN} FROM anon;\n" + GRANT_AUTH}), B)
+check("ACCEPT: the lockdown idiom within one file", code == 0, out + err)
+# Across files it is different (/finish review 2026-10-13): PUBLIC includes authenticated,
+# so an earlier file whose last word was REVOKE FROM PUBLIC has narrowed authenticated by
+# intent, and a later GRANT TO authenticated re-opens it. This control previously asserted
+# ACCEPT under "different roles never contradict"; that premise is what the review refuted.
 code, out, err = run(mig_dir({
     A: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\nREVOKE ALL ON FUNCTION {FN} FROM anon;\n",
     B: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\n" + GRANT_AUTH}), B)
-check("ACCEPT: granting authenticated after revoking PUBLIC and anon", code == 0, out + err)
+check("a later-file GRANT TO authenticated after REVOKE FROM PUBLIC is refused, named via PUBLIC",
+      code == 1 and "revoked from authenticated (via PUBLIC)" in out, out + err)
 
 code, out, err = run(mig_dir({A: REVOKE_AUTH,
                               B: f"DROP FUNCTION IF EXISTS {FN};\nCREATE FUNCTION {FN} RETURNS void "
@@ -231,6 +240,33 @@ code, out, err = run(mig_dir({
     A: "REVOKE EXECUTE ON FUNCTION public.widget_m(timestamptz) FROM anon;\n",
     B: "GRANT EXECUTE ON FUNCTION public.widget_m(timestamp) TO anon;\n"}), B)
 check("ACCEPT: timestamp without time zone is not timestamptz", code == 0, out + err)
+
+# /finish review 2026-10-13 — PUBLIC includes every client role, so a grant or revoke
+# spelled TO/FROM PUBLIC speaks for anon AND authenticated, in both directions.
+code, out, err = run(mig_dir({
+    A: f"REVOKE EXECUTE ON FUNCTION {FN} FROM anon;\n",
+    B: f"GRANT EXECUTE ON FUNCTION {FN} TO PUBLIC;\n"}), B)
+check("a GRANT TO PUBLIC re-opens a function revoked from anon",
+      code == 1 and "widens-revoked" in out and "anon" in out and "PUBLIC" in out, out + err)
+code, out, err = run(mig_dir({
+    A: f"REVOKE EXECUTE ON FUNCTION {FN} FROM PUBLIC;\n",
+    B: f"GRANT EXECUTE ON FUNCTION {FN} TO anon;\n"}), B)
+check("a GRANT TO anon after a REVOKE FROM PUBLIC is a re-grant to anon",
+      code == 1 and "widens-revoked" in out and "anon" in out, out + err)
+code, out, err = run(mig_dir({
+    A: f"REVOKE EXECUTE ON FUNCTION {FN} FROM authenticated;\n",
+    B: f"GRANT EXECUTE ON FUNCTION {FN} TO PUBLIC;\n"}), A)
+check("a later GRANT TO PUBLIC undoes an earlier REVOKE FROM authenticated (revoke-undone)",
+      code == 1 and "revoke-undone" in out, out + err)
+code, out, err = run(mig_dir({
+    A: f"GRANT EXECUTE ON FUNCTION {FN} TO PUBLIC;\n",
+    B: f"REVOKE EXECUTE ON FUNCTION {FN} FROM PUBLIC;\nGRANT EXECUTE ON FUNCTION {FN} TO authenticated;\n"}), B)
+check("ACCEPT: the lockdown idiom after an earlier PUBLIC grant narrows anon, keeps authenticated",
+      code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: f"REVOKE EXECUTE ON FUNCTION {FN} FROM anon;\n",
+    B: f"GRANT EXECUTE ON FUNCTION {FN} TO authenticated;\n"}), B)
+check("ACCEPT: a revoke from anon does not constrain a grant to authenticated", code == 0, out + err)
 
 # Missing target — a file the checker cannot find must refuse, never pass silently.
 code, out, err = run(mig_dir({A: REVOKE_AUTH}), "20260109000000_not_there.sql")

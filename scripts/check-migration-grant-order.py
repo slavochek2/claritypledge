@@ -14,7 +14,11 @@ ran after the revoke and re-opened the hole — and the run ended green. Nothing
 generating that remediation could see that it contradicted a migration already in
 the repo (docs/decisions.md 2026-08-18, P1093 → P1102).
 
-So two shapes are refused, for anon / authenticated / PUBLIC only:
+So two shapes are refused, for anon / authenticated / PUBLIC only. PUBLIC is expanded to
+anon AND authenticated in both directions. For a GRANT that is exact: a PUBLIC grant
+reaches both roles. For a REVOKE it is an intent reading, not an effect: REVOKE ... FROM
+PUBLIC leaves a role-direct grant in place (P1066), so it may over-refuse a later grant
+to that role. That is the safe direction, and the annotation below resolves it.
 
   widens-revoked   This file GRANTs a role EXECUTE on a function, and the last
                    statement any EARLIER migration made for that role and function
@@ -86,6 +90,8 @@ except Exception as exc:  # noqa: BLE001 — any import failure means the check 
 sql_code = _fgd._sql_code
 
 CLIENT_ROLES = ("anon", "authenticated", "public")
+# What PUBLIC expands to. Every comparison is made per client role, never on PUBLIC itself.
+EXPANDED_ROLES = ("anon", "authenticated")
 # [ \t] rather than \s throughout: \s crosses the newline, and the next line of SQL
 # would then be read as the annotation's reason.
 MARKER_RE = re.compile(r"^[ \t]*--[ \t]*widens-revoked-grant:[ \t]*(\d{14})\b[ \t]*(\S.*)?$",
@@ -175,17 +181,33 @@ def parse_function_ref(ref):
 
 
 def parse_roles(text):
-    roles = []
+    """Client roles a GRANT/REVOKE speaks for, as [(role, spelled)].
+
+    PUBLIC includes every role, so `TO PUBLIC` / `FROM PUBLIC` speaks for anon AND
+    authenticated: a GRANT TO PUBLIC re-opens a function revoked from anon, and a GRANT
+    TO anon after a REVOKE FROM PUBLIC re-grants anon (/finish review 2026-10-13).
+    `spelled` keeps what the migration wrote, for the message. A role named directly in
+    the same statement wins over its PUBLIC expansion.
+    """
+    out = {}
     for r in split_top_level(text):
         r = r.strip().strip('"').lower()
         if r.startswith("group "):
             r = r[6:].strip()
-        roles.append(r)
-    return [r for r in roles if r in CLIENT_ROLES]
+        if r == "public":
+            for role in EXPANDED_ROLES:
+                out.setdefault(role, "public")
+        elif r in EXPANDED_ROLES:
+            out[r] = r
+    return list(out.items())
+
+
+def role_label(role, spelled):
+    return f"{role} (via PUBLIC)" if spelled == "public" else role
 
 
 def parse_events(code):
-    """Yield (line, kind, (name, args), role|None) in statement order.
+    """Yield (line, kind, (name, args), role|None, spelled|None) in statement order.
 
     kind is 'grant', 'revoke' or 'reset' (DROP, or a plain CREATE: the object that
     follows starts from default privileges, so nothing before it constrains it).
@@ -203,18 +225,18 @@ def parse_events(code):
                 if kind == "revoke" and re.match(r"^REVOKE\s+GRANT\s+OPTION", stmt, re.IGNORECASE):
                     break
                 for ref in split_top_level(m.group(1)):
-                    for role in parse_roles(m.group(2)):
-                        events.append((stmt_line, kind, parse_function_ref(ref), role))
+                    for role, spelled in parse_roles(m.group(2)):
+                        events.append((stmt_line, kind, parse_function_ref(ref), role, spelled))
                 break
         else:
             m = DROP_RE.match(stmt)
             if m:
                 for ref in split_top_level(m.group(1)):
-                    events.append((stmt_line, "reset", parse_function_ref(ref), None))
+                    events.append((stmt_line, "reset", parse_function_ref(ref), None, None))
                 continue
             m = CREATE_RE.match(stmt)
             if m:
-                events.append((stmt_line, "reset", parse_function_ref(m.group(1)), None))
+                events.append((stmt_line, "reset", parse_function_ref(m.group(1)), None, None))
     return events
 
 
@@ -247,13 +269,16 @@ class Ledger:
 
     def apply(self, fname, events, seq_start):
         seq = seq_start
-        for _, kind, (name, args), role in events:
+        for _, kind, (name, args), role, spelled in events:
             seq += 1
             if kind == "reset":
                 for k in self._reset_keys(name, args):
                     del self.state[k]
             else:
-                self.state[(name, args, role)] = (kind, fname, seq)
+                prev = self.state.get((name, args, role))
+                if prev and prev[1] == fname and prev[0] == kind and prev[3] != "public":
+                    spelled = prev[3]   # the file also named the role directly; say that
+                self.state[(name, args, role)] = (kind, fname, seq, spelled)
         return seq
 
 
@@ -264,12 +289,15 @@ def file_net(events):
     "That function" means the same schema, name AND overload: dropping f(text) says
     nothing about f(uuid)."""
     net, resets = {}, []
-    for line, kind, (name, args), role in events:
+    for line, kind, (name, args), role, spelled in events:
         if kind == "reset":
             resets.append((name, args))
             continue
         was_reset = any(rn == name and (ra is None or ra == args) for rn, ra in resets)
-        net[(name, args, role)] = (kind, was_reset, line)
+        prev = net.get((name, args, role))
+        if prev and prev[0] == kind and prev[3] != "public":
+            spelled = prev[3]
+        net[(name, args, role)] = (kind, was_reset, line, spelled)
     return net
 
 
@@ -336,13 +364,15 @@ def analyse(files, parsed):
         raw, events = parsed[f]
         acked = {m.group(1) for m in MARKER_RE.finditer(raw)
                  if m.group(2) and m.group(2).strip()}
-        for (name, args, role), (kind, was_reset, line) in file_net(events).items():
+        for (name, args, role), (kind, was_reset, line, spelled) in file_net(events).items():
             if kind != "grant" or was_reset:
                 continue
             prior = ledger.last_word(name, args, role)
             if prior and prior[0] == "revoke" and prior[1] != f:
                 transitions.append({
                     "file": f, "line": line, "function": name, "args": args, "role": role,
+                    "granted_as": role_label(role, spelled),
+                    "revoked_as": role_label(role, prior[3]),
                     "revoked_in": prior[1], "acknowledged": version(prior[1]) in acked,
                 })
         seq = ledger.apply(f, events, seq)
@@ -367,13 +397,14 @@ def check_files(targets, files, parsed):
     for t in transitions:
         if t["file"] in target_names and not t["acknowledged"]:
             refusals.append(
-                f"{t['file']}:{t['line']}: widens-revoked — GRANTs {t['role']} EXECUTE on "
-                f"{fmt_fn(t['function'], t['args'])}, which {t['revoked_in']} revoked. If that is "
+                f"{t['file']}:{t['line']}: widens-revoked — GRANTs {t['granted_as']} EXECUTE on "
+                f"{fmt_fn(t['function'], t['args'])}, which {t['revoked_in']} revoked from "
+                f"{t['revoked_as']}. If that is "
                 f"intended, say so in this file:\n"
                 f"      -- widens-revoked-grant: {version(t['revoked_in'])} <why the revoke no longer holds>")
 
     for f in sorted(target_names):
-        for (name, args, role), (kind, _, line) in file_net(parsed[f][1]).items():
+        for (name, args, role), (kind, _, line, spelled) in file_net(parsed[f][1]).items():
             if kind != "revoke":
                 continue
             last = final.last_word(name, args, role)
@@ -384,8 +415,9 @@ def check_files(targets, files, parsed):
                        for t in transitions):
                     continue
                 refusals.append(
-                    f"{f}:{line}: revoke-undone — REVOKEs {role} EXECUTE on {fmt_fn(name, args)}, "
-                    f"but {last[1]} sorts later and GRANTs it back, so every ordered apply ends "
+                    f"{f}:{line}: revoke-undone — REVOKEs {role_label(role, spelled)} EXECUTE on "
+                    f"{fmt_fn(name, args)}, but {last[1]} sorts later and GRANTs it back "
+                    f"({role_label(role, last[3])}), so every ordered apply ends "
                     f"granted. Re-assert the revoke in a migration ordered after {version(last[1])}.")
     return refusals
 
@@ -417,7 +449,7 @@ def main():
             for t in transitions:
                 last = final.last_word(t["function"], t["args"], t["role"])
                 now = f"{last[0]} by {last[1]}" if last else "reset since"
-                print(f"  {t['file']}:{t['line']}  {t['role']} on {fmt_fn(t['function'], t['args'])}"
+                print(f"  {t['file']}:{t['line']}  {t['granted_as']} on {fmt_fn(t['function'], t['args'])}"
                       f"  revoked in {t['revoked_in']}"
                       f"  [{'acknowledged' if t['acknowledged'] else 'UNACKNOWLEDGED'}; final: {now}]")
             return 0
