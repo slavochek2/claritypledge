@@ -85,11 +85,12 @@ for the review type(s) `/finish`'s classification table assigns
 | Branch changes | Accepted entries (same `branch`) |
 |---|---|
 | any path outside the classes below (`src/`, `e2e/`, `scripts/`, `supabase/functions/`, anything unclassified) | `code` — unchanged |
-| `supabase/migrations/**`, `supabase/deploy-manifest.json` | `migrations`, or `code` |
+| flat `supabase/migrations/*.sql` (plus `supabase/deploy-manifest.json` only beside one) | `migrations`, or `code` |
 | `.claude/commands/slava/**/*.md` | `skills`, or `code` |
 | `.claude/rules/**/*.md`, `CLAUDE.md` | `rules`, or `code` |
 | two or more of the three rows above | one entry per class present, or `code` |
-| only `features/**/*.md` / `docs/**/*.md` | `specs` or `docs`, or `code` |
+| only Markdown: any `features/**/*.md` | `specs`, or `code` |
+| only `docs/**/*.md` | `specs` or `docs`, or `code` |
 | empty or uncomputable diff | `code` (fail closed) |
 
 Three decisions taken during `/dev`, each recorded here so they are not re-derived:
@@ -120,3 +121,10 @@ P1444 administrative skip are untouched. Gate 2.7b reads whichever entries match
   which had the same flaw.
 - **Gate 2.7b judges each review type by its own latest entry.** It warns if any type is stale and
   stays warn-only.
+
+**Opus adversarial review follow-up (I20 to I23):**
+- **Only flat `*.sql` counts as migrations.** Control files (`.schema-gate-exempt`) and subdirectories
+  are code. The deploy manifest counts as migrations only beside a `.sql` migration; alone it is code.
+- **A spec-only branch needs `specs`.** `goal-gate.sh` runs MECHANICAL rows with `bash -c`.
+- **Symlinks and gitlinks are code**, read from `--raw` modes.
+- **New cases pin** edge functions as code, case-sensitive `.md`, and the three-dot diff.

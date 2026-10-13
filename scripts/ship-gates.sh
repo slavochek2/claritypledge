@@ -555,13 +555,17 @@ fi
 #     .claude/settings*) land here on purpose. No path leaves review: every
 #     branch still needs an entry, and the only paths a non-code review may now
 #     cover are migrations, the deploy manifest and Markdown.
-#   * supabase/migrations/ wants migrations; *.md under .claude/commands/slava/
+#   * flat supabase/migrations/*.sql wants migrations (the directory's control
+#     files such as .schema-gate-exempt, and anything in a subdirectory, are code);
+#     *.md under .claude/commands/slava/
 #     wants skills; *.md under .claude/rules/, and CLAUDE.md, want rules — each
-#     one present needs its own entry. supabase/deploy-manifest.json rides with migrations: it is
+#     one present needs its own entry. supabase/deploy-manifest.json rides with
+#     migrations only beside a .sql migration (alone it is code): it is
 #     the hash record migrate.sh stamps and stages after applying them, so a
 #     migration branch routinely carries it (P1035's did) and reading it as code
 #     would put the P1035 shape straight back behind a code review.
-#   * *.md under features/ and docs/ alone wants specs or docs; next to any other class they
+#   * Markdown alone: a features/*.md change wants specs, docs/*.md alone wants
+#     specs or docs; next to any other class they
 #     ask for nothing extra (every branch carries its spec).
 #   * Only MARKDOWN counts in the features/, docs/, .claude/commands/slava/ and
 #     .claude/rules/ classes. Those trees also hold runnable files —
@@ -576,28 +580,46 @@ fi
 # Fails closed to code when the diff is empty or cannot be computed. The no-branch
 # arm is unchanged: on main there is no branch diff to classify.
 review_types_for_branch() {
-  # NUL-separated raw names (-z): with core.quotePath on — git's default — a
-  # non-ASCII path is printed quoted and escaped ("docs/technical/migraci\303\263n.md"),
-  # which no pattern below recognises, so Markdown read as code (Codex re-review).
-  # A failed diff emits one empty record; git never prints an empty path, so an
-  # empty name means "could not compute" and fails closed to code.
-  local f n=0 failed="" code="" mig="" rules="" skills=""
-  while IFS= read -r -d '' f; do
-    if [[ -z "$f" ]]; then failed=1; continue; fi
+  # Raw NUL-separated entries (--raw -z): each is a header record
+  # ":<old mode> <new mode> <old sha> <new sha> <status>" then the path record.
+  # -z because with core.quotePath on (git's default) a non-ASCII path is
+  # printed quoted and escaped, which no pattern below recognises (Codex
+  # re-review). --raw because a symlink (120000) or gitlink (160000) at a *.md
+  # path is not prose (Opus review L2). No entries at all — an empty diff, or a
+  # diff that failed and printed nothing — falls through to code.
+  local hdr f old_mode new_mode n=0 code="" sql="" manifest="" rules="" skills="" spec=""
+  while IFS= read -r -d '' hdr && IFS= read -r -d '' f; do
     n=$((n + 1))
+    read -r old_mode new_mode _ <<<"${hdr#:}"
+    if [[ "$hdr" != :* || "$old_mode" == 120000 || "$new_mode" == 120000 \
+          || "$old_mode" == 160000 || "$new_mode" == 160000 ]]; then
+      code=1; continue
+    fi
     case "$f" in
-      supabase/migrations/*|supabase/deploy-manifest.json) mig=1 ;;
-      .claude/commands/slava/*.md)                         skills=1 ;;
-      .claude/rules/*.md|CLAUDE.md)                        rules=1 ;;
-      features/*.md|docs/*.md)                             ;;
-      *)                                                   code=1 ;;
+      supabase/migrations/*/*)          code=1 ;;
+      supabase/migrations/*.sql)        sql=1 ;;
+      supabase/deploy-manifest.json)    manifest=1 ;;
+      .claude/commands/slava/*.md)      skills=1 ;;
+      .claude/rules/*.md|CLAUDE.md)     rules=1 ;;
+      features/*.md)                    spec=1 ;;
+      docs/*.md)                        ;;
+      *)                                code=1 ;;
     esac
-  done < <(cd "$REPO_ROOT" && git diff --no-renames --name-only -z "main...$1" 2>/dev/null || printf '\0')
-  if [[ -n "$failed" || "$n" -eq 0 || -n "$code" ]]; then echo code; return; fi
-  [[ -n "$mig" ]] && echo migrations
+  done < <(cd "$REPO_ROOT" && git diff --no-renames --raw -z "main...$1" 2>/dev/null)
+  # The manifest records what reached prod, and other gates trust it (the
+  # publish-spec embargo check): it rides with migrations only beside a real
+  # one (Opus review M1).
+  [[ -n "$manifest" && -z "$sql" ]] && code=1
+  if [[ "$n" -eq 0 || -n "$code" ]]; then echo code; return 0; fi
+  [[ -n "$sql" ]] && echo migrations
   [[ -n "$rules" ]] && echo rules
   [[ -n "$skills" ]] && echo skills
-  [[ -z "$mig$rules$skills" ]] && echo prose
+  if [[ -z "$sql$rules$skills" ]]; then
+    # Prose only. A spec is not inert — goal-gate.sh runs its MECHANICAL rows
+    # with bash -c — so it needs a specs review; docs alone take specs or docs
+    # (Opus review L1).
+    if [[ -n "$spec" ]]; then echo specs; else echo prose; fi
+  fi
   return 0
 }
 

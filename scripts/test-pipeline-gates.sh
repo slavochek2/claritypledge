@@ -1141,11 +1141,101 @@ else
   fail "I19c: an uncomputable diff did not fail closed (exit $rc)"; rt_show
 fi
 
+# I20 — Opus review M1: only flat supabase/migrations/*.sql is a migration. The
+# directory also holds trusted control files, and a bare deploy manifest is a
+# claim about prod, not a migration — each needed a code review and still does.
+for _c in "i20a p3031 supabase/migrations/tools/run.sh" \
+          "i20b p3032 supabase/migrations/.schema-gate-exempt" \
+          "i20c p3033 supabase/deploy-manifest.json" \
+          "i20d p3034 supabase/migrations/tools/seed.sql"; do
+  read -r _n _p _f <<<"$_c"
+  d="$(rt_case "$_n" "$_p" "$_f")"; rt_stamp "$d" migrations "$_p"
+  rc="$(rt_gate "$d" "$_p")"
+  if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+    pass "$(tr a-z A-Z <<<"$_n"): $_f alone is code — a migrations review does not cover it"
+  else
+    fail "$(tr a-z A-Z <<<"$_n"): $_f passed on a migrations review (exit $rc)"; rt_show
+  fi
+done
+
+# I21 — Opus review M2: cases that kill mutants the suite let survive.
+d="$(rt_case i21a p3035 supabase/functions/f/index.ts "$MIG")"; rt_stamp "$d" migrations p3035
+rc="$(rt_gate "$d" p3035)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I21a: an edge function beside a migration is code"
+else
+  fail "I21a: supabase/functions/ rode a migrations review (exit $rc)"; rt_show
+fi
+d="$(rt_case i21b p3036 .claude/rules/x.sh)"; rt_stamp "$d" rules p3036
+rc="$(rt_gate "$d" p3036)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I21b: a script under .claude/rules/ is code"
+else
+  fail "I21b: .claude/rules/x.sh passed on a rules review (exit $rc)"; rt_show
+fi
+d="$(rt_case i21c p3037 .claude/commands/slava/x.MD)"; rt_stamp "$d" skills p3037
+rc="$(rt_gate "$d" p3037)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I21c: the extension match is case-sensitive — x.MD is code"
+else
+  fail "I21c: x.MD passed on a skills review (exit $rc)"; rt_show
+fi
+# Three-dot pin: main moves on with a src/ change after the fork. Only the
+# branch's own changes count (main...branch); a two-dot diff would pull main's
+# src/ change in and demand a code review the branch never earned.
+d="$(rt_case i21d p3038 "$MIG")"; rt_stamp "$d" migrations p3038
+( cd "$d" && mkdir -p src && echo m > src/later.ts && git add src/later.ts && git commit -qm "main moves on" ) >/dev/null 2>&1
+rc="$(rt_gate "$d" p3038)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS.*migrations' "$SCRATCH/i.log"; then
+  pass "I21d: changes landed on main after the fork are not charged to the branch (three-dot diff)"
+else
+  fail "I21d: main's later src/ change was charged to a migration-only branch (exit $rc)"; rt_show
+fi
+
+# I22 — Opus review L1: a spec is not inert (goal-gate.sh runs MECHANICAL rows
+# with bash -c), so a spec-only branch needs a specs review; docs alone take
+# docs or specs.
+d="$(rt_case i22a p3039 features/p3039_demo.md)"; rt_stamp "$d" docs p3039
+rc="$(rt_gate "$d" p3039)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL.*specs' "$SCRATCH/i.log"; then
+  pass "I22a: a spec-only branch with only a docs review FAILS, naming specs"
+else
+  fail "I22a: a spec-only branch passed on a docs review (exit $rc)"; rt_show
+fi
+rt_stamp "$d" specs p3039
+rc="$(rt_gate "$d" p3039)"
+if [[ "$rc" -eq 0 ]]; then
+  pass "I22b: the same branch passes on a specs review"
+else
+  fail "I22b: a spec-only branch with a specs review was refused (exit $rc)"; rt_show
+fi
+d="$(rt_case i22c p3040 docs/technical/demo.md)"; rt_stamp "$d" docs p3040
+rc="$(rt_gate "$d" p3040)"
+if [[ "$rc" -eq 0 ]]; then
+  pass "I22c: a docs-only branch still passes on a docs review"
+else
+  fail "I22c: a docs-only branch with a docs review was refused (exit $rc)"; rt_show
+fi
+
+# I23 — Opus review L2: a symlink at a *.md path is not prose.
+d="$SCRATCH/i23"; mk_repo "$d"
+printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# p3041\n\n## Done-When\n\n- [x] c\n' > "$d/features/p3041_demo.md"
+( cd "$d" && git add features/p3041_demo.md && git commit -qm spec && git checkout -q -b feature/p3041-demo \
+  && mkdir -p docs && ln -s ../scripts/git-ops.sh docs/link.md && git add docs/link.md \
+  && git commit -qm "p3041: link" && git checkout -q main ) >/dev/null 2>&1
+rt_stamp "$d" specs p3041
+rc="$(rt_gate "$d" p3041)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I23: a symlink at docs/link.md is code, not prose"
+else
+  fail "I23: a symlink with a .md name passed on a specs review (exit $rc)"; rt_show
+fi
+
 # ── Result ──────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I19)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I23)"
 exit 0
