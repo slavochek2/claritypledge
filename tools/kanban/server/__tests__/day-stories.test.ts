@@ -297,6 +297,7 @@ describe('P1440: collect and the prompt', () => {
     expect(p).toMatch(/Finish with ONLY what I must decide.*slava:build:simplify/)
     expect(p).toMatch(/collapsed <details> block titled Evidence: .*story marked/)
     expect(p).not.toContain('End with a table')
+    expect(p).toMatch(/My stories are part of that list, not of the evidence: .*ask for help deciding gets its own decision block/)
   })
 
   it('a story cannot break out of its «data» fence', () => {
