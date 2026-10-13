@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -14,13 +14,13 @@ tags:
   - agents
 created_date: 2026-10-13
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P1483: Agent profile banners get a strong navy treatment
 
-> **Redesign of:** [P1453: Artist-style profile banners, signed "after <artist>"](done/2026-06-10/p1453_artist_style_profile_banners.md)
+> **Redesign of:** [P1453: Artist-style profile banners, signed "after <artist>"](p1453_artist_style_profile_banners.md)
 > **What was wrong:** P1453 decided (2026-10-09) that agent banners show "the full, unfiltered art"
 > with "No color filter". Once all 10 prod agents had full-color artist banners (2026-10-13), an
 > agent's banner was indistinguishable from a person's at the banner level. The founder reversed the
