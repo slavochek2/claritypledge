@@ -14,8 +14,8 @@ tags:
   - agents
 created_date: 2026-10-13
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P1483: Agent profile banners get a strong navy treatment
