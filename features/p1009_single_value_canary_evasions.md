@@ -1,5 +1,7 @@
 ---
-status: backlog
+status: in-progress
+delivery_stage: dev
+pipeline_ran: [dev]
 type: bug
 disclosure: public
 rank: 82
@@ -42,10 +44,54 @@ Until then `docs/CHARTER.md` states the gap explicitly so the convention is not 
 
 ## Acceptance Criteria
 
-- [ ] Each row in the table above either returns exit 2, or is documented as deliberately out of scope with a reason.
-- [ ] A before/after run on all five strategy docs shows what the widened rule newly flags, and each new flag is triaged as true or false positive.
-- [ ] The commit-time doc list is derived (`grep -rl 'SINGLE-VALUE:' docs/` ∩ staged) rather than hardcoded, or the hardcoding is justified.
-- [ ] Regression fixtures exist for the shapes that must stay uncounted (`> - ` elaboration bullets, bracket-tagged retirements).
+- [x] Each row in the table above either returns exit 2, or is documented as deliberately out of scope with a reason. *(Evidence: all 8 rows return exit 2, see Dev evidence → AC1.)*
+- [x] A before/after run on all five strategy docs shows what the widened rule newly flags, and each new flag is triaged as true or false positive. *(Evidence: zero new flags; triage of everything the wider region now sees, see Dev evidence → AC2.)*
+- [x] The commit-time doc list is derived (`grep -rl 'SINGLE-VALUE:' docs/` ∩ staged) rather than hardcoded, or the hardcoding is justified. *(Evidence: §13e now scans every staged `.md` carrying the token. Run in a throwaway repo by the suite, see Dev evidence → AC3.)*
+- [x] Regression fixtures exist for the shapes that must stay uncounted (`> - ` elaboration bullets, bracket-tagged retirements). *(Evidence: `scripts/test-p1009-single-value-canary.sh` §2 and §4, see Dev evidence → AC4.)*
+
+## Dev evidence (2026-10-13)
+
+**Design decisions (made unattended; reversible, each is one line in the checker):**
+- **Region = the marker's whole section** (owning heading to the next heading of the same or higher level). This replaces "the callout group up to the first prose line". It closes rows 6 and 7 and the subsection variant. Flywheel prose stays out because only blockquote lines are candidates. That restriction, not the narrow region, is what the docstring's §Channels concern actually needed.
+- **The date requirement is kept but widened.** The date may sit anywhere in the item (lead-in, rest of line, continuation lines), in ISO or human formats. Dropping it entirely would flag two undated brand taglines in §UVP's `### Coaching` and `### Shared Foundation` subsections (false positives, see AC2).
+- **Bullets are positional.** A bullet attached under a live lead is an elaboration (CHARTER convention), so it is not counted. A bullet that opens its own callout block is a standalone lead, so it is counted. Anything inside a bracket-retired callout inherits the retirement. A nested `>>` bold line under a live lead is counted, because CHARTER sanctions only `> - ` bullets.
+- **A marker must be on its own line and outside a code fence.** Before this change the old `.search()` treated the inline mention in `docs/decisions.md`, the fenced example in `docs/CHARTER.md`, this spec's own prose and the docs-strategy-update skill's fenced example as four phantom slots.
+- **Out of scope, with reason:** (a) a competing lead written as a `> - ` bullet *attached under* the live lead is not counted. It is structurally identical to the sanctioned dated elaboration bullet (the real §Channels doc has two). Catching it needs semantics or a new bracket token for elaborations, which is a convention change for the founder. (b) An undated competing callout is not counted (see the date decision above). Both are stated in `docs/CHARTER.md` §Single-valued slots and in the checker docstring.
+
+**AC1: every row exits 2** (`bash scripts/test-p1009-single-value-canary.sh`, §1, run against the new checker; the same suite against the pre-change checker failed 23 of 38):
+```
+  ok   control: plain second dated lead
+  ok   row 1: date in the body, not the bold span
+  ok   row 2: date after the bold
+  ok   row 3: human-format date (22 July 2026)
+  ok   row 3: human-format date (July 22, 2026)
+  ok   row 4: date on the second blockquote line
+  ok   row 5: nested (double) blockquote, own block
+  ok   row 5: nested blockquote inside the live lead's callout
+  ok   row 6: placed after the group's closing prose
+  ok   row 6: placed under a subsection of the slot's section
+  ok   row 7: placed between heading and marker
+  ok   row 8: standalone dash-bullet lead
+  ok   revival sentence is not a retirement tag
+```
+The same shapes injected into a copy of the real `docs/lean-canvas.md` (§4: after §UVP's group, body date, nested human date, standalone bullet in active-market-focus, between heading and marker, at the tail of §Channels, revival) all exit 2.
+
+**AC2: before/after on the real docs.** Counted directives per slot, old rule and new rule, run over the five strategy docs plus every file containing `SINGLE-VALUE:`:
+```
+BEFORE  active-market-focus 1 · page-lead 1 · active-channel 1  (+ 4 phantom slots: CHARTER fenced example,
+        decisions.md inline mention, p1009 spec prose, docs-strategy-update skill fenced example, all 0)
+AFTER   active-market-focus 1 · page-lead 1 · active-channel 1   rc=0
+```
+**Newly flagged: none.** The page-lead region grew from about 13 to 118 lines and active-channel to 111. Every bold blockquote item the wider regions now see, triaged:
+- page-lead: 1 counted (2026-07-20 lead); 6 bracket-retired (`[FALLBACK …]` ×5, `[SUPERSEDED 2026-07-03 …]`); 3 **undated, not counted**. These are the top-of-§UVP tagline, plus a `### Coaching *(ladischenski.com)*` tagline and a `### Shared Foundation` tagline. The last two are brand surfaces, not page heroes: **false positive** if the date requirement were dropped. The top tagline is a **founder question, not a defect**: is it the hero, or subordinate to the 2026-07-20 lead? It is undated and therefore not counted.
+- active-channel: 1 counted (2026-09-21); 4 bracket-retired; 2 dated `> - ` bullets inside the `[SUPERSEDED 2026-09-21 …]` callout. Those inherit the retirement: **true negative**.
+- active-market-focus: 1 counted (2026-09-21 Who). The `### Dormant` sibling ends the section, so its retired bullets stay outside.
+
+**AC3: derived doc list.** §13e now takes every staged `*.md`, copies the staged blob and keeps the ones containing `SINGLE-VALUE:`; the checker decides which lines are real markers. The suite (§5) extracts the real §13e block and runs it in a throwaway repo. A staged `docs/goals.md` with two leads produces WARN, and so does a staged `features/` spec with two leads. A clean marker doc is scanned and printed green, and marker-less markdown is skipped. Gate 7e: §3 asserts the derived set contains `docs/lean-canvas.md`, and that `--list` finds exactly the three known slots. A mutant restoring the five-doc list fails 3 assertions.
+
+**AC4: must-stay-uncounted fixtures** (§2, §4): dated `> - ` elaborations attached under the live lead; `[SUPERSEDED]`, `[FALLBACK]`, `[Dormant]`, `[Parked]` and `[Demoted]` callouts, plus bullets and `>>` lines nested inside them; an undated tagline; a fenced example marker; an inline prose marker; and an attached elaboration injected into the real active-market-focus slot. All exit 0.
+
+**Gate 7 (the suite fails when the code is wrong):** mutants each killed. These were the old checker (23 FAIL), hardcoded list (3), any-heading-ends-region (2), bullets-never-count (2), marker via `.search()` (1), marker never matches (23), ISO-only dates (3), no retirement inheritance (4) and no fence skipping (2). Two first-draft mutants survived as *equivalent* (a regex alternative still covered the input; `.match()` still anchored). They were re-cut and killed.
 
 ## References
 

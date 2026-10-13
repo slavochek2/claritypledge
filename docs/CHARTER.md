@@ -61,14 +61,16 @@ Mark each single-valued slot with an HTML comment directly under its heading:
 ```
 
 Convention:
-- A single-valued **directive** is a standalone dated blockquote callout: `> **Name (2026-07-04, …).** Lead with …`. A `> - **…**` list bullet under the slot is an *elaboration* of the one answer, not a competing lead.
+- A single-valued **directive** is a standalone dated blockquote callout: `> **Name (2026-07-04, …).** Lead with …`. A `> - **…**` list bullet *attached under* a lead (same callout, no blank line between) is an *elaboration* of that answer, not a competing lead. A bullet that opens its own callout elaborates nothing, so it counts as a lead.
 - To retire a lead, tag it with a structured token on its lead-in — **always inside square brackets, at the very start**: `[SUPERSEDED <date> → …]`, `[FALLBACK …]`, `[Dormant …]`, `[Parked …]`, `[Demoted …]`. A tagged callout is subordinate, not a competing answer.
   **The brackets are load-bearing, not decorative.** They are the only thing separating a *tag* from a *sentence*: `[Dormant — coach market]` retires a lead, while `Dormant no longer — revived as THE lead` **promotes** one. A checker that accepts the bare token cannot tell them apart, and the failure is asymmetric — missing a retirement tag costs a spurious warning, whereas silencing a revival leaves two live answers under one slot with a clean gate. (2026-07-23: the checker was briefly relaxed to accept a bare token, which re-admitted exactly that bypass. See [decisions.md](decisions.md) 2026-07-23 [process].)
 - Adding a new lead to a `SINGLE-VALUE` slot **requires** superseding or subordinating the incumbent in the same edit — reconcile to one; the loser is a founder decision.
 
 Enforced two ways from one implementation (`scripts/check-single-value-slots.py`): `/slava:maintain:docs-strategy-update` **Gate 8** at write time, and the `pre-commit-checks.sh` SINGLE-VALUE canary at commit time. A *finding* is a WARN (it may be a deliberate in-progress edit); a canary that is **missing or cannot run** is an ERROR that blocks — a gate you cannot execute is not a gate that passed.
 
-**Known gap (2026-07-23, unfixed):** the canary only recognises a competing lead when the date sits inside the bold lead-in of a top-level `>` callout. A lead written with the date in the body, a human-format date, a nested `>>`, a `> - ` bullet, or one placed after the callout group's closing prose line is **not** counted. Write leads in the canonical shape above; the checker cannot be relied on to catch the others. See `features/p1009_single_value_canary_evasions.md`.
+**What the canary scans (widened by P1009):** the marker's whole section, from its heading to the next heading of the same or higher level, including subsections and anything between the heading and the marker. Any blockquote item with a bold lead-in counts if it carries a date anywhere in the item, ISO or human-format (`22 July 2026`), at any `>` depth. The marker must sit on its own line outside a code fence. A marker quoted inline or shown in a fenced example is not a slot. At commit time every staged markdown file carrying a marker is scanned, not a fixed doc list.
+
+**Known residual gaps (deliberate):** an **undated** bold callout is not counted, because two brand taglines in §UVP would otherwise read as competing leads. A competing lead written as a `> - ` bullet **attached under** the live lead is indistinguishable from a sanctioned elaboration and is not counted. Write leads in the canonical shape above. See `features/p1009_single_value_canary_evasions.md`.
 
 ---
 

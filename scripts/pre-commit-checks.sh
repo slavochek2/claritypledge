@@ -1420,8 +1420,13 @@ echo ""
 # legitimate quick fixes; the WARN surfaces exactly the silent accumulation that
 # shipped the §UVP drift (2026-07-04 + 2026-07-11 both "lead the page"). The
 # echoed finding prints raw doc text as data (like the TODO check) — never eval'd.
+# The scanned set is DERIVED, not listed (P1009): every staged markdown file whose
+# staged content carries "SINGLE-VALUE:". A hand-kept five-doc list never scanned a
+# marker added to CHARTER.md, goals.md or a features/ spec. Which lines are real
+# markers (own line, outside a code fence) is the checker's call, not this grep's.
+# scripts/test-p1009-single-value-canary.sh runs this block in a throwaway repo.
 echo ">>> Checking SINGLE-VALUE strategy-doc slots..."
-SV_STAGED=$(echo "$STAGED_FILES" | grep -E '^docs/(lean-canvas|hypotheses|theory-of-change|definitions|progress)\.md$' || true)
+SV_STAGED=$(echo "$STAGED_FILES" | grep -E '\.md$' || true)
 if [ -n "$SV_STAGED" ]; then
     SV_TMP=""; SV_SKIP_OK=""
     # Hardcoded, never env-overridable: an inherited SV_SCRIPT pointing at any .py
@@ -1457,6 +1462,9 @@ if [ -n "$SV_STAGED" ]; then
                 SV_MISSED="$SV_MISSED $sv_doc"
                 continue
             fi
+            # The derivation filter. Grep reads the copied file directly, never a pipe: an
+            # early-closing grep under pipefail can report a match as a miss (epistemic gate 7).
+            grep -q 'SINGLE-VALUE:' "$SV_TMP/$sv_doc" || continue
             SV_ARGS+=("$SV_TMP/$sv_doc")
         done <<< "$SV_STAGED"
         if [ -n "$SV_MISSED" ]; then
@@ -1469,6 +1477,7 @@ if [ -n "$SV_STAGED" ]; then
             # guard that lands in the generic branch below as an ignorable WARN,
             # i.e. a staged doc goes unscanned and the commit sails through.
             SV_RC=0; SV_OUT=""; SV_SKIP_OK=1
+            [ -n "$SV_MISSED" ] || echo -e "${GREEN}✓ No staged doc carries a SINGLE-VALUE marker (check skipped)${NC}"
         else
             SV_OUT=$(python3 "$SV_SCRIPT" "${SV_ARGS[@]}" 2>&1) && SV_RC=0 || SV_RC=$?
             # Bash substitution, not sed: a temp path containing a sed metacharacter
@@ -1497,7 +1506,26 @@ if [ -n "$SV_STAGED" ]; then
         fi
     fi
 else
-    echo -e "${GREEN}✓ No strategy docs staged (SINGLE-VALUE check skipped)${NC}"
+    echo -e "${GREEN}✓ No markdown staged (SINGLE-VALUE check skipped)${NC}"
+fi
+echo ""
+
+# 13f. SINGLE-VALUE canary self-test (P1009) — runs when the checker, its suite or this
+# file is staged (the suite extracts and runs §13e from here). Must-fail fixtures for each
+# known evasion shape, must-pass fixtures for the sanctioned shapes, and the real
+# strategy docs both clean and mutated. A missing suite blocks, like the other canaries.
+SV_TEST_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(check-single-value-slots\.py|test-p1009-single-value-canary\.sh|pre-commit-checks\.sh)$' || true)
+if [ -n "$SV_TEST_STAGED" ]; then
+    if [ -f "scripts/test-p1009-single-value-canary.sh" ]; then
+        if ! run_quiet "SINGLE-VALUE canary self-test (P1009)" bash scripts/test-p1009-single-value-canary.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> SINGLE-VALUE canary self-test... ${RED}✗ scripts/test-p1009-single-value-canary.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> SINGLE-VALUE canary self-test skipped (checker not staged)"
 fi
 echo ""
 
