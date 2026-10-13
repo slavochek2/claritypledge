@@ -13,6 +13,7 @@ exec_model: opus
 exec_effort: high
 driver: heuristic
 completed_at: 2026-10-12
+superseded_by: p1483
 ---
 
 # P1453: Artist-style profile banners, signed "after <artist>"
