@@ -1114,11 +1114,38 @@ else
   fail "I18c: a stale code review no longer warns (exit $rc)"; rt_show
 fi
 
+# I19 — Codex re-review: with core.quotePath on (the default) git prints a
+# non-ASCII path quoted and escaped, so a Markdown doc read as code. The gate
+# reads NUL-separated raw names instead.
+d="$(rt_case i19a p3028 "docs/technical/migración.md" "$MIG")"; rt_stamp "$d" migrations p3028
+rc="$(rt_gate "$d" p3028)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS.*migrations' "$SCRATCH/i.log"; then
+  pass "I19a: a non-ASCII Markdown doc beside a migration passes on the migrations review"
+else
+  fail "I19a: a non-ASCII Markdown path was read as code (exit $rc)"; rt_show
+fi
+d="$(rt_case i19b p3029 "features/verification/p3029/çheck.ts" "$MIG")"; rt_stamp "$d" migrations p3029
+rc="$(rt_gate "$d" p3029)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I19b: a non-ASCII .ts path is still code"
+else
+  fail "I19b: a non-ASCII .ts path rode a migrations review (exit $rc)"; rt_show
+fi
+# Fail closed when the diff cannot be computed: no `main` ref to diff against.
+d="$(rt_case i19c p3030 "$MIG")"; rt_stamp "$d" migrations p3030
+( cd "$d" && git branch -q -m main trunk ) >/dev/null 2>&1
+rc="$(rt_gate "$d" p3030)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I19c: a branch diff that cannot be computed (no main ref) fails closed to code"
+else
+  fail "I19c: an uncomputable diff did not fail closed (exit $rc)"; rt_show
+fi
+
 # ── Result ──────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I18)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I19)"
 exit 0

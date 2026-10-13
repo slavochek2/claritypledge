@@ -576,20 +576,29 @@ fi
 # Fails closed to code when the diff is empty or cannot be computed. The no-branch
 # arm is unchanged: on main there is no branch diff to classify.
 review_types_for_branch() {
-  local files
-  files="$(cd "$REPO_ROOT" && git diff --no-renames --name-only "main...$1" 2>/dev/null)" || files=""
-  if [[ -z "$files" ]]; then echo code; return; fi
-  printf '%s\n' "$files" | awk '
-    /^supabase\/migrations\// || $0 == "supabase/deploy-manifest.json" { t["migrations"] = 1; next }
-    /^\.claude\/commands\/slava\/.*\.md$/ { t["skills"] = 1; next }
-    /^\.claude\/rules\/.*\.md$/ || $0 == "CLAUDE.md" { t["rules"] = 1; next }
-    /^(features|docs)\/.*\.md$/  { next }
-    { code = 1 }
-    END {
-      if (code) { print "code"; exit }
-      n = 0; for (k in t) { print k; n++ }
-      if (n == 0) print "prose"
-    }' | sort
+  # NUL-separated raw names (-z): with core.quotePath on — git's default — a
+  # non-ASCII path is printed quoted and escaped ("docs/technical/migraci\303\263n.md"),
+  # which no pattern below recognises, so Markdown read as code (Codex re-review).
+  # A failed diff emits one empty record; git never prints an empty path, so an
+  # empty name means "could not compute" and fails closed to code.
+  local f n=0 failed="" code="" mig="" rules="" skills=""
+  while IFS= read -r -d '' f; do
+    if [[ -z "$f" ]]; then failed=1; continue; fi
+    n=$((n + 1))
+    case "$f" in
+      supabase/migrations/*|supabase/deploy-manifest.json) mig=1 ;;
+      .claude/commands/slava/*.md)                         skills=1 ;;
+      .claude/rules/*.md|CLAUDE.md)                        rules=1 ;;
+      features/*.md|docs/*.md)                             ;;
+      *)                                                   code=1 ;;
+    esac
+  done < <(cd "$REPO_ROOT" && git diff --no-renames --name-only -z "main...$1" 2>/dev/null || printf '\0')
+  if [[ -n "$failed" || "$n" -eq 0 || -n "$code" ]]; then echo code; return; fi
+  [[ -n "$mig" ]] && echo migrations
+  [[ -n "$rules" ]] && echo rules
+  [[ -n "$skills" ]] && echo skills
+  [[ -z "$mig$rules$skills" ]] && echo prose
+  return 0
 }
 
 # _branch_entries — stdin lines whose "branch" field is exactly $feature_branch.
