@@ -3,7 +3,7 @@
 // the private day-data folder. Then prints the terminal card.
 //
 //   npx tsx scripts/day-render.ts --phase start|end|issues [--ledger PATH] [--day-dir PATH]
-//        [--print card|detail|none] [--now ISO] [--kanban-url URL]
+//        [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]
 //
 // Exit codes: 0 ok · 1 the report could not be written · 2 usage, or no ledger · 3 the report
 // would not validate (nothing is written).
@@ -53,6 +53,7 @@ import {
   type Review,
 } from '../src/lib/day'
 import { checkStatus } from '../src/components/day/statusWords'
+import { defaultGoalsFile, readGoals } from './day-goals'
 
 // ---------------------------------------------------------------------------------------
 // Vocabulary shared with src/lib/day.ts's reader. A value outside these is not written.
@@ -578,6 +579,8 @@ export interface RenderInputs {
   earlier: DayReport[]
   phase: 'start' | 'end'
   now: string
+  /** P1468: docs/goals.md's open goals, parsed now ([] = failed or none open); omitted = not collected */
+  goals?: DayReport['goals']
 }
 
 const runProblem = (label: string, detail: string): Omit<DayCheck, 'id'> => ({ label, status: 'problem', detail, group: RUN_GROUP })
@@ -640,6 +643,7 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   if (data.reflection) report.reflection = data.reflection as DayReport['reflection']
   if (data.people) report.people = data.people as DayReport['people']
   if (data.notes) report.notes = data.notes as DayReport['notes']
+  if (inp.goals) report.goals = inp.goals
   const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
   return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected }
 }
@@ -886,8 +890,8 @@ export function closeKilledRuns(dayDir: string, passId: string): number {
 // ---------------------------------------------------------------------------------------
 // The command.
 
-interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string }
-const USAGE = 'usage: --phase start|end|issues [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL]'
+interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string; goals: string }
+const USAGE = 'usage: --phase start|end|issues [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]'
 
 export function parseArgs(argv: string[]): Args | null {
   const a: Partial<Args> = {
@@ -896,6 +900,7 @@ export function parseArgs(argv: string[]): Args | null {
     print: 'card',
     now: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     kanbanUrl: 'http://localhost:9052',
+    goals: defaultGoalsFile(),
   }
   for (let i = 0; i < argv.length; i += 2) {
     const v = argv[i + 1]
@@ -907,6 +912,7 @@ export function parseArgs(argv: string[]): Args | null {
       case '--print': if (v !== 'card' && v !== 'detail' && v !== 'none') return null; a.print = v; break
       case '--now': if (!isoDay(v)) return null; a.now = v; break
       case '--kanban-url': a.kanbanUrl = v; break
+      case '--goals': a.goals = v; break
       default: return null
     }
   }
@@ -955,7 +961,9 @@ export function run(argv: string[], io: IO): number {
     io.out(`${JSON.stringify(cards, null, 2)}\n`)
     return 0
   }
-  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now })
+  // P1468: goals are read at render time — no /day data section; a broken goals.md snapshots []
+  const goals = readGoals(args.goals)
+  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now, goals })
   const problems = validateReport(report)
   if (problems.length) {
     say(`the report would not validate (${problems.slice(0, 5).join(',')})`)

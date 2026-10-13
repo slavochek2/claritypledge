@@ -934,3 +934,87 @@ describe('day-render: Park is always offered', () => {
     expect(opts.find((o) => o.id === 'wait')?.recommended).toBe(true)
   })
 })
+
+describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time and snapshotted', () => {
+  const REAL = resolve(__dirname, '../../../../docs/goals.md')
+
+  it('GOALS — against the real goals.md: the first 3 open items, in file order, their bold titles, no step label in the text', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const g = parseGoals(readFileSync(REAL, 'utf-8'))
+    expect(g).toEqual({
+      kind: 'ok',
+      goals: [
+        { id: '3a', text: 'One free in-person sales-practice event' },
+        { id: '3a+', text: 'After the in-person event: a "for sales" use case on the main landing page' },
+        { id: '3b', text: 'The same format online, once.' },
+      ],
+    })
+  })
+
+  it('GOALS — `## Next Steps` renamed is a parse failure; every item `[x]` is zero open; neither is an empty ok', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const real = readFileSync(REAL, 'utf-8')
+    expect(parseGoals(real.replace(/^## Next Steps$/m, '## Upcoming'))).toEqual({ kind: 'no-section' })
+    expect(parseGoals(real.replace(/\[ \]/g, '[x]'))).toEqual({ kind: 'none-open' })
+  })
+
+  it('GOALS — no bold title: the first sentence, links and code marks stripped; a duplicate label keeps the first; a bold word mid-item is not a title', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const md = [
+      '# Goals',
+      '## Next Steps',
+      '1. [x] done already',
+      '2. [ ] Ship the [pricing page](docs/x.md) with `npm run build` green. Then tell people.',
+      '2. [ ] A second item reusing the label.',
+      '3. [ ] Talk to one **group** this week. More text.',
+      '4. [ ] Third open item, shown.',
+      '## Later',
+      '5. [ ] Outside the section.',
+    ].join('\n')
+    expect(parseGoals(md)).toEqual({
+      kind: 'ok',
+      goals: [
+        { id: '2', text: 'Ship the pricing page with npm run build green.' },
+        { id: '3', text: 'Talk to one group this week.' },
+        { id: '4', text: 'Third open item, shown.' },
+      ],
+    })
+    // the cap: a fourth open item is left out
+    expect(parseGoals(md.replace('## Later', '6. [ ] Fourth open item.\n## Later'))).toMatchObject({ kind: 'ok', goals: { length: 3 } })
+  })
+
+  it('SNAPSHOT — day-render writes `goals` into the report; a broken goals.md writes `[]`; the report still validates', () => {
+    writeLedger(w, cleanBody(w))
+    const r = render(w, 'end', ['--goals', REAL])
+    expect(r.code).toBe(0)
+    expect(r.report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
+    const broken = join(w.root, 'goals.md')
+    writeFileSync(broken, readFileSync(REAL, 'utf-8').replace(/^## Next Steps$/m, '## Upcoming'))
+    const b = render(w, 'end', ['--goals', broken])
+    expect(b.code).toBe(0)
+    expect(b.report!.goals).toEqual([])
+    const missing = render(w, 'end', ['--goals', join(w.root, 'nope.md')])
+    expect(missing.code).toBe(0)
+    expect(missing.report!.goals).toEqual([])
+    const parsed = parseReport(JSON.parse(readFileSync(reportPath(w), 'utf-8')))
+    expect(parsed.kind === 'ok' && parsed.droppedRows).toBe(0)
+  })
+
+  it('SNAPSHOT — with no --goals flag the default is this checkout\'s docs/goals.md', () => {
+    writeLedger(w, cleanBody(w))
+    expect(render(w, 'end').report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
+  })
+
+  it('PARSE — parseReport keeps valid goal rows and drops malformed ones, counting them', () => {
+    const base = JSON.parse(JSON.stringify({ schema: 2, pass_id: PASS, started_at: STARTED, state: 'complete', connections: [], checks: [{ id: 'a', label: 'A', status: 'ok' }], issues: [] }))
+    const good = parseReport({ ...base, goals: [{ id: '3a', text: 'One event' }, { id: '3a+', text: 'After it' }] })
+    expect(good.kind === 'ok' && good.report.goals).toEqual([{ id: '3a', text: 'One event' }, { id: '3a+', text: 'After it' }])
+    const bad = parseReport({ ...base, goals: [{ id: '3a', text: 'One event' }, { id: '3a', text: 'dup' }, { id: 'x y', text: 'bad id' }, { id: '4', text: '' }, 'str'] })
+    expect(bad.kind === 'ok' && bad.report.goals).toEqual([{ id: '3a', text: 'One event' }])
+    expect(bad.kind === 'ok' && bad.droppedRows).toBe(4)
+    const none = parseReport(base)
+    expect(none.kind === 'ok' && 'goals' in none.report).toBe(false)
+    const empty = parseReport({ ...base, goals: [] })
+    expect(empty.kind === 'ok' && empty.report.goals).toEqual([])
+  })
+})

@@ -9,6 +9,8 @@ import { join, relative, resolve } from 'path'
 import { tmpdir } from 'os'
 import {
   allIssues,
+  boardNotes,
+  boardReadings,
   buildPrompt,
   buildView,
   collect,
@@ -823,6 +825,19 @@ describe('day v2 Phase D: the synthetic run exercises the new rules', () => {
     expect(r.stats!.funnel!.collected).toBe(true)
     expect(r.stats!.funnel!.steps.some((s) => s.value === 0)).toBe(true) // real zeros
     expect(r.stats!.series!.some((s) => s.id === 'reachouts')).toBe(false)
+    // P1468: the fixture keeps the old shape, and the board hides it — the two chat tiles, and every
+    // note that is not a weekly / monthly review (chat digest, shipped, what's next)
+    expect(boardReadings(r.stats!.readings).map((x) => x.id)).toEqual(['unconfirmed'])
+    expect(boardNotes(r.notes).map((n) => n.id)).toEqual(['week-measures'])
+    expect(r.notes!.length).toBeGreaterThan(boardNotes(r.notes).length) // a known-bad input: there IS something to hide
+  })
+
+  it('P1468 FIXTURE — the run carries a goals snapshot the board can show', () => {
+    expect(ok(synthReport()).goals).toEqual([
+      { id: '3a', text: 'One free practice evening for people who sell' },
+      { id: '3a+', text: 'A use case on the landing page, in attendees’ words' },
+      { id: '3b', text: 'The same format online, once.' },
+    ])
   })
 
   it('FIXTURE — Claude and Codex are both collected with a reset day, and two earlier runs give ≥ 3 points each', () => {

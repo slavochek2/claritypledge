@@ -366,8 +366,32 @@ export interface DayReport {
   /**
    * Detail one step away (spec §2): what shipped, what's next, branches, the chat digest, a
    * review's measurements. Plain text, shown folded on the Stats tab; never a question.
+   * P1468: the board shows only the notes that carry a `review` (weekly / monthly); the daily ones
+   * older runs carry are hidden, whatever the report contains.
    */
   notes?: DayNote[]
+  /**
+   * P1468: the open goals — up to 3 open `## Next Steps` items of docs/goals.md, parsed when the
+   * report was rendered. Absent = not collected (a run from before P1468); empty = the parse failed
+   * or nothing is open.
+   */
+  goals?: DayGoal[]
+}
+
+/**
+ * P1468: what the Stats tab shows of a report's notes and readings, whatever the report contains.
+ * The daily notes (shipped, what's next, branches, cloud spend, the chat digest) live elsewhere now —
+ * git log, the funnel, the Board, Monitoring, reply cards — so only weekly / monthly review notes
+ * show; the two chat tiles went with the digest. Older runs therefore look the same as new ones.
+ */
+export const HIDDEN_READINGS: readonly string[] = ['mentions', 'help_requests']
+export const boardNotes = (notes: DayNote[] | undefined): DayNote[] => (notes ?? []).filter((n) => !!n.review)
+export const boardReadings = <R extends { id: string }>(readings: R[] | undefined): R[] => (readings ?? []).filter((r) => !HIDDEN_READINGS.includes(r.id))
+
+/** P1468: one open goal: its step label (the row's id, never shown) and its bold title or first sentence. */
+export interface DayGoal {
+  id: string
+  text: string
 }
 
 export interface DayNote {
@@ -635,6 +659,14 @@ function readNote(x: unknown): DayNote | null {
   return n
 }
 
+/** P1468: a goals.md step label ("3a", "3a+") and plain text. */
+const GOAL_ID = /^[A-Za-z0-9][A-Za-z0-9.+_-]{0,19}$/
+export const MAX_GOAL = 300
+function readGoal(x: unknown): DayGoal | null {
+  if (!isObj(x) || typeof x.id !== 'string' || !GOAL_ID.test(x.id) || !str(x.text)) return null
+  return { id: x.id, text: (x.text as string).slice(0, MAX_GOAL) }
+}
+
 /** P1445: an agent view the checker passed, else nothing (an unchecked story is never shown). */
 function readAgent(x: unknown): DayAgentView | undefined {
   if (!isObj(x) || x.checker !== 'pass' || !str(x.name) || !str(x.story)) return undefined
@@ -808,6 +840,7 @@ export function parseReport(raw: unknown): ParsedReport {
   if (stats) report.stats = stats
   if (Array.isArray(raw.people)) report.people = rows(raw.people, readPerson, (p) => p.id, drop)
   if (Array.isArray(raw.notes)) report.notes = rows(raw.notes, readNote, (n) => n.id, drop)
+  if (Array.isArray(raw.goals)) report.goals = rows(raw.goals, readGoal, (g) => g.id, drop)
   if (isObj(raw.reflection)) {
     report.reflection = { statements: rows(raw.reflection.statements, readStatement, (s) => s.id, drop) }
     if (str(raw.reflection.model)) report.reflection.model = raw.reflection.model as string
