@@ -97,8 +97,8 @@ const linkedStory = (id: string, authorId: string) =>
   makeStory({ id, authorId, authorName: `Author ${id}`, authorSlug: `a-${id}` });
 
 /**
- * P1394: the per-test bound for the describes below that open the ⋯ menu and the share sheet with
- * user-event. Every step resolves at once; the cost is CPU for the clicks through Radix in jsdom,
+ * P1394: the bound for each test below that drives the ⋯ menu or the share sheet with user-event
+ * (synchronous tests keep Vitest's default). Every step resolves at once; the cost is CPU for the clicks through Radix in jsdom,
  * and the first one in the file also warms those code paths up (~0.7s for one click on a busy
  * machine). Under heavy parallel load that went past Vitest's default 5s. A hang bound, not a
  * speed assertion: the waits inside keep their own bounds.
@@ -120,7 +120,7 @@ beforeEach(() => {
   session.current = { user: { id: 'viewer-1' } };
 });
 
-describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1296 — the story card footer', () => {
   const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =>
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
 
@@ -145,7 +145,7 @@ describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
     expect(screen.getByRole('button', { name: 'Copy embed code' })).toBeTruthy();
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'story', id: 'story-1', surface: 'stake' });
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   /**
    * The sheet renders in a PORTAL, but React bubbles its events through the component tree to
@@ -162,13 +162,13 @@ describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await waitFor(() => expect(within(dialog).getAllByRole('button', { name: 'Copied' })).toHaveLength(2));
     fireEvent.keyDown(within(dialog).getByRole('button', { name: 'Expanded' }), { key: 'Enter' });
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('the surface defaults to feed', async () => {
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} /></MemoryRouter>);
     await openShare('story');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'story', id: 'story-1', surface: 'feed' });
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('Details → goes to the story', () => {
     renderStory();
@@ -183,7 +183,7 @@ describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await userEvent.setup().keyboard('{Enter}');
     expect(await screen.findByRole('menu')).toBeTruthy();
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it("the story's AUTHOR sees + Add a point, and it goes to the story's add-point form", () => {
     renderStory({ currentUserId: 'author-1' });
@@ -207,7 +207,7 @@ describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
   });
 });
 
-describe('P1296 — the point card footer', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1296 — the point card footer', () => {
   // `linkedStories` is taken as-is — NOT defaulted — because `undefined` ("not loaded") is one
   // of the states under test, and a default parameter would silently turn it into `[]`.
   const renderPoint = (point: PointWithUserPosition = makePoint(), ...rest: [StoryWithAuthor[] | undefined] | []) => {
@@ -232,7 +232,7 @@ describe('P1296 — the point card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await openShare('point');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'point-1', surface: 'stake' });
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('clicks inside the open sheet never open the point', async () => {
     renderPoint();
@@ -241,7 +241,7 @@ describe('P1296 — the point card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
     fireEvent.click(within(dialog).getByRole('button', { name: 'Collapsed' }));
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Copied' })).toBeTruthy());
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   /**
    * Review, 2026-09-11 (MEDIUM). A confirmed withdrawal cleared only the card's LOCAL position,
@@ -371,7 +371,7 @@ describe('P1296 — the point card footer', { timeout: USER_EVENT_TEST_TIMEOUT_M
   });
 });
 
-describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST only', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST only', () => {
   const protoPoint = () => ({
     id: 'pt-1',
     text: 'A point on the point page.',
@@ -403,5 +403,5 @@ describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST on
     expect(menu.className).toContain('min-w-11');
     await openShare('point');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'pt-1', surface: 'profile' });
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 });

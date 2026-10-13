@@ -226,8 +226,10 @@ beforeEach(() => {
   mockSupabaseTables();
 });
 
-// The test bound sits above the render wait, so a page that never renders fails with the DOM
-// dump rather than a bare "test timed out".
+// Every test in this block starts with expandLinkedStories(), whose render wait may take up to
+// PAGE_RENDER_TIMEOUT_MS (5s, the same as Vitest's default test bound), so all of them need the
+// higher block bound. It sits above the render wait, so a page that never renders fails with the
+// DOM dump rather than a bare "test timed out".
 describe('P1270 §1 — profile Points tab renders nested story media', { timeout: 15_000 }, () => {
   it('renders the video for a nested story that has one', async () => {
     renderProfile();

@@ -128,15 +128,15 @@ function expectSolidExpander(el: HTMLElement) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * P1394: the per-test bound for the describes below that drive the ⋯ menu and the share sheet with
- * user-event. Timed step by step, every wait in them resolves at once; the cost is CPU, ~0.3-0.5s
+ * P1394: the bound for each test below that drives the ⋯ menu or the share sheet with user-event
+ * (synchronous tests keep Vitest's default). Timed step by step, every wait in them resolves at once; the cost is CPU, ~0.3-0.5s
  * per click through Radix in jsdom on a busy machine. In loaded full-suite runs these tests went
  * past Vitest's default 5s (the twice-through-the-sheet test most often). A hang bound, not a
  * speed assertion: the waits inside keep their own bounds.
  */
 const USER_EVENT_TEST_TIMEOUT_MS = 15_000;
 
-describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1366 — feed/stake point card', () => {
   it('N stories is a light blue pill button that expands in place', () => {
     renderPoint(makePoint(), stories(2));
     const expander = screen.getByTestId('feed-point-story-expander');
@@ -254,7 +254,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     const menu = await screen.findByRole('menu');
     expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Share']);
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('Share opens the share SHEET and fires feed_card_shared with its surface — without navigating', async () => {
     const user = userEvent.setup();
@@ -269,7 +269,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'point-1', surface: 'stake' });
     expect(track).toHaveBeenCalledTimes(1);
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('clicks and Enter inside the share sheet never open the point', async () => {
     const user = userEvent.setup();
@@ -282,7 +282,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     fireEvent.keyDown(within(dialog).getByRole('button', { name: 'Collapsed' }), { key: 'Enter' });
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Copied' })).toBeTruthy());
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('keyboard: Enter opens, arrows move, Escape closes and focus returns to the trigger — no navigation', async () => {
     const user = userEvent.setup();
@@ -298,7 +298,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('keyboard: Space opens too, and choosing Share by Enter moves focus INTO the sheet', async () => {
     const user = userEvent.setup();
@@ -315,7 +315,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   /**
    * Found by the layout e2e (flaky Escape): the ⋯ trigger's `More` hint is a Radix tooltip, a
@@ -328,7 +328,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     renderPoint(makePoint(), []);
     await user.hover(screen.getByRole('button', { name: 'More actions for this point' }));
     expect((await screen.findByRole('tooltip')).textContent).toContain('More');
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('the `More` hint never shows while the menu is open, so one Escape closes the menu', async () => {
     const user = userEvent.setup();
@@ -345,7 +345,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     // one Escape closes the MENU (no locked hint layer on top of it)
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('an outside click closes the menu', async () => {
     const user = userEvent.setup();
@@ -356,7 +356,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     // tap lands on the page root — that is what dismisses it.
     await user.pointer({ keys: '[MouseLeft]', target: document.documentElement });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('the footer row starts at the card\'s left edge (px-4, no text-column indent); the expanded story list keeps its indent', () => {
     renderPoint(makePoint(), stories(2));
@@ -378,7 +378,7 @@ describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_M
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1366 — feed/stake story card', () => {
   it('N points is a light blue pill button; singular "1 point"', () => {
     const { unmount } = renderStory({ linkedPoints: points(2) });
     const expander = screen.getByTestId('feed-story-point-expander');
@@ -433,7 +433,7 @@ describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await user.click(screen.getByRole('button', { name: 'More actions for this story' }));
     const menu = await screen.findByRole('menu');
     expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Share']);
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('Share opens the sheet and fires feed_card_shared with its surface', async () => {
     const user = userEvent.setup();
@@ -445,7 +445,7 @@ describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'story', id: 'story-1', surface: 'stake' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('the surface defaults to feed', async () => {
     const user = userEvent.setup();
@@ -453,7 +453,7 @@ describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_M
     await user.click(screen.getByRole('button', { name: 'More actions for this story' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'story', id: 'story-1', surface: 'feed' });
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('a long author name truncates beside the ⋯ instead of pushing it off the card', () => {
     renderStory({ story: makeStory({ authorName: 'Bartholomew Alexandria Featherstonehaugh-Wolfeschlegelsteinhausen' }) });
@@ -481,7 +481,7 @@ describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_M
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — PointCardWithLinks in the profile list', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1366 — PointCardWithLinks in the profile list', () => {
   const protoPoint = (positions: Record<string, { position: string }> = {}) => ({
     id: 'pt-1',
     text: 'A point on a profile.',
@@ -589,7 +589,7 @@ describe('P1366 — PointCardWithLinks in the profile list', { timeout: USER_EVE
     await screen.findByRole('dialog');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'pt-1', surface: 'profile' });
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it("the owner's name truncates, the ⋯ never shrinks", () => {
     renderProfile({
@@ -671,7 +671,7 @@ describe('P1366 — PointCardWithLinks in the profile list', { timeout: USER_EVE
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
+describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', () => {
   /**
    * Review finding (HIGH). A non-modal menu let the tap that dismisses it ALSO land on whatever
    * was under it — the card (navigation) or a position button (a data write). A modal Radix menu
@@ -698,7 +698,7 @@ describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { t
     await tapOutside(user);
     expect(navigate).not.toHaveBeenCalled();
     expect(document.body.style.pointerEvents).not.toBe('none');
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('point card: tapping a position button to dismiss never writes a position', async () => {
     const user = userEvent.setup();
@@ -712,7 +712,7 @@ describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { t
     // …and once the menu is gone the page is live again: the same tap now takes a position
     await user.click(position);
     await waitFor(() => expect(vi.mocked(pointsService.setPosition)).toHaveBeenCalledTimes(1));
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('story card: tapping the card body to dismiss never navigates', async () => {
     const user = userEvent.setup();
@@ -721,7 +721,7 @@ describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { t
     await expect(user.click(screen.getByText('A story body.'))).rejects.toThrow(/pointer-events/);
     await tapOutside(user);
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('menu → Share → close the sheet, twice: the sheet opens only after the menu closed, and <body> is never left inert', async () => {
     const user = userEvent.setup();
@@ -741,7 +741,7 @@ describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { t
     // the page is usable afterwards
     await user.click(screen.getByRole('button', { name: 'Details for this point' }));
     expect(navigate).toHaveBeenCalledWith('/point/point-1');
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 
   it('menu → Share → Escape: focus returns to the ⋯ and <body> is live', async () => {
     const user = userEvent.setup();
@@ -755,7 +755,7 @@ describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { t
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     expect(document.body.style.pointerEvents).not.toBe('none');
     expect(navigate).not.toHaveBeenCalled();
-  });
+  }, USER_EVENT_TEST_TIMEOUT_MS);
 });
 
 describe('P1366 — surfaces OUT of scope keep main\'s footer', () => {
