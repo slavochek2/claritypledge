@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { buildE2EStorageState } from './e2e/helpers/storage-state';
+import { worktreePort } from './scripts/lib/worktree-port.mjs';
 
 // Load test environment variables from .env.test.local
 const __filename = fileURLToPath(import.meta.url);
@@ -12,38 +13,20 @@ dotenv.config({ path: path.resolve(__dirname, '.env.test.local') });
 
 /**
  * Determine the port based on the worktree.
- * PORT LOGIC: Must stay in sync with vite.config.ts getWorktreeSlot()/getPort()
+ * P1480: the scheme lives in scripts/lib/worktree-port.mjs, shared with vite.config.ts,
+ * e2e/save-auth.ts and scripts/check-worktree-env.sh, so the four cannot disagree.
  *
  * Port scheme:
  *   Main repo (claritypledge): 5001 (5000 blocked by macOS AirPlay)
- *   Worktrees w1-w7 (.claude/worktrees/wN): 5100-5700
- *   Legacy worktrees (claritypledge-N): 5100-5700
+ *   Worktrees wN (.claude/worktrees/wN): 5100, 5200, … — except w10, which is 6050
+ *     because Chromium refuses 6000 (ERR_UNSAFE_PORT)
+ *   Legacy worktrees (claritypledge-N): same as wN
  *   Named worktrees (.../worktrees/name): 5800-5899 (hashed)
+ *
+ * This file's own directory is the checkout, so it is passed explicitly.
  */
 function getWorktreePort(): number {
-  const dirName = path.basename(__dirname);
-
-  // Match new-style worktree: .claude/worktrees/wN
-  const slotMatch = dirName.match(/^w(\d+)$/);
-  if (slotMatch) {
-    return 5000 + (parseInt(slotMatch[1], 10) * 100);
-  }
-
-  // Match legacy worktree: claritypledge-N
-  const legacyMatch = dirName.match(/^claritypledge-(\d+)$/);
-  if (legacyMatch) {
-    return 5000 + (parseInt(legacyMatch[1], 10) * 100);
-  }
-
-  // Match named worktrees: .../worktrees/any-name
-  const parentDir = path.basename(path.dirname(__dirname));
-  if (parentDir === 'worktrees') {
-    const hash = [...dirName].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
-    return 5800 + (Math.abs(hash) % 100);
-  }
-
-  // Main repo — 5001
-  return 5001;
+  return worktreePort(__dirname);
 }
 
 const PORT = getWorktreePort();

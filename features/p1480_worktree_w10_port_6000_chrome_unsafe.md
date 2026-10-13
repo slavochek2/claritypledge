@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 36
 workstream: infrastructure
@@ -7,8 +7,8 @@ created_date: '2026-10-13'
 tags: [worktrees, e2e, dev-server, ports]
 disclosure: public
 intent: cold-start
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: low
@@ -81,17 +81,33 @@ imports).
 
 ## Done-When
 
-- [ ] A unit test computes the port for `w1..w99` and `legacy1..legacy9` through each of the three
+- [x] A unit test computes the port for `w1..w99` and `legacy1..legacy9` through each of the three
       implementations (or the shared module plus each call site) and asserts: all three agree; none
       is in Chromium's restricted list; all are unique; `w10` ≠ 6000; and every slot other than
       the remapped one keeps its current `5000 + N*100` value.
-- [ ] From a worktree directory named `w10`, `node -e` evaluation of `playwright.config.ts`'s port
+- [x] From a worktree directory named `w10`, `node -e` evaluation of `playwright.config.ts`'s port
       function and `vite.config.ts`'s port function both return the remapped port, and
       `bash scripts/check-worktree-env.sh` reports the same port.
-- [ ] A Playwright smoke test run from a `w10` worktree loads the first page (no
+- [x] A Playwright smoke test run from a `w10` worktree loads the first page (no
       `ERR_UNSAFE_PORT`). If no w10 slot can be claimed at implementation time, the unit test above
       plus a curl to the remapped port on a Vite server started with that slot's config is
       acceptable, stated as such.
+
+**Evidence (/dev, 2026-10-13):**
+- AC1: `src/tests/p1480-worktree-ports.test.ts`, 19/19 pass. Shared module checked for w1..w99 and
+  legacy1..9 against an independent oracle (`5000 + N*100`, 6000 moved to 6050); call sites checked by
+  loading the real `vite.config.ts` / `playwright.config.ts` and running `check-worktree-env.sh` from
+  checkouts named w1, w9, w10, w11, w99, claritypledge-3, a named worktree and main. Red before the
+  change (w10 vite = 6000). Two mutations (shift 100; vite back to an inline formula) each failed it.
+- AC2: from a real directory named `w10`, `vite.config.ts server.port = 6050`, `playwright.config.ts
+  baseURL = http://localhost:6050`, `webServer = npm run dev -- --port 6050`,
+  `CHECK_WORKTREE_ENV_PRINT_PORT=1 bash scripts/check-worktree-env.sh` = 6050.
+- AC3: the live w10 slot belongs to another session, so a throwaway directory named `w10` was used,
+  with the real `npm run dev` (predev checker included) started by Playwright. HEAD configs:
+  `page.goto: net::ERR_UNSAFE_PORT at http://localhost:6000/`. New configs: 1 passed, loaded
+  `http://localhost:6050/feed`.
+- The restricted list is the Fetch standard's 83 ports. Measured against Playwright's Chromium
+  156.0.8078.4 for ports 1..15000: it refuses that list minus 4190 and 6679.
 
 ## Related
 

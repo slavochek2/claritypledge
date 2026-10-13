@@ -5,6 +5,20 @@
 
 set -euo pipefail
 
+# P1480: the port comes from scripts/lib/worktree-port.mjs — the single definition shared
+# with vite.config.ts, playwright.config.ts and e2e/save-auth.ts. Computed from the cwd,
+# exactly as vite.config.ts computes it.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKTREE_PORT="$(node "$SCRIPT_DIR/lib/worktree-port.mjs")"
+
+# Print-only mode: report the port this checkout maps to and touch nothing — no reaping,
+# no cache validation, no setup. Lets a test (src/tests/p1480-worktree-ports.test.ts) or a
+# human ask the checker which port it would guard.
+if [[ "${CHECK_WORKTREE_ENV_PRINT_PORT:-}" == "1" ]]; then
+  echo "$WORKTREE_PORT"
+  exit 0
+fi
+
 # Is something answering HTTP on this port? Any completed HTTP response counts as
 # alive — including a 4xx/5xx, which still means a process is serving and owns the port.
 # A zombie (interrupted Vite, orphaned listener) holds the socket but never completes a
@@ -23,7 +37,7 @@ port_answers_http() {
 }
 
 # Kill-on-start: compute this worktree's port and reap a ZOMBIE occupant.
-# Uses the same deterministic mapping as vite.config.ts getPort().
+# Same deterministic mapping as vite.config.ts getPort() — see WORKTREE_PORT above.
 #
 # P1234 — the health check is the whole point, not a nicety. This used to kill the
 # occupant unconditionally. On the shared main checkout every concurrent session maps to
@@ -36,17 +50,7 @@ port_answers_http() {
 # Escape hatch: FORCE_PORT_RECLAIM=1 npm run dev  — reclaims the port regardless, for a
 # deliberate restart of your own server.
 kill_zombie_on_port() {
-  local port
-  port=$(node -e "
-    const cwd = process.cwd();
-    const s = cwd.match(/[/\\\\](w\\d+)\$/);
-    const n = cwd.match(/[/\\\\]worktrees[/\\\\]([^/\\\\]+)\$/);
-    const slot = s ? s[1] : n ? n[1] : null;
-    if (!slot) { console.log(5001); process.exit(); }
-    const m = slot.match(/^w(\\d+)\$/);
-    if (m) { console.log(5000 + parseInt(m[1], 10) * 100); }
-    else { const h = [...slot].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0); console.log(5800 + (Math.abs(h) % 100)); }
-  ")
+  local port="$WORKTREE_PORT"
   local pids
   pids=$(lsof -ti:"$port" 2>/dev/null || true)
   # Explicit `if`, not `[[ ... ]] && return 0`: the one-liner works here, but only

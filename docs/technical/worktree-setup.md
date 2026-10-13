@@ -128,7 +128,7 @@ cd .claude/worktrees/w1
 npm run dev   # auto-binds to 5100 (w1), reaps a zombie on that port first
 ```
 
-Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200, named worktrees = 5800-5899 (hash-based).
+Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200, named worktrees = 5800-5899 (hash-based). One exception: **w10 = 6050**, not 6000 — Chromium refuses 6000 (`ERR_UNSAFE_PORT`), so any slot whose port is on the browser bad-port list is shifted by 50 (P1480). The scheme lives in one file, `scripts/lib/worktree-port.mjs`; ask it for any directory with `node scripts/lib/worktree-port.mjs <dir>`, or ask the predev checker with `CHECK_WORKTREE_ENV_PRINT_PORT=1 bash scripts/check-worktree-env.sh`.
 
 **Kill-on-start — zombies only (P1234):** The `predev` hook (`check-worktree-env.sh`) reaps a *zombie* on the worktree's port before Vite starts — a process that holds the port but does not complete an HTTP response. This prevents zombie accumulation with no manual cleanup.
 

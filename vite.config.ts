@@ -7,35 +7,23 @@ import { fileURLToPath } from 'url'
 import { existsSync } from 'node:fs'
 import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
+import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// Auto-detect worktree slot from cwd
-// PORT LOGIC: Must stay in sync with playwright.config.ts getWorktreePort()
-// Returns slot name (e.g. "w1", "w2") or null for main repo
+// Auto-detect worktree slot and port from cwd.
+// P1480: both come from scripts/lib/worktree-port.mjs, the one definition shared with
+// playwright.config.ts, e2e/save-auth.ts and scripts/check-worktree-env.sh.
+// Returns slot name (e.g. "w1", "w2", "legacy3", a named worktree) or null for main repo
 function getWorktreeSlot(): string | null {
-  const cwd = process.cwd()
-  const slotMatch = cwd.match(/[/\\](w\d+)$/)
-  if (slotMatch) return slotMatch[1]
-  const legacyMatch = cwd.match(/claritypledge-(\d+)$/)
-  if (legacyMatch) return `legacy${legacyMatch[1]}`
-  // Named worktrees (e.g. landing-v4-artistic)
-  const namedMatch = cwd.match(/[/\\]worktrees[/\\]([^/\\]+)$/)
-  if (namedMatch) return namedMatch[1]
-  return null
+  return worktreeSlot(process.cwd())
 }
 
-// Auto-detect port based on worktree
-// Main repo: 5001, Worktrees w1-w7: 5100-5700
+// Main repo: 5001, worktrees w1, w2, … : 5100, 5200, … (w10 is 6050 — 6000 is
+// browser-restricted), named worktrees: 5800-5899
 function getPort(): number {
-  const slot = getWorktreeSlot()
-  if (!slot) return 5001 // Main repo (5000 is blocked by macOS AirPlay)
-  const numMatch = slot.match(/^w(\d+)$/) || slot.match(/^legacy(\d+)$/)
-  if (numMatch) return 5000 + (parseInt(numMatch[1], 10) * 100)
-  // Named worktrees: hash to a port in 5800-5899 range
-  const hash = [...slot].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
-  return 5800 + (Math.abs(hash) % 100)
+  return portForSlot(getWorktreeSlot())
 }
 
 // Isolate Vite dep cache per worktree to prevent concurrent corruption

@@ -39,15 +39,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# The port the function will compute for that cwd — derived by the same mapping, so this
-# canary cannot drift onto a port the script would not have chosen.
-PORT=$(cd "$FAKE_WORKTREE" && node -e "
-  const cwd = process.cwd();
-  const n = cwd.match(/[/\\\\]worktrees[/\\\\]([^/\\\\]+)\$/);
-  const slot = n ? n[1] : null;
-  const h = [...slot].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
-  console.log(5800 + (Math.abs(h) % 100));
-")
+# The port the function will compute for that cwd — from the same shared definition the
+# script uses (scripts/lib/worktree-port.mjs, P1480), so this canary cannot drift onto a
+# port the script would not have chosen.
+PORT=$(cd "$FAKE_WORKTREE" && node "$REPO_ROOT/scripts/lib/worktree-port.mjs")
 
 if [[ "$PORT" == "5001" || -z "$PORT" ]]; then
   echo "ABORT: canary resolved port '$PORT' — refusing to run against the shared main port."
