@@ -596,6 +596,24 @@ else
 fi
 echo ""
 
+# 4.7i. Function-grant direction + grant-order canaries (P1102) — run when either
+# checker, its self-test, or a module they import is staged. Proves a narrowing on test
+# still reads as a presumed in-flight fix (never gating drift whose remedy is to restore
+# it), a widening still gates, and the grant-order gate still refuses exactly the P1093
+# restore among the real migrations while passing every other one.
+FN_GRANT_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(function-grant-drift-check|test-function-grant-drift-check|check-migration-grant-order|test-check-migration-grant-order|rls-drift-check)\.py$' || true)
+if [ -n "$FN_GRANT_STAGED" ]; then
+    if ! run_quiet "Function grant drift checker canary (P1065/P1102)" python3 scripts/test-function-grant-drift-check.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+    if ! run_quiet "Grant-order contradiction gate canary (P1102)" python3 scripts/test-check-migration-grant-order.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Function grant canaries skipped (no function-grant checker staged)"
+fi
+echo ""
+
 # 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
 # canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
 # identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
@@ -1728,6 +1746,26 @@ if [ -n "$NEW_MIGRATIONS" ]; then
         echo -e "${GREEN}✓ RLS policy scoping OK${NC}"
     else
         echo -e "${RED}✗ Unscoped RLS policy/policies found (see above)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No new migrations staged${NC}"
+fi
+echo ""
+
+# 14.97. Grant-order contradiction gate (P1102 — prevents the P1093 revert).
+# Two migrations disagreeing on an EXECUTE grant are resolved by timestamp on every
+# ordered apply, never by which one is right. Refuses a staged migration that GRANTs
+# anon/authenticated/PUBLIC back what an earlier migration revoked (unless it carries
+# "-- widens-revoked-grant: <revoking version> <reason>"), or that REVOKEs what a
+# later-sorting migration grants back. Narrowing is never refused.
+echo ">>> Checking new/modified migrations for grant-order contradictions (P1102)..."
+if [ -n "$NEW_MIGRATIONS" ]; then
+    # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
+    if python3 ./scripts/check-migration-grant-order.py $NEW_MIGRATIONS; then
+        echo -e "${GREEN}✓ No grant-order contradiction${NC}"
+    else
+        echo -e "${RED}✗ A staged migration contradicts another migration's grant (see above)${NC}"
         ERRORS=$((ERRORS + 1))
     fi
 else

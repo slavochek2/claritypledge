@@ -561,8 +561,28 @@ working one are textually near-identical, and the ineffective one raises no erro
 
 This check reads `has_function_privilege()` on live prod and live test and diffs against
 `scripts/anon-execute-allowlist.txt` (P1064). Two gating directions: `anon-unlisted` (an
-anonymous caller can reach a function nobody has justified) and `grant-differs` (prod and
-test disagree about who may execute). `fn-env-only` and `allowlist-stale` report only.
+anonymous caller can reach a function nobody has justified) and `grant-differs` (test
+grants EXECUTE to a role prod does not). `grant-narrower-on-test`, `fn-env-only` and
+`allowlist-stale` report only.
+
+**A grant test has revoked and prod still holds is presumed an in-flight security fix
+(P1102).** Fixes land on test first, so until the prod deploy every one of them looks like
+test having *lost* a privilege — and the remedy that framing suggests, restoring prod's grant
+on test, reverts the fix. A restore migration is also timestamped after the fix, so it undoes
+it on every ordered apply, prod deploy included (P1093 → P1102, `docs/decisions.md`
+2026-08-18). Never answer a `grant-narrower-on-test` finding with a migration that widens the
+grant; find the fix and ship it, and treat any widening as a human decision.
+
+`scripts/check-migration-grant-order.py` enforces the migration-text half at commit time
+(pre-commit 14.97): a staged migration that GRANTs anon/authenticated/PUBLIC back what an
+earlier migration revoked is refused unless it carries
+`-- widens-revoked-grant: <revoking version> <reason>`, and one that REVOKEs what a
+later-sorting migration grants back is refused outright (re-assert the revoke in a migration
+ordered last). `--tree` lists every revoke-then-grant transition in the corpus and exits 0.
+It cannot see a contradiction that only appears when a branch is merged (cherry-picks run no
+pre-commit hook), and neither can the live drift check once both environments have replayed
+the same wrong order — run `--tree` after shipping a branch whose migrations sort before ones
+already on `main`; an `UNACKNOWLEDGED` line whose final state is `grant` is that hazard.
 
 **It also answers the second half of the question.** A finding only exists in the
 *conjunction* of a live anon grant and a guard that fails to refuse an anonymous caller —

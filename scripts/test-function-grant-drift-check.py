@@ -82,8 +82,16 @@ check("names the unlisted anon-executable function",
       "widget_leaked_rpc(uuid)" in out)
 check("reports it under the gating heading",
       "ANON-EXECUTABLE, NOT ALLOWLISTED" in out)
-check("catches the prod-open / test-revoked divergence",
-      "GRANT DIFFERS" in out and "widget_owner_update(uuid,text)" in out)
+# P1102: test revoked what prod still grants. That is the shape of every security
+# fix between "applied to test" and "deployed to prod", so it is reported as a
+# presumed in-flight fix — never as gating drift whose remedy is to restore prod's
+# grant on test. The P1063 half of this shape (prod still open to anon, unlisted)
+# keeps gating through anon-unlisted, which is asserted just above.
+check("catches the prod-open / test-revoked divergence as a presumed in-flight fix",
+      "TEST NARROWER THAN PROD" in out
+      and "widget_owner_update(uuid,text)" in out.split("TEST NARROWER THAN PROD")[1])
+check("the test-revoked divergence is not under the gating GRANT DIFFERS heading",
+      "GRANT DIFFERS" not in out, out[:1200])
 
 # The allowlist is the whole point: an entry with a real anon call site must make
 # the finding disappear, or nobody will ever trust the file.
@@ -100,13 +108,13 @@ check("spaced allowlist signature matches unspaced regprocedure rendering",
 check("function with no anon grant is not reported",
       "widget_locked_down" not in out)
 
-# widget_owner_update is anon-executable-and-unlisted AND prod/test divergent, so
-# it raises TWO gating findings. That is intended: they are different questions
-# with different remedies (does an anon call site exist? / why do the two
-# environments disagree?), and collapsing them would hide whichever the reader
-# did not think to ask. Pinned because a future de-duplication would look tidy
-# and would silently drop a signal.
-check("one function can raise two distinct gating findings",
+# widget_owner_update is anon-executable-and-unlisted on prod AND narrower on test,
+# so it raises TWO findings: a gating one and a report-only one. That is intended:
+# they are different questions with different remedies (does an anon call site
+# exist? / is the fix on test on its way to prod?), and collapsing them would hide
+# whichever the reader did not think to ask. Pinned because a future
+# de-duplication would look tidy and would silently drop a signal.
+check("one function can raise two distinct findings",
       out.count("widget_owner_update(uuid,text)") >= 2,
       f"appeared {out.count('widget_owner_update(uuid,text)')} time(s)")
 
@@ -153,7 +161,10 @@ code, out, err = run(PROD_DRIFTED, TEST_CONVERGED, baseline=baseline_path,
                      extra=("--update-baseline",))
 check("--update-baseline records the backlog", code == 0, f"exit {code}: {err[:200]}")
 recorded = json.load(open(baseline_path))["findings"]
-check("all three gating findings are recorded", len(recorded) == 3, str(recorded))
+# Two, not three: since P1102 the test-narrower divergence is report-only, and a
+# baseline records only what gates.
+check("both gating findings are recorded, and the in-flight fix is not",
+      len(recorded) == 2 and all(e[0] == "anon-unlisted" for e in recorded), str(recorded))
 
 code, out, err = run(PROD_DRIFTED, TEST_CONVERGED, baseline=baseline_path)
 check("a fully baselined backlog exits 0", code == 0, f"exit was {code}")
@@ -181,7 +192,8 @@ try:
     payload = json.loads(out)
     directions = {f["direction"] for f in payload["findings"]}
     check("--json emits parseable findings",
-          {"anon-unlisted", "grant-differs"} <= directions, str(directions))
+          {"anon-unlisted", "grant-narrower-on-test"} <= directions
+          and "grant-differs" not in directions, str(directions))
     check("--json counts match the fixtures",
           payload["counts"]["prod"] == 6 and payload["counts"]["test"] == 6,
           str(payload["counts"]))
@@ -197,6 +209,112 @@ check("--summary names the new finding", "widget_leaked_rpc(uuid)" in out)
 code, out, err = run(CLEAN, CLEAN, extra=("--summary",))
 check("--summary on a clean surface says clean", code == 0 and "clean" in out,
       f"exit {code}: {out.strip()}")
+
+# ---------------------------------------------------------------------------
+print("\nA grant difference is judged by its direction (P1102)")
+# The incident: a security fix revoked `authenticated` on test, prod was not yet
+# patched, the check called it gating drift, and the remediation restored the grant
+# on test — reverting the fix. A narrowing on test is now presumed an in-flight fix
+# and reported only; anything test grants that prod does not still gates. Every
+# report-only assertion sits next to a gating one built from the same rows, so a
+# checker that silenced every divergence would fail this section too (gate 7c).
+_rows = json.load(open(CLEAN))
+
+
+def pair(name, prod_grants, test_grants):
+    """Write a prod/test snapshot pair: CLEAN plus one function with the given
+    (anon, authenticated) grants on each side. Returns (prod_path, test_path)."""
+    row = dict(_rows[2], signature=f"{name}(uuid)", name=name, argtypes=["uuid"])
+    paths = []
+    for side, (anon, auth) in (("prod", prod_grants), ("test", test_grants)):
+        path = absent(f"fgd-dir-{name}-{side}.json")
+        with open(path, "w") as fh:
+            json.dump(_rows + [dict(row, anon_exec=anon, auth_exec=auth)], fh)
+        paths.append(path)
+    return paths
+
+
+# The P1093 shape exactly: prod anon=false auth=true, test anon=false auth=false.
+p_narrow, t_narrow = pair("widget_fix_in_flight", (False, True), (False, False))
+code, out, err = run(p_narrow, t_narrow)
+check("test narrower than prod does not gate (exit 0)", code == 0,
+      f"exit {code}; stdout: {out[:800]}")
+check("it is still reported, as a presumed in-flight fix",
+      "TEST NARROWER THAN PROD" in out and "widget_fix_in_flight(uuid)" in out, out[:800])
+check("it names which role test revoked",
+      "test revoked: authenticated" in out, out[:800])
+check("the report says not to restore prod's grant on test",
+      "Do NOT restore" in out, out[:800])
+check("it is not filed under the gating GRANT DIFFERS heading",
+      "GRANT DIFFERS" not in out, out[:800])
+check("the report still ends in the no-drift RESULT line",
+      "RESULT: no unallowlisted anon-executable function" in out
+      and "RESULT: DRIFT" not in out, out[-1500:])
+
+code, out, err = run(p_narrow, t_narrow, extra=("--summary",))
+check("--summary surfaces the in-flight fix instead of calling the surface clean",
+      code == 0 and "clean" not in out and "widget_fix_in_flight(uuid)" in out
+      and "in-flight" in out, f"exit {code}: {out.strip()}")
+
+code, out, err = run(p_narrow, t_narrow, extra=("--json",))
+try:
+    _found = {(f["direction"], f["signature"]): f for f in json.loads(out)["findings"]}
+    _f = _found.get(("grant-narrower-on-test", "widget_fix_in_flight(uuid)"))
+    check("--json carries the report-only direction and the revoked role",
+          _f is not None and _f["detail"]["narrowed_on_test"] == ["authenticated"]
+          and _f["detail"]["widened_on_test"] == [], str(_found.keys()))
+except (json.JSONDecodeError, KeyError) as exc:
+    check("--json carries the report-only direction and the revoked role", False, str(exc))
+
+_nb = absent("fgd-narrow-baseline.json")
+code, out, err = run(p_narrow, t_narrow, baseline=_nb, extra=("--update-baseline",))
+check("a baseline never records an in-flight fix as backlog",
+      code == 0 and json.load(open(_nb))["findings"] == [], open(_nb).read())
+
+# A pre-P1102 baseline recorded this exact shape as gating grant-differs. It must
+# read as resolved, never re-raise, and never make the run fail.
+_old = absent("fgd-pre-p1102-baseline.json")
+with open(_old, "w") as fh:
+    json.dump({"findings": [["grant-differs", "widget_fix_in_flight(uuid)",
+                             "prod:anon=False,auth=True;test:anon=False,auth=False"]]}, fh)
+code, out, err = run(p_narrow, t_narrow, baseline=_old)
+check("a pre-P1102 baseline entry for the same narrowing does not fail the run",
+      code == 0 and "1 resolved" in out, f"exit {code}: {out[-600:]}")
+
+# Controls: the same function, with test granting MORE than prod.
+p_wide, t_wide = pair("widget_test_widened", (False, False), (False, True))
+code, out, err = run(p_wide, t_wide)
+check("test wider than prod still gates (exit 1)", code == 1, f"exit {code}")
+check("it is filed under GRANT DIFFERS and names the widened role",
+      "GRANT DIFFERS" in out and "widget_test_widened(uuid)" in out
+      and "test grants: authenticated" in out, out[:900])
+check("a widening is never presented as an in-flight fix",
+      "TEST NARROWER THAN PROD" not in out, out[:900])
+# Exactly one RESULT line, and the right one: a report that says DRIFT and "no
+# divergence" in the same breath is read by whichever line the reader sees last.
+check("a gating run prints RESULT: DRIFT and never the no-drift line",
+      "RESULT: DRIFT" in out and "RESULT: no unallowlisted" not in out
+      and out.count("RESULT:") == 1, out[-1500:])
+
+# Mixed: test revoked authenticated but GRANTED anon. One widened role is enough
+# to gate — a narrowing elsewhere on the same function must not launder it.
+p_mix, t_mix = pair("widget_mixed", (False, True), (True, False))
+code, out, err = run(p_mix, t_mix)
+check("a difference that narrows one role and widens another gates", code == 1,
+      f"exit {code}; stdout: {out[:800]}")
+check("the mixed case is filed under GRANT DIFFERS, not as an in-flight fix",
+      "GRANT DIFFERS" in out and "TEST NARROWER THAN PROD" not in out, out[:900])
+
+# The P1063 shape: prod still anon-executable and unlisted, test already revoked.
+# The narrowing is report-only, but prod's reachable anon grant still gates — the
+# remedy the report points at is deploying the revoke, never restoring the grant.
+p_63, t_63 = pair("widget_p1063_shape", (True, True), (False, True))
+code, out, err = run(p_63, t_63)
+check("an in-flight fix whose prod side is still anon-reachable keeps gating",
+      code == 1 and "ANON-EXECUTABLE, NOT ALLOWLISTED" in out
+      and "TEST NARROWER THAN PROD" in out, f"exit {code}; stdout: {out[:900]}")
+check("gating plus an in-flight fix prints exactly one RESULT line, DRIFT",
+      out.count("RESULT:") == 1 and "RESULT: DRIFT" in out, out[-1500:])
 
 # ---------------------------------------------------------------------------
 print("\nThe guard probe's blindness control fires when the probe is blind")

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: bug
 disclosure: public
 rank: 1
@@ -9,9 +9,8 @@ tags:
   - process
   - drift
   - migrations
-delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 driver: anomaly
 ---
 
@@ -86,8 +85,36 @@ what the check treats as authoritative, not a code bug.
 
 ## Done-When
 
-- [ ] A decision recorded on what the check treats as authoritative when test is narrower than prod
-- [ ] The check no longer generates a privilege-widening remediation without a human decision
-- [ ] A remediation that contradicts an existing migration is refused, not resolved by timestamp
-- [ ] The sibling functions audited for an earlier remediation that widened something deliberate
+- [x] A decision recorded on what the check treats as authoritative when test is narrower than prod
+      — `docs/decisions.md` 2026-08-18 [technical] "a drift check that treats production as the
+      baseline will revert every security fix in flight": detection stays, remediation is asymmetric,
+      a narrowing on test is presumed intentional. Implemented as option (a) of Approach step 1.
+- [x] The check no longer generates a privilege-widening remediation without a human decision
+      — `scripts/function-grant-drift-check.py`: a role test revokes and prod still grants is the
+      new report-only direction `grant-narrower-on-test` ("presumed an in-flight security fix … Do
+      NOT restore prod's grant on test"); `grant-differs` now gates only when test grants a role
+      prod does not, and one widened role gates even if another narrowed. `--summary` lists the
+      in-flight fix instead of saying clean; baselines never record it. Evidence:
+      `python3 scripts/test-function-grant-drift-check.py` → `84/84 assertions held.` exit 0
+      (15 of the new assertions failed before the change, 66/81; both mutations — all-gating and
+      all-silenced — fail the suite).
+- [x] A remediation that contradicts an existing migration is refused, not resolved by timestamp
+      — new `scripts/check-migration-grant-order.py`, wired as pre-commit 14.97 on staged
+      migrations: refuses a GRANT (anon/authenticated/PUBLIC) of what an earlier migration revoked
+      unless the file carries `-- widens-revoked-grant: <revoking version> <reason>`, and refuses a
+      REVOKE that a later-sorting migration grants back. Evidence: `30/30 assertions held.` exit 0;
+      across all 413 real migrations it refuses exactly the P1065 restore and passes the other 412;
+      deleting the real P1093 re-assert from a copy turns the P1093 revoke into a `revoke-undone`
+      refusal. Through the extracted pre-commit sections, a staged re-grant probe exits 2
+      (`HARNESS ERRORS=2`) and a staged legitimate probe exits 0. Residual gap, stated in
+      `docs/technical/database.md`: a contradiction created by a cherry-pick (no hook runs) is only
+      visible to `--tree`.
+- [x] The sibling functions audited for an earlier remediation that widened something deliberate
+      — migration-text audit: `scripts/check-migration-grant-order.py --tree` finds **1**
+      revoke-then-grant transition in 413 migrations (856 of 856 independently counted
+      grant/revoke role-statements parsed): the P1065 restore of the P1093 revoke, final state
+      revoke (closed by the P1093 re-assert). `git log --grep=drift -- supabase/migrations`: the
+      only function-grant remediation that widened anything is that same commit; the RLS
+      re-apply and P1327 both narrow. Not covered: a widening done out of band (no migration) —
+      that is the live drift check's job, and no live read was taken for this audit.
 - [ ] `.private/docs/security-log.md` updated

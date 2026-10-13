@@ -42,7 +42,7 @@ evaluate the grant half at all. Observing the refusal replaces reading the guard
 and every one of those evasions collapses into one signal.
 
 Exit codes:
-  0  no unallowlisted anon-executable function and no prod/test grant divergence
+  0  no unallowlisted anon-executable function, and test grants nothing prod does not
   1  gating drift found (details on stdout)
   2  the check could not run (credentials, API error, unreadable allowlist,
      or a probe that cannot distinguish refusal from success)
@@ -192,6 +192,7 @@ order by 1
 # one.
 DIR_ANON_UNLISTED = "anon-unlisted"
 DIR_GRANT_DIFFERS = "grant-differs"
+DIR_GRANT_NARROWER = "grant-narrower-on-test"
 DIR_FN_ENV_ONLY = "fn-env-only"
 DIR_ALLOWLIST_STALE = "allowlist-stale"
 DIR_GUARD_PERMITS = "guard-permits-anon"
@@ -200,6 +201,7 @@ FAILING_DIRECTIONS = (DIR_ANON_UNLISTED, DIR_GRANT_DIFFERS)
 ALL_DIRECTIONS = (
     DIR_ANON_UNLISTED,
     DIR_GRANT_DIFFERS,
+    DIR_GRANT_NARROWER,
     DIR_GUARD_PERMITS,
     DIR_FN_ENV_ONLY,
     DIR_ALLOWLIST_STALE,
@@ -207,7 +209,10 @@ ALL_DIRECTIONS = (
 
 HEADINGS = {
     DIR_ANON_UNLISTED: "ANON-EXECUTABLE, NOT ALLOWLISTED — an anonymous caller can reach this (gating)",
-    DIR_GRANT_DIFFERS: "GRANT DIFFERS — prod and test disagree on who may execute (gating)",
+    DIR_GRANT_DIFFERS: "GRANT DIFFERS — test grants EXECUTE to a role prod does not (gating)",
+    DIR_GRANT_NARROWER: ("TEST NARROWER THAN PROD — presumed an in-flight security fix (report-only). "
+                         "Do NOT restore prod's grant on test: ship the fix to prod, or ask a human "
+                         "if no fix is in flight"),
     DIR_GUARD_PERMITS: "GUARD PERMITS ANON — invoked unauthenticated on test, it did NOT refuse (report-only)",
     DIR_FN_ENV_ONLY: "FUNCTION IN ONE ENVIRONMENT ONLY — object drift, not grant drift (report-only)",
     DIR_ALLOWLIST_STALE: "ALLOWLIST ENTRY WITH NO LIVE GRANT — the entry is stale (report-only)",
@@ -545,6 +550,9 @@ def verify_policy_citation(sig, reason, root=None):
 # Grant diff
 # ---------------------------------------------------------------------------
 
+GRANT_ROLES = (("anon", "anon_exec"), ("authenticated", "auth_exec"))
+
+
 def compute_grant_findings(prod, test, allowlist):
     findings = []
 
@@ -565,13 +573,26 @@ def compute_grant_findings(prod, test, allowlist):
             continue
 
         p, t = prod[sig], test[sig]
-        if (p["anon_exec"], p["auth_exec"]) != (t["anon_exec"], t["auth_exec"]):
+        # Direction decides severity (P1102). A security fix lands on test first by
+        # design, so for the whole window before its prod deploy it shows up here as
+        # test having LOST a privilege — and treating prod as the baseline makes the
+        # natural remedy "restore the grant on test", which reverts the fix. That
+        # happened (P1093). So a role test revokes is presumed an in-flight fix and
+        # reported only. A role test GRANTS that prod does not still gates, and one
+        # widened role is enough: a narrowing elsewhere on the same function must
+        # not launder it. Narrowing wrongly is an outage, which is loud; widening
+        # wrongly is a vulnerability, which is silent — only one may go unalarmed.
+        narrowed = [role for role, key in GRANT_ROLES if p[key] and not t[key]]
+        widened = [role for role, key in GRANT_ROLES if t[key] and not p[key]]
+        if narrowed or widened:
             findings.append({
-                "direction": DIR_GRANT_DIFFERS,
+                "direction": DIR_GRANT_DIFFERS if widened else DIR_GRANT_NARROWER,
                 "signature": sig,
                 "detail": {
                     "prod": {"anon": p["anon_exec"], "authenticated": p["auth_exec"]},
                     "test": {"anon": t["anon_exec"], "authenticated": t["auth_exec"]},
+                    "narrowed_on_test": narrowed,
+                    "widened_on_test": widened,
                 },
             })
 
@@ -877,6 +898,10 @@ NOT_COVERED = """WHAT THIS CHECK DOES NOT COVER
     reachability question. It does not distinguish a role-direct grant from one
     inherited through PUBLIC — and BOTH must be revoked to close a hole (P1066).
     A revoke that removes only one leaves this check green and the hole open.
+  - A role test revokes and prod still grants is PRESUMED an in-flight fix and
+    does not gate (P1102). A narrowing that is really an accident is therefore
+    not alarmed here; it shows up as a refused call on test instead. Prod's own
+    exposure still gates through anon-unlisted, whatever test says.
   - The guard probe runs on TEST only, with NULL arguments, inside a rolled-back
     transaction. It under-reports: an incidental error reads as a refusal. It
     does not exercise PostgREST, and it cannot undo effects that escape the
@@ -918,10 +943,14 @@ def render(findings, counts, allowlist_path, guard_info):
         for f in group:
             out.append(f"  {f['signature']}")
             detail = f["detail"]
-            if direction == DIR_GRANT_DIFFERS:
+            if direction in (DIR_GRANT_DIFFERS, DIR_GRANT_NARROWER):
                 for side in ("prod", "test"):
                     d = detail[side]
                     out.append(f"      {side}: anon={d['anon']}, authenticated={d['authenticated']}")
+                if detail.get("widened_on_test"):
+                    out.append(f"      test grants: {', '.join(detail['widened_on_test'])} (prod does not)")
+                if detail.get("narrowed_on_test"):
+                    out.append(f"      test revoked: {', '.join(detail['narrowed_on_test'])} (prod still grants)")
             elif direction == DIR_GUARD_PERMITS:
                 out.append(f"      probed on {detail['env']}: {detail['probe']}")
             elif direction == DIR_FN_ENV_ONLY:
@@ -940,8 +969,14 @@ def render(findings, counts, allowlist_path, guard_info):
         out.append("migration — BOTH from the role and from PUBLIC (P1066).")
     else:
         other = len(findings) - len(gating)
-        out.append("RESULT: no unallowlisted anon-executable function, no prod/test grant divergence."
+        out.append("RESULT: no unallowlisted anon-executable function, and test grants nothing prod does not."
                    + (f" ({other} non-gating finding(s) above.)" if other else ""))
+    if any(f["direction"] == DIR_GRANT_NARROWER for f in findings):
+        out.append("")
+        out.append("A TEST-NARROWER finding is never remediated by restoring prod's grant on test")
+        out.append("(P1102): that reverts the fix it is reporting, and a restore migration timestamped")
+        out.append("after the fix would undo it on every ordered apply, prod deploy included. Find the")
+        out.append("fix and ship it; widening a grant is a human decision, not a generated migration.")
     out.append("")
     out.append(f"Allowlist: {allowlist_path}")
     out.append("")
@@ -1076,6 +1111,10 @@ def main():
             bits.append(f"{len(known)} known-open")
         if resolved:
             bits.append(f"{len(resolved)} resolved since baseline")
+        in_flight = [f for f in findings if f["direction"] == DIR_GRANT_NARROWER]
+        if in_flight:
+            bits.append(f"{len(in_flight)} presumed in-flight fix(es), test narrower than prod — "
+                        "do not restore: " + "; ".join(f["signature"] for f in in_flight))
         guards = [f for f in findings if f["direction"] == DIR_GUARD_PERMITS]
         if guard_info.get("blind"):
             bits.append("guard probe BLIND (not run)")
