@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 172
+**Next ID:** 173
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2434,5 +2434,27 @@ sends no security headers), so after the next `/push` deploys it:
 2. Open a letter's live overlay on prod and confirm the `/live` iframe renders.
 
 If either fails, reopen via `/change-request` on P907. Delete this note once both pass.
+
+---
+
+## point_config writes are read-modify-write from the client: P1427 residual race and doc-detail-page.tsx
+
+**ID:** INBOX-172
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+P1427 (shipped 2026-10-13) made the letter seal re-read `doc_stories.point_config` right before
+writing the default `order`, which closes the page-load-snapshot case. Two things it deliberately
+left open:
+
+1. **Residual race.** The read and the write are still two round trips, so a `hidden` /
+   `lead_count` change landing between them is overwritten. Closing it needs a server-side
+   single-key write (`jsonb_set` / `||` inside an RPC) — a migration, out of scope for P1427.
+2. **Same class elsewhere.** `src/app/pages/doc-detail-page.tsx` (~L107) writes `point_config`
+   from a spread of state loaded earlier — the same lost-update shape P1427 fixed in the composer.
+   Sibling of P1426 (`/demo` jsonb lost update) and P1427.
+
+Likely one spec: a `patch_point_config(doc_id, story_id, patch jsonb)` RPC used by every writer.
 
 ---
