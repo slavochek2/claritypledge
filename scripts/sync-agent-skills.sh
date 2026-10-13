@@ -45,9 +45,39 @@
 #                                                      (testability — see
 #                                                      scripts/sync-agent-skills.test.sh)
 #
+# Exit codes: 0 in sync / generated · 1 drift or a D4/D8/D9 hard fail ·
+#             2 usage or setup error · 3 INTERNAL failure (P1472)
+#
+# Fail closed (P1472): any step this script cannot complete — the scratch dir,
+# a scratch write, a listing, `git diff --cached` — exits 3 BEFORE a verdict can
+# print. A failed `mktemp -d` used to leave WORK empty, send every scratch write
+# to /candidates.tsv and friends, and still print "OK —  skills in sync" (empty
+# count) with exit 0. Explicit checks, not `set -euo pipefail`, for two
+# reasons: `set -e` cannot see the failures that mattered (a redirect that fails
+# inside `$(wc -l < F | tr ...)`, a command inside `< <(...)`), and `pipefail`
+# would make name_field's `grep | sed` non-zero for a source with no `name:`
+# field, so `set -e` would exit silently where D8 now reports NAME_MISMATCH.
+#
 # Output contract (shell-safety.md, P783): no '>', '<', or '|' at word
 # boundaries in any printed line — this script's output must stay eval-safe.
 set -u
+
+# die_internal MSG — a step failed; no verdict may print after this.
+die_internal() {
+  echo "sync-agent-skills: INTERNAL ERROR — $* — nothing was verified; refusing to report a result" >&2
+  exit 3
+}
+
+# count_lines FILE — its line count as a bare integer, or exit 3. Call as
+# N="$(count_lines F)" || exit 3 — die_internal inside $(...) only ends the
+# subshell, so the caller must propagate.
+count_lines() {
+  local n
+  n="$(wc -l < "$1")" || die_internal "cannot read $1"
+  n="${n//[[:space:]]/}"
+  [[ "$n" =~ ^[0-9]+$ ]] || die_internal "no line count for $1"
+  printf '%s\n' "$n"
+}
 
 SRC_DIR=".claude/commands/slava"
 OUT_DIR=".agents/skills"
@@ -76,7 +106,10 @@ case "${OUT_DIR%/}" in
     ;;
 esac
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/sync-agent-skills.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/sync-agent-skills.XXXXXX")" ||
+  die_internal "cannot create a scratch directory under ${TMPDIR:-/tmp}"
+[[ -n "$WORK" && -d "$WORK" && -w "$WORK" ]] ||
+  die_internal "scratch directory '${WORK}' is not a writable directory"
 trap 'rm -rf "$WORK"' EXIT
 
 # ─── helpers ────────────────────────────────────────────────────────────────
@@ -129,19 +162,25 @@ path_type() {
 # ─── step 1: scan sources, apply D2 (description) + D5 (exclude archive/) ──
 
 CANDIDATES="$WORK/candidates.tsv"   # name<TAB>path
-: > "$CANDIDATES"
+: > "$CANDIDATES" || die_internal "cannot write $CANDIDATES"
+
+SOURCES="$WORK/sources.txt"
+find "$SRC_DIR" -name '*.md' -not -path '*/archive/*' > "$SOURCES" ||
+  die_internal "cannot list sources under $SRC_DIR"
+sort -u -o "$SOURCES" "$SOURCES" || die_internal "cannot sort $SOURCES"
 
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   has_description "$f" || continue
-  printf '%s\t%s\n' "$(derive_name "$f")" "$f" >> "$CANDIDATES"
-done < <(find "$SRC_DIR" -name '*.md' -not -path '*/archive/*' 2>/dev/null | sort -u)
+  printf '%s\t%s\n' "$(derive_name "$f")" "$f" >> "$CANDIDATES" ||
+    die_internal "cannot write $CANDIDATES"
+done < "$SOURCES"
 
 UNSAFE_NAMES="$WORK/unsafe-names.txt"
-: > "$UNSAFE_NAMES"
+: > "$UNSAFE_NAMES" || die_internal "cannot write $UNSAFE_NAMES"
 while IFS=$'\t' read -r name path; do
   [[ "$name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] && [[ "$name" != "." ]] && [[ "$name" != ".." ]] && continue
-  echo "UNSAFE_NAME:${name}:file=${path}" >> "$UNSAFE_NAMES"
+  echo "UNSAFE_NAME:${name}:file=${path}" >> "$UNSAFE_NAMES" || die_internal "cannot write $UNSAFE_NAMES"
 done < "$CANDIDATES"
 if [[ -s "$UNSAFE_NAMES" ]]; then
   echo "sync-agent-skills: unsafe projected name (D9) — hard fail:" >&2
@@ -165,32 +204,34 @@ manifest_has() {
   awk -F'\t' -v n="$1" '$1 == n { found = 1; exit } END { exit !found }' "$RESOLVED"
 }
 COLLISIONS="$WORK/collisions.txt"
-: > "$RESOLVED"
-: > "$COLLISIONS"
+: > "$RESOLVED" || die_internal "cannot write $RESOLVED"
+: > "$COLLISIONS" || die_internal "cannot write $COLLISIONS"
 
-cut -f1 "$CANDIDATES" | sort -u > "$WORK/all_names.txt"
+cut -f1 "$CANDIDATES" > "$WORK/all_names.txt" || die_internal "cannot read $CANDIDATES"
+sort -u -o "$WORK/all_names.txt" "$WORK/all_names.txt" || die_internal "cannot sort skill names"
 while IFS= read -r name; do
   [[ -z "$name" ]] && continue
   MATCHES="$WORK/matches.tsv"
-  awk -F'\t' -v n="$name" '$1 == n' "$CANDIDATES" > "$MATCHES"
-  COUNT=$(wc -l < "$MATCHES" | tr -d ' ')
+  awk -F'\t' -v n="$name" '$1 == n' "$CANDIDATES" > "$MATCHES" || die_internal "cannot write $MATCHES"
+  COUNT="$(count_lines "$MATCHES")" || exit 3
   if [[ "$COUNT" -eq 1 ]]; then
-    cat "$MATCHES" >> "$RESOLVED"
+    cat "$MATCHES" >> "$RESOLVED" || die_internal "cannot write $RESOLVED"
     continue
   fi
   # more than one source wants this name — try alias resolution (D4)
   NON_ALIAS="$WORK/non_alias.tsv"
-  : > "$NON_ALIAS"
+  : > "$NON_ALIAS" || die_internal "cannot write $NON_ALIAS"
   while IFS=$'\t' read -r _ path; do
     [[ -z "$path" ]] && continue
-    is_alias "$path" || printf '%s\t%s\n' "$name" "$path" >> "$NON_ALIAS"
+    is_alias "$path" && continue
+    printf '%s\t%s\n' "$name" "$path" >> "$NON_ALIAS" || die_internal "cannot write $NON_ALIAS"
   done < "$MATCHES"
-  NA_COUNT=$(wc -l < "$NON_ALIAS" | tr -d ' ')
+  NA_COUNT="$(count_lines "$NON_ALIAS")" || exit 3
   if [[ "$NA_COUNT" -eq 1 ]]; then
-    cat "$NON_ALIAS" >> "$RESOLVED"
+    cat "$NON_ALIAS" >> "$RESOLVED" || die_internal "cannot write $RESOLVED"
   else
     PAIR="$(cut -f2 "$MATCHES" | tr '\n' ' ')"
-    echo "COLLISION:${name}:${PAIR}" >> "$COLLISIONS"
+    echo "COLLISION:${name}:${PAIR}" >> "$COLLISIONS" || die_internal "cannot write $COLLISIONS"
   fi
 done < "$WORK/all_names.txt"
 
@@ -203,12 +244,13 @@ fi
 # ─── step 3: D8 — name field must equal projected directory name ──────────
 
 MISMATCHES="$WORK/mismatches.txt"
-: > "$MISMATCHES"
+: > "$MISMATCHES" || die_internal "cannot write $MISMATCHES"
 while IFS=$'\t' read -r name path; do
   [[ -z "$name" ]] && continue
   actual_name="$(name_field "$path")"
   if [[ "$actual_name" != "$name" ]]; then
-    echo "NAME_MISMATCH:${name}:name_field=${actual_name}:file=${path}" >> "$MISMATCHES"
+    echo "NAME_MISMATCH:${name}:name_field=${actual_name}:file=${path}" >> "$MISMATCHES" ||
+      die_internal "cannot write $MISMATCHES"
   fi
 done < "$RESOLVED"
 
@@ -219,14 +261,21 @@ if [[ -s "$MISMATCHES" ]]; then
   exit 1
 fi
 
-sort -o "$RESOLVED" "$RESOLVED"
-TOTAL=$(wc -l < "$RESOLVED" | tr -d ' ')
+sort -o "$RESOLVED" "$RESOLVED" || die_internal "cannot sort $RESOLVED"
+TOTAL="$(count_lines "$RESOLVED")" || exit 3
+CANDIDATES_N="$(count_lines "$CANDIDATES")" || exit 3
+# Consistency, not a policy: every candidate name resolves to exactly one
+# source or hard-fails above, so qualifying sources with nothing resolved can
+# only mean a step lost data.
+if [[ "$TOTAL" -eq 0 && "$CANDIDATES_N" -gt 0 ]]; then
+  die_internal "${CANDIDATES_N} qualifying source(s) but 0 resolved skills"
+fi
 
 # ─── step 4: --check mode — verify only, change nothing ───────────────────
 
 if [[ "$CHECK_MODE" -eq 1 ]]; then
   DRIFT="$WORK/drift.txt"
-  : > "$DRIFT"
+  : > "$DRIFT" || die_internal "cannot write $DRIFT"
 
   # ── --staged-only: judge the COMMIT, not the working tree (P1284) ─────────
   #
@@ -285,7 +334,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
   if [[ "$STAGED_ONLY" -eq 1 ]]; then
     if GIT_TOP="$(git rev-parse --show-toplevel 2>/dev/null)" && [[ -n "$GIT_TOP" ]]; then
       GIT_TOP="$( cd "$GIT_TOP" && pwd -P )"
-      : > "$STAGED_NAMES"
+      : > "$STAGED_NAMES" || die_internal "cannot write $STAGED_NAMES"
       ABS_SRC="$(abs_of "${SRC_DIR%/}")"
       ABS_OUT="$(abs_of "${OUT_DIR%/}")"
       # -z, not the plain listing: under the default core.quotePath git C-quotes
@@ -295,15 +344,23 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       # fell out of scope, and a commit carrying real drift passed the gate
       # (code review 2026-09-09; canary F5). -z emits raw bytes with no quoting
       # and also survives a path containing a newline.
+      #
+      # Read into a file, not a process substitution, so a FAILED `git diff`
+      # is seen (P1472): an empty listing means an empty scope, which puts
+      # every skill out of scope and prints OK for a commit nobody inspected.
+      STAGED_RAW="$WORK/staged.z"
+      git diff --cached --name-only -z > "$STAGED_RAW" ||
+        die_internal "git diff --cached failed — cannot tell which skills this commit touches"
       while IFS= read -r -d '' rel; do
         [[ -z "$rel" ]] && continue
         abs="${GIT_TOP}/${rel}"
         case "$abs" in
-          "$ABS_SRC"/*) derive_name "$abs" >> "$STAGED_NAMES" ;;
-          "$ABS_OUT"/*) rest="${abs#"$ABS_OUT"/}"; printf '%s\n' "${rest%%/*}" >> "$STAGED_NAMES" ;;
+          "$ABS_SRC"/*) derive_name "$abs" >> "$STAGED_NAMES" || die_internal "cannot write $STAGED_NAMES" ;;
+          "$ABS_OUT"/*) rest="${abs#"$ABS_OUT"/}"
+                        printf '%s\n' "${rest%%/*}" >> "$STAGED_NAMES" || die_internal "cannot write $STAGED_NAMES" ;;
         esac
-      done < <(git diff --cached --name-only -z 2>/dev/null)
-      sort -u -o "$STAGED_NAMES" "$STAGED_NAMES"
+      done < "$STAGED_RAW"
+      sort -u -o "$STAGED_NAMES" "$STAGED_NAMES" || die_internal "cannot sort $STAGED_NAMES"
       SCOPED=1
     else
       echo "sync-agent-skills --check: --staged-only ignored (not inside a git work tree) — checking the whole tree" >&2
@@ -324,21 +381,33 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
     # its state, this commit did not cause it and cannot be asked to fix it.
     name_in_commit "$name" || continue
     if [[ ! -d "${OUT_DIR}/${name}" || -L "${OUT_DIR}/${name}" ]]; then
-      echo "DRIFT_MISSING_DIR:${name}" >> "$DRIFT"
+      echo "DRIFT_MISSING_DIR:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
     elif [[ ! -f "$skill_file" || -L "$skill_file" ]]; then
-      echo "DRIFT_MISSING_FILE:${name}" >> "$DRIFT"
+      echo "DRIFT_MISSING_FILE:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
+    elif [[ ! -r "$path" || ! -r "$skill_file" ]]; then
+      # cmp exits 2 on an unreadable file, which `! cmp -s` would have scored
+      # as drift at best and, read the other way round, as a match.
+      die_internal "cannot read ${path} or ${skill_file}"
     elif ! cmp -s "$path" "$skill_file"; then
-      echo "DRIFT_CONTENT_MISMATCH:${name}" >> "$DRIFT"
+      echo "DRIFT_CONTENT_MISMATCH:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
     else
+      NESTED="$WORK/nested.txt"
+      find "${OUT_DIR}/${name}" -mindepth 1 -print > "$NESTED" ||
+        die_internal "cannot list ${OUT_DIR}/${name}"
+      sort -o "$NESTED" "$NESTED" || die_internal "cannot sort $NESTED"
       while IFS= read -r nested; do
         [[ "$nested" == "$skill_file" ]] && continue
         relative="${nested#${OUT_DIR}/}"
-        echo "DRIFT_UNEXPECTED_ENTRY:${relative}:type=$(path_type "$nested")" >> "$DRIFT"
-      done < <(find "${OUT_DIR}/${name}" -mindepth 1 -print 2>/dev/null | sort)
+        echo "DRIFT_UNEXPECTED_ENTRY:${relative}:type=$(path_type "$nested")" >> "$DRIFT" ||
+          die_internal "cannot write $DRIFT"
+      done < "$NESTED"
     fi
   done < "$RESOLVED"
 
   if [[ -d "$OUT_DIR" ]]; then
+    TOPLEVEL="$WORK/toplevel.txt"
+    find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print > "$TOPLEVEL" || die_internal "cannot list $OUT_DIR"
+    sort -o "$TOPLEVEL" "$TOPLEVEL" || die_internal "cannot sort $TOPLEVEL"
     while IFS= read -r existing_path; do
       [[ -z "$existing_path" ]] && continue
       existing_name="$(basename "$existing_path")"
@@ -346,15 +415,16 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
         name_in_commit "$existing_name" || continue
         existing_type="$(path_type "$existing_path")"
         if [[ "$existing_type" == "directory" ]]; then
-          echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT"
+          echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
         else
-          echo "DRIFT_UNEXPECTED_TOPLEVEL:${existing_name}:type=${existing_type}" >> "$DRIFT"
+          echo "DRIFT_UNEXPECTED_TOPLEVEL:${existing_name}:type=${existing_type}" >> "$DRIFT" ||
+            die_internal "cannot write $DRIFT"
         fi
       fi
-    done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
+    done < "$TOPLEVEL"
   fi
 
-  DRIFT_N=$(wc -l < "$DRIFT" | tr -d ' ')
+  DRIFT_N="$(count_lines "$DRIFT")" || exit 3
   if [[ "$DRIFT_N" -gt 0 ]]; then
     echo "sync-agent-skills --check: DRIFT DETECTED (${DRIFT_N} issue(s)):" >&2
     cat "$DRIFT" >&2
@@ -368,7 +438,7 @@ fi
 
 # ─── step 5: regenerate — create/update the tree, then prune orphans ──────
 
-mkdir -p "$OUT_DIR"
+mkdir -p "$OUT_DIR" || die_internal "cannot create $OUT_DIR"
 
 while IFS=$'\t' read -r name path; do
   [[ -z "$name" ]] && continue
@@ -376,14 +446,17 @@ while IFS=$'\t' read -r name path; do
   if [[ -e "$target_dir" || -L "$target_dir" ]]; then
     [[ -d "$target_dir" && ! -L "$target_dir" ]] || rm -rf "$target_dir"
   fi
-  mkdir -p "$target_dir"
+  mkdir -p "$target_dir" || die_internal "cannot create $target_dir"
   find "$target_dir" -mindepth 1 -maxdepth 1 ! -name SKILL.md -exec rm -rf {} +
   rm -f "${target_dir}/SKILL.md"
-  cp "$path" "${target_dir}/SKILL.md"
+  cp "$path" "${target_dir}/SKILL.md" || die_internal "cannot write ${target_dir}/SKILL.md"
 done < "$RESOLVED"
 
 PRUNED=0
 if [[ -d "$OUT_DIR" ]]; then
+  TOPLEVEL="$WORK/toplevel.txt"
+  find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print > "$TOPLEVEL" || die_internal "cannot list $OUT_DIR"
+  sort -o "$TOPLEVEL" "$TOPLEVEL" || die_internal "cannot sort $TOPLEVEL"
   while IFS= read -r existing_path; do
     [[ -z "$existing_path" ]] && continue
     existing_name="$(basename "$existing_path")"
@@ -392,7 +465,7 @@ if [[ -d "$OUT_DIR" ]]; then
       rm -rf "$existing_path"
       PRUNED=$((PRUNED + 1))
     fi
-  done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
+  done < "$TOPLEVEL"
 fi
 
 echo "sync-agent-skills: generated ${TOTAL} skills in ${OUT_DIR}/, 0 collisions, ${PRUNED} orphan(s) pruned"

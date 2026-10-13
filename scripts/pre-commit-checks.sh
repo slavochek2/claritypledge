@@ -2318,7 +2318,16 @@ fi
 # projection staged, source not) — both are in scope, because scoping is by
 # skill name across both trees. Drift in a skill this commit does not touch is
 # now someone else's commit to fix. D4/D8/D9 hard fails stay repo-wide.
-if [ -f "./scripts/sync-agent-skills.sh" ]; then
+# Fails CLOSED when the callee cannot run (P1472): a missing, unreadable or
+# dangling-symlink script used to print "skipping" and let the commit through,
+# so "could not check" and "checked, clean" produced the same result. There is
+# no skip path; if a branch ever legitimately lacks the script, key the
+# exemption on something explicit, never on the file being absent.
+if [ ! -f "./scripts/sync-agent-skills.sh" ] || [ ! -r "./scripts/sync-agent-skills.sh" ]; then
+    echo -e "${RED}✗ Agent skills sync (P1151) could not run: ./scripts/sync-agent-skills.sh is missing, unreadable, or a dangling symlink in this checkout${NC}"
+    echo -e "${YELLOW}  → A gate that cannot run does not pass. Restore it here: git checkout -- scripts/sync-agent-skills.sh${NC}"
+    ERRORS=$((ERRORS + 1))
+else
     # P1284 follow-up: the pre-commit hook is a symlink to the MAIN checkout's copy of
     # THIS file, but ./scripts/sync-agent-skills.sh resolves inside the committing
     # WORKTREE. A worktree whose branch predates P1284 has a copy that does not know
@@ -2334,13 +2343,48 @@ if [ -f "./scripts/sync-agent-skills.sh" ]; then
     if ! grep -qE '^[[:space:]]*--staged-only\)' ./scripts/sync-agent-skills.sh 2>/dev/null; then
         SYNC_SCOPE_FLAG=""
     fi
+    # The check's output is kept (run_quiet discards it) so the hint can name the
+    # exact mirror paths. The hint never says "re-stage .agents/skills/": staging
+    # a bare directory is banned (.claude/rules/git.md) because it sweeps in a
+    # co-tenant's mirror edits, and commit-to-main's exact-set check refuses a
+    # regenerated mirror that is missing from --files (P1300 session, P1472).
+    SAS_LOG="$(mktemp "${TMPDIR:-/tmp}/sas-check.XXXXXX" 2>/dev/null)" || SAS_LOG=""
+    _sas_check_logged() {
+        [ -n "$SAS_LOG" ] || { echo "cannot create a log file for the agent-skills check"; return 1; }
+        "$@" > "$SAS_LOG" 2>&1
+        local rc=$?
+        cat "$SAS_LOG"
+        return $rc
+    }
     # shellcheck disable=SC2086
-    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check $SYNC_SCOPE_FLAG; then
-        echo -e "${YELLOW}  → Run ./scripts/sync-agent-skills.sh (no flag) to regenerate, then re-stage .agents/skills/${NC}"
+    if ! run_quiet "Agent skills sync (P1151)" _sas_check_logged ./scripts/sync-agent-skills.sh --check $SYNC_SCOPE_FLAG; then
+        SAS_PATHS=""
+        SAS_UNKNOWN=""
+        if [ -n "$SAS_LOG" ] && [ -f "$SAS_LOG" ]; then
+            SAS_PATHS="$(sed -nE \
+                -e 's#^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):(.*)$#.agents/skills/\2/SKILL.md#p' \
+                -e 's#^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):(.*):type=[a-z]*$#.agents/skills/\2#p' \
+                "$SAS_LOG" | sort -u | tr '\n' ' ')"
+            SAS_UNKNOWN="$(grep -E '^DRIFT_' "$SAS_LOG" \
+                | grep -vE '^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):|^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):.*:type=[a-z]*$')"
+        fi
+        if [ -n "$SAS_PATHS" ] || [ -n "$SAS_UNKNOWN" ]; then
+            echo -e "${YELLOW}  → Regenerate the mirror: ./scripts/sync-agent-skills.sh (no flag)${NC}"
+            if [ -n "$SAS_PATHS" ]; then
+                echo -e "${YELLOW}  → Then stage exactly these paths, never the bare directory:${NC}"
+                echo -e "${YELLOW}      git add ${SAS_PATHS% }${NC}"
+                echo -e "${YELLOW}  → On the shared main checkout, add the same paths to git-ops.sh commit-to-main --files${NC}"
+            fi
+            if [ -n "$SAS_UNKNOWN" ]; then
+                echo -e "${YELLOW}  → Drift this hint cannot map to a path — stage the matching mirror files by name:${NC}"
+                printf '%s\n' "$SAS_UNKNOWN" | sed 's/^/      /'
+            fi
+        else
+            echo -e "${YELLOW}  → No DRIFT lines: this is a hard fail or an internal error, so regenerating will not fix it. Read the output above.${NC}"
+        fi
         ERRORS=$((ERRORS + 1))
     fi
-else
-    echo -e "${YELLOW}⚠ scripts/sync-agent-skills.sh not found — skipping agent-skills sync gate${NC}"
+    [ -n "$SAS_LOG" ] && rm -f "$SAS_LOG"
 fi
 echo ""
 

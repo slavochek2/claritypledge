@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 28
 workstream: infrastructure
@@ -7,8 +7,8 @@ created_date: '2026-10-13'
 tags: [pre-commit, agent-skills, fail-closed, gates]
 disclosure: public
 intent: cold-start
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -116,19 +116,50 @@ the hook itself and `scripts/sync-agent-skills.test.sh`.
 
 ## Done-When
 
-- [ ] Script moved aside (`mv scripts/sync-agent-skills.sh /tmp/` in a worktree), then
+- [x] Script moved aside (`mv scripts/sync-agent-skills.sh /tmp/` in a worktree), then
       `bash scripts/pre-commit-checks.sh` with a skill file staged exits **non-zero**, and the output
       names `scripts/sync-agent-skills.sh` as unable to run. Script restored and the same run passes.
       Paste both exit codes (gate 7).
-- [ ] Same as above, but with the script replaced by a dangling symlink: the hook exits non-zero.
-- [ ] `TMPDIR=/nonexistent-dir-xyz ./scripts/sync-agent-skills.sh --check` exits **non-zero** and
+      *Evidence (dev, 2026-10-14):* moved aside with `dev.md` + its mirror staged → `EXIT=1`,
+      `✗ Agent skills sync (P1151) could not run: ./scripts/sync-agent-skills.sh is missing, unreadable,
+      or a dangling symlink`; restored → `EXIT=0`. Method below.
+- [x] Same as above, but with the script replaced by a dangling symlink: the hook exits non-zero.
+      *Evidence:* dangling symlink → `EXIT=1`, same message. Suite case H2: `ERRORS=1`.
+- [x] `TMPDIR=/nonexistent-dir-xyz ./scripts/sync-agent-skills.sh --check` exits **non-zero** and
       does not print `OK`. This is added as a must-fail case to `scripts/sync-agent-skills.test.sh`.
-- [ ] `bash scripts/sync-agent-skills.test.sh` passes, with every pre-existing case giving the same
+      *Evidence:* `EXIT=3`, `INTERNAL ERROR — cannot create a scratch directory under
+      /nonexistent-dir-xyz`, `OK-lines=0` (before: exit 0, `OK —  skills in sync`). Suite cases
+      G1 (nonexistent), G2 (unwritable, chmod 555), G3 (`git diff --cached` failing under
+      `--staged-only`) all assert exit 3 and no OK line; all three failed against the unfixed script.
+- [x] `bash scripts/sync-agent-skills.test.sh` passes, with every pre-existing case giving the same
       verdict as before the change (record the before/after case list).
-- [ ] With a skill source edited and its mirror stale, the hook's hint prints the exact
+      *Evidence:* before `63 passed, 0 failed`; after `90 passed, 0 failed`. `comm -23` of the
+      before/after PASS-line lists is empty: all 63 pre-existing cases kept their verdict; 27 new.
+      `scripts/test-precommit-sas-flags.sh` (P1293, extracts the flag probe): 16/0 before and after.
+- [x] With a skill source edited and its mirror stale, the hook's hint prints the exact
       `.agents/skills/<name>/SKILL.md` path and the `--files` instruction, and does not contain the
       string `re-stage .agents/skills/`.
-- [ ] A normal commit with an in-sync mirror still passes check 22 (no false positive).
+      *Evidence:* `EXIT=1`, hint `git add .agents/skills/dev/SKILL.md` and `add the same paths to
+      git-ops.sh commit-to-main --files`; `grep -c "re-stage .agents/skills/"` = `0`. Suite H3
+      (synthetic) and H4 (gate 7d: a COPY of the real shipped mirror `abandoned-points/SKILL.md`,
+      hand-edited and staged) both assert the exact path.
+- [x] A normal commit with an in-sync mirror still passes check 22 (no false positive).
+      *Evidence:* real skill `dev.md` edited, regenerated, source + mirror staged → `EXIT=0`. Check 22
+      against this worktree's real index → `EXIT=0` (suite H6). Real tree `--check` and
+      `--check --staged-only` → `OK — 128 skills in sync`, exit 0 (suite G4 matches the count against
+      the SKILL.md files on disk). Regenerate mode on a fresh copy of the real tree: exit 0, 0 files
+      changed.
+
+**Method (the hook cannot be run by name from an agent session).** Check 22 is extracted verbatim
+from `pre-commit-checks.sh`, from its `# 22. Agent-skills sync gate` header to the
+`# Codex lifecycle-hook gate` header, sourced after the real `scripts/lib/run-quiet.sh`, followed by
+the hook's own exit rule (`ERRORS > 0` exits 1, `pre-commit-checks.sh:2413`). The gate-7 runs above
+used a scratch git repo holding copies of the real `.claude/commands/slava/` and `.agents/skills/`
+(128 skills). The suite's case H runs the same extraction against a fixture.
+
+**Follow-up (Non-Goal here):** two sibling gates still skip when their script is absent:
+`test-codex-native-hooks.sh` (Codex hook gate) and `test-multi-harness-routing.sh` (multi-harness
+Tier A gate), both just below check 22.
 
 ## Related
 
