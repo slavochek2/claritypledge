@@ -87,10 +87,10 @@ code, out, err = run(mig_dir({
     A: "",
     B: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\nREVOKE ALL ON FUNCTION {FN} FROM anon;\n" + GRANT_AUTH}), B)
 check("ACCEPT: the lockdown idiom within one file", code == 0, out + err)
-# Across files it is different (/finish review 2026-10-13): PUBLIC includes authenticated,
-# so an earlier file whose last word was REVOKE FROM PUBLIC has narrowed authenticated by
-# intent, and a later GRANT TO authenticated re-opens it. This control previously asserted
-# ACCEPT under "different roles never contradict"; that premise is what the review refuted.
+# Across files it is different (/finish review 2026-10-13): after file A, authenticated has
+# no direct grant on record and PUBLIC is revoked, so it cannot execute; file B's direct
+# GRANT re-opens it. This control previously asserted ACCEPT under "different roles never
+# contradict"; that premise is what the review refuted.
 code, out, err = run(mig_dir({
     A: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\nREVOKE ALL ON FUNCTION {FN} FROM anon;\n",
     B: f"REVOKE ALL ON FUNCTION {FN} FROM PUBLIC;\n" + GRANT_AUTH}), B)
@@ -267,6 +267,48 @@ code, out, err = run(mig_dir({
     A: f"REVOKE EXECUTE ON FUNCTION {FN} FROM anon;\n",
     B: f"GRANT EXECUTE ON FUNCTION {FN} TO authenticated;\n"}), B)
 check("ACCEPT: a revoke from anon does not constrain a grant to authenticated", code == 0, out + err)
+
+# Codex probes, final round 2026-10-13. A role can execute when it holds a DIRECT grant
+# OR PUBLIC does; REVOKE FROM PUBLIC removes only the PUBLIC grant, REVOKE FROM <role>
+# only that role's direct grant.
+W1 = "public.widget_write(uuid)"
+LOCKDOWN = f"REVOKE EXECUTE ON FUNCTION {W1} FROM PUBLIC, anon, authenticated;\n"
+code, out, err = run(mig_dir({
+    A: LOCKDOWN,
+    B: f"GRANT EXECUTE ON FUNCTION {W1} TO PUBLIC;\n"
+       f"REVOKE EXECUTE ON FUNCTION {W1} FROM anon, authenticated;\n"}), B)
+check("probe 1: a PUBLIC grant re-opens every role even when the same file revokes them directly",
+      code == 1 and "widens-revoked" in out, out + err)
+code, out, err = run(mig_dir({
+    A: LOCKDOWN,
+    B: f"GRANT EXECUTE ON FUNCTION {W1} TO authenticated;\n",
+    C: f"REVOKE EXECUTE ON FUNCTION {W1} FROM PUBLIC;\n"}), A)
+check("probe 2: a later REVOKE FROM PUBLIC does not re-assert over a later DIRECT grant",
+      code == 1 and "revoke-undone" in out, out + err)
+code, out, err = run(mig_dir({
+    A: LOCKDOWN,
+    B: f"GRANT EXECUTE ON FUNCTION {W1} TO authenticated;\n",
+    C: f"REVOKE EXECUTE ON FUNCTION {W1} FROM authenticated;\n"}), A)
+check("ACCEPT: a later REVOKE FROM the same role does re-assert", code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_batch(uuid[]) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION widget_batch(uuid ARRAY) TO anon;\n"}), B)
+check("probe 3: `uuid ARRAY` is the same type as `uuid[]`", code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_out(IN p_id uuid, OUT result text) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION widget_out(uuid) TO anon;\n"}), B)
+check("probe 4: OUT parameters are not part of the signature", code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_out(INOUT p uuid, VARIADIC v text[]) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION widget_out(uuid) TO anon;\n"}), B)
+check("ACCEPT: INOUT and VARIADIC types stay in the signature", code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.f(uuid), public.g(uuid) FROM authenticated;\n",
+    B: "REVOKE EXECUTE ON FUNCTION public.g(uuid) FROM authenticated;\n",
+    C: "-- widens-revoked-grant: 20260101000000 intentionally reopen f only\n"
+       "GRANT EXECUTE ON FUNCTION public.f(uuid), public.g(uuid) TO authenticated;\n"}), A)
+check("probe 5: acknowledging one function's revoke does not cover another's",
+      code == 1 and "public.g(uuid)" in out and "public.f(uuid)" not in out, out + err)
 
 # Missing target — a file the checker cannot find must refuse, never pass silently.
 code, out, err = run(mig_dir({A: REVOKE_AUTH}), "20260109000000_not_there.sql")

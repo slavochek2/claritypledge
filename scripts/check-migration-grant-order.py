@@ -14,20 +14,19 @@ ran after the revoke and re-opened the hole — and the run ended green. Nothing
 generating that remediation could see that it contradicted a migration already in
 the repo (docs/decisions.md 2026-08-18, P1093 → P1102).
 
-So two shapes are refused, for anon / authenticated / PUBLIC only. PUBLIC is expanded to
-anon AND authenticated in both directions. For a GRANT that is exact: a PUBLIC grant
-reaches both roles. For a REVOKE it is an intent reading, not an effect: REVOKE ... FROM
-PUBLIC leaves a role-direct grant in place (P1066), so it may over-refuse a later grant
-to that role. That is the safe direction, and the annotation below resolves it.
+So two shapes are refused, for the client roles anon and authenticated. Access is
+modelled the way Postgres holds it: per function, a role-direct grant and a PUBLIC grant
+are separate sources, and a role can execute when EITHER is granted. REVOKE FROM PUBLIC
+removes only the PUBLIC grant; REVOKE FROM anon only anon's direct grant. A source no
+migration ever mentions counts as not granted.
 
-  widens-revoked   This file GRANTs a role EXECUTE on a function, and the last
-                   statement any EARLIER migration made for that role and function
-                   was a REVOKE. Widening a deliberate narrowing is a human decision,
+  widens-revoked   After this file a role can execute a function that, before it, a
+                   REVOKE from an EARLIER migration had closed. Widening a deliberate narrowing is a human decision,
                    so it must say so: `-- widens-revoked-grant: <version> <reason>`,
                    where <version> is the revoking migration's 14-digit prefix. Citing
                    the version is the point — it proves the author found the revoke.
-  revoke-undone    This file REVOKEs, and a LATER migration's GRANT for the same role
-                   and function survives to the end of the sequence. Ordered apply will
+  revoke-undone    This file's REVOKE closed a role, and a LATER migration's GRANT
+                   (direct or PUBLIC) leaves it open at the end of the sequence. Ordered apply will
                    undo this revoke. No annotation can fix that; re-assert the revoke
                    in a migration ordered last (P1093 did exactly this).
 
@@ -35,14 +34,26 @@ The asymmetry is deliberate and is the one the grant-drift check makes: a narrow
 that wins on timestamp is at worst an outage, which is loud; a widening that wins is
 a vulnerability, which is silent. Only the widening needs a human in the loop.
 
-What it does NOT see (epistemic gate 7b — the honest list):
+Known limitations (epistemic gate 7b — the honest list; not fixed, by decision):
   - Grants issued dynamically (EXECUTE 'GRANT ...' inside a DO block or a function
     body). Bodies are blanked before parsing, so those statements are invisible.
-  - `GRANT ... ON ALL FUNCTIONS IN SCHEMA` and ALTER DEFAULT PRIVILEGES. Supabase's
-    default privileges grant EXECUTE on every new function; a function created after a
-    DROP is therefore treated as having no prior state rather than as granted.
+  - `GRANT ... ON ALL FUNCTIONS IN SCHEMA`, ALTER DEFAULT PRIVILEGES, and the default
+    grants a new function receives (PUBLIC, and Supabase's role-direct defaults). A
+    source no statement mentions counts as not granted, and a function created after a
+    DROP starts with no state rather than as granted.
   - Overloads written without an argument list (`ON FUNCTION fn`) are matched to
     every overload of that name, which can over-report.
+  - ALTER FUNCTION ... RENAME / SET SCHEMA, and CREATE OR REPLACE changing what the
+    signature means: identity changes are not followed.
+  - Unqualified function names are taken as `public` regardless of search_path; type
+    names are canonicalised only for pg_catalog built-ins (domains and user types in
+    other schemas compare by spelling).
+  - Roles other than anon/authenticated/PUBLIC, role membership (GRANT anon TO x),
+    WITH GRANT OPTION / REVOKE GRANT OPTION FOR, and GRANTED BY are not modelled.
+  - A half-revoke (one source revoked, the other still granted — P1066) is not an
+    ordering problem and is not refused here.
+  - The annotation is file-wide per version: one `widens-revoked-grant: V` line
+    acknowledges every function in that file whose closing revoke was in V.
   - Live state. A grant changed out of band never appears in migration text; the
     grant-drift check (scripts/function-grant-drift-check.py) owns that question.
 
@@ -55,8 +66,10 @@ Usage
   --dir DIR                                        # migrations directory (default:
                                                    # supabase/migrations here)
 
-A function's identity is schema + name + argument types, with built-in type spellings
-canonicalised (pg_catalog.uuid = uuid, int4 = integer, varchar(32) = character varying).
+A function's identity is schema + name + INPUT argument types (OUT parameters dropped;
+IN/INOUT/VARIADIC mode words and argument names stripped), with built-in type spellings
+canonicalised (pg_catalog.uuid = uuid, int4 = integer, varchar(32) = character varying,
+uuid ARRAY = uuid[]).
 
 Exit codes: 0 no refusal · 1 a contradiction was refused · 2 could not run.
 --tree reports and exits 0: the corpus predates this check, and a whole-tree gate
@@ -90,7 +103,7 @@ except Exception as exc:  # noqa: BLE001 — any import failure means the check 
 sql_code = _fgd._sql_code
 
 CLIENT_ROLES = ("anon", "authenticated", "public")
-# What PUBLIC expands to. Every comparison is made per client role, never on PUBLIC itself.
+# The roles a PUBLIC grant or revoke can open or close.
 EXPANDED_ROLES = ("anon", "authenticated")
 # [ \t] rather than \s throughout: \s crosses the newline, and the next line of SQL
 # would then be read as the annotation's reason.
@@ -142,8 +155,21 @@ def split_top_level(text, sep=","):
 
 
 def normalise_arg(arg):
+    """One argument's contribution to the signature, or None when it has none.
+
+    Postgres identifies a function by its INPUT types: an OUT parameter is not part of
+    the signature, so f(IN p uuid, OUT r text) IS f(uuid). INOUT and VARIADIC arguments
+    are inputs and keep their types; the mode word and the argument name are dropped.
+    """
     arg = re.split(r"\s+DEFAULT\s+|\s*=\s*", arg, maxsplit=1, flags=re.IGNORECASE)[0]
+    # `uuid ARRAY`, `uuid ARRAY[3]`, `uuid [ ]` and `uuid[3]` are all uuid[]: Postgres
+    # ignores declared array bounds. Folded BEFORE tokenising, or `uuid ARRAY` reads as an
+    # argument named uuid of type "array".
+    arg = re.sub(r"\s+array\b(?:\s*\[\s*\d*\s*\])?", "[]", arg, flags=re.IGNORECASE)
+    arg = re.sub(r"\s*\[\s*\d*\s*\]", "[]", arg)
     tokens = arg.split()
+    if tokens and tokens[0].lower() == "out":
+        return None
     if tokens and tokens[0].lower() in ARG_MODES:
         tokens = tokens[1:]
     # Judge the first word without its schema: `pg_catalog.timestamp with time zone` is a
@@ -151,7 +177,6 @@ def normalise_arg(arg):
     if len(tokens) > 1 and tokens[0].lower().strip('"').split(".")[-1] not in MULTIWORD_TYPE_STARTS:
         tokens = tokens[1:]
     t = " ".join(tokens).lower().replace('"', "")
-    t = re.sub(r"\s+\[", "[", t)
     base, brackets = re.match(r"^(.*?)((?:\[\])*)$", t).groups()
     # Built-in types resolve through pg_catalog whether or not it is written, and a
     # function's argument types carry no typmod: f(varchar(32)) IS f(varchar).
@@ -171,7 +196,7 @@ def parse_function_ref(ref):
     if "(" in ref:
         name, args = ref.split("(", 1)
         args = args.rsplit(")", 1)[0]
-        argt = tuple(normalise_arg(a) for a in split_top_level(args))
+        argt = tuple(t for t in (normalise_arg(a) for a in split_top_level(args)) if t is not None)
     else:
         name, argt = ref, None
     parts = [p[1:-1].replace('""', '"') if p.startswith('"') else p.lower()
@@ -181,33 +206,35 @@ def parse_function_ref(ref):
 
 
 def parse_roles(text):
-    """Client roles a GRANT/REVOKE speaks for, as [(role, spelled)].
+    """The grant SOURCES a GRANT/REVOKE names: any of 'anon', 'authenticated', 'public'.
 
-    PUBLIC includes every role, so `TO PUBLIC` / `FROM PUBLIC` speaks for anon AND
-    authenticated: a GRANT TO PUBLIC re-opens a function revoked from anon, and a GRANT
-    TO anon after a REVOKE FROM PUBLIC re-grants anon (/finish review 2026-10-13).
-    `spelled` keeps what the migration wrote, for the message. A role named directly in
-    the same statement wins over its PUBLIC expansion.
+    Never expanded. Postgres keeps a role-direct grant and a PUBLIC grant as two ACL
+    entries and a role can execute when EITHER is present: REVOKE FROM PUBLIC removes
+    only the PUBLIC entry, REVOKE FROM anon only anon's. Treating PUBLIC as shorthand for
+    both roles let a PUBLIC grant survive same-file direct revokes, and let a later
+    REVOKE FROM PUBLIC pass as a re-assert over a direct grant (Codex probes, 2026-10-13).
     """
-    out = {}
+    out = []
     for r in split_top_level(text):
         r = r.strip().strip('"').lower()
         if r.startswith("group "):
             r = r[6:].strip()
-        if r == "public":
-            for role in EXPANDED_ROLES:
-                out.setdefault(role, "public")
-        elif r in EXPANDED_ROLES:
-            out[r] = r
-    return list(out.items())
+        if r in CLIENT_ROLES and r not in out:
+            out.append(r)
+    return out
 
 
-def role_label(role, spelled):
-    return f"{role} (via PUBLIC)" if spelled == "public" else role
+def roles_for(source):
+    """The client roles a statement to `source` can open or close."""
+    return EXPANDED_ROLES if source == "public" else (source,)
+
+
+def label(role, source):
+    return f"{role} (via PUBLIC)" if source == "public" else role
 
 
 def parse_events(code):
-    """Yield (line, kind, (name, args), role|None, spelled|None) in statement order.
+    """Yield (line, kind, (name, args), source|None) in statement order.
 
     kind is 'grant', 'revoke' or 'reset' (DROP, or a plain CREATE: the object that
     follows starts from default privileges, so nothing before it constrains it).
@@ -225,18 +252,18 @@ def parse_events(code):
                 if kind == "revoke" and re.match(r"^REVOKE\s+GRANT\s+OPTION", stmt, re.IGNORECASE):
                     break
                 for ref in split_top_level(m.group(1)):
-                    for role, spelled in parse_roles(m.group(2)):
-                        events.append((stmt_line, kind, parse_function_ref(ref), role, spelled))
+                    for source in parse_roles(m.group(2)):
+                        events.append((stmt_line, kind, parse_function_ref(ref), source))
                 break
         else:
             m = DROP_RE.match(stmt)
             if m:
                 for ref in split_top_level(m.group(1)):
-                    events.append((stmt_line, "reset", parse_function_ref(ref), None, None))
+                    events.append((stmt_line, "reset", parse_function_ref(ref), None))
                 continue
             m = CREATE_RE.match(stmt)
             if m:
-                events.append((stmt_line, "reset", parse_function_ref(m.group(1)), None, None))
+                events.append((stmt_line, "reset", parse_function_ref(m.group(1)), None))
     return events
 
 
@@ -245,60 +272,53 @@ def version(fname):
 
 
 class Ledger:
-    """Replays events in migration order and answers 'what was the last word on
-    (function, role) before this point, and from which file?'."""
+    """Replays events in migration order. Holds, per function and grant SOURCE (anon,
+    authenticated, PUBLIC), the latest GRANT/REVOKE and the file it came from."""
 
-    def __init__(self):
-        self.state = {}   # (name, args, role) -> (kind, file)
+    def __init__(self, state=None, seq=0):
+        self.state = dict(state or {})   # (name, args, source) -> (kind, file, seq)
+        self.seq = seq
 
-    def _keys(self, name, args):
-        return [k for k in self.state if k[0] == name and (args is None or k[1] is None or k[1] == args)]
+    def copy(self):
+        return Ledger(self.state, self.seq)
+
+    def _lookup(self, name, args, source):
+        hits = [v for k, v in self.state.items() if k[0] == name and k[2] == source
+                and (args is None or k[1] is None or k[1] == args)]
+        return max(hits, key=lambda h: h[2]) if hits else None
 
     def _reset_keys(self, name, args):
         # A DROP of one overload resets that overload only. It must not erase a word
         # spoken about every overload (args None), which still binds the others.
         return [k for k in self.state if k[0] == name and (args is None or k[1] == args)]
 
-    def last_word(self, name, args, role):
-        """The latest grant/revoke covering (name, args, role), or None."""
-        hits = [self.state[k] for k in self._keys(name, args) if k[2] == role]
-        if not hits:
-            return None
-        # Entries are (kind, file, seq); the highest sequence number is the latest word.
-        return max(hits, key=lambda h: h[2])
+    def access(self, name, args, role):
+        """(is_open, evidence) for a client role.
 
-    def apply(self, fname, events, seq_start):
-        seq = seq_start
-        for _, kind, (name, args), role, spelled in events:
-            seq += 1
+        Open when the role's direct grant OR the PUBLIC grant is present. A source with
+        no statement in the corpus counts as not granted. Evidence is the deciding
+        entries as [(source, (kind, file, seq))]: the grants when open, the revokes when
+        closed (empty when nothing was ever said).
+        """
+        srcs = [(role, self._lookup(name, args, role)), ("public", self._lookup(name, args, "public"))]
+        grants = [(s, v) for s, v in srcs if v and v[0] == "grant"]
+        if grants:
+            return True, grants
+        return False, [(s, v) for s, v in srcs if v and v[0] == "revoke"]
+
+    def apply(self, fname, events):
+        for _, kind, (name, args), source in events:
+            self.seq += 1
             if kind == "reset":
                 for k in self._reset_keys(name, args):
                     del self.state[k]
             else:
-                prev = self.state.get((name, args, role))
-                if prev and prev[1] == fname and prev[0] == kind and prev[3] != "public":
-                    spelled = prev[3]   # the file also named the role directly; say that
-                self.state[(name, args, role)] = (kind, fname, seq, spelled)
-        return seq
+                self.state[(name, args, source)] = (kind, fname, self.seq)
 
 
-def file_net(events):
-    """Per (name, args, role): this file's final grant/revoke, whether a reset of that
-    function preceded it inside the file, and the line it was made on.
-
-    "That function" means the same schema, name AND overload: dropping f(text) says
-    nothing about f(uuid)."""
-    net, resets = {}, []
-    for line, kind, (name, args), role, spelled in events:
-        if kind == "reset":
-            resets.append((name, args))
-            continue
-        was_reset = any(rn == name and (ra is None or ra == args) for rn, ra in resets)
-        prev = net.get((name, args, role))
-        if prev and prev[0] == kind and prev[3] != "public":
-            spelled = prev[3]
-        net[(name, args, role)] = (kind, was_reset, line, spelled)
-    return net
+def latest(evidence):
+    """The most recent deciding entry; within one file the direct source wins over PUBLIC."""
+    return max(evidence, key=lambda e: (e[1][1], e[0] != "public"))
 
 
 class CannotRun(Exception):
@@ -346,37 +366,65 @@ def load_index(dir_path):
             raise CannotRun(f"{path} is unmerged in the index (stage {stage.decode()})")
         entries[path] = sha.decode()
     files = sorted(entries)
-    parsed = {}
+    # One `git cat-file --batch` for every blob: a process per migration made this gate
+    # take ~14s on 413 files, on every commit that stages a migration.
+    p = subprocess.run(["git", "-C", dir_path, "cat-file", "--batch"],
+                       input="".join(entries[f] + "\n" for f in files).encode(), capture_output=True)
+    if p.returncode != 0:
+        raise CannotRun(f"git cat-file --batch failed: {p.stderr.decode('utf-8', errors='replace').strip()}")
+    out, pos, parsed = p.stdout, 0, {}
     for f in files:
-        raw = _git(dir_path, "cat-file", "blob", entries[f]).decode("utf-8")
+        nl = out.index(b"\n", pos)
+        header = out[pos:nl].split()
+        if len(header) != 3 or header[1] != b"blob":
+            raise CannotRun(f"{f}: unexpected index entry ({out[pos:nl].decode(errors='replace')})")
+        size = int(header[2])
+        raw = out[nl + 1: nl + 1 + size].decode("utf-8")
+        pos = nl + 1 + size + 1
         parsed[f] = (raw, parse_events(sql_code(raw)))
     return files, parsed
 
 
-def analyse(files, parsed):
-    """Walk the corpus once. Returns (transitions, final_ledger).
+def analyse(files, parsed, snapshot=()):
+    """Walk the corpus once. Returns (transitions, final_ledger, snapshots).
 
-    A transition is a file whose net word on (function, role) is GRANT while the last
-    word from an earlier file was REVOKE, with no reset of the function in between.
+    A transition is a file after which a client role can execute a function that,
+    before it, a REVOKE from an earlier file had closed — counting both of the role's
+    grant sources. A grant on a function this file dropped first is a new object and
+    does not count. `snapshots` holds the ledger just after each file in `snapshot`.
     """
-    ledger, seq, transitions = Ledger(), 0, []
+    ledger, transitions, snapshots = Ledger(), [], {}
     for f in files:
         raw, events = parsed[f]
         acked = {m.group(1) for m in MARKER_RE.finditer(raw)
                  if m.group(2) and m.group(2).strip()}
-        for (name, args, role), (kind, was_reset, line, spelled) in file_net(events).items():
-            if kind != "grant" or was_reset:
+        before = ledger.copy()
+        ledger.apply(f, events)
+        if f in snapshot:
+            snapshots[f] = ledger.copy()
+        seen, resets = set(), []
+        for line, kind, (name, args), source in events:
+            if kind == "reset":
+                resets.append((name, args))
                 continue
-            prior = ledger.last_word(name, args, role)
-            if prior and prior[0] == "revoke" and prior[1] != f:
+            if kind != "grant" or any(rn == name and (ra is None or ra == args) for rn, ra in resets):
+                continue
+            for role in roles_for(source):
+                if (name, args, role) in seen:
+                    continue
+                was_open, closed_by = before.access(name, args, role)
+                now_open, opened_by = ledger.access(name, args, role)
+                if was_open or not closed_by or not now_open:
+                    continue
+                seen.add((name, args, role))
+                rsrc, (_, revoked_in, _) = latest(closed_by)
+                gsrc = latest([e for e in opened_by if e[1][1] == f] or opened_by)[0]
                 transitions.append({
                     "file": f, "line": line, "function": name, "args": args, "role": role,
-                    "granted_as": role_label(role, spelled),
-                    "revoked_as": role_label(role, prior[3]),
-                    "revoked_in": prior[1], "acknowledged": version(prior[1]) in acked,
+                    "granted_as": label(role, gsrc), "revoked_as": label(role, rsrc),
+                    "revoked_in": revoked_in, "acknowledged": version(revoked_in) in acked,
                 })
-        seq = ledger.apply(f, events, seq)
-    return transitions, ledger
+    return transitions, ledger, snapshots
 
 
 def fmt_fn(name, args):
@@ -391,7 +439,7 @@ def check_files(targets, files, parsed):
     missing = sorted(target_names - set(parsed))
     if missing:
         raise CannotRun(f"not found in the migrations being checked: {', '.join(missing)}")
-    transitions, final = analyse(files, parsed)
+    transitions, final, after = analyse(files, parsed, snapshot=target_names)
     refusals = []
 
     for t in transitions:
@@ -399,26 +447,37 @@ def check_files(targets, files, parsed):
             refusals.append(
                 f"{t['file']}:{t['line']}: widens-revoked — GRANTs {t['granted_as']} EXECUTE on "
                 f"{fmt_fn(t['function'], t['args'])}, which {t['revoked_in']} revoked from "
-                f"{t['revoked_as']}. If that is "
-                f"intended, say so in this file:\n"
+                f"{t['revoked_as']}. If that is intended, say so in this file:\n"
                 f"      -- widens-revoked-grant: {version(t['revoked_in'])} <why the revoke no longer holds>")
 
     for f in sorted(target_names):
-        for (name, args, role), (kind, _, line, spelled) in file_net(parsed[f][1]).items():
+        seen = set()
+        for line, kind, (name, args), source in parsed[f][1]:
             if kind != "revoke":
                 continue
-            last = final.last_word(name, args, role)
-            if last and last[0] == "grant" and last[1] > f:
-                # The later grant may itself be an acknowledged widening of THIS revoke;
-                # then a human has already decided the order, and it is not an accident.
-                if any(t["file"] == last[1] and t["revoked_in"] == f and t["acknowledged"]
-                       for t in transitions):
+            for role in roles_for(source):
+                if (name, args, role) in seen:
                     continue
+                seen.add((name, args, role))
+                # Only a revoke that actually closed the role can be undone; a half-revoke
+                # (the other source still granted) is P1066's problem, not ordering.
+                closed, by = after[f].access(name, args, role)
+                if closed or not any(e[1][1] == f for e in by):
+                    continue
+                is_open, opened_by = final.access(name, args, role)
+                later = [e for e in opened_by if e[1][1] > f]
+                if not is_open or not later:
+                    continue
+                # An acknowledgement covers the revoke it names, for this function and role.
+                if any(t["acknowledged"] and t["file"] > f and t["function"] == name
+                       and t["args"] == args and t["role"] == role for t in transitions):
+                    continue
+                gsrc, (_, gfile, _) = latest(later)
                 refusals.append(
-                    f"{f}:{line}: revoke-undone — REVOKEs {role_label(role, spelled)} EXECUTE on "
-                    f"{fmt_fn(name, args)}, but {last[1]} sorts later and GRANTs it back "
-                    f"({role_label(role, last[3])}), so every ordered apply ends "
-                    f"granted. Re-assert the revoke in a migration ordered after {version(last[1])}.")
+                    f"{f}:{line}: revoke-undone — REVOKEs {label(role, source)} EXECUTE on "
+                    f"{fmt_fn(name, args)}, but {gfile} sorts later and GRANTs it back "
+                    f"({label(role, gsrc)}), so every ordered apply ends granted. Re-assert "
+                    f"the revoke, from that same source, in a migration ordered after {version(gfile)}.")
     return refusals
 
 
@@ -444,11 +503,12 @@ def main():
     try:
         files, parsed = load_index(dir_path) if args.index else load(dir_path)
         if args.tree:
-            transitions, final = analyse(files, parsed)
+            transitions, final, _ = analyse(files, parsed)
             print(f"{len(transitions)} revoke-then-grant transition(s) across {len(files)} migrations:")
             for t in transitions:
-                last = final.last_word(t["function"], t["args"], t["role"])
-                now = f"{last[0]} by {last[1]}" if last else "reset since"
+                is_open, ev = final.access(t["function"], t["args"], t["role"])
+                now = (f"{'grant' if is_open else 'revoke'} by {latest(ev)[1][1]}" if ev
+                       else "reset since")
                 print(f"  {t['file']}:{t['line']}  {t['granted_as']} on {fmt_fn(t['function'], t['args'])}"
                       f"  revoked in {t['revoked_in']}"
                       f"  [{'acknowledged' if t['acknowledged'] else 'UNACKNOWLEDGED'}; final: {now}]")
