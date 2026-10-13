@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 205
 severity: low
 created_date: '2026-08-10'
 tags: [tooling, ship, process]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
+completed_at: 2026-10-13
 ---
 
 # P1040: `ship-gates.sh` gate 2.7 should accept the review type matching what changed
