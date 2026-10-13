@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [flaky-test, pre-commit, vitest]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P1394: Two UI tests fail only under full-suite load, blocking unrelated commits
