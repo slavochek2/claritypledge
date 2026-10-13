@@ -3157,6 +3157,43 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     expect(lines().at(-1)).toMatchObject({ kind: 'option', target: yours[0].fp, remove: true, run_id: LATEST_PASS })
   })
 
+  // Review HIGH: the test above opens Parked from the list row; here the founder expands the Parked fold
+  // under the statement directly, so nothing has asked for the card view before Bring back
+  test('AC3 (review): every founder card parked, one statement — Bring back from the Parked fold under the statement opens the returned card', async ({ page }) => {
+    await patchRun(page, (b) => {
+      const r = b.report?.reflection
+      if (r) r.statements = r.statements.filter((x) => x.id === 'c2')
+    })
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    expect(yours.length).toBeGreaterThan(1) // so one parked card remains after Bring back
+    const earlier = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string } }
+    const at = new Date(Date.parse(earlier.report.started_at) + 3_600_000).toISOString()
+    writeLines(yours.map((i) => ({ kind: 'option', target: i.fp, option_id: 'park', run_id: earlier.report.pass_id, at })))
+    // reopen() waits for a card, and every founder card is parked
+    await page.goto('/')
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(list(page).locator('[data-list-card]')).toHaveCount(0)
+    const parked = page.locator('.d-parked:not([data-agent-list])')
+    await expect(parked.locator('.d-fold')).toHaveAttribute('aria-expanded', 'false')
+    await parked.locator('.d-fold').click()
+    await expect(parked.locator('.d-fold')).toHaveAttribute('aria-expanded', 'true')
+    const back = parked.locator(`[data-parked="${yours[1].fp}"]`).getByRole('button', { name: 'Bring back' })
+    await expect(back).toBeVisible()
+    expect(lines()).toHaveLength(yours.length) // opening Parked writes nothing
+    await back.click()
+    await expect(page.locator('[data-statement]')).toHaveCount(0)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await expect(listRow(page, yours[1].fp)).toHaveCount(1)
+    await expect(list(page).locator('[aria-current=true]')).toHaveAttribute('data-list-card', yours[1].fp)
+    expect(lines().at(-1)).toMatchObject({ kind: 'option', target: yours[1].fp, remove: true, run_id: LATEST_PASS })
+    // the cards still parked are one click away: Parked stays open under the returned card
+    await expect(list(page).locator('[data-list-parked]')).toHaveText(new RegExp(`${yours.length - 1} parked`))
+    await expect(parked.locator('.d-fold')).toHaveAttribute('aria-expanded', 'true')
+    await expect(parked.locator(`[data-parked="${yours[0].fp}"]`).getByRole('button', { name: 'Bring back' })).toBeVisible()
+  })
+
   test('AC4: one item in all — one card, or one statement and no cards — with nothing parked: no list, the item centred', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     let mode: 'card' | 'statement' = 'card'

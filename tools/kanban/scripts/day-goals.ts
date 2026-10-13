@@ -10,7 +10,9 @@
 //
 // Rules (derived here, documented once):
 //   - an item is a line `<label>. [ ] …` or `- [ ] …` inside `## Next Steps` (up to the next `## `);
-//     `[x]` is done. Only open items count, in file order, at most 3. Lines inside a fenced code
+//     `[x]` is done. Only top-level items count: an item indented to where the previous top-level
+//     item's text starts (a tab moves to the next multiple of 4) is a sub-item inside it, open or
+//     not. Only open items count, in file order, at most 3. Lines inside a fenced code
 //     block (``` or ~~~) are not markdown: no heading, no item, no section end. As in CommonMark, a
 //     fence closes only on a bare run of its own character at least as long as the opener, so a
 //     ```` block holds ``` examples and ~~~ never closes ```. \r\n reads as \n.
@@ -44,6 +46,9 @@ export type GoalsParse = { kind: 'ok'; goals: DayGoal[]; goal?: string } | { kin
 
 const GOAL_LINE = /^\s*\*\*Goal:\*\*(.*)$/
 const ITEM = /^\s*(?:([0-9][0-9A-Za-z.+_-]{0,18})\.|[-*])\s+\[([ xX])\]\s+(.+)$/
+
+/** The column a line prefix ends at; a tab moves to the next multiple of 4, as in CommonMark. */
+const width = (s: string) => [...s].reduce((c, ch) => (ch === '\t' ? c + 4 - (c % 4) : c + 1), 0)
 
 /** Links keep their text; code and bold marks go. */
 const plain = (s: string) =>
@@ -97,6 +102,8 @@ export function parseGoals(md: string, cap = GOALS_CAP): GoalsParse {
   const goals: DayGoal[] = []
   const seen = new Set<string>()
   let goal = ''
+  /** where the last top-level item's text starts: an item indented this far is inside it */
+  let inner = Infinity
   for (let i = start + 1; i < lines.length && !/^## /.test(lines[i]); i++) {
     const g = GOAL_LINE.exec(lines[i])
     if (g) {
@@ -105,7 +112,10 @@ export function parseGoals(md: string, cap = GOALS_CAP): GoalsParse {
     }
     if (goals.length >= cap) continue
     const m = ITEM.exec(lines[i])
-    if (!m || m[2] !== ' ') continue
+    if (!m) continue
+    if (width(/^\s*/.exec(lines[i])?.[0] ?? '') >= inner) continue
+    inner = width(lines[i].slice(0, lines[i].indexOf('[')))
+    if (m[2] !== ' ') continue
     const id = m[1] ?? `item-${i - start}`
     if (seen.has(id)) continue
     seen.add(id)

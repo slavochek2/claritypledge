@@ -1083,6 +1083,44 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(parseGoals(['## Next Steps', '3a. [x] Old version.', '3a. [ ] New version.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '3a', text: 'New version.' }] })
   })
 
+  // P1468 review MEDIUM: a nested `- [ ]` under a numbered item is a sub-step, not a goal, and must not use up the cap
+  it('GOALS — only top-level items count: a sub-item indented under an item (spaces, a tab, numbered, under a done item) is ignored', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const md = [
+      '## Next Steps',
+      '1. [ ] Parent one.',
+      '   - [ ] Sub under one, three spaces.',
+      '2. [ ] Parent two.',
+      '    - [ ] Sub with four spaces.',
+      '\t- [ ] Sub with a tab.',
+      '   1. [ ] Numbered sub.',
+      '3. [x] Done parent.',
+      '   - [ ] Sub under a done parent.',
+      '4. [ ] Parent four.',
+      '## Later',
+    ].join('\n')
+    expect(parseGoals(md)).toEqual({
+      kind: 'ok',
+      goals: [
+        { id: '1', text: 'Parent one.' },
+        { id: '2', text: 'Parent two.' },
+        { id: '4', text: 'Parent four.' },
+      ],
+    })
+    // only sub-items open: nothing top-level is open, so the section is not parseable
+    expect(parseGoals(['## Next Steps', '1. [x] Done.', '   - [ ] Open sub.'].join('\n'))).toEqual({ kind: 'none-open' })
+    // a sub-item of the first item is nested; the next top-level item after it is not
+    expect(parseGoals(['## Next Steps', '- [ ] First.', '  - [ ] Its sub.', '- [ ] Second.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: 'item-1', text: 'First.' }, { id: 'item-3', text: 'Second.' }] })
+  })
+
+  it('GOALS (control) — top-level items still parse: the same list without its sub-items, `- [ ]` items, and a top-level item indented 1–3 spaces', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const flat = ['## Next Steps', '1. [ ] Parent one.', '2. [ ] Parent two.', '3. [x] Done parent.', '4. [ ] Parent four.'].join('\n')
+    expect(parseGoals(flat)).toEqual({ kind: 'ok', goals: [{ id: '1', text: 'Parent one.' }, { id: '2', text: 'Parent two.' }, { id: '4', text: 'Parent four.' }] })
+    expect(parseGoals(['## Next Steps', '- [ ] First.', '- [ ] Second.', '- [ ] Third.'].join('\n'))).toMatchObject({ kind: 'ok', goals: { length: 3 } })
+    expect(parseGoals(['## Next Steps', '  1. [ ] Indented top.', '   2. [ ] Also top.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '1', text: 'Indented top.' }, { id: '2', text: 'Also top.' }] })
+  })
+
   it('SNAPSHOT — day-render writes `goals` into the report; a broken goals.md writes `[]`; the report still validates', () => {
     writeLedger(w, cleanBody(w))
     const r = render(w, 'end', ['--goals', FIXTURE])

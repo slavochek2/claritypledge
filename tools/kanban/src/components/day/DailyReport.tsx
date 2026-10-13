@@ -232,8 +232,21 @@ export function DailyReport(p: Props) {
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
             {p.statement && p.afterStatement}
-            {/* every founder card parked: there is no card view to open, so Parked sits under the statement (Codex re-review) */}
-            {(!p.statement || !p.issues.length) && <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />}
+            {/* every founder card parked: there is no card view to open, so Parked sits under the statement (Codex re-review).
+                Bring back from there asks for the card view, as the parked row does, so the returned card opens (review) */}
+            {(!p.statement || !p.issues.length) && (
+              <Parked
+                view={view}
+                readOnly={readOnly}
+                onBringBack={(fp) => {
+                  if (p.statement) p.onCards()
+                  p.onBringBack(fp)
+                }}
+                open={parkedOpen}
+                setOpen={setParkedOpen}
+                boxRef={parkedRef}
+              />
+            )}
           </div>
         </div>
       </section>
