@@ -137,7 +137,7 @@ No agent on the statement: the footer row still renders, with only [+ Add a stor
 
 The bottom row is CP's point-card footer (P1366 layout: `CardExpander` then the viewer's one `CardSlotLink`). With no saved story and no draft, it carries `+ Add a story` (CP's copy, decided). `CardSlotLink` moves unchanged into `presentational/card-footer.tsx` (already in `boundary.ts` `APPROVED`, so `APPROVED` does not change), and the add-story copy (`+ Add a story`, aria-label `Add a story for this point`) is defined there as one exported constant; `getPositionCTACopy` (`src/app/utils/position-helpers.ts:35-47`) reads it from there, so the copy has one home and the board never imports `position-helpers.ts`. A click replaces the button with the story box, focused.
 
-**Order inside the card, top to bottom:** point → position control → footer row (`Their story` expander only when the statement has an agent, then `+ Add a story`) → story box → "Not saved" → story-state chip (Done · Resend) → the agent's story when expanded. The footer row renders on every statement. Today it exists only when `s.agent` is set (`ReflectionTab.tsx:193`), and `agent` is optional (`lib/day.ts:151`). So a statement without an agent still gets the row, with only the slot button. "Not saved" and the chip move below the box, so the story and its state stay together (today they sit above where the box will open, `ReflectionTab.tsx:173-191`). The chip renders only when a ledger entry exists (`ReflectionTab.tsx:104`, `:181`), so an empty story never shows one.
+**Order inside the card, top to bottom:** point → position control → footer row (`Their story` expander only when the statement has an agent, then `+ Add a story`) → the agent's story when expanded → the founder's story box, under CP's visible `Your story` label (the one `create-story-page` puts on a story input) → "Not saved" → story-state chip (Done · Resend). *(Review fix F9, 2026-10-13: visual QA S7 found that with the box open, the founder's textarea sat between the `Their story` toggle and the agent's story, so it read as part of "Their story". The agent's story now follows its toggle.)* The footer row renders on every statement. Today it exists only when `s.agent` is set (`ReflectionTab.tsx:193`), and `agent` is optional (`lib/day.ts:151`). So a statement without an agent still gets the row, with only the slot button. "Not saved" and the chip move below the box, so the story and its state stay together (today they sit above where the box will open, `ReflectionTab.tsx:173-191`). The chip renders only when a ledger entry exists (`ReflectionTab.tsx:104`, `:181`), so an empty story never shows one.
 
 **When the box is open.** It is open on arrival when the statement has a saved story or a draft, where "draft" means `draftOf(id) !== undefined`. A draft emptied over a saved story counts as a draft: it is unsaved (`DayPage.tsx:426`), and the box stays open so the founder sees what Accept would do. Otherwise the button shows. Read-only runs: no button; a saved story shows as text, as today.
 
@@ -148,6 +148,7 @@ The footer link goes. The panel stays and renders under the open item **in both 
 Header copy (decided; the founder can veto at UAT):
 - while any row is not sent: `Start fixing also sends these · {n} not sent`
 - once every row is sent: `Sent to the fixing agent · {k}`
+- *(Review fix F4, 2026-10-13: the header names only a button that is on screen.)* After the first send, the button reads `Send {N} changes`, so while a row is not sent the header reads `Sent with your answers · {n} not sent yet`. On a read-only (earlier) run there is no button: `The fixing agent’s work · {k}`.
 
 Status rows that point into it ("Open card ›" on an agent card, `DayPage.tsx:461`) keep opening and focusing it.
 
@@ -282,8 +283,9 @@ New:
 ## UI Contract
 
 - List divider (not a control): `Stories`
-- Folded list summary on a narrow screen, the same on a card and on a statement: `{u} still need you · {N} items`, where u = cards still yours + statements not answered and N = cards + statements. With u = 0: `All {N} answered`.
-- Agent panel header: `Start fixing also sends these · {n} not sent`; with every row sent: `Sent to the fixing agent · {k}`
+- Folded list summary on a narrow screen, the same on a card and on a statement: `{u} still need you · {N} items`, where u = cards still yours + statements not answered and N = cards + statements. With u = N: `{u} still need you` (review fix F12: the same number is not said twice). With u = 0: `All {N} answered`.
+- Agent panel header: `Start fixing also sends these · {n} not sent`; with every row sent: `Sent to the fixing agent · {k}`. After the first send (the button reads `Send {N} changes`): `Sent with your answers · {n} not sent yet`. Read-only run: `The fixing agent’s work · {k}` (review fix F4).
+- Bottom bar: `{N} still yours` at every width (review fix F12: no short `yours: {N}` on a phone).
 - Story slot button: `+ Add a story` (accessible name `Add a story for this point`)
 - Stats: `Goals`; empty: `No open goals found in docs/goals.md`; absent: `not collected yet`. Review notes heading: `Review notes`
 
@@ -299,7 +301,7 @@ New:
 - [ ] 5. No `[data-agent-owner]` row above the point. With `Their story` open, `[data-agent-view]` contains the AGENT byline and `[data-testid="story-author-stance"]` showing the agent's position. `boundary.ts` `APPROVED` is unchanged (`git diff` empty for that list).
 - [ ] 6. A statement with no saved story and no draft shows a `+ Add a story` button (accessible name "Add a story for this point") and no textarea. Clicking it shows a focused textarea and removes the button.
 - [ ] 7. A statement with a saved story, or a draft (`draftOf(id) !== undefined`, including a draft emptied over a saved story), shows the textarea open on arrival and no button. Paging away and back to a statement whose box was opened and left untouched shows the button again.
-- [ ] 7b. The statement card's order is point → position → footer row → story box → "Not saved" → chip → agent story. A statement without an agent renders the footer row with only `+ Add a story`. An empty story with no ledger entry shows no chip.
+- [ ] 7b. The statement card's order is point → position → footer row → agent story → story box (labelled `Your story`) → "Not saved" → chip (review fix F9, visual QA S7). A statement without an agent renders the footer row with only `+ Add a story`. An empty story with no ledger entry shows no chip.
 - [ ] 8. Read-only run: no button, no textarea; a saved story shows as text.
 
 **Agent work**

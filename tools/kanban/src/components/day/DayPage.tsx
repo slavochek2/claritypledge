@@ -21,6 +21,7 @@ import {
   isAgentWork,
   isAnswered,
   pendingPreselected,
+  statementRows,
   stillYours,
   storyAnswer,
   type ConnectionView,
@@ -32,14 +33,17 @@ import {
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
-import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf, statementRows } from './ReflectionTab'
+import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
 import './day.css'
 
-type Tab = 'report' | 'stats' | 'monitoring' | 'reflection'
+type Tab = 'report' | 'stats' | 'monitoring'
 // P1463 round 3: Reflection is not a tab — its statements follow the cards in the Daily report's
-// one queue ('reflection' stays the internal section the pager is in). Tabs are for looking only.
+// one queue. Tabs are for looking only.
+// P1468 review F1: which half of the queue is open (cards or statements) is its own state, not a tab
+// value — so Stats → Daily report comes back to the statement that was open.
+type Half = 'cards' | 'statements'
 const TABS: [Tab, string][] = [
   ['report', 'Daily report'],
   ['stats', 'Stats'],
@@ -47,7 +51,7 @@ const TABS: [Tab, string][] = [
 ]
 
 /** Below ~420px of page width the tabs keep one row with these. */
-const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', monitoring: 'Monitor', reflection: 'Reflect' }
+const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', monitoring: 'Monitor' }
 
 /** "08:12" in the founder's local time. */
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -115,9 +119,7 @@ export function DayPage() {
   const [run, setRun] = useState<RunPayload | null>(null)
   const [runErr, setRunErr] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('report')
-  // read by an Accept whose save finished after the founder moved to another section (P1463 Codex review)
-  const tabRef = useRef(tab)
-  tabRef.current = tab
+  const [half, setHalf] = useState<Half>('cards')
   /** where the pager is in the founder's cards (P1445 E: agent work is a list, not pager cards) */
   const [idx, setIdx] = useState({ yours: 0 })
   /** P1445 E: the "With the agent" list is open, and the row a Status check asked to show */
@@ -211,6 +213,7 @@ export function DayPage() {
   useEffect(() => {
     if (!runId) return
     setRun(null)
+    setHalf('cards')
     setIdx({ yours: 0 })
     setAgentList({ open: false })
     setReflIdx(0)
@@ -228,8 +231,9 @@ export function DayPage() {
       // a story alone is an answer too (P1440)
       const k = (r.report.reflection?.statements ?? []).findIndex((x) => typeof r.view.reflection[x.id]?.position !== 'number' && !r.view.reflection[x.id]?.story)
       if (k > 0) setReflIdx(k)
-      // P1463: every card answered (or none) and a statement still open — the queue opens there
-      if (y === -1 && k >= 0) setTab('reflection')
+      // P1463: every card answered (or none) and a statement still open — the queue opens there.
+      // (A run with no founder card at all opens on its statements whatever their state: see `sec`.)
+      if (y === -1 && k >= 0) setHalf('statements')
     })
   }, [runId, reload])
 
@@ -250,6 +254,15 @@ export function DayPage() {
   const issueIdx = idx.yours
   const setIssueIdx = useCallback((i: number) => setIdx({ yours: i }), [])
   const statements = useMemo(() => ok?.report.reflection?.statements ?? [], [ok])
+  /**
+   * P1468 review F1: the open half of the queue, on the Daily report tab — the statements when the
+   * founder chose them, or when the run has no founder card (otherwise a lone statement, answered or
+   * not, had no way in: no list for one item, nothing to page to).
+   */
+  const sec: Half | null = tab !== 'report' ? null : statements.length > 0 && (half === 'statements' || issues.length === 0) ? 'statements' : 'cards'
+  // read by an Accept whose save finished after the founder moved to another section (P1463 Codex review)
+  const secRef = useRef(sec)
+  secRef.current = sec
 
   useEffect(() => {
     if (issueIdx > 0 && issueIdx >= issues.length) setIssueIdx(Math.max(0, issues.length - 1))
@@ -452,12 +465,17 @@ export function DayPage() {
 
   // ---- what Start fixing sends (decision 1B) --------------------------------------------
 
-  /** Open the card for a fingerprint, in whichever set it belongs to. */
+  /**
+   * Open the card for a fingerprint, in whichever set it belongs to. P1468 review F5: only a founder
+   * card replaces the open item; an agent row opens the panel under whatever is open (a statement too).
+   */
   const jumpTo = useCallback(
     (fp: string) => {
       const y = yours.findIndex((x) => x.fp === fp)
-      if (y >= 0) setIdx({ yours: y })
-      else if (agentCards.some((x) => x.fp === fp)) setAgentList({ open: true, focus: fp })
+      if (y >= 0) {
+        setIdx({ yours: y })
+        setHalf('cards')
+      } else if (agentCards.some((x) => x.fp === fp)) setAgentList({ open: true, focus: fp })
       setTab('report')
     },
     [agentCards, yours],
@@ -551,25 +569,25 @@ export function DayPage() {
   }
   const nav = useMemo(
     () =>
-      tab === 'report' && issues.length
+      sec === 'cards' && issues.length
         ? { i: Math.min(issueIdx, issues.length - 1), n: issues.length, lab: 'issue' }
-        : tab === 'reflection' && statements.length
+        : sec === 'statements'
           ? { i: Math.min(reflIdx, statements.length - 1), n: statements.length, lab: 'statement' }
           : null,
-    [tab, issues.length, issueIdx, reflIdx, statements.length],
+    [sec, issues.length, issueIdx, reflIdx, statements.length],
   )
 
   /** The current card is an unanswered founder choice whose recommendation is not Park: Accept is offered. */
   const accepting = useMemo(() => {
-    const cur = tab === 'report' && !readOnly ? issues[nav?.i ?? -1] : undefined
+    const cur = sec === 'cards' && !readOnly ? issues[nav?.i ?? -1] : undefined
     return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
-  }, [tab, readOnly, issues, nav, choice])
+  }, [sec, readOnly, issues, nav, choice])
   /**
    * P1440 / spec E: on Reflection, Accept is offered when there is something to save. A position is
    * saved the moment it is picked, so that is a story typed (or emptied) and not saved yet (review O3:
    * Accept on a card already saved wrote the same line again).
    */
-  const reflCur = tab === 'reflection' && !readOnly && nav ? statements[nav.i] : undefined
+  const reflCur = sec === 'statements' && !readOnly && nav ? statements[nav.i] : undefined
   const reflAccepting = !!reflCur && isUnsaved(reflCur.id)
 
   /**
@@ -577,28 +595,28 @@ export function DayPage() {
    * stays the position inside the current section; `queue` is the position in the whole run.
    */
   const queue = useMemo(() => {
-    if (!nav || (tab !== 'report' && tab !== 'reflection')) return nav
+    if (!nav || !sec) return nav
     const n = issues.length + statements.length
-    return { i: (tab === 'reflection' ? issues.length : 0) + nav.i, n, lab: nav.lab }
-  }, [nav, tab, issues.length, statements.length])
+    return { i: (sec === 'statements' ? issues.length : 0) + nav.i, n, lab: nav.lab }
+  }, [nav, sec, issues.length, statements.length])
   /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
     (dir: -1 | 1) => {
       if (!queue) return
       const to = queue.i + dir
       if (to < 0 || to >= queue.n) return
-      if (tab === 'report' || tab === 'reflection') {
+      if (sec) {
         if (to < issues.length) {
-          setTab('report')
+          setHalf('cards')
           setIssueIdx(to)
         } else {
-          setTab('reflection')
+          setHalf('statements')
           setReflIdx(to - issues.length)
         }
       }
       toTop()
     },
-    [queue, tab, issues.length, setIssueIdx],
+    [queue, sec, issues.length, setIssueIdx],
   )
 
   /**
@@ -620,13 +638,13 @@ export function DayPage() {
       setChoice((c) => ({ ...c, [cur.fp]: rec }))
       const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
       // move on only if the founder is still on that card: paging during the save wins
-      if (r.ok && runIdRef.current === runId && tabRef.current === 'report' && idxRef.current.yours === at) {
+      if (r.ok && runIdRef.current === runId && secRef.current === 'cards' && idxRef.current.yours === at) {
         if (at + 1 < issues.length) {
           setIdx((s) => ({ ...s, yours: at + 1 }))
           toTop()
         } else if (statements.length) {
           // P1463: the last card's Accept & next goes on to the statements, as Next does
-          setTab('reflection')
+          setHalf('statements')
           setReflIdx(0)
           toTop()
         }
@@ -679,7 +697,7 @@ export function DayPage() {
 
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {})
   keyRef.current = (e: KeyboardEvent) => {
-    if (!ok || (tab !== 'report' && tab !== 'reflection')) return
+    if (!ok || !sec) return
     if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return
     const onRadio = e.target instanceof HTMLInputElement && e.target.type === 'radio'
     // ↑ ↓ on a focused radio would silently change the answer (= a write). Answers change by
@@ -696,7 +714,7 @@ export function DayPage() {
     }
     if (!/^[1-9]$/.test(e.key) || readOnly) return
     const n = Number(e.key)
-    if (tab === 'report' && nav) {
+    if (sec === 'cards' && nav) {
       const issue = issues[nav.i]
       if (!issue) return
       // the custom answer is numbered after the listed options
@@ -709,7 +727,7 @@ export function DayPage() {
       if (!opt) return
       e.preventDefault()
       if (selected(issue) !== opt.id || !issue.decision) choose(issue, opt.id)
-    } else if (tab === 'reflection' && nav && n <= 3) {
+    } else if (sec === 'statements' && nav && n <= 3) {
       const s = statements[nav.i]
       const side = (['disagree', 'unsure', 'agree'] as const)[n - 1]
       const cur = posOf(s.id)
@@ -753,7 +771,7 @@ export function DayPage() {
         <div className="d-col">
           <div className="d-tabs" role="tablist" aria-label="Day">
             {TABS.map(([k, label]) => (
-              <button type="button" role="tab" key={k} aria-selected={tab === k || (k === 'report' && tab === 'reflection')} aria-label={label} onClick={() => setTab(k)}>
+              <button type="button" role="tab" key={k} aria-selected={tab === k} aria-label={label} onClick={() => setTab(k)}>
                 <span className="d-tl">{label}</span>
                 <span className="d-ts" aria-hidden="true">
                   {SHORT_TAB[k]}
@@ -841,7 +859,7 @@ export function DayPage() {
           {ok && view && (
             <>
               {/* P1468: one layout for the queue — the card or the statement opens inside it */}
-              {(tab === 'report' || tab === 'reflection') && (
+              {tab === 'report' && (
                 <DailyReport
                   key={ok.id}
                   report={ok.report}
@@ -849,7 +867,13 @@ export function DayPage() {
                   readOnly={readOnly}
                   issues={issues}
                   index={issueIdx}
-                  agent={{ items: agentCards, open: agentList.open, focus: agentList.focus, setOpen: (open) => setAgentList({ open }) }}
+                  agent={{
+                    items: agentCards,
+                    open: agentList.open,
+                    focus: agentList.focus,
+                    setOpen: (open) => setAgentList({ open }),
+                    header: readOnly ? 'read-only' : ok.lastSentAt ? 'follow-up' : 'first',
+                  }}
                   onJump={jumpTo}
                   selected={selected}
                   draftOf={draftOf}
@@ -863,16 +887,16 @@ export function DayPage() {
                   sent={ok.sentItems ?? {}}
                   statements={{
                     ...statementRows(statements, view, isUnsaved),
-                    current: tab === 'reflection' ? Math.min(reflIdx, statements.length - 1) : -1,
+                    current: sec === 'statements' ? Math.min(reflIdx, statements.length - 1) : -1,
                     onPick: (k) => {
-                      setTab('reflection')
+                      setHalf('statements')
                       setReflIdx(k)
                       toTop()
                     },
                   }}
-                  onCards={() => setTab('report')}
+                  onCards={() => setHalf('cards')}
                   statement={
-                    tab === 'reflection' && statements.length ? (
+                    sec === 'statements' ? (
                       <ReflectionTab
                         statements={statements}
                         view={view}
@@ -944,9 +968,9 @@ export function DayPage() {
                       className="d-nbtn d-accept"
                       data-accept
                       aria-label={(queue ?? nav).i < (queue ?? nav).n - 1 ? 'Accept and next' : 'Accept'}
-                      title={tab === 'reflection' ? 'Save your position and story' : 'Save the recommended answer'}
+                      title={sec === 'statements' ? 'Save your position and story' : 'Save the recommended answer'}
                       disabled={busy}
-                      onClick={(e) => void (tab === 'reflection' ? acceptStatement(e.detail) : accept(e.detail))}
+                      onClick={(e) => void (sec === 'statements' ? acceptStatement(e.detail) : accept(e.detail))}
                     >
                       <span className="d-nl">{(queue ?? nav).i < (queue ?? nav).n - 1 ? 'Accept & next' : 'Accept'}</span>
                       <span className="d-ns">Accept</span>
@@ -958,7 +982,7 @@ export function DayPage() {
               )}
               {/* d-tight: the unsaved-stories link takes the room — the key hint goes, phones use the short labels */}
               <div className={`d-bprog${!readOnly && unsavedIds.length > 0 ? ' d-tight' : ''}`}>
-                {readOnly ? null : tab === 'reflection' ? (
+                {readOnly ? null : sec === 'statements' ? (
                   statements.length > 0 && (
                     <>
                       <span data-progress data-short={`${rated + storyOnly}/${statements.length}`}>
@@ -970,8 +994,9 @@ export function DayPage() {
                     </>
                   )
                 ) : null}
-                {!readOnly && tab === 'report' && firstYours && (
-                  <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
+                {/* P1468 review F12: the same words at every width (no short "yours: N" on a phone) */}
+                {!readOnly && sec === 'cards' && firstYours && (
+                  <button type="button" className="d-still" data-still-yours onClick={() => jumpTo(firstYours.fp)}>
                     {yoursLeft.length} still yours
                   </button>
                 )}
@@ -981,7 +1006,8 @@ export function DayPage() {
                     className="d-still"
                     data-unsaved-stories
                     onClick={() => {
-                      setTab('reflection')
+                      setTab('report')
+                      setHalf('statements')
                       if (firstUnsaved >= 0) setReflIdx(firstUnsaved)
                     }}
                   >
@@ -991,7 +1017,7 @@ export function DayPage() {
                 {!readOnly && nav && unsavedIds.length === 0 && (
                   <span className="d-hint" aria-hidden="true">
                     {/* P1449: the reflection's 1 2 3 keys live here, not as a row under CP's buttons */}
-                    {tab === 'reflection' ? '1 2 3 rate · ← → move' : '← → move'}
+                    {sec === 'statements' ? '1 2 3 rate · ← → move' : '← → move'}
                   </span>
                 )}
               </div>

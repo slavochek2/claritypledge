@@ -10,24 +10,29 @@
 //
 // Rules (derived here, documented once):
 //   - an item is a line `<label>. [ ] …` or `- [ ] …` inside `## Next Steps` (up to the next `## `);
-//     `[x]` is done. Only open items count, in file order, at most 3.
+//     `[x]` is done. Only open items count, in file order, at most 3. Lines inside a fenced code
+//     block (``` or ~~~) are not markdown: no heading, no item, no section end. \r\n reads as \n.
 //   - the text is the item's bold title when the item STARTS with `**…**`; otherwise its first
-//     sentence. A bold word in the middle of an item is emphasis, not a title.
+//     sentence: up to a . ! or ? that is followed by a space and a capital letter, outside
+//     parentheses ("e.g. sales", "(incl. A …)" do not end it); with no such end, the whole line.
+//     A bold word in the middle of an item is emphasis, not a title.
 //   - markdown links keep their text, code marks and bold marks are dropped; the step label is the
-//     row's id and never part of the text.
-//   - a label that appears twice keeps its first item, so the report never carries a duplicate row
-//     (a duplicate would fail the report's validation and nothing would be written).
+//     row's id and never part of the text. The length is not clipped here: the report's reader does
+//     that, once (MAX_GOAL in src/lib/day.ts).
+//   - an open label that appears twice keeps its first open item, so the report never carries a
+//     duplicate row (a duplicate would fail the report's validation and nothing would be written);
+//     a done `[x]` item never hides a reopened one with the same label.
 
 import { readFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { MAX_GOAL, type DayGoal } from '../src/lib/day'
+import { MAX_GOALS, type DayGoal } from '../src/lib/day'
 
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 /** goals.md is tracked, so this checkout's own copy is the one to read. */
 export const defaultGoalsFile = () => join(REPO_ROOT, 'docs', 'goals.md')
 
-export const GOALS_CAP = 3
+export const GOALS_CAP = MAX_GOALS
 
 export type GoalsParse = { kind: 'ok'; goals: DayGoal[] } | { kind: 'no-section' } | { kind: 'none-open' }
 
@@ -42,25 +47,54 @@ const plain = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+/** The first sentence: up to a . ! ? followed by a space and a capital, outside parentheses; else all of it. */
+function firstSentence(t: string): string {
+  let depth = 0
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i]
+    if (c === '(') depth++
+    else if (c === ')') depth = Math.max(0, depth - 1)
+    else if (depth === 0 && /[.!?]/.test(c) && /^\s\p{Lu}/u.test(t.slice(i + 1, i + 3))) return t.slice(0, i + 1)
+  }
+  return t
+}
+
 function textOf(body: string): string {
   const bold = /^\*\*(.+?)\*\*/.exec(body.trim())
-  const t = bold ? plain(bold[1]) : plain(body).split(/(?<=[.!?])\s/)[0]
-  return t.length > MAX_GOAL ? `${t.slice(0, MAX_GOAL - 1)}…` : t
+  return bold ? plain(bold[1]) : firstSentence(plain(body))
+}
+
+const FENCE = /^\s{0,3}(```|~~~)/
+
+/** The lines that are markdown: a fenced code block's lines (fences included) become ''. */
+function markdownLines(md: string): string[] {
+  let fence: string | null = null
+  return md.split(/\r?\n/).map((l) => {
+    const f = FENCE.exec(l)?.[1]
+    if (fence) {
+      if (f === fence) fence = null
+      return ''
+    }
+    if (f) {
+      fence = f
+      return ''
+    }
+    return l
+  })
 }
 
 export function parseGoals(md: string, cap = GOALS_CAP): GoalsParse {
-  const lines = md.split('\n')
+  const lines = markdownLines(md)
   const start = lines.findIndex((l) => /^## Next Steps\s*$/.test(l))
   if (start < 0) return { kind: 'no-section' }
   const goals: DayGoal[] = []
   const seen = new Set<string>()
   for (let i = start + 1; i < lines.length && !/^## /.test(lines[i]); i++) {
     const m = ITEM.exec(lines[i])
-    if (!m) continue
+    if (!m || m[2] !== ' ') continue
     const id = m[1] ?? `item-${i - start}`
     if (seen.has(id)) continue
     seen.add(id)
-    if (m[2] !== ' ') continue
     const text = textOf(m[3])
     if (text) goals.push({ id, text })
     if (goals.length >= cap) break

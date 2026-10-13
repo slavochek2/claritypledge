@@ -661,10 +661,14 @@ function readNote(x: unknown): DayNote | null {
 
 /** P1468: a goals.md step label ("3a", "3a+") and plain text. */
 const GOAL_ID = /^[A-Za-z0-9][A-Za-z0-9.+_-]{0,19}$/
+/** P1468: a goal's longest text; clipped here only, where any report is read (review H2) */
 export const MAX_GOAL = 300
+/** P1468: Goals shows at most this many — held where a report is read, not only by the producer (review F6) */
+export const MAX_GOALS = 3
 function readGoal(x: unknown): DayGoal | null {
   if (!isObj(x) || typeof x.id !== 'string' || !GOAL_ID.test(x.id) || !str(x.text)) return null
-  return { id: x.id, text: (x.text as string).slice(0, MAX_GOAL) }
+  const t = x.text as string
+  return { id: x.id, text: t.length > MAX_GOAL ? `${t.slice(0, MAX_GOAL - 1)}…` : t }
 }
 
 /** P1445: an agent view the checker passed, else nothing (an unchecked story is never shown). */
@@ -840,7 +844,8 @@ export function parseReport(raw: unknown): ParsedReport {
   if (stats) report.stats = stats
   if (Array.isArray(raw.people)) report.people = rows(raw.people, readPerson, (p) => p.id, drop)
   if (Array.isArray(raw.notes)) report.notes = rows(raw.notes, readNote, (n) => n.id, drop)
-  if (Array.isArray(raw.goals)) report.goals = rows(raw.goals, readGoal, (g) => g.id, drop)
+  // the first MAX_GOALS valid rows, in order; rows past the cap are not malformed, so not counted
+  if (Array.isArray(raw.goals)) report.goals = rows(raw.goals, readGoal, (g) => g.id, drop).slice(0, MAX_GOALS)
   if (isObj(raw.reflection)) {
     report.reflection = { statements: rows(raw.reflection.statements, readStatement, (s) => s.id, drop) }
     if (str(raw.reflection.model)) report.reflection.model = raw.reflection.model as string
@@ -1506,6 +1511,53 @@ export function cardState(issue: IssueView, sent: Readonly<Record<string, string
 
 /** The founder is done with this card: their answer is saved, or it was sent to the agent (P1435). */
 export const isAnswered = (st: CardState) => st.kind === 'sent' || st.kind === 'answered'
+
+// ---------------------------------------------------------------------------------------
+// P1468: the statements as rows of the Day page's one list (moved here from ReflectionTab.tsx, review H3).
+
+/** One row of the Day page's list (ListPane): a card or a statement. */
+export interface ListRow {
+  key: string
+  title: string
+  done: boolean
+  /** the dot's look when not done: 'before' | 'agent' | 'open' */
+  kind: string
+  word: string
+  attrs?: Record<string, string>
+}
+
+/** The list's word for a position on CP's 7-level scale (-3 … 3), as CP's buttons name it. */
+const LIST_POSITION_WORDS: Record<number, string> = {
+  [-3]: 'Strongly Disagree', [-2]: 'Disagree', [-1]: 'Somewhat Disagree', 0: 'Unsure', 1: 'Somewhat Agree', 2: 'Agree', 3: 'Strongly Agree',
+}
+
+/** P1435: a position is a number; 0 is "Unsure", never "Not rated". */
+export const statementPosition = (view: DayView, id: string): number | null => {
+  const v = view.reflection[id]?.position
+  return typeof v === 'number' ? v : null
+}
+const hasStory = (view: DayView, id: string) => !!view.reflection[id]?.story
+
+/**
+ * P1468: each statement with its position, "Not rated", or (P1440) "Story, no position" / "Unsaved".
+ * `open` counts those with neither a position nor a story: what still needs the founder.
+ */
+export function statementRows(statements: DayStatement[], view: DayView, unsaved: (id: string) => boolean): { rows: ListRow[]; open: number } {
+  const rows = statements.map((x) => {
+    const p = statementPosition(view, x.id)
+    const story = hasStory(view, x.id)
+    return {
+      key: x.id,
+      title: x.text,
+      done: p !== null || story,
+      kind: 'open',
+      // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
+      word: unsaved(x.id) ? 'Unsaved' : p === null ? (story ? 'Story, no position' : 'Not rated') : LIST_POSITION_WORDS[p],
+      attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (story ? 'story' : 'unrated') : 'rated' },
+    }
+  })
+  return { rows, open: statements.filter((x) => statementPosition(view, x.id) === null && !hasStory(view, x.id)).length }
+}
 
 // ---------------------------------------------------------------------------------------
 // The prompt.

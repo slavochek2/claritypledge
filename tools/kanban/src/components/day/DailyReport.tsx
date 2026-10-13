@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, StatusIcon } from './status'
-import { agentWord, checkStatus, connectionStatus, listSummary, needsYou } from './statusWords'
+import { agentWord, checkStatus, connectionStatus, listSummary, needsYou, type AgentHeader } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
 import { ListPane, type ListRow } from './ListPane'
@@ -23,6 +23,8 @@ export interface AgentWork {
   /** a Status check opened the list on this row */
   focus?: string
   setOpen: (open: boolean) => void
+  /** P1468 review F4: which button the header may name — the one on screen, or none on a read-only run */
+  header: AgentHeader
 }
 
 interface Props {
@@ -224,8 +226,9 @@ export function DailyReport(p: Props) {
               }}
             />
           )}
-          {/* P1468: the open item, then the agent's work under it — in both halves */}
-          <div className={p.statement ? 'd-mdmain d-pwrap' : 'd-mdmain'}>
+          {/* P1468: the open item, then the agent's work under it — in both halves, in one box (review F2: no
+              narrower column for a statement) */}
+          <div className="d-mdmain">
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
             {p.statement ? p.afterStatement : <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />}
@@ -689,7 +692,7 @@ function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<st
     <div className="d-card d-parked" ref={box} data-agent-list>
       <button type="button" className="d-fold" aria-expanded={agent.open} onClick={() => agent.setOpen(!agent.open)}>
         <span className="d-tri">▶</span>
-        {agentWord(notSent, agent.items.length)}
+        {agentWord(notSent, agent.items.length, agent.header)}
       </button>
       {agent.open &&
         agent.items.map((x) => {

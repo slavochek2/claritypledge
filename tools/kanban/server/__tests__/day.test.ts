@@ -834,9 +834,15 @@ describe('day v2 Phase D: the synthetic run exercises the new rules', () => {
   })
 
   it('P1468 UI CONTRACT — the agent panel header and the folded list line, every branch', () => {
-    expect(agentWord(3, 7)).toBe('Start fixing also sends these · 3 not sent')
-    expect(agentWord(0, 7)).toBe('Sent to the fixing agent · 7')
+    expect(agentWord(3, 7, 'first')).toBe('Start fixing also sends these · 3 not sent')
+    expect(agentWord(0, 7, 'first')).toBe('Sent to the fixing agent · 7')
+    // P1468 review F4: the header names only a button that is on screen
+    expect(agentWord(3, 7, 'follow-up')).toBe('Sent with your answers · 3 not sent yet')
+    expect(agentWord(0, 7, 'follow-up')).toBe('Sent to the fixing agent · 7')
+    expect(agentWord(3, 7, 'read-only')).toBe('The fixing agent’s work · 7')
+    expect(agentWord(0, 7, 'read-only')).toBe('The fixing agent’s work · 7')
     expect(listSummary(5, 8)).toBe('5 still need you · 8 items')
+    expect(listSummary(8, 8)).toBe('8 still need you') // review F12: equal numbers said once
     expect(listSummary(0, 8)).toBe('All 8 answered')
   })
 

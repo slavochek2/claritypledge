@@ -1025,10 +1025,17 @@ test.describe('monitoring, stats, reflection', () => {
     // B3: the whole reason is visible (no clipping box), and the footer keeps its gutters
     const clipped = await page.locator('[data-key="key-otter"] .d-kwhy').evaluate((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)
     expect(clipped).toBe(false)
-    // P1468: on Monitoring the progress area is empty now (the agent link it held is gone) — the bar's inner row carries the gutter
-    const prog = await rectOf(page.locator('[data-bottom-bar] .d-gin'), 'bar row')
+    // P1468: on Monitoring the progress area is empty now (the agent link it held is gone). Review H4: so every
+    // visible piece of the bar — not the row's own box — must keep the gutter on both sides
+    const pieces = await page.locator('[data-bottom-bar] .d-gin').evaluate((row) =>
+      [...row.querySelectorAll('button, span, a')].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ left: r.left, right: r.right })),
+    )
+    expect(pieces.length).toBeGreaterThanOrEqual(2) // Start fixing and the copy icon at least
+    for (const r of pieces) {
+      expect(r.left).toBeGreaterThanOrEqual(44 + 8)
+      expect(r.right).toBeLessThanOrEqual(320)
+    }
     const copy = await rectOf(page.getByRole('button', { name: 'Copy prompt' }), 'copy')
-    expect(prog.x).toBeGreaterThanOrEqual(44 + 8)
     expect(copy.x + copy.width).toBeLessThanOrEqual(320)
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
     await page.locator('[data-key="key-otter"]').screenshot({ path: 'test-results/p1442-why120-320.png' })
@@ -1406,6 +1413,10 @@ test.describe('review round 3', () => {
     // P1468: the agent link is gone (its panel names the work); "N still yours" is the progress text
     await expect(agentLink(page)).toHaveCount(0)
     const prog = await rectOf(stillYours(page), 'still yours')
+    // P1468 review F12: the same words as on a desktop ("N still yours"), never a short "yours: N"
+    const yours = yoursOf(await runView(page))
+    await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
+    expect(await stillYours(page).evaluate((e) => ({ size: getComputedStyle(e).fontSize, after: getComputedStyle(e, '::after').content }))).toEqual({ size: '12px', after: 'none' })
     const start = await rectOf(startBtn(page), 'Start fixing')
     const overlap = prog.x < start.x + start.width && start.x < prog.x + prog.width && prog.y < start.y + start.height && start.y < prog.y + prog.height
     expect(overlap).toBe(false)
@@ -1947,6 +1958,9 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0) // folded until asked
     await openAgentList(page)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(k)
+    // P1468 review H4: toBeInViewport held because the bottom-bar link scrolled the list into view; the link is
+    // gone and the fold does not scroll (the row is below the fold at 1440x900), so here it is only shown — the
+    // scroll is asserted where it still happens, the Status jump at the end of this test
     await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })).toBeVisible()
     await openAgentList(page) // already open: stays open
     await agentList(page).locator('.d-fold').click()
@@ -1955,6 +1969,7 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     await openStatus(page)
     await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
     await expect(agentList(page).locator('.d-focusrow')).toContainText('Backup · repo C')
+    await expect(agentList(page).locator('.d-focusrow')).toBeInViewport() // P1468 review H4: the scroll the link used to do
   })
 
   test('with no agent work there is no list', async ({ page }) => {
@@ -2219,7 +2234,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     const yours = yoursOf(await runView(page))
     const tog = page.locator('[data-card-list] .d-cltog')
     // P1468: one list, one line for cards and statements (UI Contract)
-    await expect(tog).toHaveText(`▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`)
+    await expect(tog).toHaveText(`▶${yours.length + STMTS} still need you`) // P1468 review F12: equal numbers say it once
     await expect(page.locator('[data-list-card]').first()).toBeHidden()
     expect((await rectOf(tog, 'toggle')).height).toBeGreaterThanOrEqual(40)
     await tog.click()
@@ -2248,7 +2263,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     const l = must(await page.locator('[data-card-list]').boundingBox(), 'list')
     const c = must(await card(page).boundingBox(), 'card')
     expect(l.x + l.width).toBeLessThanOrEqual(c.x)
-    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`) // the narrow fold keeps its line (P1468 wording)
+    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length + STMTS} still need you`) // the narrow fold keeps its line (P1468 wording; review F12: equal numbers said once)
   })
 
   test('the page opens on the first card that still needs you', async ({ page }) => {
@@ -2274,7 +2289,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     const tog = page.locator('[data-card-list] .d-cltog')
     await expect(rows).toHaveCount(4)
     await expect(page.locator('[data-list-summary]')).toHaveCount(0)
-    await expect(tog).toHaveText(`▶${yours.length + 4} still need you · ${yours.length + 4} items`)
+    await expect(tog).toHaveText(`▶${yours.length + 4} still need you`) // P1468 review F12: equal numbers said once
     await expect(rows.first()).toContainText('Not rated')
     expect(await inView(page, '.d-pst'), 'statement').toBe(true)
     expect(await inView(page, '[data-position-control]'), 'position buttons').toBe(true)
@@ -2324,7 +2339,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
       await collapseSidebar(page)
       const yours = yoursOf(await runView(page))
       const tog = page.locator('[data-card-list] .d-cltog')
-      const line = `▶${yours.length + 4} still need you · ${yours.length + 4} items` // P1468: one line for both halves
+      const line = `▶${yours.length + 4} still need you` // P1468: one line for both halves (review F12: equal numbers said once)
       await expect(tog).toHaveText(line)
       await expect(listRow(page, yours[0].fp)).toBeHidden()
       await tog.click()
@@ -3000,11 +3015,17 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
 // P1468: cards and statements are one list and one layout — the status line, the list and the agent
 // panel sit around whichever item is open.
 test.describe('P1468: one list, one top, for cards and stories', () => {
-  /** AC1's positions: the status line's top, and the list's left edge, top and width */
+  /**
+   * AC1's positions: the status line's top, and the list's left edge, top and width. P1468 review
+   * F2: and the right pane — its left edge, the open item's left edge and width, the agent panel's.
+   */
   const positions = async (page: Page) => {
     const s = await rectOf(page.locator('[data-status-line]'), 'status line')
     const l = await rectOf(page.locator('[data-card-list]'), 'list')
-    return { statusY: s.y, listX: l.x, listY: l.y, listW: l.width }
+    const pane = await rectOf(page.locator('.d-mdmain'), 'pane')
+    const item = await rectOf(page.locator('[data-issue], [data-statement]'), 'open item')
+    const agent = await rectOf(page.locator('[data-agent-list]'), 'agent panel')
+    return { statusY: s.y, listX: l.x, listY: l.y, listW: l.width, paneX: pane.x, itemX: item.x, itemW: item.width, agentX: agent.x, agentW: agent.width }
   }
 
   test('AC1 + AC19: paging from the last card into the first statement moves neither the status line nor the list (1440px)', async ({ page }) => {
@@ -3136,6 +3157,35 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await expect(page.locator('[data-statement="c2"]')).toBeVisible()
     await expect(list(page)).toHaveCount(0)
     await centred('.d-cpcard')
+    // P1468 review F1: the lone statement is reachable after Stats → Daily report (the tab is not the queue)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText('1 of 1')
+  })
+
+  test('AC4 (review F1): no founder cards, only agent work, and one statement already answered — the statement opens, not "Nothing needs you"', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.view) {
+        b.view.issues = b.view.issues.filter(isAgent)
+        b.view.parked = []
+      }
+      const r = b.report?.reflection
+      if (r) r.statements = r.statements.filter((x) => x.id === 'c2')
+    })
+    await openDay(page)
+    writeLines([refl('c2', { position: 1 })])
+    // reopen() waits for a card, and this run has none
+    await page.goto('/')
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(page.locator('.d-cpcard [data-position-control] [aria-pressed=true]')).toHaveCount(1) // it is the answered one
+    await expect(list(page)).toHaveCount(0)
+    await expect(page.locator('.d-bpos')).toHaveText('1 of 1')
+    await expect(agentList(page)).toHaveCount(1) // the agent's work still sits under it
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
   })
 
   test('AC5: no agent row above the point; with "Their story" open, the AGENT byline and the agent\'s stance are inside it', async ({ page }) => {
@@ -3153,6 +3203,7 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await openDay(page)
     await stmtRow(page, 'c1').click()
     await expect(addStory(page)).toHaveText('+ Add a story')
+    expect((await rectOf(addStory(page), '+ Add a story')).height, 'hit area (visual-qa: ≥ 40px)').toBeGreaterThanOrEqual(40)
     await expect(page.locator('.d-cpcard textarea')).toHaveCount(0)
     await addStory(page).click()
     await expect(box(page)).toBeFocused()
@@ -3192,7 +3243,9 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     expect(lines()).toHaveLength(1) // none of it wrote
   })
 
-  test('AC7b: point → position → footer row → story box → "Not saved" → chip → agent story; no agent: the row holds only "+ Add a story"; no ledger entry: no chip', async ({ page }) => {
+  // P1468 review F9 (visual QA S7): the founder's box sat between "Their story" and the agent's story, so it read
+  // as part of theirs — the agent's story now follows its toggle, then the founder's own box under a "Your story" label
+  test('AC7b: point → position → footer row → agent story → "Your story" box → "Not saved" → chip; no agent: the row holds only "+ Add a story"; no ledger entry: no chip', async ({ page }) => {
     await openDay(page)
     await stmtRow(page, 'c1').click()
     const footer = page.locator('.d-cpcard [data-testid=point-card-footer]')
@@ -3210,7 +3263,10 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await box(page).fill('Invented story, edited.')
     await expect(page.locator('.d-cpcard [data-story-unsaved]')).toBeVisible()
     await page.locator('.d-cpcard [data-testid=point-story-expander]').click()
-    const parts = ['.d-pst', '[data-position-control]', '[data-testid=point-card-footer]', 'textarea', '[data-story-unsaved]', '[data-story-line]', '[data-agent-view]']
+    const label = page.locator('.d-cpcard .d-founder label')
+    await expect(label).toHaveText('Your story') // CP's visible label for a story input (create-story-page)
+    expect(await label.getAttribute('for')).toBe(await box(page).getAttribute('id'))
+    const parts = ['.d-pst', '[data-position-control]', '[data-testid=point-card-footer]', '[data-agent-view]', '.d-founder label', 'textarea', '[data-story-unsaved]', '[data-story-line]']
     const ys: number[] = []
     for (const sel of parts) ys.push((await rectOf(page.locator(`.d-cpcard ${sel}`).first(), sel)).y)
     expect(ys, parts.join(' → ')).toEqual([...ys].sort((a, b) => a - b))
@@ -3270,7 +3326,20 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await expect(page.getByRole('button', { name: `Send ${2 + n} change${2 + n === 1 ? '' : 's'}` })).toBeVisible()
     await openAgentList(page)
     await expect(agentList(page).locator('[data-agent-state="not-sent"]')).toHaveCount(n)
-    await expect(fold(page)).toHaveText(`▶Start fixing also sends these · ${n} not sent`)
+    // P1468 review F4: after the first send the button reads "Send N changes" — the header no longer names "Start fixing"
+    await expect(startBtn(page)).toHaveCount(0)
+    await expect(fold(page)).toHaveText(`▶Sent with your answers · ${n} not sent yet`)
+  })
+
+  test('AC9 (review F4): an earlier, read-only run has no Start fixing — the header is neutral', async ({ page }) => {
+    await openDay(page)
+    const k = agentOf(await runView(page, EARLIER_ID)).length
+    expect(k).toBeGreaterThan(0)
+    await page.getByRole('button', { name: 'Previous run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
+    await expect(page.locator('[data-bottom-bar] .d-ro')).toHaveText('Read only')
+    await expect(startBtn(page)).toHaveCount(0)
+    await expect(fold(page)).toHaveText(`▶The fixing agent’s work · ${k}`)
   })
 
   test('AC10: a Status "Open card ›" on an agent card opens the panel and focuses that row — from a statement too', async ({ page }) => {
@@ -3281,6 +3350,9 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
     await expect(agentList(page).locator('.d-focusrow')).toContainText('Backup · repo C')
     await expect(agentList(page).locator('.d-focusrow')).toBeInViewport()
+    // P1468 review F5: an agent row is not a card — the statement stays open under the panel
+    await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(1))
   })
 
   test('AC11: Stats shows no "From this run", no daily note and no chat tile, on a run that still carries every one of them', async ({ page }) => {
@@ -3348,7 +3420,7 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
       await collapseSidebar(page)
       expect(await page.evaluate(() => window.innerWidth)).toBe(width)
       const yours = yoursOf(await runView(page))
-      const want = `▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`
+      const want = `▶${yours.length + STMTS} still need you` // review F12: u = N, so it is said once
       const tog = list(page).locator('.d-cltog')
       await expect(tog).toHaveText(want)
       await tog.click()

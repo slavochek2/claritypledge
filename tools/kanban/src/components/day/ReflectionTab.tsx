@@ -9,10 +9,9 @@
 // story, and the founder's story opens from CP's `+ Add a story`.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { DayAgentView, DayStatement, DayView, StoryEntry } from '../../lib/day'
+import { statementPosition, type DayAgentView, type DayStatement, type DayView, type StoryEntry } from '../../lib/day'
 import { dayLabel } from './api'
 import { fromName, toName } from './positions'
-import type { ListRow } from './ListPane'
 // P1445 D: CP's own renderers (extracted, product-free — the boundary test in server/__tests__/day.test.ts
 // follows their imports), styled by CP's Tailwind and tokens inside .cp-scope.
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/presentational/position-buttons'
@@ -31,15 +30,6 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar'
 import 'virtual:cp-tokens.css'
 import './cp-scope.css'
 
-const LONG: Record<number, string> = {
-  [-3]: 'Strongly Disagree',
-  [-2]: 'Disagree',
-  [-1]: 'Somewhat Disagree',
-  0: 'Unsure',
-  1: 'Somewhat Agree',
-  2: 'Agree',
-  3: 'Strongly Agree',
-}
 /** the board shows no crowd: CP's counts badge stays hidden */
 const NO_COUNTS: SevenPointCounts = { strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0 }
 
@@ -64,36 +54,6 @@ function useCpScope(): HTMLElement | null {
 
 /** the sticky bottom bar's top: the level menu opens above it, never under it */
 const barTop = () => document.querySelector('[data-bottom-bar]')?.getBoundingClientRect().top ?? window.innerHeight
-
-/** P1435: a position is a number; 0 is "Unsure", never "Not rated" */
-const positionOf = (view: DayView, id: string) => {
-  const v = view.reflection[id]?.position
-  return typeof v === 'number' ? v : null
-}
-const hasStory = (view: DayView, id: string) => !!view.reflection[id]?.story
-
-/**
- * P1468: the statements as rows of the Daily report's one list — each with its position, "Not
- * rated", or (P1440) "Story, no position" / "Unsaved". `open` counts those with neither a position
- * nor a story: what still needs the founder.
- */
-// eslint-disable-next-line react-refresh/only-export-components -- the rows read this file's position words (LONG)
-export function statementRows(statements: DayStatement[], view: DayView, unsaved: (id: string) => boolean): { rows: ListRow[]; open: number } {
-  const rows = statements.map((x) => {
-    const p = positionOf(view, x.id)
-    const story = hasStory(view, x.id)
-    return {
-      key: x.id,
-      title: x.text,
-      done: p !== null || story,
-      kind: 'open',
-      // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
-      word: unsaved(x.id) ? 'Unsaved' : p === null ? (story ? 'Story, no position' : 'Not rated') : LONG[p],
-      attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (story ? 'story' : 'unrated') : 'rated' },
-    }
-  })
-  return { rows, open: statements.filter((x) => positionOf(view, x.id) === null && !hasStory(view, x.id)).length }
-}
 
 interface Props {
   statements: DayStatement[]
@@ -121,7 +81,8 @@ interface Props {
 export function ReflectionTab(p: Props) {
   const portal = useCpScope()
   const s = p.statements[Math.min(p.index, p.statements.length - 1)]
-  if (!s) return <div className="d-card d-pad">No statements in this run.</div>
+  // the page opens a statement only when the run has one (DayPage)
+  if (!s) return null
   // a statement of its own: the story box and `Their story` start closed on each one (paging closes them)
   return <StatementCard key={s.id} s={s} portal={portal} {...p} />
 }
@@ -135,7 +96,7 @@ export function EarlierStoriesOf({ stories, runId, readOnly, busy, onMarkDone, o
 function StatementCard({ s, portal, view, readOnly, onPosition, onRemove, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend }: Props & { s: DayStatement; portal: HTMLElement | null }) {
   const d = view.reflection[s.id]
   const entry = stories.find((e) => e.run_id === runId && e.target === s.id)
-  const pos = positionOf(view, s.id)
+  const pos = statementPosition(view, s.id)
   const saved = d?.story ?? ''
   const draft = draftOf(s.id)
   /** the founder clicked `+ Add a story` on this statement (until he pages away) */
@@ -176,6 +137,8 @@ function StatementCard({ s, portal, view, readOnly, onPosition, onRemove, runId,
             </CardFooterActions>
           </div>
         )}
+        {/* P1468 review F9: the agent's story right under its toggle, so the founder's box below never reads as part of it */}
+        {s.agent && theirs && <AgentStory agent={s.agent} />}
         {/* the founder's own answer, then its state: the board's, not CP's — together under the footer */}
         <div className="d-founder">
           {(boxOpen || readOnly) && <Story id={s.id} saved={saved} draft={draft} readOnly={readOnly} focus={adding} onDraft={onDraft} />}
@@ -196,7 +159,6 @@ function StatementCard({ s, portal, view, readOnly, onPosition, onRemove, runId,
             />
           )}
         </div>
-        {s.agent && theirs && <AgentStory agent={s.agent} />}
       </article>
     </div>
   )
@@ -380,12 +342,15 @@ function Story({
   if (readOnly) return saved ? <p className="d-story-ro">{saved}</p> : null
   return (
     <div className="d-story">
+      {/* P1468 review F9: CP's visible label for a story input (create-story-page's "Your story") */}
+      <label htmlFor={`st-${id}`} className="block text-sm font-medium mb-2">
+        Your story
+      </label>
       <textarea
         ref={box}
         id={`st-${id}`}
         className="d-stxt"
         maxLength={2000}
-        aria-label="Your story"
         placeholder="What happened that makes you think so?"
         value={text}
         onChange={(e) => onDraft(id, e.target.value)}

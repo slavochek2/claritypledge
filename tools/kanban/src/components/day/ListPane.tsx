@@ -6,24 +6,16 @@
 // label, never a control) and the statements — the same rows whichever item is open.
 
 import { useId, useState } from 'react'
+import type { ListRow } from '../../lib/day'
 
-export interface ListRow {
-  key: string
-  title: string
-  done: boolean
-  /** the dot's look when not done: 'before' | 'agent' | 'open' */
-  kind: string
-  word: string
-  attrs?: Record<string, string>
-}
+export type { ListRow }
 
+/** the parked row: not a card, it opens the Parked section */
 interface Extra {
   title: string
   word: string
   attrs: Record<string, string>
   onClick: () => void
-  /** the dot's look: 'parked' (grey) by default */
-  dot?: string
 }
 
 /** P1468: the second half of the one list, under its divider */
@@ -43,8 +35,8 @@ interface Props {
   /** the folded line on a narrow area, e.g. "3 still need you · 16 items" */
   summary: string
   onPick: (k: number) => void
-  /** rows after the list that are not cards (the parked row) */
-  extra?: Extra | Extra[]
+  /** the row after the cards that is not a card (the parked row) */
+  extra?: Extra
   section?: Section
 }
 
@@ -81,23 +73,23 @@ export function ListPane({ label, rows, current, summary, onPick, extra, section
       </button>
       <ul className="d-clrows" id={rowsId}>
         {rows.map((r, k) => row(r, k === current, () => onPick(k)))}
-        {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
-          <li key={x.title}>
+        {extra && (
+          <li>
             <button
               type="button"
               className="d-clrow"
-              {...x.attrs}
+              {...extra.attrs}
               onClick={() => {
                 setOpen(false)
-                x.onClick()
+                extra.onClick()
               }}
             >
-              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true" />
-              <span className="d-clt">{x.title}</span>
-              <span className="d-clw">{x.word}</span>
+              <span className="d-sdot parked" aria-hidden="true" />
+              <span className="d-clt">{extra.title}</span>
+              <span className="d-clw">{extra.word}</span>
             </button>
           </li>
-        ))}
+        )}
         {section && (
           <>
             {/* P1468: the divider names the second half; it is not a control */}

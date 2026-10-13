@@ -937,10 +937,13 @@ describe('day-render: Park is always offered', () => {
 
 describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time and snapshotted', () => {
   const REAL = resolve(__dirname, '../../../../docs/goals.md')
+  // P1468 review F8: literal assertions read a committed copy, so ticking off a goal in the live
+  // docs/goals.md never turns the suite red; the live file is checked for structure only.
+  const FIXTURE = resolve(__dirname, 'fixtures/goals.fixture.txt')
 
-  it('GOALS — against the real goals.md: the first 3 open items, in file order, their bold titles, no step label in the text', async () => {
+  it('GOALS — against the fixture copy of goals.md: the first 3 open items, in file order, their bold titles, no step label in the text', async () => {
     const { parseGoals } = await import('../../scripts/day-goals')
-    const g = parseGoals(readFileSync(REAL, 'utf-8'))
+    const g = parseGoals(readFileSync(FIXTURE, 'utf-8'))
     expect(g).toEqual({
       kind: 'ok',
       goals: [
@@ -951,9 +954,24 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     })
   })
 
+  it('GOALS — against the live goals.md: structure only (1-3 rows, each id an open `[ ]` item of the file, text non-empty)', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const md = readFileSync(REAL, 'utf-8')
+    const g = parseGoals(md)
+    expect(g.kind).toBe('ok')
+    const goals = g.kind === 'ok' ? g.goals : []
+    expect(goals.length).toBeGreaterThanOrEqual(1)
+    expect(goals.length).toBeLessThanOrEqual(3)
+    const open = new Set(md.split(/\r?\n/).flatMap((l) => /^\s*([0-9][0-9A-Za-z.+_-]{0,18})\.\s+\[ \]\s/.exec(l)?.[1] ?? []))
+    for (const x of goals) {
+      expect(open.has(x.id), x.id).toBe(true)
+      expect(x.text.trim()).not.toBe('')
+    }
+  })
+
   it('GOALS — `## Next Steps` renamed is a parse failure; every item `[x]` is zero open; neither is an empty ok', async () => {
     const { parseGoals } = await import('../../scripts/day-goals')
-    const real = readFileSync(REAL, 'utf-8')
+    const real = readFileSync(FIXTURE, 'utf-8')
     expect(parseGoals(real.replace(/^## Next Steps$/m, '## Upcoming'))).toEqual({ kind: 'no-section' })
     expect(parseGoals(real.replace(/\[ \]/g, '[x]'))).toEqual({ kind: 'none-open' })
   })
@@ -983,13 +1001,51 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(parseGoals(md.replace('## Later', '6. [ ] Fourth open item.\n## Later'))).toMatchObject({ kind: 'ok', goals: { length: 3 } })
   })
 
+  // P1468 review F7: four inputs the parser read wrong
+  it('GOALS (F7a) — a fenced code block is not markdown: no heading, no item, no section end inside it; real items after the fence still count', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const fenced = ['# Goals', '```md', '## Next Steps', '1. [ ] Inside a fence before the heading.', '```', '## Next Steps', '```', '## Not a heading', '2. [ ] Inside a fence in the section.', '```', '3. [ ] A real item after the fence.', '~~~', '4. [ ] Inside a tilde fence.', '~~~', '5. [ ] Another real item.', '## Later'].join('\n')
+    expect(parseGoals(fenced)).toEqual({ kind: 'ok', goals: [{ id: '3', text: 'A real item after the fence.' }, { id: '5', text: 'Another real item.' }] })
+    // control: only a fenced heading — there is no section at all
+    expect(parseGoals(['# Goals', '```', '## Next Steps', '1. [ ] Fenced.', '```'].join('\n'))).toEqual({ kind: 'no-section' })
+  })
+
+  it('GOALS (F7b) — CRLF line ends parse like LF (the fixture copy, rewritten with \\r\\n)', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const lf = readFileSync(FIXTURE, 'utf-8')
+    expect(parseGoals(lf.replace(/\n/g, '\r\n'))).toEqual(parseGoals(lf))
+  })
+
+  it('GOALS (F7c) — the first sentence ends at . ! ? followed by a space and a capital, outside parentheses; else the whole line', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const md = [
+      '## Next Steps',
+      '1. [ ] Choose whom to approach (incl. A contact. And another) first. Then the rest.',
+      '2. [ ] Pick one segment, e.g. sales teams, and book a call. Then repeat.',
+      '3. [ ] Outreach to buyers with budget (incl. warm intros) and no full stop',
+    ].join('\n')
+    expect(parseGoals(md)).toEqual({
+      kind: 'ok',
+      goals: [
+        { id: '1', text: 'Choose whom to approach (incl. A contact. And another) first.' },
+        { id: '2', text: 'Pick one segment, e.g. sales teams, and book a call.' },
+        { id: '3', text: 'Outreach to buyers with budget (incl. warm intros) and no full stop' },
+      ],
+    })
+  })
+
+  it('GOALS (F7d) — a label done once and reopened (`3a. [x]` then `3a. [ ]`) is open: labels are deduplicated among open items only', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    expect(parseGoals(['## Next Steps', '3a. [x] Old version.', '3a. [ ] New version.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '3a', text: 'New version.' }] })
+  })
+
   it('SNAPSHOT — day-render writes `goals` into the report; a broken goals.md writes `[]`; the report still validates', () => {
     writeLedger(w, cleanBody(w))
-    const r = render(w, 'end', ['--goals', REAL])
+    const r = render(w, 'end', ['--goals', FIXTURE])
     expect(r.code).toBe(0)
     expect(r.report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
     const broken = join(w.root, 'goals.md')
-    writeFileSync(broken, readFileSync(REAL, 'utf-8').replace(/^## Next Steps$/m, '## Upcoming'))
+    writeFileSync(broken, readFileSync(FIXTURE, 'utf-8').replace(/^## Next Steps$/m, '## Upcoming'))
     const b = render(w, 'end', ['--goals', broken])
     expect(b.code).toBe(0)
     expect(b.report!.goals).toEqual([])
@@ -1000,9 +1056,12 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(parsed.kind === 'ok' && parsed.droppedRows).toBe(0)
   })
 
-  it('SNAPSHOT — with no --goals flag the default is this checkout\'s docs/goals.md', () => {
+  it('SNAPSHOT — with no --goals flag the default is this checkout\'s docs/goals.md', async () => {
+    const { readGoals } = await import('../../scripts/day-goals')
     writeLedger(w, cleanBody(w))
-    expect(render(w, 'end').report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
+    const live = readGoals(REAL)
+    expect(live.length).toBeGreaterThanOrEqual(1) // structure only (F8): the live file has open goals
+    expect(render(w, 'end').report!.goals).toEqual(live)
   })
 
   it('PARSE — parseReport keeps valid goal rows and drops malformed ones, counting them', () => {
@@ -1016,5 +1075,28 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(none.kind === 'ok' && 'goals' in none.report).toBe(false)
     const empty = parseReport({ ...base, goals: [] })
     expect(empty.kind === 'ok' && empty.report.goals).toEqual([])
+  })
+
+  // P1468 review F6: the cap of 3 held only in the producer — a report with more rendered them all
+  it('PARSE (F6) — parseReport keeps at most 3 goals, the first ones, in order; a 4th and 5th are not counted as malformed', () => {
+    const base = JSON.parse(JSON.stringify({ schema: 2, pass_id: PASS, started_at: STARTED, state: 'complete', connections: [], checks: [{ id: 'a', label: 'A', status: 'ok' }], issues: [] }))
+    const five = ['1', '2', '3', '4', '5'].map((id) => ({ id, text: `Goal ${id}` }))
+    const p = parseReport({ ...base, goals: five })
+    expect(p.kind === 'ok' && p.report.goals).toEqual(five.slice(0, 3))
+    expect(p.kind === 'ok' && p.droppedRows).toBe(0)
+  })
+
+  // P1468 review H2: one place clips a goal — the board's reader; the parser returns the whole line
+  it('PARSE (H2) — a goal longer than MAX_GOAL is clipped once, at ingestion, ending in …; the parser itself does not clip', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const { MAX_GOAL } = await import('../../src/lib/day')
+    const long = `Word ${'x'.repeat(MAX_GOAL + 100)}`
+    expect(parseGoals(`## Next Steps\n1. [ ] ${long}`)).toEqual({ kind: 'ok', goals: [{ id: '1', text: long }] })
+    const base = JSON.parse(JSON.stringify({ schema: 2, pass_id: PASS, started_at: STARTED, state: 'complete', connections: [], checks: [{ id: 'a', label: 'A', status: 'ok' }], issues: [] }))
+    const p = parseReport({ ...base, goals: [{ id: '1', text: long }] })
+    const text = p.kind === 'ok' ? p.report.goals?.[0]?.text ?? '' : ''
+    expect(text).toHaveLength(MAX_GOAL)
+    expect(text.endsWith('…')).toBe(true)
+    expect(text.slice(0, -1)).toBe(long.slice(0, MAX_GOAL - 1))
   })
 })

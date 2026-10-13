@@ -185,24 +185,19 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-clist .d-cltog { display: flex; min-height: 44px; }
 .d-clist:not(.open) .d-clrows { display: none; }
 .d-clist.open .d-clrows { border-top: 1px solid var(--line); }
-.d-clhead { display: none; }
 @container issues (min-width: 720px) {
   .d-md { grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
   .d-clist .d-cltog { display: none; }
   .d-probs { display: block; }
   .d-clist:not(.open) .d-clrows { display: block; }
-  .d-clhead { display: block; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg2); border-bottom: 1px solid var(--line); }
-  .d-clhead.done { color: var(--green-800, #166534); }
   .d-clrow { font-size: 13px; padding: 6px 12px; }
-  .d-mdmain.d-pwrap { margin: 0; max-width: 640px; }
   /* the decision fits the first screen: less air above and inside the card, never smaller text */
   .d-mdmain { gap: 8px; }
   .d-mdmain .d-focus { padding: 18px 22px; }
   .d-mdmain .d-focus h2 { margin: 4px 0 10px; }
   .d-mdmain .d-state { margin-top: 6px; }
-  /* P1449: one statement, no list — the card takes the pane, centred (not the 260px list column) */
+  /* P1449: one item, no list — it takes the pane (not the 260px list column) */
   .d-md.d-single { grid-template-columns: minmax(0, 1fr); }
-  .d-md.d-single .d-mdmain.d-pwrap { margin: 0 auto; max-width: none; width: 100%; }
 }
 .d-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .d-pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
@@ -273,8 +268,6 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-bprog { grid-area: prog; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg2); white-space: nowrap; min-width: 0; }
 .d-still { border: 0; background: none; line-height: 16px; padding: 12px 6px; margin: -12px -6px; font-size: 12px; color: var(--fg2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex-shrink: 0; }
 .d-still:hover { color: var(--fg); }
-/* P1463: the agent link sits left of "still yours" — no hit-area bleed between the two */
-.d-still[data-agent-link] { margin-right: 0; padding-right: 0; }
 /* P1440: an unsaved-stories link joins the bar: its row may wrap rather than spill under the buttons */
 .d-bprog.d-tight { flex-wrap: wrap; row-gap: 4px; }
 .d-tight .d-bline { display: none; }
@@ -403,11 +396,8 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-notebody { padding: 0 16px 14px 36px; font-size: 14px; color: var(--fg2); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* reflection: the product's point card look */
-.d-pwrap { max-width: 640px; margin: 8px auto 0; }
 /* .d-pst is a test hook only (P1449): the statement takes CP's own text classes, nothing here may restyle it */
 .d-story { margin-top: 14px; }
-.d-slab { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-.d-slab span { font-weight: 400; color: var(--fg3); }
 .d-stxt { width: 100%; font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 88px; resize: vertical; background: #fff; color: var(--fg); overflow: hidden; }
 .d-story-ro { margin-top: 12px; font-size: 14px; color: var(--fg2); overflow-wrap: anywhere; white-space: pre-wrap; }
 /* P1440: founder text and statements can hold a long unbroken token (a URL): wrap it, never widen the page */
@@ -444,9 +434,6 @@ button.d-chip:hover { border-color: var(--amber); }
   .d-bline { display: none; }
   .d-gin { padding: 6px 0; gap: 6px 8px; }
   .d-nbtn { height: 44px; }
-  /* P1440: with the unsaved-stories link in the bar too, the links take their short labels */
-  .d-tight .d-still[data-short] { font-size: 0; }
-  .d-tight .d-still[data-short]::after { content: attr(data-short); font-size: 12px; }
 }
 
 @container day (max-width: 360px) {
@@ -454,9 +441,6 @@ button.d-chip:hover { border-color: var(--amber); }
   [data-progress][data-short] { font-size: 0; }
   .d-plab { display: none; }
   [data-progress][data-short]::after { content: attr(data-short); font-size: 12px; }
- /* "yours: 4" instead of "4 still yours": the bar keeps its two rows and nothing sits under Start fixing */
-  .d-still[data-short] { font-size: 0; }
-  .d-still[data-short]::after { content: attr(data-short); font-size: 12px; }
 }
 
 @container day (min-width: 500px) {
@@ -529,7 +513,6 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-clsec .d-clt { font-weight: 600; }
 /* P1468: the `Stories` divider is a label, not a row: no hover, no dot, the rows' text column */
 .d-cldiv { display: flex; align-items: center; min-height: 32px; padding: 6px 16px 2px 40px; font-size: 12px; color: var(--fg3); }
-.d-sdot.section { border-color: var(--blue); background: var(--blue-50); }
 /* P1463 round 3: Status by outcome — what didn't work, grouped under its cause */
 .d-sgap { flex: 1; }
 .d-sgl.need { color: var(--amber-800); }
