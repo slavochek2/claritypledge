@@ -2549,3 +2549,21 @@ From the P1463 copy review (2026-10-12). The Day card text is written by the /da
 Deferred from the P1463 copy and visual review (2026-10-12): (1) an answered card still shows the full Point A/B and four option rows; collapse it to "You chose: X · Change". (2) After sending, "Send N changes" carries a number nothing on screen explains; mark the changed rows or name them. (3) Previous / 1 of N / Next could be one compact "‹ 1/3 ›" control. Board UI only (tools/kanban).
 
 ---
+
+---
+
+**ID:** INBOX-164
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+Prepare the in-person sales-practice event (goals.md 3a) in its own session. Founder confirmed in-person first (2026-10-13). Founder's addition to the format: an attendee brings either one stuck customer conversation OR the conversations they are not having (why they can't reach out), and works on that under the explain-back rule.
+
+---
+
+**ID:** INBOX-165
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+Day page feedback from the founder (2026-10-13, screenshots in ~/Screenshots 14-23 and 14-26), to spec before building (tools/kanban): (1) one left list that stays the same when moving between cards and stories, instead of two layouts; (2) the agent's reading of a story ("AGENT on Slava · Agrees") moves down into the "Their story" block; (3) "Add your story" uses the app's existing components: a button that expands the input, open by default only when it already has text; (4) "Agent: N tasks" appears twice (panel and footer): keep one, and label it as what was sent to the fixing agent; (5) Stats "From this run": drop "shipped since last run" and the cloud spend estimate (Monitoring has it); chat help requests become reply cards, not a reading tile; replace the section with goals and what's next in plain words. Founder rule: no custom components; reuse cards, points and buttons.
