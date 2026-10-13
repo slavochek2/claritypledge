@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 68
@@ -7,8 +7,8 @@ severity: low
 date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [csp, security-headers, vercel]
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P907: X-Frame-Options DENY contradicts CSP frame-ancestors 'self'
