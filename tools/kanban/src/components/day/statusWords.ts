@@ -25,5 +25,12 @@ export function connectionStatus(s: ConnectionState) {
     : { icon: '!', word: 'Connected, didn’t work', cls: 'need' as const }
 }
 
-/** P1463: one wording for the agent's work — the bottom bar link and the list header. */
-export const agentWord = (n: number) => `Agent: ${n} task${n === 1 ? '' : 's'}`
+/**
+ * P1468: the agent's work is named once — the panel header under the open item. It counts the rows
+ * not sent yet, because that is the part of "Send N changes" they add; once every row is sent it
+ * says where they went.
+ */
+export const agentWord = (notSent: number, total: number) => (notSent > 0 ? `Start fixing also sends these · ${notSent} not sent` : `Sent to the fixing agent · ${total}`)
+
+/** P1468: the folded list's one line, the same on a card and on a statement (cards still yours + statements not answered). */
+export const listSummary = (open: number, total: number) => (open === 0 ? `All ${total} answered` : `${open} still need you · ${total} items`)

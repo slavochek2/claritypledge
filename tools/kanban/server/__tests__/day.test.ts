@@ -35,6 +35,7 @@ import {
   type IssueView,
 } from '../../src/lib/day'
 import { SECRET, synthEarlier, synthEarlier2, synthReport, synthWeekly } from './fixtures/day-fixture'
+import { agentWord, listSummary } from '../../src/components/day/statusWords'
 
 /**
  * P1399 — the Day page, schema v2. Synthetic fixtures only (fixtures/day-fixture.ts): no real
@@ -830,6 +831,13 @@ describe('day v2 Phase D: the synthetic run exercises the new rules', () => {
     expect(boardReadings(r.stats!.readings).map((x) => x.id)).toEqual(['unconfirmed'])
     expect(boardNotes(r.notes).map((n) => n.id)).toEqual(['week-measures'])
     expect(r.notes!.length).toBeGreaterThan(boardNotes(r.notes).length) // a known-bad input: there IS something to hide
+  })
+
+  it('P1468 UI CONTRACT — the agent panel header and the folded list line, every branch', () => {
+    expect(agentWord(3, 7)).toBe('Start fixing also sends these · 3 not sent')
+    expect(agentWord(0, 7)).toBe('Sent to the fixing agent · 7')
+    expect(listSummary(5, 8)).toBe('5 still need you · 8 items')
+    expect(listSummary(0, 8)).toBe('All 8 answered')
   })
 
   it('P1468 FIXTURE — the run carries a goals snapshot the board can show', () => {

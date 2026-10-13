@@ -86,8 +86,19 @@ async function collapseSidebar(page: Page) {
 const startCount = async (page: Page) => Number(must(await startBtn(page).getAttribute('data-send-count'), 'Start fixing count'))
 /** P1463: no "Cards X of N resolved" bar — the card list's ✓ rows are the progress */
 const answeredRows = (page: Page) => page.locator('[data-card-list] .d-clrow .d-sdot.done')
-/** P1463: the agent's work, named beside Start fixing */
+/** P1468: the agent's work is named once, in its panel — the bottom bar has no link (count must be 0) */
 const agentLink = (page: Page) => page.locator('[data-bottom-bar] [data-agent-link]')
+/** P1468: the founder's story box opens from CP's "+ Add a story" when there is no story or draft yet */
+const storyBox = (page: Page) => page.locator('.d-cpcard').getByRole('textbox', { name: 'Your story' })
+const addStoryBtn = (page: Page) => page.locator('.d-cpcard').getByRole('button', { name: 'Add a story for this point' })
+async function openStory(page: Page, how: 'click' | 'tap' = 'click') {
+  if (await addStoryBtn(page).isVisible()) await (how === 'tap' ? addStoryBtn(page).tap() : addStoryBtn(page).click())
+  await expect(storyBox(page)).toBeVisible()
+}
+async function fillStory(page: Page, text: string) {
+  await openStory(page)
+  await storyBox(page).fill(text)
+}
 /** The seed run's statements: they follow its founder cards in the one queue (P1463). */
 const STMTS = 4
 const SEED_CARDS = 4
@@ -99,10 +110,20 @@ async function unfold(page: Page) {
   if (await f.count()) await f.getByRole('button', { name: /^(Change|Show the card)$/ }).click()
   await expect(page.locator('.d-focus .d-opts')).toBeVisible()
 }
-/** P1463 round 3: Reflection is not a tab — its statements follow the cards; the list's Reflection row jumps there */
+/**
+ * P1463 round 3: Reflection is not a tab — its statements follow the cards. P1468: they are rows of
+ * the same list under a `Stories` divider (the Reflection row is gone), so this opens the first
+ * statement not yet answered (else the first), as the Reflection row did.
+ */
 async function openReflection(page: Page) {
-  const row = page.locator('[data-list-reflection]')
-  await row.waitFor({ state: 'attached' })
+  const rows = page.locator('[data-card-list] [data-list-statement]')
+  await rows.first().waitFor({ state: 'attached' })
+  const states = await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-list-state')))
+  // an earlier run is read-only: the Reflection row opened its first statement there
+  const readOnly = (await page.locator('[data-bottom-bar] .d-ro').count()) > 0
+  // the row's rule ignored drafts: a statement with only an unsaved draft was still "to rate"
+  const open = states.findIndex((st) => st === 'unrated' || st === 'unsaved')
+  const row = rows.nth(readOnly ? 0 : Math.max(0, open))
   if (!(await row.isVisible())) await page.locator('[data-card-list] .d-cltog').click()
   await row.click()
   await expect(page.locator('[data-statement]')).toBeVisible()
@@ -138,7 +159,8 @@ const withUncollectedSeries = (b: RunBody) =>
 /** Patch what the page reads for a run (the server's real answer, edited): for states the seed does not have. */
 interface RunBody {
   report?: DayReport
-  view?: { issues: ViewIssue[] }
+  /** P1468: `parked` — a run with nothing parked (AC4) */
+  view?: { issues: ViewIssue[]; parked?: unknown[] }
   quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
 }
 async function patchRun(page: Page, edit: (body: RunBody) => void) {
@@ -1003,7 +1025,8 @@ test.describe('monitoring, stats, reflection', () => {
     // B3: the whole reason is visible (no clipping box), and the footer keeps its gutters
     const clipped = await page.locator('[data-key="key-otter"] .d-kwhy').evaluate((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)
     expect(clipped).toBe(false)
-    const prog = await rectOf(page.locator('[data-bottom-bar] .d-bprog > *').first(), 'progress area')
+    // P1468: on Monitoring the progress area is empty now (the agent link it held is gone) — the bar's inner row carries the gutter
+    const prog = await rectOf(page.locator('[data-bottom-bar] .d-gin'), 'bar row')
     const copy = await rectOf(page.getByRole('button', { name: 'Copy prompt' }), 'copy')
     expect(prog.x).toBeGreaterThanOrEqual(44 + 8)
     expect(copy.x + copy.width).toBeLessThanOrEqual(320)
@@ -1046,7 +1069,8 @@ test.describe('monitoring, stats, reflection', () => {
     await patchRun(page, withUncollectedSeries)
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
-    await expect(page.locator('[data-reading="mentions"]')).toContainText('1')
+    // P1468: the chat tiles (mentions, help requests) are no longer shown; the other readings are
+    await expect(page.locator('[data-reading="mentions"]')).toHaveCount(0)
     await expect(page.locator('[data-reading="unconfirmed"]')).toContainText('3')
     const order = await page.locator('[data-funnel], [data-series], [data-reading]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.funnel !== undefined ? 'funnel' : (e as HTMLElement).dataset.series ? 'series' : 'reading'))
     expect(order[0]).toBe('funnel')
@@ -1056,21 +1080,25 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('[data-series="events"] svg')).toBeVisible()
   })
 
-  test('Stats: Help requests and Mentions open their note and scroll to it; a tile without a note stays plain', async ({ page }) => {
+  // P1468: the chat tiles (Help requests, Mentions) and the chat digest note are gone (AC11); a tile
+  // that links a note still opens it — now only a review note, under "Review notes"
+  test('Stats: a tile linked to a review note opens it and scrolls to it; a tile without a note stays plain', async ({ page }) => {
+    await patchRun(page, (b) => {
+      b.report?.stats?.readings?.push({ id: 'reachouts', label: 'Reach-outs this week', collected: true, value: 6, note: 'week-measures' })
+    })
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
-    const help = page.locator('[data-reading="help_requests"]')
-    const mentions = page.locator('[data-reading="mentions"]')
+    const linked = page.locator('[data-reading="reachouts"]')
     const plain = page.locator('[data-reading="unconfirmed"]')
-    expect(await help.evaluate((e) => e.tagName)).toBe('BUTTON')
-    expect(await mentions.evaluate((e) => e.tagName)).toBe('BUTTON')
+    expect(await linked.evaluate((e) => e.tagName)).toBe('BUTTON')
     expect(await plain.evaluate((e) => e.tagName)).not.toBe('BUTTON') // known-bad control: no note, no button
-    const note = page.locator('[data-note="chat-digest"]')
+    await expect(page.locator('[data-reading="help_requests"], [data-reading="mentions"]')).toHaveCount(0)
+    const note = page.locator('[data-review-notes] [data-note="week-measures"]')
     await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'false')
     await expect(note.locator('.d-notebody')).toHaveCount(0)
-    await help.click()
+    await linked.click()
     await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
-    await expect(note.locator('.d-notebody')).toContainText('Person E asked how to join from a phone')
+    await expect(note.locator('.d-notebody')).toContainText('Champion talks: 2')
     // scrolled to: the note's title is below the sticky header and above the bottom bar
     await expect.poll(async () => {
       const t = await rectOf(note.getByRole('button').first(), 'note title')
@@ -1078,23 +1106,22 @@ test.describe('monitoring, stats, reflection', () => {
       const bar = await rectOf(page.locator('[data-bottom-bar]'), 'bar')
       return t.y >= top.y + top.height - 1 && t.y + t.height <= bar.y + 1
     }).toBe(true)
-    // Mentions opens the same note and keeps it open
-    await mentions.click()
+    // a second click keeps it open
+    await linked.click()
     await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
-    // the other notes are untouched
-    await expect(page.locator('[data-note="shipped"] .d-notebody')).toHaveCount(0)
   })
 
   test('Reflection: the story box is there before a position; keys 1 2 3 rate and cycle; Clear position keeps the story', async ({ page }) => {
     await openDay(page)
     await openReflection(page)
     const cardR = page.locator('.d-cpcard')
-    // P1440: a story without a position is kept, so the box no longer waits for a position
-    await expect(cardR.getByLabel(/Add your story/)).toBeVisible()
+    // P1440: a story without a position is kept, so the box no longer waits for a position.
+    // P1468: it opens from CP's "+ Add a story", offered before and after a position alike.
+    await expect(addStoryBtn(page)).toBeVisible()
     await cardR.locator('[data-testid=agree-group]').click()
-    await expect(cardR.getByLabel(/Add your story/)).toBeVisible()
+    await expect(addStoryBtn(page)).toBeVisible()
     await expect.poll(() => lines().at(-1)?.position).toBe(2)
-    await cardR.getByLabel(/Add your story/).fill('Spent Tuesday on a feature instead of calls.')
+    await fillStory(page, 'Spent Tuesday on a feature instead of calls.')
     // P1440 review: a story is saved by Accept only (leaving the box saves nothing)
     await page.locator('[data-bottom-bar] [data-accept]').click()
     await expect.poll(() => lines().at(-1)?.story).toBe('Spent Tuesday on a feature instead of calls.')
@@ -1376,12 +1403,12 @@ test.describe('review round 3', () => {
     await page.setViewportSize({ width: 320, height: 640 })
     await openDay(page)
     await collapseSidebar(page)
-    // P1463: the agent link took the progress bar's place
-    const prog = await rectOf(agentLink(page), 'agent link')
+    // P1468: the agent link is gone (its panel names the work); "N still yours" is the progress text
+    await expect(agentLink(page)).toHaveCount(0)
+    const prog = await rectOf(stillYours(page), 'still yours')
     const start = await rectOf(startBtn(page), 'Start fixing')
     const overlap = prog.x < start.x + start.width && start.x < prog.x + prog.width && prog.y < start.y + start.height && start.y < prog.y + prog.height
     expect(overlap).toBe(false)
-    await expect(agentLink(page)).toHaveAttribute('data-short', /^Agent: \d+$/)
   })
 
   test('status lines never carry a separator (P1463: chips wrap whole, nothing dangles)', async ({ page }) => {
@@ -1513,23 +1540,25 @@ test.describe('Start fixing opens a terminal (Phase C)', () => {
   })
 })
 
-test.describe('notes ("From this run")', () => {
-  test('each note is a fold under Stats that opens on click, keeping its line breaks', async ({ page }) => {
+// P1468: "From this run" is gone — only weekly / monthly review notes show, under "Review notes"
+test.describe('notes (P1468: review notes only)', () => {
+  test('a review note is a fold under Stats that opens on click, keeping its line breaks; a daily note is not shown', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
-    const notes = page.locator('.d-notes')
-    await expect(notes.locator('.d-h3')).toHaveText('From this run')
-    await expect(notes.locator('[data-note]')).toHaveCount(4)
-    const shipped = notes.locator('[data-note="shipped"]')
-    const fold = shipped.getByRole('button')
+    const notes = page.locator('[data-review-notes]')
+    await expect(notes.locator('.d-h3')).toHaveText('Review notes')
+    await expect(notes.locator('[data-note]')).toHaveCount(1)
+    await expect(page.locator('[data-note="shipped"]')).toHaveCount(0) // a daily note, still in the report
+    const week = notes.locator('[data-note="week-measures"]')
+    const fold = week.getByRole('button')
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     expect((await rectOf(fold, 'note fold')).height).toBeGreaterThanOrEqual(40)
-    await expect(shipped.locator('.d-notebody')).toHaveCount(0)
+    await expect(week.locator('.d-notebody')).toHaveCount(0)
     await fold.click()
-    await expect(shipped.locator('.d-notebody')).toHaveText('Event page: room-ended message reworded.\nBoard: Day page phase A.')
-    expect(await shipped.locator('.d-notebody').evaluate((e) => getComputedStyle(e).whiteSpace)).toBe('pre-wrap')
+    await expect(week.locator('.d-notebody')).toHaveText('Reach-outs: 6 (target 10)\nChampion talks: 2')
+    expect(await week.locator('.d-notebody').evaluate((e) => getComputedStyle(e).whiteSpace)).toBe('pre-wrap')
     // the title already says "review": no badge repeating it
-    await expect(notes.locator('[data-note="week-measures"] .d-runbadge')).toHaveCount(0)
+    await expect(week.locator('.d-runbadge')).toHaveCount(0)
   })
 
   test('a review note whose title does not say so gets the badge, without squeezing the title at 320px', async ({ page }) => {
@@ -1553,15 +1582,16 @@ test.describe('notes ("From this run")', () => {
     expect(range, 'title text on one line').toBe(1)
   })
 
-  test('a run without notes shows no "From this run"', async ({ page }) => {
+  test('a run without review notes shows no "Review notes" (P1468: and never "From this run")', async ({ page }) => {
     await openDay(page, 'people-absent')
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     await expect(page.locator('[data-funnel]')).toBeVisible()
-    await expect(page.getByText('From this run')).toHaveCount(1)
+    await expect(page.getByText('Review notes')).toHaveCount(1)
+    await expect(page.getByText('From this run')).toHaveCount(0)
     await openDay(page, 'no-notes')
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     await expect(page.locator('[data-funnel]')).toBeVisible()
-    await expect(page.getByText('From this run')).toHaveCount(0)
+    await expect(page.getByText('Review notes')).toHaveCount(0)
   })
 })
 
@@ -1893,7 +1923,7 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     const yours = yoursOf(v)
     const agents = agentOf(v)
     await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length + STMTS}`)
-    await expect(agentList(page).locator('.d-fold')).toHaveText(`▶Agent: ${agents.length} tasks`)
+    await expect(agentList(page).locator('.d-fold')).toHaveText(`▶Start fixing also sends these · ${agents.length} not sent`) // P1468 header
     await openAgentList(page)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(agents.length)
     await expect(agentList(page).locator('[data-agent-item] .d-ptitle')).toHaveText(agents.map((a) => a.title))
@@ -1908,15 +1938,19 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     await expect(startBtn(page)).toHaveAttribute('data-send-count', String(agents.length))
   })
 
-  test('P1463: the bottom bar names the agent work beside Start fixing, and opens the list', async ({ page }) => {
+  // P1468 supersedes P1463 point 4: the bottom bar no longer names the agent work (the panel does)
+  test('P1468: no bottom-bar link; the panel is folded until asked, and a Status check opens it on its row', async ({ page }) => {
     await openDay(page)
     const k = (await runView(page)).view.issues.filter(isAgent).length
     expect(k).toBeGreaterThan(1)
-    await expect(agentLink(page)).toHaveText(`Agent: ${k} tasks ▸`)
+    await expect(agentLink(page)).toHaveCount(0)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0) // folded until asked
-    await agentLink(page).click()
+    await openAgentList(page)
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(k)
-    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })).toBeInViewport()
+    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Backup · repo C' })).toBeVisible()
+    await openAgentList(page) // already open: stays open
+    await agentList(page).locator('.d-fold').click()
+    await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0)
     // P1463 round 3: in Status the check it came from is one line under "Didn't work", whose action opens that card
     await openStatus(page)
     await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
@@ -1992,7 +2026,7 @@ void EARLIER_ID
 test.describe('toast actions', () => {
   test('a toast Copy button is a full touch target (≥ 40px)', async ({ page }) => {
     await openDay(page)
-    await page.getByRole('button', { name: /Start fixing/ }).click()
+    await startBtn(page).click() // exact name: P1468's agent panel header also says "Start fixing also sends these"
     const copy = page.locator('.d-toastact')
     await copy.waitFor()
     const box = await copy.boundingBox()
@@ -2184,7 +2218,8 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await collapseSidebar(page)
     const yours = yoursOf(await runView(page))
     const tog = page.locator('[data-card-list] .d-cltog')
-    await expect(tog).toHaveText(`▶${yours.length} still need you · ${yours.length} cards`)
+    // P1468: one list, one line for cards and statements (UI Contract)
+    await expect(tog).toHaveText(`▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`)
     await expect(page.locator('[data-list-card]').first()).toBeHidden()
     expect((await rectOf(tog, 'toggle')).height).toBeGreaterThanOrEqual(40)
     await tog.click()
@@ -2213,7 +2248,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     const l = must(await page.locator('[data-card-list]').boundingBox(), 'list')
     const c = must(await card(page).boundingBox(), 'card')
     expect(l.x + l.width).toBeLessThanOrEqual(c.x)
-    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length} still need you · ${yours.length} cards`) // the narrow fold keeps its line
+    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`) // the narrow fold keeps its line (P1468 wording)
   })
 
   test('the page opens on the first card that still needs you', async ({ page }) => {
@@ -2233,9 +2268,13 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await page.setViewportSize({ width: 1280, height: 720 })
     await openDay(page)
     await reflTab(page).click()
+    const yours = yoursOf(await runView(page))
     const rows = page.locator('[data-list-statement]')
+    // P1468: the statements are rows of the one list; its folded line counts both halves (no "All N rated" head)
+    const tog = page.locator('[data-card-list] .d-cltog')
     await expect(rows).toHaveCount(4)
-    await expect(page.locator('[data-list-summary]')).toHaveText('4 not rated · 4 statements')
+    await expect(page.locator('[data-list-summary]')).toHaveCount(0)
+    await expect(tog).toHaveText(`▶${yours.length + 4} still need you · ${yours.length + 4} items`)
     await expect(rows.first()).toContainText('Not rated')
     expect(await inView(page, '.d-pst'), 'statement').toBe(true)
     expect(await inView(page, '[data-position-control]'), 'position buttons').toBe(true)
@@ -2244,8 +2283,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await expect.poll(() => lines().at(-1)?.position).toBe(0)
     await expect(rows.first()).toContainText('Unsure')
     await expect(rows.first()).toHaveAttribute('data-list-state', 'rated')
-    await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 4 statements')
-    await expect(page.locator('[data-list-summary]')).not.toHaveClass(/done/)
+    await expect(tog).toHaveText(`▶${yours.length + 3} still need you · ${yours.length + 4} items`)
     await rows.nth(2).click()
     await expect(page.locator('.d-bpos')).toHaveText(stmtPos(3))
     await expect(rows.nth(2)).toHaveAttribute('aria-current', 'true')
@@ -2265,33 +2303,36 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await expect(page.locator('.d-cpcard [aria-pressed=true]')).toHaveText('Agree+')
   })
 
-  test('when every statement is rated the list says so, in green', async ({ page }) => {
+  // P1468: the "✓ All N rated" head is gone — the rows' ✓ say it (P1463 point 9), and the folded line counts only the cards left
+  test('when every statement is rated, each row says so with its ✓ and the folded line counts only the cards left', async ({ page }) => {
     await openDay(page)
+    const yours = yoursOf(await runView(page))
     await reflTab(page).click()
     for (let k = 0; k < 4; k++) {
       await page.locator('[data-list-statement]').nth(k).click()
       await page.locator('.d-cpcard [data-testid=agree-group]').click()
       await expect(page.locator('[data-list-statement]').nth(k)).toHaveAttribute('data-list-state', 'rated')
     }
-    await expect(page.locator('[data-list-summary]')).toHaveText('✓ All 4 rated')
-    await expect(page.locator('[data-list-summary]')).toHaveClass(/done/)
+    await expect(page.locator('[data-list-statement] .d-sdot.done')).toHaveCount(4)
+    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length} still need you · ${yours.length + 4} items`)
   })
 
   for (const width of [375, 320]) {
-    test(`${width}px: both lists fold to one line with what still needs you; a pick folds it again; no horizontal scroll`, async ({ page }) => {
+    test(`${width}px: the one list (P1468) folds to one line with what still needs you; a pick folds it again; no horizontal scroll`, async ({ page }) => {
       await page.setViewportSize({ width, height: 760 })
       await openDay(page)
       await collapseSidebar(page)
       const yours = yoursOf(await runView(page))
       const tog = page.locator('[data-card-list] .d-cltog')
-      await expect(tog).toHaveText(`▶${yours.length} still need you · ${yours.length} cards`)
+      const line = `▶${yours.length + 4} still need you · ${yours.length + 4} items` // P1468: one line for both halves
+      await expect(tog).toHaveText(line)
       await expect(listRow(page, yours[0].fp)).toBeHidden()
       await tog.click()
       await listRow(page, yours[1].fp).click()
       await expect(cardTitle(page)).toHaveText(yours[1].title)
       await expect(listRow(page, yours[1].fp)).toBeHidden()
       await reflTab(page).click()
-      await expect(page.locator('[data-card-list] .d-cltog')).toHaveText('▶4 not rated · 4 statements')
+      await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(line)
       await expect(page.locator('[data-list-statement]').first()).toBeHidden()
       const over = await page.evaluate(() => {
         const r = document.querySelector('.day-root')
@@ -2304,7 +2345,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
 
 test.describe('P1440: stories reach the agent', () => {
   const reflTab = (page: Page) => ({ click: () => goTab(page, 'Reflection'), tap: () => goTab(page, 'Reflection') })
-  const storyBox = (page: Page) => page.locator('.d-cpcard').getByLabel(/Add your story/)
+  // P1468: storyBox / fillStory / openStory are the shared helpers (the box opens from "+ Add a story")
   const reflLines = () => lines().filter((d) => d.kind === 'reflection')
   const bpos = (page: Page) => page.locator('.d-bpos')
   const STORY = 'Invented story: the test widget took two tries.'
@@ -2316,7 +2357,7 @@ test.describe('P1440: stories reach the agent', () => {
   test('a story with no position is saved by Accept, says "Story, no position" and "not sent yet", and is answered, not rated', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
-    await storyBox(page).fill(STORY)
+    await fillStory(page, STORY)
     await page.locator('.d-pst').click() // leaving the box saves nothing (P1440 review)
     await page.waitForTimeout(300)
     expect(fileText()).toBe('')
@@ -2329,12 +2370,14 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(row).toContainText('Story, no position')
     await expect(row).toHaveAttribute('data-list-state', 'story')
     await expect(row.locator('.d-sdot')).toHaveClass(/done/)
-    await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 1 story only · 4 statements')
+    // P1468: the list's head is gone; its folded line counts a story-only statement as answered (3 of 4 still open)
+    const yours = yoursOf(await runView(page))
+    await expect(page.locator('[data-card-list] .d-cltog')).toHaveText(`▶${yours.length + 3} still need you · ${yours.length + 4} items`)
     await expect(page.locator('[data-progress]')).toHaveText('0 of 4 rated · 1 story only')
     await prevBtn(page).click()
     await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
     // O4: emptying a saved story and pressing Accept deletes it (no position: the answer goes)
-    await storyBox(page).fill('')
+    await fillStory(page, '')
     await acceptBtn(page).click()
     await expect.poll(() => reflLines().at(-1)?.remove).toBe(true)
     expect(reflLines()).toHaveLength(2)
@@ -2349,7 +2392,7 @@ test.describe('P1440: stories reach the agent', () => {
     await page.locator('.d-cpcard [data-testid=disagree-group]').click() // a pick is saved at once …
     await expect.poll(() => reflLines().length).toBe(1)
     await expect(acceptBtn(page)).toHaveCount(0) // … so there is nothing left to accept
-    await storyBox(page).fill(STORY) // typed, never left
+    await fillStory(page, STORY) // typed, never left
     await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept and next')
     await acceptBtn(page).click()
     await expect(bpos(page)).toHaveText(stmtPos(2))
@@ -2359,7 +2402,7 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(acceptBtn(page)).toHaveCount(0) // saved as shown: nothing to accept
     // the last statement: Accept saves and stays
     await page.locator('[data-list-statement="c4"]').click()
-    await storyBox(page).fill('Invented story for the last statement.')
+    await fillStory(page, 'Invented story for the last statement.')
     await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept')
     await acceptBtn(page).click()
     await expect.poll(() => reflLines().length).toBe(3)
@@ -2371,7 +2414,7 @@ test.describe('P1440: stories reach the agent', () => {
     await openDay(page)
     await reflTab(page).click()
     await page.route('**/api/day/decisions', (r) => r.fulfill({ status: 500, json: { error: 'Failed to record decisions' } }))
-    await storyBox(page).fill(STORY)
+    await fillStory(page, STORY)
     // the page re-reads the run after a failed write: only once that has landed can a wrong move show
     const reread = page.waitForResponse((r) => r.url().includes('/api/day/runs/'))
     await acceptBtn(page).click()
@@ -2387,7 +2430,7 @@ test.describe('P1440: stories reach the agent', () => {
   test('Next, Previous, the statement list and the tabs never write a typed story', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
-    await storyBox(page).fill(STORY)
+    await fillStory(page, STORY)
     await nextBtn(page).click()
     await expect(bpos(page)).toHaveText(stmtPos(2))
     await prevBtn(page).click()
@@ -2406,7 +2449,7 @@ test.describe('P1440: stories reach the agent', () => {
   test('O1 + O2: a typed story is kept across runs and reloads, and shows as not saved on the card, the list and the bar', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
-    await storyBox(page).fill(STORY)
+    await fillStory(page, STORY)
     await expect(page.locator('.d-cpcard [data-story-unsaved]')).toHaveText('Not saved')
     await expect(page.locator('[data-list-statement="c1"]')).toContainText('Unsaved')
     await expect(page.locator('[data-unsaved-stories]')).toHaveText('1 unsaved')
@@ -2423,7 +2466,7 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(storyBox(page)).toHaveValue(STORY)
     await expect(page.locator('[data-unsaved-stories]')).toBeVisible()
     // Start fixing never writes a draft
-    await page.getByRole('button', { name: /^Start fixing/ }).click()
+    await startBtn(page).click() // exact name: P1468's agent panel (now under statements too) starts "Start fixing also sends these"
     await expect(page.locator('.d-toast')).toBeVisible()
     expect(reflLines()).toHaveLength(0)
     // Accept saves it, and the draft is gone (also from the browser's storage)
@@ -2445,7 +2488,7 @@ test.describe('P1440: stories reach the agent', () => {
   test('a draft kept in storage never comes back over a story saved after it (storage failing in between)', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
-    await storyBox(page).fill('Invented draft A, kept in storage.')
+    await fillStory(page, 'Invented draft A, kept in storage.')
     await expect.poll(() => page.evaluate(() => localStorage.getItem('day:story-drafts') ?? '')).toContain('draft A')
     // storage starts refusing writes: the stored copy is stuck at A
     await page.evaluate(() => {
@@ -2456,7 +2499,7 @@ test.describe('P1440: stories reach the agent', () => {
         throw new Error('SecurityError')
       }
     })
-    await storyBox(page).fill('Invented story B, the one accepted.')
+    await fillStory(page, 'Invented story B, the one accepted.')
     await acceptBtn(page).click()
     await expect.poll(() => reflLines().length).toBe(1)
     expect(reflLines()[0]).toEqual(expect.objectContaining({ target: 'c1', story: 'Invented story B, the one accepted.' }))
@@ -2478,9 +2521,9 @@ test.describe('P1440: stories reach the agent', () => {
       await new Promise((res) => setTimeout(res, 500))
       await r.continue()
     })
-    await storyBox(page).fill('Invented story, first part.')
+    await fillStory(page, 'Invented story, first part.')
     await acceptBtn(page).click()
-    await storyBox(page).fill('Invented story, first part. Second part typed during the save.')
+    await fillStory(page, 'Invented story, first part. Second part typed during the save.')
     await expect.poll(() => reflLines().length).toBe(1)
     await page.waitForTimeout(300)
     await expect(storyBox(page)).toHaveValue('Invented story, first part. Second part typed during the save.')
@@ -2501,7 +2544,7 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(earlier).toContainText('Invented story from an earlier day.')
     await expect(earlier.locator('[data-story-line]')).toHaveText('Not sent')
     // this run's story: saved by Accept, then marked done on its card
-    await storyBox(page).fill(STORY)
+    await fillStory(page, STORY)
     await acceptBtn(page).click()
     await expect(bpos(page)).toHaveText(stmtPos(2))
     await prevBtn(page).click()
@@ -2525,7 +2568,7 @@ test.describe('P1440: stories reach the agent', () => {
     await expect(page.locator('[data-earlier-stories]')).toHaveCount(0)
     expect(lines().at(-1)).toEqual(expect.objectContaining({ kind: 'story_done', run_id: EARLIER_PASS, target: 'c2' }))
     // editing a done story reopens it once saved
-    await storyBox(page).fill(`${STORY} And one more line.`)
+    await fillStory(page, `${STORY} And one more line.`)
     await acceptBtn(page).click()
     await prevBtn(page).click()
     await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
@@ -2538,7 +2581,7 @@ test.describe('P1440: stories reach the agent', () => {
     await reflTab(page).click()
     await page.locator('[data-list-statement="c1"]').click()
     await expect(page.locator('.d-cpcard [data-story-done]')).toBeEnabled()
-    await storyBox(page).fill(`${STORY} Edited.`)
+    await fillStory(page, `${STORY} Edited.`)
     await expect(page.locator('.d-cpcard [data-story-done]')).toBeDisabled()
     // one line says both, and it outweighs the grey state line (review visual 4)
     const marker = page.locator('.d-cpcard [data-story-unsaved]')
@@ -2590,8 +2633,8 @@ test.describe('P1440: stories reach the agent', () => {
       await openDay(page)
       await collapseSidebar(page)
       await reflTab(page).tap()
-      await storyBox(page).tap()
-      await storyBox(page).fill(STORY)
+      await openStory(page, 'tap')
+      await fillStory(page, STORY)
       await nextBtn(page).tap()
       await expect(bpos(page)).toHaveText(stmtPos(2))
       await page.waitForTimeout(300)
@@ -2609,8 +2652,8 @@ test.describe('P1440: stories reach the agent', () => {
       await openDay(page)
       await collapseSidebar(page)
       await reflTab(page).tap()
-      await storyBox(page).tap()
-      await storyBox(page).fill(STORY)
+      await openStory(page, 'tap')
+      await fillStory(page, STORY)
       await page.locator('[data-card-list] .d-cltog').tap()
       await page.locator('[data-list-statement="c3"]').tap()
       await expect(bpos(page)).toHaveText(stmtPos(3))
@@ -2652,7 +2695,7 @@ test.describe('P1440: stories reach the agent', () => {
       await openDay(page)
       if (width < 500) await collapseSidebar(page)
       await reflTab(page).click()
-      await storyBox(page).fill(STORY)
+      await fillStory(page, STORY)
       await expect(page.locator('[data-unsaved-stories]')).toBeVisible()
       expect(await barOverflow(page), 'reflection').toEqual([])
       await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report', exact: true }).click()
@@ -2738,14 +2781,15 @@ test.describe('P1445 D: the reflection card is CP\'s point card, with "Agent on 
     await expect(card.locator('[aria-pressed=true]')).toHaveCount(0)
   })
 
-  test('a statement with a checked agent view shows AGENT on Slava above it, its own stance and its quotes — and never sets the founder\'s position', async ({ page }) => {
+  // P1468 §2: the agent's byline and stance are in its story, not a row above the statement
+  test('a statement with a checked agent view shows AGENT on Slava, its own stance and its quotes in "Their story" — and never sets the founder\'s position', async ({ page }) => {
     await open(page, 'c2')
-    const owner = page.locator('.d-cpcard [data-agent-owner]')
-    await expect(owner.getByTestId('agent-byline-name')).toHaveText('Slava')
-    await expect(owner).toContainText('Disagrees−') // CP's PositionBadge for the agent's -1
+    await expect(page.locator('.d-cpcard [data-agent-owner]')).toHaveCount(0)
     // P1449: the story opens from the footer's "Their story" toggle
     await page.locator('.d-cpcard [data-testid=point-story-expander]').click()
     const row = page.locator('.d-cpcard [data-agent-view]')
+    await expect(row.getByTestId('agent-byline-name')).toHaveText('Slava')
+    await expect(row.getByTestId('story-author-stance')).toContainText('Disagrees−') // CP's PositionBadge for the agent's -1
     await expect(row).toContainText('no champion talk yet')
     await expect(row.getByTestId('story-video-quote')).toHaveText(['no champion talk yet'])
     // the founder's own control is untouched by the agent's view
@@ -2773,9 +2817,10 @@ async function compileCpCss(): Promise<string> {
   return out.css
 }
 const STYLE_PROBES: Record<string, { sel: string; props: string[] }> = {
-  badge: { sel: '[data-testid=point-owner-row] .bg-blue-100', props: ['borderRadius', 'fontWeight'] },
-  avatar: { sel: '[data-testid=point-owner-row] [data-testid=gravatar-avatar]', props: ['borderRadius'] },
-  agentLabel: { sel: '[data-testid=point-owner-row] [data-testid=machine-chip]', props: ['fontWeight', 'letterSpacing', 'fontFamily', 'fontSize'] },
+  // P1468: the owner row is gone — the same CP pieces (stance badge, avatar, AGENT label) head the agent's story
+  badge: { sel: '[data-agent-view] [data-testid=story-author-stance] .bg-blue-100', props: ['borderRadius', 'fontWeight'] },
+  avatar: { sel: '[data-agent-view] [data-testid=gravatar-avatar]', props: ['borderRadius'] },
+  agentLabel: { sel: '[data-agent-view] [data-testid=machine-chip]', props: ['fontWeight', 'letterSpacing', 'fontFamily', 'fontSize'] },
   statement: { sel: '.d-pst', props: ['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'] },
   agreeButton: { sel: '[data-testid=agree-group]', props: ['height', 'fontSize'] },
   pin: { sel: '.lucide-pin', props: ['transform'] },
@@ -2798,18 +2843,21 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
   const reflTab = (page: Page) => ({ click: () => goTab(page, 'Reflection'), tap: () => goTab(page, 'Reflection') })
   const toggle = (page: Page) => page.locator('.d-cpcard [data-testid=point-story-expander]')
 
-  test('owner row ABOVE the statement: avatar, AGENT on Slava, the agent\'s stance', async ({ page }) => {
+  // P1468 §2 supersedes P1449's owner row: on the Day page the point is the founder's, so nothing sits above it
+  test('P1468: no owner row above the statement; the avatar, AGENT on Slava and the stance head the agent\'s story', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()
     await page.locator('[data-list-statement="c2"]').click()
-    const owner = page.locator('.d-cpcard [data-testid=point-owner-row]')
-    await expect(owner.getByTestId('gravatar-avatar')).toHaveAttribute('data-agent', 'true')
-    await expect(owner.getByTestId('gravatar-avatar')).toHaveText('S')
-    await expect(owner.getByTestId('agent-byline')).toContainText(/^Agent/) // shown as AGENT by CSS
-    await expect(owner).toContainText('Disagrees−')
-    const ownerBox = await rectOf(owner, 'owner row')
+    await expect(page.locator('.d-cpcard [data-testid=point-owner-row]')).toHaveCount(0)
+    await toggle(page).click()
+    const head = page.locator('.d-cpcard [data-agent-view]')
+    await expect(head.getByTestId('gravatar-avatar')).toHaveAttribute('data-agent', 'true')
+    await expect(head.getByTestId('gravatar-avatar')).toHaveText('S')
+    await expect(head.getByTestId('agent-byline')).toContainText(/^Agent/) // shown as AGENT by CSS
+    await expect(head.getByTestId('story-author-stance')).toContainText('Disagrees−')
     const stmt = await rectOf(page.locator('.d-cpcard .d-pst'), 'statement')
-    expect(ownerBox.y + ownerBox.height).toBeLessThanOrEqual(stmt.y)
+    const stance = await rectOf(head.getByTestId('story-author-stance'), 'stance')
+    expect(stance.y).toBeGreaterThan(stmt.y + stmt.height) // below the point, inside the story
   })
 
   test('the footer shows CP\'s "Their story" toggle, closed by default, with no Details; a statement without an agent view has none', async ({ page }) => {
@@ -2837,8 +2885,8 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await expect(row.getByTestId('quoted-story')).toHaveCount(1)
     await expect(row.getByTestId('gravatar-avatar')).toHaveAttribute('data-agent', 'true')
     await expect(row.getByTestId('agent-byline-name')).toHaveText('Slava')
-    // the stance is the owner row's; the story row carries none (CP passes no authorPosition there)
-    await expect(row.getByTestId('story-author-stance')).toHaveCount(0)
+    // P1468 §2: the stance is the story's own (QuotedStoryShell's authorPosition), not an owner row's
+    await expect(row.getByTestId('story-author-stance')).toHaveCount(1)
     await expect(row).not.toContainText(/Fact:|Connection:|Speculation:/)
     await expect(row.getByTestId('story-video-quotes-heading')).toHaveText('1 supporting quote')
     await expect(row.getByTestId('story-video-quote')).toHaveText(['no champion talk yet'])
@@ -2861,7 +2909,7 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await openDay(page)
     await reflTab(page).click()
     await page.locator('[data-list-statement="c2"]').click()
-    await expect(page.locator('.d-cpcard [data-testid=point-owner-row] img')).toHaveAttribute('src', 'https://example.invalid/agent.png')
+    await expect(page.locator('.d-cpcard [data-testid=point-owner-row]')).toHaveCount(0) // P1468: no owner row
     await toggle(page).click()
     await expect(page.locator('.d-cpcard [data-agent-view] [data-testid=gravatar-avatar] img')).toHaveAttribute('src', 'https://example.invalid/agent.png')
   })
@@ -2891,8 +2939,10 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await openDay(page)
     await reflTab(page).click()
     await page.locator('[data-list-statement="c2"]').click()
+    await toggle(page).click() // P1468: the probed pieces live in the agent's story
     await page.mouse.move(0, 0)
     const board = await probeStyles(page, '.d-cpcard')
+    for (const [k, v] of Object.entries(board)) expect(v, `${k} is on the board`).not.toHaveProperty('missing')
     const html = await page.locator('.d-cpcard').evaluate((e) => e.outerHTML)
     const css = await compileCpCss()
     const cp = await browser.newPage({ viewport: { width: 1280, height: 900 } })
@@ -2918,15 +2968,20 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await page.locator('[data-list-statement="c2"]').click()
     const box = page.locator('.d-cpcard .bg-gray-50').first()
     await expect(box.locator('[data-position-control]')).toHaveCount(1)
-    await expect(box.getByLabel(/Add your story/)).toHaveCount(0)
-    await expect(page.locator('.d-cpcard .d-founder').getByLabel(/Add your story/)).toHaveCount(1)
+    // P1468: the founder's box opens from "+ Add a story" in the card's footer, under the grey box
+    await expect(box.getByRole('button', { name: 'Add a story for this point' })).toHaveCount(0)
+    await openStory(page)
+    await expect(box.getByRole('textbox')).toHaveCount(0)
+    await expect(page.locator('.d-cpcard .d-founder').getByRole('textbox', { name: 'Your story' })).toHaveCount(1)
     const b = await rectOf(box, 'grey box')
     const story = await rectOf(page.locator('.d-cpcard .d-founder'), 'founder')
     expect(story.y).toBeGreaterThanOrEqual(b.y + b.height)
     await expect(page.locator('.d-cpcard')).not.toContainText('1 · 2 · 3')
   })
 
-  test('a single statement: no list, the card is centred and takes the pane', async ({ page }) => {
+  // P1468 supersedes P1449's rule (one statement = no list): the list rule is the same for every item
+  // — it shows when the queue holds 2+ rows. AC4 covers one item in all; here cards come first.
+  test('P1468: a single statement after the cards is a row of the one list, not a centred card alone', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await patchRun(page, (b) => {
       const r = b.report?.reflection
@@ -2935,12 +2990,377 @@ test.describe('P1449: the reflection card is CP\'s profile point card with CP\'s
     await openDay(page)
     await collapseSidebar(page)
     await reflTab(page).click()
-    await expect(page.locator('[data-reflection-layout=single]')).toBeVisible()
-    await expect(page.locator('[data-list-statement]')).toHaveCount(0)
-    const pane = await rectOf(page.locator('[data-reflection-layout=single]'), 'pane')
-    const cardBox = await rectOf(page.locator('.d-cpcard'), 'card')
-    // centred: equal space each side (±2px); and wide — far more than the 260px list column
-    expect(Math.abs(cardBox.x - pane.x - (pane.x + pane.width - cardBox.x - cardBox.width))).toBeLessThanOrEqual(2)
-    expect(cardBox.width).toBeGreaterThan(pane.width * 0.9)
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(page.locator('[data-card-list] [data-list-statement]')).toHaveCount(1)
+    await expect(page.locator('[data-card-list] [data-list-divider]')).toHaveText('Stories')
+    await expect(page.locator('.d-md.d-single')).toHaveCount(0)
   })
+})
+
+// P1468: cards and statements are one list and one layout — the status line, the list and the agent
+// panel sit around whichever item is open.
+test.describe('P1468: one list, one top, for cards and stories', () => {
+  /** AC1's positions: the status line's top, and the list's left edge, top and width */
+  const positions = async (page: Page) => {
+    const s = await rectOf(page.locator('[data-status-line]'), 'status line')
+    const l = await rectOf(page.locator('[data-card-list]'), 'list')
+    return { statusY: s.y, listX: l.x, listY: l.y, listW: l.width }
+  }
+
+  test('AC1 + AC19: paging from the last card into the first statement moves neither the status line nor the list (1440px)', async ({ page }) => {
+    await openDay(page) // the config's viewport: 1440x900
+    expect(must(page.viewportSize(), 'viewport').width).toBe(1440)
+    const yours = yoursOf(await runView(page))
+    expect(yours.length).toBeGreaterThanOrEqual(2)
+    const last = must(yours.at(-1), 'last card')
+    await listRow(page, last.fp).click()
+    await expect(cardTitle(page)).toHaveText(last.title)
+    await expect(page.locator('[data-card-list]')).toHaveCount(1)
+    await expect(page.locator('[data-status-line]')).toHaveCount(1)
+    const onCard = await positions(page)
+    await nextBtn(page).click()
+    await expect(page.locator('[data-statement]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(1))
+    await expect(page.locator('[data-card-list]')).toHaveCount(1)
+    await expect(page.locator('[data-status-line]')).toHaveCount(1)
+    const onStatement = await positions(page)
+    for (const k of Object.keys(onCard) as (keyof typeof onCard)[]) expect(Math.abs(onStatement[k] - onCard[k]), `${k}: card ${onCard[k]}, statement ${onStatement[k]}`).toBeLessThanOrEqual(1)
+  })
+
+  const list = (page: Page) => page.locator('[data-card-list]')
+  const stmtRow = (page: Page, id: string) => page.locator(`[data-card-list] [data-list-statement="${id}"]`)
+  const addStory = (page: Page) => page.locator('.d-cpcard').getByRole('button', { name: 'Add a story for this point' })
+  const box = (page: Page) => page.locator('.d-cpcard').getByRole('textbox', { name: 'Your story' })
+  const LATEST_PASS = '2026-10-04T05-37-45Z'
+  const EARLIER_PASS = '2026-10-03T05-05-00Z'
+  const writeLines = (ls: object[]) => writeFileSync(DECISIONS, ls.map((l) => JSON.stringify(l)).join('\n') + '\n')
+  const refl = (target: string, extra: object, run_id = LATEST_PASS, at = '2026-10-04T09:00:00.000Z') => ({ kind: 'reflection', target, run_id, at, ...extra })
+  /** A launch receipt the way the server writes one (as in the P1432 tests). */
+  const receipt = (id: string, items: string[]) =>
+    [
+      JSON.stringify({ kind: 'sent', id, run_id: LATEST_ID, state: 'pending', at: new Date().toISOString(), items, count: items.length }),
+      JSON.stringify({ kind: 'sent', id, run_id: LATEST_ID, state: 'started', at: new Date().toISOString() }),
+    ].join('\n') + '\n'
+  const agentKey = (i: ViewIssue) => `option:${i.fp}:${i.options[i.recommended_index].id}:`
+  const fold = (page: Page) => agentList(page).locator('.d-fold')
+
+  test('AC2: the same rows on a card and on a statement; one "Stories" divider between the halves, not a control; aria-current is the open item', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    const counts = async () => ({
+      rows: await list(page).locator('li').count(),
+      cards: await list(page).locator('[data-list-card]').count(),
+      parked: await list(page).locator('[data-list-parked]').count(),
+      statements: await list(page).locator('[data-list-statement]').count(),
+    })
+    const onCard = await counts()
+    expect(onCard).toMatchObject({ cards: yours.length, statements: STMTS })
+    const div = list(page).locator('[data-list-divider]')
+    await expect(div).toHaveCount(1)
+    await expect(div).toHaveText('Stories')
+    expect(await div.evaluate((e) => ({ tag: e.tagName, focusable: e.tabIndex >= 0 || !!e.querySelector('button, a, input, [tabindex]') }))).toEqual({ tag: 'LI', focusable: false })
+    const order = await list(page)
+      .locator('[data-list-card], [data-list-divider], [data-list-statement]')
+      .evaluateAll((els) => els.map((e) => (e.hasAttribute('data-list-card') ? 'card' : e.hasAttribute('data-list-divider') ? 'divider' : 'statement')))
+    expect(order).toEqual([...yours.map(() => 'card'), 'divider', ...Array(STMTS).fill('statement')])
+    await expect(list(page).locator('[aria-current=true]')).toHaveCount(1)
+    await expect(list(page).locator('[aria-current=true]')).toHaveAttribute('data-list-card', yours[0].fp)
+    await stmtRow(page, 'c3').click()
+    await expect(page.locator('[data-statement="c3"]')).toBeVisible()
+    expect(await counts()).toEqual(onCard)
+    await expect(list(page).locator('[aria-current=true]')).toHaveCount(1)
+    await expect(list(page).locator('[aria-current=true]')).toHaveAttribute('data-list-statement', 'c3')
+  })
+
+  test('AC3: a row opens its item from either half; ← → and the pager span both; the parked row opens Parked from a statement in one click; the divider does nothing', async ({ page }) => {
+    await openDay(page)
+    const all = yoursOf(await runView(page))
+    // one card parked on an earlier run (as in the P1432 list test): the list gets its parked row
+    const earlier = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string } }
+    const at = new Date(Date.parse(earlier.report.started_at) + 3_600_000).toISOString()
+    writeFileSync(DECISIONS, JSON.stringify({ kind: 'option', target: all[0].fp, option_id: 'park', run_id: earlier.report.pass_id, at }) + '\n')
+    await reopen(page)
+    const yours = all.slice(1)
+    const n = yours.length + STMTS
+    await stmtRow(page, 'c2').click()
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(`${yours.length + 2} of ${n}`)
+    await listRow(page, yours[1].fp).click()
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await expect(page.locator('.d-bpos')).toHaveText(`2 of ${n}`)
+    const last = must(yours.at(-1), 'last card')
+    await listRow(page, last.fp).click()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(`${yours.length + 1} of ${n}`)
+    await page.keyboard.press('ArrowLeft')
+    await expect(cardTitle(page)).toHaveText(last.title)
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+    // the divider is a label: clicking it changes nothing
+    await list(page).locator('[data-list-divider]').click()
+    await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(`${yours.length + 1} of ${n}`)
+    // the parked row, from a statement: the card view, Parked open and on screen — one click
+    await list(page).locator('[data-list-parked]').click()
+    await expect(card(page)).toBeVisible()
+    const parked = page.locator('.d-parked:not([data-agent-list])')
+    await expect(parked.locator('.d-fold')).toHaveAttribute('aria-expanded', 'true')
+    await expect(parked).toBeInViewport()
+    expect(lines()).toHaveLength(1) // only the park line: moving writes nothing
+  })
+
+  test('AC4: one item in all — one card, or one statement and no cards — with nothing parked: no list, the item centred', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    let mode: 'card' | 'statement' = 'card'
+    await patchRun(page, (b) => {
+      if (b.view) {
+        const founder = b.view.issues.filter((i) => !isAgent(i))
+        b.view.issues = mode === 'card' ? founder.slice(0, 1) : []
+        b.view.parked = []
+      }
+      const r = b.report?.reflection
+      if (r) r.statements = mode === 'card' ? [] : r.statements.filter((x) => x.id === 'c2')
+    })
+    const centred = async (item: string) => {
+      const pane = await rectOf(page.locator('.d-md.d-single'), 'pane')
+      const it = await rectOf(page.locator(item), 'item')
+      expect(Math.abs(it.x - pane.x - (pane.x + pane.width - it.x - it.width))).toBeLessThanOrEqual(2)
+    }
+    await openDay(page)
+    await expect(card(page)).toBeVisible()
+    await expect(list(page)).toHaveCount(0)
+    await centred('.d-focus')
+    mode = 'statement'
+    await openDay(page)
+    await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+    await expect(list(page)).toHaveCount(0)
+    await centred('.d-cpcard')
+  })
+
+  test('AC5: no agent row above the point; with "Their story" open, the AGENT byline and the agent\'s stance are inside it', async ({ page }) => {
+    await openDay(page)
+    await stmtRow(page, 'c2').click()
+    await expect(page.locator('.d-cpcard [data-agent-owner], .d-cpcard [data-testid=point-owner-row]')).toHaveCount(0)
+    await page.locator('.d-cpcard [data-testid=point-story-expander]').click()
+    const view = page.locator('.d-cpcard [data-agent-view]')
+    await expect(view.getByTestId('agent-byline-name')).toHaveText('Slava')
+    await expect(view.getByTestId('story-author-stance')).toHaveText('Disagrees−') // CP's PositionBadge for the agent's -1
+    await expect(page.locator('.d-cpcard [data-position-control] [aria-pressed=true]')).toHaveCount(0) // never the founder's
+  })
+
+  test('AC6: no saved story and no draft: "+ Add a story" and no box; a click opens the box, focused, and the button goes', async ({ page }) => {
+    await openDay(page)
+    await stmtRow(page, 'c1').click()
+    await expect(addStory(page)).toHaveText('+ Add a story')
+    await expect(page.locator('.d-cpcard textarea')).toHaveCount(0)
+    await addStory(page).click()
+    await expect(box(page)).toBeFocused()
+    await expect(addStory(page)).toHaveCount(0)
+    expect(lines()).toHaveLength(0) // opening the box writes nothing
+  })
+
+  test('AC7: a saved story or a draft (even one emptied over a saved story) opens the box on arrival; a box opened and left untouched closes again after paging', async ({ page }) => {
+    await openDay(page)
+    writeLines([refl('c1', { story: 'Invented saved story.' })])
+    await reopen(page)
+    await stmtRow(page, 'c1').click()
+    await expect(box(page)).toHaveValue('Invented saved story.')
+    await expect(addStory(page)).toHaveCount(0)
+    // emptied over the saved story: unsaved, so it is a draft and stays open
+    await box(page).fill('')
+    await stmtRow(page, 'c3').click()
+    await stmtRow(page, 'c1').click()
+    await expect(box(page)).toHaveValue('')
+    await expect(addStory(page)).toHaveCount(0)
+    // a draft on a statement with nothing saved
+    await stmtRow(page, 'c3').click()
+    await addStory(page).click()
+    await box(page).fill('Invented draft.')
+    await stmtRow(page, 'c4').click()
+    await stmtRow(page, 'c3').click()
+    await expect(box(page)).toHaveValue('Invented draft.')
+    await expect(addStory(page)).toHaveCount(0)
+    // opened, untouched, paged away and back: the button again
+    await stmtRow(page, 'c4').click()
+    await addStory(page).click()
+    await expect(box(page)).toBeVisible()
+    await stmtRow(page, 'c3').click()
+    await stmtRow(page, 'c4').click()
+    await expect(addStory(page)).toBeVisible()
+    await expect(page.locator('.d-cpcard textarea')).toHaveCount(0)
+    expect(lines()).toHaveLength(1) // none of it wrote
+  })
+
+  test('AC7b: point → position → footer row → story box → "Not saved" → chip → agent story; no agent: the row holds only "+ Add a story"; no ledger entry: no chip', async ({ page }) => {
+    await openDay(page)
+    await stmtRow(page, 'c1').click()
+    const footer = page.locator('.d-cpcard [data-testid=point-card-footer]')
+    await expect(footer.getByRole('button')).toHaveCount(1)
+    await expect(footer.getByRole('button')).toHaveAccessibleName('Add a story for this point')
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveCount(0)
+    // c2 (has an agent): a saved story makes the chip, an edit after it makes "Not saved"
+    await stmtRow(page, 'c2').click()
+    await addStory(page).click()
+    await box(page).fill('Invented story.')
+    await acceptBtn(page).click()
+    await expect(page.locator('[data-statement="c3"]')).toBeVisible()
+    await prevBtn(page).click()
+    await expect(page.locator('.d-cpcard [data-story-line]')).toHaveText('Not sent')
+    await box(page).fill('Invented story, edited.')
+    await expect(page.locator('.d-cpcard [data-story-unsaved]')).toBeVisible()
+    await page.locator('.d-cpcard [data-testid=point-story-expander]').click()
+    const parts = ['.d-pst', '[data-position-control]', '[data-testid=point-card-footer]', 'textarea', '[data-story-unsaved]', '[data-story-line]', '[data-agent-view]']
+    const ys: number[] = []
+    for (const sel of parts) ys.push((await rectOf(page.locator(`.d-cpcard ${sel}`).first(), sel)).y)
+    expect(ys, parts.join(' → ')).toEqual([...ys].sort((a, b) => a - b))
+  })
+
+  test('AC8: an earlier (read-only) run: no button, no box; a saved story shows as text', async ({ page }) => {
+    await openDay(page)
+    writeLines([refl('c1', { story: 'Invented story on the earlier run.' }, EARLIER_PASS, '2026-10-03T09:00:00.000Z')])
+    await reopen(page)
+    await page.getByRole('button', { name: 'Previous run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
+    await stmtRow(page, 'c1').click()
+    await expect(page.locator('.d-cpcard .d-story-ro')).toHaveText('Invented story on the earlier run.')
+    await expect(page.locator('.d-cpcard textarea')).toHaveCount(0)
+    await expect(addStory(page)).toHaveCount(0)
+    await stmtRow(page, 'c3').click()
+    await expect(page.locator('[data-statement="c3"]')).toBeVisible()
+    await expect(page.locator('.d-cpcard textarea')).toHaveCount(0)
+    await expect(addStory(page)).toHaveCount(0)
+  })
+
+  test('AC9: the agent panel is on the page once, on a card and on a statement, with no bottom-bar link; its header counts the rows not sent', async ({ page }) => {
+    await openDay(page)
+    const agents = agentOf(await runView(page))
+    expect(agents.length).toBeGreaterThan(1)
+    for (const where of ['card', 'statement']) {
+      if (where === 'statement') {
+        await stmtRow(page, 'c1').click()
+        await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+      }
+      await expect(page.locator('[data-agent-link]'), where).toHaveCount(0)
+      await expect(agentList(page), where).toHaveCount(1)
+    }
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-state="not-sent"]')).toHaveCount(agents.length)
+    await expect(fold(page)).toHaveText(`▶Start fixing also sends these · ${agents.length} not sent`)
+    writeFileSync(DECISIONS, fileText() + receipt('launch-all', agents.map(agentKey)))
+    await reopen(page)
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-state="not-sent"]')).toHaveCount(0)
+    await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(agents.length)
+    await expect(fold(page)).toHaveText(`▶Sent to the fixing agent · ${agents.length}`)
+  })
+
+  test('AC9b: after a first send, with a founder answers queued and n agent rows not sent, the button reads "Send {a+n} changes" and the panel "{n} not sent"', async ({ page }) => {
+    await openDay(page)
+    const agents = agentOf(await runView(page))
+    const sent = agents.slice(1)
+    const n = agents.length - sent.length
+    writeFileSync(DECISIONS, receipt('launch-1', sent.map(agentKey)))
+    await reopen(page)
+    // a = 2: two founder cards answered (Accept writes at once)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().filter((l) => l.kind === 'option').length).toBe(1)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().filter((l) => l.kind === 'option').length).toBe(2)
+    await expect(page.getByRole('button', { name: `Send ${2 + n} change${2 + n === 1 ? '' : 's'}` })).toBeVisible()
+    await openAgentList(page)
+    await expect(agentList(page).locator('[data-agent-state="not-sent"]')).toHaveCount(n)
+    await expect(fold(page)).toHaveText(`▶Start fixing also sends these · ${n} not sent`)
+  })
+
+  test('AC10: a Status "Open card ›" on an agent card opens the panel and focuses that row — from a statement too', async ({ page }) => {
+    await openDay(page)
+    await stmtRow(page, 'c1').click()
+    await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+    await openStatus(page)
+    await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
+    await expect(agentList(page).locator('.d-focusrow')).toContainText('Backup · repo C')
+    await expect(agentList(page).locator('.d-focusrow')).toBeInViewport()
+  })
+
+  test('AC11: Stats shows no "From this run", no daily note and no chat tile, on a run that still carries every one of them', async ({ page }) => {
+    await patchRun(page, (b) => {
+      b.report?.notes?.push(
+        { id: 'whats-next', title: 'What’s next', body: 'PIPELINE 2 conversations' },
+        { id: 'branches', title: 'Branches and specs', body: 'none' },
+        { id: 'cloud-spend', title: 'Cloud spend estimate', body: 'about €1 a day' },
+      )
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await expect(page.locator('[data-funnel]')).toBeVisible()
+    const ids = await page.request.get(`/api/day/runs/${LATEST_ID}`).then(async (r) => ((await r.json()) as { report: DayReport }).report)
+    expect(ids.notes?.map((x) => x.id)).toEqual(expect.arrayContaining(['shipped', 'chat-digest'])) // the run really carries them
+    await expect(page.getByText('From this run')).toHaveCount(0)
+    for (const id of ['shipped', 'whats-next', 'branches', 'cloud-spend', 'chat-digest']) await expect(page.locator(`[data-note="${id}"]`), id).toHaveCount(0)
+    await expect(page.locator('[data-reading="mentions"], [data-reading="help_requests"]')).toHaveCount(0)
+    // known-good controls: the other tile and the review note still show
+    await expect(page.locator('[data-reading="unconfirmed"]')).toBeVisible()
+    await expect(page.locator('[data-note="week-measures"]')).toHaveCount(1)
+  })
+
+  test('AC12: Goals — at most 3 rows in goals.md order, no step label; absent says "not collected yet"; empty says "No open goals found in docs/goals.md"; review notes fold under "Review notes"', async ({ page }) => {
+    let mode: 'as-is' | 'absent' | 'empty' = 'as-is'
+    await patchRun(page, (b) => {
+      if (!b.report) return
+      if (mode === 'absent') delete b.report.goals
+      if (mode === 'empty') b.report.goals = []
+    })
+    const stats = () => page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const goals = page.locator('[data-goals]')
+    await openDay(page)
+    await stats()
+    await expect(goals.locator('.d-h3')).toHaveText('Goals')
+    await expect(goals.locator('[data-goal]')).toHaveText(['One free practice evening for people who sell', 'A use case on the landing page, in attendees’ words', 'The same format online, once.'])
+    await expect(goals.locator('[data-goal]').first()).toHaveAttribute('data-goal', '3a')
+    await expect(goals).not.toContainText('3a')
+    const review = page.locator('[data-review-notes]')
+    await expect(review.locator('.d-h3')).toHaveText('Review notes')
+    const note = review.locator('[data-note="week-measures"]')
+    await expect(note.getByRole('button')).toHaveAttribute('aria-expanded', 'false')
+    await note.getByRole('button').click()
+    await expect(note.locator('.d-notebody')).toHaveText('Reach-outs: 6 (target 10)\nChampion talks: 2')
+    // order: the readings, then Goals, then Review notes
+    const ys = [await rectOf(page.locator('[data-reading]').last(), 'last reading'), await rectOf(goals, 'goals'), await rectOf(review, 'review notes')].map((r) => r.y)
+    expect(ys).toEqual([...ys].sort((a, b) => a - b))
+    mode = 'absent'
+    await openDay(page)
+    await stats()
+    await expect(goals.locator('.d-h3')).toHaveText('Goals')
+    await expect(goals).toContainText('not collected yet')
+    await expect(goals.locator('[data-goal]')).toHaveCount(0)
+    mode = 'empty'
+    await openDay(page)
+    await stats()
+    await expect(goals).toContainText('No open goals found in docs/goals.md')
+    await expect(goals.locator('[data-goal]')).toHaveCount(0)
+  })
+
+  for (const width of [375, 320]) {
+    test(`AC15 ${width}px: the folded list says "{u} still need you · {N} items", the same on a card and on a statement; no horizontal scroll`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 760 })
+      await openDay(page)
+      await collapseSidebar(page)
+      expect(await page.evaluate(() => window.innerWidth)).toBe(width)
+      const yours = yoursOf(await runView(page))
+      const want = `▶${yours.length + STMTS} still need you · ${yours.length + STMTS} items`
+      const tog = list(page).locator('.d-cltog')
+      await expect(tog).toHaveText(want)
+      await tog.click()
+      await stmtRow(page, 'c1').click()
+      await expect(page.locator('[data-statement="c1"]')).toBeVisible()
+      await expect(tog).toHaveText(want)
+      await expect(stmtRow(page, 'c1')).toBeHidden() // a pick folds it again
+      const over = await page.evaluate(() => {
+        const r = document.querySelector('.day-root')
+        return r ? r.scrollWidth - r.clientWidth : -1
+      })
+      expect(over).toBeLessThanOrEqual(0)
+    })
+  }
 })

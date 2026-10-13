@@ -1,35 +1,68 @@
 // P1399: Stats — the outreach funnel, weekly lines against targets, then readings. Anything the run
 // did not collect says "not collected yet"; it is never drawn as 0.
+// P1468: then the Goals (goals.md's open next steps, snapshotted when the report was rendered), and
+// only the weekly / monthly review notes — the daily notes and the chat tiles are not shown,
+// whatever the report contains (boardNotes / boardReadings).
 
 import { useState, type Dispatch, type SetStateAction } from 'react'
-import type { DayNote, DayStats } from '../../lib/day'
+import { boardNotes, boardReadings, type DayGoal, type DayNote, type DayStats } from '../../lib/day'
 import { Legend, LineChart } from './charts'
 
 const NotCollected = () => <span className="d-prop">not collected yet</span>
 
-export function StatsTab({ stats, notes }: { stats?: DayStats; notes?: DayNote[] }) {
+export function StatsTab({ stats, notes, goals }: { stats?: DayStats; notes?: DayNote[]; goals?: DayGoal[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
-  /** A reading tile that has a note opens it in "From this run" and scrolls there. */
+  const shown = boardNotes(notes)
+  /** A reading tile that has a note opens it in "Review notes" and scrolls there. */
   const openNote = (id: string) => {
     setOpen((o) => ({ ...o, [id]: true }))
     // after the fold has rendered open
     window.requestAnimationFrame(() => document.querySelector(`[data-note="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' }))
   }
-  const known = new Set((notes ?? []).map((n) => n.id))
+  const known = new Set(shown.map((n) => n.id))
   return (
     <>
       <StatsBody stats={stats} noteIds={known} onOpenNote={openNote} />
-      <Notes notes={notes} open={open} setOpen={setOpen} />
+      <Goals goals={goals} />
+      <Notes notes={shown} open={open} setOpen={setOpen} />
     </>
   )
 }
 
-/** Detail one step away ("From this run"): one fold per note, plain text, nothing when absent. */
-function Notes({ notes, open, setOpen }: { notes?: DayNote[]; open: Record<string, boolean>; setOpen: Dispatch<SetStateAction<Record<string, boolean>>> }) {
-  if (!notes?.length) return null
+/**
+ * P1468: where "From this run" was — the current goals in plain words, never an empty box: absent
+ * (a run from before P1468) reads "not collected yet"; parsed but empty (goals.md drifted, or
+ * nothing open) says so. Rows as the agent list and Parked draw theirs.
+ */
+function Goals({ goals }: { goals?: DayGoal[] }) {
   return (
-    <section className="d-notes" aria-label="From this run">
-      <h3 className="d-h3">From this run</h3>
+    <section className="d-notes" aria-label="Goals" data-goals>
+      <h3 className="d-h3">Goals</h3>
+      {!goals ? (
+        <div className="d-card d-pad">
+          <NotCollected />
+        </div>
+      ) : goals.length === 0 ? (
+        <div className="d-card d-pad d-nc">No open goals found in docs/goals.md</div>
+      ) : (
+        <div className="d-card">
+          {goals.map((g) => (
+            <div className="d-row" key={g.id} data-goal={g.id}>
+              <span className="d-tx">{g.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** A weekly / monthly review's measurements, one step away: one fold per note, plain text, nothing when absent. */
+function Notes({ notes, open, setOpen }: { notes: DayNote[]; open: Record<string, boolean>; setOpen: Dispatch<SetStateAction<Record<string, boolean>>> }) {
+  if (!notes.length) return null
+  return (
+    <section className="d-notes" aria-label="Review notes" data-review-notes>
+      <h3 className="d-h3">Review notes</h3>
       <div className="d-card">
         {notes.map((n) => (
           <div className="d-note-item" key={n.id} data-note={n.id}>
@@ -50,7 +83,7 @@ function Notes({ notes, open, setOpen }: { notes?: DayNote[]; open: Record<strin
 }
 
 function StatsBody({ stats, noteIds, onOpenNote }: { stats?: DayStats; noteIds: Set<string>; onOpenNote: (id: string) => void }) {
-  if (!stats || (!stats.readings?.length && !stats.funnel && !stats.series?.length)) {
+  if (!stats || (!boardReadings(stats.readings).length && !stats.funnel && !stats.series?.length)) {
     return (
       <div className="d-card d-pad">
         Stats <NotCollected />
@@ -92,9 +125,9 @@ function StatsBody({ stats, noteIds, onOpenNote }: { stats?: DayStats; noteIds: 
           ))}
         </div>
       )}
-      {!!stats.readings?.length && (
+      {boardReadings(stats.readings).length > 0 && (
         <div className="d-grid d-rd d-mt12">
-          {stats.readings.map((r) => {
+          {boardReadings(stats.readings).map((r) => {
             const body = (
               <>
                 <div className="d-sn">{r.label}</div>

@@ -1,14 +1,17 @@
 // P1399: Daily report — the Status panel (connections, new people, every check) and the Issues
 // flow, one card at a time. Paging lives in the shell's bottom bar; this file renders and
 // reports clicks.
+// P1468: this is the ONE layout of the queue — the status line, the list and the agent panel sit
+// around whichever item is open, a card or a statement (the statement card is passed in), so moving
+// from a card into the statements never moves the page.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, StatusIcon } from './status'
-import { agentWord, checkStatus, connectionStatus, needsYou } from './statusWords'
+import { agentWord, checkStatus, connectionStatus, listSummary, needsYou } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
-import { ListPane } from './ListPane'
+import { ListPane, type ListRow } from './ListPane'
 
 /**
  * P1445 E: a card that needs no founder action is not a card. The work an agent does without a
@@ -45,8 +48,24 @@ interface Props {
   onBringBack: (fp: string) => void
   /** P1432: each item key sent from this run → when it was first sent (started / pending launches) */
   sent: Readonly<Record<string, string>>
-  /** P1463: the statements after the cards — how many still to rate, and the jump to them */
-  reflection?: { open: number; go: () => void }
+  /** P1468: the statements, as rows of the same list under the `Stories` divider */
+  statements: StatementRows
+  /** P1468: the open statement's card — rendered where the card goes; absent = a card is open */
+  statement?: ReactNode
+  /** P1468: under the open statement, after the agent panel (earlier stories) */
+  afterStatement?: ReactNode
+  /** P1468: show the card view (the parked row, clicked while a statement is open) */
+  onCards: () => void
+}
+
+/** P1468: the statement half of the one list */
+export interface StatementRows {
+  rows: ListRow[]
+  /** the open statement, or -1 when a card is open */
+  current: number
+  /** statements with neither a position nor a story */
+  open: number
+  onPick: (k: number) => void
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -98,17 +117,20 @@ function StateLine({ st, readOnly }: { st: CardState; readOnly: boolean }) {
   )
 }
 
+/** P1468: the list shows when the queue holds two rows or more (cards + the parked row + statements). */
+const listShown = (cards: number, parked: number, statements: number) => cards + (parked > 0 ? 1 : 0) + statements >= 2
+
 /**
  * Every card of the set the pager walks, with its state (P1432); beside the card on a wide area
  * (P1435). Parked cards live outside the pager, so they are one row that opens the Parked section.
+ * P1468: the statements follow under a `Stories` divider — one list, whichever item is open.
  */
-function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; parked: number; onJump: (fp: string) => void; onParked: () => void; reflection?: Props['reflection'] }) {
-  if (p.issues.length + p.parked < 2 && !p.reflection) return null
+function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; sent: Props['sent']; parked: number; onJump: (fp: string) => void; onParked: () => void; statements: StatementRows }) {
   const states = p.issues.map((i) => cardState(i, p.sent))
   const need = states.filter((st) => !isDone(st)).length
   return (
     <ListPane
-      label="Cards"
+      label="Cards and stories"
       rows={p.issues.map((i, k) => ({
         key: i.fp,
         title: i.title,
@@ -118,18 +140,11 @@ function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; 
         word: isDone(states[k]) ? '' : STATE_WORD[states[k].kind],
         attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
       }))}
-      current={Math.min(p.index, p.issues.length - 1)}
-      summary={need === 0 ? `All ${plural(p.issues.length, 'card')} answered` : `${need} still need you · ${plural(p.issues.length, 'card')}`}
-      allDone={need === 0}
-      noHead
+      current={p.cardOpen ? Math.min(p.index, p.issues.length - 1) : -1}
+      summary={listSummary(need + p.statements.open, p.issues.length + p.statements.rows.length)}
       onPick={(k) => p.onJump(p.issues[k].fp)}
-      extra={[
-        ...(p.parked > 0 ? [{ title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked }] : []),
-        // P1463: the queue goes on into the statements — this row is the divider and the jump
-        ...(p.reflection
-          ? [{ title: 'Reflection', word: p.reflection.open ? `${p.reflection.open} to rate` : 'rated', attrs: { 'data-list-reflection': '' }, onClick: p.reflection.go, dot: p.reflection.open ? 'section' : 'done' }]
-          : []),
-      ]}
+      extra={p.parked > 0 ? { title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked } : undefined}
+      section={p.statements.rows.length ? { label: 'Stories', rows: p.statements.rows, current: p.statements.current, onPick: p.statements.onPick } : undefined}
     />
   )
 }
@@ -166,8 +181,14 @@ export function DailyReport(p: Props) {
   const [peopleOpen, setPeopleOpen] = useState(false)
   const [parkedOpen, setParkedOpen] = useState(false)
   const parkedRef = useRef<HTMLDivElement>(null)
+  // P1468: the parked row asks for Parked — scrolled to once it has rendered (from a statement, the
+  // card view and its Parked section mount in the same commit)
+  const [parkedAsk, setParkedAsk] = useState(0)
+  useEffect(() => {
+    if (parkedAsk) parkedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [parkedAsk])
   const fails = failures(view)
-  const cardList = p.issues.length + view.parked.length >= 2 || !!p.reflection
+  const cardList = listShown(p.issues.length, view.parked.length, p.statements.rows.length)
   // "Open card" goes to the pager or the agent list; a parked card is opened by Bring back, not from here
   const shown = new Set(view.issues.map((i) => i.fp))
   const toCard = (fp?: string) => (fp && shown.has(fp) ? () => p.onJump(fp) : undefined)
@@ -191,20 +212,23 @@ export function DailyReport(p: Props) {
             <CardList
               issues={p.issues}
               index={p.index}
+              cardOpen={!p.statement}
               sent={p.sent}
               parked={view.parked.length}
               onJump={p.onJump}
-              reflection={p.reflection}
+              statements={p.statements}
               onParked={() => {
+                if (p.statement) p.onCards()
                 setParkedOpen(true)
-                requestAnimationFrame(() => parkedRef.current?.scrollIntoView({ block: 'nearest' }))
+                setParkedAsk((n) => n + 1)
               }}
             />
           )}
-          <div className="d-mdmain">
-            <IssueCard {...p} />
+          {/* P1468: the open item, then the agent's work under it — in both halves */}
+          <div className={p.statement ? 'd-mdmain d-pwrap' : 'd-mdmain'}>
+            {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
-            <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />
+            {p.statement ? p.afterStatement : <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />}
           </div>
         </div>
       </section>
@@ -659,11 +683,13 @@ function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<st
     if (agent.open && agent.focus) box.current?.querySelector(`[data-agent-item="${CSS.escape(agent.focus)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [agent.open, agent.focus])
   if (!agent.items.length) return null
+  // P1468: the header counts what is not sent yet — the part these rows add to "Send N changes"
+  const notSent = agent.items.filter((x) => cardState(x, sent).kind !== 'sent').length
   return (
     <div className="d-card d-parked" ref={box} data-agent-list>
       <button type="button" className="d-fold" aria-expanded={agent.open} onClick={() => agent.setOpen(!agent.open)}>
         <span className="d-tri">▶</span>
-        {agentWord(agent.items.length)}
+        {agentWord(notSent, agent.items.length)}
       </button>
       {agent.open &&
         agent.items.map((x) => {

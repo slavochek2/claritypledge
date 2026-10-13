@@ -4,23 +4,27 @@
 // lives in DayPage and only Accept saves it (a typed story that is not saved says so here and in the
 // list), each story says where it is (not sent / sent n× / stuck / done), and stories from earlier
 // days that are still open are listed below.
+// P1468: this file draws the statement CARD only — the list, the status line and the agent panel
+// around it are the Daily report's, the same as around a card. The agent's stance moved into its
+// story, and the founder's story opens from CP's `+ Add a story`.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DayAgentView, DayStatement, DayView, StoryEntry } from '../../lib/day'
 import { dayLabel } from './api'
 import { fromName, toName } from './positions'
-import { ListPane } from './ListPane'
+import type { ListRow } from './ListPane'
 // P1445 D: CP's own renderers (extracted, product-free — the boundary test in server/__tests__/day.test.ts
 // follows their imports), styled by CP's Tailwind and tokens inside .cp-scope.
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/presentational/position-buttons'
 // P1449: CP's profile point card (PointCardWithLinks, a point someone holds a position on) and its
-// story (QuotedStory), through their extracted pieces: the owner row above the quoted point, the
-// footer's `Their story` toggle, the thread line, the story box and its supporting quotes.
-import { PointOwnerRow, QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card'
+// story (QuotedStory), through their extracted pieces: the quoted point, the footer's `Their story`
+// toggle and the viewer's slot (P1468: `+ Add a story`), the thread line, the story box and its
+// supporting quotes.
+import { QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card'
 import { listPointCardClass } from '@/app/components/shared/card-action-classes'
 import { QuotedStoryShell } from '@/app/components/shared/presentational/quoted-story-shell'
 import { SupportingQuotes } from '@/app/components/shared/story-video-quotes'
-import { CardExpander, CardFooterActions } from '@/app/components/shared/presentational/card-footer'
+import { ADD_STORY_COPY, CardExpander, CardFooterActions, CardSlotLink } from '@/app/components/shared/presentational/card-footer'
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared/ThreadLine'
 import { AgentByline } from '@/app/components/shared/agent-byline'
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar'
@@ -61,17 +65,43 @@ function useCpScope(): HTMLElement | null {
 /** the sticky bottom bar's top: the level menu opens above it, never under it */
 const barTop = () => document.querySelector('[data-bottom-bar]')?.getBoundingClientRect().top ?? window.innerHeight
 
+/** P1435: a position is a number; 0 is "Unsure", never "Not rated" */
+const positionOf = (view: DayView, id: string) => {
+  const v = view.reflection[id]?.position
+  return typeof v === 'number' ? v : null
+}
+const hasStory = (view: DayView, id: string) => !!view.reflection[id]?.story
+
+/**
+ * P1468: the statements as rows of the Daily report's one list — each with its position, "Not
+ * rated", or (P1440) "Story, no position" / "Unsaved". `open` counts those with neither a position
+ * nor a story: what still needs the founder.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- the rows read this file's position words (LONG)
+export function statementRows(statements: DayStatement[], view: DayView, unsaved: (id: string) => boolean): { rows: ListRow[]; open: number } {
+  const rows = statements.map((x) => {
+    const p = positionOf(view, x.id)
+    const story = hasStory(view, x.id)
+    return {
+      key: x.id,
+      title: x.text,
+      done: p !== null || story,
+      kind: 'open',
+      // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
+      word: unsaved(x.id) ? 'Unsaved' : p === null ? (story ? 'Story, no position' : 'Not rated') : LONG[p],
+      attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (story ? 'story' : 'unrated') : 'rated' },
+    }
+  })
+  return { rows, open: statements.filter((x) => positionOf(view, x.id) === null && !hasStory(view, x.id)).length }
+}
+
 interface Props {
-  /** P1463: the cards before the statements in the one queue — a row in the list goes back to them */
-  back?: { title: string; word: string; go: () => void }
   statements: DayStatement[]
   view: DayView
   readOnly: boolean
   index: number
   onPosition: (id: string, position: number) => void
   onRemove: (id: string) => void
-  /** P1435: open statement k from the list */
-  onJump: (k: number) => void
   /** this run's pass_id: which ledger entries are this run's own */
   runId: string
   /** P1440: the ledger entries the server sent with the run */
@@ -87,116 +117,88 @@ interface Props {
   onResend: (e: StoryEntry) => void
 }
 
-export function ReflectionTab({ statements, view, readOnly, index, onPosition, onRemove, onJump, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend, back }: Props) {
+/** The open statement's card (P1468: the list and everything around it are the Daily report's). */
+export function ReflectionTab(p: Props) {
   const portal = useCpScope()
-  const s = statements[Math.min(index, statements.length - 1)]
+  const s = p.statements[Math.min(p.index, p.statements.length - 1)]
+  if (!s) return <div className="d-card d-pad">No statements in this run.</div>
+  // a statement of its own: the story box and `Their story` start closed on each one (paging closes them)
+  return <StatementCard key={s.id} s={s} portal={portal} {...p} />
+}
 
+/** P1440: stories from earlier runs that are not done, under the open statement. */
+export function EarlierStoriesOf({ stories, runId, readOnly, busy, onMarkDone, onResend }: Pick<Props, 'stories' | 'runId' | 'readOnly' | 'busy' | 'onMarkDone' | 'onResend'>) {
   const earlier = stories.filter((e) => e.run_id !== runId && e.state !== 'done')
-  const earlierList = earlier.length > 0 && <EarlierStories entries={earlier} readOnly={readOnly} busy={busy} onMarkDone={onMarkDone} onResend={onResend} />
-  if (!s)
-    return (
-      <>
-        <div className="d-card d-pad">No statements in this run.</div>
-        {earlierList}
-      </>
-    )
+  return earlier.length > 0 ? <EarlierStories entries={earlier} readOnly={readOnly} busy={busy} onMarkDone={onMarkDone} onResend={onResend} /> : null
+}
+
+function StatementCard({ s, portal, view, readOnly, onPosition, onRemove, runId, stories, draftOf, unsaved, busy, onDraft, onMarkDone, onResend }: Props & { s: DayStatement; portal: HTMLElement | null }) {
   const d = view.reflection[s.id]
   const entry = stories.find((e) => e.run_id === runId && e.target === s.id)
-  const pos = d && typeof d.position === 'number' ? d.position : null
-
-  /** P1435: a position is a number; 0 is "Unsure", never "Not rated" */
-  const posOf = (id: string) => {
-    const v = view.reflection[id]?.position
-    return typeof v === 'number' ? v : null
-  }
-  const hasStory = (id: string) => !!view.reflection[id]?.story
-  // P1440 review O5: a story alone is an answer (done, with a story) — just not a rating
-  const storyOnly = statements.filter((x) => posOf(x.id) === null && hasStory(x.id)).length
-  const unanswered = statements.filter((x) => posOf(x.id) === null && !hasStory(x.id)).length
-  const summary =
-    unanswered === 0
-      ? storyOnly
-        ? `All ${statements.length} answered · ${storyOnly} story only`
-        : `All ${statements.length} rated`
-      : `${unanswered} not rated${storyOnly ? ` · ${storyOnly} story only` : ''} · ${statements.length} statements`
+  const pos = positionOf(view, s.id)
+  const saved = d?.story ?? ''
+  const draft = draftOf(s.id)
+  /** the founder clicked `+ Add a story` on this statement (until he pages away) */
+  const [adding, setAdding] = useState(false)
+  const [theirs, setTheirs] = useState(false)
+  // P1468: the box is open when there is something in it — a saved story, or a draft (an emptied
+  // draft over a saved story included: it is unsaved) — or the founder asked for it. It never closes
+  // over typed text: typing makes a draft.
+  const boxOpen = !readOnly && (adding || saved !== '' || draft !== undefined)
+  const slot = !readOnly && !boxOpen
   return (
-    <section className="d-issues" aria-label="Statements">
-      {/* P1449: one statement has no list beside it, so its card takes the pane, centred */}
-      <div className={statements.length > 1 ? 'd-md' : 'd-md d-single'} data-reflection-layout={statements.length > 1 ? 'list' : 'single'}>
-        {/* P1449: one statement is centred with no list — Previous goes back to the cards */}
-        {statements.length > 1 && (
-          <ListPane
-            label="Statements"
-            rows={statements.map((x) => {
-              const p = posOf(x.id)
-              return {
-                key: x.id,
-                title: x.text,
-                done: p !== null || hasStory(x.id),
-                kind: 'open',
-                // P1440: a story without a position is kept (answered, not rated); a typed one not saved says so
-                word: unsaved(x.id) ? 'Unsaved' : p === null ? (hasStory(x.id) ? 'Story, no position' : 'Not rated') : LONG[p],
-                attrs: { 'data-list-statement': x.id, 'data-list-state': unsaved(x.id) ? 'unsaved' : p === null ? (hasStory(x.id) ? 'story' : 'unrated') : 'rated' },
-              }
-            })}
-            current={Math.min(index, statements.length - 1)}
-            summary={summary}
-            allDone={unanswered === 0}
-            onPick={onJump}
-            // P1463: the statements follow the cards in one queue — this row goes back to them
-            extra={back ? { title: back.title, word: back.word, attrs: { 'data-list-cards': '' }, onClick: back.go, dot: 'section' } : undefined}
-          />
-        )}
-        <div className="d-pwrap d-mdmain">
-          <div className="cp-reset d-cpcard">
-            <article className={listPointCardClass()} aria-label={`Statement: ${s.text}`} data-statement={s.id}>
-              <div className="p-4">
-                {s.agent && <AgentOwnerRow agent={s.agent} />}
-                <QuotedPointBox statement={<p className="d-pst text-gray-900 break-words text-base">{s.text}</p>}>
-                {s.review && <span className="d-runbadge sm">{s.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
-                <div className="mt-3" role="group" aria-label="Your position" data-position-control>
-                  <PositionButtons
-                    // a statement of its own: a menu left open never carries over to the next one (Codex review)
-                    key={s.id}
-                    userPosition={pos === null ? null : toName(pos)}
-                    counts={NO_COUNTS}
-                    onPositionClick={(p) => onPosition(s.id, fromName(p))}
-                    onClear={readOnly ? undefined : () => onRemove(s.id)}
-                    disabled={readOnly}
-                    portalContainer={portal}
-                    menuLimit={barTop}
-                    narrow // as PointCardWithLinks passes it in the quoted point box
-                  />
-                </div>
-                </QuotedPointBox>
-                {/* the founder's own answer: the board's, not CP's — under CP's box, inside the card */}
-                <div className="d-founder">
-                <Story key={s.id} id={s.id} saved={d?.story ?? ''} draft={draftOf(s.id)} readOnly={readOnly} onDraft={onDraft} />
-                {unsaved(s.id) && (
-                  // Accept is right below in the bar; why Done waits is in Done's own tooltip
-                  <p className="d-unsaved" data-story-unsaved>
-                    Not saved
-                  </p>
-                )}
-                {entry && (
-                  <StoryState
-                    entry={entry}
-                    readOnly={readOnly}
-                    busy={busy}
-                    blocked={unsaved(s.id) ? 'Accept the edited story first: Done would close the version saved before.' : undefined}
-                    onMarkDone={onMarkDone}
-                    onResend={onResend}
-                  />
-                )}
-                </div>
-              </div>
-              {s.agent && <AgentStory key={s.id} agent={s.agent} />}
-            </article>
-          </div>
-          {earlierList}
+    <div className="cp-reset d-cpcard">
+      <article className={listPointCardClass()} aria-label={`Statement: ${s.text}`} data-statement={s.id}>
+        <div className="p-4">
+          <QuotedPointBox statement={<p className="d-pst text-gray-900 break-words text-base">{s.text}</p>}>
+            {s.review && <span className="d-runbadge sm">{s.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
+            <div className="mt-3" role="group" aria-label="Your position" data-position-control>
+              <PositionButtons
+                userPosition={pos === null ? null : toName(pos)}
+                counts={NO_COUNTS}
+                onPositionClick={(p) => onPosition(s.id, fromName(p))}
+                onClear={readOnly ? undefined : () => onRemove(s.id)}
+                disabled={readOnly}
+                portalContainer={portal}
+                menuLimit={barTop}
+                narrow // as PointCardWithLinks passes it in the quoted point box
+              />
+            </div>
+          </QuotedPointBox>
         </div>
-      </div>
-    </section>
+        {/* P1468: CP's point-card footer (P1366): `Their story` when there is an agent, then the
+            viewer's slot. A row with nothing in it (read-only, no agent) is not drawn. */}
+        {(s.agent || slot) && (
+          <div role="presentation" className="px-4 py-2.5 border-t border-border" data-testid="point-card-footer">
+            <CardFooterActions type="point">
+              {s.agent && <CardExpander label="Their story" expanded={theirs} onToggle={() => setTheirs(!theirs)} testId="point-story-expander" />}
+              {slot && <CardSlotLink kind="add-story" copy={ADD_STORY_COPY} onClick={() => setAdding(true)} />}
+            </CardFooterActions>
+          </div>
+        )}
+        {/* the founder's own answer, then its state: the board's, not CP's — together under the footer */}
+        <div className="d-founder">
+          {(boxOpen || readOnly) && <Story id={s.id} saved={saved} draft={draft} readOnly={readOnly} focus={adding} onDraft={onDraft} />}
+          {unsaved(s.id) && (
+            // Accept is right below in the bar; why Done waits is in Done's own tooltip
+            <p className="d-unsaved" data-story-unsaved>
+              Not saved
+            </p>
+          )}
+          {entry && (
+            <StoryState
+              entry={entry}
+              readOnly={readOnly}
+              busy={busy}
+              blocked={unsaved(s.id) ? 'Accept the edited story first: Done would close the version saved before.' : undefined}
+              onMarkDone={onMarkDone}
+              onResend={onResend}
+            />
+          )}
+        </div>
+        {s.agent && theirs && <AgentStory agent={s.agent} />}
+      </article>
+    </div>
   )
 }
 
@@ -206,57 +208,37 @@ const agentAvatar = (agent: DayAgentView, className: string) => (
 )
 
 /**
- * P1449: "Agent on Slava" above the statement, as CP's profile point card shows the owner of a
- * point: avatar, AGENT byline, the agent's own stance. Its position is a prediction shown beside the
- * founder's control; it never sets his.
- */
-function AgentOwnerRow({ agent }: { agent: DayAgentView }) {
-  return (
-    <div data-agent-owner>
-      <PointOwnerRow inList isAgent name={agent.name} position={toName(agent.position)} avatar={agentAvatar(agent, '!w-5 !h-5 !text-[10px]')} />
-    </div>
-  )
-}
-
-/**
- * P1445 C, P1449: the agent's story, as CP's profile point card shows its owner's story: the footer
- * row with `Their story` (closed by default; no `Details →`, the board has no page), then the story in
- * CP's thread line — QuotedStory's frame, prose text, and its supporting quotes (no timecode: these
- * quotes have no video time). The footer and story wrappers' classes are PointCardWithLinks' own.
+ * P1445 C, P1449: the agent's story, as CP's profile point card shows its owner's story: in CP's
+ * thread line — QuotedStory's frame, prose text, and its supporting quotes (no timecode: these quotes
+ * have no video time). The wrapper's classes are PointCardWithLinks' own.
+ * P1468: the agent's stance is part of its story — CP's own `authorPosition` chip beside its byline —
+ * not a row above the statement (that read as if the agent owned it). Its position is a prediction;
+ * it never sets the founder's.
  */
 function AgentStory({ agent }: { agent: DayAgentView }) {
-  const [open, setOpen] = useState(false)
   return (
-    <>
-      <div role="presentation" className="px-4 py-2.5 border-t border-border" data-testid="point-card-footer">
-        <CardFooterActions type="point">
-          <CardExpander label="Their story" expanded={open} onToggle={() => setOpen(!open)} testId="point-story-expander" />
-        </CardFooterActions>
-      </div>
-      {open && (
-        <div className="pl-4 sm:pl-[60px] pr-4 pb-4">
-          <ThreadLineGroup>
-            <ThreadLineItem isLast>
-              <div data-agent-view>
-                <QuotedStoryShell
-                  isAgent
-                  openViaDetails
-                  header={
-                    <>
-                      {agentAvatar(agent, '!w-6 !h-6 !text-[11px]')}
-                      <AgentByline name={agent.name} />
-                    </>
-                  }
-                >
-                  <p className="text-sm text-gray-800 break-words">{agent.story}</p>
-                  <SupportingQuotes quotes={agent.sources.map((q, i) => ({ key: String(i), text: q.quote, rowProps: { 'data-source-ref': q.ref } }))} />
-                </QuotedStoryShell>
-              </div>
-            </ThreadLineItem>
-          </ThreadLineGroup>
-        </div>
-      )}
-    </>
+    <div className="pl-4 sm:pl-[60px] pr-4 pb-4">
+      <ThreadLineGroup>
+        <ThreadLineItem isLast>
+          <div data-agent-view>
+            <QuotedStoryShell
+              isAgent
+              openViaDetails
+              authorPosition={toName(agent.position)}
+              header={
+                <>
+                  {agentAvatar(agent, '!w-6 !h-6 !text-[11px]')}
+                  <AgentByline name={agent.name} />
+                </>
+              }
+            >
+              <p className="text-sm text-gray-800 break-words">{agent.story}</p>
+              <SupportingQuotes quotes={agent.sources.map((q, i) => ({ key: String(i), text: q.quote, rowProps: { 'data-source-ref': q.ref } }))} />
+            </QuotedStoryShell>
+          </div>
+        </ThreadLineItem>
+      </ThreadLineGroup>
+    </div>
   )
 }
 
@@ -371,12 +353,15 @@ function Story({
   saved,
   draft,
   readOnly,
+  focus,
   onDraft,
 }: {
   id: string
   saved: string
   draft: string | undefined
   readOnly: boolean
+  /** P1468: opened by `+ Add a story` — take the focus */
+  focus: boolean
   onDraft: (id: string, text: string) => void
 }) {
   const text = draft ?? saved
@@ -388,17 +373,19 @@ function Story({
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
   }, [text])
+  // only when the founder asked for the box — never when paging lands on a saved story
+  useEffect(() => {
+    if (focus) box.current?.focus({ preventScroll: true })
+  }, [focus])
   if (readOnly) return saved ? <p className="d-story-ro">{saved}</p> : null
   return (
     <div className="d-story">
-      <label className="d-slab" htmlFor={`st-${id}`}>
-        Add your story <span>(optional)</span>
-      </label>
       <textarea
         ref={box}
         id={`st-${id}`}
         className="d-stxt"
         maxLength={2000}
+        aria-label="Your story"
         placeholder="What happened that makes you think so?"
         value={text}
         onChange={(e) => onDraft(id, e.target.value)}

@@ -1,7 +1,9 @@
 // P1435: the list beside the card — every card (or statement) with its state; a click opens it.
-// Shared by the Daily report and Reflection. On a wide area it is the left column next to the
-// card, so the card starts at the top of the page; on a narrow one it folds to one line that leads
-// with what still needs the founder, and folds again after a pick.
+// On a wide area it is the left column next to the open item, so the item starts at the top of the
+// page; on a narrow one it folds to one line that leads with what still needs the founder, and folds
+// again after a pick.
+// P1468: ONE list for the whole queue — the cards, the parked row, then a `Stories` divider (a
+// label, never a control) and the statements — the same rows whichever item is open.
 
 import { useId, useState } from 'react'
 
@@ -20,65 +22,67 @@ interface Extra {
   word: string
   attrs: Record<string, string>
   onClick: () => void
-  /** the dot's look: 'parked' (grey) or 'section' (a link to the other half of the queue) */
+  /** the dot's look: 'parked' (grey) by default */
   dot?: string
+}
+
+/** P1468: the second half of the one list, under its divider */
+interface Section {
+  label: string
+  rows: ListRow[]
+  /** the open row's index here, or -1 when the open item is in the first half */
+  current: number
+  onPick: (k: number) => void
 }
 
 interface Props {
   label: string
   rows: ListRow[]
+  /** the open row's index in `rows`, or -1 when the open item is in `section` */
   current: number
-  /** what still needs the founder, e.g. "3 still need you · 16 cards" */
+  /** the folded line on a narrow area, e.g. "3 still need you · 16 items" */
   summary: string
-  /** nothing needs the founder: the summary says so in green */
-  allDone: boolean
   onPick: (k: number) => void
-  /** one row after the list that is not a card (the parked row) */
+  /** rows after the list that are not cards (the parked row) */
   extra?: Extra | Extra[]
-  /** P1463: no summary line above the rows on a wide area (the rows' ✓ and the pager already count) */
-  noHead?: boolean
+  section?: Section
 }
 
-export function ListPane({ label, rows, current, summary, allDone, onPick, extra, noHead }: Props) {
+export function ListPane({ label, rows, current, summary, onPick, extra, section }: Props) {
   const [open, setOpen] = useState(false)
   const rowsId = useId()
+  const row = (r: ListRow, isCurrent: boolean, pick: () => void) => (
+    <li key={r.key}>
+      <button
+        type="button"
+        className="d-clrow"
+        aria-current={isCurrent ? 'true' : undefined}
+        {...r.attrs}
+        onClick={() => {
+          setOpen(false)
+          pick()
+        }}
+      >
+        <span className={`d-sdot ${r.done ? 'done' : r.kind}`} aria-hidden="true">
+          {r.done ? '✓' : ''}
+        </span>
+        <span className="d-clt" title={r.title}>
+          {r.title}
+        </span>
+        <span className="d-clw">{r.word}</span>
+      </button>
+    </li>
+  )
   return (
     <nav className={`d-card d-clist ${open ? 'open' : ''}`} aria-label={label} data-card-list>
       <button type="button" className="d-fold d-cltog" aria-expanded={open} aria-controls={rowsId} onClick={() => setOpen((o) => !o)}>
         <span className="d-tri">▶</span>
         {summary}
       </button>
-      {!noHead && (
-        <div className={`d-clhead ${allDone ? 'done' : ''}`} data-list-summary>
-          {allDone && '✓ '}
-          {summary}
-        </div>
-      )}
       <ul className="d-clrows" id={rowsId}>
-        {rows.map((r, k) => (
-          <li key={r.key}>
-            <button
-              type="button"
-              className="d-clrow"
-              aria-current={k === current ? 'true' : undefined}
-              {...r.attrs}
-              onClick={() => {
-                setOpen(false)
-                onPick(k)
-              }}
-            >
-              <span className={`d-sdot ${r.done ? 'done' : r.kind}`} aria-hidden="true">
-                {r.done ? '✓' : ''}
-              </span>
-              <span className="d-clt" title={r.title}>
-                {r.title}
-              </span>
-              <span className="d-clw">{r.word}</span>
-            </button>
-          </li>
-        ))}
+        {rows.map((r, k) => row(r, k === current, () => onPick(k)))}
         {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
-          <li key={x.title} className={x.dot === 'section' || x.attrs['data-list-reflection'] !== undefined ? 'd-clsec' : undefined}>
+          <li key={x.title}>
             <button
               type="button"
               className="d-clrow"
@@ -88,14 +92,21 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
                 x.onClick()
               }}
             >
-              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true">
-                {x.dot === 'done' ? '✓' : ''}
-              </span>
+              <span className={`d-sdot ${x.dot ?? 'parked'}`} aria-hidden="true" />
               <span className="d-clt">{x.title}</span>
               <span className="d-clw">{x.word}</span>
             </button>
           </li>
         ))}
+        {section && (
+          <>
+            {/* P1468: the divider names the second half; it is not a control */}
+            <li className="d-clsec d-cldiv" data-list-divider>
+              <span className="d-clt">{section.label}</span>
+            </li>
+            {section.rows.map((r, k) => row(r, k === section.current, () => section.onPick(k)))}
+          </>
+        )}
       </ul>
     </nav>
   )

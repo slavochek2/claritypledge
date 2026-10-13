@@ -31,9 +31,8 @@ import {
 } from '../../lib/day'
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
-import { agentWord } from './statusWords'
 import { MonitoringTab } from './MonitoringTab'
-import { ReflectionTab, BOARD_NOTE } from './ReflectionTab'
+import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf, statementRows } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
 import './day.css'
@@ -582,14 +581,6 @@ export function DayPage() {
     const n = issues.length + statements.length
     return { i: (tab === 'reflection' ? issues.length : 0) + nav.i, n, lab: nav.lab }
   }, [nav, tab, issues.length, statements.length])
-  /** Open the first statement still to rate (or the first one). */
-  const toReflection = useCallback(() => {
-    // an earlier run is read-only: nothing to rate there, so it opens on the first statement
-    const k = readOnly ? 0 : statements.findIndex((x) => typeof view?.reflection[x.id]?.position !== 'number' && !view?.reflection[x.id]?.story)
-    setTab('reflection')
-    setReflIdx(Math.max(0, k))
-  }, [statements, view, readOnly])
-
   /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
     (dir: -1 | 1) => {
@@ -749,12 +740,6 @@ export function DayPage() {
   const latestId = index.latestId ?? runs[0].id
   const reviews = ok?.report.reviews ?? summary?.reviews ?? []
   const when = dayLabel(ok?.report.started_at ?? summary?.startedAt)
-  // P1463: the agent's work is named beside Start fixing, so its number is never unexplained
-  const openAgentList = () => {
-    setTab('report')
-    setAgentList({ open: true })
-    requestAnimationFrame(() => rootRef.current?.querySelector('[data-agent-list]')?.scrollIntoView({ block: 'nearest' }))
-  }
   const firstYours = yoursLeft[0]
   // rated = has a position; a story alone is kept but is not a rating (P1440)
   // rated = has a position; a story alone is answered (with a story) but not rated (P1440 review O5)
@@ -855,7 +840,8 @@ export function DayPage() {
           )}
           {ok && view && (
             <>
-              {tab === 'report' && (
+              {/* P1468: one layout for the queue — the card or the statement opens inside it */}
+              {(tab === 'report' || tab === 'reflection') && (
                 <DailyReport
                   key={ok.id}
                   report={ok.report}
@@ -875,46 +861,44 @@ export function DayPage() {
                   onUndoFix={undoFix}
                   onBringBack={bringBack}
                   sent={ok.sentItems ?? {}}
-                  reflection={statements.length ? { open: statements.length - rated - storyOnly, go: toReflection } : undefined}
+                  statements={{
+                    ...statementRows(statements, view, isUnsaved),
+                    current: tab === 'reflection' ? Math.min(reflIdx, statements.length - 1) : -1,
+                    onPick: (k) => {
+                      setTab('reflection')
+                      setReflIdx(k)
+                      toTop()
+                    },
+                  }}
+                  onCards={() => setTab('report')}
+                  statement={
+                    tab === 'reflection' && statements.length ? (
+                      <ReflectionTab
+                        statements={statements}
+                        view={view}
+                        readOnly={readOnly}
+                        index={reflIdx}
+                        onPosition={setPosition}
+                        onRemove={removePosition}
+                        runId={ok.report.pass_id}
+                        stories={ok.stories ?? []}
+                        draftOf={storyDraftOf}
+                        unsaved={isUnsaved}
+                        busy={busyStories}
+                        onDraft={setStoryDraft}
+                        onMarkDone={(e) => storyAction('done', e)}
+                        onResend={(e) => storyAction('resend', e)}
+                      />
+                    ) : undefined
+                  }
+                  afterStatement={
+                    <EarlierStoriesOf stories={ok.stories ?? []} runId={ok.report.pass_id} readOnly={readOnly} busy={busyStories} onMarkDone={(e) => storyAction('done', e)} onResend={(e) => storyAction('resend', e)} />
+                  }
                 />
               )}
-              {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} />}
+              {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} goals={ok.report.goals} />}
               {tab === 'monitoring' && (
                 <MonitoringTab report={ok.report} view={view} readOnly={readOnly} quotaHistory={ok.quotaHistory} onRaise={raise} onUndoRaise={undoRaise} />
-              )}
-              {tab === 'reflection' && (
-                <ReflectionTab
-                  statements={statements}
-                  view={view}
-                  readOnly={readOnly}
-                  index={reflIdx}
-                  onPosition={setPosition}
-                  onRemove={removePosition}
-                  onJump={(k) => {
-                    setReflIdx(k)
-                    toTop()
-                  }}
-                  runId={ok.report.pass_id}
-                  back={
-                    issues.length
-                      ? {
-                          title: `${issues.length} card${issues.length === 1 ? '' : 's'}`,
-                          word: yoursLeft.length ? `${yoursLeft.length} still yours` : '✓ answered',
-                          go: () => {
-                            setTab('report')
-                            toTop()
-                          },
-                        }
-                      : undefined
-                  }
-                  stories={ok.stories ?? []}
-                  draftOf={storyDraftOf}
-                  unsaved={isUnsaved}
-                  busy={busyStories}
-                  onDraft={setStoryDraft}
-                  onMarkDone={(e) => storyAction('done', e)}
-                  onResend={(e) => storyAction('resend', e)}
-                />
               )}
             </>
           )}
@@ -985,10 +969,6 @@ export function DayPage() {
                       </span>
                     </>
                   )
-                ) : agentCards.length > 0 ? (
-                  <button type="button" className="d-still" data-agent-link data-short={`Agent: ${agentCards.length}`} onClick={openAgentList}>
-                    {agentWord(agentCards.length)} ▸
-                  </button>
                 ) : null}
                 {!readOnly && tab === 'report' && firstYours && (
                   <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
