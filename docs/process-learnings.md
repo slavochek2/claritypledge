@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 174
+**Next ID:** 175
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2479,5 +2479,28 @@ fixed. Counts are failed runs out of 20 (after-fix run / final run):
 
 Apply P1394's method (measure loaded runtime, then a named per-test bound or wait on the real
 condition; never retries/skips). Tonight these blocked several commits when ~10 agents ran suites.
+
+---
+
+## Post-ship checks: the new pre-commit gates from the 2026-10-13 overnight batch fire on a real commit
+
+**ID:** INBOX-174
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+Every worktree commit runs the main checkout's `pre-commit-checks.sh` (worktree-setup.md, "The commit
+hook is main's"), so the gates added on these branches were proven only by extracting their section
+and running it against a real index — never by a real commit. After each ships, from a disposable
+worktree, stage a must-fail input and confirm a real `git commit` is refused (then discard the branch):
+
+- P1474 §4.5b kanban typecheck — stage a TS2322 in `tools/kanban/lib/*.ts`.
+- P1102 §14.97 grant-order gate — stage a migration re-granting a function an earlier one revoked.
+- P1473 client-safety gate — stage a migration with an unannotated `DROP FUNCTION`.
+- P1009 §13e SINGLE-VALUE canary — stage a doc with two dated leads under one marker.
+- P1472 agent-skills sync gate — (if shipped) move `scripts/sync-agent-skills.sh` aside.
+
+Observed 2026-10-14: a probe commit staging a kanban type error on P1474's own branch was accepted,
+exactly as the doc predicts. Delete each line once its real-commit refusal is observed.
 
 ---
