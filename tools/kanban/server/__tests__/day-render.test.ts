@@ -941,11 +941,12 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
   // docs/goals.md never turns the suite red; the live file is checked for structure only.
   const FIXTURE = resolve(__dirname, 'fixtures/goals.fixture.txt')
 
-  it('GOALS — against the fixture copy of goals.md: the first 3 open items, in file order, their bold titles, no step label in the text', async () => {
+  it('GOALS — against the fixture copy of goals.md: the `**Goal:**` line, then the first 3 open items, in file order, their bold titles, no step label in the text', async () => {
     const { parseGoals } = await import('../../scripts/day-goals')
     const g = parseGoals(readFileSync(FIXTURE, 'utf-8'))
     expect(g).toEqual({
       kind: 'ok',
+      goal: '3–7 paid pilots by 2026-12-11',
       goals: [
         { id: '3a', text: 'One free in-person sales-practice event' },
         { id: '3a+', text: 'After the in-person event: a "for sales" use case on the main landing page' },
@@ -954,11 +955,13 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     })
   })
 
-  it('GOALS — against the live goals.md: structure only (1-3 rows, each id an open `[ ]` item of the file, text non-empty)', async () => {
+  it('GOALS — against the live goals.md: structure only (a goal line, 1-3 rows, each id an open `[ ]` item of the file, text non-empty)', async () => {
     const { parseGoals } = await import('../../scripts/day-goals')
     const md = readFileSync(REAL, 'utf-8')
     const g = parseGoals(md)
     expect(g.kind).toBe('ok')
+    // Decided 7: the section states its goal above the steps
+    expect(g.kind === 'ok' ? g.goal ?? '' : '').not.toBe('')
     const goals = g.kind === 'ok' ? g.goals : []
     expect(goals.length).toBeGreaterThanOrEqual(1)
     expect(goals.length).toBeLessThanOrEqual(3)
@@ -973,7 +976,39 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     const { parseGoals } = await import('../../scripts/day-goals')
     const real = readFileSync(FIXTURE, 'utf-8')
     expect(parseGoals(real.replace(/^## Next Steps$/m, '## Upcoming'))).toEqual({ kind: 'no-section' })
-    expect(parseGoals(real.replace(/\[ \]/g, '[x]'))).toEqual({ kind: 'none-open' })
+    // nothing open: still a parse failure, and the goal line is carried with it
+    expect(parseGoals(real.replace(/\[ \]/g, '[x]'))).toEqual({ kind: 'none-open', goal: '3–7 paid pilots by 2026-12-11' })
+  })
+
+  // P1468 Decided 7: the goal above the next steps
+  it('GOAL LINE — `**Goal:**` under `## Next Steps` is the goal: whole line, links and marks stripped, never one of the 3 items; absent = no goal and the items as before', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const items = ['1. [ ] First.', '2. [ ] Second.', '3. [ ] Third.']
+    const md = ['# Goals', '## Next Steps', '', '**Goal:** Reach [3 paid pilots](x.md) by `2026-12-11`. Then more.', '', ...items, '## Later', '**Goal:** Outside the section.'].join('\n')
+    expect(parseGoals(md)).toEqual({
+      kind: 'ok',
+      goal: 'Reach 3 paid pilots by 2026-12-11. Then more.',
+      goals: [{ id: '1', text: 'First.' }, { id: '2', text: 'Second.' }, { id: '3', text: 'Third.' }],
+    })
+    // absent: no goal key at all, the items exactly as before
+    const none = parseGoals(['## Next Steps', ...items, '## Later', '**Goal:** Outside the section.'].join('\n'))
+    expect(none).toEqual({ kind: 'ok', goals: [{ id: '1', text: 'First.' }, { id: '2', text: 'Second.' }, { id: '3', text: 'Third.' }] })
+    expect('goal' in none).toBe(false)
+    // the first goal line wins; an empty one is no goal
+    expect(parseGoals(['## Next Steps', '**Goal:** One.', '**Goal:** Two.', ...items].join('\n'))).toMatchObject({ goal: 'One.' })
+    expect('goal' in parseGoals(['## Next Steps', '**Goal:**   ', ...items].join('\n'))).toBe(false)
+  })
+
+  it('GOAL LINE — inside a fenced code block it is not a goal; CRLF reads like LF', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    const fenced = ['## Next Steps', '```md', '**Goal:** A fenced example.', '```', '1. [ ] Real item.'].join('\n')
+    const f = parseGoals(fenced)
+    expect(f).toEqual({ kind: 'ok', goals: [{ id: '1', text: 'Real item.' }] })
+    expect('goal' in f).toBe(false)
+    // known-good control: the same line outside the fence is the goal
+    expect(parseGoals(fenced.replace('```md\n', '').replace('\n```', ''))).toMatchObject({ goal: 'A fenced example.' })
+    const lf = ['## Next Steps', '**Goal:** Ten pilots.', '1. [ ] Real item.'].join('\n')
+    expect(parseGoals(lf.replace(/\n/g, '\r\n'))).toEqual({ kind: 'ok', goal: 'Ten pilots.', goals: [{ id: '1', text: 'Real item.' }] })
   })
 
   it('GOALS — no bold title: the first sentence, links and code marks stripped; a duplicate label keeps the first; a bold word mid-item is not a title', async () => {
@@ -1053,14 +1088,24 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     const r = render(w, 'end', ['--goals', FIXTURE])
     expect(r.code).toBe(0)
     expect(r.report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
+    expect(r.report!.goal).toBe('3–7 paid pilots by 2026-12-11')
     const broken = join(w.root, 'goals.md')
     writeFileSync(broken, readFileSync(FIXTURE, 'utf-8').replace(/^## Next Steps$/m, '## Upcoming'))
     const b = render(w, 'end', ['--goals', broken])
     expect(b.code).toBe(0)
     expect(b.report!.goals).toEqual([])
+    expect('goal' in b.report!).toBe(false)
     const missing = render(w, 'end', ['--goals', join(w.root, 'nope.md')])
     expect(missing.code).toBe(0)
     expect(missing.report!.goals).toEqual([])
+    expect('goal' in missing.report!).toBe(false)
+    // a goals.md with no goal line: the steps snapshot as before, and no goal
+    const noGoal = join(w.root, 'no-goal.md')
+    writeFileSync(noGoal, readFileSync(FIXTURE, 'utf-8').replace(/^\*\*Goal:\*\*.*$/m, ''))
+    const n = render(w, 'end', ['--goals', noGoal])
+    expect(n.code).toBe(0)
+    expect(n.report!.goals!.map((g) => g.id)).toEqual(['3a', '3a+', '3b'])
+    expect('goal' in n.report!).toBe(false)
     const parsed = parseReport(JSON.parse(readFileSync(reportPath(w), 'utf-8')))
     expect(parsed.kind === 'ok' && parsed.droppedRows).toBe(0)
   })
@@ -1069,8 +1114,11 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     const { readGoals } = await import('../../scripts/day-goals')
     writeLedger(w, cleanBody(w))
     const live = readGoals(REAL)
-    expect(live.length).toBeGreaterThanOrEqual(1) // structure only (F8): the live file has open goals
-    expect(render(w, 'end').report!.goals).toEqual(live)
+    expect(live.goals.length).toBeGreaterThanOrEqual(1) // structure only (F8): the live file has open goals
+    expect(live.goal ?? '').not.toBe('') // and a goal line
+    const report = render(w, 'end').report!
+    expect(report.goals).toEqual(live.goals)
+    expect(report.goal).toBe(live.goal)
   })
 
   it('PARSE — parseReport keeps valid goal rows and drops malformed ones, counting them', () => {
@@ -1084,6 +1132,18 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(none.kind === 'ok' && 'goals' in none.report).toBe(false)
     const empty = parseReport({ ...base, goals: [] })
     expect(empty.kind === 'ok' && empty.report.goals).toEqual([])
+  })
+
+  it('PARSE (Decided 7) — parseReport carries the goal; a missing, empty or non-string one is not kept, and is no dropped row', () => {
+    const base = JSON.parse(JSON.stringify({ schema: 2, pass_id: PASS, started_at: STARTED, state: 'complete', connections: [], checks: [{ id: 'a', label: 'A', status: 'ok' }], issues: [] }))
+    const good = parseReport({ ...base, goal: 'Ten pilots by December', goals: [{ id: '3a', text: 'One event' }] })
+    expect(good.kind === 'ok' && good.report.goal).toBe('Ten pilots by December')
+    expect(good.kind === 'ok' && good.report.goals).toEqual([{ id: '3a', text: 'One event' }])
+    for (const goal of [undefined, '', '   ', 7, { text: 'x' }]) {
+      const p = parseReport({ ...base, goal, goals: [] })
+      expect(p.kind === 'ok' && 'goal' in p.report, String(goal)).toBe(false)
+      expect(p.kind === 'ok' && p.droppedRows).toBe(0)
+    }
   })
 
   // P1468 review F6: the cap of 3 held only in the producer — a report with more rendered them all
@@ -1107,5 +1167,10 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(text).toHaveLength(MAX_GOAL)
     expect(text.endsWith('…')).toBe(true)
     expect(text.slice(0, -1)).toBe(long.slice(0, MAX_GOAL - 1))
+    // the goal line: whole from the parser, clipped by the same reader to the same length
+    expect(parseGoals(`## Next Steps\n**Goal:** ${long}\n1. [ ] Item.`)).toMatchObject({ goal: long })
+    const g = parseReport({ ...base, goal: long, goals: [] })
+    const goal = g.kind === 'ok' ? g.report.goal ?? '' : ''
+    expect(goal).toBe(text)
   })
 })

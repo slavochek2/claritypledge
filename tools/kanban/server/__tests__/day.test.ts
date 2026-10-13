@@ -846,7 +846,8 @@ describe('day v2 Phase D: the synthetic run exercises the new rules', () => {
     expect(listSummary(0, 8)).toBe('All 8 answered')
   })
 
-  it('P1468 FIXTURE — the run carries a goals snapshot the board can show', () => {
+  it('P1468 FIXTURE — the run carries a goals snapshot the board can show: the goal, then the steps', () => {
+    expect(ok(synthReport()).goal).toBe('Five paid pilots by year end')
     expect(ok(synthReport()).goals).toEqual([
       { id: '3a', text: 'One free practice evening for people who sell' },
       { id: '3a+', text: 'A use case on the landing page, in attendees’ words' },

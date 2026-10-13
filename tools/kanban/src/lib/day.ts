@@ -376,6 +376,11 @@ export interface DayReport {
    * or nothing is open.
    */
   goals?: DayGoal[]
+  /**
+   * P1468 Decided 7: the goal the next steps serve — the `**Goal:**` line of `## Next Steps`,
+   * snapshotted with them. Absent = the file has none, or a run from before the line existed.
+   */
+  goal?: string
 }
 
 /**
@@ -665,10 +670,11 @@ const GOAL_ID = /^[A-Za-z0-9][A-Za-z0-9.+_-]{0,19}$/
 export const MAX_GOAL = 300
 /** P1468: Goals shows at most this many — held where a report is read, not only by the producer (review F6) */
 export const MAX_GOALS = 3
+/** The one place goal text is clipped: the step rows and the goal line alike. */
+const clipGoal = (t: string) => (t.length > MAX_GOAL ? `${t.slice(0, MAX_GOAL - 1)}…` : t)
 function readGoal(x: unknown): DayGoal | null {
   if (!isObj(x) || typeof x.id !== 'string' || !GOAL_ID.test(x.id) || !str(x.text)) return null
-  const t = x.text as string
-  return { id: x.id, text: t.length > MAX_GOAL ? `${t.slice(0, MAX_GOAL - 1)}…` : t }
+  return { id: x.id, text: clipGoal(x.text as string) }
 }
 
 /** P1445: an agent view the checker passed, else nothing (an unchecked story is never shown). */
@@ -846,6 +852,7 @@ export function parseReport(raw: unknown): ParsedReport {
   if (Array.isArray(raw.notes)) report.notes = rows(raw.notes, readNote, (n) => n.id, drop)
   // the first MAX_GOALS valid rows, in order; rows past the cap are not malformed, so not counted
   if (Array.isArray(raw.goals)) report.goals = rows(raw.goals, readGoal, (g) => g.id, drop).slice(0, MAX_GOALS)
+  if (str(raw.goal)) report.goal = clipGoal(raw.goal as string)
   if (isObj(raw.reflection)) {
     report.reflection = { statements: rows(raw.reflection.statements, readStatement, (s) => s.id, drop) }
     if (str(raw.reflection.model)) report.reflection.model = raw.reflection.model as string

@@ -920,7 +920,7 @@ export function DayPage() {
                   }
                 />
               )}
-              {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} goals={ok.report.goals} />}
+              {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} goals={ok.report.goals} goal={ok.report.goal} />}
               {tab === 'monitoring' && (
                 <MonitoringTab report={ok.report} view={view} readOnly={readOnly} quotaHistory={ok.quotaHistory} onRaise={raise} onUndoRaise={undoRaise} />
               )}

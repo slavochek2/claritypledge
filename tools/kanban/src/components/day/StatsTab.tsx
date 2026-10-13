@@ -1,6 +1,6 @@
 // P1399: Stats — the outreach funnel, weekly lines against targets, then readings. Anything the run
 // did not collect says "not collected yet"; it is never drawn as 0.
-// P1468: then the Goals (goals.md's open next steps, snapshotted when the report was rendered), and
+// P1468: then the Goals (goals.md's goal and open next steps, snapshotted when the report was rendered), and
 // only the weekly / monthly review notes — the daily notes and the chat tiles are not shown,
 // whatever the report contains (boardNotes / boardReadings).
 
@@ -10,7 +10,7 @@ import { Legend, LineChart } from './charts'
 
 const NotCollected = () => <span className="d-prop">not collected yet</span>
 
-export function StatsTab({ stats, notes, goals }: { stats?: DayStats; notes?: DayNote[]; goals?: DayGoal[] }) {
+export function StatsTab({ stats, notes, goals, goal }: { stats?: DayStats; notes?: DayNote[]; goals?: DayGoal[]; goal?: string }) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const shown = boardNotes(notes)
   /** A reading tile that has a note opens it in "Review notes" and scrolls there. */
@@ -23,7 +23,7 @@ export function StatsTab({ stats, notes, goals }: { stats?: DayStats; notes?: Da
   return (
     <>
       <StatsBody stats={stats} noteIds={known} onOpenNote={openNote} />
-      <Goals goals={goals} />
+      <Goals goals={goals} goal={goal} />
       <Notes notes={shown} open={open} setOpen={setOpen} />
     </>
   )
@@ -33,8 +33,15 @@ export function StatsTab({ stats, notes, goals }: { stats?: DayStats; notes?: Da
  * P1468: where "From this run" was — the current goals in plain words, never an empty box: absent
  * (a run from before P1468) reads "not collected yet"; parsed but empty (goals.md drifted, or
  * nothing open) says so. Rows as the agent list and Parked draw theirs.
+ * Decided 7: the goal, when the run has one, is the card's first line in the funnel card's lead
+ * style (d-ct), above the steps; a run without one draws exactly what it drew before.
  */
-function Goals({ goals }: { goals?: DayGoal[] }) {
+function Goals({ goals, goal }: { goals?: DayGoal[]; goal?: string }) {
+  const lead = goal ? (
+    <div className="d-row d-ct" data-goal-line>
+      <span className="d-tx">{goal}</span>
+    </div>
+  ) : null
   return (
     <section className="d-notes" aria-label="Goals" data-goals>
       <h3 className="d-h3">Goals</h3>
@@ -43,9 +50,17 @@ function Goals({ goals }: { goals?: DayGoal[] }) {
           <NotCollected />
         </div>
       ) : goals.length === 0 ? (
-        <div className="d-card d-pad d-nc">No open goals found in docs/goals.md</div>
+        lead ? (
+          <div className="d-card">
+            {lead}
+            <div className="d-row d-nc">No open goals found in docs/goals.md</div>
+          </div>
+        ) : (
+          <div className="d-card d-pad d-nc">No open goals found in docs/goals.md</div>
+        )
       ) : (
         <div className="d-card">
+          {lead}
           {goals.map((g) => (
             <div className="d-row" key={g.id} data-goal={g.id}>
               <span className="d-tx">{g.text}</span>

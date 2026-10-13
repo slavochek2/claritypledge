@@ -157,7 +157,8 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
       { id: 'next', title: 'What is next', body: '1. Review the two live database rules.\n2. Send the pilot invite draft.' },
       { id: 'week-measures', title: 'Weekly review: measurements', body: 'Reach-outs: 6 (target 10)\nChampion talks: 2', review: 'weekly' },
     ],
-    // P1468: the render-time snapshot of docs/goals.md (invented text — public repo)
+    // P1468: the render-time snapshot of docs/goals.md (invented text — public repo); Decided 7: the goal line
+    goal: 'Five paid pilots by year end',
     goals: [
       { id: '3a', text: 'One free practice evening for people who sell' },
       { id: '3a+', text: 'A use case on the landing page, in attendees’ words' },

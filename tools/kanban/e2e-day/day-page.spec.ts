@@ -3423,7 +3423,10 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     let mode: 'as-is' | 'absent' | 'empty' = 'as-is'
     await patchRun(page, (b) => {
       if (!b.report) return
-      if (mode === 'absent') delete b.report.goals
+      if (mode === 'absent') {
+        delete b.report.goals
+        delete b.report.goal
+      }
       if (mode === 'empty') b.report.goals = []
     })
     const stats = () => page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
@@ -3454,6 +3457,37 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await stats()
     await expect(goals).toContainText('No open goals found in docs/goals.md')
     await expect(goals.locator('[data-goal]')).toHaveCount(0)
+  })
+
+  // P1468 Decided 7: the goal above the next steps
+  test('AC12 (Decided 7): Goals shows the goal as its first line, then the 3 next steps; a run with no goal renders exactly as before', async ({ page }) => {
+    let mode: 'as-is' | 'old' = 'as-is'
+    await patchRun(page, (b) => {
+      if (b.report && mode === 'old') delete b.report.goal
+    })
+    const stats = () => page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const goals = page.locator('[data-goals]')
+    const steps = ['One free practice evening for people who sell', 'A use case on the landing page, in attendees’ words', 'The same format online, once.']
+    const firstInCard = () => goals.evaluate((el) => el.querySelector('.d-card')?.firstElementChild?.outerHTML.slice(0, 80) ?? '')
+    await openDay(page)
+    await stats()
+    const line = goals.locator('[data-goal-line]')
+    await expect(line).toHaveText('Five paid pilots by year end')
+    await expect(line).toHaveClass(/\bd-ct\b/) // the existing card-lead style, no new element
+    expect(await firstInCard()).toContain('data-goal-line')
+    await expect(goals.locator('[data-goal]')).toHaveText(steps) // the goal is not one of the 3
+    const lineY = (await rectOf(line, 'goal line')).y
+    const stepY = (await rectOf(goals.locator('[data-goal]').first(), 'first step')).y
+    expect(lineY).toBeLessThan(stepY)
+    await expect(goals).toHaveText(['Goals', 'Five paid pilots by year end', ...steps].join(''))
+    mode = 'old'
+    await openDay(page)
+    await stats()
+    await expect(goals.locator('[data-goal-line]')).toHaveCount(0)
+    await expect(goals.locator('[data-goal]')).toHaveText(steps)
+    expect(await firstInCard()).toContain('data-goal="3a"')
+    await expect(goals.locator('.d-card > *')).toHaveCount(3) // only the 3 step rows, nothing added
+    await expect(goals).toHaveText(['Goals', ...steps].join(''))
   })
 
   for (const width of [375, 320]) {

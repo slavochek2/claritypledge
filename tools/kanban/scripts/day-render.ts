@@ -581,6 +581,8 @@ export interface RenderInputs {
   now: string
   /** P1468: docs/goals.md's open goals, parsed now ([] = failed or none open); omitted = not collected */
   goals?: DayReport['goals']
+  /** P1468 Decided 7: goals.md's `**Goal:**` line, parsed now; omitted = none */
+  goal?: string
 }
 
 const runProblem = (label: string, detail: string): Omit<DayCheck, 'id'> => ({ label, status: 'problem', detail, group: RUN_GROUP })
@@ -644,6 +646,7 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   if (data.people) report.people = data.people as DayReport['people']
   if (data.notes) report.notes = data.notes as DayReport['notes']
   if (inp.goals) report.goals = inp.goals
+  if (inp.goal) report.goal = inp.goal
   const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
   return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected }
 }
@@ -962,8 +965,8 @@ export function run(argv: string[], io: IO): number {
     return 0
   }
   // P1468: goals are read at render time — no /day data section; a broken goals.md snapshots []
-  const goals = readGoals(args.goals)
-  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now, goals })
+  const { goals, goal } = readGoals(args.goals)
+  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now, goals, goal })
   const problems = validateReport(report)
   if (problems.length) {
     say(`the report would not validate (${problems.slice(0, 5).join(',')})`)

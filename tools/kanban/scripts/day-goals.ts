@@ -1,4 +1,4 @@
-// P1468: the Day page's Goals — the open `## Next Steps` items of docs/goals.md, in plain words. One
+// P1468: the Day page's Goals — the goal and the open `## Next Steps` items of docs/goals.md, in plain words. One
 // parser, two callers: day-render.ts snapshots its result into every report (so the board needs no
 // /day data section), and day-cp.md Step 3 runs this file to file `goals:unparseable` when it fails.
 //
@@ -24,6 +24,9 @@
 //   - an open label that appears twice keeps its first open item, so the report never carries a
 //     duplicate row (a duplicate would fail the report's validation and nothing would be written);
 //     a done `[x]` item never hides a reopened one with the same label.
+//   - the goal (Decided 7) is the first `**Goal:** <text>` line inside `## Next Steps`, by the same
+//     fence and line-end rules: the whole line, marks dropped as for an item, never one of the 3.
+//     It is optional: no line, or an empty one, is no goal and no failure — the items read as before.
 
 import { readFileSync } from 'fs'
 import { join, resolve } from 'path'
@@ -36,8 +39,10 @@ export const defaultGoalsFile = () => join(REPO_ROOT, 'docs', 'goals.md')
 
 export const GOALS_CAP = MAX_GOALS
 
-export type GoalsParse = { kind: 'ok'; goals: DayGoal[] } | { kind: 'no-section' } | { kind: 'none-open' }
+/** `goal` is present only when the section has a non-empty `**Goal:**` line. */
+export type GoalsParse = { kind: 'ok'; goals: DayGoal[]; goal?: string } | { kind: 'no-section' } | { kind: 'none-open'; goal?: string }
 
+const GOAL_LINE = /^\s*\*\*Goal:\*\*(.*)$/
 const ITEM = /^\s*(?:([0-9][0-9A-Za-z.+_-]{0,18})\.|[-*])\s+\[([ xX])\]\s+(.+)$/
 
 /** Links keep their text; code and bold marks go. */
@@ -91,7 +96,14 @@ export function parseGoals(md: string, cap = GOALS_CAP): GoalsParse {
   if (start < 0) return { kind: 'no-section' }
   const goals: DayGoal[] = []
   const seen = new Set<string>()
+  let goal = ''
   for (let i = start + 1; i < lines.length && !/^## /.test(lines[i]); i++) {
+    const g = GOAL_LINE.exec(lines[i])
+    if (g) {
+      goal ||= plain(g[1])
+      continue
+    }
+    if (goals.length >= cap) continue
     const m = ITEM.exec(lines[i])
     if (!m || m[2] !== ' ') continue
     const id = m[1] ?? `item-${i - start}`
@@ -99,18 +111,19 @@ export function parseGoals(md: string, cap = GOALS_CAP): GoalsParse {
     seen.add(id)
     const text = textOf(m[3])
     if (text) goals.push({ id, text })
-    if (goals.length >= cap) break
   }
-  return goals.length ? { kind: 'ok', goals } : { kind: 'none-open' }
+  const withGoal = goal ? { goal } : {}
+  return goals.length ? { kind: 'ok', ...withGoal, goals } : { kind: 'none-open', ...withGoal }
 }
 
-/** What day-render snapshots: the goals, or `[]` when the file cannot be read or parsed. */
-export function readGoals(file: string): DayGoal[] {
+/** What day-render snapshots: the goals (`[]` when the file cannot be read or parsed) and the goal, when it has one. */
+export function readGoals(file: string): { goals: DayGoal[]; goal?: string } {
   try {
     const g = parseGoals(readFileSync(file, 'utf-8'))
-    return g.kind === 'ok' ? g.goals : []
+    if (g.kind === 'no-section') return { goals: [] }
+    return { goals: g.kind === 'ok' ? g.goals : [], ...(g.goal ? { goal: g.goal } : {}) }
   } catch {
-    return []
+    return { goals: [] }
   }
 }
 
