@@ -550,18 +550,26 @@ fi
 # changed nothing but supabase/migrations/ (P1035) failed after the migrations
 # review /finish's own classification table assigns it. The arm now reads the
 # branch diff and asks for the review type(s) that table assigns:
-#   * any path outside the four non-code classes below means code — exactly as
+#   * any path outside the non-code classes below means code — exactly as
 #     before. Unclassified paths (scripts/*.sh, supabase/functions/, README.md,
-#     .claude/settings*) land here on purpose: this fix narrows nothing that was
-#     gated, it only stops asking prose and migrations for a code review.
-#   * supabase/migrations/ wants migrations; .claude/commands/slava/ wants
-#     skills; .claude/rules/ and CLAUDE.md want rules — each one present needs
-#     its own entry. supabase/deploy-manifest.json rides with migrations: it is
+#     .claude/settings*) land here on purpose. No path leaves review: every
+#     branch still needs an entry, and the only paths a non-code review may now
+#     cover are migrations, the deploy manifest and Markdown.
+#   * supabase/migrations/ wants migrations; *.md under .claude/commands/slava/
+#     wants skills; *.md under .claude/rules/, and CLAUDE.md, want rules — each
+#     one present needs its own entry. supabase/deploy-manifest.json rides with migrations: it is
 #     the hash record migrate.sh stamps and stages after applying them, so a
 #     migration branch routinely carries it (P1035's did) and reading it as code
 #     would put the P1035 shape straight back behind a code review.
-#   * features/ and docs/ alone want specs or docs; next to any other class they
+#   * *.md under features/ and docs/ alone wants specs or docs; next to any other class they
 #     ask for nothing extra (every branch carries its spec).
+#   * Only MARKDOWN counts in the features/, docs/, .claude/commands/slava/ and
+#     .claude/rules/ classes. Those trees also hold runnable files —
+#     features/verification/**/*.ts drives a browser and writes to the DB, skill
+#     assets/ carry .sh/.mjs/.py, which criteria/skills.md never reviews as
+#     logic — and those needed a code review before P1040 and still do (Codex
+#     review M1, /finish review MEDIUM). Images and other non-Markdown assets
+#     also count as code here: fail closed, at the cost of a code review.
 # A code entry still satisfies every branch: /dev 9.5a and /fix 1a write `code`
 # once after a /finish dispatch that reviewed all types, so demanding a separate
 # migrations entry beside it would refuse every /dev-built migration branch.
@@ -573,15 +581,20 @@ review_types_for_branch() {
   if [[ -z "$files" ]]; then echo code; return; fi
   printf '%s\n' "$files" | awk '
     /^supabase\/migrations\// || $0 == "supabase/deploy-manifest.json" { t["migrations"] = 1; next }
-    /^\.claude\/commands\/slava\// { t["skills"] = 1; next }
-    /^\.claude\/rules\// || $0 == "CLAUDE.md" { t["rules"] = 1; next }
-    /^features\// || /^docs\//     { next }
+    /^\.claude\/commands\/slava\/.*\.md$/ { t["skills"] = 1; next }
+    /^\.claude\/rules\/.*\.md$/ || $0 == "CLAUDE.md" { t["rules"] = 1; next }
+    /^(features|docs)\/.*\.md$/  { next }
     { code = 1 }
     END {
       if (code) { print "code"; exit }
       n = 0; for (k in t) { print k; n++ }
       if (n == 0) print "prose"
     }' | sort
+}
+
+# _branch_entries — stdin lines whose "branch" field is exactly $feature_branch.
+_branch_entries() {
+  $GREP -F -e "\"branch\":\"${feature_branch}\"" -e "\"branch\": \"${feature_branch}\""
 }
 
 if gate_enabled "2.7" && [[ -n "$admin_ok" ]]; then
@@ -605,14 +618,19 @@ if [[ -f "$finish_file" ]]; then
     # that had genuinely run and was correctly recorded. A gate that refuses a valid
     # artifact teaches people to hand-edit the artifact, which is the one thing an
     # audit trail must never become. Chained greps also match the no-branch arm below.
-    matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"branch\": ?\"${feature_branch}\"" || true)"
+    #
+    # The branch name is DATA: matched as a fixed string, never spliced into a
+    # regex, where a '.' in feature/pN-release.1 matched a stamp written for
+    # feature/pN-releaseX1 (Codex review of P1040, M2 — the pre-existing code arm
+    # carried the same flaw). Both the compact and the spaced form are listed.
+    matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | _branch_entries || true)"
     # P1040: no code entry, and the branch changed no code — each non-code
     # class present needs an entry of its own type for this branch.
     if [[ -z "$matching_entries" && "$required_types" != "code" ]]; then
       _typed_entries=""
       for _t in $required_types; do
         _type_re="$_t"; [[ "$_t" == prose ]] && _type_re="(specs|docs)"
-        _hit="$($GREP -E "\"type\": ?\"${_type_re}\"" "$finish_file" 2>/dev/null | $GREP -E "\"branch\": ?\"${feature_branch}\"" || true)"
+        _hit="$($GREP -E "\"type\": ?\"${_type_re}\"" "$finish_file" 2>/dev/null | _branch_entries || true)"
         if [[ -z "$_hit" ]]; then
           missing_types="${missing_types}${missing_types:+, }${_t/#prose/specs or docs}"
         else
@@ -666,8 +684,6 @@ fi
 
 if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   latest_commit_ts="$(cd "$REPO_ROOT" && git log -1 --format="%ct" "$feature_branch" 2>/dev/null || echo 0)"
-  latest_entry="$(printf '%s\n' "$matching_entries" | tail -1)"
-  entry_ts_iso="$(printf '%s' "$latest_entry" | $GREP -o '"timestamp":"[^"]*"' | sed 's/"timestamp":"//;s/"$//')"
 
   # The stamp's trailing Z means UTC. BSD `date -j -f` interprets the parsed
   # fields in the LOCAL zone unless -u is given, so without it the epoch comes
@@ -676,16 +692,33 @@ if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   # commit and pins this gate to a permanent WARN. Reproduced 2026-08-12 and
   # recorded earlier in docs/decisions.md; the -u also has to be on the GNU
   # fallback, where `date -d` likewise reads a bare timestamp as local.
-  entry_ts_epoch=0
-  if [[ -n "$entry_ts_iso" ]]; then
-    entry_ts_epoch="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$entry_ts_iso" "+%s" 2>/dev/null || true)"
-    [[ -n "$entry_ts_epoch" ]] || entry_ts_epoch="$(date -u -d "$entry_ts_iso" "+%s" 2>/dev/null || echo 0)"
-  fi
+  _entry_epoch() {
+    local iso e
+    iso="$(printf '%s' "$1" | $GREP -oE '"timestamp": ?"[^"]*"' | sed -E 's/"timestamp": ?"//; s/"$//')"
+    [[ -n "$iso" ]] || { echo 0; return; }
+    e="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" "+%s" 2>/dev/null || true)"
+    [[ -n "$e" ]] || e="$(date -u -d "$iso" "+%s" 2>/dev/null || echo 0)"
+    echo "${e:-0}"
+  }
 
-  if [[ "$entry_ts_epoch" -eq 0 || "$latest_commit_ts" -eq 0 ]]; then
+  # P1040 (Codex review, L1): matching_entries can hold several review types.
+  # Judge each type by ITS latest entry — reading only the last line let a newer
+  # skills review hide a stale migrations review. Any stale type warns.
+  stale_types=""; unknown_ts=""
+  for _t in $(printf '%s\n' "$matching_entries" | $GREP -oE '"type": ?"[a-z]+"' | sed -E 's/.*"([a-z]+)"$/\1/' | sort -u); do
+    _latest="$(printf '%s\n' "$matching_entries" | $GREP -E "\"type\": ?\"${_t}\"" | tail -1)"
+    _ep="$(_entry_epoch "$_latest")"
+    if [[ "$_ep" -eq 0 ]]; then
+      unknown_ts=1
+    elif [[ "$latest_commit_ts" -gt "$_ep" ]]; then
+      stale_types="${stale_types}${stale_types:+, }${_t}"
+    fi
+  done
+
+  if [[ "$latest_commit_ts" -eq 0 || ( -n "$unknown_ts" && -z "$stale_types" ) ]]; then
     echo "[GATE 2.7b] SKIP: could not determine entry timestamp or commit timestamp"
-  elif [[ "$latest_commit_ts" -gt "$entry_ts_epoch" ]]; then
-    echo "[GATE 2.7b] WARN: .finish-reviewed entry for ${feature_branch} is older than the latest commit — consider re-running /finish"
+  elif [[ -n "$stale_types" ]]; then
+    echo "[GATE 2.7b] WARN: .finish-reviewed entry for ${feature_branch} is older than the latest commit (${stale_types}) — consider re-running /finish"
   else
     echo "[GATE 2.7b] PASS: .finish-reviewed entry for ${feature_branch} is current"
   fi

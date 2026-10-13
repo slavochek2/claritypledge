@@ -1005,11 +1005,120 @@ else
   fail "I15: a gate 2.7 line carries a redirect or pipe character (exit $rc)"; rt_show
 fi
 
+# I16 — Codex review M1: only Markdown under features/ and docs/ is prose.
+# features/verification/ holds runnable .ts (browser automation, DB writes) that
+# needed a code review before P1040 and still does.
+d="$(rt_case i16a p3017 features/verification/p3017/uat-check.ts "$MIG")"; rt_stamp "$d" migrations p3017
+rc="$(rt_gate "$d" p3017)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I16a: a .ts file under features/ is code, not prose — a migrations review does not cover it"
+else
+  fail "I16a: executable code under features/ rode a migrations review (exit $rc)"; rt_show
+fi
+d="$(rt_case i16b p3018 docs/events/badges/sheet.html)"; rt_stamp "$d" specs p3018
+rc="$(rt_gate "$d" p3018)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I16b: a non-Markdown file under docs/ is code, not prose"
+else
+  fail "I16b: a non-Markdown docs/ file passed on a specs review (exit $rc)"; rt_show
+fi
+# Same class in the skills tree: skill assets include runnable .sh/.mjs/.py.
+d="$(rt_case i16c p3019 .claude/commands/slava/util/demo/assets/run.sh)"; rt_stamp "$d" skills p3019
+rc="$(rt_gate "$d" p3019)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I16c: a script under .claude/commands/slava/ is code, not a skill doc"
+else
+  fail "I16c: a skill-tree script passed on a skills review (exit $rc)"; rt_show
+fi
+# I16e — the /finish review's exact shape: skill-asset scripts plus the spec,
+# stamped skills AND specs, no code review. Must FAIL.
+d="$(rt_case i16e p3027 .claude/commands/slava/util/demo/assets/render.mjs \
+     .claude/commands/slava/util/demo/assets/planner.py .claude/commands/slava/util/demo/SKILL.md features/p3027_demo.md)"
+rt_stamp "$d" skills p3027; rt_stamp "$d" specs p3027
+rc="$(rt_gate "$d" p3027)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I16e: skill-asset .mjs/.py with skills + specs reviews and no code review FAILS"
+else
+  fail "I16e: skill-asset scripts passed on skills + specs reviews (exit $rc)"; rt_show
+fi
+d="$(rt_case i16d p3020 features/p3020_demo.md docs/technical/demo.md "$MIG")"; rt_stamp "$d" migrations p3020
+rc="$(rt_gate "$d" p3020)"
+if [[ "$rc" -eq 0 ]]; then
+  pass "I16d: Markdown under features/ and docs/ is still prose (a migration branch passes on migrations)"
+else
+  fail "I16d: Markdown prose now demands a code review (exit $rc)"; rt_show
+fi
+
+# I17 — Codex review M2: the branch name is data, not a regex. A '.' in it must
+# not let a stamp for a different branch match — in the new typed arm AND the
+# pre-existing code arm.
+# rt_case_br <name> <pn> <branch> <path> — like rt_case, with an explicit branch.
+rt_case_br() {
+  local d="$SCRATCH/$1" pn="$2" br="$3" f="$4"
+  mk_repo "$d"
+  printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# %s\n\n## Done-When\n\n- [x] c\n' "$pn" > "$d/features/${pn}_demo.md"
+  ( cd "$d" && git add "features/${pn}_demo.md" && git commit -qm spec && git checkout -q -b "$br" \
+    && mkdir -p "$(dirname "$f")" && echo x > "$f" && git add "$f" && git commit -qm work \
+    && git checkout -q main ) >/dev/null 2>&1
+  echo "$d"
+}
+d="$(rt_case_br i17a p3021 feature/p3021-release.1 "$MIG")"; rt_stamp "$d" migrations p3021 feature/p3021-releaseX1
+rc="$(rt_gate "$d" p3021)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/i.log"; then
+  pass "I17a: a migrations stamp for feature/p3021-releaseX1 does not satisfy feature/p3021-release.1"
+else
+  fail "I17a: a '.' in the branch name matched another branch's migrations stamp (exit $rc)"; rt_show
+fi
+d="$(rt_case_br i17b p3022 feature/p3022-release.1 src/app/demo.ts)"; rt_stamp "$d" code p3022 feature/p3022-releaseX1
+rc="$(rt_gate "$d" p3022)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I17b: the pre-existing code arm does not match feature/p3022-releaseX1 for feature/p3022-release.1"
+else
+  fail "I17b: a '.' in the branch name matched another branch's code stamp (exit $rc)"; rt_show
+fi
+d="$(rt_case_br i17c p3023 feature/p3023-release.1 "$MIG")"; rt_stamp "$d" migrations p3023 feature/p3023-release.1 spaced
+rc="$(rt_gate "$d" p3023)"
+if [[ "$rc" -eq 0 ]]; then
+  pass "I17c: the exact branch name, dots and a spaced entry included, still matches"
+else
+  fail "I17c: exact branch match broke (exit $rc)"; rt_show
+fi
+
+# I18 — Codex review L1: 2.7b must warn when ANY required type's latest entry is
+# stale, not only the last line read. Warn-only: the run still exits 0.
+rt_old_stamp() {
+  printf '{"type":"%s","pn":"%s","branch":"feature/%s-demo","sha":"0","timestamp":"2000-01-01T00:00:00Z"}\n' \
+    "$2" "$3" "$3" >> "$1/.git/.finish-reviewed"
+}
+d="$(rt_case i18a p3024 "$MIG" .claude/commands/slava/build/demo.md)"
+rt_old_stamp "$d" migrations p3024; rt_stamp "$d" skills p3024
+rc="$(rt_gate "$d" p3024)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7b\] WARN.*migrations' "$SCRATCH/i.log"; then
+  pass "I18a: a stale migrations review is reported even when a newer skills review follows it (still warn-only)"
+else
+  fail "I18a: a stale migrations review was masked by a newer skills review (exit $rc)"; rt_show
+fi
+d="$(rt_case i18b p3025 "$MIG" .claude/commands/slava/build/demo.md)"
+rt_stamp "$d" migrations p3025; rt_stamp "$d" skills p3025
+rc="$(rt_gate "$d" p3025)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7b\] PASS' "$SCRATCH/i.log" && ! grep -q 'GATE 2.7b\] WARN' "$SCRATCH/i.log"; then
+  pass "I18b: two current reviews read as current"
+else
+  fail "I18b: current reviews were reported stale (exit $rc)"; rt_show
+fi
+d="$(rt_case i18c p3026 src/app/demo.ts)"; rt_old_stamp "$d" code p3026
+rc="$(rt_gate "$d" p3026)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7b\] WARN' "$SCRATCH/i.log"; then
+  pass "I18c: a stale code review still warns (pre-existing behaviour kept)"
+else
+  fail "I18c: a stale code review no longer warns (exit $rc)"; rt_show
+fi
+
 # ── Result ──────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I15)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I18)"
 exit 0

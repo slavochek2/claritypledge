@@ -86,10 +86,10 @@ for the review type(s) `/finish`'s classification table assigns
 |---|---|
 | any path outside the classes below (`src/`, `e2e/`, `scripts/`, `supabase/functions/`, anything unclassified) | `code` — unchanged |
 | `supabase/migrations/**`, `supabase/deploy-manifest.json` | `migrations`, or `code` |
-| `.claude/commands/slava/**` | `skills`, or `code` |
-| `.claude/rules/**`, `CLAUDE.md` | `rules`, or `code` |
+| `.claude/commands/slava/**/*.md` | `skills`, or `code` |
+| `.claude/rules/**/*.md`, `CLAUDE.md` | `rules`, or `code` |
 | two or more of the three rows above | one entry per class present, or `code` |
-| only `features/**` / `docs/**` | `specs` or `docs`, or `code` |
+| only `features/**/*.md` / `docs/**/*.md` | `specs` or `docs`, or `code` |
 | empty or uncomputable diff | `code` (fail closed) |
 
 Three decisions taken during `/dev`, each recorded here so they are not re-derived:
@@ -110,3 +110,13 @@ Three decisions taken during `/dev`, each recorded here so they are not re-deriv
 **Not changed:** the no-branch (direct-to-main) arm still requires a `code` entry naming the spec
 (I14), because on `main` there is no branch diff to classify. P1309 absorber borrowing and the
 P1444 administrative skip are untouched. Gate 2.7b reads whichever entries matched, as before.
+
+**Codex review follow-up (I16 to I18, each red before its fix):**
+- **Only Markdown is prose.** Non-Markdown files under `features/`, `docs/`,
+  `.claude/commands/slava/` and `.claude/rules/` count as code. `features/verification/**/*.ts` runs
+  browser automation and DB writes, and skill `assets/` carry `.sh`/`.mjs`/`.py`.
+- **The branch name is compared as a fixed string.** A `.` in `feature/pN-release.1` used to match a
+  stamp for `feature/pN-releaseX1`. The fix covers the new typed arm and the pre-existing code arm,
+  which had the same flaw.
+- **Gate 2.7b judges each review type by its own latest entry.** It warns if any type is stale and
+  stays warn-only.
