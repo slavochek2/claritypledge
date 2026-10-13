@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -14,13 +14,13 @@ tags:
   - day-page
   - kanban
 created_date: 2026-10-13
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P1468: Day page: one list for cards and stories, the agent's work said once, goals instead of "From this run"
 
-> **Redesign of:** [P1463: Day page attention pass](done/2026-06-10/p1463_day_page_attention_pass.md)
+> **Redesign of:** [P1463: Day page attention pass](p1463_day_page_attention_pass.md)
 > **What was wrong:** P1463 joined cards and reflection statements into one pager, but they still
 > render as two layouts: the cards view has the status line on top and a card list on the left;
 > the statements view (`tab === 'reflection'`) drops the status line and draws a second list. The
