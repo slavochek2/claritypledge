@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 177
+**Next ID:** 178
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2545,5 +2545,24 @@ supabase/migrations, which narrows the window but does not close it. Close it by
 `scripts/check-migration-grant-order.py --tree --index` (or the invariant mode) after the cherry-pick
 in `git-ops.sh ship`, and in CI on main. Not done in P1102 because P1198 was rewriting `ship` the
 same night.
+
+---
+
+## Event page date line on narrow phones: end time splits from AM/PM, calendar icon centres on the wrapped block
+
+**ID:** INBOX-177
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** month
+
+Found by independent visual QA of P1476 (2026-10-14), pre-existing and out of that spec's scope:
+
+1. At 320px the event date line breaks inside a time: "12:47" / "AM (UTC-7 Los Angeles)" and
+   "4:00" / "AM". Keep each time token unbroken (non-breaking space before AM/PM, or nowrap per time).
+2. On mobile the calendar icon is vertically centred on the 2–3 line wrapped date block, while the
+   location icon top-aligns with its single line — the two rows don't match (cosmetic).
+
+Screenshots: P1476's `test-results/p1476/*-r2.png` (local, w1 — gone once the worktree is reclaimed;
+recapture via /verify on any in-person event at 320px). Component: `src/app/prototypes/events/components/EventDetail.tsx` (~:900-910).
 
 ---
