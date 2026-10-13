@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 32
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: low
 tags: [events, timezone, dst, display]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P1476: Event page shows a standard-time UTC offset during daylight saving (an Oct 11 Los Angeles event reads "UTC-8")
