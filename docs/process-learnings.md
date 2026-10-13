@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 173
+**Next ID:** 174
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2456,5 +2456,28 @@ left open:
    Sibling of P1426 (`/demo` jsonb lost update) and P1427.
 
 Likely one spec: a `patch_point_config(doc_id, story_id, patch jsonb)` RPC used by every writer.
+
+---
+
+## More unit tests fail only under machine load (measured during P1394)
+
+**ID:** INBOX-173
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+P1394 (2026-10-13) fixed the named load flakes (p1364 stake, p1366, p1296, p1270, p1424,
+jsx-comment-leak). Its 20+20 full-suite stress runs at load average 100-160 found more, not yet
+fixed. Counts are failed runs out of 20 (after-fix run / final run):
+
+- `src/tests/p1364-back-drift-guard.test.ts` "no FocusHeader onBack and no bare history pop…" — 11 / 9; hits the 5s test timeout; likely a file-scan cost like jsx-comment-leak (unmeasured).
+- `src/tests/p1337-profile-points-cap.test.tsx` "renders 50 of 60… reveals the rest on Show more" — 6 / 6; 1s findBy expires during the profile render (same cause as p1270).
+- `src/tests/p1366-profile-story-menu.test.tsx` "Delete that fails: error toast…" — 5 / 0 (also blocked a real commit tonight).
+- `src/tests/p1364-point-filter.test.tsx` "a filter press REPLACES ?filter=…" — 4 / 0.
+- `src/tests/p1310-mobile-nav.test.tsx` "keeps Groups marked as the current page…" — 3 / 0.
+- `navigation-acceptance-full.test.tsx`, `p1414-event-topic-vote.test.tsx` — 1 each.
+
+Apply P1394's method (measure loaded runtime, then a named per-test bound or wait on the real
+condition; never retries/skips). Tonight these blocked several commits when ~10 agents ran suites.
 
 ---
