@@ -1281,8 +1281,33 @@ The outreach pipeline is counted by a script, not read by you. Run it **from the
 reads the CRM opportunity files from the **main** checkout (`.private/` is gitignored, so a worktree
 has none) and prints three lines. Copy the first as the `pipeline:` line of the block below (counts
 only, no names). The second, the `PIPELINE` line, is the founder's reading of goals.md's outreach
-goal, also counts only: copy it verbatim as the **first body line of the `whats-next` note** (Step 6),
-where the board shows it. The third, `PIPELINE detail`, names overdue contacts and broken files: show
+goal, also counts only. **It is no longer a note (P1468)** — the Stats funnel shows the pipeline —
+so the two signals only it carries reach the board as findings, counts only, never a name (titles
+carry no count; the count goes in the body):
+
+- `overdue next_date: K` with K above zero:
+
+```bash
+"$DAY_STEP" finding --check cp.health --severity low --store private --fault-key pipeline:overdue \
+  --title "Outreach contacts are past their next step date" \
+  --point-a "some opportunities are past the date their next step was due" --obstacle "nobody has moved them" \
+  --point-b "every open opportunity has a next step date that is not past" <<'BODY'
+overdue next_date: <K>   (who: the PIPELINE detail line, terminal only)
+BODY
+```
+
+- `target: unparseable` (goals.md no longer states "N conversations with 0 bookings"; never substitute a number):
+
+```bash
+"$DAY_STEP" finding --check cp.health --severity low --store private --fault-key pipeline:target-unparseable \
+  --title "goals.md no longer states the outreach target" \
+  --point-a "the pipeline has no target to be read against" --obstacle "the sentence day-pipeline.ts reads is gone from goals.md" \
+  --point-b "goals.md states the target as N conversations with 0 bookings" <<'BODY'
+<the PIPELINE line as printed>
+BODY
+```
+
+The third, `PIPELINE detail`, names overdue contacts and broken files: show
 it to the founder in the terminal and **never copy it into a note, the report block or any file** —
 opportunity names and filenames are private contacts. The count rules (booked = committed|active, unknown stage never dropped, the target read
 from goals.md) live in the script's header, not here. A non-zero exit means the folder exists but
@@ -1299,8 +1324,7 @@ npx tsx tools/kanban/scripts/day-pipeline.ts
 `unknown` above zero means an opportunity file whose stage the script could not read — the
 detail line names the file and why. The board leaves an unparseable file out entirely, so these lines
 are the only place it shows: record it as a finding (the count, not the filename), `--check cp.health --fault-key pipeline:unknown-stage
---severity low`, never fold it into a column. `target: unparseable` means goals.md no longer states
-"N conversations with 0 bookings" — say so; do not substitute a number.
+--severity low`, never fold it into a column.
 
 End your reply with this block — the dispatcher reads it and records it (its Step 9d); nothing in
 it is printed for the founder. Leave a line out rather than guess it:
@@ -1418,29 +1442,34 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
    - File exists in `features/` with `status: done` or `status: all-done`: mark `[x]`
    - File exists in `features/archive/` with `status: rejected`: mark `[x]` and append `(rejected)`
    If any items were crossed out, edit `docs/goals.md` silently (no confirmation needed).
-3. Parse `## Next Steps` — identify `[ ]` (not done) vs `[x]` (done)
-4. Show max 5 upcoming (not done). Never show done items.
-5. Parse `## Dos` and `## Don'ts` — compact reminders.
-6. **If none of `## Next Steps`, `## Dos`, `## Don'ts` exist in the file, do NOT print an empty WHAT'S NEXT block.** Print instead:
-   `WHAT'S NEXT: unavailable — docs/goals.md has no Next Steps/Dos/Don'ts sections (found: <list the ## headings that ARE there>). The parser and the doc have drifted.`
-   An empty block reads as "nothing queued"; the two states must not look alike. Record it too:
-   `--check cp.goals --fault-key goals:unparseable --severity low`.
+3. **The board's Goals are read at render time (P1468)** — `day-render.ts` parses `## Next Steps`
+   itself and snapshots the open items into the report, so nothing here feeds the board and no note
+   carries them. This step only proves the parse still works. Run the same parser, **after** the
+   auto-crossout above (it reads the file as it is now), from the repo root:
 
+```bash
+npx tsx tools/kanban/scripts/day-goals.ts
+# goals: N open                      (exit 0) — then up to 3 lines: <label>  <title or first sentence>
+# goals: unparseable — <why>         (exit 3) — no "## Next Steps" heading, or nothing open in it
 ```
-WHAT'S NEXT (from goals.md):
-  → [step N] [text]       ← immediate next
-  ○ [step N+1] [text]
-  ○ [step N+2] [text]
 
-DO: [comma-separated one-liners]
-DON'T: [comma-separated one-liners]
+4. **Exit 3 is a finding, both ways it can happen** — the board then shows "No open goals found in
+   docs/goals.md", and an empty list must not read as "nothing queued":
+
+```bash
+"$DAY_STEP" finding --check cp.goals --severity low --store private --fault-key goals:unparseable \
+  --title "The goals list on the board can't be read from goals.md" \
+  --point-a "the Day page shows no goals" --obstacle "goals.md has no open Next Steps item the parser can read" \
+  --point-b "goals.md's Next Steps lists the open goals as [ ] items" <<'BODY'
+<the line day-goals.ts printed, and the ## headings goals.md has now>
+BODY
 ```
 
 ---
 
 **Record it:**
 ```bash
-"$DAY_STEP" attest cp.goals --evidence "the milestone state and what moved"
+"$DAY_STEP" attest cp.goals --evidence "the milestone state and what moved; day-goals.ts: N open, or unparseable (finding filed)"
 ```
 
 ### 4. Branch Status
@@ -1540,30 +1569,29 @@ copy-pasted and the reviews simply did not happen (P900).
 "$DAY_STEP" attest cp.due --evidence "the Due Board verdict and what was done about it"
 ```
 
-### 6. Notes — what used to be printed, kept for the board (P1399)
+### 6. Notes — a review's measurements, kept for the board (P1399, P1468)
 
-Some of this sub-day's output is not a check, a finding or a person, and when the terminal stopped
-printing it, it reached nobody. It is recorded as notes, which the board shows one step away — plain
-text, at most 4000 characters each (longer is cut), one note per heading below, and only the ones
-this pass has content for:
+Some of this sub-day's output is not a check, a finding or a person. Since P1468 the board shows only
+**review notes** (weekly / monthly), under "Review notes" on Stats. The daily notes are gone, each to
+where it already lives: what shipped → git log; what's next → the board's Goals (read from goals.md at
+render time, Step 3) and the funnel; branches → the Board, and stranded specs are findings already;
+cloud spend → Monitoring. Plain text, at most 4000 characters each (longer is cut), one note per
+heading below, and only when Step 5 ran that review:
 
 | id | title | content |
 |---|---|---|
-| `shipped` | Shipped since the last run | Step 2c's SINCE LAST /day, BUSINESS, INSIGHT and CHALLENGE lines, in user-value words |
-| `whats-next` | What's next | the `PIPELINE` line from day-pipeline.ts first (the "REPORT block" section), then Step 3's WHAT'S NEXT (or its "unavailable" line), DO and DON'T |
-| `branches` | Branches and specs | Step 4's BRANCHES block and the stranded-spec list from Wave 1 |
-| `cloud-spend` | Cloud spend estimate | Wave 1's `EST_PER_DAY` / `EST_SINCE_LAST` line, as "about €X a day, €Y since the last run (an estimate from running resources, not billed)" |
 | `weekly-review` | Weekly review | the review's measurements: Metrics, product pulse, user health, SEO pulse, GCP spend, Evidence Signals (review `weekly`) |
 | `monthly-review` | Monthly review | the synthesis' measurements and the programme-health verdict (review `monthly`) |
 
 A header line `@@ <id> [weekly|monthly] :: <title>` starts each note; every line after it, up to the
-next header, is its body.
+next header, is its body. **`cp.notes` is a hard step: run it every pass.** On a day with no review
+the notes block is empty and it records `[]` — skipping it would leave the run incomplete.
 
 ```bash
 "$DAY_STEP" run cp.notes <<'STEP'
 python3 -c '
 import json, re, sys
-IDS = ("shipped", "whats-next", "branches", "cloud-spend", "weekly-review", "monthly-review")
+IDS = ("weekly-review", "monthly-review")
 notes, cur = [], None
 for line in sys.stdin.read().splitlines():
     m = re.match(r"^@@ ([a-z-]+)(?: (weekly|monthly))? :: (.+)$", line)
@@ -1587,21 +1615,14 @@ if len({n["id"] for n in out}) != len(out):
     sys.exit("a note id appears twice")
 json.dump(out, sys.stdout)
 ' <<'NOTES' | "$DAY_STEP" data notes
-@@ shipped :: Shipped since the last run
-<lines>
-@@ whats-next :: What's next
-<lines>
-@@ branches :: Branches and specs
-<lines>
-@@ cloud-spend :: Cloud spend estimate
-<line>
 NOTES
 STEP
 ```
 
-Add the `@@ weekly-review weekly :: Weekly review` or `@@ monthly-review monthly :: Monthly review`
-note when Step 5 ran one. The dispatcher adds its own notes to the same section later (it merges by
-id), so record this one even when the pass goes on to fail.
+Put the `@@ weekly-review weekly :: Weekly review` or `@@ monthly-review monthly :: Monthly review`
+note, with its lines, between the two `NOTES` markers when Step 5 ran one. The dispatcher may add its
+own notes to the same section later (it merges by id), so record this one even when the pass goes on
+to fail.
 
 ## Event-to-Journey Mapping (Wave 2b reference)
 

@@ -35,7 +35,7 @@ cp.w3	cmd	hard	Wave 3 — repo health, RLS drift, function grants, privilege flo
 cp.vsum	cmd	hard	Video summaries — auto-heal: draft + check every prod story video without one (P1373)
 cp.health	attest	hard	Every check reported a status, every problem has a finding (P1399)
 cp.reflect	attest	hard	Reflection since last /day
-cp.goals	attest	hard	Goals and milestone
+cp.goals	attest	hard	Goals and milestone — goals.md still reads for the board's Goals, which are read at render time (P1468)
 cp.branch	cmd	hard	Branch status — stash check (branch and stranded-spec rows come from cp.w1)
 cp.due	attest	hard	Due Board — act on the dispatcher's verdict
-cp.notes	cmd	hard	Notes for the day report — shipped, what's next, branches, spend, review measurements (P1399)
+cp.notes	cmd	hard	Notes for the day report — weekly / monthly review measurements (P1399, P1468)
