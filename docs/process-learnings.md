@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 175
+**Next ID:** 176
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2502,5 +2502,27 @@ worktree, stage a must-fail input and confirm a real `git commit` is refused (th
 
 Observed 2026-10-14: a probe commit staging a kanban type error on P1474's own branch was accepted,
 exactly as the doc predicts. Delete each line once its real-commit refusal is observed.
+
+---
+
+## Worktree dev origins w9+ are missing from the edge-function CORS regex and the GCS bucket CORS list
+
+**ID:** INBOX-175
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+Found by /finish on P1480 (2026-10-14), which made `scripts/lib/worktree-port.mjs` the single source
+for worktree dev ports (w10 now 6050). Two hand-typed copies of the port range remain and were left
+out of P1480 because both need a deploy/infra step:
+
+1. `supabase/functions/_shared/cors.ts:5` — `DEV_ORIGIN_RE` allows 5001 and 5100–5899 only, so a dev
+   server on w9 (5900) or w10 (6050) gets the prod origin back and the browser blocks every edge
+   function call. Pre-existing for w9. Fix: cover the real ports (derive from the .mjs in a test if
+   Deno cannot import it), add cors.test.ts cases, redeploy the shared functions.
+2. `scripts/gcs-cors.json:5-12` — bucket CORS origins cover 5001–5700; w8+ and named worktrees are
+   absent, so GCS uploads fail there. Needs the bucket CORS re-applied after editing.
+
+A drift test asserting both lists cover every port `worktree-port.mjs` yields would stop it recurring.
 
 ---
