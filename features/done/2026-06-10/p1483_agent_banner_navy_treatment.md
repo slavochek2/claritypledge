@@ -172,7 +172,7 @@ stories, OG images, `/provision-agent` (the skill's banner step needs no change)
       on a cream-ink and a sepia-ink agent (e.g. after Leonardo, after Josetsu).
       *Cream: "after Schongauer" on the local build, all widths (independent visual QA: readable). Sepia: no
       sepia agent on TEST; "after Josetsu" checked on the real prod page with the identical CSS injected
-      (2026-10-13 comparison). Re-check on prod after deploy.*
+      (2026-10-13 comparison). Re-checked on prod after deploy, 2026-10-13: "after Josetsu" readable on the live navy banner.*
 - [x] `BannerDisplay` without the new prop renders identically to today (render test); event and
       story banners unchanged. *`p1483-agent-banner-tint.test.tsx`; P1453/P1354/P1417 banner suites pass.*
 - [x] A human profile never shows the treatment, including before the agent registry has loaded
