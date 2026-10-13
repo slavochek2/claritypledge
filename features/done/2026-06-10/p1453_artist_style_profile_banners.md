@@ -164,11 +164,11 @@ code is on prod, and the ship gate runs before the merge. These are not dropped 
 **Deploy steps**
 - [x] `/push` — applies `20261012200000_p1453_profile_banner_credit.sql` to prod (P1211 schema gate) and deploys the frontend.
 - [x] `/ship-prod` — deploy `generate-banner` and `generate-agent-banner`; confirm `GEMINI_BATCH_API_KEY` exists on prod by name (`scripts/check-edge-function-secrets.sh --env prod`; P1236, no new secret).
-- [ ] **PARTIAL 2026-10-13: 6/10** (Gemini 429 on the batch key after 6; re-run `--all-missing --apply` once quota is back). Backfill: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run: 10 agents, 10 without a banner on 2026-10-12), then `--apply`.
+- [x] *(2026-10-13: 10/10 — 6, then batch-key spend cap tripped; cap raised to EUR 250, remaining 4 run.)* Backfill: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run: 10 agents, 10 without a banner on 2026-10-12), then `--apply`.
 
 **Checks (formerly acceptance criteria)**
 - [x] *(2026-10-13: 166 human profiles snapshotted before/after backfill + deploy, 0 changed.)* An existing user's banner is unchanged after deploy. *Code path proven on TEST (e2e: an existing banner without a credit is not regenerated and shows no signature); the prod check belongs to `/ship`.*
-- [ ] Every existing agent on prod has an artist banner after the backfill; no human user's banner changed. *Prod, at `/ship`. The backfill path works on TEST (`--all-missing --apply --cap 3`: 3/3 with anon read-back).*
+- [x] *(2026-10-13: 10/10 agents have banner + credit; 0 of 166 human banners changed.)* Every existing agent on prod has an artist banner after the backfill; no human user's banner changed. *Prod, at `/ship`. The backfill path works on TEST (`--all-missing --apply --cap 3`: 3/3 with anon read-back).*
 - [x] *(2026-10-13 prod agent profile: `document.fonts.check` true, signature rendered, 0 console errors.)* The signature font (Caveat 700) loads on prod without CSP errors. *Self-hosted under `font-src 'self'`; loads in dev (`document.fonts.check` true, computed family Caveat). Prod/preview check at `/ship`.*
 - [ ] A newly provisioned agent has an unfiltered artist banner after the provisioning run, including an agent provisioned without a portrait. *The banner step works for an initials-only agent on TEST; `/provision-agent` Step 5c is drafted but not yet committed to main (skill files land on main), and no full provisioning run has exercised it.*
 
