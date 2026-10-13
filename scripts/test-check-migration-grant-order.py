@@ -177,6 +177,117 @@ check("a missing helper module exits 2, never 1", p.returncode == 2 and "did NOT
       f"exit {p.returncode}: {p.stderr[-300:]}")
 
 # ---------------------------------------------------------------------------
+print("\nCodex review 2026-10-13: overloads, schemas and type spellings (P1102)")
+# Finding 2 — a DROP of a DIFFERENT overload must not reset the one being granted.
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_write(uuid) FROM authenticated;\n",
+    B: "DROP FUNCTION IF EXISTS public.widget_write(text);\n"
+       "GRANT EXECUTE ON FUNCTION public.widget_write(uuid) TO authenticated;\n"}), B)
+check("a DROP of another overload does not excuse re-granting this one", code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_write(uuid) FROM authenticated;\n",
+    B: "DROP FUNCTION IF EXISTS public.widget_write(uuid);\n"
+       "CREATE FUNCTION public.widget_write(uuid) RETURNS void LANGUAGE sql AS $$ select 1 $$;\n"
+       "GRANT EXECUTE ON FUNCTION public.widget_write(uuid) TO authenticated;\n"}), B)
+check("ACCEPT: a DROP of the same overload resets it", code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_write(uuid) FROM authenticated;\n",
+    B: "DROP FUNCTION public.widget_write(text);\n",
+    C: "GRANT EXECUTE ON FUNCTION public.widget_write(uuid) TO authenticated;\n"}), C)
+check("an intervening migration dropping another overload does not reset this one",
+      code == 1, out + err)
+
+# Finding 3 — the schema is part of the identity; unqualified means public.
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION private.widget_f(uuid) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION public.widget_f(uuid) TO anon;\n"}), B)
+check("ACCEPT: a revoke in another schema does not constrain public", code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_f(uuid) FROM anon;\n",
+    B: "DROP FUNCTION private.widget_f(uuid);\n"
+       "GRANT EXECUTE ON FUNCTION public.widget_f(uuid) TO anon;\n"}), B)
+check("a DROP in another schema does not reset the public function", code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION widget_f(uuid) FROM anon;\n",
+    B: 'GRANT EXECUTE ON FUNCTION "public"."widget_f"(uuid) TO anon;\n'}), B)
+check("an unqualified name is public, and quoted qualification still matches", code == 1, out)
+
+# Finding 4 — equivalent argument type spellings are one signature.
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_t(uuid) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION public.widget_t(pg_catalog.uuid) TO anon;\n"}), B)
+check("pg_catalog.uuid matches uuid", code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_t(uuid) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION public.widget_t(pg_catalog.text) TO anon;\n"}), B)
+check("ACCEPT: pg_catalog.text is a different overload from uuid", code == 0, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_m(int4, int8, bool, varchar, timestamptz, text) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION public.widget_m(integer, bigint, boolean, character varying(32), "
+       "timestamp with time zone, pg_catalog.text) TO anon;\n"}), B)
+check("int4/int8/bool/varchar(n)/timestamptz/text aliases match their canonical names",
+      code == 1, out + err)
+code, out, err = run(mig_dir({
+    A: "REVOKE EXECUTE ON FUNCTION public.widget_m(timestamptz) FROM anon;\n",
+    B: "GRANT EXECUTE ON FUNCTION public.widget_m(timestamp) TO anon;\n"}), B)
+check("ACCEPT: timestamp without time zone is not timestamptz", code == 0, out + err)
+
+# Missing target — a file the checker cannot find must refuse, never pass silently.
+code, out, err = run(mig_dir({A: REVOKE_AUTH}), "20260109000000_not_there.sql")
+check("a target that is not in the migrations directory exits 2, never 0",
+      code == 2 and "did NOT run" in err, f"exit {code}: {out}{err}")
+
+# ---------------------------------------------------------------------------
+print("\n--index reads what the commit will hold, not the working tree (Codex finding 1)")
+
+
+def git_repo(files, stage):
+    """A throwaway repo holding supabase/migrations/<files>; only `stage` are added."""
+    root = tempfile.mkdtemp(prefix="mgo-git-")
+    subprocess.run(["git", "init", "-q", root], check=True)
+    d = os.path.join(root, "supabase", "migrations")
+    os.makedirs(d)
+    for name, body in files.items():
+        with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+            fh.write(body)
+    if stage:
+        subprocess.run(["git", "-C", root, "add", "--",
+                        *[os.path.join("supabase", "migrations", n) for n in stage]], check=True)
+    return root, d
+
+
+def run_index(d, *targets):
+    # Targets are passed repo-relative, exactly as pre-commit passes them.
+    p = subprocess.run([sys.executable, CHECKER, "--index", "--dir", d,
+                        *[f"supabase/migrations/{t}" for t in targets]],
+                       capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(d)))
+    return p.returncode, p.stdout, p.stderr
+
+
+root, d = git_repo({A: REVOKE_AUTH, B: GRANT_AUTH}, stage=[A, B])
+with open(os.path.join(d, B), "w") as fh:
+    fh.write("SELECT 1;\n")   # working tree now harmless; the index still holds the GRANT
+code, out, err = run_index(d, B)
+check("a staged GRANT is refused even when the working tree copy is harmless",
+      code == 1 and "widens-revoked" in out, out + err)
+subprocess.run(["git", "-C", root, "add", "--", f"supabase/migrations/{B}"], check=True)
+code, out, err = run_index(d, B)
+check("ACCEPT: once the harmless version is what is staged, it passes", code == 0, out + err)
+
+root, d = git_repo({A: REVOKE_AUTH, B: GRANT_AUTH, C: REVOKE_AUTH}, stage=[A, B])
+code, out, err = run_index(d, A)
+check("an UNTRACKED re-assert does not hide a staged revoke-undone contradiction",
+      code == 1 and "revoke-undone" in out, out + err)
+subprocess.run(["git", "-C", root, "add", "--", f"supabase/migrations/{C}"], check=True)
+code, out, err = run_index(d, A)
+check("ACCEPT: once the re-assert is staged it counts", code == 0, out + err)
+
+root, d = git_repo({A: REVOKE_AUTH, B: GRANT_AUTH}, stage=[A])
+code, out, err = run_index(d, B)
+check("a target that is not in the index exits 2, never 0",
+      code == 2 and "did NOT run" in err, f"exit {code}: {out}{err}")
+
+# ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")
 INCIDENT_RESTORE = "20260818140000_p1065_restore_authenticated_grant_persist_anonymous_completion.sql"
 INCIDENT_REVOKE = "20260818090000_p1093_close_unchecked_payload_writer.sql"

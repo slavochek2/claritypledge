@@ -99,10 +99,11 @@ what the check treats as authoritative, not a code bug.
       (15 of the new assertions failed before the change, 66/81; both mutations — all-gating and
       all-silenced — fail the suite).
 - [x] A remediation that contradicts an existing migration is refused, not resolved by timestamp
-      — new `scripts/check-migration-grant-order.py`, wired as pre-commit 14.97 on staged
+      — new `scripts/check-migration-grant-order.py`, wired as pre-commit 14.97 (`--index`: staged
+      bodies and the corpus are read from the git index, not the working tree) on staged
       migrations: refuses a GRANT (anon/authenticated/PUBLIC) of what an earlier migration revoked
       unless the file carries `-- widens-revoked-grant: <revoking version> <reason>`, and refuses a
-      REVOKE that a later-sorting migration grants back. Evidence: `30/30 assertions held.` exit 0;
+      REVOKE that a later-sorting migration grants back. Evidence: `46/46 assertions held.` exit 0 (Codex review 2026-10-13: index-not-disk, overload-scoped DROP, schema identity, type-alias canonicalisation and missing-target refusal each reproduced as a failing test first, 35/46, and each fix is mutation-bound);
       across all 413 real migrations it refuses exactly the P1065 restore and passes the other 412;
       deleting the real P1093 re-assert from a copy turns the P1093 revoke into a `revoke-undone`
       refusal. Through the extracted pre-commit sections, a staged re-grant probe exits 2

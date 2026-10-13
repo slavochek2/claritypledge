@@ -46,8 +46,13 @@ Usage
 -----
   scripts/check-migration-grant-order.py FILE...   # refuse contradictions in FILEs
   scripts/check-migration-grant-order.py --tree    # audit every revoke→grant transition
+  --index                                          # read the git index, not the disk
+                                                   # (pre-commit: what will be committed)
   --dir DIR                                        # migrations directory (default:
                                                    # supabase/migrations here)
+
+A function's identity is schema + name + argument types, with built-in type spellings
+canonicalised (pg_catalog.uuid = uuid, int4 = integer, varchar(32) = character varying).
 
 Exit codes: 0 no refusal · 1 a contradiction was refused · 2 could not run.
 --tree reports and exits 0: the corpus predates this check, and a whole-tree gate
@@ -59,6 +64,7 @@ import argparse
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -98,11 +104,14 @@ DROP_RE = re.compile(
 # CREATE without OR REPLACE makes a new object, which starts from default privileges.
 CREATE_RE = re.compile(r"^CREATE\s+(?:FUNCTION|PROCEDURE)\s+(.+?\))", re.IGNORECASE | re.DOTALL)
 
+# Spellings Postgres treats as one type, mapped to the name format_type() prints.
 TYPE_ALIASES = {
     "int": "integer", "int4": "integer", "int2": "smallint", "int8": "bigint",
     "bool": "boolean", "varchar": "character varying", "float8": "double precision",
-    "float4": "real", "timestamptz": "timestamp with time zone", "timetz": "time with time zone",
-    "decimal": "numeric",
+    "float": "double precision", "float4": "real",
+    "timestamptz": "timestamp with time zone", "timestamp without time zone": "timestamp",
+    "timetz": "time with time zone", "time without time zone": "time",
+    "decimal": "numeric", "char": "character", "bpchar": "character",
 }
 # First words of multi-word type names. An argument whose first word is one of these
 # is a bare type; otherwise a two-or-more-word argument starts with its name.
@@ -131,16 +140,27 @@ def normalise_arg(arg):
     tokens = arg.split()
     if tokens and tokens[0].lower() in ARG_MODES:
         tokens = tokens[1:]
-    if len(tokens) > 1 and tokens[0].lower().strip('"') not in MULTIWORD_TYPE_STARTS:
+    # Judge the first word without its schema: `pg_catalog.timestamp with time zone` is a
+    # bare type, not an argument named `pg_catalog.timestamp`.
+    if len(tokens) > 1 and tokens[0].lower().strip('"').split(".")[-1] not in MULTIWORD_TYPE_STARTS:
         tokens = tokens[1:]
-    t = " ".join(tokens).lower().replace("public.", "")
+    t = " ".join(tokens).lower().replace('"', "")
     t = re.sub(r"\s+\[", "[", t)
     base, brackets = re.match(r"^(.*?)((?:\[\])*)$", t).groups()
+    # Built-in types resolve through pg_catalog whether or not it is written, and a
+    # function's argument types carry no typmod: f(varchar(32)) IS f(varchar).
+    base = re.sub(r"^(?:pg_catalog|public)\.", "", base.strip())
+    base = " ".join(re.sub(r"\([^)]*\)", " ", base).split())
     return TYPE_ALIASES.get(base, base) + brackets
 
 
 def parse_function_ref(ref):
-    """`public.fn(uuid, text)` -> ('fn', ('uuid', 'text')); `fn` -> ('fn', None)."""
+    """`public.fn(uuid, text)` -> (('public', 'fn'), ('uuid', 'text')); `fn` -> (('public', 'fn'), None).
+
+    The schema is part of the identity: public.f(uuid) and private.f(uuid) are two
+    functions, and merging them both invents refusals and hides real ones. Unqualified
+    means public — the schema every migration here writes to.
+    """
     ref = ref.strip()
     if "(" in ref:
         name, args = ref.split("(", 1)
@@ -148,8 +168,10 @@ def parse_function_ref(ref):
         argt = tuple(normalise_arg(a) for a in split_top_level(args))
     else:
         name, argt = ref, None
-    name = name.strip().split(".")[-1].strip().strip('"').lower()
-    return name, argt
+    parts = [p[1:-1].replace('""', '"') if p.startswith('"') else p.lower()
+             for p in re.findall(r'"(?:[^"]|"")+"|[^."\s]+', name.strip())]
+    schema = parts[-2] if len(parts) >= 2 else "public"
+    return (schema, parts[-1] if parts else ""), argt
 
 
 def parse_roles(text):
@@ -210,6 +232,11 @@ class Ledger:
     def _keys(self, name, args):
         return [k for k in self.state if k[0] == name and (args is None or k[1] is None or k[1] == args)]
 
+    def _reset_keys(self, name, args):
+        # A DROP of one overload resets that overload only. It must not erase a word
+        # spoken about every overload (args None), which still binds the others.
+        return [k for k in self.state if k[0] == name and (args is None or k[1] == args)]
+
     def last_word(self, name, args, role):
         """The latest grant/revoke covering (name, args, role), or None."""
         hits = [self.state[k] for k in self._keys(name, args) if k[2] == role]
@@ -223,7 +250,7 @@ class Ledger:
         for _, kind, (name, args), role in events:
             seq += 1
             if kind == "reset":
-                for k in self._keys(name, args):
+                for k in self._reset_keys(name, args):
                     del self.state[k]
             else:
                 self.state[(name, args, role)] = (kind, fname, seq)
@@ -232,14 +259,22 @@ class Ledger:
 
 def file_net(events):
     """Per (name, args, role): this file's final grant/revoke, whether a reset of that
-    function preceded it inside the file, and the line it was made on."""
-    net, reset_names = {}, set()
+    function preceded it inside the file, and the line it was made on.
+
+    "That function" means the same schema, name AND overload: dropping f(text) says
+    nothing about f(uuid)."""
+    net, resets = {}, []
     for line, kind, (name, args), role in events:
         if kind == "reset":
-            reset_names.add(name)
+            resets.append((name, args))
             continue
-        net[(name, args, role)] = (kind, name in reset_names, line)
+        was_reset = any(rn == name and (ra is None or ra == args) for rn, ra in resets)
+        net[(name, args, role)] = (kind, was_reset, line)
     return net
+
+
+class CannotRun(Exception):
+    """The check cannot reach a verdict; callers exit 2, never 0."""
 
 
 def load(dir_path):
@@ -248,6 +283,44 @@ def load(dir_path):
     for f in files:
         with open(os.path.join(dir_path, f), "r", encoding="utf-8") as fh:
             raw = fh.read()
+        parsed[f] = (raw, parse_events(sql_code(raw)))
+    return files, parsed
+
+
+def _git(dir_path, *args):
+    p = subprocess.run(["git", "-C", dir_path, *args], capture_output=True)
+    if p.returncode != 0:
+        raise CannotRun(f"git {' '.join(args)} failed: "
+                        f"{p.stderr.decode('utf-8', errors='replace').strip()}")
+    return p.stdout
+
+
+def load_index(dir_path):
+    """The corpus as the commit will record it: every migration in the INDEX, read from
+    its staged blob.
+
+    The working tree is the wrong source for a pre-commit gate. A contradictory GRANT
+    staged and then overwritten on disk without restaging is what gets committed while
+    the disk copy passes; an untracked re-assert sitting on disk is not committed at
+    all, yet would hide the revoke it re-asserts. Same source scripts/check-disclosure.sh
+    reads (`git show :path`).
+    """
+    entries = {}
+    for rec in _git(dir_path, "ls-files", "-s", "-z", "--", ".").split(b"\0"):
+        if not rec:
+            continue
+        meta, path = rec.split(b"\t", 1)
+        _, sha, stage = meta.split()
+        path = path.decode("utf-8")
+        if "/" in path or not path.endswith(".sql"):
+            continue
+        if stage != b"0":
+            raise CannotRun(f"{path} is unmerged in the index (stage {stage.decode()})")
+        entries[path] = sha.decode()
+    files = sorted(entries)
+    parsed = {}
+    for f in files:
+        raw = _git(dir_path, "cat-file", "blob", entries[f]).decode("utf-8")
         parsed[f] = (raw, parse_events(sql_code(raw)))
     return files, parsed
 
@@ -277,13 +350,18 @@ def analyse(files, parsed):
 
 
 def fmt_fn(name, args):
-    return f"{name}({', '.join(args)})" if args is not None else f"{name}(…any overload)"
+    qual = ".".join(name)
+    return f"{qual}({', '.join(args)})" if args is not None else f"{qual}(…any overload)"
 
 
-def check_files(targets, dir_path):
-    files, parsed = load(dir_path)
-    transitions, final = analyse(files, parsed)
+def check_files(targets, files, parsed):
     target_names = {os.path.basename(t) for t in targets}
+    # A target the corpus does not hold has not been checked. Skipping it would report
+    # "ok" for a file nobody read.
+    missing = sorted(target_names - set(parsed))
+    if missing:
+        raise CannotRun(f"not found in the migrations being checked: {', '.join(missing)}")
+    transitions, final = analyse(files, parsed)
     refusals = []
 
     for t in transitions:
@@ -295,8 +373,6 @@ def check_files(targets, dir_path):
                 f"      -- widens-revoked-grant: {version(t['revoked_in'])} <why the revoke no longer holds>")
 
     for f in sorted(target_names):
-        if f not in parsed:
-            continue
         for (name, args, role), (kind, _, line) in file_net(parsed[f][1]).items():
             if kind != "revoke":
                 continue
@@ -321,6 +397,9 @@ def main():
     ap.add_argument("--tree", action="store_true",
                     help="report every revoke-then-grant transition in the corpus; exits 0")
     ap.add_argument("--dir", help="migrations directory (default: supabase/migrations)")
+    ap.add_argument("--index", action="store_true",
+                    help="read migrations from the git index (what the commit will hold), "
+                         "not the working tree — the mode pre-commit uses")
     args = ap.parse_args()
 
     dir_path = args.dir or os.path.join(os.path.dirname(_HERE), "supabase", "migrations")
@@ -331,8 +410,8 @@ def main():
         ap.error("pass migration files, or --tree")
 
     try:
+        files, parsed = load_index(dir_path) if args.index else load(dir_path)
         if args.tree:
-            files, parsed = load(dir_path)
             transitions, final = analyse(files, parsed)
             print(f"{len(transitions)} revoke-then-grant transition(s) across {len(files)} migrations:")
             for t in transitions:
@@ -342,8 +421,8 @@ def main():
                       f"  revoked in {t['revoked_in']}"
                       f"  [{'acknowledged' if t['acknowledged'] else 'UNACKNOWLEDGED'}; final: {now}]")
             return 0
-        refusals = check_files(args.files, dir_path)
-    except (OSError, UnicodeDecodeError) as exc:
+        refusals = check_files(args.files, files, parsed)
+    except (OSError, UnicodeDecodeError, CannotRun) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         print("The check did NOT run. This is not a clean result.", file=sys.stderr)
         return 2

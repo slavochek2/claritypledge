@@ -574,7 +574,9 @@ it on every ordered apply, prod deploy included (P1093 → P1102, `docs/decision
 grant; find the fix and ship it, and treat any widening as a human decision.
 
 `scripts/check-migration-grant-order.py` enforces the migration-text half at commit time
-(pre-commit 14.97): a staged migration that GRANTs anon/authenticated/PUBLIC back what an
+(pre-commit 14.97, reading the git index rather than the working tree, with a function's
+identity taken as schema + name + canonicalised argument types): a staged migration that
+GRANTs anon/authenticated/PUBLIC back what an
 earlier migration revoked is refused unless it carries
 `-- widens-revoked-grant: <revoking version> <reason>`, and one that REVOKEs what a
 later-sorting migration grants back is refused outright (re-assert the revoke in a migration

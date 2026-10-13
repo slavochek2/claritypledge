@@ -1759,10 +1759,13 @@ echo ""
 # anon/authenticated/PUBLIC back what an earlier migration revoked (unless it carries
 # "-- widens-revoked-grant: <revoking version> <reason>"), or that REVOKEs what a
 # later-sorting migration grants back. Narrowing is never refused.
+# --index: both the staged files AND the corpus they are judged against are read from the
+# index, so an unstaged edit or an untracked migration on disk cannot change the verdict
+# on what is actually being committed (Codex review 2026-10-13).
 echo ">>> Checking new/modified migrations for grant-order contradictions (P1102)..."
 if [ -n "$NEW_MIGRATIONS" ]; then
     # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
-    if python3 ./scripts/check-migration-grant-order.py $NEW_MIGRATIONS; then
+    if python3 ./scripts/check-migration-grant-order.py --index $NEW_MIGRATIONS; then
         echo -e "${GREEN}✓ No grant-order contradiction${NC}"
     else
         echo -e "${RED}✗ A staged migration contradicts another migration's grant (see above)${NC}"
