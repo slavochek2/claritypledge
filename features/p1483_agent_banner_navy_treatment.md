@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: opus
