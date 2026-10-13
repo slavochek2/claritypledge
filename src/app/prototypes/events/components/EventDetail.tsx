@@ -906,7 +906,8 @@ export function EventDetail() {
                         </span>
                         <span className="mx-2">·</span>
                         <span>
-                          {formatLocalTime(eventDate, { timeZone: displayTz })} - {formatLocalTime(endDate, { timeZone: displayTz })} ({tzLabel})
+                          {/* P1476: nowrap so "(UTC-7 …)" never breaks at its minus sign */}
+                          {formatLocalTime(eventDate, { timeZone: displayTz })} - {formatLocalTime(endDate, { timeZone: displayTz })} <span className="whitespace-nowrap">({tzLabel})</span>
                         </span>
                       </>
                     );
