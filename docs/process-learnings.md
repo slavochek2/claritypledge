@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 164
+**Next ID:** 167
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2550,7 +2550,7 @@ Deferred from the P1463 copy and visual review (2026-10-12): (1) an answered car
 
 ---
 
----
+## Event prep: in-person sales-practice event
 
 **ID:** INBOX-164
 **Date:** 2026-10-13
@@ -2561,9 +2561,22 @@ Prepare the in-person sales-practice event (goals.md 3a) in its own session. Fou
 
 ---
 
+## Day page feedback (tools/kanban)
+
 **ID:** INBOX-165
 **Date:** 2026-10-13
 **Status:** proposed
 **due:** week
 
 Day page feedback from the founder (2026-10-13, screenshots in ~/Screenshots 14-23 and 14-26), to spec before building (tools/kanban): (1) one left list that stays the same when moving between cards and stories, instead of two layouts; (2) the agent's reading of a story ("AGENT on Slava · Agrees") moves down into the "Their story" block; (3) "Add your story" uses the app's existing components: a button that expands the input, open by default only when it already has text; (4) "Agent: N tasks" appears twice (panel and footer): keep one, and label it as what was sent to the fixing agent; (5) Stats "From this run": drop "shipped since last run" and the cloud spend estimate (Monitoring has it); chat help requests become reply cards, not a reading tile; replace the section with goals and what's next in plain words. Founder rule: no custom components; reuse cards, points and buttons.
+
+## Prod health smoke times out on /cm every run (networkidle never reached)
+
+**ID:** INBOX-166
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+The post-deploy smoke fails on /cm on every run: page.goto waits for networkidle and hits the 45s timeout although the page renders (HTTP 200 in under a second, snapshot shows content). Seen 2026-10-12 before the P1453 push and again after it, so it is not a deploy regression. Likely a persistent request on /cm (P1447 surface) keeps the network busy; fix either that request or the smoke's wait condition for the route. Done when smoke:prod passes 8/8; droppable if /cm leaves the smoke route list. It matters because a permanently red step 6 teaches every /ship to wave real failures through.
+
+---
