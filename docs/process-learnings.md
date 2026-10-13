@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 176
+**Next ID:** 177
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2524,5 +2524,26 @@ out of P1480 because both need a deploy/infra step:
    absent, so GCS uploads fail there. Needs the bucket CORS re-applied after editing.
 
 A drift test asserting both lists cover every port `worktree-port.mjs` yields would stop it recurring.
+
+---
+
+## No check runs on migrations after /ship cherry-picks them together (P1102 grant-order gate scope)
+
+**ID:** INBOX-176
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+P1102's grant-order gate runs at pre-commit on a branch's own index. `/ship` lands commits with
+`git cherry-pick`, which runs no hook, so a contradiction that exists only after two branches
+combine (main revokes `f` at T1; a branch grants it at T2) is never checked. Found by an Opus
+adversarial review of P1102 (2026-10-14) with a temp-repo probe: the hook ran 0 times; the merged
+tree's `--tree` showed an UNACKNOWLEDGED transition ending in grant.
+
+P1102 round 5 adds a whole-tree invariant that fires on the next commit touching
+supabase/migrations, which narrows the window but does not close it. Close it by running
+`scripts/check-migration-grant-order.py --tree --index` (or the invariant mode) after the cherry-pick
+in `git-ops.sh ship`, and in CI on main. Not done in P1102 because P1198 was rewriting `ship` the
+same night.
 
 ---
