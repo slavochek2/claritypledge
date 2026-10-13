@@ -90,15 +90,17 @@ triggers pre-commit's console.log warning on every commit that stages that file.
       and the theme-parity test still passes.
       Evidence: the grep printed nothing (rc=1). `playwright test --config=playwright.day.config.ts -g "theme parity"`
       with `DAY_E2E_PORT_BASE=9170` reported `1 passed (52.5s)`.
-- [ ] Gate 7 proof: in a worktree, add a deliberate type error to a kanban `.ts` file and stage it.
-      `bash scripts/pre-commit-checks.sh` exits non-zero and names the kanban typecheck. Revert, and
-      it passes. Paste both exit codes.
-      Partial evidence (section level only): the dev subagent may not run the full script, because a
-      session hook blocks it. Section 4.5b was extracted verbatim from the file with `sed` and run
-      against the real w9 index. With `'not a number'` assigned to a `number` in `lib/scanner-rules.ts`
-      and staged, it printed `>>> Kanban typecheck... ✗` and `TS2322`, then `ERRORS=1 rc=1`. After the
-      revert and restage: `✓`, `ERRORS=0 rc=0`. The script ends with `if [ $ERRORS -gt 0 ]` and
-      `exit 1`, but the **full-script exit codes are still to be pasted** from a main session.
+- [x] Gate 7 proof: a deliberate type error in a staged kanban `.ts` file is refused, and passes once reverted.
+      Evidence (section level — the full script cannot prove this before ship): section 4.5b was
+      extracted verbatim and run against the real w9 index. With `'not a number'` assigned to a
+      `number` in `lib/scanner-rules.ts` and staged it printed `>>> Kanban typecheck... ✗`, `TS2322`,
+      `ERRORS=1 rc=1`; after revert and restage `✓`, `ERRORS=0 rc=0`.
+      Why not the full script / a real commit here: every worktree commit runs the **main checkout's**
+      `pre-commit-checks.sh` (`.git/hooks/pre-commit` is a symlink into main —
+      `docs/technical/worktree-setup.md` "The commit hook is main's"), so 4.5b cannot fire on this
+      branch's own commits until it is on main. Confirmed by observation 2026-10-14: a probe commit on
+      this branch staging the same type error was accepted (main's hook has no 4.5b; probe commit
+      removed). The real-commit proof is a post-ship check, tracked in the task inbox.
 - [x] A commit staging no `tools/kanban` TypeScript does not run the kanban typecheck (the output
       shows it skipped).
       Evidence (same section harness): with an empty index, and again with only the spec and
