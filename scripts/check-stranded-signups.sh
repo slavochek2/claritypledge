@@ -32,6 +32,12 @@
 # Usage:
 #   ./scripts/check-stranded-signups.sh                # count only
 #   ./scripts/check-stranded-signups.sh --emails       # also write addresses to .private/
+#
+# HANDLED PEOPLE. Once someone has been followed up with, add their auth user id (a UUID,
+# never an address) to scripts/stranded-signups-ack.txt, one per line, "#" for comments.
+# They are then left out of the count, so the alert stops re-raising a person who has
+# already been dealt with. Ids are not PII, which is why the file may live in this public
+# repo. An id that no longer matches anyone stranded is harmless and may be left in.
 #   GRACE_HOURS=48 WINDOW_DAYS=14 ./scripts/check-stranded-signups.sh
 
 set -euo pipefail
@@ -155,11 +161,23 @@ filter='
   def ts: sub("\\.[0-9]+";"") | fromdateiso8601;
   [ .users[]
     | select(.email_confirmed_at == null)
+    | select(.id as $i | ($ack | index($i)) | not)
     | select((.created_at | ts) < (now - ($grace | tonumber) * 3600))
     | select((.created_at | ts) > (now - ($window | tonumber) * 86400))
   ]'
 
-stranded="$(printf '%s' "$response" | jq --arg grace "$GRACE_HOURS" --arg window "$WINDOW_DAYS" "$filter")" || {
+# Handled people (see HANDLED PEOPLE above). Only UUID-shaped lines count, so a stray
+# address or note pasted into the file can never be mistaken for an id.
+ACK_FILE="${STRANDED_ACK_FILE:-$REPO_ROOT/scripts/stranded-signups-ack.txt}"
+ack_json='[]'
+if [ -f "$ACK_FILE" ]; then
+  ack_json="$(sed 's/#.*//' "$ACK_FILE" | tr -d '[:blank:]\r' | tr 'A-F' 'a-f' \
+    | grep -E '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
+    | jq -R . | jq -sc . || true)"
+  [ -n "$ack_json" ] || ack_json='[]'
+fi
+
+stranded="$(printf '%s' "$response" | jq --arg grace "$GRACE_HOURS" --arg window "$WINDOW_DAYS" --argjson ack "$ack_json" "$filter")" || {
   echo "check-stranded-signups: could not parse the auth API response." >&2
   cannot_run unparseable_api_response
 }
@@ -179,7 +197,8 @@ if [ "$WRITE_EMAILS" -eq 1 ]; then
 fi
 
 # stdout is the publishable half: a count, never an address.
-echo "stranded_signups=${count} (grace=${GRACE_HOURS}h window=${WINDOW_DAYS}d of ${returned} users scanned, credential=${CREDENTIAL})"
+acked="$(printf '%s' "$ack_json" | jq 'length')"
+echo "stranded_signups=${count} (ack_ids_listed=${acked}, grace=${GRACE_HOURS}h window=${WINDOW_DAYS}d of ${returned} users scanned, credential=${CREDENTIAL})"
 
 if [ "$count" -gt 0 ]; then
   echo "check-stranded-signups: ${count} person(s) started signup and never got in." >&2

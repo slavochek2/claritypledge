@@ -1,0 +1,4 @@
+# People already followed up with, so the stranded-sign-ups check and /day stop counting them.
+# One auth user id (a UUID, never an email address) per line. "#" starts a comment.
+# Ids are not personal data; this file is safe in the public repo. See check-stranded-signups.sh.
+047ca4f1-eaca-435c-94e4-3590e31110de   # signed up 2026-10-09; founder followed up (told 2026-10-13)

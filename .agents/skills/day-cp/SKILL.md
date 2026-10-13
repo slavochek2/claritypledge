@@ -523,7 +523,12 @@ echo "$FUNNEL_AGREEMENTS"
 
 echo -e "\n=== UNCONFIRMED SIGN-UPS (P1257 window: older than 24h, newer than 7 days) ==="
 # A count only: the addresses stay out of this output (check-stranded-signups.sh's privacy rule).
-UNCONF=$(ro "SELECT count(*) AS n FROM auth.users WHERE email_confirmed_at IS NULL AND created_at < now() - interval '24 hours' AND created_at > now() - interval '7 days'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+# People already followed up with are listed in scripts/stranded-signups-ack.txt (user ids, never
+# addresses; the same file check-stranded-signups.sh reads) and are left out, so this check stops
+# re-raising someone who has been dealt with. Only UUID-shaped lines are used.
+ACK_IDS=$(sed 's/#.*//' "$(git rev-parse --show-toplevel)/scripts/stranded-signups-ack.txt" 2>/dev/null | tr -d '[:blank:]\r' | tr 'A-F' 'a-f' | grep -E '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' | sed "s/.*/'&'/" | paste -sd, - || true)
+ACK_SQL=""; [ -n "$ACK_IDS" ] && ACK_SQL=" AND id NOT IN ($ACK_IDS)"
+UNCONF=$(ro "SELECT count(*) AS n FROM auth.users WHERE email_confirmed_at IS NULL AND created_at < now() - interval '24 hours' AND created_at > now() - interval '7 days'$ACK_SQL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "unconfirmed_signups=$UNCONF"
 case "$UNCONF" in
   0) echo "CHECK cp.signups ok every sign-up of the last week confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
@@ -1160,6 +1165,7 @@ Since P1399 the reading rules below decide **findings**, not printed lines — w
 |---|---|---|
 | lint errors / failing tests | cp.baseline | `baseline:lint-errors`, `baseline:tests-failing` — "fix before starting new work" is its Point B |
 | an open ops alert issue | cp.ops | `ops:issue-<number>` — the issue's title and its fix command; `--first-seen` = the issue's creation date |
+| an open ops alert issue labelled `p1155*` (stranded sign-ups) | cp.signups | NOT its own card: it is the same person as the unconfirmed-sign-ups count. Record it as `--check cp.signups --fault-key signups:unconfirmed` (same key as the row above) and put the issue number in the body, so one person is one card. When the count is 0 the issue is stale: say so in the body of a `cp.ops` note, do not file a card |
 | NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) |
 | NEW function grant drift / guards not refusing anon | cp.grants | `grants:new-anon-execute`, `grants:guard-not-refusing` |
 | a privilege-floor violation / a failed self-test | cp.floor | `floor:violations`, `floor:selftest-failed` |
