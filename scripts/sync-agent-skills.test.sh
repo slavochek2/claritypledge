@@ -434,6 +434,13 @@ run_sync "check after case F4 is clean" 0 --check --src-dir "$SRC" --out-dir "$O
 # so a crash (127, 126) cannot score as the intended refusal.
 # ══════════════════════════════════════════════════════════════════════════
 echo "--- case G: internal failure is never reported as OK ---"
+refute_out() {   # refute_out NAME STRING
+  if grep -Fq -- "$2" <<< "$LAST_OUT"; then
+    echo "FAIL  ${1}: output still contains: $2"; fail_count=$((fail_count + 1))
+  else
+    echo "PASS  ${1}"; pass_count=$((pass_count + 1))
+  fi
+}
 assert_no_ok() {   # assert_no_ok NAME — the OK line must not appear in LAST_OUT
   if grep -Fq -- "--check: OK" <<< "$LAST_OUT"; then
     echo "FAIL  ${1}: printed the OK line after an internal failure"
@@ -498,6 +505,72 @@ assert_no_ok "case G3: no OK line"
 run_sync_in "$GITFIX" "gitfix: regenerate after G3" 0 --src-dir "$SRC" --out-dir "$OUT"
 (cd "$GITFIX" && git add -- "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "resync G3" >/dev/null 2>&1)
 
+# G5 — an UNREADABLE source is an internal failure, not "no description"
+# (Codex review, P1472). has_description's awk failed to open the file, the
+# `|| continue` read that as "not a skill", and a staged new skill with no
+# mirror passed `--check --staged-only` as "OK — 1 skills in sync". Staged
+# first, then chmod 000 (git cannot add an unreadable file).
+cannot_deny() {   # cannot_deny DIR-OR-FILE — true when permissions will not deny us (root, some CI)
+  [[ "$(id -u)" -eq 0 ]]
+}
+cat > "${GITFIX}/${SRC}/beta.md" <<'EOF'
+---
+name: beta
+description: A synthetic new skill, staged, unreadable, with no mirror.
+---
+fixture body
+EOF
+(cd "$GITFIX" && git add -- "${SRC}/beta.md" >/dev/null 2>&1)
+chmod 000 "${GITFIX}/${SRC}/beta.md"
+if cannot_deny || cat "${GITFIX}/${SRC}/beta.md" >/dev/null 2>&1; then
+  echo "SKIP  case G5: chmod 000 does not deny reads here (uid $(id -u))"
+else
+  run_sync_in "$GITFIX" "case G5a: unreadable staged source refuses under --staged-only" 3 \
+    --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+  assert_no_ok "case G5a: no OK line"
+  assert_out "case G5a: names the unreadable source" "beta.md"
+  run_sync_in "$GITFIX" "case G5b: unreadable source refuses under plain --check" 3 \
+    --check --src-dir "$SRC" --out-dir "$OUT"
+  run_sync_in "$GITFIX" "case G5c: unreadable source refuses in generate mode" 3 \
+    --src-dir "$SRC" --out-dir "$OUT"
+fi
+chmod 644 "${GITFIX}/${SRC}/beta.md"
+(cd "$GITFIX" && git rm -q --cached -- "${SRC}/beta.md" >/dev/null 2>&1)
+rm -f "${GITFIX}/${SRC}/beta.md"
+run_sync_in "$GITFIX" "gitfix: regenerate after G5" 0 --src-dir "$SRC" --out-dir "$OUT"
+
+# G6 — a cleanup the OS refuses is a failed generation, not a success (Codex
+# review, P1472). An unexpected entry inside a skill dir, and an orphan dir,
+# each holding a file in a chmod 555 directory: rm cannot remove them, and
+# generate used to print the permission errors, keep the files, and report
+# "generated ... 0 orphan(s) pruned" with exit 0.
+mkdir -p "${WORK}/${OUT}/flat-skill/extra"
+printf 'fixture\n' > "${WORK}/${OUT}/flat-skill/extra/SKILL.md"
+chmod 555 "${WORK}/${OUT}/flat-skill/extra"
+if cannot_deny || touch "${WORK}/${OUT}/flat-skill/extra/.probe" 2>/dev/null; then
+  echo "SKIP  case G6: chmod 555 does not deny deletes here (uid $(id -u))"
+  rm -f "${WORK}/${OUT}/flat-skill/extra/.probe"
+else
+  run_sync "case G6a: denied cleanup inside a skill dir refuses" 3 --src-dir "$SRC" --out-dir "$OUT"
+  refute_out "case G6a: does not report a generation" "sync-agent-skills: generated"
+fi
+chmod 755 "${WORK}/${OUT}/flat-skill/extra"
+rm -rf "${WORK}/${OUT}/flat-skill/extra"
+mkdir -p "${WORK}/${OUT}/orphan-x/inner"
+printf 'fixture\n' > "${WORK}/${OUT}/orphan-x/inner/file"
+chmod 555 "${WORK}/${OUT}/orphan-x/inner"
+if cannot_deny || touch "${WORK}/${OUT}/orphan-x/inner/.probe" 2>/dev/null; then
+  echo "SKIP  case G6b: chmod 555 does not deny deletes here (uid $(id -u))"
+  rm -f "${WORK}/${OUT}/orphan-x/inner/.probe"
+else
+  run_sync "case G6b: denied orphan prune refuses" 3 --src-dir "$SRC" --out-dir "$OUT"
+  refute_out "case G6b: does not count a prune that failed" "1 orphan(s) pruned"
+fi
+chmod 755 "${WORK}/${OUT}/orphan-x/inner"
+rm -rf "${WORK}/${OUT}/orphan-x"
+run_sync "regenerate after G6" 0 --src-dir "$SRC" --out-dir "$OUT"
+run_sync "check after G6 is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
+
 # G4 — must-pass on the REAL tree (gate 7c): the shipped mirror is in sync, and
 # the OK line's count equals an oracle the script does not compute — the number
 # of regular SKILL.md files on disk. A run that "passes" with an empty or wrong
@@ -532,13 +605,25 @@ else
   fail_count=$((fail_count + 1))
 fi
 
+# The hook's own top-level `set` lines (today `set -e`), applied before the
+# snippet runs. Without them a statement that would kill the real hook — the
+# Codex-found `x="$(... | grep -v ...)"` that returns 1 on empty output —
+# passes here while the real commit dies before printing the hint.
+HOOK_SET_OPTS="$(grep -E '^set -[a-z]+' "$PCC" | sed 's/[[:space:]]*#.*$//')"
+if [[ "$HOOK_SET_OPTS" == *"set -"*e* ]]; then
+  echo "PASS  case H: gate runs under the hook's shell options (${HOOK_SET_OPTS//$'\n'/; })"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  case H: could not read the hook's set -e line from pre-commit-checks.sh (got '${HOOK_SET_OPTS}')"
+  fail_count=$((fail_count + 1))
+fi
 GATE_ERRORS=""
 run_gate() {   # run_gate DIR — source check 22 with cwd DIR; sets LAST_OUT and GATE_ERRORS
   LAST_OUT="$(cd "$1" && env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u GIT_COMMON_DIR \
-    bash -c 'RED=""; GREEN=""; YELLOW=""; NC=""; ERRORS=0; WARNINGS=0
+    bash -c 'eval "$3"
+             RED=""; GREEN=""; YELLOW=""; NC=""; ERRORS=0; WARNINGS=0
              . "$1" || exit 90
              . "$2"
-             echo "GATE_ERRORS=${ERRORS}"' _ "${REPO_ROOT}/scripts/lib/run-quiet.sh" "$GATE_SNIPPET" 2>&1)"
+             echo "GATE_ERRORS=${ERRORS}"' _ "${REPO_ROOT}/scripts/lib/run-quiet.sh" "$GATE_SNIPPET" "$HOOK_SET_OPTS" 2>&1)"
   GATE_ERRORS="$(printf '%s\n' "$LAST_OUT" | sed -n 's/^GATE_ERRORS=//p' | tail -1)"
 }
 assert_gate() {   # assert_gate NAME WANT-ERRORS
@@ -547,13 +632,6 @@ assert_gate() {   # assert_gate NAME WANT-ERRORS
   else
     echo "FAIL  ${1}: expected ERRORS=${2}, got '${GATE_ERRORS}'"
     printf '%s\n' "$LAST_OUT" | tail -12 | sed 's/^/        /'; fail_count=$((fail_count + 1))
-  fi
-}
-refute_out() {   # refute_out NAME STRING
-  if grep -Fq -- "$2" <<< "$LAST_OUT"; then
-    echo "FAIL  ${1}: output still contains: $2"; fail_count=$((fail_count + 1))
-  else
-    echo "PASS  ${1}"; pass_count=$((pass_count + 1))
   fi
 }
 

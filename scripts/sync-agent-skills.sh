@@ -114,9 +114,13 @@ trap 'rm -rf "$WORK"' EXIT
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
-# has_description FILE — true iff the frontmatter block (between the first
-# two '---' lines) contains a description: field.
+# has_description FILE — 0 iff the frontmatter block (between the first two
+# '---' lines) contains a description: field, 1 if it does not, and anything
+# else (awk's 2) when the file could not be read. Callers must tell 1 from the
+# rest: treating a read failure as "no description" silently dropped an
+# unreadable new skill from the scan and passed the check (P1472, Codex).
 has_description() {
+  [[ -r "$1" ]] || return 2
   awk '
     /^---$/ { c++; if (c==2) exit }
     c==1 && /^description:/ { found=1 }
@@ -171,7 +175,12 @@ sort -u -o "$SOURCES" "$SOURCES" || die_internal "cannot sort $SOURCES"
 
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
-  has_description "$f" || continue
+  has_description "$f"
+  case $? in
+    0) ;;
+    1) continue ;;
+    *) die_internal "cannot read source ${f}" ;;
+  esac
   printf '%s\t%s\n' "$(derive_name "$f")" "$f" >> "$CANDIDATES" ||
     die_internal "cannot write $CANDIDATES"
 done < "$SOURCES"
@@ -443,12 +452,16 @@ mkdir -p "$OUT_DIR" || die_internal "cannot create $OUT_DIR"
 while IFS=$'\t' read -r name path; do
   [[ -z "$name" ]] && continue
   target_dir="${OUT_DIR}/${name}"
+  # Every removal is checked (P1472, Codex): a refused rm used to print a
+  # permission error, leave the entry in place, and still report success.
   if [[ -e "$target_dir" || -L "$target_dir" ]]; then
-    [[ -d "$target_dir" && ! -L "$target_dir" ]] || rm -rf "$target_dir"
+    [[ -d "$target_dir" && ! -L "$target_dir" ]] || rm -rf "$target_dir" ||
+      die_internal "cannot remove ${target_dir}"
   fi
   mkdir -p "$target_dir" || die_internal "cannot create $target_dir"
-  find "$target_dir" -mindepth 1 -maxdepth 1 ! -name SKILL.md -exec rm -rf {} +
-  rm -f "${target_dir}/SKILL.md"
+  find "$target_dir" -mindepth 1 -maxdepth 1 ! -name SKILL.md -exec rm -rf {} + ||
+    die_internal "cannot remove unexpected entries under ${target_dir}"
+  rm -f "${target_dir}/SKILL.md" || die_internal "cannot replace ${target_dir}/SKILL.md"
   cp "$path" "${target_dir}/SKILL.md" || die_internal "cannot write ${target_dir}/SKILL.md"
 done < "$RESOLVED"
 
@@ -462,7 +475,11 @@ if [[ -d "$OUT_DIR" ]]; then
     existing_name="$(basename "$existing_path")"
     if ! manifest_has "$existing_name"; then
       echo "sync-agent-skills: removing unexpected projection entry: ${existing_name}"
-      rm -rf "$existing_path"
+      rm -rf "$existing_path" || die_internal "cannot remove ${existing_path}"
+      # rm -rf can report success on an entry that is still there; trust the disk.
+      if [[ -e "$existing_path" || -L "$existing_path" ]]; then
+        die_internal "${existing_path} still exists after removal"
+      fi
       PRUNED=$((PRUNED + 1))
     fi
   done < "$TOPLEVEL"

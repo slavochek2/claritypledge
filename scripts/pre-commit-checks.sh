@@ -2365,8 +2365,14 @@ else
                 -e 's#^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):(.*)$#.agents/skills/\2/SKILL.md#p' \
                 -e 's#^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):(.*):type=[a-z]*$#.agents/skills/\2#p' \
                 "$SAS_LOG" | sort -u | tr '\n' ' ')"
-            SAS_UNKNOWN="$(grep -E '^DRIFT_' "$SAS_LOG" \
-                | grep -vE '^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):|^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):.*:type=[a-z]*$')"
+            # awk, not `grep | grep -v`: this hook runs under `set -e`, and grep exits 1
+            # on empty output, so a log whose drift lines were ALL recognised killed the
+            # hook here, before the hint printed (Codex, P1472). awk exits 0 on no match
+            # and non-zero only when it cannot read the log, which is surfaced below.
+            SAS_UNKNOWN="$(awk '/^DRIFT_/ \
+                && !/^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):/ \
+                && !/^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):.*:type=[a-z]*$/' "$SAS_LOG")" \
+                || SAS_UNKNOWN="(could not read the check output in ${SAS_LOG})"
         fi
         if [ -n "$SAS_PATHS" ] || [ -n "$SAS_UNKNOWN" ]; then
             echo -e "${YELLOW}  → Regenerate the mirror: ./scripts/sync-agent-skills.sh (no flag)${NC}"
@@ -2384,7 +2390,7 @@ else
         fi
         ERRORS=$((ERRORS + 1))
     fi
-    [ -n "$SAS_LOG" ] && rm -f "$SAS_LOG"
+    if [ -n "$SAS_LOG" ]; then rm -f "$SAS_LOG"; fi
 fi
 echo ""
 
