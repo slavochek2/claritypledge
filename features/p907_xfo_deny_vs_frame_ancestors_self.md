@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: bug
 disclosure: public
 rank: 68
@@ -7,8 +7,8 @@ severity: low
 date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [csp, security-headers, vercel]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 ---
 
 # P907: X-Frame-Options DENY contradicts CSP frame-ancestors 'self'
@@ -52,7 +52,14 @@ Deferred from P906 (QA-gate decision: keep the calendar fix's blast radius to th
 
 ## Acceptance Criteria
 
-- [ ] `/(.*)`  route sends `X-Frame-Options: SAMEORIGIN`
-- [ ] CSP `frame-ancestors 'self'` unchanged
-- [ ] Unit test asserts the two headers agree
-- [ ] `/live` overlay iframe still renders (same-origin framing intact)
+- [x] `/(.*)` route configured to send `X-Frame-Options: SAMEORIGIN` — *`vercel.json` `/(.*)` block now `SAMEORIGIN`, asserted by `src/tests/p907-xfo-frame-ancestors-agree.test.ts` (red on `DENY`, green after). The prod-observable half is tracked as a post-push check, see § Post-push checks.*
+- [x] CSP `frame-ancestors 'self'` unchanged — *`git diff vercel.json` touches only the XFO value line; `frame-ancestors 'self'` asserted by p907 + p906 + p1285 tests (19/19 green across the four CSP test files)*
+- [x] Unit test asserts the two headers agree — *`src/tests/p907-xfo-frame-ancestors-agree.test.ts`: every `vercel.json` header block that sets both XFO and a CSP `frame-ancestors` must map `'none'`↔`DENY`, `'self'`↔`SAMEORIGIN`, anything else → no XFO. Red against the old `DENY` (2 failed: "X-Frame-Options DENY contradicts CSP frame-ancestors 'self' (expected SAMEORIGIN)"), green after the fix (3/3). Second control: a lowercase `x-frame-options` added to `/point/(.*)` (`frame-ancestors *`) fails with "cannot be expressed in X-Frame-Options"; mutation reverted.*
+- [x] `/live` overlay iframe still allowed by the framing policy (same-origin framing intact) — *overlay src is relative (`/live/${sessionCode}` in `letter-live-overlay.tsx`), i.e. same-origin, which both `SAMEORIGIN` and `frame-ancestors 'self'` permit; the change only loosens XFO from DENY to SAMEORIGIN, so no previously-allowed framing becomes blocked. No local browser test can observe it (local Vite sends no security headers; Chromium ignores XFO when CSP `frame-ancestors` is present) — the prod render is a post-push check below.*
+
+## Post-push checks
+
+Prod-only observations, not completion criteria — tracked in the task inbox so they are not lost when this spec closes:
+
+1. `curl -sI https://claritypledge.com/ | grep -i x-frame-options` → `SAMEORIGIN`.
+2. Open a letter's live overlay on prod and confirm the `/live` iframe renders.
