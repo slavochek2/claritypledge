@@ -231,7 +231,9 @@ export function DailyReport(p: Props) {
           <div className="d-mdmain">
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
-            {p.statement ? p.afterStatement : <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />}
+            {p.statement && p.afterStatement}
+            {/* every founder card parked: there is no card view to open, so Parked sits under the statement (Codex re-review) */}
+            {(!p.statement || !p.issues.length) && <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />}
           </div>
         </div>
       </section>

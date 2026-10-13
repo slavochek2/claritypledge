@@ -11,7 +11,9 @@
 // Rules (derived here, documented once):
 //   - an item is a line `<label>. [ ] …` or `- [ ] …` inside `## Next Steps` (up to the next `## `);
 //     `[x]` is done. Only open items count, in file order, at most 3. Lines inside a fenced code
-//     block (``` or ~~~) are not markdown: no heading, no item, no section end. \r\n reads as \n.
+//     block (``` or ~~~) are not markdown: no heading, no item, no section end. As in CommonMark, a
+//     fence closes only on a bare run of its own character at least as long as the opener, so a
+//     ```` block holds ``` examples and ~~~ never closes ```. \r\n reads as \n.
 //   - the text is the item's bold title when the item STARTS with `**…**`; otherwise its first
 //     sentence: up to a . ! or ? that is followed by a space and a capital letter, outside
 //     parentheses ("e.g. sales", "(incl. A …)" do not end it); with no such end, the whole line.
@@ -64,7 +66,7 @@ function textOf(body: string): string {
   return bold ? plain(bold[1]) : firstSentence(plain(body))
 }
 
-const FENCE = /^\s{0,3}(```|~~~)/
+const FENCE = /^ {0,3}(`{3,}|~{3,})/
 
 /** The lines that are markdown: a fenced code block's lines (fences included) become ''. */
 function markdownLines(md: string): string[] {
@@ -72,7 +74,7 @@ function markdownLines(md: string): string[] {
   return md.split(/\r?\n/).map((l) => {
     const f = FENCE.exec(l)?.[1]
     if (fence) {
-      if (f === fence) fence = null
+      if (f && f[0] === fence[0] && f.length >= fence.length && /^ {0,3}[`~]+\s*$/.test(l)) fence = null
       return ''
     }
     if (f) {

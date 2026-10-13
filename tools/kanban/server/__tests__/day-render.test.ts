@@ -1010,6 +1010,15 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     expect(parseGoals(['# Goals', '```', '## Next Steps', '1. [ ] Fenced.', '```'].join('\n'))).toEqual({ kind: 'no-section' })
   })
 
+  // P1468 re-review: a fence closes only on the SAME character, at least as long as its opener (CommonMark)
+  it('GOALS (F7a) — a longer fence holds shorter fences of the same character, and the other character never closes it', async () => {
+    const { parseGoals } = await import('../../scripts/day-goals')
+    expect(parseGoals(['## Next Steps', '````md', '```', '1. [ ] Fenced example, not a goal.', '```', '````', '2. [ ] Real goal.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '2', text: 'Real goal.' }] })
+    expect(parseGoals(['## Next Steps', '~~~~', '~~~', '1. [ ] Fenced example, not a goal.', '```', '~~~', '~~~~', '2. [ ] Real goal.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '2', text: 'Real goal.' }] })
+    // a closer carries no info string: "```js" inside a ``` block opens nothing and closes nothing
+    expect(parseGoals(['## Next Steps', '```', '```js', '1. [ ] Fenced example, not a goal.', '```', '2. [ ] Real goal.'].join('\n'))).toEqual({ kind: 'ok', goals: [{ id: '2', text: 'Real goal.' }] })
+  })
+
   it('GOALS (F7b) — CRLF line ends parse like LF (the fixture copy, rewritten with \\r\\n)', async () => {
     const { parseGoals } = await import('../../scripts/day-goals')
     const lf = readFileSync(FIXTURE, 'utf-8')

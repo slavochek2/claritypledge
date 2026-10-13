@@ -3131,6 +3131,32 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     expect(lines()).toHaveLength(1) // only the park line: moving writes nothing
   })
 
+  test('AC3 (re-review): every founder card parked on an earlier run and a statement open — the parked row opens Parked, and Bring back returns the card', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    const earlier = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string } }
+    const at = new Date(Date.parse(earlier.report.started_at) + 3_600_000).toISOString()
+    writeLines(yours.map((i) => ({ kind: 'option', target: i.fp, option_id: 'park', run_id: earlier.report.pass_id, at })))
+    // reopen() waits for a card, and every founder card is parked
+    await page.goto('/')
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await expect(page.locator('[data-statement]')).toBeVisible()
+    await expect(list(page).locator('[data-list-card]')).toHaveCount(0)
+    await expect(list(page).locator('[data-list-parked]')).toHaveText(new RegExp(`${yours.length} parked`))
+    await list(page).locator('[data-list-parked]').click()
+    const parked = page.locator('.d-parked:not([data-agent-list])')
+    await expect(parked.locator('.d-fold')).toHaveAttribute('aria-expanded', 'true')
+    await expect(parked).toBeInViewport()
+    const back = parked.locator(`[data-parked="${yours[0].fp}"]`).getByRole('button', { name: 'Bring back' })
+    await expect(back).toBeVisible()
+    expect(lines()).toHaveLength(yours.length) // opening Parked writes nothing
+    await back.click()
+    await expect(cardTitle(page)).toHaveText(yours[0].title)
+    await expect(listRow(page, yours[0].fp)).toHaveCount(1)
+    await expect(list(page).locator('[data-list-parked]')).toHaveText(new RegExp(`${yours.length - 1} parked`))
+    expect(lines().at(-1)).toMatchObject({ kind: 'option', target: yours[0].fp, remove: true, run_id: LATEST_PASS })
+  })
+
   test('AC4: one item in all — one card, or one statement and no cards — with nothing parked: no list, the item centred', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     let mode: 'card' | 'statement' = 'card'
@@ -3186,6 +3212,23 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
     await expect(page.locator('[data-statement="c2"]')).toBeVisible()
+  })
+
+  // Codex re-review: the two cases above have no founder card, so the statement fallback would hide
+  // a reset to the card half — here there are cards, so only the kept state can bring c3 back
+  test('AC4 (review F1): founder cards and statements — a statement opened, Stats, then Daily report: the same statement is still open', async ({ page }) => {
+    await openDay(page)
+    expect(yoursOf(await runView(page)).length).toBeGreaterThan(0)
+    await stmtRow(page, 'c3').click()
+    await expect(page.locator('[data-statement="c3"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(3))
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await expect(page.locator('[data-statement]')).toHaveCount(0)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
+    await expect(page.locator('[data-statement="c3"]')).toBeVisible()
+    await expect(page.locator('.d-bpos')).toHaveText(stmtPos(3))
+    await expect(list(page).locator('[aria-current=true]')).toHaveAttribute('data-list-statement', 'c3')
+    await expect(card(page)).toHaveCount(0)
   })
 
   test('AC5: no agent row above the point; with "Their story" open, the AGENT byline and the agent\'s stance are inside it', async ({ page }) => {
