@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 317
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [letters, lost-update, jsonb]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P1427: Sealing a letter can write back a stale `point_config` from page load
