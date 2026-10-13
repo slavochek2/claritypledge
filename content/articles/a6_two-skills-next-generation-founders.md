@@ -14,11 +14,11 @@ published_at: '2026-03-26'
 
 # The Two Skills That Will Define the Next Generation of Founders
 
-A personal essay from someone currently filing for bankruptcy
+A personal essay from a founder who just closed his company
 
 ## Right Now
 
-I am filing for bankruptcy.
+I just closed my company.
 
 Six years. Two funding rounds. Thirteen angel investors and one accelerator. Fourteen co-founders — never more than five at a time, which means a lot of people came, built something real with me, and left.
 
