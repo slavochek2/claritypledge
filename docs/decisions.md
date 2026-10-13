@@ -12816,17 +12816,18 @@ note it does NOT go through the journal's own atomic-write helper (`ship_pending
 `ship_mark_landed`), so a mistake here is unguarded by the tool's own consistency checks.
 
 **Resolved by P1198 (2026-10-13) — the manual recipe above is obsolete.** `--resume` now re-diffs
-`main..branch` against the journal (`ship_branch_drift`) before anything reads the pending list:
-commits added after the journal are appended as pending through an atomic helper
-(`ship_append_journal_commits`) and named in the output, and a merge among them gets the same
-`--mark-landed` recipe init prints. A branch **rewritten** after the journal (a journaled commit is no
-longer on the branch or on main) is refused with nothing picked. Phase 3 runs the same comparison
-before deleting the branch, so a commit added during a fresh ship keeps the branch alive and exits
-non-zero instead of being dropped with exit 0 (the P1303 shape below, 2026-09-11 (4)). This picks up
-new commits rather than refusing on them, as P1198's Done-When asks; the 2026-09-11 entry's (c)
-proposed refusing. Residual: a commit appended after the spec has closed lands without re-running the
-closure gate, which already passed for this ship. Canaries AD-a to AD-e in
-`scripts/test-git-ops-ship.sh`.
+`main..branch` against the journal (`ship_branch_drift`) inside `main.lock`, before anything reads the
+pending list. Commits added after the journal are appended as pending (`ship_append_journal_commits`)
+and named in the output; a merge among them gets the `--mark-landed` recipe init prints. A branch
+**rewritten** after the journal is refused with nothing picked, unless no commit had landed yet, in
+which case the journal is re-planned from the branch as it is now. A commit added after a prior
+attempt already **closed the spec** is refused, because `--resume` skips the closure gate then and no
+gate would ever see it; the message says how to move it to its own branch. The fresh-run path checks
+the branch again before closing the spec and before deleting the branch, and the delete is
+compare-and-swap on the checked tip (`git update-ref -d`), so a commit landing mid-ship stops the
+ship non-zero instead of being dropped with exit 0 (the P1303 shape below, 2026-09-11 (4)). This
+picks up new commits rather than refusing on them, as P1198's Done-When asks; the 2026-09-11 entry's
+(c) proposed refusing. Canaries AD-a to AD-i in `scripts/test-git-ops-ship.sh`.
 
 **References:** `scripts/git-ops.sh:1399` (`ship_init_journal`), `:1533` (`ship_pending_source_shas`) ·
 `features/done/2026-06-10/p1179_event_room_links_menu_and_stake_surface.md` · CHECK 5 entries below

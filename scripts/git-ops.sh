@@ -2598,33 +2598,102 @@ PY
 # main, and Phase 3's branch delete then drops it with exit 0.
 # Prints one line per drift, nothing when the branch matches the journal:
 #   new <sha>   on the branch, ahead of main, absent from the journal (branch order)
-#   gone <sha>  journaled, but neither on the branch nor on main — the branch was
-#               rewritten (rebase, amend, reset) after the journal was written
+#   gone <sha>  journaled and unlanded, but neither on the branch nor on main —
+#               the branch was rewritten (rebase, amend, reset) after the journal
+# A journaled commit whose recorded landing is on main is never "gone": its
+# change is already there, whatever happened to its source sha.
+# $3 (optional) compares against that exact tip instead of re-reading the ref,
+# so a caller can act on the same sha it checked (Phase 3's delete).
 # Prints nothing when the branch ref is absent (Phase 3 already deleted it).
 # Returns non-zero if the comparison itself fails; callers must fail closed.
 ship_branch_drift() {
-  local journal="$1" branch="$2"
-  ( cd "$REPO_ROOT" && git rev-parse -q --verify "refs/heads/${branch}" >/dev/null ) || return 0
+  local journal="$1" branch="$2" tip="${3:-}"
+  if [[ -z "$tip" ]]; then
+    tip="$( cd "$REPO_ROOT" && git rev-parse -q --verify "refs/heads/${branch}" )" || return 0
+  fi
   local fresh
-  fresh="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" )" || return 1
+  fresh="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${tip}" )" || return 1
   ( cd "$REPO_ROOT" && SHIP_FRESH="$fresh" python3 - "$journal" <<'PY'
 import json, os, subprocess, sys
 j = json.load(open(sys.argv[1]))
-journaled = [c["source_sha"] for c in j.get("commits", [])]
+commits = j.get("commits", [])
 fresh = [s for s in os.environ["SHIP_FRESH"].splitlines() if s]
-known, on_branch = set(journaled), set(fresh)
+known, on_branch = {c["source_sha"] for c in commits}, set(fresh)
+def on_main(sha):
+    return subprocess.run(["git", "merge-base", "--is-ancestor", sha, "main"],
+                          capture_output=True).returncode == 0
 for s in fresh:
     if s not in known:
         print("new " + s)
-for s in journaled:
+for c in commits:
+    s = c["source_sha"]
     if s in on_branch:
         continue
+    if c.get("landed_sha") and on_main(c["landed_sha"]):
+        continue
     # Reachable from main is not a rewrite: the commit is already there.
-    if subprocess.run(["git", "merge-base", "--is-ancestor", s, "main"],
-                      capture_output=True).returncode != 0:
+    if not on_main(s):
         print("gone " + s)
 PY
   )
+}
+
+# P1198: "<landed count> <last journaled source_sha>" for the refusal messages
+# and the re-plan decision below.
+ship_journal_progress() {
+  python3 - "$1" <<'PY'
+import json, sys
+c = json.load(open(sys.argv[1])).get("commits", [])
+print(sum(1 for e in c if e.get("landed_sha")), c[-1]["source_sha"] if c else "-")
+PY
+}
+
+# P1198: a rewrite found before ANY commit landed. Nothing on main depends on the
+# old shas, so replace the journal's commit list with the branch as it is now
+# (all pending). Every other field — embargo verdict, spec_file — is kept.
+ship_replan_journal_commits() {
+  local pn="$1" shas="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  SHIP_SHAS="$shas" python3 - "$journal" <<'PY'
+import json, os, sys, tempfile
+target = sys.argv[1]
+j = json.load(open(target))
+if any(c.get("landed_sha") for c in j["commits"]):
+    raise SystemExit("refusing to re-plan a journal with landed commits")
+j["commits"] = [{"source_sha": s, "landed_sha": None, "landed_at": None, "pre_pick_head": None}
+                for s in os.environ["SHIP_SHAS"].splitlines() if s]
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=os.path.dirname(target))
+try:
+    with os.fdopen(fd, "w") as f:
+        json.dump(j, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, target)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+}
+
+# P1198: stop (exit 1; branch and journal kept) if BRANCH at TIP no longer matches
+# the journal. WHEN names the step being refused, for the message.
+ship_require_no_drift() {
+  local pn="$1" branch="$2" journal="$3" tip="$4" when="$5"
+  local drift
+  drift="$(ship_branch_drift "$journal" "$branch" "$tip")" \
+    || die "ship: could not compare $branch with the journal $when — branch kept"
+  [[ -z "$drift" ]] && return 0
+  {
+    echo "ship: $branch changed after this ship's journal was written — stopped $when:"
+    printf '%s\n' "$drift" | while IFS=' ' read -r _d_kind _d_sha; do
+      echo "  ${_d_kind}: $(ship_list_commits "$_d_sha" | sed 's/^ *//')"
+    done
+    echo "Those commits are not on main. Converge with: git-ops ship $pn --resume"
+  } >&2
+  exit 1
 }
 
 # P1198: append source_shas (newline-separated, in order) to the journal as
@@ -4212,44 +4281,6 @@ cmd_ship() {
     spec_file="$(ship_journal_str "$pn" "spec_file")"
     [[ -n "$branch" ]] || die "ship: journal $journal missing source_branch"
     [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
-    # P1198: re-diff the branch against the journal before anything reads the
-    # pending list (dirty-file pre-flight, embargo classification, Phase 1).
-    # New commits are appended as pending; a rewritten branch is refused.
-    local _rd_drift _rd_new _rd_gone
-    _rd_drift="$(ship_branch_drift "$journal" "$branch")" \
-      || die "ship: --resume could not compare $branch with the journal — refusing rather than risk dropping a commit"
-    _rd_gone="$(printf '%s\n' "$_rd_drift" | sed -n 's/^gone //p')"
-    _rd_new="$(printf '%s\n' "$_rd_drift" | sed -n 's/^new //p')"
-    if [[ -n "$_rd_gone" ]]; then
-      {
-        echo "ship: --resume refuses — $branch was rewritten (rebase, amend or reset) after the journal was written."
-        echo "These journaled commits are no longer on the branch or on main:"
-        ship_list_commits "$_rd_gone"
-        echo "Nothing was picked by this run. Replaying the journal would land the old commits and"
-        echo "then delete the branch, discarding the rewrite. Put the journaled history back on"
-        echo "$branch (its last journaled commit is still in the object store) with any new work"
-        echo "as commits on top, then run: git-ops ship $pn --resume"
-      } >&2
-      exit 1
-    fi
-    if [[ -n "$_rd_new" ]]; then
-      ship_append_journal_commits "$pn" "$_rd_new"
-      {
-        echo "ship: --resume: $(printf '%s\n' "$_rd_new" | grep -c .) commit(s) were added to $branch after the journal was written — adding them to this ship:"
-        ship_list_commits "$_rd_new"
-        # Same recipe ship_init_journal prints: Phase 1 cannot pick a merge.
-        local _rd_m _rd_m2
-        while IFS= read -r _rd_m; do
-          _rd_m2="$( cd "$REPO_ROOT" && git rev-parse -q --verify "${_rd_m}^2" 2>/dev/null )" || continue
-          if ( cd "$REPO_ROOT" && git merge-base --is-ancestor "$_rd_m2" main 2>/dev/null ); then
-            echo "  $_rd_m is a merge of main; Phase 1 will stop on it. Pre-resolve with:"
-            echo "    ./scripts/git-ops.sh ship $pn --mark-landed $_rd_m $_rd_m2"
-          else
-            echo "  $_rd_m is a merge of something other than main; Phase 1 will stop on it — inspect by hand"
-          fi
-        done <<< "$_rd_new"
-      } >&2
-    fi
   fi
 
   # --- Closure gate, normal branch route (P1246) ----------------------------
@@ -4479,6 +4510,82 @@ The branch is authoritative for shipped migrations. Compare each file with
   current_branch="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
   if [[ "$current_branch" != "main" ]]; then
     ( cd "$REPO_ROOT" && git checkout -q main ) || die "ship: failed to checkout main"
+  fi
+
+  # P1198: on --resume, re-diff the branch against the journal before anything
+  # reads the pending list (dirty-file pre-flight, embargo classification,
+  # Phase 1). Inside main.lock on purpose: the append is a read-modify-write of
+  # the journal, and outside the lock it could overwrite a concurrent holder's
+  # landing record with a stale snapshot (review finding 3).
+  #   - rewritten branch, something already landed  -> refuse
+  #   - rewritten branch, nothing landed yet         -> re-plan from the branch
+  #   - new commits while the closure gate was SKIPPED (spec already closed) ->
+  #     refuse: no gate this ship ran ever saw them (review finding 2)
+  #   - new commits otherwise                        -> append as pending
+  # Every refusal comes before any journal write.
+  if (( journal_exists == 1 )); then
+    local _rd_drift _rd_new _rd_gone _rd_landed _rd_last _rd_replan=0
+    _rd_drift="$(ship_branch_drift "$journal" "$branch")" \
+      || die "ship: --resume could not compare $branch with the journal — refusing rather than risk dropping a commit"
+    _rd_gone="$(printf '%s\n' "$_rd_drift" | sed -n 's/^gone //p')"
+    _rd_new="$(printf '%s\n' "$_rd_drift" | sed -n 's/^new //p')"
+    read -r _rd_landed _rd_last <<< "$(ship_journal_progress "$journal")"
+    [[ "$_rd_landed" =~ ^[0-9]+$ ]] || die "ship: --resume could not read progress from $journal — refusing"
+    if [[ -n "$_rd_gone" && "$_rd_landed" != "0" ]]; then
+      {
+        echo "ship: --resume refuses — $branch was rewritten (rebase, amend or reset) after the journal was written."
+        echo "These journaled commits are no longer on the branch or on main, and never landed:"
+        ship_list_commits "$_rd_gone"
+        echo "Nothing was picked by this run. Replaying the journal would land the old commits and"
+        echo "then delete the branch, discarding the rewrite. Put the journaled history back on"
+        echo "$branch (its last journaled commit, ${_rd_last:0:12}, is still in the object store) with"
+        echo "any new work as commits on top, then run: git-ops ship $pn --resume"
+      } >&2
+      exit 1
+    fi
+    if [[ -n "$_rd_gone" ]]; then
+      # Nothing landed, so nothing on main depends on the old shas.
+      _rd_replan=1
+      _rd_new="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" )"
+      [[ -n "$_rd_new" ]] || die "ship: $branch was rewritten and now has no commits ahead of main — nothing to ship"
+    fi
+    if [[ -n "$_rd_new" ]] && (( _gate_skip == 1 )); then
+      {
+        echo "ship: --resume refuses — $(printf '%s\n' "$_rd_new" | grep -c .) commit(s) were added to $branch after $pn's spec was closed, so the closure gates this ship ran never saw them:"
+        ship_list_commits "$_rd_new"
+        echo "Nothing was picked by this run. Give them gates of their own: move them to a new branch"
+        echo "(git branch NEW-BRANCH $( cd "$REPO_ROOT" && git rev-parse "refs/heads/${branch}" )), point $branch back at its"
+        echo "last journaled commit (${_rd_last:0:12}), run git-ops ship $pn --resume to finish this"
+        echo "ship, then ship the new branch under its own spec."
+      } >&2
+      exit 1
+    fi
+    if (( _rd_replan == 1 )); then
+      ship_replan_journal_commits "$pn" "$_rd_new"
+      {
+        echo "ship: --resume: $branch was rewritten after the journal was written, but no commit had landed yet — re-planned this ship from the branch as it is now:"
+        ship_list_commits "$_rd_new"
+      } >&2
+    elif [[ -n "$_rd_new" ]]; then
+      ship_append_journal_commits "$pn" "$_rd_new"
+      {
+        echo "ship: --resume: $(printf '%s\n' "$_rd_new" | grep -c .) commit(s) were added to $branch after the journal was written — adding them to this ship:"
+        ship_list_commits "$_rd_new"
+      } >&2
+    fi
+    if [[ -n "$_rd_new" ]]; then
+      # Same recipe ship_init_journal prints: Phase 1 cannot pick a merge.
+      local _rd_m _rd_m2
+      while IFS= read -r _rd_m; do
+        _rd_m2="$( cd "$REPO_ROOT" && git rev-parse -q --verify "${_rd_m}^2" 2>/dev/null )" || continue
+        if ( cd "$REPO_ROOT" && git merge-base --is-ancestor "$_rd_m2" main 2>/dev/null ); then
+          echo "  $_rd_m is a merge of main; Phase 1 will stop on it. Pre-resolve with:" >&2
+          echo "    ./scripts/git-ops.sh ship $pn --mark-landed $_rd_m $_rd_m2" >&2
+        else
+          echo "  $_rd_m is a merge of something other than main; Phase 1 will stop on it — inspect by hand" >&2
+        fi
+      done <<< "$_rd_new"
+    fi
   fi
 
   # Layer 1 (plan v2 seed-to-match): if spec was born on the branch (not on main
@@ -4924,6 +5031,11 @@ The branch is authoritative for shipped migrations. Compare each file with
   if (( ship_embargoed == 1 )); then
     echo "ship: $pn spec close deferred (disclosure: embargo) — run 'git-ops.sh publish-spec $pn' after the prod apply." >&2
   elif ! ship_journal_flag "$pn" "spec_closed"; then
+    # P1198: a commit added to the branch while Phase 1 ran is unjournaled. Stop
+    # BEFORE closing: once the spec is closed, a --resume skips the closure gate
+    # and must refuse that commit; stopped here, the --resume re-runs the gates
+    # and lands it.
+    ship_require_no_drift "$pn" "$branch" "$journal" "" "before closing the spec"
     # Op-in-progress guard (P1082, mirrors L1816 no-branch arm + L2038 seed block).
     # When `pending` is empty (all commits already landed) the per-sha loop above
     # never runs a single iteration, so its own foreign-op guard (~L2088) never
@@ -5050,20 +5162,13 @@ The branch is authoritative for shipped migrations. Compare each file with
     echo "ship: $branch retained — it holds withheld embargoed spec content ($(printf '%s' "$EMB_PNS" | tr '\n' ' ' | sed 's/ $//')) that exists nowhere else; move it to its own branch before deleting this one." >&2
   elif ! ship_journal_flag "$pn" "branch_deleted"; then
     # P1198: the branch delete below is where a commit added mid-ship (after the
-    # journal was written, on a fresh run or a --resume) would be lost. Refuse
-    # to delete while the branch holds anything this ship did not journal.
-    local _p3_drift
-    _p3_drift="$(ship_branch_drift "$journal" "$branch")" \
-      || die "ship: could not compare $branch with the journal before deleting it — branch kept"
-    if [[ -n "$_p3_drift" ]]; then
-      {
-        echo "ship: $branch NOT deleted — it changed after this ship's journal was written:"
-        printf '%s\n' "$_p3_drift" | while IFS=' ' read -r _p3_kind _p3_sha; do
-          echo "  ${_p3_kind}: $(ship_list_commits "$_p3_sha" | sed 's/^ *//')"
-        done
-        echo "Those commits are not on main. Converge with: git-ops ship $pn --resume"
-      } >&2
-      exit 1
+    # journal was written, on a fresh run or a --resume) would be lost. Check the
+    # tip read HERE, and delete only that tip (compare-and-swap below): a commit
+    # made after this check moves the ref and the delete refuses.
+    local _p3_tip=""
+    _p3_tip="$( cd "$REPO_ROOT" && git rev-parse -q --verify "refs/heads/${branch}" )" || _p3_tip=""
+    if [[ -n "$_p3_tip" ]]; then
+      ship_require_no_drift "$pn" "$branch" "$journal" "$_p3_tip" "before deleting it (branch NOT deleted)"
     fi
     local wt_path
     wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
@@ -5080,11 +5185,24 @@ The branch is authoritative for shipped migrations. Compare each file with
     if (( _ship_retained == 1 )); then
       echo "ship: branch $branch kept with its worktree (git cannot delete a checked-out branch, and it holds the only copy of those changes)." >&2
     else
+      # Test-only knob: hold the window between the drift check and the delete
+      # open, so a canary can commit into it. Unset in prod.
+      if [[ -n "${SHIP_DEBUG_PRE_DELETE_SLEEP_SECS:-}" ]]; then
+        echo "ship-debug: pre-delete window open" >&2
+        sleep "${SHIP_DEBUG_PRE_DELETE_SLEEP_SECS}"
+      fi
       # Branch may already be deleted if a prior run reached here — treat "branch
-      # not found" as success for idempotency.
-      if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
-        ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
-          die "ship: branch delete failed for $branch"
+      # not found" as success for idempotency (_p3_tip empty).
+      # P1198: delete by compare-and-swap on the tip the drift check passed, not
+      # `git branch -D` (which deletes whatever the ref holds now). update-ref
+      # does not refuse a checked-out branch the way `branch -D` does, so that
+      # check is made explicitly first.
+      if [[ -n "$_p3_tip" ]]; then
+        if ( cd "$REPO_ROOT" && grep -qxF "branch refs/heads/${branch}" < <(git worktree list --porcelain) ); then
+          die "ship: $branch is checked out in a worktree again — branch and journal kept. Converge with: git-ops ship $pn --resume"
+        fi
+        ( cd "$REPO_ROOT" && git update-ref -d "refs/heads/${branch}" "$_p3_tip" ) >/dev/null 2>&1 || \
+          die "ship: $branch moved after it was checked (expected ${_p3_tip:0:12}) — branch and journal kept, nothing deleted. Converge with: git-ops ship $pn --resume"
       fi
       ship_set_journal_flag "$pn" "branch_deleted"
     fi
