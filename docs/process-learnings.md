@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 170
+**Next ID:** 172
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -82,64 +82,7 @@ for the guest path to work, which is why P1278 shipped without it.
 
 ---
 
-## The agent-skills gate fails OPEN when its script is missing or a dangling symlink
 
-**ID:** INBOX-3
-**Status:** proposed
-**due:** week
-
-`pre-commit-checks.sh` guards the skills-sync gate with `[ -f "./scripts/sync-agent-skills.sh" ]`.
-If the file is absent, or is a symlink whose target is gone, the test is false, the hook prints
-"skipping agent-skills sync gate", and **the commit proceeds**. A gate that cannot run reports the
-same outcome as a gate that ran and passed.
-
-Raised independently by the P1284 and P1283 agents on 2026-09-09 while both were working on the
-`--staged-only` probe next to it. Pre-existing — it predates that probe and both of its hotfixes,
-and neither fixed it. P1293's canary covers the probe's flag handling, not this branch.
-
-Why it matters here specifically: worktrees hydrate `scripts/` as a native checkout, so a slot
-whose checkout is incomplete, or mid-`git checkout`, hits exactly this path — and the commit that
-lands is one nobody verified.
-
-Fix direction: distinguish "cannot run" from "ran and passed". A missing callee should FAIL the
-hook with a message naming the path it looked for, not skip. If a genuine skip is needed (a branch
-that predates the script existing at all), gate it on something explicit rather than on the file
-being absent — the current shape cannot tell the two apart, which is the whole defect.
-
-Epistemic gate 7 applies to the fix: move the script aside, confirm the hook exits non-zero, put it
-back. That is the proof, not the reasoning.
-
-## `goal-gate.sh` CHECK 3 soft-resets HEAD in a worktree — a killed run strands the branch ref
-
-**ID:** INBOX-4
-**Status:** proposed
-**due:** week
-
-`goal-gate.sh` CHECK 3 soft-resets `HEAD` to the merge-base while running, inside the worktree it
-is invoked from, and restores afterwards. If the run is killed between those two points the
-**branch ref is left at the merge-base**, so the branch appears to have lost every commit — and a
-later run then "restores" to that wrong sha, making the loss look deliberate.
-
-Observed 2026-09-09 during the P1284 review: `feature/p1284-script-inbox-batch` showed 0 commits
-ahead of `main` with its seven commits' content sitting as uncommitted changes. The orchestrator
-read this as possible data loss and spent tool calls confirming otherwise. Nothing was lost —
-`git reflog` showed the ref bouncing between the merge-base and the real tip across repeated gate
-runs. Repaired with `git reset <absolute-sha>` (never `HEAD~1` — the shared-HEAD rule in
-`.claude/rules/git.md`), verified by all seven commits back on the branch and byte-identical
-checksums for all nine working-tree files.
-
-Two things to fix, and the second is the one that matters:
-
-1. Make the restore crash-safe — record the pre-reset sha somewhere durable (a file next to the
-   lock, not a shell variable) and restore from it on the next invocation, so a killed run
-   self-heals instead of stranding the ref.
-2. Never soft-reset the ref at all if the check can be done another way. Reading a diff against
-   the merge-base does not require moving `HEAD`; `git diff <merge-base>...HEAD` answers the same
-   question without touching any ref, which removes the failure mode rather than recovering from
-   it.
-
-Until then: a branch that suddenly reads "0 commits ahead" right after a gate run is almost
-certainly this, not lost work. Check `git reflog <branch>` before doing anything else.
 
 ## Confirm the P1260 branch-and-remote-refs step on the first post-merge `/weekly`
 
@@ -1246,38 +1189,7 @@ is the actual deliverable, since without it any fix is unverifiable by the same 
 the defect.
 Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the loading-state fixture arm is still missing from src/tests.
 
-## Teach the migration client-safety gate to see a changed RPC signature
 
-**ID:** INBOX-53
-**Date:** 2026-09-08
-**Status:** proposed
-**due:** week
-
-`scripts/check-migration-client-safety.sh`'s `BREAKING_SHAPES` covers `REVOKE … FROM
-(anon|authenticated)`, `DROP POLICY`, `ALTER TABLE … DROP COLUMN` and `ALTER COLUMN … TYPE`, but
-has no `DROP FUNCTION` and no notion of an RPC signature change — and a migration whose only
-revoke is `FROM PUBLIC` matches none of it. Found during P1058: three migrations that dropped and
-recreated `release_joiner_seat` under a changed signature passed the gate with no annotation
-required, so their `requires-frontend` markers were purely voluntary. A signature change is
-precisely what breaks a deployed client (PGRST202, or 42501 on every call), which is the P886
-incident class the gate exists for. Fix: add a `DROP FUNCTION` shape and broaden the revoke arm to
-include `FROM PUBLIC`. **Done when** the gate refuses a signature-changing migration that carries
-no marker — and, per epistemic gate 7c, when it has been run against the existing migration corpus
-to measure how many legitimate files it newly flags. **Drop it** if that run shows the false-positive
-rate makes the gate unusable and no narrower shape separates the two.
-
----
-
-## Make the P1151 skills-mirror hint name the exact file and the --files path
-
-**ID:** INBOX-54
-**Date:** 2026-09-11
-**Status:** proposed
-**due:** week
-
-The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 block) tells you to regenerate the whole mirror and re-stage the bare `.agents/skills/` directory, a staging form `.claude/rules/git.md` bans that can also sweep in another session's mirror edits. It never says the mirror file must also be passed to `git-ops.sh commit-to-main --files`, whose exact-set check then refuses the commit (hit in the P1300 session). Change it to name the drifted `.agents/skills/<name>/SKILL.md` from the `--check` output and say to add that path to `--files`; drop this if `commit-to-main` or the gate starts handling the mirror path itself.
-
----
 
 ## Re-run the P1275 integration spec after P1236 ships, and finish P1303's prod join check
 
@@ -1628,16 +1540,6 @@ Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 
 ---
 
-## /live forgets a session's recording setting on reload, so a reloaded participant is never mic-gated
-
-**ID:** INBOX-85
-**Date:** 2026-09-22
-**Status:** proposed
-**due:** week
-
-Found while writing P1344's E2E. `isPrivate` in `clarity-live-page.tsx` is local UI state that starts as `true` (P1307 D12) and is not restored from the session on reload. `gateMicAndGoLive` returns early on `isPrivate` (P160 Gate D), so a participant who reloads a **recorded** session goes straight back to live with no mic check. Measured 2026-09-22: joiner reload with getUserMedia denied → back in the live view, no dialog. **Unverified:** whether recording also fails to resume after that reload (the P511 comment at the rejoin path says `gateMicAndGoLive` is what re-acquires the stream). Done when a reload restores the session's real privacy setting and a recorded session re-runs the mic gate, with an E2E; droppable if recording moves off this component.
-
----
 
 ## e2e/p1149-consent-gate.spec.ts "declining leaves the room" times out on a click
 
@@ -1650,16 +1552,6 @@ Found while writing P1344's E2E. `isPrivate` in `clarity-live-page.tsx` is local
 
 ---
 
-## The "joiner cancels mic dialog" E2E can pass without ever seeing the dialog
-
-**ID:** INBOX-87
-**Date:** 2026-09-22
-**Status:** proposed
-**due:** month
-
-`e2e/live-meeting-mic-permission.spec.ts` "joiner who cancels mic dialog should return to start view" clicks Cancel only `if (await cancelButton.isVisible())` after a fixed 2s wait, and its context uses `permissions: []` without the getUserMedia mock its sibling test needs. So it passes whether or not the dialog appears. Done when it asserts the dialog is visible before cancelling (the `installSwitchableMic` helper in `e2e/p1344-live-mic-cancel.spec.ts` is the pattern).
-
----
 
 ## Observe P1346 on the first worktree commit that stages git-ops.sh after it ships
 
@@ -1716,16 +1608,6 @@ P1358 shipped with two of three reviewers delivered: Opus and Gemini both report
 
 ---
 
-## sync-agent-skills.sh --check may report OK after a failed step
-
-**ID:** INBOX-93
-**Date:** 2026-09-28
-**Status:** proposed
-**due:** month
-
-Codex review of P1367 (2026-09-28) ran it in a read-only sandbox: mktemp and file writes failed, yet it printed OK and exited 0. Script uses only set -u (line 50) and exits 0 unconditionally at its success line. Not re-run outside the sandbox. Fix: fail closed on mktemp/intermediate failure, add an unwritable-TMPDIR must-fail test.
-
----
 
 ## Confirm the Clarity Night page corrections log fills during the next draft (P1367)
 
@@ -1902,16 +1784,6 @@ Accepted, not fixed (decide fix vs. keep):
 
 ---
 
-## P913 suppression hides real grant regressions on _is_letter_* (follow-up to P1382)
-
-**ID:** INBOX-109
-**Date:** 2026-10-01
-**Status:** proposed
-**due:** month
-
-From the P1382 review (Opus, 2026-10-01): P913 suppresses 42501 on _is_letter_* by function name in logDbError. That cannot tell an anon artifact from a signed-in user losing EXECUTE, and the branch drops errors without a noteSuppression breadcrumb. Apply the P1382 shape (suppress only when the client has no session) to the letter helpers. Related: e2e/integration (incl. p1222 grant test) runs in no CI job.
-
----
 
 ## transcribe-room-batch: unbounded background concurrency and stale-claim reclaim of running jobs
 
@@ -1983,16 +1855,6 @@ After P1402 is pushed AND its migration 20261004150000 is on prod AND the new fr
 
 ---
 
-## Links-menu e2e: 7 tests already failing on main (stale entry counts)
-
-**ID:** INBOX-115
-**Date:** 2026-10-04
-**Status:** proposed
-**due:** week
-
-e2e/p1179-links-menu.spec.ts, e2e/p1179-links-navigation.spec.ts, e2e/p1323-links-menu-surfaces.spec.ts: 7 failures, e.g. "Expected: 6, Received: 7" on getByTestId('event-links-entry'). Verified 2026-10-04 with a control: they fail identically without P1402's new Tools entry, so they predate it (likely when /topics and /cm joined Tools). Needs /reproduce → /fix; counts should derive from STANDARD_TOOL_ENTRIES, not be hand-kept (epistemic gate 7e).
-
----
 
 ## Rework goals.md into weekly measurable goals (P1399 goals review)
 
@@ -2018,16 +1880,6 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 
 - [ ] **Event publish: warn when the meeting venue is closed at the meet time** (due: week). 2026-10-05 hike: meet 9:30 at a cafe that opens 10:00 Sun; research noted it in passing, publish went ahead and the description said "coffee after", against the founder's default of coffee/breakfast first at the meet point. Fix: /publish-event (and select-hike) compare venue opening hours to meet time and STOP with a warning; default copy = coffee first.
 
-## Worktree w10 gets Chrome-blocked port 6000
-
-**ID:** INBOX-118
-**Date:** 2026-10-05
-**Status:** proposed
-**due:** week
-
-Slot w10 maps to dev/e2e port 6000 (5000 + slot*100), which Chrome refuses as ERR_UNSAFE_PORT, so every Playwright run from w10 fails at the first page.goto. The formula is repeated in playwright.config.ts, vite.config.ts and check-worktree-env.sh; skip Chrome-unsafe ports (6000, 6665-6669) in all three. Droppable if slots above w9 are never handed out again.
-
----
 
 ## ship --resume drops branch commits added after the journal
 
@@ -2106,16 +1958,6 @@ The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/
 
 ---
 
-## /live two-party e2e specs fail on main: user-cleanup FK error and missing story search
-
-**ID:** INBOX-126
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-On unchanged main (2a4025545), at normal machine load, live-content-picker, p272-live-verification and live-rating-drawer fail 8/8: seven end in deleteTestUser refusing to delete a profile still referenced by clarity_sessions.creator_profile_id (the helper does not delete the session first), and the content picker never shows the "Search your stories…" field. P1423 hit the same 8 failures on its branch, so its /live invariant could only be checked by control. Done when the helper deletes the user's clarity_sessions before the profile and the picker spec passes; drop if those specs are retired.
-
----
 
 ## A new browser error: invalid regular expression on an event prepare page [day:0e1b7e7c]
 
@@ -2346,27 +2188,7 @@ Sentry JAVASCRIPT-REACT-3Q: Error "DB error in rsvpToEvent: new row violates row
 
 ---
 
-## Event times show the wrong UTC offset in daylight saving, and two pages disagree on format
 
-**ID:** INBOX-146
-**Date:** 2026-10-08
-**Status:** proposed
-**due:** month
-
-getTimezoneLabel (src/app/prototypes/events/utils.ts) maps each zone to a fixed standard-time label, so an event in a daylight-saving period shows the wrong offset (an Oct 11 Los Angeles event reads "UTC-8"; it is UTC-7). The displayed time itself is correct. The RSVP confirmation page (RsvpConfirm) also shows 24-hour time with no zone while the event page shows 12-hour time plus the label. Pre-existing, surfaced by P1441 visual QA. Done when the label is derived from the event's own date (Intl) and both pages use one format; droppable if event timezones stop being displayed.
-
----
-
-## Event pages show standard-time UTC offset during daylight saving
-
-**ID:** INBOX-147
-**Date:** 2026-10-08
-**Status:** proposed
-**due:** week
-
-getTimezoneLabel (src/app/prototypes/events/utils.ts:230) returns a fixed standard-time string, so a Los Angeles event on 11 Oct 2026 read UTC-8 when LA is UTC-7 until Nov 1; the time itself is correct. The confirmation page also uses 24h with no timezone while the event page uses 12h, so unify them. Done when the label follows the event date's real offset and both pages share one format; droppable if events stop showing an offset label. Found in P1441 browser UAT 2026-10-08.
-
----
 
 ## After P1441 deploys, confirm a failed auto-RSVP reaches Sentry
 
@@ -2379,16 +2201,6 @@ After P1441 deploys, confirm a failed auto-RSVP appears in Sentry as "DB error i
 
 ---
 
-## No-branch spec closes leave the UAT file behind
-
-**ID:** INBOX-149
-**Date:** 2026-10-08
-**Status:** proposed
-**due:** month
-
-No-branch spec closes (git-ops.sh ship: the P920 route and the P1444 administrative route) never move features/uat/pN.md with the spec, so the UAT file is left in features/uat/. Pre-existing for every no-branch close; found by Codex review of P1444 (#10). Decide: move the UAT pair in the no-branch route, or document that UAT files stay.
-
----
 
 ## Repair integration specs that fail at their fixtures before reaching their subject
 
@@ -2456,27 +2268,7 @@ Found 2026-10-09 redoing a run's reflection: the card showed the founder's story
 
 ---
 
-## Kanban typecheck fails on main: 16 errors in lib/scanner-rules.ts
 
-**ID:** INBOX-156
-**Date:** 2026-10-09
-**Status:** proposed
-**due:** week
-
-Found 2026-10-09 while shipping P1442: `npx tsc --noEmit -p .` in tools/kanban exits 2 with 16 errors (all 'Property status/rank/type does not exist on type {}' in lib/scanner-rules.ts:188-204). Identical on main and on the P1442 branch, so pre-existing. The pre-commit checks do not run this typecheck, which is why nothing caught it.
-
----
-
-## console.log left in day-page e2e (THEME-PARITY, line ~2800)
-
-**ID:** INBOX-157
-**Date:** 2026-10-09
-**Status:** proposed
-**due:** month
-
-Found 2026-10-09: pre-commit warns on console.log('THEME-PARITY ' + ...) in tools/kanban/e2e-day/day-page.spec.ts, landed with P1449 (theme parity). Remove it or route it to an attachment so the warning stops firing on every kanban commit.
-
----
 
 ## Screenshot re-edit hook treats tool output as founder text
 
@@ -2613,5 +2405,34 @@ P1468 removed the only reader of day-cp Wave 1's spend estimate (the dropped spe
 **due:** week
 
 P1468 Post-ship verification (spec section of the same name). After the first real /day run following the P1468 ship: PS-1, the report has goals with the goal line and none of the four dropped notes, and both pipeline findings are exercised (really or via a fixture). PS-2, a founder-addressed chat item becomes a reply card keyed reply:<chat>:<message key>, and a group ask does not. Tick the boxes in the shipped spec with the run's evidence.
+
+---
+
+## Event page and RSVP confirmation show the same time in two formats (12h+zone vs 24h, no zone)
+
+**ID:** INBOX-170
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** month
+
+Split out of P1476 (which fixes only the DST offset label). The RSVP confirmation page (RsvpConfirm, under src/app/prototypes/events/) shows 24-hour time with no timezone, while the event page shows 12-hour time plus a zone label, so the same event reads differently on two pages. Which format both should use is a product call: [FOUNDER DECISION: 12h vs 24h, and whether the confirmation page shows a zone label]. Done when both pages render one agreed format; droppable if event pages stop showing times this way. Found in P1441 UAT, 2026-10-08.
+
+---
+
+## P907 post-push checks: X-Frame-Options SAMEORIGIN on prod and the /live letter overlay
+
+**ID:** INBOX-171
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+P907 changed the global `/(.*)` route in `vercel.json` from `X-Frame-Options: DENY` to
+`SAMEORIGIN` to match its CSP `frame-ancestors 'self'`. Neither half is observable locally (Vite
+sends no security headers), so after the next `/push` deploys it:
+
+1. `curl -sI https://claritypledge.com/ | grep -i x-frame-options` → expect `SAMEORIGIN`.
+2. Open a letter's live overlay on prod and confirm the `/live` iframe renders.
+
+If either fails, reopen via `/change-request` on P907. Delete this note once both pass.
 
 ---
