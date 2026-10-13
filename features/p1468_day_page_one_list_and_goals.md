@@ -181,6 +181,7 @@ Stats
 3. Chat cards: only items addressed to the founder; keyed per message.
 4. Button copy: CP's `+ Add a story`.
 5. Weekly / monthly review notes stay on Stats under `Review notes`.
+6. The open item's geometry is the same for a card and a statement: the pane's left edge, the item's width and the agent panel's x and width (review fix F2, asserted in AC 1's e2e). The frames stay different: the statement keeps CP's point-card frame (`listPointCardClass`, its 4px slate left stripe, P1449's test at `day-page.spec.ts:2792`), per the founder's "follow components as we have". No 640px cap on the statement.
 
 ## Predecessor Sections Superseded
 

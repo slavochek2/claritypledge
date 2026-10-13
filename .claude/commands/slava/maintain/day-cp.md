@@ -442,7 +442,6 @@ against a real refusal before treating it as proven.
 - **Verdict line:**
   - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_WARM:` / `GPU_CHECK_FAILED:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
   - All clear → `✓ GPU/cost: no leak (GPU billed under threshold, no always-on, no Run-pinging scheduler)`, with each `GPU_SERVICE_OK:` hours figure appended.
-- **Spend line (always):** render the `EST_PER_DAY:` / `EST_SINCE_LAST:` output as `Est. spend: ~€X/day · ~€Y since last /day (Nd)`. This is a resource-based estimate (±5%), NOT billed — a warm GPU spikes it ~€19/day above the ~€4/day baseline. For billed-to-the-cent €: weekly `/gcp-spend`.
 
 #### Wave 2: Supabase + Sentry (2 calls max, parallel)
 
@@ -1474,23 +1473,9 @@ BODY
 
 ### 4. Branch Status
 
-Use the branch, stranded spec, and stash data already collected in Wave 1 (no additional tool calls).
-
-Output:
-```
-BRANCHES
-  main: [N commits ahead / clean and in sync]
-  feature/pN-name  ← [ready to /ship? / in-progress / no spec — stale?]
-```
-
-Rules: `status: qa` → "ready to /ship?" (branch or not — since P1169 `/ship` closes direct-to-main
-specs too), **unless `delivery_stage: park`** — a parked spec keeps its old status by design, so it
-is listed under "parked" with its ship trigger and is never asked about. `in-progress` →
-"in-progress". `done`/`all-done` still in `features/` → "run /slava:maintain:fix-kanban". Unfinished
-ship journal → print its `--resume` line verbatim. No spec → "stale?"
-
-**Report the `qa` age.** A spec that has been *built, waiting for you* for a week is the signal;
-that it exists is not. Sort oldest first.
+The branch and stranded-spec rows are Wave 1's findings (the table under Wave 1: a spec in `qa`, one
+closed but not moved, an unfinished ship). P1468 dropped the `BRANCHES` block, which only fed the
+board's daily `branches` note. What is left here is the stash check.
 
 **4c. Stash check:**
 ```bash
