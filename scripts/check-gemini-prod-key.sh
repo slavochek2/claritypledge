@@ -68,9 +68,9 @@ classify() {
     403)
       if printf '%s' "$body" | grep -q 'Spend cap breached'; then
         echo "KEY_CAP_TRIPPED — the budget is spent; the credential is intact."
-        echo "  Do NOT lift the cap on its own: Google will not re-enforce a cap lifted within the"
-        echo "  same billing month unless the amount is RAISED first, so a bare lift removes the"
-        echo "  budget entirely for the rest of the month. Raise, then lift."
+        echo "  Two caps can refuse a key: the AI Studio spend cap and the Cloud Billing budget cap."
+        echo "  An enforced Cloud budget's amount is locked until the cap is lifted, so: lift, then raise"
+        echo "  the amount and save in the same visit. A lift with no raise does not re-enforce this month."
       else
         echo "KEY_PING_FORBIDDEN — 403 without a spend-cap message (restriction or disabled API)."
       fi

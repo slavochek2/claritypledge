@@ -415,8 +415,10 @@ CHECK line, and the REPORT block says gcloud was not signed in. Never clean, nev
     any other Gemini reading.
   - `KEY_CAP_TRIPPED` — the budget is spent, the credential is fine. Do **not** debug the key, and
     do **not** lift the cap on its own: a cap lifted within the same billing month does not
-    re-enforce unless the amount is raised first, so a bare lift removes the budget for the rest of
-    the month. Raise, then lift.
+    re-enforce unless its amount is increased. An enforced Cloud budget's amount is locked until
+    the cap is lifted, so the order is: lift, then raise the amount and save in the same visit. Two
+    caps can refuse a key (AI Studio spend cap and Cloud Billing budget cap) — check both
+    (decisions.md 2026-10-13 [technical]).
   - `KEY_PING_FAILED` — the deployed key genuinely stopped authenticating. Banner generation is
     degrading to Unsplash/gradient right now.
   - `KEY_PING_MODEL_UNAVAILABLE` — a retired model name. Says nothing about the credential.
