@@ -16,6 +16,9 @@
  * leading-point sort.
  */
 
+import type { DocsService } from '@/app/data/docs-service.interface';
+import type { DocPointConfig } from '@/app/types';
+
 type StoryLike = {
   story_id: string;
   point_config: { order?: string[] | null } | null;
@@ -39,4 +42,41 @@ export function computeDefaultPointOrderUpdates(
     updates.push({ storyId: s.story_id, order: pointIds });
   }
   return updates;
+}
+
+/**
+ * P1427: persist the default `order` writes before sealing, merging `order`
+ * into the CURRENT point_config rather than the copy the composer loaded.
+ *
+ * The seal owns `order` only. `hidden` / `lead_count` may have changed in
+ * another tab since page load, and the seal RPC snapshots the row's whole
+ * point_config — so writing a page-load copy back would republish a point the
+ * author has since hidden.
+ *
+ * - Re-reads every story's point_config immediately before writing.
+ * - Skips a story whose current `order` is already non-empty (someone set it
+ *   after load; an explicit order wins, as in P767), or whose row is gone.
+ * - Fails closed: a failed read or write rejects, so the caller never seals.
+ *
+ * Residual: read-then-write is not atomic. A change landing between this read
+ * and the write (one round trip) is still overwritten; closing that needs a
+ * server-side single-key update (jsonb_set in an RPC).
+ */
+export async function persistDefaultPointOrders(
+  docId: string,
+  stories: StoryLike[],
+  service: Pick<DocsService, 'getPointConfigs' | 'updatePointConfig'>
+): Promise<void> {
+  const orderUpdates = computeDefaultPointOrderUpdates(stories);
+  if (orderUpdates.length === 0) return;
+
+  const current = await service.getPointConfigs(docId);
+  await Promise.all(
+    orderUpdates.map(({ storyId, order }) => {
+      const fresh: DocPointConfig | undefined = current.get(storyId);
+      if (!fresh) return undefined;
+      if (Array.isArray(fresh.order) && fresh.order.length > 0) return undefined;
+      return service.updatePointConfig(docId, storyId, { ...fresh, order });
+    })
+  );
 }

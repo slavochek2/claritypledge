@@ -72,6 +72,13 @@ export interface DocsService {
   reorderStories(docId: string, orderedStoryIds: string[]): Promise<void>;
 
   /**
+   * P1427: Read the CURRENT point_config of every story in a doc, keyed by
+   * story_id. For writers that must merge into fresh state rather than a copy
+   * captured at page load.
+   */
+  getPointConfigs(docId: string): Promise<Map<string, DocPointConfig>>;
+
+  /**
    * Update point display config for a story within a doc.
    */
   updatePointConfig(

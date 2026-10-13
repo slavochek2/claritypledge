@@ -24,7 +24,7 @@ import { LetterReviewScreen } from '@/app/components/letters/letter-review-scree
 import { LetterSealConfirmCard } from '@/app/components/letters/letter-seal-confirm-card';
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
 import { pointsService } from '@/app/data/points-service';
-import { computeDefaultPointOrderUpdates } from '@/app/utils/compose-default-point-order';
+import { persistDefaultPointOrders } from '@/app/utils/compose-default-point-order';
 import {
   composePhaseAfterSetup,
   letterUsesPredictions,
@@ -197,15 +197,9 @@ export function LetterComposePage() {
       // point_config.order is empty/missing, so the sealed snapshot inherits
       // the same leading-point the author saw. Fails closed — no half-sealed
       // state if any updatePointConfig write fails.
-      const orderUpdates = computeDefaultPointOrderUpdates(stories);
-      if (orderUpdates.length > 0) {
-        await Promise.all(
-          orderUpdates.map(({ storyId, order }) => {
-            const existing = stories.find((s) => s.story_id === storyId)?.point_config ?? {};
-            return docsService.updatePointConfig(docId, storyId, { ...existing, order });
-          })
-        );
-      }
+      // P1427: `order` is merged into the CURRENT point_config, never the copy
+      // loaded with this page — a point hidden in another tab stays hidden.
+      await persistDefaultPointOrders(docId, stories, docsService);
 
       // 1. Create draft letter
       const letter = await lettersService.createLetter(docId, user.id, mode);

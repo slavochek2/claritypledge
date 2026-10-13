@@ -578,6 +578,24 @@ export const docsService: DocsService = {
     }
   },
 
+  async getPointConfigs(docId: string): Promise<Map<string, DocPointConfig>> {
+    await requireAuth();
+    log('getPointConfigs:', docId);
+
+    const { data, error } = await supabase
+      .from('doc_stories')
+      .select('story_id, point_config')
+      .eq('doc_id', docId);
+
+    if (error) {
+      throwDbError('getPointConfigs', error, `Failed to read point config: ${error?.message}`);
+    }
+
+    return new Map(
+      (data ?? []).map((row) => [row.story_id as string, (row.point_config ?? {}) as DocPointConfig])
+    );
+  },
+
   async updatePointConfig(
     docId: string,
     storyId: string,
