@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [letters, lost-update, jsonb]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P1427: Sealing a letter can write back a stale `point_config` from page load
