@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 19
 severity: low
@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [flaky-test, pre-commit, vitest]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
+completed_at: 2026-10-13
 ---
 
 # P1394: Two UI tests fail only under full-suite load, blocking unrelated commits
