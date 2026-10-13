@@ -42,6 +42,20 @@ PING_MODEL="models/gemini-3.1-flash-image-preview"   # what generate-banner actu
 # holds the `cp-batch` key while prod holds `cp-prod-interactive`, and a check that compared
 # .env.local against prod would report a permanent, expected KEY_DIGEST_MISMATCH.
 KEY_NAME="cp-prod-interactive"
+SECRET_NAME="GEMINI_API_KEY"
+KEY_LABEL="interactive"
+# --key batch: the second deployed key, GEMINI_BATCH_API_KEY (agent banners, room transcription).
+# It sits in its own Google project with its own monthly spend cap, so the interactive key being
+# green says nothing about it. 2026-10-13: its cap tripped mid-month, blocking agent banners and
+# transcription, and /day showed nothing because this script only knew the interactive key.
+if [[ "${1:-}" == "--key" ]]; then
+  case "${2:-}" in
+    interactive) : ;;
+    batch) KEY_NAME="cp-batch"; SECRET_NAME="GEMINI_BATCH_API_KEY"; KEY_LABEL="batch" ;;
+    *) echo "usage: $0 [--key interactive|batch] | --self-test" >&2; exit 2 ;;
+  esac
+  shift 2
+fi
 AI_KEYS="${AI_KEYS_BIN:-$HOME/.agents/bin/ai-keys}"
 
 die_cannot_run() { echo "GEMINI-PROD-KEY-CHECK-DID-NOT-RUN — $1"; exit 2; }
@@ -177,13 +191,13 @@ else
 fi
 DEPLOYED_JSON="$(npx --yes supabase secrets list --project-ref "$PROD_REF" --output-format json 2>/dev/null)" \
   || die_cannot_run "could not list prod Supabase secrets (CLI missing, not logged in, or network)"
-DEPLOYED_DIGEST="$(printf '%s' "$DEPLOYED_JSON" | python3 -c '
-import json,sys
+DEPLOYED_DIGEST="$(printf '%s' "$DEPLOYED_JSON" | SECRET_NAME="$SECRET_NAME" python3 -c '
+import json,os,sys
 try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(3)          # not JSON at all — the CLI changed its default output format
-rows = [s for s in d.get("secrets", []) if s.get("name") == "GEMINI_API_KEY"]
+rows = [s for s in d.get("secrets", []) if s.get("name") == os.environ["SECRET_NAME"]]
 if len(rows) != 1:
     sys.exit(4)          # zero, or an ambiguous duplicate
 print(rows[0].get("value", ""))
@@ -191,13 +205,14 @@ print(rows[0].get("value", ""))
 PARSE_RC=$?
 case "$PARSE_RC" in
   3) die_cannot_run "prod Supabase secrets did not parse as JSON — the CLI's output format changed; the deployed key could NOT be checked" ;;
-  4) die_cannot_run "prod Supabase reports zero or duplicate GEMINI_API_KEY secrets — cannot compare digests" ;;
+  4) die_cannot_run "prod Supabase reports zero or duplicate ${SECRET_NAME} secrets — cannot compare digests" ;;
   0) : ;;
   *) die_cannot_run "the prod-secrets parser exited ${PARSE_RC} unexpectedly — the deployed digest could NOT be read" ;;
 esac
-[ -n "$DEPLOYED_DIGEST" ] || die_cannot_run "prod Supabase returned an empty digest for GEMINI_API_KEY — cannot compare"
+[ -n "$DEPLOYED_DIGEST" ] || die_cannot_run "prod Supabase returned an empty digest for ${SECRET_NAME} — cannot compare"
 
 if [ "$LOCAL_DIGEST" != "$DEPLOYED_DIGEST" ]; then
+  echo "key: ${KEY_LABEL} (${SECRET_NAME})"
   echo "KEY_DIGEST_MISMATCH — the local copy is NOT the deployed prod key."
   echo "  local    sha256 ${LOCAL_DIGEST:0:16}…"
   echo "  deployed sha256 ${DEPLOYED_DIGEST:0:16}…"
@@ -209,6 +224,7 @@ if [ "$LOCAL_DIGEST" != "$DEPLOYED_DIGEST" ]; then
   echo "gemini_prod_key_exit=1"
   exit 1
 fi
+echo "key: ${KEY_LABEL} (${SECRET_NAME})"
 echo "digest OK — local copy matches deployed prod secret (sha256 ${LOCAL_DIGEST:0:16}…, source: ${LOCAL_SOURCE})"
 
 # The key never becomes a process argument. Anything on any process's argv is world-readable via

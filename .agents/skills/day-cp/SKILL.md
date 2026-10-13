@@ -275,6 +275,17 @@ if [ "$GEMKEY_RC" -ge 2 ]; then echo "CHECK cp.gemini not-run the production key
 elif [ "$GEMKEY_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.gemini unproven the key classifier failed its self-test" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ "$GEMKEY_RC" -eq 1 ]; then echo "CHECK cp.gemini problem ${GEMKEY_TOKEN:-the production key check found a fault}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else echo "CHECK cp.gemini ok the deployed key matches its digest and answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+# The batch key (agent banners, room transcription) has its own project and its own spend cap, so
+# the interactive key's green says nothing about it. 2026-10-13 its cap tripped mid-month and this
+# report was silent, because only the interactive key was checked. Same classifier, same rules.
+GEMBATCH_OUT="$(./scripts/check-gemini-prod-key.sh --key batch 2>&1)"; GEMBATCH_RC=$?
+printf '%s\n' "$GEMBATCH_OUT"
+echo "gemini_batch_key_exit=$GEMBATCH_RC"
+GEMBATCH_TOKEN="$(printf '%s\n' "$GEMBATCH_OUT" | grep -oE 'KEY_[A-Z_]+' | grep -v '^KEY_PING_OK$' | head -1)"
+if [ "$GEMBATCH_RC" -ge 2 ]; then echo "CHECK cp.gemini-batch not-run the batch key check could not run (exit $GEMBATCH_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMKEY_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.gemini-batch unproven the key classifier failed its self-test" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMBATCH_RC" -eq 1 ]; then echo "CHECK cp.gemini-batch problem ${GEMBATCH_TOKEN:-the batch key check found a fault}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.gemini-batch ok the batch key matches its digest and answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
@@ -368,7 +379,7 @@ STEP
 ```
 
 Process Wave 1 results before proceeding. The body has written a status for each of its checks
-(`cp.smoke`, `cp.blog`, `cp.backup`, `cp.gemini`, `cp.cost`). Since P1399 nothing below is shown to
+(`cp.smoke`, `cp.blog`, `cp.backup`, `cp.gemini`, `cp.gemini-batch`, `cp.cost`). Since P1399 nothing below is shown to
 the founder as a line: where a rule says *show*, *report*, *flag* or *output*, record a finding —
 one per distinct fault, the check's own lines as its body:
 
@@ -378,6 +389,7 @@ one per distinct fault, the check's own lines as its body:
 | blog not answering | cp.blog | `blog:down` | no |
 | backup more than 2 days old | cp.backup | `backup:stale` | no |
 | Gemini key finding | cp.gemini | `gemini:<token, lowercased with dashes>`, e.g. `gemini:key-digest-mismatch` | no |
+| Gemini batch key finding | cp.gemini-batch | `gemini-batch:<token, lowercased with dashes>`, e.g. `gemini-batch:key-cap-tripped` | no |
 | a tripwire line | cp.cost | `cost:gpu-service:<service>`, `cost:always-on:<service>`, `cost:scheduler-warm:<region>` | no |
 | a spec built and waiting for him (`qa`) | cp.w1 | `spec:qa:<pN>` | **yes**: `--option ship="Ship it (/ship pN)" --option later="Leave it in QA for now"`, recommend from the spec's state, with a confidence |
 | a spec closed but still in `features/` | cp.w1 | `spec:not-moved:<pN>` | no — the agent runs `/slava:maintain:fix-kanban` |

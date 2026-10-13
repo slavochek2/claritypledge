@@ -29,6 +29,7 @@ cp.smoke	cp.w1	Prod smoke test	Servers & blog	high
 cp.blog	cp.w1	Blog	Servers & blog	normal
 cp.backup	cp.w1	Database backup	Backups & mirror	normal	gcloud
 cp.gemini	cp.w1	Gemini production key	Keys	normal
+cp.gemini-batch	cp.w1	Gemini batch key	Keys	normal
 cp.cost	cp.w1	Cloud cost leak check	Cost-leak tripwire	normal	gcloud
 cp.signups	cp.w2	Unconfirmed sign-ups	Email & sessions	normal
 cp.sources	cp.w2	Calendar source suggestions	Email & sessions	normal
