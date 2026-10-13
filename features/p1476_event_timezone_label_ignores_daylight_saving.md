@@ -85,8 +85,17 @@ today's fallback of returning the IANA string. Pass `eventDate` at `EventDetail.
 - [x] Unit tests also cover a half-hour zone (`Asia/Kolkata` → `UTC+5:30 Mumbai`), a southern-
       hemisphere DST zone (`Australia/Sydney` in December → `UTC+11 Sydney`), `UTC` → `UTC`, and an
       unknown zone (returns the IANA string unchanged).
-- [ ] The event page renders the corrected label in the browser for a DST-period Los Angeles event
+- [x] The event page renders the corrected label in the browser for a DST-period Los Angeles event
       (screenshot at 375px and desktop).
+      Evidence (2026-10-14, local dev against the TEST project, read-only): `/events/test-event-1791092852516-0w2omq`
+      (2026-10-11T05:47Z, America/Los_Angeles) renders "10:47 PM - 12:47 AM (UTC-7 Los Angeles)" — PDT,
+      correct (the old table gave UTC-8); control `/events/p1417-banner-probe-4e8c7a` (2026-12-01T10:00Z)
+      renders "(UTC-8 Los Angeles)". Screenshots at 1280, 375 and 320 with innerWidth verified before each;
+      scrollWidth == innerWidth at 375 and 320. Independent visual QA (screenshots + checklist only) round 1
+      found the label splitting at the hyphen ("(UTC-" / "8") at 375px → fixed with a `whitespace-nowrap`
+      span (render test `p1476-timezone-label-nowrap.test.tsx`); round 2 VISUAL VERDICT: PASS. Pre-existing,
+      out of scope and noted only: the end time can split "12:47" / "AM" at 320px, and the calendar icon
+      centres on a wrapped date block.
 - [x] The existing event test files that mock `getTimezoneLabel` still pass unmodified.
 
 ## Non-Goals
