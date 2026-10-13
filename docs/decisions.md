@@ -55,6 +55,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Commit an embargoed spec in its own commits, never with the code; a mixed commit now stops the ship with the sha to split. Known accepted limits (nested `disclosure:` keys, CRLF/BOM at publish, `ship-gates.sh`'s own reader) are listed in the P1464 spec. A guard that keys on names keeps losing to new names; key on the property the guard exists to protect.
 **References:** `scripts/git-ops.sh`, `scripts/test-p1464-ship-embargo.sh`, P1255, P1454
 
+## 2026-10-13 [product]: Paid outreach targets organisations that solve real problems, not B2B sales teams
+
+**Context:** Planning buyer outreach surfaced that selling to B2B tech sales teams does not fit the founder's values ("not making the rich richer for no reason"). The sales-practice evening stays as a community lab.
+**Decision:** (`UNTESTED`) Paid and pilot outreach goes to organisations whose own activity solves a real problem, judged per organisation from evidence, not by sector label. Two scores per organisation: **values** (does it do good) and **fit** (do several people there make costly decisions together repeatedly). Hard rules: no companies selling goods (no exceptions, founder 2026-10-13), no lead-gen/marketing agencies, no gambling or speculative crypto; competitors (sellers of team communication/leadership workshops) are flagged, not targeted. Size 11–1,000 staff; senior contacts first; introductions only after a real conversation. The discovery call anchors on one real recent case and tests whether something sensed went unvoiced or unheard.
+**Alternatives rejected:** B2B sales-team training as the paid market (values misfit); general sales consulting as bridge income (left open, not pursued); industry-label filtering (misjudges individual organisations).
+**Consequences:** First shortlist built from the founder's LinkedIn network (research and ethics checks per organisation; details private). Falsifier: if the first 5–10 discovery calls with high-scoring organisations show no recognisable unvoiced-signal stories, the specialty or the targeting is wrong.
+**Details private:** .private/docs/business/outreach-thinking-2026-10-12.md
+
 ## 2026-10-12 [product]: Outreach waits behind two sales-practice events (one in person, one online); 60-day target of 3–7 paid pilots
 
 **Context:** The founder started planning outreach (who to approach, warm vs cold vs intros, Asia vs Europe, which industries). The question underneath was what is being sold and in which format. The Clarity Night #2 retro (2026-10-07) says the method worked in the room (roles held, the observer bell, table rotation). What failed was the **promise**, since people came for a topic and got listening practice, and **carry-out**, since nobody had a next step. The founder's background is B2B sales training, and many people in the local network struggle with selling.
