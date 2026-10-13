@@ -137,7 +137,10 @@ describe('P1424 — quoted points under a story card', () => {
     await user.keyboard('{Enter}');
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(expect.stringContaining('/point/qp-1'));
-  });
+    // P1394: up to 40 user-event Tab presses, each a CPU-bound focus walk in jsdom (no timer
+    // involved): ~0.3s on a quiet machine, median 3-4s and up to 5.1s in loaded full-suite runs,
+    // past Vitest's default 5s. A hang bound, not a speed assertion.
+  }, 15_000);
 });
 
 describe('P1424 — linked stories under a point card', () => {

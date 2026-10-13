@@ -96,6 +96,15 @@ function makePoint(overrides: Partial<PointWithUserPosition> = {}): PointWithUse
 const linkedStory = (id: string, authorId: string) =>
   makeStory({ id, authorId, authorName: `Author ${id}`, authorSlug: `a-${id}` });
 
+/**
+ * P1394: the per-test bound for the describes below that open the ⋯ menu and the share sheet with
+ * user-event. Every step resolves at once; the cost is CPU for the clicks through Radix in jsdom,
+ * and the first one in the file also warms those code paths up (~0.7s for one click on a busy
+ * machine). Under heavy parallel load that went past Vitest's default 5s. A hang bound, not a
+ * speed assertion: the waits inside keep their own bounds.
+ */
+const USER_EVENT_TEST_TIMEOUT_MS = 15_000;
+
 /** P1366 — Share lives in the card's `⋯` menu. */
 async function openShare(type: 'story' | 'point') {
   const user = userEvent.setup();
@@ -111,7 +120,7 @@ beforeEach(() => {
   session.current = { user: { id: 'viewer-1' } };
 });
 
-describe('P1296 — the story card footer', () => {
+describe('P1296 — the story card footer', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =>
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
 
@@ -198,7 +207,7 @@ describe('P1296 — the story card footer', () => {
   });
 });
 
-describe('P1296 — the point card footer', () => {
+describe('P1296 — the point card footer', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   // `linkedStories` is taken as-is — NOT defaulted — because `undefined` ("not loaded") is one
   // of the states under test, and a default parameter would silently turn it into `[]`.
   const renderPoint = (point: PointWithUserPosition = makePoint(), ...rest: [StoryWithAuthor[] | undefined] | []) => {
@@ -362,7 +371,7 @@ describe('P1296 — the point card footer', () => {
   });
 });
 
-describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST only', () => {
+describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST only', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   const protoPoint = () => ({
     id: 'pt-1',
     text: 'A point on the point page.',

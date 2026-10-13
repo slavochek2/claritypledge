@@ -194,10 +194,20 @@ function renderProfile() {
   );
 }
 
+/**
+ * P1394: how long the profile may take to render its Points tab before the wait gives up. Every
+ * call the page makes is a mock that resolves at once and no timer is involved, so the only cost
+ * is the CPU to render the full profile page in jsdom: ~0.5s on an idle machine, ~1.6s in a
+ * loaded full-suite run. The default 1s bound failed this file under load while the page was
+ * still on its skeleton. This is a hang bound, not a speed assertion: if the button never
+ * appears, the wait still fails.
+ */
+const PAGE_RENDER_TIMEOUT_MS = 5_000;
+
 async function expandLinkedStories() {
   // P1366: on a profile the expander is labelled by whose story it is — this is the viewer's own
   // profile, so it reads "Your story" (it was an unlabelled count named "Expand linked stories").
-  const trigger = await screen.findByRole('button', { name: 'Your story' });
+  const trigger = await screen.findByRole('button', { name: 'Your story' }, { timeout: PAGE_RENDER_TIMEOUT_MS });
   fireEvent.click(trigger);
 }
 
@@ -216,7 +226,9 @@ beforeEach(() => {
   mockSupabaseTables();
 });
 
-describe('P1270 §1 — profile Points tab renders nested story media', () => {
+// The test bound sits above the render wait, so a page that never renders fails with the DOM
+// dump rather than a bare "test timed out".
+describe('P1270 §1 — profile Points tab renders nested story media', { timeout: 15_000 }, () => {
   it('renders the video for a nested story that has one', async () => {
     renderProfile();
     await expandLinkedStories();

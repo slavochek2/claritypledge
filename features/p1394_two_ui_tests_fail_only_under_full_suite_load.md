@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 19
 severity: low
@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [flaky-test, pre-commit, vitest]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 ---
 
 # P1394: Two UI tests fail only under full-suite load, blocking unrelated commits
@@ -22,7 +22,10 @@ During the P1347 ship (2026-10-02), the pre-commit full test run failed twice on
 
 ## Root Cause
 
-Under investigation. Both pass in isolation (21/21 and 57/57), so the failure depends on load or ordering, not on the P1347 diff. Hypotheses: a timing-sensitive wait (fake timers or animation/transition timing) that loses under CPU contention from parallel workers, or shared module state leaking between files.
+Two different causes (reproduced under concurrent load during /dev). Neither is a product race, and no shared module state was involved.
+
+- **p1364 stake POP test: a race in the test.** It failed on `getPointsForStories` (line 301, 1 expected, 2 actual), not on the list fetch. The rows render before the story's linked-points request answers. The test navigated away as soon as the rows were visible. When load delayed that answer past the navigation, the unmount dropped it, the cache held no links, and Back fetched them again. That second fetch is correct product behaviour: the cache holds what the reader left with (P1364). Reproduced every time by delaying the link answer 50ms. Fix: the story-card stub exposes `data-linked`, and the test waits for the footer before leaving, the same way the /feed version of the test already did. It also now asserts the footer comes back on POP.
+- **p1366 "twice" test (also p1270, which INBOX-124 names, and p1296's share tests): CPU time against a fixed timeout.** Timing each step showed every wait resolving immediately. The time goes into user-event clicks through Radix and into the full profile-page render in jsdom. Under load that ran past Vitest's 5s test timeout (p1366, p1296) or RTL's 1s `findBy` default (p1270, which was still showing the skeleton). There is no timer to fake. The fix sets named, commented bounds (15s per test, 5s for the profile render), which only stop a hung test. Checked: a missing button still fails with RTL's DOM dump. Two more tests had the same cause and got measured per-test bounds. `p1424-nested-details-only`'s Tab walk takes up to 40 user-event presses, median 3-4s under load, and failed once in 48 loaded runs. `jsx-comment-leak` parses every .tsx with the TypeScript compiler: 0.5s on a quiet machine, a median of about 6s under load and a maximum of 8.7s. It failed in 35 of 48 loaded runs.
 
 ## Reproduction Steps
 
@@ -55,5 +58,5 @@ Reproduce under load first (for example `npx vitest run --repeat 20` on the two 
 
 ## Acceptance Criteria
 
-- [ ] Each test passes 20 consecutive full-suite runs under load
-- [ ] Neither test is skipped or loosened to get there (fix the timing, not the assertion)
+- [x] Each test passes 20 consecutive full-suite runs under load. Evidence (/dev): 20 full `vitest run` suites, 4 at a time, load average 100-160. Both named tests passed 20/20, and every test in the four touched files passed (p1364 420/420, p1366 1140/1140, p1270 80/80, p1296 460/460). Before the fix, 6 runs at lower load had 8 failures in these files (p1270 4, p1366 twice-test 3, p1364 stake POP 1).
+- [x] Neither test is skipped or loosened to get there (fix the timing, not the assertion). Evidence: no assertion was removed or changed, and there is no skip and no retry. The p1364 stake test gained two waits/asserts on the links footer. The CPU-bound tests only got named hang bounds. A control with a missing button still fails with RTL's DOM dump after 5s.

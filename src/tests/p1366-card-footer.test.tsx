@@ -127,7 +127,16 @@ function expectSolidExpander(el: HTMLElement) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — feed/stake point card', () => {
+/**
+ * P1394: the per-test bound for the describes below that drive the ⋯ menu and the share sheet with
+ * user-event. Timed step by step, every wait in them resolves at once; the cost is CPU, ~0.3-0.5s
+ * per click through Radix in jsdom on a busy machine. In loaded full-suite runs these tests went
+ * past Vitest's default 5s (the twice-through-the-sheet test most often). A hang bound, not a
+ * speed assertion: the waits inside keep their own bounds.
+ */
+const USER_EVENT_TEST_TIMEOUT_MS = 15_000;
+
+describe('P1366 — feed/stake point card', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   it('N stories is a light blue pill button that expands in place', () => {
     renderPoint(makePoint(), stories(2));
     const expander = screen.getByTestId('feed-point-story-expander');
@@ -369,7 +378,7 @@ describe('P1366 — feed/stake point card', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — feed/stake story card', () => {
+describe('P1366 — feed/stake story card', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   it('N points is a light blue pill button; singular "1 point"', () => {
     const { unmount } = renderStory({ linkedPoints: points(2) });
     const expander = screen.getByTestId('feed-story-point-expander');
@@ -472,7 +481,7 @@ describe('P1366 — feed/stake story card', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — PointCardWithLinks in the profile list', () => {
+describe('P1366 — PointCardWithLinks in the profile list', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   const protoPoint = (positions: Record<string, { position: string }> = {}) => ({
     id: 'pt-1',
     text: 'A point on a profile.',
@@ -662,7 +671,7 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', () => {
+describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', { timeout: USER_EVENT_TEST_TIMEOUT_MS }, () => {
   /**
    * Review finding (HIGH). A non-modal menu let the tap that dismisses it ALSO land on whatever
    * was under it — the card (navigation) or a position button (a data write). A modal Radix menu

@@ -51,7 +51,11 @@ vi.mock('@/app/components/feed/feed-point-card', () => ({
   ),
 }));
 vi.mock('@/app/components/feed/feed-story-card', () => ({
-  FeedStoryCard: ({ story }: { story: StoryWithAuthor }) => <div data-testid="story-card">{story.content}</div>,
+  FeedStoryCard: ({ story, linkedPoints }: { story: StoryWithAuthor; linkedPoints?: unknown[] }) => (
+    <div data-testid="story-card" data-linked={linkedPoints === undefined ? 'not-loaded' : String(linkedPoints.length)}>
+      {story.content}
+    </div>
+  ),
 }));
 
 const point = (id: string, total = 1) =>
@@ -289,12 +293,19 @@ describe('P1364 /stake — Back returns to the same tab and list', () => {
   });
 
   it('POP serves the cached list on the same tab with no refetch', async () => {
+    getPointsForStories.mockResolvedValue(new Map([['s1', [{ id: 'p1' }]]]));
     renderApp(['/stake/topic?tab=stories']);
     await screen.findAllByTestId('story-card');
+    // P1394: the list as it was left includes the story's linked-points footer, so wait for it
+    // before leaving. The rows render before that link request answers; a reader who leaves in
+    // between has no links cached and Back fetches them (a second call). Whether the test got
+    // there first depended on machine load, which is what made this test flaky.
+    await waitFor(() => expect(screen.getByTestId('story-card').getAttribute('data-linked')).toBe('1'));
     go('/story/s1');
     go(-1);
     expect(screen.queryByTestId('skeleton')).toBeNull();
     expect(screen.getAllByTestId('story-card')).toHaveLength(1);
+    expect(screen.getByTestId('story-card').getAttribute('data-linked')).toBe('1'); // restored with its footer
     expect(screen.getByTestId('stake-tab-stories').getAttribute('aria-selected')).toBe('true');
     await act(async () => {});
     expect(getPoints).toHaveBeenCalledTimes(1);

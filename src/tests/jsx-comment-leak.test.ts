@@ -49,5 +49,7 @@ describe('JSX comment leak guard', () => {
     expect(files.length).toBeGreaterThan(50);
     const hits = files.flatMap((f) => findCommentLikeJsxText(readFileSync(f, 'utf8'), f));
     expect(hits).toEqual([]);
-  });
+    // P1394: this parses every .tsx in the repo (~700 files) with the TypeScript compiler: ~0.5s on a
+    // quiet machine, median ~6s and up to 8.7s in loaded full-suite runs, past Vitest's default 5s.
+  }, 30_000);
 });
