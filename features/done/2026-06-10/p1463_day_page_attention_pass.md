@@ -12,6 +12,7 @@ exec_model: opus
 exec_effort: high
 driver: anomaly
 completed_at: 2026-10-12
+superseded_by: p1468
 ---
 
 # P1463: Day page attention pass — one place per problem, a count you can see
