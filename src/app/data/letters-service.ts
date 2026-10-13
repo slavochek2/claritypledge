@@ -5,8 +5,8 @@
  */
 
 import * as Sentry from '@sentry/react';
-import { FunctionsHttpError } from '@supabase/supabase-js';
-import { logDbError, throwDbError } from './db-error-logger';
+import { FunctionsHttpError, type PostgrestError } from '@supabase/supabase-js';
+import { logDbError, noteNoSessionSuppression, throwDbError } from './db-error-logger';
 import { earCountOf, type HasEarsCount } from './ear-count';
 import { extractHashtags } from '@/lib/utils';
 import type {
@@ -1275,6 +1275,28 @@ export async function submitLetterResponseAuthenticated(
 export async function getUnreadLetterCount(userId: string): Promise<number> {
   log('getUnreadLetterCount:', userId);
 
+  // P1475: the letter RLS policies call SECURITY DEFINER helpers that are revoked
+  // from anon (p651). A 42501 with NO client session is this badge refetching after
+  // the session dropped while React still holds `user` — not a DB fault, so it is
+  // dropped with a breadcrumb and the badge reads 0. With a session, a 42501 means
+  // signed-in users lost EXECUTE and must still report (decisions.md 2026-10-01,
+  // P1382). The session is read on the error path only, at most once per call.
+  let hasSession: boolean | undefined;
+  const logUnlessAnon = async (context: string, error: PostgrestError): Promise<'anon' | 'logged'> => {
+    if (error.code === '42501') {
+      if (hasSession === undefined) {
+        const { data: { session } } = await supabase.auth.getSession();
+        hasSession = !!session;
+      }
+      if (!hasSession) {
+        noteNoSessionSuppression(context);
+        return 'anon';
+      }
+    }
+    logDbError(context, error);
+    return 'logged';
+  };
+
   // Fetch letters the user sent — used by both branches below.
   // Select status too so Branch 2 can filter to sealed without a second DB call.
   const { data: ownLetters, error: errOwn } = await supabase
@@ -1282,7 +1304,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
     .select('id, status')
     .eq('sender_id', userId);
 
-  if (errOwn) logDbError('getUnreadLetterCount.ownLetters', errOwn);
+  if (errOwn && (await logUnlessAnon('getUnreadLetterCount.ownLetters', errOwn)) === 'anon') return 0;
   const ownLetterIds = ownLetters?.map(l => l.id) ?? [];
 
   // Branch 1: Count received unread, excluding self-sent deliveries.
@@ -1295,7 +1317,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
     receivedQuery = receivedQuery.not('letter_id', 'in', `(${ownLetterIds.join(',')})`);
   }
   const { count: receivedCount, error: err1 } = await receivedQuery;
-  if (err1) logDbError('getUnreadLetterCount.received', err1);
+  if (err1 && (await logUnlessAnon('getUnreadLetterCount.received', err1)) === 'anon') return 0;
 
   // Branch 2: Count unread responses to my sealed letters (in_progress or completed).
   // Mirrors get_inbox_items which surfaces status IN ('in_progress', 'completed').
@@ -1311,7 +1333,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
       .neq('receiver_profile_id', userId)
       .is('read_at', null);
 
-    if (err2) logDbError('getUnreadLetterCount.responses', err2);
+    if (err2 && (await logUnlessAnon('getUnreadLetterCount.responses', err2)) === 'anon') return 0;
     responsesCount = count ?? 0;
   }
 
@@ -1326,7 +1348,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
       .select('id')
       .in('letter_id', sealedIds)
       .neq('receiver_profile_id', userId); // exclude self-sent deliveries
-    if (errDel) logDbError('getUnreadLetterCount.explainBackDeliveries', errDel);
+    if (errDel && (await logUnlessAnon('getUnreadLetterCount.explainBackDeliveries', errDel)) === 'anon') return 0;
     const deliveryIds = myDeliveries?.map(d => d.id) ?? [];
     if (deliveryIds.length > 0) {
       const { count: ebCount, error: err3 } = await supabase
@@ -1334,7 +1356,7 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
         .select('id', { count: 'exact', head: true })
         .in('delivery_id', deliveryIds)
         .is('author_read_at', null);
-      if (err3) logDbError('getUnreadLetterCount.explainBacks', err3);
+      if (err3 && (await logUnlessAnon('getUnreadLetterCount.explainBacks', err3)) === 'anon') return 0;
       explainBackCount = ebCount ?? 0;
     }
   }

@@ -18,18 +18,30 @@ const isDev = import.meta.env.DEV;
  * discoverable. A breadcrumb creates no Sentry issue — it rides along with the
  * NEXT captured error — so this reintroduces none of the noise P990 removes.
  *
- * Called from the two suppression sites only (logDbError's blip early-return
- * and throwDbError's blip branch), never from the 150+ call sites.
+ * Called from logDbError's suppression branches and noteNoSessionSuppression
+ * only, never from the 150+ call sites.
  */
 function noteSuppression(
   context: string,
-  reason: 'network-blip' | 'jwt-expired' = 'network-blip'
+  reason: 'network-blip' | 'jwt-expired' | 'no-session' = 'network-blip'
 ): void {
   Sentry.addBreadcrumb({
     category: 'db-error-suppressed',
     level: 'info',
     data: { context, reason },
   });
+}
+
+/**
+ * Record that a caller dropped an anon 42501 because the client has no session
+ * (P1475, following P1382). The caller — not logDbError — decides this, because
+ * only the caller can read the session: a name or message predicate here cannot
+ * tell that artifact from a signed-in user who lost EXECUTE (decisions.md
+ * 2026-10-01). Use only on a 42501 after `supabase.auth.getSession()` returned no
+ * session, in a background read that already degrades to an empty result.
+ */
+export function noteNoSessionSuppression(context: string): void {
+  noteSuppression(context, 'no-session');
 }
 
 /**
@@ -60,25 +72,9 @@ export function logDbError(
     return;
   }
 
-  const msg = error.message ?? '';
-
-  // Expired-token-as-anon transient (P913) — not a real DB error.
-  // The letter RLS SELECT policies invoke the SECURITY DEFINER helpers
-  // _is_letter_receiver / _is_letter_sender, which p651 revoked from `anon`
-  // (granted to `authenticated` only). When a logged-in user's token silently
-  // expires but the SPA still holds a stale `user`, a background poll (e.g.
-  // getUnreadLetterCount) fires as `anon` and gets 42501 "permission denied for
-  // function _is_letter_*". A real authenticated user can never hit this — the
-  // grant is verified present on prod. The caller already degrades gracefully
-  // (returns 0, 0 users impacted), so this is pure noise. Scoped to the helper
-  // functions only — a genuine "permission denied for table X" still reports.
-  const isExpiredSessionRpcDenied =
-    error.code === '42501' &&
-    msg.includes('permission denied for function _is_letter_');
-  if (isExpiredSessionRpcDenied) return;
-
-  // P1011: PGRST303 "JWT expired" — the same expired-token artifact as the 42501
-  // case above, arriving through PostgREST's own door instead of an RLS helper.
+  // P1011: PGRST303 "JWT expired" — an expired-token artifact arriving through
+  // PostgREST's own door. (Its anon-42501 sibling on the letter RLS helpers is
+  // suppressed at the caller, session-gated — P1475, see noteNoSessionSuppression.)
   //
   // Not routed through isNetworkBlip: that predicate short-circuits on any error
   // carrying a code (network-blip.ts:64), and PGRST303 legitimately carries one —

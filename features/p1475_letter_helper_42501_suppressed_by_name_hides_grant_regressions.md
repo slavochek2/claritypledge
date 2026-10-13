@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 31
 severity: medium
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry, observability, letters, error-handling]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 ---
 
 # P1475: Letter-helper 42501 is suppressed by function name alone, so a signed-in user losing EXECUTE would never reach Sentry
@@ -110,18 +110,54 @@ grant for every signed-in user is switched off.
 
 ## Acceptance Criteria
 
-- [ ] `logDbError` with `{ code: '42501', message: 'permission denied for function
+- [x] `logDbError` with `{ code: '42501', message: 'permission denied for function
       _is_letter_receiver' }` in production mode calls `Sentry.captureException` (new test in
       `src/tests/db-error-logger.test.ts`). This test was seen to fail before the change.
-- [ ] `getUnreadLetterCount` with a 42501 and **no** session returns `0`, does not call
+      *Evidence (dev): pre-fix run `× reports 42501 "permission denied for function
+      _is_letter_receiver" — no function-name suppression` (and `_sender`); post-fix ✓.*
+- [x] `getUnreadLetterCount` with a 42501 and **no** session returns `0`, does not call
       `captureException`, and records a `db-error-suppressed` breadcrumb with reason `no-session`
       (new test, mirroring the P1382 canary).
-- [ ] `getUnreadLetterCount` with a 42501 **and** a session calls `captureException` (new test).
-- [ ] `getUnreadLetterCount` on a successful query does not call `supabase.auth.getSession()`
+      *Evidence (dev): `src/tests/p1475-unread-count-anon-no-sentry.test.ts`, all-denied case plus
+      one case per read site (5); all failed pre-fix, all ✓ post-fix.*
+- [x] `getUnreadLetterCount` with a 42501 **and** a session calls `captureException` (new test).
+      *Evidence (dev): 5 per-site cases plus a several-errors case (session read once, 3 captures);
+      failed pre-fix, ✓ post-fix. Mutation (caller suppresses every 42501 regardless of session)
+      → `6 failed | 8 passed`; restored → `14 passed`.*
+- [x] `getUnreadLetterCount` on a successful query does not call `supabase.auth.getSession()`
       (asserted in the test).
-- [ ] `npx vitest run src/tests/db-error-logger.test.ts src/tests/p1382-pending-invitations-anon-no-sentry.test.ts`
+      *Evidence (dev): `control: success path counts every branch and never reads the session` ✓
+      (returns 3, `getSession` not called); a non-42501 error also never reads it ✓.*
+- [x] `npx vitest run src/tests/db-error-logger.test.ts src/tests/p1382-pending-invitations-anon-no-sentry.test.ts`
       passes, along with the new tests.
-- [ ] `grep -n "_is_letter_" src/app/data/db-error-logger.ts` returns nothing.
+      *Evidence (dev): with p1475 + p913 added → `Test Files 4 passed (4) · Tests 34 passed (34)`.*
+- [x] `grep -n "_is_letter_" src/app/data/db-error-logger.ts` returns nothing.
+      *Evidence (dev): no output, grep exit=1.*
+
+## Fix Notes (dev)
+
+- **All five reads in `getUnreadLetterCount` are gated, not three.** The old `includes('_is_letter_')`
+  also matched `_is_letter_participant` (P904), which `story_explain_backs` RLS calls. The session is
+  read at most once per call, and the first anon 42501 returns `0` with one breadcrumb.
+- **`src/tests/p913-unread-count-anon-no-sentry.test.ts`:** its two `_is_letter_*` cases asserted the
+  removed name predicate ("skips Sentry"). They are inverted to "reports" and point at the P1475 canary.
+  This follows AC1 and the decisions.md 2026-10-01 ruling. The table-42501 and 42P01 cases are unchanged.
+- **Other letter pollers (step 3):** `grep setInterval|refetchInterval|visibilitychange` found
+  `inbox-tab.tsx` (15s), `sent-tab.tsx` (15s), `letter-results-page.tsx` (visibility) and
+  `usePendingPartnerInvitationCount` (P1382, already gated). None is changed:
+  - `getInboxItems`, `getAllSentLetters` and `getDeliveriesForLetters` call `requireAuth()` first, so
+    they never query without a session.
+  - `getUnreadExplainBackCountsByDelivery` runs only after `getInboxItems` passed `requireAuth()` in
+    the same tick, and its table policy is `TO authenticated`, so anon gets empty rows, not 42501.
+  - The letter-results refetch is a page view whose failure goes to `not-found`, not a degrade-to-zero
+    badge.
+- **Residual exposure:** `clarity_letters`, `letter_deliveries`, `letter_story_snapshots`,
+  `letter_predictions` and `letter_point_responses` have SELECT policies with no role scope. A
+  user-initiated read of these tables can still run as anon, with a stale React `user`, no session
+  and no `requireAuth`. Those reads are `getLetterForReading`, `getLetterPointResponses`,
+  `updateDeliveryStatus`, `findLetterPreloadForStory` and `docsService.getDocsByUser`. They used to
+  drop this 42501 silently and will now report it. That is deliberate under this spec's non-goal of
+  leaving user-initiated reads alone. If it becomes Sentry noise, gate it at the caller.
 
 ## Non-Goals
 

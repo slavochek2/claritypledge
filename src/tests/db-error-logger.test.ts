@@ -156,5 +156,37 @@ describe('logDbError', () => {
       });
       expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     });
+
+    // P1475: logDbError cannot tell an anon artifact from a signed-in user who
+    // lost EXECUTE on a letter helper, so it must not drop this by name. The
+    // anon case is suppressed at the caller, session-gated (decisions.md
+    // 2026-10-01, P1382).
+    it.each([
+      'permission denied for function _is_letter_receiver',
+      'permission denied for function _is_letter_sender',
+    ])('reports 42501 "%s" — no function-name suppression', async (message) => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      logDbError('getUnreadLetterCount.received', {
+        message,
+        code: '42501',
+        details: null,
+        hint: null,
+      } as never);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('noteNoSessionSuppression (P1475)', () => {
+    it('records a db-error-suppressed breadcrumb with reason no-session', async () => {
+      const { noteNoSessionSuppression } = await import('../app/data/db-error-logger');
+      noteNoSessionSuppression('getUnreadLetterCount.received');
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'db-error-suppressed',
+          data: { context: 'getUnreadLetterCount.received', reason: 'no-session' },
+        })
+      );
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
   });
 });

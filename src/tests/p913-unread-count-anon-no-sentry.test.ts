@@ -12,9 +12,12 @@
  * (JAVASCRIPT-REACT-1Y / 1Z / 1V) even though the function already returns 0 and
  * no user is impacted.
  *
- * Expected after fix: 42501 on the _is_letter_* helpers is dropped (no Sentry);
- * a generic 42501 (e.g. permission denied for a TABLE) and all other DB errors
- * are STILL reported — the filter is scoped, not blanket.
+ * P913 first dropped 42501 on the _is_letter_* helpers inside logDbError by
+ * function name. P1475 removed that predicate: it could not tell the anon
+ * artifact from a signed-in user who lost EXECUTE (decisions.md 2026-10-01,
+ * P1382). The anon case is now suppressed at the caller, only when the client
+ * has no session — see p1475-unread-count-anon-no-sentry.test.ts. logDbError
+ * itself reports every 42501.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -25,7 +28,7 @@ vi.mock('@sentry/react', () => ({
 
 import * as Sentry from '@sentry/react';
 
-describe('P913: logDbError — expired-token-as-anon permission-denied must not hit Sentry', () => {
+describe('P913 → P1475: logDbError does not suppress letter-helper 42501 by name', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -39,7 +42,7 @@ describe('P913: logDbError — expired-token-as-anon permission-denied must not 
   it.each([
     'permission denied for function _is_letter_receiver',
     'permission denied for function _is_letter_sender',
-  ])('skips Sentry for 42501 "%s" (anon/expired token)', async (message) => {
+  ])('reports 42501 "%s" — the anon case is gated at the caller (P1475)', async (message) => {
     const { logDbError } = await import('../app/data/db-error-logger');
     logDbError('getUnreadLetterCount.received', {
       message,
@@ -47,7 +50,7 @@ describe('P913: logDbError — expired-token-as-anon permission-denied must not 
       details: '',
       hint: '',
     });
-    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
   it('STILL reports a generic 42501 (permission denied for a TABLE — real RLS bug)', async () => {
