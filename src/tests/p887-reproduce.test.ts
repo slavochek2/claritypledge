@@ -385,4 +385,68 @@ describe('P887: check-migration-client-safety.sh (pre-commit annotation gate)', 
     const { status } = runChecker([benign, prose]);
     expect(status).toBe(0);
   });
+
+  // P1473: a dropped or re-signed RPC breaks a deployed client (PGRST202, or 42501
+  // on every call) exactly like a REVOKE from anon does.
+  const DROP_FN = 'DROP FUNCTION IF EXISTS public.f(uuid);\n';
+  const REVOKE_EXISTING = 'REVOKE ALL ON FUNCTION public.existing_rpc(uuid) FROM PUBLIC;\n';
+
+  it('P1473: flags DROP FUNCTION without annotation', () => {
+    const f = fixture('p1473-drop.sql', DROP_FN);
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('P1473: flags REVOKE ... FROM PUBLIC on a function the file does not create', () => {
+    const f = fixture('p1473-revoke-existing.sql', REVOKE_EXISTING);
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('P1473: flags a REVOKE ... FROM PUBLIC that wraps onto a second line', () => {
+    const f = fixture(
+      'p1473-revoke-wrapped.sql',
+      'REVOKE EXECUTE ON FUNCTION public.existing_rpc(uuid, text)\n  FROM PUBLIC;\n',
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).toContain('VIOLATION');
+    expect(status).not.toBe(0);
+  });
+
+  it('P1473: passes the harden-a-new-function pattern (create, then REVOKE ALL FROM PUBLIC)', () => {
+    const f = fixture(
+      'p1473-harden-new.sql',
+      'CREATE OR REPLACE FUNCTION public.new_rpc(p uuid)\nRETURNS void LANGUAGE sql AS $$ SELECT 1 $$;\n' +
+        'REVOKE ALL ON FUNCTION public.new_rpc(uuid) FROM PUBLIC;\n' +
+        'GRANT EXECUTE ON FUNCTION public.new_rpc(uuid) TO service_role;\n',
+    );
+    const { status, output } = runChecker([f]);
+    expect(output).not.toContain('VIOLATION');
+    expect(status).toBe(0);
+  });
+
+  it('P1473: both new shapes pass once they carry a client-safe annotation', () => {
+    const drop = fixture('p1473-drop-safe.sql', `-- client-safe: helper no client calls\n${DROP_FN}`);
+    const revoke = fixture(
+      'p1473-revoke-safe.sql',
+      `-- client-safe: only the service role calls it\n${REVOKE_EXISTING}`,
+    );
+    const { status } = runChecker([drop, revoke]);
+    expect(status).toBe(0);
+  });
+
+  // Whole-line comments only, matching the existing arms: a shape named in a
+  // TRAILING comment still flags (fail-closed), as it always has.
+  it('P1473: DROP FUNCTION / FROM PUBLIC mentioned only in comment lines does not trip the gate', () => {
+    const prose = fixture(
+      'p1473-prose.sql',
+      '-- this migration does not DROP FUNCTION anything\n' +
+        '  -- nor REVOKE ALL ON FUNCTION x FROM PUBLIC\n' +
+        'CREATE INDEX widgets_idx2 ON public.widgets (id);\n',
+    );
+    const { status } = runChecker([prose]);
+    expect(status).toBe(0);
+  });
 });

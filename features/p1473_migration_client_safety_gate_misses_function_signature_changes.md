@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 29
 workstream: infrastructure
@@ -7,8 +7,8 @@ created_date: '2026-10-13'
 tags: [migrations, pre-commit, client-safety, gates]
 disclosure: public
 intent: cold-start
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -96,21 +96,50 @@ with the same rule: a shape whose unannotated hits are all false positives is no
 
 ## Done-When
 
-- [ ] New cases in `src/tests/p887-reproduce.test.ts`, each run with `npx vitest run
+- [x] New cases in `src/tests/p887-reproduce.test.ts`, each run with `npx vitest run
       src/tests/p887-reproduce.test.ts`:
-  - [ ] a fixture with `DROP FUNCTION` and no annotation → `VIOLATION`, non-zero exit;
-  - [ ] a fixture with `REVOKE … ON FUNCTION … FROM PUBLIC` on a function **not** created in the
+  - [x] a fixture with `DROP FUNCTION` and no annotation → `VIOLATION`, non-zero exit;
+  - [x] a fixture with `REVOKE … ON FUNCTION … FROM PUBLIC` on a function **not** created in the
         file, with no annotation → `VIOLATION`, non-zero exit;
-  - [ ] a fixture that creates a function and then `REVOKE ALL … FROM PUBLIC` on it → passes (the
+  - [x] a fixture that creates a function and then `REVOKE ALL … FROM PUBLIC` on it → passes (the
         false-positive guard);
-  - [ ] each of the first two passes once it carries `-- client-safe: <reason>`;
-  - [ ] a comment line mentioning `DROP FUNCTION` → passes.
-- [ ] Each new failing case was seen to fail **before** the gate change and pass after (gate 7: paste
+  - [x] each of the first two passes once it carries `-- client-safe: <reason>`;
+  - [x] a comment line mentioning `DROP FUNCTION` → passes.
+- [x] Each new failing case was seen to fail **before** the gate change and pass after (gate 7: paste
       both runs).
-- [ ] The corpus measurement re-run on current `supabase/migrations/` is recorded in this spec: per-arm
+- [x] The corpus measurement re-run on current `supabase/migrations/` is recorded in this spec: per-arm
       count of unannotated files newly flagged (gate 7c).
-- [ ] `scripts/check-migration-client-safety.sh supabase/migrations/20260908114500_p1058_release_seat_requires_code.sql`
+- [x] `scripts/check-migration-client-safety.sh supabase/migrations/20260908114500_p1058_release_seat_requires_code.sql`
       still exits 0 (it carries `requires-frontend`).
+
+## Evidence (dev, 2026-10-13)
+
+**Gate 7, before/after.** Before the gate change: `Tests 3 failed | 6 passed | 8 skipped (17)` —
+the three failures were the must-fail cases (DROP FUNCTION; REVOKE FROM PUBLIC on an existing
+function; the same REVOKE wrapped onto a second line). After: `Tests 17 passed (17)`.
+
+**Corpus re-measurement (gate 7c), 413 migrations.** Old gate (main) flags 36, all pre-P887 legacy
+files that were never gated. New gate flags 47. The 11 newly flagged files all match the
+`DROP FUNCTION` arm. Twelve unannotated files contain `DROP FUNCTION`, which matches the table above;
+`20260414100001_p703_letter_sourced_live.sql` was already flagged by the anon arm. The narrowed
+REVOKE-PUBLIC arm flags **0** unannotated files. It would fire on 15 annotated files once their
+annotation is stripped, which is the positive control. Every newly flagged file is dated 2026-04-18
+or earlier, so none was authored under the gate. The numbers have not moved, so the decision in the
+Solution table stands.
+
+**Statement-level REVOKE-PUBLIC arm.** The arm matches per SQL statement rather than per line. Six
+corpus files wrap `FROM PUBLIC, anon, authenticated` onto its own line after a long function
+signature, and a line regex cannot see those. The statement-level count is the same as the line
+count for unannotated files without a CREATE FUNCTION, which is 0.
+
+**Real-migration canary (gate 7d).** `scripts/test-p1473-migration-client-safety.sh` contains:
+- P1058 (DROP FUNCTION) and P1104 name-guards (REVOKE FROM PUBLIC), each with its annotation stripped.
+  Both fail. A gate mutant with the matching arm removed lets each one through.
+- P707 (create, then REVOKE FROM PUBLIC). It passes; the no-narrowing mutant flags it.
+- A full-corpus census.
+
+Run against the real gate it reports 13 passed, 0 failed, exit 0. Against main's gate it exits 1
+with 9 failed.
 
 ## Related
 

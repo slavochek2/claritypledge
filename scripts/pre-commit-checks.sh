@@ -473,7 +473,7 @@ echo ""
 # security/npx). Proves the three prod gates hold: pending-list ack refusal,
 # requires-frontend coupling hard-block, mandatory post-migrate smoke — and
 # that test-env behavior stays unchanged.
-MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
+MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only|test-p1473-migration-client-safety)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
 if [ -n "$MIGRATE_STAGED" ]; then
     if ! run_quiet "migrate.sh prod-gates canary (P887)" npx vitest run src/tests/p887-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
@@ -485,6 +485,10 @@ if [ -n "$MIGRATE_STAGED" ]; then
         fi
     else
         echo -e ">>> migrate.sh --only canary... ${RED}✗ scripts/test-p1211-migrate-only.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+    # P1473: client-safety gate arms (DROP FUNCTION, REVOKE FROM PUBLIC) against real migrations.
+    if ! run_quiet "client-safety gate canary (P1473)" bash scripts/test-p1473-migration-client-safety.sh; then
         ERRORS=$((ERRORS + 1))
     fi
 else
@@ -1649,7 +1653,8 @@ echo ""
 # 14.9. Client-breaking migration annotation gate (P887 — prevents P886-class
 # outages at authoring time). A newly staged migration containing client-breaking
 # SQL shapes (REVOKE from anon/authenticated, DROP POLICY, DROP COLUMN, column
-# type change) must carry "-- requires-frontend: <sha>" (migrate.sh hard-blocks
+# type change, DROP FUNCTION, REVOKE FROM PUBLIC on an existing function — P1473)
+# must carry "-- requires-frontend: <sha>" (migrate.sh hard-blocks
 # the prod apply until that commit is deployed) or "-- client-safe: <reason>".
 #
 # --diff-filter=AM (not just A): a migration fixed -- or broken -- in a second
