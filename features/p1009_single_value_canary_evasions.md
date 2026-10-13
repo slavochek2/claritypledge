@@ -91,6 +91,12 @@ AFTER   active-market-focus 1 · page-lead 1 · active-channel 1   rc=0
 
 **AC4: must-stay-uncounted fixtures** (§2, §4): dated `> - ` elaborations attached under the live lead; `[SUPERSEDED]`, `[FALLBACK]`, `[Dormant]`, `[Parked]` and `[Demoted]` callouts, plus bullets and `>>` lines nested inside them; an undated tagline; a fenced example marker; an inline prose marker; and an attached elaboration injected into the real active-market-focus slot. All exit 0.
 
+**Review round (2026-10-13; /finish + Codex, each reproduced as a failing fixture first):**
+- **Non-ASCII staged paths (§13e).** Under the default `core.quotepath`, git C-quotes the whole path (`"docs/strat\303\251gie.md"`), so it never matched `\.md$`. The result was a silent skip with a green line, not the ERROR the review predicted. §13e now reads `git diff --cached -z`. `core.quotepath=false` alone still fails a name containing `"` (fixture added). Unmerged paths are still an ERROR (merge-conflict fixture).
+- **Fences follow CommonMark.** A closer is the same character, at least as long as the opener, and has no info string. A 4-backtick example showing a bare ```` ```python ```` line had flipped the state and hidden every slot after it. Across all tracked `.md` files, 22 change classification. In both sampled files the new reading is the CommonMark one; the old toggle closed at ```` ```ts ```` and inverted ~700 lines of decisions.md. The real-doc result is unchanged: 3 slots, rc=0.
+- **Retirement propagates through nesting.** `>>> …` inside a `>> **[FALLBACK] …**` callout under a live lead now inherits the retirement, at any depth. Outdenting restores the enclosing state (two controls).
+- Suite: 49/49. The 31b081d3b checker fails 4 of the new cases. Mutants killed: closer-length check removed, info-string closes, closer character ignored, retirement not inherited, no outdent pop.
+
 **Gate 7 (the suite fails when the code is wrong):** mutants each killed. These were the old checker (23 FAIL), hardcoded list (3), any-heading-ends-region (2), bullets-never-count (2), marker via `.search()` (1), marker never matches (23), ISO-only dates (3), no retirement inheritance (4) and no fence skipping (2). Two first-draft mutants survived as *equivalent* (a regex alternative still covered the input; `.match()` still anchored). They were re-cut and killed.
 
 ## References

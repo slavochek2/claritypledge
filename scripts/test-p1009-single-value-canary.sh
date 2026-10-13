@@ -151,6 +151,62 @@ cat > "$TMP/inline.md" <<'EOF'
 EOF
 want "a marker mentioned inline in prose is not a slot"                   "$(rc_of "$TMP/inline.md")" 0
 
+# Fences follow CommonMark: a closer is the SAME char, at least as LONG as the opener, with
+# nothing but whitespace after it. A 5-backtick example that shows a 4-backtick block with a
+# ```python opener inside must not leave the scanner "inside code" for the rest of the file —
+# that hides every real slot after it (exit 0, no slots).
+cat > "$TMP/fence-nest.md" <<'EOF2'
+## How to write examples
+
+`````md
+````md
+Open a Python block with:
+```python
+````
+`````
+
+## Unique Value Proposition
+
+<!-- SINGLE-VALUE: page-lead -->
+
+> **Lead A (2026-07-20).** x
+
+> **Lead B (2026-07-22).** y
+EOF2
+want "a real slot after a nested 5/4/3-backtick example is still scanned" "$(rc_of "$TMP/fence-nest.md")" 2
+{ printf '%s\n' '## How to open a block' '' '````md' 'Start with:' '```python' '````' ''; sed -n '/^## Unique/,$p' "$TMP/fence-nest.md"; } > "$TMP/fence-4.md"
+want "a real slot after a 4-backtick example showing a bare \`\`\`python opener" "$(rc_of "$TMP/fence-4.md")" 2
+# An info string makes a line an OPENER, never a closer: inside a ``` fence, ```python is content.
+cat > "$TMP/fence-info.md" <<'EOF2'
+## Example
+
+```
+```python
+<!-- SINGLE-VALUE: page-lead -->
+
+> **Lead A (2026-07-04).** x
+> **Lead B (2026-07-11).** y
+```
+EOF2
+want "a fenced example whose body has a \`\`\`python line stays fenced"   "$(rc_of "$TMP/fence-info.md")" 0
+# A closer must be the SAME character: a bare ``` inside a ~~~ fence is content.
+printf '%s\n' '## Example' '' '~~~md' '```' '<!-- SINGLE-VALUE: page-lead -->' '' \
+  '> **Lead A (2026-07-04).** x' '> **Lead B (2026-07-11).** y' '```' '~~~' > "$TMP/fence-char.md"
+want "a bare backtick fence line inside a ~~~ fence stays fenced"         "$(rc_of "$TMP/fence-char.md")" 0
+
+# Retirement propagates through nesting: a note quoted inside a [FALLBACK] callout belongs
+# to the retired callout, however deep. Outdenting restores the enclosing state.
+printf '%s\n' '## UVP' '' '<!-- SINGLE-VALUE: page-lead -->' '' \
+  '> **A (2026-07-20).** live' \
+  '>> **[FALLBACK] B (2026-07-22).** retired' \
+  '>>> **Historical note (2026-07-23).** subordinate to B' \
+  '>>>> **Deeper note (2026-07-25).** still inside B, via an untagged parent' > "$TMP/nest-retired.md"
+want "a deeper quote inside a retired nested callout inherits the retirement" "$(rc_of "$TMP/nest-retired.md")" 0
+{ cat "$TMP/nest-retired.md"; printf '%s\n' '> **D (2026-07-24).** back at the top level'; } > "$TMP/nest-outdent1.md"
+want "control: outdent to the top level, a new dated lead counts again"   "$(rc_of "$TMP/nest-outdent1.md")" 2
+{ cat "$TMP/nest-retired.md"; printf '%s\n' '>> **E (2026-07-24).** sibling of B, under live A'; } > "$TMP/nest-outdent2.md"
+want "control: outdent to B's depth, a dated lead under live A counts"     "$(rc_of "$TMP/nest-outdent2.md")" 2
+
 echo
 echo "== 3. real docs: every tracked marker doc scans clean, and the parser sees the known slots =="
 REAL_DOCS=()
@@ -210,10 +266,17 @@ fi
 REPO="$TMP/repo"
 mkdir -p "$REPO/scripts" "$REPO/docs" "$REPO/features"
 cp "$CHECKER" "$REPO/scripts/"
-git -C "$REPO" init -q && git -C "$REPO" config user.email t@example.invalid && git -C "$REPO" config user.name t
+newrepo() {
+  git -C "$1" init -q && git -C "$1" config user.email t@example.invalid && git -C "$1" config user.name t
+  # Pinned to git's default, so the non-ASCII case below cannot pass just because a
+  # host's global config happens to turn path quoting off.
+  git -C "$1" config core.quotepath true
+}
+newrepo "$REPO"
 run13e() {
-  # The block needs these from the surrounding script; nothing else.
-  ( cd "$REPO" && STAGED_FILES="$(git diff --cached --name-only --diff-filter=d)" \
+  # The block needs these from the surrounding script; nothing else. STAGED_FILES is built
+  # exactly as pre-commit-checks.sh builds it (default quoting), since §13e runs beside it.
+  ( cd "${1:-$REPO}" && STAGED_FILES="$(git diff --cached --name-only --diff-filter=d)" \
     RED='' GREEN='' YELLOW='' NC='' ERRORS=0 WARNINGS=0 \
     bash -c 'source "$1"; echo "ERRORS=$ERRORS WARNINGS=$WARNINGS"' _ "$BLOCK" 2>&1 )
 }
@@ -236,6 +299,36 @@ git -C "$REPO" rm -q --cached docs/CHARTER.md
 printf '# plain\n' > "$REPO/docs/plain.md"; git -C "$REPO" add docs/plain.md
 o="$(run13e)"
 case "$o" in *"ERRORS=0 WARNINGS=0"*) ok "staged markdown without a marker → skipped, no error" ;; *) bad "marker-less markdown misreported: $o" ;; esac
+git -C "$REPO" rm -q --cached docs/plain.md
+# A non-ASCII filename arrives C-quoted ("\303\251...") under git's default core.quotepath, and
+# `git show ":<quoted>"` then fails. That must not read as an unreadable/unmerged path.
+printf '# plain\n' > "$REPO/docs/résumé.md"; git -C "$REPO" add "docs/résumé.md"
+o="$(run13e)"
+case "$o" in *"ERRORS=0 WARNINGS=0"*) ok "staged non-ASCII-named markdown without a marker → no error" ;; *) bad "non-ASCII-named markdown misreported: $o" ;; esac
+git -C "$REPO" rm -q --cached "docs/résumé.md"
+cp "$TMP/control.md" "$REPO/docs/stratégie.md"; git -C "$REPO" add "docs/stratégie.md"
+o="$(run13e)"
+case "$o" in *"ERRORS=0 WARNINGS=1"*) ok "staged non-ASCII-named marker doc with two leads → scanned, WARN" ;; *) bad "non-ASCII-named marker doc not scanned: $o" ;; esac
+git -C "$REPO" rm -q --cached "docs/stratégie.md"
+# core.quotepath=false alone is not enough: git still C-quotes a name containing `"`, `\` or a
+# control character. Only NUL-delimited output (-z) prints it verbatim.
+cp "$TMP/control.md" "$REPO/docs/the \"lead\".md"; git -C "$REPO" add "docs/the \"lead\".md"
+o="$(run13e)"
+case "$o" in *"ERRORS=0 WARNINGS=1"*) ok "staged marker doc with a double quote in its name → scanned, WARN" ;; *) bad "double-quote-named marker doc not scanned: $o" ;; esac
+git -C "$REPO" rm -q --cached "docs/the \"lead\".md"
+# The ERROR for a genuinely unreadable path must survive the fix: a conflicted merge leaves the
+# doc unmerged (no stage-0 entry), which is exactly when competing leads land.
+REPO2="$TMP/repo2"; mkdir -p "$REPO2/scripts" "$REPO2/docs"; cp "$CHECKER" "$REPO2/scripts/"; newrepo "$REPO2"
+( cd "$REPO2" && printf 'base\n' > docs/m.md && git add docs/m.md scripts && git commit -qm base \
+  && git checkout -qb side && printf 'side\n' > docs/m.md && git commit -qam side \
+  && git checkout -q - && printf 'main\n' > docs/m.md && git commit -qam main \
+  && { git merge -q side >/dev/null 2>&1 || true; } )
+if git -C "$REPO2" ls-files -u -- docs/m.md | grep -c . >/dev/null; then
+  o="$(run13e "$REPO2")"
+  case "$o" in *"could not read staged content"*"ERRORS=1"*) ok "unmerged staged markdown → still an ERROR" ;; *) bad "unmerged staged markdown not reported as an ERROR: $o" ;; esac
+else
+  bad "could not build the unmerged-path fixture — the ERROR path went untested"
+fi
 
 echo
 echo "== $pass passed, $fail failed =="

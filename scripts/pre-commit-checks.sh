@@ -1425,9 +1425,16 @@ echo ""
 # marker added to CHARTER.md, goals.md or a features/ spec. Which lines are real
 # markers (own line, outside a code fence) is the checker's call, not this grep's.
 # scripts/test-p1009-single-value-canary.sh runs this block in a throwaway repo.
+# Paths are read NUL-delimited, NOT from $STAGED_FILES: under git's default
+# core.quotepath a non-ASCII name prints C-quoted ("docs/strat\303\251gie.md"), which
+# never matches '\.md$' (it ends in `"`) and is not a path `git show` can read, so
+# such a doc would go unscanned with a green line. -z prints every path verbatim.
 echo ">>> Checking SINGLE-VALUE strategy-doc slots..."
-SV_STAGED=$(echo "$STAGED_FILES" | grep -E '\.md$' || true)
-if [ -n "$SV_STAGED" ]; then
+SV_STAGED=()
+while IFS= read -r -d '' sv_path; do
+    case "$sv_path" in *.md) SV_STAGED+=("$sv_path") ;; esac
+done < <(git diff --cached --name-only --diff-filter=d -z 2>/dev/null)
+if [ ${#SV_STAGED[@]} -gt 0 ]; then
     SV_TMP=""; SV_SKIP_OK=""
     # Hardcoded, never env-overridable: an inherited SV_SCRIPT pointing at any .py
     # that exits 0 would turn this gate green with a positive checkmark and no trace.
@@ -1452,8 +1459,7 @@ if [ -n "$SV_STAGED" ]; then
         trap "rm -rf '$SV_TMP'" EXIT
         SV_ARGS=()
         SV_MISSED=""
-        while IFS= read -r sv_doc; do
-            [ -z "$sv_doc" ] && continue
+        for sv_doc in "${SV_STAGED[@]}"; do
             mkdir -p "$SV_TMP/$(dirname "$sv_doc")"
             # Unmerged paths (a conflicted merge — exactly when competing directives
             # land) are in the index but not at stage 0, so `git show ":$doc"` fails.
@@ -1466,7 +1472,7 @@ if [ -n "$SV_STAGED" ]; then
             # early-closing grep under pipefail can report a match as a miss (epistemic gate 7).
             grep -q 'SINGLE-VALUE:' "$SV_TMP/$sv_doc" || continue
             SV_ARGS+=("$SV_TMP/$sv_doc")
-        done <<< "$SV_STAGED"
+        done
         if [ -n "$SV_MISSED" ]; then
             echo -e "${RED}✗ SINGLE-VALUE canary could not read staged content for:$SV_MISSED${NC}"
             echo -e "${RED}  (unmerged path?) Those docs were NOT scanned — resolve, then re-run.${NC}"

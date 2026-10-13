@@ -86,7 +86,10 @@ import sys
 # carried three leads") is a mention, not a slot.
 MARKER_RE = re.compile(r'^\s*<!--\s*SINGLE-VALUE:\s*([A-Za-z0-9_-]+)\s*-->\s*$')
 HEADING_RE = re.compile(r'^(#{1,6})\s')
-FENCE_RE = re.compile(r'^\s*(```|~~~)')
+# A fence delimiter: a run of 3+ backticks or tildes, then the rest of the line. Whether it
+# opens or closes is decided in _fenced_flags (CommonMark rules), not by this regex.
+# Indentation is accepted leniently (CommonMark allows 0-3 spaces, more inside list items).
+FENCE_RE = re.compile(r'^[ \t]*(`{3,}|~{3,})(.*)$')
 # The `>` prefix of a blockquote line, at any depth: ">", ">>", "> >".
 QUOTE_PREFIX_RE = re.compile(r'^\s*((?:>\s?)+)')
 BULLET_RE = re.compile(r'^(?:[-*+]|\d+[.)])\s+')
@@ -128,20 +131,29 @@ RECONCILED_RE = re.compile(
 
 
 def _fenced_flags(lines):
-    """Per line: True when the line is inside (or is a delimiter of) a code fence."""
+    """Per line: True when the line is inside (or is a delimiter of) a code fence.
+
+    CommonMark: the opener's character and length are remembered; a closer is the SAME
+    character, AT LEAST as long, followed only by whitespace. A line with an info string
+    (```python) can open a fence but never close one, and a backtick opener's info string
+    may not contain a backtick. Getting this wrong is not cosmetic: a 4-backtick example
+    that shows a bare ```python line would otherwise flip the state and hide every real
+    slot after it (P1009 review). An unclosed fence runs to end of file, as in CommonMark.
+    """
     flags = []
-    fence = None
+    fence = None        # (char, length) of the open fence, or None
     for line in lines:
         m = FENCE_RE.match(line)
         if fence is None:
-            if m:
-                fence = m.group(1)
+            if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
+                fence = (m.group(1)[0], len(m.group(1)))
                 flags.append(True)
                 continue
             flags.append(False)
         else:
             flags.append(True)
-            if m and m.group(1) == fence:
+            if (m and m.group(1)[0] == fence[0] and len(m.group(1)) >= fence[1]
+                    and m.group(2).strip() == ''):
                 fence = None
     return flags
 
@@ -191,11 +203,15 @@ def _blocks(lines, fenced, start, end, skip):
 
 
 def _directives_in_block(block):
-    """Return the counted directive lead-ins in one blockquote block."""
-    base = min(depth for depth, _ in block)
+    """Return the counted directive lead-ins in one blockquote block.
+
+    `stack` holds the items enclosing the current line, outermost first, as
+    (depth, is_bullet, retired, standalone). `retired` is EFFECTIVE: an item inside a
+    retired callout is retired however deep it is nested. Outdenting pops back to the
+    enclosing item, so its state is restored.
+    """
     items = []          # [lead_in, text, counted_candidate]
-    parent = None       # the block's current lead item, or None
-    parent_retired = False
+    stack = []
     current = None
     for depth, content in block:
         bullet = BULLET_RE.match(content)
@@ -208,21 +224,29 @@ def _directives_in_block(block):
         lead_in = lead.group(1).strip()
         retired = bool(RECONCILED_RE.search(lead_in))
         item = [lead_in, body, False]
-        if not bullet and depth == base:
-            # A lead: opens (or replaces) the block's parent.
-            parent, parent_retired = item, retired
-            item[2] = not retired
-        elif parent is None:
-            # A bullet or nested quote with no lead above it in the block is
+        # Pop what this line is not nested inside: anything deeper; a sibling lead at the
+        # same depth; a sibling bullet at the same depth, unless that bullet is standalone
+        # (it then acts as the lead its siblings elaborate).
+        while stack:
+            top_depth, top_bullet, _, top_standalone = stack[-1]
+            if top_depth > depth or (top_depth == depth and (
+                    not bullet or (top_bullet and not top_standalone))):
+                stack.pop()
+                continue
+            break
+        parent = stack[-1] if stack else None
+        if parent is None:
+            # A lead, or a bullet / nested quote with no lead above it in the block:
             # standalone — it elaborates nothing, so it is a directive.
-            parent, parent_retired = item, retired
             item[2] = not retired
-        elif parent_retired:
-            item[2] = False          # part of a retired callout
+        elif parent[2]:
+            item[2] = False          # inside a retired callout, at any depth
         elif bullet:
             item[2] = False          # sanctioned elaboration of the live lead
         else:
             item[2] = not retired    # a nested `>>` lead inside a live callout
+        stack.append((depth, bool(bullet), retired or (parent is not None and parent[2]),
+                      parent is None))
         items.append(item)
         current = item
     return [lead_in for lead_in, text, counted in items if counted and DATE_RE.search(text)]
