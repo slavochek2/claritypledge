@@ -8,6 +8,7 @@
 
 import { POSITION_LABELS, type PositionType, type PositionButtonGroup } from '@/app/types';
 import type { SevenPointCounts } from '@/app/components/shared/presentational/position-buttons';
+import { ADD_STORY_COPY } from '@/app/components/shared/presentational/card-footer';
 
 export interface PositionCTACopy {
   symbol: string;
@@ -41,8 +42,8 @@ export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy 
   };
   return {
     ...symbols[group],
-    ctaText: '+ Add a story',
-    ariaLabel: 'Add a story for this point',
+    ctaText: ADD_STORY_COPY.ctaText,
+    ariaLabel: ADD_STORY_COPY.ariaLabel,
   };
 }
 

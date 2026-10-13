@@ -42,7 +42,7 @@
  * So: place the footer controls inside such a row.
  */
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
-import { ArrowRight, Check, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
+import { ArrowRight, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,29 +52,25 @@ import {
 import { analytics } from '@/lib/mixpanel';
 import { MobileTooltip } from './mobile-tooltip';
 import { ShareDialog, type ShareSurface } from './ShareDialog';
-import type { PositionCTACopy } from '@/app/utils/position-helpers';
 import { CARD_FOCUS_RING, NESTED_DETAILS_BUTTON_CLASS } from './card-action-classes';
 import {
   CardFooterActions as FooterRow,
   CardExpander,
   CardCountText,
   CardDetailsButton,
+  CardSlotLink,
   type CardType,
 } from './presentational/card-footer';
 
 // P1449: the bottom row's markup lives in presentational/card-footer.tsx (the Day board renders it
-// too); CP's call sites keep importing it from here.
-export { CardExpander, CardCountText, CardDetailsButton };
+// too); CP's call sites keep importing it from here. P1468: so does the viewer's slot link.
+export { CardExpander, CardCountText, CardDetailsButton, CardSlotLink };
 
 const FOCUS_RING = CARD_FOCUS_RING;
 
 /** 44px — the profile's icon size since P1296. */
 const ICON_BUTTON =
   `min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors ${FOCUS_RING}`;
-
-/** Prototype K's `ADD_LINK`: the viewer's slot, a blue text link with a 40px hit area. */
-const SLOT_LINK =
-  `inline-flex h-10 items-center text-sm font-medium text-blue-700 hover:underline whitespace-nowrap rounded-sm ${FOCUS_RING}`;
 
 
 // ─── Bottom row ─────────────────────────────────────────────────────────────
@@ -89,47 +85,6 @@ export function CardFooterActions(props: {
 }) {
   return <FooterRow {...props} />;
 }
-
-type SlotLinkProps =
-  /** P822 — a viewer holding a position on a point, with no story linked to it yet. */
-  | { kind: 'add-story'; copy: PositionCTACopy; onClick: () => void }
-  /** P470 Case E — the viewer's own story on this point. Opens it to READ; editing stays on the story page. */
-  | { kind: 'your-story'; onClick: () => void }
-  /** P580 — a story's AUTHOR can add a point to it. */
-  | { kind: 'add-point'; onClick: () => void };
-
-/** The viewer's one slot in the bottom row. */
-export function CardSlotLink(props: SlotLinkProps) {
-  // add-point: the same accessible name as the story page's `+ Add a point` pills
-  // (story-card-with-links.tsx, StoryCardDetail.tsx).
-  const label =
-    props.kind === 'add-story'
-      ? props.copy.ariaLabel
-      : props.kind === 'your-story'
-        ? 'Your story'
-        : 'Add a point to this story';
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        props.onClick();
-      }}
-      aria-label={label}
-      className={SLOT_LINK}
-    >
-      {props.kind === 'add-story' && props.copy.ctaText}
-      {props.kind === 'your-story' && (
-        <>
-          <Check className="mr-1 h-4 w-4" aria-hidden="true" />
-          Your story
-        </>
-      )}
-      {props.kind === 'add-point' && '+ Add a point'}
-    </button>
-  );
-}
-
 
 /**
  * P1424 — opens a NESTED item (a quoted point under a story card, a linked story under a point
