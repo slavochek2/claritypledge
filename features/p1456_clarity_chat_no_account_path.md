@@ -79,3 +79,10 @@ Without it the loop only works between existing members.
 ## Done-when for promoting out of placeholder
 
 - P1437 prototype is accepted, and a real test needs a counterpart who is not a member.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **WhatsApp becomes the default for contacts imported from WhatsApp.** Bob sends the letter link from his own WhatsApp (by hand first; through Beeper later). A message from Bob's number reads as Bob; one from a company number reads as a stranger.
+- **The link is not proof of identity.** Alice confirms her number with a WhatsApp one-time code (WhatsApp authentication templates, offered by providers such as Twilio Verify; per-message cost; needs a Meta-verified business sender). Email stays the fallback.
+- **Beeper transport:** in its on-device mode messages go from the device straight to WhatsApp, end-to-end encrypted; the older cloud mode decrypts on Beeper's servers. Check the mode before relying on it.
+- The prototype (P1469) sends by email only.

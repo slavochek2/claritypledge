@@ -69,3 +69,9 @@ Chain: precondition for **find the moment** and **show the gap** at scale: the c
 ## Done-when for promoting out of placeholder
 
 - A real test needs a check between people who are not partners.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **Known/unknown is dropped** (founder, 2026-10-13). A private known/unknown tag is manual work with no use now that mutual recommendations are gone.
+- **Messaging works like Slack or WhatsApp:** you can message anyone whose email or number you have; block and "mark as spam" are the safety valve.
+- **Two states remain: a normal chat, and Partner** (the agreement, with the existing pending invitation). Contacts are private cards (P1458), separate from both; a non-user can at most be "invited".

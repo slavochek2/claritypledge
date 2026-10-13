@@ -73,3 +73,9 @@ must bring every moment by hand.
 ## Done-when for promoting out of placeholder
 
 - P1437 shows the flow works on mocked data, and a tester wants it on their own chats.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **Imported sources are spaces** (P1469 decision 18): a left rail with ClarityPledge, WhatsApp via Beeper, Telegram via Beeper; a light skin per network; composer "Message on WhatsApp" when Beeper is connected, "Read-only · imported <date>" otherwise.
+- **Alice never sees Bob's imported history**, and letters never quote her imported messages word for word.
+- **The first import triggers one scan for stuck conversations** (P1470); afterwards detection speaks only when it finds one.

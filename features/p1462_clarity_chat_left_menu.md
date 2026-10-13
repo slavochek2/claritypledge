@@ -60,3 +60,7 @@ how everything looks without testing whether the loop works.
 ## Done-when for promoting out of placeholder
 
 - Clarity Chat is accepted as the main surface (P1437 passes UAT and one follow-up ships).
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- The left rail also carries **spaces** (ClarityPledge, WhatsApp via Beeper, Telegram via Beeper), modelled on Slack's workspace rail and Beeper's network rail (P1469 decision 18, P1457).

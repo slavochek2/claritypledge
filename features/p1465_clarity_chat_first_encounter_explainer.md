@@ -80,3 +80,8 @@ gap is ever shown. Adoption of the whole loop depends on this card.
 
 - In P1437 v5, a reviewer who sees only the card passes the 10-second test, and a real first-time
   viewer does not raise an objection the card failed to answer.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **The explainer graphic is removed** (avatar → arrow → dashed avatar; founder: "why?!").
+- **Alice no longer meets Bob's agent.** She meets the idea on the card itself: after her position is locked, Bob's story of her arrives under the header "<name> in Bob's eyes · <guess>" with one neutral line from the letter (P1469 decision 13).

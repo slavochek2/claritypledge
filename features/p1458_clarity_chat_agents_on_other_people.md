@@ -137,3 +137,10 @@ visible before Alice answers; a calibration score turns many checks into a trend
 ## Done-when for promoting out of placeholder
 
 - P1437 v5 has run on at least one real pair, and the legal pre-production list has an owner.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **Home: Bob's private card on a person ("My card").** It reuses the existing profile page with a "Private · only you" banner; sent items are tagged "Shared with <name>", unsent ones keep the Draft tag. Every contact can have one, user or not (a WhatsApp number, an email). For a contact who is a user, hovering offers **Profile** or **My card**, and each links to the other. Empty cards stay out of the list.
+- **Value hypothesis (H-card, UNTESTED):** people keep notes on others all the time, but never ones the other person can grade. A card whose predictions the person can check gives a reason to come back: your picture of people gets better. Falsifier: users who complete a check do not return to the card.
+- **Bob sets his own guess** of the other person's position; the agent never pre-fills it, or calibration measures the agent.
+- **Each finished check** adds a Journey to Understanding entry to the card (P1459).

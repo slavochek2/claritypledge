@@ -66,3 +66,9 @@ with it, a pair (or an organisation) can see progress and a champion can make th
 ## Done-when for promoting out of placeholder
 
 - Placeholder P1455 produces closed exchanges, and someone asks to see their history.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **The entry reuses the live session's "Journey to Understanding" card**: the sender's sealed numbers against the recipient's ratings, and how they move over later rounds.
+- **It records checked assumptions, confirmed as well as gaps.** Celebrating only gaps would reward bad guesses. No confetti for these letters.
+- **It lives with the person**, on the sender's private card ("History with <name>", P1458). Session History may later list all entries by date.

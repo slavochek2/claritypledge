@@ -81,3 +81,8 @@ measurement into a repair.
 
 - P1437 prototype shows at least one gap end to end with a real pair, and
 - the founder (or a tester) asks "what now?" after seeing the numbers.
+
+## Update 2026-10-13 (from the v5 walk-through, see P1469)
+
+- **Threads only where two topics run at once.** Group channels keep threads; one-to-one chats and agent chats use quote-replies (Telegram-style). The letter loop has no threads.
+- **Closing the gap continues in the Bob-Alice chat**, where the letter now arrives (P1469 decision 11), so this spec designs replies inside that chat, not in a separate thread.
