@@ -17,8 +17,12 @@
 #   C. False-positive guard. A real migration that creates a function and then
 #      REVOKEs PUBLIC on it (no annotation) passes. A mutant without the
 #      CREATE FUNCTION narrowing flags it, so the narrowing is load-bearing.
-#   D. Census of the whole corpus (gate 7c). The REVOKE-PUBLIC arm flags no
-#      unannotated real migration; nothing authored after the arms existed is flagged;
+#   E. Review round: per-statement narrowing (a file that creates one function and
+#      revokes another is flagged; same name + different signature is flagged), block
+#      comments in both directions, a /* inside a string, target kinds, FROM "PUBLIC".
+#   D. Census of the whole corpus (gate 7c). No unannotated real migration is flagged
+#      ONLY by the REVOKE-PUBLIC arm (every REVOKE-PUBLIC hit on an unannotated file is
+#      printed); nothing authored after the arms existed is flagged;
 #      each arm fires on at least one real file (DROP FUNCTION on a legacy unannotated
 #      file, REVOKE-PUBLIC on an annotated file once its annotation is stripped).
 #
@@ -67,8 +71,8 @@ M_NO_DROP="$TMP/gate-no-drop-function.sh"
 M_NO_REVOKE="$TMP/gate-no-revoke-public.sh"
 M_NO_NARROW="$TMP/gate-no-create-narrowing.sh"
 mutant "$M_NO_DROP" 's/\|DROP\[\[:space:\]\]\+FUNCTION//'
-mutant "$M_NO_REVOKE" 's/REVOKE_PUBLIC_HIT=1$/REVOKE_PUBLIC_HIT=0/'
-mutant "$M_NO_NARROW" 's/! grep -qiE "\$CREATES_FUNCTION" < <\(statements "\$FILE"\)/true/'
+mutant "$M_NO_REVOKE" 's/in revoke_public_hits\(code\):/in []:/'
+mutant "$M_NO_NARROW" 's/if have and \(want is None or want in have\):/if False:/'
 
 echo "A. DROP FUNCTION (real: $(basename "$DROP_REAL"))"
 run "$GATE" "$DROP_REAL"
@@ -117,8 +121,42 @@ run "$M_NO_NARROW" "$HARDEN_REAL"
 [ "$RC" != 0 ] && ok "mutant without the CREATE FUNCTION narrowing flags it (narrowing is load-bearing)" \
                || bad "mutant without narrowing still passes — fixture never reaches the REVOKE-PUBLIC arm"
 
+# E. Review round (/finish, 2 MEDIUM + 1 LOW). Built on the real P707 / P1104 files.
+# expect <want-rc: 0|fail> <label> <file> [output-substring]
+expect() {
+  run "$GATE" "$3"
+  local got=fail; [ "$RC" = 0 ] && got=0
+  if [ "$got" = "$1" ] && { [ -z "${4:-}" ] || grep -qF "$4" <<<"$OUT"; }; then
+    ok "$2 (exit $RC)"
+  else
+    bad "$2: want ${1}${4:+ with '$4'}, got exit $RC: $OUT"
+  fi
+}
+echo "E. Per-statement narrowing, block comments, target kinds"
+{ cat "$HARDEN_REAL"; echo 'REVOKE ALL ON FUNCTION public.legacy_rpc(uuid) FROM PUBLIC;'; } > "$TMP/e_resign.sql"
+expect fail "re-sign: file creates one function, revokes a different existing one" "$TMP/e_resign.sql" \
+  'FROM PUBLIC on a function this file does not create: public.legacy_rpc(uuid)'
+printf 'CREATE FUNCTION public.f(p uuid, q text) RETURNS void LANGUAGE sql AS $$ SELECT 1 $$;\nREVOKE ALL ON FUNCTION public.f(uuid) FROM PUBLIC;\n' > "$TMP/e_overload.sql"
+expect fail "same name, different signature: the revoke hits the existing overload" "$TMP/e_overload.sql"
+printf 'CREATE OR REPLACE FUNCTION public.f(p_id uuid, p_code text DEFAULT NULL) RETURNS void LANGUAGE sql AS $$ SELECT 1 $$;\nREVOKE ALL ON FUNCTION f(UUID, TEXT) FROM PUBLIC;\n' > "$TMP/e_samesig.sql"
+expect 0 "same name and signature (unqualified, other case) still counts as created here" "$TMP/e_samesig.sql"
+{ echo '/* CREATE FUNCTION public.is_reserved_agent_name(text) */'; cat "$TMP/b_stripped.sql"; } > "$TMP/e_block_fn.sql"
+expect fail "a CREATE FUNCTION inside a block comment does not narrow a real REVOKE" "$TMP/e_block_fn.sql"
+{ cat "$HARDEN_REAL"; printf '/* retired:\n   DROP FUNCTION public.old_rpc(uuid);\n   REVOKE ALL ON FUNCTION public.old_rpc(uuid) FROM PUBLIC;\n   /* nested */ still a comment */\n'; } > "$TMP/e_block_fp.sql"
+expect 0 "DROP FUNCTION / REVOKE inside a (nested) block comment are not flagged" "$TMP/e_block_fp.sql"
+{ cat "$HARDEN_REAL"; printf "SELECT '/*';\nDROP FUNCTION public.old_rpc(uuid);\nSELECT '*/';\n"; } > "$TMP/e_block_str.sql"
+expect fail "a /* inside a string literal does not open a comment" "$TMP/e_block_str.sql"
+printf 'REVOKE SELECT ON public.profiles FROM PUBLIC;\n' > "$TMP/e_table.sql"
+expect fail "table target is named as a table" "$TMP/e_table.sql" 'FROM PUBLIC on a table this file does not create'
+printf 'REVOKE USAGE ON SCHEMA app FROM PUBLIC;\n' > "$TMP/e_schema.sql"
+expect fail "schema target is named as a schema" "$TMP/e_schema.sql" 'FROM PUBLIC on a schema this file does not create'
+printf 'CREATE TABLE public.t (id uuid);\nREVOKE ALL ON TABLE public.t FROM PUBLIC;\n' > "$TMP/e_newtable.sql"
+expect 0 "revoking PUBLIC on a table the file creates is not flagged" "$TMP/e_newtable.sql"
+printf 'REVOKE ALL ON FUNCTION public.legacy_rpc(uuid) FROM "PUBLIC";\n' > "$TMP/e_quoted.sql"
+expect fail 'FROM "PUBLIC" (quoted) is still flagged' "$TMP/e_quoted.sql"
+
 echo "D. Corpus census over $MIG"
-total=0; flagged=0; via_drop=0; via_revoke_unann=0; late=0; revoke_tp=0
+total=0; flagged=0; via_drop=0; via_revoke_unann=0; revoke_only=0; late=0; revoke_tp=0
 for f in "$MIG"/*.sql; do
   total=$((total + 1))
   version=$(basename "$f" | sed -E 's/^([0-9]+).*/\1/')
@@ -126,8 +164,14 @@ for f in "$MIG"/*.sql; do
   if [ "$RC" != 0 ]; then
     flagged=$((flagged + 1))
     grep -qi 'DROP FUNCTION' <<<"$OUT" && via_drop=$((via_drop + 1))
-    grep -q 'FROM PUBLIC on a function this file does not create' <<<"$OUT" && {
-      via_revoke_unann=$((via_revoke_unann + 1)); echo "    REVOKE-PUBLIC flags unannotated: $(basename "$f")"; }
+    if grep -q 'FROM PUBLIC on a .* this file does not create' <<<"$OUT"; then
+      via_revoke_unann=$((via_revoke_unann + 1))
+      if grep -qE '^    [0-9]+:' <<<"$OUT"; then
+        echo "    REVOKE-PUBLIC also fires on unannotated (already flagged by another arm): $(basename "$f")"
+      else
+        revoke_only=$((revoke_only + 1)); echo "    REVOKE-PUBLIC ALONE flags unannotated: $(basename "$f")"
+      fi
+    fi
     # Compare as 14-digit strings: legacy names carry an 8-digit date only.
     padded=$(printf '%-14s' "$version" | tr ' ' '0')
     [[ "$padded" > "$ARMS_SINCE" || "$padded" == "$ARMS_SINCE" ]] && {
@@ -135,12 +179,12 @@ for f in "$MIG"/*.sql; do
   elif grep -qiE "$ANNOTATION" "$f"; then
     strip_annotation "$f" "$TMP/census.sql"
     run "$GATE" "$TMP/census.sql"
-    grep -q 'FROM PUBLIC on a function this file does not create' <<<"$OUT" && revoke_tp=$((revoke_tp + 1))
+    grep -q 'FROM PUBLIC on a .* this file does not create' <<<"$OUT" && revoke_tp=$((revoke_tp + 1))
   fi
 done
-echo "    corpus=$total flagged=$flagged (via DROP FUNCTION: $via_drop) REVOKE-PUBLIC-on-unannotated=$via_revoke_unann annotated-files-the-REVOKE-arm-would-catch=$revoke_tp"
-[ "$via_revoke_unann" = 0 ] && ok "REVOKE-PUBLIC arm flags 0 unannotated real migrations" \
-                            || bad "REVOKE-PUBLIC arm flags $via_revoke_unann unannotated real migrations (false positives?)"
+echo "    corpus=$total flagged=$flagged (via DROP FUNCTION: $via_drop) REVOKE-PUBLIC-on-unannotated=$via_revoke_unann (alone: $revoke_only) annotated-files-the-REVOKE-arm-would-catch=$revoke_tp"
+[ "$revoke_only" = 0 ] && ok "REVOKE-PUBLIC arm alone flags 0 unannotated real migrations" \
+                       || bad "REVOKE-PUBLIC arm alone flags $revoke_only unannotated real migrations — review each"
 [ "$late" = 0 ] && ok "no migration authored on/after $ARMS_SINCE is flagged" \
                 || bad "$late migration(s) authored after the arms are flagged"
 [ "$via_drop" -ge 1 ] && ok "DROP FUNCTION arm fires on $via_drop real legacy file(s)" \

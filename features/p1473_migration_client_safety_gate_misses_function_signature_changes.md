@@ -141,6 +141,23 @@ count for unannotated files without a CREATE FUNCTION, which is 0.
 Run against the real gate it reports 13 passed, 0 failed, exit 0. Against main's gate it exits 1
 with 9 failed.
 
+**Review round (/finish: 2 MEDIUM, 1 LOW).** Each finding was reproduced as a failing canary case
+(section E) before the fix:
+- The file-level narrowing failed open when a file created one function and revoked another
+  existing one. It is now per statement: a REVOKE target is narrowed only by a CREATE of the same
+  object in the same file. For a function that means the same schema-qualified name and, when
+  argument types are given, the same normalized types.
+- `/* */` block comments are now blanked by a string-, identifier- and dollar-quote-aware
+  tokenizer, an inline python3 helper modelled on check-rls-scope.py. All shape arms read this
+  comment-free view.
+- The violation message now names the kind of target: function, table or schema.
+
+The census after the fix finds 47 flagged, unchanged. The REVOKE-PUBLIC arm fires on one
+unannotated file, `20260405051035_p651_letter_onboarding_fixes.sql`. It is a true positive of the
+re-sign shape (it revokes existing helpers from `public`) and is a pre-P887 legacy file that the
+anon arm already flagged. No file is flagged by the REVOKE-PUBLIC arm alone. The canary reports
+23 passed, 0 failed; p887 reports 17 of 17.
+
 ## Related
 
 - P887: the gate. P886: the incident. P1058: where the gap was found.
