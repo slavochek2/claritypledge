@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: task
 disclosure: public
 rank: 99
@@ -10,6 +10,8 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+delivery_stage: dev
+pipeline_ran: [dev]
 ---
 
 # P1198: `git-ops.sh ship --resume` should re-diff the branch for commits added mid-ship
@@ -57,13 +59,26 @@ loop picks it up naturally — no special-casing needed downstream.
 
 ## Done-When
 
-- [ ] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
+- [x] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
       then a new commit lands on the branch before `--resume` runs, and `--resume` cherry-picks it
       without manual intervention.
-- [ ] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
+      Evidence (2026-10-13, after the fix): `PASS: AD-a (P1198): --resume lands a commit added to the
+      branch after the journal was written`; also AD-b (the P1303 shape, every journaled commit
+      already landed), AD-c (rewritten branch refused, nothing picked), AD-d (commit added during a
+      fresh ship: branch kept, exit non-zero, then `--resume` lands it), AD-e (an appended merge of
+      main gets the `--mark-landed` recipe and converges). Full suite rc=0, 66 PASS lines.
+- [x] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
       fix lands.
-- [ ] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
+      Evidence: the suite run against the unchanged `git-ops.sh` returned rc=1 with
+      `AD-a: expected 3 p210 commits on main (2 journaled + 1 added after the journal), got 2`,
+      `AD-b: ... got 1`, `AD-c: --resume exited 0 on a branch rewritten after the journal`,
+      `AD-d: Phase 3 deleted the branch while it held a commit the ship never landed (exit 0)`.
+      AD-e was added with the merge recipe. As a mutation control, a copy with only the two recipe
+      lines removed returned rc=1:
+      `AD-e: --resume appended a merge of main (exit 1) without printing its --mark-landed recipe`.
+- [x] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
       superseded to point at the fix.
+      Evidence: a "Resolved by P1198 (2026-10-13)" paragraph was appended to that entry's Consequences.
 
 
 ## Second reproduction — P1303 (2026-09-11)

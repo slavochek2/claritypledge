@@ -2592,6 +2592,80 @@ for c in j.get("commits", []):
 PY
 }
 
+# P1198: compare the branch with the journal. The journal is written once, at
+# init; a commit added to the branch afterwards (P1179: a fix for a gate that
+# failed mid-ship; P1303: the spec's embargo lift) is in neither the journal nor
+# main, and Phase 3's branch delete then drops it with exit 0.
+# Prints one line per drift, nothing when the branch matches the journal:
+#   new <sha>   on the branch, ahead of main, absent from the journal (branch order)
+#   gone <sha>  journaled, but neither on the branch nor on main — the branch was
+#               rewritten (rebase, amend, reset) after the journal was written
+# Prints nothing when the branch ref is absent (Phase 3 already deleted it).
+# Returns non-zero if the comparison itself fails; callers must fail closed.
+ship_branch_drift() {
+  local journal="$1" branch="$2"
+  ( cd "$REPO_ROOT" && git rev-parse -q --verify "refs/heads/${branch}" >/dev/null ) || return 0
+  local fresh
+  fresh="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" )" || return 1
+  ( cd "$REPO_ROOT" && SHIP_FRESH="$fresh" python3 - "$journal" <<'PY'
+import json, os, subprocess, sys
+j = json.load(open(sys.argv[1]))
+journaled = [c["source_sha"] for c in j.get("commits", [])]
+fresh = [s for s in os.environ["SHIP_FRESH"].splitlines() if s]
+known, on_branch = set(journaled), set(fresh)
+for s in fresh:
+    if s not in known:
+        print("new " + s)
+for s in journaled:
+    if s in on_branch:
+        continue
+    # Reachable from main is not a rewrite: the commit is already there.
+    if subprocess.run(["git", "merge-base", "--is-ancestor", s, "main"],
+                      capture_output=True).returncode != 0:
+        print("gone " + s)
+PY
+  )
+}
+
+# P1198: append source_shas (newline-separated, in order) to the journal as
+# pending entries, atomically. Already-journaled shas are skipped.
+ship_append_journal_commits() {
+  local pn="$1" shas="$2"
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  SHIP_SHAS="$shas" python3 - "$journal" <<'PY'
+import json, os, sys, tempfile
+target = sys.argv[1]
+j = json.load(open(target))
+known = {c["source_sha"] for c in j["commits"]}
+for s in os.environ["SHIP_SHAS"].splitlines():
+    if s and s not in known:
+        j["commits"].append({"source_sha": s, "landed_sha": None, "landed_at": None, "pre_pick_head": None})
+        known.add(s)
+fd, tmp = tempfile.mkstemp(prefix=".ship-journal.", dir=os.path.dirname(target))
+try:
+    with os.fdopen(fd, "w") as f:
+        json.dump(j, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, target)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+}
+
+# P1198: print "  <sha> <subject>" for each sha, redirect tokens stripped (P783).
+ship_list_commits() {
+  local _s
+  while IFS= read -r _s; do
+    [[ -n "$_s" ]] || continue
+    echo "  ${_s:0:12} $( cd "$REPO_ROOT" && git log -1 --format=%s "$_s" 2>/dev/null | tr -d '<>|' )"
+  done <<< "$1"
+}
+
 # P1464: mark a journal entry as withheld (embargoed spec content, never picked).
 # landed_sha stays null, so every landed-count reader (INCOMPLETE accounting,
 # reconcile, ship_verify_landed_shas) keeps counting only what reached main.
@@ -4138,6 +4212,44 @@ cmd_ship() {
     spec_file="$(ship_journal_str "$pn" "spec_file")"
     [[ -n "$branch" ]] || die "ship: journal $journal missing source_branch"
     [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
+    # P1198: re-diff the branch against the journal before anything reads the
+    # pending list (dirty-file pre-flight, embargo classification, Phase 1).
+    # New commits are appended as pending; a rewritten branch is refused.
+    local _rd_drift _rd_new _rd_gone
+    _rd_drift="$(ship_branch_drift "$journal" "$branch")" \
+      || die "ship: --resume could not compare $branch with the journal — refusing rather than risk dropping a commit"
+    _rd_gone="$(printf '%s\n' "$_rd_drift" | sed -n 's/^gone //p')"
+    _rd_new="$(printf '%s\n' "$_rd_drift" | sed -n 's/^new //p')"
+    if [[ -n "$_rd_gone" ]]; then
+      {
+        echo "ship: --resume refuses — $branch was rewritten (rebase, amend or reset) after the journal was written."
+        echo "These journaled commits are no longer on the branch or on main:"
+        ship_list_commits "$_rd_gone"
+        echo "Nothing was picked by this run. Replaying the journal would land the old commits and"
+        echo "then delete the branch, discarding the rewrite. Put the journaled history back on"
+        echo "$branch (its last journaled commit is still in the object store) with any new work"
+        echo "as commits on top, then run: git-ops ship $pn --resume"
+      } >&2
+      exit 1
+    fi
+    if [[ -n "$_rd_new" ]]; then
+      ship_append_journal_commits "$pn" "$_rd_new"
+      {
+        echo "ship: --resume: $(printf '%s\n' "$_rd_new" | grep -c .) commit(s) were added to $branch after the journal was written — adding them to this ship:"
+        ship_list_commits "$_rd_new"
+        # Same recipe ship_init_journal prints: Phase 1 cannot pick a merge.
+        local _rd_m _rd_m2
+        while IFS= read -r _rd_m; do
+          _rd_m2="$( cd "$REPO_ROOT" && git rev-parse -q --verify "${_rd_m}^2" 2>/dev/null )" || continue
+          if ( cd "$REPO_ROOT" && git merge-base --is-ancestor "$_rd_m2" main 2>/dev/null ); then
+            echo "  $_rd_m is a merge of main; Phase 1 will stop on it. Pre-resolve with:"
+            echo "    ./scripts/git-ops.sh ship $pn --mark-landed $_rd_m $_rd_m2"
+          else
+            echo "  $_rd_m is a merge of something other than main; Phase 1 will stop on it — inspect by hand"
+          fi
+        done <<< "$_rd_new"
+      } >&2
+    fi
   fi
 
   # --- Closure gate, normal branch route (P1246) ----------------------------
@@ -4937,6 +5049,22 @@ The branch is authoritative for shipped migrations. Compare each file with
   elif (( EMB_MODE == 1 )); then
     echo "ship: $branch retained — it holds withheld embargoed spec content ($(printf '%s' "$EMB_PNS" | tr '\n' ' ' | sed 's/ $//')) that exists nowhere else; move it to its own branch before deleting this one." >&2
   elif ! ship_journal_flag "$pn" "branch_deleted"; then
+    # P1198: the branch delete below is where a commit added mid-ship (after the
+    # journal was written, on a fresh run or a --resume) would be lost. Refuse
+    # to delete while the branch holds anything this ship did not journal.
+    local _p3_drift
+    _p3_drift="$(ship_branch_drift "$journal" "$branch")" \
+      || die "ship: could not compare $branch with the journal before deleting it — branch kept"
+    if [[ -n "$_p3_drift" ]]; then
+      {
+        echo "ship: $branch NOT deleted — it changed after this ship's journal was written:"
+        printf '%s\n' "$_p3_drift" | while IFS=' ' read -r _p3_kind _p3_sha; do
+          echo "  ${_p3_kind}: $(ship_list_commits "$_p3_sha" | sed 's/^ *//')"
+        done
+        echo "Those commits are not on main. Converge with: git-ops ship $pn --resume"
+      } >&2
+      exit 1
+    fi
     local wt_path
     wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
                 awk -v br="refs/heads/${branch}" '

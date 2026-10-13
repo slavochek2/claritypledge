@@ -72,6 +72,10 @@
 #       function frame before the EXIT trap, so the trap must not depend on
 #       cmd_ship's locals. A leaked lock wedges every later ship (P787: the
 #       lock is never force-released).
+#   AD. P1198: --resume re-diffs the branch against the journal — a commit added
+#       after the journal lands (AD-a/b/e), a rewritten branch is refused
+#       (AD-c), and Phase 3 never deletes a branch holding an unjournaled
+#       commit (AD-d).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -3443,6 +3447,225 @@ scratch_reset p173
 pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 
 # -----------------------------------------------------------------------------
+# AD. P1198: the journal is written once, at init. A commit added to the branch
+#     after that (P1179: a fix made while a gate was failing; P1303: the spec's
+#     embargo lift) was in neither the journal nor main, and Phase 3 deleted the
+#     only ref to it — exit 0, nothing said.
+#
+#     AD-a  P1179 shape: one landed, one pending, then a new branch commit —
+#           --resume lands all three.
+#     AD-b  P1303 shape: everything journaled already landed — --resume must
+#           still land the new commit, not close and exit 0.
+#     AD-c  branch rewritten (amend) after the journal — --resume refuses,
+#           picks nothing, keeps branch and journal.
+#     AD-d  a commit lands on the branch DURING a fresh ship — Phase 3 must not
+#           delete the branch; the follow-up --resume lands it.
+#
+#     Failures are collected and reported together at the end of the section,
+#     so a run against the pre-fix code shows every scenario's verdict
+#     (epistemic gate 7), not just the first.
+# -----------------------------------------------------------------------------
+
+AD_FAILS=""
+ad_fail() { AD_FAILS+="  $*"$'\n'; echo "AD FAIL: $*" >&2; }
+
+# Add one commit to a scratch branch without touching the scratch checkout.
+# A temp index + commit-tree + a compare-and-swap update-ref, so it is safe
+# while a backgrounded ship owns the working tree (AD-d). Returns non-zero if
+# the branch moved or vanished first.
+ad_branch_commit() {
+  local br="$1" file="$2" msg="$3"
+  ( cd "$SCRATCH/main"
+    local old blob tree new idx="$SCRATCH/ad-index.$$"
+    old="$(git rev-parse --verify -q "refs/heads/$br")" || exit 1
+    rm -f "$idx"
+    GIT_INDEX_FILE="$idx" git read-tree "$old"
+    blob="$(printf '%s\n' "$msg" | git hash-object -w --stdin)"
+    GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,$file"
+    tree="$(GIT_INDEX_FILE="$idx" git write-tree)"
+    rm -f "$idx"
+    new="$(git commit-tree "$tree" -p "$old" -m "$msg")"
+    git update-ref "refs/heads/$br" "$new" "$old"
+  ) >/dev/null 2>&1
+}
+
+ad_journal() {
+  # $1 pn, $2 commits JSON array body
+  mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+  cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/$1.json" <<EOF
+{
+  "p_number": "$1",
+  "started_at": "2026-10-13T00:00:00Z",
+  "session_id": "canary-ad",
+  "source_branch": "feature/$1-demo",
+  "spec_file": "features/$1_demo.md",
+  "commits": [$2],
+  "spec_closed": false,
+  "branch_deleted": false
+}
+EOF
+}
+
+ad_count() { ( cd "$SCRATCH/main" && git log --oneline main | grep -c "$1: commit" || true ); }
+
+# --- AD-a ---------------------------------------------------------------------
+scratch_feature p210 2
+AD_A1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p210-demo | sed -n '1p' )"
+AD_A2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p210-demo | sed -n '2p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_A1" ) >/dev/null
+AD_A1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p210 "{\"source_sha\": \"$AD_A1\", \"landed_sha\": \"$AD_A1L\", \"landed_at\": \"x\"},
+    {\"source_sha\": \"$AD_A2\", \"landed_sha\": null, \"landed_at\": null}"
+ad_branch_commit feature/p210-demo p210-c3.txt "p210: commit 3" || fail "AD-a: setup could not add the post-journal commit"
+AD_A_RC=0
+AD_A_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p210 --resume)" || AD_A_RC=$?
+if [[ $AD_A_RC -ne 0 ]]; then
+  echo "$AD_A_OUT" >&2; ad_fail "AD-a: --resume exited $AD_A_RC"
+elif [[ "$(ad_count p210)" != "3" ]]; then
+  echo "$AD_A_OUT" >&2; ad_fail "AD-a: expected 3 p210 commits on main (2 journaled + 1 added after the journal), got $(ad_count p210) — the post-journal commit was dropped"
+elif ! grep -q 'p210: commit 3' <<<"$AD_A_OUT"; then
+  echo "$AD_A_OUT" >&2; ad_fail "AD-a: the added commit landed but the output never named it — the operator cannot tell the ship grew"
+else
+  pass "AD-a (P1198): --resume lands a commit added to the branch after the journal was written"
+fi
+scratch_reset p210
+
+# --- AD-b ---------------------------------------------------------------------
+scratch_feature p211 1
+AD_B1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p211-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_B1" ) >/dev/null
+AD_B1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p211 "{\"source_sha\": \"$AD_B1\", \"landed_sha\": \"$AD_B1L\", \"landed_at\": \"x\"}"
+ad_branch_commit feature/p211-demo p211-c2.txt "p211: commit 2" || fail "AD-b: setup could not add the post-journal commit"
+AD_B_RC=0
+AD_B_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p211 --resume)" || AD_B_RC=$?
+if [[ $AD_B_RC -ne 0 ]]; then
+  echo "$AD_B_OUT" >&2; ad_fail "AD-b: --resume exited $AD_B_RC"
+elif [[ "$(ad_count p211)" != "2" ]]; then
+  echo "$AD_B_OUT" >&2; ad_fail "AD-b: every journaled commit had landed; expected the post-journal commit to land too (2 on main), got $(ad_count p211)"
+else
+  pass "AD-b (P1198): a fully-landed journal still picks up a later branch commit before closing"
+fi
+scratch_reset p211
+
+# --- AD-c ---------------------------------------------------------------------
+scratch_feature p212 2
+AD_C1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p212-demo | sed -n '1p' )"
+AD_C2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p212-demo | sed -n '2p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_C1" ) >/dev/null
+AD_C1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p212 "{\"source_sha\": \"$AD_C1\", \"landed_sha\": \"$AD_C1L\", \"landed_at\": \"x\"},
+    {\"source_sha\": \"$AD_C2\", \"landed_sha\": null, \"landed_at\": null}"
+( cd "$SCRATCH/main" && git checkout -q feature/p212-demo && echo amended > p212-c2.txt \
+  && git add p212-c2.txt && git commit -q --amend -m "p212: commit 2 amended" && git checkout -q main ) >/dev/null
+AD_C_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+AD_C_RC=0
+AD_C_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p212 --resume)" || AD_C_RC=$?
+if [[ $AD_C_RC -eq 0 ]]; then
+  echo "$AD_C_OUT" >&2; ad_fail "AD-c: --resume exited 0 on a branch rewritten after the journal — it replayed the stale journal and discarded the rewrite"
+elif [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$AD_C_HEAD" ]]; then
+  echo "$AD_C_OUT" >&2; ad_fail "AD-c: the refusal moved main — something was picked"
+elif ! ( cd "$SCRATCH/main" && git rev-parse --verify -q feature/p212-demo >/dev/null ); then
+  ad_fail "AD-c: the refusal deleted the branch"
+elif [[ ! -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p212.json" ]]; then
+  ad_fail "AD-c: the refusal deleted the journal"
+elif ! grep -q 'rewritten' <<<"$AD_C_OUT"; then
+  echo "$AD_C_OUT" >&2; ad_fail "AD-c: refused, but the output does not say the branch was rewritten"
+else
+  pass "AD-c (P1198): --resume refuses a branch rewritten after the journal, picking nothing"
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p212
+
+# --- AD-d ---------------------------------------------------------------------
+scratch_feature p213 2
+(
+  scratch_review_stamp p213
+  cd "$SCRATCH/main" && SHIP_DEBUG_SLEEP_SECS=2 bash "$GIT_OPS" ship p213
+) >"$SCRATCH/ad-d-ship.log" 2>&1 &
+AD_D_PID=$!
+AD_D_J="$SCRATCH/main/.claude/worktrees/.ship-journal/p213.json"
+waited=0
+while (( waited < 100 )); do
+  if [[ -f "$AD_D_J" ]] && python3 - "$AD_D_J" 2>/dev/null <<'PY'
+import json, sys
+c = json.load(open(sys.argv[1])).get("commits", [])
+sys.exit(0 if c and c[0].get("landed_sha") else 1)
+PY
+  then break; fi
+  sleep 0.1
+  waited=$((waited + 1))
+done
+AD_D_ADDED=0
+if kill -0 "$AD_D_PID" 2>/dev/null && ad_branch_commit feature/p213-demo p213-c3.txt "p213: commit 3"; then
+  AD_D_ADDED=1
+fi
+AD_D_RC=0
+wait "$AD_D_PID" || AD_D_RC=$?
+cat "$SCRATCH/ad-d-ship.log" >> "$SAFETY_LOG"
+if (( AD_D_ADDED == 0 )); then
+  echo "AD-d: skipped (ship finished before the mid-ship commit could be added)"
+else
+  AD_D_OUT="$(cat "$SCRATCH/ad-d-ship.log")"
+  if ! ( cd "$SCRATCH/main" && git rev-parse --verify -q feature/p213-demo >/dev/null ); then
+    echo "$AD_D_OUT" >&2; ad_fail "AD-d: Phase 3 deleted the branch while it held a commit the ship never landed (exit $AD_D_RC) — that commit is now reachable from no ref"
+  elif [[ $AD_D_RC -eq 0 ]]; then
+    echo "$AD_D_OUT" >&2; ad_fail "AD-d: the branch was kept but ship exited 0 — a retained, unlanded commit must be a failure"
+  else
+    rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+    AD_D2_RC=0
+    AD_D2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p213 --resume)" || AD_D2_RC=$?
+    if [[ $AD_D2_RC -ne 0 || "$(ad_count p213)" != "3" ]]; then
+      echo "$AD_D2_OUT" >&2; ad_fail "AD-d: follow-up --resume exited $AD_D2_RC with $(ad_count p213) of 3 p213 commits on main"
+    elif ( cd "$SCRATCH/main" && git rev-parse --verify -q feature/p213-demo >/dev/null ); then
+      ad_fail "AD-d: follow-up --resume converged but left the branch"
+    else
+      pass "AD-d (P1198): a commit added mid-ship blocks branch deletion, and --resume then lands it"
+    fi
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p213
+
+# --- AD-e ---------------------------------------------------------------------
+# main merged into the branch after the journal (ordinary — decisions.md
+# 2026-08-20). The appended merge cannot be cherry-picked, so --resume must
+# print the --mark-landed recipe ship_init_journal prints for merges, and the
+# documented recipe must then converge.
+scratch_feature p214 1
+AD_E1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p214-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_E1" ) >/dev/null
+AD_E1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p214 "{\"source_sha\": \"$AD_E1\", \"landed_sha\": \"$AD_E1L\", \"landed_at\": \"x\"}"
+( cd "$SCRATCH/main" && echo other > p214-main-only.txt && git add p214-main-only.txt \
+  && git commit -qm "unrelated main work" && git checkout -q feature/p214-demo \
+  && git merge -q --no-ff -m "merge main into p214" main && git checkout -q main ) >/dev/null
+AD_EM="$( cd "$SCRATCH/main" && git rev-parse feature/p214-demo )"
+AD_EM2="$( cd "$SCRATCH/main" && git rev-parse "${AD_EM}^2" )"
+AD_E_RC=0
+AD_E_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p214 --resume)" || AD_E_RC=$?
+if ! grep -qF -- "--mark-landed $AD_EM $AD_EM2" <<<"$AD_E_OUT"; then
+  echo "$AD_E_OUT" >&2; ad_fail "AD-e: --resume appended a merge of main (exit $AD_E_RC) without printing its --mark-landed recipe"
+else
+  rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+  ( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p214 --mark-landed "$AD_EM" "$AD_EM2" ) >/dev/null 2>&1 \
+    || ad_fail "AD-e: the printed --mark-landed recipe was refused"
+  AD_E2_RC=0
+  AD_E2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p214 --resume)" || AD_E2_RC=$?
+  if [[ $AD_E2_RC -ne 0 ]] || ( cd "$SCRATCH/main" && git rev-parse --verify -q feature/p214-demo >/dev/null ); then
+    echo "$AD_E2_OUT" >&2; ad_fail "AD-e: after the recipe, --resume exited $AD_E2_RC or left the branch"
+  else
+    pass "AD-e (P1198): a merge of main added mid-ship gets the --mark-landed recipe and converges"
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p214
+
+if [[ -n "$AD_FAILS" ]]; then
+  fail "AD (P1198): $(printf '%s' "$AD_FAILS" | grep -c .) scenario(s) failed:"$'\n'"$AD_FAILS"
+fi
+
+# -----------------------------------------------------------------------------
 # R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
 #     the file, so every canary's output is inside it.
 # -----------------------------------------------------------------------------
@@ -3479,4 +3702,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, AD, R2) hold"
