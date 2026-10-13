@@ -460,10 +460,18 @@ run_sync_env "case G1: nonexistent TMPDIR refuses" 3 "TMPDIR=${WORK}/no-such-tmp
 assert_no_ok "case G1: no OK line"
 assert_out "case G1: names the failure" "INTERNAL ERROR"
 
+# chmod 555 does not stop root (and some CI containers), so probe the
+# premise first and skip, loudly, when the dir is writable anyway. G1 still
+# covers the failure path there.
 mkdir -p "${WORK}/readonly-tmp" && chmod 555 "${WORK}/readonly-tmp"
-run_sync_env "case G2: unwritable TMPDIR refuses" 3 "TMPDIR=${WORK}/readonly-tmp" \
-  --check --src-dir "$SRC" --out-dir "$OUT"
-assert_no_ok "case G2: no OK line"
+if [[ "$(id -u)" -eq 0 ]] || touch "${WORK}/readonly-tmp/.probe" 2>/dev/null; then
+  echo "SKIP  case G2: chmod 555 does not make TMPDIR unwritable here (uid $(id -u)); G1 covers the failure path"
+  rm -f "${WORK}/readonly-tmp/.probe"
+else
+  run_sync_env "case G2: unwritable TMPDIR refuses" 3 "TMPDIR=${WORK}/readonly-tmp" \
+    --check --src-dir "$SRC" --out-dir "$OUT"
+  assert_no_ok "case G2: no OK line"
+fi
 chmod 755 "${WORK}/readonly-tmp"
 
 # G3 — --staged-only must not turn a FAILED `git diff --cached` into an empty
@@ -643,11 +651,40 @@ assert_gate "case H5b: a non-drift failure blocks" 1
 assert_out "case H5b: says regenerating will not fix it" "regenerating will not fix it"
 mv "${WORK}/sas-aside.sh" "${GATEFIX}/scripts/sync-agent-skills.sh"
 
-# H6 — gate 7c on the REAL repo: check 22 run against this checkout's real
-# index must pass. A failure here means either real staged drift (correct) or
-# a false positive in the gate — read the output before assuming which.
+# H6 — gate 7c on the REAL skill tree, in a throwaway repo: copies of the
+# shipped .claude/commands/slava and .agents/skills, committed, then a real
+# skill edited, regenerated and staged with its mirror. Must pass. Not run on
+# the live index: on a shared checkout a co-tenant's staged drift would fail
+# this suite while the gate is behaving correctly.
+REALFIX="${WORK}/realfix"
+mkdir -p "${REALFIX}/scripts" "${REALFIX}/.claude/commands" "${REALFIX}/.agents"
+cp "$SCRIPT" "${REALFIX}/scripts/sync-agent-skills.sh"
+cp -R "${REPO_ROOT}/.claude/commands/slava" "${REALFIX}/.claude/commands/"
+cp -R "${REPO_ROOT}/.agents/skills" "${REALFIX}/.agents/"
+REAL_SRC="$(cd "$REALFIX" && find .claude/commands/slava -name "${REAL_SKILL}.md" -not -path '*/archive/*' | head -1)"
+(
+  cd "$REALFIX"
+  git init -q -b main
+  git config user.email t@t.t
+  git config user.name t
+  git add -- scripts .claude .agents >/dev/null 2>&1
+  git commit -qm "real-tree baseline" >/dev/null 2>&1
+  printf '\nan in-sync edit to a real skill\n' >> "$REAL_SRC"
+  ./scripts/sync-agent-skills.sh >/dev/null 2>&1
+  git add -- "$REAL_SRC" ".agents/skills/${REAL_SKILL}/SKILL.md" >/dev/null 2>&1
+)
+if [[ -n "$REAL_SRC" ]]; then
+  run_gate "$REALFIX"
+  assert_gate "case H6: real skill tree, in-sync edit staged, passes check 22" 0
+else
+  echo "FAIL  case H6: could not find the source for real skill '${REAL_SKILL}'"
+  fail_count=$((fail_count + 1))
+fi
+
+# Informational only, never scored: the same check against this checkout's
+# live index, whose contents belong to whoever is staging right now.
 run_gate "$REPO_ROOT"
-assert_gate "case H6: check 22 against the real repo index passes" 0
+echo "INFO  check 22 against the live index of this checkout: ERRORS=${GATE_ERRORS:-unknown} (not scored)"
 
 
 echo ""
