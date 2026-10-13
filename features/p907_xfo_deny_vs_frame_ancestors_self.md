@@ -7,8 +7,8 @@ severity: low
 date_reported: '2026-06-06'
 created_date: '2026-06-06'
 tags: [csp, security-headers, vercel]
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P907: X-Frame-Options DENY contradicts CSP frame-ancestors 'self'
