@@ -165,19 +165,37 @@ stories, OG images, `/provision-agent` (the skill's banner step needs no change)
 
 ## Acceptance Criteria
 
-- [ ] An agent's profile banner renders with the navy treatment at 320px, 375px and desktop; a
+- [x] An agent's profile banner renders with the navy treatment at 320px, 375px and desktop; a
       person's profile banner renders in full color at the same widths (screenshots).
-- [ ] The "after <artist>" signature is not tinted and is readable on treated agent banners — checked
+      *Local build on TEST, 1280/390/375/320: agent `tint: true`, person `tint: false`, 0 console errors.*
+- [x] The "after <artist>" signature is not tinted and is readable on treated agent banners — checked
       on a cream-ink and a sepia-ink agent (e.g. after Leonardo, after Josetsu).
-- [ ] `BannerDisplay` without the new prop renders identically to today (render test); event and
-      story banners unchanged.
-- [ ] A human profile never shows the treatment, including before the agent registry has loaded
-      (render test with the registry pending).
-- [ ] The gradient fallback (agent with no banner) is not tinted.
-- [ ] All existing P1453 tests still pass.
-- [ ] Regression: the original failure — an agent banner indistinguishable from a person's — is
-      shown fixed by a side-by-side agent/person screenshot at 375px.
+      *Cream: "after Schongauer" on the local build, all widths (independent visual QA: readable). Sepia: no
+      sepia agent on TEST; "after Josetsu" checked on the real prod page with the identical CSS injected
+      (2026-10-13 comparison). Re-check on prod after deploy.*
+- [x] `BannerDisplay` without the new prop renders identically to today (render test); event and
+      story banners unchanged. *`p1483-agent-banner-tint.test.tsx`; P1453/P1354/P1417 banner suites pass.*
+- [x] A human profile never shows the treatment, including before the agent registry has loaded
+      (render test with the registry pending). *Component render test of the pending state (`concealImage`:
+      image hidden, no tint, no signature) + page wiring test + `agent-accounts-context` tests (false while
+      pending). The page itself is not rendered in a unit test, as with other profile-page tests.*
+- [x] The gradient fallback (agent with no banner) is not tinted. *Render tests incl. desktop/phone image-error cases, mutation-checked.*
+- [x] All existing P1453 tests still pass.
+- [x] Regression: the original failure — an agent banner indistinguishable from a person's — is
+      shown fixed by a side-by-side agent/person screenshot at 375px. *agent-375 / human-375, local build.*
 
-## Next Steps
+## Dev results
 
-Scope is clear and targeted (one opt-in prop, one call site) → `/dev`.
+- **Agent flash (Codex review, MEDIUM):** `isAgent` is false until the registry resolves, so an agent's
+  banner could show in color, then turn navy. Fixed with `concealImage={identityPending}`: the image
+  waits invisible on its muted slot until identity is known. Measured on the local build: navy layer
+  in place before the image is visible, 0 ms untinted (2/2 runs). If the registry fetch fails, the
+  banner stays on its muted slot — the page's existing fail-closed rule for agent identity.
+- **Blend containment (review, LOW):** the banner root gets `isolate`, so the tint can never blend with
+  the card behind a transparent image.
+- **Light paintings come out pale blue, dark ones deep navy** (visual QA). Inherent to `color` blend,
+  which keeps the painting's own light and dark; the founder chose it on real examples including a
+  light ink painting. Not changed.
+- **A person can also have a navy banner** — the founder's own hand-set banner is a navy design. Agents
+  still differ by the square avatar, the AGENT label, and navy over a painting rather than a flat
+  design. Not changed; recorded.

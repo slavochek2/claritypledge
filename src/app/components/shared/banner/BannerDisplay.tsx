@@ -31,6 +31,11 @@ interface BannerDisplayProps {
   credit?: Credit;
   /** P1483: agent profiles get a strong navy layer over the image. Absent = full color (people). */
   agentTint?: boolean;
+  /**
+   * P1483: hold the image (and its signature) invisible while the caller cannot yet say whether
+   * it gets the agent treatment — so an agent's banner never flashes in color before going navy.
+   */
+  concealImage?: boolean;
   children?: ReactNode;
 }
 
@@ -49,6 +54,7 @@ export function BannerDisplay({
   'aria-busy': ariaBusy,
   credit,
   agentTint,
+  concealImage,
   children,
 }: BannerDisplayProps) {
   const [imgError, setImgError] = useState(false);
@@ -97,15 +103,17 @@ export function BannerDisplay({
   // P1453: the credit belongs to `bannerUrl` only. Never on the gradient fallback, never while a
   // new banner is generating, and never over the hand-set phone variant (a different picture).
   const showsCreditedImage = hasMobileVariant ? isDesktop && !imgError : showImage;
-  const showCredit = !!credit && credit.url === bannerUrl && loadedUrl === bannerUrl && showsCreditedImage && !ariaBusy;
+  const showCredit = !!credit && credit.url === bannerUrl && loadedUrl === bannerUrl && showsCreditedImage && !ariaBusy && !concealImage;
   const onCreditedLoad = () => setLoadedUrl(bannerUrl ?? null);
   // P1483: the navy layer sits over whichever image is on screen — never over the gradient
   // fallback, and under the signature and the controls (both render after it).
   const showsAnyImage = hasMobileVariant ? (isDesktop ? !imgError : !mobileImgError) : showImage;
+  const imgClass = concealImage ? `${IMG_CLASS} opacity-0` : IMG_CLASS;
 
   return (
     <div
-      className={`w-full ${heightClass} relative overflow-hidden ${className ?? ''}`}
+      // P1483: `isolate` keeps the agent tint's blend inside the banner box.
+      className={`w-full ${heightClass} relative isolate overflow-hidden ${className ?? ''}`}
       aria-busy={ariaBusy}
       aria-live="polite"
     >
@@ -115,7 +123,7 @@ export function BannerDisplay({
             <BannerImage
               src={bannerUrl}
               alt={altText}
-              className={IMG_CLASS}
+              className={imgClass}
               sizes="100vw"
               loading="eager"
               fetchPriority="high"
@@ -129,7 +137,7 @@ export function BannerDisplay({
           <BannerImage
             src={mobileBannerUrl}
             alt={altText}
-            className={IMG_CLASS}
+            className={imgClass}
             sizes="100vw"
             loading="eager"
             fetchPriority="high"
@@ -142,7 +150,7 @@ export function BannerDisplay({
         <BannerImage
           src={bannerUrl}
           alt={altText}
-          className={IMG_CLASS}
+          className={imgClass}
           sizes="100vw"
           loading="eager"
           fetchPriority="high"
@@ -152,7 +160,7 @@ export function BannerDisplay({
       ) : (
         renderFallback()
       )}
-      {agentTint && showsAnyImage && (
+      {agentTint && showsAnyImage && !concealImage && (
         <div
           data-testid="banner-agent-tint"
           aria-hidden="true"

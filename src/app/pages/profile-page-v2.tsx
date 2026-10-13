@@ -975,8 +975,10 @@ export function ProfilePageV2() {
               mobileBannerUrl={profile.bannerMobileUrl}
               // P1453: only a credit bound to the banner on screen; a removed or replaced banner has none
               credit={bannerCredit}
-              // P1483: agents navy, people in color. isAgent is false until the registry resolves.
+              // P1483: agents navy, people in color. isAgent is false until the registry resolves, so
+              // the image waits for it — never an agent's banner in color, never a person's in navy.
               agentTint={isAgent}
+              concealImage={identityPending}
               altText={bannerCredit ? `AI-generated banner after ${bannerCredit.artist}` : `${profile.name}'s profile banner`}
               heightClassName="h-[120px] md:h-[160px]"
               fallbackClassName="bg-gradient-to-r from-blue-500/20 via-indigo-400/15 to-purple-500/20"

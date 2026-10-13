@@ -63,6 +63,40 @@ describe('P1483 agent banner treatment', () => {
     expect(screen.queryByTestId('banner-agent-tint')).toBeNull();
   });
 
+  it('never tints the fallback when the desktop image fails on an agent with a phone variant', () => {
+    render(<BannerDisplay bannerUrl={URL_A} mobileBannerUrl={URL_A + '?m'} altText="alt" agentTint />);
+    fireEvent.error(screen.getByRole('img'));
+    expect(screen.queryByTestId('banner-agent-tint')).toBeNull();
+  });
+
+  it('never tints the fallback when the phone image fails on a phone', () => {
+    setDesktop(false);
+    render(<BannerDisplay bannerUrl={URL_A} mobileBannerUrl={URL_A + '?m'} altText="alt" agentTint />);
+    fireEvent.error(screen.getByRole('img'));
+    expect(screen.queryByTestId('banner-agent-tint')).toBeNull();
+  });
+
+  it('while identity is pending: image hidden, no tint, no signature — then shown once known', () => {
+    const { rerender } = render(<BannerDisplay bannerUrl={URL_A} altText="alt" credit={CREDIT} concealImage />);
+    fireEvent.load(screen.getByRole('img'));
+    expect(screen.getByRole('img').className).toContain('opacity-0');
+    expect(screen.queryByTestId('banner-agent-tint')).toBeNull();
+    expect(screen.queryByTestId('banner-credit')).toBeNull();
+    // registry resolved: this one is an agent
+    rerender(<BannerDisplay bannerUrl={URL_A} altText="alt" credit={CREDIT} agentTint />);
+    expect(screen.getByRole('img').className).not.toContain('opacity-0');
+    expect(screen.getByTestId('banner-agent-tint')).toBeInTheDocument();
+    expect(screen.getByTestId('banner-credit')).toBeInTheDocument();
+  });
+
+  it('a person, once identity resolves, gets the image in color with no tint', () => {
+    const { rerender } = render(<BannerDisplay bannerUrl={URL_A} altText="alt" concealImage />);
+    fireEvent.load(screen.getByRole('img'));
+    rerender(<BannerDisplay bannerUrl={URL_A} altText="alt" agentTint={false} />);
+    expect(screen.getByRole('img').className).not.toContain('opacity-0');
+    expect(screen.queryByTestId('banner-agent-tint')).toBeNull();
+  });
+
   it('tints the phone variant too when an agent has one', () => {
     setDesktop(false);
     renderLoaded(<BannerDisplay bannerUrl={URL_A} mobileBannerUrl={URL_A + '?m'} altText="alt" agentTint />);
@@ -73,8 +107,13 @@ describe('P1483 agent banner treatment', () => {
 describe('P1483 profile page wiring', () => {
   const src = readFileSync(resolve(__dirname, '../app/pages/profile-page-v2.tsx'), 'utf8');
 
-  it('passes the treatment from isAgent, which is false until the agent registry resolves', () => {
-    expect(src).toMatch(/<BannerDisplay[\s\S]*?agentTint=\{isAgent\}[\s\S]*?>/);
+  it('passes the treatment from isAgent and holds the image while identity is pending', () => {
+    // The props of the profile header's <BannerDisplay …> opening tag, comment lines removed.
+    const open = src.slice(src.indexOf('<BannerDisplay'), src.indexOf('<BannerDisplay') + 1500);
+    const props = open.slice(0, open.indexOf('\n            >')).split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+    expect(props).toMatch(/^\s*agentTint=\{isAgent\}$/m);
+    expect(props).toMatch(/^\s*concealImage=\{identityPending\}$/m);
+    expect(src).toMatch(/isLoading: identityPending \} = useAgentAccountIds\(\);/);
     // isAgent must come from the registry lookup — never from a field a page could guess at.
     expect(src).toMatch(/const isAgent = isAgentAccountId\(profile\?\.id\);/);
   });
