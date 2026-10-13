@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 32
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: low
 tags: [events, timezone, dst, display]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 ---
 
 # P1476: Event page shows a standard-time UTC offset during daylight saving (an Oct 11 Los Angeles event reads "UTC-8")
@@ -79,15 +79,15 @@ today's fallback of returning the IANA string. Pass `eventDate` at `EventDetail.
 
 ## Acceptance Criteria
 
-- [ ] A Los Angeles in-person event on 2026-10-11 shows `UTC-7 Los Angeles`, and one on 2026-12-01
+- [x] A Los Angeles in-person event on 2026-10-11 shows `UTC-7 Los Angeles`, and one on 2026-12-01
       shows `UTC-8 Los Angeles` (unit tests on `getTimezoneLabel` in `src/tests/utils.test.ts` or a
       new `src/tests/p1476-*.test.ts`, seen to fail before the change).
-- [ ] Unit tests also cover a half-hour zone (`Asia/Kolkata` → `UTC+5:30 Mumbai`), a southern-
+- [x] Unit tests also cover a half-hour zone (`Asia/Kolkata` → `UTC+5:30 Mumbai`), a southern-
       hemisphere DST zone (`Australia/Sydney` in December → `UTC+11 Sydney`), `UTC` → `UTC`, and an
       unknown zone (returns the IANA string unchanged).
 - [ ] The event page renders the corrected label in the browser for a DST-period Los Angeles event
       (screenshot at 375px and desktop).
-- [ ] The existing event test files that mock `getTimezoneLabel` still pass unmodified.
+- [x] The existing event test files that mock `getTimezoneLabel` still pass unmodified.
 
 ## Non-Goals
 

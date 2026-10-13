@@ -898,7 +898,7 @@ export function EventDetail() {
                       : event.timezone;
                     const tzLabel = isVirtual
                       ? (displayTz.split("/").pop()?.replace(/_/g, " ") ?? "local") + " time"
-                      : getTimezoneLabel(event.timezone || 'America/Los_Angeles');
+                      : getTimezoneLabel(event.timezone || 'America/Los_Angeles', eventDate);
                     return (
                       <>
                         <span className="font-medium text-foreground">

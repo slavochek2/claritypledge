@@ -226,40 +226,59 @@ export function getOffice365Url(event: ICSEventData): string {
 /**
  * Get a human-readable timezone label from IANA timezone string
  * Shows UTC offset and major city for clarity
+ *
+ * P1476: the offset is the one the zone has AT `at` (the event's instant), so
+ * a Los Angeles event in October reads "UTC-7", not the standard-time "UTC-8".
+ * Unknown zones, or an instant Intl cannot format, fall back to the IANA string.
  */
-export function getTimezoneLabel(ianaTimezone: string): string {
-  const labels: Record<string, string> = {
+export function getTimezoneLabel(ianaTimezone: string, at: Date): string {
+  if (ianaTimezone === 'UTC') return 'UTC';
+
+  const cities: Record<string, string> = {
     // Americas
-    'Pacific/Midway': 'UTC-11 Samoa',
-    'Pacific/Honolulu': 'UTC-10 Hawaii',
-    'America/Anchorage': 'UTC-9 Alaska',
-    'America/Los_Angeles': 'UTC-8 Los Angeles',
-    'America/Denver': 'UTC-7 Denver',
-    'America/Chicago': 'UTC-6 Chicago',
-    'America/New_York': 'UTC-5 New York',
-    'America/Halifax': 'UTC-4 Halifax',
-    'America/Sao_Paulo': 'UTC-3 São Paulo',
+    'Pacific/Midway': 'Samoa',
+    'Pacific/Honolulu': 'Hawaii',
+    'America/Anchorage': 'Alaska',
+    'America/Los_Angeles': 'Los Angeles',
+    'America/Denver': 'Denver',
+    'America/Chicago': 'Chicago',
+    'America/New_York': 'New York',
+    'America/Halifax': 'Halifax',
+    'America/Sao_Paulo': 'São Paulo',
 
     // Europe & Africa
-    'UTC': 'UTC',
-    'Europe/London': 'UTC+0 London',
-    'Europe/Paris': 'UTC+1 Paris',
-    'Europe/Helsinki': 'UTC+2 Helsinki',
-    'Europe/Moscow': 'UTC+3 Moscow',
+    'Europe/London': 'London',
+    'Europe/Paris': 'Paris',
+    'Europe/Helsinki': 'Helsinki',
+    'Europe/Moscow': 'Moscow',
 
     // Middle East & Asia
-    'Asia/Dubai': 'UTC+4 Dubai',
-    'Asia/Karachi': 'UTC+5 Karachi',
-    'Asia/Kolkata': 'UTC+5:30 Mumbai',
-    'Asia/Dhaka': 'UTC+6 Dhaka',
-    'Asia/Bangkok': 'UTC+7 Bangkok',
-    'Asia/Singapore': 'UTC+8 Singapore',
-    'Asia/Shanghai': 'UTC+8 Shanghai',
-    'Asia/Tokyo': 'UTC+9 Tokyo',
+    'Asia/Dubai': 'Dubai',
+    'Asia/Karachi': 'Karachi',
+    'Asia/Kolkata': 'Mumbai',
+    'Asia/Dhaka': 'Dhaka',
+    'Asia/Bangkok': 'Bangkok',
+    'Asia/Singapore': 'Singapore',
+    'Asia/Shanghai': 'Shanghai',
+    'Asia/Tokyo': 'Tokyo',
 
     // Oceania
-    'Australia/Sydney': 'UTC+10 Sydney',
-    'Pacific/Auckland': 'UTC+12 Auckland',
+    'Australia/Sydney': 'Sydney',
+    'Pacific/Auckland': 'Auckland',
   };
-  return labels[ianaTimezone] || ianaTimezone;
+  const city = cities[ianaTimezone];
+  if (!city) return ianaTimezone;
+
+  try {
+    // 'shortOffset' renders "GMT-7", "GMT+5:30", or a bare "GMT" for zero.
+    const gmt = new Intl.DateTimeFormat('en-US', { timeZone: ianaTimezone, timeZoneName: 'shortOffset' })
+      .formatToParts(at)
+      .find((part) => part.type === 'timeZoneName')?.value;
+    if (!gmt?.startsWith('GMT')) return ianaTimezone;
+    const offset = gmt.slice(3) || '+0';
+    return `UTC${offset} ${city}`;
+  } catch {
+    // Invalid date, or an engine without 'shortOffset' support.
+    return ianaTimezone;
+  }
 }
