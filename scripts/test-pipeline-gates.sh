@@ -17,6 +17,9 @@
 #   G. Stranding report: fires on an interrupted ship, silent when clean.
 #   H. Absorbed-by arm (P1309): a spec delivered under another spec's number
 #      passes on its absorber's evidence, and on nothing weaker.
+#   I. Review type follows what the branch changed (P1040): a migration-only
+#      branch passes 2.7 on a migrations review; a branch with code still needs
+#      a code review.
 #
 # Hermetic: scratch repos under mktemp, no network, no remote, never touches the
 # real repo's state.
@@ -788,11 +791,225 @@ out="$( cd "$R4" && ./scripts/pipeline-strandings.sh --strict >/dev/null 2>&1; e
 [[ "$out" == "1" ]] && pass "G3: --strict exits non-zero when something is stranded" \
                     || fail "G3: --strict returned $out with a strand present"
 
+# ── I. Review type follows what the branch changed (P1040) ──────────────────
+# /finish writes a review of the type the changed paths call for (migrations,
+# skills, rules, specs, docs); /dev and /fix write `code` after a full /finish
+# dispatch. Gate 2.7 used to accept `code` only, so a migration-only branch
+# (P1035) failed after a correct migrations review.
+#
+# rt_case <name> <pn> <path>... — scratch repo whose feature/<pn>-demo branch
+# changes exactly the given paths. The spec sits on main, ticked, dev recorded;
+# only gate 2.7 is under test, so every run below is `--only 2.7`.
+rt_case() {
+  local name="$1" pn="$2"; shift 2
+  local d="$SCRATCH/$name" f
+  mk_repo "$d"
+  printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# %s\n\n## Done-When\n\n- [x] the criterion\n' "$pn" \
+    > "$d/features/${pn}_demo.md"
+  ( cd "$d" && git add "features/${pn}_demo.md" && git commit -qm "chore: add ${pn} spec" \
+    && git checkout -q -b "feature/${pn}-demo" ) >/dev/null 2>&1
+  for f in "$@"; do
+    mkdir -p "$d/$(dirname "$f")"
+    echo "change $f" >> "$d/$f"
+    ( cd "$d" && git add "$f" ) >/dev/null 2>&1
+  done
+  ( cd "$d" && git commit -qm "${pn}: work" && git checkout -q main ) >/dev/null 2>&1
+  echo "$d"
+}
+# rt_stamp <dir> <type> <pn> [branch] [spaced] — append one .finish-reviewed line.
+rt_stamp() {
+  local br="${4:-feature/$3-demo}"
+  if [[ "${5:-}" == spaced ]]; then
+    printf '{"type": "%s", "pn": "%s", "branch": "%s", "sha": "0", "timestamp": "%s"}\n' \
+      "$2" "$3" "$br" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$1/.git/.finish-reviewed"
+  else
+    printf '{"type":"%s","pn":"%s","branch":"%s","sha":"0","timestamp":"%s"}\n' \
+      "$2" "$3" "$br" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$1/.git/.finish-reviewed"
+  fi
+}
+rt_gate() { ( cd "$1" && bash scripts/ship-gates.sh "$2" --only 2.7 ) >"$SCRATCH/i.log" 2>&1; echo $?; }
+rt_show() { sed 's/^/    /' "$SCRATCH/i.log" >&2; }
+
+MIG=supabase/migrations/20261013000000_demo.sql
+
+# I1 — AC1, the P1035 shape: migrations + the spec itself, migrations review only.
+d="$(rt_case i1 p3001 "$MIG" features/p3001_demo.md)"; rt_stamp "$d" migrations p3001
+rc="$(rt_gate "$d" p3001)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS.*migrations' "$SCRATCH/i.log"; then
+  pass "I1: a migration-only branch passes 2.7 on its migrations review, no redundant code stamp"
+else
+  fail "I1: a migration-only branch with a migrations review was refused (exit $rc)"; rt_show
+fi
+
+# I1b — the same with the deploy manifest migrate.sh stamps and stages (the real
+# P1035 branch carried it).
+d="$(rt_case i1b p3016 "$MIG" supabase/deploy-manifest.json features/p3016_demo.md)"; rt_stamp "$d" migrations p3016
+rc="$(rt_gate "$d" p3016)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS.*migrations' "$SCRATCH/i.log"; then
+  pass "I1b: a migration branch carrying supabase/deploy-manifest.json passes on its migrations review"
+else
+  fail "I1b: the deploy manifest put a migration branch behind a code review (exit $rc)"; rt_show
+fi
+
+# I2 — AC2, the must-fail: code on the branch, only a migrations review.
+d="$(rt_case i2 p3002 src/app/demo.ts "$MIG")"; rt_stamp "$d" migrations p3002
+rc="$(rt_gate "$d" p3002)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL: .finish-reviewed has no code review entry for feature/p3002-demo' "$SCRATCH/i.log"; then
+  pass "I2: a branch that changes src/ still FAILS 2.7 with only a migrations review"
+else
+  fail "I2: a code-changing branch passed on a migrations review (exit $rc)"; rt_show
+fi
+
+# I3 — AC2, no regression: code on the branch, code review, exactly as before.
+d="$(rt_case i3 p3003 src/app/demo.ts)"; rt_stamp "$d" code p3003
+rc="$(rt_gate "$d" p3003)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS: code review artifact present' "$SCRATCH/i.log"; then
+  pass "I3: a src/ branch with a code review passes exactly as before"
+else
+  fail "I3: a src/ branch with a code review was refused (exit $rc)"; rt_show
+fi
+
+# I4 — AC3, the failure path: migration-only branch, no review at all.
+d="$(rt_case i4 p3004 "$MIG" features/p3004_demo.md)"; : > "$d/.git/.finish-reviewed"
+rc="$(rt_gate "$d" p3004)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL.*migrations' "$SCRATCH/i.log"; then
+  pass "I4: a migration-only branch with no review still FAILS 2.7, naming the review it needs"
+else
+  fail "I4: a migration-only branch with no review passed (exit $rc)"; rt_show
+fi
+
+# I5 — the branch discriminator still holds for the new types.
+d="$(rt_case i5 p3005 "$MIG")"; rt_stamp "$d" migrations p3005 feature/p9999-other
+rc="$(rt_gate "$d" p3005)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/i.log"; then
+  pass "I5: a migrations review recorded for ANOTHER branch does not satisfy this one"
+else
+  fail "I5: another branch's migrations review was accepted (exit $rc)"; rt_show
+fi
+
+# I6 — 7c: /dev and /fix write `code` after a full /finish; that still covers a
+# migration-only branch.
+d="$(rt_case i6 p3006 "$MIG")"; rt_stamp "$d" code p3006
+rc="$(rt_gate "$d" p3006)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS' "$SCRATCH/i.log"; then
+  pass "I6: the code stamp /dev writes still covers a migration-only branch"
+else
+  fail "I6: a /dev code stamp was refused on a migration-only branch (exit $rc)"; rt_show
+fi
+
+# I7 — 7c: a code+migrations branch reviewed by /dev (one code stamp) still ships.
+d="$(rt_case i7 p3007 src/app/demo.ts "$MIG")"; rt_stamp "$d" code p3007
+rc="$(rt_gate "$d" p3007)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS' "$SCRATCH/i.log"; then
+  pass "I7: a code+migrations branch with the /dev code stamp passes as before"
+else
+  fail "I7: a code+migrations branch with a code stamp was refused (exit $rc)"; rt_show
+fi
+
+# I8 — fail closed: a path /finish does not classify (scripts/*.sh) still needs code.
+d="$(rt_case i8 p3008 scripts/demo.sh "$MIG")"; rt_stamp "$d" migrations p3008
+rc="$(rt_gate "$d" p3008)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL: .finish-reviewed has no code review entry' "$SCRATCH/i.log"; then
+  pass "I8: an unclassified path (scripts/*.sh) keeps the code requirement — fail closed"
+else
+  fail "I8: an unclassified path was let through on a migrations review (exit $rc)"; rt_show
+fi
+
+# I9 — every non-code category present needs its own review.
+d="$(rt_case i9 p3009 "$MIG" .claude/commands/slava/build/demo.md)"; rt_stamp "$d" migrations p3009
+rc="$(rt_gate "$d" p3009)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL.*skills' "$SCRATCH/i.log"; then
+  pass "I9a: migrations+skills with only a migrations review FAILS, naming the missing skills review"
+else
+  fail "I9a: a branch was let through with one of two categories reviewed (exit $rc)"; rt_show
+fi
+rt_stamp "$d" skills p3009
+rc="$(rt_gate "$d" p3009)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS.*migrations' "$SCRATCH/i.log" && grep -q 'GATE 2.7\] PASS.*skills' "$SCRATCH/i.log"; then
+  pass "I9b: with both a migrations and a skills review it passes"
+else
+  fail "I9b: both categories reviewed and still refused (exit $rc)"; rt_show
+fi
+
+# I10 — prose-only (spec + docs): a specs review passes; no review fails.
+d="$(rt_case i10 p3010 features/p3010_demo.md docs/technical/demo.md)"
+rc="$(rt_gate "$d" p3010)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/i.log"; then
+  pass "I10a: a prose-only branch with no review FAILS"
+else
+  fail "I10a: a prose-only branch with no review passed (exit $rc)"; rt_show
+fi
+rt_stamp "$d" specs p3010
+rc="$(rt_gate "$d" p3010)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.7\] PASS' "$SCRATCH/i.log"; then
+  pass "I10b: a prose-only branch passes on a specs review"
+else
+  fail "I10b: a prose-only branch with a specs review was refused (exit $rc)"; rt_show
+fi
+
+# I11 — the optional space after the colon (P1203) is tolerated for the new types.
+d="$(rt_case i11 p3011 "$MIG")"; rt_stamp "$d" migrations p3011 "" spaced
+rc="$(rt_gate "$d" p3011)"
+if [[ "$rc" -eq 0 ]]; then
+  pass "I11: a spaced \"type\": \"migrations\" entry is read"
+else
+  fail "I11: a spaced migrations entry was missed (exit $rc)"; rt_show
+fi
+
+# I12 — a deleted src/ file is a code change, even when a migration is added
+# beside it (rename detection must not fold the deletion away).
+d="$SCRATCH/i12"; mk_repo "$d"
+mkdir -p "$d/src/app"; echo old > "$d/src/app/old.ts"
+printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# p3012\n\n## Done-When\n\n- [x] c\n' > "$d/features/p3012_demo.md"
+( cd "$d" && git add src/app/old.ts features/p3012_demo.md && git commit -qm base \
+  && git checkout -q -b feature/p3012-demo && mkdir -p supabase/migrations \
+  && git mv src/app/old.ts "$MIG" && git commit -qm "p3012: move" && git checkout -q main ) >/dev/null 2>&1
+rt_stamp "$d" migrations p3012
+rc="$(rt_gate "$d" p3012)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I12: moving a src/ file into supabase/migrations still requires a code review"
+else
+  fail "I12: a src/ deletion folded into a rename was let through (exit $rc)"; rt_show
+fi
+
+# I13 — fail closed: a branch with no diff against main falls back to code.
+d="$SCRATCH/i13"; mk_repo "$d"
+printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# p3013\n\n## Done-When\n\n- [x] c\n' > "$d/features/p3013_demo.md"
+( cd "$d" && git add features/p3013_demo.md && git commit -qm base && git branch feature/p3013-demo ) >/dev/null 2>&1
+rt_stamp "$d" migrations p3013; rt_stamp "$d" specs p3013
+rc="$(rt_gate "$d" p3013)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry' "$SCRATCH/i.log"; then
+  pass "I13: an empty branch diff fails closed to the code requirement"
+else
+  fail "I13: an empty branch diff passed on a non-code review (exit $rc)"; rt_show
+fi
+
+# I14 — scope: the no-branch arm (direct to main) has no diff to read and is unchanged.
+d="$SCRATCH/i14"; mk_repo "$d"
+printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# p3014\n\n## Done-When\n\n- [x] c\n' > "$d/features/p3014_demo.md"
+( cd "$d" && git add features/p3014_demo.md && git commit -qm base ) >/dev/null 2>&1
+rt_stamp "$d" migrations p3014 main
+rc="$(rt_gate "$d" p3014)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no code review entry naming p3014' "$SCRATCH/i.log"; then
+  pass "I14: the no-branch arm still requires a code entry naming the spec (unchanged)"
+else
+  fail "I14: the no-branch arm changed behaviour (exit $rc)"; rt_show
+fi
+
+# I15 — output contract (shell-safety.md): no redirect or pipe characters.
+d="$(rt_case i15 p3015 "$MIG" .claude/rules/demo.md)"; rc="$(rt_gate "$d" p3015)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/i.log" \
+   && ! grep -qE '[<>|]' < <(grep -E '^\[GATE' "$SCRATCH/i.log"); then
+  pass "I15: gate 2.7 status lines carry no redirect or pipe characters"
+else
+  fail "I15: a gate 2.7 line carries a redirect or pipe character (exit $rc)"; rt_show
+fi
+
 # ── Result ──────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I15)"
 exit 0

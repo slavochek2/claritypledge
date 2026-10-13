@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: in-progress
 type: task
 disclosure: public
 rank: 205
 severity: low
 created_date: '2026-08-10'
 tags: [tooling, ship, process]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 ---
 
@@ -59,10 +59,54 @@ present — not just one of them.
 
 ## Done-When
 
-- [ ] A migration-only branch (no `src/`/`e2e/`/`scripts/*.ts` changes) with only a
+- [x] A migration-only branch (no `src/`/`e2e/`/`scripts/*.ts` changes) with only a
       `migrations`-type `.finish-reviewed` entry passes gate 2.7 without a redundant `code` stamp
-- [ ] A branch touching `src/` still requires a `code`-type entry exactly as before (no regression)
-- [ ] The gate's failure path has been exercised (epistemic gate 7) — simulate a migration-only
+      — `scripts/test-pipeline-gates.sh` I1 (migrations + spec) and I1b (+ `supabase/deploy-manifest.json`,
+      the real P1035 shape): `PASS: I1`, `PASS: I1b`; both FAILED before the change.
+- [x] A branch touching `src/` still requires a `code`-type entry exactly as before (no regression)
+      — I2 (`src/` + migration, migrations review only: `[GATE 2.7] FAIL: .finish-reviewed has no code
+      review entry for feature/p3002-demo`), I3 (`src/` + code review: PASS unchanged), I7 (code +
+      migrations with the single `/dev` code stamp: PASS), I8 (`scripts/*.sh`, unclassified: still FAIL
+      without code), I12 (a `src/` file moved into `supabase/migrations/`: still FAIL without code).
+- [x] The gate's failure path has been exercised (epistemic gate 7) — simulate a migration-only
       branch with no review at all, confirm gate 2.7 still fails correctly
-- [ ] `docs/decisions.md` 2026-06-27 [process] (gate 2.7's original design) or this spec's
-      resolution documents the change
+      — I4: `[GATE 2.7] FAIL: .finish-reviewed has no migrations review entry for feature/p3004-demo`.
+      Mutation check: removing the code fallback, the per-type "all present" check, or `--no-renames`
+      each turns the suite red (I2/I8/I12, I9a, I12 respectively).
+- [x] `docs/decisions.md` 2026-06-27 [process] (gate 2.7's original design) or this spec's
+      resolution documents the change — see Resolution below.
+
+## Resolution
+
+Gate 2.7's feature-branch arm now reads `git diff --no-renames --name-only main...<branch>` and asks
+for the review type(s) `/finish`'s classification table assigns
+(`scripts/ship-gates.sh`, `review_types_for_branch`):
+
+| Branch changes | Accepted entries (same `branch`) |
+|---|---|
+| any path outside the classes below (`src/`, `e2e/`, `scripts/`, `supabase/functions/`, anything unclassified) | `code` — unchanged |
+| `supabase/migrations/**`, `supabase/deploy-manifest.json` | `migrations`, or `code` |
+| `.claude/commands/slava/**` | `skills`, or `code` |
+| `.claude/rules/**`, `CLAUDE.md` | `rules`, or `code` |
+| two or more of the three rows above | one entry per class present, or `code` |
+| only `features/**` / `docs/**` | `specs` or `docs`, or `code` |
+| empty or uncomputable diff | `code` (fail closed) |
+
+Three decisions taken during `/dev`, each recorded here so they are not re-derived:
+
+1. **A `code` entry still satisfies every branch.** `/dev` 9.5a and `/fix` 1a write one `code`
+   stamp after a `/finish` dispatch that reviewed every type. Requiring a separate `migrations`
+   entry next to it would have refused every `/dev`-built migration branch (epistemic gate 7c).
+   So "one entry per category" applies only between the non-code classes. This follows the
+   Non-Goal "exactly as today" for `src/` branches.
+2. **Unclassified paths still need code.** `/finish` maps only `scripts/*.ts` to `code`, but
+   gate 2.7 already gated `scripts/*.sh`, `supabase/functions/` and the rest. Leaving them
+   ungated would have been a weakening (Risks). They fall through to `code`.
+3. **`supabase/deploy-manifest.json` rides with migrations.** `migrate.sh` stamps and stages it
+   after applying migrations, and P1035's own close carried it. Read as code, it would put the
+   exact case this spec fixes back behind a code review. `/finish`'s table is unchanged
+   (Non-Goal); only the gate's reading of an unlisted path is.
+
+**Not changed:** the no-branch (direct-to-main) arm still requires a `code` entry naming the spec
+(I14), because on `main` there is no branch diff to classify. P1309 absorber borrowing and the
+P1444 administrative skip are untouched. Gate 2.7b reads whichever entries matched, as before.

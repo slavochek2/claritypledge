@@ -8,7 +8,8 @@
 #   1.5   disclosure: embargo -> spec publication deferred (report only, P1255)
 #   2.5   completion criteria all ticked + dev/fix in pipeline_ran (P1169)
 #         — or, for a spec declaring absorbed_by: pN, recorded on its absorber (P1309)
-#   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
+#   2.7   review artifact present (git-common-dir/.finish-reviewed); on a feature
+#         branch, of the type(s) its diff calls for (P1040)
 #   2.7b  artifact freshness (warn only)
 #   ADMIN a spec with nothing to gate (comment / withdrawn / retracted) skips 2.5
 #         and 2.7 when scripts/lib/admin-close.sh finds it eligible (P1444)
@@ -544,6 +545,44 @@ fi
 # same cause: a literal string shared between three skills and this script with
 # no single source and no test (decisions.md 2026-08-28 [process]). Both arms
 # now tolerate the optional space.
+#
+# P1040: the feature-branch arm accepted only "type":"code", so a branch that
+# changed nothing but supabase/migrations/ (P1035) failed after the migrations
+# review /finish's own classification table assigns it. The arm now reads the
+# branch diff and asks for the review type(s) that table assigns:
+#   * any path outside the four non-code classes below means code — exactly as
+#     before. Unclassified paths (scripts/*.sh, supabase/functions/, README.md,
+#     .claude/settings*) land here on purpose: this fix narrows nothing that was
+#     gated, it only stops asking prose and migrations for a code review.
+#   * supabase/migrations/ wants migrations; .claude/commands/slava/ wants
+#     skills; .claude/rules/ and CLAUDE.md want rules — each one present needs
+#     its own entry. supabase/deploy-manifest.json rides with migrations: it is
+#     the hash record migrate.sh stamps and stages after applying them, so a
+#     migration branch routinely carries it (P1035's did) and reading it as code
+#     would put the P1035 shape straight back behind a code review.
+#   * features/ and docs/ alone want specs or docs; next to any other class they
+#     ask for nothing extra (every branch carries its spec).
+# A code entry still satisfies every branch: /dev 9.5a and /fix 1a write `code`
+# once after a /finish dispatch that reviewed all types, so demanding a separate
+# migrations entry beside it would refuse every /dev-built migration branch.
+# Fails closed to code when the diff is empty or cannot be computed. The no-branch
+# arm is unchanged: on main there is no branch diff to classify.
+review_types_for_branch() {
+  local files
+  files="$(cd "$REPO_ROOT" && git diff --no-renames --name-only "main...$1" 2>/dev/null)" || files=""
+  if [[ -z "$files" ]]; then echo code; return; fi
+  printf '%s\n' "$files" | awk '
+    /^supabase\/migrations\// || $0 == "supabase/deploy-manifest.json" { t["migrations"] = 1; next }
+    /^\.claude\/commands\/slava\// { t["skills"] = 1; next }
+    /^\.claude\/rules\// || $0 == "CLAUDE.md" { t["rules"] = 1; next }
+    /^features\// || /^docs\//     { next }
+    { code = 1 }
+    END {
+      if (code) { print "code"; exit }
+      n = 0; for (k in t) { print k; n++ }
+      if (n == 0) print "prose"
+    }' | sort
+}
 
 if gate_enabled "2.7" && [[ -n "$admin_ok" ]]; then
   echo "[GATE 2.7] SKIP: administrative closure; no implementation review required"
@@ -553,6 +592,9 @@ finish_file="${git_common_dir}/.finish-reviewed"
 
 matching_entries=""
 review_via_absorber=""
+required_types="code"
+missing_types=""
+[[ -n "$feature_branch" ]] && required_types="$(review_types_for_branch "$feature_branch")"
 if [[ -f "$finish_file" ]]; then
   if [[ -n "$feature_branch" ]]; then
     # P1216: match the two fields INDEPENDENTLY rather than requiring "type" to be
@@ -564,6 +606,21 @@ if [[ -f "$finish_file" ]]; then
     # artifact teaches people to hand-edit the artifact, which is the one thing an
     # audit trail must never become. Chained greps also match the no-branch arm below.
     matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"branch\": ?\"${feature_branch}\"" || true)"
+    # P1040: no code entry, and the branch changed no code — each non-code
+    # class present needs an entry of its own type for this branch.
+    if [[ -z "$matching_entries" && "$required_types" != "code" ]]; then
+      _typed_entries=""
+      for _t in $required_types; do
+        _type_re="$_t"; [[ "$_t" == prose ]] && _type_re="(specs|docs)"
+        _hit="$($GREP -E "\"type\": ?\"${_type_re}\"" "$finish_file" 2>/dev/null | $GREP -E "\"branch\": ?\"${feature_branch}\"" || true)"
+        if [[ -z "$_hit" ]]; then
+          missing_types="${missing_types}${missing_types:+, }${_t/#prose/specs or docs}"
+        else
+          _typed_entries="${_typed_entries}${_typed_entries:+$'\n'}${_hit}"
+        fi
+      done
+      [[ -z "$missing_types" ]] && matching_entries="$_typed_entries"
+    fi
   else
     # No feature branch context (direct-to-main / already-merged path). Require
     # the entry to name THIS spec — see the P1203 note above.
@@ -582,8 +639,11 @@ if [[ -f "$finish_file" ]]; then
   fi
 fi
 
+_types_shown="$(printf '%s\n' "$required_types" | sed 's/^prose$/specs or docs/' | paste -sd, - | sed 's/,/, /g')"
 if [[ -z "$matching_entries" ]]; then
-  if [[ -n "$feature_branch" ]]; then
+  if [[ -n "$feature_branch" && "$required_types" != "code" ]]; then
+    echo "[GATE 2.7] FAIL: .finish-reviewed has no ${missing_types:-$_types_shown} review entry for ${feature_branch} — the branch changes no code-reviewed paths, so it needs a review of each type it does change (${_types_shown}), or a code review — run /finish before shipping"
+  elif [[ -n "$feature_branch" ]]; then
     echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry for ${feature_branch} — run /finish before shipping"
   else
     echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry naming ${pn} — run /finish before shipping (P1203: on the direct-to-main path a review must name the spec it reviewed; entries predating P1203 carry no \"pn\" and do not count)"
@@ -591,7 +651,12 @@ if [[ -z "$matching_entries" ]]; then
   fail=1
 else
   entry_count="$(printf '%s\n' "$matching_entries" | $GREP -c . || echo 0)"
-  echo "[GATE 2.7] PASS: code review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies"))${review_via_absorber:+ — recorded under absorbing spec ${review_via_absorber}}"
+  if [[ -n "$feature_branch" && "$required_types" != "code" ]] \
+     && ! $GREP -qE '"type": ?"code"' <<<"$matching_entries"; then
+    echo "[GATE 2.7] PASS: ${_types_shown} review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies")) — the branch changes no code-reviewed paths"
+  else
+    echo "[GATE 2.7] PASS: code review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies"))${review_via_absorber:+ — recorded under absorbing spec ${review_via_absorber}}"
+  fi
 fi
 
 # ── Gate 2.7b: staleness check (warn only) ─────────────────────────────────
