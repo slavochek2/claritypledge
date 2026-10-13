@@ -6,7 +6,7 @@
 //
 // Prints `goals: N open` and one line per goal (`<label>  <text>`), exit 0. When `## Next Steps` is
 // missing, or nothing in it is open, prints `goals: unparseable — <why>` and exits 3: the goals.md
-// structure has drifted from the parser (P1008), and the board shows "No open goals found".
+// structure has drifted from the parser (P1008), and the board shows "No open next steps found".
 //
 // Rules (derived here, documented once):
 //   - an item is a line `<label>. [ ] …` or `- [ ] …` inside `## Next Steps` (up to the next `## `);

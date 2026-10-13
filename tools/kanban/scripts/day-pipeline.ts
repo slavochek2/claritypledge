@@ -10,7 +10,8 @@
 //   PIPELINE detail (terminal only, never copy to the board): overdue: <name (date), …>; fix the file: <id: why, …>   (or "nothing to name")
 // Lines 1 and 2 are counts only, never a name or a filename (opportunity files are named after
 // people): line 1 is stored by the dispatcher, line 2 is the founder's reading of goals.md's outreach
-// goal and is copied into the whats-next board note. Line 3 names overdue contacts and broken files
+// goal: day-cp files its overdue count and an unparseable target as findings (P1468; no board note
+// carries it any more). Line 3 names overdue contacts and broken files
 // for the founder in the terminal; it is never stored.
 // A missing folder prints `pipeline: none`, `PIPELINE  none — …` and a detail line (exit 0). A folder
 // that exists but cannot be read prints `PIPELINE  unreadable — …` and exits 1.

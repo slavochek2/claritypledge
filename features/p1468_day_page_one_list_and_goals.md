@@ -14,7 +14,7 @@ tags:
   - day-page
   - kanban
 created_date: 2026-10-13
-delivery_stage: change-request
+delivery_stage: dev
 pipeline_ran: [change-request, dev]
 ---
 
@@ -127,12 +127,14 @@ Statement, empty story                          Statement, story has text (saved
 │ [Disagree | Unsure | ✓ Agree+]       │        │ [Disagree | Unsure | ✓ Agree+]       │
 │ ──────────────────────────────────── │        │ ──────────────────────────────────── │
 │ [▾ Their story]  [+ Add a story]     │        │ [▾ Their story]                      │
-│  │ (S) AGENT on Slava  Agrees–       │        │ [textarea: can you help me decide…]  │
-│  │ The outreach plan …               │        │ Done · answered                      │
-│                                      │        │  │ (S) AGENT on Slava  Agrees–       │
-│                                      │        │  │ The outreach plan …               │
+│  │ (S) AGENT on Slava  Agrees–       │        │  │ (S) AGENT on Slava  Agrees–       │
+│  │ The outreach plan …               │        │  │ The outreach plan …               │
+│                                      │        │ Your story                           │
+│                                      │        │ [textarea: can you help me decide…]  │
+│                                      │        │ Done · answered                      │
 └──────────────────────────────────────┘        └──────────────────────────────────────┘
 No agent on the statement: the footer row still renders, with only [+ Add a story].
+Order after review fix F9: the agent's story follows its toggle, then the founder's box under `Your story`.
 ```
 
 The bottom row is CP's point-card footer (P1366 layout: `CardExpander` then the viewer's one `CardSlotLink`). With no saved story and no draft, it carries `+ Add a story` (CP's copy, decided). `CardSlotLink` moves unchanged into `presentational/card-footer.tsx` (already in `boundary.ts` `APPROVED`, so `APPROVED` does not change), and the add-story copy (`+ Add a story`, aria-label `Add a story for this point`) is defined there as one exported constant; `getPositionCTACopy` (`src/app/utils/position-helpers.ts:35-47`) reads it from there, so the copy has one home and the board never imports `position-helpers.ts`. A click replaces the button with the story box, focused.
@@ -157,7 +159,7 @@ Status rows that point into it ("Open card ›" on an agent card, `DayPage.tsx:4
 ```
 Stats
   [funnel] [weekly lines] [reading tiles: Unconfirmed sign-ups, Sign-ups, Story authors, …]
-  Goals
+  Goal and next steps   ("Next steps" when the run has no goal; review fix G1)
   ┌──────────────────────────────────────────────────────────┐
   │ **<the goal: the **Goal:** line, when goals.md has one>**│  ← Decided 7
   │ <open Next Step 1: its bold title, or its first sentence>│
@@ -168,17 +170,17 @@ Stats
 ```
 
 - **Goals** (decided) come from `docs/goals.md` `## Next Steps`, parsed **at render time by `day-render.ts`** and snapshotted into the report as `goals`. No new `/day` data section and no `DATA_SECTIONS` edit. The parser is one exported function: take the open `[ ]` items in file order, cap at 3, and for each use its bold title (`**…**`) or, without one, its first sentence, with markdown links and code marks stripped. The step label (`3a`) is the row's id and is never shown. No `PIPELINE` line (the funnel shows it), no DO/DON'T; they stay in goals.md. Rendered in the existing `d-card` with `d-row` rows (the shape `AgentList`/`Parked` rows use).
-- **The goal above the steps** (Decided 7). The founder asked for "what goal and what's next"; the three steps alone are events, and the one carrying the money target (3c) sat below the cap. So `## Next Steps` gets one `**Goal:** <text>` line directly under its heading, the target as 3c states it, word for word. The same parser reads the first such line in the section, by the same fence and CRLF rules as the items, into `goal` beside `goals`: the whole line, links kept as text, code and bold marks dropped, never one of the 3. It is optional: no line (or an empty one) means no goal and no finding, and the items read as before. `parseReport` carries it, clipped by the same helper that clips an item (`MAX_GOAL`). Stats draws it as the card's first row, in the funnel card's lead style (`d-row d-ct`), with the steps under it. No "Next" label: the one small label style that exists (`d-cldiv`, the `Stories` divider) is indented to the list's dot column (40px) and would sit misaligned over these rows, so none is added. A run with no `goal` draws exactly what it drew before.
-- **Goals states.** `goals` absent (runs before this change) → `Goals` + "not collected yet" (`NotCollected`, `StatsTab.tsx:8`). The parse failed, or zero open items → `Goals` + "No open goals found in docs/goals.md", and day-cp Step 3 (`cp.goals`, still `attest` in `scripts/day-cp-steps.tsv:38`) runs the same parser and files `--check cp.goals --fault-key goals:unparseable` (the existing pattern, `day-cp.md:1413`). Never an empty box.
+- **The goal above the steps** (Decided 7). The founder asked for "what goal and what's next"; the three steps alone are events, and the one carrying the money target (3c) sat below the cap. So `## Next Steps` gets one `**Goal:** <text>` line directly under its heading, the target as 3c states it, word for word. The same parser reads the first such line in the section, by the same fence and CRLF rules as the items, into `goal` beside `goals`: the whole line, links kept as text, code and bold marks dropped, never one of the 3. It is optional: no line (or an empty one) means no goal and no finding, and the items read as before. `parseReport` carries it, clipped by the same helper that clips an item (`MAX_GOAL`). Stats draws it as the card's first row, in the funnel card's lead style (`d-row d-ct`), with the steps under it. No "Next" label: the one small label style that exists (`d-cldiv`, the `Stories` divider) is indented to the list's dot column (40px) and would sit misaligned over these rows, so none is added. A run with no `goal` draws the same card as before, headed `Next steps`.
+- **Goals states.** The section's heading is `Goal and next steps` when the run has a `goal`, `Next steps` when it has none (review fix G1). `goals` absent (runs before this change) → `Next steps` + "not collected yet" (`NotCollected`, `StatsTab.tsx:11`). The parse failed, or zero open items → the heading + "No open next steps found in docs/goals.md" (review fix G2), and day-cp Step 3 (`cp.goals`, still `attest` in `scripts/day-cp-steps.tsv:38`) runs the same parser and files `--check cp.goals --fault-key goals:unparseable` (the existing pattern, `day-cp.md:1413`). Never an empty box.
 - **Dropped from the board:** the `shipped`, `cloud-spend`, `whats-next`, `branches` and `chat-digest` notes, and the `mentions` and `help_requests` tiles. The board hides them on its own: it renders only notes that carry a `review` (weekly / monthly), under the heading `Review notes`, and skips the `mentions` and `help_requests` reading ids. Dropping `mentions` goes beyond the founder's words (INBOX-165 names help requests), but nothing is lost: 🔔 hits are already reply cards (`day.md:1248`). So older runs, and runs written before the producers change, look the same as new ones. Producers stop writing them as a separate step that does not block UAT (Surfaces). day-cp's `cp.notes` is a hard `cmd` step (`scripts/day-cp-steps.tsv:41`), so it keeps running and records `[]` on a day with no review, or the run reads incomplete. Where each dropped thing still lives: cloud spend → Monitoring; pipeline → the Stats funnel; branches → the Board, and stranded specs are already findings (`day-cp.md:104-105`); unpushed commits → the status line chip; shipped → git log; the digest → its file and the cards below.
 - **Chat digest → reply cards** (decided). Only items addressed to the founder become cards: every 🔔 hit, plus 🤝 and 💬 items addressed to him or naming him. Group asks not addressed to him stay in the digest file. Each becomes the existing **reply finding** (`~/.claude/commands/day.md:1248`): `--check disp.replies`, options `reply` / `none`, its own Fit and evidence.
 - **Keyed per message.** Today the key is `reply:<chat key>` and "the later recording wins" (`day.md:1291-1294`), so two items in one chat overwrite each other. The key becomes `reply:<chat key>:<message key>` when the item has a message id, where `<message key>` is a short lowercase hash of the id: fault keys must match `^[a-z0-9][a-z0-9._:-]{0,59}$` (`tools/kanban/scripts/day-render.ts:61`) and raw message ids do not. Without a message id the key stays `reply:<chat key>`. The digest and the replies check use the same message key, so one message found by both is still one card.
 - **What the dropped `whats-next` note carried** becomes findings, counts only, no names: `overdue next_date` > 0 → `--check cp.health --fault-key pipeline:overdue`; `target: unparseable` → `--check cp.health --fault-key pipeline:target-unparseable`.
 - The `disp.triage` freshness check and its stale-digest finding are unchanged.
 
-### Decided (orchestrator, 2026-10-13; the founder can veto at UAT)
+### Decided (founder, orchestrator and review fixes, 2026-10-13)
 
-1. Agent panel header: `Start fixing also sends these · {n} not sent` / `Sent to the fixing agent · {k}`; shown in both halves.
+1. Agent panel header: `Start fixing also sends these · {n} not sent` / `Sent to the fixing agent · {k}`; after the first send `Sent with your answers · {n} not sent yet`; on a read-only run `The fixing agent’s work · {k}` (review fix F4); shown in both halves.
 2. Goals: the first 3 open items of `docs/goals.md` `## Next Steps`, parsed at render time; no new goals.md section (related: P1008).
 3. Chat cards: only items addressed to the founder; keyed per message.
 4. Button copy: CP's `+ Add a story`.
@@ -240,7 +242,7 @@ Carried forward from P1449 (via P1445):
 New:
 - A typed story is never hidden or lost by the button: a box with text is always open.
 - The board imports no product state (boundary test, `tools/kanban/server/__tests__/day.test.ts:1132`).
-- Goals never render as an empty box: absent reads "not collected yet", failed or empty reads "No open goals found in docs/goals.md".
+- Goals never render as an empty box: absent reads "not collected yet", failed or empty reads "No open next steps found in docs/goals.md".
 - One chat message is one card, and two messages never share a card.
 
 ## What Stays the Same
@@ -291,12 +293,13 @@ New:
 - Agent panel header: `Start fixing also sends these · {n} not sent`; with every row sent: `Sent to the fixing agent · {k}`. After the first send (the button reads `Send {N} changes`): `Sent with your answers · {n} not sent yet`. Read-only run: `The fixing agent’s work · {k}` (review fix F4).
 - Bottom bar: `{N} still yours` at every width (review fix F12: no short `yours: {N}` on a phone).
 - Story slot button: `+ Add a story` (accessible name `Add a story for this point`)
-- Stats: `Goals`; first row, when the run has one: the goal's text, verbatim from goals.md (Decided 7), no prefix; empty: `No open goals found in docs/goals.md`; absent: `not collected yet`. Review notes heading: `Review notes`
+- Statement card order: point → position → footer row → the agent's story → the founder's box under `Your story` → "Not saved" → chip (review fix F9)
+- Stats: heading `Goal and next steps` when the run has a goal, `Next steps` when it has none (review fix G1); first row, when the run has one: the goal's text, verbatim from goals.md (Decided 7), no prefix; empty: `No open next steps found in docs/goals.md` (review fix G2); absent: `not collected yet`. Review notes heading: `Review notes`
 
 ## Acceptance Criteria
 
 **One layout**
-- [x] 1. On a run with ≥2 founder cards and ≥2 statements, at 1440px: `[data-status-line]` is present on a card and on a statement, at the same `y` (±1px). Exactly one `[data-card-list]` is in the DOM on each, at the same `x`, `y` and `width` (±1px).
+- [x] 1. On a run with ≥2 founder cards and ≥2 statements, at 1440px: `[data-status-line]` is present on a card and on a statement, at the same `y` (±1px). Exactly one `[data-card-list]` is in the DOM on each, at the same `x`, `y` and `width` (±1px). The open item's pane and item `x`/`width`, and the agent panel's `x`/`width`, are the same on both (±1px; Decided 6).
 - [x] 2. The list's total row count, and the count of each kind (`[data-list-card]`, `[data-list-parked]`, `[data-list-statement]`), is the same whether a card or a statement is open. One `Stories` divider sits between cards and statements; it is not a button and not focusable. The list's `aria-current` row is the open item.
 - [x] 3. Clicking a statement row from a card opens that statement, and clicking a card row from a statement opens that card. ← / → cross the boundary; the pager reads "k of N" over cards + statements. Clicking the parked row from a statement shows the card view with Parked expanded and scrolled into view, in one click. Clicking the `Stories` divider does nothing.
 - [x] 4. A run with one item total (one card, or one statement and no cards) and no parked cards shows no list and centres the item.
@@ -309,28 +312,28 @@ New:
 - [x] 8. Read-only run: no button, no textarea; a saved story shows as text.
 
 **Agent work**
-- [x] 9. The agent-work panel appears exactly once on the page, on a card and on a statement: `[data-agent-link]` count is 0 and `[data-agent-list]` count is 1. With any row not sent, its header reads `Start fixing also sends these · {n} not sent`, where n equals the count of `[data-agent-state="not-sent"]` rows; with every row sent it reads `Sent to the fixing agent · {k}`, k = row count.
+- [x] 9. The agent-work panel appears exactly once on the page, on a card and on a statement: `[data-agent-link]` count is 0 and `[data-agent-list]` count is 1. With any row not sent, its header reads `Start fixing also sends these · {n} not sent`, where n equals the count of `[data-agent-state="not-sent"]` rows; with every row sent it reads `Sent to the fixing agent · {k}`, k = row count. After the first send, with any row not sent, it reads `Sent with your answers · {n} not sent yet`; on a read-only run, `The fixing agent’s work · {k}` (review fix F4).
 - [x] 9b. On a fixture after a first send, with `a` founder answers queued and `n` agent rows not sent and nothing else pending, the button reads `Send {a+n} changes` and the panel header shows `{n} not sent`. A sent agent row adds nothing to the button's number.
 - [x] 10. A Status `Open card ›` on an agent card still opens the list and focuses that row.
 
 **Stats**
 - [x] 11. No "From this run" text. No `[data-note]` for `shipped`, `whats-next`, `branches`, `cloud-spend`, `chat-digest`, and no `[data-reading="mentions"]` or `[data-reading="help_requests"]`, on a fixture run that still contains all of them.
-- [x] 12. A run with goals shows a `Goals` section: at most 3 rows, in goals.md order, each the item's bold title or first sentence, no step label. A run without `goals` shows `Goals` + "not collected yet". A run whose snapshot is empty shows "No open goals found in docs/goals.md". A weekly or monthly review note still renders folded under `Review notes`. Decided 7: a run with a `goal` shows it as the card's first row (`[data-goal-line]`, class `d-ct`), above the 3 step rows, and it is not one of them; a run without `goal` renders the card with only the step rows, as before.
-- [x] 13. The goals parser, unit-tested: against the real `docs/goals.md` it returns the first 3 open `## Next Steps` items with their titles (asserted literally); against a copy with `## Next Steps` renamed it reports a parse failure; against a copy with every item `[x]` it reports zero open. `day-render.ts` snapshots the result into the report, and `parseReport` keeps valid goal rows and drops malformed ones (counted in `droppedRows`). day-cp Step 3 files `goals:unparseable` on both failure cases. Decided 7: the parser returns the `**Goal:**` line as `goal` (literally, against the fixture copy); absent, empty or inside a fence it is no goal; CRLF reads like LF; the live `docs/goals.md` must carry one (structure test). `day-render.ts` snapshots it, and `parseReport` carries it, clipped like an item; a non-string or empty `goal` is not kept and is not a dropped row.
+- [x] 12. A run with goals shows the goals section (`[data-goals]`), headed `Goal and next steps` when the run has a `goal` and `Next steps` when it has none (review fix G1): at most 3 rows, in goals.md order, each the item's bold title or first sentence, no step label. A run without `goals` shows `Next steps` + "not collected yet". A run whose snapshot is empty shows "No open next steps found in docs/goals.md" (review fix G2), with or without a goal line. A weekly or monthly review note still renders folded under `Review notes`. Decided 7: a run with a `goal` shows it as the card's first row (`[data-goal-line]`, class `d-ct`), above the 3 step rows, and it is not one of them; a run without `goal` renders the card with only the step rows, as before, headed `Next steps`.
+- [x] 13. The goals parser, unit-tested: against the committed fixture copy of `docs/goals.md` it returns the first 3 open `## Next Steps` items with their titles (asserted literally), and against the live file it passes structure checks; against a copy with `## Next Steps` renamed it reports a parse failure; against a copy with every item `[x]` it reports zero open. `day-render.ts` snapshots the result into the report, and `parseReport` keeps valid goal rows and drops malformed ones (counted in `droppedRows`). day-cp Step 3 files `goals:unparseable` on both failure cases. Decided 7: the parser returns the `**Goal:**` line as `goal` (literally, against the committed fixture copy); absent, empty or inside a fence it is no goal; CRLF reads like LF; the live `docs/goals.md` must carry one (structure test). `day-render.ts` snapshots it, and `parseReport` carries it, clipped like an item; a non-string or empty `goal` is not kept and is not a dropped row.
 
 **Producers**
 - [x] 14. `day-cp.md` Step 6 and `day-cp-steps.tsv` `cp.notes` no longer list or emit `shipped`, `whats-next`, `branches`, `cloud-spend`. Step 3 files `goals:unparseable` when the parser fails or finds zero open items. day-cp files `pipeline:overdue` when `overdue next_date` > 0 and `pipeline:target-unparseable` when the target reads `unparseable` (counts only, no names). Evidence (static, 2026-10-13): grep of day-cp.md finds `goals:unparseable`, `pipeline:overdue`, `pipeline:target-unparseable` once each and no `whats-next`/`cloud-spend`/`shipped`/`branches` note ids; `cp.notes` in day-cp-steps.tsv reads "weekly / monthly review measurements"; check-sync SYNC OK for both manifests. The real-run half moved to Post-ship verification (PS-1).
 
 **Regression and quality**
-- [x] 15. Visual QA at 1440, 375 and 320px by a separate subagent (screenshots only, `.claude/rules/visual-qa.md`): a card, a statement (button closed, box open), the Stats Goals section. No blockers. At 375 and 320 the folded list's summary is the exact UI Contract string, identical on a card and on a statement (asserted in e2e, not only by eye).
-- [x] 16. CP surfaces that render `CardSlotLink` (`/feed`, profile, `/stake/:tag`) are visually unchanged. Their existing unit tests pass.
-- [x] 17. `cd tools/kanban && npm test` passes. The Day e2e suite (`npx playwright test --config=playwright.day.config.ts`) passes; every changed assertion cites P1468. The boundary test (`server/__tests__/day.test.ts:1132`) passes. `day-step.sh check-sync` passes for both manifests: `scripts/day-cp-steps.tsv` against `day-cp.md`, and `~/.claude/scripts/day-steps.tsv` against `~/.claude/commands/day.md`.
+- [x] 15. Visual QA at 1440, 375 and 320px by a separate subagent (screenshots only, `.claude/rules/visual-qa.md`): a card, a statement (button closed, box open), the Stats Goals section. No blockers. At 375 and 320 the folded list's summary is the exact UI Contract string, identical on a card and on a statement (asserted in e2e, not only by eye). Evidence: blind visual QA ran twice at 1440/375/320 (0 blockers each); a third blind pass on the goal line found 0 blockers, and its 2 should-fix items were applied as review fixes G1/G2; the UI Contract summary string is asserted in e2e (AC15 375px/320px tests).
+- [x] 16. CP surfaces that render `CardSlotLink` (`/feed`, profile, `/stake/:tag`) are visually unchanged. Their existing unit tests pass. Evidence: the CP tests for `CardSlotLink` pass (`src/tests/p1468-card-slot-link.test.tsx` plus the footer/CTA suites, 170 passed); the p1468 test asserts the re-exported `CardSlotLink` is the same function object as the moved one, so CP renders identical markup. Not visually re-checked on the CP pages.
+- [x] 17. `cd tools/kanban && npm test` passes. The Day e2e suite (`npx playwright test --config=playwright.day.config.ts`) passes; every changed assertion cites P1468. The boundary test (`server/__tests__/day.test.ts:1132`) passes. `day-step.sh check-sync` passes for both manifests: `scripts/day-cp-steps.tsv` against `day-cp.md`, and `~/.claude/scripts/day-steps.tsv` against `~/.claude/commands/day.md`. Evidence: kanban vitest 501 passed; Day e2e 160 passed; the boundary test passes; check-sync SYNC OK for both manifests.
 - [x] 18. `npx eslint` on every changed `.ts`/`.tsx` file is clean (the kanban package's own `lint` script is a no-op), and `npx tsc --noEmit -p tools/kanban` adds no errors. Amended 2026-10-13: main carries 16 pre-existing tsc errors (lib/scanner-rules.ts 12, Card.tsx 2, FocusPage.tsx 2) at the base commit; the branch has the same 16, none in a changed file (verified on main and on w1).
-- [x] 19. Regression for the design failure: an e2e test pages from the last card into the first statement and asserts AC 1's positions did not change. The same test, run against today's code, fails. Paste that failing run.
+- [x] 19. Regression for the design failure: an e2e test pages from the last card into the first statement and asserts AC 1's positions did not change. The same test, run against today's code, fails. Paste that failing run. Evidence: on the pre-change code, `AC1 + AC19: paging from the last card into the first statement …` (`day-page.spec.ts:3046`) failed at `expect(page.locator('[data-status-line]')).toHaveCount(1)` with unexpected value "0": the statement had no status line.
 
 ## Post-ship verification
 
-Checked after ship, by the next real `/day` run. Not completion criteria (the change is shipped without them); filed as INBOX follow-ups so they are not left to memory.
+Checked after ship, by the next real `/day` run. Not completion criteria (the change is shipped without them); tracked in the main session's inbox entry INBOX-169.
 
 - [ ] PS-1 (from AC 14). One real `/day` run after ship: its report has `goals` (with the goal line), none of the four dropped notes; both pipeline findings exercised (real, or forced by a fixture opportunity with a past `next_date` and a goals.md copy without the target sentence).
 - [ ] PS-2 (was AC 14b; the producer edit is committed in ~/.claude as a86e291). Separate step, not blocking UAT: `~/.claude/commands/day.md` Step 9d stops writing `mentions`, `help_requests` and the `chat-digest` note; Step 8.5 files a reply card only for items addressed to the founder (🔔, plus 🤝/💬 addressed to him or naming him), keyed `reply:<chat key>:<message key>`. Collision check: two messages in one chat produce two cards; one message found by both the digest and the replies check produces one card; a group ask not addressed to him produces none. Evidence: a run, or a dry run against a saved digest containing at least one founder-addressed help request, showing the card. If no such digest exists, leave this unchecked (the 2026-10-13 digest has none, so it cannot pass on its own).
@@ -341,4 +344,4 @@ P1463 (predecessor), P1449 (CP point/story cards on the Day page), P1445 (agent 
 
 ## Next Steps
 
-- Layout and visual hierarchy change on one page plus a render-time goals snapshot → run `/ux features/p1468_day_page_one_list_and_goals.md` for the statement-card footer and Goals rows, then `/dev`.
+Ship (/ship p1468), then the Post-ship checks.

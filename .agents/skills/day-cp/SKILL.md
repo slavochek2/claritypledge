@@ -28,8 +28,8 @@ rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not 
 fall back to `date -u -v-24H` and **say so in the output**, because every delta below is
 then a 24h delta rather than a since-last-run delta.
 
-**Output to the dispatcher:** the reflection and goals blocks (the dispatcher's reflection
-writer reads them), then the `REPORT FOR THE DISPATCHER` block at the end of Step 1. Until P1399
+**Output to the dispatcher:** the reflection block (the dispatcher's reflection
+writer reads it), then the `REPORT FOR THE DISPATCHER` block at the end of Step 1. Until P1399
 this was a list of HEALTH rows the dispatcher printed; the founder now reads this sub-day on the
 board, through the checks, findings and people it records, so nothing here is printed for him.
 
@@ -434,7 +434,7 @@ against a real refusal before treating it as proven.
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
 - `GPU_WARM:` → a GPU service was billed more than 3 h in the last 24 h (Cloud Monitoring `billable_instance_time`). GPUs bill ~€0.80/hr while allocated. Normal is ~1 h/day: `tx-job-janitor` wakes `transcribe-session` for ~5 min every 2 h. The May leak read 24 h/day.
 - `GPU_CHECK_FAILED:` → the billed-time query did not run. Report it as unchecked, never as clean.
-- `GPU_SERVICE_OK:` → informational, not a tripwire. Render it in the spend block, not as a leak.
+- `GPU_SERVICE_OK:` → informational, not a tripwire and not a leak.
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
 - `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted, by name AND interval: `tx-job-janitor` (P858/P902, every 2 h) and `transcribe-room-sweep` (P1307, hourly since 2026-10-01). Either one firing more often than every 30 min is flagged even though it is listed, because a ping inside the ~15-min idle window keeps a `--no-cpu-throttling` service warm 24/7. Any other scheduler whose target is a `run.app` URL is a leak until shown otherwise. Jobs are selected by target URI, not by name.
 
@@ -1291,7 +1291,7 @@ carry no count; the count goes in the body):
   --title "Outreach contacts are past their next step date" \
   --point-a "some opportunities are past the date their next step was due" --obstacle "nobody has moved them" \
   --point-b "every open opportunity has a next step date that is not past" <<'BODY'
-overdue next_date: <K>   (who: the PIPELINE detail line, terminal only)
+overdue next_date: <K>   (who: run `npx tsx tools/kanban/scripts/day-pipeline.ts` from the repo root; names stay in the terminal)
 BODY
 ```
 
@@ -1447,20 +1447,23 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
    auto-crossout above (it reads the file as it is now), from the repo root:
 
 ```bash
-npx tsx tools/kanban/scripts/day-goals.ts
+npx tsx tools/kanban/scripts/day-goals.ts; echo "day_goals_exit=$?"
 # goals: N open                      (exit 0) — then up to 3 lines: <label>  <title or first sentence>
-# goals: unparseable — <why>         (exit 3) — no "## Next Steps" heading, or nothing open in it
+# goals: unparseable — <why>         (exit 3) — no "## Next Steps" heading, nothing open in it, or the file unreadable
+# any other non-zero exit: the parser itself did not run (a script error) — stderr says why
 ```
 
-4. **Exit 3 is a finding, both ways it can happen** — the board then shows "No open goals found in
-   docs/goals.md", and an empty list must not read as "nothing queued":
+4. **Any non-zero exit is a finding** — exit 3 either way it can happen, and any other code — the
+   board then shows "No open next steps found in docs/goals.md", and an empty list must not read as
+   "nothing queued":
 
 ```bash
 "$DAY_STEP" finding --check cp.goals --severity low --store private --fault-key goals:unparseable \
   --title "The goals list on the board can't be read from goals.md" \
   --point-a "the Day page shows no goals" --obstacle "goals.md has no open Next Steps item the parser can read" \
   --point-b "goals.md's Next Steps lists the open goals as [ ] items" <<'BODY'
-<the line day-goals.ts printed, and the ## headings goals.md has now>
+exit <code>: <the first stderr line, or on exit 3 the line day-goals.ts printed>
+<the ## headings goals.md has now>
 BODY
 ```
 
@@ -1637,7 +1640,6 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 
 ## Notes
 
-- Never show done steps in goals. Only what's coming.
 - No step here waits for the founder (this runs in a subagent). His decisions are findings with options (P1399): the stash (step 4c), a spec waiting in QA (Wave 1), video summaries ready for his yes, and the reviews' proposals. A Sentry or Mixpanel MCP that did not reconnect is a connection in the REPORT block, not a question.
 - **A new check needs three things (P1399):** a row in `scripts/day-cp-checks.tsv`, a `CHECK` line written to `$DAY_CHECK_FILE` from its exit code or token, and a fault key for what it finds.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry,

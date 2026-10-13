@@ -34,7 +34,7 @@ export function StatsTab({ stats, notes, goals, goal }: { stats?: DayStats; note
  * (a run from before P1468) reads "not collected yet"; parsed but empty (goals.md drifted, or
  * nothing open) says so. Rows as the agent list and Parked draw theirs.
  * Decided 7: the goal, when the run has one, is the card's first line in the funnel card's lead
- * style (d-ct), above the steps; a run without one draws exactly what it drew before.
+ * style (d-ct), above the steps; a run without one draws the same card as before, headed "Next steps".
  */
 function Goals({ goals, goal }: { goals?: DayGoal[]; goal?: string }) {
   const lead = goal ? (
@@ -42,9 +42,11 @@ function Goals({ goals, goal }: { goals?: DayGoal[]; goal?: string }) {
       <span className="d-tx">{goal}</span>
     </div>
   ) : null
+  // review G1: the heading says what the card holds
+  const heading = goal ? 'Goal and next steps' : 'Next steps'
   return (
-    <section className="d-notes" aria-label="Goals" data-goals>
-      <h3 className="d-h3">Goals</h3>
+    <section className="d-notes" aria-label={heading} data-goals>
+      <h3 className="d-h3">{heading}</h3>
       {!goals ? (
         <div className="d-card d-pad">
           <NotCollected />
@@ -53,10 +55,10 @@ function Goals({ goals, goal }: { goals?: DayGoal[]; goal?: string }) {
         lead ? (
           <div className="d-card">
             {lead}
-            <div className="d-row d-nc">No open goals found in docs/goals.md</div>
+            <div className="d-row d-nc">No open next steps found in docs/goals.md</div>
           </div>
         ) : (
-          <div className="d-card d-pad d-nc">No open goals found in docs/goals.md</div>
+          <div className="d-card d-pad d-nc">No open next steps found in docs/goals.md</div>
         )
       ) : (
         <div className="d-card">

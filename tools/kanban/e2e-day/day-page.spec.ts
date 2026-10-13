@@ -3419,21 +3419,23 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await expect(page.locator('[data-note="week-measures"]')).toHaveCount(1)
   })
 
-  test('AC12: Goals — at most 3 rows in goals.md order, no step label; absent says "not collected yet"; empty says "No open goals found in docs/goals.md"; review notes fold under "Review notes"', async ({ page }) => {
-    let mode: 'as-is' | 'absent' | 'empty' = 'as-is'
+  test('AC12: Goals — headed "Goal and next steps" with a goal, "Next steps" without; at most 3 rows in goals.md order, no step label; absent says "not collected yet"; empty says "No open next steps found in docs/goals.md"; review notes fold under "Review notes"', async ({ page }) => {
+    let mode: 'as-is' | 'absent' | 'empty' | 'empty-no-goal' = 'as-is'
     await patchRun(page, (b) => {
       if (!b.report) return
       if (mode === 'absent') {
         delete b.report.goals
         delete b.report.goal
       }
-      if (mode === 'empty') b.report.goals = []
+      if (mode === 'empty' || mode === 'empty-no-goal') b.report.goals = []
+      if (mode === 'empty-no-goal') delete b.report.goal
     })
     const stats = () => page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     const goals = page.locator('[data-goals]')
     await openDay(page)
     await stats()
-    await expect(goals.locator('.d-h3')).toHaveText('Goals')
+    await expect(goals.locator('.d-h3')).toHaveText('Goal and next steps') // review G1: the fixture run has a goal
+    await expect(goals).toHaveAttribute('aria-label', 'Goal and next steps')
     await expect(goals.locator('[data-goal]')).toHaveText(['One free practice evening for people who sell', 'A use case on the landing page, in attendees’ words', 'The same format online, once.'])
     await expect(goals.locator('[data-goal]').first()).toHaveAttribute('data-goal', '3a')
     await expect(goals).not.toContainText('3a')
@@ -3449,18 +3451,30 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     mode = 'absent'
     await openDay(page)
     await stats()
-    await expect(goals.locator('.d-h3')).toHaveText('Goals')
+    await expect(goals.locator('.d-h3')).toHaveText('Next steps') // no goal on the run
+    await expect(goals).toHaveAttribute('aria-label', 'Next steps')
     await expect(goals).toContainText('not collected yet')
     await expect(goals.locator('[data-goal]')).toHaveCount(0)
     mode = 'empty'
     await openDay(page)
     await stats()
-    await expect(goals).toContainText('No open goals found in docs/goals.md')
+    // review G2: both empty branches (under a goal line, and the bare card) say "next steps"
+    await expect(goals.locator('.d-h3')).toHaveText('Goal and next steps')
+    await expect(goals).toContainText('No open next steps found in docs/goals.md')
+    await expect(goals).not.toContainText('No open goals found')
+    await expect(goals.locator('[data-goal]')).toHaveCount(0)
+    mode = 'empty-no-goal'
+    await openDay(page)
+    await stats()
+    await expect(goals.locator('.d-h3')).toHaveText('Next steps')
+    await expect(goals.locator('[data-goal-line]')).toHaveCount(0)
+    await expect(goals).toContainText('No open next steps found in docs/goals.md')
+    await expect(goals).not.toContainText('No open goals found')
     await expect(goals.locator('[data-goal]')).toHaveCount(0)
   })
 
   // P1468 Decided 7: the goal above the next steps
-  test('AC12 (Decided 7): Goals shows the goal as its first line, then the 3 next steps; a run with no goal renders exactly as before', async ({ page }) => {
+  test('AC12 (Decided 7): Goals shows the goal as its first line, then the 3 next steps; a run with no goal renders the same card as before, headed "Next steps"', async ({ page }) => {
     let mode: 'as-is' | 'old' = 'as-is'
     await patchRun(page, (b) => {
       if (b.report && mode === 'old') delete b.report.goal
@@ -3479,7 +3493,7 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     const lineY = (await rectOf(line, 'goal line')).y
     const stepY = (await rectOf(goals.locator('[data-goal]').first(), 'first step')).y
     expect(lineY).toBeLessThan(stepY)
-    await expect(goals).toHaveText(['Goals', 'Five paid pilots by year end', ...steps].join(''))
+    await expect(goals).toHaveText(['Goal and next steps', 'Five paid pilots by year end', ...steps].join(''))
     mode = 'old'
     await openDay(page)
     await stats()
@@ -3487,7 +3501,7 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await expect(goals.locator('[data-goal]')).toHaveText(steps)
     expect(await firstInCard()).toContain('data-goal="3a"')
     await expect(goals.locator('.d-card > *')).toHaveCount(3) // only the 3 step rows, nothing added
-    await expect(goals).toHaveText(['Goals', ...steps].join(''))
+    await expect(goals).toHaveText(['Next steps', ...steps].join(''))
   })
 
   for (const width of [375, 320]) {
