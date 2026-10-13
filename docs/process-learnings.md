@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 169
+**Next ID:** 170
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2600,5 +2600,16 @@ src/tests/p1364-list-return-cache.test.tsx ('POP serves the cached list on the s
 **due:** month
 
 P1468 removed the only reader of day-cp Wave 1's spend estimate (the dropped spend line). The EST_PER_DAY computation (day-cp.md Wave 1, ~lines 282-352 on the P1468 branch) still runs every /day and nothing reads it. After P1468 ships: grep for readers again and remove it if none (Monitoring has its own spend source).
+
+---
+
+## P1468 post-ship checks after the next /day run
+
+**ID:** INBOX-169
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+P1468 Post-ship verification (spec section of the same name). After the first real /day run following the P1468 ship: PS-1, the report has goals with the goal line and none of the four dropped notes, and both pipeline findings are exercised (really or via a fixture). PS-2, a founder-addressed chat item becomes a reply card keyed reply:<chat>:<message key>, and a group ask does not. Tick the boxes in the shipped spec with the run's evidence.
 
 ---
