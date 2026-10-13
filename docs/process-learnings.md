@@ -2590,6 +2590,8 @@ The post-deploy smoke fails on /cm on every run: page.goto waits for networkidle
 
 src/tests/p1364-list-return-cache.test.tsx ('POP serves the cached list on the same tab with no refetch') failed once inside the pre-commit full suite on 2026-10-13 (P1468 build), then passed 5 of 5 run alone in both a worktree and main. Load-dependent timing. Make it deterministic (fake timers or await the cache read) rather than retrying.
 
+2026-10-13: a second load-flaky test: tools/kanban/e2e-day/day-page.spec.ts:1219 'paging past an issue answered with your own text' failed once in 2 full Day e2e runs ([data-chosen] not found at :1230), passed 8/8 with --repeat-each=8.
+
 ---
 
 ## Remove day-cp's unread spend estimate after P1468 ships
