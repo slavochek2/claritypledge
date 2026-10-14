@@ -1,4 +1,4 @@
--- requires-frontend: 41759cede066f8e19fd320b7c1904bb23fc18f6e
+-- requires-frontend: 8e19a636d0fdef74c8bcf8e3bd0dd65960b4f3dd
 --   (fail-safe placeholder: migrate.sh blocks the prod apply on it. Replace with the sha of the
 --   commit that moves letters-service.ts off select('*') once that commit exists.)
 -- diffed against: 20260417100100_p725_deliveries_receiver_slug.sql
