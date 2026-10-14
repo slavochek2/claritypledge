@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: all-done
 type: task
 disclosure: public
 rank: 89
 created_date: '2026-08-12'
 tags: [security, hardening, clarity-sessions, rls]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1059: P1053 Security Review hardening backlog — search_path pins, CSPRNG codes, code revocability
@@ -129,7 +129,7 @@ decision. See § Closure.
       code is refused at the column grant"), green on test 2026-10-14
 - [x] Revocability has an explicit founder decision recorded — rotate, expire, or neither. If
       "neither," this item closes with the rationale written down and no code — **neither**,
-      founder 2026-10-14, recorded in [decisions.md](../docs/decisions.md) 2026-10-14 [security]
+      founder 2026-10-14, recorded in [decisions.md](../../../docs/decisions.md) 2026-10-14 [security]
       "A leaked room code is neither rotated nor expired" (closes P1098 with it)
 - [x] `.private/docs/security-log.md` updated with the outcome of each of the three — § 2026-10-14
       P1100/P1092/P1059/P1098/P1226
