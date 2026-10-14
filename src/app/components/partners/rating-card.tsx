@@ -31,8 +31,12 @@ interface RatingCardProps {
   speakerName: string;
   /** Listener's name (for display) */
   listenerName: string;
-  /** Called when rating is submitted */
-  onSubmitRating: (rating: number, correction?: string) => void;
+  /**
+   * Called when rating is submitted. Resolves true once the rating has landed. P1224: the card
+   * shows the waiting state only then; on false or a rejection the rating and correction stay in
+   * place so the person can submit again.
+   */
+  onSubmitRating: (rating: number, correction?: string) => Promise<boolean>;
   /** Called when speaker accepts understanding (even if < 5) */
   onAcceptUnderstanding?: () => void;
   /** Whether waiting for the other person to rate */
@@ -67,6 +71,7 @@ export function RatingCard({
   const [rating, setRating] = useState<number | null>(null);
   const [correction, setCorrection] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(myRating !== undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSpeaker = role === 'speaker';
   const bothRated = myRating !== undefined && otherRating !== undefined;
@@ -75,10 +80,18 @@ export function RatingCard({
   // Silence unused variable warning
   void _isWaiting;
 
-  const handleSubmit = () => {
-    if (rating === null) return;
-    setHasSubmitted(true);
-    onSubmitRating(rating, isSpeaker ? correction : undefined);
+  const handleSubmit = async () => {
+    if (rating === null || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      // P1224: "submitted" means the rating landed — never a write that may still be refused,
+      // which would strand this person on a waiting screen nothing can resolve.
+      if (await onSubmitRating(rating, isSpeaker ? correction : undefined)) setHasSubmitted(true);
+    } catch {
+      /* the rating and correction stay in place for another submit */
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getGapLabel = (gap: number): { text: string; color: string } => {
@@ -242,7 +255,7 @@ export function RatingCard({
       {/* Submit button */}
       <Button
         onClick={handleSubmit}
-        disabled={disabled || rating === null}
+        disabled={disabled || rating === null || isSubmitting}
         className="w-full"
         size="lg"
       >

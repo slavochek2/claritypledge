@@ -126,19 +126,6 @@ export function ClarityDemoPage() {
     // joiner_profile_id), which must re-evaluate the gate rather than leave a party polling.
   }, [session?.id, session?.code, view, user, session?.creatorProfileId, session?.joinerProfileId]);
 
-  // Initialize demo state when entering demo view
-  // Note: Joiner already initializes state in the "Start Session" button click handler
-  // This effect is a fallback for creator when they enter demo view (triggered by realtime update)
-  // We check isCreator to avoid double-initialization race condition
-  useEffect(() => {
-    if (view === "demo" && session && !session.state?.currentLevel && isCreator) {
-      // Creator enters demo view after joiner starts - state should already be set by joiner
-      // Only initialize if somehow state is missing (defensive)
-      const initialState = createInitialDemoState();
-      updateDemoFlowState(session.id, initialState);
-      setDemoState(initialState);
-    }
-  }, [view, session, isCreator]);
 
   const handleCreateSession = async () => {
     if (!name.trim()) {
@@ -235,12 +222,30 @@ export function ClarityDemoPage() {
   }, [session, isCreator]);
 
   // Update demo state and sync to Supabase — local state follows a write that landed.
-  const handleUpdateDemoState = useCallback(async (updates: Partial<DemoFlowState>) => {
-    if (!session) return;
-    if (await runSharedWrite(() => updateDemoFlowState(session.id, updates))) {
-      setDemoState(prev => ({ ...prev, ...updates }));
-    }
+  const handleUpdateDemoState = useCallback(async (updates: Partial<DemoFlowState>): Promise<boolean> => {
+    if (!session) return false;
+    const landed = await runSharedWrite(() => updateDemoFlowState(session.id, updates));
+    if (landed) setDemoState(prev => ({ ...prev, ...updates }));
+    return landed;
   }, [session, runSharedWrite]);
+
+  // Initialize demo state when entering demo view
+  // Note: Joiner already initializes state in the "Start Session" button click handler
+  // This effect is a fallback for creator when they enter demo view (triggered by realtime update)
+  // We check isCreator to avoid double-initialization race condition
+  // P1224: declared after runSharedWrite (its deps are read at render) and routed through it, so
+  // local state follows only a write that landed.
+  useEffect(() => {
+    if (view === "demo" && session && !session.state?.currentLevel && isCreator) {
+      // Creator enters demo view after joiner starts - state should already be set by joiner
+      // Only initialize if somehow state is missing (defensive)
+      const initialState = createInitialDemoState();
+      void runSharedWrite(() => updateDemoFlowState(session.id, initialState)).then((landed) => {
+        if (landed) setDemoState(initialState);
+      });
+    }
+  }, [view, session, isCreator, runSharedWrite]);
+
 
   // Save a completed round to the database
   const handleSaveRound = useCallback(async () => {

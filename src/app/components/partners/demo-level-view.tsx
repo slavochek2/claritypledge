@@ -25,8 +25,8 @@ interface DemoLevelViewProps {
   demoState: DemoFlowState;
   /** Whether current user is the creator */
   isCreator: boolean;
-  /** Update the demo state (syncs via realtime) */
-  onUpdateState: (updates: Partial<DemoFlowState>) => void;
+  /** Update the demo state (syncs via realtime). Resolves true once the write has landed (P1224). */
+  onUpdateState: (updates: Partial<DemoFlowState>) => Promise<boolean>;
   /** Save a completed round to the database */
   onSaveRound: () => void;
   /** Move to next level */
@@ -78,27 +78,28 @@ export function DemoLevelView({
   }, [onUpdateState]);
 
   // Handle rating submission
-  const handleRatingSubmit = useCallback((rating: number, correction?: string) => {
+  // P1224: returns the write's outcome, so the rating card marks itself submitted only once it landed.
+  const handleRatingSubmit = useCallback((rating: number, correction?: string): Promise<boolean> => {
     if (isSpeaker) {
-      onUpdateState({
+      return onUpdateState({
         speakerRating: rating,
         correctionText: correction,
       });
-    } else {
-      onUpdateState({
-        listenerSelfRating: rating,
-      });
     }
+    return onUpdateState({
+      listenerSelfRating: rating,
+    });
   }, [isSpeaker, onUpdateState]);
 
   // Handle accepting understanding (speaker only)
-  const handleAcceptUnderstanding = useCallback(() => {
+  const handleAcceptUnderstanding = useCallback(async () => {
     if (!levelConfig) return;
-    onUpdateState({
+    // P1224: the round is saved only once the acceptance it records has landed.
+    const landed = await onUpdateState({
       isAccepted: true,
       phase: levelConfig.positionRequired ? 'position' : 'transition',
     });
-    onSaveRound();
+    if (landed) onSaveRound();
   }, [onUpdateState, onSaveRound, levelConfig]);
 
   // Handle position selection (listener only)
