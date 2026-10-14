@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 254
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [security, rls, privacy, events, witnesses, decision]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-10-14
 ---
 
 # P1226: Public SELECT on `event_rsvps` and `witnesses` — record the intent or scope it
@@ -65,7 +65,7 @@ product's public signature wall, P877 pattern), keep RSVP *presence* public, and
 ## Acceptance Criteria
 
 - [x] Decision recorded in `docs/decisions.md` with the date and the reasoning —
-      [decisions.md](../docs/decisions.md) 2026-10-14 [security] "RSVP lists and witness
+      [decisions.md](../../../docs/decisions.md) 2026-10-14 [security] "RSVP lists and witness
       endorsements are public by design; email bookkeeping is not" (founder decision 2026-10-14,
       Status: accepted, with falsifier)
 - [x] If narrowed: anon GET on the affected column/table returns 42501 or an empty set, and event pages still render attendees for the audience the decision names
