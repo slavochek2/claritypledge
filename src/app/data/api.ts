@@ -756,6 +756,7 @@ export async function updateProfile(
   userId: string,
   updates: {
     name?: string;
+    slug?: string; // P1487: set once, with the name, when a new profile still has its placeholder
     role?: string;
     linkedin_url?: string;
     reason?: string;
@@ -3661,11 +3662,12 @@ export async function needsTermsAcceptance(userId: string): Promise<boolean> {
 /**
  * P1487: record, once, a terms acceptance the user made before they had a session (a new letter
  * reader or agreement partner who accepted, then proved their address through the emailed
- * sign-in link). The version comes from intent the server stored when it minted that link — the
- * client passes nothing. Non-fatal: a failure is logged, never thrown.
+ * sign-in link). `termsNonce` is the value that link carried; the version recorded comes from
+ * intent the server stored when it minted that link — the client chooses nothing. Without the
+ * nonce of that very link nothing is recorded. Non-fatal: a failure is logged, never thrown.
  */
-export async function consumePendingTermsAcceptance(): Promise<void> {
-  const { error } = await supabase.rpc('consume_pending_terms_acceptance');
+export async function consumePendingTermsAcceptance(termsNonce: string): Promise<void> {
+  const { error } = await supabase.rpc('consume_pending_terms_acceptance', { p_nonce: termsNonce });
   if (error) console.error('Failed to record pending terms acceptance:', error.message);
 }
 

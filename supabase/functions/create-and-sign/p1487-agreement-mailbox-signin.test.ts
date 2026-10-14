@@ -117,13 +117,15 @@ Deno.test({
       const { data: old } = await anon().auth.signInWithPassword({ email, password: earlier });
       assertEquals(old?.session ?? null, null, 'the earlier password must not sign in');
       const meta = (await f.sb.auth.admin.getUserById(pre.user!.id)).data.user?.user_metadata ?? {};
-      assertEquals(meta.name, 'Pat Partner');
+      assertFalse('name' in meta, 'no name typed before sign-in is written to the account');
       assertFalse('avatar_url' in meta);
 
-      // The terms version submitted with "sign" is recorded once, after sign-in.
-      const { data: recorded } = await client.rpc('consume_pending_terms_acceptance');
+      // The terms version is recorded once, after sign-in, by the nonce this link carried.
+      const nonce = link.searchParams.get('terms_nonce');
+      assert(nonce, 'the link carries the terms nonce');
+      const { data: recorded } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: nonce });
       assertEquals(recorded, 'v1.4');
-      const { data: again } = await client.rpc('consume_pending_terms_acceptance');
+      const { data: again } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: nonce });
       assertEquals(again, null);
     } finally {
       await teardown(f);
@@ -141,7 +143,7 @@ Deno.test({
       const ag = await invite(f, email);
       const { handler, sent } = harness(f.sb);
 
-      const res = await sign(handler, { agreementId: ag.id, token: ag.token, termsVersion: 'v1.3' });
+      const res = await sign(handler, { agreementId: ag.id, token: ag.token });
       const raw = await res.text();
       const user = await accountOf(f.sb, email);
       if (user) f.users.push(user.id);
@@ -150,7 +152,12 @@ Deno.test({
       assertEquals(JSON.parse(raw), { ok: true, checkEmail: true });
       assert(user, 'an account exists for the invited address');
       assertEquals(user.email_confirmed_at ?? null, null, 'unconfirmed until the mailbox link is opened');
-      assertEquals((user.app_metadata?.pending_terms as { version?: string } | undefined)?.version, 'v1.3', 'the submitted version is the one kept');
+      const pending = user.app_metadata?.pending_terms as { version?: string; nonce?: string; issued_at?: string } | undefined;
+      assertEquals(pending?.version, 'v1.4', 'the HANDLER kept the submitted (current) version');
+      assert(pending?.nonce && pending.nonce.length >= 32, 'with a nonce');
+      assertEquals(new URL(sent[0].link).searchParams.get('terms_nonce'), pending.nonce, 'the same nonce travels only in the emailed link');
+      assertFalse(raw.includes(pending.nonce), 'never in the response');
+      assertFalse('name' in (user.user_metadata ?? {}), 'no name typed before sign-in is written to the account');
       const { data: agRow } = await f.sb.from('clarity_agreements').select('status, partner_profile_id').eq('id', ag.id).single();
       assertEquals(agRow, { status: 'pending', partner_profile_id: null });
       assertEquals(sent.map((s) => s.to), [email]);
@@ -180,8 +187,20 @@ Deno.test({
       assertEquals(sent.length, 1);
       const { data: s } = await anon().auth.signInWithPassword({ email, password });
       assert(s?.session, "the owner's own password still works");
-      const meta = (await f.sb.auth.admin.getUserById(owner.user!.id)).data.user?.user_metadata ?? {};
-      assertEquals(meta.name, 'Owner Name');
+      const after = (await f.sb.auth.admin.getUserById(owner.user!.id)).data.user;
+      assertEquals(after?.user_metadata?.name, 'Owner Name');
+      assertEquals(after?.app_metadata?.pending_terms, undefined, 'no terms intent is stored on a confirmed account');
+      assertEquals(new URL(sent[0].link).searchParams.get('terms_nonce'), null, 'and the link carries none');
+
+      // The owner later signs in by another route: nothing is recorded on their behalf.
+      const ownerClient = anon();
+      await ownerClient.auth.signInWithPassword({ email, password });
+      for (const p_nonce of [null, 'c'.repeat(48)]) {
+        const { data: rec } = await ownerClient.rpc('consume_pending_terms_acceptance', { p_nonce });
+        assertEquals(rec, null);
+      }
+      const { data: auditRows } = await f.sb.from('terms_acceptances').select('id').eq('user_id', owner.user!.id);
+      assertEquals(auditRows ?? [], []);
     } finally {
       await teardown(f);
     }
@@ -231,6 +250,29 @@ Deno.test({
       assertEquals(refused.status, 429, raw);
       assert(Number(refused.headers.get('Retry-After')) > 0);
       assertEquals(sent.length, 3);
+    } finally {
+      await teardown(f);
+    }
+  },
+});
+
+Deno.test({
+  name: 'P1487 agreement: only the current terms version is accepted',
+  ...live,
+  fn: async () => {
+    const f = await setup();
+    try {
+      const email = `p1487-ag-ver-${uniq()}@example.com`;
+      const ag = await invite(f, email);
+      const { handler, sent } = harness(f.sb);
+      const res = await sign(handler, { agreementId: ag.id, token: ag.token, termsVersion: 'v1.3' });
+      const raw = await res.text();
+      const leaked = await accountOf(f.sb, email);
+      if (leaked) f.users.push(leaked.id);
+      assertEquals(res.status, 400, raw);
+      assertEquals(JSON.parse(raw).error, 'INVALID_TERMS_VERSION');
+      assertEquals(sent.length, 0);
+      assertEquals(leaked, null);
     } finally {
       await teardown(f);
     }

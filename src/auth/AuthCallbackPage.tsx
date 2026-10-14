@@ -474,9 +474,11 @@ export function AuthCallbackPage() {
       if (replayErr) console.warn('⚠️ replay_letter_positions failed (non-fatal):', replayErr.message);
 
       // P1487: a new letter reader or agreement partner accepted the terms before they had a
-      // session; the server kept the version when it minted this sign-in link. Record it now,
-      // once (no-op when nothing is pending). Non-fatal, like the two calls above.
-      await consumePendingTermsAcceptance();
+      // session; the server kept the version when it minted this sign-in link and put a nonce in
+      // the link, forwarded here as `terms_nonce`. Record it now, once — only a sign-in through
+      // that link can. Non-fatal, like the two calls above.
+      const termsNonce = urlParams.get('terms_nonce');
+      if (termsNonce) await consumePendingTermsAcceptance(termsNonce);
 
       // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');

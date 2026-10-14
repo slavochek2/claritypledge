@@ -37,7 +37,7 @@ const FUNCTION_NAME = 'request-letter-response-signin';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
+const ACCEPTED_TERMS_VERSIONS = ['v1.4'] as const; // P1487: current version only (see _shared/terms-version.ts)
 type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
 
 function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {

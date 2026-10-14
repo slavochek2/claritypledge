@@ -11,13 +11,16 @@
  * that mailbox can activate, then emails a one-time sign-in link to that address. The partner
  * signs the agreement after they return, signed in.
  *
- *   - no account at the address      → created UNCONFIRMED (name from the form)
+ *   - no account at the address      → created UNCONFIRMED
  *   - an unconfirmed account exists  → reset first (nothing its creator set survives)
  *   - a confirmed account exists     → left as it is; its owner just gets a sign-in link
  *
- * In every case the terms version the partner accepted by pressing "sign" is kept server-side
- * and recorded once they sign in (consume_pending_terms_acceptance), and the response is the same
- * `{ ok, checkEmail }` — it says nothing about whether the address already had an account.
+ * Nothing the caller types is written to the account: the profile name comes from the partner
+ * once they are signed in (accept page). For an account the link will activate (created or reset)
+ * the current terms version is kept server-side with a nonce that travels only in the emailed
+ * link, and recorded when the partner signs in through it (consume_pending_terms_acceptance). A
+ * confirmed account gets no such intent. The response is the same `{ ok, checkEmail }` in every
+ * case — it says nothing about whether the address already had an account.
  *
  * Mail is rate-limited (P1225 limiter): the caller's IP bucket after the request shape is checked
  * and before the agreement is read; the invited-address bucket only once the invitation is known
@@ -36,17 +39,12 @@ import {
 } from '../_shared/mail-rate-limit.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 import { setPendingTermsAcceptance } from '../_shared/pending-terms.ts';
+import { isCurrentTermsVersion } from '../_shared/terms-version.ts';
 
 const FN_NAME = 'create-and-sign';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
-type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
-
-function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
-  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
-}
 
 function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
@@ -58,7 +56,8 @@ function jsonResponse(body: Record<string, unknown>, status: number, cors: Recor
 /** The one-time sign-in email this handler sends to the invited address. */
 export interface AgreementSignInEmail {
   to: string;
-  partnerName: string;
+  /** The creator-set display name for the partner, if any (used only in the greeting). */
+  partnerName: string | null;
   creatorName: string;
   link: string;
 }
@@ -74,14 +73,18 @@ export interface CreateAndSignDeps {
   ipHashSecret: string;
 }
 
-/** Redeemed by /auth/verify, which hands off to /auth/callback and then back to the accept page. */
-export function agreementSignInLink(appUrl: string, tokenHash: string, agreementId: string, token: string): string {
+/**
+ * Redeemed by /auth/verify, which hands off to /auth/callback (forwarding `terms_nonce`, which the
+ * callback presents to consume_pending_terms_acceptance) and then back to the accept page.
+ */
+export function agreementSignInLink(appUrl: string, tokenHash: string, agreementId: string, token: string, termsNonce: string | null): string {
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: 'magiclink',
     source: 'signup',
     redirect: `/agreements/${agreementId}/accept?token=${encodeURIComponent(token)}`,
   });
+  if (termsNonce) params.set('terms_nonce', termsNonce);
   return `${appUrl}/auth/verify?${params.toString()}`;
 }
 
@@ -98,25 +101,23 @@ export function createHandler(deps: CreateAndSignDeps): (req: Request) => Promis
     }
 
     try {
-      const { agreementId, token, partnerName, termsVersion } = await req.json() as {
+      // `partnerName` may still be sent by clients; it is deliberately ignored (see header).
+      const { agreementId, token, termsVersion } = await req.json() as {
         agreementId?: string;
         token?: string;
-        partnerName?: string;
         termsVersion?: unknown;
       };
 
       // ── Input validation ────────────────────────────────────────────────
-      if (!agreementId || !token || !partnerName?.trim()) {
+      if (!agreementId || !token) {
         return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing required fields' }, 400, corsHeaders);
       }
-      if (!isAcceptedTermsVersion(termsVersion)) {
+      if (!isCurrentTermsVersion(termsVersion)) {
         return jsonResponse({ error: 'INVALID_TERMS_VERSION', message: 'Unsupported or missing terms version' }, 400, corsHeaders);
       }
       if (!UUID_RE.test(agreementId)) {
         return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid agreement ID' }, 400, corsHeaders);
       }
-      const trimmedName = partnerName.trim().slice(0, 100);
-
       // ── Rate limit: caller's IP, before the agreement is read ───────────
       const ipRefusal = mailLimitResponse(
         await reserveMailSlot(limiter, FN_NAME, 'ip', await ipLimitKey(req, ipHashSecret), SIGNIN_MAIL_LIMITS.ip),
@@ -127,7 +128,7 @@ export function createHandler(deps: CreateAndSignDeps): (req: Request) => Promis
       // ── Fetch and validate the invitation ───────────────────────────────
       const { data: agreement, error: agError } = await supabase
         .from('clarity_agreements')
-        .select('id, creator_profile_id, partner_email, invitation_token, invitation_expires_at, status')
+        .select('id, creator_profile_id, partner_email, partner_display_name, invitation_token, invitation_expires_at, status')
         .eq('id', agreementId)
         .single();
       if (agError || !agreement) {
@@ -166,18 +167,21 @@ export function createHandler(deps: CreateAndSignDeps): (req: Request) => Promis
 
       // ── Make sure only the mailbox can activate the account ─────────────
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-      const metadata = { name: trimmedName, avatar_color: avatarColor };
+      const metadata = { avatar_color: avatarColor };
 
       const { data: authUserRows } = await supabase.rpc('get_auth_user_by_email', { p_email: partnerEmail });
       const existing = (authUserRows as Array<{ id: string }> | null)?.[0] ?? null;
 
       let accountId: string;
+      let activatedByLink: boolean;
       if (existing) {
         accountId = existing.id;
         // No-op for a confirmed account; resets an unconfirmed one.
-        if (!await resetUnconfirmedAccount(supabase, existing.id, metadata)) {
+        const outcome = await resetUnconfirmedAccount(supabase, existing.id, metadata);
+        if (!outcome) {
           return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
         }
+        activatedByLink = outcome === 'reset';
       } else {
         const { data: created, error: createError } = await supabase.auth.admin.createUser({
           email: partnerEmail,
@@ -189,12 +193,17 @@ export function createHandler(deps: CreateAndSignDeps): (req: Request) => Promis
           return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
         }
         accountId = created.user.id;
+        activatedByLink = true;
       }
 
-      // The terms the partner accepted by pressing "sign", kept server-side and recorded once
-      // they sign in through the link (consume_pending_terms_acceptance).
-      if (!await setPendingTermsAcceptance(supabase, accountId, termsVersion)) {
-        return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
+      // Only for an account this link will activate: the terms accepted by pressing "sign", kept
+      // server-side and bound to this link. Never for an already-confirmed account.
+      let termsNonce: string | null = null;
+      if (activatedByLink) {
+        termsNonce = await setPendingTermsAcceptance(supabase, accountId, termsVersion);
+        if (!termsNonce) {
+          return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
+        }
       }
 
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -209,9 +218,9 @@ export function createHandler(deps: CreateAndSignDeps): (req: Request) => Promis
       try {
         await sendSignInEmail({
           to: partnerEmail,
-          partnerName: trimmedName,
+          partnerName: (agreement.partner_display_name as string | null)?.trim() || null,
           creatorName: (creator?.name as string | null)?.trim() || 'Your partner',
-          link: agreementSignInLink(appUrl, linkData.properties.hashed_token, agreementId, token),
+          link: agreementSignInLink(appUrl, linkData.properties.hashed_token, agreementId, token, termsNonce),
         });
       } catch (emailErr) {
         console.error('[create-and-sign] sign-in email failed:', emailErr);

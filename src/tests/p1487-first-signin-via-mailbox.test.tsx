@@ -44,6 +44,13 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
+const updateProfile = vi.fn().mockResolvedValue({ error: null });
+const ensureUniqueSlug = vi.fn().mockResolvedValue('pat-partner');
+vi.mock('@/app/data/api', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  updateProfile: (...a: unknown[]) => updateProfile(...a),
+  ensureUniqueSlug: (...a: unknown[]) => ensureUniqueSlug(...a),
+}));
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }));
 vi.mock('@/lib/constants', () => ({ CURRENT_TERMS_VERSION: 'v1', ACCEPTED_TERMS_VERSIONS: ['v1'] }));
@@ -371,5 +378,44 @@ describe('P1487: invitation pages never choose what terms acceptance is recorded
     renderAgreement();
     await waitFor(() => expect(agreementsService.acceptAgreement).toHaveBeenCalledTimes(1));
     expect(vi.mocked(supabase.from).mock.calls.map((c) => c[0])).not.toContain('terms_acceptances');
+  });
+
+  it('agreement: a partner whose profile still has the placeholder name takes the name they signed with', async () => {
+    localStorage.setItem(`clarity-pending-accept-${AGREEMENT_ID}`, JSON.stringify({ partnerName: 'Pat Partner' }));
+    updateProfile.mockClear(); ensureUniqueSlug.mockClear();
+    mockUseAuth.mockReturnValue({
+      ...SIGNED_IN,
+      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Anonymous', slug: 'anonymous-3' },
+      refreshProfile: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
+      id: AGREEMENT_ID, status: 'pending', partnerEmail: PARTNER_EMAIL, partnerDisplayName: 'Someone Else',
+      creatorProfileId: 'creator-p1487', partnerProfileId: null, invitationToken: TOKEN,
+    } as unknown as Awaited<ReturnType<typeof agreementsService.getAgreementByToken>>);
+    vi.mocked(agreementsService.acceptAgreement).mockResolvedValue(true);
+
+    renderAgreement();
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    expect(updateProfile).toHaveBeenCalledWith('partner-p1487', { name: 'Pat Partner', slug: 'pat-partner' });
+    expect(ensureUniqueSlug).toHaveBeenCalledWith('Pat Partner');
+  });
+
+  it('agreement control: a partner with a real profile name keeps it', async () => {
+    localStorage.setItem(`clarity-pending-accept-${AGREEMENT_ID}`, JSON.stringify({ partnerName: 'Typed Name' }));
+    updateProfile.mockClear();
+    mockUseAuth.mockReturnValue({
+      ...SIGNED_IN,
+      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Pat Partner', slug: 'pat-partner' },
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
+      id: AGREEMENT_ID, status: 'pending', partnerEmail: PARTNER_EMAIL, partnerDisplayName: 'Pat Partner',
+      creatorProfileId: 'creator-p1487', partnerProfileId: null, invitationToken: TOKEN,
+    } as unknown as Awaited<ReturnType<typeof agreementsService.getAgreementByToken>>);
+    vi.mocked(agreementsService.acceptAgreement).mockResolvedValue(true);
+
+    renderAgreement();
+    await waitFor(() => expect(agreementsService.acceptAgreement).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(updateProfile).not.toHaveBeenCalled();
   });
 });

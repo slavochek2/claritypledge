@@ -39,7 +39,7 @@ Deno.test({
     });
     const id = data.user!.id;
     try {
-      assert(await resetUnconfirmedAccount(sb, id, { name: 'Pat' }));
+      assertEquals(await resetUnconfirmedAccount(sb, id, { name: 'Pat' }), 'reset');
       const { data: v } = await openLink(email);
       assert(v?.session, 'the mailbox link signs the owner in');
       const { data: old } = await anon().auth.signInWithPassword({ email, password: earlier });
@@ -64,7 +64,7 @@ Deno.test({
     const { data } = await sb.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name: 'Owner', avatar_url: 'https://own.example/a.png' } });
     const id = data.user!.id;
     try {
-      assert(await resetUnconfirmedAccount(sb, id, { name: 'Someone Else' }));
+      assertEquals(await resetUnconfirmedAccount(sb, id, { name: 'Someone Else' }), 'confirmed', 'reported as confirmed, not reset');
       const { data: s } = await anon().auth.signInWithPassword({ email, password });
       assert(s?.session, 'the owner password still works');
       const meta = (await sb.auth.admin.getUserById(id)).data.user?.user_metadata ?? {};

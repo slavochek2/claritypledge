@@ -69,7 +69,7 @@ function htmlEmail(title: string, body: string): string {
 }
 
 async function sendSignInEmail(email: AgreementSignInEmail): Promise<void> {
-  const firstName = email.partnerName.trim().split(/\s+/)[0] || 'there';
+  const firstName = email.partnerName?.trim().split(/\s+/)[0] || 'there';
   const creator = email.creatorName.replace(/[\r\n]/g, '');
   const subject = `Sign in to sign your agreement with ${creator}`;
 

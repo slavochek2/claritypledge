@@ -12,8 +12,9 @@
  *
  * SOURCE — keep verbatim copies in sync if these files are touched:
  *   - supabase/functions/request-letter-response-signin/index.ts:26
- *   - supabase/functions/create-and-open-letter/index.ts:23
- *   - supabase/functions/create-and-sign/index.ts:19
+ *   - supabase/functions/_shared/terms-version.ts (create-and-open-letter, create-and-sign — P1487)
+ * P1487 narrowed every server list to the current version only; the source-reading parity check
+ * is src/tests/p1487-terms-version-single-source.test.ts.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -22,9 +23,9 @@ import {
   ACCEPTED_TERMS_VERSIONS as CLIENT_ACCEPTED,
 } from '@/lib/constants';
 
-const SERVER_ACCEPTED_request_letter_response_signin = ['v1.3', 'v1.4'] as const;
-const SERVER_ACCEPTED_create_and_open_letter = ['v1.3', 'v1.4'] as const;
-const SERVER_ACCEPTED_create_and_sign = ['v1.3', 'v1.4'] as const;
+const SERVER_ACCEPTED_request_letter_response_signin = ['v1.4'] as const;
+const SERVER_ACCEPTED_create_and_open_letter = ['v1.4'] as const;
+const SERVER_ACCEPTED_create_and_sign = ['v1.4'] as const;
 
 const SERVER_ALLOWLISTS = [
   ['request-letter-response-signin', SERVER_ACCEPTED_request_letter_response_signin],

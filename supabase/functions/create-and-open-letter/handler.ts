@@ -33,6 +33,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 import { setPendingTermsAcceptance } from '../_shared/pending-terms.ts';
+import { isCurrentTermsVersion } from '../_shared/terms-version.ts';
 import {
   SIGNIN_MAIL_LIMITS,
   ipLimitKey,
@@ -46,12 +47,6 @@ const FN_NAME = 'create-and-open-letter';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
-type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
-
-function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
-  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
-}
 
 function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
@@ -95,13 +90,15 @@ export interface OpenLetterDeps {
  * invitation token rides along in `redirect` so the signed-in recipient claims the delivery
  * on arrival — the same address already received it in the invitation email.
  */
-export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string): string {
+export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string, termsNonce: string | null): string {
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: 'magiclink',
     source: 'signup',
     redirect: `/letter/${deliveryId}?token=${token}`,
   });
+  // Forwarded by /auth/verify to /auth/callback, which presents it to consume_pending_terms_acceptance.
+  if (termsNonce) params.set('terms_nonce', termsNonce);
   return `${appUrl}/auth/verify?${params.toString()}`;
 }
 
@@ -145,7 +142,7 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
       }
 
       // Allowlist check — prevents client-supplied junk versions
-      if (!isAcceptedTermsVersion(termsVersion)) {
+      if (!isCurrentTermsVersion(termsVersion)) {
         return jsonResponse(
           { error: 'INVALID_TERMS_VERSION', message: 'Unsupported terms version' },
           400,
@@ -357,13 +354,16 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 
       let accountId: string;
+      let activatedByLink: boolean;
       if (orphanAuthUser) {
         accountId = orphanAuthUser.id;
         // An unconfirmed account already exists at this address: nothing on it is proven to be
         // the recipient's, and the link below would make it live. Reset it first.
-        if (!await resetUnconfirmedAccount(supabase, orphanAuthUser.id, { name: initialName, avatar_color: avatarColor })) {
+        const outcome = await resetUnconfirmedAccount(supabase, orphanAuthUser.id, { name: initialName, avatar_color: avatarColor });
+        if (!outcome) {
           return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
         }
+        activatedByLink = outcome === 'reset';
       } else {
         const { data: authData, error: createError } = await supabase.auth.admin.createUser({
           email: normalizedEmail,
@@ -380,12 +380,18 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
           );
         }
         accountId = authData.user.id;
+        activatedByLink = true;
       }
 
-      // The terms the reader accepted by pressing "Open", kept server-side and recorded once they
-      // sign in through the link (consume_pending_terms_acceptance).
-      if (!await setPendingTermsAcceptance(supabase, accountId, termsVersion)) {
-        return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
+      // Only for an account this link will activate: the terms accepted by pressing "Open", kept
+      // server-side and bound to this link (consume_pending_terms_acceptance). Never for an
+      // account that is already confirmed.
+      let termsNonce: string | null = null;
+      if (activatedByLink) {
+        termsNonce = await setPendingTermsAcceptance(supabase, accountId, termsVersion);
+        if (!termsNonce) {
+          return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
+        }
       }
 
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -413,7 +419,7 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
           to: normalizedEmail,
           recipientName: receiverName,
           senderName,
-          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token),
+          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token, termsNonce),
         });
       } catch (emailErr) {
         console.error('[create-and-open-letter] sign-in email failed:', emailErr);

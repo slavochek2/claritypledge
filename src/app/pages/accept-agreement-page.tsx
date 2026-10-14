@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { requestAgreementSignIn } from '@/lib/agreement-signin';
+import { ensureUniqueSlug, updateProfile } from '@/app/data/api';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { triggerConfetti } from '@/lib/confetti';
@@ -39,6 +40,17 @@ import type { AgreementParty } from '@/app/data/agreements-service';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
 
+/** P1487: names the sign-in callback gives a profile when it has none to give. */
+function isPlaceholderName(name: string | null | undefined): boolean {
+  const n = (name ?? '').trim();
+  return !n || n === 'Anonymous' || n === 'Unknown';
+}
+
+/** P1487: a slug the sign-in callback derived from a placeholder name (`anonymous`, `anonymous-2`, …). */
+function isPlaceholderSlug(slug: string | null | undefined): boolean {
+  return !slug || /^(anonymous|unknown)(-\d+)?$/.test(slug) || /^user-\d+$/.test(slug);
+}
+
 /** P483: Does this lookup result represent an existing user with a valid name? */
 function isExistingUserWithName(party: { name: string }): boolean {
   const name = party.name?.trim();
@@ -51,7 +63,7 @@ export function AcceptAgreementPage() {
   const navigate = useNavigate();
   const token = searchParams.get('token') ?? '';
 
-  const { user: currentUser, isLoading: _authLoading, sessionChecked } = useAuth();
+  const { user: currentUser, isLoading: _authLoading, sessionChecked, refreshProfile } = useAuth();
 
   const [agreement, setAgreement] = useState<ClarityAgreement | null>(null);
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -157,7 +169,7 @@ export function AcceptAgreementPage() {
       window.history.replaceState(window.history.state, '', window.location.pathname);
 
       // P483: use profile name for existing user with valid name
-      if (currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') {
+      if (!isPlaceholderName(currentUser.name)) {
         setPartnerDisplayName(currentUser.name);
       }
 
@@ -201,6 +213,18 @@ export function AcceptAgreementPage() {
       }
 
       analytics.track('agreement_accept_success', { agreement_id: agreementId });
+
+      // P1487: a partner who first signed in through the emailed link has a placeholder profile
+      // name — the server never writes a name typed before sign-in (the token holder may not be
+      // the partner). The name they just signed with, typed in their own signed-in session,
+      // becomes their profile name.
+      const signedName = nameToUse.trim();
+      if (signedName && isPlaceholderName(currentUser.name)) {
+        // The slug was derived from the placeholder too; a profile this new has no shared links yet.
+        const slug = isPlaceholderSlug(currentUser.slug) ? await ensureUniqueSlug(signedName) : undefined;
+        const { error: nameError } = await updateProfile(currentUser.id, { name: signedName, ...(slug ? { slug } : {}) });
+        if (!nameError) void refreshProfile?.();
+      }
 
       // Fire-and-forget email
       invokeAgreementEmails('accepted', agreementId);
@@ -437,7 +461,7 @@ export function AcceptAgreementPage() {
             partnerAvatarUrl={agreement.partner?.avatarUrl}
             creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
             partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
-            onPartnerNameChange={pageState === 'partner' && currentUser && !(currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
+            onPartnerNameChange={pageState === 'partner' && currentUser && isPlaceholderName(currentUser.name) ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
             partnerNameValue={partnerDisplayName}
             partnerNameError={nameError ?? undefined}
             footer={

@@ -179,8 +179,9 @@ Deno.test({
       assert(tokenHash.length > 0);
       assertFalse(raw.includes(tokenHash), 'the response never carries the emailed link');
       assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}`, 'lands on the letter it was opened from');
-      const pending = (await f.sb.auth.admin.getUserById(user.id)).data.user?.app_metadata?.pending_terms as { version?: string } | undefined;
+      const pending = (await f.sb.auth.admin.getUserById(user.id)).data.user?.app_metadata?.pending_terms as { version?: string; nonce?: string } | undefined;
       assertEquals(pending?.version, 'v1.4', 'the accepted terms version is kept server-side, not in the link');
+      assertEquals(link.searchParams.get('terms_nonce'), pending?.nonce, 'only its nonce travels, and only in the emailed link');
 
       // Control: token-only reading still works after the click.
       const after = await anon().rpc('get_letter_for_reading', { p_token: d.token });
@@ -200,7 +201,7 @@ Deno.test({
       });
       assertEquals(upErr, null, `profile write: ${upErr?.message}`);
       // /auth/callback then records the terms the reader accepted, once.
-      const { data: recorded } = await client.rpc('consume_pending_terms_acceptance');
+      const { data: recorded } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: link.searchParams.get('terms_nonce') });
       assertEquals(recorded, 'v1.4');
       const { data: auditRows } = await f.sb.from('terms_acceptances').select('terms_version, acceptance_mode').eq('user_id', user.id);
       assertEquals(auditRows, [{ terms_version: 'v1.4', acceptance_mode: 'explicit' }]);
@@ -269,6 +270,8 @@ Deno.test({
       assertEquals(body.signInRequired, true);
       assertEquals(body.redirectTo, `/letter/${d.id}`);
       assertEquals(sent.length, 0, 'no mailbox link for an existing account (it signs in the normal way)');
+      const existingAfter = (await f.sb.auth.admin.getUserById(existingId)).data.user;
+      assertEquals(existingAfter?.app_metadata?.pending_terms, undefined, 'no terms intent on an existing account');
       const { data: del } = await f.sb.from('letter_deliveries').select('receiver_profile_id').eq('id', d.id).single();
       assertEquals(del?.receiver_profile_id, existingId);
     } finally {

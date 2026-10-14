@@ -13,10 +13,12 @@
  * profile write and the terms record in /auth/callback, and the accept RPC all run for real
  * against the test project. Two things are stood in for, so that no mail is sent:
  *   - `create-and-sign` (the server that emails the sign-in link; P1487) is intercepted. The test
- *     performs its documented effects for a NEW invitee — an unconfirmed account with the form's
- *     name, and the submitted terms version kept in app_metadata — then answers `{ ok,
- *     checkEmail }`. The real handler, including its reset of an existing unconfirmed account,
- *     is proven live in supabase/functions/create-and-sign/p1487-agreement-mailbox-signin.test.ts.
+ *     performs its documented effects for a NEW invitee — an unconfirmed account (no name), and
+ *     the submitted terms version kept in app_metadata with a nonce that the emailed link carries
+ *     — then answers `{ ok, checkEmail }`. This file therefore does NOT prove the handler: that it
+ *     writes exactly this intent (and none for a confirmed account), resets an existing
+ *     unconfirmed account and puts the nonce only in the link is proven live against the real
+ *     handler in supabase/functions/create-and-sign/p1487-agreement-mailbox-signin.test.ts.
  *   - the mailbox: the test mints that address's one-time link and opens it as the email does.
  * The creator notification call is observed and answered locally.
  */
@@ -35,6 +37,8 @@ import {
 import { supabaseAdmin } from './helpers/supabase-admin';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
+/** The nonce the server would put in the emailed link (create-and-sign stores and emails it). */
+const TERMS_NONCE = 'e2e'.padEnd(48, '0');
 
 interface SignRequest { agreementId: string; token: string; partnerName: string; termsVersion: string }
 
@@ -66,8 +70,9 @@ async function stubMail(page: Page, opts: { serverStatus?: number } = {}): Promi
     const { data: ag } = await supabaseAdmin.from('clarity_agreements').select('partner_email').eq('id', body.agreementId).single();
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: ag!.partner_email, email_confirm: false,
-      user_metadata: { name: body.partnerName, avatar_color: AVATAR_COLORS[0] },
-      app_metadata: { pending_terms: { version: body.termsVersion, issued_at: new Date().toISOString() } },
+      // Mirrors the handler: no name typed before sign-in, intent bound to a link nonce.
+      user_metadata: { avatar_color: AVATAR_COLORS[0] },
+      app_metadata: { pending_terms: { version: body.termsVersion, issued_at: new Date().toISOString(), nonce: TERMS_NONCE } },
     });
     expect(error, error?.message).toBeNull();
     expect(created.user).toBeTruthy();
@@ -103,6 +108,7 @@ async function openMailboxLink(page: Page, mail: MailboxStub, expectedEmail: str
   const params = new URLSearchParams({
     token_hash: link!.properties!.hashed_token, type: 'magiclink', source: 'signup',
     redirect: `/agreements/${req!.agreementId}/accept?token=${encodeURIComponent(req!.token)}`,
+    terms_nonce: TERMS_NONCE,
   });
   await page.goto(`/auth/verify?${params.toString()}`);
 }
@@ -204,6 +210,11 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
       await signViaMailbox(page, mail, agreement.id, agreement.invitationToken, partnerEmail, 'TC03 Partner');
 
       // Query profile via admin
+      // The name comes from the partner's own signed-in session (accept page), not the server.
+      await expect.poll(async () => {
+        const { data } = await supabaseAdmin.from('profiles').select('name').eq('email', partnerEmail).single();
+        return data?.name;
+      }, { timeout: 10000 }).toBe('TC03 Partner');
       const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('id, name, email, slug, avatar_color, is_verified, accepted_terms_version')

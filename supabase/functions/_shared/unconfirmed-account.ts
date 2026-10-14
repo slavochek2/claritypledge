@@ -10,8 +10,10 @@
  * and an account that has any sign-in identity other than email is refused (fail closed) —
  * those are confirmed by their provider and should never reach this path.
  *
- * Confirmed accounts are never touched. Returns false when the reset could not be completed;
- * the caller must then not mint a link.
+ * Confirmed accounts are never touched. Returns 'confirmed' when the account is confirmed (left
+ * alone), 'reset' when it was reset, false when the reset could not be completed — the caller
+ * must then not mint a link. Callers that attach anything to a fresh account (e.g. a pending terms
+ * acceptance) must do so only on 'reset', never on 'confirmed'.
  */
 
 /** Structural slice of a service-role supabase-js client: only these two admin calls are used. */
@@ -42,14 +44,14 @@ export async function resetUnconfirmedAccount(
   supabase: AdminClient,
   userId: string,
   metadata: Record<string, unknown>,
-): Promise<boolean> {
+): Promise<'confirmed' | 'reset' | false> {
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   const user = data?.user;
   if (error || !user) {
     console.error('[unconfirmed-account] lookup failed:', error?.message);
     return false;
   }
-  if (user.email_confirmed_at) return true;
+  if (user.email_confirmed_at) return 'confirmed';
 
   const identities = user.identities ?? [];
   if (identities.some((i) => i.provider && i.provider !== 'email')) {
@@ -71,7 +73,7 @@ export async function resetUnconfirmedAccount(
     console.error('[unconfirmed-account] re-check failed:', againError?.message);
     return false;
   }
-  if (again.user.email_confirmed_at) return true;
+  if (again.user.email_confirmed_at) return 'confirmed';
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
     password: randomSecret(),
@@ -81,5 +83,5 @@ export async function resetUnconfirmedAccount(
     console.error('[unconfirmed-account] reset failed:', updateError.message);
     return false;
   }
-  return true;
+  return 'reset';
 }
