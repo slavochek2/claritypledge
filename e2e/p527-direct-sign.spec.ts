@@ -10,13 +10,15 @@
  * agreement is accepted automatically. These tests assert that flow end to end.
  *
  * What is real and what is stood in for: the page, the auth server's link verification, the
- * profile write in /auth/callback and the accept RPC all run for real against the test
- * project. Only the outbound email is replaced — the OTP request is intercepted (no mail is
- * sent) and the test plays the mailbox: it creates the unconfirmed account the auth server
- * would create for that request (same email and metadata), mints that address's sign-in link
- * and opens it the way the email template does (/auth/verify with `redirect_to`). The
- * creator notification call is observed and answered locally, so no mail goes out there
- * either.
+ * profile write and the terms record in /auth/callback, and the accept RPC all run for real
+ * against the test project. Two things are stood in for, so that no mail is sent:
+ *   - `create-and-sign` (the server that emails the sign-in link; P1487) is intercepted. The test
+ *     performs its documented effects for a NEW invitee — an unconfirmed account with the form's
+ *     name, and the submitted terms version kept in app_metadata — then answers `{ ok,
+ *     checkEmail }`. The real handler, including its reset of an existing unconfirmed account,
+ *     is proven live in supabase/functions/create-and-sign/p1487-agreement-mailbox-signin.test.ts.
+ *   - the mailbox: the test mints that address's one-time link and opens it as the email does.
+ * The creator notification call is observed and answered locally.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -34,40 +36,48 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
+interface SignRequest { agreementId: string; token: string; partnerName: string; termsVersion: string }
+
 interface MailboxStub {
-  /** The OTP request the page sent, once it has sent one. */
-  otp: () => { email: string; data: Record<string, unknown>; createUser: boolean; redirectTo: string } | null;
-  /** Calls the page made to the retired one-click function. */
-  oneClickCalls: () => number;
+  /** The sign-in request the page sent to create-and-sign, once it has sent one. */
+  signRequest: () => SignRequest | null;
+  /** Calls the page made to the auth server's own email sign-in (must stay 0). */
+  directOtpCalls: () => number;
   /** Creator-notification calls the page made (send-agreement-emails). */
   notifyBodies: () => Array<Record<string, unknown>>;
 }
 
-/** Intercept outbound mail paths for one page; nothing reaches a real mailbox. */
-async function stubMail(page: Page): Promise<MailboxStub> {
-  let otp: ReturnType<MailboxStub['otp']> = null;
-  let oneClick = 0;
+/** Stand in for create-and-sign and the mailbox for a NEW invitee (see the file header). */
+async function stubMail(page: Page, opts: { serverStatus?: number } = {}): Promise<MailboxStub> {
+  let signRequest: SignRequest | null = null;
+  let directOtp = 0;
   const notify: Array<Record<string, unknown>> = [];
   await page.route('**/auth/v1/otp**', async (route) => {
-    const req = route.request();
-    const body = req.postDataJSON() as { email: string; data?: Record<string, unknown>; create_user?: boolean };
-    otp = {
-      email: body.email,
-      data: body.data ?? {},
-      createUser: body.create_user !== false,
-      redirectTo: new URL(req.url()).searchParams.get('redirect_to') ?? '',
-    };
+    directOtp++;
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
   await page.route('**/functions/v1/create-and-sign', async (route) => {
-    oneClick++;
-    await route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'MAILBOX_REQUIRED' }) });
+    const body = route.request().postDataJSON() as SignRequest;
+    signRequest = body;
+    if (opts.serverStatus && opts.serverStatus !== 200) {
+      await route.fulfill({ status: opts.serverStatus, contentType: 'application/json', body: JSON.stringify({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }) });
+      return;
+    }
+    const { data: ag } = await supabaseAdmin.from('clarity_agreements').select('partner_email').eq('id', body.agreementId).single();
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email: ag!.partner_email, email_confirm: false,
+      user_metadata: { name: body.partnerName, avatar_color: AVATAR_COLORS[0] },
+      app_metadata: { pending_terms: { version: body.termsVersion, issued_at: new Date().toISOString() } },
+    });
+    expect(error, error?.message).toBeNull();
+    expect(created.user).toBeTruthy();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, checkEmail: true }) });
   });
   await page.route('**/functions/v1/send-agreement-emails', async (route) => {
     notify.push(route.request().postDataJSON() as Record<string, unknown>);
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
-  return { otp: () => otp, oneClickCalls: () => oneClick, notifyBodies: () => notify };
+  return { signRequest: () => signRequest, directOtpCalls: () => directOtp, notifyBodies: () => notify };
 }
 
 async function authUserIdByEmail(email: string): Promise<string | null> {
@@ -80,26 +90,21 @@ async function cleanupPartner(email: string) {
   if (id) await deleteTestUser(id);
 }
 
-/**
- * Plays the partner's mailbox: does what the auth server does for the intercepted OTP request
- * (an unconfirmed account carrying the page's metadata), then opens that address's one-time
- * sign-in link as the email template renders it.
- */
+/** Plays the partner's mailbox: opens the one-time link the server would have emailed. */
 async function openMailboxLink(page: Page, mail: MailboxStub, expectedEmail: string) {
-  const otp = mail.otp();
-  expect(otp, 'the page sent no sign-in link request').not.toBeNull();
-  expect(otp!.email, 'sign-in link must go to the invited address').toBe(expectedEmail);
-  expect(otp!.createUser).toBe(true);
-  expect(await authUserIdByEmail(expectedEmail), 'no account may exist before the mailbox link is opened').toBeNull();
+  const req = mail.signRequest();
+  expect(req, 'the page sent no sign-in request to the server').not.toBeNull();
+  expect(mail.directOtpCalls(), 'the page must not use the auth server\'s own email sign-in').toBe(0);
+  const user = await supabaseAdmin.auth.admin.getUserById((await authUserIdByEmail(expectedEmail))!);
+  expect(user.data.user?.email_confirmed_at ?? null, 'nothing is confirmed before the mailbox link is opened').toBeNull();
 
-  const { error: cErr } = await supabaseAdmin.auth.admin.createUser({
-    email: expectedEmail, email_confirm: false, user_metadata: otp!.data,
-  });
-  expect(cErr, cErr?.message).toBeNull();
   const { data: link, error: lErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: expectedEmail });
   expect(lErr, lErr?.message).toBeNull();
-  const params = new URLSearchParams({ token_hash: link!.properties!.hashed_token, type: 'magiclink' });
-  await page.goto(`/auth/verify?${params.toString()}&redirect_to=${encodeURIComponent(otp!.redirectTo)}`);
+  const params = new URLSearchParams({
+    token_hash: link!.properties!.hashed_token, type: 'magiclink', source: 'signup',
+    redirect: `/agreements/${req!.agreementId}/accept?token=${encodeURIComponent(req!.token)}`,
+  });
+  await page.goto(`/auth/verify?${params.toString()}`);
 }
 
 /** Fill the name, press "Seal & Sign", land on the check-your-email page, open the link. */
@@ -147,7 +152,10 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
 
       // Holding the link signs nobody in: the page asks for the mailbox instead.
       await page.waitForURL('**/agreements/confirm-email', { timeout: 20000 });
-      expect(mail.oneClickCalls(), 'the retired one-click function must not be called').toBe(0);
+      expect(mail.signRequest(), 'the page asks the server for the link').toMatchObject({
+        agreementId: agreement.id, token: agreement.invitationToken, partnerName: 'TC01 Partner',
+      });
+      expect(mail.directOtpCalls()).toBe(0);
       const { data: pending } = await supabaseAdmin.from('clarity_agreements').select('status').eq('id', agreement.id).single();
       expect(pending!.status, 'nothing is signed before the mailbox link is opened').toBe('pending');
 
@@ -218,7 +226,7 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
           .select('terms_version, acceptance_mode')
           .eq('user_id', profile!.id);
         return rows ?? [];
-      }, { timeout: 10000 }).toContainEqual({ terms_version: profile!.accepted_terms_version, acceptance_mode: 'explicit' });
+      }, { timeout: 10000 }).toEqual([{ terms_version: mail.signRequest()!.termsVersion, acceptance_mode: 'explicit' }]);
 
       // The address was proven by the mailbox link, not by the invitation.
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile!.id);
@@ -283,19 +291,12 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
     }
   });
 
-  // ── 3. The email path is the only path (P1487; was the AC-8 fallback) ───
+  // ── 3. When the server cannot send the link (P1487; was the AC-8 fallback) ──
 
-  test('TC-06: "Seal & Sign" goes straight to the email path, even when the one-click function is down', async ({ page }) => {
+  test('TC-06: if the server cannot send the sign-in link, the page says so and nothing is created', async ({ page }) => {
     const partnerEmail = `p527-tc06-${Date.now()}@example.com`;
     const agreement = await createTestAgreement(creator.user.id, partnerEmail);
-    const mail = await stubMail(page);
-    // A deployment where the retired function errors must change nothing.
-    await page.unroute('**/functions/v1/create-and-sign');
-    let oneClick = 0;
-    await page.route('**/functions/v1/create-and-sign', (route) => {
-      oneClick++;
-      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'INTERNAL' }) });
-    });
+    const mail = await stubMail(page, { serverStatus: 500 });
 
     try {
       await page.goto(`/agreements/${agreement.id}/accept?token=${agreement.invitationToken}`);
@@ -304,11 +305,11 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
       await page.getByPlaceholder('Your full name').fill('TC06 Partner');
       await page.getByRole('button', { name: /seal.*sign/i }).click();
 
-      await page.waitForURL('**/confirm-email', { timeout: 20000 });
-      expect(page.url()).toContain('confirm-email');
-      expect(oneClick).toBe(0);
-      expect(mail.otp()?.email).toBe(partnerEmail);
-      expect(await authUserIdByEmail(partnerEmail), 'no account before the mailbox link is opened').toBeNull();
+      await expect(page.getByText('Something went wrong. Please try again.')).toBeVisible({ timeout: 10000 });
+      expect(page.url()).toContain('/accept');
+      expect(mail.signRequest()?.partnerName).toBe('TC06 Partner');
+      expect(mail.directOtpCalls(), 'no fallback to the auth server\'s own email sign-in').toBe(0);
+      expect(await authUserIdByEmail(partnerEmail)).toBeNull();
     } finally {
       await deleteTestAgreement(agreement.id);
       await cleanupPartner(partnerEmail);

@@ -136,7 +136,8 @@ FAILED=()
 for fn in "${FUNCTIONS[@]}"; do
   echo -n "  $fn... "
   # create-and-sign is reached by anonymous invitees before they have a Supabase account
-  # (since P1487 it validates the invitation and refuses; it never returns a session).
+  # (since P1487 it validates the invitation and emails a sign-in link to the invited address;
+  # it never returns a session).
   # --no-verify-jwt lets those unauthenticated requests through the gateway.
   # P1380: event-email-link is opened from an inbox with no session; its ticket is the
   # credential (hashed, scoped to one page of one event, dies with the event).

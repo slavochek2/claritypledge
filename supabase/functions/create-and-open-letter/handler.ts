@@ -32,6 +32,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
+import { setPendingTermsAcceptance } from '../_shared/pending-terms.ts';
 import {
   SIGNIN_MAIL_LIMITS,
   ipLimitKey,
@@ -94,14 +95,12 @@ export interface OpenLetterDeps {
  * invitation token rides along in `redirect` so the signed-in recipient claims the delivery
  * on arrival — the same address already received it in the invitation email.
  */
-export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string, termsVersion: string): string {
-  // `terms` = the version the reader accepted when they pressed "Open" (allowlisted above); the
-  // letter page records the audit row for it once they arrive signed in.
+export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string): string {
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: 'magiclink',
     source: 'signup',
-    redirect: `/letter/${deliveryId}?token=${token}&terms=${encodeURIComponent(termsVersion)}`,
+    redirect: `/letter/${deliveryId}?token=${token}`,
   });
   return `${appUrl}/auth/verify?${params.toString()}`;
 }
@@ -357,7 +356,9 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
 
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 
+      let accountId: string;
       if (orphanAuthUser) {
+        accountId = orphanAuthUser.id;
         // An unconfirmed account already exists at this address: nothing on it is proven to be
         // the recipient's, and the link below would make it live. Reset it first.
         if (!await resetUnconfirmedAccount(supabase, orphanAuthUser.id, { name: initialName, avatar_color: avatarColor })) {
@@ -378,6 +379,13 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
             corsHeaders,
           );
         }
+        accountId = authData.user.id;
+      }
+
+      // The terms the reader accepted by pressing "Open", kept server-side and recorded once they
+      // sign in through the link (consume_pending_terms_acceptance).
+      if (!await setPendingTermsAcceptance(supabase, accountId, termsVersion)) {
+        return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
       }
 
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -405,7 +413,7 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
           to: normalizedEmail,
           recipientName: receiverName,
           senderName,
-          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token, termsVersion),
+          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token),
         });
       } catch (emailErr) {
         console.error('[create-and-open-letter] sign-in email failed:', emailErr);

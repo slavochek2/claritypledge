@@ -6,16 +6,17 @@
  * Route: /agreements/confirm-email
  * Receives state via React Router location.state:
  *   - email: string         — partner's invitation email (displayed prominently)
- *   - agreementId: string   — for localStorage key + resend emailRedirectTo
- *   - token: string         — for resend emailRedirectTo
- *   - partnerName: string   — passed back to OTP data so auto-accept still fires
+ *   - agreementId: string   — for localStorage key + resend
+ *   - token: string         — for resend (the invitation it re-requests a link for)
+ *   - partnerName: string   — re-sent with the resend so auto-accept still fires
  */
 
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { MailIcon, RefreshCwIcon, CheckCircle2Icon, ArrowLeft } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { requestAgreementSignIn } from '@/lib/agreement-signin';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 
 interface ConfirmationState {
   email: string;
@@ -23,6 +24,7 @@ interface ConfirmationState {
   token: string;
   partnerName: string;
   isExistingUser?: boolean; // P483: when true, show sign-in copy instead of account-creation copy
+  termsVersion?: string; // P1487: the terms version shown when they pressed sign; re-sent as is
 }
 
 export function AgreementEmailConfirmationPage() {
@@ -48,7 +50,7 @@ export function AgreementEmailConfirmationPage() {
     return null;
   }
 
-  const { email, agreementId, token, partnerName, isExistingUser } = state;
+  const { email, agreementId, token, partnerName, isExistingUser, termsVersion } = state;
 
   const handleResend = async () => {
     if (isResending) return;
@@ -64,22 +66,12 @@ export function AgreementEmailConfirmationPage() {
     );
 
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(
-        `/agreements/${agreementId}/accept?token=${token}`
-      )}`;
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: { name: partnerName || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
-          shouldCreateUser: true,
-        },
-      });
-
-      if (error) {
+      // P1487: through the server (create-and-sign), never the auth server's own email sign-in —
+      // see src/lib/agreement-signin.ts. A refused resend (e.g. rate limit) says why.
+      const result = await requestAgreementSignIn({ agreementId, token, partnerName, termsVersion: termsVersion ?? CURRENT_TERMS_VERSION });
+      if (!result.ok) {
         localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
-        setResendError('Failed to send. Please try again.');
+        setResendError(result.message);
       } else {
         setResendSuccess(true);
       }

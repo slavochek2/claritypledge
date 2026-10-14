@@ -178,7 +178,9 @@ Deno.test({
       const tokenHash = link.searchParams.get('token_hash') ?? '';
       assert(tokenHash.length > 0);
       assertFalse(raw.includes(tokenHash), 'the response never carries the emailed link');
-      assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}&terms=v1.4`, 'lands on the letter it was opened from, carrying the accepted terms version');
+      assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}`, 'lands on the letter it was opened from');
+      const pending = (await f.sb.auth.admin.getUserById(user.id)).data.user?.app_metadata?.pending_terms as { version?: string } | undefined;
+      assertEquals(pending?.version, 'v1.4', 'the accepted terms version is kept server-side, not in the link');
 
       // Control: token-only reading still works after the click.
       const after = await anon().rpc('get_letter_for_reading', { p_token: d.token });
@@ -197,6 +199,11 @@ Deno.test({
         p_data: { name: 'Pat Recipient', slug: `p1487-pat-${uniq()}`, avatar_color: '#0044CC', accepted_terms_version: 'v1.4' },
       });
       assertEquals(upErr, null, `profile write: ${upErr?.message}`);
+      // /auth/callback then records the terms the reader accepted, once.
+      const { data: recorded } = await client.rpc('consume_pending_terms_acceptance');
+      assertEquals(recorded, 'v1.4');
+      const { data: auditRows } = await f.sb.from('terms_acceptances').select('terms_version, acceptance_mode').eq('user_id', user.id);
+      assertEquals(auditRows, [{ terms_version: 'v1.4', acceptance_mode: 'explicit' }]);
       const { data: claim, error: cErr } = await client.rpc('claim_letter_delivery', { p_token: d.token });
       assertEquals(cErr, null, `claim: ${cErr?.message}`);
       assertEquals((claim as { claimed?: boolean })?.claimed, true);

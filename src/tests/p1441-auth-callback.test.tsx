@@ -89,6 +89,7 @@ vi.mock('@/app/data/api', () => ({
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
   replayLetterPositions: () => mockReplayLetterPositions(),
+  consumePendingTermsAcceptance: () => Promise.resolve(),
   getEventBySlug: (slug: string) => mockGetEventBySlug(slug),
   rsvpToEvent: (eventId: string, profileId: string) => mockRsvpToEvent(eventId, profileId),
 }));

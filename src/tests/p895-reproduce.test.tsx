@@ -109,6 +109,7 @@ vi.mock('@/app/data/api', () => ({
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
   replayLetterPositions: () => mockReplayLetterPositions(),
+  consumePendingTermsAcceptance: () => Promise.resolve(),
 }));
 
 // Spy on analytics — the assertion target. AuthContext also imports identify/reset.

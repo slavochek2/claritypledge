@@ -44,11 +44,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
-const recordPriorTermsAcceptance = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/app/data/api', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  recordPriorTermsAcceptance: (...a: unknown[]) => recordPriorTermsAcceptance(...a),
-}));
+
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }));
 vi.mock('@/lib/constants', () => ({ CURRENT_TERMS_VERSION: 'v1', ACCEPTED_TERMS_VERSIONS: ['v1'] }));
 vi.mock('@/components/ui/clarity-loader', () => ({
@@ -262,10 +258,11 @@ function renderAgreement() {
 describe('P1487: signing an agreement invitation goes through the mailbox', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    invoke.mockReset().mockResolvedValue({ data: { ok: true, hashedToken: 'pre-fix-hash' }, error: null });
+    invoke.mockReset().mockResolvedValue({ data: { ok: true, checkEmail: true }, error: null });
     verifyOtp.mockReset().mockResolvedValue({ error: null });
     signInWithOtp.mockReset().mockResolvedValue({ error: null });
     mockUseAuth.mockReturnValue(ANON);
+    localStorage.clear();
     vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
       id: AGREEMENT_ID, status: 'pending', partnerEmail: PARTNER_EMAIL, partnerDisplayName: 'Pat Partner',
       creatorProfileId: 'creator-p1487', partnerProfileId: null, invitationToken: TOKEN,
@@ -279,22 +276,50 @@ describe('P1487: signing an agreement invitation goes through the mailbox', () =
     expect(agreementsService.getAgreementByToken).toHaveBeenCalledWith(TOKEN);
   });
 
-  it('"Seal & Sign" sends a sign-in link to the invited address — no one-click account, no session', async () => {
+  it('"Seal & Sign" asks the server for a sign-in link to the invited address — never the auth server directly', async () => {
     renderAgreement();
     fireEvent.click(await screen.findByRole('button', { name: /seal & sign/i }));
 
-    await waitFor(() => expect(signInWithOtp).toHaveBeenCalledTimes(1));
-    expect(signInWithOtp.mock.calls[0][0]).toMatchObject({ email: PARTNER_EMAIL });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('create-and-sign', expect.anything()));
+    expect(invoke.mock.calls[0][1]).toEqual({
+      body: { agreementId: AGREEMENT_ID, token: TOKEN, partnerName: 'Pat Partner', termsVersion: 'v1' },
+    });
     expect(await screen.findByTestId('confirm-email-page')).toBeInTheDocument();
-    expect(invoke).not.toHaveBeenCalledWith('create-and-sign', expect.anything());
+    expect(signInWithOtp).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it('an existing partner\'s "Sign In to Co-Sign" goes through the same server path', async () => {
+    vi.mocked(agreementsService.lookupUserByEmail).mockResolvedValue({ id: 'p', name: 'Pat Existing' } as unknown as Awaited<ReturnType<typeof agreementsService.lookupUserByEmail>>);
+    renderAgreement();
+    fireEvent.click(await screen.findByRole('button', { name: /sign in to co-sign/i }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('create-and-sign', expect.anything()));
+    expect((invoke.mock.calls[0][1] as { body: { partnerName: string } }).body.partnerName).toBe('Pat Existing');
+    expect(await screen.findByTestId('confirm-email-page')).toBeInTheDocument();
+    expect(signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('a refused request (e.g. rate limit) stays on the page and says why', async () => {
+    const { FunctionsHttpError } = await import('@supabase/supabase-js');
+    invoke.mockResolvedValue({
+      data: null,
+      error: new FunctionsHttpError(new Response(JSON.stringify({ error: 'Too many requests. Please wait a while and try again.' }), { status: 429 })),
+    });
+    const { toast } = await import('sonner');
+    renderAgreement();
+    fireEvent.click(await screen.findByRole('button', { name: /seal & sign/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Too many requests. Please wait a while and try again.'));
+    expect(screen.queryByTestId('confirm-email-page')).not.toBeInTheDocument();
+    expect(localStorage.getItem(`clarity-pending-accept-${AGREEMENT_ID}`)).toBeNull();
   });
 });
 
 // ── Terms acceptance audit after the mailbox round-trip ──────────────────────
 
 const SIGNED_IN = {
-  user: { id: 'reader-p1487', email: 'reader@example.com', name: 'Pat' },
+  user: { id: '0f0e0d0c-1b1a-4c3d-8e5f-0a1b2c3d4e5f', email: 'reader@example.com', name: 'Pat' },
   session: { access_token: 'tok' },
   sessionChecked: true,
   isLoading: false,
@@ -311,37 +336,27 @@ function renderLetterAt(search: string) {
   );
 }
 
-describe('P1487: the terms accepted before sign-in are recorded once the reader is signed in', () => {
+describe('P1487: invitation pages never choose what terms acceptance is recorded', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    recordPriorTermsAcceptance.mockReset().mockResolvedValue(undefined);
     seedLetter();
   });
 
-  it('letter: arriving signed in from the emailed link records the accepted version (explicit)', async () => {
+  it('letter: a terms value in the URL records nothing, even for a signed-in reader', async () => {
+    const { supabase } = await import('@/lib/supabase');
+    // Any IP lookup an audit write would await resolves at once, so a write cannot hide behind it.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ip: '192.0.2.1' })));
     mockUseAuth.mockReturnValue(SIGNED_IN);
     renderLetterAt(`?token=${TOKEN}&terms=v1`);
-    await waitFor(() => expect(recordPriorTermsAcceptance).toHaveBeenCalledTimes(1));
-    expect(recordPriorTermsAcceptance).toHaveBeenCalledWith('reader-p1487', 'v1', 'explicit');
-  });
-
-  it('letter control: no terms param, or an unknown version, records nothing', async () => {
-    mockUseAuth.mockReturnValue(SIGNED_IN);
-    renderLetterAt(`?token=${TOKEN}`);
-    renderLetterAt(`?token=${TOKEN}&terms=v9.9`);
     await waitFor(() => expect(screen.queryAllByTestId('loader').length).toBe(0));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(recordPriorTermsAcceptance).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 50));
+    fetchSpy.mockRestore();
+    expect(vi.mocked(supabase.from).mock.calls.map((c) => c[0])).not.toContain('terms_acceptances');
+    expect(vi.mocked(supabase.rpc).mock.calls.map((c) => c[0])).not.toContain('consume_pending_terms_acceptance');
   });
 
-  it('letter control: a signed-out reader records nothing', async () => {
-    mockUseAuth.mockReturnValue(ANON);
-    renderLetterAt(`?token=${TOKEN}&terms=v1`);
-    await screen.findByRole('button', { name: 'Open the Letter' });
-    expect(recordPriorTermsAcceptance).not.toHaveBeenCalled();
-  });
-
-  it('agreement: returning signed in from the emailed link records the acceptance and signs', async () => {
+  it('agreement: returning signed in from the emailed link signs (the terms row is the sign-in callback\'s job)', async () => {
+    const { supabase } = await import('@/lib/supabase');
     localStorage.setItem(`clarity-pending-accept-${AGREEMENT_ID}`, JSON.stringify({ partnerName: 'Pat Partner' }));
     mockUseAuth.mockReturnValue({
       ...SIGNED_IN,
@@ -355,6 +370,6 @@ describe('P1487: the terms accepted before sign-in are recorded once the reader 
 
     renderAgreement();
     await waitFor(() => expect(agreementsService.acceptAgreement).toHaveBeenCalledTimes(1));
-    expect(recordPriorTermsAcceptance).toHaveBeenCalledWith('partner-p1487', 'v1', 'explicit');
+    expect(vi.mocked(supabase.from).mock.calls.map((c) => c[0])).not.toContain('terms_acceptances');
   });
 });

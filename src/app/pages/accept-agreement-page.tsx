@@ -16,9 +16,9 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { supabase } from '@/lib/supabase';
-import { recordPriorTermsAcceptance } from '@/app/data/api';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
+import { requestAgreementSignIn } from '@/lib/agreement-signin';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { triggerConfetti } from '@/lib/confetti';
@@ -277,36 +277,29 @@ export function AcceptAgreementPage() {
   useEffect(() => {
     if (autoAcceptWith === null || pageState !== 'partner') return;
     setAutoAcceptWith(null);
-    // P1487: the partner agreed to the terms when they pressed sign, before they had a session;
-    // they are now back through the emailed link, so record the audit row (idempotent).
-    if (currentUser?.id) void recordPriorTermsAcceptance(currentUser.id, CURRENT_TERMS_VERSION, 'explicit');
     handleAcceptRef.current(autoAcceptWith);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAcceptWith, pageState]);
 
   // P483: Sign-in for existing user (unauthenticated) — OTP with shouldCreateUser: false
-  const handleExistingUserSignIn = async () => {
+  /**
+   * P1487: email the invitee their one-time sign-in link through the server (create-and-sign),
+   * never through the auth server's own email sign-in — an unconfirmed account at the invited
+   * address must be reset before any link can activate it, which only the server can do. The
+   * terms version shown on this page is sent along; the server keeps it and records it once the
+   * invitee signs in.
+   */
+  const sendSignInLink = async (partnerName: string, isExistingUser: boolean) => {
     if (!agreement || !agreementId) return;
     setIsSigningUp(true);
     try {
-      // Store intent so we can auto-accept when they return after clicking the magic link
-      localStorage.setItem(
-        `clarity-pending-accept-${agreementId}`,
-        JSON.stringify({ partnerName: existingPartner?.name ?? '' })
-      );
+      // Store intent so we can auto-accept when they return after clicking the link
+      localStorage.setItem(`clarity-pending-accept-${agreementId}`, JSON.stringify({ partnerName }));
 
-      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: agreement.partnerEmail,
-        options: {
-          emailRedirectTo: redirectUrl,
-          shouldCreateUser: false,
-        },
-      });
-
-      if (error) {
+      const termsVersion = CURRENT_TERMS_VERSION; // the version this page shows next to the button
+      const result = await requestAgreementSignIn({ agreementId, token, partnerName, termsVersion });
+      if (!result.ok) {
         localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
-        toast.error('Failed to send sign-in link. Please try again.');
+        toast.error(result.message);
         return;
       }
 
@@ -315,8 +308,9 @@ export function AcceptAgreementPage() {
           email: agreement.partnerEmail,
           agreementId,
           token,
-          partnerName: existingPartner?.name ?? '',
-          isExistingUser: true,
+          partnerName,
+          termsVersion,
+          ...(isExistingUser ? { isExistingUser: true } : {}),
         },
       });
     } finally {
@@ -324,49 +318,17 @@ export function AcceptAgreementPage() {
     }
   };
 
-  // Inline signup: send magic link to the partner email we already have
+  // P483: sign-in for an existing user (unauthenticated) — same server path.
+  const handleExistingUserSignIn = () => sendSignInLink(existingPartner?.name ?? partnerDisplayName.trim(), true);
+
+  // Inline signup: the server emails the sign-in link to the address the agreement was sent to.
   const handleInlineSignup = async () => {
-    if (!agreement || !agreementId) return;
     if (partnerDisplayName.trim().length > 100) {
       setNameError('Name must be 100 characters or fewer');
       return;
     }
     setNameError(null);
-    setIsSigningUp(true);
-    try {
-      // Store intent so we can auto-accept when they return after clicking the magic link
-      localStorage.setItem(
-        `clarity-pending-accept-${agreementId}`,
-        JSON.stringify({ partnerName: partnerDisplayName.trim() })
-      );
-
-      const redirectUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: agreement.partnerEmail,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
-          shouldCreateUser: true,
-        },
-      });
-
-      if (error) {
-        localStorage.removeItem(`clarity-pending-accept-${agreementId}`);
-        toast.error('Failed to send sign-in link. Please try again.');
-        return;
-      }
-
-      navigate('/agreements/confirm-email', {
-        state: {
-          email: agreement.partnerEmail,
-          agreementId,
-          token,
-          partnerName: partnerDisplayName.trim(),
-        },
-      });
-    } finally {
-      setIsSigningUp(false);
-    }
+    await sendSignInLink(partnerDisplayName.trim(), false);
   };
 
   // P527 → P1487: "sign" for a partner without a session. The invitation token is not proof of

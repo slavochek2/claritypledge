@@ -62,6 +62,17 @@ export async function resetUnconfirmedAccount(
   const existing = (user.user_metadata ?? {}) as Record<string, unknown>;
   const cleared = Object.fromEntries(Object.keys(existing).map((k) => [k, null]));
 
+  // Re-check right before writing: if the account was confirmed in the meantime (say, its owner
+  // opened an earlier link in another tab), it now belongs to them — leave it alone. This narrows
+  // the read-then-write window; it cannot close it (Auth offers no conditional update). The
+  // residual is recorded in the P1487 spec's Known limitations.
+  const { data: again, error: againError } = await supabase.auth.admin.getUserById(userId);
+  if (againError || !again?.user) {
+    console.error('[unconfirmed-account] re-check failed:', againError?.message);
+    return false;
+  }
+  if (again.user.email_confirmed_at) return true;
+
   const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
     password: randomSecret(),
     user_metadata: { ...cleared, ...metadata },

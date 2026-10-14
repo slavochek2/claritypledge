@@ -118,6 +118,7 @@ vi.mock('@/app/data/api', () => ({
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
   replayLetterPositions: () => mockReplayLetterPositions(),
+  consumePendingTermsAcceptance: () => Promise.resolve(),
 }));
 
 // -----------------------------------------------------------------------------

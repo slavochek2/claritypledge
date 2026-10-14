@@ -18,7 +18,7 @@ import { join, resolve } from 'path';
 import { allFunctionSources } from './helpers/edge-function-source';
 
 const FUNCTIONS = join(resolve(__dirname, '../..'), 'supabase/functions');
-const KNOWN = ['create-and-open-letter', 'request-letter-response-signin', 'send-letter-emails', 'send-agreement-emails', 'event-email-link'];
+const KNOWN = ['create-and-open-letter', 'create-and-sign', 'request-letter-response-signin', 'send-letter-emails', 'send-agreement-emails', 'event-email-link'];
 
 const MINT = 'auth.admin.generateLink(';
 const RESET = 'resetUnconfirmedAccount(';

@@ -72,6 +72,7 @@ vi.mock('@/app/data/api', () => ({
   markSelfVerified: vi.fn().mockResolvedValue({ verified: true, error: null }),
   setMyPledge: vi.fn().mockResolvedValue({ applied: true, error: null }),
   replayLetterPositions: vi.fn().mockResolvedValue({ replayed: 0, error: null }),
+  consumePendingTermsAcceptance: vi.fn().mockResolvedValue({ recorded: false, error: null }),
 }));
 
 const mockTrack = vi.fn();

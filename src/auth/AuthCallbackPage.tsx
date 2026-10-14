@@ -26,7 +26,7 @@ import { resolveAvatarFields } from "./resolve-avatar-fields";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
-import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions } from "@/app/data/api";
+import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions, consumePendingTermsAcceptance } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { isSafeRedirectPath } from "./redirect-allowlist";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
@@ -472,6 +472,11 @@ export function AuthCallbackPage() {
       // login re-runs this. Zero replayed is the normal case, not a failure.
       const { error: replayErr } = await replayLetterPositions();
       if (replayErr) console.warn('⚠️ replay_letter_positions failed (non-fatal):', replayErr.message);
+
+      // P1487: a new letter reader or agreement partner accepted the terms before they had a
+      // session; the server kept the version when it minted this sign-in link. Record it now,
+      // once (no-op when nothing is pending). Non-fatal, like the two calls above.
+      await consumePendingTermsAcceptance();
 
       // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');

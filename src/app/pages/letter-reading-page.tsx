@@ -27,7 +27,6 @@ import { LetterCheckEmail } from '@/app/components/letters/letter-check-email';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
-import { recordPriorTermsAcceptance } from '@/app/data/api';
 import { useLetterReadingState, loadState as loadReadingState, loadLocalState } from '@/app/hooks/useLetterReadingState';
 import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
 import { letterUsesPredictions, predictionsForMode, resolveResponsesMode } from '@/app/utils/letter-prediction-policy';
@@ -102,19 +101,6 @@ export function LetterReadingPage() {
       setSearchParams(next, { replace: true });
     }
   }, [viewState, searchParams, setSearchParams]);
-
-  // P1487: a new reader accepted the terms when they pressed "Open", before they had an account;
-  // the emailed sign-in link brings that version back as ?terms=. Once signed in, record the
-  // audit row (idempotent) and drop the param so it is not re-read.
-  useEffect(() => {
-    const accepted = searchParams.get('terms');
-    if (!currentUser?.id || !accepted) return;
-    const next = new URLSearchParams(searchParams);
-    next.delete('terms');
-    setSearchParams(next, { replace: true });
-    if (!(ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(accepted)) return;
-    void recordPriorTermsAcceptance(currentUser.id, accepted, 'explicit');
-  }, [currentUser?.id, searchParams, setSearchParams]);
 
   // P694: track pageState in a ref so the load effect closure can read the latest value
   // without re-registering. Used for the "already ready" guard.

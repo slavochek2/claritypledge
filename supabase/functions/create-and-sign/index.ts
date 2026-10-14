@@ -1,148 +1,137 @@
 /**
  * @file create-and-sign/index.ts
- * @description P527 (retired by P1487): validates an agreement invitation, then refuses.
+ * @description P527 → P1487: the agreement invitee's first sign-in, delivered to their mailbox.
  *
- * Accepts { agreementId, token, partnerName, termsVersion } — NO email from client.
+ * Wiring only: environment, the service-role client, the Mailgun sender, serve(). The request
+ * logic, including the caller gate (the invitation check), is in handler.ts.
  *
- * Until P1487 this created a confirmed account at the partner's address, signed the agreement
- * and returned a sign-in credential to whoever presented the token. It now creates nothing:
- * after the same validation it answers USER_EXISTS (an account already exists) or
- * MAILBOX_REQUIRED. Either way the partner continues through a sign-in link sent to their
- * own address, which the accept page already offers. Kept deployed so that a client still
- * calling it gets a refusal it falls back from, rather than a 404.
+ * Deployed --no-verify-jwt: invitees reach it before they have an account.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { createHandler, type AgreementSignInEmail } from './handler.ts';
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
-type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
+const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
+const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
+const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
+const MAILGUN_BASE = MAILGUN_REGION === 'eu'
+  ? 'https://api.eu.mailgun.net/v3'
+  : 'https://api.mailgun.net/v3';
+const FROM = `Clarity Pledge <agreements@${MAILGUN_DOMAIN}>`;
 
-function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
-  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+/** Same frame as the other agreement and letter emails. */
+function htmlEmail(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+          <tr>
+            <td style="background:#002B5C;padding:24px 40px;">
+              <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:-0.3px;">Clarity Pledge</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px 40px;">
+              ${body}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 40px;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Clarity Pledge · <a href="https://claritypledge.com" style="color:#9ca3af;">claritypledge.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendSignInEmail(email: AgreementSignInEmail): Promise<void> {
+  const firstName = email.partnerName.trim().split(/\s+/)[0] || 'there';
+  const creator = email.creatorName.replace(/[\r\n]/g, '');
+  const subject = `Sign in to sign your agreement with ${creator}`;
+
+  const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi ${escapeHtml(firstName)},</p>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">One step left</h1>
+    <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
+      Click the button below to sign in and complete your Clarity Partner Agreement with
+      ${escapeHtml(creator)}. This link works on any device.
+    </p>
+    <a href="${escapeHtml(email.link)}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">Sign in and sign</a>
+    <p style="margin:20px 0 0;font-size:13px;color:#9ca3af;">
+      This link expires in 1 hour and can be used once. If you didn't ask to sign an agreement, you can ignore this email.
+    </p>
+    <p style="margin:8px 0 0;font-size:11px;color:#d1d5db;">
+      By clicking the button, you confirm your acceptance of the Terms of Service and Privacy Policy.
+      Questions? <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
+    </p>
+  `);
+
+  const text = `Hi ${firstName},\n\nSign in and complete your Clarity Partner Agreement with ${creator}:\n\n${email.link}\n\nThis link expires in 1 hour, can be used once, and works on any device.\n\nIf you didn't ask to sign an agreement, you can ignore this email.\n\nClarity Pledge`;
+
+  const body = new FormData();
+  body.append('from', FROM);
+  body.append('to', email.to);
+  body.append('subject', subject);
+  body.append('html', html);
+  body.append('text', text);
+
+  const res = await fetch(`${MAILGUN_BASE}/${MAILGUN_DOMAIN}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
+    body,
   });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('[create-and-sign] Mailgun error:', res.status, err);
+    throw new Error(`Mailgun send failed: ${res.status}`);
+  }
 }
 
 serve(async (req: Request) => {
   const corsHeaders = buildCorsHeaders(req);
-
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error('[create-and-sign] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
-      return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const { agreementId, token, partnerName, termsVersion } = await req.json() as {
-      agreementId?: string;
-      token?: string;
-      partnerName?: string;
-      termsVersion?: unknown;
-    };
-
-    // ── Input validation ──────────────────────────────────────────────────
-
-    if (!agreementId || !token || !partnerName?.trim()) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing required fields' }, 400, corsHeaders);
-    }
-
-    if (!isAcceptedTermsVersion(termsVersion)) {
-      return jsonResponse(
-        { error: 'INVALID_TERMS_VERSION', message: 'Unsupported or missing terms version' },
-        400,
-        corsHeaders,
-      );
-    }
-
-    // Validate UUID format for agreementId
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(agreementId)) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid agreement ID' }, 400, corsHeaders);
-    }
-
-    // ── Fetch and validate agreement ──────────────────────────────────────
-
-    const { data: agreement, error: agError } = await supabase
-      .from('clarity_agreements')
-      .select('id, creator_profile_id, partner_email, invitation_token, invitation_expires_at, status')
-      .eq('id', agreementId)
-      .single();
-
-    if (agError || !agreement) {
-      return jsonResponse({ error: 'NOT_FOUND', message: 'Agreement not found' }, 404, corsHeaders);
-    }
-
-    // Verify invitation token matches
-    if (agreement.invitation_token !== token) {
-      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid invitation' }, 403, corsHeaders);
-    }
-
-    // Verify status is pending
-    if (agreement.status !== 'pending') {
-      return jsonResponse({ error: 'ALREADY_PROCESSED', message: 'Agreement is no longer pending' }, 409, corsHeaders);
-    }
-
-    // Verify not expired
-    if (new Date(agreement.invitation_expires_at) <= new Date()) {
-      return jsonResponse({ error: 'EXPIRED', message: 'Invitation has expired' }, 410, corsHeaders);
-    }
-
-    const partnerEmail = agreement.partner_email;
-
-    // ── Guard: partner != creator ─────────────────────────────────────────
-
-    const { data: creator } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('id', agreement.creator_profile_id)
-      .single();
-
-    if (creator?.email && creator.email === partnerEmail) {
-      return jsonResponse({ error: 'SELF_SIGN', message: 'Cannot sign your own agreement' }, 403, corsHeaders);
-    }
-
-    // ── Guard: no existing user ───────────────────────────────────────────
-
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', partnerEmail)
-      .maybeSingle();
-
-    if (existingProfile) {
-      return jsonResponse({ error: 'USER_EXISTS', message: 'User already exists' }, 409, corsHeaders);
-    }
-
-    // ── No account is created here (P1487) ───────────────────────────────
-    // The invitation token is not proof of owning the partner's mailbox — the creator can read
-    // it, and anyone the link is forwarded to holds it. So this function no longer creates an
-    // account, signs the agreement, or returns a sign-in credential. The partner signs in
-    // through a link sent to their own address (the accept page's email sign-in), and signs
-    // the agreement once signed in. An older client reading this refusal falls back to that
-    // email path on its own.
-
-    return jsonResponse(
-      { error: 'MAILBOX_REQUIRED', message: 'Sign in with a link sent to your email to sign this agreement.' },
-      403,
-      corsHeaders,
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+  if (!supabaseUrl || !serviceRoleKey || !MAILGUN_API_KEY || !MAILGUN_DOMAIN || !ipHashSecret) {
+    console.error('[create-and-sign] SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MAILGUN_API_KEY, MAILGUN_DOMAIN or IP_HASH_SECRET not configured');
+    return new Response(
+      JSON.stringify({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
-  } catch (err) {
-    console.error('[create-and-sign] Unexpected error:', err);
-    return jsonResponse({ error: 'INTERNAL', message: 'Sign-up failed' }, 500, corsHeaders);
   }
+
+  return createHandler({
+    supabase: createClient(supabaseUrl, serviceRoleKey),
+    appUrl: Deno.env.get('APP_URL') ?? 'https://claritypledge.com',
+    sendSignInEmail,
+    ipHashSecret,
+  })(req);
 });
