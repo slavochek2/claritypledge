@@ -70,8 +70,8 @@ mutant() {
 M_NO_DROP="$TMP/gate-no-drop-function.sh"
 M_NO_REVOKE="$TMP/gate-no-revoke-public.sh"
 M_NO_NARROW="$TMP/gate-no-create-narrowing.sh"
-mutant "$M_NO_DROP" 's/\|DROP\[\[:space:\]\]\+FUNCTION//'
-mutant "$M_NO_REVOKE" 's/in revoke_public_hits\(code\):/in []:/'
+mutant "$M_NO_DROP" 's/dm = DROP_FN.search\(st\)/dm = None/'
+mutant "$M_NO_REVOKE" 's/hits.extend\(\("revoke",\) \+ h for h in revoke_hits\(st, funcs, rels\)\)/pass/'
 mutant "$M_NO_NARROW" 's/if have and \(want is None or want in have\):/if False:/'
 
 echo "A. DROP FUNCTION (real: $(basename "$DROP_REAL"))"
@@ -155,18 +155,90 @@ expect 0 "revoking PUBLIC on a table the file creates is not flagged" "$TMP/e_ne
 printf 'REVOKE ALL ON FUNCTION public.legacy_rpc(uuid) FROM "PUBLIC";\n' > "$TMP/e_quoted.sql"
 expect fail 'FROM "PUBLIC" (quoted) is still flagged' "$TMP/e_quoted.sql"
 
+# F. Codex round (1 HIGH, 5 MEDIUM). Each fixture appends to the real P707 file, which
+# passes on its own (section C), so any failure comes from the appended SQL.
+echo "F. Dollar quotes, fail-closed tokenizer, statement view, executable-only CREATEs"
+f_case() { { cat "$HARDEN_REAL"; printf '%s\n' "$2"; } > "$TMP/f_$1.sql"; echo "$TMP/f_$1.sql"; }
+F=$(f_case high_drop 'COMMENT ON SCHEMA public IS $$ example /* $$;
+DROP FUNCTION public.existing_rpc(uuid);')
+expect fail "HIGH: /* inside a dollar-quoted string does not swallow a later DROP FUNCTION" "$F" 'VIOLATION'
+F=$(f_case high_anon 'COMMENT ON SCHEMA public IS $$ example /* $$;
+REVOKE SELECT ON public.profiles FROM anon;')
+expect fail "HIGH: ... nor a later REVOKE FROM anon (the original gate caught this)" "$F" 'VIOLATION'
+F=$(f_case high_control 'COMMENT ON SCHEMA public IS $$ example /* $$;
+SELECT 1;')
+expect 0 "HIGH control: the same dollar-quoted comment text alone passes" "$F"
+F=$(f_case unterminated_block 'SELECT 1; /* never closed
+DROP FUNCTION public.existing_rpc(uuid);')
+expect fail "an unterminated block comment at EOF is an error, not blanked" "$F" 'SQL helper failed'
+F=$(f_case unterminated_string "SELECT 'never closed;
+DROP FUNCTION public.existing_rpc(uuid);")
+expect fail "an unterminated string at EOF is an error, not blanked" "$F" 'SQL helper failed'
+F=$(f_case drop_wrapped 'DROP
+FUNCTION public.existing_rpc(uuid);')
+expect fail "DROP / FUNCTION split across lines is still DROP FUNCTION" "$F" 'DROP FUNCTION'
+F=$(f_case create_in_string "COMMENT ON SCHEMA public IS 'CREATE FUNCTION public.existing_rpc(uuid)';
+REVOKE ALL ON FUNCTION public.existing_rpc(uuid) FROM PUBLIC;")
+expect fail "a CREATE FUNCTION inside a string literal does not narrow a REVOKE" "$F" \
+  'FROM PUBLIC on a function this file does not create'
+F=$(f_case array_default "CREATE FUNCTION public.arr_rpc(p text[] DEFAULT ARRAY['a','b'], q uuid DEFAULT NULL)
+RETURNS void LANGUAGE sql AS \$\$ SELECT 1 \$\$;
+REVOKE ALL ON FUNCTION public.arr_rpc(text[], uuid) FROM PUBLIC;")
+expect 0 "commas inside a DEFAULT array do not split the signature" "$F"
+F=$(f_case do_execute "DO \$\$ BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.existing_rpc(uuid) FROM PUBLIC';
+END \$\$;")
+expect fail "a constant EXECUTE 'REVOKE ... FROM PUBLIC' inside DO is analysed" "$F" \
+  'FROM PUBLIC on a function this file does not create'
+F=$(f_case do_static 'DO $$ BEGIN
+  REVOKE ALL ON FUNCTION public.existing_rpc(uuid) FROM PUBLIC;
+END $$;')
+expect fail "a static REVOKE ... FROM PUBLIC inside a DO body is analysed" "$F" \
+  'FROM PUBLIC on a function this file does not create'
+F=$(f_case body_comment 'CREATE OR REPLACE FUNCTION public.body_rpc() RETURNS void LANGUAGE plpgsql AS $fn$
+BEGIN
+  -- DROP FUNCTION public.old_rpc(uuid) was retired here
+  /* REVOKE ALL ON FUNCTION public.old_rpc(uuid) FROM anon */
+  PERFORM 1;
+END $fn$;')
+expect 0 "comments inside a plpgsql body are still comments" "$F"
+
+# Mutation check of the HIGH fix: the round-2 regression was "no dollar-quote
+# handling" + "unterminated comment blanks the rest". Rebuild it and each half.
+M_NO_DOLLAR="$TMP/gate-no-dollar-quotes.sh"
+M_NO_FAILCLOSED="$TMP/gate-no-fail-closed.sh"
+M_ROUND2="$TMP/gate-round2-regression.sh"
+mutant "$M_NO_DOLLAR" 's/if ch == "\$" and not/if False and not/'
+mutant "$M_NO_FAILCLOSED" 's/if b < 0: raise Unterminated\("block comment"\)/if b < 0: j = n; break/'
+sed -E 's/if b < 0: raise Unterminated\("block comment"\)/if b < 0: j = n; break/' "$M_NO_DOLLAR" > "$M_ROUND2"
+cmp -s "$M_NO_DOLLAR" "$M_ROUND2" && bad "round-2 mutant is identical to the no-dollar mutant"
+run "$M_ROUND2" "$TMP/f_high_drop.sql"
+[ "$RC" = 0 ] && ok "round-2 regression rebuilt (no dollar quotes, comment blanks to EOF) passes the HIGH fixture: exit 0, so the case binds" \
+              || bad "round-2 regression mutant exits $RC on the HIGH fixture — control is blind"
+run "$M_NO_DOLLAR" "$TMP/f_high_drop.sql"
+if [ "$RC" != 0 ] && ! grep -q 'VIOLATION' <<<"$OUT"; then
+  ok "without dollar-quote handling the HIGH fixture errors instead of reporting (exit $RC): fail-closed backstops it"
+else
+  bad "no-dollar mutant: want a non-VIOLATION error, got exit $RC: $OUT"
+fi
+run "$M_NO_FAILCLOSED" "$TMP/f_unterminated_block.sql"
+[ "$RC" = 0 ] && ok "without fail-closed an unterminated comment silently blanks a DROP FUNCTION (exit 0), so that case binds" \
+              || bad "no-fail-closed mutant exits $RC on the unterminated fixture — control is blind"
+
 echo "D. Corpus census over $MIG"
-total=0; flagged=0; via_drop=0; via_revoke_unann=0; revoke_only=0; late=0; revoke_tp=0
+total=0; flagged=0; via_drop=0; via_revoke_unann=0; revoke_only=0; late=0; revoke_tp=0; errors=0
 for f in "$MIG"/*.sql; do
   total=$((total + 1))
   version=$(basename "$f" | sed -E 's/^([0-9]+).*/\1/')
   run "$GATE" "$f"
-  if [ "$RC" != 0 ]; then
+  if [ "$RC" = 2 ]; then
+    errors=$((errors + 1)); echo "    helper ERROR on a real migration: $(basename "$f")"
+  elif [ "$RC" != 0 ]; then
     flagged=$((flagged + 1))
     grep -qi 'DROP FUNCTION' <<<"$OUT" && via_drop=$((via_drop + 1))
     if grep -q 'FROM PUBLIC on a .* this file does not create' <<<"$OUT"; then
       via_revoke_unann=$((via_revoke_unann + 1))
-      if grep -qE '^    [0-9]+:' <<<"$OUT"; then
+      if grep -qE '^    ([0-9]+:|DROP FUNCTION )' <<<"$OUT"; then
         echo "    REVOKE-PUBLIC also fires on unannotated (already flagged by another arm): $(basename "$f")"
       else
         revoke_only=$((revoke_only + 1)); echo "    REVOKE-PUBLIC ALONE flags unannotated: $(basename "$f")"
@@ -182,6 +254,8 @@ for f in "$MIG"/*.sql; do
     grep -q 'FROM PUBLIC on a .* this file does not create' <<<"$OUT" && revoke_tp=$((revoke_tp + 1))
   fi
 done
+[ "$errors" = 0 ] && ok "the tokenizer reads every real migration (0 unterminated)" \
+                  || bad "$errors real migration(s) make the helper error"
 echo "    corpus=$total flagged=$flagged (via DROP FUNCTION: $via_drop) REVOKE-PUBLIC-on-unannotated=$via_revoke_unann (alone: $revoke_only) annotated-files-the-REVOKE-arm-would-catch=$revoke_tp"
 [ "$revoke_only" = 0 ] && ok "REVOKE-PUBLIC arm alone flags 0 unannotated real migrations" \
                        || bad "REVOKE-PUBLIC arm alone flags $revoke_only unannotated real migrations — review each"

@@ -158,6 +158,22 @@ re-sign shape (it revokes existing helpers from `public`) and is a pre-P887 lega
 anon arm already flagged. No file is flagged by the REVOKE-PUBLIC arm alone. The canary reports
 23 passed, 0 failed; p887 reports 17 of 17.
 
+**Codex round (1 HIGH, 5 MEDIUM).** Each finding was reproduced as a failing canary case (section F)
+before the fix.
+- HIGH: a `/*` inside `$$...$$` swallowed the rest of the file, a regression from round 2. The
+  tokenizer now always closes a dollar quote at its own tag and never reads string or dollar content
+  as a comment. An unterminated comment, string or quote at EOF now exits 2.
+- DROP FUNCTION is matched per whitespace-normalized statement.
+- CREATEs count only from top-level executable code.
+- The argument splitter respects quotes and brackets.
+- Constant `EXECUTE '...'` strings and dollar bodies are analysed as SQL.
+- Case-folding of quoted type names is documented as a known limitation.
+
+A mutation check rebuilt the round-2 regression, and the HIGH case catches it (that gate copy exits
+0 on the HIGH fixture). Census: the same 47-file set as before, with 0 helper errors over 413 files.
+p651 is still the only unannotated REVOKE-PUBLIC hit. The canary reports 38 passed, 0 failed;
+p887 reports 17 of 17.
+
 ## Related
 
 - P887: the gate. P886: the incident. P1058: where the gap was found.
