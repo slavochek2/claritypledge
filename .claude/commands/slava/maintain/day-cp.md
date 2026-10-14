@@ -18,7 +18,7 @@ inside a public repo.
 | Owned by the dispatcher (`~/.claude/commands/day.md`) | Never done here |
 |---|---|
 | `~/.claude-day-last-run` — read at start, written at end | Do **not** read or write it |
-| `$SINCE` and its floor rule | Do **not** compute your own window |
+| `$SINCE` and its 24-hour / 7-day bounds | Do **not** compute your own window |
 | The gcloud auth gate | Assume gcloud is authenticated; if a gcloud call fails anyway, report `⚠ ... NOT checked`, never clean |
 | The day report and its terminal card (P1399) | Record checks, findings and people; print nothing for the founder |
 | Every `~/.claude*` marker | No personal state is read **in this file** (weekly/monthly still read their own — known gap) |
@@ -867,7 +867,7 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
 ```
 
 - `✓ Mixpanel: checked (N users drilled)` — connected, real users narrated
-- `✓ Mixpanel: not called — no real users this run (nothing to drill, not a failure)` — the quiet-day case; connection was never needed
+- `✓ Mixpanel: not called — no real users this run (nothing to drill, not a failure)` — the quiet-day case; connection was never needed, so the REPORT block says `mixpanel: not-used`, never `ok`
 - `✓ Mixpanel: self-healed (cleared stale OAuth), N drilled` — repair succeeded
 - `⚠ Mixpanel: NOT CONFIGURED — no "mixpanel" entry in .mcp.json. Narratives NOT available. → restore the entry, then /mcp reconnect` — config gone; distinct from an auth failure, and NOT fixable by reconnecting
 - `⚠ Mixpanel: SKIPPED — MCP unreachable after self-heal + reconnect. Narratives NOT available this run. → /mcp reconnect mixpanel` — genuinely failed; never silently omit
@@ -1328,13 +1328,19 @@ are the only place it shows: record it as a finding (the count, not the filename
 --severity low`, never fold it into a column.
 
 End your reply with this block — the dispatcher reads it and records it (its Step 9d); nothing in
-it is printed for the founder. Leave a line out rather than guess it:
+it is printed for the founder. Leave a line out rather than guess it.
+
+**A connection is `ok` only when this run CALLED the service and it answered.** A service this run
+never called is `not-used`, never `ok`: Mixpanel on the quiet day (`cp.mixpanel` recorded
+`skipped`, "not called — no real users"), Sentry when its wave did not run. Until 2026-10-14 those
+read as a green connection on the board. The dispatcher's Step 9d now refuses `ok` for a service
+none of whose checks recorded `ok` or `problem` this pass.
 
 ```
 REPORT FOR THE DISPATCHER
-  sentry: <ok|not-connected|failed> — <why, when not ok>
-  mixpanel: <ok|not-connected|failed> — <why, when not ok>
-  gcloud: <ok|not-connected> — <not-connected when Wave 1 printed GCLOUD_NOT_AUTHENTICATED>
+  sentry: <ok|not-used|not-connected|failed> — <why, when not ok>
+  mixpanel: <ok|not-used|not-connected|failed> — <why, when not ok>
+  gcloud: <ok|not-used|not-connected> — <not-connected when Wave 1 printed GCLOUD_NOT_AUTHENTICATED>
   reviews: <weekly|monthly|none — the review Step 5 ran inside this pass>
   unpushed_commits: <N, from Wave 1's unpushed_commits= line>
   unconfirmed_signups: <N, from Wave 2's unconfirmed_signups= line>
