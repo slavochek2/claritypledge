@@ -73,6 +73,8 @@ so trust it no further than this list; P1009 final review):
     as a fence opener, so the rest of the file may be skipped (missed leads).
     Fences inside a blockquote (`> ````) are not detected, so dated bold lines in
     a quoted code example may be counted (spurious warning).
+  * HTML comments are not modelled: a ``` line inside `<!-- ... -->` opens a
+    fence that never closes, so the rest of the file may be skipped (missed leads).
   * Spaced nested quote prefixes (`>  > **B**`, two spaces) are not detected as
     nesting: the line reads as depth-1 continuation text and is not counted.
   * Retirement is not cleared by a NON-bold outdent line: an item after

@@ -26,10 +26,16 @@
 # to a mutation's anchor line in lean-canvas would have done the same.
 #   5. commit-time derivation — the real `pre-commit-checks.sh` §13e block, extracted and run in a
 #                   throwaway repo, scans a staged marker doc OUTSIDE the old five-doc list
+#   6. caller git environment — the whole suite re-run with a hook's GIT_INDEX_FILE exported
+#                   must leave that index byte-identical
 #
 # Exit 0: all assertions held. Exit 1: at least one did not.
 
 set -uo pipefail
+# A hook exports these and they OVERRIDE `git -C <scratch repo>`: left set, every scratch-repo
+# `git add` below writes into the committing index (P1273). Section 6 proves it stays unset.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+      GIT_COMMON_DIR GIT_PREFIX
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHECKER="$ROOT/scripts/check-single-value-slots.py"
@@ -219,16 +225,16 @@ echo "== 3. real docs: a PINNED snapshot of the real docs, parsed for the known 
 # lean-canvas and CHARTER as of main on 2026-10-13, the base the section-4 anchors were written
 # against. A pinned copy keeps every assertion below deterministic: a later
 # edit to the live docs (an in-progress conflict, a reworded anchor line) cannot fail this suite.
-# Bump it only together with the section-4 anchors, and only to a commit on main.
-PIN=8184815bdae7701a073553badc11e4869d0cae5f
-LC="$TMP/pinned-lean-canvas.md"; CH="$TMP/pinned-CHARTER.md"
-if git -C "$ROOT" show "$PIN:docs/lean-canvas.md" > "$LC" 2>/dev/null \
-   && git -C "$ROOT" show "$PIN:docs/CHARTER.md" > "$CH" 2>/dev/null; then
+# Committed as files (provenance: scripts/fixtures/p1009/README.md), not read from git history,
+# so a shallow or history-free clone runs sections 3 and 4 too. Bump only with the anchors.
+FIX="$ROOT/scripts/fixtures/p1009"
+LC="$FIX/lean-canvas.md.txt"; CH="$FIX/CHARTER.md.txt"
+if [ -s "$LC" ] && [ -s "$CH" ]; then
   PINNED=1
-  ok "loaded the pinned real docs from ${PIN:0:9} ($(wc -l < "$LC" | tr -d ' ') + $(wc -l < "$CH" | tr -d ' ') lines)"
+  ok "loaded the pinned real docs from scripts/fixtures/p1009 ($(wc -l < "$LC" | tr -d ' ') + $(wc -l < "$CH" | tr -d ' ') lines)"
 else
   PINNED=0
-  bad "pinned commit ${PIN:0:9} is not in this clone (shallow?) — sections 3 and 4 cannot run"
+  bad "pinned fixtures missing or empty in scripts/fixtures/p1009 — sections 3 and 4 cannot run"
 fi
 if [ "$PINNED" = 1 ]; then
   slots="$(python3 "$CHECKER" --list "$LC" 2>&1 | sed -n "s/^slot '\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
@@ -360,6 +366,26 @@ if git -C "$REPO2" ls-files -u -- docs/m.md | grep -c . >/dev/null; then
   case "$o" in *"could not read staged content"*"ERRORS=1"*) ok "unmerged staged markdown → still an ERROR" ;; *) bad "unmerged staged markdown not reported as an ERROR: $o" ;; esac
 else
   bad "could not build the unmerged-path fixture — the ERROR path went untested"
+fi
+
+# The suite re-runs itself here, so the nested copy must skip this section or it would recurse.
+if [ -z "${P1009_NESTED:-}" ]; then
+echo
+echo "== 6. caller git environment: an inherited GIT_INDEX_FILE must not reach the scratch repos =="
+# §13f runs this suite under run_quiet, which deliberately preserves the hook's temporary
+# GIT_INDEX_FILE (`git commit -a` / pathspec commits). GIT_INDEX_FILE overrides `git -C`, so
+# without the unset at the top every scratch-repo `git add` above writes into the COMMITTING
+# index (P1273's defect, here). Run the whole suite as a hook would and measure the index.
+OUTER="$TMP/outer"; mkdir -p "$OUTER"; newrepo "$OUTER"
+printf 's\n' > "$OUTER/sentinel.txt"; git -C "$OUTER" add sentinel.txt
+cp "$OUTER/.git/index" "$TMP/caller-index"; cp "$TMP/caller-index" "$TMP/caller-index.before"
+GIT_INDEX_FILE="$TMP/caller-index" P1009_NESTED=1 bash "${BASH_SOURCE[0]}" > "$TMP/nested.out" 2>&1; nrc=$?
+if cmp -s "$TMP/caller-index.before" "$TMP/caller-index"; then
+  ok "suite run with an inherited GIT_INDEX_FILE leaves that index byte-identical"
+else
+  bad "suite run wrote into the inherited GIT_INDEX_FILE — it now holds: $(GIT_INDEX_FILE="$TMP/caller-index" git -C "$OUTER" ls-files | tr '\n' ' ')"
+fi
+want "suite run with an inherited GIT_INDEX_FILE still passes" "$nrc" 0
 fi
 
 echo
