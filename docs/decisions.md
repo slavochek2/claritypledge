@@ -8,6 +8,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-14 [process]: Day card ranking, the check's severity is a ceiling, and a Day-page choice never authorises a prod change (P1489)
+
+**Context:** On the 2026-10-14 /day run the one card that needed the founder ranked behind four single-event, zero-user Sentry notes, because every card from a check marked `high` in `scripts/day-cp-checks.tsv` was Important regardless of its own finding (P1399 rule 7).
+**Decision:** Founder approved, 2026-10-14. (1) A finding's own severity counts, and the check's registry severity is a **ceiling**: a written card is Important only when its finding is high and its check is not `normal`. This supersedes P1399 rule 7 for written cards. (2) Founder cards rank first within a tier. (3) A Sentry finding is high only when at least 1 real user is affected or the issue recurs, otherwise low. (4) Prod migration and deploy findings are founder decisions. Choosing "Apply it to prod now" on the Day page does NOT authorise the agent; it still asks for a yes in session, and the ALWAYS-ASK and push/deploy rules are unchanged. (5) The status line reads `N checks: X clean · Y found problems · Z skipped`, with "N failed to run" only when N > 0. This supersedes the 2026-10-12 P1463 wording. (6) The reflection quote check matches exactly the text the writer is shown; exact matching is kept (P1445), no fuzzy matching.
+**Alternatives rejected:** keeping the registry severity as a floor (the cause of the ranking failure); semantic quote matching (rejected in P1445).
+**Consequences:** accepted with the founder: a high finding on a normal-severity check is no longer Important. It can still reach the top cards because founder cards rank first within a tier. Raising a check's registry severity is a founder call.
+**References:** [p1489 spec](../features/done/2026-06-10/p1489_day_card_logic_ranking_founder_decisions_status_counts_quote_check.md), commit 8c5a14234
+
+## 2026-10-14 [product]: Day-page stories save as typed, replacing the explicit-Save rule (P1471, spec only)
+
+**Context:** A typed story was silently left out of what was sent while the bar said "Sent": the sent state rendered with an unsaved draft present, and the terminal received the position with no story text.
+**Decision:** Founder approved, 2026-10-14: stories save as typed. This replaces the P1440 explicit-Save invariant, which is removed. Recorded at spec stage; not yet built.
+**Alternatives rejected:** keeping explicit Save with a louder reminder (the reminder existed and the story was still dropped).
+**Consequences:** P1471's build must prove a typed story always reaches what is sent, and that paging away still writes nothing unwanted.
+**References:** [p1471 spec](../features/p1471_day_page_footer_and_card_declutter.md)
+
+## 2026-10-14 [process]: The /day "fixing, fixing, fixing" pattern came from hand-copied values and an inbox that never closed
+
+**Context:** /day kept raising the same false alarms. Two causes: values hand-copied from a live source outlived that source once it changed, and the inbox never closed items whose fault had been fixed, so they came back every morning.
+**Decision:** Remedies shipped in the global ~/.claude config (c459962, 178a11c): /day closes its own inbox entry only when that entry's check ran and reported ok (D2); the run window starts at the actual last run, with no 6am floor (D3); the Stop hook does not spend its block budget while background work is outstanding; the filing step counts annotate failures.
+**Alternatives rejected:** fixing each false alarm by hand as it recurs (the pattern itself).
+**Consequences:** where a live source exists for a value, the live source wins and copies keep identity only. Orchestration note: 6 agents were spawned and 6 of 6 reported; the orchestrator re-ran their load-bearing claims before committing.
+**References:** the P1489 entry above
+
+
 ## 2026-10-14 [security]: A leaked room code is neither rotated nor expired — ending the session is the remedy (P1098, P1059 item 3)
 
 **Context:** P1098 and item 3 of P1059 asked whether a room code that escaped (a screenshot, a
