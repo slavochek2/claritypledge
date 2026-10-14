@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 disclosure: public
 rank: 253
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [security, edge-functions, rate-limit, email, abuse]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-10-14
 ---
 
 # P1225: Anonymous account-creating / mail-sending edge functions have no rate limit
