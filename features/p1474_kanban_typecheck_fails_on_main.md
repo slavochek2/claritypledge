@@ -138,6 +138,17 @@ triggers pre-commit's console.log warning on every commit that stages that file.
   markup was byte-identical. The same diff failed on that counter before normalizing, which shows it
   can detect a difference. The test files were deleted afterwards.
 
+### Known limitation (Codex review, 2026-10-14)
+
+Section 4.5b typechecks the **working tree**, not the staged snapshot. A commit that stages the
+deletion of an imported kanban TS file while keeping the file on disk (`git rm --cached …`) passes
+the gate, though the committed tree no longer compiles (Codex reproduced: gate 0, staged-snapshot
+`tsc` 2 with TS2307). This is the repo-wide pre-commit class tracked in
+[P1049](p1049_pre_commit_staged_content_read_gaps.md) and
+[P1281](p1281_pre_commit_gates_select_their_own_file_list.md) — most gates read the working tree —
+and is left to them rather than solved per-gate here (a correct fix typechecks a temporary checkout
+of the index).
+
 ## Related
 
 - P1449: the theme-parity test that added the console.log.
