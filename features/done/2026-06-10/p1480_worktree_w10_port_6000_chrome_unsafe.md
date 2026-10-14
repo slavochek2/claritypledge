@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 36
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-10-13'
 tags: [worktrees, e2e, dev-server, ports]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1480: Worktree slot w10 gets dev/e2e port 6000, which Chrome refuses, so every Playwright run from w10 fails at the first page load
