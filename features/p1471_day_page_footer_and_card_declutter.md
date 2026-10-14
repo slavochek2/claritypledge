@@ -537,6 +537,55 @@ own fixture (`src/tests/p955-fixture.tsx`).
 - [ ] 22. `npx eslint` on every changed `.ts`/`.tsx` file is clean, and `npx tsc --noEmit -p
   tools/kanban` is clean.
 
+## Founder Feedback 2026-10-14 (added evidence, not yet designed)
+
+Three founder reports from the 2026-10-14 run, filed here rather than as a second spec because
+P1471 owns this surface. Screenshots: founder's 2026-10-14 14:40 captures (private screenshots
+folder).
+
+**F1. A typed story was silently left out of what was sent (confirms R3, raises its priority).**
+The founder typed a story on the group-chat statement; the box read "Not saved" and the bar read
+"1 unsaved", while the action area read "Sent to your terminal at 14:38". The prompt the terminal
+received carried the position (Agree) and no story text. Mechanism, read 2026-10-14: the sent
+state renders when `ok.lastSentAt && sendCount === 0` (`DayPage.tsx:1033-1037`), so an unsaved
+story does not stop the bar from claiming everything went. R3's "Start fixing refuses while a
+story is unsaved" closes the send path; the **sent label** must also not render while a story is
+unsaved.
+
+> "why not saved!?"
+
+**F2. Autosave or explicit Save is reopened by the founder.**
+
+> "I think it should be automatically saved or not. I mean, or not. I don't know. Like, what is the kiss here?"
+
+`[FOUNDER DECISION: keep the explicit-Save rule (Invariants: "A story is written only by an
+explicit founder click (Save)", P1440's rule) or replace it with save-as-you-type. Removing an
+Invariants entry needs explicit founder approval. Recommended by the 2026-10-14 orchestrator:
+save as you type (debounced, plus on blur), because the only failure ever observed is a lost story,
+never an unwanted one; drafts already persist in localStorage (P1440 O1). If chosen, R3's Save
+button and the unsaved refusal both become unnecessary.]`
+
+Also reported, UNVERIFIED: clicking `+ Add a story` did not open the input until `Their story` was
+clicked. The code opens the box on `adding` (`ReflectionTab.tsx:102-109`), so reproduce before
+designing.
+
+**F3. "Open card" lands in the agent list with no meaning attached.**
+
+> "when I click on open card it just lands on sent to fixing agent ... sent in the past or sent in the future is it something i approve ... should they be commenting on it should they not should they be approving right now it's just confusing"
+
+`Open card ›` routes to the pager or the agent list (`DailyReport.tsx:194-196, 318-324`). On the
+agent list the founder cannot tell whether an item is already sent or pending, whether any action
+is expected of him, or why several Status rows land on the same list. Each item the link opens
+must say in plain words which of these it is ("The agent will fix this, nothing for you" or "Needs
+your yes"), and the link must land on that item, not the list's top.
+
+**F4. Two collapse controls for one job.** The Status panel folds with a text link `Collapse`
+(`DailyReport.tsx:330-334`); its groups fold with a disclosure triangle (`▶ Worked (23)`).
+
+> "not consistnet!?!"
+
+Use one control. The triangle is the pattern already used for groups.
+
 ## Next Steps
 
 - Has layout and visual-hierarchy changes (bar slots, phone budgets, two founder decisions on phone
