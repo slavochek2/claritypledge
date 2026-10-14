@@ -149,6 +149,11 @@ nothing to restore.
 makes `is_test_account` server-owned on client-role INSERT as well, via a separate guard trigger
 (P1453/P1485 pattern; the shared `guard_profile_trust_columns` is not redefined).
 
+**Known limitations:** a rare concurrent legacy-profile migration and account erasure of the same
+legacy owner can abort one of the two with a deadlock error. Both fail safe — each runs in a single
+transaction, so the aborted one leaves no partial state. Prod has no anonymous-owned profiles and
+nothing sends `source=live` today; revisit if the `/live` migration path is re-enabled.
+
 **Deploy order:** migrations before the frontend bundle (the bundle calls the new function; the reverse
 order breaks only this legacy branch).
 

@@ -9,6 +9,10 @@
 --   admin/test cleanup through service_role. Deploy order: apply this migration BEFORE the P1137
 --   frontend bundle, which calls the new function.
 --
+-- Known limitation: a concurrent legacy-profile migration and account erasure of the same legacy
+-- owner can, rarely, abort one of the two with a deadlock error. Both fail safe (no partial state).
+-- Prod has no anonymous-owned profiles and nothing sends source=live; revisit if that path returns.
+--
 -- Bug: AuthCallbackPage's /live migration branch deleted the old profile row from the client and
 -- then created the new row through upsert_my_profile, whose INSERT never writes is_test_account.
 -- The new row always took the column default (false), and since the old row was already gone, no
