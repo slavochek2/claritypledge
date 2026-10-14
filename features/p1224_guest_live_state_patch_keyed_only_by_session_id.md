@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, rls, live, guest, rpc]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1224: Guest live-state patch RPC is authorized by session id alone
@@ -142,4 +142,9 @@ pages; pinned by `e2e/p1224-guest-writes-after-reload.spec.ts` and `src/tests/p1
 - [x] The demo page handles the same refusal the same way, and moves its local state only after a write lands — unit `src/tests/p1224-demo-seat-lost.test.tsx` (start, advance, complete; 5 of 6 fail with unhandled rejections before the change); the rating step with the real rating card shows "submitted" only once the rating landed, and the creator's state initialisation uses the same path — `src/tests/p1224-demo-rating-real-card.test.tsx` (2 of 3 fail before the change; the third is a control)
 - [x] A newly issued credential is never shadowed by a stale stored one when storage writes fail — unit `src/tests/p1224-seat-secret-header.test.ts` (3 fail before the change)
 - [ ] [FOUNDER DECISION] Copy for the non-retry message (see below) — implemented with the proposed text, awaiting approval
-- [ ] [post-deploy] Client deployed to prod, then the migration applied to prod; installed function body and row policy read back from prod; prod smoke passes
+
+## Post-deploy verification
+
+Run after the prod apply/deploy (not a completion gate — prod cannot be verified pre-merge):
+
+- [post-deploy] Client deployed to prod, then the migration applied to prod; installed function body and row policy read back from prod; prod smoke passes
