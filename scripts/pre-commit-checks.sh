@@ -237,11 +237,13 @@ echo ""
 # 4.5b. Kanban typecheck (P1474) — nothing typechecked tools/kanban: section 1 compiles
 # tsconfig.app.json only and CI never references the board, so its `tsc` reached 16 errors
 # on main unnoticed. Runs only when kanban TypeScript or its tsconfig is staged (deletions
-# included — removing a file can break an import). Uses the board's own compiler, never the
+# included — removing a file can break an import). `--no-renames` keeps a rename's SOURCE path
+# visible: otherwise `Card.tsx` renamed to `Card.jsx` lists only the `.jsx` and the check skips
+# while tsc fails (Codex review). Uses the board's own compiler, never the
 # root one: the versions differ, and without the board's deps tsc reports missing modules
 # that are not real errors. A missing install blocks rather than skips; section 4.5 already
 # needs the same install, so no kanban commit that passes today starts failing here.
-KANBAN_TS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '^tools/kanban/(.*\.(ts|tsx)|tsconfig\.json)$' || true)
+KANBAN_TS_STAGED=$(git diff --cached --name-only --no-renames 2>/dev/null | grep -E '^tools/kanban/(.*\.(ts|tsx)|tsconfig\.json)$' || true)
 if [ -z "$KANBAN_TS_STAGED" ]; then
     echo ">>> Kanban typecheck skipped (no tools/kanban TypeScript staged)"
 elif [ ! -x tools/kanban/node_modules/.bin/tsc ]; then
