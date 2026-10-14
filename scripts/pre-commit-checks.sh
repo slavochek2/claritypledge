@@ -1518,8 +1518,11 @@ echo ""
 
 # 13f. SINGLE-VALUE canary self-test (P1009) — runs when the checker, its suite or this
 # file is staged (the suite extracts and runs §13e from here). Must-fail fixtures for each
-# known evasion shape, must-pass fixtures for the sanctioned shapes, and the real
-# strategy docs both clean and mutated. A missing suite blocks, like the other canaries.
+# known evasion shape, must-pass fixtures for the sanctioned shapes, and a PINNED snapshot
+# of the real lean-canvas both clean and mutated. The live docs are only reported by the
+# suite, never failed: a live finding is §13e's WARN, and failing on it here would turn a
+# permitted in-progress conflict into an ERROR on every unrelated change to these files.
+# A missing suite blocks, like the other canaries.
 SV_TEST_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(check-single-value-slots\.py|test-p1009-single-value-canary\.sh|pre-commit-checks\.sh)$' || true)
 if [ -n "$SV_TEST_STAGED" ]; then
     if [ -f "scripts/test-p1009-single-value-canary.sh" ]; then

@@ -67,6 +67,20 @@ dated elaboration bullet, and is not counted. Telling them apart needs either a
 semantic judgment or a new bracket token for elaborations — a convention change,
 not a parser change.
 
+KNOWN LIMITATIONS (markdown edge cases, not handled — this is a warn-only canary,
+so trust it no further than this list; P1009 final review):
+  * Indented code blocks are not modelled: a ``` line indented 4+ spaces is read
+    as a fence opener, so the rest of the file may be skipped (missed leads).
+    Fences inside a blockquote (`> ````) are not detected, so dated bold lines in
+    a quoted code example may be counted (spurious warning).
+  * Spaced nested quote prefixes (`>  > **B**`, two spaces) are not detected as
+    nesting: the line reads as depth-1 continuation text and is not counted.
+  * Retirement is not cleared by a NON-bold outdent line: an item after
+    `> plain text` may still be scoped inside an earlier retired callout and go
+    uncounted. Only a bold lead-in line pops the nesting.
+  * Indented ATX headings (`  ## X`, 1-3 spaces) are not recognised as headings,
+    so they do not end a section and the slot may mis-scope into the next one.
+
 This is the deterministic core shared by:
   - /slava:maintain:docs-strategy-update Gate 8 (single-valued-slot reconciliation)
   - scripts/pre-commit-checks.sh SINGLE-VALUE canary (WARN, not BLOCK)

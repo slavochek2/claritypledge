@@ -12,11 +12,18 @@
 #   1. must-FAIL  — one synthetic fixture per evasion row, plus the original control shape
 #   2. must-PASS  — the shapes that must stay uncounted (elaboration bullets, bracket-tagged
 #                   retirements, fenced examples, prose mentions of the marker)
-#   3. real docs  — every tracked doc carrying a marker scans clean, and the parser finds the
-#                   known slots (gate 7e: a parser returning nothing cannot pass green)
-#   4. real-doc mutations — the must-fail controls rebuilt by injecting each evasion into a COPY
-#                   of the real docs/lean-canvas.md (gate 7d: a fixture with no neighbours proves
-#                   less than the real file with all of them)
+#   3. real docs  — on a PINNED snapshot of the real docs: the parser finds the known slots
+#                   (gate 7e: a parser returning nothing cannot pass green). The CURRENT live
+#                   docs are then scanned for information only — never a failure (see below).
+#   4. real-doc mutations — the must-fail controls rebuilt by injecting each evasion into the
+#                   pinned copy of the real docs/lean-canvas.md (gate 7d: a fixture with no
+#                   neighbours proves less than the real file with all of them)
+#
+# Why pinned, not live: a finding in a live doc is a WARN by design (CHARTER — it may be a
+# deliberate in-progress edit), and pre-commit §13f turns any failure of this suite into a
+# blocking ERROR. Failing on live content made a permitted in-progress conflict block every
+# unrelated commit that staged the checker, this suite or pre-commit-checks.sh — and an edit
+# to a mutation's anchor line in lean-canvas would have done the same.
 #   5. commit-time derivation — the real `pre-commit-checks.sh` §13e block, extracted and run in a
 #                   throwaway repo, scans a staged marker doc OUTSIDE the old five-doc list
 #
@@ -208,24 +215,48 @@ want "control: outdent to the top level, a new dated lead counts again"   "$(rc_
 want "control: outdent to B's depth, a dated lead under live A counts"     "$(rc_of "$TMP/nest-outdent2.md")" 2
 
 echo
-echo "== 3. real docs: every tracked marker doc scans clean, and the parser sees the known slots =="
+echo "== 3. real docs: a PINNED snapshot of the real docs, parsed for the known slots =="
+# lean-canvas and CHARTER as of main on 2026-10-13, the base the section-4 anchors were written
+# against. A pinned copy keeps every assertion below deterministic: a later
+# edit to the live docs (an in-progress conflict, a reworded anchor line) cannot fail this suite.
+# Bump it only together with the section-4 anchors, and only to a commit on main.
+PIN=8184815bdae7701a073553badc11e4869d0cae5f
+LC="$TMP/pinned-lean-canvas.md"; CH="$TMP/pinned-CHARTER.md"
+if git -C "$ROOT" show "$PIN:docs/lean-canvas.md" > "$LC" 2>/dev/null \
+   && git -C "$ROOT" show "$PIN:docs/CHARTER.md" > "$CH" 2>/dev/null; then
+  PINNED=1
+  ok "loaded the pinned real docs from ${PIN:0:9} ($(wc -l < "$LC" | tr -d ' ') + $(wc -l < "$CH" | tr -d ' ') lines)"
+else
+  PINNED=0
+  bad "pinned commit ${PIN:0:9} is not in this clone (shallow?) — sections 3 and 4 cannot run"
+fi
+if [ "$PINNED" = 1 ]; then
+  slots="$(python3 "$CHECKER" --list "$LC" 2>&1 | sed -n "s/^slot '\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
+  want "--list finds the three known lean-canvas slots" "$slots" "active-channel active-market-focus page-lead "
+  want "--list finds no slot in CHARTER.md (its marker is a fenced example)" \
+       "$(python3 "$CHECKER" --list "$CH" 2>&1 | grep -c "^slot '")" 0
+fi
+
+# The CURRENT live docs: reported, never counted. A live finding is a WARN by design (CHARTER) and
+# §13e already reports it for any staged doc; counting it here made §13f turn a permitted
+# in-progress conflict into a blocking ERROR on unrelated commits.
 REAL_DOCS=()
 while IFS= read -r f; do REAL_DOCS+=("$ROOT/$f"); done < <(git -C "$ROOT" grep -l 'SINGLE-VALUE:' -- 'docs/*.md' 'features/*.md')
-case " ${REAL_DOCS[*]} " in
-  *"/docs/lean-canvas.md "*) ok "derived doc set includes docs/lean-canvas.md (${#REAL_DOCS[@]} docs)" ;;
-  *) bad "derived doc set is missing docs/lean-canvas.md — the derivation returned: ${REAL_DOCS[*]:-nothing}" ;;
-esac
-out="$(python3 "$CHECKER" "${REAL_DOCS[@]}" 2>&1)"; rc=$?
-want "all marker-carrying docs/ + features/ files exit 0 (no new false positives)" "$rc" 0
-[ "$rc" -eq 0 ] || printf '%s\n' "$out" | sed 's/^/       /'
-slots="$(python3 "$CHECKER" --list "$ROOT/docs/lean-canvas.md" 2>&1 | sed -n "s/^slot '\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
-want "--list finds the three known lean-canvas slots" "$slots" "active-channel active-market-focus page-lead "
-want "--list finds no slot in CHARTER.md (its marker is a fenced example)" \
-     "$(python3 "$CHECKER" --list "$ROOT/docs/CHARTER.md" 2>&1 | grep -c "^slot '")" 0
+if [ "${#REAL_DOCS[@]}" -eq 0 ]; then
+  echo "  info no tracked docs/ or features/ file carries a SINGLE-VALUE marker — live scan skipped"
+else
+  out="$(python3 "$CHECKER" "${REAL_DOCS[@]}" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "  info live scan: ${#REAL_DOCS[@]} marker-carrying docs, every slot holds one lead"
+  else
+    echo "  WARN live scan (exit $rc, informational — not a suite failure; reconcile before it ships):"
+    printf '%s\n' "$out" | sed 's/^/       /'
+  fi
+fi
 
+if [ "$PINNED" = 1 ]; then   # section 4 needs the pinned copy; its absence already failed above
 echo
-echo "== 4. real-doc mutations: each evasion injected into a COPY of docs/lean-canvas.md =="
-LC="$ROOT/docs/lean-canvas.md"
+echo "== 4. real-doc mutations: each evasion injected into the pinned copy of docs/lean-canvas.md =="
 # mutate NAME TEXT PATTERN [blank] — insert TEXT after the first line containing PATTERN.
 mutate() {
   local name="$1" text="$2" pat="$3" sep="${4:-blank}"
@@ -233,9 +264,9 @@ mutate() {
     { print }
     !done && index($0, pat) { if (sep == "blank") print ""; print ins; done = 1 }
   ' "$LC" > "$TMP/lc-$name.md"
-  if cmp -s "$LC" "$TMP/lc-$name.md"; then bad "mutation $name did not apply — its anchor line is gone from the real doc"; fi
+  if cmp -s "$LC" "$TMP/lc-$name.md"; then bad "mutation $name did not apply — its anchor line is not in the pinned doc"; fi
 }
-want "unmutated copy of the real doc is clean" "$(rc_of "$LC")" 0
+want "unmutated pinned copy of the real doc is clean" "$(rc_of "$LC")" 0
 mutate uvp-after-group   '> **New page-lead (2026-10-13).** Lead with Y.'           '### Platform *(ClarityPledge)*' none
 mutate uvp-body-date     '> **New page-lead (UNTESTED).** Lead with Y, per 2026-10-13.' '> **Page-lead (2026-07-20'
 mutate uvp-nested        '>> **New page-lead (13 October 2026).** Lead with Y.'      '> **Page-lead (2026-07-20'
@@ -249,6 +280,7 @@ done
 # And the sanctioned shapes injected into the real doc still pass.
 mutate focus-elab        '> - **Champion seniority (2026-10-13, UNTESTED — subordinate to the lead above).** x' '> **Who (2026-09-21' none
 want "real lean-canvas + attached elaboration bullet under the live lead → exit 0" "$(rc_of "$TMP/lc-focus-elab.md")" 0
+fi
 
 echo
 echo "== 5. commit-time derivation: the real §13e block scans a staged marker doc outside the old list =="

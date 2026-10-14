@@ -72,6 +72,8 @@ Enforced two ways from one implementation (`scripts/check-single-value-slots.py`
 
 **Known residual gaps (deliberate):** an **undated** bold callout is not counted, because two brand taglines in §UVP would otherwise read as competing leads. A competing lead written as a `> - ` bullet **attached under** the live lead is indistinguishable from a sanctioned elaboration and is not counted. Write leads in the canonical shape above. See `features/p1009_single_value_canary_evasions.md`.
 
+**Markdown edge cases the canary does not handle** (not detected / may mis-scope, so do not trust it beyond its scan rule): a ` ``` ` line in a 4-space indented code block is read as a fence and may hide the rest of the file, and a fence inside a blockquote is not detected; a spaced nested quote prefix (`>  > **B**`) is not detected as nesting; a retired callout's scope is not cleared by a non-bold outdent line, so a later item may stay uncounted; an indented heading (`  ## X`) does not end a section, so the slot may mis-scope into the next one. The checker's docstring lists the same.
+
 ---
 
 ## Encoding
