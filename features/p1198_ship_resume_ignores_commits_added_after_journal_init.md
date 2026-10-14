@@ -68,7 +68,7 @@ status below), so the founder chose refusal instead.
 
 ## Done-When
 
-- [ ] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
+- [x] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
       then a new commit lands on the branch before `--resume` runs, and `--resume` REFUSES (exit
       non-zero, nothing picked, branch and journal kept) when the branch holds commits not in the
       journal or was rewritten, naming them and telling the operator to finish/abort and re-run a
@@ -79,14 +79,14 @@ status below), so the founder chose refusal instead.
       stopped before the spec close, then `--resume` refuses), AD-f (commit after the close), AD-g
       (compare-and-swap branch delete), AD-h (rebase before any pick; the printed fresh re-run ships
       it), AD-j/k/l (drift while `--resume` waits for main.lock), AD-m (drift after a fresh ship's
-      gates, refused before any pick). `test-git-ops-ship.sh` rc=0. Awaiting review.
-- [ ] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
+      gates, refused before any pick). `test-git-ops-ship.sh` rc=0 (76 PASS, incl. AD-n..q from the final review rounds). Reviewed: Codex gpt-6.1-sol x3 on the refuse design (5 findings fixed, each with a failing-first canary).
+- [x] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
       fix lands.
       Evidence (2026-10-14): the new AD section run against the append-on-resume code (branch HEAD
       `2340e355e`) returned rc=1: `AD-a/AD-b/AD-d/AD-h: exited 0 on a branch that no longer matches
       its journal`, `AD-m: refused (exit 1) but moved main — something was picked`. AD-c/f/g/j/k/l
       (behaviour unchanged by the redesign) passed against both.
-- [ ] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
+- [x] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
       superseded to point at the fix.
       Evidence: the "Resolved by P1198" paragraph in that entry's Consequences now describes
       refuse-on-drift (2026-10-14).
