@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 67
 severity: high
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pre-commit, git-env, migrations, gates]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-10-14
 ---
 
 # P1488: Grant-order gate (P1102) blocks every migration commit made from a worktree
