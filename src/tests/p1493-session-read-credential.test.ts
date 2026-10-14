@@ -5,6 +5,10 @@
  * only to a participant; an account-less guest is one only while presenting the credential its
  * seat claim returned. The mock below plays that database: it answers the full row when the
  * request carries this seat's credential and the pre-join fields otherwise.
+ *
+ * The credential reaches the database through one path: the request wrapper in
+ * room-capability.ts attaches every held credential at fetch time. The mock reads the held set at
+ * the moment the request is awaited, which is when the wrapper would read it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -26,10 +30,12 @@ import {
   updateDemoFlowState,
   updateClaritySessionState,
   clearSessionJoiner,
+  isParticipantView,
   _resetSessionIdByCodeForTesting,
 } from '@/app/data/api';
+import { heldSeatSecrets, _resetHeldSeatSecretsForTesting } from '@/lib/room-capability';
+import { _resetSeatSecretMemoryForTesting } from '@/app/data/seat-secret';
 
-const HEADER = 'x-clarity-seat-secret';
 const SESSION_ID = 'sess-p1493';
 const SECRET = '11111111-2222-4333-8444-555555555555';
 
@@ -46,8 +52,8 @@ const VISITOR = {
 };
 
 type Builder = {
-  headers: Record<string, string>;
-  setHeader: ReturnType<typeof vi.fn>;
+  /** Whether this request carried the seat's credential (decided when it is sent). */
+  sent?: boolean;
   then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise<unknown>;
 };
 const issued: Builder[] = [];
@@ -55,10 +61,10 @@ const issued: Builder[] = [];
 /** A thenable PostgREST builder whose answer depends on the headers set on it — like the DB. */
 function lookupBuilder(): Builder {
   const b: Builder = {
-    headers: {},
-    setHeader: vi.fn((k: string, v: string) => { b.headers[k] = v; return b; }),
-    then: (res, rej) =>
-      Promise.resolve({ data: [b.headers[HEADER] === SECRET ? FULL : VISITOR], error: null }).then(res, rej),
+    then: (res, rej) => {
+      b.sent = heldSeatSecrets().includes(SECRET);
+      return Promise.resolve({ data: [b.sent ? FULL : VISITOR], error: null }).then(res, rej);
+    },
   };
   issued.push(b);
   return b;
@@ -69,6 +75,8 @@ beforeEach(() => {
   issued.length = 0;
   window.localStorage.clear();
   _resetSessionIdByCodeForTesting();
+  _resetHeldSeatSecretsForTesting();
+  _resetSeatSecretMemoryForTesting();
   vi.mocked(supabase.rpc).mockImplementation(((fn: string) =>
     fn === 'get_session_by_code' || fn === 'get_active_session_by_code' ? lookupBuilder() : Promise.reject(new Error(`unexpected rpc ${fn}`))
   ) as never);
@@ -81,8 +89,8 @@ describe('P1493: guest reads present the seat credential', () => {
     const session = await getClaritySession('abc123');
 
     expect(issued).toHaveLength(2);
-    expect(issued[0]!.setHeader).not.toHaveBeenCalled();
-    expect(issued[1]!.headers[HEADER]).toBe(SECRET);
+    expect(issued[0]!.sent).toBe(false);
+    expect(issued[1]!.sent).toBe(true);
     expect(session?.joinerName).toBe('Guest');
     expect(session?.liveState).toEqual({ ratingPhase: 'waiting' });
   });
@@ -95,7 +103,7 @@ describe('P1493: guest reads present the seat credential', () => {
     const session = await getClaritySession('ABC123');
 
     expect(issued).toHaveLength(1);
-    expect(issued[0]!.headers[HEADER]).toBe(SECRET);
+    expect(issued[0]!.sent).toBe(true);
     expect(session?.liveState).toEqual({ ratingPhase: 'waiting' });
   });
 
@@ -103,7 +111,7 @@ describe('P1493: guest reads present the seat credential', () => {
     const session = await getClaritySession('ABC123');
 
     expect(issued).toHaveLength(1);
-    expect(issued[0]!.setHeader).not.toHaveBeenCalled();
+    expect(issued[0]!.sent).toBe(false);
     expect(session?.id).toBe(SESSION_ID);
     expect(session?.creatorName).toBe('Host');
     expect(session?.liveState).toBeNull();
@@ -115,7 +123,7 @@ describe('P1493: guest reads present the seat credential', () => {
     const session = await getActiveSessionByCode('ABC123');
 
     expect(vi.mocked(supabase.rpc).mock.calls.every(([fn]) => fn === 'get_active_session_by_code')).toBe(true);
-    expect(issued.at(-1)!.headers[HEADER]).toBe(SECRET);
+    expect(issued.at(-1)!.sent).toBe(true);
     expect(session?.joinerName).toBe('Guest');
   });
 
@@ -148,18 +156,19 @@ describe('P1493: guest reads present the seat credential', () => {
     const readBuilder: Record<string, ReturnType<typeof vi.fn>> = {};
     readBuilder.select = vi.fn(() => readBuilder);
     readBuilder.eq = vi.fn(() => readBuilder);
-    readBuilder.setHeader = vi.fn(() => readBuilder);
-    readBuilder.single = vi.fn().mockResolvedValue({ data: { state: {} }, error: null });
+    const sent: boolean[] = [];
+    readBuilder.single = vi.fn(() => { sent.push(heldSeatSecrets().includes(SECRET)); return Promise.resolve({ data: { state: {} }, error: null }); });
     const writeBuilder: Record<string, ReturnType<typeof vi.fn>> = {};
     writeBuilder.update = vi.fn(() => writeBuilder);
     writeBuilder.eq = vi.fn(() => writeBuilder);
-    writeBuilder.setHeader = vi.fn(() => Promise.resolve({ error: null }));
+    writeBuilder.select = vi.fn(() => ({
+      then: (res: (v: unknown) => unknown) => { sent.push(heldSeatSecrets().includes(SECRET)); return Promise.resolve({ data: [{ id: SESSION_ID }], error: null }).then(res); },
+    }));
     vi.mocked(supabase.from).mockReturnValueOnce(readBuilder as never).mockReturnValueOnce(writeBuilder as never);
 
     await updateDemoFlowState(SESSION_ID, { currentLevel: 3 } as never);
 
-    expect(readBuilder.setHeader).toHaveBeenCalledWith(HEADER, SECRET);
-    expect(writeBuilder.setHeader).toHaveBeenCalledWith(HEADER, SECRET);
+    expect(sent).toEqual([true, true]);
   });
 
   it('a guest\'s direct write presents the credential (the row read policy applies to UPDATE … WHERE)', async () => {
@@ -167,12 +176,16 @@ describe('P1493: guest reads present the seat credential', () => {
     const writeBuilder: Record<string, ReturnType<typeof vi.fn>> = {};
     writeBuilder.update = vi.fn(() => writeBuilder);
     writeBuilder.eq = vi.fn(() => writeBuilder);
-    writeBuilder.setHeader = vi.fn(() => Promise.resolve({ error: null }));
+    let sent = false;
+    // Thenable, like PostgREST: the request is sent (and the wrapper reads the held set) on await.
+    writeBuilder.select = vi.fn(() => ({
+      then: (res: (v: unknown) => unknown) => { sent = heldSeatSecrets().includes(SECRET); return Promise.resolve({ data: [{ id: SESSION_ID }], error: null }).then(res); },
+    }));
     vi.mocked(supabase.from).mockReturnValueOnce(writeBuilder as never);
 
     await updateClaritySessionState(SESSION_ID, { step: 1 });
 
-    expect(writeBuilder.setHeader).toHaveBeenCalledWith(HEADER, SECRET);
+    expect(sent).toBe(true);
   });
 
   it('a new tab after the session ended still reaches it as the seated guest (room id remembered at join)', async () => {
@@ -186,18 +199,22 @@ describe('P1493: guest reads present the seat credential', () => {
     // New tab: in-memory state gone, storage kept. The room has ended — a caller who does not
     // present the credential gets nothing back, so there is no reply to learn the id from.
     _resetSessionIdByCodeForTesting();
+    _resetHeldSeatSecretsForTesting();
+    _resetSeatSecretMemoryForTesting();
     issued.length = 0;
     vi.mocked(supabase.rpc).mockImplementation((() => {
       const b = lookupBuilder();
-      b.then = (res, rej) =>
-        Promise.resolve({ data: b.headers[HEADER] === SECRET ? [{ ...FULL, live_state: { sessionEnded: true } }] : [], error: null }).then(res, rej);
+      b.then = (res, rej) => {
+        b.sent = heldSeatSecrets().includes(SECRET);
+        return Promise.resolve({ data: b.sent ? [{ ...FULL, live_state: { sessionEnded: true } }] : [], error: null }).then(res, rej);
+      };
       return b;
     }) as never);
 
     const session = await getClaritySession('ABC123');
 
     expect(issued).toHaveLength(1);
-    expect(issued[0]!.headers[HEADER]).toBe(SECRET);
+    expect(issued[0]!.sent).toBe(true);
     expect(session?.liveState).toEqual({ sessionEnded: true });
   });
 
@@ -218,5 +235,14 @@ describe('P1493: guest reads present the seat credential', () => {
     await clearSessionJoiner(SESSION_ID, 'ABC123');
 
     expect(keys().filter((k) => k.startsWith('cp.seatRoom.')), 'leaving must forget the room').toEqual([]);
+  });
+
+  it('a pre-join answer is recognisable as such (the live page treats it as a lost seat for a guest)', async () => {
+    const visitor = await getClaritySession('ABC123');
+    expect(isParticipantView(visitor!)).toBe(false);
+    window.localStorage.setItem(`cp.seatSecret.${SESSION_ID}`, SECRET);
+    _resetSessionIdByCodeForTesting();
+    const participant = await getClaritySession('ABC123');
+    expect(isParticipantView(participant!)).toBe(true);
   });
 });

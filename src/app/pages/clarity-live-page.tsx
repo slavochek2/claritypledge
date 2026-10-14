@@ -23,6 +23,7 @@ import {
   updateClaritySessionLiveState,
   patchClaritySessionLiveState,
   isGuestSeatLost,
+  isParticipantView,
   GUEST_SEAT_LOST_MESSAGE,
   clearSessionJoiner,
   uploadSessionRecording,
@@ -1387,6 +1388,15 @@ export function ClarityLivePage() {
 
         // Guard: Ignore if session ID doesn't match current (user may have exited/rejoined)
         if (currentSessionIdRef.current !== freshSession.id) {
+          return;
+        }
+
+        // P1493: a non-participant receives only the pre-join fields (every other column null).
+        // For a guest tab that means the database no longer counts it as the seat holder — the
+        // same condition as a refused write (P1224), so it gets the same lost-seat handling rather
+        // than reading the missing joiner as its partner having left.
+        if (!isCreatorRef.current && !isParticipantView(freshSession)) {
+          setGuestSeatLost(true);
           return;
         }
 

@@ -8,7 +8,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { holdRoomCode } from '@/lib/room-capability';
+import { holdRoomCode, heldSeatSecrets } from '@/lib/room-capability';
 import { clearOfflineReadCacheWithin, roomCodeDigest } from '@/lib/offline-read-cache';
 import { parseBannerCredit } from '@/lib/banner-credit';
 import { boundedInList } from './query-limits';
@@ -912,17 +912,14 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
 /**
  * P1493: a session's state is read by its participants only. A signed-in participant is
  * recognised by its JWT; an account-less guest by the seat credential its claim returned
- * (P1269), presented per request on reads of THAT session — never globally, and never for a
- * room this tab holds no credential for. Same header and parse as the guest write path (P1224).
+ * (P1269). The credential reaches the database through ONE path — the request wrapper in
+ * room-capability.ts, which attaches every held credential to our REST requests (P1224). This
+ * helper only makes sure the credential for `sessionId` is held before the request is built;
+ * it is a no-op for a room this tab holds no credential for.
  */
-const SEAT_SECRET_HEADER = 'x-clarity-seat-secret';
-
-function asSeatHolder<B extends { setHeader(name: string, value: string): B }>(
-  builder: B,
-  sessionId: string | null | undefined
-): B {
-  const secret = getSeatSecret(sessionId);
-  return secret ? builder.setHeader(SEAT_SECRET_HEADER, secret) : builder;
+function asSeatHolder<B>(builder: B, sessionId: string | null | undefined): B {
+  restoreSeatSecret(sessionId);
+  return builder;
 }
 
 /**
@@ -997,15 +994,19 @@ async function lookupSessionByCode(
   const firstRow = (data: unknown) =>
     (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
 
+  // Hold the credential for the room this code last resolved to, so the first request carries it.
   const knownId = await knownRoomId(normalizedCode);
-  const first = await asSeatHolder(supabase.rpc(fn, { p_code: normalizedCode }), knownId);
+  restoreSeatSecret(knownId);
+  const heldAtFirst = [...heldSeatSecrets()];
+  const first = await supabase.rpc(fn, { p_code: normalizedCode });
   const row = firstRow(first.data);
   if (first.error || !row) return undefined;
   await rememberRoomId(normalizedCode, row.id);
 
-  const presented = knownId === row.id ? getSeatSecret(knownId) : null;
-  if (!presented && getSeatSecret(row.id)) {
-    const second = await asSeatHolder(supabase.rpc(fn, { p_code: normalizedCode }), row.id);
+  const secret = getSeatSecret(row.id);
+  if (secret && !heldAtFirst.includes(secret.toLowerCase())) {
+    restoreSeatSecret(row.id);
+    const second = await supabase.rpc(fn, { p_code: normalizedCode });
     const full = firstRow(second.data);
     if (!second.error && full) return full;
   }
@@ -1342,6 +1343,15 @@ export class GuestSeatLostError extends Error {
   }
 }
 
+/**
+ * P1493: whether a code lookup answered as to a participant. A non-participant gets only the
+ * pre-join fields, with every other column null — `createdAt` is set on every real row, so its
+ * absence marks the pre-join view.
+ */
+export function isParticipantView(session: Pick<ClaritySession, 'createdAt'>): boolean {
+  return session.createdAt != null;
+}
+
 export function isGuestSeatLost(err: unknown): err is GuestSeatLostError {
   return err instanceof GuestSeatLostError;
 }
@@ -1375,11 +1385,11 @@ export async function updateClaritySessionState(
   sessionId: string,
   state: Record<string, unknown>
 ): Promise<void> {
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .update({ state })
-    .eq('id', sessionId)
-    .select('id');
+  // P1493: hold this session's seat credential (if any) so the request wrapper presents it.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_sessions').update({ state }).eq('id', sessionId).select('id'),
+    sessionId
+  );
 
   if (error) {
     console.error('Error updating session state:', error.message);
@@ -1398,11 +1408,11 @@ export async function updateClaritySessionLiveState(
   liveState: Record<string, unknown>
 ): Promise<void> {
 
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .update({ live_state: liveState, mode: 'live' })
-    .eq('id', sessionId)
-    .select('id');
+  // P1493: hold this session's seat credential (if any) so the request wrapper presents it.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_sessions').update({ live_state: liveState, mode: 'live' }).eq('id', sessionId).select('id'),
+    sessionId
+  );
 
   if (error) {
     console.error('[Live API] Error updating live state:', error.message, error.code, error.details);
@@ -1463,11 +1473,11 @@ export async function updateClarityDemoStatus(
   sessionId: string,
   demoStatus: 'waiting' | 'in_progress' | 'completed'
 ): Promise<void> {
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .update({ demo_status: demoStatus })
-    .eq('id', sessionId)
-    .select('id');
+  // P1493: hold this session's seat credential (if any) so the request wrapper presents it.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_sessions').update({ demo_status: demoStatus }).eq('id', sessionId).select('id'),
+    sessionId
+  );
 
   if (error) {
     console.error('Error updating demo status:', error.message);
@@ -1836,11 +1846,11 @@ export async function updateDemoFlowState(
     ...demoState,
   };
 
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .update({ state: mergedState })
-    .eq('id', sessionId)
-    .select('id');
+  // P1493: hold this session's seat credential (if any) so the request wrapper presents it.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_sessions').update({ state: mergedState }).eq('id', sessionId).select('id'),
+    sessionId
+  );
 
   if (error) {
     console.error('Error updating demo flow state:', error.message);

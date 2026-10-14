@@ -106,15 +106,15 @@ describe('held seat secrets ride writing REST requests', () => {
     }
   });
 
-  it('never presents it on a read', async () => {
+  it('presents it on a read of our REST endpoint too (P1493: a guest reads its session as a seat holder)', async () => {
     holdRoomCode('ABC234');
     holdSeatSecret(SECRET_A);
     const base = spyFetch();
     const f = withRoomCodeHeader(REST, base);
     await f(`${REST}clarity_sessions?id=eq.x`, { headers: { apikey: 'k' } });
     await f(`${REST}clarity_sessions?id=eq.x`, { method: 'HEAD', headers: { apikey: 'k' } });
-    expect(sentHeaders(base, 0).has(SEAT_SECRET_HEADER)).toBe(false);
-    expect(sentHeaders(base, 1).has(SEAT_SECRET_HEADER)).toBe(false);
+    expect(sentHeaders(base, 0).get(SEAT_SECRET_HEADER)).toBe(SECRET_A);
+    expect(sentHeaders(base, 1).get(SEAT_SECRET_HEADER)).toBe(SECRET_A);
     expect(sentHeaders(base, 0).get(ROOM_CODE_HEADER)).toBe('ABC234');
   });
 
