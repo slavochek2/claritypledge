@@ -8,8 +8,8 @@ workstream: analytics
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [live, migration, is_test_account, trust-columns]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-10-14'
 root_cause: The client deleted the legacy row before creating the new one through upsert_my_profile, which never writes is_test_account, so the flag was gone before any server call could carry it.
 resolution: New SECURITY DEFINER migrate_live_profile(jsonb) migrates only an anonymous-owned legacy row matching the caller's confirmed email (case-insensitive, unambiguous), creating the caller's row insert-only and carrying is_test_account in one transaction; AuthCallbackPage's /live branch calls it instead of delete + upsert. Client DELETE on profiles removed; is_test_account server-owned on client INSERT.
