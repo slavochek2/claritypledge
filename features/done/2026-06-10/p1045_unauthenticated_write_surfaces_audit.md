@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 208
@@ -9,6 +9,7 @@ tags: [security, rls, anonymous-writes]
 driver: anomaly
 feature_type: backend
 pipeline_ran: [inline]
+completed_at: 2026-10-14
 ---
 
 # P1045: Tables writable by unauthenticated callers — decide intent, then close or document
