@@ -126,15 +126,17 @@ Bug 1 blocked every worktree e2e run.
 
 ## Acceptance Criteria
 
-- [ ] `FORCE_COLOR=1 node scripts/lib/worktree-port.mjs <wN dir>` prints only digits and
+- [x] `FORCE_COLOR=1 node scripts/lib/worktree-port.mjs <wN dir>` prints only digits and
       a newline (`src/tests/p1480-worktree-ports.test.ts`, FORCE_COLOR 1/2/3).
-- [ ] `check-worktree-env.sh` accepts its port under `FORCE_COLOR=1` (same file).
-- [ ] `migrate.sh --help` / `-h` print usage and exit 0, also after other flags. Bad
+- [x] `check-worktree-env.sh` accepts its port under `FORCE_COLOR=1` (same file).
+- [x] `migrate.sh --help` / `-h` print usage and exit 0, also after other flags. Bad
       arguments, empty values and an empty `--only` list exit 2 with usage. None of them invokes any DB tool or the keychain, and the repo
       stays unchanged (`scripts/test-p1492-migrate-args.sh`, with positive controls
       showing the probe sees a real run).
-- [ ] The existing migrate canaries still pass (P1211, P1174, P1168, P1042, P1173, P1103,
+- [x] The existing migrate canaries still pass (P1211, P1174, P1168, P1042, P1173, P1103,
       P887).
-- [ ] The step-4 stub template passes the gate with no quote. A `disclosure: embargo`
+- [x] The step-4 stub template passes the gate with no quote. A `disclosure: embargo`
       spec, a tag-only ordinary spec, and a spec with the stub heading plus a real Problem
       and ACs are still refused (`scripts/test-pipeline-gates.sh` E7–E12).
+
+**Orchestrator re-verification (2026-10-14):** `FORCE_COLOR=1 node scripts/lib/worktree-port.mjs` → `6200\n` (digits only); `test-p1492-migrate-args.sh` 22 passed / 0 failed (keychain stubbed); `test-pipeline-gates.sh` E7–E12 PASS, all invariants hold; `p1480-worktree-ports.test.ts` 28/28; migrate canaries ran green in the pre-commit hook on the `migrate.sh` commit.
