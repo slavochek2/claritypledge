@@ -385,7 +385,7 @@ describe('P1487: invitation pages never choose what terms acceptance is recorded
     updateProfile.mockClear(); ensureUniqueSlug.mockClear();
     mockUseAuth.mockReturnValue({
       ...SIGNED_IN,
-      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Anonymous', slug: 'anonymous-3' },
+      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Anonymous', slug: 'anonymous-3', signedAt: new Date().toISOString() },
       refreshProfile: vi.fn().mockResolvedValue(undefined),
     } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
@@ -417,5 +417,43 @@ describe('P1487: invitation pages never choose what terms acceptance is recorded
     await waitFor(() => expect(agreementsService.acceptAgreement).toHaveBeenCalledTimes(1));
     await new Promise((r) => setTimeout(r, 0));
     expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  /** A signed-in partner with a placeholder profile returning from the emailed link with an intent. */
+  function returningPlaceholderPartner(signedAt: string, typedName: string) {
+    localStorage.setItem(`clarity-pending-accept-${AGREEMENT_ID}`, JSON.stringify({ partnerName: typedName }));
+    mockUseAuth.mockReturnValue({
+      ...SIGNED_IN,
+      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Anonymous', slug: 'anonymous-7', signedAt },
+      refreshProfile: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
+      id: AGREEMENT_ID, status: 'pending', partnerEmail: PARTNER_EMAIL, partnerDisplayName: null,
+      creatorProfileId: 'creator-p1487', partnerProfileId: null, invitationToken: TOKEN,
+    } as unknown as Awaited<ReturnType<typeof agreementsService.getAgreementByToken>>);
+    vi.mocked(agreementsService.acceptAgreement).mockResolvedValue(true);
+  }
+
+  it('agreement: an older placeholder profile gets the name but keeps its slug (shared links stay valid)', async () => {
+    updateProfile.mockReset().mockResolvedValue({ error: null }); ensureUniqueSlug.mockClear();
+    returningPlaceholderPartner(new Date(Date.now() - 30 * 86400_000).toISOString(), 'Pat Partner');
+    renderAgreement();
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    expect(updateProfile).toHaveBeenCalledWith('partner-p1487', { name: 'Pat Partner' });
+    expect(ensureUniqueSlug).not.toHaveBeenCalled();
+  });
+
+  it('agreement: when the name + slug update is refused (e.g. a reserved slug), the name is still set', async () => {
+    updateProfile.mockReset()
+      .mockResolvedValueOnce({ error: new Error('profile slug may not use the reserved "agent-" or "machine-" prefix') })
+      .mockResolvedValueOnce({ error: null });
+    ensureUniqueSlug.mockReset().mockResolvedValue('agent-smith');
+    returningPlaceholderPartner(new Date().toISOString(), 'Agent Smith');
+    renderAgreement();
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(2));
+    expect(updateProfile).toHaveBeenNthCalledWith(1, 'partner-p1487', { name: 'Agent Smith', slug: 'agent-smith' });
+    expect(updateProfile).toHaveBeenNthCalledWith(2, 'partner-p1487', { name: 'Agent Smith' });
+    ensureUniqueSlug.mockReset().mockResolvedValue('pat-partner');
+    updateProfile.mockReset().mockResolvedValue({ error: null });
   });
 });

@@ -478,7 +478,14 @@ export function AuthCallbackPage() {
       // the link, forwarded here as `terms_nonce`. Record it now, once — only a sign-in through
       // that link can. Non-fatal, like the two calls above.
       const termsNonce = urlParams.get('terms_nonce');
-      if (termsNonce) await consumePendingTermsAcceptance(termsNonce);
+      if (termsNonce) {
+        await consumePendingTermsAcceptance(termsNonce);
+        // Spent: take it out of the address bar (and so out of any later capture of this URL).
+        const cleaned = new URLSearchParams(window.location.search);
+        cleaned.delete('terms_nonce');
+        const qs = cleaned.toString();
+        window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
 
       // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');

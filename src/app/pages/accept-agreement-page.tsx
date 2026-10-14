@@ -51,6 +51,12 @@ function isPlaceholderSlug(slug: string | null | undefined): boolean {
   return !slug || /^(anonymous|unknown)(-\d+)?$/.test(slug) || /^user-\d+$/.test(slug);
 }
 
+/** P1487: created within the sign-in link's lifetime (one hour) — too new to have shared links. */
+function isFreshProfile(createdAt: string | null | undefined): boolean {
+  const t = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(t) && Date.now() - t <= 60 * 60 * 1000;
+}
+
 /** P483: Does this lookup result represent an existing user with a valid name? */
 function isExistingUserWithName(party: { name: string }): boolean {
   const name = party.name?.trim();
@@ -215,15 +221,25 @@ export function AcceptAgreementPage() {
       analytics.track('agreement_accept_success', { agreement_id: agreementId });
 
       // P1487: a partner who first signed in through the emailed link has a placeholder profile
-      // name — the server never writes a name typed before sign-in (the token holder may not be
-      // the partner). The name they just signed with, typed in their own signed-in session,
-      // becomes their profile name.
+      // name — the server never writes a name sent with the sign-in request (whoever holds the
+      // invitation may not be the partner). The name signed with here comes only from this
+      // browser: typed on this page while signed in, or typed before sign-in and kept in this
+      // browser's localStorage (the auto-accept intent) — never from the server.
       const signedName = nameToUse.trim();
       if (signedName && isPlaceholderName(currentUser.name)) {
-        // The slug was derived from the placeholder too; a profile this new has no shared links yet.
-        const slug = isPlaceholderSlug(currentUser.slug) ? await ensureUniqueSlug(signedName) : undefined;
-        const { error: nameError } = await updateProfile(currentUser.id, { name: signedName, ...(slug ? { slug } : {}) });
-        if (!nameError) void refreshProfile?.();
+        // The slug is rewritten only for a profile created within the sign-in link's hour: an
+        // older placeholder profile may already have shared /p/<slug> links that must not break.
+        const slug = isFreshProfile(currentUser.signedAt) && isPlaceholderSlug(currentUser.slug)
+          ? await ensureUniqueSlug(signedName)
+          : undefined;
+        let { error: profileError } = await updateProfile(currentUser.id, { name: signedName, ...(slug ? { slug } : {}) });
+        if (profileError && slug) {
+          // e.g. a reserved slug prefix, or a slug taken in the meantime: keep the name at least.
+          console.warn('[accept-agreement] name + slug update refused, retrying with the name only:', profileError.message);
+          ({ error: profileError } = await updateProfile(currentUser.id, { name: signedName }));
+        }
+        if (profileError) console.error('[accept-agreement] could not set the signed name on the profile:', profileError.message);
+        else void refreshProfile?.();
       }
 
       // Fire-and-forget email
