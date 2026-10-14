@@ -83,6 +83,24 @@ what the check treats as authoritative, not a code bug.
   a check working as designed, and deleting it erases the evidence of the interaction.
 - Do **NOT** weaken or disable the drift check.
 
+## Known limitations of the grant-order gate (accepted 2026-10-14, after seven review rounds)
+
+The gate (`scripts/check-migration-grant-order.py`) catches the incident class it was built for — a
+migration silently re-granting what an earlier one revoked (the P1065 restore) — and passes all 412
+other migrations plus every normal migration commit. It is defence in depth against authoring
+mistakes, not a SQL parser; review rounds kept finding exotic spellings. Accepted, not chased:
+
+- Quoted argument names containing spaces (`f("user id" uuid)`) and `interval` field qualifiers
+  (`interval day`) are not normalised, so a re-grant spelled that way is not matched.
+- Further shapes listed in the checker docstring's "Known limitations" (dynamic SQL, ALL FUNCTIONS IN
+  SCHEMA, default privileges, RENAME/SET SCHEMA, role membership, cherry-pick at /ship — follow-up in
+  the task inbox).
+- **False refusal, one known case:** for a function with history REVOKE → unacknowledged GRANT →
+  re-asserted REVOKE (today only `persist_anonymous_completion`, P1093/P1065), a NEW acknowledged
+  re-grant is refused by `--invariant`, blaming the old unacknowledged grant. Workaround: add the
+  `-- widens-revoked-grant: <revoke version> <reason>` comment to that old migration file (comment
+  edits to an applied migration never re-run). Fix belongs with a future change to that function.
+
 ## Done-When
 
 - [x] A decision recorded on what the check treats as authoritative when test is narrower than prod
@@ -118,4 +136,5 @@ what the check treats as authoritative, not a code bug.
       only function-grant remediation that widened anything is that same commit; the RLS
       re-apply and P1327 both narrow. Not covered: a widening done out of band (no migration) —
       that is the live drift check's job, and no live read was taken for this audit.
-- [ ] `.private/docs/security-log.md` updated
+- [x] `.private/docs/security-log.md` updated
+      — entry "2026-10-13 — P1102: grant-drift check no longer reverts in-flight security fixes" plus a 2026-10-14 final-status update (private file, not in this repo).
