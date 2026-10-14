@@ -18,10 +18,60 @@ driver: anomaly
 
 > **Where it is built.** On the P1437 prototype branch (`feature/p1437-conversation-groups-v2`), where
 > the v8 prototype (`/tree/conversation-groups`) and v9 (`/tree/v9/menu`, `/tree/v9/make`,
-> `/tree/v9/ledger`) live. Dev-only route, mock data, no network writes from prototype code.
-> P1485 (`features/p1485_clarity_chat_v8_light_cards.md` on branch `feature/p1437-conversation-groups-v2`) is the predecessor; its rules hold
-> unless this spec names a change. All paths below are relative to `src/` and were checked against
-> the branch at `1b728bd27`.
+> `/tree/v9/ledger`) live. Dev-only, mock data, no network writes from prototype code. P1485
+> (`features/p1485_clarity_chat_v8_light_cards.md` on that branch) is the predecessor; its rules hold
+> unless this spec names a change. Paths are relative to `src/`, checked against the branch at `1b728bd27`.
+> "V8" = `app/prototypes/conversation-groups/` (or `app/prototypes/letter-review/` where noted).
+
+## Decisions needed before build
+
+Ordered by how much they block. Each is a [FOUNDER DECISION]; the build starts after 1 to 5.
+
+1. **Message style: Slack rows or Telegram bubbles?**
+   Telegram: *"we orient ourselves more like telegram"*, *"telegram has them on opposite sides"*.
+   Slack: *"I also like generally Slack like ... It's also quite clean in Slack"*, *"So either do Slack
+   like or Telegram like, but not what we currently have"*, and *"we don't want new build, we want to reuse"*.
+   - A. Slack rows: V8 `ui.tsx` `Message` + `Toolbar`. Zero new code; whole-row highlight and top-right
+     toolbar are native; the V8 chat list is already Slack-shaped (Channels, Direct messages).
+   - B. Telegram bubbles: V8 `chat-kit.tsx` `MyBubble` / `AgentBubble`. Needs two NEW pieces: a hover-row
+     wrapper (the bubbles have no `group relative` row, hover band or toolbar slot; `Toolbar` is
+     `absolute -top-5 right-3` and only works inside `Message`) and a Telegram chat-list row (the V8 rows
+     are inline JSX in a non-exported `Sidebar`). `MyBubble` is `bg-blue-600 text-white`, so cards post
+     outside it; product blue palette, no wallpaper, no times in bubbles.
+   - Cost: A keeps rows on one side; B is the only new code in the chat.
+   - Recommendation: **A**, because it is the only option with zero new markup.
+2. **Evolve `/tree/conversation-groups` in place?** Yes: v10 becomes that route's default view, and v9 is
+   deleted. No: a new `/tree/v10` route, which forces copying the non-exported `Sidebar`
+   (`ConversationGroupsPrototype.tsx:400`) or exporting it. Cost of yes: v8's other paths (letter, WhatsApp
+   box, join, helper) share the route and must keep walking. Recommendation: **yes**.
+3. **Allow the Clarify composition (NEW 1)?** V8 `mirror.tsx` `AgentMessage` holding 1 to 3 V8
+   `stake-cards.tsx` `StakePoint` cards, inside V8 `ui.tsx` `SidePanel`. The alternative is V8
+   `AgentReplyView` as is: outline text buttons, "Pick one, or write your own:", a text input, then a grey
+   preview with "Edit" and "Post" (`chat-card.tsx:163-256`), the invented forms the founder rejected.
+   Recommendation: **allow**.
+4. **Allow the "Clarity Ledger" turn action (NEW 2)?** A prototype-only optional prop `footerAction` on
+   `FeedPointCard` and `FeedStoryCard`, rendered in the footer row, never passed by production callers
+   (same precedent as `mock`, `draft`, `statementPrefix`). Without it no slot exists: the corner is
+   hard-wired to `CardMenu` and the footer to the footer actions (`feed-point-card.tsx:378`, `:401-409`).
+   Label: *"a small button clarity ledger"* vs *"see ledger is maybe short CTA"*. Cost: two production
+   files gain one unused-by-production prop. Recommendation: **allow, label "Clarity Ledger"**.
+5. **`/stake` tabs: extract or not, and which block is canonical?** Three inline Points/Stories tab blocks
+   exist: `app/pages/stake-page.tsx:475`, `app/pages/feed-page.tsx:625`, `app/pages/profile-page-v2.tsx:1261`.
+   Extracting one into an export (no behaviour change, adopted by its own page only) is a production
+   change; copying fails the reuse gate. Recommendation: **extract the stake block** (*"it has to be
+   exactly like stakes"*).
+6. **Composer "+": add "Point" and "Story"?** Point has a source (V8 `commands.ts` `pointsFor`, listed as
+   `StakePoint` cards in the NEW 1 composition). Story has none: no story picker exists in production or
+   V8. A: both, via an optional `extraItems` prop on V8 `Composer` (today `ui.tsx:547-548` hardcodes
+   Mention and Emoji), Story listing the viewer's `FeedStoryCard`s in the same composition. B: Point only.
+   Founder: *"how in any chat I can select any story so this plus icon on the left ... probably is
+   important"*. Recommendation: **A**.
+7. **`Agree+` on the card front, "Strongly agree" on the turned side?** `PositionButtons` prints
+   `POSITION_SHORT_LABELS` (`Agree+`); `StatementRow` prints `POSITION_FIRST_PERSON` /
+   `POSITION_FULL_LABELS` ("Strongly agree" / "Strongly agrees") for the same position. Changing either is
+   a production copy change. Recommendation: **accept both as production prints them**.
+8. **Ledger sort order.** `/compare` lists largest gap first (`compare-page.tsx:5`); `/stake` lists oldest
+   first. Recommendation: **Points tab gap first (it is the compare row), Stories tab oldest first**.
 
 ## Problem
 
@@ -29,330 +79,320 @@ driver: anomaly
 with its own point card, position picker, story card and ledger page.
 **Complication:** The founder rejected all three for the same reason: they diverge from each other
 and from the product, and they reinvent components that exist.
-**Question:** What does ONE prototype look like when every element on screen is an existing
-production component, an existing v8 prototype component, or an explicitly approved new one?
+**Question:** What does ONE prototype look like when every element on screen is a production component,
+a V8 component, or an explicitly approved new one?
 
 > Founder framing, verbatim (2026-10-14/15):
 >
-> *"why did you create custom buttons ... next time we need a review please review hard harsh adversarial review on reusing components you invented a new fucking point component ... normal point components normal story components no form on the things that exist no reinvention needed"*
+> *"why did you create custom buttons ... you invented a new fucking point component ... normal point components normal story components no form on the things that exist no reinvention needed"*
 >
 > *"now make is very different than for example slash three conversation groups and menu and so on now now they are diverging ... maybe we should be actually working on one prototype instead"*
 >
-> *"it wasn't good to diverge we need to converge back and work on one ... go hard on reusing the components that we have anything there needs to be either eliminated or reused"*
+> *"go hard on reusing the components that we have anything there needs to be either eliminated or reused"*
 >
-> *"exactly, we want to... we don't want new build, we want to reuse ... and reuse more and be more consistent, not less consistent"*
->
-> *"maybe when we create this spec we need to be clear that it's consistent and that makes sense you know maybe i'm creating contradictory things ... this is why adversarial reviewer is important"*
+> *"maybe i'm creating contradictory things ... this is why adversarial reviewer is important"*
 
 ## Appetite
 
-- **Blast radius:** one dev-only prototype route plus the deletion of v9. Production components are
-  used as they are; the two places where that is impossible are listed as founder decisions, not built.
-- **Reversibility:** git revert.
-- **Decision density:** high. 16 contradictions and 12 open questions below; the build waits on
-  the ones marked BLOCKING (Contradiction 1, Open Questions 1, 2, 5, 8).
+- **Blast radius:** one dev-only prototype route plus the deletion of v9. Production files change only
+  where a decision above allows (2 and 5).
+- **Reversibility:** git revert. **Decision density:** high (8 above, 12 smaller below).
 - **Desktop only (1440).** Founder: *"we don't need to optimize for mobile yet"*.
 
 ## Solution
 
-One route, `/tree/v10` [FOUNDER DECISION: URL; or evolve `/tree/conversation-groups` in place],
-two states switched by the existing prototype strip:
+### Reuse rules
 
-- **Signed out:** the real website, unchanged. v10 shows nothing of its own; "signed out" links to
-  the real `/feed`.
-- **Signed in:** a messenger shell built from the v8 shell, with the real Feed, Groups and Events
-  pages mounted inside it, chats as home, and Clarify, the composer "+" and the ledger built from
-  the components in the reuse map.
+- Anything that renders a point, story, position or rating is a **production** component.
+- V8 components are allowed only for the shell and chat chrome.
+- Production strings are free. A V8 string on the main path is allowed only if it is listed verbatim
+  in the UI Contract. Anything else is NEW and needs a founder yes.
 
 ### 1. Reuse map
 
-Every element v10 renders. "PROD" = production component, used with today's props. "V8" = the v8
-prototype (`app/prototypes/conversation-groups/`, or `letter-review/` where noted). Nothing may be
-rendered that is not in this table.
+| # | Element | Source (path, export) | Kind |
+|---|---|---|---|
+| 1 | Point card, every surface | V8 `stake-cards.tsx` `StakePoint` (wraps `app/components/feed/feed-point-card.tsx` `FeedPointCard` with `mock` and the `refuseInert` keyboard guard, `stake-cards.tsx:138-141`). Direct `FeedPointCard` use is forbidden | PROD via V8 |
+| 2 | Position control | `app/components/shared/PositionButton.tsx` `PositionButtons` (CP wrapper, inside `FeedPointCard`) | PROD |
+| 3 | Story card | `app/components/feed/feed-story-card.tsx` `FeedStoryCard` with `onNavigate`, `authorOverride`; never `currentUserId` (its linked points render `QuotedPointCard`, which writes positions when given a viewer) | PROD |
+| 4 | Story nested in a point | `app/components/social/point-card-with-links.tsx` `QuotedStory` via V8 `StakeQuoted` | PROD |
+| 5 | Signed-out site | the real site at `/feed`, a link | PROD |
+| 6 | Shell, sidebar | V8 `letter-review/chat-kit.tsx` `ChatShell`, `SidebarFrame` with `bare` (without it, it renders its own app links, letter folders and "New chat") | V8 |
+| 7 | App menu: Chats (home), Feed, Groups, Events, Letters | V8 `app-menu.tsx` `AppMenu` with a NEW optional `items` prop (NEW 6); today `signedInItems` is Home(`/feed`), Letters, Partners, Groups, My Profile | V8 |
+| 8 | Feed, Groups, Events in the main pane | v9 `menu/real-pages.tsx` `RealPage`, `InShellLinks`, moved and trimmed (delete list) | moved |
+| 9 | My Profile, Partners, Settings pages | V8 `app-menu.tsx` `QuietFrame` | V8 |
+| 10 | Account row, bottom left | V8 sidebar footer: `ui.tsx` `Avatar` (photo from `mock-data.ts`, `public/prototypes/people/bob.jpg`) + `Presence` + name | V8 |
+| 11 | Account menu (My Profile, Partners, Settings) | NEW 5; labels from `app/components/layout/navigation-menu-items.tsx` (it reads real auth, so not mounted) | NEW |
+| 12 | Tools | `app/components/layout/event-links-menu.tsx` `EventLinksMenu` (`enabled`, the provider; without it `EventLinksButton` returns null, line 117) + `EventLinksButton`, wrapped by `InShellLinks`, in the sidebar above the account row | PROD |
+| 13 | Letters page | V8 `letters-page.tsx` `LettersPage` | V8 |
+| 14 | Chat list rows, search | V8 `ConversationGroupsPrototype.tsx` `Sidebar` rows (Decision 1) | V8 |
+| 15 | Message rows | V8 `ui.tsx` `Message` (Decision 1 A) | V8 |
+| 16 | Hover toolbar | V8 `ui.tsx` `Toolbar` with `quiet={false}` (V8 passes `quiet` on others' messages, `ConversationGroupsPrototype.tsx:719`, which keeps it always visible), `ToolButton` | V8 |
+| 17 | Clarify action | `ToolButton` holding V8 `Avatar` with `agent` | V8 |
+| 18 | Composer | V8 `ui.tsx` `Composer` (+ `extraItems`, Decision 6) | V8 |
+| 19 | Clarify panel | V8 `ui.tsx` `SidePanel` + `mirror.tsx` `AgentMessage` + item 1 (`draft`, `onVote`): NEW 1 | V8 |
+| 20 | Bob's guess of Alice's position | V8 `eyes-mark.tsx` `GuessMenu`, `EyesHeader` (no gap score) | V8 |
+| 21 | Writing a story or reverse story | V8 `letter-controls.tsx` `InlineEditor`; V8 `commands.ts` `reverseDraft` for the agent's draft | V8 |
+| 22 | Agent naming | V8 `agents.tsx` `AgentDialog` | V8 |
+| 23 | 0 to 10 rating | `app/components/shared/comprehension-rating-card.tsx` `ComprehensionRatingCard` (`question`, `hideSubmit`, production `highLabel`), not V8 `RatingRow` (it overrides `highLabel`) | PROD |
+| 24 | Seal state | V8 `letter-state.ts` seal fields (`eyesSeal`, `ownSeal`); not its step order (`ThreadStep`) | V8 |
+| 25 | Ledger tabs | Decision 5 | PROD |
+| 26 | Ledger, point turned | `app/components/compare/statement-row.tsx` `StatementRow` (`compact`, `trailing` = turn back) inside a `<ul>` (`compare-page.tsx:269` pattern; it renders an `<li>`) | PROD |
+| 27 | Ledger, story turned, answered | `app/components/letters/calibration-verdict.tsx` `CalibrationVerdict` (`perspective`, `readerName`) in NEW 3 | PROD |
+| 28 | Ledger, story turned, not answered | `app/components/shared/RatingDots.tsx` `RatingDotsPending` ("Pending") in NEW 3 | PROD |
+| 29 | Partner upgrade | `app/components/agreements/agreement-certificate.tsx` `AgreementCertificate` (`variant="creation"`, `partnerNameValue`, `partnerNameReadOnly`) in `app/components/layout/certificate-page-shell.tsx` `CertificatePageShell` | PROD |
+| 30 | Prototype strip | V8 `prototype-strip.tsx` `PrototypeBar` | V8 |
+| 31 | Draft chip on suggestions | V8 `stake-cards.tsx` `DraftChip` ("Draft") | V8 |
 
-| # | Element | Source (path, export) | Kind | Note |
-|---|---|---|---|---|
-| 1 | Point card, everywhere (chat, Clarify, ledger) | `app/components/feed/feed-point-card.tsx` `FeedPointCard` via `mock`, `draft`, `hideFooter`, `statementPrefix`, `renderLinkedStory` | PROD | Pattern already in V8 `stake-cards.tsx` `StakePoint`. Never rebuilt from `PointCardShell` |
-| 2 | Position control | `app/components/shared/PositionButton.tsx` `PositionButtons` (inside `FeedPointCard`) | PROD | Disagree / Unsure / Agree, second tap opens Somewhat / plain / Strongly, chosen strength shows `Agree+` / `Agree−` (`app/utils/position-labels.ts`). Behaviour under `mock` (no network) UNVERIFIED in v10 |
-| 3 | Story card, everywhere | `app/components/feed/feed-story-card.tsx` `FeedStoryCard` via `onNavigate`, `authorOverride`, `linkedPoints` | PROD | Same in chat and ledger |
-| 4 | Story nested in a point | `app/components/social/point-card-with-links.tsx` `QuotedStory` | PROD | Already used by V8 `StakeQuoted` |
-| 5 | Signed-out site | the real site at `/feed` (`SimpleNavigation`, `FeedPage`) | PROD | Not re-rendered; a link |
-| 6 | Shell, sidebar, collapse | V8 `letter-review/chat-kit.tsx` `ChatShell`, `SidebarFrame` | V8 | `SidebarFrame` has a `footer` slot |
-| 7 | App menu in the sidebar | V8 `app-menu.tsx` `AppMenu`, `signedInItems` (Home, Letters, Partners, Groups, My Profile, the bottom-nav order) | V8 | |
-| 8 | Real Feed / Groups / Events pages in the main pane | v9 `menu/real-pages.tsx` `RealPage`, `InShellLinks` | moved from v9 | Mounts the real `FeedPage`, `OrgDirectoryPage`, `OrgPage`, `EventsPrototype` (routed in prod at `/events/*`). The one v9 file kept; it moves into the v10 folder |
-| 9 | Pages with no mock path (Partners, My Profile, Settings) | V8 `app-menu.tsx` `QuietFrame` ("In the app this is /settings.") | V8 | The real pages read the session; see Contradiction 9 |
-| 10 | Account row, bottom left | V8 sidebar footer (`ui.tsx` `Avatar` + `Presence` + name) | V8 | Photo: `components/ui/gravatar-avatar.tsx` `GravatarAvatar` (PROD). What it shows for a fictional email UNVERIFIED |
-| 11 | Account menu (My Profile, Settings) | **missing**, see Open Question 3 | | Nearest: `layout/navigation-menu-items.tsx` `NavigationMenuItems` "Your account" block, which reads real auth state |
-| 12 | Tools | `components/layout/event-links-menu.tsx` `EventLinksButton` | PROD | Links menu, ruling 2026-09-16 |
-| 13 | Letters page | V8 `letters-page.tsx` `LettersPage` | V8 | Production `pages/letters-page.tsx` reads `useAuth` |
-| 14 | Chat list rows, search | V8 `ConversationGroupsPrototype.tsx` sidebar rows, `space-filter.tsx` | V8 | Folders: Open Question 7 |
-| 15 | Message rows | V8 `letter-review/chat-kit.tsx` `MyBubble` (right, blue) and `AgentBubble` (left) OR V8 `ui.tsx` `Message` (Slack rows) | V8 | One of the two, Contradiction 1 |
-| 16 | Hover toolbar, top right, whole row highlighted | V8 `ui.tsx` `Toolbar`, `ToolButton` (row hover `bg-gray-100`) | V8 | |
-| 17 | "Clarify" action icon | V8 `ui.tsx` `Avatar` with `agent` (the agent's square avatar) inside `ToolButton` | V8 | Label is new copy, UI Contract |
-| 18 | Composer (textarea, "+", mic, send) | V8 `ui.tsx` `Composer` | V8 | Its "+" offers only Mention and Emoji today |
-| 19 | Composer "+" Point / Story | **missing**, see Open Question 1 | | Nearest: V8 `commands.ts` `pointsFor` + `chat-card.tsx` `AgentReplyView` (agent lists up to 3 of Bob's points) |
-| 20 | Mira's 1 to 3 suggestions | V8 `chat-card.tsx` `AgentReplyView`, inside V8 `mirror.tsx` `AgentMessage` | V8 | Each suggestion is item 1 with `draft` |
-| 21 | Correcting a suggestion | V8 `letter-controls.tsx` `InlineEditor` | V8 | Trigger: Contradiction 5 |
-| 22 | Agent naming | V8 `agents.tsx` `AgentDialog` | V8 | v9's naming chat is deleted |
-| 23 | Writing a story or reverse story | V8 `letter-controls.tsx` `InlineEditor`; V8 `commands.ts` `reverseDraft` for the agent's draft | V8 | |
-| 24 | Seal and reveal rules | V8 `letter-state.ts` | V8 | Story and reverse story sealed until the other person's blind answer (decided) |
-| 25 | 0 to 10 rating | `app/components/shared/comprehension-rating-card.tsx` `ComprehensionRatingCard` | PROD | V8 `RatingRow` wraps it but overrides `highLabel` to "Complete understanding" (production default "Complete cognitive understanding"): Contradiction 11 |
-| 26 | "Alice in Bob's eyes" mark | V8 `eyes-mark.tsx` `EyesMark`, `eyesName` | V8 | Ruling 2026-10-12 |
-| 27 | Ledger page frame, tabs Points / Stories | `app/pages/stake-page.tsx` tab markup (lines 474-493, not exported) | PROD, not reusable as is | Open Question 5 (BLOCKING) |
-| 28 | Ledger, point turned | `app/components/compare/statement-row.tsx` `StatementRow` (`compact`, `meInFirstPerson`), `StanceColumn` | PROD | Labels from `lib/compare-positions.ts` |
-| 29 | Ledger, story turned (a gap) | `app/components/letters/calibration-verdict.tsx` `CalibrationVerdict` (`perspective: 'reader' \| 'sender'`, `readerName`) | PROD | |
-| 30 | Ledger, story turned (scale) | `app/components/letters/letter-reveal-numeric.tsx` `LetterRevealNumeric` (`compact`) | PROD | Reader label hardcoded "You" (line 173): only correct on the rater's own screen. Contradiction 12 |
-| 31 | Ledger, live score | `app/components/shared/RatingDots.tsx` `RatingDots` | PROD | |
-| 32 | "Clarity Ledger" action on a card | **missing**, see Open Question 2 | | |
-| 33 | Partner upgrade | `app/components/agreements/agreement-certificate.tsx` `AgreementCertificate` (`variant="creation"`, `partnerNameValue`, `partnerNameReadOnly`) in `components/layout/certificate-page-shell.tsx` `CertificatePageShell` | PROD | Prefill: Open Question 4 |
-| 34 | Partner status in the chat | **missing**, see Open Question 4 | | Nearest: `components/agreements/agreement-row.tsx` `AgreementRow` |
-| 35 | Prototype strip (Bob / Alice, signed in / out) | V8 `prototype-strip.tsx` | V8 | |
+### 2. NEW list (each [FOUNDER DECISION: allow?], recommendation yes unless noted)
 
-**NEW (founder-approved): none.** Items 11, 19, 32 and 34 are missing and wait on Open Questions.
+| # | What | Why nothing existing fits |
+|---|---|---|
+| 1 | Clarify composition (Decision 3) | `AgentReplyView` renders text buttons and forms, not cards |
+| 2 | `footerAction` prop on `FeedPointCard`, `FeedStoryCard`, passed through `StakePoint` (Decision 4) | no slot exists |
+| 3 | Turned-story container: the verdict or pending dots plus the turn-back action | `CalibrationVerdict` and `RatingDots` have no slot and no story text |
+| 4 | Telegram hover-row wrapper and chat-list row (only if Decision 1 = B) | see Decision 1 |
+| 5 | Bottom-left account menu: My Profile, Partners, Settings | V8 footer has no menu; production menu reads real auth |
+| 6 | Optional props on V8: `AppMenu.items`, `Composer.extraItems`, `SidebarFrame` logo target (today a real `<Link to="/feed">`, `chat-kit.tsx:164`, which leaves the prototype), `StakePoint.footerAction` | defaults keep v8 unchanged |
+| 7 | Ledger entry: a `ToolButton` in the chat header, person fixed by the chat (as `/compare/:slug`; `/stake` has no person selector) | no entry exists |
+| 8 | Partner status line in the chat ("pending") | nearest `app/components/agreements/agreement-row.tsx` `AgreementRow`, not chat-sized. Not recommended until the founder says what it reads |
 
-### 2. Delete list
+### 3. Delete list
 
-Removed in the same build, after v10 passes the reuse gate (AC 1). Verified by `find` and `grep`:
-nothing outside `app/prototypes/v9/` imports v9 except `App.tsx` and the five v9 tests.
+Verified: all 25 files under `app/prototypes/v9/` go (one moves), and nothing outside v9 imports v9 except
+`App.tsx` and five tests.
 
-| File or export | Duplicates |
+| Remove | Duplicates |
 |---|---|
-| `app/prototypes/v9/shared/position-picker.tsx` `PositionPicker` | `PositionButtons` |
-| `app/prototypes/v9/shared/vocab.ts` `GROUPS`, `groupOf` | `BUTTON_GROUPS` (`position-groups.ts`) |
-| `app/prototypes/v9/shared/cards.tsx` `PointCard`, `Stand`, `StoryFrame`, `StoryCard`, `SeeLedger`, `ChatCards`, `pendingFor` | `FeedPointCard`, `StatementRow`, `FeedStoryCard` |
-| `app/prototypes/v9/shared/understanding-scale.tsx` `UnderstandingScale`, `StoryVerdict`, `GapNote` | `LetterRevealNumeric`, `CalibrationVerdict`, `GapBanner` |
-| `app/prototypes/v9/shared/identity.tsx` `PersonAvatar`, `AgentAvatar`, `agentLabel` | `components/ui/person-avatar.tsx` `PersonAvatar`, `GravatarAvatar isAgent` |
-| `app/prototypes/v9/shared/chat.tsx` (`Bubble`, `Composer`, `ChatHeader`, `Chips`, `AgentLine`, `ClarifyAction`, `RewindAction`, `CHAT_ROW`) | V8 `ui.tsx`, V8 `chat-kit.tsx` |
-| `app/prototypes/v9/shared/onboarding.tsx` | V8 `agents.tsx` |
-| `app/prototypes/v9/shared/clarify/ClarifyPanel.tsx`, `flow.ts` | V8 `AgentReplyView`, `ask-thread.tsx` |
-| `app/prototypes/v9/shared/ledger-entry.tsx`, `ledger-slot.tsx`, `ledger/LedgerPrototype.tsx` | `ComparePage` pattern, `StatementRow` |
-| `app/prototypes/v9/menu/MenuPrototype.tsx`, `chat.tsx`, `me.tsx`, `agreement.tsx`, `model.ts` | V8 shell, `ProfileConnectionsPage`, `SettingsPage`, `AgreementRow`, `CreateAgreementPage` |
-| `app/prototypes/v9/make/MakePrototype.tsx` | V8 shell |
-| `app/prototypes/v9/shared/copy.ts`, `seed.ts`, `store.ts`, `agent.ts`, `viewer.ts`, `index.ts` | mock state; anything v10 needs moves into the v10 folder, the rest goes |
-| `App.tsx` lines 119-121 and 1170-1172 (the three `/tree/v9/*` routes) | |
+| `v9/shared/position-picker.tsx`, `vocab.ts` | `PositionButtons`, `BUTTON_GROUPS` |
+| `v9/shared/cards.tsx` | `FeedPointCard`, `StatementRow`, `FeedStoryCard` |
+| `v9/shared/understanding-scale.tsx` | `LetterRevealNumeric`, `CalibrationVerdict`, `GapBanner` |
+| `v9/shared/identity.tsx` | `components/ui/person-avatar.tsx` `PersonAvatar`, `GravatarAvatar isAgent` |
+| `v9/shared/chat.tsx`, `onboarding.tsx` | V8 `ui.tsx`, `chat-kit.tsx`, `agents.tsx` |
+| `v9/shared/clarify/ClarifyPanel.tsx`, `flow.ts` | NEW 1 on V8 parts |
+| `v9/shared/ledger-entry.tsx`, `ledger-slot.tsx`, `v9/ledger/LedgerPrototype.tsx` | `StatementRow`, the compare pattern |
+| `v9/menu/MenuPrototype.tsx`, `chat.tsx`, `me.tsx`, `agreement.tsx`, `model.ts`; `v9/make/MakePrototype.tsx` | V8 shell, `ProfileConnectionsPage`, `SettingsPage`, `AgreementRow`, `CreateAgreementPage` |
+| `v9/shared/copy.ts`, `seed.ts`, `store.ts`, `agent.ts`, `viewer.ts`, `index.ts` | mock state |
+| `App.tsx` lines 119-121 and 1170-1172 | the three `/tree/v9/*` routes |
 | `tests/p1485-v9-{ledger,make-flow,make-page,menu-shell,shared-kit}.test.tsx` | tests of deleted code |
+| `v9/menu/real-pages.tsx`, **moved** into V8's folder: remove `LedgerInShell` and its lazy import of `../ledger/LedgerPrototype` (lines 98-108); trim `RealPage` routes and `SHOWN` to `/feed`, `/groups`, `/groups/:slug`, `/events/*` | today it mounts `/pledgers`, `/login`, `/signup`, `/sign-pledge`, landings |
 
-Kept: `app/prototypes/v9/menu/real-pages.tsx` moves to the v10 folder (reuse map item 8).
-[FOUNDER DECISION: retire v9 pages] carried below.
-
-### 3. Areas
+### 4. Areas
 
 **a. Signed out and signed in**
 
-> *"for the sign out if we orient ourselves on notion ... the feed is maybe the starter starting point ... if I'm logged out now what do I have well I have use cases at top book 15 minutes tools login fine why don't we do that as is ... and when the person is logged in then we switch to the chat like interface"*
-> *"at the bottom there is the account and so on. Settings are there"* · *"why am I not showing the picture properly on the bottom left"* · *"is me the new my profile I would much rather prefer my profile"*
-> *"if chats are the new home then feed needs to be somehow there groups and events are kind of similar things ... by clicking on groups I rather just keep it as is groups I see all groups ... what happened to letters ... where did tools go"*
-> *"pleasures [pledgers] is not something that is part of the product by the way"*
-> *"you invite somebody normally, upgrading to a partner is something else ... if you look at the page of actual slash agreements new create, it's like very specific, you know, it can be prefilled out of for example some chat"*
+> *"why don't we do that as is ... and when the person is logged in then we switch to the chat like interface"*
+> *"at the bottom there is the account and so on. Settings are there"* · *"I would much rather prefer my profile"* · *"my partners live under me"*
+> *"if chats are the new home then feed needs to be somehow there ... groups I see all groups ... what happened to letters ... where did tools go"*
+> *"you invite somebody normally, upgrading to a partner is something else ... it can be prefilled out of for example some chat"*
 
 | Signed out | Signed in |
 |---|---|
-| Today's site as is: Use cases, Book a 15-min discovery call (primary), Tools, Log in; `/` goes to `/feed` (ruling 2026-10-02) | Chats are home. Sidebar: app menu (item 7), chat list (14), account row bottom left with photo (10) |
-| Nothing new | Feed, Groups, Events: the real pages in the main pane (8). Letters: V8 page (13). Tools: `EventLinksButton` (12). My Profile, Partners, Settings: `QuietFrame` (9). Pledgers: not in the app |
-| | Invite = a new chat. Upgrade to partner = the agreement certificate (33), prefilled from the chat. **Prefill does not exist today:** `pages/create-agreement-page.tsx` reads no URL parameters (grep for `useSearchParams`, `URLSearchParams`, `location.state`: no hits). See Open Question 4 |
+| The real site as is (Use cases, Book a 15-min discovery call, Tools, Log in; `/` goes to `/feed`) | App menu (item 7): Chats (home), Feed, Groups, Events, Letters. Bottom left: account row (10) with menu (NEW 5): My Profile, Partners, Settings, each a `QuietFrame` (9). Tools above the account row (12). Pledgers nowhere in the shell |
+| | Feed, Groups, Events are the real pages, and they render **signed out** inside the shell (e.g. `FeedPage` reads `useAuth`, `feed-page.tsx:95`): accepted, labelled by the strip (UI Contract) |
+| | Invite = a new chat. Upgrade = the certificate (29) prefilled from the chat; prefill does not exist on `app/pages/create-agreement-page.tsx` (no URL parameters read), so v10 renders the certificate itself with `partnerNameValue`; the page's picker, visibility and "Seal & Send" are inline in that page and are not shown |
 
 **b. Chat**
 
-> *"we orient ourselves more like telegram ... in the bottom I have myself ... look at how clean it is"*
-> *"So either do Slack like or Telegram like, but not what we currently have. What we currently have is a weird hybrid."*
-> *"when I hover over a message, the message is not you know selected ... the icon should be Mira's icon clarify ... we don't need to say with Mira because then it always changes and then it should be on the right top on the message like in slack or in telegram and the message has to be like selected properly"*
-> *"it's not clear how I forward it into a chat and how in any chat I can select any story so this plus icon on the left that we had before in the input field probably is important"*
+> *"when I hover over a message ... the icon should be Mira's icon clarify ... we don't need to say with Mira ... it should be on the right top on the message like in slack or in telegram and the message has to be like selected properly"*
+> *"this plus icon on the left that we had before in the input field probably is important"*
 
-- Messages: one style for the whole app (Contradiction 1).
-- Hover: the whole message row highlights; the toolbar sits at the row's top right (item 16) with
-  one action, the agent's avatar plus "Clarify" (item 17).
-- Composer: V8 `Composer` (item 18). Posting an existing point or story into any chat needs two
-  items in its "+" menu that do not exist (Open Question 1).
+- Rows per Decision 1. Hover highlights the whole message; the toolbar sits at its top right, hover only,
+  on every message (Bob's and Alice's); one action: agent avatar + "Clarify".
+- A posted card sits in the message body at full width (A), or outside the bubble on the sender's side,
+  max 90%, no fill (B). It reads exactly like the same card elsewhere in v10.
+- Composer "+": Decision 6. V8's second posting path (placeholder "...or @agent to post a point",
+  `commands.ts` `composerHint`) is not shown.
 
 **c. Clarify**
 
 > *"it should suggest some options so I can correct them so one two three and I can correct"*
-> *"if it is a point then we reuse the card then it's strongly agree strongly disagree you don't invent"*
-> *"then it says edit point but that's not cool we don't need to say edit point ... if I agree why do I need to edit the point I already agree if I strongly agree I don't know just proceed ... I can probably hover over it and click on edit icon on it"*
-> *"after the point I should say add a story right or at the reverse story that's not clear how that happens at all"*
-> *"we need to use as much as possible the formulations that we already have"*
+> *"if I agree why do I need to edit the point I already agree if I strongly agree I don't know just proceed ... I can probably hover over it and click on edit icon on it"*
+> *"after the point I should say add a story right or at the reverse story"*
 
-| Step | What the person sees | Source |
+| Step | What Bob sees | Source |
 |---|---|---|
-| 1 | Clarify on a message opens the agent's reply with 1 to 3 suggested points | items 20, 1 (`draft`) |
-| 2 | They take a position on a suggestion with the product's own buttons | item 2; no "Edit the point" button anywhere |
-| 3 | Any Agree level proceeds. Unsure or Disagree: Open Question 6 | |
-| 4 | "Add your story" and "Add how you think Alice sees it" appear as visible steps | items 23, 26; step labels are [FOUNDER DECISION: copy], v9's chips are deleted |
-| 5 | Each story is sealed with a prediction, then posted into the chat; sealed until Alice's blind answer | items 24, 25 |
+| 1 | Clarify opens `SidePanel` on the right, private to Bob; Alice's chat stays visible; nothing reaches Alice until Post | 16, 19 |
+| 2 | The agent's message with 1 to 3 suggested point cards, each with the Draft chip | 19, 1, 31 |
+| 3 | Bob takes a position with the product's buttons. The card stays in place and live: a second tap still sets strength; no auto-advance, no "Edit the point" | 2 |
+| 4 | Under the same card: Bob's guess of Alice's position | 20 |
+| 5 | "+ Add a story" (production `ADD_STORY_COPY`, `card-footer.tsx:110`), then the reverse-story step [FOUNDER DECISION: label] | 21 |
+| 6 | Per story, Bob's prediction, `hideSubmit`, one primary action per step | 23 |
+| 7 | "Post" puts the point and stories into the Bob-Alice chat | 15 |
 
-Rating sentences, verbatim from production (no rewording):
+Two seals (decided this session):
+- **(a) Stories after the point.** Bob's story and reverse story open for Alice only after her blind answer
+  on the point. Reading his version of her view first would anchor her answer.
+- **(b) Numbers after her answer.** Bob's prediction numbers and his guess of her position stay hidden
+  until Alice commits her own answer for that item (her position for the guess, her rating for each
+  story's number). She reads each story before rating it.
+
+Rating sentences:
 
 | Who, what | Sentence | Source |
 |---|---|---|
-| Bob, own story, predicts | "How well do you believe {Alice} understands your intended meaning behind your story?" | `components/letters/letter-prediction-walk.tsx:116` |
-| Alice, Bob's story | "How well do you believe you understand {Bob}'s intended meaning behind their story?" | `components/letters/letter-flow-content.tsx:928` |
+| Bob, own story, predicts | "How well do you believe {Alice} understands your intended meaning behind your story?" | `app/components/letters/letter-prediction-walk.tsx:116` |
+| Bob, reverse story, predicts | "How well do you believe this story represents {Alice}'s intended meaning?" | NEW copy, mirrors Alice's (founder: *"they say as well the same thing so it's kind of just reverse"*) |
+| Alice, Bob's story | "How well do you believe you understand {Bob}'s intended meaning behind their story?" | `app/components/letters/letter-flow-content.tsx:928` |
 | Alice, Bob's reverse story | "How well do you believe this story represents your intended meaning?" | `letter-flow-content.tsx:927` |
-| Bob, reverse story, predicts | **no production sentence exists** (v9 marked its own as NEW, `v9/shared/copy.ts:53`) | Open Question 8 |
 
 **d. Ledger**
 
-> *"So on points, I need to see the points. On stories, I need to see the stories. And it has to be exactly like stakes. It is the only difference that I guess I see the other side. I can see the other side of the card"*
-> *"on the points it's clear it's just a comparison and this is exactly what we already built no need to invent it compare is the page on the stories it just shows the ledger which is whatever we have if it's just like a gap then it's a gap if it's like scoring from life it's scoring from life"*
-> *"why it has so much text what is this text you invented stuff no invention please just just reuse what we have story cards gaps as in leather [letter] we just need to figure out the turning from the story to this which i suggested before it's a small button clarity ledger or something like that"*
+> *"on points, I need to see the points. On stories, I need to see the stories. And it has to be exactly like stakes ... I can see the other side of the card"*
+> *"on the points it's clear it's just a comparison ... compare is the page ... if it's just like a gap then it's a gap"*
+> *"no invention please just just reuse what we have story cards gaps as in leather [letter] ... a small button clarity ledger or something like that"*
 
-| | Front of the card | Turned (other side) |
+| | Front | Turned (replaces the card in place, same width, same action turns back) |
 |---|---|---|
-| Point | `FeedPointCard` (1) | `StatementRow` (28), the compare row, two `StanceColumn`s |
-| Story with a sealed prediction | `FeedStoryCard` (3) | `CalibrationVerdict` (29), `perspective` = whose screen |
-| Story scored live | `FeedStoryCard` (3) | `RatingDots` (31) |
+| Point | item 1 | item 26 (both people's actual positions) |
+| Story, answered | item 3 | item 27, `perspective` = whose screen |
+| Story, not answered | item 3 | item 28 |
 
-- Page: Points / Stories tabs with counts, like `/stake/:tag` (item 27, Open Question 5); the person
-  being compared is chosen at the top. `/stake` has no person selector (checked: no picker in
-  `stake-page.tsx`); `/compare/:slug` takes the person from the URL and shows them in its header.
-- The only added control is the turn action (item 32). No text on the turned side beyond what the
-  reused component prints.
-- From a story in the ledger, its point is reachable through the card's own linked points (item 3);
-  from a point, its stories through the card's own stories footer.
+- Entry: NEW 7. Tabs: Decision 5. Sort: Decision 8. No live-score row (no live data in v10).
+- From a story its point is reachable through the card's linked points; from a point its stories
+  through its footer. No text beyond what the reused components print.
 
 ## Contradictions
 
-Each pair below is two founder requirements that cannot both hold, or one that reads two ways. A
-recommendation is given; none is decided here.
+Not in the decision block; each with a recommendation and a [FOUNDER DECISION].
 
-| # | Requirement A | Requirement B | Recommendation |
+| # | A | B | Recommendation |
 |---|---|---|---|
-| 1 | *"either do Slack like or Telegram like, but not what we currently have ... a weird hybrid"* | *"we orient ourselves more like telegram"* + hover *"on the right top on the message like in slack"* with *"the message ... selected properly"* | Telegram bubbles (`MyBubble` right, `AgentBubble` left) with the V8 hover toolbar placed on the bubble row. That is a hybrid at the hover level only, which the founder asked for. [FOUNDER DECISION: message style] **BLOCKING** |
-| 2 | *"it's strongly agree strongly disagree you don't invent"* | *"why did you create custom buttons"* (use the product's buttons) | `PositionButtons` as is: "Strongly Agree" appears in its second-tap menu, the chosen segment then reads `Agree+`. Both quotes hold; no inline strength row. [FOUNDER DECISION: confirm `Agree+` on the card] |
-| 3 | Round 1: *"Clarify is better, but clarify with the name of the agent"* | Round 4 (latest): *"we don't need to say with Mira because then it always changes"* | Round 4: the agent's avatar plus "Clarify", no name in the label. [FOUNDER DECISION: confirm] |
-| 4 | Signed out *"why don't we do that as is"* (the site keeps Pledgers under Product in its menu, `layout/nav-links.ts`) | *"pledgers is not something that is part of the product"* | Signed in: no Pledgers. Signed out: unchanged, since "as is" is the binding line; moving Pledgers out of the public menu is a separate production change. [FOUNDER DECISION] |
-| 5 | *"we don't need to say edit point"* | *"I can probably hover over it and click on edit icon on it"* | No "Edit" text; a pencil `ToolButton` on hover of a suggestion opens `InlineEditor`. Production point cards have no edit at all (`CardMenu` gets `onEdit` only from `profile-page-v2.tsx:1750`, a story), so this exists only on drafts. [FOUNDER DECISION] |
-| 6 | Signed out *"as is"* | *"don't you think that the product category has to be above use cases"* (and `nav-links.ts` records the earlier founder call "Use cases leads") | Keep v10 signed out as is; reordering the public header is a production change for its own spec. [FOUNDER DECISION] |
-| 7 | Signed out = today's site (founder) | research on ChatGPT: a usable app shell signed out, sell the gate inline | Founder's line wins for v10; the ChatGPT model is recorded, not built. [FOUNDER DECISION: confirm] |
-| 8 | *"my partners live under me"* / *"my partners is a part of chats"* | *"upgrading a chat to a partner is something else"*, and the existing page `/p/:slug/partners` | Partners reachable from the app menu (production order already has it); in a chat, the upgrade happens from that chat and shows there as status. One list, two entry points. [FOUNDER DECISION] |
-| 9 | *"by clicking on groups I rather just keep it as is"* (real pages) | Mock-only prototype: `RealPage` mounts real pages with whatever session the browser holds, and Partners, My Profile, Settings read the session | Real pages only where they render signed out (Feed, Groups, Events); `QuietFrame` for the rest. [FOUNDER DECISION] |
-| 10 | Ledger *"exactly like stakes"* (`/stake` lists oldest first) | *"compare is the page"* (`/compare` lists largest gap first, `compare-page.tsx:5`) | Points tab sorted like compare (gap first), stories like stake (oldest first)? or one order for both. [FOUNDER DECISION: ledger sort order] |
-| 11 | *"reuse what we have"* (production `ComprehensionRatingCard` high label "Complete cognitive understanding") | V8 `RatingRow` overrides it to "Complete understanding" | Use the production default in v10. [FOUNDER DECISION: confirm] |
-| 12 | Ledger shows the story gap *"as in letter"* | `LetterRevealNumeric` labels the rater "You" (hardcoded), so on Bob's screen it would call Alice "You" | Bob's screen: `CalibrationVerdict perspective="sender"` only; Alice's screen: verdict plus scale. A `readerName` prop like `LetterRevealOrdinal`'s (P1469) would be a production change. [FOUNDER DECISION] |
-| 13 | Ledger: *"tap on the card ... turns the card"* / *"I can see the other side of the card"* | *"maybe it's expanding down ... expanding in a different way than expand point or details"* | Turn in place: the card is replaced by its other side, same width, with the same action to turn back; nothing expands below. [FOUNDER DECISION] |
-| 14 | *"we don't have the rewind yet"* | *"we can also show rewind, but rewind is only visible when I talk to my agent"* | No rewind in v10 (nothing to reuse). [FOUNDER DECISION: confirm out] |
-| 15 | *"in the reverse story i predict how much i understand my story represents their intent"* | No production sentence for that prediction (Open Question 8) | See Open Question 8 |
-| 16 | *"So it's like point is the minimum ... predicting position of the other person is exactly what makes point good"* | *"does it really matter if my predicted position is very far away from the actual position? I don't know."* | v10 does not ask Bob to predict Alice's position; the ledger compares actual positions only. [FOUNDER DECISION] |
+| 1 | Round 1: *"clarify with the name of the agent"* | Round 4: *"we don't need to say with Mira"* | Avatar + "Clarify" (latest) |
+| 2 | Signed out *"as is"* (the public menu lists Pledgers under Product, `app/components/layout/nav-links.ts`) | *"pledgers is not something that is part of the product"* | Signed in: none. Signed out unchanged; moving it is a separate production change |
+| 3 | Signed out *"as is"* (and `nav-links.ts` records an earlier founder call: Use cases leads) | *"the product category has to be above use cases"* | Unchanged in v10; its own spec |
+| 4 | Founder: signed out = today's site | Research: ChatGPT-style usable app signed out | Founder's line |
+| 5 | *"we don't need to say edit point"* | *"click on edit icon on it"* | Pencil `ToolButton` on hover of a suggestion opens `InlineEditor`; production point cards have no edit (`CardMenu` gets `onEdit` only at `app/pages/profile-page-v2.tsx:1750`, a story) |
+| 6 | *"my partners is a part of chats"* | *"upgrading a chat to a partner is something else"* | One partner list (account menu), upgrade started from the chat |
+| 7 | *"we don't have the rewind yet"* | *"rewind is only visible when I talk to my agent"* | Out of v10 |
+| 8 | Ledger gap *"as in letter"* | `LetterRevealNumeric` hardcodes "You" for the rater (line 173) | `CalibrationVerdict` only; a `readerName` prop would be a production change |
+| 9 | *"tap on the card ... turns the card"* | *"maybe it's expanding down"* | Turn in place |
+| 10 | *"predicting position of the other person is exactly what makes point good"* | *"does it really matter if my predicted position is very far away"* | Keep Bob's guess (item 20), never score the gap |
 
 ## Open Questions
 
-| # | Question | Founder words | BLOCKING |
-|---|---|---|---|
-| 1 | [FOUNDER DECISION: allow new "Point" and "Story" items in the V8 composer "+" menu, opening the V8 `AgentReplyView` list of your own points or stories?] | *"this plus icon on the left that we had before in the input field probably is important"* | yes, for area b |
-| 2 | [FOUNDER DECISION: allow a new small action on point and story cards that turns the card; label "Clarity Ledger" or "See ledger"?] | *"it's a small button clarity ledger or something like that"* · *"see ledger is maybe short CTA"* | yes, for area d |
-| 3 | [FOUNDER DECISION: allow a new account menu above the bottom-left row (My Profile, Settings), reusing the "Your account" labels?] | *"at the bottom there is the account and so on. Settings are there"* | no |
-| 4 | [FOUNDER DECISION: partner upgrade path. A: render `AgreementCertificate variant="creation"` prefilled from the chat inside v10 (no production change; ProfilePickerInput, visibility and Seal & Send are inline in `CreateAgreementPage` and are not rendered). B: add a default-off prefill parameter to `CreateAgreementPage` (production change). C: link to the real page, no prefill. Plus: allow a new "pending" status line in the chat?] | *"it can be prefilled out of for example some chat"* · *"this is like one of the messages that is there and it says pending or whatever I actually don't know what makes sense"* | no |
-| 5 | [FOUNDER DECISION: the stake tabs are inline markup in `stake-page.tsx`. Extract them into an exported component with no behaviour change (production change), or copy them (fails the reuse gate)?] | *"it has to be exactly like stakes"* | yes, for area d |
-| 6 | [FOUNDER DECISION: on Unsure or Disagree with a suggestion, what happens: next suggestion, or the pencil?] | *"if I agree ... just proceed"* | no |
-| 7 | [FOUNDER DECISION: one chat list, or Telegram-style folders (V8 `SpaceFilter`)?] | *"in telegram or in whatsapp you see double menu so menu on the left there is chats updates communities"* | no |
-| 8 | [FOUNDER DECISION: allow one new sentence for Bob's prediction on his reverse story, written in the letter's pattern?] | *"we need to use as much as possible the formulations that we already have"* | yes, for area c |
-| 9 | [FOUNDER DECISION: retire the three v9 pages in this build?] Recommendation: yes, after AC 1 passes. | *"it wasn't good to diverge we need to converge back and work on one"* | no |
-| 10 | [FOUNDER DECISION: where Letters and Tools sit signed in.] Recommendation: Letters in the app menu (production order), Tools as `EventLinksButton` in the chat header. | *"what happened to letters ... where did tools go because we have tools for signed in and for non-signed in as well"* | no |
-| 11 | [FOUNDER DECISION: "she" to "you" in Bob's point.] Mira's lines in v9 name Alice in the third person ("Add how you think she sees it?", `v9/shared/copy.ts:44`); a point posted into the Bob-Alice chat is read by Alice. Which sentence carried "she" is not recorded in the founder's words (source: the orchestrator's brief; UNVERIFIED). | none in the input | no |
-| 12 | [FOUNDER DECISION: story gap unit wording.] `CalibrationVerdict` prints "{n}-point gap"; "point" is also the product's name for a statement. Production copy, used as is unless changed. | *"gaps as in letter"* | no |
+| # | [FOUNDER DECISION] | Recommendation |
+|---|---|---|
+| 1 | On Unsure or Disagree with a suggestion: next suggestion, or the pencil? | Pencil |
+| 2 | Are V8 group chats and the real Groups page the same thing? (*"Spaces ... those are groups"*) | Groups = the real page; v10 shows DMs only. V8 `SpaceFilter` (ClarityPledge vs WhatsApp chips) is not shown |
+| 3 | Agent chat pinned first (*"pin first works"*)? | Yes |
+| 4 | Naming: the agent is "Agent" with initials until named (`mock-data.ts:87`); open `AgentDialog` on first Clarify? (*"everybody gives a name to their agent ... randomly generated name"*) | Yes, prefilled with a generated name |
+| 5 | Adding someone who is not a partner (round 1: *"how do I add new partners and how to add people who are not partners"*): new chat by name or email | Yes; the dialog is V8 or NEW, to be named at /ux |
+| 6 | Signed-out invitee opening a chat link | The real `/login`; join flow stays a non-goal |
+| 7 | Telegram-style folders | No (one list) |
+| 8 | "she" to "you" in Bob's point: v9 named Alice in the third person (`v9/shared/copy.ts:44`); the founder's source sentence is not in the recorded words (UNVERIFIED) | "you" in anything Alice reads |
+| 9 | Story gap unit: `CalibrationVerdict` prints "{n}-point gap"; "point" is also the product's noun | Production copy as is |
+| 10 | `StatementRow`'s Details is a raw `<a href="/point/{id}" target="_blank">` (line 84): in mock it opens the real app on a fictional id | Accept, labelled by the strip |
+| 11 | Production `PositionButtons` (via V8 `StakePoint`, as in v8) brings localStorage intensity learning, analytics and the tutorial modal (`PositionButton.tsx:12-52`), which P1484 decision 9 avoided by using the presentational core | Keep production behaviour; clear intensity storage before each AC run; whether analytics is a no-op in dev is UNVERIFIED (`lib/mixpanel.ts` gates on `import.meta.env.PROD`, line 24) |
+| 12 | `RatingRow`'s "Complete understanding" vs production "Complete cognitive understanding" | Production default |
 
 ## UX Notes
 
-- **Happy path (main path for the blind walk):** signed in as Bob, Alice's chat is open; hover
-  Alice's message, Clarify; pick one of the suggestions with Agree; add a story and seal it; post;
-  switch to Alice; she answers blind; switch back; open the ledger on Alice, turn the point and the
-  story.
-- **Empty:** a chat with no messages shows the V8 composer only. The ledger with no shared points
-  shows the tabs with `(0)`.
-- **Error / loading:** mock, none, except the real pages (item 8), which keep their own loading and
-  error states.
+- **Main path (blind walk):** signed in as Bob, Alice's chat open; hover Alice's message, Clarify; take
+  Agree on one suggestion, guess Alice, add a story, predict, Post; switch to Alice (strip): she answers
+  the point, the stories open, she rates each; switch to Bob: open the ledger, turn the point and the story.
+- **Unnamed agent:** first Clarify opens `AgentDialog` (pending Open Question 4).
+- **Empty:** a chat with no messages shows the composer only; a ledger with no shared items shows the tabs
+  with `(0)`.
+- **Real pages:** keep their own loading, error and signed-out states and CTAs; those are not v10 elements.
 
 ## UI Contract
 
-Only strings printed by reused components, plus these. Anything else on screen fails AC 1.
+Production strings are free. Every other string on the main path:
 
 | Where | Copy | Status |
 |---|---|---|
 | Hover action | "Clarify" | founder's word |
-| Card turn action | "Clarity Ledger" or "See ledger" | [FOUNDER DECISION], Open Question 2 |
-| Clarify steps 4 | step labels | [FOUNDER DECISION: copy] |
-| Rating sentences | the four in area c, verbatim | production (three), Open Question 8 (one) |
-| Composer "+" items | "Point", "Story" | [FOUNDER DECISION], Open Question 1 |
+| Turn action | "Clarity Ledger" | Decision 4 |
+| Reverse-story step label | to be set | [FOUNDER DECISION] |
+| Bob's reverse prediction | "How well do you believe this story represents {Alice}'s intended meaning?" | NEW, recommended |
+| Composer "+" items | "Point", "Story"; tooltip "Add a point, story, mention or emoji" | NEW, Decision 6 |
+| Account menu | "My Profile", "Partners", "Settings" | production labels |
+| App menu | "Chats", "Feed", "Groups", "Events", "Letters" | "Chats" NEW, rest production |
+| Strip label | "Feed, Groups and Events are the real pages, shown signed out." | NEW |
+| V8 strings kept | "Draft" (`DraftTag`), "Only visible to you" (`OnlyYou`), "Post" (`CARD_LINES.post`), "In the app this is {route}." (`QuietFrame`), "Close thread" / "Back to the conversation" (`SidePanel`), "Search everything", "Search is a mock in this prototype" (sidebar), "Opens its page in the app. Not part of this prototype." (`stake-cards.tsx:101`) | V8, listed for approval |
+| Not rendered | `AgentReplyView`, `PointPreview`, `WriteOwn`, `ChatCardView` and their `CARD_LINES` copy ("Pick one, or write your own:", "Edit", "How sure are you? {her} won't see this until she rates.", ...); "Previewing as" | excluded |
 
 ## Acceptance Criteria
 
-Checked at 1440 on a fresh session, fictional data, in a browser that is not signed in to the app.
+Checked at 1440, fresh session (intensity storage cleared), fictional data, browser not signed in to the app.
 
-- [ ] 1. **Reuse gate (adversarial).** A reviewer who did not build v10, given only the running
-      page and this spec's reuse map, lists every rendered element on every state of the main path
-      and its source. Any element not traceable to a row of the reuse map, or to an Open Question
-      the founder approved, fails the AC. The list and the verdict are attached to the spec.
-- [ ] 2. **Design consistency.** A second reviewer compares the signed-in shell, message rows, hover
-      and composer against the founder's references (Telegram chat list and bubbles, Slack hover
-      toolbar at top right with the whole row highlighted, Notion account row bottom left) and
-      reports each mismatch; every mismatch is fixed or recorded as a founder decision.
-- [ ] 3. **Blind walk.** A first-time user who has not seen v8, v9 or this spec walks the main path
-      (UX Notes) with one sentence of task; every point where they stop or ask is recorded with
-      the screen.
-- [ ] 4. **No v9 duplicate remains.** `find src/app/prototypes/v9` returns nothing except what the
-      founder kept under Open Question 9; `grep -rn "prototypes/v9" src` returns nothing.
-- [ ] 5. A point card in a chat, in Clarify and in the ledger is the same `FeedPointCard`: same tag
-      pills, same `...` menu, same `Details →`, same position row; the second tap on Agree opens
-      Somewhat Agree / Agree / Strongly Agree, and the chosen one shows as `Agree+` / `Agree−`.
-- [ ] 6. A story card in a chat and in the ledger is the same `FeedStoryCard`: avatar, name, time,
-      tags, linked points, `Details →`.
-- [ ] 7. Hovering a message highlights the whole message and shows the toolbar at its top right
-      with the agent's avatar and "Clarify"; no "with Mira" anywhere.
-- [ ] 8. Clarify shows 1 to 3 suggestions; no button reads "Edit the point"; taking any Agree level
-      moves to the story steps without another tap.
-- [ ] 9. Bob's story and reverse story are not readable in Alice's view before she answers; after
-      she answers, the ledger shows the gap with `CalibrationVerdict` on Bob's screen.
-- [ ] 10. Turning a point in the ledger shows `StatementRow` with both people's labels from
-      `compare-positions.ts`; no sentence appears that the reused components do not print.
-- [ ] 11. Signed out, v10 sends the visitor to the real `/feed` with today's header (Use cases, Book
-      a 15-min discovery call, Tools, Log in); nothing from v10 is drawn on it.
-- [ ] 12. Signed in, Feed, Groups and Events open the real pages inside the shell; Pledgers is not
-      reachable from the app menu; the account row bottom left shows a photo, not initials.
+- [ ] 1. **Reuse gate, code half.** (a) Every import under v10's files resolves to a path in the reuse map
+      or a v10 mock-data file. (b) `grep -rnE "<(button|input|textarea|select|label|ul|li|p|span|h[1-6])[ >]"`
+      over v10's files returns lines only in one named layout file. (c) At runtime, every point card carries
+      `data-card="point"` (`feed-point-card.tsx:359`) and their count equals the cards a person counts.
+      **Known-bad control:** copy `v9/shared/position-picker.tsx` into the v10 folder and render it; (a)
+      and (b) must fail. Both runs are attached.
+- [ ] 2. **Reuse gate, screen half.** A reviewer who did not build v10, given the running page and this
+      reuse map, lists every rendered element on every state of the main path with its source; any element
+      not traceable to a reuse-map row or an approved NEW row fails.
+- [ ] 3. **Design consistency.** A second reviewer compares shell, rows, hover and composer with
+      the founder's references (chosen chat style per Decision 1, Slack hover top right with the whole row
+      highlighted, Notion account row bottom left); each mismatch is fixed or recorded as a founder decision.
+- [ ] 4. **Blind walk.** A first-time user who has not seen v8, v9 or this spec walks the main path with a
+      one-sentence task; every stop or question is recorded with its screen.
+- [ ] 5. **No v9 left.** `find src/app/prototypes/v9` returns nothing; `grep -rn "prototypes/v9" src` returns nothing.
+- [ ] 6. A point card in a chat, in Clarify and in the ledger is the same `StakePoint` draft variant: same
+      tag pills, same position row, no `...` menu, no `Details →`; the second tap on Agree opens Somewhat
+      Agree / Agree / Strongly Agree, and the choice shows as `Agree+` / `Agree−` (pending Decision 7).
+- [ ] 7. A story card in a chat and in the ledger is the same `FeedStoryCard`: avatar, name, time, tags,
+      linked points.
+- [ ] 8. Hovering a message highlights the whole message and shows, at its top right, the agent's avatar and
+      "Clarify"; nothing shows without hover (pending Contradiction 1).
+- [ ] 9. Clarify opens beside the chat, Alice's chat stays visible, and Alice's view shows nothing from it
+      before Post. It holds 1 to 3 point cards; no button reads "Edit", "Edit the point" or "Post" inside a
+      suggestion and no text input sits in the agent's reply; after any Agree level the next step appears
+      under the same card, which stays live; each step has one primary action.
+- [ ] 10. In Alice's view, Bob's story and reverse story are not shown until she answers the point; each
+      story is readable before she rates it; Bob's guess and each prediction number appear only after she
+      commits the matching answer; Bob's view then shows `CalibrationVerdict` with `perspective="sender"`.
+- [ ] 11. Turning a point in the ledger shows `StatementRow` with both actual positions; turning an
+      unanswered story shows "Pending"; no sentence appears that a reused component does not print.
+- [ ] 12. Signed out goes to the real `/feed` with today's header; nothing from v10 is drawn on it.
+- [ ] 13. Signed in, Feed, Groups and Events open the real pages inside the shell; Pledgers is not
+      reachable inside the shell, including through links on those pages; the account row shows Bob's photo.
 
 ## Done-When
 
-- [ ] Every BLOCKING Open Question has the founder's answer written into this spec before the build
-      starts.
-- [ ] Typecheck and the prototype's unit tests pass with the v9 tests removed and the v8 tests
-      unchanged.
-- [ ] The reuse-gate list (AC 1) is attached, with `<reports received> of <reviewers spawned>`.
+- [ ] Decisions 1 to 5 are answered and written into this spec before the build starts.
+- [ ] Typecheck and unit tests pass with the v9 tests removed and the v8 tests unchanged.
+- [ ] AC 1 and AC 2 outputs are attached, with `<reports received> of <reviewers spawned>`.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Real pages inside the shell act with the browser's real session; a signed-in tester clicking a position on the real Feed writes to the database the dev server points at | MITIGATE | ACs run signed out; the strip says which pages are real. Which environment the dev server reads is UNVERIFIED |
-| `FeedPointCard`/`FeedStoryCard` under `mock` may still render something that reads the network (counts, linked content) | MITIGATE | The reuse gate (AC 1) and a network log during the walk |
-| The founder's lines contradict each other (16 rows); building before the BLOCKING answers rebuilds twice | MITIGATE | Done-When item 1 gates the build |
-| Reuse forces a look the founder does not like (e.g. `Agree+`, "point gap") | ACCEPT | That is a production copy question, raised as a founder decision, never patched in the prototype |
-| v10 and v8 drift again, two prototypes on one branch | DEFER | Unblocked by the URL decision (evolve v8 in place or keep both) |
+| Real pages act with the browser's real session; a signed-in tester's position click on the real Feed writes to the database the dev server points at | MITIGATE | ACs run signed out; strip label. Which database the dev server reads is UNVERIFIED |
+| `FeedPointCard` / `FeedStoryCard` under `mock` may still read the network (counts, linked content) | MITIGATE | Network log during AC 2 |
+| Building before Decisions 1 to 5 rebuilds twice | MITIGATE | Done-When item 1 |
+| Reuse forces a look the founder dislikes (`Agree+`, "point gap") | ACCEPT | Raised as production copy questions, never patched in the prototype |
+| Evolving v8 in place breaks its other paths | MITIGATE | v8 tests unchanged (Done-When) |
 
 **Non-Goals**
-- Do NOT change any production component, page or copy. The three places a change could be wanted
-  (stake tabs, agreement prefill, numeric reveal reader label) are Open Questions.
-- Do NOT add a component, wrapper or string that is not in the reuse map or an approved Open Question.
-- Do NOT build mobile layouts, rewind, predicted positions, WhatsApp, join flow or the helper (v8
-  keeps those on its own route).
-- Do NOT edit v8 files except by adding optional props that default to today's behaviour.
+- Do NOT change production components, pages or copy, except: optional prototype-only props that no
+  production caller passes (Decision 4 class), and the tab extraction if Decision 5 says yes.
+- Do NOT add a component, wrapper or string that is not in the reuse map, an approved NEW row or the UI Contract.
+- Do NOT render `AgentReplyView`, `PointPreview`, `WriteOwn` or `ChatCardView` in v10.
+- Do NOT build mobile layouts, rewind, gap scoring of guesses, WhatsApp, join flow or the helper.
+- Do NOT edit V8 files except by adding optional props whose defaults keep today's behaviour.
 
 ## Invariants
 
-- Positions are chosen only with the production `PositionButtons`, never a copy (founder, 2026-10-15).
-- Agents never score and never write for the other person; a mirror agent's role is always shown
-  (ruling 2026-10-12).
-- Story and reverse story stay sealed until the other person's blind answer (decided, P1484).
+- Positions are chosen only with production `PositionButtons`, never a copy.
+- Agents never score and never write for the other person; a mirror agent's role is always shown (ruling 2026-10-12).
+- Two seals: Bob's stories open for Alice only after her answer on the point; Bob's numbers and guess
+  open only after her matching answer. She reads a story before rating it.
 
 ## Rulings harvested
 
-- 2026-10-12 [product] "Alice in Bob's eyes" is a mental model; mirror agent shows its role.
-- 2026-10-12 [product] Clarity Chat loop and `clarity-chat` workstream.
-- 2026-10-02 [product] `/` goes to `/feed`; every landing carries one CTA, "Book a 15-min discovery call".
-- 2026-09-16 [product] The Links menu (Points / Letters / Tools) is on every product surface.
-- 2026-09-11 [product] A story behaves the same wherever it is read (P1296): one footer, clamp, share sheet.
+2026-10-12 [product] mental model and mirror-agent role · 2026-10-12 [product] Clarity Chat loop ·
+2026-10-02 [product] `/` to `/feed`, one CTA "Book a 15-min discovery call" · 2026-09-16 [product] Links
+menu on every product surface · 2026-09-11 [product] a story behaves the same wherever it is read (P1296).
 
 ## Related
 
 P1485 (v8, v9; `features/p1485_clarity_chat_v8_light_cards.md` on branch `feature/p1437-conversation-groups-v2`) ·
-[P1484](p1484_clarity_chat_letter_loop_v7.md) (letter loop, seal rules) ·
+[P1484](p1484_clarity_chat_letter_loop_v7.md) (letter loop, seals) ·
 [P1437](p1437_conversation_groups_agents_check_understanding.md) ·
 [P1459](p1459_clarity_chat_clarity_ledger.md) (ledger placeholder) ·
 [P1462](p1462_clarity_chat_left_menu.md) (left menu placeholder) ·
