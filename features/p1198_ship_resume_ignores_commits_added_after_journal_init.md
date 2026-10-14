@@ -43,11 +43,20 @@ shipped commit history.
 
 ## Solution
 
-Before the journal-replay loop in the `--resume` path, re-run `git log --reverse --format=%H
-main..${branch}` and diff against the journal's existing `source_sha` list. Any `source_sha` present
-in the fresh diff but absent from the journal gets appended (preserving branch order) via the same
-atomic-write helper the init path uses, with `landed_sha: null` so Phase 1's existing pending-commit
-loop picks it up naturally — no special-casing needed downstream.
+**Refuse-on-drift (founder decision 2026-10-14).** A ship lands only the commits its journal planned.
+`ship_branch_drift` compares `main..branch` with the journal; any commit on the branch that is not in
+the journal (`new`), or a journaled unlanded commit no longer on the branch (`gone`, a rewrite), stops
+the ship with exit 1, nothing picked by that step, branch and journal kept, the commits named, and the
+next step printed: nothing landed yet -> delete the journal and re-run a fresh `ship pN`; something
+landed -> move the new work to its own branch, point the branch back at its last journaled commit,
+finish with `--resume`, then ship the new work fresh. The journal is never appended to or rebuilt.
+The check runs under `main.lock` before anything reads the pending list, on `--resume` AND on a fresh
+ship (whose journal is written before the closure gates), again before the spec close, and before the
+branch delete, which is compare-and-swap (`git update-ref -d` against the checked tip).
+
+The original Solution (append new commits on `--resume`) was implemented and reviewed four times;
+every round found new HIGH defects in the append, re-plan and journal-rebuild paths (see Overnight
+status below), so the founder chose refusal instead.
 
 ## Risks / Non-Goals
 
@@ -59,29 +68,31 @@ loop picks it up naturally — no special-casing needed downstream.
 
 ## Done-When
 
-- [x] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
-      then a new commit lands on the branch before `--resume` runs, and `--resume` cherry-picks it
-      without manual intervention.
-      Evidence (2026-10-13, after the fix): `PASS: AD-a (P1198): --resume lands a commit added to the
-      branch after the journal was written`; also AD-b (the P1303 shape, every journaled commit
-      already landed), AD-c (rewritten branch refused, nothing picked), AD-d (commit added during a
-      fresh ship: branch kept, exit non-zero, then `--resume` lands it), AD-e (an appended merge of
-      main gets the `--mark-landed` recipe and converges). Full suite rc=0, 66 PASS lines.
-- [x] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
+- [ ] A `test-git-ops-ship.sh` canary reproduces the P1179 shape: journal created with N commits,
+      then a new commit lands on the branch before `--resume` runs, and `--resume` REFUSES (exit
+      non-zero, nothing picked, branch and journal kept) when the branch holds commits not in the
+      journal or was rewritten, naming them and telling the operator to finish/abort and re-run a
+      fresh `ship pN`. (Changed 2026-10-14 by founder decision from "--resume cherry-picks it without
+      manual intervention".)
+      Evidence (2026-10-14, refuse-on-drift): AD-a (P1179 shape; then the printed recipe converges),
+      AD-b (P1303 shape), AD-c (rewrite after a landing), AD-d (commit added during a fresh ship:
+      stopped before the spec close, then `--resume` refuses), AD-f (commit after the close), AD-g
+      (compare-and-swap branch delete), AD-h (rebase before any pick; the printed fresh re-run ships
+      it), AD-j/k/l (drift while `--resume` waits for main.lock), AD-m (drift after a fresh ship's
+      gates, refused before any pick). `test-git-ops-ship.sh` rc=0. Awaiting review.
+- [ ] The canary is watched fail first (epistemic gate 7) against the current `--resume` before the
       fix lands.
-      Evidence: the suite run against the unchanged `git-ops.sh` returned rc=1 with
-      `AD-a: expected 3 p210 commits on main (2 journaled + 1 added after the journal), got 2`,
-      `AD-b: ... got 1`, `AD-c: --resume exited 0 on a branch rewritten after the journal`,
-      `AD-d: Phase 3 deleted the branch while it held a commit the ship never landed (exit 0)`.
-      AD-e was added with the merge recipe. As a mutation control, a copy with only the two recipe
-      lines removed returned rc=1:
-      `AD-e: --resume appended a merge of main (exit 1) without printing its --mark-landed recipe`.
-- [x] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
+      Evidence (2026-10-14): the new AD section run against the append-on-resume code (branch HEAD
+      `2340e355e`) returned rc=1: `AD-a/AD-b/AD-d/AD-h: exited 0 on a branch that no longer matches
+      its journal`, `AD-m: refused (exit 1) but moved main — something was picked`. AD-c/f/g/j/k/l
+      (behaviour unchanged by the redesign) passed against both.
+- [ ] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
       superseded to point at the fix.
-      Evidence: a "Resolved by P1198 (2026-10-13)" paragraph was appended to that entry's Consequences.
+      Evidence: the "Resolved by P1198" paragraph in that entry's Consequences now describes
+      refuse-on-drift (2026-10-14).
 
 
-## Overnight status (2026-10-14) — NOT shipped; design decision needed
+## Overnight status (2026-10-14) — superseded: founder chose refuse-on-drift the same day
 
 Implemented on this branch and reviewed four times (Codex x3, /finish, Gemini). Each review round of the
 **append-on-resume** design found new HIGH defects in the code the previous round added:

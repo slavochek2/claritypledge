@@ -12815,19 +12815,19 @@ Until then, the manual recipe above (cherry-pick + hand-patch the journal JSON) 
 note it does NOT go through the journal's own atomic-write helper (`ship_pending_source_shas`/
 `ship_mark_landed`), so a mistake here is unguarded by the tool's own consistency checks.
 
-**Resolved by P1198 (2026-10-13) — the manual recipe above is obsolete.** `--resume` now re-diffs
-`main..branch` against the journal (`ship_branch_drift`) inside `main.lock`, before anything reads the
-pending list. Commits added after the journal are appended as pending (`ship_append_journal_commits`)
-and named in the output; a merge among them gets the `--mark-landed` recipe init prints. A branch
-**rewritten** after the journal is refused with nothing picked, unless no commit had landed yet, in
-which case the journal is re-planned from the branch as it is now. A commit added after a prior
-attempt already **closed the spec** is refused, because `--resume` skips the closure gate then and no
-gate would ever see it; the message says how to move it to its own branch. The fresh-run path checks
-the branch again before closing the spec and before deleting the branch, and the delete is
-compare-and-swap on the checked tip (`git update-ref -d`), so a commit landing mid-ship stops the
-ship non-zero instead of being dropped with exit 0 (the P1303 shape below, 2026-09-11 (4)). This
-picks up new commits rather than refusing on them, as P1198's Done-When asks; the 2026-09-11 entry's
-(c) proposed refusing. Canaries AD-a to AD-i in `scripts/test-git-ops-ship.sh`.
+**Resolved by P1198 (2026-10-14) — refuse-on-drift; the manual recipe above is obsolete.** A ship
+lands only the commits its journal planned. `ship_branch_drift` compares `main..branch` with the
+journal under `main.lock`, before anything reads the pending list, on `--resume` and on a fresh ship
+(whose journal is written before the closure gates), again before the spec close, and before the
+branch delete, which is compare-and-swap on the checked tip (`git update-ref -d`). Any commit not in
+the journal, or a journaled commit rewritten away, stops the ship non-zero with nothing picked, branch
+and journal kept, the commits named, and the next step printed (nothing landed: delete the journal and
+re-run a fresh `ship pN`; something landed: move the new work to its own branch, point the branch
+back, finish with `--resume`, ship the new work fresh). The journal is never appended to or rebuilt.
+Founder decision 2026-10-14, the 2026-09-11 entry's (c): the first implementation appended new
+commits on `--resume`, and three review rounds each found new HIGH defects in its append, re-plan and
+journal-rebuild paths (a `landed_sha: null` does not prove nothing landed; a recorded landing masked a
+rewrite). Canaries AD-a to AD-m in `scripts/test-git-ops-ship.sh`.
 
 **References:** `scripts/git-ops.sh:1399` (`ship_init_journal`), `:1533` (`ship_pending_source_shas`) ·
 `features/done/2026-06-10/p1179_event_room_links_menu_and_stake_surface.md` · CHECK 5 entries below

@@ -453,6 +453,9 @@ fi
 
 # G1b — interrupted embargoed ship; operator deletes the spec from the retained
 # branch, then stages it in the conflict resolution. --resume must refuse.
+# Since P1198 (refuse-on-drift, 2026-10-14) the "drop spec" commit is branch
+# drift, so --resume refuses before Phase 1 ever reads the staged resolution;
+# the staged-resolution refusal itself stays pinned by the scenario above.
 d="$(mk g1b)"; add_gated_stub "$d" p9104
 ( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
   && git checkout -q -b feature/p9104-x \
@@ -472,9 +475,9 @@ h0="$(git -C "$d" rev-parse main)"
 run "$d" ship p9104 --resume; rc2=$?
 if [[ $rc1 -ne 0 && $rc2 -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
    && ! in_main_history "$d" features/p9104_demo.md \
-   && grep -q "staged resolution adds or modifies an embargoed spec" "$SCRATCH/out.log" \
+   && grep -q "no longer matches this ship's journal" "$SCRATCH/out.log" \
    && [[ -z "$(git -C "$d" ls-tree -r --name-only feature/p9104-x -- features/p9104_demo.md)" ]]; then
-  pass "G1b: after the spec is deleted from the branch, --resume still refuses a staged embargoed spec (exit $rc2)"
+  pass "G1b: after the spec is deleted from the branch, --resume refuses (branch drift, P1198) and lands nothing (exit $rc2)"
 else
   fail "G1b: resume after branch-side delete (first $rc1, resume $rc2)"; show "$SCRATCH/out.log"
 fi
