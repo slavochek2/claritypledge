@@ -296,6 +296,32 @@ describe('P1480 CLI entry point and checker port guard', () => {
     expect(out).toBe('5300')
   })
 
+  // P1492: Playwright exports FORCE_COLOR to its webServer child (`npm run dev`), so it reached
+  // predev's check-worktree-env.sh -> `node worktree-port.mjs`. console.log(<number>) colours a
+  // number under FORCE_COLOR, the checker received "\e[33m5600\e[39m", failed its digits-only
+  // guard and refused to start the server. The CLI must print bare digits whatever the colour
+  // environment says — asserted byte-exact, not trimmed, so an escape code cannot hide.
+  for (const level of ['1', '2', '3']) {
+    it(`prints bare digits under FORCE_COLOR=${level}`, () => {
+      const out = execFileSync(process.execPath, [MODULE_PATH, '/repo/.claude/worktrees/w6'], {
+        env: { ...process.env, FORCE_COLOR: level },
+        encoding: 'utf8',
+      })
+      expect(JSON.stringify(out)).toBe(JSON.stringify('5600\n'))
+    })
+  }
+
+  it('check-worktree-env.sh accepts its port under FORCE_COLOR=1 (the Playwright webServer env)', () => {
+    const dir = makeCheckout(root, 'worktrees/w6')
+    const run = spawnSync('bash', [path.join(REPO_ROOT, 'scripts', 'check-worktree-env.sh')], {
+      cwd: dir,
+      env: { ...process.env, FORCE_COLOR: '1', CHECK_WORKTREE_ENV_PRINT_PORT: '1' },
+      encoding: 'utf8',
+    })
+    expect(run.status, `stdout=${run.stdout} stderr=${run.stderr}`).toBe(0)
+    expect(run.stdout).toBe('5600\n')
+  })
+
   // The checker must refuse to run on a port it could not compute: with an empty port its
   // `lsof -ti:` matched nothing and the zombie guard silently did nothing. A stub CLI stands in
   // for whatever broke the computation.

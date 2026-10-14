@@ -689,6 +689,53 @@ printf -- '---\ntype: task\n---\n# t\n\n> He said "fix it" and left.\n' > "$SCRA
 [[ "$(ig "$SCRATCH/e6.md")" == "1" ]] && pass "E6: a short quoted fragment does not satisfy the gate" \
                                       || fail "E6: a 6-char quote passed as verbatim framing"
 
+# E7-E9 (P1492): the neutral embargo stub that /create-bug step 4 commits to main. It carries
+# no intent by design — the real spec, with its framing, is withheld on the branch — and a
+# founder quote about a vulnerability in a PUBLIC stub is the leak the stub exists to avoid.
+# Body is create-bug.md's template verbatim, as committed for P1485-P1491.
+embargo_stub() { # embargo_stub <disclosure> <tags-line> <heading>
+  printf -- '---\nstatus: backlog\ntype: task\nrank: 1000111\n%s\ndisclosure: %s\ncreated_date: '"'"'2026-10-14'"'"'\n---\n%s\n\n' "$2" "$1" "$3"
+  printf 'This P-number is reserved for a spec under active security disclosure embargo.\n'
+  printf 'Details — including the affected component and the nature of the issue — are\n'
+  printf 'withheld until the underlying defect is confirmed fixed on production. This stub\n'
+  printf 'exists so the P-number sequence carries no gap.\n'
+}
+embargo_stub public 'tags: [disclosure-embargo]' '# P9490: Under disclosure embargo' > "$SCRATCH/e7.md"
+[[ "$(ig "$SCRATCH/e7.md")" == "0" ]] && pass "E7: /create-bug's neutral embargo stub passes with no founder quote" \
+                                      || fail "E7: the embargo stub template is refused (orchestrators hand-add a quote)"
+
+# The real embargoed spec (disclosure: embargo) is NOT exempt, even carrying the tag.
+embargo_stub embargo 'tags: [disclosure-embargo]' '# P9490: Under disclosure embargo' > "$SCRATCH/e8.md"
+[[ "$(ig "$SCRATCH/e8.md")" == "1" ]] && pass "E8: a disclosure: embargo spec is still gated (exemption is stub-only)" \
+                                      || fail "E8: the stub exemption leaked to a real embargoed spec"
+
+# The tag alone does not exempt an ordinary public spec: the stub's generic heading is required.
+embargo_stub public 'tags: [disclosure-embargo, infra]' '# P9490: Rotate the thing' > "$SCRATCH/e9.md"
+[[ "$(ig "$SCRATCH/e9.md")" == "1" ]] && pass "E9: tagging an ordinary spec disclosure-embargo does not skip the gate" \
+                                      || fail "E9: the tag alone exempted a non-stub spec"
+
+# E10 (Codex review): tag + stub heading on a REAL spec — substantive Problem and ACs below the
+# heading — must still be gated. Only the exact neutral shape is exempt.
+{ embargo_stub public 'tags: [disclosure-embargo]' '# P9490: Under disclosure embargo'
+  printf '\n## Problem\n\nThe join form accepts any session code and leaks whether it exists.\n'
+  printf '\n## Acceptance Criteria\n\n- [ ] Unknown codes and known codes return the same response.\n'
+} > "$SCRATCH/e10.md"
+[[ "$(ig "$SCRATCH/e10.md")" == "1" ]] && pass "E10: tag + stub heading + real Problem/ACs is still gated" \
+                                       || fail "E10: a substantive spec dressed as a stub skipped the gate"
+
+# E11: extra prose after the template body (no section, no checkbox) is not the stub either.
+{ embargo_stub public 'tags: [disclosure-embargo]' '# P9490: Under disclosure embargo'
+  printf '\nThe affected surface is the join form; fix lands next week.\n'
+} > "$SCRATCH/e11.md"
+[[ "$(ig "$SCRATCH/e11.md")" == "1" ]] && pass "E11: stub plus extra prose is gated (exact body only)" \
+                                       || fail "E11: extra prose after the stub body skipped the gate"
+
+# E12: the exact stub with trailing whitespace and extra blank lines still passes (format noise).
+embargo_stub public 'tags: [disclosure-embargo]' '# P9490: Under disclosure embargo' \
+  | sed '/^---$/!s/$/  /' > "$SCRATCH/e12.md"; printf '\n\n' >> "$SCRATCH/e12.md"
+[[ "$(ig "$SCRATCH/e12.md")" == "0" ]] && pass "E12: exact stub with trailing whitespace / blank lines passes" \
+                                       || fail "E12: whitespace noise broke the stub exemption"
+
 # ── F. Manual-close hook ────────────────────────────────────────────────────
 HOOK="$REPO_ROOT/.claude/hooks/block-manual-spec-close.py"
 hk() { printf '%s' "$1" | python3 "$HOOK" >/dev/null 2>&1; echo $?; }
@@ -1237,5 +1284,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3, I1-I23)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A5, B1-B4, C1, D1-D3, E1-E12, F1-F19, G1-G3, I1-I23)"
 exit 0

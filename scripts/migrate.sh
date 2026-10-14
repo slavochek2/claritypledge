@@ -41,6 +41,31 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+usage() {
+  cat <<'USAGE'
+Usage: ./scripts/migrate.sh [--env local|test|prod] [--yes]
+                            [--only <NNN_name.sql>... [--expect-sha <commit>]]
+       ./scripts/migrate.sh -h | --help
+
+  (no flags)          apply pending migrations to the test DB (.env.local)
+  --env test|local    same as no flags
+  --env prod          apply to prod (.env.prod); asks before applying
+  --yes               non-interactive ack of the printed pending list (prod)
+  --only FILE...      act on exactly these committed migration basenames (P1211)
+  --expect-sha SHA    with --only: the commit the listed files must match (default HEAD)
+  -h, --help          print this help and exit; touches nothing
+USAGE
+}
+
+# Any argument this script does not understand stops it HERE, before an env file is read or
+# a database is contacted. It used to be dropped silently (`*) shift`), so `migrate.sh --help`
+# ran a real apply against the test DB (P1492).
+usage_error() {
+  echo "ERROR: $1" >&2
+  usage >&2
+  exit 2
+}
+
 # --- Parse args ---
 # while/case (not for+shift): flags must parse identically in any order —
 # the old for-loop misparsed "--yes --env prod" into ENV_NAME="--env".
@@ -51,21 +76,38 @@ ONLY_FILES=()       # --only: basenames, the ONLY files this run may enumerate o
 EXPECT_SHA=""       # --only: the commit whose blobs the listed files must match
 while [ $# -gt 0 ]; do
   case "$1" in
-    --env)   shift; ENV_NAME="$1"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --env)
+      [ $# -ge 2 ] && [ "${2#-}" = "$2" ] || usage_error "--env needs a value (local, test or prod)."
+      ENV_NAME="$2"; shift 2 ;;
     --env=*) ENV_NAME="${1#--env=}"; shift ;;
     --yes)   YES_FLAG=true; shift ;;
     --only)
       ONLY_MODE=true
       shift
-      while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do
+      # Stop at anything flag-shaped (single dash too), so `--only A.sql -h` still reaches -h.
+      # Migration basenames start with a digit, never with "-".
+      while [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; do
+        [ -n "$1" ] || usage_error "--only got an empty file name."
         ONLY_FILES+=("$1")
         shift
       done
+      # An empty list is a usage error HERE — unless help follows, which still wins.
+      if [ ${#ONLY_FILES[@]} -eq 0 ] && [ "${1:-}" != "-h" ] && [ "${1:-}" != "--help" ]; then
+        usage_error "--only needs at least one migration basename."
+      fi
       ;;
-    --expect-sha) shift; EXPECT_SHA="${1:-}"; shift ;;
-    *)       shift ;;
+    --expect-sha)
+      # Non-empty too: `--expect-sha ""` used to fall through to the HEAD default silently.
+      [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#-}" = "$2" ] || usage_error "--expect-sha needs a commit."
+      EXPECT_SHA="$2"; shift 2 ;;
+    *) usage_error "unknown argument '$1'." ;;
   esac
 done
+case "$ENV_NAME" in
+  local|test|prod) ;;
+  *) usage_error "unknown --env '$ENV_NAME' (expected local, test or prod)." ;;
+esac
 
 # shellcheck source=lib/prod-ledger.sh
 source "$SCRIPT_DIR/lib/prod-ledger.sh"

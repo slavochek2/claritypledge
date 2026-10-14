@@ -50,6 +50,35 @@ case "$spec_type" in
     exit 0 ;;
 esac
 
+# Neutral embargo stub (P1492) — EXEMPT. /create-bug step 4 commits a placeholder to main
+# at features/pN_security-review-pending.md so the P-number sequence has no gap while the
+# real spec stays embargoed on its branch. The stub carries no intent BY DESIGN: the
+# framing lives in the withheld spec, and the founder's words about a vulnerability are
+# exactly what a PUBLIC stub must not contain. Before this, orchestrators hand-pasted a
+# generic quote into each stub to get past the gate — ceremony at best, a leak at worst.
+#
+# Keyed on content, not filename: pre-commit and the Write hook both hand this script a
+# temp copy, so the path is not available. All three must hold — the stub's own
+# `disclosure: public` (a real embargoed spec says `embargo` and is still gated), the
+# `disclosure-embargo` tag, and a body that IS the template: the generic heading followed
+# by exactly the template's fixed paragraph and nothing else (no sections, no checkboxes,
+# no extra prose — Codex review). Whitespace, blank lines and re-wrapping are tolerated;
+# any added content means it is a real spec and is gated. The tag alone exempts nothing.
+STUB_BODY='This P-number is reserved for a spec under active security disclosure embargo. Details — including the affected component and the nature of the issue — are withheld until the underlying defect is confirmed fixed on production. This stub exists so the P-number sequence carries no gap.'
+spec_disclosure="$(printf '%s\n' "$fm" | $GREP -m1 '^disclosure:' | sed 's/^disclosure:[[:space:]]*//; s/[[:space:]]*$//')"
+# Body after the frontmatter, blank lines dropped, trailing whitespace stripped.
+stub_lines="$(printf '%s\n' "$content" | awk 'NR==1 && $0=="---"{f=1;next} f==1 && $0=="---"{f=2;next} f==2{print}' \
+  | sed 's/[[:space:]]*$//' | $GREP -v '^$' || true)"
+stub_heading="${stub_lines%%$'\n'*}"   # first line, no pipeline (pipefail-safe)
+stub_rest="$(printf '%s\n' "$stub_lines" | tail -n +2 | tr '\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+if [[ "$spec_disclosure" == "public" ]] &&
+   printf '%s\n' "$fm" | $GREP -qE '^tags:.*(\[|,|[[:space:]])disclosure-embargo([],[:space:]]|$)' &&
+   printf '%s\n' "$stub_heading" | $GREP -qE '^# P[0-9]+: Under disclosure embargo$' &&
+   [[ "$stub_rest" == "$STUB_BODY" ]]; then
+  echo "spec-intent-gate: SKIP — neutral disclosure-embargo stub (its framing is in the withheld spec)."
+  exit 0
+fi
+
 # Explicit cold-start declaration. create-spec.md sanctions this case — "If the
 # conversation is empty (a cold /create-spec), say so in one clause" — so the
 # gate must too, or it would refuse legitimate work on day one.

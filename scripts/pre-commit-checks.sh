@@ -473,7 +473,7 @@ echo ""
 # security/npx). Proves the three prod gates hold: pending-list ack refusal,
 # requires-frontend coupling hard-block, mandatory post-migrate smoke — and
 # that test-env behavior stays unchanged.
-MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only|test-p1473-migration-client-safety)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
+MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only|test-p1473-migration-client-safety|test-p1492-migrate-args)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
 if [ -n "$MIGRATE_STAGED" ]; then
     if ! run_quiet "migrate.sh prod-gates canary (P887)" npx vitest run src/tests/p887-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
@@ -485,6 +485,10 @@ if [ -n "$MIGRATE_STAGED" ]; then
         fi
     else
         echo -e ">>> migrate.sh --only canary... ${RED}✗ scripts/test-p1211-migrate-only.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+    # P1492: unknown arguments / --help are refused before anything runs (no apply on a typo).
+    if ! run_quiet "migrate.sh argument canary (P1492)" bash scripts/test-p1492-migrate-args.sh; then
         ERRORS=$((ERRORS + 1))
     fi
     # P1473: client-safety gate arms (DROP FUNCTION, REVOKE FROM PUBLIC) against real migrations.

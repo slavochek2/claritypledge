@@ -93,6 +93,9 @@ function isEntryPoint() {
   }
 }
 
+// Written as a plain string, never console.log(<number>): Node colours a logged number when
+// FORCE_COLOR is set, and Playwright sets FORCE_COLOR for its webServer child, so the port
+// reached check-worktree-env.sh wrapped in ANSI codes and failed its digits-only guard (P1492).
 if (isEntryPoint()) {
-  console.log(worktreePort(process.argv[2] ?? process.cwd()));
+  process.stdout.write(`${worktreePort(process.argv[2] ?? process.cwd())}\n`);
 }
