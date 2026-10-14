@@ -60,8 +60,10 @@ Known limitations (epistemic gate 7b — the honest list; not fixed, by decision
     WITH GRANT OPTION / REVOKE GRANT OPTION FOR, and GRANTED BY are not modelled.
   - A half-revoke (one source revoked, the other still granted — P1066) is not an
     ordering problem and is not refused here.
-  - The annotation is file-wide per version: one `widens-revoked-grant: V` line
-    acknowledges every function in that file whose closing revoke was in V. Only a real
+  - The annotation is file-wide per version: one `widens-revoked-grant: V` line counts
+    for every function in that file that V helped hold closed. A re-grant is
+    acknowledged only when it cites EVERY revoke that held the role closed since it was
+    last open, not just the newest. Only a real
     `--` comment that starts its line counts (not text in a string, a /* */ comment or
     a dollar-quoted body).
   - Merges by cherry-pick. /ship lands commits with cherry-pick, which runs no hook, so
@@ -74,6 +76,15 @@ Known limitations (epistemic gate 7b — the honest list; not fixed, by decision
     and then edited to add a grant is therefore judged in filename order only.
   - Nested /* */ comments and E'' strings with backslash escapes are not parsed as
     Postgres does, for both statement parsing and annotation detection.
+  - Transaction control is refused, not modelled: a file with ROLLBACK / ROLLBACK TO /
+    SAVEPOINT / ABORT that also GRANTs or REVOKEs function EXECUTE fails closed unless
+    annotated `-- grant-order-transaction-control: <reason>` — after which its statements
+    are taken at face value. COMMIT and other transaction statements are not inspected.
+  - Generations: a DROP (or plain CREATE) of a matching overload ends the object, and the
+    invariant judges earlier re-grants within their own generation. A DROP of an
+    argument-less name ends every overload; CREATE OR REPLACE never does.
+  - Type identity drops typmods, so float(p) is always double precision (Postgres maps
+    float(1..24) to real), and only built-in alias spellings are unified.
   - Live state. A grant changed out of band never appears in migration text; the
     grant-drift check (scripts/function-grant-drift-check.py) owns that question.
 
@@ -152,6 +163,9 @@ TYPE_ALIASES = {
     "timestamptz": "timestamp with time zone", "timestamp without time zone": "timestamp",
     "timetz": "time with time zone", "time without time zone": "time",
     "decimal": "numeric", "char": "character", "bpchar": "character",
+    "char varying": "character varying", "national character varying": "character varying",
+    "national char varying": "character varying", "national character": "character",
+    "national char": "character", "nchar": "character", "varbit": "bit varying",
 }
 # The multi-word type names. A multi-word argument that is NOT one of these starts with
 # its name — including a name that is itself a type word: `time timestamptz` is an
@@ -166,6 +180,7 @@ BUILTIN_TYPES = {
     "text", "uuid", "integer", "bigint", "smallint", "boolean", "json", "jsonb", "numeric",
     "character varying", "character", "timestamp with time zone", "timestamp", "time",
     "time with time zone", "date", "double precision", "real", "bytea", "interval", "oid",
+    "bit varying",
 }
 ARG_MODES = {"in", "out", "inout", "variadic"}
 
@@ -217,8 +232,9 @@ def normalise_arg(arg):
     base = " ".join(re.sub(r"\([^)]*\)", " ", base).split())
     base = TYPE_ALIASES.get(base, base)
     if base.startswith("_") and TYPE_ALIASES.get(base[1:], base[1:]) in BUILTIN_TYPES:
-        base, brackets = TYPE_ALIASES.get(base[1:], base[1:]), brackets + "[]"
-    return base + brackets
+        base, brackets = TYPE_ALIASES.get(base[1:], base[1:]), "[]"
+    # Postgres does not distinguish array dimensions in a type: uuid[][] IS uuid[].
+    return base + ("[]" if brackets else "")
 
 
 def parse_function_ref(ref):
@@ -272,8 +288,9 @@ def label(role, source):
 def parse_events(code):
     """Yield (line, kind, (name, args), source|None) in statement order.
 
-    kind is 'grant', 'revoke' or 'reset' (DROP, or a plain CREATE: the object that
-    follows starts from default privileges, so nothing before it constrains it).
+    kind is 'grant', 'revoke', 'reset' (DROP, or a plain CREATE: the object that
+    follows starts from default privileges, so nothing before it constrains it), or
+    'txc' (ROLLBACK / ROLLBACK TO / SAVEPOINT / ABORT, outside comments and strings).
     """
     events, pos = [], 0
     for raw in code.split(";"):
@@ -281,6 +298,11 @@ def parse_events(code):
         pos += len(raw) + 1
         stmt = " ".join(raw.split())
         if not stmt:
+            continue
+        if re.match(r"^(?:ROLLBACK|SAVEPOINT|ABORT)\b", stmt, re.IGNORECASE):
+            # Recorded, never interpreted: a GRANT/REVOKE a ROLLBACK undoes would
+            # otherwise count as protection. See transaction_control_refusals.
+            events.append((stmt_line, "txc", (("", ""), None), None))
             continue
         for regex, kind in ((GRANT_RE, "grant"), (REVOKE_RE, "revoke")):
             m = regex.match(stmt)
@@ -307,14 +329,27 @@ def version(fname):
     return os.path.basename(fname)[:14]
 
 
-def annotation_versions(raw):
-    """Versions cited by `-- widens-revoked-grant: <version> <reason>` annotations.
+TXC_MARKER_RE = re.compile(r"^--[ \t]*grant-order-transaction-control:[ \t]*\S", re.IGNORECASE)
 
-    Only a real `--` comment that starts its line counts. The same text inside a string
-    literal, a /* */ comment or a dollar-quoted body (a DO block, a function) is not an
-    annotation, and matching the raw file let it acknowledge a widening.
+
+def annotation_versions(raw):
+    """Versions cited by `-- widens-revoked-grant: <version> <reason>` annotations."""
+    found = set()
+    for comment in real_comments(raw):
+        m = MARKER_RE.match(comment)
+        if m and m.group(2) and m.group(2).strip():
+            found.add(m.group(1))
+    return found
+
+
+def real_comments(raw):
+    """Every `--` comment that starts its line, as text.
+
+    Only these count as annotations. The same text inside a string literal, a /* */
+    comment or a dollar-quoted body (a DO block, a function) is not an annotation, and
+    matching the raw file let it acknowledge a widening.
     """
-    found, i, n = set(), 0, len(raw)
+    found, i, n = [], 0, len(raw)
     while i < n:
         c = raw[i]
         if raw.startswith("/*", i):
@@ -324,9 +359,7 @@ def annotation_versions(raw):
             j = raw.find("\n", i)
             j = n if j < 0 else j
             if not raw[raw.rfind("\n", 0, i) + 1:i].strip():
-                m = MARKER_RE.match(raw[i:j])
-                if m and m.group(2) and m.group(2).strip():
-                    found.add(m.group(1))
+                found.append(raw[i:j])
             i = j
         elif c in "'\"":
             j = i + 1
@@ -346,12 +379,23 @@ class Ledger:
     """Replays events in migration order. Holds, per function and grant SOURCE (anon,
     authenticated, PUBLIC), the latest GRANT/REVOKE and the file it came from."""
 
-    def __init__(self, state=None, seq=0):
+    def __init__(self, state=None, seq=0, closers=None):
         self.state = dict(state or {})   # (name, args, source) -> (kind, file, seq, position)
         self.seq = seq
+        # (name, args, source) -> every file that REVOKEd that source since it was last
+        # granted. An acknowledgement must cite each of them, not just the newest.
+        self.closers = dict(closers or {})
 
     def copy(self):
-        return Ledger(self.state, self.seq)
+        return Ledger(self.state, self.seq, self.closers)
+
+    def closing_revokes(self, name, args, role):
+        """Every revoke that has held this role closed since it was last open."""
+        files = set()
+        for k, v in self.closers.items():
+            if k[0] == name and k[2] in (role, "public") and (args is None or k[1] is None or k[1] == args):
+                files.update(v)
+        return files
 
     def _lookup(self, name, args, source):
         hits = [v for k, v in self.state.items() if k[0] == name and k[2] == source
@@ -383,11 +427,16 @@ class Ledger:
     def apply(self, fname, events, position):
         for _, kind, (name, args), source in events:
             self.seq += 1
+            if kind == "txc":
+                continue
             if kind == "reset":
                 for k in self._reset_keys(name, args):
                     del self.state[k]
+                    self.closers.pop(k, None)
             else:
-                self.state[(name, args, source)] = (kind, fname, self.seq, position)
+                key = (name, args, source)
+                self.state[key] = (kind, fname, self.seq, position)
+                self.closers[key] = (self.closers.get(key, ()) + (fname,)) if kind == "revoke" else ()
 
 
 def latest(evidence):
@@ -508,12 +557,28 @@ def analyse(order, parsed, snapshot=()):
                     seen.add((name, ov, role))
                     rsrc, (_, revoked_in, _, _) = latest(closed_by)
                     gsrc = latest([e for e in opened_by if e[1][1] == f] or opened_by)[0]
+                    # An acknowledgement covers only the revokes it cites (Codex
+                    # 2026-10-14): citing A must not exempt a different revoke Z that
+                    # also held this role closed.
+                    closing = before.closing_revokes(name, ov, role) or {revoked_in}
+                    uncited = sorted(c for c in closing if version(c) not in acked)
                     transitions.append({
                         "file": f, "position": position, "line": line, "function": name,
                         "args": ov, "role": role,
                         "granted_as": label(role, gsrc), "revoked_as": label(role, rsrc),
-                        "revoked_in": revoked_in, "acknowledged": version(revoked_in) in acked,
+                        "revoked_in": revoked_in, "closing": closing, "cited": acked,
+                        "uncited": uncited, "acknowledged": not uncited, "ended": False,
                     })
+        # Generations: a DROP (or plain CREATE) of a matching overload ends the object.
+        # Transitions before it are judged within it — the invariant must not refuse
+        # an old, since-closed restore because a NEW object of the same name is granted.
+        for line, kind, (name, args), _ in events:
+            if kind != "reset":
+                continue
+            for t in transitions:
+                if (t["function"] == name and (args is None or t["args"] == args)
+                        and (t["file"] != f or t["line"] < line)):
+                    t["ended"] = True
     return transitions, ledger, snapshots
 
 
@@ -531,9 +596,10 @@ def _refusals_in_order(order, target_names, parsed):
         if t["file"] in target_names and not t["acknowledged"]:
             refusals.append(
                 f"{t['file']}:{t['line']}: widens-revoked — GRANTs {t['granted_as']} EXECUTE on "
-                f"{fmt_fn(t['function'], t['args'])}, which {t['revoked_in']} revoked from "
-                f"{t['revoked_as']}. If that is intended, say so in this file:\n"
-                f"      -- widens-revoked-grant: {version(t['revoked_in'])} <why the revoke no longer holds>")
+                f"{fmt_fn(t['function'], t['args'])}, which {', '.join(t['uncited'])} revoked from "
+                f"{t['revoked_as']}. If that is intended, say so in this file, once per revoke:\n"
+                + "\n".join(f"      -- widens-revoked-grant: {version(u)} <why the revoke no longer holds>"
+                            for u in t["uncited"]))
 
     for f in sorted(target_names):
         seen = set()
@@ -553,9 +619,12 @@ def _refusals_in_order(order, target_names, parsed):
                 later = [e for e in opened_by if e[1][3] > position[f]]
                 if not is_open or not later:
                     continue
-                # An acknowledgement covers the revoke it names, for this function and role.
-                if any(t["acknowledged"] and t["position"] > position[f] and t["function"] == name
-                       and t["args"] == args and t["role"] == role for t in transitions):
+                # Exempt only when a later re-grant of this function and role cites EVERY
+                # revoke that held it closed, this one among them. Citing a different
+                # revoke exempts nothing (Codex 2026-10-14).
+                if any(t["position"] > position[f] and t["function"] == name and t["args"] == args
+                       and t["role"] == role and t["acknowledged"] and f in t["closing"]
+                       for t in transitions):
                     continue
                 gsrc, (_, gfile, _, _) = latest(later)
                 refusals.append(
@@ -606,14 +675,40 @@ def check_invariant(files, parsed):
     refusals, seen = [], set()
     for t in transitions:
         key = (t["function"], t["args"], t["role"])
-        if t["acknowledged"] or key in seen or not final.access(*key)[0]:
+        if t["acknowledged"] or t["ended"] or key in seen or not final.access(*key)[0]:
             continue
         seen.add(key)
         refusals.append(
             f"invariant — {t['file']}:{t['line']} GRANTs {t['granted_as']} EXECUTE on "
-            f"{fmt_fn(t['function'], t['args'])} back after {t['revoked_in']} revoked it, "
+            f"{fmt_fn(t['function'], t['args'])} back after {', '.join(t['uncited'])} revoked it, "
             f"unacknowledged, and nothing later revokes it again. Restore the re-assert, "
             f"or acknowledge the widening in {t['file']}.")
+    return refusals
+
+
+def transaction_control_refusals(files, parsed):
+    """Fail closed on transaction control the ledger cannot interpret.
+
+    `BEGIN; REVOKE ...; ROLLBACK;` leaves nothing revoked, yet the ledger would count
+    the revoke as protection. Rather than model savepoints, a file that both controls
+    transactions and GRANTs/REVOKEs function EXECUTE is refused unless it says why its
+    grants are unaffected (`-- grant-order-transaction-control: <reason>`). Every file
+    in the corpus is checked: the analysis of a staged file depends on all of them.
+    On 2026-10-14 no migration in the repo contained such a statement.
+    """
+    refusals = []
+    for f in files:
+        raw, events = parsed[f]
+        txc = [e[0] for e in events if e[1] == "txc"]
+        if not txc or not any(e[1] in ("grant", "revoke") for e in events):
+            continue
+        if any(TXC_MARKER_RE.match(c) for c in real_comments(raw)):
+            continue
+        refusals.append(
+            f"{f}:{txc[0]}: unsupported transaction control — ROLLBACK / SAVEPOINT in a migration "
+            f"that GRANTs or REVOKEs function EXECUTE; this check cannot tell which grants survive. "
+            f"Restructure, or annotate:\n"
+            f"      -- grant-order-transaction-control: <why the grants and revokes are unaffected>")
     return refusals
 
 
@@ -654,7 +749,8 @@ def main():
                       f"  [{'acknowledged' if t['acknowledged'] else 'UNACKNOWLEDGED'}; final: {now}]")
             return 0
         pending = index_added(dir_path) if args.index else None
-        refusals = check_files(args.files, files, parsed, pending) if args.files else []
+        refusals = transaction_control_refusals(files, parsed)
+        refusals += check_files(args.files, files, parsed, pending) if args.files else []
         if args.invariant:
             refusals += check_invariant(files, parsed)
     except (OSError, UnicodeDecodeError, CannotRun) as exc:

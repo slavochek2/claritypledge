@@ -493,6 +493,74 @@ code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.o(uuid) FROM
 check("4d: a newer grant on another overload does not hide o(uuid)'s revoke", code == 1, out + err)
 
 # ---------------------------------------------------------------------------
+print("\nRound 6 (Codex 2026-10-14)")
+ACK_A = "-- widens-revoked-grant: 20260101000000 reopened on purpose (P9)\n"
+Z = "20251231000000_z.sql"
+
+# 1. An acknowledgement covers only the revoke it cites. A NEW revoke dated before A is
+# re-opened by B on replay, and B never cited it.
+root, d = git_repo({A: REVOKE_AUTH, B: ACK_A + GRANT_AUTH}, stage=[A, B])
+commit_all(root)
+with open(os.path.join(d, Z), "w") as fh:
+    fh.write(REVOKE_AUTH)
+git(root, "add", f"supabase/migrations/{Z}")
+code, out, err = run_gate(d, Z, invariant=True)
+check("6.1: an acknowledgement of A does not exempt a different, earlier revoke",
+      code == 1 and "20251231000000" in out, out + err)
+root, d = git_repo({A: REVOKE_AUTH,
+                    B: "-- widens-revoked-grant: 20251231000000 also this one (P9)\n" + ACK_A + GRANT_AUTH,
+                    Z: REVOKE_AUTH}, stage=[A, B, Z])
+code, out, err = run_gate(d, Z, invariant=True)
+check("6.1 ACCEPT: citing both revokes covers both", code == 0, out + err)
+
+# 2. Equivalent type spellings.
+for revoked, granted in (("uuid[]", "uuid[][]"), ("character varying", "char varying"),
+                         ("varchar", "national character varying"), ("varbit", "bit varying"),
+                         ("int2[]", "smallint[][]")):
+    code, out, err = run(mig_dir({A: f"REVOKE EXECUTE ON FUNCTION public.f({revoked}) FROM anon;\n",
+                                  B: f"GRANT EXECUTE ON FUNCTION public.f({granted}) TO anon;\n"}), B)
+    check(f"6.2: {granted} is the same type as {revoked}", code == 1, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(character varying) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(character) TO anon;\n"}), B)
+check("6.2 ACCEPT: character is not character varying", code == 0, out + err)
+
+# 3. Transaction control: a rolled-back revoke must not count as protection. Fail closed.
+TX = f"BEGIN;\n{REVOKE_AUTH}ROLLBACK;\n"
+code, out, err = run(mig_dir({A: TX, B: GRANT_AUTH}), A)
+check("6.3: ROLLBACK in a file that revokes is refused as unsupported transaction control",
+      code == 1 and "unsupported transaction control" in out, out + err)
+code, out, err = run(mig_dir({A: REVOKE_AUTH, B: f"SAVEPOINT s;\n{GRANT_AUTH}ROLLBACK TO s;\n"}), A)
+check("6.3: a SAVEPOINT / ROLLBACK TO in a corpus file the analysis depends on is refused",
+      code == 1 and "unsupported transaction control" in out, out + err)
+code, out, err = run(mig_dir({A: "-- grant-order-transaction-control: reviewed, the revoke is outside the rolled-back part\n"
+                                 + REVOKE_AUTH + "BEGIN;\nSELECT 1;\nROLLBACK;\n"}), A)
+check("6.3 ACCEPT: annotated transaction control", code == 0, out + err)
+code, out, err = run(mig_dir({A: REVOKE_AUTH + "-- ROLLBACK;\nSELECT 'ROLLBACK;';\n"
+                                 "DO $$ BEGIN ROLLBACK; END $$;\n"}), A)
+check("6.3 ACCEPT: ROLLBACK in a comment, a literal or a body is not transaction control",
+      code == 0, out + err)
+code, out, err = run(mig_dir({A: REVOKE_AUTH, B: "SAVEPOINT s;\nSELECT 1;\nROLLBACK TO s;\n"}), A)
+check("6.3 ACCEPT: transaction control in a file with no function GRANT/REVOKE", code == 0, out + err)
+
+# 4. Generations: a DROP of the same overload ends the object; transitions before it are
+# judged within it, so the invariant no longer refuses an old, since re-asserted restore.
+HIST = {A: REVOKE_AUTH, B: GRANT_AUTH, C: REVOKE_AUTH}
+RECREATE = (f"DROP FUNCTION {FN};\nCREATE FUNCTION {FN} RETURNS void LANGUAGE sql AS $$ select 1 $$;\n"
+            + GRANT_AUTH)
+D4 = "20260104000000_d.sql"
+root, d = git_repo(HIST, stage=list(HIST))
+commit_all(root)
+with open(os.path.join(d, D4), "w") as fh:
+    fh.write(RECREATE)
+git(root, "add", f"supabase/migrations/{D4}")
+code, out, err = run_gate(d, D4, invariant=True)
+check("6.4 ACCEPT: drop + recreate + grant after an old re-asserted restore", code == 0, out + err)
+root, d = git_repo({A: REVOKE_AUTH, B: GRANT_AUTH,
+                    D4: "DROP FUNCTION public.widget_write(text);\n"}, stage=[A, B, D4])
+code, out, err = run_gate(d, D4, invariant=True)
+check("6.4: dropping a DIFFERENT overload does not end the generation", code == 1, out + err)
+
+# ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")
 INCIDENT_RESTORE = "20260818140000_p1065_restore_authenticated_grant_persist_anonymous_completion.sql"
 INCIDENT_REVOKE = "20260818090000_p1093_close_unchecked_payload_writer.sql"
