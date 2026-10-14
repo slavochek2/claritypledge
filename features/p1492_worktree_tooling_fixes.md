@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tooling, worktrees, migrations, spec-gates]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1492: Three dev-tooling bugs every agent hit today (worktree e2e port, migrate.sh arguments, embargo stub gate)
