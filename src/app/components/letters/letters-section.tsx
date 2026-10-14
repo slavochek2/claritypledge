@@ -168,7 +168,7 @@ export function ReceivedLettersSection({ userId }: ReceivedLettersSectionProps) 
             </div>
             <LetterStatusBadge status={del.status} />
             <Link
-              to={`/letter/${del.id}?token=${del.invitation_token}`}
+              to={`/letter/${del.id}`}
               className="text-xs text-blue-600 hover:underline flex-shrink-0"
             >
               {del.status === 'completed' ? 'View' : 'Read'}

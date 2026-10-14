@@ -1,20 +1,20 @@
 /**
  * @file create-and-sign/index.ts
- * @description P527: Server-side user creation + agreement acceptance for new users.
+ * @description P527 (retired by P1487): validates an agreement invitation, then refuses.
  *
- * Accepts { agreementId, token, partnerName } — NO email from client.
- * Derives partner_email from the agreement row (security: email pinning).
+ * Accepts { agreementId, token, partnerName, termsVersion } — NO email from client.
  *
- * Flow: validate agreement -> check existing user -> create auth user ->
- *       create profile -> accept agreement -> generate session -> notify creator.
+ * Until P1487 this created a confirmed account at the partner's address, signed the agreement
+ * and returned a sign-in credential to whoever presented the token. It now creates nothing:
+ * after the same validation it answers USER_EXISTS (an account already exists) or
+ * MAILBOX_REQUIRED. Either way the partner continues through a sign-in link sent to their
+ * own address, which the accept page already offers. Kept deployed so that a client still
+ * calling it gets a refusal it falls back from, rather than a 404.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
-
-const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
 const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
 type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
@@ -28,61 +28,6 @@ function jsonResponse(body: Record<string, unknown>, status: number, cors: Recor
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   });
-}
-
-/** Generate a URL-safe slug from a name (mirrors src/app/data/api.ts generateSlug) */
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/--+/g, '-');
-}
-
-const INTERNAL_FN_SECRET = Deno.env.get('INTERNAL_FN_SECRET') ?? '';
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-
-/**
- * P1178: notify the creator that their agreement was co-signed.
- *
- * Fire-and-forget by design — the agreement is already sealed and the signer must
- * not wait on Mailgun — but no longer silent. Before this fix the call sent the
- * service-role key as the Bearer token; send-agreement-emails resolved that header
- * with auth.getUser(), found no user, and returned 401, which a bare .catch() threw
- * away. The email had not sent since 2026-04-03.
- *
- * Authorization/apikey now carry the anon key purely to clear the gateway's
- * verify_jwt check — no database key leaves this function. The caller's identity is
- * proven by INTERNAL_FN_SECRET, matching the WEBHOOK_SECRET / CRON_SECRET /
- * GCS_UPLOAD_SECRET pattern already used elsewhere in supabase/functions.
- *
- * Edge functions have no Sentry wired up; the read path for these logs is the
- * Supabase dashboard, so failures carry the greppable P1178-DIAG marker.
- */
-function notifyCreator(supabaseUrl: string, agreementId: string): void {
-  if (!INTERNAL_FN_SECRET) {
-    console.error(`[create-and-sign] P1178-DIAG notify skipped: INTERNAL_FN_SECRET not configured, agreement=${agreementId}`);
-    return;
-  }
-
-  fetch(`${supabaseUrl}/functions/v1/send-agreement-emails`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      'x-internal-secret': INTERNAL_FN_SECRET,
-    },
-    body: JSON.stringify({ action: 'accepted', agreementId }),
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        const body = await res.text().catch(() => '<body unreadable>');
-        console.error(`[create-and-sign] P1178-DIAG notify failed: HTTP ${res.status} agreement=${agreementId} body=${body.slice(0, 300)}`);
-      }
-    })
-    .catch((err) => console.error(`[create-and-sign] P1178-DIAG notify failed: agreement=${agreementId}`, err));
 }
 
 serve(async (req: Request) => {
@@ -101,12 +46,6 @@ serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
-    if (!ipHashSecret) {
-      console.error('[create-and-sign] IP_HASH_SECRET not configured');
-      return jsonResponse({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }, 500, corsHeaders);
-    }
 
     const { agreementId, token, partnerName, termsVersion } = await req.json() as {
       agreementId?: string;
@@ -128,8 +67,6 @@ serve(async (req: Request) => {
         corsHeaders,
       );
     }
-
-    const trimmedName = partnerName.trim().slice(0, 100);
 
     // Validate UUID format for agreementId
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -190,128 +127,19 @@ serve(async (req: Request) => {
       return jsonResponse({ error: 'USER_EXISTS', message: 'User already exists' }, 409, corsHeaders);
     }
 
-    // ── Create auth user ──────────────────────────────────────────────────
+    // ── No account is created here (P1487) ───────────────────────────────
+    // The invitation token is not proof of owning the partner's mailbox — the creator can read
+    // it, and anyone the link is forwarded to holds it. So this function no longer creates an
+    // account, signs the agreement, or returns a sign-in credential. The partner signs in
+    // through a link sent to their own address (the accept page's email sign-in), and signs
+    // the agreement once signed in. An older client reading this refusal falls back to that
+    // email path on its own.
 
-    const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-
-    const { data: authData, error: createError } = await supabase.auth.admin.createUser({
-      email: partnerEmail,
-      email_confirm: true,
-      user_metadata: { name: trimmedName, avatar_color: avatarColor },
-    });
-
-    if (createError || !authData.user) {
-      console.error('[create-and-sign] createUser failed:', createError?.message);
-      return jsonResponse({ error: 'CREATE_FAILED', message: 'Sign-up failed' }, 500, corsHeaders);
-    }
-
-    const newUserId = authData.user.id;
-
-    // ── Generate unique slug ──────────────────────────────────────────────
-
-    let slug = generateSlug(trimmedName) || `user-${Date.now()}`;
-
-    const { data: slugConflict } = await supabase
-      .from('profiles')
-      .select('slug')
-      .eq('slug', slug)
-      .maybeSingle();
-
-    if (slugConflict) {
-      // Append counter to make unique
-      for (let i = 2; i <= 100; i++) {
-        const candidate = `${slug}-${i}`;
-        const { data: conflict } = await supabase
-          .from('profiles')
-          .select('slug')
-          .eq('slug', candidate)
-          .maybeSingle();
-        if (!conflict) {
-          slug = candidate;
-          break;
-        }
-      }
-    }
-
-    // ── Create profile ────────────────────────────────────────────────────
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: newUserId,
-        email: partnerEmail,
-        name: trimmedName,
-        slug,
-        avatar_color: avatarColor,
-        is_verified: true,
-        has_pledged: false,
-        accepted_terms_version: termsVersion,
-        pledge_version: 2,
-      });
-
-    if (profileError) {
-      console.error('[create-and-sign] profile insert failed:', profileError.message);
-      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Sign-up failed' }, 500, corsHeaders);
-    }
-
-    // ── Record terms acceptance audit row ─────────────────────────────────
-
-    const clientIp = extractClientIp(req);
-    const userAgent = req.headers.get('user-agent') ?? 'unknown';
-    const ipHash = await hashIp(clientIp, ipHashSecret);
-
-    const { error: acceptError } = await supabase.from('terms_acceptances').insert({
-      user_id: newUserId,
-      terms_version: termsVersion,
-      ip_hash: ipHash,
-      user_agent: userAgent,
-    });
-    if (acceptError && acceptError.code !== '23505') {
-      console.error('[create-and-sign] terms_acceptances insert failed:', acceptError.message);
-    }
-
-    // ── Accept agreement via RPC ──────────────────────────────────────────
-
-    const { data: accepted, error: rpcError } = await supabase.rpc('accept_agreement', {
-      p_agreement_id: agreementId,
-      p_token: token,
-      p_partner_id: newUserId,
-      p_partner_display_name: trimmedName,
-    });
-
-    if (rpcError || !accepted) {
-      console.error('[create-and-sign] accept_agreement failed:', rpcError?.message);
-      // User+profile created but agreement not accepted — client fallback handles this
-      return jsonResponse({ error: 'ACCEPT_FAILED', message: 'Agreement signing failed' }, 500, corsHeaders);
-    }
-
-    // ── Generate session token ────────────────────────────────────────────
-
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: partnerEmail,
-    });
-
-    if (linkError || !linkData?.properties?.hashed_token) {
-      console.error('[create-and-sign] generateLink failed:', linkError?.message);
-      // Agreement is accepted but session generation failed — client can still log in via OTP
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Signed but session creation failed' }, 500, corsHeaders);
-    }
-
-    const hashedToken = linkData.properties.hashed_token;
-
-    // ── Fire-and-forget: notify creator ───────────────────────────────────
-
-    // Trigger send-agreement-emails with action 'accepted' — the ONLY email trigger for this flow
-    notifyCreator(supabaseUrl, agreementId);
-
-    // ── Success ───────────────────────────────────────────────────────────
-
-    return jsonResponse({
-      ok: true,
-      hashedToken,
-      redirectTo: `/agreements/${agreementId}`,
-    }, 200, corsHeaders);
+    return jsonResponse(
+      { error: 'MAILBOX_REQUIRED', message: 'Sign in with a link sent to your email to sign this agreement.' },
+      403,
+      corsHeaders,
+    );
 
   } catch (err) {
     console.error('[create-and-sign] Unexpected error:', err);

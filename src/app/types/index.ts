@@ -1593,7 +1593,11 @@ export interface LetterDelivery {
   receiver_name: string | null;
   /** P725: public handle of the receiver profile (null when anonymous link_respondent) */
   receiver_slug?: string | null;
-  invitation_token: string;
+  /**
+   * P1487: not client-readable — the table grant omits it, so rows read under RLS never carry
+   * it. Present only on rows read with the service role (edge functions, tests).
+   */
+  invitation_token?: string;
   /**
    * P1071: RPC-only verdict field. Present ONLY on deliveries sourced from
    * `get_letter_for_reading` (the anon token RPC), which redacts `receiver_email`

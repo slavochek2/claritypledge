@@ -23,7 +23,6 @@ import { triggerConfetti } from '@/lib/confetti';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -365,7 +364,10 @@ export function AcceptAgreementPage() {
     }
   };
 
-  // P527: Direct sign for new users — server-side user creation + agreement acceptance
+  // P527 → P1487: "sign" for a partner without a session. The invitation token is not proof of
+  // owning the partner's mailbox (the creator can read it), so it never creates an account or
+  // a session here. The partner gets a sign-in link at the invited address; on return, signed
+  // in, the stored intent auto-accepts the agreement (see the auto-accept effect above).
   const handleDirectSign = async () => {
     if (!agreement || !agreementId) return;
     if (!partnerDisplayName.trim()) {
@@ -377,67 +379,11 @@ export function AcceptAgreementPage() {
       return;
     }
     setNameError(null);
-    setIsSigningUp(true);
     analytics.track('agreement_direct_sign_started', { agreement_id: agreementId });
-    try {
-      const { data, error } = await supabase.functions.invoke('create-and-sign', {
-        body: {
-          agreementId,
-          token,
-          partnerName: partnerDisplayName.trim(),
-          termsVersion: CURRENT_TERMS_VERSION,
-        },
-      });
-
-      if (error || !data?.ok || !data?.hashedToken) {
-        // Check if this is a USER_EXISTS error — don't fall back, show appropriate message
-        if (data?.error === 'USER_EXISTS') {
-          analytics.track('agreement_direct_sign_user_exists', { agreement_id: agreementId });
-          // Fall through to existing user sign-in flow
-          await handleExistingUserSignIn();
-          return;
-        }
-        // For all other errors, fall back to OTP flow
-        console.warn('[P527] Direct sign failed, falling back to OTP:', error?.message || data?.error);
-        analytics.track('agreement_direct_sign_fallback', { agreement_id: agreementId, error: data?.error || error?.message });
-        await handleInlineSignup();
-        return;
-      }
-
-      // Exchange hashed token for a session
-      const { error: otpError } = await supabase.auth.verifyOtp({
-        token_hash: data.hashedToken,
-        type: 'magiclink',
-      });
-
-      if (otpError) {
-        console.error('[P527] verifyOtp failed:', otpError.message);
-        analytics.track('agreement_direct_sign_session_failed', { agreement_id: agreementId });
-        // Agreement is already accepted server-side; navigate to it anyway
-        // User may need to log in separately, but the agreement is signed
-        toast.success('Agreement sealed! You may need to log in to view it.');
-        navigate(`/agreements/${agreementId}`, { replace: true });
-        return;
-      }
-
-      // Success — session established, agreement accepted, email sent by edge function
-      analytics.track('agreement_direct_sign_success', { agreement_id: agreementId });
-      triggerConfetti();
-      toast.success(`Agreement Sealed — your Clarity Partner Agreement is now active.`);
-
-      // Clean up token from URL (security: prevent token leakage)
-      // P1364: keep react-router's { key, idx } — a null state left Back with no history index.
-      window.history.replaceState(window.history.state, '', window.location.pathname);
-
-      // Do NOT fire invokeAgreementEmails — the edge function already did
-      navigate(`/agreements/${agreementId}`, { replace: true });
-    } catch (err) {
-      console.error('[P527] Direct sign error:', err);
-      analytics.track('agreement_direct_sign_error', { agreement_id: agreementId });
-      // Fall back to existing OTP flow
+    if (existingPartner) {
+      await handleExistingUserSignIn();
+    } else {
       await handleInlineSignup();
-    } finally {
-      setIsSigningUp(false);
     }
   };
 
@@ -580,7 +526,7 @@ export function AcceptAgreementPage() {
                         {isSigningUp ? (
                           <span className="flex items-center justify-center gap-2">
                             <Loader2Icon className="w-5 h-5 animate-spin" />
-                            Sealing...
+                            Sending sign-in link...
                           </span>
                         ) : (
                           <span className="flex items-center justify-center gap-2">

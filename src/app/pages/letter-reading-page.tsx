@@ -23,6 +23,7 @@ import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
+import { LetterCheckEmail } from '@/app/components/letters/letter-check-email';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
@@ -127,6 +128,9 @@ export function LetterReadingPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authDelayed, setAuthDelayed] = useState(false);
   const authDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // P1487: a recipient with no account gets a sign-in link by email instead of a session.
+  // `mailboxSends` counts successful sends: 1 → "check your email", 2+ → "new link sent".
+  const [mailboxSends, setMailboxSends] = useState(0);
 
   // Author interception: when sender opens own letter, tracks which state to restore on Preview
   const [previewState, setPreviewState] = useState<'ready' | 'ready_public' | null>(null);
@@ -602,7 +606,8 @@ export function LetterReadingPage() {
     );
   }, [currentUser?.id, token, delivery?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp
+  // 1-to-1 open handler: calls create-and-open-letter. A recipient without an account is emailed
+  // a sign-in link (P1487); one with an account is sent to sign in (P1446). Never a session here.
   const handleOneToOneOpen = useCallback(async () => {
     if (!token || !delivery) return;
 
@@ -632,45 +637,22 @@ export function LetterReadingPage() {
         if (!serverMessage && fnError instanceof FunctionsHttpError) {
           try {
             const body = await (fnError.context as Response).clone().json();
-            serverMessage = body?.message;
+            // P1487: the mail rate limiter (429) answers with `error`, not `message`.
+            serverMessage = body?.message ?? body?.error;
           } catch { /* body not JSON — keep fallback */ }
         }
         const friendlyFallback = "Something went wrong opening this letter. Please try again, or contact us if it keeps happening.";
         throw new Error(serverMessage || friendlyFallback);
       }
 
-      if (result.hashedToken) {
-        // Instant auth via verifyOtp
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: result.hashedToken,
-          type: 'magiclink',
-        });
-
-        if (otpError) {
-          console.warn('[letter-reading] verifyOtp failed:', otpError.message);
-          setConsentError("We couldn't sign you in automatically. Please try again in a moment.");
-          setIsAuthenticating(false);
-          setAuthDelayed(false);
-          if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
-          return;
-        }
-
-        // Auth succeeded
+      if (result.checkEmail) {
+        // P1487: the token is not proof of owning the recipient's mailbox, so it never yields a
+        // session. The server emailed a one-time sign-in link to the recipient's address; opening
+        // it creates the account and returns here signed in. Nothing to verify on this side.
         if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
         setAuthDelayed(false);
-
-        updateDeliveryStatusByToken(token, 'opened').catch(() => {});
-
-        analytics.track('letter_opened', {
-          delivery_id: delivery.id,
-          letter_id: letter?.id,
-          mode: letter?.mode,
-          story_count: snapshots.length,
-          auth_method: 'create-and-open-letter',
-        });
-
         setIsAuthenticating(false);
-        setViewState('reading');
+        setMailboxSends((n) => n + 1);
       } else if (result.signInRequired) {
         // P1446: the recipient's account already exists, and the token is not proof of being
         // it — they sign in, then land on the letter by its delivery id.
@@ -678,7 +660,8 @@ export function LetterReadingPage() {
         setIsAuthenticating(false);
         navigate(`/login?redirect=${encodeURIComponent(result.redirectTo)}`, { replace: true });
       } else {
-        // No hashedToken — delivery was already linked, just proceed
+        // Neither shape: a server from before P1487 (deploy window). Read on by token, signed
+        // out. A credential in the response is deliberately never used (P1487).
         if (authDelayTimerRef.current) clearTimeout(authDelayTimerRef.current);
         updateDeliveryStatusByToken(token, 'opened').catch(() => {});
         setIsAuthenticating(false);
@@ -697,7 +680,7 @@ export function LetterReadingPage() {
           : 'Something went wrong. Please try again.';
       setConsentError(message);
     }
-  }, [token, delivery, letter, snapshots.length, navigate]);
+  }, [token, delivery, navigate]);
 
   // P683: check stale terms for authenticated users before opening
   useEffect(() => {
@@ -1088,6 +1071,22 @@ export function LetterReadingPage() {
         priorPositions={priorPositions}
         onComplete={() => setViewState('complete')}
       />
+    );
+  }
+
+  // P1487: the sign-in link went to the recipient's mailbox — wait for it there, signed out.
+  // Gated on !currentUser so a session arriving in this tab (link opened here) shows the letter.
+  if (mailboxSends > 0 && !currentUser && viewState === 'cover') {
+    return (
+      <CertificatePageShell className="min-h-screen py-6">
+        <LetterCheckEmail
+          senderName={senderName}
+          onResend={handleOneToOneOpen}
+          isResending={isAuthenticating}
+          resent={mailboxSends > 1}
+          errorMessage={consentError}
+        />
+      </CertificatePageShell>
     );
   }
 

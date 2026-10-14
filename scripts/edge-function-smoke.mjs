@@ -70,8 +70,8 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
-  // Deployed --no-verify-jwt (anonymous invitees exchange a signed token for a
-  // session), so the deny reply is the HANDLER's input validation, not the
+  // Deployed --no-verify-jwt (anonymous invitees reach it before they have an account; since
+  // P1487 it validates the invitation and refuses — it no longer mints a session), so the deny reply is the HANDLER's input validation, not the
   // gateway's. That makes this the one function whose deny path is also a boot
   // proof.
   'create-and-sign': {

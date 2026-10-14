@@ -24,6 +24,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { predictionsForMode } from '@/app/utils/letter-prediction-policy';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { DELIVERY_COLUMNS } from './letter-delivery-columns';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -174,7 +175,7 @@ export async function getLetterForReading(
   if (deliveryId) {
     const { data: deliveryData, error: deliveryError } = await supabase
       .from('letter_deliveries')
-      .select('*')
+      .select(DELIVERY_COLUMNS)
       .eq('id', deliveryId)
       .single();
 
@@ -276,7 +277,7 @@ export async function getLetterForSender(
       .order('position', { ascending: true }),
     supabase
       .from('letter_deliveries')
-      .select('*')
+      .select(DELIVERY_COLUMNS)
       .eq('letter_id', letterId)
       .order('created_at', { ascending: true }),
     supabase
@@ -620,7 +621,7 @@ export async function getDeliveriesForLetter(letterId: string): Promise<LetterDe
 
   const { data, error } = await supabase
     .from('letter_deliveries')
-    .select('*')
+    .select(DELIVERY_COLUMNS)
     .eq('letter_id', letterId)
     .order('created_at', { ascending: true });
 
@@ -796,7 +797,7 @@ export async function getReceivedLetters(userId: string): Promise<LetterDelivery
 
   const { data, error } = await supabase
     .from('letter_deliveries')
-    .select('*')
+    .select(DELIVERY_COLUMNS)
     .eq('receiver_profile_id', userId)
     .order('created_at', { ascending: false });
 

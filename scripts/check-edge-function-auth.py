@@ -73,7 +73,12 @@ def main() -> int:
         if not entry.exists():
             continue
         checked += 1
-        src = entry.read_text(encoding="utf-8", errors="replace")
+        # The gate may live in a module the entry point imports (handler.ts pattern), which
+        # deploys with it. Read every non-test .ts file in the function's own directory.
+        src = "\n".join(
+            f.read_text(encoding="utf-8", errors="replace")
+            for f in [entry] + sorted(p for p in d.glob("*.ts") if p != entry and not p.name.endswith(".test.ts"))
+        )
         found = [label for label, pat in GATE_PATTERNS.items()
                  if re.search(pat, src, re.IGNORECASE)]
         if not found and d.name not in EXEMPT:

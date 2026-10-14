@@ -1,417 +1,141 @@
 /**
  * @file create-and-open-letter/index.ts
- * @description P581: Server-side user creation + letter opening for new users.
+ * @description P581: "Open the Letter" for an emailed one-to-one invitation.
  *
- * Accepts { token } — validates via get_letter_by_token RPC.
- * D48: "Open the Letter" = account creation + terms acceptance in one click.
+ * Wiring only: environment, the service-role client, the Mailgun sender, serve(). The request
+ * logic, including the caller gate (the invitation check), is in handler.ts.
  *
- * Flow: validate token -> check existing user -> create auth user ->
- *       create profile -> link delivery -> generate session -> return redirect.
- *
- * Idempotent: if delivery already has receiver_profile_id, skip creation.
- *
- * P1446: a session credential is returned ONLY for an account this call has just created.
- * For an account that already exists (linked, matched by email, or an orphan auth user) the
- * response is { signInRequired, redirectTo }: the token is not proof of being that account,
- * so its owner signs in the normal way and the client sends them to /login with redirectTo.
- * Deploy the client before this function: an older client reads the letter signed out.
- *
- * Cloned from create-and-sign, adapted for letter delivery flow.
+ * P1487: this function never returns a session credential and never creates a confirmed
+ * account. A recipient without an account gets a one-time sign-in link emailed to their own
+ * address; see handler.ts for the branches. Deploy this before the client that reads
+ * `checkEmail` — an older client reading a `checkEmail` response falls through to its
+ * "already linked" branch and reads the letter by token, signed out.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { createHandler, type SignInEmail } from './handler.ts';
 
-const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
+const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
+const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
+const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
+const MAILGUN_BASE = MAILGUN_REGION === 'eu'
+  ? 'https://api.eu.mailgun.net/v3'
+  : 'https://api.mailgun.net/v3';
+const FROM = `Clarity Pledge <letters@${MAILGUN_DOMAIN}>`;
 
-const ACCEPTED_TERMS_VERSIONS = ['v1.3', 'v1.4'] as const;
-type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];
-
-function isAcceptedTermsVersion(v: unknown): v is AcceptedTermsVersion {
-  return typeof v === 'string' && (ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(v);
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+/** Same frame as request-letter-response-signin's email. */
+function htmlEmail(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+          <tr>
+            <td style="background:#002B5C;padding:24px 40px;">
+              <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:-0.3px;">Clarity Pledge</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px 40px;">
+              ${body}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 40px;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Clarity Pledge · <a href="https://claritypledge.com" style="color:#9ca3af;">claritypledge.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendSignInEmail(email: SignInEmail): Promise<void> {
+  const firstName = email.recipientName?.trim().split(/\s+/)[0] || 'there';
+  const sender = email.senderName.replace(/[\r\n]/g, '');
+  const subject = `Open your letter from ${sender}`;
+
+  const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">Hi ${escapeHtml(firstName)},</p>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Your letter is waiting</h1>
+    <p style="margin:0 0 16px;font-size:16px;color:#4b5563;">
+      Click the button below to open the letter from ${escapeHtml(sender)} and finish setting up
+      your Clarity Pledge account. This link works on any device.
+    </p>
+    <a href="${escapeHtml(email.link)}" style="display:inline-block;background:#002B5C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;margin-top:20px;">Open my letter</a>
+    <p style="margin:20px 0 0;font-size:13px;color:#9ca3af;">
+      This link expires in 1 hour and can be used once. If you didn't ask to open a letter, you can ignore this email.
+    </p>
+    <p style="margin:8px 0 0;font-size:11px;color:#d1d5db;">
+      By clicking the button, you confirm your acceptance of the Terms of Service and Privacy Policy.
+      Questions? <a href="mailto:privacy@claritypledge.com" style="color:#d1d5db;">privacy@claritypledge.com</a>
+    </p>
+  `);
+
+  const text = `Hi ${firstName},\n\nOpen the letter from ${sender} and finish setting up your Clarity Pledge account:\n\n${email.link}\n\nThis link expires in 1 hour, can be used once, and works on any device.\n\nIf you didn't ask to open a letter, you can ignore this email.\n\nClarity Pledge`;
+
+  const body = new FormData();
+  body.append('from', FROM);
+  body.append('to', email.to);
+  body.append('subject', subject);
+  body.append('html', html);
+  body.append('text', text);
+
+  const res = await fetch(`${MAILGUN_BASE}/${MAILGUN_DOMAIN}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${btoa(`api:${MAILGUN_API_KEY}`)}` },
+    body,
   });
-}
-
-/** Generate a URL-safe slug from a name (mirrors src/app/data/api.ts generateSlug) */
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/--+/g, '-');
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('[create-and-open-letter] Mailgun error:', res.status, err);
+    throw new Error(`Mailgun send failed: ${res.status}`);
+  }
 }
 
 serve(async (req: Request) => {
   const corsHeaders = buildCorsHeaders(req);
-
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error('[create-and-open-letter] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
-      return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
-    if (!ipHashSecret) {
-      console.error('[create-and-open-letter] IP_HASH_SECRET not configured');
-      return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
-    }
-
-    const { token, termsAccepted, termsVersion } = await req.json() as {
-      token?: string;
-      termsAccepted?: unknown;
-      termsVersion?: unknown;
-    };
-
-    // -- Input validation -----------------------------------------------------
-
-    if (!token?.trim()) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Missing token' }, 400, corsHeaders);
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(token)) {
-      return jsonResponse({ error: 'INVALID_INPUT', message: 'Invalid token format' }, 400, corsHeaders);
-    }
-
-    // Strict boolean check — not truthy string coercion
-    if (termsAccepted !== true) {
-      return jsonResponse(
-        { error: 'TERMS_NOT_ACCEPTED', message: 'You must accept the Terms of Service to continue' },
-        400,
-        corsHeaders,
-      );
-    }
-
-    // Allowlist check — prevents client-supplied junk versions
-    if (!isAcceptedTermsVersion(termsVersion)) {
-      return jsonResponse(
-        { error: 'INVALID_TERMS_VERSION', message: 'Unsupported terms version' },
-        400,
-        corsHeaders,
-      );
-    }
-
-    const clientIp = extractClientIp(req);
-    const userAgent = req.headers.get('user-agent') ?? 'unknown';
-    const ipHash = await hashIp(clientIp, ipHashSecret);
-
-    async function recordTermsAcceptance(userId: string): Promise<void> {
-      const { error } = await supabase.from('terms_acceptances').insert({
-        user_id: userId,
-        terms_version: termsVersion,
-        ip_hash: ipHash,
-        user_agent: userAgent,
-      });
-      if (error && error.code !== '23505') {
-        // 23505 = unique violation (already recorded); any other error logged
-        console.error('[create-and-open-letter] terms_acceptances insert failed:', error.message);
-      }
-    }
-
-    // -- Validate token via RPC -----------------------------------------------
-
-    const { data: letterData, error: rpcError } = await supabase.rpc('get_letter_by_token', {
-      p_token: token,
-    });
-
-    if (rpcError || !letterData) {
-      return jsonResponse({ error: 'INVALID_TOKEN', message: 'Invalid or expired invitation' }, 403, corsHeaders);
-    }
-
-    const deliveryId = letterData.delivery_id as string;
-    const existingReceiverId = letterData.receiver_profile_id as string | null;
-    const letterStatus = letterData.status as string;
-    const receiverName = (letterData.receiver_name as string | null)?.trim()?.slice(0, 100) || null;
-
-    // get_letter_by_token redacts receiver_email for privacy — query directly with service role
-    const { data: deliveryRow } = await supabase
-      .from('letter_deliveries')
-      .select('receiver_email')
-      .eq('id', deliveryId)
-      .single();
-    const receiverEmail = (deliveryRow?.receiver_email as string | null) ?? null;
-    // Normalize for all identity/lookup/write-to-auth contexts (case-insensitive match).
-    // Display strings (e.g. name fallback) keep original receiverEmail case.
-    const normalizedEmail = (receiverEmail ?? '').trim().toLowerCase();
-
-    // Verify letter is sealed
-    if (letterStatus !== 'sealed') {
-      return jsonResponse({ error: 'NOT_SEALED', message: 'Letter is not available' }, 409, corsHeaders);
-    }
-
-    // -- Idempotent: if delivery already linked, return success ----------------
-    // No credential (P1446): the receiver's account already exists.
-
-    if (existingReceiverId) {
-      return jsonResponse({
-        ok: true,
-        signInRequired: true,
-        redirectTo: `/letter/${deliveryId}`,
-      }, 200, corsHeaders);
-    }
-
-    // -- No receiver yet: need email to create account ------------------------
-
-    if (!receiverEmail) {
-      return jsonResponse({ error: 'NO_EMAIL', message: 'Delivery has no receiver email' }, 400, corsHeaders);
-    }
-
-    // -- Check for existing user with this email ------------------------------
-
-    // Case-insensitive, but EXACT (P1446): `_`, `%` and `\` are escaped so ilike compares them
-    // literally, and string equality confirms the match before it names anyone as this
-    // delivery's receiver (PostgREST also reads `*` as a wildcard; equality covers that case).
-    const literalPattern = normalizedEmail.replace(/[\\%_]/g, (c) => `\\${c}`);
-    const { data: emailCandidates } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .ilike('email', literalPattern)
-      .limit(50);
-    const exactMatches = (emailCandidates ?? []).filter(
-      (p: { email: string | null }) => (p.email ?? '').trim().toLowerCase() === normalizedEmail,
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+  if (!supabaseUrl || !serviceRoleKey || !MAILGUN_API_KEY || !MAILGUN_DOMAIN || !ipHashSecret) {
+    console.error('[create-and-open-letter] SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MAILGUN_API_KEY, MAILGUN_DOMAIN or IP_HASH_SECRET not configured');
+    return new Response(
+      JSON.stringify({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-    const existingProfile = exactMatches.length === 1 ? exactMatches[0] : null;
-
-    if (existingProfile) {
-      // User already exists — link delivery; no credential (P1446).
-      // Invalidate the invitation token on link (token-replay defense).
-      const nowIso = new Date().toISOString();
-      const { error: linkExistingError } = await supabase
-        .from('letter_deliveries')
-        .update({
-          receiver_profile_id: existingProfile.id,
-          status: 'opened',
-          opened_at: nowIso,
-          invitation_expires_at: nowIso,
-        })
-        .eq('id', deliveryId);
-      if (linkExistingError) {
-        console.error('[create-and-open-letter] delivery link failed:', linkExistingError.message);
-        return jsonResponse({ error: 'LINK_FAILED', message: 'Failed to open letter' }, 500, corsHeaders);
-      }
-      // No terms-acceptance row here: the presenter has not proven to be this account (P1446).
-
-      return jsonResponse({
-        ok: true,
-        signInRequired: true,
-        redirectTo: `/letter/${deliveryId}`,
-      }, 200, corsHeaders);
-    }
-
-    // -- Orphan recovery: auth.users row exists, profiles row missing ----------
-    // PostgREST blocks direct auth schema access (PGRST106); use SECURITY DEFINER RPC.
-    // Happens when createUser succeeded but the profiles insert failed mid-flow,
-    // or when a legacy account (agreement-signer) never got a profiles row.
-    const { data: authUserRows } = await supabase.rpc('get_auth_user_by_email', {
-      p_email: normalizedEmail,
-    });
-    const orphanAuthUser = (authUserRows as Array<{ id: string; email: string }> | null)?.[0] ?? null;
-
-    if (orphanAuthUser) {
-      const recoveredUserId = orphanAuthUser.id;
-      const recoveryAvatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-      const recoveryName = receiverName || (receiverEmail ?? normalizedEmail).split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
-
-      let recoverySlug = generateSlug(recoveryName) || `user-${Date.now()}`;
-      const { data: recoverySlugConflict } = await supabase
-        .from('profiles')
-        .select('slug')
-        .eq('slug', recoverySlug)
-        .maybeSingle();
-      if (recoverySlugConflict) {
-        for (let i = 2; i <= 100; i++) {
-          const candidate = `${recoverySlug}-${i}`;
-          const { data: conflict } = await supabase
-            .from('profiles')
-            .select('slug')
-            .eq('slug', candidate)
-            .maybeSingle();
-          if (!conflict) {
-            recoverySlug = candidate;
-            break;
-          }
-        }
-      }
-
-      const { error: recoveryProfileError } = await supabase.from('profiles').insert({
-        id: recoveredUserId,
-        email: normalizedEmail,
-        name: recoveryName,
-        slug: recoverySlug,
-        avatar_color: recoveryAvatarColor,
-        is_verified: true,
-        has_pledged: false,
-        accepted_terms_version: termsVersion,
-        pledge_version: 2,
-      });
-
-      if (recoveryProfileError) {
-        console.error('[create-and-open-letter] orphan profile insert failed:', recoveryProfileError.message);
-        return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500, corsHeaders);
-      }
-
-      const recoveryNowIso = new Date().toISOString();
-      const { error: linkRecoveredError } = await supabase
-        .from('letter_deliveries')
-        .update({
-          receiver_profile_id: recoveredUserId,
-          status: 'opened',
-          opened_at: recoveryNowIso,
-          invitation_expires_at: recoveryNowIso,
-        })
-        .eq('id', deliveryId);
-      if (linkRecoveredError) {
-        console.error('[create-and-open-letter] delivery link failed:', linkRecoveredError.message);
-        return jsonResponse({ error: 'LINK_FAILED', message: 'Failed to open letter' }, 500, corsHeaders);
-      }
-      // No terms-acceptance row here: the presenter has not proven to be this account (P1446).
-
-      // The auth account already existed — no credential (P1446).
-      return jsonResponse({
-        ok: true,
-        signInRequired: true,
-        redirectTo: `/letter/${deliveryId}`,
-      }, 200, corsHeaders);
-    }
-
-    // -- Create auth user -----------------------------------------------------
-
-    const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-
-    // Use receiver_name from DB (set at composition time), fallback to email local part
-    const initialName = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
-
-    const { data: authData, error: createError } = await supabase.auth.admin.createUser({
-      email: normalizedEmail,
-      email_confirm: true,
-      user_metadata: { name: initialName, avatar_color: avatarColor },
-    });
-
-    if (createError || !authData.user) {
-      // Auth user creation failed. The most common cause is a pre-existing auth.users
-      // row (orphan account — no matching profiles row). Self-healing inside a user-facing
-      // edge function is the wrong layer; orphan cleanup belongs in an admin migration.
-      // Surface the real error so it is diagnosable from the client.
-      console.error('[create-and-open-letter] createUser failed:', createError?.message);
-      return jsonResponse(
-        { error: 'CREATE_FAILED', message: createError?.message ?? 'Account creation failed' },
-        500,
-        corsHeaders,
-      );
-    }
-
-    const newUserId = authData.user.id;
-
-    // -- Generate unique slug -------------------------------------------------
-
-    let slug = generateSlug(initialName) || `user-${Date.now()}`;
-
-    const { data: slugConflict } = await supabase
-      .from('profiles')
-      .select('slug')
-      .eq('slug', slug)
-      .maybeSingle();
-
-    if (slugConflict) {
-      for (let i = 2; i <= 100; i++) {
-        const candidate = `${slug}-${i}`;
-        const { data: conflict } = await supabase
-          .from('profiles')
-          .select('slug')
-          .eq('slug', candidate)
-          .maybeSingle();
-        if (!conflict) {
-          slug = candidate;
-          break;
-        }
-      }
-    }
-
-    // -- Create profile -------------------------------------------------------
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: newUserId,
-        email: normalizedEmail,
-        name: initialName,
-        slug,
-        avatar_color: avatarColor,
-        is_verified: true,
-        has_pledged: false,
-        accepted_terms_version: termsVersion,
-        pledge_version: 2,
-      });
-
-    if (profileError) {
-      console.error('[create-and-open-letter] profile insert failed:', profileError.message);
-      return jsonResponse({ error: 'PROFILE_FAILED', message: 'Account creation failed' }, 500, corsHeaders);
-    }
-
-    // -- Record terms acceptance audit row ------------------------------------
-
-    await recordTermsAcceptance(newUserId);
-
-    // -- Link delivery to new user --------------------------------------------
-    // Invalidate the invitation token on link (token-replay defense); RPC
-    // rejects tokens whose invitation_expires_at has passed.
-
-    const linkNowIso = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('letter_deliveries')
-      .update({
-        receiver_profile_id: newUserId,
-        status: 'opened',
-        opened_at: linkNowIso,
-        invitation_expires_at: linkNowIso,
-      })
-      .eq('id', deliveryId);
-
-    if (updateError) {
-      console.error('[create-and-open-letter] delivery update failed:', updateError.message);
-      // User+profile created but delivery not linked — non-fatal, client can retry
-    }
-
-    // -- Generate session token -----------------------------------------------
-
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: normalizedEmail,
-    });
-
-    if (linkError || !linkData?.properties?.hashed_token) {
-      console.error('[create-and-open-letter] generateLink failed:', linkError?.message);
-      return jsonResponse({ error: 'SESSION_FAILED', message: 'Opened but session creation failed' }, 500, corsHeaders);
-    }
-
-    // -- Success --------------------------------------------------------------
-
-    return jsonResponse({
-      ok: true,
-      hashedToken: linkData.properties.hashed_token,
-      redirectTo: `/letter/${deliveryId}`,
-    }, 200, corsHeaders);
-
-  } catch (err) {
-    console.error('[create-and-open-letter] Unexpected error:', err);
-    return jsonResponse({ error: 'INTERNAL', message: 'Failed to open letter' }, 500, corsHeaders);
   }
+
+  return createHandler({
+    supabase: createClient(supabaseUrl, serviceRoleKey),
+    appUrl: Deno.env.get('APP_URL') ?? 'https://claritypledge.com',
+    sendSignInEmail,
+    ipHashSecret,
+  })(req);
 });
