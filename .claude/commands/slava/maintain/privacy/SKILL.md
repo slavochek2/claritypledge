@@ -62,6 +62,7 @@ A rewrite removes the direct identifier; it does not make the paragraph anonymou
 - **Negative opinions about specific named people** (investors, partners, customers, collaborators)
 - **Unannounced product decisions** that could affect stakeholder trust if leaked
 - **Personal financial details** — living costs, salary expectations, burn rate specifics
+- **Operational spend and account figures** — cap/budget amounts, raising or lifting limits, monthly usage or billed totals, credit balances and expiry dates, billing account IDs. Treat as a **hard flag** in public files: keep the lesson ("cap raised", "usage far above the bill"), move the numbers to `.private/`. (2026-10-14: a decisions.md entry published the founder's cap amounts, gross usage and monthly pace; the review only soft-flagged it.)
 - **Funder targeting details** — named funders with strategic reasoning (awkward if they see it before being approached)
 - **Anything you'd be uncomfortable seeing quoted** in a critical article about you or the company
 
