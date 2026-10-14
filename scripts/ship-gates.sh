@@ -153,7 +153,8 @@ if [[ -n "$spec_file_override" ]]; then
   feature_branch=""
 elif [[ -n "$feature_branch" ]]; then
   spec_path="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$feature_branch" 2>/dev/null \
-    | $GREP -E "^features/${pn}_[^/]+\.md$" | head -1)"
+    | $GREP -E "^features/${pn}_[^/]+\.md$" \
+    | $GREP -vxF "features/${pn}_security-review-pending.md" | head -1)"
   if [[ -n "$spec_path" ]]; then
     spec_content="$(cd "$REPO_ROOT" && git show "${feature_branch}:${spec_path}" 2>/dev/null)"
     spec_source="branch ${feature_branch}"

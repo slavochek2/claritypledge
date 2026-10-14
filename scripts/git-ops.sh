@@ -2335,7 +2335,7 @@ resolve_ship_spec() {
     branch_spec=""
     if [[ -n "$cand_branch" ]]; then
       branch_spec="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$cand_branch" -- features 2>/dev/null \
-                      | grep -E "/${pn}_[^/]*\.md\$" | grep -vE '/(done|archive|uat)/' | head -1 )" || branch_spec=""
+                      | grep -E "/${pn}_[^/]*\.md\$" | grep -vE '/(done|archive|uat)/' | grep -vE "/${pn}_security-review-pending\.md$" | head -1 )" || branch_spec=""
     fi
     if [[ -n "$branch_spec" ]]; then
       die "ship: spec ${branch_spec} exists on branch ${cand_branch} but was never committed to main — that is why it cannot be found.
@@ -4243,7 +4243,7 @@ cmd_ship() {
       # block will commit the creation blob and then re-run resolve+init.
       branch_spec_file="$( cd "$REPO_ROOT" && \
         git ls-tree -r --name-only "$branch" -- features 2>/dev/null \
-        | grep -E "/${pn}_[^/]*\.md$" | grep -vE '/(done|archive|uat)/' | head -1 )" || branch_spec_file=""
+        | grep -E "/${pn}_[^/]*\.md$" | grep -vE '/(done|archive|uat)/' | grep -vE "/${pn}_security-review-pending\.md$" | head -1 )" || branch_spec_file=""
       if [[ -n "$branch_spec_file" ]]; then
         need_seed=1
         # spec_file and journal init deferred to post-lock seed block below.
