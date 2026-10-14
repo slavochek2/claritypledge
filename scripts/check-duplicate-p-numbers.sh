@@ -15,8 +15,8 @@ echo ">>> Checking for duplicate P-numbers..."
 p_numbers=$(find features -type f -name "p[0-9]*.md" \
   ! -path "*/archive/*" \
   ! -path "*/done/*" \
-  ! -name "p[0-9]*_security-review-pending.md" \
   2>/dev/null |
+  grep -vE '/p[0-9]+_security-review-pending\.md$' |
   sed -E 's/.*\/p([0-9]+)[_-].*/\1/' |
   sort -n)
 
