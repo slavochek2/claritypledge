@@ -16,7 +16,7 @@
 --   byte-identical body, so whichever of the two migrations lands first defines it)
 -- new function: clarity_request_seat_secrets (internal; executable by no client role)
 --
--- requires-frontend: 9724f3b85d78b0bed1f97b8c1434c483e1458bd7
+-- requires-frontend: 3fe728208bb6722a8c61e9da9a95726e05c400c9
 --   Against this migration a bundle that does not present the seat credential loses a guest's view
 --   of its own room, and its direct row writes match no row. Deploy the client first (src/app/data/api.ts,
 --   src/app/data/seat-secret.ts) and leave at least one session length before applying. The
