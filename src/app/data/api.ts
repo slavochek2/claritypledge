@@ -910,6 +910,85 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
 // the column. createClaritySession learns the minted code via get_room_code_for_invite.
 
 /**
+ * P1493: a session's state is read by its participants only. A signed-in participant is
+ * recognised by its JWT; an account-less guest by the seat credential its claim returned
+ * (P1269), presented per request on reads of THAT session — never globally, and never for a
+ * room this tab holds no credential for. Same header and parse as the guest write path (P1224).
+ */
+const SEAT_SECRET_HEADER = 'x-clarity-seat-secret';
+
+function asSeatHolder<B extends { setHeader(name: string, value: string): B }>(
+  builder: B,
+  sessionId: string | null | undefined
+): B {
+  const secret = getSeatSecret(sessionId);
+  return secret ? builder.setHeader(SEAT_SECRET_HEADER, secret) : builder;
+}
+
+/**
+ * P1493: the room id each code resolved to, so the code-keyed lookups (the guest's 1-second poll
+ * above all) present the credential on their FIRST request. Kept in memory, and — for a room this
+ * browser holds a seat credential for — in localStorage too, so a reload or a second tab also
+ * knows it: an ENDED room returns nothing to a caller who has not presented the credential, so
+ * there would be no reply to learn the id from. Only ids are stored here, never a credential.
+ */
+const sessionIdByCode = new Map<string, string>();
+const ROOM_ID_KEY_PREFIX = 'cp.seatRoom.';
+
+function knownRoomId(code: string): string | undefined {
+  const inTab = sessionIdByCode.get(code);
+  if (inTab) return inTab;
+  try {
+    return window.localStorage.getItem(`${ROOM_ID_KEY_PREFIX}${code}`) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberRoomId(code: string, sessionId: string): void {
+  sessionIdByCode.set(code, sessionId);
+  if (!getSeatSecret(sessionId)) return;
+  try {
+    window.localStorage.setItem(`${ROOM_ID_KEY_PREFIX}${code}`, sessionId);
+  } catch {
+    /* storage unavailable — the in-tab map still serves this tab */
+  }
+}
+
+/**
+ * P1493: the code-keyed lookup, as a participant when this tab is one. A caller that is not a
+ * participant gets the pre-join fields of a live room and nothing of an ended one. A reloaded
+ * guest does not know the room id yet, so its first request cannot present the credential; when
+ * that reply names a room this tab holds a credential for, ask once more presenting it.
+ */
+async function lookupSessionByCode(
+  fn: 'get_session_by_code' | 'get_active_session_by_code',
+  normalizedCode: string
+): Promise<DbClaritySession | undefined> {
+  const firstRow = (data: unknown) =>
+    (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
+
+  const knownId = knownRoomId(normalizedCode);
+  const first = await asSeatHolder(supabase.rpc(fn, { p_code: normalizedCode }), knownId);
+  const row = firstRow(first.data);
+  if (first.error || !row) return undefined;
+  rememberRoomId(normalizedCode, row.id);
+
+  const presented = knownId === row.id ? getSeatSecret(knownId) : null;
+  if (!presented && getSeatSecret(row.id)) {
+    const second = await asSeatHolder(supabase.rpc(fn, { p_code: normalizedCode }), row.id);
+    const full = firstRow(second.data);
+    if (!second.error && full) return full;
+  }
+  return row;
+}
+
+/** Test-only. */
+export function _resetSessionIdByCodeForTesting(): void {
+  sessionIdByCode.clear();
+}
+
+/**
  * Maps database session to frontend ClaritySession type.
  *
  * P1057: `knownCode` is REQUIRED, and that is the entire point of this signature.
@@ -1104,16 +1183,14 @@ export async function joinClaritySession(
   // though the projection is what people notice. get_session_by_code is SECURITY DEFINER and
   // resolves the code server-side; it deliberately does NOT filter out ended rooms, because
   // the P921 guard below needs to SEE an ended session to route to the right screen.
-  const { data: preflight, error: fetchError } = await supabase.rpc('get_session_by_code', {
-    p_code: normalizedCode,
-  });
+  //
+  // P1493: a caller who is not yet a participant gets only the pre-join fields (the id is all
+  // this pre-flight needs), and nothing for an ended room — so a stranger's cold link to an ended
+  // room now reads as "not found". A participant (the seated guest presenting its credential,
+  // the creator, a signed-in joiner) still sees the ended state and routes to the ended screen.
+  const existing = await lookupSessionByCode('get_session_by_code', normalizedCode);
 
-  // RETURNS TABLE — PostgREST delivers an array.
-  const existing = (Array.isArray(preflight) ? preflight[0] : preflight) as
-    | DbClaritySession
-    | undefined;
-
-  if (fetchError || !existing) {
+  if (!existing) {
     return null;
   }
 
@@ -1198,6 +1275,8 @@ export async function joinClaritySession(
   // signed-in joiner the server returns NULL here (their seat is bound to auth.uid()), and
   // setSeatSecret is a no-op on a null value.
   setSeatSecret(claimed.id, claimed.joiner_seat_secret);
+  // P1493: and remember which room this code is, so a later reload presents the credential first.
+  rememberRoomId(normalizedCode, claimed.id);
 
   return mapSessionFromDb(claimed, normalizedCode);
 }
@@ -1212,13 +1291,10 @@ export async function getClaritySession(code: string): Promise<ClaritySession | 
 
   // P1057: `code` is no longer client-readable, so neither the projection nor the `.eq`
   // filter survives — both need SELECT privilege on the column. Resolved server-side.
-  const { data, error } = await supabase.rpc('get_session_by_code', {
-    p_code: normalizedCode,
-  });
+  // P1493: as a participant when this tab is one (see lookupSessionByCode).
+  const row = await lookupSessionByCode('get_session_by_code', normalizedCode);
 
-  const row = (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
-
-  if (error || !row) {
+  if (!row) {
     return null;
   }
 
@@ -1468,13 +1544,11 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
   // distinguishable error. That is deliberate: today all three collapse to `return null`
   // here, and a server-side `RAISE EXCEPTION 'session expired'` would create an existence
   // oracle that does not exist now.
-  const { data, error } = await supabase.rpc('get_active_session_by_code', {
-    p_code: normalizedCode,
-  });
+  // P1493: as a participant when this tab is one (see lookupSessionByCode). A non-participant
+  // still gets the id and host name, which is all the rejoin prompt and the session bar read.
+  const row = await lookupSessionByCode('get_active_session_by_code', normalizedCode);
 
-  const row = (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
-
-  if (error || !row) {
+  if (!row) {
     return null;
   }
 
@@ -1714,11 +1788,11 @@ export async function updateDemoFlowState(
   demoState: Partial<DemoFlowState>
 ): Promise<void> {
   // First get current state
-  const { data: current, error: fetchError } = await supabase
-    .from('clarity_sessions')
-    .select('state')
-    .eq('id', sessionId)
-    .single();
+  // P1493: a guest reads its room's row only by presenting its seat credential.
+  const { data: current, error: fetchError } = await asSeatHolder(
+    supabase.from('clarity_sessions').select('state').eq('id', sessionId),
+    sessionId
+  ).single();
 
   if (fetchError) {
     console.error('Error fetching current state:', fetchError.message);
@@ -1789,10 +1863,11 @@ export async function saveDemoRound(round: Omit<DemoRound, 'id' | 'createdAt'>):
  * @returns Array of demo rounds
  */
 export async function getDemoRounds(sessionId: string): Promise<DemoRound[]> {
-  const { data, error } = await supabase
-    .from('clarity_demo_rounds')
-    .select('*')
-    .eq('session_id', sessionId)
+  // P1493: a guest reads its session's rows only by presenting its seat credential.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_demo_rounds').select('*').eq('session_id', sessionId),
+    sessionId
+  )
     .order('level', { ascending: true })
     .order('round_number', { ascending: true });
 
@@ -1837,11 +1912,11 @@ export async function saveClarityIdea(
  * @returns Array of ideas
  */
 export async function getClarityIdeas(sessionId: string): Promise<ClarityIdea[]> {
-  const { data, error } = await supabase
-    .from('clarity_ideas')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
+  // P1493: a guest reads its session's rows only by presenting its seat credential.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_ideas').select('*').eq('session_id', sessionId),
+    sessionId
+  ).order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching ideas:', error.message);
@@ -3087,11 +3162,11 @@ export async function saveLiveTurn(
  * @returns Array of live turns ordered by creation time
  */
 export async function getLiveTurns(sessionId: string): Promise<LiveTurn[]> {
-  const { data, error } = await supabase
-    .from('clarity_live_turns')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
+  // P1493: a guest reads its session's turns only by presenting its seat credential.
+  const { data, error } = await asSeatHolder(
+    supabase.from('clarity_live_turns').select('*').eq('session_id', sessionId),
+    sessionId
+  ).order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching live turns:', error.message);
