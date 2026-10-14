@@ -161,6 +161,21 @@ used a scratch git repo holding copies of the real `.claude/commands/slava/` and
 `test-codex-native-hooks.sh` (Codex hook gate) and `test-multi-harness-routing.sh` (multi-harness
 Tier A gate), both just below check 22.
 
+## Known limitations (accepted 2026-10-14, after four review rounds)
+
+The gate now fails closed (missing/dangling script, unreadable sources or scratch files, failed
+cleanup all exit non-zero) and its hint names exact paths instead of the banned bare-directory
+re-stage. The final Codex pass found hint-precision edge cases, recorded rather than chased:
+
+- If a hand-added stray file inside the generated mirror (e.g. `.agents/skills/alpha/extra.md`) is
+  staged alongside a content drift, the hint stages only `alpha/SKILL.md`; regeneration deletes the
+  stray file from disk but it stays staged. Remedy if seen: `git rm --cached` that path.
+- A mirror path containing a glob character (a directory literally named `*`) is printed shell-quoted
+  but not with `--literal-pathspecs`, so git would expand it.
+- A staged orphan whose name contains a TAB falls out of `--staged-only` scope.
+
+None of these shapes exists in the repo; the mirror is generated, not hand-edited.
+
 ## Related
 
 - P1151: introduced the mirror and this gate.
