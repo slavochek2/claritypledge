@@ -398,8 +398,9 @@ New in P1468:
 
 New:
 - A checked option means a written (or in-flight) founder answer, never a recommendation.
-- A story is written only by an explicit founder click (Save). Never on blur, paging, a tab
-  switch or Start fixing (P1440's rule, with Save in Accept's place).
+- A typed story is saved as it is typed (debounced, and on blur); nothing typed is ever left
+  out of what Start fixing sends. Replaces P1440's explicit-click rule, removed with the founder's
+  approval 2026-10-14 (see Founder Feedback F2).
 - What Start fixing sends is unchanged by this spec. `collect` and `pendingPreselected`
   (`lib/day.ts`) have an empty `git diff`.
 - The bar shows at most one status count, the pager's "k of N".
@@ -558,12 +559,11 @@ unsaved.
 
 > "I think it should be automatically saved or not. I mean, or not. I don't know. Like, what is the kiss here?"
 
-`[FOUNDER DECISION: keep the explicit-Save rule (Invariants: "A story is written only by an
-explicit founder click (Save)", P1440's rule) or replace it with save-as-you-type. Removing an
-Invariants entry needs explicit founder approval. Recommended by the 2026-10-14 orchestrator:
-save as you type (debounced, plus on blur), because the only failure ever observed is a lost story,
-never an unwanted one; drafts already persist in localStorage (P1440 O1). If chosen, R3's Save
-button and the unsaved refusal both become unnecessary.]`
+**DECIDED by the founder 2026-10-14 ("yes to all"): save as you type** (debounced, plus on blur),
+because the only failure ever observed is a lost story, never an unwanted one; drafts already
+persist in localStorage (P1440 O1). This replaces the explicit-Save invariant (founder-approved
+removal, see Invariants) and supersedes R3's Save button and the unsaved refusal: with nothing ever
+unsaved, the bar can never claim "Sent" over a story that did not go.
 
 Also reported, UNVERIFIED: clicking `+ Add a story` did not open the input until `Their story` was
 clicked. The code opens the box on `adding` (`ReflectionTab.tsx:102-109`), so reproduce before
