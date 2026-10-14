@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pre-commit, git-env, migrations, gates]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1488: Grant-order gate (P1102) blocks every migration commit made from a worktree
@@ -81,6 +81,12 @@ From a worktree every migration commit is blocked with exit 2. Rename-only and d
 - [x] The main checkout is unchanged: a contradiction is refused and a harmless migration passes. These controls passed before the fix too.
 - [x] An index holding no migrations exits 2. A `GIT_DIR` that names another repository exits 2. The second case is bound by a mutation.
 - [x] The hook block alone, running the **pre-fix** checker, works from a worktree: harmless passes, contradiction refused, pathspec commit refused. It also works from the main checkout. Verified in a throwaway repo with the extracted block and the real `run-quiet.sh`.
-- [ ] After ship to main: a migration commit from an existing worktree branch (for example the w4 P1245 commit) passes the P1102 step without a rebase.
+- [x] The canary runs the **production** hook block. It is lifted from `pre-commit-checks.sh` at test time and sourced after the real `run-quiet.sh`, then run by a real `git commit` against both the fixed checker and the pre-fix checker (`8eb928e55`). The matrix covers main checkout and linked worktree × plain, pathspec and `commit -a`: a contradiction is refused and does not land, and a harmless migration lands. Removing `run_quiet` from the block fails the six pre-fix × linked-worktree cells. Independent review finding (Codex, P2).
 </content>
 </invoke>
+
+## Post-ship verification
+
+Only observable after this lands on main (the hook runs main's copy of the script):
+
+- a migration commit from an existing worktree branch (for example the w4 P1245 commit) passes the P1102 step without a rebase.

@@ -748,6 +748,124 @@ check("P1488: --index over an index holding no migrations exits 2, never 0",
       code == 2 and "did NOT run" in err, f"exit {code}: {out}{err}")
 
 # ---------------------------------------------------------------------------
+print("\nP1488: the PRODUCTION hook block (extracted from pre-commit-checks.sh, real run-quiet.sh)")
+# The cases above call the checker directly, so they prove the checker and nothing about the
+# hook. The hook wrapper is what unblocks branches still carrying the PRE-fix checker: the
+# hook is main's pre-commit-checks.sh, but ./scripts/check-migration-grant-order.py is the
+# committing checkout's copy. So the block is lifted from pre-commit-checks.sh at test time,
+# sourced after the real run-quiet.sh exactly as the hook does, and run by a real `git commit`
+# against both checkers, from both checkouts, for plain / pathspec / `commit -a` commits.
+# The hook lets the commit land when the block reports no error, so a pass is judged by the
+# commit actually landing, not by a log line.
+PRECOMMIT = os.environ.get("MGO_PRECOMMIT_SCRIPT", os.path.join(HERE, "pre-commit-checks.sh"))
+RUN_QUIET = os.path.join(HERE, "lib", "run-quiet.sh")
+PRE_FIX_SHA = "8eb928e55"   # P1102's last commit on main: the checker every pre-P1488 branch carries
+CHECKER_DEPS = ("check-migration-grant-order.py", "function-grant-drift-check.py", "rls-drift-check.py")
+
+with open(PRECOMMIT) as fh:
+    _lines = fh.read().splitlines()
+try:
+    _start = next(i for i, ln in enumerate(_lines) if ln.startswith("GRANT_ORDER_TOUCHED="))
+    _end = next(i for i in range(_start, len(_lines)) if _lines[i] == "fi")
+    HOOK_BLOCK = "\n".join(_lines[_start:_end + 1]) + "\n"
+except StopIteration:
+    HOOK_BLOCK = ""
+check("the P1102 block is found in pre-commit-checks.sh and calls the checker",
+      "check-migration-grant-order.py --index --invariant" in HOOK_BLOCK, PRECOMMIT)
+
+
+def checker_sources():
+    fixed = {}
+    for f in CHECKER_DEPS:
+        with open(os.path.join(HERE, f)) as fh:
+            fixed[f] = fh.read()
+    pre = {}
+    for f in CHECKER_DEPS:
+        p = subprocess.run(["git", "-C", HERE, "show", f"{PRE_FIX_SHA}:scripts/{f}"],
+                           capture_output=True, text=True)
+        pre[f] = p.stdout if p.returncode == 0 else None
+    return {"fixed": fixed, "pre-fix": pre}
+
+
+SOURCES = checker_sources()
+check(f"the pre-fix checker is readable from history ({PRE_FIX_SHA}) and really is pre-fix",
+      all(SOURCES["pre-fix"].values())
+      and "_git_env" not in SOURCES["pre-fix"]["check-migration-grant-order.py"])
+
+HARMLESS = "SELECT 1;\n"
+
+
+def block_fixture(sources, linked):
+    """A repo whose checkout carries `sources` as its ./scripts/ checker, A (a REVOKE)
+    committed, and the production block installed as its pre-commit hook. Returns
+    (repo root, checkout to commit in, hook record dir)."""
+    root, _ = git_repo({A: REVOKE_AUTH}, stage=[A])
+    os.makedirs(os.path.join(root, "scripts"))
+    for f, body in sources.items():
+        with open(os.path.join(root, "scripts", f), "w") as fh:
+            fh.write(body)
+    git(root, "add", "scripts")
+    commit_all(root)
+    rec = tempfile.mkdtemp(prefix="mgo-blockrec-")
+    hook = os.path.join(root, ".git", "hooks", "pre-commit")
+    with open(hook, "w") as fh:
+        fh.write("#!/bin/bash\n"
+                 f". '{RUN_QUIET}'\n"
+                 "ERRORS=0\n"
+                 + HOOK_BLOCK +
+                 f"echo \"$ERRORS\" > '{rec}/errors'\n"
+                 "[ \"$ERRORS\" -eq 0 ]\n")
+    os.chmod(hook, 0o755)
+    co = linked_worktree(root)[0] if linked else root
+    return root, co, rec
+
+
+def block_commit(root, co, rec, mode, recorded, other):
+    """Arrange the checkout so the commit RECORDS `recorded` for B while the other copy
+    (index or working tree, by mode) holds `other`, then commit through the real hook.
+    Returns (landed, errors, output)."""
+    path = os.path.join(co, "supabase", "migrations", B)
+    rel = f"supabase/migrations/{B}"
+    if mode == "plain":            # records the index
+        index_body, tree_body = recorded, other
+    else:                          # pathspec / -a record the working tree
+        index_body, tree_body = other, recorded
+    with open(path, "w") as fh:
+        fh.write(index_body)
+    git(co, "add", rel)
+    with open(path, "w") as fh:
+        fh.write(tree_body)
+    extra = {"plain": [], "pathspec": ["--", rel], "all": ["-a"]}[mode]
+    before = subprocess.run(["git", "-C", co, "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+    p = subprocess.run(["git", "-C", co, "-c", f"core.hooksPath={os.path.join(root, '.git', 'hooks')}",
+                        "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+                        "commit", "-q", "-m", "fixture", *extra], capture_output=True, text=True)
+    after = subprocess.run(["git", "-C", co, "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+    try:
+        with open(os.path.join(rec, "errors")) as fh:
+            errors = fh.read().strip()
+    except OSError:
+        errors = "hook did not run"
+    return before != after, errors, p.stdout + p.stderr
+
+
+for which in ("fixed", "pre-fix"):
+    for linked in (False, True):
+        where = "linked worktree" if linked else "main checkout"
+        for mode in ("plain", "pathspec", "all"):
+            root, co, rec = block_fixture(SOURCES[which], linked)
+            landed, errors, out = block_commit(root, co, rec, mode, recorded=GRANT_AUTH, other=HARMLESS)
+            check(f"hook block, {which} checker, {where}, {mode} commit: a recorded contradicting "
+                  "GRANT is REFUSED and does not land",
+                  not landed and errors == "1" and "widens-revoked" in out,
+                  f"landed={landed} errors={errors}\n{out[-600:]}")
+            root, co, rec = block_fixture(SOURCES[which], linked)
+            landed, errors, out = block_commit(root, co, rec, mode, recorded=HARMLESS, other=GRANT_AUTH)
+            check(f"hook block, {which} checker, {where}, {mode} commit: a recorded harmless "
+                  "migration passes and lands",
+                  landed and errors == "0", f"landed={landed} errors={errors}\n{out[-600:]}")
+
+# ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")
 INCIDENT_RESTORE = "20260818140000_p1065_restore_authenticated_grant_persist_anonymous_completion.sql"
 INCIDENT_REVOKE = "20260818090000_p1093_close_unchecked_payload_writer.sql"
