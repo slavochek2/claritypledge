@@ -194,8 +194,12 @@ test.describe('P1485: server-maintained profile counters are not client-writable
     const c = await signedIn(member.email);
     const { data: before } = await supabaseAdmin.from('profiles').select('*').eq('id', member.user.id).single();
     expect(before!.ears_count).toBe(SEED_B.ears); // the row being re-inserted carries non-zero values
+    // P1137: client-role DELETE on profiles is revoked, so the client half of this path is refused;
+    // the INSERT guard is still exercised from a service-role-cleared row.
     const { error: delErr } = await c.from('profiles').delete().eq('id', member.user.id);
-    expect(delErr, `own-profile delete errored: ${delErr?.message}`).toBeNull();
+    expect(delErr?.code, `client self-delete must be refused (P1137): ${delErr?.message}`).toBe('42501');
+    const { error: adminDelErr } = await supabaseAdmin.from('profiles').delete().eq('id', member.user.id);
+    expect(adminDelErr, `service-role setup delete: ${adminDelErr?.message}`).toBeNull();
     const { error: insErr } = await c
       .from('profiles')
       .insert({ ...before, ears_count: FORGED, verification_session_count: FORGED });
