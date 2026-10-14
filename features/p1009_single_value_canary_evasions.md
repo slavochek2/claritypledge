@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 delivery_stage: dev
 pipeline_ran: [dev]
 type: bug
