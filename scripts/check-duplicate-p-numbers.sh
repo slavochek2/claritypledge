@@ -9,10 +9,13 @@ echo ">>> Checking for duplicate P-numbers..."
 
 # Find all p*.md files in features/ and subdirectories
 # EXCLUDE archive/ and done/ folders (P-numbers can be reused after archival)
+# EXCLUDE embargo stubs (features/pN_security-review-pending.md): an embargoed spec's
+# branch legitimately carries both the stub (from main) and the real spec until publish-spec.
 # Extract P-numbers and check for duplicates
 p_numbers=$(find features -type f -name "p[0-9]*.md" \
   ! -path "*/archive/*" \
   ! -path "*/done/*" \
+  ! -name "p[0-9]*_security-review-pending.md" \
   2>/dev/null |
   sed -E 's/.*\/p([0-9]+)[_-].*/\1/' |
   sort -n)
