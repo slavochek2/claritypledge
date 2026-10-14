@@ -94,8 +94,31 @@ should split.
 
 ## Done-When
 
-- [ ] Every unauthenticated write surface enumerated from live state, both environments
+- [x] Every unauthenticated write surface enumerated from live state, both environments
+      — 2026-10-14, read-only catalog queries via `scripts/supabase-readonly-sql.py`, prod and
+      test identical: 51 anon/public write policies × anon table and column privileges; tables
+      with RLS off and views (0 rows); write policies outside `public` (none reachable); and
+      anon-EXECUTE functions that write (9). Probe controls: a known writer the first regex
+      missed forced a broader matcher, and known non-anon writers were confirmed absent. SQL and
+      results are in `.private/docs/security-log.md` 2026-10-14.
 - [ ] Each classified intended / unintended, with the founder's call recorded
-- [ ] Intended ones documented in `docs/decisions.md` with a falsifier
+      — Classified: all remaining surfaces are intended, and each links to the spec or decision
+      where it was approved. **Open:** `ml_training_sessions` (signed-in INSERT, no predicate) is
+      kept under the orchestrator's keep-if-used rule because the recorder writes it on every
+      recorded session. The decision entry is `Status: proposed` until the founder confirms.
+- [x] Intended ones documented in `docs/decisions.md` with a falsifier
+      — `docs/decisions.md` 2026-10-14 [technical] P1045 entry, with links to the existing P1083
+      and P1447 entries rather than copies of them.
 - [ ] Unintended ones closed, each with a canary observed failing first
-- [ ] P1038's findings table carries an explicit "no owner column — not examined" status
+      — All three original surfaces are closed on both environments (live catalog 2026-10-14).
+      Present-state canaries are green on test: `p1138-reproduce` 6/6,
+      `security-backlog-rls` (ml_training) 2/2, `p1048-db-schema` 5/5,
+      `p1207-privilege-floor` 2/2. Failing-first was recorded for P1138 (5/5 red before the fix)
+      and P1207 (red→green). **Gap:** P1048's chat UPDATE closure has no recorded failing-first
+      write canary (its write side was inferred from the policy), and that cannot be re-observed
+      now without restoring the dropped policy.
+- [x] P1038's findings table carries an explicit "no owner column — not examined" status
+      — the table lives in `docs/technical/database.md` § INSERT ownership-binding audit, the
+      home P1038 chose; its own spec points there. NOT APPLICABLE is split into **NO OWNER
+      COLUMN — NOT EXAMINED** (8 tables) and **NOT APPLICABLE — no client-reachable INSERT**
+      (15 tables), each classified from the live catalogs on both environments.

@@ -680,7 +680,8 @@ against.
 | Status | Tables |
 |---|---|
 | **BOUND** — INSERT binds the owner column | `stories`, `points` (P1032), `clarity_sessions` (P1038), `events`, `event_rsvps`, `event_sub_rooms`, `event_practice_rooms`, `clarity_docs`, `doc_stories`, `clarity_agreements`, `clarity_letters`, `letter_deliveries`, `letter_point_responses`, `story_verifications`, `membership`, `story_explain_backs`, `point_positions`, `point_position_history`, `clarity_live_invites`, `witnesses`, `badge_points` |
-| **NOT APPLICABLE** — no owner column, `WITH CHECK (false)`, or no client-reachable INSERT | `organization`, `terms_acceptances`, `session_consents`, the anonymous demo/idea/chat sibling tables, `ai_rate_limits`, `email_send_log`, `letter_response_pending`, `letter_story_snapshots`, `letter_predictions`, `story_point_history`, `story_versions`, `session_transcripts`, `transcription_jobs`, `user_voice_profiles`, `search_rate_limits`, `ml_training_sessions` |
+| **NO OWNER COLUMN — NOT EXAMINED** — a client-reachable INSERT policy exists, but the table has no FK to `profiles`/`auth.users`, so this audit's question was never asked of it. **This is not a safety statement.** (Split from NOT APPLICABLE by P1045, from live catalogs on both environments, 2026-10-14.) | `clarity_demo_rounds`, `clarity_ideas`, `clarity_live_turns`, `clarity_verifications`, `story_versions`, `terms_acceptances`, `session_consents`, `ml_training_sessions` (its INSERT checks nothing; kept on purpose, see [decisions.md](../decisions.md) 2026-10-14 P1045) |
+| **NOT APPLICABLE** — no client-reachable INSERT (no INSERT policy, `WITH CHECK (false)`, or `TO service_role` only) | `organization`, `ai_rate_limits`, `email_send_log`, `letter_response_pending`, `letter_story_snapshots`, `letter_predictions`, `story_point_history`, `session_transcripts`, `transcription_jobs`, `user_voice_profiles`, `search_rate_limits`, `clarity_chat_messages`, `clarity_feed_ideas`, `clarity_idea_comments`, `clarity_idea_votes` |
 | **NO COMPARISON BASIS** — owner column bound at INSERT but no UPDATE/DELETE policy to compare against | `witnesses`, `point_position_history`, `badge_points` |
 | **GAP FOUND** | `clarity_sessions` — fixed (P1038). `story_points` — fixed independently (P1034, `20260811140000`). |
 
@@ -720,8 +721,9 @@ in P1045.
 
 **Permissive-OR check:** run against both environments. Only `ml_training_sessions` returns more
 than one permissive INSERT policy, identically on prod and test (so not drift) — both check
-nothing, and one reaches anonymous callers. It has no owner column, hence NOT APPLICABLE above;
-the open-write question is P1045.
+nothing, and one reaches anonymous callers. It has no owner column, hence the NO OWNER COLUMN
+status above. P1138 later dropped the anonymous policy. As of 2026-10-14 only the
+`TO authenticated` one remains, kept on purpose ([decisions.md](../decisions.md) 2026-10-14, P1045).
 
 **What this audit does NOT establish** — read this before citing the table above:
 
@@ -729,8 +731,9 @@ the open-write question is P1045.
   open gap exists there (P1047).
 - It asked about **RLS policies only**. Rows written by a `SECURITY DEFINER` function or by an
   edge function using the service-role key never evaluate these policies at all.
-- **Tables with no owner column are marked NOT APPLICABLE, meaning "not examined by this
-  audit"** — not "safe." At least one such table accepts unauthenticated writes (P1045).
+- **Tables with no owner column carry their own status, NO OWNER COLUMN — NOT EXAMINED**, which
+  is not the same as "safe." The writes those tables accept from callers who are not signed in
+  were inventoried separately (P1045, [decisions.md](../decisions.md) 2026-10-14).
 - A `DEFAULT auth.uid()` on the owner column does **not** count as binding: a default only fires
   when the client omits the column, and a forged insert supplies it explicitly.
 
