@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 40
 severity: high
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tooling, worktrees, migrations, spec-gates]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-10-14
 ---
 
 # P1492: Three dev-tooling bugs every agent hit today (worktree e2e port, migrate.sh arguments, embargo stub gate)
