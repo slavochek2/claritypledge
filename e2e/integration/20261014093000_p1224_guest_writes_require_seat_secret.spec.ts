@@ -381,7 +381,9 @@ test.describe('P1224: a guest room is written only by its seated guest', () => {
     expect((data?.live_state as Record<string, unknown>)?.joinerEnded).toBe(true);
   });
 
-  test('C11: a guest who left can re-join, gets a NEW credential, and writes with it', async () => {
+  // Superseded by the P1493 founder decision "seat closes" (2026-10-14): once its occupant has
+  // left, the seat cannot be claimed again. The departed credential stays dead (unchanged).
+  test('C11: a guest who left cannot take the seat again, and its old credential writes nothing', async () => {
     const room = await seed({});
     const join = () => anonWith({ code: room.code })
       .rpc('claim_joiner_seat', { p_code: room.code, p_joiner_name: 'p1224 returning guest' });
@@ -393,15 +395,12 @@ test.describe('P1224: a guest room is written only by its seated guest', () => {
     expect(left.error, left.error?.message).toBeNull();
 
     const second = await join();
-    expect(second.error, second.error?.message).toBeNull();
-    const s2 = (Array.isArray(second.data) ? second.data[0] : second.data)?.joiner_seat_secret as string;
-    expect(s2).toMatch(/^[0-9a-f-]{36}$/);
-    expect(s2, 're-joining must issue a new credential').not.toBe(s1);
+    expect(second.error?.code).toBe('42501');
 
-    const w = await anonWith({ code: room.code, secret: s2 })
+    const w = await anonWith({ code: room.code, secret: s1 })
       .rpc('patch_live_state', { p_session_id: room.id, p_patch: { back: true } });
-    expect(w.error, w.error?.message).toBeNull();
-    expect((await readRow(room.id)).live_state?.back).toBe(true);
+    expect(w.error).not.toBeNull();
+    expect((await readRow(room.id)).live_state?.back).toBeUndefined();
   });
 
   test('C10: a signed-in joiner still leaves by identity, with no code and no secret', async () => {
