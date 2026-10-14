@@ -85,15 +85,18 @@ while [ $# -gt 0 ]; do
     --only)
       ONLY_MODE=true
       shift
+      ONLY_ADDED=0
       # Stop at anything flag-shaped (single dash too), so `--only A.sql -h` still reaches -h.
       # Migration basenames start with a digit, never with "-".
       while [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; do
         [ -n "$1" ] || usage_error "--only got an empty file name."
         ONLY_FILES+=("$1")
+        ONLY_ADDED=$((ONLY_ADDED + 1))
         shift
       done
-      # An empty list is a usage error HERE — unless help follows, which still wins.
-      if [ ${#ONLY_FILES[@]} -eq 0 ] && [ "${1:-}" != "-h" ] && [ "${1:-}" != "--help" ]; then
+      # Each --only must name a file itself (a repeated, empty --only is not filled by an
+      # earlier one) — a usage error HERE, unless help follows, which still wins.
+      if [ "$ONLY_ADDED" -eq 0 ] && [ "${1:-}" != "-h" ] && [ "${1:-}" != "--help" ]; then
         usage_error "--only needs at least one migration basename."
       fi
       ;;

@@ -107,6 +107,9 @@ run --only;                                                 refused 'migrate.sh 
 run --only --yes;                                           refused 'migrate.sh --only --yes'
 run --env prod --only --yes;                                refused 'migrate.sh --env prod --only --yes'
 run --only "";                                              refused 'migrate.sh --only ""'
+# Each --only occurrence must add a file: a second, empty --only is refused even though
+# the first one already filled the list (Codex final check).
+run --only 20990101000000_pending.sql --only --yes;         refused 'migrate.sh --only A.sql --only --yes'
 
 echo "== C. control: a valid run reaches the stubs"
 run
