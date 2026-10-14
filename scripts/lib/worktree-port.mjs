@@ -14,6 +14,7 @@
 // then, if the result is a port browsers refuse, it moves by RESTRICTED_PORT_SHIFT.
 // The only slot that moves today is w10 (6000 -> 6050); every other port is unchanged.
 
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,6 +81,18 @@ export function worktreePort(dir) {
 
 // CLI for shell callers: `node scripts/lib/worktree-port.mjs [dir]` prints the port for dir
 // (default: the current directory, matching how vite.config.ts reads process.cwd()).
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Both sides are canonicalised: Node resolves the main module's symlinks for import.meta.url but
+// leaves argv[1] as typed, so a symlinked path (a linked scripts/ dir, macOS /tmp) would
+// otherwise fail the comparison and print nothing.
+function isEntryPoint() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
   console.log(worktreePort(process.argv[2] ?? process.cwd()));
 }

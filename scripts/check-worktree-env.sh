@@ -11,6 +11,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKTREE_PORT="$(node "$SCRIPT_DIR/lib/worktree-port.mjs")"
 
+# Fail closed: an empty or non-numeric port would make `lsof -ti:` match nothing and the zombie
+# guard below would silently do nothing while the script still exited 0.
+if [[ ! "$WORKTREE_PORT" =~ ^[0-9]+$ ]]; then
+  echo "✘ check-worktree-env: could not compute this checkout's port (got '$WORKTREE_PORT' from $SCRIPT_DIR/lib/worktree-port.mjs) — refusing to continue (P1480)." >&2
+  exit 1
+fi
+
 # Print-only mode: report the port this checkout maps to and touch nothing — no reaping,
 # no cache validation, no setup. Lets a test (src/tests/p1480-worktree-ports.test.ts) or a
 # human ask the checker which port it would guard.

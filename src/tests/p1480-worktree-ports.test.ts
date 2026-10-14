@@ -18,7 +18,7 @@
  *   3. A drift guard: no call site may carry its own copy of the formula again.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import {
   copyFileSync,
   mkdirSync,
@@ -27,6 +27,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -256,6 +257,74 @@ describe('P1480 drift guard', () => {
       expect(src).toContain('worktree-port.mjs')
       expect(src).not.toMatch(/5000\s*\+/)
       expect(src).not.toMatch(/5800\s*\+/)
+    })
+  }
+})
+
+// ---------------------------------------------------------------------------------------------
+// 4. The CLI and the checker fail safe (Codex review, P1480)
+// ---------------------------------------------------------------------------------------------
+describe('P1480 CLI entry point and checker port guard', () => {
+  let root: string
+  beforeAll(() => {
+    root = mkdtempSync(path.join(tmpdir(), 'p1480-cli-'))
+  })
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  // Node resolves the main module's symlinks, so import.meta.url is the real path while argv[1]
+  // is the path as typed. Comparing the two un-canonicalised made the CLI print NOTHING when
+  // reached through a symlink — a symlinked scripts/ dir, or macOS /tmp -> /private/tmp.
+  it('prints the port when invoked through a symlinked directory', () => {
+    const linkedScripts = path.join(root, 'scripts-link')
+    symlinkSync(path.join(REPO_ROOT, 'scripts'), linkedScripts)
+    const out = execFileSync(
+      process.execPath,
+      [path.join(linkedScripts, 'lib', 'worktree-port.mjs'), '/repo/.claude/worktrees/w10'],
+      { encoding: 'utf8' },
+    ).trim()
+    expect(out).toBe('6050')
+  })
+
+  it('prints the port when the module file itself is a symlink', () => {
+    const linkedFile = path.join(root, 'worktree-port-link.mjs')
+    symlinkSync(MODULE_PATH, linkedFile)
+    const out = execFileSync(process.execPath, [linkedFile, '/repo/.claude/worktrees/w3'], {
+      encoding: 'utf8',
+    }).trim()
+    expect(out).toBe('5300')
+  })
+
+  // The checker must refuse to run on a port it could not compute: with an empty port its
+  // `lsof -ti:` matched nothing and the zombie guard silently did nothing. A stub CLI stands in
+  // for whatever broke the computation.
+  for (const [label, stubOutput, printMode] of [
+    ['empty', '', false],
+    ['non-numeric', 'not-a-port', false],
+    ['empty (print-only mode)', '', true],
+  ] as const) {
+    it(`check-worktree-env.sh exits non-zero on a ${label} port`, () => {
+      const fake = path.join(root, `checker-${label.replace(/\W+/g, '-')}`)
+      mkdirSync(path.join(fake, 'scripts', 'lib'), { recursive: true })
+      copyFileSync(
+        path.join(REPO_ROOT, 'scripts', 'check-worktree-env.sh'),
+        path.join(fake, 'scripts', 'check-worktree-env.sh'),
+      )
+      writeFileSync(
+        path.join(fake, 'scripts', 'lib', 'worktree-port.mjs'),
+        `process.stdout.write(${JSON.stringify(stubOutput ? stubOutput + '\n' : '')})\n`,
+      )
+      const env: NodeJS.ProcessEnv = { ...process.env }
+      if (printMode) env.CHECK_WORKTREE_ENV_PRINT_PORT = '1'
+      else delete env.CHECK_WORKTREE_ENV_PRINT_PORT
+      const run = spawnSync('bash', [path.join(fake, 'scripts', 'check-worktree-env.sh')], {
+        cwd: fake, // not a git checkout: past the guard the script would only exit 0
+        env,
+        encoding: 'utf8',
+      })
+      expect(run.status, `stdout=${run.stdout} stderr=${run.stderr}`).not.toBe(0)
+      expect(run.stderr).toMatch(/P1480/)
     })
   }
 })
