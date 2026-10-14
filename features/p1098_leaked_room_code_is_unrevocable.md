@@ -86,16 +86,14 @@ and are listed in prose below, not ticked.
 
 **Not applicable — nothing was built:**
 
-- *If built: rotation cannot evict an already-seated joiner* — no rotation exists. Since P1269 and
-  P1314 C a leaked code cannot take an occupied seat that carries a seat secret either (seats
-  claimed before those migrations are the stated exception in P1269).
+- *If built: rotation cannot evict an already-seated joiner* — no rotation exists.
 - *If built: the rotation surface passes the same gate checklist P1057 applied* — no new surface.
 
 ## Closure (2026-10-14)
 
 No code. `inline` in `pipeline_ran` records the decision work done inline on 2026-10-14 (recording
-the founder's ruling and its rationale), not an implementation. The rationale leans partly on
-P1224 (in progress); the decision entry says to revisit if P1224 is abandoned.
+the founder's ruling and its rationale), not an implementation. The rationale relies on the
+per-seat secret work (P1224) landing on prod; revisit if it does not.
 
 ## Related
 

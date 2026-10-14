@@ -16,20 +16,18 @@ founder decision before any design, and named "neither" as a legitimate answer f
 
 **Decision:** Founder, 2026-10-14: **neither rotate nor expire.** The code stays valid for the life
 of the room, and the remedy for a leaked link is to end the session and start a new one. Reasons:
-rooms are short practice sessions, not durable spaces, so ending one costs little; since P1269 and
-P1314 C a leaked code cannot take an occupied seat that carries a seat secret (seats claimed before
-those migrations still release on the code — the exception P1269's done spec states); and the
-per-seat secret work in P1224 (in progress) binds a seated guest's writes to something only that
-guest holds, so knowing the room alone stops being a write capability once it lands.
+rooms are short practice sessions, not durable spaces, so ending one costs little; P1269 and
+P1314 C introduced a per-seat secret for seat ownership; and the per-seat secret work in P1224 (in
+progress) extends it to a seated guest's writes.
 
 **Alternatives rejected:** *Rotation* and *a default expiry* — each adds a lifecycle rule (and
 rotation a new RPC plus semantics for an already-seated joiner) to a join path P1053, P1057 and
 P1097 each hardened, to provide a remedy that ending the session already provides.
 
-**Consequences:** P1098 closes as won't-do with no code; P1059's item 3 is answered. This rests
-partly on P1224 landing: if P1224 is abandoned, revisit. Status: accepted (founder decision
-2026-10-14). Falsifier: a reported leaked-code incident where ending the session was not an
-adequate remedy.
+**Consequences:** P1098 closes as won't-do with no code; P1059's item 3 is answered. The
+rationale relies on the per-seat secret work (P1224) landing on prod; revisit if it does not.
+Status: accepted (founder decision 2026-10-14). Falsifier: a reported leaked-code incident where
+ending the session was not an adequate remedy.
 
 **References:** [P1098](../features/p1098_leaked_room_code_is_unrevocable.md) ·
 [P1059](../features/p1059_p1053_security_review_hardening_backlog.md) ·

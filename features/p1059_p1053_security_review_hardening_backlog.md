@@ -108,10 +108,14 @@ decision. See § Closure.
       `20260901230000_p1223_pin_search_path_definer_functions.sql`); 0 of 157 SECURITY DEFINER
       functions in `public` are unpinned (control: 142 invoker functions with no pin are counted
       by the same probe)
-- [x] The transcription path still works on test after the pin — test catalog shows the same pin;
-      `e2e/integration/p495-transcription-trigger.spec.ts` on test 2026-10-14: 6 passed (creator
-      and joiner create the job, idempotent, non-participant / private session / anonymous refused).
-      `retry_transcription` has a client caller but no integration test; it was not exercised
+- [x] The transcription path still works on test after the pin — test catalog shows the same pin
+      (and the same `retry_transcription` body hash as prod);
+      `e2e/integration/p495-transcription-trigger.spec.ts` on test 2026-10-14: **10 passed**.
+      `create_transcription_job`: creator and joiner create the job, idempotent, non-participant /
+      private session / anonymous refused. `retry_transcription` (tests added 2026-10-14): a
+      participant's retry records a pending job; a second retry inside the rate-limit window is
+      refused and records nothing; non-participant and anonymous callers are refused. Failure-path
+      control: the same retry aimed at a nonexistent session fails the positive test
 - [x] Whether `anon`/`authenticated` hold CREATE on any schema is **answered**, and the answer is
       recorded — **neither holds CREATE on any schema** on prod (2026-10-14; control: `postgres`
       holds it on `public`). Recorded in `.private/docs/security-log.md` § 2026-10-14

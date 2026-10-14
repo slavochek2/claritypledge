@@ -194,3 +194,87 @@ test.describe('P495: Transcription Job RPC', () => {
     expect(error!.message).toMatch(/permission denied for function create_transcription_job/i);
   });
 });
+
+/**
+ * retry_transcription — the client's "retry" path (src/app/data/api.ts retryTranscription).
+ * Added 2026-10-14 when closing P1059: the search_path pin (P1223) covered this function, and
+ * nothing exercised it after the pin. Its own session, serial, so the job-count assertions in
+ * the describe above are never affected.
+ */
+test.describe('P495/P1223: retry_transcription RPC', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let retrySessionId: string;
+
+  test.beforeAll(async () => {
+    const { data: session } = await supabaseAdmin
+      .from('clarity_sessions')
+      .insert({
+        code: `P495RT-${Date.now()}`,
+        creator_profile_id: creator.user.id,
+        joiner_profile_id: joiner.user.id,
+        creator_name: 'P495TriggerCreator',
+        joiner_name: 'P495TriggerJoiner',
+        is_private: false,
+      })
+      .select('id')
+      .single();
+    if (!session) throw new Error('Failed to create retry test session');
+    retrySessionId = session.id;
+  });
+
+  test.afterAll(async () => {
+    if (!retrySessionId) return;
+    await supabaseAdmin.from('transcription_jobs').delete().eq('session_id', retrySessionId);
+    await supabaseAdmin.from('clarity_sessions').delete().eq('id', retrySessionId);
+  });
+
+  test('a participant can retry: a new pending job is recorded', async () => {
+    const client = await getAuthenticatedClient(joiner.email);
+
+    const { error } = await client.rpc('retry_transcription', { p_session_id: retrySessionId });
+    expect(error).toBeNull();
+
+    const { data: jobs } = await supabaseAdmin
+      .from('transcription_jobs')
+      .select('status')
+      .eq('session_id', retrySessionId);
+    expect(jobs).toHaveLength(1);
+    expect(jobs![0].status).toBe('pending');
+  });
+
+  test('a second retry inside the rate-limit window is refused and records nothing', async () => {
+    const client = await getAuthenticatedClient(creator.email);
+
+    const { error } = await client.rpc('retry_transcription', { p_session_id: retrySessionId });
+    expect(error).toBeTruthy();
+    expect(error!.message).toContain('Please wait 5 minutes');
+
+    const { data: jobs } = await supabaseAdmin
+      .from('transcription_jobs')
+      .select('id')
+      .eq('session_id', retrySessionId);
+    expect(jobs).toHaveLength(1);
+  });
+
+  test('a non-participant cannot retry', async () => {
+    const outsider = await createTestUser({ name: 'P495RetryOutsider' });
+    try {
+      const client = await getAuthenticatedClient(outsider.email);
+      const { error } = await client.rpc('retry_transcription', { p_session_id: retrySessionId });
+      expect(error).toBeTruthy();
+      expect(error!.message).toContain('Not a participant');
+    } finally {
+      await deleteTestUser(outsider.user.id);
+    }
+  });
+
+  test('an anonymous caller cannot retry', async () => {
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { error } = await anonClient.rpc('retry_transcription', { p_session_id: retrySessionId });
+    expect(error).toBeTruthy();
+    expect(error!.message).toMatch(/permission denied for function retry_transcription/i);
+  });
+});
