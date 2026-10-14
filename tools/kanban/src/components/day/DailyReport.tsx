@@ -6,7 +6,7 @@
 // from a card into the statements never moves the page.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, cardDetail, connectionBroken, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, needsYou, type AgentHeader } from './statusWords'
 import { safeUrl } from './api'
@@ -166,7 +166,7 @@ interface Failure {
 }
 
 function failures(view: DayView): Failure[] {
-  const broken = view.connections.filter((c) => c.state !== 'ok')
+  const broken = view.connections.filter((c) => connectionBroken(c.state))
   const brokenIds = new Set(broken.map((c) => c.id))
   const cause = (c: DayView['checks'][number]) => c.covered_by ?? (c.connection && brokenIds.has(c.connection) ? c.connection : undefined)
   const bad = view.checks.filter((c) => needsYou(c.status))
@@ -201,7 +201,7 @@ export function DailyReport(p: Props) {
       {statusOpen ? (
         <StatusPanel view={view} readOnly={readOnly} fails={fails} toCard={toCard} onCollapse={() => setStatusOpen(false)} onFix={p.onFix} onUndoFix={p.onUndoFix} />
       ) : (
-        <StatusLine view={view} report={p.report} fails={fails.length} onOpen={() => setStatusOpen(true)} peopleOpen={peopleOpen} onPeople={() => setPeopleOpen((o) => !o)} />
+        <StatusLine view={view} report={p.report} fails={fails} onOpen={() => setStatusOpen(true)} peopleOpen={peopleOpen} onPeople={() => setPeopleOpen((o) => !o)} />
       )}
       {peopleOpen && (
         <div className="d-card d-peoplebox" data-people-box>
@@ -267,22 +267,34 @@ function unpushed(report: DayReport) {
  * where the details and every Fix live). New people and unpushed commits are not status: they are
  * chips beside it, and people open their own box.
  */
-function StatusLine(p: { view: DayView; report: DayReport; fails: number; onOpen: () => void; peopleOpen: boolean; onPeople: () => void }) {
+function StatusLine(p: { view: DayView; report: DayReport; fails: Failure[]; onOpen: () => void; peopleOpen: boolean; onPeople: () => void }) {
   const { view, report } = p
-  const good = view.checks.filter((c) => c.status === 'ok').length
-  const queued = view.connections.filter((c) => c.state !== 'ok' && c.fix_queued).length
+  // P1489 (founder, 2026-10-14): outcome words, the same as the terminal card. A check that ran and
+  // found a problem is not one that failed to run; a broken connection with no check under it still
+  // counts as failed to run, so nothing the panel lists is left out of the line.
+  const good = view.counts.worked
+  const found = view.counts.problem
+  const failed = view.counts.unproven + p.fails.filter((f) => f.conn && f.under.length === 0).length
+  const skipped = view.counts.skipped
+  const queued = view.connections.filter((c) => connectionBroken(c.state) && c.fix_queued).length
   const newPeople = report.people?.length ?? 0
   return (
     <div className="d-sline" data-status-line>
       <button type="button" className="d-slt" aria-expanded="false" data-status-toggle onClick={p.onOpen}>
         <span className="d-tri">▶</span>
-        <span className="ok">✓</span> <b>{good} worked</b>
+        <span className="ok">✓</span> <b>{good} clean</b>
       </button>
-      {p.fails > 0 && (
+      {found > 0 && (
         <button type="button" className="d-chip need" data-status-fails onClick={p.onOpen}>
-          ✕ {p.fails} didn’t work
+          ✕ {found} found {found === 1 ? 'a problem' : 'problems'}
         </button>
       )}
+      {failed > 0 && (
+        <button type="button" className="d-chip need" data-status-failed onClick={p.onOpen}>
+          {failed} failed to run
+        </button>
+      )}
+      {skipped > 0 && <span className="d-chip">{skipped} skipped</span>}
       {queued > 0 && <span className="d-chip">{plural(queued, 'connection fix', 'connection fixes')} in Start fixing</span>}
       <span className="d-sgap" />
       {newPeople > 0 && (

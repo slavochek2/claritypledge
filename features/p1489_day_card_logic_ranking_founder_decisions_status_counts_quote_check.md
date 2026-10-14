@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 39
 workstream: infrastructure
@@ -7,8 +7,8 @@ created_date: '2026-10-14'
 tags: [day-page, kanban, day-report, reflection]
 disclosure: public
 intent: cold-start
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -57,9 +57,10 @@ quote checks truthfully?
 2. **Prod migrations and deploys default to agent work.** A finding without its own options gets
    `DEFAULT_OPTIONS` (`day-render.ts:79-82`), and `withRecommendation` recommends the first non-park
    option, "Give to the agent". `isAgentWork` (`day.ts:1410`) then counts it as agent work and Start
-   fixing sends it unanswered. `day-cp.md:131` says "Every other finding gets no options". The
-   table-grant, RLS and ops deploy-drift rows in its tables (`day-cp.md:386-398, 1176-1186`) are not
-   marked as questions, although the ops paragraph (`day-cp.md:1225`) and the cards' own evidence say
+   fixing sends it unanswered. `day-cp.md:131` says "Every other finding gets no options". Its fault
+   table (`day-cp.md:1176-1186`) has RLS and ops rows that are not marked as questions, and **no
+   table-grant row at all** (the 2026-10-14 table-grant key was improvised by the producer; corrected
+   by /challenge-prd), although the ops paragraph (`day-cp.md:1225`) and the cards' own evidence say
    prod migrate and deploy are ALWAYS-ASK. On 2026-10-14 the table-grant card and the ops deploy card
    both carried only "Give to the agent" / Park.
 3. **One root cause, two cards.** The RLS-drift card and the table-grant card of that run are about the
@@ -98,16 +99,16 @@ card first. A wrong agent-work split can send a prod change to an agent unanswer
 an invariant.
 **Reversibility:** git revert. One schema-tolerant addition (an optional cause key on findings) is
 ignored by older readers.
-**Decision density:** four founder calls, marked below. Two of them supersede shipped rulings.
+**Decision density:** five founder calls, all DECIDED 2026-10-14 (below). Two of them supersede shipped rulings.
 
 ## Solution
 
 ### 1. Ranking: the finding's grade wins; within a tier, the founder's cards first
 
-- A **written** card (one a finding produced) is Important exactly when its finding says so:
-  `--severity high`, or a sidecar's explicit `important`. The check's registry severity applies
-  **only to synthesised cards** (a check with no finding: did-not-run, unproven, problem-without-card).
-  Those cards have no finding grade to defer to.
+- A **written** card (one a finding produced) is Important only when its finding says so
+  (`--severity high`, or a sidecar's explicit `important`) **and** its check's registry severity is
+  not `normal`, which makes the registry a ceiling (DECIDED below). A synthesised card (a check with no
+  finding: did-not-run, unproven, problem-without-card) takes the registry severity, as today.
 - `compareIssues` adds one key between tier and deadline: **cards that need the founder** (the
   recommendation is not agent work, i.e. `!isAgentWork`) before agent work. The rest of rule 7 is
   unchanged (urgent+important, urgent, important, rest; then deadline, first seen, title).
@@ -117,26 +118,35 @@ ignored by older readers.
   issue's own impact. Recommended default: high when at least one real user is affected or the issue
   recurs within the window; low for a single event with no users.
 
-`[FOUNDER DECISION: supersede P1399 rule 7 ("important = set by the check's own severity, not the agent's mood") for written cards. Recommended: yes. The finding's grade is written per fault from what the check returned (users affected, money over, a hole open), which is the opposite of a mood, and the registry grade cannot tell a zero-user note from an outage. Alternative B: keep the registry as a ceiling, so a finding can lower Important but never raise it. B would strip Important from the run's money card, whose check is registry "normal".]`
+**DECIDED 2026-10-14 (founder approved the orchestrator's wording: "the card's own urgency wins, and the check's setting becomes the maximum it can reach. The agent can lower urgency but never raise it."):** the finding's own severity wins, and the check's registry severity is a **ceiling**. A written card is Important only when its finding is high **and** its check's registry severity is not `normal`. A check with no registry severity sets no ceiling. This is Alternative B, and it supersedes P1399 rule 7 for written cards with the founder's approval. **Consequence:** a high finding on a normal-severity check is no longer Important. On 2026-10-14 that is the run's money card. It still reaches the top 6, because founder cards rank first within a tier.
 
-`[FOUNDER DECISION: the Sentry grading threshold above (">= 1 real user, or recurring" = high). Recommended as written.]`
+**DECIDED 2026-10-14:** Sentry grading is high when at least 1 real user is affected or the issue recurs, otherwise low. `day-cp.md:481` is updated to match.
 
 ### 2. Prod migrations and deploys are founder decisions with real options
 
-- **Producer side.** `day-cp.md` marks the table-grant drift, RLS drift and ops deploy-drift rows as
-  questions for the founder, with their own options, a recommendation and its Fit / Risk / Evidence. The
-  options are what he can actually choose. Proposed defaults: "Apply it to prod now", "Wait for <the
-  in-flight fix>", Park.
+- **Producer side.** `day-cp.md` gains a table-grant row (`tablegrants:<the table>`) and marks the
+  table-grant, RLS and ops rows as questions for the founder, with their own options, a recommendation
+  and its Fit / Risk / Evidence. The options are what he can actually choose: "Apply it to prod now",
+  "Wait for <the in-flight fix>", Park.
 - **Renderer backstop.** The check registry gains a per-check marker meaning "a fix of this needs the
   founder's yes". A finding on such a check that arrives **without** its own options is never given
   `DEFAULT_OPTIONS`. It becomes a founder card (no agent recommendation, counted under "needs you",
   never sent by Start fixing unanswered). It also gets a visible marker that its options are missing,
-  so the producer gap is not silent. `cp.ops` covers more than deploy drift, so for it the marker is
-  scoped to the deploy-drift fault key, not the whole check.
+  so the producer gap is not silent. The marker is a 7th column, `needs_yes`, in
+  `scripts/day-cp-checks.tsv`, set to `yes` for `cp.rls`, `cp.tablegrants`, `cp.grants`, `cp.floor` and
+  `cp.ops` (grants and floor added on /finish review: their remedies are prod migrations too, so the
+  Invariant covers them). The backstop preselects "Wait", never the prod change.
+  A synthesised card (a problem nobody wrote up) on such a check is a founder card as well (Codex
+  review); a check that did not run is not, because making it run is not a prod change. It covers
+  the **whole** `cp.ops` check: its keys (`ops:issue-<n>`) cannot tell deploy drift from the other
+  ops alerts, and every ops remedy (migrate, deploy, restore) is ALWAYS-ASK (`day-cp.md:1225`).
+- **The invariant is carried by the view, not by the options.** `isAgentWork` returns false for any
+  `needs_yes` card, so a producer that recommends an agent option on such a check still cannot make
+  Start fixing send it unanswered. An answered card goes out with the founder's answer, as today.
 
-`[FOUNDER DECISION: does choosing "Apply it to prod now" on the Day page authorise the agent to run the prod migration or deploy, or does it hand the agent the task while the agent still stops for an in-session yes? Recommended: the agent still asks. The Day page is not a forgery-proof approval channel, and CLAUDE.md's ALWAYS-ASK list and the push/deploy rule stay untouched.]`
+**DECIDED 2026-10-14:** a Day-page choice of "Apply it to prod now" does NOT authorise the agent. The agent still stops for an in-session yes. The ALWAYS-ASK and push/deploy rules stay untouched.
 
-`[FOUNDER DECISION: the option labels above are placeholders; confirm or replace.]`
+**DECIDED 2026-10-14:** the option labels are as proposed: "Apply it to prod now", "Wait for <the in-flight fix>", "Park".
 
 ### 3. Related cards are shown as related, never merged
 
@@ -145,7 +155,11 @@ ignored by older readers.
   **adjacent**, at the position of the best-ranked member, and each says which card it shares a cause
   with.
 - `day-cp.md` tells the producer to set the cause key when RLS drift and table-grant drift name the same
-  table (and wherever else one fault shows under two checks).
+  table (and wherever else one fault shows under two checks). The producer sets it through
+  `~/.claude/scripts/day-step.sh finding --cause <slug>` (fault-key grammar, stored in the sidecar as
+  `cause`). That script lives outside this repo (the `~/.claude` repo) and changes there alongside this
+  branch. **Order matters:** `finding` dies on an unknown flag, so the `day-step.sh` change must be
+  live before the `day-cp.md --cause` instruction runs.
 - The visible marker's exact place on the card is coordinated with P1471. This spec owns the data and
   the order. P1471 owns the card layout.
 
@@ -156,7 +170,7 @@ ignored by older readers.
 - The terminal card's line says those outcomes. Proposed: `31 checks: 23 clean · 7 found problems ·
   1 skipped`, with "N failed to run" shown only when N > 0.
 
-`[FOUNDER DECISION: wording, and whether the Day page's status line ("✓ N worked · ✕ M didn't work", fixed by the 2026-10-12 P1463 ruling) changes to the same three outcomes. Recommended: the terminal card changes here, and the page line takes the same words as a text-only change to StatusLine. It is sequenced with P1471, which is changing which chips that line carries. If the founder keeps the page wording, only the terminal card changes.]`
+**DECIDED 2026-10-14:** the wording is `31 checks: 23 clean · 7 found problems · 1 skipped`, with "N failed to run" added only when N > 0. The Day page StatusLine takes the same words. This supersedes the 2026-10-12 P1463 line wording, with the founder's approval.
 
 ### 5. A mid-pass phase that never invents "didn't run"
 
@@ -167,9 +181,24 @@ ignored by older readers.
   not report its check (`unproven`).
 - `end` is unchanged. The final render still turns every missing step and check into a "didn't run"
   card.
-- **Coordination:** a parallel change reorders `~/.claude/commands/day.md` so step 9p runs after every
-  finding step. That change owns *when* 9p runs. This spec owns the code side, so that a 9p run at any
-  point emits no card for a step not yet reached.
+- **`--pending-from <step-id>`** (added to scope 2026-10-14 by the orchestrator) says where "not reached
+  yet" starts: an unrecorded step at or after that id **in its own step list**, and its registered
+  checks, make no card; an unrecorded step before it, or in another list, still reads "didn't run". An
+  id that is in no list is refused (exit 2), and the flag is refused outside `--phase issues`.
+  Without it, every unrecorded step is not reached yet.
+- `~/.claude/commands/day.md` step 9p calls `--phase issues --pending-from disp.9p` and its
+  `# @@py:unreached` filter is deleted. The renderer owns the rule. `day-report-sections.test.sh`
+  asserts the call, with a known-bad control.
+- **Order matters:** the 9p call needs this branch's renderer on `main`. A `/day` run that uses the new
+  `day.md` against the old renderer gets a usage error (exit 2) at 9p.
+
+### 7. A connection the run never used is neutral (added to scope 2026-10-14)
+
+- day-cp's REPORT has a `not-used` connection state. `ConnectionState` gains `not-used`, which is
+  neither working nor broken: no Connections line on the terminal card, no Fix, no failure in the
+  Status panel, no card for its skipped checks. An unknown state still reads `failed`.
+- `~/.claude/commands/day.md` step 9d writes the `not-used` row (state only, no fix step) instead of
+  dropping it.
 
 ### 6. The quote checker checks exactly what was rendered
 
@@ -178,10 +207,14 @@ ignored by older readers.
   serves both `day-reflection-context.ts` and the checker, so the two cannot drift. Decision, finding
   and conversation sources are audited the same way: each verifies against the rendered text, or
   against a superset of it that the writer could have seen.
+- A quote that verifies against the bracket or the quoted statement (an earlier writer's words, not the
+  founder's) names that part in its reference ("the statement he answered", "his recorded position"),
+  so the checker agent judges a self-citation for what it is (/challenge-prd hard question 2).
 - Matching stays **exact word matching** with the existing 3-word minimum. An invented quote, or a quote
   from text that was clipped away before the writer saw it, still misses.
 - `day-reflection.md`: delete "The writer cannot read files". The writer writes each round's reply to
-  the work folder by design (`$W/reply-1.json`, `$W/reply-2.json`) and returns the path. The procedure
+  the work folder by design (`$W/reply-1.txt`, `$W/reply-2.txt`: a reply starts with a `MODEL:` line,
+  so it is not JSON) and returns the path. The procedure
   reads the file, so a reply longer than an idle notice carries is never lost. Each round's quote misses
   go to their own file (`quotes-1.txt`, `quotes-2.txt`), never overwritten, so a run's drops can be
   attributed afterwards.
@@ -196,6 +229,9 @@ ignored by older readers.
 | Cause keys are set inconsistently, so related cards stay apart | ACCEPT | Same failure as today, no worse; fixable in the runbook |
 | P1471 and this spec both touch `DailyReport.tsx` | MITIGATE | This spec touches it only for the status-line words (if the founder takes it) and the group marker. Build after P1471 lands, or rebase onto it |
 | The parallel day.md reorder lands first or second | ACCEPT | §5 is correct whatever order 9p runs in |
+| `cp.ops` is registry `normal`, so under the ceiling an ops finding is never Important, though it needs the founder | ACCEPT | Follows the decided ceiling; it still ranks first within its tier as a founder card. Raising `cp.ops` to high is a founder call |
+| The `~/.claude` changes (`day.md` 9p `--pending-from`, `day-step.sh --cause`) and this branch land separately | MITIGATE | 9p against the old renderer exits 2, and `--cause` against the old `day-step.sh` loses the finding: ship this branch and commit `~/.claude` together |
+| The Day page shows no same-cause marker and the options-missing note only under More info | DEFER | Card layout is P1471's; the data (`same_cause`, `more_info`) is in place for it |
 
 **Non-Goals**
 - Do NOT change the Day page's layout, card anatomy, footer or pager. That is P1471.
@@ -219,43 +255,67 @@ ignored by older readers.
 
 ## Done-When
 
-- [ ] Rebuilding the view from the unchanged 2026-10-14 report file in `~/.claude-day/reports/`
+- [x] Rebuilding the view from the unchanged 2026-10-14 report file in `~/.claude-day/reports/`
       places the run's money decision card in the terminal card's top 6, and none of the four Sentry
-      cards carries "Important". Evidence: the printed order. Tests use an invented fixture with the
+      cards carries "Important". (Under the ceiling, the money card itself is not Important either.) Evidence: the printed order. Tests use an invented fixture with the
       same shape: one founder card, four low-severity notes on a registry-high check, two high cards.
-- [ ] Within one tier, a founder card ranks above an agent card that would otherwise win on first-seen
+- [x] Within one tier, a founder card ranks above an agent card that would otherwise win on first-seen
       or title (unit test with that tie).
-- [ ] A synthesised card for a registry-high check that did not report still ranks Important
+- [x] A synthesised card for a registry-high check that did not report still ranks Important
       (regression control for §1).
-- [ ] A finding on the table-grant check with no options renders with no "Give to the agent"
+- [x] A finding on the table-grant check with no options renders with no "Give to the agent"
       recommendation, is not agent work, counts under "needs you", and is not in the Start fixing
       payload when unanswered (unit test). `day-cp.md`'s table-grant, RLS and deploy-drift rows carry
       options, verified by reading the diff.
-- [ ] Two findings sharing a cause key render adjacent in the view and the terminal card. Each keeps
+- [x] Two findings sharing a cause key render adjacent in the view and the terminal card. Each keeps
       its own fingerprint, and a decision on one leaves the other unanswered (unit test).
-- [ ] The terminal card for the 2026-10-14 report says 23 clean, 7 found problems, 1 skipped, and no
+- [x] The terminal card for the 2026-10-14 report says 23 clean, 7 found problems, 1 skipped, and no
       "failed to run". A fixture with one not-run check shows "1 failed to run", which a problem check
       never increments.
-- [ ] `--phase issues` over a ledger whose later steps have no rows emits **zero** cards for those
+- [x] `--phase issues` over a ledger whose later steps have no rows emits **zero** cards for those
       steps or their checks. The same ledger at `--phase end` still emits them (control). A step that ran
       without reporting its check still yields its unproven card in the mid pass.
-- [ ] Re-running `--quotes` on the 2026-10-14 reflection candidate with that run's sources: the three
+- [x] Re-running `--quotes` on the 2026-10-14 reflection candidate with that run's sources: the three
       story quotes that missed now verify. A copy with one word changed in each of those quotes misses
       all three (control). The same pair is in the invented-fixture test suite, for statement, bracket
       and story positions, plus a quote from clipped-away text, which must miss.
-- [ ] `day-reflection.md` no longer says the writer cannot read files. It names the per-round reply
-      files and the per-round quote-miss files. `[post-run]` re-check on the next real `/day`: both
-      rounds' files exist in the work folder.
-- [ ] Existing day tests pass (`tools/kanban` test suite for `day`, `day-render`,
+- [x] `day-reflection.md` no longer says the writer cannot read files. It names the per-round reply
+      files and the per-round quote-miss files (verified by reading the diff). `[post-run]` re-check on
+      the next real `/day`: both rounds' files exist in the work folder.
+- [x] Existing day tests pass (`tools/kanban` test suite for `day`, `day-render`,
       `day-reflection-*`), and kanban typecheck is clean.
-- [ ] The four founder decisions above are recorded in this spec.
+- [x] The founder decisions above are recorded in this spec (DECIDED 2026-10-14).
+- [x] `--phase issues --pending-from <step>` emits no card for an unrecorded step at or after it in its
+      own list, keeps the card for one before it and for another list's step, and refuses an unknown
+      step or use outside `--phase issues` (unit tests). Step 9p of `day.md` calls it, with no filter
+      of its own (`day-report-sections.test.sh`, with a control).
+- [x] A `not-used` connection is read as such, is not broken (no Connections line, no Fix, no card),
+      and is never shown as worked or failed; a failed one and an unknown state still read failed
+      (unit tests). Step 9d writes the `not-used` row (`day-report-sections.test.sh`).
+- [x] `--cause` is accepted by `day-step.sh finding` (one-line slug, needs a fault key) and stored in the
+      sidecar (`day-step.test.sh`); the renderer carries it onto the card (unit test). `day-cp.md` tells
+      the producer when to set it.
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] The spec claimed `day-cp.md` had table-grant and RLS question rows; it has no table-grant row (the 2026-10-14 key was improvised) | Problem text corrected; a `cp.tablegrants` row with a defined key added to `day-cp.md` | A spec claim about code must be true; the producer needs a defined key |
+| 2 | /challenge-prd | [BLOCK] An ops deploy-drift marker cannot be scoped by fault key (`ops:issue-<n>` for every ops alert) | Hard question 1, option B: `needs_yes` covers all of `cp.ops` | Every ops remedy is ALWAYS-ASK (`day-cp.md:1225`); no fingerprint change; costs at most an extra founder card |
+| 3 | /challenge-prd | [BLOCK] The producer cannot set a cause key (`day-step.sh` has no flag; it dies on unknown flags) | `day-step.sh --cause` added in `~/.claude` (orchestrator-approved after the parallel change landed), with tests | Without it §3 had no producer |
+| 4 | /challenge-prd | [BLOCK] The backstop card was undefined, and the invariant was wider than the options-missing mechanism | Backstop options fixed (Apply / Wait / Park, Park never recommended); hard question 3, option A: `isAgentWork` is false for every `needs_yes` card | The invariant then holds whatever options a producer writes |
+| 5 | /challenge-prd | [WARN] The stored 2026-10-14 report cannot show §2 | Evidence for §2 comes from re-rendering a scratch copy of that day's ledger with this branch's registry | The stored report predates the marker |
+| 6 | /challenge-prd | [WARN] Founder-first is within a tier only | Accepted | The ceiling decision sets the tiers; within the decided rule this is the intended order |
+| 7 | /challenge-prd | [WARN] A quote of the statement is the earlier writer's words, not the founder's | Hard question 2, option B in spirit: it verifies (it was shown) but the reference names the part | Keeps exact matching and makes self-citation visible to the checker agent |
+| 8 | /challenge-prd | [WARN] `counts.worked` pinned by tests; "unproven" is not "failed to run" | `worked` kept as the clean count; "failed to run" counts not-run and unproven (no result either way) | Decided wording has one bucket for checks without a result |
+| 9 | /challenge-prd | [NOTE] Reply files are not JSON | Named `reply-1.txt` / `reply-2.txt` | The reply starts with a `MODEL:` line |
 
 ## Alternatives Considered
 
 - **Raise the 6-card limit.** Rejected: the founder's card would still sort below notes. The order is
   the defect.
-- **Registry severity as a ceiling (Alternative B in §1).** Keeps P1399 rule 7 to the letter. It would
-  demote the run's money card, whose check is registry "normal". Left to the founder.
+- **The finding's grade wins outright (Alternative A in §1).** Not chosen: the founder approved the
+  ceiling (B) on 2026-10-14.
 - **Infer related cards from evidence text** (same table name). Rejected: prose matching. A fixed cause
   key is the same discipline as fault keys.
 - **Build the 9p draft with `phase: 'start'`.** Rejected, verified: `start` still marks unreached
@@ -283,8 +343,3 @@ by the reverted readers (tolerant reading, `day.ts` rule 3).
 - [P1445](done/2026-06-10/p1445_day_grounded_reflection_agent_on_slava_cp_cards.md): grounded
   reflection and the exact-quote check.
 - A parallel change to `~/.claude/commands/day.md` step ordering (another agent, same day).
-
-## Next Steps
-
-- `/challenge-prd features/p1489_day_card_logic_ranking_founder_decisions_status_counts_quote_check.md`,
-  then the founder decisions, then `/dev`.

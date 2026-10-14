@@ -47,8 +47,9 @@ steps = {r[0] for r in rows(man)}
 problems = []
 registered = {}
 for r in rows(reg):
-    if len(r) not in (5, 6):
-        problems.append("registry row has %d TAB fields, want 5 or 6: %s" % (len(r), r[0]))
+    # P1489: an optional 7th field, needs_yes, is `yes` or empty
+    if len(r) not in (5, 6, 7) or (len(r) == 7 and r[6].strip() not in ("", "yes")):
+        problems.append("registry row has %d TAB fields, want 5 to 7 (a 7th is `yes` or empty): %s" % (len(r), r[0]))
         continue
     cid, step, label, group, sev = r[:5]
     if cid in registered:

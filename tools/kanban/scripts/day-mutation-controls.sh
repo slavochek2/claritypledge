@@ -109,7 +109,7 @@ control "Render: a failed step is a problem" "STEP MAPPING" \
 control "Render: a failed step with all-ok checks is a problem of its own" "STEP EXIT" \
   $D 's/if \(failed && own\.every/if (false \&\& own.every/' $R
 control "Render: phase start is running" "RUN STATE" \
-  $D "s/if \(phase === 'start'\) return 'running'/if (false) return 'running'/" $R
+  $D "s/if \(phase === 'start' \|\| phase === 'mid'\) return 'running'/if (false) return 'running'/" $R
 control "Render: a missing hard step is incomplete" "RUN STATE" \
   $D "s/    if \(list\.steps\.some\(\(s\) => s\.hard && !ledger\.steps\.has\(s\.id\)\)\) return 'incomplete'\n//" $R
 control "Render: a missing step list is incomplete" "step list that has gone missing" \
@@ -139,7 +139,7 @@ control "Render: the card leaves parked issues out" "CARD — ≤ 25 lines" \
 control "Render: the card shows the first six only" "CARD — ≤ 25 lines" \
   $D 's/const CARD_ISSUES = 6/const CARD_ISSUES = 60/' $R
 control "Render: the card carries no internal ids" "CARD — ≤ 25 lines" \
-  $D 's/\$\{plain\(i\.title\)\}`\)/\${plain(i.title)} (\${i.fp})`)/' $R
+  $D 's/\$\{plain\(i\.title\)\}\$\{first/\${plain(i.title)} (\${i.fp})\${first/' $R
 control "Render: control characters never reach the terminal" "control characters" \
   $D 's/\.replace\(\/\[\\x00-\\x1f\\x7f-\\x9f\]\/g, . .\)//' $R
 

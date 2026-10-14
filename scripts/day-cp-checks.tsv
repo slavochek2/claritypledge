@@ -21,10 +21,13 @@
 #   step-id     the manifest step that computes it
 #   label       what it is, in the founder's terms
 #   group       the Monitoring > Systems group on the Day page
-#   severity    high = its issue is Important; normal otherwise
+#   severity    high = its finding may be Important; normal otherwise
+#   severity    is also a ceiling (P1489): a finding on a `normal` check is never Important
 #   connection  the service it depends on (sentry, mixpanel, beeper, gcloud) or empty
+#   needs_yes   `yes` = fixing its findings needs a prod migration or deploy, so every card of it
+#               is the founder's decision, never agent work (P1489); empty otherwise
 #
-# check-id	step-id	label	group	severity	connection
+# check-id	step-id	label	group	severity	connection	needs_yes
 cp.smoke	cp.w1	Prod smoke test	Servers & blog	high
 cp.blog	cp.w1	Blog	Servers & blog	normal
 cp.backup	cp.w1	Database backup	Backups & mirror	normal	gcloud
@@ -39,9 +42,9 @@ cp.email	cp.w2	Event email sending	Email & sessions	normal
 cp.sentry	cp.w2s	Sentry errors	Product errors	high	sentry
 cp.mixpanel	cp.w2b	User analytics	Product errors	normal	mixpanel
 cp.baseline	cp.w3	Tests and lint	Code	normal
-cp.ops	cp.w3	Ops alerts (GitHub)	Servers & blog	normal
-cp.rls	cp.w3	Database access rules	Database	high
-cp.grants	cp.w3	Database function permissions	Database	normal
-cp.tablegrants	cp.w3	Database table and column permissions	Database	high
-cp.floor	cp.w3	Database privilege floor	Database	high
+cp.ops	cp.w3	Ops alerts (GitHub)	Servers & blog	normal		yes
+cp.rls	cp.w3	Database access rules	Database	high		yes
+cp.grants	cp.w3	Database function permissions	Database	normal		yes
+cp.tablegrants	cp.w3	Database table and column permissions	Database	high		yes
+cp.floor	cp.w3	Database privilege floor	Database	high		yes
 cp.video	cp.vsum	Story video summaries	Transcription & video	normal

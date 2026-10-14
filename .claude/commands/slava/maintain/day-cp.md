@@ -130,6 +130,16 @@ recommend, and how it rates: `--option <id>="<label>"` (repeat), `--why "<one li
 **Fit** is how likely the recommended option fixes the real cause without breaking something else (a number you can defend, never a default). **Risk** is the one most likely way it backfires, one line, at most 200 characters. **Evidence** is `verified` when the cause was checked against its source (the board says "Cause checked") and `unverified` when it is suspected ("Cause suspected").
 Never recommend `park` — only the founder parks. Every other finding gets no options; the board offers "Give to the agent" or "Park". (`--fit` replaces the old `--confidence`.)
 
+**A prod change is always a question (P1489).** A check marked `yes` in the `needs_yes` column of
+`scripts/day-cp-checks.tsv` (`cp.rls`, `cp.tablegrants`, `cp.grants`, `cp.floor`, `cp.ops`) has fixes that need a prod
+migration or a prod deploy, which are ALWAYS-ASK. Give every finding on those checks its own options,
+for example `--option apply="Apply it to prod now" --option wait="Wait for <the in-flight fix, named>"`,
+and the one you recommend with all three ratings: `--recommend <id> --fit <0-100> --risk "<main risk>" --evidence verified|unverified`.
+The board never makes such a card agent work. If you give no options,
+it falls back to "Apply it to prod now" / "Wait for the in-flight fix" / Park, with Wait preselected, and
+says the check gave no choices. A founder choosing "Apply it to prod now" does **not** authorise the agent to change prod: the
+fixing agent still stops for his yes in its own session.
+
 ---
 
 ## Steps
@@ -478,9 +488,11 @@ Run these two in parallel:
 ```
 
 Clean or self-healed-and-clean is `ok`; new issues are `problem`, plus **one finding per new issue**
-(`--check cp.sentry --fault-key sentry:<the issue's short id, lowercased> --severity high`, the
+(`--check cp.sentry --fault-key sentry:<the issue's short id, lowercased> --severity <high|low>`, the
 issue title as the title, users affected and event count in the body); skipped is `not-run`, and the
-REPORT block carries why.
+REPORT block carries why. **Severity is the issue's own impact (P1489, founder 2026-10-14):** `high`
+when at least one real user is affected (not the founder or a test account) or the issue recurs
+(more than one event since the last run); otherwise `low`. The board makes only a `high` one Important.
 - `✓ Sentry: clean (0 new since last /day)` — connected, no new issues
 - `⚠ Sentry: N new issues — [top title]` — connected, issues found
 - `✓ Sentry: self-healed (cleared stale OAuth), clean` — repair succeeded
@@ -1177,11 +1189,17 @@ Since P1399 the reading rules below decide **findings**, not printed lines — w
 | fault | `--check` | `--fault-key` |
 |---|---|---|
 | lint errors / failing tests | cp.baseline | `baseline:lint-errors`, `baseline:tests-failing` — "fix before starting new work" is its Point B |
-| an open ops alert issue | cp.ops | `ops:issue-<number>` — the issue's title and its fix command; `--first-seen` = the issue's creation date |
+| an open ops alert issue | cp.ops | `ops:issue-<number>` — the issue's title and its fix command; `--first-seen` = the issue's creation date — a question: its fixes (a prod migrate or deploy, a restore) are ALWAYS-ASK |
 | an open ops alert issue labelled `p1155*` (stranded sign-ups) | cp.signups | NOT its own card: it is the same person as the unconfirmed-sign-ups count. Record it as `--check cp.signups --fault-key signups:unconfirmed` (same key as the row above) and put the issue number in the body, so one person is one card. When the count is 0 the issue is stale: say so in the body of a `cp.ops` note, do not file a card |
-| NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) |
-| NEW function grant drift / guards not refusing anon | cp.grants | `grants:new-anon-execute`, `grants:guard-not-refusing` |
-| a privilege-floor violation / a failed self-test | cp.floor | `floor:violations`, `floor:selftest-failed` |
+| NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) — a question (prod change) |
+| table or column grant drift | cp.tablegrants | `tablegrants:<the table, lowercased with dashes>` (severity high; what prod, test and the migrations each grant in the body) — a question (prod change) |
+| NEW function grant drift / guards not refusing anon | cp.grants | `grants:new-anon-execute`, `grants:guard-not-refusing` — a question (prod change) |
+| a privilege-floor violation / a failed self-test | cp.floor | `floor:violations`, `floor:selftest-failed` — a question (prod change) |
+
+**One cause, two checks (P1489).** When RLS drift and table-grant drift name the same table, give
+both findings `--cause table:<the table, lowercased with dashes>`. The board keeps them as two cards
+(each its own fault key and decision) but shows them together and says they share a cause. Use a
+cause key the same way wherever one fault shows under two checks; never merge the fault keys.
 
 Known-open backlog counts stay what they were — **not** findings, and not re-litigated daily. Every
 security finding stays `--store private` (it names live, unpatched objects).

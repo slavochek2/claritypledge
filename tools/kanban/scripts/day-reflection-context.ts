@@ -57,6 +57,34 @@ export type Source =
 export const oneLine = (s: string) => s.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim()
 const clip = (s: string, n = MAX_LINE) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
+/**
+ * P1489: a story's grounding line, exactly as the writer is shown it. The quote check matches a
+ * story quote against this same string (day-reflection-check.ts), so the two can never drift.
+ * Its parts: the bracket (date, state, the founder's recorded position), the statement he answered
+ * (an earlier writer's words, not his), and his story.
+ */
+export function storyParts(e: Pick<StoryEntry, 'edited_at' | 'state' | 'position' | 'statement' | 'story'>) {
+  const pos = e.position === null ? 'no position' : positionWord(e.position)
+  return { bracket: `${e.edited_at.slice(0, 10)} · ${e.state} · ${pos}`, statement: oneLine(e.statement), story: oneLine(e.story) }
+}
+export function storyLine(id: string, e: Parameters<typeof storyParts>[0]): string {
+  return storyLineParts(id, e).line
+}
+/**
+ * The line and what of each part survived the clip: a quote is attributed to the part the writer
+ * could actually see it in (codex review 2026-10-14: a long statement can clip the story away).
+ */
+export function storyLineParts(id: string, e: Parameters<typeof storyParts>[0]) {
+  const p = storyParts(e)
+  const line = clip(`${id} [${p.bracket}] on "${p.statement}": ${p.story}`)
+  const head = `${id} [`
+  const a = head.length + p.bracket.length // end of the bracket
+  const b = a + '] on "'.length + p.statement.length // end of the statement
+  const c = b + '": '.length // start of the story
+  const shown = (from: number, to: number) => line.slice(Math.min(from, line.length), Math.min(to, line.length)).replace(/…$/, '')
+  return { line, bracket: shown(head.length, a), statement: shown(a + '] on "'.length, b), story: shown(c, line.length) }
+}
+
 // ------------------------------------------------------------------ decisions
 
 export interface Section { date: string; heading: string; body: string }
@@ -388,8 +416,7 @@ export async function build(args: Args): Promise<{ text: string; sources: Record
   for (const e of s.kept) {
     const id = `S${++n}`
     sources[id] = { kind: 'story', run_id: e.run_id, target: e.target, hash: e.hash }
-    const pos = e.position === null ? 'no position' : positionWord(e.position)
-    L.push(clip(`${id} [${e.edited_at.slice(0, 10)} · ${e.state} · ${pos}] on "${oneLine(e.statement)}": ${oneLine(e.story)}`))
+    L.push(storyLine(id, e))
   }
   if (!n) L.push('none')
   L.push('', "This pass's issue cards (already on the board — never repeat one):")

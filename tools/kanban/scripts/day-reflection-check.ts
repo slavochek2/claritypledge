@@ -12,8 +12,10 @@
 //       the mechanical half of the checker (PS-3): every cited quote must be found, verbatim (spacing
 //       and ** / ` aside), in the source its id names in FILE (written by day-reflection-context.ts):
 //       a decision → that dated section of that decisions file; a conversation → that session's turn at
-//       that time, re-read through `hist --jsonl`; a story → the story's current version in the day
-//       folder's decisions.jsonl; an issue card → its title. Any miss → exit 1, one stderr line per miss
+//       that time, re-read through `hist --jsonl`; a story → its grounding line exactly as the writer
+//       saw it (storyLine, rebuilt from the story's current version in the day folder's
+//       decisions.jsonl; P1489), the part a quote came from named in its reference; an issue card →
+//       its title. Any miss → exit 1, one stderr line per miss
 //       ("not found" or "unavailable"). Otherwise prints the reflection with each ref replaced by the
 //       stable reference (file + date + heading, session + time, …).
 //
@@ -43,7 +45,7 @@ import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import { parseLines, readDecisionsText } from '../server/dayStore'
 import { ledgerOf, loadRunStatements } from '../server/dayStories'
-import { sections, type Hit, type Source } from './day-reflection-context'
+import { sections, storyLineParts, type Hit, type Source } from './day-reflection-context'
 
 export interface IO { out: (s: string) => void; err: (s: string) => void }
 
@@ -232,6 +234,7 @@ export async function checkQuotes(r: Reflection, sources: Record<string, Source>
       }
       const want = norm(q.quote)
       let found = false
+      let part = ''
       if (src.kind === 'decision') {
         const text = fileText(src.file)
         if (text === null) {
@@ -257,10 +260,19 @@ export async function checkQuotes(r: Reflection, sources: Record<string, Source>
           miss('unavailable (the story was edited or removed since)')
           continue
         }
-        found = contains(norm(e.story), want)
+        // P1489: the writer was shown the whole line (storyLine), so a quote is checked against exactly
+        // that string: its words were on screen. Which part it came from is named in the reference,
+        // so the checker agent sees a quote of the statement (an earlier writer's words) or of the
+        // bracket for what it is, never as the founder's story.
+        const shown = storyLineParts(q.ref, e)
+        if (contains(norm(shown.line), want)) {
+          // attributed by what of each part the writer could see (the clip may cut the story away)
+          part = contains(norm(shown.story), want) ? '' : contains(norm(shown.statement), want) ? 'the statement he answered' : contains(norm(shown.bracket), want) ? 'his recorded position' : 'the line as shown'
+          found = true
+        }
       } else found = contains(norm(src.title), want)
       if (!found) miss('not found in that source')
-      else resolved.push({ ref: q.ref, quote: q.quote, source: stableRef(src) })
+      else resolved.push({ ref: q.ref, quote: q.quote, source: part ? `${stableRef(src)} (${part})` : stableRef(src) })
     }
     out.statements.push({ ...st, agent: { ...st.agent, sources: resolved } })
   }

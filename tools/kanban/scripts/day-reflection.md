@@ -33,8 +33,10 @@ never worked around.
 
 ## 2. Draft (writer, round 1)
 
-Spawn **one** agent (Agent tool, `subagent_type: general-purpose`, `model: "opus"`). The writer cannot
-read files: paste the facts, `history.txt` and `grounding0.txt` **inline**.
+Spawn **one** agent (Agent tool, `subagent_type: general-purpose`, `model: "opus"`). Paste the facts,
+`history.txt` and `grounding0.txt` **inline**, so the brief is one self-contained message. The writer
+can read and write files (P1489: an earlier version of this file said it cannot, which was false), and
+step 3 relies on that: its reply goes to a file, never only into a message.
 
 > From these facts about one working day, draft 3 to 5 statements that each propose a CHANGE —
 > something to stop, start or do differently. No "keep doing" statements. One sentence each, at most
@@ -88,17 +90,23 @@ Continue the **same** writer (SendMessage) with `grounding.txt` pasted inline:
 >
 > First line of your reply: `MODEL: <your exact model id>`. Then one JSON object, nothing else:
 > `{"statements":[{"text":"…","review":"weekly"?,"agent":{"position":-3..3,"story":"…","sources":[{"ref":"D3","quote":"…"}]}}]}`
+>
+> Write that whole reply, exactly, to `<$W>/reply-1.txt` (the path given, expanded), and answer this
+> message with only that path.
+
+**The reply travels as a file (P1489).** A long reply that comes back only as a message can be cut
+off (an idle notice carries about 4000 characters), and a cut reply fails `--parse` or, worse, loses
+statements. So the writer writes it to the work folder, and step 4 reads the file. If the file is
+missing or empty, ask the writer again; never rebuild it from a message.
 
 ## 4. Mechanical checks
 
 ```bash
-(cd "$KB" && npx tsx scripts/day-reflection-check.ts --parse) <<'REPLY' \
+(cd "$KB" && npx tsx scripts/day-reflection-check.ts --parse) < "$W/reply-1.txt" \
   | (cd "$KB" && npx tsx scripts/day-reflection-history.ts --reject-repeats --day-dir "$HOME/.claude-day" --findings "$W/findings.txt") \
   | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --lenient --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
-  > "$W/candidate.json" 2> "$W/quotes.txt"
-<the writer's reply, exactly as returned>
-REPLY
-cat "$W/quotes.txt"   # one line per quote that did not verify
+  > "$W/candidate.json" 2> "$W/quotes-1.txt"
+cat "$W/quotes-1.txt"   # one line per quote that did not verify (kept: round 2 writes its own file)
 ```
 
 Each stage refuses with exit 1 and names the problem on stderr: the shape (`--parse`), a repeat of an
@@ -108,7 +116,7 @@ A refusal by `--parse` or `--reject-repeats` stops the pipeline: send the writer
 verbatim and ask for the whole reply again — **never edit its words yourself**, never trim a
 statement, never fix a quote. A second refusal of the whole reply records nothing (say so in the
 evidence). A quote that does not verify does **not** stop it (`--lenient`): that statement gets the
-verdict `"fail: mechanical: <the quotes.txt line>"` and goes to the round-2 rewrite in step 5 like
+verdict `"fail: mechanical: <the quotes-1.txt line>"` and goes to the round-2 rewrite in step 5 like
 any checker fail — so a statement that misses twice is dropped and named, while the others stand.
 
 ## 5. Checker (a separate agent)
@@ -128,21 +136,27 @@ inline: each statement with the agent's position, story and sources (ref + quote
 
 Record the verdicts as `{"r1":["pass"],"r2":["fail: …"]}` in `$W/verdicts.json`. For every fail,
 send the writer the checker's reasons and ask for **only those statements** again (round 2), in the
-same JSON shape with each statement's `"id"` kept (`{"statements":[{"id":"r2","text":…,"agent":…}]}`).
-Run them through step 4 with `--parse --rewrite r2,…` in place of `--parse`, into `$W/rewrite.json`,
-then merge and re-check the whole file:
+same JSON shape with each statement's `"id"` kept (`{"statements":[{"id":"r2","text":…,"agent":…}]}`),
+written to `<$W>/reply-2.txt` the same way (the reply is the file; the message is only its path).
+Run them through step 4 with `--parse --rewrite r2,…` in place of `--parse`, reading `$W/reply-2.txt`,
+into `$W/rewrite.json`, and with stderr to `$W/quotes-2r.txt` instead of `quotes-1.txt` (round 1's
+misses stay as they were), then merge and re-check the whole file:
 
 ```bash
 (cd "$KB" && npx tsx scripts/day-reflection-check.ts --merge --base "$W/candidate.json") < "$W/rewrite.json" \
   | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --lenient --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
-  > "$W/candidate2.json" 2> "$W/quotes.txt" && mv "$W/candidate2.json" "$W/candidate.json"
-cat "$W/quotes.txt"   # a rewritten statement listed here gets its second verdict "fail: mechanical: …"
+  > "$W/candidate2.json" 2> "$W/quotes-2.txt" && mv "$W/candidate2.json" "$W/candidate.json"
+cat "$W/quotes-2.txt"   # a rewritten statement listed here gets its second verdict "fail: mechanical: …"
+# quotes-1.txt stays: a run's drops can be attributed afterwards (P1489)
 ```
 
 Check the rewritten statements again with the **same** checker and append the second verdict
 (`"r2":["fail: …","pass"]`). A statement gets at most two rounds. Quotes are copied from the source
 text itself: a quote must not run across a `…` the grounding line added, and must be at least three
-words, matched as whole words.
+words, matched as whole words. A story quote is checked against the whole `S` line as shown, so a quote
+of its bracket or of the statement it answers verifies too, but the reference then names that part
+("the statement he answered", "his recorded position"): judge it as the earlier writer's words or as
+his recorded position, never as his story (P1489).
 
 ## 6. Record
 

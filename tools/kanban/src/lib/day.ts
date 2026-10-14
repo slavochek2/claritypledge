@@ -16,7 +16,12 @@
 //     run keeps the issue out of the flow; any other earlier choice means the fault came back.
 //   - Ordering is one rule (rule 7): urgent+important, urgent, important, rest; then deadline,
 //     first seen, title. Urgent = deadline within 72h of the run, or the check did not run / not
-//     proven. Important = the check's own severity (or the issue's source), never a mood.
+//     proven. Important (P1489, founder 2026-10-14): a written card is Important when its finding
+//     says so, capped by its check: a check registered `normal` is the ceiling, so a finding can
+//     lower importance, never raise it. A synthesised card takes its check's severity. Within a
+//     tier, cards that need the founder come before agent work, then deadline, first seen, title.
+//   - A card whose fix needs the founder's yes (a prod migration, a prod deploy: `needs_yes`) is
+//     never agent work, whatever its options say (P1489). Cards sharing a `cause` sit together.
 //   - Two confidences, two names (rule 8): recommendation_confidence (0–100) and evidence. Phase D
 //     renames what the founder sees: Fit N% (with one main-risk line) and Cause checked / suspected.
 //   - Start fixing sends what the founder answered plus clear agent work (Phase D, decision 1B);
@@ -44,7 +49,10 @@ const isQuestionText = (text: string | undefined) => (text ?? '').trim().endsWit
 
 export type CheckStatus = 'ok' | 'problem' | 'not-run' | 'unproven' | 'skipped'
 export type RunState = 'running' | 'complete' | 'incomplete' | 'abandoned'
-export type ConnectionState = 'ok' | 'not-connected' | 'failed'
+/** not-used (P1489): the run never called the service. Neutral: neither a working nor a broken connection. */
+export type ConnectionState = 'ok' | 'not-used' | 'not-connected' | 'failed'
+/** A connection the founder or the agent must fix. `not-used` is not one, and neither is `ok`. */
+export const connectionBroken = (s: ConnectionState) => s === 'not-connected' || s === 'failed'
 export type Review = 'weekly' | 'monthly'
 
 export interface DayConnection {
@@ -73,6 +81,8 @@ export interface DayCheck {
   connection?: string
   /** the check's own severity; 'high' makes its issue Important */
   severity?: 'high' | 'normal'
+  /** P1489: fixing what it finds needs the founder's yes (a prod migration or deploy) */
+  needs_yes?: boolean
 }
 
 export interface DayOption {
@@ -95,6 +105,13 @@ export interface DayIssue {
   /** the check that produced it, if any */
   check?: string
   important?: boolean
+  /**
+   * P1489: its fix needs the founder's yes (a prod migration or deploy). Never agent work, so Start
+   * fixing never sends it unanswered. Set by the renderer from the check list.
+   */
+  needs_yes?: boolean
+  /** P1489: a fixed slug naming the root cause; cards sharing it are shown together, never merged */
+  cause?: string
   /** ISO date or datetime */
   deadline?: string
   /** ISO date; drives "N days" */
@@ -465,6 +482,8 @@ export interface IssueView extends DayIssue {
   answered_before?: { at: string; option_id: string; label: string }
   /** index into options of the preselected (recommended) option */
   recommended_index: number
+  /** P1489: the fps of the other cards in this view that share this card's cause, in view order */
+  same_cause?: string[]
   /** the decision made on THIS run, if any (latest line wins) */
   decision?: DayDecision
 }
@@ -519,6 +538,8 @@ export interface Collected {
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/
 const ID = /^[A-Za-z0-9._:-]{1,80}$/
 const FP = /^[A-Za-z0-9._:-]{1,100}$/
+/** P1489: a cause key has a fault key's grammar */
+export const CAUSE = /^[a-z0-9][a-z0-9._:-]{0,59}$/
 const OPTION_ID = /^[A-Za-z0-9._-]{1,40}$/
 const MAX_TEXT = 2000
 const MAX_RISK = 200
@@ -526,7 +547,7 @@ const MAX_KEY_WHY = 120
 
 const STATUSES: CheckStatus[] = ['ok', 'problem', 'not-run', 'unproven', 'skipped']
 const STATES: RunState[] = ['running', 'complete', 'incomplete', 'abandoned']
-const CONN_STATES: ConnectionState[] = ['ok', 'not-connected', 'failed']
+const CONN_STATES: ConnectionState[] = ['ok', 'not-used', 'not-connected', 'failed']
 const REVIEWS: Review[] = ['weekly', 'monthly']
 
 type Obj = Record<string, unknown>
@@ -564,6 +585,7 @@ function readCheck(x: unknown): DayCheck | null {
   if (str(x.group)) c.group = x.group as string
   if (typeof x.connection === 'string' && ID.test(x.connection)) c.connection = x.connection
   if (x.severity === 'high' || x.severity === 'normal') c.severity = x.severity
+  if (x.needs_yes === true) c.needs_yes = true
   return c
 }
 
@@ -626,6 +648,8 @@ function readIssue(x: unknown): DayIssue | null {
   }
   if (typeof x.check === 'string' && ID.test(x.check)) it.check = x.check
   if (x.important === true) it.important = true
+  if (x.needs_yes === true) it.needs_yes = true
+  if (typeof x.cause === 'string' && CAUSE.test(x.cause)) it.cause = x.cause
   const deadline = isoDay(x.deadline)
   if (deadline) it.deadline = deadline
   const first = isoDay(x.first_seen)
@@ -926,7 +950,7 @@ export function decisionTargetExists(report: DayReport, d: DecisionInput): boole
       return exists && (d.remove === true || current === undefined || (d.amount ?? 0) > current)
     }
     case 'connection':
-      return report.connections.some((c) => c.id === d.target && c.state !== 'ok')
+      return report.connections.some((c) => c.id === d.target && connectionBroken(c.state))
   }
   return false
 }
@@ -1210,6 +1234,9 @@ function synthesise(c: DayCheck): DayIssue {
     evidence: 'unverified',
     evidence_text: c.detail,
     source: `${c.label} check`,
+    // P1489: a problem nobody wrote up on a prod-change check is still the founder's to answer. A
+    // check that did not run (or is not proven) is not: making it run is not a prod change.
+    ...(problem && c.needs_yes ? { needs_yes: true } : {}),
   }
 }
 
@@ -1223,7 +1250,7 @@ function toView(issue: DayIssue, report: DayReport, checks: Map<string, DayCheck
     ...issue,
     synthetic,
     urgent: deadlineSoon || notProven,
-    important: issue.important === true || check?.severity === 'high',
+    important: synthetic ? check?.severity === 'high' : issue.important === true && check?.severity !== 'normal',
     came_back: false,
     recommended_index: Math.max(0, recommended),
   }
@@ -1235,7 +1262,7 @@ const NEEDS_ISSUE = (s: CheckStatus) => s === 'problem' || s === 'not-run' || s 
 /** Every issue of the run, written plus synthesised (before any decision). */
 export function allIssues(report: DayReport): IssueView[] {
   const checks = new Map(report.checks.map((c) => [c.id, c]))
-  const broken = new Set(report.connections.filter((c) => c.state !== 'ok').map((c) => c.id))
+  const broken = new Set(report.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
   const covered = new Set(report.issues.map((i) => i.check).filter(Boolean) as string[])
   const out = report.issues.map((i) => toView(i, report, checks, false))
   const fps = new Set(out.map((i) => i.fp))
@@ -1275,11 +1302,36 @@ export function allIssues(report: DayReport): IssueView[] {
 }
 
 const rank = (i: IssueView) => (i.urgent && i.important ? 0 : i.urgent ? 1 : i.important ? 2 : 3)
+/** P1489: within a tier, a card that needs the founder comes before agent work */
+const whoActs = (i: IssueView) => (isAgentWork(i) ? 1 : 0)
 const byPresent = (a?: string, b?: string) => (a && b ? (a < b ? -1 : a > b ? 1 : 0) : a ? -1 : b ? 1 : 0)
+
+/**
+ * P1489: cards that share a cause sit together, at the place of the best-ranked one, in rank order
+ * among themselves; each names the others. Fingerprints, decisions and history stay per card.
+ */
+export function groupByCause(sorted: IssueView[]): void {
+  const members = new Map<string, IssueView[]>()
+  for (const i of sorted) if (i.cause) members.set(i.cause, [...(members.get(i.cause) ?? []), i])
+  if (![...members.values()].some((g) => g.length > 1)) return
+  const out: IssueView[] = []
+  const placed = new Set<IssueView>()
+  for (const i of sorted) {
+    if (placed.has(i)) continue
+    const shared = i.cause ? members.get(i.cause) : undefined
+    const group = shared && shared.length > 1 ? shared : [i]
+    for (const g of group) {
+      placed.add(g)
+      if (group.length > 1) g.same_cause = group.filter((o) => o !== g).map((o) => o.fp)
+      out.push(g)
+    }
+  }
+  sorted.splice(0, sorted.length, ...out)
+}
 
 /** Rule 7 comparator over IssueView. */
 export function compareIssues(a: IssueView, b: IssueView): number {
-  return rank(a) - rank(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
+  return rank(a) - rank(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1351,8 +1403,9 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
   }
   issues.sort(compareIssues)
   parked.sort(compareIssues)
+  groupByCause(issues)
 
-  const broken = new Map(report.connections.filter((c) => c.state !== 'ok').map((c) => [c.id, c]))
+  const broken = new Map(report.connections.filter((c) => connectionBroken(c.state)).map((c) => [c.id, c]))
   const issueByCheck = new Map<string, string>()
   for (const i of [...issues, ...parked]) if (i.check && !issueByCheck.has(i.check)) issueByCheck.set(i.check, i.fp)
   const checks: CheckView[] = report.checks.map((c) => {
@@ -1368,7 +1421,7 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
     return out
   }
   const connection_fixes = latestOf('connection')
-  const connections: ConnectionView[] = report.connections.map((c) => ({ ...c, fix_queued: c.state !== 'ok' && !!connection_fixes[c.id] }))
+  const connections: ConnectionView[] = report.connections.map((c) => ({ ...c, fix_queued: connectionBroken(c.state) && !!connection_fixes[c.id] }))
 
   const count = (s: CheckStatus | CheckStatus[]) => report.checks.filter((c) => ([] as CheckStatus[]).concat(s).includes(c.status)).length
   return {
@@ -1408,6 +1461,8 @@ function effective(issue: IssueView): { option_id: string; text?: string; is_que
  * only kind of card Start fixing sends without the founder having answered it.
  */
 export function isAgentWork(issue: IssueView): boolean {
+  // P1489 Invariant: a prod migration or deploy is never sent without the founder's answer.
+  if (issue.needs_yes) return false
   return issue.options[issue.recommended_index]?.agent === true
 }
 

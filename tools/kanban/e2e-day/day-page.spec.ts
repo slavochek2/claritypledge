@@ -299,7 +299,10 @@ test.describe('new people', () => {
     await openDay(page, 'connected')
     // P1463: one chip per fact, in this order, no separators
     const chips = page.locator('.d-sline > *')
-    await expect(chips.first()).toHaveText(/^▶✓ \d+ worked$/)
+    await expect(chips.first()).toHaveText(/^▶✓ \d+ clean$/) // P1489: outcome words
+    await expect(page.locator('[data-status-fails]')).toHaveText(/^✕ \d+ found (a problem|problems)$/)
+    await expect(page.locator('[data-status-failed]')).toHaveText(/^\d+ failed to run$/)
+    await expect(page.locator('.d-sline')).not.toContainText('worked')
     await expect(page.locator('[data-people-chip]')).toHaveText('3 new people')
     await expect(page.locator('.d-sline .d-chip').last()).toHaveText(/^\d+ unpushed commits$/)
     expect(await page.locator('.d-sline').innerText()).not.toContain('·')

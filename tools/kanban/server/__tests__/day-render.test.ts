@@ -516,7 +516,7 @@ describe('day-render: the card', () => {
     const urgent = view.issues.filter((i) => i.urgent).length
     expect(urgent).toBe(2)
     expect(view.counts.total).toBe(6)
-    expect(lines[1]).toBe(`${view.issues.length} issues · 1 needs you · ${view.issues.length - 1} an agent can fix · 2 urgent · 2 of 6 checks worked · 1 parked`)
+    expect(lines[1]).toBe(`${view.issues.length} issues · 1 needs you · ${view.issues.length - 1} an agent can fix · 2 urgent · 6 checks: 2 clean · 2 found problems · 0 skipped · 2 failed to run · 1 parked`)
     expect(view.issues.length).toBeGreaterThan(6)
     const shown = lines.filter((l) => /^ {2}\d+\. /.test(l)).map((l) => l.replace(/^ {2}\d+\. ((Urgent|Important)( · Important)? — )?/, ''))
     expect(shown).toEqual(view.issues.slice(0, 6).map((i) => i.title))
@@ -549,7 +549,7 @@ describe('day-render: the card', () => {
     expect(out).not.toContain('Connections:')
     expect(out).not.toContain('New people')
     expect(out.split('\n')[0]).toMatch(/ · complete$/)
-    expect(out).toContain('\n0 issues · 6 of 6 checks worked\n')
+    expect(out).toContain('\n0 issues · 6 checks: 6 clean · 0 found problems · 0 skipped\n')
   })
 
   it('CARD — control characters and < > | in a title never reach the terminal; plurals are right', () => {
@@ -560,7 +560,7 @@ describe('day-render: the card', () => {
     // eslint-disable-next-line no-control-regex
     expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f<>|]/)
     expect(out).toContain('Bad [31mred [0m btitle/b x y')
-    expect(out).toContain('\n1 issue · 1 an agent can fix · 6 of 6 checks worked\n')
+    expect(out).toContain('\n1 issue · 1 an agent can fix · 6 checks: 6 clean · 0 found problems · 0 skipped\n')
   })
 
   it('--print detail lists every issue and every check with its status word; --print none prints nothing', () => {

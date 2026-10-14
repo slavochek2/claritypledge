@@ -20,6 +20,8 @@ export function checkStatus(s: string) {
 export const needsYou = (s: string) => s !== 'ok' && s !== 'skipped'
 
 export function connectionStatus(s: ConnectionState) {
+  if (s === 'not-used') return { icon: '–', word: 'Not used this run', cls: 'quiet' as const } // P1489: neutral, never failed or ok
+  if (s === 'ok') return { icon: '✓', word: 'Worked', cls: 'ok' as const }
   return s === 'not-connected'
     ? { icon: '✕', word: 'Not connected', cls: 'bad' as const }
     : { icon: '!', word: 'Connected, didn’t work', cls: 'need' as const }

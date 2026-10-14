@@ -2,7 +2,7 @@
 // registries, the findings and the data sections, and writes the run's report (schema v2) into
 // the private day-data folder. Then prints the terminal card.
 //
-//   npx tsx scripts/day-render.ts --phase start|end|issues [--ledger PATH] [--day-dir PATH]
+//   npx tsx scripts/day-render.ts --phase start|end|issues [--pending-from STEP] [--ledger PATH] [--day-dir PATH]
 //        [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]
 //
 // Exit codes: 0 ok · 1 the report could not be written · 2 usage, or no ledger · 3 the report
@@ -22,6 +22,12 @@
 //   - The fingerprint of a finding is `<check>:<fault key>`, never the title, so a decision made
 //     on one run still matches the same fault on the next.
 //   - Only the founder parks: the renderer never writes decisions.jsonl and never recommends Park.
+//   - P1489: a finding on a check the list marks `needs_yes` (a prod migration or deploy) is a
+//     founder card; one that came without its own options gets the prod-change options, never
+//     "Give to the agent". `--phase issues` builds mid-pass: a step not reached yet is not "didn't run".
+//     `--pending-from STEP` says where "not reached yet" starts: an unrecorded step at or after STEP
+//     in STEP's own list (and its checks) makes no card; an unrecorded step before it, or in another
+//     list, still reads "didn't run". Without it, every unrecorded step is not reached yet.
 //   - Nothing is silently dropped: a data section or a finding detail that cannot be read becomes
 //     a `problem` check; a step list that has gone missing makes the run incomplete.
 //   - Privacy: stdout carries the card (or the detail, when asked), nothing else. stderr carries
@@ -36,7 +42,9 @@ import { homedir } from 'os'
 import { basename, join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import {
+  CAUSE,
   PARK,
+  connectionBroken,
   allIssues,
   buildView,
   isAgentWork,
@@ -149,7 +157,10 @@ export function pickRow(rows: CheckRow[]): CheckRow | undefined {
 // Step lists (manifests) and the check registries beside them.
 
 export interface ManifestStep { id: string; hard: boolean; label: string; group: string }
-export interface RegisteredCheck { id: string; step: string; label: string; group?: string; severity?: 'high' | 'normal'; connection?: string }
+/** needs_yes (P1489): a fix of this check's findings needs the founder's yes (a prod migration or deploy) */
+export interface RegisteredCheck { id: string; step: string; label: string; group?: string; severity?: 'high' | 'normal'; connection?: string; needs_yes?: true }
+/** start = before any step · mid = the plain-language draft, mid-pass (P1489) · end = the final report */
+export type Phase = 'start' | 'mid' | 'end'
 export interface StepList { steps: ManifestStep[]; checks: RegisteredCheck[] }
 /** missing = step lists that could not be read · noRegistry = names of step lists with no check list beside them */
 export interface Registries { lists: StepList[]; missing: number; noRegistry: string[]; bad: number }
@@ -192,12 +203,13 @@ export function parseManifest(t: string, group: string): { steps: ManifestStep[]
 export function parseRegistry(t: string): { checks: RegisteredCheck[]; bad: number } {
   const checks: RegisteredCheck[] = []
   let bad = 0
-  for (const [id, step, label, group, severity, connection] of rowsOf(t)) {
+  for (const [id, step, label, group, severity, connection, needsYes] of rowsOf(t)) {
     if (!ID.test(id) || !step || !ID.test(step)) { bad++; continue }
     const c: RegisteredCheck = { id, step, label: label || id }
     if (group) c.group = group
     if (severity === 'high' || severity === 'normal') c.severity = severity
     if (connection && ID.test(connection)) c.connection = connection
+    if (needsYes === 'yes') c.needs_yes = true
     checks.push(c)
   }
   return { checks, bad }
@@ -206,9 +218,24 @@ export function parseRegistry(t: string): { checks: RegisteredCheck[]; bad: numb
 // ---------------------------------------------------------------------------------------
 // Checks.
 
-export interface BuildChecksInput { ledger: Ledger; registries: Registries; phase: 'start' | 'end' }
+export interface BuildChecksInput { ledger: Ledger; registries: Registries; phase: Phase; pendingFrom?: string }
 
-const notRunDetail = (phase: 'start' | 'end') => (phase === 'start' ? 'not run yet' : 'did not run')
+/**
+ * P1489: the steps not reached yet, mid-pass. Empty outside 'mid'. With `pendingFrom`, only the
+ * unrecorded steps at or after it in its own list; without, every unrecorded step.
+ */
+export function pendingSteps(ledger: Ledger, registries: Registries, phase: Phase, pendingFrom?: string): Set<string> {
+  const out = new Set<string>()
+  if (phase !== 'mid') return out
+  for (const list of registries.lists) {
+    const at = pendingFrom === undefined ? 0 : list.steps.findIndex((s) => s.id === pendingFrom)
+    if (at < 0) continue
+    for (const s of list.steps.slice(at)) if (!ledger.steps.has(s.id)) out.add(s.id)
+  }
+  return out
+}
+
+const notRunDetail = (phase: Phase) => (phase === 'start' ? 'not run yet' : 'did not run')
 const agentDetail = (row: CheckRow) => (row.source === 'agent' ? `agent-reported${row.detail ? `: ${row.detail}` : ''}` : row.detail)
 
 /** The row a registered check accepts: only from its own step (provenance), then pickRow. */
@@ -220,9 +247,9 @@ export function acceptedRow(ledger: Ledger, rc: RegisteredCheck): CheckRow | und
  * A step with no registered check is not a check (no phantom rows, no inflated "worked" count).
  * It becomes a row only when it failed, or never ran by the end of the pass.
  */
-function stepProblem(step: ManifestStep, rec: StepRow | undefined, phase: 'start' | 'end'): Omit<DayCheck, 'id'> | null {
+function stepProblem(step: ManifestStep, rec: StepRow | undefined, phase: Phase): Omit<DayCheck, 'id'> | null {
   const base = { label: cleanStepLabel(step.label), group: RUN_GROUP }
-  if (!rec) return phase === 'end' ? { ...base, status: 'not-run', detail: "didn't run" } : null
+  if (!rec) return phase !== 'start' ? { ...base, status: 'not-run', detail: "didn't run" } : null
   if (rec.status === 'failed' || rec.rc !== 0) return { ...base, status: 'problem', detail: `exited ${rec.rc}` }
   if (rec.status === 'ok' || rec.status === 'attested' || rec.status === 'skipped') return null
   return { ...base, status: 'unproven', detail: 'recorded with an unknown result' }
@@ -232,7 +259,8 @@ function stepProblem(step: ManifestStep, rec: StepRow | undefined, phase: 'start
  * Every check of the run, in step-list order: registered checks, then step problems, then
  * unregistered CHECK ids. `misplaced` counts rows for a registered check that came from another step.
  */
-export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { checks: DayCheck[]; misplaced: number } {
+export function buildChecks({ ledger, registries, phase, pendingFrom }: BuildChecksInput): { checks: DayCheck[]; misplaced: number } {
+  const pending = pendingSteps(ledger, registries, phase, pendingFrom)
   const out: DayCheck[] = []
   const used = new Set<string>()
   let misplaced = 0
@@ -254,6 +282,7 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { 
         ...(rc.group ? { group: rc.group } : {}),
         ...(rc.severity ? { severity: rc.severity } : {}),
         ...(rc.connection ? { connection: rc.connection } : {}),
+        ...(rc.needs_yes ? { needs_yes: true } : {}),
       }
       let c: Omit<DayCheck, 'id'>
       if (row) {
@@ -261,6 +290,8 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { 
         c = { ...meta, status: row.status, ...(detail ? { detail } : {}) }
       } else if (ledger.steps.has(rc.step)) {
         c = { ...meta, status: 'unproven', detail: 'the step ran but did not report this check' }
+      } else if (pending.has(rc.step)) {
+        continue // P1489: its step is not reached yet, mid-pass; the final render still says "did not run"
       } else {
         c = { ...meta, status: 'not-run', detail: notRunDetail(phase) }
       }
@@ -272,6 +303,7 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { 
       const rec = ledger.steps.get(step.id)
       const own = byStep.get(step.id)
       if (!own) {
+        if (pending.has(step.id)) continue // P1489: not reached yet, mid-pass
         const p = stepProblem(step, rec, phase)
         if (p) add(step.id, p)
         continue
@@ -294,8 +326,8 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { 
 }
 
 /** complete = every hard step recorded, every registered check reported from its own step, and no step or check list missing. */
-export function runState(ledger: Ledger, registries: Registries, phase: 'start' | 'end'): DayReport['state'] {
-  if (phase === 'start') return 'running'
+export function runState(ledger: Ledger, registries: Registries, phase: Phase): DayReport['state'] {
+  if (phase === 'start' || phase === 'mid') return 'running'
   if (ledger.header.state === 'abandoned') return 'abandoned'
   if (registries.missing > 0) return 'incomplete'
   if (registries.noRegistry.length > 0) return 'incomplete'
@@ -329,6 +361,8 @@ export interface Sidecar {
   obstacle?: string
   point_b?: string
   review?: Review
+  /** P1489: the root cause this fault shares with others (a fixed slug); read only when present */
+  cause?: string
 }
 
 /** A sidecar we can use, or null (then the finding is read as a plain one). */
@@ -351,6 +385,7 @@ export function readSidecar(raw: string): Sidecar | null {
   if (typeof o.risk === 'string' && o.risk.replace(/\s+/g, ' ').trim()) s.risk = o.risk.replace(/\s+/g, ' ').trim().slice(0, 200)
   if (o.evidence === 'verified' || o.evidence === 'unverified') s.evidence = o.evidence
   if (o.review === 'weekly' || o.review === 'monthly') s.review = o.review
+  if (typeof o.cause === 'string' && CAUSE.test(o.cause)) s.cause = o.cause
   if (Array.isArray(o.options)) {
     const seen = new Set<string>()
     const opts: DayOption[] = []
@@ -389,7 +424,18 @@ export interface BuildIssuesInput {
   steps: ManifestStep[]
   earlier: Pick<DayReport, 'started_at' | 'issues'>[]
   startedAt: string
+  /** P1489: the check ids whose findings need the founder's yes (from the check lists) */
+  needsYes?: ReadonlySet<string>
 }
+
+/** P1489 (founder, 2026-10-14): the choices a prod change offers when its finding brought none. */
+export const PROD_OPTIONS: DayOption[] = [
+  { id: 'apply', label: 'Apply it to prod now' },
+  { id: 'wait', label: 'Wait for the in-flight fix' },
+  { id: PARK, label: 'Park: stop asking until I bring it back' },
+]
+export const PROD_OPTIONS_NOTE = 'This check gave no choices for a prod change, so the standard ones are shown. Choosing one does not let the agent change prod: it still asks you first.'
+
 
 function withRecommendation(options: DayOption[], recommend: string | undefined, why: string | undefined): DayOption[] {
   // Only the founder parks: Park is never the recommendation, whatever the finding asked for.
@@ -431,6 +477,15 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
       point_b: side?.point_b ?? '',
       options: withRecommendation(side?.options ?? DEFAULT_OPTIONS, side?.recommend, side?.why),
     }
+    if (input.needsYes?.has(checkId)) {
+      issue.needs_yes = true
+      if (!side?.options) {
+        // the founder's order; the safe choice preselected, never a prod change nobody argued for
+        issue.options = withRecommendation(PROD_OPTIONS, 'wait', undefined)
+        issue.more_info = PROD_OPTIONS_NOTE
+      }
+    }
+    if (side?.cause) issue.cause = side.cause
     if (check) issue.check = checkId
     if (side?.important ?? row.severity === 'high') issue.important = true
     if (side?.deadline) issue.deadline = side.deadline
@@ -490,7 +545,7 @@ export function readPlain(v: unknown): PlainRow[] | null {
   return rows
 }
 
-const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'point_a', 'obstacle', 'point_b', 'more_info', 'source', 'options', 'recommendation_confidence', 'risk', 'evidence', 'evidence_text'] as const
+const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'point_a', 'obstacle', 'point_b', 'more_info', 'source', 'options', 'recommendation_confidence', 'risk', 'evidence', 'evidence_text', 'needs_yes', 'cause'] as const
 
 /**
  * Apply the overlay to the report's issues (in place). A card the board would make from a check
@@ -577,7 +632,9 @@ export interface RenderInputs {
   /** section → its file text, or null when the file could not be read */
   dataFiles: Map<Section, string | null>
   earlier: DayReport[]
-  phase: 'start' | 'end'
+  phase: Phase
+  /** P1489: with phase 'mid', where "not reached yet" starts (a step id) */
+  pendingFrom?: string
   now: string
   /** P1468: docs/goals.md's open goals, parsed now ([] = failed or none open); omitted = not collected */
   goals?: DayReport['goals']
@@ -594,7 +651,7 @@ export function buildReport(inp: RenderInputs): DayReport {
 /** The report, and how many plain-language rows matched no card (counted, never silently dropped). */
 export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number; plainRejected: number } {
   const { ledger, registries, phase } = inp
-  const { checks, misplaced } = buildChecks({ ledger, registries, phase })
+  const { checks, misplaced } = buildChecks({ ledger, registries, phase, pendingFrom: inp.pendingFrom })
   const extra: DayCheck[] = []
 
   const data: Partial<Record<Section, unknown>> = {}
@@ -611,7 +668,8 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
 
   const startedAt = ledger.header.started_at ?? ''
   const steps = registries.lists.flatMap((l) => l.steps)
-  const { issues, unusable } = buildIssues({ finds: ledger.finds, files: inp.findingFiles, checks, steps, earlier: inp.earlier, startedAt })
+  const needsYes = new Set(registries.lists.flatMap((l) => l.checks.filter((rc) => rc.needs_yes).map((rc) => rc.id)))
+  const { issues, unusable } = buildIssues({ finds: ledger.finds, files: inp.findingFiles, checks, steps, earlier: inp.earlier, startedAt, needsYes })
 
   if (registries.missing > 0) extra.push({ id: 'day.manifests', ...runProblem('Daily run setup', `${registries.missing} of the lists of what to run could not be read`) })
   const names = registries.noRegistry
@@ -692,6 +750,16 @@ function stateWords(report: DayReport): string {
 const header = (report: DayReport, timeZone?: string) => `DAY · ${when(report.started_at, timeZone)} · ${stateWords(report)}`
 const tags = (i: { urgent: boolean; important: boolean }) => [i.urgent && 'Urgent', i.important && 'Important'].filter(Boolean).join(' · ')
 
+/**
+ * P1489 (founder, 2026-10-14): what the checks did, in outcome words. "worked" counted a check that
+ * ran and found a real problem the same as one that never ran. "failed to run" only when there is one.
+ */
+export function checkOutcomes(c: DayView['counts']): string {
+  const out = [`${plural(c.total, 'check')}: ${c.worked} clean`, `${c.problem} found ${c.problem === 1 ? 'a problem' : 'problems'}`, `${c.skipped} skipped`]
+  if (c.unproven > 0) out.push(`${c.unproven} failed to run`)
+  return out.join(' · ')
+}
+
 export interface CardOptions { kanbanUrl: string; timeZone?: string }
 
 export function renderCard(report: DayReport, view: DayView, opts: CardOptions): string {
@@ -705,16 +773,19 @@ export function renderCard(report: DayReport, view: DayView, opts: CardOptions):
     needYou && `${needYou} ${needYou === 1 ? 'needs' : 'need'} you`,
     agentWork && `${agentWork} an agent can fix`,
     urgent && `${urgent} urgent`,
-    `${view.counts.worked} of ${plural(view.counts.total, 'check')} worked`,
+    checkOutcomes(view.counts),
     view.parked.length && `${view.parked.length} parked`,
   ].filter(Boolean)
   const L = [header(report, opts.timeZone), counts.join(' · ')]
-  view.issues.slice(0, CARD_ISSUES).forEach((i, n) => {
+  const shown = view.issues.slice(0, CARD_ISSUES)
+  shown.forEach((i, n) => {
     const t = tags(i)
-    L.push(`  ${n + 1}. ${t ? `${t} — ` : ''}${plain(i.title)}`)
+    // P1489: a card that shares its cause with an earlier one on the card says which
+    const first = i.same_cause?.map((fp) => shown.findIndex((o) => o.fp === fp)).filter((k) => k >= 0 && k < n)[0]
+    L.push(`  ${n + 1}. ${t ? `${t} — ` : ''}${plain(i.title)}${first !== undefined ? ` (same cause as ${first + 1})` : ''}`)
   })
   if (view.issues.length > CARD_ISSUES) L.push(`  + ${view.issues.length - CARD_ISSUES} more`)
-  const broken = view.connections.filter((c) => c.state !== 'ok')
+  const broken = view.connections.filter((c) => connectionBroken(c.state))
   if (broken.length) {
     L.push(`Connections: ${broken.map((c) => `${plain(c.label, 40)} ${c.state === 'not-connected' ? 'not connected' : 'didn’t work'}`).join(' · ')}`)
   }
@@ -893,8 +964,8 @@ export function closeKilledRuns(dayDir: string, passId: string): number {
 // ---------------------------------------------------------------------------------------
 // The command.
 
-interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string; goals: string }
-const USAGE = 'usage: --phase start|end|issues [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]'
+interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; pendingFrom?: string; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string; goals: string }
+const USAGE = 'usage: --phase start|end|issues [--pending-from STEP] [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]'
 
 export function parseArgs(argv: string[]): Args | null {
   const a: Partial<Args> = {
@@ -916,9 +987,12 @@ export function parseArgs(argv: string[]): Args | null {
       case '--now': if (!isoDay(v)) return null; a.now = v; break
       case '--kanban-url': a.kanbanUrl = v; break
       case '--goals': a.goals = v; break
+      case '--pending-from': if (!ID.test(v)) return null; a.pendingFrom = v; break
       default: return null
     }
   }
+  // --pending-from only means something mid-pass
+  if (a.pendingFrom !== undefined && a.phase !== 'issues') return null
   return a.phase ? (a as Args) : null
 }
 
@@ -948,7 +1022,13 @@ export function run(argv: string[], io: IO): number {
     // The input of the plain-language pass: the cards as they would be, in the producer's own
     // words (an earlier rewrite is left out). It reads; it writes nothing.
     dataFiles.delete('plain')
-    const draft = buildReport({ ledger, registries, findingFiles, dataFiles, earlier, phase: 'end', now: args.now })
+    // P1489: mid-pass. A step not reached yet is not "didn't run", so the draft carries no phantom card.
+    // A --pending-from that names no step in any list would silently mark nothing pending: refuse it.
+    if (args.pendingFrom !== undefined && !registries.lists.some((l) => l.steps.some((s) => s.id === args.pendingFrom))) {
+      say('--pending-from names a step that is in no step list')
+      return 2
+    }
+    const draft = buildReport({ ledger, registries, findingFiles, dataFiles, earlier, phase: 'mid', pendingFrom: args.pendingFrom, now: args.now })
     const view = buildView(draft, readDecisions(args.dayDir), [...earlier, draft].map(traceOf))
     const cards = view.issues.map((i) => ({
       fp: i.fp,
