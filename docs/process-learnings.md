@@ -1881,16 +1881,7 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 - [ ] **Event publish: warn when the meeting venue is closed at the meet time** (due: week). 2026-10-05 hike: meet 9:30 at a cafe that opens 10:00 Sun; research noted it in passing, publish went ahead and the description said "coffee after", against the founder's default of coffee/breakfast first at the meet point. Fix: /publish-event (and select-hike) compare venue opening hours to meet time and STOP with a warning; default copy = coffee first.
 
 
-## ship --resume drops branch commits added after the journal
-
-**ID:** INBOX-119
-**Date:** 2026-10-05
-**Status:** proposed
-**due:** week
-
-git-ops.sh ship --resume cherry-picks only the commits recorded when the journal was first written; a commit added to the branch afterwards is silently dropped while the branch and worktree are deleted (P1418, 2026-10-05). Make resume refuse or re-plan when the branch tip differs from the journal's last source commit. Droppable once that check exists.
-
----
+<!-- Resolved 2026-10-14: shipped as P1198 (ship refuses on drift) — see decisions.md 2026-10-14 -->
 
 ## Follow-ups from the 2026-10-05 bug batch (P1415-P1422)
 
