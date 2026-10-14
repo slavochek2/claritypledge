@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 29
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-10-13'
 tags: [migrations, pre-commit, client-safety, gates]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1473: The migration client-safety gate cannot see a dropped or re-signed RPC
