@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 5
@@ -9,8 +9,8 @@ created_date: '2026-08-17'
 tags: [security, live, codes, lifecycle]
 driver: anomaly
 feature_type: backend
-delivery_stage: ship
 pipeline_ran: [inline, ship]
+completed_at: 2026-10-14
 ---
 
 # P1098: a leaked room code is unrevocable
@@ -82,7 +82,7 @@ and are listed in prose below, not ticked.
       feature nor a docs fix: won't-do.** Founder, 2026-10-14: neither rotate nor expire; the
       remedy for a leaked link is ending the session and starting a new one
 - [x] If closed as won't-do: the reasoning is recorded in `docs/decisions.md`, not just here —
-      [decisions.md](../docs/decisions.md) 2026-10-14 [security] "A leaked room code is neither
+      [decisions.md](../../../docs/decisions.md) 2026-10-14 [security] "A leaked room code is neither
       rotated nor expired — ending the session is the remedy" (Status: accepted, with falsifier)
 
 **Not applicable — nothing was built:**
