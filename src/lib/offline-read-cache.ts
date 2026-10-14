@@ -267,8 +267,9 @@ function authStorageKey(): string | null {
  * never share a partition (a 32-bit hash did: A9GZ2X and 29ONUL collided), and the raw code — a
  * capability — stays out of storage. Null when no digest is available (crypto.subtle needs a
  * secure context): the read then skips the cache rather than share a partition.
+ * Also keys api.ts's remembered room ids (P1493), for the same reason.
  */
-async function roomCodeDigest(codes: readonly string[]): Promise<string | null> {
+export async function roomCodeDigest(codes: readonly string[]): Promise<string | null> {
   try {
     if (typeof crypto === 'undefined' || !crypto.subtle) return null;
     const bytes = new TextEncoder().encode(`clarity-offline-read-cache|${codes.join(',')}`);

@@ -9,7 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode } from '@/lib/room-capability';
-import { clearOfflineReadCacheWithin } from '@/lib/offline-read-cache';
+import { clearOfflineReadCacheWithin, roomCodeDigest } from '@/lib/offline-read-cache';
 import { parseBannerCredit } from '@/lib/banner-credit';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
@@ -935,23 +935,52 @@ function asSeatHolder<B extends { setHeader(name: string, value: string): B }>(
 const sessionIdByCode = new Map<string, string>();
 const ROOM_ID_KEY_PREFIX = 'cp.seatRoom.';
 
-function knownRoomId(code: string): string | undefined {
+/**
+ * Stored under a digest of the code, never the code itself — the code is a capability (same
+ * reason and same helper as the offline read cache). Null when no digest is available: the
+ * mapping is then kept in this tab only.
+ */
+async function roomIdStorageKey(code: string): Promise<string | null> {
+  const digest = await roomCodeDigest([code]);
+  return digest ? `${ROOM_ID_KEY_PREFIX}${digest}` : null;
+}
+
+async function knownRoomId(code: string): Promise<string | undefined> {
   const inTab = sessionIdByCode.get(code);
   if (inTab) return inTab;
+  const key = await roomIdStorageKey(code);
+  if (!key) return undefined;
   try {
-    return window.localStorage.getItem(`${ROOM_ID_KEY_PREFIX}${code}`) ?? undefined;
+    return window.localStorage.getItem(key) ?? undefined;
   } catch {
     return undefined;
   }
 }
 
-function rememberRoomId(code: string, sessionId: string): void {
+async function rememberRoomId(code: string, sessionId: string): Promise<void> {
   sessionIdByCode.set(code, sessionId);
   if (!getSeatSecret(sessionId)) return;
+  const key = await roomIdStorageKey(code);
+  if (!key) return;
   try {
-    window.localStorage.setItem(`${ROOM_ID_KEY_PREFIX}${code}`, sessionId);
+    window.localStorage.setItem(key, sessionId);
   } catch {
     /* storage unavailable — the in-tab map still serves this tab */
+  }
+}
+
+/** The guest left this room: forget which code it was, in this tab and in storage. */
+function forgetRoomId(sessionId: string): void {
+  for (const [code, id] of sessionIdByCode) if (id === sessionId) sessionIdByCode.delete(code);
+  try {
+    const stale: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(ROOM_ID_KEY_PREFIX) && window.localStorage.getItem(key) === sessionId) stale.push(key);
+    }
+    for (const key of stale) window.localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable — nothing stored */
   }
 }
 
@@ -968,11 +997,11 @@ async function lookupSessionByCode(
   const firstRow = (data: unknown) =>
     (Array.isArray(data) ? data[0] : data) as DbClaritySession | undefined;
 
-  const knownId = knownRoomId(normalizedCode);
+  const knownId = await knownRoomId(normalizedCode);
   const first = await asSeatHolder(supabase.rpc(fn, { p_code: normalizedCode }), knownId);
   const row = firstRow(first.data);
   if (first.error || !row) return undefined;
-  rememberRoomId(normalizedCode, row.id);
+  await rememberRoomId(normalizedCode, row.id);
 
   const presented = knownId === row.id ? getSeatSecret(knownId) : null;
   if (!presented && getSeatSecret(row.id)) {
@@ -1276,7 +1305,7 @@ export async function joinClaritySession(
   // setSeatSecret is a no-op on a null value.
   setSeatSecret(claimed.id, claimed.joiner_seat_secret);
   // P1493: and remember which room this code is, so a later reload presents the credential first.
-  rememberRoomId(normalizedCode, claimed.id);
+  await rememberRoomId(normalizedCode, claimed.id);
 
   return mapSessionFromDb(claimed, normalizedCode);
 }
@@ -1627,6 +1656,8 @@ export async function clearSessionJoiner(sessionId: string, code: string | null)
   // public browser hands the next person a working secret for a room they never joined —
   // and the seat is now free, so that secret would let them take it silently.
   clearSeatSecret(sessionId);
+  // P1493: and which room the code was.
+  forgetRoomId(sessionId);
 }
 
 /**

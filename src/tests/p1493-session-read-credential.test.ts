@@ -25,6 +25,7 @@ import {
   joinClaritySession,
   updateDemoFlowState,
   updateClaritySessionState,
+  clearSessionJoiner,
   _resetSessionIdByCodeForTesting,
 } from '@/app/data/api';
 
@@ -198,5 +199,24 @@ describe('P1493: guest reads present the seat credential', () => {
     expect(issued).toHaveLength(1);
     expect(issued[0]!.headers[HEADER]).toBe(SECRET);
     expect(session?.liveState).toEqual({ sessionEnded: true });
+  });
+
+  it('the remembered room id is stored under a digest, never the raw code, and forgotten when the guest leaves', async () => {
+    window.localStorage.setItem(`cp.seatSecret.${SESSION_ID}`, SECRET);
+    const claim = vi.fn().mockResolvedValue({ data: [{ ...FULL, joiner_seat_secret: SECRET }], error: null });
+    const release = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(supabase.rpc).mockImplementation(((fn: string, args: unknown) =>
+      fn === 'claim_joiner_seat' ? claim(fn, args) : fn === 'release_joiner_seat' ? release(fn, args) : lookupBuilder()
+    ) as never);
+    await joinClaritySession('ABC123', 'Guest');
+
+    const keys = () => Array.from({ length: window.localStorage.length }, (_, i) => window.localStorage.key(i)!);
+    const roomKeys = keys().filter((k) => k.startsWith('cp.seatRoom.'));
+    expect(roomKeys, 'the room id must be remembered for a reload').toHaveLength(1);
+    expect(keys().join(' ')).not.toContain('ABC123');
+
+    await clearSessionJoiner(SESSION_ID, 'ABC123');
+
+    expect(keys().filter((k) => k.startsWith('cp.seatRoom.')), 'leaving must forget the room').toEqual([]);
   });
 });
