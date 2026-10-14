@@ -81,6 +81,28 @@ loop picks it up naturally — no special-casing needed downstream.
       Evidence: a "Resolved by P1198 (2026-10-13)" paragraph was appended to that entry's Consequences.
 
 
+## Overnight status (2026-10-14) — NOT shipped; design decision needed
+
+Implemented on this branch and reviewed four times (Codex x3, /finish, Gemini). Each review round of the
+**append-on-resume** design found new HIGH defects in the code the previous round added:
+
+1. Round 1 (fixed): branch delete raced new commits; appended commits bypassed a skipped closure gate;
+   journal append outside `main.lock`; rebase-before-landing refused.
+2. Round 2 (fixed): closure state and the self-modification guard were read before `main.lock`.
+3. Round 3 (OPEN, Codex 2026-10-14):
+   - **HIGH** — journal rebuild on a pre-landing rebase erases crash-recovery evidence: `landed_sha: null`
+     does not prove nothing landed (a pick can commit before the journal records it); reproduced
+     shipping both an amended-away and a replacement implementation, exit 0.
+   - **HIGH** — a recorded landing suppresses `gone`, so a rewrite after landing is treated as an append;
+     reproduced shipping a superseded implementation, exit 0.
+
+**Recommendation (founder decision — it changes Done-When item 1):** switch to **refuse-on-drift**, the
+design recorded in decisions.md 2026-09-11 item (c): `--resume` and Phase 3 compare the branch to the
+journal and REFUSE (exit non-zero, nothing picked, branch kept) on any unjournaled or rewritten commit,
+telling the operator to re-run a fresh `ship pN`. That removes the append, re-plan and journal-rebuild
+paths — the source of every HIGH above — while still closing the original defect (silent drop + branch
+deletion, exit 0). The canaries AD-c/AD-d and the CAS branch delete carry over unchanged.
+
 ## Second reproduction — P1303 (2026-09-11)
 
 During P1303's ship recovery a branch commit (`47af802de`: the spec's embargo lift and prod
