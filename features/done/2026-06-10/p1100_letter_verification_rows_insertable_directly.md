@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 disclosure: public
 rank: 7
@@ -10,9 +10,9 @@ tags:
   - integrity
   - calibration
   - rls
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1100: a letter verification can be written straight to the table, with no letter involved
@@ -92,7 +92,7 @@ for the shape that was not chosen.
       `.private/docs/security-log.md` § 2026-09-01 P1100 prod measurement
 - [x] A decision recorded on shape: definer-function path vs policy predicate, with the reason —
       **policy predicate resolved by a SECURITY DEFINER admissibility helper**, recorded in
-      [P1150](done/2026-06-10/p1150_story_verification_insert_unbound_counterparty.md) § Fix shape
+      [P1150](p1150_story_verification_insert_unbound_counterparty.md) § Fix shape
       (the client keeps writing directly and RLS stays the single authorization point)
 - [x] A test that fails before the fix, inserting a forged letter verification as a signed-in caller
       — `e2e/integration/p1150-story-verification-counterparty.spec.ts` gap tests; their
