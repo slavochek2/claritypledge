@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 6
 severity: medium
@@ -14,8 +14,8 @@ tags:
   - security
   - dependencies
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, adversarial-review, ship]
+completed_at: 2026-10-14
 ---
 
 # P1271: `gray-matter`'s frontmatter parsing can execute embedded code via a language-tag switch
