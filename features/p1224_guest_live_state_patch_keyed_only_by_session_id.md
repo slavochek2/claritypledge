@@ -141,7 +141,7 @@ pages; pinned by `e2e/p1224-guest-writes-after-reload.spec.ts` and `src/tests/p1
 - [x] A guest tab whose write is refused for a missing or stale credential is never told to retry: it re-joins once (seat free or abandoned → the write lands) or, when someone else holds the seat, returns to the join form with a non-retry message — real-browser `e2e/p1224-guest-writes-after-reload.spec.ts` (both fail with the client's handling disabled, pass with it); unit `src/tests/p1224-seat-secret-header.test.ts`
 - [x] The demo page handles the same refusal the same way, and moves its local state only after a write lands — unit `src/tests/p1224-demo-seat-lost.test.tsx` (start, advance, complete; 5 of 6 fail with unhandled rejections before the change); the rating step with the real rating card shows "submitted" only once the rating landed, and the creator's state initialisation uses the same path — `src/tests/p1224-demo-rating-real-card.test.tsx` (2 of 3 fail before the change; the third is a control)
 - [x] A newly issued credential is never shadowed by a stale stored one when storage writes fail — unit `src/tests/p1224-seat-secret-header.test.ts` (3 fail before the change)
-- [ ] [FOUNDER DECISION] Copy for the non-retry message (see below) — implemented with the proposed text, awaiting approval
+- [x] [FOUNDER DECISION] Copy for the non-retry message (see below) — approved by founder 2026-10-14 as proposed
 
 ## Post-deploy verification
 
