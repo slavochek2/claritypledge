@@ -104,15 +104,15 @@ breached`, blocking the P1453 agent backfill after 6 of 10 and, on the same key,
 `/day` reported nothing: its key check only covered the interactive key.
 
 **What was true.** (1) There are **two separate caps**: the AI Studio project spend cap and the Cloud
-Billing budget with spend-cap enforcement that `ai-keys` creates. Raising the AI Studio cap to EUR 250
-changed nothing for 30 minutes; the Cloud budget (EUR 75, *Enforced*) was the one refusing. (2) An
+Billing budget with spend-cap enforcement that `ai-keys` creates. Raising the AI Studio cap changed
+nothing for 30 minutes; the Cloud budget (*Enforced*) was the one refusing. (2) An
 enforced Cloud budget's amount is **locked until the cap is lifted** ("The budget is locked until the
 spend cap is lifted"), so the instruction carried in `day-cp.md` and `check-gemini-prod-key.sh` —
 *raise, then lift* — cannot be performed. The order that works: **lift, raise the amount at once,
 save**; the budget then reads *Spend cap configured* at the new amount and enforces again. Google's
 own dialog says a cap lifted in-month only re-triggers if the amount is increased — which the raise
-supplies. Service resumed within a minute of the lift. (3) Caps count **gross, pre-credit** usage:
-EUR 84 gross against EUR ~1 actually billed, the rest covered by credits. With credits, a cap limits
+supplies. Service resumed within a minute of the lift. (3) Caps count **gross, pre-credit** usage,
+which can sit far above what is actually billed while credits cover it. With credits, a cap limits
 usage, not money.
 
 **Decision:** Correct the "raise, then lift" text to "lift, then raise and save in the same visit".
@@ -121,7 +121,7 @@ usage, not money.
 does, and only after it is lifted.
 
 **Consequences:** During the lift-to-save window only the AI Studio cap bounds spend, so keep both
-caps set. Size a cap to gross usage (~EUR 190/month at the October pace), not to the bill.
+caps set. Size a cap to gross usage, not to the bill.
 **References:** 2026-09-10 [process] spend-cap entry (above, older);
 [check-gemini-prod-key.sh](../scripts/check-gemini-prod-key.sh)
 
@@ -183,9 +183,9 @@ caps set. Size a cap to gross usage (~EUR 190/month at the October pace), not to
 ## 2026-10-13 [product]: Paid outreach targets organisations that solve real problems, not B2B sales teams
 
 **Context:** Planning buyer outreach surfaced that selling to B2B tech sales teams does not fit the founder's values ("not making the rich richer for no reason"). The sales-practice evening stays as a community lab.
-**Decision:** (`UNTESTED`) Paid and pilot outreach goes to organisations whose own activity solves a real problem, judged per organisation from evidence, not by sector label. Two scores per organisation: **values** (does it do good) and **fit** (do several people there make costly decisions together repeatedly). Hard rules: no companies selling goods (no exceptions, founder 2026-10-13), no lead-gen/marketing agencies, no gambling or speculative crypto; competitors (sellers of team communication/leadership workshops) are flagged, not targeted. Size 11–1,000 staff; senior contacts first; introductions only after a real conversation. The discovery call anchors on one real recent case and tests whether something sensed went unvoiced or unheard.
+**Decision:** (`UNTESTED`) Paid and pilot outreach goes to organisations whose own activity solves a real problem, judged per organisation from evidence, not by sector label. Each organisation is scored on values and on fit; the exclusion rules and size range are private. Introductions only after a real conversation. The discovery call anchors on one real recent case and tests whether something sensed went unvoiced or unheard.
 **Alternatives rejected:** B2B sales-team training as the paid market (values misfit); general sales consulting as bridge income (left open, not pursued); industry-label filtering (misjudges individual organisations).
-**Consequences:** First shortlist built from the founder's LinkedIn network (research and ethics checks per organisation; details private). Falsifier: if the first 5–10 discovery calls with high-scoring organisations show no recognisable unvoiced-signal stories, the specialty or the targeting is wrong.
+**Consequences:** A first shortlist is being built (research and ethics checks per organisation; details private). Falsifier: if the first 5–10 discovery calls with high-scoring organisations show no recognisable unvoiced-signal stories, the specialty or the targeting is wrong.
 **Details private:** .private/docs/business/outreach-thinking-2026-10-12.md
 
 ## 2026-10-12 [product]: Outreach waits behind two sales-practice events (one in person, one online); 60-day target of 3–7 paid pilots

@@ -165,7 +165,7 @@ code is on prod, and the ship gate runs before the merge. These are not dropped 
 **Deploy steps**
 - [x] `/push` — applies `20261012200000_p1453_profile_banner_credit.sql` to prod (P1211 schema gate) and deploys the frontend.
 - [x] `/ship-prod` — deploy `generate-banner` and `generate-agent-banner`; confirm `GEMINI_BATCH_API_KEY` exists on prod by name (`scripts/check-edge-function-secrets.sh --env prod`; P1236, no new secret).
-- [x] *(2026-10-13: 10/10 — 6, then batch-key spend cap tripped; cap raised to EUR 250, remaining 4 run.)* Backfill: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run: 10 agents, 10 without a banner on 2026-10-12), then `--apply`.
+- [x] *(2026-10-13: 10/10 — 6, then batch-key spend cap tripped; cap raised, remaining 4 run.)* Backfill: `scripts/check-gemini-prod-key.sh`, then `node scripts/agent-banner.mjs --env prod --all-missing` (dry run: 10 agents, 10 without a banner on 2026-10-12), then `--apply`.
 
 **Checks (formerly acceptance criteria)**
 - [x] *(2026-10-13: 166 human profiles snapshotted before/after backfill + deploy, 0 changed.)* An existing user's banner is unchanged after deploy. *Code path proven on TEST (e2e: an existing banner without a credit is not regenerated and shows no signature); the prod check belongs to `/ship`.*
