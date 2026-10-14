@@ -259,6 +259,10 @@ profile and any Sentry events carrying your identifiers. There is no in-app swit
 Our hosting providers keep standard server logs (IP address, user agent, requested URL) for
 security and operations. We do not build profiles from them.
 
+When someone asks us to email a sign-in link, we record a salted one-way hash of the
+requesting IP address and of the email address, only to limit how many such emails can be
+requested. These records are deleted automatically within about 75 minutes.
+
 ## Legal Bases
 
 | Purpose | Basis |
