@@ -1,12 +1,12 @@
 ---
-status: qa
-delivery_stage: ship
+status: all-done
 pipeline_ran: [dev, ship]
 type: bug
 disclosure: public
 rank: 82
 created_date: '2026-07-23'
 tags: [tooling, docs, gates, strategy-docs]
+completed_at: 2026-10-14
 ---
 
 # P1009: The SINGLE-VALUE canary misses most real shapes of a competing lead
