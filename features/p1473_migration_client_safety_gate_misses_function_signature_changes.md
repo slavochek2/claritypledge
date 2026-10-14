@@ -174,6 +174,21 @@ A mutation check rebuilt the round-2 regression, and the HIGH case catches it (t
 p651 is still the only unannotated REVOKE-PUBLIC hit. The canary reports 38 passed, 0 failed;
 p887 reports 17 of 17.
 
+## Known limitations (accepted after the third review round, 2026-10-14)
+
+The gate guards against honest authoring mistakes in this repo's migrations, not adversarial SQL.
+Codex's third pass found shapes no migration here uses; they are recorded, not chased:
+
+- A quoted identifier whose text looks like SQL (`SELECT 1 AS "CREATE FUNCTION public.f(uuid)"`) can
+  satisfy the same-file-CREATE exemption.
+- Single-quoted `DO '…'` bodies and `EXECUTE E'…'` escape-string constants are not analysed (dynamic
+  SQL is only matched as literal `EXECUTE '…'` text).
+- A semicolon inside a quoted identifier (`public."a;b"(uuid)`) splits the statement.
+- A user type shadowing a built-in name (`CREATE DOMAIN public.uuid …`) is normalised as the built-in.
+- Quoted type identities (`public."Role"` vs `public.role`) collapse (round 2, unchanged).
+
+Any of these appearing in a real migration is a reason to extend the tokenizer, not to annotate past it.
+
 ## Related
 
 - P887: the gate. P886: the incident. P1058: where the gap was found.
