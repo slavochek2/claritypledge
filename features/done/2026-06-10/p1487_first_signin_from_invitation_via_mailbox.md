@@ -212,19 +212,9 @@ sign in the normal way, P1446).
   for a placeholder name) or in their profile. Letters still name a new reader from the
   sender-entered recipient name, as before P1487.
 
-- **The general sign-in and sign-up flows are not covered.** `/login`, `/signup` and the other
-  non-invitation pages still use the auth server's own email sign-in, which confirms an account
-  that exists but never confirmed its email — and with it any password set on it beforehand. App
-  code cannot reset such an account first on those paths. The class-wide fix is an auth
-  configuration change (reject password sign-ins / password sign-ups), which is a founder
-  decision. Measured on prod (read-only): such accounts exist; the app itself has no password
-  sign-up or sign-in.
-- **The unconfirmed-account reset is not atomic with Auth.** It reads the account, re-checks that
-  it is still unconfirmed immediately before writing, and only then replaces the password and
-  metadata. If the account's owner confirms it in the window between that re-check and the write
-  (e.g. by opening an earlier link in another tab), their password and metadata can still be
-  replaced. Auth offers no conditional update; the window is closed fully by the
-  password-rejection configuration above.
+- **Sign-in paths outside the invitation flow** have a related hardening item that needs an auth
+  configuration decision. It is tracked privately (`.private/docs/security-log.md`, 2026-10-14,
+  P1487) until it is closed.
 
 ## Out of scope / follow-ups
 
