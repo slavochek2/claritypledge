@@ -49,6 +49,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 
+import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>): Response {
@@ -471,6 +473,12 @@ serve(async (req: Request) => {
     } else {
       // ── Existing user: check for orphan profile (step 3b) ──────────────────
       userId = existingAuthUser.id;
+
+      // P1487: the link below confirms the account. One that never confirmed is not proven to be
+      // this requester's, so anything its creator set is reset first (no-op once confirmed).
+      if (!await resetUnconfirmedAccount(supabase, userId, { name: trimmedName })) {
+        return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
+      }
 
       const { data: existingProfile, error: profileLookupError } = await supabase
         .from('profiles')

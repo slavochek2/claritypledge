@@ -11,6 +11,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
@@ -287,7 +288,12 @@ serve(async (req: Request) => {
                 console.warn('P710: receiver_profile_id pre-claim failed (non-fatal):', updateErr);
               }
 
-              const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+              // P1487: the link confirms the account; an unconfirmed one is reset first (no-op once
+              // confirmed). If that fails, the plain invitation URL is sent instead of a link.
+              const resetOk = await resetUnconfirmedAccount(supabase, registeredUserId, delivery.receiver_name ? { name: delivery.receiver_name } : {});
+              const { data: linkData, error: linkError } = !resetOk
+                ? { data: null, error: new Error('unconfirmed account reset failed') }
+                : await supabase.auth.admin.generateLink({
                 type: 'magiclink',
                 email: normalizedEmail,
                 options: {

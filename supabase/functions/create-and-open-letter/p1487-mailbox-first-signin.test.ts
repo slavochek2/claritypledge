@@ -178,7 +178,7 @@ Deno.test({
       const tokenHash = link.searchParams.get('token_hash') ?? '';
       assert(tokenHash.length > 0);
       assertFalse(raw.includes(tokenHash), 'the response never carries the emailed link');
-      assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}`, 'lands on the letter it was opened from');
+      assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}&terms=v1.4`, 'lands on the letter it was opened from, carrying the accepted terms version');
 
       // Control: token-only reading still works after the click.
       const after = await anon().rpc('get_letter_for_reading', { p_token: d.token });
@@ -357,9 +357,11 @@ Deno.test({
       }
       const refused = await openLetter(handler, fresh.token, ip);
       const raw = await refused.text();
+      const leaked = await authUserByEmail(f.sb, newEmail);
+      if (leaked) f.cleanupUsers.push(leaked.id);
       assertEquals(refused.status, 429, raw);
       assertEquals(sent.length, 0, 'nothing mailed');
-      assertEquals(await authUserByEmail(f.sb, newEmail), null, 'no account created for the refused request');
+      assertEquals(leaked, null, 'no account created for the refused request');
 
       // Control: another caller is unaffected and still gets the first email.
       const other = await openLetter(handler, fresh.token, randomIp());
@@ -399,10 +401,53 @@ Deno.test({
 
       const res = await openLetter(handler, d.token);
       const raw = await res.text();
+      const leaked = await authUserByEmail(f.sb, email);
+      if (leaked) f.cleanupUsers.push(leaked.id);
       assertEquals(res.status, 500, raw);
       assertNoCredential(JSON.parse(raw), raw);
       assertEquals(sent.length, 0);
-      assertEquals(await authUserByEmail(f.sb, email), null);
+      assertEquals(leaked, null);
+    } finally {
+      await teardown(f);
+    }
+  },
+});
+
+// ── An unconfirmed account that already exists at the address is reset before it is used ──
+
+Deno.test({
+  name: 'P1487: an existing unconfirmed account at the recipient address keeps none of its earlier credentials once the recipient signs in',
+  ...live,
+  fn: async () => {
+    const f = await setup();
+    try {
+      const email = `p1487-preexisting-${uniq()}@example.com`;
+      const earlierPassword = `Earlier-${crypto.randomUUID()}`;
+      // Stand-in for a self-service sign-up at this address that was never confirmed.
+      const { data: pre, error: preErr } = await f.sb.auth.admin.createUser({
+        email, password: earlierPassword, email_confirm: false,
+        user_metadata: { name: 'Earlier Name', avatar_url: 'https://elsewhere.example/a.png' },
+      });
+      assert(pre?.user, preErr?.message);
+      f.cleanupUsers.push(pre.user.id);
+      const d = await addDelivery(f, email);
+      const { handler, sent } = harness(f.sb);
+
+      const res = await openLetter(handler, d.token);
+      const raw = await res.text();
+      assertEquals(res.status, 200, raw);
+      assertEquals(sent.length, 1);
+
+      const tokenHash = new URL(sent[0].link).searchParams.get('token_hash')!;
+      const { data: v } = await anon().auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+      assert(v?.session, 'recipient signs in through the mailbox link');
+      assertEquals(v.session.user.id, pre.user.id, 'same account, now confirmed');
+
+      const { data: old } = await anon().auth.signInWithPassword({ email, password: earlierPassword });
+      assertEquals(old?.session ?? null, null, 'the earlier password must not sign in after the recipient confirms');
+      const meta = (await f.sb.auth.admin.getUserById(pre.user.id)).data.user?.user_metadata ?? {};
+      assertEquals(meta.name, 'Pat Recipient', 'profile name comes from the invitation, not the earlier sign-up');
+      assertFalse('avatar_url' in meta, 'metadata from the earlier sign-up is cleared');
     } finally {
       await teardown(f);
     }

@@ -44,6 +44,11 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
+const recordPriorTermsAcceptance = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/app/data/api', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  recordPriorTermsAcceptance: (...a: unknown[]) => recordPriorTermsAcceptance(...a),
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }));
 vi.mock('@/lib/constants', () => ({ CURRENT_TERMS_VERSION: 'v1', ACCEPTED_TERMS_VERSIONS: ['v1'] }));
 vi.mock('@/components/ui/clarity-loader', () => ({
@@ -283,5 +288,73 @@ describe('P1487: signing an agreement invitation goes through the mailbox', () =
     expect(await screen.findByTestId('confirm-email-page')).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith('create-and-sign', expect.anything());
     expect(verifyOtp).not.toHaveBeenCalled();
+  });
+});
+
+// ── Terms acceptance audit after the mailbox round-trip ──────────────────────
+
+const SIGNED_IN = {
+  user: { id: 'reader-p1487', email: 'reader@example.com', name: 'Pat' },
+  session: { access_token: 'tok' },
+  sessionChecked: true,
+  isLoading: false,
+  signOut: vi.fn().mockResolvedValue(undefined),
+} as unknown as ReturnType<typeof useAuth>;
+
+function renderLetterAt(search: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/letter/${DELIVERY_ID}${search}`]}>
+      <Routes>
+        <Route path="/letter/:id" element={<LetterReadingPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe('P1487: the terms accepted before sign-in are recorded once the reader is signed in', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    recordPriorTermsAcceptance.mockReset().mockResolvedValue(undefined);
+    seedLetter();
+  });
+
+  it('letter: arriving signed in from the emailed link records the accepted version (explicit)', async () => {
+    mockUseAuth.mockReturnValue(SIGNED_IN);
+    renderLetterAt(`?token=${TOKEN}&terms=v1`);
+    await waitFor(() => expect(recordPriorTermsAcceptance).toHaveBeenCalledTimes(1));
+    expect(recordPriorTermsAcceptance).toHaveBeenCalledWith('reader-p1487', 'v1', 'explicit');
+  });
+
+  it('letter control: no terms param, or an unknown version, records nothing', async () => {
+    mockUseAuth.mockReturnValue(SIGNED_IN);
+    renderLetterAt(`?token=${TOKEN}`);
+    renderLetterAt(`?token=${TOKEN}&terms=v9.9`);
+    await waitFor(() => expect(screen.queryAllByTestId('loader').length).toBe(0));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(recordPriorTermsAcceptance).not.toHaveBeenCalled();
+  });
+
+  it('letter control: a signed-out reader records nothing', async () => {
+    mockUseAuth.mockReturnValue(ANON);
+    renderLetterAt(`?token=${TOKEN}&terms=v1`);
+    await screen.findByRole('button', { name: 'Open the Letter' });
+    expect(recordPriorTermsAcceptance).not.toHaveBeenCalled();
+  });
+
+  it('agreement: returning signed in from the emailed link records the acceptance and signs', async () => {
+    localStorage.setItem(`clarity-pending-accept-${AGREEMENT_ID}`, JSON.stringify({ partnerName: 'Pat Partner' }));
+    mockUseAuth.mockReturnValue({
+      ...SIGNED_IN,
+      user: { id: 'partner-p1487', email: PARTNER_EMAIL, name: 'Pat Partner' },
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(agreementsService.getAgreementByToken).mockResolvedValue({
+      id: AGREEMENT_ID, status: 'pending', partnerEmail: PARTNER_EMAIL, partnerDisplayName: 'Pat Partner',
+      creatorProfileId: 'creator-p1487', partnerProfileId: null, invitationToken: TOKEN,
+    } as unknown as Awaited<ReturnType<typeof agreementsService.getAgreementByToken>>);
+    vi.mocked(agreementsService.acceptAgreement).mockResolvedValue(true);
+
+    renderAgreement();
+    await waitFor(() => expect(agreementsService.acceptAgreement).toHaveBeenCalledTimes(1));
+    expect(recordPriorTermsAcceptance).toHaveBeenCalledWith('partner-p1487', 'v1', 'explicit');
   });
 });

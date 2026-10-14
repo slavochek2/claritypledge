@@ -16,6 +16,8 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { supabase } from '@/lib/supabase';
+import { recordPriorTermsAcceptance } from '@/app/data/api';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
@@ -275,8 +277,11 @@ export function AcceptAgreementPage() {
   useEffect(() => {
     if (autoAcceptWith === null || pageState !== 'partner') return;
     setAutoAcceptWith(null);
+    // P1487: the partner agreed to the terms when they pressed sign, before they had a session;
+    // they are now back through the emailed link, so record the audit row (idempotent).
+    if (currentUser?.id) void recordPriorTermsAcceptance(currentUser.id, CURRENT_TERMS_VERSION, 'explicit');
     handleAcceptRef.current(autoAcceptWith);
-   
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAcceptWith, pageState]);
 
   // P483: Sign-in for existing user (unauthenticated) — OTP with shouldCreateUser: false

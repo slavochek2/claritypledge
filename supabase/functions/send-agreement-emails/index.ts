@@ -150,6 +150,9 @@ interface ProfileRow {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = ReturnType<typeof createClient<any>>;
 
+// P1487 (placed here, beside its only caller, to keep clear of the import block other changes touch)
+import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
+
 async function handleInvitation(
   supabase: SupabaseClient,
   agreementId: string,
@@ -193,7 +196,12 @@ async function handleInvitation(
 
     if (existingUser) {
       partnerName = existingUser.name ?? null;
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      // P1487: the link confirms the account; an unconfirmed one is reset first (no-op once
+      // confirmed). If that fails, the plain accept URL is sent instead of a link.
+      const resetOk = await resetUnconfirmedAccount(supabase, existingUser.id, {});
+      const { data: linkData, error: linkError } = !resetOk
+        ? { data: null, error: new Error('unconfirmed account reset failed') }
+        : await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email: agreement.partner_email,
         options: { redirectTo: acceptUrl },

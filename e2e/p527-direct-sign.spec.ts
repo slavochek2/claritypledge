@@ -209,8 +209,16 @@ test.describe('P527 / P1487 — New partner signs through the mailbox', () => {
       expect(profile!.slug).toMatch(/^tc03-partner/);
       expect(AVATAR_COLORS).toContain(profile!.avatar_color);
       expect(profile!.is_verified).toBe(true);
-      // Terms: the partner agreed by signing; the profile records the accepted version.
+      // Terms: the partner agreed by signing; the profile records the accepted version, and an
+      // audit row records the acceptance once they are signed in (P1487).
       expect(profile!.accepted_terms_version).toBeTruthy();
+      await expect.poll(async () => {
+        const { data: rows } = await supabaseAdmin
+          .from('terms_acceptances')
+          .select('terms_version, acceptance_mode')
+          .eq('user_id', profile!.id);
+        return rows ?? [];
+      }, { timeout: 10000 }).toContainEqual({ terms_version: profile!.accepted_terms_version, acceptance_mode: 'explicit' });
 
       // The address was proven by the mailbox link, not by the invitation.
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile!.id);

@@ -30,6 +30,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { hashTicket, isLinkPurpose, purposePath, ticketExpiry } from '../_shared/event-links.ts';
+import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -129,6 +130,9 @@ serve(async (req: Request) => {
     const { data: user, error: userErr } = await supabase.auth.admin.getUserById(rsvp.profile_id);
     const email = user?.user?.email;
     if (userErr || !email) return toLogin(target);
+
+    // P1487: a link confirms the account; an unconfirmed one is reset first (no-op once confirmed).
+    if (!await resetUnconfirmedAccount(supabase, rsvp.profile_id, {})) return toLogin(target);
 
     const { data: gen, error: genErr } = await supabase.auth.admin.generateLink({ type: 'magiclink', email });
     const hashed = gen?.properties?.hashed_token;

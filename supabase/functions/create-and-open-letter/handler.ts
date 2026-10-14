@@ -15,7 +15,8 @@
  *   - an auth user exists without a profile and has CONFIRMED their email → orphan recovery,
  *     then { signInRequired } (P1446). Unchanged.
  *   - no account yet, or one that has never confirmed its email → the account is created
- *     UNCONFIRMED (or reused as is), and a one-time sign-in link is emailed to the recipient's
+ *     UNCONFIRMED (an existing unconfirmed one is first reset — no credential or metadata from
+ *     its creator survives), and a one-time sign-in link is emailed to the recipient's
  *     address → { checkEmail }. The account is confirmed, its profile written and the
  *     delivery claimed only after that link is opened — by the standard sign-in path
  *     (/auth/verify → /auth/callback → /letter/<id>?token=…).
@@ -30,6 +31,7 @@
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 import {
   SIGNIN_MAIL_LIMITS,
   ipLimitKey,
@@ -92,12 +94,14 @@ export interface OpenLetterDeps {
  * invitation token rides along in `redirect` so the signed-in recipient claims the delivery
  * on arrival — the same address already received it in the invitation email.
  */
-export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string): string {
+export function signInLink(appUrl: string, tokenHash: string, deliveryId: string, token: string, termsVersion: string): string {
+  // `terms` = the version the reader accepted when they pressed "Open" (allowlisted above); the
+  // letter page records the audit row for it once they arrive signed in.
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: 'magiclink',
     source: 'signup',
-    redirect: `/letter/${deliveryId}?token=${token}`,
+    redirect: `/letter/${deliveryId}?token=${token}&terms=${encodeURIComponent(termsVersion)}`,
   });
   return `${appUrl}/auth/verify?${params.toString()}`;
 }
@@ -351,8 +355,15 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
 
       const initialName = receiverName || receiverEmail.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 100) || 'Reader';
 
-      if (!orphanAuthUser) {
-        const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+
+      if (orphanAuthUser) {
+        // An unconfirmed account already exists at this address: nothing on it is proven to be
+        // the recipient's, and the link below would make it live. Reset it first.
+        if (!await resetUnconfirmedAccount(supabase, orphanAuthUser.id, { name: initialName, avatar_color: avatarColor })) {
+          return jsonResponse({ error: 'INTERNAL', message: "Couldn't open this letter. Please try again." }, 500, corsHeaders);
+        }
+      } else {
         const { data: authData, error: createError } = await supabase.auth.admin.createUser({
           email: normalizedEmail,
           email_confirm: false,
@@ -394,7 +405,7 @@ export function createHandler(deps: OpenLetterDeps): (req: Request) => Promise<R
           to: normalizedEmail,
           recipientName: receiverName,
           senderName,
-          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token),
+          link: signInLink(appUrl, linkData.properties.hashed_token, deliveryId, token, termsVersion),
         });
       } catch (emailErr) {
         console.error('[create-and-open-letter] sign-in email failed:', emailErr);

@@ -3659,6 +3659,37 @@ export async function needsTermsAcceptance(userId: string): Promise<boolean> {
 }
 
 /**
+ * P1487: record the audit row for a terms acceptance the user made BEFORE they had a session —
+ * a new invitee who accepted while opening a letter or signing an agreement, then proved their
+ * address through the emailed sign-in link. Called once they arrive signed in.
+ *
+ * Audit row only (the profile's accepted_terms_version is written by the sign-in callback).
+ * Idempotent: (user_id, terms_version) is unique and duplicates are ignored. Non-fatal — a failed
+ * audit write is logged, never thrown, so it cannot block the letter or the agreement.
+ */
+export async function recordPriorTermsAcceptance(
+  userId: string,
+  termsVersion: string,
+  mode: 'explicit' | 'notice' = 'explicit',
+): Promise<void> {
+  if (!isValidUUID(userId)) return;
+  const ipHash = await hashIP();
+  const { error } = await supabase
+    .from('terms_acceptances')
+    .upsert(
+      {
+        user_id: userId,
+        terms_version: termsVersion,
+        ip_hash: ipHash,
+        user_agent: navigator.userAgent,
+        acceptance_mode: mode,
+      },
+      { onConflict: 'user_id,terms_version', ignoreDuplicates: true },
+    );
+  if (error) console.error('Failed to record prior terms acceptance:', error);
+}
+
+/**
  * Record terms acceptance for a user.
  * Updates profile and creates audit trail entry.
  * @param userId - The user's UUID
