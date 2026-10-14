@@ -96,6 +96,7 @@ fixture row1-body    '> **New page-lead (UNTESTED).** Lead with Y — see decisi
 fixture row2-after   '> **New page-lead.** (2026-07-22, UNTESTED) Lead with Y.'                "$LIVE"
 fixture row3-human   '> **New page-lead (22 July 2026).** Lead with Y.'                        "$LIVE"
 fixture row3-us      '> **New page-lead (July 22, 2026).** Lead with Y.'                       "$LIVE"
+fixture row3-iso     '> **New page-lead (2026-07-22T10:30:00Z).** Lead with Y.'                "$LIVE"
 fixture row4-line2   '> **New page-lead (UNTESTED).** Lead with Y,\n> per the founder call of 2026-07-22.' "$LIVE"
 fixture row5-nested  '>> **New page-lead (2026-07-22).** Lead with Y.'                         "$LIVE"
 fixture row6-prose   '> **New page-lead (2026-07-22).** Lead with Y.'                          'Everything below is the durable positioning.'
@@ -113,6 +114,7 @@ want "row 1: date in the body, not the bold span"                         "$(rc_
 want "row 2: date after the bold"                                         "$(rc_of "$TMP/row2-after.md")" 2
 want "row 3: human-format date (22 July 2026)"                            "$(rc_of "$TMP/row3-human.md")" 2
 want "row 3: human-format date (July 22, 2026)"                           "$(rc_of "$TMP/row3-us.md")" 2
+want "row 3: ISO timestamp (2026-07-22T10:30:00Z)"                         "$(rc_of "$TMP/row3-iso.md")" 2
 want "row 4: date on the second blockquote line"                          "$(rc_of "$TMP/row4-line2.md")" 2
 want "row 5: nested (double) blockquote, own block"                                "$(rc_of "$TMP/row5-nested.md")" 2
 want "row 5: nested blockquote inside the live lead's callout"            "$(rc_of "$TMP/row5-inside.md")" 2
@@ -309,6 +311,10 @@ newrepo() {
   # Pinned to git's default, so the non-ASCII case below cannot pass just because a
   # host's global config happens to turn path quoting off.
   git -C "$1" config core.quotepath true
+  # Scratch fixtures are never signed: a host with commit.gpgsign on and no signer available
+  # would otherwise fail fixture creation and turn §13f into a false commit blocker.
+  git -C "$1" config commit.gpgsign false
+  git -C "$1" config tag.gpgsign false
 }
 newrepo "$REPO"
 run13e() {

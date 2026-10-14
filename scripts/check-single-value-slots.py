@@ -115,7 +115,7 @@ LEAD_RE = re.compile(r'^\*\*(.*?)(?:\*\*|$)')
 _MONTH = (r'(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|'
           r'Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?')
 DATE_RE = re.compile(
-    r'\b20\d\d-\d\d-\d\d\b'                                    # 2026-07-22
+    r'\b20\d\d-\d\d-\d\d(?:T[\d:.]+(?:Z|[+-]\d\d:?\d\d)?)?\b'  # 2026-07-22, 2026-07-22T10:30:00Z
     r'|\b\d{1,2}(?:st|nd|rd|th)?\s+' + _MONTH + r',?\s+20\d\d\b'   # 22 July 2026
     r'|\b' + _MONTH + r'\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d\d\b'   # July 22, 2026
     r'|\b' + _MONTH + r'\s+20\d\d\b'                               # July 2026
