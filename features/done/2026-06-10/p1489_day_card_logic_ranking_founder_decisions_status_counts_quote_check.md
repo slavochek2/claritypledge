@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 39
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-10-14'
 tags: [day-page, kanban, day-report, reflection]
 disclosure: public
 intent: cold-start
-delivery_stage: dev
 pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1489: Day card logic: the founder's decision ranks first, prod changes ask him, one cause reads as one, counts say what happened, quotes check what the writer saw
@@ -332,14 +332,14 @@ by the reverted readers (tolerant reading, `day.ts` rule 3).
 
 ## Related
 
-- RELATED: [P1471](p1471_day_page_footer_and_card_declutter.md): Day page layout, footer, status-line
+- RELATED: [P1471](../../p1471_day_page_footer_and_card_declutter.md): Day page layout, footer, status-line
   chips on phones. This spec does not overlap its layout. §3's marker placement and §4's page wording
   are coordinated with it.
-- [P1463](done/2026-06-10/p1463_day_page_attention_pass.md): the status-line ruling (2026-10-12) that
+- [P1463](p1463_day_page_attention_pass.md): the status-line ruling (2026-10-12) that
   §4's page wording would supersede.
-- [P1468](done/2026-06-10/p1468_day_page_one_list_and_goals.md): current page structure.
-- [P1399](done/2026-06-10/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md): rule 7
+- [P1468](p1468_day_page_one_list_and_goals.md): current page structure.
+- [P1399](p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md): rule 7
   (ordering) and rule 9 (Start fixing contract).
-- [P1445](done/2026-06-10/p1445_day_grounded_reflection_agent_on_slava_cp_cards.md): grounded
+- [P1445](p1445_day_grounded_reflection_agent_on_slava_cp_cards.md): grounded
   reflection and the exact-quote check.
 - A parallel change to `~/.claude/commands/day.md` step ordering (another agent, same day).
