@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 99
@@ -10,8 +10,8 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
-delivery_stage: ship
 pipeline_ran: [dev, ship]
+completed_at: 2026-10-14
 ---
 
 # P1198: `git-ops.sh ship --resume` should re-diff the branch for commits added mid-ship
