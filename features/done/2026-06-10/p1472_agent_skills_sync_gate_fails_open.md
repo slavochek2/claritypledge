@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 28
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-10-13'
 tags: [pre-commit, agent-skills, fail-closed, gates]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1472: The agent-skills sync gate fails open: a missing script skips it, a failed step reports OK, and its hint stages a bare directory
