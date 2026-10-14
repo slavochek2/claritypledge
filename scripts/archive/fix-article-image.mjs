@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import crypto from 'crypto';
 
-const key = '699bf9920ee17f00017b1081:72d5806549dfdfa1f6c537a43970149ff6c9b7ae4ba4556aeeb630cd663907c6';
+// Read from the environment, never hardcoded. Populate it from the keychain first:
+//   source scripts/keyring.sh && KEYRING_REASON="<why>" keyring_require GHOST_ADMIN_API_KEY
+const key = process.env.GHOST_ADMIN_API_KEY;
+if (!key || !key.includes(':')) {
+  console.error('GHOST_ADMIN_API_KEY is not set (expected {id}:{secret}). Load it with keyring_require GHOST_ADMIN_API_KEY.');
+  process.exit(1);
+}
 const [id, secret] = key.split(':');
 
 function makeToken() {
