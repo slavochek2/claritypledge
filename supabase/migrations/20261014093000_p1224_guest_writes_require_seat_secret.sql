@@ -16,7 +16,7 @@
 --   signed-in arm and the addressee bound are unchanged.)
 -- new function: clarity_request_seat_secrets (internal; executable by no client role)
 --
--- requires-frontend: 2d71e0aca4a74e4cb9a89bd99acc75d945eaf3f2
+-- requires-frontend: dd3c4ded0755fe97d8836a80c6c002c49134cc34
 --   DELIBERATELY MALFORMED UNTIL THE CLIENT COMMIT EXISTS — migrate.sh gate 2 reads a malformed
 --   marker as BLOCKED, which is the safe default. Replace the placeholder with the SHA of the
 --   client commit (src/lib/room-capability.ts, src/app/data/seat-secret.ts, src/app/data/api.ts)
