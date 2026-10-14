@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 178
+**Next ID:** 179
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2564,5 +2564,25 @@ Found by independent visual QA of P1476 (2026-10-14), pre-existing and out of th
 
 Screenshots: P1476's `test-results/p1476/*-r2.png` (local, w1 — gone once the worktree is reclaimed;
 recapture via /verify on any in-person event at 320px). Component: `src/app/prototypes/events/components/EventDetail.tsx` (~:900-910).
+
+---
+
+## p1434 tonight's-event tests fail every day 22:00-24:00 UTC and block every commit
+
+**ID:** INBOX-178
+**Date:** 2026-10-13
+**Status:** proposed
+**due:** week
+
+`src/tests/p1434-tonights-event-account-switch.test.tsx` builds its fixture event at `Date.now() + 2h`
+with `timezone: 'UTC'`, while the hook's pick (`pickTonightsEvent`) keeps only an event that is
+"tonight" in its own timezone. From 22:00 to 24:00 UTC the +2h start lands on tomorrow's UTC date, so
+both tests fail deterministically — on main too (verified 2026-10-14 05:17 +07, 2/2 failed on main and
+on a branch). Because pre-commit runs the unit suite, EVERY commit in the repo is blocked for two hours
+a day (it blocked an overnight-batch commit).
+
+Fix: pin the clock (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime` at a fixed midday UTC)
+or build the fixture at a fixed offset inside the same UTC day; add a case at 23:30 UTC that would
+have failed. Test-only; no product change. Same family as INBOX-142 (midnight refetch).
 
 ---
