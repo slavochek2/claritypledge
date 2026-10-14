@@ -256,6 +256,14 @@ test.describe('P1057 Migration A: session read accessors', () => {
     expect(staleErr).toBeNull();
     expect(staleData).toEqual([]);
 
+    // P1493: the ended/grace filter applies to participants too, not only to visitors.
+    const creatorView = await signInAs(creator);
+    for (const room of [ended, stale]) {
+      const { data: asCreator, error: asCreatorErr } = await creatorView.rpc('get_active_session_by_code', { p_code: room.code });
+      expect(asCreatorErr).toBeNull();
+      expect(asCreator, 'the grace-window lookup returned an ended/stale room to its creator').toEqual([]);
+    }
+
     // Control: the SAME rooms are still visible through the unfiltered accessor. Without
     // this, a function that always returned [] would pass the two assertions above.
     // P1493: an ended room is returned to its participants only, so it is read as the creator.

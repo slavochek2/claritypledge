@@ -101,6 +101,8 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   /** P1224: the seated guest's secret (what claim_joiner_seat returned to it). */
   const guestSecret = crypto.randomUUID();
   const endedSecret = crypto.randomUUID();
+  /** P1493: see the directed seed. */
+  const directedSecret = crypto.randomUUID();
   /** Directed room: addressed to a named listener. */
   let directedId: string;
   let directedCode: string;
@@ -158,6 +160,9 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     }));
     ({ id: directedId, code: directedCode } = await seed({
       creator_profile_id: host.user.id, target_listener_id: listener.user.id,
+      // P1493: a guest-seat credential on the directed room, so C8 presents a VALID credential and
+      // only the no-named-listener clause stands between it and the row.
+      joiner_name: 'p1302 guest', joiner_seat_claimed_at: new Date().toISOString(), joiner_seat_secret: directedSecret,
     }));
     // The only shape production creates: start-clarity-session-button makes a directed session to
     // the letter's receiver and invites that same receiver.
@@ -216,7 +221,8 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   test('A3: presenting a room code that is not this room\'s reads nothing', async () => {
     let wrong = makeRoomCode();
     while (wrong === guestCode) wrong = makeRoomCode();
-    const { data, error } = await guest(wrong).from('clarity_sessions').select('id').eq('id', guestId);
+    // P1493: with the room's valid seat credential, so only the code match can refuse the read.
+    const { data, error } = await guest(wrong, guestSecret).from('clarity_sessions').select('id').eq('id', guestId);
     expect(error, error?.message).toBeNull();
     expect(data ?? []).toEqual([]);
   });
@@ -367,7 +373,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   });
 
   test('C8: presenting the code of a DIRECTED session reads nothing — directed stays two-party', async () => {
-    const { data, error } = await guest(directedCode).from('clarity_sessions').select('id').eq('id', directedId);
+    const { data, error } = await guest(directedCode, directedSecret).from('clarity_sessions').select('id').eq('id', directedId);
     expect(error, error?.message).toBeNull();
     expect(data ?? []).toEqual([]);
   });
@@ -412,7 +418,8 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
 
   test('A10: only the first two presented codes are read — a third is ignored', async () => {
     // Bounds guessing: one request tests at most two codes, never a batch.
-    const { data, error } = await guest(`AAAAAA,BBBBBB,${guestCode}`)
+    // P1493: with the room's valid seat credential, so only the two-code bound can refuse the read.
+    const { data, error } = await guest(`AAAAAA,BBBBBB,${guestCode}`, guestSecret)
       .from('clarity_sessions').select('id').eq('id', guestId);
     expect(error, error?.message).toBeNull();
     expect(data ?? [], 'a third presented code was parsed — the per-request bound is not enforced').toEqual([]);

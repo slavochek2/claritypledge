@@ -16,7 +16,7 @@
 --   byte-identical body, so whichever of the two migrations lands first defines it)
 -- new function: clarity_request_seat_secrets (internal; executable by no client role)
 --
--- requires-frontend: 8163b86a478ecf514e8a318f5d04a948da2b2da6
+-- requires-frontend: 9724f3b85d78b0bed1f97b8c1434c483e1458bd7
 --   Against this migration a bundle that does not present the seat credential loses a guest's view
 --   of its own room, and its direct row writes match no row. Deploy the client first (src/app/data/api.ts,
 --   src/app/data/seat-secret.ts) and leave at least one session length before applying. The
@@ -259,7 +259,7 @@ STABLE
 AS $$
   SELECT EXISTS (
     SELECT 1
-      FROM clarity_sessions s
+      FROM public.clarity_sessions s
      WHERE s.id = p_session_id
        AND (
              auth.uid() = s.creator_profile_id
