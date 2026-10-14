@@ -81,8 +81,9 @@ Known limitations (epistemic gate 7b — the honest list; not fixed, by decision
     annotated `-- grant-order-transaction-control: <reason>` — after which its statements
     are taken at face value. COMMIT and other transaction statements are not inspected.
   - Generations: a DROP (or plain CREATE) of a matching overload ends the object, and the
-    invariant judges earlier re-grants within their own generation. A DROP of an
-    argument-less name ends every overload; CREATE OR REPLACE never does.
+    invariant judges earlier re-grants, and revoke-undone earlier revokes, within their
+    own generation. A DROP of an argument-less name ends every overload; CREATE OR
+    REPLACE never does.
   - Type identity drops typmods, so float(p) is always double precision (Postgres maps
     float(1..24) to real), and only built-in alias spellings are unified.
   - Live state. A grant changed out of band never appears in migration text; the
@@ -153,7 +154,9 @@ DROP_RE = re.compile(
     r"^DROP\s+(?:FUNCTION|ROUTINE|PROCEDURE)\s+(?:IF\s+EXISTS\s+)?(.+?)(?:\s+(?:CASCADE|RESTRICT))?$",
     re.IGNORECASE | re.DOTALL)
 # CREATE without OR REPLACE makes a new object, which starts from default privileges.
-CREATE_RE = re.compile(r"^CREATE\s+(?:FUNCTION|PROCEDURE)\s+(.+?\))", re.IGNORECASE | re.DOTALL)
+# Only the head is matched: the reference runs to the BALANCED close of its argument
+# list (closing_paren), since a DEFAULT expression can hold `)` of its own.
+CREATE_RE = re.compile(r"^CREATE\s+(?:FUNCTION|PROCEDURE)\s+", re.IGNORECASE)
 
 # Spellings Postgres treats as one type, mapped to the name format_type() prints.
 TYPE_ALIASES = {
@@ -185,6 +188,28 @@ BUILTIN_TYPES = {
 ARG_MODES = {"in", "out", "inout", "variadic"}
 
 
+def closing_paren(text, start):
+    """Index of the `)` closing the first `(` at or after `start`, or None.
+
+    Quoted text is skipped: `"f)"` is an identifier and `')'` a literal, neither a paren.
+    """
+    depth, quote = 0, None
+    for i in range(start, len(text)):
+        ch = text[i]
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")" and depth:
+            depth -= 1
+            if not depth:
+                return i
+    return None
+
+
 def split_top_level(text, sep=","):
     parts, depth, cur = [], 0, []
     for ch in text:
@@ -209,6 +234,10 @@ def normalise_arg(arg):
     are inputs and keep their types; the mode word and the argument name are dropped.
     """
     arg = re.split(r"\s+DEFAULT\s+|\s*=\s*", arg, maxsplit=1, flags=re.IGNORECASE)[0]
+    # A function's argument types carry no typmod: f(varchar(32)) IS f(varchar) and
+    # f(numeric(10, 2)) IS f(numeric). Stripped whole BEFORE tokenising, or the space in
+    # `numeric(10, 2)` reads as an argument named `numeric(10,` of type `2)`.
+    arg = re.sub(r"\s*\([^()]*\)", " ", arg)
     # `uuid ARRAY`, `uuid ARRAY[3]`, `uuid [ ]` and `uuid[3]` are all uuid[]: Postgres
     # ignores declared array bounds. Folded BEFORE tokenising, or `uuid ARRAY` reads as an
     # argument named uuid of type "array".
@@ -221,15 +250,12 @@ def normalise_arg(arg):
         tokens = tokens[1:]
     if len(tokens) > 1:
         whole = re.sub(r"^(?:pg_catalog|public)\.", "", " ".join(tokens).lower().replace('"', ""))
-        whole = " ".join(re.sub(r"\([^)]*\)", " ", whole).split())
         if not MULTIWORD_TYPE_RE.match(re.sub(r"(?:\[\])+$", "", whole)):
             tokens = tokens[1:]
     t = " ".join(tokens).lower().replace('"', "")
     base, brackets = re.match(r"^(.*?)((?:\[\])*)$", t).groups()
-    # Built-in types resolve through pg_catalog whether or not it is written, and a
-    # function's argument types carry no typmod: f(varchar(32)) IS f(varchar).
+    # Built-in types resolve through pg_catalog whether or not it is written.
     base = re.sub(r"^(?:pg_catalog|public)\.", "", base.strip())
-    base = " ".join(re.sub(r"\([^)]*\)", " ", base).split())
     base = TYPE_ALIASES.get(base, base)
     if base.startswith("_") and TYPE_ALIASES.get(base[1:], base[1:]) in BUILTIN_TYPES:
         base, brackets = TYPE_ALIASES.get(base[1:], base[1:]), "[]"
@@ -320,8 +346,9 @@ def parse_events(code):
                     events.append((stmt_line, "reset", parse_function_ref(ref), None))
                 continue
             m = CREATE_RE.match(stmt)
-            if m:
-                events.append((stmt_line, "reset", parse_function_ref(m.group(1)), None))
+            end = closing_paren(stmt, m.end()) if m else None
+            if end is not None:
+                events.append((stmt_line, "reset", parse_function_ref(stmt[m.end():end + 1]), None))
     return events
 
 
@@ -601,10 +628,19 @@ def _refusals_in_order(order, target_names, parsed):
                 + "\n".join(f"      -- widens-revoked-grant: {version(u)} <why the revoke no longer holds>"
                             for u in t["uncited"]))
 
+    # Every DROP / plain CREATE in this order, as (position, line, name, args).
+    resets = [(position[g], line, name, args) for g in order
+              for line, kind, (name, args), _ in parsed[g][1] if kind == "reset"]
     for f in sorted(target_names):
         seen = set()
         for line, kind, (name, args), source in parsed[f][1]:
             if kind != "revoke":
+                continue
+            # Generations, as the invariant judges them: a later DROP (or plain CREATE) of
+            # this signature ends the object this revoke closed. A grant after it is on a
+            # new object and undoes nothing; one before it ended with the object.
+            if any(rn == name and (ra is None or ra == args)
+                   and (rp, rl) > (position[f], line) for rp, rl, rn, ra in resets):
                 continue
             for role in roles_for(source):
                 if (name, args, role) in seen:

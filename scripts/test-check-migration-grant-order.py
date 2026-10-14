@@ -561,6 +561,64 @@ code, out, err = run_gate(d, D4, invariant=True)
 check("6.4: dropping a DIFFERENT overload does not end the generation", code == 1, out + err)
 
 # ---------------------------------------------------------------------------
+print("\nRound 7 (Codex 2026-10-14, parser)")
+RA_U = "REVOKE EXECUTE ON FUNCTION public.f(uuid) FROM anon;\n"
+GA_U = "GRANT EXECUTE ON FUNCTION public.f(uuid) TO anon;\n"
+
+
+def create_f(args):
+    return f"CREATE FUNCTION public.f(\n  {args}\n) RETURNS integer LANGUAGE sql AS $$ select 1 $$;\n"
+
+
+# 1. A CREATE's argument list runs to its BALANCED close paren: a `)` inside a DEFAULT
+# expression must not cut it short and record a reset of the wrong overload.
+for desc, args in (("a parenthesised DEFAULT", "p uuid DEFAULT gen_random_uuid(), q text DEFAULT ''"),
+                   ("a plain DEFAULT (control)", "p uuid DEFAULT NULL, q text DEFAULT ''")):
+    root, d = git_repo({A: RA_U, B: create_f(args) + GA_U}, stage=[A, B])
+    code, out, err = run_gate(d, B, invariant=True)
+    check(f"7.1: CREATE f(uuid, text) with {desc} does not reset f(uuid)",
+          code == 1 and "widens-revoked" in out, out + err)
+root, d = git_repo({A: RA_U, B: create_f("p uuid DEFAULT gen_random_uuid()") + GA_U}, stage=[A, B])
+code, out, err = run_gate(d, B, invariant=True)
+check("7.1 ACCEPT: CREATE f(uuid) with a parenthesised DEFAULT still resets f(uuid)", code == 0, out + err)
+root, d = git_repo({A: RA_U, B: 'CREATE FUNCTION public."f)"(p uuid) RETURNS integer LANGUAGE sql '
+                                "AS $$ select 1 $$;\n" + GA_U}, stage=[A, B])
+code, out, err = run_gate(d, B, invariant=True)
+check('7.1: a `)` inside a quoted identifier does not end the scan (public."f)" is another function)',
+      code == 1 and "widens-revoked" in out, out + err)
+
+# 2. Typmods are not part of function identity, and a space inside one must not split it
+# into an argument name and a type.
+for granted in ("numeric(10, 2)", "numeric(10,2)", "numeric", "p numeric(10, 2)", "numeric (10, 2)",
+                "numeric(10, 2)[]"):
+    revoked = "numeric[]" if granted.endswith("[]") else "numeric"
+    code, out, err = run(mig_dir({A: f"REVOKE EXECUTE ON FUNCTION public.f({revoked}) FROM anon;\n",
+                                  B: f"GRANT EXECUTE ON FUNCTION public.f({granted}) TO anon;\n"}), B)
+    check(f"7.2: f({granted}) is f({revoked})", code == 1 and "widens-revoked" in out, out + err)
+code, out, err = run(mig_dir({A: "REVOKE EXECUTE ON FUNCTION public.f(numeric) FROM anon;\n",
+                              B: "GRANT EXECUTE ON FUNCTION public.f(integer) TO anon;\n"}), B)
+check("7.2 ACCEPT: f(integer) is not f(numeric)", code == 0, out + err)
+
+# 3. revoke-undone judges a revoke within its own generation: a later DROP/CREATE of the
+# same signature ends the object the revoke closed, so a grant on the NEW object does not
+# undo it — the invariant already sees the reset.
+for desc, b_body, refused in (
+        ("dropped and re-created", "DROP FUNCTION public.f(uuid);\n" + create_f("p uuid"), False),
+        ("a DIFFERENT overload dropped (control)", "DROP FUNCTION public.f(text);\n", True)):
+    root, d = git_repo({A: RA_U, B: b_body, C: GA_U}, stage=[A, B, C])
+    commit_all(root)
+    with open(os.path.join(d, A), "a") as fh:
+        fh.write("-- comment-only edit\n")
+    git(root, "add", f"supabase/migrations/{A}")
+    code, out, err = run_gate(d, A, invariant=True)
+    if refused:
+        check(f"7.3: comment edit to a revoke, {desc}: still revoke-undone",
+              code == 1 and "revoke-undone" in out, out + err)
+    else:
+        check(f"7.3 ACCEPT: comment edit to a revoke whose function was later {desc}",
+              code == 0, out + err)
+
+# ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")
 INCIDENT_RESTORE = "20260818140000_p1065_restore_authenticated_grant_persist_anonymous_completion.sql"
 INCIDENT_REVOKE = "20260818090000_p1093_close_unchecked_payload_writer.sql"
