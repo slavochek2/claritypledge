@@ -77,7 +77,10 @@
 #       (AD-c) unless nothing landed yet (AD-h), an unjournaled commit stops
 #       the ship before close and before the branch delete (AD-d, AD-g), a
 #       commit added after the close is refused (AD-f), and journal writes
-#       stay under main.lock (AD-i).
+#       stay under main.lock (AD-i). What the append decision depends on is
+#       read under main.lock, not before it: a spec closed while --resume
+#       waits (AD-j), a git-ops.sh edit added while it waits (AD-k), a commit
+#       added after its gates ran (AD-l).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -3471,6 +3474,8 @@ pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 #     AD-f..AD-i  review round: closed spec refuses new commits (f), the
 #           branch delete is compare-and-swap (g), a rebase before any pick
 #           re-plans (h), journal writes happen only under main.lock (i).
+#     AD-j..AD-l  review round 2: state read before main.lock cannot decide
+#           the append — closure (j), self-modification (k), gated tip (l).
 #
 #     Failures are collected and reported together at the end of the section,
 #     so a run against the pre-fix code shows every scenario's verdict
@@ -3483,15 +3488,20 @@ ad_fail() { AD_FAILS+="  $*"$'\n'; echo "AD FAIL: $*" >&2; }
 # Add one commit to a scratch branch without touching the scratch checkout.
 # A temp index + commit-tree + a compare-and-swap update-ref, so it is safe
 # while a backgrounded ship owns the working tree (AD-d). Returns non-zero if
-# the branch moved or vanished first.
+# the branch moved or vanished first. $4 (optional): a file whose bytes become
+# the committed content; by default the content is the message.
 ad_branch_commit() {
-  local br="$1" file="$2" msg="$3"
+  local br="$1" file="$2" msg="$3" content="${4:-}"
   ( cd "$SCRATCH/main"
     local old blob tree new idx="$SCRATCH/ad-index.$$"
     old="$(git rev-parse --verify -q "refs/heads/$br")" || exit 1
     rm -f "$idx"
     GIT_INDEX_FILE="$idx" git read-tree "$old"
-    blob="$(printf '%s\n' "$msg" | git hash-object -w --stdin)"
+    if [[ -n "$content" ]]; then
+      blob="$(git hash-object -w "$content")"
+    else
+      blob="$(printf '%s\n' "$msg" | git hash-object -w --stdin)"
+    fi
     GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,$file"
     tree="$(GIT_INDEX_FILE="$idx" git write-tree)"
     rm -f "$idx"
@@ -3844,6 +3854,167 @@ else
 fi
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 scratch_reset p218
+
+# --- AD-j..AD-l (review round 2: reads made before main.lock) -------------------
+# Everything the --resume append decision depends on must be read AFTER
+# main.lock is held: closure state, the self-modification check, and the branch
+# tip the closure gates judged. Each canary holds main.lock itself, starts a
+# --resume, waits until that run is blocked acquiring the lock (its temp
+# lockfile exists, so every pre-lock read is already done), changes the state
+# underneath it the way a concurrent holder or co-tenant would, then lets go.
+# Deterministic: no sleep races, the window is held open by the test.
+
+# Start `ship PN --resume` blocked behind a main.lock this test holds. Returns 0
+# once it is waiting; non-zero if it exited first. Sets AD_W_PID; its output
+# goes to $SCRATCH/ad-TAG.log. The caller releases with ad_release_lock.
+ad_resume_behind_lock() {
+  local pn="$1" tag="$2" wt="$SCRATCH/main/.claude/worktrees" n=0
+  rm -f "$wt"/.main.lock.*
+  printf 'PID=%s\nNONCE=canary-ad-%s\n' "$$" "$tag" > "$wt/main.lock"
+  (
+    scratch_review_stamp "$pn"
+    cd "$SCRATCH/main" && GIT_OPS_MAIN_LOCK_TIMEOUT=60 bash "$GIT_OPS" ship "$pn" --resume
+  ) >"$SCRATCH/ad-$tag.log" 2>&1 &
+  AD_W_PID=$!
+  while (( n < 300 )); do
+    compgen -G "$wt/.main.lock.*" >/dev/null && return 0
+    kill -0 "$AD_W_PID" 2>/dev/null || return 1
+    sleep 0.1; n=$((n + 1))
+  done
+  return 1
+}
+
+# Let the blocked --resume take the lock and run to completion. Sets AD_W_RC and
+# AD_W_OUT.
+ad_release_lock() {
+  local tag="$1"
+  rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+  AD_W_RC=0
+  wait "$AD_W_PID" || AD_W_RC=$?
+  AD_W_OUT="$(cat "$SCRATCH/ad-$tag.log")"
+  cat "$SCRATCH/ad-$tag.log" >> "$SAFETY_LOG"
+}
+
+# --- AD-j (round 2, finding 1) --------------------------------------------------
+# The --resume reads the spec as OPEN, so it decides not to skip the closure
+# gate, and its gates see a commit already on the branch. While it waits for
+# main.lock, the lock holder lands the journaled commits and CLOSES the spec.
+# Under the lock the spec is closed, so Phase 2 will skip the close: that commit
+# would land after the closure no gate of the closing run ever saw. Refuse.
+scratch_feature p219 2
+AD_J1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p219-demo | sed -n '1p' )"
+AD_J2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p219-demo | sed -n '2p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_J1" ) >/dev/null
+AD_J1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p219 "{\"source_sha\": \"$AD_J1\", \"landed_sha\": \"$AD_J1L\", \"landed_at\": \"x\"},
+    {\"source_sha\": \"$AD_J2\", \"landed_sha\": null, \"landed_at\": null}"
+ad_branch_commit feature/p219-demo p219-c3.txt "p219: commit 3" || fail "AD-j: setup could not add the post-journal commit"
+if ! ad_resume_behind_lock p219 j; then
+  ad_release_lock j
+  echo "$AD_W_OUT" >&2; ad_fail "AD-j: the --resume never blocked on main.lock (exit $AD_W_RC)"
+else
+  # The holder: lands commit 2, then closes the spec, and records both.
+  ( cd "$SCRATCH/main" && git cherry-pick "$AD_J2" \
+    && git mv features/p219_demo.md features/done/2026-04-22/p219_demo.md \
+    && git commit -qm "chore: close p219" ) >/dev/null
+  AD_J2L="$( cd "$SCRATCH/main" && git rev-parse HEAD~1 )"
+  AD_J2L="$AD_J2L" python3 - "$SCRATCH/main/.claude/worktrees/.ship-journal/p219.json" <<'PY'
+import json, os, sys
+j = json.load(open(sys.argv[1]))
+j["commits"][1]["landed_sha"] = os.environ["AD_J2L"]
+j["commits"][1]["landed_at"] = "x"
+j["spec_closed"] = True
+json.dump(j, open(sys.argv[1], "w"), indent=2)
+PY
+  AD_J_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  ad_release_lock j
+  if [[ $AD_W_RC -eq 0 || "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$AD_J_HEAD" ]]; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-j: --resume exited $AD_W_RC and moved main — the spec was closed while it waited for main.lock, and it still landed a commit no closing gate saw (gate-skip read before the lock)"
+  elif [[ "$(ad_jlen p219)" != "2" ]]; then
+    ad_fail "AD-j: refused, but the journal grew to $(ad_jlen p219) entries"
+  elif ! grep -q 'after .*spec was closed' <<<"$AD_W_OUT"; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-j: refused, but not because the spec was closed while it waited"
+  else
+    pass "AD-j (P1198 review round 2): a spec closed while --resume waits for main.lock is re-read under it, and the new commit is refused"
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p219
+
+# --- AD-k (round 2, finding 2) --------------------------------------------------
+# A commit that edits scripts/git-ops.sh reaches the branch while the --resume
+# waits for main.lock — after the pre-lock self-modification guard ran. The
+# guard must run again on the batch actually being added, under the lock.
+scratch_feature p220 1
+AD_K1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p220-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_K1" ) >/dev/null
+AD_K1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p220 "{\"source_sha\": \"$AD_K1\", \"landed_sha\": \"$AD_K1L\", \"landed_at\": \"x\"}"
+# Appending a comment keeps the scratch git-ops.sh working if the bug lands it.
+{ ( cd "$SCRATCH/main" && git show main:scripts/git-ops.sh ); echo "# p220 canary edit"; } > "$SCRATCH/ad-k-git-ops.sh"
+AD_K_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+if ! ad_resume_behind_lock p220 k; then
+  ad_release_lock k
+  echo "$AD_W_OUT" >&2; ad_fail "AD-k: the --resume never blocked on main.lock (exit $AD_W_RC)"
+else
+  ad_branch_commit feature/p220-demo scripts/git-ops.sh "p220: commit 2 edits git-ops" "$SCRATCH/ad-k-git-ops.sh" \
+    || fail "AD-k: setup could not add the git-ops.sh commit"
+  ad_release_lock k
+  if [[ $AD_W_RC -eq 0 || "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$AD_K_HEAD" ]]; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-k: --resume exited $AD_W_RC and moved main — a commit editing scripts/git-ops.sh, added while it waited for main.lock, was appended past the self-modification guard"
+  elif [[ "$(ad_jlen p220)" != "1" ]]; then
+    ad_fail "AD-k: refused, but the journal grew to $(ad_jlen p220) entries"
+  elif ! grep -q 'modify scripts/git-ops.sh' <<<"$AD_W_OUT"; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-k: refused, but the output does not name the scripts/git-ops.sh edit"
+  else
+    pass "AD-k (P1198 review round 2): a git-ops.sh edit added while --resume waits for main.lock is refused under the lock"
+  fi
+fi
+# If the bug landed it, put the scratch main back so later canaries run the
+# real git-ops.sh (mixed reset: the scratch tree carries other leftovers).
+if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$AD_K_HEAD" ]]; then
+  ( cd "$SCRATCH/main" && git reset -q "$AD_K_HEAD" && git show "$AD_K_HEAD:scripts/git-ops.sh" > scripts/git-ops.sh ) || true
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p220
+
+# --- AD-l (round 2, audit) ------------------------------------------------------
+# Same pattern, third read: the closure gates run BEFORE main.lock and judge the
+# branch as it is then. A commit that reaches the branch while the --resume
+# waits was never seen by them; appending it would land it under a gate verdict
+# about a different branch. Refuse, write nothing, and the documented re-run
+# (whose gates do see it) converges.
+scratch_feature p221 1
+AD_L1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p221-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_L1" ) >/dev/null
+AD_L1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p221 "{\"source_sha\": \"$AD_L1\", \"landed_sha\": \"$AD_L1L\", \"landed_at\": \"x\"}"
+AD_L_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+if ! ad_resume_behind_lock p221 l; then
+  ad_release_lock l
+  echo "$AD_W_OUT" >&2; ad_fail "AD-l: the --resume never blocked on main.lock (exit $AD_W_RC)"
+else
+  ad_branch_commit feature/p221-demo p221-c2.txt "p221: commit 2" || fail "AD-l: setup could not add the commit"
+  ad_release_lock l
+  if [[ $AD_W_RC -eq 0 || "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$AD_L_HEAD" ]]; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-l: --resume exited $AD_W_RC and moved main — a commit added after its closure gates ran landed ungated"
+  elif [[ "$(ad_jlen p221)" != "1" ]]; then
+    ad_fail "AD-l: refused, but the journal grew to $(ad_jlen p221) entries"
+  elif ! grep -q 'no gate saw them' <<<"$AD_W_OUT"; then
+    echo "$AD_W_OUT" >&2; ad_fail "AD-l: refused, but the output does not say the gates never saw the commit"
+  else
+    rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+    AD_L2_RC=0
+    AD_L2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p221 --resume)" || AD_L2_RC=$?
+    if [[ $AD_L2_RC -ne 0 || "$(ad_count p221)" != "2" ]] || ( cd "$SCRATCH/main" && git rev-parse --verify -q feature/p221-demo >/dev/null ); then
+      echo "$AD_L2_OUT" >&2; ad_fail "AD-l: the documented re-run exited $AD_L2_RC with $(ad_count p221) of 2 p221 commits on main"
+    else
+      pass "AD-l (P1198 review round 2): a commit added after --resume's gates ran is refused under the lock, and the re-run lands it"
+    fi
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p221
 
 if [[ -n "$AD_FAILS" ]]; then
   fail "AD (P1198): $(printf '%s' "$AD_FAILS" | grep -c .) scenario(s) failed:"$'\n'"$AD_FAILS"
