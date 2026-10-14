@@ -3470,7 +3470,10 @@ pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 #     AD-g  the branch delete is compare-and-swap.
 #     AD-h  a rewrite before any pick — refused; the printed restart converges.
 #     AD-n  an unrecorded pick (pre_pick_head set) — never "delete the journal".
-#     AD-o  branch checked out in a feature worktree — printed recipe runs.
+#     AD-o  branch checked out in a feature worktree at a path with spaces —
+#           the printed recipe runs as printed.
+#     AD-p  a fresh ship's journal used by another ship while it waited — kept.
+#     AD-q  a commit added during a branch-born seed's pre-commit hook — refused.
 #     AD-j..AD-l  drift that appears while --resume waits for main.lock is
 #           caught under the lock (closed spec, git-ops.sh edit, plain commit).
 #     AD-m  drift that appears while a FRESH ship waits for main.lock (after
@@ -3815,7 +3818,8 @@ scratch_reset p223
 
 # --- AD-o ----------------------------------------------------------------------
 # Codex 2026-10-14 (MEDIUM): the branch is checked out in a real feature
-# worktree (the normal case), where `git branch -f` fails. Every printed git
+# worktree (the normal case), where `git branch -f` fails — here at a path with
+# spaces, so the printed paths must be shell-quoted. Every printed git
 # command must run as printed, and the --resume after them must finish the ship
 # with the new work kept on its own branch.
 scratch_feature p224 2
@@ -3825,7 +3829,7 @@ AD_O2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p224
 AD_O1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
 ad_journal p224 "{\"source_sha\": \"$AD_O1\", \"landed_sha\": \"$AD_O1L\", \"landed_at\": \"x\"},
     {\"source_sha\": \"$AD_O2\", \"landed_sha\": null, \"landed_at\": null}"
-AD_O_WT="$SCRATCH/wt-p224"
+AD_O_WT="$SCRATCH/wt p224 with spaces"
 ( cd "$SCRATCH/main" && git worktree add -q "$AD_O_WT" feature/p224-demo \
   && cd "$AD_O_WT" && echo new > p224-c3.txt && git add p224-c3.txt && git commit -qm "p224: commit 3" ) >/dev/null 2>&1 \
   || fail "AD-o: setup could not commit in the feature worktree"
@@ -4011,6 +4015,85 @@ else
 fi
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 scratch_reset p222
+
+# --- AD-p ----------------------------------------------------------------------
+# Codex 2026-10-14 (HIGH): a FRESH ship writes its journal, then waits for
+# main.lock; meanwhile another ship lands a journaled commit from that journal
+# and the branch is rewritten. The fresh run's drift refusal must NOT delete the
+# now-used journal (a restart would replay the superseded commit next to its
+# rewrite); it keeps it and prints the partial-landing recovery.
+scratch_feature p225 2
+if ! ad_ship_behind_lock p225 p; then
+  ad_release_lock p
+  echo "$AD_W_OUT" >&2; ad_fail "AD-p: the fresh ship never blocked on main.lock (exit $AD_W_RC)"
+else
+  AD_P1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p225-demo | sed -n '1p' )"
+  AD_P2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p225-demo | sed -n '2p' )"
+  ( cd "$SCRATCH/main" && git cherry-pick "$AD_P1" ) >/dev/null
+  AD_P1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  AD_P1L="$AD_P1L" AD_P1="$AD_P1" python3 - "$SCRATCH/main/.claude/worktrees/.ship-journal/p225.json" <<'PY'
+import json, os, sys
+j = json.load(open(sys.argv[1]))
+for c in j["commits"]:
+    if c["source_sha"] == os.environ["AD_P1"]:
+        c["landed_sha"] = os.environ["AD_P1L"]; c["landed_at"] = "x"
+json.dump(j, open(sys.argv[1], "w"), indent=2)
+PY
+  ( cd "$SCRATCH/main" && git update-ref refs/heads/feature/p225-demo "$AD_P1" ) >/dev/null
+  ad_branch_commit feature/p225-demo p225-c2.txt "p225: commit 2 amended" || fail "AD-p: setup could not amend"
+  AD_P_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  ad_release_lock p
+  if ad_check_refused AD-p "$AD_W_RC" "$AD_W_OUT" p225 "$AD_P_HEAD" 2 "Do NOT delete the journal"; then
+    pass "AD-p (P1198): a fresh ship's drift refusal keeps a journal another ship already landed from"
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p225
+
+# --- AD-q ----------------------------------------------------------------------
+# Codex 2026-10-14 (HIGH): a branch-born spec defers journal init to after the
+# seed commit. A commit reaching the branch DURING the seed commit's pre-commit
+# hook was planned into the journal and shipped, though the gates judged an
+# earlier tip. The journal must be planned from the gated tip and the drift
+# checked again after seeding: the late commit never reaches main.
+scratch_branch_only_spec p226
+AD_Q_MARK="$SCRATCH/.ad-q-mark"
+: > "$AD_Q_MARK"
+cat > "$SCRATCH/main/.git/hooks/pre-commit" <<HOOK
+#!/bin/bash
+[[ -f "$AD_Q_MARK" ]] || exit 0
+rm -f "$AD_Q_MARK"
+unset GIT_INDEX_FILE
+idx="$SCRATCH/ad-q-index"
+old="\$(git rev-parse refs/heads/feature/p226-only)"
+rm -f "\$idx"
+GIT_INDEX_FILE="\$idx" git read-tree "\$old"
+blob="\$(echo late | git hash-object -w --stdin)"
+GIT_INDEX_FILE="\$idx" git update-index --add --cacheinfo "100644,\$blob,p226-late.txt"
+tree="\$(GIT_INDEX_FILE="\$idx" git write-tree)"
+rm -f "\$idx"
+new="\$(git commit-tree "\$tree" -p "\$old" -m "p226: late commit")"
+git update-ref refs/heads/feature/p226-only "\$new" "\$old"
+exit 0
+HOOK
+chmod +x "$SCRATCH/main/.git/hooks/pre-commit"
+AD_Q_RC=0
+AD_Q_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p226 2>&1)" || AD_Q_RC=$?
+rm -f "$SCRATCH/main/.git/hooks/pre-commit"
+if [[ -f "$AD_Q_MARK" ]]; then
+  rm -f "$AD_Q_MARK"; echo "$AD_Q_OUT" >&2; ad_fail "AD-q: the seed commit's pre-commit hook never ran (seed path not reached)"
+elif grep -q 'p226: late commit' < <(cd "$SCRATCH/main" && git log --format=%s main); then
+  echo "$AD_Q_OUT" >&2; ad_fail "AD-q: a commit added during the seed's pre-commit hook reached main (exit $AD_Q_RC) — the gates never judged it"
+elif [[ $AD_Q_RC -eq 0 ]]; then
+  ad_fail "AD-q: the late commit stayed off main but ship exited 0"
+elif ! grep -q 'p226: late commit' <<<"$AD_Q_OUT"; then
+  echo "$AD_Q_OUT" >&2; ad_fail "AD-q: refused without naming the late commit"
+else
+  pass "AD-q (P1198): a commit added during a branch-born seed is refused, never planned into the journal"
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock" "$SCRATCH/main/.claude/worktrees/.ship-journal/p226.json"
+( cd "$SCRATCH/main" && git branch -D feature/p226-only ) >/dev/null 2>&1 || true
+
 
 if [[ -n "$AD_FAILS" ]]; then
   fail "AD (P1198): $(printf '%s' "$AD_FAILS" | grep -c .) scenario(s) failed:"$'\n'"$AD_FAILS"

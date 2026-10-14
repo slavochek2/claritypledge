@@ -2443,9 +2443,12 @@ ship_init_journal() {
   local pn="$1"
   local branch="$2"
   local spec_file="$3"
+  # $4 (optional, P1198): plan from this exact tip (the one the closure gates
+  # judged) instead of whatever the branch ref holds now.
+  local plan_tip="${4:-$branch}"
   local journal="$SHIP_JOURNAL_DIR/${pn}.json"
   local shas
-  shas="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${branch}" 2>/dev/null )"
+  shas="$( cd "$REPO_ROOT" && git log --reverse --format=%H "main..${plan_tip}" 2>/dev/null )"
   if [[ -z "$shas" ]]; then
     die "ship: branch '$branch' has no commits ahead of main — nothing to ship. If ${pn} is a comment, withdrawn or retracted spec, delete the empty branch (git branch -d $branch) and re-run: with no branch it closes administratively (P1444)."
   fi
@@ -2672,7 +2675,9 @@ ship_require_no_drift() {
       esac
     done
     echo "A ship lands only the commits it planned when it started; it will not add or replace them."
-    if [[ -n "$fresh" ]]; then
+    if [[ -n "$fresh" ]] && ship_journal_never_picked "$journal"; then
+      # Only when the journal PROVES it was never used: another ship may have
+      # landed from it while this fresh run waited for main.lock.
       rm -f "$fresh"
       echo "Nothing was picked and this run's journal was removed. Re-run: git-ops ship $pn"
     elif ship_journal_never_picked "$journal"; then
@@ -2689,13 +2694,14 @@ ship_require_no_drift() {
               awk -v br="refs/heads/${branch}" '/^worktree /{p=substr($0,10)} /^branch /{if ($2==br) print p}' | head -n1 )" || _wt=""
       echo "Do NOT delete the journal: $landed commit(s) are recorded as landed and a pick may have"
       echo "committed without being recorded. Finish this ship from its journaled history first:"
-      echo "    git branch $_new_br ${tip}"
+      # %q quotes every argument so the lines run as printed (paths with spaces).
+      printf '    git branch %q %q\n' "$_new_br" "$tip"
       if [[ -n "$_wt" ]]; then
-        echo "    git -C $_wt reset --keep ${last}"
+        printf '    git -C %q reset --keep %q\n' "$_wt" "$last"
       else
-        echo "    git branch -f $branch ${last}"
+        printf '    git branch -f %q %q\n' "$branch" "$last"
       fi
-      echo "    ./scripts/git-ops.sh ship $pn --resume"
+      printf '    ./scripts/git-ops.sh ship %q --resume\n' "$pn"
       echo "then ship $_new_br (the new or rewritten work) under its own spec."
     fi
   } >&2
@@ -4302,7 +4308,7 @@ cmd_ship() {
   # the crash) and false for any forged journal, because a forger would have to
   # produce the closed artifact itself — at which point the close has happened.
   _gate_skip=0
-  local _gated_tip=""
+  local _gated_tip="" _deferred_init=0
   if (( journal_exists == 1 )); then
     if ship_journal_flag "$pn" "spec_closed"; then
       _gate_skip=1
@@ -4616,11 +4622,13 @@ The branch is authoritative for shipped migrations. Compare each file with
     # block, which an embargo skips. Initialise it here instead.
     if [[ ! -f "$journal" ]]; then
       spec_file="${SHIP_EMB_SPECS[0]:-$branch_spec_file}"
-      ship_init_journal "$pn" "$branch" "$spec_file"
+      ship_init_journal "$pn" "$branch" "$spec_file" "$_gated_tip"
+      _deferred_init=1
     fi
   fi
 
   if (( need_seed == 1 )); then
+    [[ -n "$_gated_tip" ]] || die "ship: no gated tip recorded for branch-born $pn — refusing to plan its journal"
     # Op-in-progress guard (mirror cmd_commit_to_main L999).
     local _gitdir_seed
     _gitdir_seed="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
@@ -4651,7 +4659,14 @@ The branch is authoritative for shipped migrations. Compare each file with
       die "ship: the branch-born seed commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
     echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
     spec_file="$(resolve_ship_spec "$pn")"
-    ship_init_journal "$pn" "$branch" "$spec_file"
+    ship_init_journal "$pn" "$branch" "$spec_file" "$_gated_tip"
+    _deferred_init=1
+  fi
+  # P1198: a deferred (branch-born) journal was planned from the gated tip; a
+  # commit that reached the branch since — e.g. during the seed commit's
+  # pre-commit hook — is drift. Check again before anything reads the pending list.
+  if (( _deferred_init == 1 )); then
+    ship_require_no_drift "$pn" "$branch" "$journal" "" "after seeding the spec, before picking anything" "$journal"
   fi
 
   # P1464: persist the embargo verdict (never downgraded on --resume) and journal
