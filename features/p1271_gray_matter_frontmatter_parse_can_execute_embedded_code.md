@@ -15,10 +15,7 @@ tags:
   - dependencies
 disclosure: public
 delivery_stage: dev
-pipeline_ran:
-  - create-bug
-  - fix
-  - adversarial-review
+pipeline_ran: [create-bug, fix, adversarial-review]
 ---
 
 # P1271: `gray-matter`'s frontmatter parsing can execute embedded code via a language-tag switch
@@ -96,6 +93,10 @@ real file in this repo — parses as YAML, unchanged. All call sites now import 
       before and 14 after, identical set, zero new (the 14 are pre-existing: P1238's unshipped
       validator fix plus a co-tenant's in-flight `KANBAN_OPEN_DRY_RUN` work). `tsc --noEmit`: 16
       pre-existing errors before and after, zero new.
+
+**Closure check (2026-10-14):** the fix (`fc00bc8fe`) is on `origin/main`. Re-verified: outside
+`tools/kanban/lib/frontmatter.ts` and its test, `gray-matter` appears in `tools/kanban` source only
+in comments; `tools/kanban/server/__tests__/frontmatter-engine.test.ts` 13/13 pass on main.
 
 ## Adversarial Review (2026-09-08)
 

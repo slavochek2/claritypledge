@@ -11,8 +11,7 @@ tags:
   - calibration
   - rls
 delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
+pipeline_ran: [create-bug, inline]
 driver: anomaly
 ---
 
@@ -83,10 +82,43 @@ the load-bearing half of the class P1093 only partly closed.
 
 ## Done-When
 
-- [ ] Prod measured for rows already written through this path, with the number stated even if zero
-- [ ] A decision recorded on shape: definer-function path vs policy predicate, with the reason
-- [ ] The authenticated submission path no longer writes these rows with a client-supplied story id
-- [ ] A test that fails before the fix, inserting a forged letter verification as a signed-in caller
-- [ ] A control layer proving `/live` verifications and legitimate letter submission still work
-- [ ] Verified against the live catalog after deploy, not the migration ledger
-- [ ] `.private/docs/security-log.md` updated
+Closed 2026-10-14 as **delivered under other specs** — see § Closure below. Every box is ticked
+against an artifact; one criterion is retired in prose rather than ticked, because it was written
+for the shape that was not chosen.
+
+- [x] Prod measured for rows already written through this path, with the number stated even if zero
+      — **0 forged** letter verifications on prod (2026-09-01); the only rows without a delivery
+      predate the delivery column and pass the provenance test. Detail:
+      `.private/docs/security-log.md` § 2026-09-01 P1100 prod measurement
+- [x] A decision recorded on shape: definer-function path vs policy predicate, with the reason —
+      **policy predicate resolved by a SECURITY DEFINER admissibility helper**, recorded in
+      [P1150](done/2026-06-10/p1150_story_verification_insert_unbound_counterparty.md) § Fix shape
+      (the client keeps writing directly and RLS stays the single authorization point)
+- [x] A test that fails before the fix, inserting a forged letter verification as a signed-in caller
+      — `e2e/integration/p1150-story-verification-counterparty.spec.ts` gap tests; their
+      before-fix failures are recorded in P1150's done spec (part A and part B). Re-run on test
+      2026-10-14: green
+- [x] A control layer proving `/live` verifications and legitimate letter submission still work —
+      same file's controls (`submitRating` and batch submission payloads, the P1278 `/live`
+      shapes, a definer writer). Re-run on test 2026-10-14: 35 passed, 2 failed on a test-project
+      auth rate limit at sign-in (not an assertion); those 2 re-run alone: 2 passed
+- [x] Verified against the live catalog after deploy, not the migration ledger — prod catalog
+      2026-10-14: exactly one INSERT policy on the table; its letter branch requires the letter
+      source, a delivery, the placeholder speaker rating and the admissibility helper; the helper
+      is SECURITY DEFINER with an empty search_path and not executable by anon. Control: the same
+      probes against an unrelated INSERT policy all return false
+- [x] `.private/docs/security-log.md` updated — § 2026-10-14 P1100/P1092/P1059/P1098/P1226
+
+**Retired, not ticked:** "The authenticated submission path no longer writes these rows with a
+client-supplied story id." That criterion belongs to shape (a), the definer writer. Shape (b) was
+chosen, so the client still sends a story id — but the policy admits it only when that story is in
+a letter the named speaker sent and the caller holds a delivery of. The criterion's intent (no
+forged story id is accepted) is what the gap tests above prove.
+
+## Closure (2026-10-14)
+
+Delivered by **P1150 part B** (`20260901220000_p1150_b_bind_delivery_and_caller.sql`) and **P1278
+part C** (`20260910130000_p1278_c_live_rows_must_carry_both_ratings.sql`), both in `origin/main`'s
+`supabase/deploy-manifest.json` `[prod].migrations` and confirmed in the live prod catalog on
+2026-10-14 (the manifest is a record, not the database). This spec records no implementation of its
+own: `inline` in `pipeline_ran` records the closure verification done inline on 2026-10-14, not code.

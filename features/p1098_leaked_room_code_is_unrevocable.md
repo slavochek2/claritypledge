@@ -9,6 +9,7 @@ created_date: '2026-08-17'
 tags: [security, live, codes, lifecycle]
 driver: anomaly
 feature_type: backend
+pipeline_ran: [inline]
 ---
 
 # P1098: a leaked room code is unrevocable
@@ -73,11 +74,28 @@ Open questions before any implementation — this is closer to a research spec t
 
 ## Done-When
 
-- [ ] Question 4 answered first, in writing — "is this a feature or a docs fix?"
-- [ ] If built: rotation cannot evict an already-seated joiner
-- [ ] If built: the rotation surface passes the same gate checklist P1057 applied
-      (`search_path`, both REVOKE forms, explicit grant, no `code` re-publication)
-- [ ] If closed as won't-do: the reasoning is recorded in `docs/decisions.md`, not just here
+Closed 2026-10-14 **as won't-do**, by founder decision. The two "If built" criteria do not apply
+and are listed in prose below, not ticked.
+
+- [x] Question 4 answered first, in writing — "is this a feature or a docs fix?" — **neither a
+      feature nor a docs fix: won't-do.** Founder, 2026-10-14: neither rotate nor expire; the
+      remedy for a leaked link is ending the session and starting a new one
+- [x] If closed as won't-do: the reasoning is recorded in `docs/decisions.md`, not just here —
+      [decisions.md](../docs/decisions.md) 2026-10-14 [security] "A leaked room code is neither
+      rotated nor expired — ending the session is the remedy" (Status: accepted, with falsifier)
+
+**Not applicable — nothing was built:**
+
+- *If built: rotation cannot evict an already-seated joiner* — no rotation exists. Since P1269 and
+  P1314 C a leaked code cannot take an occupied seat that carries a seat secret either (seats
+  claimed before those migrations are the stated exception in P1269).
+- *If built: the rotation surface passes the same gate checklist P1057 applied* — no new surface.
+
+## Closure (2026-10-14)
+
+No code. `inline` in `pipeline_ran` records the decision work done inline on 2026-10-14 (recording
+the founder's ruling and its rationale), not an implementation. The rationale leans partly on
+P1224 (in progress); the decision entry says to revisit if P1224 is abandoned.
 
 ## Related
 

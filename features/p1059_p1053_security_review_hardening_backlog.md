@@ -6,7 +6,7 @@ rank: 89
 created_date: '2026-08-12'
 tags: [security, hardening, clarity-sessions, rls]
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, inline]
 driver: anomaly
 ---
 
@@ -99,17 +99,43 @@ practice tool and would close this item with a recorded rationale rather than co
 
 ## Done-When
 
-- [ ] `create_transcription_job` and `retry_transcription` both carry `SET search_path = public`,
-      verified by reading the live function definitions, not the migration files
-- [ ] The transcription path still works on test after the pin
-- [ ] Whether `anon`/`authenticated` hold CREATE on any schema is **answered**, and the answer is
-      recorded — this converts (1) from "confirmed defect, unknown reachability" to a known state
-- [ ] Room codes are minted server-side from a CSPRNG, and a client-supplied `code` in the INSERT
-      payload is either ignored or rejected
-- [ ] A canary proves a client cannot choose its own room code
-- [ ] Revocability has an explicit founder decision recorded — rotate, expire, or neither. If
-      "neither," this item closes with the rationale written down and no code
-- [ ] `.private/docs/security-log.md` updated with the outcome of each of the three
+Closed 2026-10-14 — items (1) and (2) delivered under other specs, item (3) answered by founder
+decision. See § Closure.
+
+- [x] `create_transcription_job` and `retry_transcription` both carry `SET search_path = public`,
+      verified by reading the live function definitions, not the migration files — prod catalog
+      2026-10-14: both SECURITY DEFINER with `search_path=public` (P1223,
+      `20260901230000_p1223_pin_search_path_definer_functions.sql`); 0 of 157 SECURITY DEFINER
+      functions in `public` are unpinned (control: 142 invoker functions with no pin are counted
+      by the same probe)
+- [x] The transcription path still works on test after the pin — test catalog shows the same pin;
+      `e2e/integration/p495-transcription-trigger.spec.ts` on test 2026-10-14: 6 passed (creator
+      and joiner create the job, idempotent, non-participant / private session / anonymous refused).
+      `retry_transcription` has a client caller but no integration test; it was not exercised
+- [x] Whether `anon`/`authenticated` hold CREATE on any schema is **answered**, and the answer is
+      recorded — **neither holds CREATE on any schema** on prod (2026-10-14; control: `postgres`
+      holds it on `public`). Recorded in `.private/docs/security-log.md` § 2026-10-14
+- [x] Room codes are minted server-side from a CSPRNG, and a client-supplied `code` in the INSERT
+      payload is either ignored or rejected — P1097 (`20260901200000_p1097_a_server_minted_room_code.sql`,
+      `20260901200100_p1097_b_revoke_client_code_insert.sql`). Prod 2026-10-14: the minting trigger
+      is installed and draws from `gen_random_bytes`; neither client role may INSERT the `code`
+      column (control: `authenticated` may INSERT `creator_name`, `service_role` may INSERT `code`)
+- [x] A canary proves a client cannot choose its own room code —
+      `e2e/integration/p1097-csprng-room-code-migration.spec.ts` ("a verified user inserting WITH a
+      code is refused at the column grant"), green on test 2026-10-14
+- [x] Revocability has an explicit founder decision recorded — rotate, expire, or neither. If
+      "neither," this item closes with the rationale written down and no code — **neither**,
+      founder 2026-10-14, recorded in [decisions.md](../docs/decisions.md) 2026-10-14 [security]
+      "A leaked room code is neither rotated nor expired" (closes P1098 with it)
+- [x] `.private/docs/security-log.md` updated with the outcome of each of the three — § 2026-10-14
+      P1100/P1092/P1059/P1098/P1226
+
+## Closure (2026-10-14)
+
+(1) delivered by P1223, (2) by P1097 — all three migrations are in `origin/main`'s
+`supabase/deploy-manifest.json` `[prod].migrations` and were confirmed in the live prod catalog on
+2026-10-14. (3) is a founder decision with no code. This spec records no implementation of its own:
+`inline` in `pipeline_ran` records the closure verification done inline on 2026-10-14, not code.
 
 ## Related
 

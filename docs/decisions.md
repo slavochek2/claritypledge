@@ -8,6 +8,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-14 [security]: A leaked room code is neither rotated nor expired — ending the session is the remedy (P1098, P1059 item 3)
+
+**Context:** P1098 and item 3 of P1059 asked whether a room code that escaped (a screenshot, a
+forwarded link) should be rotatable, given an expiry, or neither. Both specs held the question as a
+founder decision before any design, and named "neither" as a legitimate answer for a practice tool.
+
+**Decision:** Founder, 2026-10-14: **neither rotate nor expire.** The code stays valid for the life
+of the room, and the remedy for a leaked link is to end the session and start a new one. Reasons:
+rooms are short practice sessions, not durable spaces, so ending one costs little; since P1269 and
+P1314 C a leaked code cannot take an occupied seat that carries a seat secret (seats claimed before
+those migrations still release on the code — the exception P1269's done spec states); and the
+per-seat secret work in P1224 (in progress) binds a seated guest's writes to something only that
+guest holds, so knowing the room alone stops being a write capability once it lands.
+
+**Alternatives rejected:** *Rotation* and *a default expiry* — each adds a lifecycle rule (and
+rotation a new RPC plus semantics for an already-seated joiner) to a join path P1053, P1057 and
+P1097 each hardened, to provide a remedy that ending the session already provides.
+
+**Consequences:** P1098 closes as won't-do with no code; P1059's item 3 is answered. This rests
+partly on P1224 landing: if P1224 is abandoned, revisit. Status: accepted (founder decision
+2026-10-14). Falsifier: a reported leaked-code incident where ending the session was not an
+adequate remedy.
+
+**References:** [P1098](../features/p1098_leaked_room_code_is_unrevocable.md) ·
+[P1059](../features/p1059_p1053_security_review_hardening_backlog.md) ·
+[P1224](../features/p1224_guest_live_state_patch_keyed_only_by_session_id.md)
+
+---
+
+## 2026-10-14 [security]: RSVP lists and witness endorsements are public by design; email bookkeeping is not (P1226)
+
+**Context:** `event_rsvps` and `witnesses` both carry a read-everything SELECT policy, created that
+way at table creation with no recorded ruling (G7 of the 2026-09-01 security sweep). P1226 asked
+for the intent to be written down, or the reads scoped.
+
+**Decision:** Founder, 2026-10-14: **RSVP lists are public by design** — who is coming is part of
+an event page. **Witness rows are public by design, including the LinkedIn URL**: a witness
+vouches publicly, and the link is the identity evidence the profile page renders (the opposite
+contract from a member's own `profiles.linkedin_url`, which P877 withheld). Row visibility on both
+tables stays as it is. What is *not* public is RSVP email-dispatch bookkeeping (mail-provider
+message ids and the reminder/feedback scheduling columns): no page renders it, and it has been
+withheld from the client roles by column grants since `20261008220000_p1321_event_rsvps_column_grants.sql`.
+
+**Alternatives rejected:** *Scope RSVP reads to signed-in users* — breaks the attendee list for
+the anonymous visitors an event page is for, to hide what the page itself shows.
+
+**Consequences:** P1226 closes with no further code. A new column on `event_rsvps` is not
+client-readable until it is added to that migration's column GRANT (default-deny for SELECT).
+Status: accepted (founder decision 2026-10-14). Falsifier: a registrant objects to appearing on a
+public attendee list, or a scraped attendee list is used for unsolicited contact.
+
+**References:** [P1226](../features/p1226_public_select_on_event_rsvps_and_witnesses_decision.md) ·
+[P1321](../features/done/2026-06-10/p1321_agent_access_security_gate_and_phase1_design.md)
+
+---
+
 ## 2026-10-14 [process]: P1198 — `ship --resume` refuses on drift instead of appending new commits (founder decision)
 
 **Context:** P1198's Done-When asked `--resume` to pick up commits added to a branch after the ship

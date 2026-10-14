@@ -6,7 +6,7 @@ rank: 217
 created_date: '2026-08-17'
 tags: [security, letters, sealed-bid, integrity]
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, inline]
 driver: anomaly
 changes: p1067
 ---
@@ -96,16 +96,39 @@ Decision density: low now, since both founder calls are already made.
 
 ## Done-When
 
-- [ ] Predictions are no longer sent to a reader who has not rated
-- [ ] A rating on this path is recorded server-side as it is made, including for a reader who never
-      signs in
-- [ ] The reveal is gated server-side, per story, on that record
-- [ ] The minted state is server-issued, letter-scoped, expiring and rate-limited — each stated with
-      how it was verified, not asserted
-- [ ] All three reading-page entry points covered, enumerated explicitly
-- [ ] Design flag triaged: allowlist scoped, or acceptance documented with its reason
-- [ ] Verified against live behaviour after deploy, not a green migration run
-- [ ] `.private/docs/security-log.md` updated with the design, the fix and its verification
+Closed 2026-10-14 as **dissolved by P1379 slice A** — see § Closure at the end. The design this
+list was written for (server-minted reader state gating a reveal) was overtaken by the founder
+decision of 2026-10-01: public letters carry no author prediction at all, so there is nothing left
+to gate. Criteria that only make sense for that design are retired in prose below, not ticked.
+
+- [x] Predictions are no longer sent to a reader who has not rated — none are sent to any public
+      reader. Prod 2026-10-14: the public reading RPC returns an empty prediction list for **18 of
+      18** sealed one-to-many letters, all 18 of which still store predictions (73 rows kept, by
+      design); an anonymous REST call to the same RPC returns HTTP 200 with `predictions: []` and
+      the letter's stories (control: the payload is real, not an empty refusal)
+- [x] Verified against live behaviour after deploy, not a green migration run — the two prod
+      calls above, plus the prod catalog: all four reader-facing functions carry the P1379 change
+      (control: the author-only overview function, deliberately unchanged, does not) and the
+      prediction-read policy's receiver branch requires a one-to-one letter
+- [x] `.private/docs/security-log.md` updated with the design, the fix and its verification —
+      § 2026-10-14 P1100/P1092/P1059/P1098/P1226
+
+**Retired, not ticked** (each assumed predictions still exist on public letters):
+
+- *A rating on this path is recorded server-side as it is made, including for a reader who never
+  signs in* — there is no reveal left to gate on it. Capturing anonymous public-letter ratings was
+  also a programme gain under founder decision 2 above; P1379 slice C accepts that anonymous
+  public readers get no comparison until they sign in, so that capture is not carried anywhere.
+- *The reveal is gated server-side, per story, on that record* — there is no public reveal of an
+  author prediction to gate.
+- *The minted state is server-issued, letter-scoped, expiring and rate-limited* — no state is
+  minted; the new anonymous write surface this spec accepted as a cost was never built.
+- *All three reading-page entry points covered* — the withholding is on the server, not in the
+  page. Prod catalog 2026-10-14: of the functions that read the predictions table, the three
+  reader-facing ones carry the P1379 one-to-many refusal, the fourth is author-only, and the fifth
+  is the sealing write; direct table reads go through the policy above.
+- *Design flag triaged* — the live-session analogue in Approach item 5 is carried by **P1224**
+  (open, in progress in its own worktree), which binds a guest's writes to a per-seat secret.
 
 ## 2026-09-30 — P1379 A3 outcome (annotation, not a closure)
 
@@ -123,3 +146,11 @@ Status: this leak is **dissolved on test** for public letters. It is not yet ver
 After P1379 ships, re-check `/letter/ck`'s public reading response on prod. If it carries no
 predictions, close P1092 via `/ship` with that evidence. The anonymous-gating question in
 P1379 slice C (deferred) inherits this spec's constraint.
+
+## Closure (2026-10-14)
+
+Dissolved by **P1379 slice A** (`20260930120000_p1379_public_letters_no_author_prediction.sql`,
+stamped into `origin/main`'s `supabase/deploy-manifest.json` `[prod].migrations` in `5cde9c9fa`),
+confirmed on the live prod database 2026-10-14 as above. The annotation above ("not yet verified on
+prod") is superseded by that check. This spec records no implementation of its own: `inline` in
+`pipeline_ran` records the closure verification done inline on 2026-10-14, not code.
