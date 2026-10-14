@@ -1352,6 +1352,18 @@ export function isParticipantView(session: Pick<ClaritySession, 'createdAt'>): b
   return session.createdAt != null;
 }
 
+/**
+ * P1493: before treating a pre-join answer as a lost seat, hold THIS room's credential again and
+ * ask once more. A tab holds at most two credentials, so one for another room can have pushed this
+ * room's out; that must not evict a guest who still holds the seat. Returns the participant row
+ * when the re-check finds one, or null when the seat really is no longer this tab's.
+ */
+export async function recheckSeatAsParticipant(code: string, sessionId: string): Promise<ClaritySession | null> {
+  restoreSeatSecret(sessionId);
+  const again = await getClaritySession(code);
+  return again && again.id === sessionId && isParticipantView(again) ? again : null;
+}
+
 export function isGuestSeatLost(err: unknown): err is GuestSeatLostError {
   return err instanceof GuestSeatLostError;
 }

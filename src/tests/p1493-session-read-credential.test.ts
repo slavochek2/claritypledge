@@ -31,9 +31,10 @@ import {
   updateClaritySessionState,
   clearSessionJoiner,
   isParticipantView,
+  recheckSeatAsParticipant,
   _resetSessionIdByCodeForTesting,
 } from '@/app/data/api';
-import { heldSeatSecrets, _resetHeldSeatSecretsForTesting } from '@/lib/room-capability';
+import { heldSeatSecrets, holdSeatSecret, _resetHeldSeatSecretsForTesting } from '@/lib/room-capability';
 import { _resetSeatSecretMemoryForTesting } from '@/app/data/seat-secret';
 
 const SESSION_ID = 'sess-p1493';
@@ -244,5 +245,22 @@ describe('P1493: guest reads present the seat credential', () => {
     _resetSessionIdByCodeForTesting();
     const participant = await getClaritySession('ABC123');
     expect(isParticipantView(participant!)).toBe(true);
+  });
+
+  it('a guest whose credential another room pushed out is confirmed as still seated, not evicted', async () => {
+    window.localStorage.setItem(`cp.seatSecret.${SESSION_ID}`, SECRET);
+    await getClaritySession('ABC123');
+    holdSeatSecret('aaaaaaaa-1111-4111-8111-111111111111');
+    holdSeatSecret('bbbbbbbb-2222-4222-8222-222222222222');
+    expect(heldSeatSecrets()).not.toContain(SECRET);
+
+    const again = await recheckSeatAsParticipant('ABC123', SESSION_ID);
+
+    expect(again?.id).toBe(SESSION_ID);
+    expect(isParticipantView(again!)).toBe(true);
+  });
+
+  it('a tab with no credential for the room is confirmed as no longer seated', async () => {
+    expect(await recheckSeatAsParticipant('ABC123', SESSION_ID)).toBeNull();
   });
 });

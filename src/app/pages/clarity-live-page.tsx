@@ -24,6 +24,7 @@ import {
   patchClaritySessionLiveState,
   isGuestSeatLost,
   isParticipantView,
+  recheckSeatAsParticipant,
   GUEST_SEAT_LOST_MESSAGE,
   clearSessionJoiner,
   uploadSessionRecording,
@@ -1396,8 +1397,10 @@ export function ClarityLivePage() {
         // same condition as a refused write (P1224), so it gets the same lost-seat handling rather
         // than reading the missing joiner as its partner having left.
         if (!isCreatorRef.current && !isParticipantView(freshSession)) {
-          setGuestSeatLost(true);
-          return;
+          // Re-check once holding this room's credential before giving up the seat.
+          const stillSeated = await recheckSeatAsParticipant(currentCode, freshSession.id);
+          if (!stillSeated) setGuestSeatLost(true);
+          return; // a confirmed participant row is picked up by the next tick
         }
 
         // Check 1: Detect joiner (existing logic)
