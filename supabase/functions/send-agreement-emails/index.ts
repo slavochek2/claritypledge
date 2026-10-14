@@ -1,6 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import {
+  type BucketLimit,
+  mailLimitResponse,
+  reserveMailSlot,
+  SIGNIN_MAIL_LIMITS,
+  targetLimitKey,
+} from '../_shared/mail-rate-limit.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
@@ -10,6 +17,12 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 // P1178: shared secret proving an internal edge-function caller (create-and-sign).
 // Such a caller has no user to resolve, so auth.getUser() can never authorize it.
 const INTERNAL_FN_SECRET = Deno.env.get('INTERNAL_FN_SECRET') ?? '';
+
+// P1491: each kind of notice is sent a bounded number of times per agreement and destination,
+// through the P1225 limiter (database-time window, fails closed). The allowance reuses the
+// founder-set per-address mail limit (P1225: 3 per hour); a refusal is the shared 429 body.
+const FUNCTION_NAME = 'send-agreement-emails';
+const AGREEMENT_NOTICE_LIMIT: BucketLimit = SIGNIN_MAIL_LIMITS.target;
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
@@ -448,7 +461,7 @@ serve(async (req: Request) => {
     // ── Authorization: caller must be a party to the agreement ────────────────
     const { data: agreementCheck } = await supabaseClient
       .from('clarity_agreements')
-      .select('creator_profile_id, partner_profile_id, status')
+      .select('id, creator_profile_id, partner_profile_id, partner_email, status')
       .eq('id', agreementId)
       .single();
 
@@ -484,6 +497,36 @@ serve(async (req: Request) => {
     };
     if (REQUIRED_STATUS[action] && agreementCheck.status !== REQUIRED_STATUS[action]) {
       return new Response(JSON.stringify({ error: 'Forbidden', reason: 'state' }), { status: 403, headers: corsHeaders });
+    }
+
+    // P1491: bounded sends per agreement, kind of notice and destination. After the party and
+    // state checks, so a refused request never spends an allowance. A resend is the same notice
+    // to the same address as the invitation, so the two share one allowance; every other notice
+    // goes to the agreement's own parties, so the agreement and kind identify its destination.
+    // An unknown action skips this and reaches the switch's 400 below.
+    // Keyed on the id the database returned, never the request's spelling of it: uuid input
+    // accepts several spellings of one value, and each would otherwise get its own allowance.
+    if (REQUIRED_STATUS[action]) {
+      const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+      if (!ipHashSecret) {
+        console.error('[send-agreement-emails] IP_HASH_SECRET not configured');
+        return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
+      }
+      const noticeKind = action === 'resend' ? 'invitation' : action;
+      const destination = noticeKind === 'invitation'
+        ? String(agreementCheck.partner_email ?? '').trim().toLowerCase()
+        : 'parties';
+      const noticeRefusal = mailLimitResponse(
+        await reserveMailSlot(
+          supabaseClient,
+          FUNCTION_NAME,
+          'target',
+          await targetLimitKey(`agreement:${agreementCheck.id}:${noticeKind}:${destination}`, ipHashSecret),
+          AGREEMENT_NOTICE_LIMIT,
+        ),
+        corsHeaders,
+      );
+      if (noticeRefusal) return noticeRefusal;
     }
 
     switch (action) {
