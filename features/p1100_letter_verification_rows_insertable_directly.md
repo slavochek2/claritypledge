@@ -10,8 +10,8 @@ tags:
   - integrity
   - calibration
   - rls
-delivery_stage: create-bug
-pipeline_ran: [create-bug, inline]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
 ---
 
