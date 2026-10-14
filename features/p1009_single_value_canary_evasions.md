@@ -1,7 +1,7 @@
 ---
 status: qa
-delivery_stage: dev
-pipeline_ran: [dev]
+delivery_stage: ship
+pipeline_ran: [dev, ship]
 type: bug
 disclosure: public
 rank: 82
