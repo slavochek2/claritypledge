@@ -10,8 +10,8 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
-delivery_stage: dev
-pipeline_ran: [dev]
+delivery_stage: ship
+pipeline_ran: [dev, ship]
 ---
 
 # P1198: `git-ops.sh ship --resume` should re-diff the branch for commits added mid-ship
