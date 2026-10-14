@@ -3468,7 +3468,9 @@ pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 #           before closing the spec, keeping the branch; --resume then refuses.
 #     AD-f  a commit added after the spec closed — refused.
 #     AD-g  the branch delete is compare-and-swap.
-#     AD-h  a rebase before any pick — refused; the printed restart converges.
+#     AD-h  a rewrite before any pick — refused; the printed restart converges.
+#     AD-n  an unrecorded pick (pre_pick_head set) — never "delete the journal".
+#     AD-o  branch checked out in a feature worktree — printed recipe runs.
 #     AD-j..AD-l  drift that appears while --resume waits for main.lock is
 #           caught under the lock (closed spec, git-ops.sh edit, plain commit).
 #     AD-m  drift that appears while a FRESH ship waits for main.lock (after
@@ -3525,6 +3527,15 @@ EOF
 }
 
 ad_count() { ( cd "$SCRATCH/main" && git log --oneline main | grep -c "$1: commit" || true ); }
+
+# Record the journal's start_head (main when the ship began), as init does.
+ad_set_start_head() {
+  python3 - "$SCRATCH/main/.claude/worktrees/.ship-journal/$1.json" "$2" <<'PY2'
+import json, sys
+j = json.load(open(sys.argv[1])); j["start_head"] = sys.argv[2]
+json.dump(j, open(sys.argv[1], "w"), indent=2)
+PY2
+}
 
 # Number of entries in a journal's commits array ("-" if there is no journal).
 ad_jlen() {
@@ -3739,27 +3750,28 @@ rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 scratch_reset p216
 
 # --- AD-h ----------------------------------------------------------------------
-# A ship that stopped before ANY pick, then the author rebased onto main: every
-# journaled sha is gone and nothing landed. Refused all the same (the journal is
-# never rebuilt); the printed restart — delete the journal, run a fresh ship —
-# then lands the rebased commits.
+# A ship that stopped before ANY pick (main still at the journal's start_head),
+# then the author rewrote both commits: every journaled sha is gone and the
+# journal PROVES nothing was picked. Refused all the same (the journal is never
+# rebuilt); the printed restart — delete the journal, run a fresh ship — then
+# lands the rewritten commits.
 scratch_feature p217 2
 AD_H1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p217-demo | sed -n '1p' )"
 AD_H2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p217-demo | sed -n '2p' )"
 ad_journal p217 "{\"source_sha\": \"$AD_H1\", \"landed_sha\": null, \"landed_at\": null},
     {\"source_sha\": \"$AD_H2\", \"landed_sha\": null, \"landed_at\": null}"
-# The rebase, built with plumbing (the scratch checkout carries unstaged
+ad_set_start_head p217 "$( cd "$SCRATCH/main" && git rev-parse main )"
+# The rewrite, built with plumbing (the scratch checkout carries unstaged
 # leftovers from earlier canaries, which `git rebase` refuses to run over):
-# main moves on, the branch is re-pointed at it and its two commits re-made.
-( cd "$SCRATCH/main" && echo moved > p217-main.txt && git add p217-main.txt && git commit -qm "main moves on" \
-  && git update-ref refs/heads/feature/p217-demo main ) >/dev/null
+# the branch is re-pointed at main and its two commits re-made.
+( cd "$SCRATCH/main" && git update-ref refs/heads/feature/p217-demo main ) >/dev/null
 ad_branch_commit feature/p217-demo p217-c1.txt "p217: commit 1 rebased" \
   && ad_branch_commit feature/p217-demo p217-c2.txt "p217: commit 2 rebased" \
-  || fail "AD-h: setup could not rebuild the rebased branch"
+  || fail "AD-h: setup could not rebuild the rewritten branch"
 AD_H_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
 AD_H_RC=0
 AD_H_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p217 --resume)" || AD_H_RC=$?
-if ad_check_refused AD-h "$AD_H_RC" "$AD_H_OUT" p217 "$AD_H_HEAD" 2 "re-run a fresh: git-ops ship p217"; then
+if ad_check_refused AD-h "$AD_H_RC" "$AD_H_OUT" p217 "$AD_H_HEAD" 2 "Nothing was ever picked. Delete"; then
   rm -f "$SCRATCH/main/.claude/worktrees/main.lock" "$SCRATCH/main/.claude/worktrees/.ship-journal/p217.json"
   AD_H2_RC=0
   AD_H2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p217)" || AD_H2_RC=$?
@@ -3771,6 +3783,81 @@ if ad_check_refused AD-h "$AD_H_RC" "$AD_H_OUT" p217 "$AD_H_HEAD" 2 "re-run a fr
 fi
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 scratch_reset p217
+
+# --- AD-n ----------------------------------------------------------------------
+# Codex 2026-10-14 (HIGH): a pick committed on main but was killed before its
+# landed_sha was written (pre_pick_head is set), then the branch was amended.
+# The landed COUNT is zero, but advising "delete the journal" would make a fresh
+# ship replay the superseded commit next to its rewrite. The advice must say not
+# to delete it and point at --resume.
+scratch_feature p223 2
+AD_N0="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+AD_N1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p223-demo | sed -n '1p' )"
+AD_N2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p223-demo | sed -n '2p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_N1" ) >/dev/null
+ad_journal p223 "{\"source_sha\": \"$AD_N1\", \"landed_sha\": null, \"landed_at\": null, \"pre_pick_head\": \"$AD_N0\"},
+    {\"source_sha\": \"$AD_N2\", \"landed_sha\": null, \"landed_at\": null}"
+ad_set_start_head p223 "$AD_N0"
+( cd "$SCRATCH/main" && git update-ref refs/heads/feature/p223-demo "$AD_N1" ) >/dev/null
+ad_branch_commit feature/p223-demo p223-c2.txt "p223: commit 2 amended" || fail "AD-n: setup could not amend"
+AD_N_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+AD_N_RC=0
+AD_N_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p223 --resume)" || AD_N_RC=$?
+if ad_check_refused AD-n "$AD_N_RC" "$AD_N_OUT" p223 "$AD_N_HEAD" 2 "Do NOT delete the journal"; then
+  if grep -qE 'Delete .*p223\.json|Nothing (has landed|was ever picked)' <<<"$AD_N_OUT"; then
+    echo "$AD_N_OUT" >&2; ad_fail "AD-n: advised deleting the journal although a pick may have committed unrecorded"
+  else
+    pass "AD-n (P1198): an unrecorded pick (pre_pick_head set) never gets 'delete the journal' advice"
+  fi
+fi
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p223
+
+# --- AD-o ----------------------------------------------------------------------
+# Codex 2026-10-14 (MEDIUM): the branch is checked out in a real feature
+# worktree (the normal case), where `git branch -f` fails. Every printed git
+# command must run as printed, and the --resume after them must finish the ship
+# with the new work kept on its own branch.
+scratch_feature p224 2
+AD_O1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p224-demo | sed -n '1p' )"
+AD_O2="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p224-demo | sed -n '2p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$AD_O1" ) >/dev/null
+AD_O1L="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+ad_journal p224 "{\"source_sha\": \"$AD_O1\", \"landed_sha\": \"$AD_O1L\", \"landed_at\": \"x\"},
+    {\"source_sha\": \"$AD_O2\", \"landed_sha\": null, \"landed_at\": null}"
+AD_O_WT="$SCRATCH/wt-p224"
+( cd "$SCRATCH/main" && git worktree add -q "$AD_O_WT" feature/p224-demo \
+  && cd "$AD_O_WT" && echo new > p224-c3.txt && git add p224-c3.txt && git commit -qm "p224: commit 3" ) >/dev/null 2>&1 \
+  || fail "AD-o: setup could not commit in the feature worktree"
+AD_O_HEAD="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+AD_O_RC=0
+AD_O_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p224 --resume)" || AD_O_RC=$?
+if ad_check_refused AD-o "$AD_O_RC" "$AD_O_OUT" p224 "$AD_O_HEAD" 2 "p224: commit 3"; then
+  rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+  AD_O_CMDS="$(sed -n 's/^    \(git .*\)$/\1/p' <<<"$AD_O_OUT")"
+  AD_O_BAD=""
+  while IFS= read -r _c; do
+    [[ -n "$_c" ]] || continue
+    ( cd "$SCRATCH/main" && eval "$_c" ) >/dev/null 2>&1 || AD_O_BAD+="$_c; "
+  done <<<"$AD_O_CMDS"
+  if [[ -z "$AD_O_CMDS" || -n "$AD_O_BAD" ]]; then
+    echo "$AD_O_OUT" >&2; ad_fail "AD-o: printed recovery commands failed in a feature worktree: ${AD_O_BAD:-none printed}"
+  else
+    AD_O2_RC=0
+    AD_O2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p224 --resume)" || AD_O2_RC=$?
+    if [[ $AD_O2_RC -ne 0 || "$(ad_count p224)" != "2" ]]; then
+      echo "$AD_O2_OUT" >&2; ad_fail "AD-o: after the printed recipe, --resume exited $AD_O2_RC with $(ad_count p224) of 2 journaled commits on main"
+    elif ! grep -q 'p224: commit 3' < <(cd "$SCRATCH/main" && git log --format=%s p224-demo-new-work 2>&1); then
+      echo "$AD_O_OUT" >&2; ( cd "$SCRATCH/main" && git branch -a ) >&2
+      ad_fail "AD-o: the new work is not on the printed new branch"
+    else
+      pass "AD-o (P1198): in a real feature worktree the printed recovery runs as printed and the ship finishes"
+    fi
+  fi
+fi
+( cd "$SCRATCH/main" && git worktree remove --force "$AD_O_WT"; git branch -D p224-demo-new-work ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p224
 
 # --- AD-j..AD-m (drift that appears while waiting for main.lock) ----------------
 # The drift check must run AFTER main.lock is held. Each canary holds main.lock

@@ -2675,13 +2675,28 @@ ship_require_no_drift() {
     if [[ -n "$fresh" ]]; then
       rm -f "$fresh"
       echo "Nothing was picked and this run's journal was removed. Re-run: git-ops ship $pn"
-    elif [[ "$landed" == "0" ]]; then
-      echo "Nothing has landed yet. Delete $journal, then re-run a fresh: git-ops ship $pn"
+    elif ship_journal_never_picked "$journal"; then
+      # Proof, not a landed count: no pick attempted and main still at start_head.
+      echo "Nothing was ever picked. Delete $journal, then re-run a fresh: git-ops ship $pn"
     else
-      echo "$landed journaled commit(s) already landed on main. Finish this ship first: move the new"
-      echo "work to its own branch (git branch NEW-BRANCH ${tip:0:12}), point $branch back at its last"
-      echo "journaled commit (git branch -f $branch ${last:0:12}), run git-ops ship $pn --resume, then"
-      echo "ship NEW-BRANCH with a fresh git-ops ship under its own spec."
+      # Something landed, or may have: a pick can commit before its landed_sha is
+      # recorded (pre_pick_head set), so a zero count is not proof. Deleting the
+      # journal then would replay the superseded commits next to their rewrite.
+      # Finish THIS ship from the journaled history first; --resume reconciles an
+      # unrecorded pick (or prints the --mark-landed recovery).
+      local _new_br="${branch##*/}-new-work" _wt=""
+      _wt="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
+              awk -v br="refs/heads/${branch}" '/^worktree /{p=substr($0,10)} /^branch /{if ($2==br) print p}' | head -n1 )" || _wt=""
+      echo "Do NOT delete the journal: $landed commit(s) are recorded as landed and a pick may have"
+      echo "committed without being recorded. Finish this ship from its journaled history first:"
+      echo "    git branch $_new_br ${tip}"
+      if [[ -n "$_wt" ]]; then
+        echo "    git -C $_wt reset --keep ${last}"
+      else
+        echo "    git branch -f $branch ${last}"
+      fi
+      echo "    ./scripts/git-ops.sh ship $pn --resume"
+      echo "then ship $_new_br (the new or rewritten work) under its own spec."
     fi
   } >&2
   exit 1
