@@ -8,6 +8,7 @@ created_date: '2026-08-11'
 tags: [security, rls, anonymous-writes]
 driver: anomaly
 feature_type: backend
+pipeline_ran: [inline]
 ---
 
 # P1045: Tables writable by unauthenticated callers — decide intent, then close or document
