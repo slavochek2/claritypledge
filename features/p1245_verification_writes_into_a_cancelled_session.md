@@ -10,8 +10,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [privacy, rls, erasure, live-session]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 ---
 
 # P1245: a paraphrase can still be written into a session the erased user closed
@@ -118,5 +118,10 @@ legitimate client write to protect.
       suites `p1138-reproduce`, `p1207-session-child-scope`, `p520-account-deletion` green.
 - [x] The residual note in `20260902090000_p520_erasure_hardening.sql` is superseded by the new
       migration's header (applied migrations are never edited) and by `docs/technical/database.md`.
-- [ ] [post-deploy] Prod catalog shows `anon`/`authenticated` with SELECT only on
+
+## Post-deploy verification
+
+Run after the prod apply/deploy (not a completion gate — prod cannot be verified pre-merge):
+
+- [post-deploy] Prod catalog shows `anon`/`authenticated` with SELECT only on
       `clarity_verifications` and no INSERT policy.
