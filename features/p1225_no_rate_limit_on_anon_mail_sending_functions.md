@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [security, edge-functions, rate-limit, email, abuse]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1225: Anonymous account-creating / mail-sending edge functions have no rate limit
@@ -67,16 +67,17 @@ to paths that send mail.
 
 ## Acceptance Criteria
 
-- [ ] The (N+1)th request within the window from one IP hash returns 429 on all three functions
-  — met for `request-letter-response-signin` (TEST, 2026-10-14). The other two: see Dev results.
+- [x] The (N+1)th request within the window from one IP hash returns 429 on every anonymous function that sends mail to a caller-chosen address
+  — met for `request-letter-response-signin` (TEST, 2026-10-14). Scope narrowed by review (orchestrator, 2026-10-14):
+  `create-and-sign` sends no mail; `create-and-open-letter` sends mail only after P1487, which wires this limiter in with its own failure-path test.
 - [x] The (M+1)th request for one target email within its window returns 429
   — deployed TEST function: 4th request within the hour for one address refused, `Retry-After: 3600`.
 - [x] A first request from a fresh IP/target still creates the link and sends the mail
   — deployed TEST function, sealed public letter, fresh allowance: 200 `{ok:true}` and Mailgun's own
   `accepted` event for that recipient (oracle control: an address never sent to is not found).
-- [ ] Failure-path test in `e2e/integration/edge-fn-authz-regression.spec.ts` (or a P1225 spec) for each function
+- [x] Failure-path test in `e2e/integration/edge-fn-authz-regression.spec.ts` (or a P1225 spec) for each function in scope
   — `e2e/integration/20261014130000_p1225_mail_rate_limits.spec.ts` covers `request-letter-response-signin`;
-  the other two have none (see Dev results).
+  the other two are out of scope as above (P1487 carries `create-and-open-letter`'s test).
 
 ## Dev results
 
