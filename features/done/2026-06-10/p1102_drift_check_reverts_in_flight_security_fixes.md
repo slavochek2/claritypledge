@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 1
@@ -9,9 +9,9 @@ tags:
   - process
   - drift
   - migrations
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1102: the grant-drift check treats an in-flight security fix as drift, and undoes it
