@@ -1281,14 +1281,21 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
   // dropped with a breadcrumb and the badge reads 0. With a session, a 42501 means
   // signed-in users lost EXECUTE and must still report (decisions.md 2026-10-01,
   // P1382). The session is read on the error path only, at most once per call.
-  let hasSession: boolean | undefined;
+  // Only a lookup that SUCCEEDED and found no session counts as anon: auth-js
+  // returns `{ session: null, error }` on a refresh failure while keeping the
+  // stored session, so an auth error or a rejection reports the original 42501.
+  let sessionState: 'present' | 'absent' | 'unknown' | undefined;
   const logUnlessAnon = async (context: string, error: PostgrestError): Promise<'anon' | 'logged'> => {
     if (error.code === '42501') {
-      if (hasSession === undefined) {
-        const { data: { session } } = await supabase.auth.getSession();
-        hasSession = !!session;
+      if (sessionState === undefined) {
+        try {
+          const { data, error: authError } = await supabase.auth.getSession();
+          sessionState = authError ? 'unknown' : data.session ? 'present' : 'absent';
+        } catch {
+          sessionState = 'unknown';
+        }
       }
-      if (!hasSession) {
+      if (sessionState === 'absent') {
         noteNoSessionSuppression(context);
         return 'anon';
       }

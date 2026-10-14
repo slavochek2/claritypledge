@@ -147,6 +147,28 @@ describe('P1475: getUnreadLetterCount — 42501 on the letter helpers', () => {
     expect(Sentry.captureException).toHaveBeenCalledTimes(3);
   });
 
+  // auth-js returns { session: null, error } on a refresh failure while keeping the
+  // stored session, so null-with-error is "unknown", not "anon": report the 42501.
+  it('session lookup returns an auth error: reports the original 42501 and still returns the count', async () => {
+    stubReads([1]);
+    getSession.mockResolvedValue({ data: { session: null }, error: { message: 'refresh failed' } });
+    expect(await call()).toBe(2);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(Sentry.captureException).mock.calls[0]?.[0]).toEqual(
+      new Error(`DB error in getUnreadLetterCount.received: ${denied.message}`)
+    );
+    expect(Sentry.addBreadcrumb).not.toHaveBeenCalled();
+  });
+
+  it('session lookup rejects: reports the original 42501 and resolves with the count', async () => {
+    stubReads([1, 2]);
+    getSession.mockRejectedValue(new Error('auth storage unavailable'));
+    await expect(call()).resolves.toBe(1);
+    expect(getSession).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(2);
+    expect(Sentry.addBreadcrumb).not.toHaveBeenCalled();
+  });
+
   it('a non-42501 error without a session still reports and never reads the session', async () => {
     stubReads([1], { ...denied, code: 'XX000', message: 'internal error' });
     noSession();
