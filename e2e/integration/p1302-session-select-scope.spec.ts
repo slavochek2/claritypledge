@@ -344,8 +344,9 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     }
   });
 
-  test('C5: a guest presenting the room code reads the room, live_state included', async () => {
-    const { data, error } = await guest(guestCode).from('clarity_sessions').select('id, live_state').eq('id', guestId);
+  // P1493: reads, like writes, are the seated guest's — the code alone reads nothing (P1493's suite).
+  test('C5: the seated guest (room code + seat secret) reads the room, live_state included', async () => {
+    const { data, error } = await guest(guestCode, guestSecret).from('clarity_sessions').select('id, live_state').eq('id', guestId);
     expect(error, error?.message).toBeNull();
     expect(data ?? [], 'the account-less guest flow must keep reading its own room').toHaveLength(1);
   });
@@ -359,8 +360,8 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     expect(after?.written, 'the guest\'s own write must land — a zero-row UPDATE here is silent data loss').toBe('C6');
   });
 
-  test('C7: a guest presenting the room code reads the room\'s live turns', async () => {
-    const { data, error } = await guest(guestCode).from('clarity_live_turns').select('transcript').eq('session_id', guestId);
+  test('C7: the seated guest (room code + seat secret) reads the room\'s live turns', async () => {
+    const { data, error } = await guest(guestCode, guestSecret).from('clarity_live_turns').select('transcript').eq('session_id', guestId);
     expect(error, error?.message).toBeNull();
     expect(data ?? []).toHaveLength(1);
   });
@@ -372,8 +373,13 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   });
 
   test('C9: a tab holding two room codes reads both rooms (comma-separated header)', async () => {
-    const other = await seed({ creator_profile_id: host.user.id, joiner_name: 'p1302 guest 2' });
-    const { data, error } = await guest(`${guestCode},${other.code}`)
+    // P1493: each room is read as its seated guest, so the tab presents both seats' secrets too.
+    const otherSecret = crypto.randomUUID();
+    const other = await seed({
+      creator_profile_id: host.user.id, joiner_name: 'p1302 guest 2',
+      joiner_seat_claimed_at: new Date().toISOString(), joiner_seat_secret: otherSecret,
+    });
+    const { data, error } = await guest(`${guestCode},${other.code}`, `${guestSecret},${otherSecret}`)
       .from('clarity_sessions').select('id').in('id', [guestId, other.id]);
     expect(error, error?.message).toBeNull();
     expect((data ?? []).map((r) => r.id).sort()).toEqual([guestId, other.id].sort());

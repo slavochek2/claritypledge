@@ -258,7 +258,9 @@ test.describe('P1057 Migration A: session read accessors', () => {
 
     // Control: the SAME rooms are still visible through the unfiltered accessor. Without
     // this, a function that always returned [] would pass the two assertions above.
-    const { data: endedViaPlain } = await anon.rpc('get_session_by_code', { p_code: ended.code });
+    // P1493: an ended room is returned to its participants only, so it is read as the creator.
+    const creatorClient = await signInAs(creator);
+    const { data: endedViaPlain } = await creatorClient.rpc('get_session_by_code', { p_code: ended.code });
     expect(endedViaPlain, 'get_session_by_code must NOT apply the ended/grace filter').toHaveLength(1);
     const { data: staleViaPlain } = await anon.rpc('get_session_by_code', { p_code: stale.code });
     expect(staleViaPlain).toHaveLength(1);
