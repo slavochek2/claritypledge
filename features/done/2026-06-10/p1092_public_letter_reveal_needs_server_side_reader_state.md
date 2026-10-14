@@ -1,14 +1,14 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 217
 created_date: '2026-08-17'
 tags: [security, letters, sealed-bid, integrity]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
 changes: p1067
+completed_at: 2026-10-14
 ---
 
 # P1092: the public-letter reveal is gated in the browser, and the server has no way to gate it
