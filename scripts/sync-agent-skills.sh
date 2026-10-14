@@ -79,6 +79,31 @@ count_lines() {
   printf '%s\n' "$n"
 }
 
+# open_input FD FILE — open FILE on fd 3 or 4 as a loop's input, or exit 3.
+# Every scratch-file loop reads `<&3`/`<&4` from here, never `done < FILE`: a
+# loop whose redirect fails runs ZERO times and the script carries on, so an
+# unreadable sources.txt printed "OK — 0 skills in sync" with exit 0, and in
+# generate mode pruned every projection as an orphan (P1472, Codex final round).
+open_input() {
+  case "$1" in
+    3) exec 3< "$2" ;;
+    4) exec 4< "$2" ;;
+    *) die_internal "open_input: unsupported fd $1" ;;
+  esac || die_internal "cannot read $2"
+}
+
+# first_field_in FILE NAME — 0 if some line's first tab-separated field is NAME,
+# 1 if none is, 2 if FILE cannot be read. Callers must tell 1 from 2: reading
+# "cannot open" as "absent" put every skill out of --staged-only's scope and
+# passed a commit with staged drift. getline, not a file operand, so the error
+# is ours to report: gawk only warns on an unopenable operand and runs END.
+first_field_in() {
+  awk -v f="$1" -v n="$2" 'BEGIN {
+    while ((r = (getline line < f)) > 0) { split(line, a, "\t"); if (a[1] == n) exit 0 }
+    exit (r < 0 ? 2 : 1)
+  }'
+}
+
 SRC_DIR=".claude/commands/slava"
 OUT_DIR=".agents/skills"
 CHECK_MODE=0
@@ -121,23 +146,30 @@ trap 'rm -rf "$WORK"' EXIT
 # unreadable new skill from the scan and passed the check (P1472, Codex).
 has_description() {
   [[ -r "$1" ]] || return 2
-  awk '
-    /^---$/ { c++; if (c==2) exit }
-    c==1 && /^description:/ { found=1 }
-    END { exit !found }
-  ' "$1"
+  awk -v f="$1" 'BEGIN {
+    while ((r = (getline line < f)) > 0) {
+      if (line == "---") { if (++c == 2) break }
+      else if (c == 1 && line ~ /^description:/) found = 1
+    }
+    if (r < 0) exit 2
+    exit !found
+  }'
 }
 
 # is_alias FILE — heuristic for D4's alias-skip: description text names
 # itself an alias for another skill (the known instance: slava/note.md
-# vs slava/util/note.md).
+# vs slava/util/note.md). grep's own codes: 0 alias, 1 not, 2 unreadable.
 is_alias() {
   grep -qE '^description:.*[Aa]lias for /' "$1"
 }
 
-# name_field FILE — the frontmatter `name:` value, quotes stripped.
+# name_field FILE — the frontmatter `name:` value, quotes stripped; returns 2
+# when FILE cannot be read (an empty value would score as a D8 mismatch).
 name_field() {
-  grep -m1 '^name:' "$1" | sed -E 's/^name:[[:space:]]*//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+  local line
+  line="$(grep -m1 '^name:' "$1")"
+  [[ $? -le 1 ]] || return 2
+  printf '%s\n' "$line" | sed -E 's/^name:[[:space:]]*//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
 }
 
 # derive_name PATH — the projected directory name for a source path (D3).
@@ -173,7 +205,8 @@ find "$SRC_DIR" -name '*.md' -not -path '*/archive/*' > "$SOURCES" ||
   die_internal "cannot list sources under $SRC_DIR"
 sort -u -o "$SOURCES" "$SOURCES" || die_internal "cannot sort $SOURCES"
 
-while IFS= read -r f; do
+open_input 3 "$SOURCES"
+while IFS= read -r f <&3; do
   [[ -z "$f" ]] && continue
   has_description "$f"
   case $? in
@@ -183,14 +216,17 @@ while IFS= read -r f; do
   esac
   printf '%s\t%s\n' "$(derive_name "$f")" "$f" >> "$CANDIDATES" ||
     die_internal "cannot write $CANDIDATES"
-done < "$SOURCES"
+done
+exec 3<&-
 
 UNSAFE_NAMES="$WORK/unsafe-names.txt"
 : > "$UNSAFE_NAMES" || die_internal "cannot write $UNSAFE_NAMES"
-while IFS=$'\t' read -r name path; do
+open_input 3 "$CANDIDATES"
+while IFS=$'\t' read -r name path <&3; do
   [[ "$name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] && [[ "$name" != "." ]] && [[ "$name" != ".." ]] && continue
   echo "UNSAFE_NAME:${name}:file=${path}" >> "$UNSAFE_NAMES" || die_internal "cannot write $UNSAFE_NAMES"
-done < "$CANDIDATES"
+done
+exec 3<&-
 if [[ -s "$UNSAFE_NAMES" ]]; then
   echo "sync-agent-skills: unsafe projected name (D9) — hard fail:" >&2
   cat "$UNSAFE_NAMES" >&2
@@ -209,8 +245,8 @@ RESOLVED="$WORK/resolved.tsv"       # name<TAB>path — final canonical mapping
 # real skill name was affected (skill, flow, spec, blog, email, select, ...).
 # The `source-command-*` canaries could not catch this: no such name is a suffix
 # of a real skill, so the fixtures structurally could not emit the failing input.
-manifest_has() {
-  awk -F'\t' -v n="$1" '$1 == n { found = 1; exit } END { exit !found }' "$RESOLVED"
+manifest_has() {   # 0 known, 1 not, 2 unreadable — see first_field_in
+  first_field_in "$RESOLVED" "$1"
 }
 COLLISIONS="$WORK/collisions.txt"
 : > "$RESOLVED" || die_internal "cannot write $RESOLVED"
@@ -218,7 +254,8 @@ COLLISIONS="$WORK/collisions.txt"
 
 cut -f1 "$CANDIDATES" > "$WORK/all_names.txt" || die_internal "cannot read $CANDIDATES"
 sort -u -o "$WORK/all_names.txt" "$WORK/all_names.txt" || die_internal "cannot sort skill names"
-while IFS= read -r name; do
+open_input 3 "$WORK/all_names.txt"
+while IFS= read -r name <&3; do
   [[ -z "$name" ]] && continue
   MATCHES="$WORK/matches.tsv"
   awk -F'\t' -v n="$name" '$1 == n' "$CANDIDATES" > "$MATCHES" || die_internal "cannot write $MATCHES"
@@ -230,11 +267,18 @@ while IFS= read -r name; do
   # more than one source wants this name — try alias resolution (D4)
   NON_ALIAS="$WORK/non_alias.tsv"
   : > "$NON_ALIAS" || die_internal "cannot write $NON_ALIAS"
-  while IFS=$'\t' read -r _ path; do
+  open_input 4 "$MATCHES"
+  while IFS=$'\t' read -r _ path <&4; do
     [[ -z "$path" ]] && continue
-    is_alias "$path" && continue
+    is_alias "$path"
+    case $? in
+      0) continue ;;
+      1) ;;
+      *) die_internal "cannot read source ${path}" ;;
+    esac
     printf '%s\t%s\n' "$name" "$path" >> "$NON_ALIAS" || die_internal "cannot write $NON_ALIAS"
-  done < "$MATCHES"
+  done
+  exec 4<&-
   NA_COUNT="$(count_lines "$NON_ALIAS")" || exit 3
   if [[ "$NA_COUNT" -eq 1 ]]; then
     cat "$NON_ALIAS" >> "$RESOLVED" || die_internal "cannot write $RESOLVED"
@@ -242,7 +286,8 @@ while IFS= read -r name; do
     PAIR="$(cut -f2 "$MATCHES" | tr '\n' ' ')"
     echo "COLLISION:${name}:${PAIR}" >> "$COLLISIONS" || die_internal "cannot write $COLLISIONS"
   fi
-done < "$WORK/all_names.txt"
+done
+exec 3<&-
 
 if [[ -s "$COLLISIONS" ]]; then
   echo "sync-agent-skills: unresolved name collisions (D4) — hard fail:" >&2
@@ -254,14 +299,16 @@ fi
 
 MISMATCHES="$WORK/mismatches.txt"
 : > "$MISMATCHES" || die_internal "cannot write $MISMATCHES"
-while IFS=$'\t' read -r name path; do
+open_input 3 "$RESOLVED"
+while IFS=$'\t' read -r name path <&3; do
   [[ -z "$name" ]] && continue
-  actual_name="$(name_field "$path")"
+  actual_name="$(name_field "$path")" || die_internal "cannot read source ${path}"
   if [[ "$actual_name" != "$name" ]]; then
     echo "NAME_MISMATCH:${name}:name_field=${actual_name}:file=${path}" >> "$MISMATCHES" ||
       die_internal "cannot write $MISMATCHES"
   fi
-done < "$RESOLVED"
+done
+exec 3<&-
 
 if [[ -s "$MISMATCHES" ]]; then
   echo "sync-agent-skills: frontmatter name != projected directory name (D8) — hard fail:" >&2
@@ -360,7 +407,8 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       STAGED_RAW="$WORK/staged.z"
       git diff --cached --name-only -z > "$STAGED_RAW" ||
         die_internal "git diff --cached failed — cannot tell which skills this commit touches"
-      while IFS= read -r -d '' rel; do
+      open_input 3 "$STAGED_RAW"
+      while IFS= read -r -d '' rel <&3; do
         [[ -z "$rel" ]] && continue
         abs="${GIT_TOP}/${rel}"
         case "$abs" in
@@ -368,7 +416,8 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
           "$ABS_OUT"/*) rest="${abs#"$ABS_OUT"/}"
                         printf '%s\n' "${rest%%/*}" >> "$STAGED_NAMES" || die_internal "cannot write $STAGED_NAMES" ;;
         esac
-      done < "$STAGED_RAW"
+      done
+      exec 3<&-
       sort -u -o "$STAGED_NAMES" "$STAGED_NAMES" || die_internal "cannot sort $STAGED_NAMES"
       SCOPED=1
     else
@@ -376,61 +425,85 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
     fi
   fi
 
-  # name_in_commit NAME — true when scoping is off, or the commit touches this
-  # skill's source or its projection.
+  # name_in_commit NAME — 0 when scoping is off or the commit touches this
+  # skill's source or its projection, 1 when it does not, 2 when the scope file
+  # cannot be read. Never `name_in_commit || continue`: that skips on 2.
   name_in_commit() {
     [[ "$SCOPED" -eq 1 ]] || return 0
-    awk -v n="$1" '$0 == n { found = 1; exit } END { exit !found }' "$STAGED_NAMES"
+    first_field_in "$STAGED_NAMES" "$1"
   }
 
-  while IFS=$'\t' read -r name path; do
+  open_input 3 "$RESOLVED"
+  while IFS=$'\t' read -r name path <&3; do
     [[ -z "$name" ]] && continue
     skill_file="${OUT_DIR}/${name}/SKILL.md"
     # Neither this skill's source nor its projection is in the commit: whatever
     # its state, this commit did not cause it and cannot be asked to fix it.
-    name_in_commit "$name" || continue
+    name_in_commit "$name"
+    case $? in
+      0) ;;
+      1) continue ;;
+      *) die_internal "cannot read $STAGED_NAMES" ;;
+    esac
     if [[ ! -d "${OUT_DIR}/${name}" || -L "${OUT_DIR}/${name}" ]]; then
       echo "DRIFT_MISSING_DIR:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
     elif [[ ! -f "$skill_file" || -L "$skill_file" ]]; then
       echo "DRIFT_MISSING_FILE:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
-    elif [[ ! -r "$path" || ! -r "$skill_file" ]]; then
+    else
       # cmp exits 2 on an unreadable file, which `! cmp -s` would have scored
       # as drift at best and, read the other way round, as a match.
-      die_internal "cannot read ${path} or ${skill_file}"
-    elif ! cmp -s "$path" "$skill_file"; then
-      echo "DRIFT_CONTENT_MISMATCH:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
-    else
+      cmp -s "$path" "$skill_file"
+      case $? in
+        0) ;;
+        1) echo "DRIFT_CONTENT_MISMATCH:${name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
+           continue ;;
+        *) die_internal "cannot read ${path} or ${skill_file}" ;;
+      esac
       NESTED="$WORK/nested.txt"
       find "${OUT_DIR}/${name}" -mindepth 1 -print > "$NESTED" ||
         die_internal "cannot list ${OUT_DIR}/${name}"
       sort -o "$NESTED" "$NESTED" || die_internal "cannot sort $NESTED"
-      while IFS= read -r nested; do
+      open_input 4 "$NESTED"
+      while IFS= read -r nested <&4; do
         [[ "$nested" == "$skill_file" ]] && continue
         relative="${nested#${OUT_DIR}/}"
         echo "DRIFT_UNEXPECTED_ENTRY:${relative}:type=$(path_type "$nested")" >> "$DRIFT" ||
           die_internal "cannot write $DRIFT"
-      done < "$NESTED"
+      done
+      exec 4<&-
     fi
-  done < "$RESOLVED"
+  done
+  exec 3<&-
 
   if [[ -d "$OUT_DIR" ]]; then
     TOPLEVEL="$WORK/toplevel.txt"
     find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print > "$TOPLEVEL" || die_internal "cannot list $OUT_DIR"
     sort -o "$TOPLEVEL" "$TOPLEVEL" || die_internal "cannot sort $TOPLEVEL"
-    while IFS= read -r existing_path; do
+    open_input 3 "$TOPLEVEL"
+    while IFS= read -r existing_path <&3; do
       [[ -z "$existing_path" ]] && continue
       existing_name="$(basename "$existing_path")"
-      if ! manifest_has "$existing_name"; then
-        name_in_commit "$existing_name" || continue
-        existing_type="$(path_type "$existing_path")"
-        if [[ "$existing_type" == "directory" ]]; then
-          echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
-        else
-          echo "DRIFT_UNEXPECTED_TOPLEVEL:${existing_name}:type=${existing_type}" >> "$DRIFT" ||
-            die_internal "cannot write $DRIFT"
-        fi
+      manifest_has "$existing_name"
+      case $? in
+        0) continue ;;
+        1) ;;
+        *) die_internal "cannot read $RESOLVED" ;;
+      esac
+      name_in_commit "$existing_name"
+      case $? in
+        0) ;;
+        1) continue ;;
+        *) die_internal "cannot read $STAGED_NAMES" ;;
+      esac
+      existing_type="$(path_type "$existing_path")"
+      if [[ "$existing_type" == "directory" ]]; then
+        echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT" || die_internal "cannot write $DRIFT"
+      else
+        echo "DRIFT_UNEXPECTED_TOPLEVEL:${existing_name}:type=${existing_type}" >> "$DRIFT" ||
+          die_internal "cannot write $DRIFT"
       fi
-    done < "$TOPLEVEL"
+    done
+    exec 3<&-
   fi
 
   DRIFT_N="$(count_lines "$DRIFT")" || exit 3
@@ -449,7 +522,8 @@ fi
 
 mkdir -p "$OUT_DIR" || die_internal "cannot create $OUT_DIR"
 
-while IFS=$'\t' read -r name path; do
+open_input 3 "$RESOLVED"
+while IFS=$'\t' read -r name path <&3; do
   [[ -z "$name" ]] && continue
   target_dir="${OUT_DIR}/${name}"
   # Every removal is checked (P1472, Codex): a refused rm used to print a
@@ -463,26 +537,35 @@ while IFS=$'\t' read -r name path; do
     die_internal "cannot remove unexpected entries under ${target_dir}"
   rm -f "${target_dir}/SKILL.md" || die_internal "cannot replace ${target_dir}/SKILL.md"
   cp "$path" "${target_dir}/SKILL.md" || die_internal "cannot write ${target_dir}/SKILL.md"
-done < "$RESOLVED"
+done
+exec 3<&-
 
 PRUNED=0
 if [[ -d "$OUT_DIR" ]]; then
   TOPLEVEL="$WORK/toplevel.txt"
   find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print > "$TOPLEVEL" || die_internal "cannot list $OUT_DIR"
   sort -o "$TOPLEVEL" "$TOPLEVEL" || die_internal "cannot sort $TOPLEVEL"
-  while IFS= read -r existing_path; do
+  open_input 3 "$TOPLEVEL"
+  while IFS= read -r existing_path <&3; do
     [[ -z "$existing_path" ]] && continue
     existing_name="$(basename "$existing_path")"
-    if ! manifest_has "$existing_name"; then
-      echo "sync-agent-skills: removing unexpected projection entry: ${existing_name}"
-      rm -rf "$existing_path" || die_internal "cannot remove ${existing_path}"
-      # rm -rf can report success on an entry that is still there; trust the disk.
-      if [[ -e "$existing_path" || -L "$existing_path" ]]; then
-        die_internal "${existing_path} still exists after removal"
-      fi
-      PRUNED=$((PRUNED + 1))
+    # A manifest that cannot be read must stop the prune, not mark every
+    # projection an orphan and delete it.
+    manifest_has "$existing_name"
+    case $? in
+      0) continue ;;
+      1) ;;
+      *) die_internal "cannot read $RESOLVED" ;;
+    esac
+    echo "sync-agent-skills: removing unexpected projection entry: ${existing_name}"
+    rm -rf "$existing_path" || die_internal "cannot remove ${existing_path}"
+    # rm -rf can report success on an entry that is still there; trust the disk.
+    if [[ -e "$existing_path" || -L "$existing_path" ]]; then
+      die_internal "${existing_path} still exists after removal"
     fi
-  done < "$TOPLEVEL"
+    PRUNED=$((PRUNED + 1))
+  done
+  exec 3<&-
 fi
 
 echo "sync-agent-skills: generated ${TOTAL} skills in ${OUT_DIR}/, 0 collisions, ${PRUNED} orphan(s) pruned"

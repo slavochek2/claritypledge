@@ -571,6 +571,55 @@ rm -rf "${WORK}/${OUT}/orphan-x"
 run_sync "regenerate after G6" 0 --src-dir "$SRC" --out-dir "$OUT"
 run_sync "check after G6 is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
 
+# G7/G8 — the script's reads of its OWN scratch files fail closed (Codex review,
+# P1472 final round). A loop fed by `done < FILE` whose redirect fails runs zero
+# times, so an unreadable sources.txt printed "OK — 0 skills in sync", exit 0;
+# and name_in_commit read awk's "cannot open" (2) as "not in this commit", so an
+# unreadable staged-names.txt put every skill out of scope and passed a commit
+# with staged drift. Provoked the way Codex did: a `sort` shim that sorts, then
+# revokes read permission on the file it just wrote. No seam in the script.
+mkdir -p "${WORK}/sortshim"
+REAL_SORT="$(command -v sort)"
+cat > "${WORK}/sortshim/sort" <<EOF
+#!/usr/bin/env bash
+"${REAL_SORT}" "\$@" || exit \$?
+out=""; prev=""
+for a in "\$@"; do [[ "\$prev" == "-o" ]] && out="\$a"; prev="\$a"; done
+if [[ -n "\$out" && "\$(basename "\$out")" == "\${SHIM_REVOKE:-}" ]]; then chmod 000 "\$out"; fi
+exit 0
+EOF
+chmod +x "${WORK}/sortshim/sort"
+run_shim() {   # run_shim DIR NAME WANT REVOKE-BASENAME -- ARGS...
+  local dir="$1" name="$2" want="$3" revoke="$4"; shift 4
+  local got=0
+  LAST_OUT="$(cd "$dir" && PATH="${WORK}/sortshim:${PATH}" SHIM_REVOKE="$revoke" "$SCRIPT" "$@" 2>&1)" || got=$?
+  if [[ "$got" == "$want" ]]; then
+    echo "PASS  ${name}: exit ${got}"; pass_count=$((pass_count + 1))
+  else
+    echo "FAIL  ${name}: expected exit ${want}, got ${got}"
+    printf '%s\n' "$LAST_OUT" | tail -5 | sed 's/^/        /'; fail_count=$((fail_count + 1))
+  fi
+}
+if cannot_deny; then
+  echo "SKIP  case G7/G8: chmod 000 does not deny reads here (uid $(id -u))"
+else
+  run_shim "$WORK" "case G7: unreadable sources.txt refuses" 3 sources.txt \
+    --check --src-dir "$SRC" --out-dir "$OUT"
+  assert_no_ok "case G7: no OK line"
+  assert_out "case G7: names the scratch file" "sources.txt"
+  run_shim "$WORK" "case G7b: unreadable sources.txt refuses in generate mode" 3 sources.txt \
+    --src-dir "$SRC" --out-dir "$OUT"
+  printf 'staged drift behind an unreadable scope file\n' >> "${GITFIX}/${SRC}/flat-skill.md"
+  (cd "$GITFIX" && git add -- "${SRC}/flat-skill.md" >/dev/null 2>&1)
+  run_shim "$GITFIX" "case G8: unreadable staged-names.txt refuses" 3 staged-names.txt \
+    --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+  assert_no_ok "case G8: no OK line"
+  assert_out "case G8: names the scratch file" "staged-names.txt"
+  run_sync_in "$GITFIX" "gitfix: regenerate after G8" 0 --src-dir "$SRC" --out-dir "$OUT"
+  (cd "$GITFIX" && git add -- "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "resync G8" >/dev/null 2>&1)
+fi
+run_sync "check after G7/G8 is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
+
 # G4 — must-pass on the REAL tree (gate 7c): the shipped mirror is in sync, and
 # the OK line's count equals an oracle the script does not compute — the number
 # of regular SKILL.md files on disk. A run that "passes" with an empty or wrong
@@ -693,7 +742,7 @@ printf 'an edit nobody regenerated\n' >> "${GATEFIX}/.claude/commands/slava/flat
 (cd "$GATEFIX" && git add -- .claude/commands/slava/flat-skill.md >/dev/null 2>&1)
 run_gate "$GATEFIX"
 assert_gate "case H3: stale mirror blocks the commit" 1
-assert_out "case H3: hint names the exact mirror path" "git add .agents/skills/flat-skill/SKILL.md"
+assert_out "case H3: hint names the exact mirror path" "git add -- .agents/skills/flat-skill/SKILL.md"
 assert_out "case H3: hint names commit-to-main --files" "commit-to-main --files"
 refute_out "case H3: no bare-directory re-stage" "re-stage .agents/skills/"
 (cd "$GATEFIX" && ./scripts/sync-agent-skills.sh >/dev/null 2>&1 &&
@@ -705,7 +754,7 @@ if [[ -n "$REAL_SKILL" ]]; then
   (cd "$GATEFIX" && git add -- ".agents/skills/${REAL_SKILL}/SKILL.md" >/dev/null 2>&1)
   run_gate "$GATEFIX"
   assert_gate "case H4: hand-edited real mirror copy (${REAL_SKILL}) blocks" 1
-  assert_out "case H4: hint names that real mirror path" "git add .agents/skills/${REAL_SKILL}/SKILL.md"
+  assert_out "case H4: hint names that real mirror path" "git add -- .agents/skills/${REAL_SKILL}/SKILL.md"
   (cd "$GATEFIX" && ./scripts/sync-agent-skills.sh >/dev/null 2>&1 &&
     git add -- ".agents/skills/${REAL_SKILL}/SKILL.md" >/dev/null 2>&1 && git commit -qm "resync H4" >/dev/null 2>&1)
 else
@@ -728,6 +777,55 @@ run_gate "$GATEFIX"
 assert_gate "case H5b: a non-drift failure blocks" 1
 assert_out "case H5b: says regenerating will not fix it" "regenerating will not fix it"
 mv "${WORK}/sas-aside.sh" "${GATEFIX}/scripts/sync-agent-skills.sh"
+
+# H7/H8 — the hint is something a person PASTES, so the test pastes it: regenerate,
+# then run the printed `git add` line exactly as printed. It must exit 0 and leave
+# a commit check 22 accepts (Codex review, P1472 final round).
+paste_hint() {   # paste_hint NAME — regenerate GATEFIX, eval the hint's git add line, re-run the gate
+  local name="$1" hint got=0 esc=$'\033'
+  # run-quiet.sh sets the hook's real colours, so strip ANSI codes as a terminal would.
+  hint="$(printf '%s\n' "$LAST_OUT" | sed "s/${esc}\[[0-9;]*m//g" | sed -n 's/^[[:space:]]*\(git add .*\)$/\1/p' | head -1)"
+  if [[ -z "$hint" ]]; then
+    echo "FAIL  ${name}: no git add line in the hint"; fail_count=$((fail_count + 1)); return
+  fi
+  (cd "$GATEFIX" && ./scripts/sync-agent-skills.sh >/dev/null 2>&1 && eval "$hint") >/dev/null 2>&1 || got=$?
+  if [[ "$got" == "0" ]]; then
+    echo "PASS  ${name}: pasted hint exits 0"; pass_count=$((pass_count + 1))
+  else
+    echo "FAIL  ${name}: pasted hint exited ${got}: ${hint}"; fail_count=$((fail_count + 1))
+  fi
+  # Oracle independent of check 22 (which reads the working tree, so it passes
+  # once regeneration deletes the file even if the index still adds it): after
+  # the paste, the index must hold exactly what regeneration left on disk.
+  local leftover
+  leftover="$(cd "$GATEFIX" && git status --porcelain -- .agents/skills 2>&1)"
+  if [[ -z "$leftover" ]]; then
+    echo "PASS  ${name}: index matches the regenerated mirror"; pass_count=$((pass_count + 1))
+  else
+    echo "FAIL  ${name}: index still differs from the regenerated mirror: ${leftover}"; fail_count=$((fail_count + 1))
+  fi
+}
+
+# H7 — a path with a space. Unquoted, `git add .agents/.../extra notes.md` is two
+# pathspecs and git exits 128.
+printf 'fixture\n' > "${GATEFIX}/.agents/skills/flat-skill/extra notes.md"
+(cd "$GATEFIX" && git add -- ".agents/skills/flat-skill/extra notes.md" >/dev/null 2>&1)
+run_gate "$GATEFIX"
+assert_gate "case H7: a staged stray file with a space blocks" 1
+assert_out "case H7: the path is printed as one quoted word" "'.agents/skills/flat-skill/extra notes.md'"
+paste_hint "case H7"
+
+# H8 — an orphan whose only tracked file is a README. The hint used to invent
+# `<orphan>/SKILL.md`, a path git has never seen (exit 128 when pasted).
+mkdir -p "${GATEFIX}/.agents/skills/orphan-fixture"
+printf 'fixture\n' > "${GATEFIX}/.agents/skills/orphan-fixture/README.md"
+(cd "$GATEFIX" && git add -- .agents/skills/orphan-fixture/README.md >/dev/null 2>&1)
+run_gate "$GATEFIX"
+assert_gate "case H8: a staged orphan dir blocks" 1
+assert_out "case H8: hint names the orphan's real tracked file" ".agents/skills/orphan-fixture/README.md"
+refute_out "case H8: hint does not invent a SKILL.md" "orphan-fixture/SKILL.md"
+paste_hint "case H8"
+(cd "$GATEFIX" && git commit -qm "after H7/H8" >/dev/null 2>&1)
 
 # H6 — gate 7c on the REAL skill tree, in a throwaway repo: copies of the
 # shipped .claude/commands/slava and .agents/skills, committed, then a real

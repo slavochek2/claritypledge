@@ -2358,32 +2358,76 @@ else
     }
     # shellcheck disable=SC2086
     if ! run_quiet "Agent skills sync (P1151)" _sas_check_logged ./scripts/sync-agent-skills.sh --check $SYNC_SCOPE_FLAG; then
-        SAS_PATHS=""
+        SAS_PATHS=""     # one path per line, raw
         SAS_UNKNOWN=""
-        if [ -n "$SAS_LOG" ] && [ -f "$SAS_LOG" ]; then
-            SAS_PATHS="$(sed -nE \
-                -e 's#^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):(.*)$#.agents/skills/\2/SKILL.md#p' \
-                -e 's#^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):(.*):type=[a-z]*$#.agents/skills/\2#p' \
-                "$SAS_LOG" | sort -u | tr '\n' ' ')"
-            # awk, not `grep | grep -v`: this hook runs under `set -e`, and grep exits 1
-            # on empty output, so a log whose drift lines were ALL recognised killed the
-            # hook here, before the hint printed (Codex, P1472). awk exits 0 on no match
-            # and non-zero only when it cannot read the log, which is surfaced below.
-            SAS_UNKNOWN="$(awk '/^DRIFT_/ \
-                && !/^DRIFT_(MISSING_DIR|MISSING_FILE|CONTENT_MISMATCH|ORPHAN):/ \
-                && !/^DRIFT_UNEXPECTED_(ENTRY|TOPLEVEL):.*:type=[a-z]*$/' "$SAS_LOG")" \
-                || SAS_UNKNOWN="(could not read the check output in ${SAS_LOG})"
+        SAS_NOTE=""
+        SAS_DRIFT=""     # any DRIFT_ line at all, even one with nothing to stage
+        # Paths regeneration WRITES are named as-is: a new skill's SKILL.md is not
+        # tracked yet. Entries regeneration DELETES are named by what git tracks
+        # under them (index included), never an invented <orphan>/SKILL.md: an
+        # orphan may hold only a README, and `git add` on a path git has never
+        # seen exits 128 (Codex, P1472 final round). Nothing tracked = nothing to stage.
+        _sas_tracked() {   # _sas_tracked PATH — append the tracked files under PATH
+            local listing
+            # -z: the default listing C-quotes unusual names. PIPESTATUS: no
+            # pipefail here, so the pipeline's own status would be tr's.
+            if ! listing="$(git --literal-pathspecs ls-files -z -- "$1" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")"; then
+                SAS_NOTE="${SAS_NOTE}could not list tracked files under $1"$'\n'
+                return 0
+            fi
+            if [ -n "$listing" ]; then SAS_PATHS="${SAS_PATHS}${listing}"$'\n'; fi
+            return 0
+        }
+        if [ -n "$SAS_LOG" ] && [ -r "$SAS_LOG" ]; then
+            while IFS= read -r sas_line; do
+                case "$sas_line" in DRIFT_*) SAS_DRIFT=1 ;; esac
+                case "$sas_line" in
+                    DRIFT_MISSING_DIR:*|DRIFT_MISSING_FILE:*|DRIFT_CONTENT_MISMATCH:*)
+                        SAS_PATHS="${SAS_PATHS}.agents/skills/${sas_line#*:}/SKILL.md"$'\n' ;;
+                    DRIFT_ORPHAN:*)
+                        _sas_tracked ".agents/skills/${sas_line#*:}" ;;
+                    DRIFT_UNEXPECTED_ENTRY:*:type=*|DRIFT_UNEXPECTED_TOPLEVEL:*:type=*)
+                        sas_rest="${sas_line#*:}"
+                        _sas_tracked ".agents/skills/${sas_rest%:type=*}" ;;
+                    DRIFT_*)
+                        SAS_UNKNOWN="${SAS_UNKNOWN}${sas_line}"$'\n' ;;
+                esac
+            done < "$SAS_LOG"
+        elif [ -n "$SAS_LOG" ]; then
+            SAS_UNKNOWN="(could not read the check output in ${SAS_LOG})"$'\n'
         fi
-        if [ -n "$SAS_PATHS" ] || [ -n "$SAS_UNKNOWN" ]; then
+        # One shell word per path, so the printed line survives a paste: a path
+        # with a space used to split into two pathspecs (git exits 128). Bare when
+        # nothing needs quoting, else single-quoted with ' written as '\''.
+        # printf, not echo -e: echo -e would also expand a backslash in a path.
+        # The quote and its escape live in variables: bash 3.2 mangles a literal
+        # ' inside ${var//pattern/replacement}.
+        SAS_ARGS=""
+        SAS_SQ="'"
+        SAS_SQ_ESC="'\\''"
+        if [ -n "$SAS_PATHS" ]; then
+            while IFS= read -r sas_p; do
+                [ -n "$sas_p" ] || continue
+                case "$sas_p" in
+                    *[!A-Za-z0-9._/@%+=:,-]*) sas_q="'${sas_p//$SAS_SQ/$SAS_SQ_ESC}'" ;;
+                    *) sas_q="$sas_p" ;;
+                esac
+                SAS_ARGS="${SAS_ARGS} ${sas_q}"
+            done < <(printf '%s' "$SAS_PATHS" | sort -u)
+        fi
+        if [ -n "$SAS_DRIFT" ] || [ -n "$SAS_UNKNOWN" ]; then
             echo -e "${YELLOW}  → Regenerate the mirror: ./scripts/sync-agent-skills.sh (no flag)${NC}"
-            if [ -n "$SAS_PATHS" ]; then
+            if [ -n "$SAS_ARGS" ]; then
                 echo -e "${YELLOW}  → Then stage exactly these paths, never the bare directory:${NC}"
-                echo -e "${YELLOW}      git add ${SAS_PATHS% }${NC}"
+                printf "${YELLOW}      git add --%s${NC}\n" "$SAS_ARGS"
                 echo -e "${YELLOW}  → On the shared main checkout, add the same paths to git-ops.sh commit-to-main --files${NC}"
+            fi
+            if [ -n "$SAS_NOTE" ]; then
+                printf '%s' "$SAS_NOTE" | sed 's/^/      /'
             fi
             if [ -n "$SAS_UNKNOWN" ]; then
                 echo -e "${YELLOW}  → Drift this hint cannot map to a path — stage the matching mirror files by name:${NC}"
-                printf '%s\n' "$SAS_UNKNOWN" | sed 's/^/      /'
+                printf '%s' "$SAS_UNKNOWN" | sed 's/^/      /'
             fi
         else
             echo -e "${YELLOW}  → No DRIFT lines: this is a hard fail or an internal error, so regenerating will not fix it. Read the output above.${NC}"
