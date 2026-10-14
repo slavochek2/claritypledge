@@ -8,6 +8,60 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-14 [process]: P1198 — `ship --resume` refuses on drift instead of appending new commits (founder decision)
+
+**Context:** P1198's Done-When asked `--resume` to pick up commits added to a branch after the ship
+journal was written. Built overnight (2026-10-13/14) and reviewed three times (Codex, /finish, Gemini):
+every round found new HIGH defects in exactly the code the previous round added — the append path,
+re-planning after a rebase, journal rebuild — including two reproduced cases that shipped a superseded
+implementation with exit 0.
+
+**Decision:** Founder, 2026-10-14: switch to **refuse-on-drift** (the 2026-09-11 entry's item (c)).
+`--resume`, Phase 3 and a fresh ship (after its gates, under `main.lock`) compare the branch to the
+journal and refuse — nothing picked, branch and journal kept — on any unjournaled or rewritten commit.
+Compare-and-swap branch delete stays.
+
+**Alternatives rejected:** *Keep appending* — three rounds showed each fix widening the surface in the
+tool every session depends on. *Drop P1198* — leaves the original silent drop + branch deletion.
+
+**Consequences:** Rare mid-ship commits now cost the operator one re-run instead of being absorbed
+automatically. Status: proposed.
+
+---
+
+## 2026-10-14 [process]: Overnight autonomous batch — when to stop review rounds, and what broke the orchestration
+
+**Context:** One session ran an unattended batch: triage of open specs + the task inbox, 11 inbox notes
+promoted to specs (P1472–P1482), then 13 items implemented in worktrees by subagents, each reviewed by
+Codex (gpt-6.1-sol), /finish, Gemini and — for security/ship tooling — an independent Opus adversary,
+then shipped via `git-ops.sh ship`. 12 shipped; P1198 held for the decision above.
+
+**Decision — stopping rule for review rounds:** fix every finding a reviewer reproduces on a shape this
+repo actually produces (or that falsely blocks a legitimate workflow); record exotic-SQL / exotic-markdown
+shapes as a "Known limitations" section in the spec instead of chasing them. Parser-shaped gates
+(grant-order, client-safety, single-value canary) drew new adversarial findings on every pass — P1102
+took seven rounds — so "zero findings" is not a reachable ship bar for them; "no realistic open finding"
+is. Independent reviewers were not redundant: Codex found HIGHs that /finish and Gemini both passed
+(P1472, P1475), /finish found the P1473 fail-open Gemini passed, and an Opus adversary found P1040
+fail-opens after two clean-ish Codex rounds.
+
+**Learnings (Status: proposed):**
+- **Worktree commits run main's hook** (worktree-setup.md already says so): a branch adding a pre-commit
+  gate is never exercised by its own commits — a probe commit on P1474's branch with a staged type error
+  was accepted. Gates were proven by section extraction; real-commit proof is a post-ship check (inbox).
+- **Load is the flake source:** ~10 agents running full suites drove load average to ~195 and made
+  unrelated UI tests time out at commit (P1394 fixed six; more filed). Serialize commits through one
+  queue and cap parallel suite runs.
+- **A clock-dependent test blocks every commit 22:00–24:00 UTC** (p1434; filed in the inbox).
+- **Background subagent reports stopped reaching the orchestrator for ~6 hours** (they arrived in bulk
+  later). Staged-but-unreported work was verified by running each suite directly before committing —
+  never committed on an agent's word.
+- **Codex quota ran out twice in one night**; reviews waited for the reset rather than shipping without.
+- **Self-matching waits:** a shell waiter that `pgrep -f`s a pattern contained in its own command line
+  waits forever — wait on a PID instead.
+
+---
+
 ## 2026-10-13 [product]: Agents are navy, people are in color — the agent banner treatment is chosen on the whole profile header, not on banner strips (P1483)
 
 **Context:** P1453 (2026-10-09) gave agent banners "the full, unfiltered art", reasoning that grey
