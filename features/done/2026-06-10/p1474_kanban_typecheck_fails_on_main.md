@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 30
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-10-13'
 tags: [kanban, typescript, pre-commit, test-hygiene]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 driver: anomaly
+completed_at: 2026-10-14
 ---
 
 # P1474: The kanban typecheck fails on main (16 errors), and a stray console.log fires the pre-commit warning on every kanban commit
@@ -144,8 +144,8 @@ Section 4.5b typechecks the **working tree**, not the staged snapshot. A commit 
 deletion of an imported kanban TS file while keeping the file on disk (`git rm --cached …`) passes
 the gate, though the committed tree no longer compiles (Codex reproduced: gate 0, staged-snapshot
 `tsc` 2 with TS2307). This is the repo-wide pre-commit class tracked in
-[P1049](p1049_pre_commit_staged_content_read_gaps.md) and
-[P1281](p1281_pre_commit_gates_select_their_own_file_list.md) — most gates read the working tree —
+[P1049](../../p1049_pre_commit_staged_content_read_gaps.md) and
+[P1281](../../p1281_pre_commit_gates_select_their_own_file_list.md) — most gates read the working tree —
 and is left to them rather than solved per-gate here (a correct fix typechecks a temporary checkout
 of the index).
 
