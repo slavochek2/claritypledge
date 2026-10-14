@@ -34,6 +34,19 @@ Place shared utilities in `supabase/functions/_shared/`. Import via relative pat
 import { buildCorsHeaders } from '../_shared/cors.ts';
 ```
 
+## Rate-limiting anonymous mail / account creation (P1225)
+
+A function an anonymous caller can make send mail, or create an auth user, uses
+`_shared/mail-rate-limit.ts`: `reserveMailSlot(..., 'ip', ipLimitKey(...))` before its first
+lookup, every check that can reject the request without an account lookup, then
+`reserveMailSlot(..., 'target', targetLimitKey(...))`, and only then the account lookup,
+`createUser`, `generateLink` or send. Return `mailLimitResponse(result, cors)` when it is non-null
+(429 + `Retry-After`, or a generic 500 — the limiter fails closed). Keys are salted hashes
+(`IP_HASH_SECRET`); the decision is made on database time by the service-role-only
+`reserve_mail_rate_slot` over `mail_rate_limits`. Limits: `SIGNIN_MAIL_LIMITS` (founder decision
+2026-10-14). Both buckets return the same body, so a refusal says nothing about whether the address
+has an account. Wired today: `request-letter-response-signin`.
+
 ## Imports
 
 Use `https://esm.sh/<pkg>@<version>` for npm packages or `https://deno.land/...` for Deno-native libs. `npm:` specifiers fail the local `deno check` in pre-commit (no deno.json/node_modules in this repo), even though they deploy fine.

@@ -469,6 +469,8 @@ test.describe('P520: erase_my_account', () => {
       'clarity_idea_votes.voter_name',
       // not a person
       'organization.name',
+      // P1225: the edge function's own name; the table's keys are salted hashes, no account link
+      'mail_rate_limits.function_name',
     ].sort();
 
     const rows = await catalogQuery<{ ref: string }>(`

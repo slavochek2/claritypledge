@@ -9,6 +9,11 @@
  * - Generic error text — never leaks which field failed or whether account exists.
  * - Service-role client throughout (bypasses RLS; letter_response_pending is
  *   service-role-only per migration 20260412000002).
+ * - P1225: per-IP and per-target-address request limit (_shared/mail-rate-limit.ts).
+ *   IP bucket after input validation; target bucket only after the letter is known to be
+ *   valid (so requests that could never mail an address cannot spend its allowance); both
+ *   BEFORE the account lookup, createUser, generateLink and the mail send. Neither depends
+ *   on whether the address has an account, so the 429 is no enumeration oracle either.
  *
  * Canonical reference: create-and-open-letter/index.ts
  *   - createUser: line 324
@@ -20,6 +25,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import {
+  SIGNIN_MAIL_LIMITS,
+  ipLimitKey,
+  mailLimitResponse,
+  reserveMailSlot,
+  targetLimitKey,
+} from '../_shared/mail-rate-limit.ts';
+
+const FUNCTION_NAME = 'request-letter-response-signin';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -249,6 +263,14 @@ serve(async (req: Request) => {
       return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
 
+    // P1225: rate-limit keys are salted hashes; without the salt the limiter cannot run,
+    // and this function must not send mail unlimited — fail closed.
+    const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
+    if (!ipHashSecret) {
+      console.error('[request-letter-response-signin] Missing IP_HASH_SECRET');
+      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
+    }
+
     // ── Parse body ─────────────────────────────────────────────────────────────
     let body: RequestBody;
     try {
@@ -318,6 +340,15 @@ serve(async (req: Request) => {
     // ── Service-role client (used throughout) ──────────────────────────────────
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // ── Rate limit, IP bucket (P1225) ──────────────────────────────────────────
+    // Before the letter lookup and every write or send below. A limiter error is a
+    // refusal (fail closed), never a pass.
+    const ipRefusal = mailLimitResponse(
+      await reserveMailSlot(supabase, FUNCTION_NAME, 'ip', await ipLimitKey(req, ipHashSecret), SIGNIN_MAIL_LIMITS.ip),
+      corsHeaders,
+    );
+    if (ipRefusal) return ipRefusal;
+
     // ── Validate letter (step 1 continued) ────────────────────────────────────
     // Letter must exist, status='sealed', mode='one-to-many'.
     // Security: without this check an attacker could trigger auth emails against
@@ -339,6 +370,22 @@ serve(async (req: Request) => {
       // Letter not found, wrong status, or wrong mode — return generic error
       return jsonResponse({ error: 'Something went wrong. Please try again.' }, 400, corsHeaders);
     }
+
+    // ── Rate limit, target bucket (P1225) ──────────────────────────────────────
+    // Only a request that could actually mail this address spends its allowance —
+    // and still before the account lookup, so the answer never depends on whether
+    // an account exists.
+    const targetRefusal = mailLimitResponse(
+      await reserveMailSlot(
+        supabase,
+        FUNCTION_NAME,
+        'target',
+        await targetLimitKey(normalizedEmail, ipHashSecret),
+        SIGNIN_MAIL_LIMITS.target,
+      ),
+      corsHeaders,
+    );
+    if (targetRefusal) return targetRefusal;
 
     // ── Look up existing user (step 2) ─────────────────────────────────────────
     // Use get_auth_user_by_email SECURITY DEFINER RPC — NOT profiles.email.
