@@ -5,8 +5,8 @@ disclosure: public
 rank: 89
 created_date: '2026-08-12'
 tags: [security, hardening, clarity-sessions, rls]
-delivery_stage: create-spec
-pipeline_ran: [create-spec, inline]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 driver: anomaly
 ---
 

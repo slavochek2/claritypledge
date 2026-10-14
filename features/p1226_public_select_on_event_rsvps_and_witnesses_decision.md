@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [security, rls, privacy, events, witnesses, decision]
-delivery_stage: create-bug
-pipeline_ran: [create-bug, inline]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1226: Public SELECT on `event_rsvps` and `witnesses` — record the intent or scope it

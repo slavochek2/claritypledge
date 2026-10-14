@@ -5,8 +5,8 @@ disclosure: public
 rank: 217
 created_date: '2026-08-17'
 tags: [security, letters, sealed-bid, integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug, inline]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
 changes: p1067
 ---

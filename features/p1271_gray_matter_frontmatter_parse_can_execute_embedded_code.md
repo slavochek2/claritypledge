@@ -14,8 +14,8 @@ tags:
   - security
   - dependencies
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-bug, fix, adversarial-review]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, adversarial-review, ship]
 ---
 
 # P1271: `gray-matter`'s frontmatter parsing can execute embedded code via a language-tag switch

@@ -9,7 +9,8 @@ created_date: '2026-08-17'
 tags: [security, live, codes, lifecycle]
 driver: anomaly
 feature_type: backend
-pipeline_ran: [inline]
+delivery_stage: ship
+pipeline_ran: [inline, ship]
 ---
 
 # P1098: a leaked room code is unrevocable
