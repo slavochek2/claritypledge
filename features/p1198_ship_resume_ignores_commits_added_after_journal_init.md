@@ -96,6 +96,11 @@ Implemented on this branch and reviewed four times (Codex x3, /finish, Gemini). 
    - **HIGH** — a recorded landing suppresses `gone`, so a rewrite after landing is treated as an append;
      reproduced shipping a superseded implementation, exit 0.
 
+Also found during round 2 (pre-existing, not introduced by this branch): on a FRESH `ship pN` (not
+`--resume`) the journal is written before the closure gates run, so a branch rewrite in that window
+could have stale journaled commits picked. Refuse-on-drift at Phase 1 (re-diff after the gates, under
+the lock) would close it in the same change.
+
 **Recommendation (founder decision — it changes Done-When item 1):** switch to **refuse-on-drift**, the
 design recorded in decisions.md 2026-09-11 item (c): `--resume` and Phase 3 compare the branch to the
 journal and REFUSE (exit non-zero, nothing picked, branch kept) on any unjournaled or rewritten commit,
