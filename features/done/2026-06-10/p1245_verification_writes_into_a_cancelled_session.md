@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 55
@@ -10,8 +10,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [privacy, rls, erasure, live-session]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
+completed_at: 2026-10-14
 ---
 
 # P1245: a paraphrase can still be written into a session the erased user closed
