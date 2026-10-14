@@ -9,8 +9,8 @@ tags:
   - process
   - drift
   - migrations
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 driver: anomaly
 ---
 
