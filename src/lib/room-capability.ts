@@ -55,6 +55,58 @@ export function _resetHeldRoomCodesForTesting(): void {
   held.length = 0;
 }
 
+/**
+ * P1224: the seat secrets this tab holds, presented as the `x-clarity-seat-secret` header.
+ *
+ * A guest's WRITES are authorized by the per-seat secret claim_joiner_seat minted for it (P1269).
+ * It travels as a header so every guest write presents it without each call site handling it.
+ *
+ * Narrower than the room code on purpose: sent only on writing requests (never GET/HEAD), only to
+ * our REST endpoint, and at most two at a time. The value itself is custodied by
+ * src/app/data/seat-secret.ts; this module only holds what that one hands it.
+ */
+export const SEAT_SECRET_HEADER = 'x-clarity-seat-secret';
+
+/** Same bound as the room code: the database reads at most two values per request. */
+export const MAX_HELD_SEAT_SECRETS = 2;
+
+/** Canonical lowercase uuid — anything else is dropped here rather than sent and ignored there. */
+const SEAT_SECRET_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Most recently used first, like the room codes. */
+const heldSecrets: string[] = [];
+
+export function holdSeatSecret(secret: string | null | undefined): void {
+  if (!secret) return;
+  const normalized = secret.toLowerCase().trim();
+  if (!SEAT_SECRET_PATTERN.test(normalized)) return;
+  const existing = heldSecrets.indexOf(normalized);
+  if (existing >= 0) heldSecrets.splice(existing, 1);
+  heldSecrets.unshift(normalized);
+  if (heldSecrets.length > MAX_HELD_SEAT_SECRETS) heldSecrets.length = MAX_HELD_SEAT_SECRETS;
+}
+
+/** Stop presenting a secret — the guest left the seat. */
+export function dropSeatSecret(secret: string | null | undefined): void {
+  if (!secret) return;
+  const idx = heldSecrets.indexOf(secret.toLowerCase().trim());
+  if (idx >= 0) heldSecrets.splice(idx, 1);
+}
+
+export function heldSeatSecrets(): readonly string[] {
+  return heldSecrets;
+}
+
+/** Test-only. */
+export function _resetHeldSeatSecretsForTesting(): void {
+  heldSecrets.length = 0;
+}
+
+function methodOf(input: RequestInfo | URL, init?: RequestInit): string {
+  const m = init?.method ?? (input instanceof Request ? input.method : undefined) ?? 'GET';
+  return m.toUpperCase();
+}
+
 function urlOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;
   if (input instanceof URL) return input.href;
@@ -76,17 +128,24 @@ function isRestRequest(url: string, origin: string): boolean {
 }
 
 /**
- * Wraps `baseFetch` so requests to `supabaseUrl`'s REST endpoint carry the held room codes. Every
- * other request — and every request while no code is held — passes through untouched.
+ * Wraps `baseFetch` so requests to `supabaseUrl`'s REST endpoint carry the held room codes, and
+ * writing requests also carry the held seat secrets (P1224). Every other request — and every
+ * request while nothing is held — passes through untouched.
  */
 export function withRoomCodeHeader(supabaseUrl: string, baseFetch: typeof fetch): typeof fetch {
   const origin = new URL(supabaseUrl).origin;
   return (input, init) => {
-    if (held.length === 0 || !isRestRequest(urlOf(input), origin)) {
+    if ((held.length === 0 && heldSecrets.length === 0) || !isRestRequest(urlOf(input), origin)) {
+      return baseFetch(input, init);
+    }
+    const method = methodOf(input, init);
+    const sendSecrets = heldSecrets.length > 0 && method !== 'GET' && method !== 'HEAD';
+    if (held.length === 0 && !sendSecrets) {
       return baseFetch(input, init);
     }
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
-    headers.set(ROOM_CODE_HEADER, held.join(','));
+    if (held.length > 0) headers.set(ROOM_CODE_HEADER, held.join(','));
+    if (sendSecrets) headers.set(SEAT_SECRET_HEADER, heldSecrets.join(','));
     return baseFetch(input, { ...init, headers });
   };
 }

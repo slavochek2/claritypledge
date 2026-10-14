@@ -53,10 +53,15 @@ function anon() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: noAuth });
 }
 
-/** No session, presenting room code(s) — a guest who joined by code. */
-function guest(codes: string) {
+/**
+ * No session, presenting room code(s) — a guest who joined by code. P1224: a guest's WRITES also
+ * need the seat secret claim_joiner_seat minted for it; pass it to act as the seated guest.
+ */
+function guest(codes: string, seatSecret?: string) {
+  const headers: Record<string, string> = { [ROOM_CODE_HEADER]: codes };
+  if (seatSecret) headers['x-clarity-seat-secret'] = seatSecret;
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { [ROOM_CODE_HEADER]: codes } },
+    global: { headers },
     auth: noAuth,
   });
 }
@@ -93,6 +98,9 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   /** Guest room: host created it, an account-less guest holds the seat. */
   let guestId: string;
   let guestCode: string;
+  /** P1224: the seated guest's secret (what claim_joiner_seat returned to it). */
+  const guestSecret = crypto.randomUUID();
+  const endedSecret = crypto.randomUUID();
   /** Directed room: addressed to a named listener. */
   let directedId: string;
   let directedCode: string;
@@ -146,6 +154,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     }));
     ({ id: guestId, code: guestCode } = await seed({
       creator_profile_id: host.user.id, joiner_name: 'p1302 guest',
+      joiner_seat_claimed_at: new Date().toISOString(), joiner_seat_secret: guestSecret,
     }));
     ({ id: directedId, code: directedCode } = await seed({
       creator_profile_id: host.user.id, target_listener_id: listener.user.id,
@@ -159,6 +168,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     ({ id: crossInvitedId } = await seed({ creator_profile_id: host.user.id, target_listener_id: listener.user.id }));
     ({ id: endedId, code: endedCode } = await seed({
       creator_profile_id: host.user.id, joiner_name: 'p1302 guest', ended_at: new Date().toISOString(),
+      joiner_seat_claimed_at: new Date().toISOString(), joiner_seat_secret: endedSecret,
     }));
 
     const inv = await supabaseAdmin.from('clarity_live_invites').insert([
@@ -244,7 +254,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
   });
 
   test('A8: a room code grants a guest\'s writes only — never the creator\'s name, note or status', async () => {
-    await guest(guestCode).from('clarity_sessions').update({ creator_note: 'TAMPERED A8', status: 'cancelled' }).eq('id', guestId);
+    await guest(guestCode, guestSecret).from('clarity_sessions').update({ creator_note: 'TAMPERED A8', status: 'cancelled' }).eq('id', guestId);
     const { data } = await supabaseAdmin.from('clarity_sessions').select('creator_note, status').eq('id', guestId).single();
     expect(data?.creator_note, 'a code holder rewrote the creator\'s note').toBe('SENTINEL p1302 note');
     expect(data?.status, 'a code holder cancelled the room').not.toBe('cancelled');
@@ -252,7 +262,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
 
   test('A9: a room code does not write to a room whose session has ended', async () => {
     await resetLiveState(endedId);
-    await guest(endedCode).from('clarity_sessions').update({ live_state: { tampered: 'A9' } }).eq('id', endedId);
+    await guest(endedCode, endedSecret).from('clarity_sessions').update({ live_state: { tampered: 'A9' } }).eq('id', endedId);
     const after = await liveStateOf(endedId);
     expect(after?.tampered, 'a code holder wrote to an ended room').toBeUndefined();
   });
@@ -293,9 +303,9 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     expect(data ?? [], 'an invite to a non-listener exposed a directed session').toEqual([]);
   });
 
-  test('C12: a guest presenting the room code can still patch live_state (the partial-merge path)', async () => {
+  test('C12: the seated guest (room code + seat secret) can still patch live_state (the partial-merge path)', async () => {
     await resetLiveState(guestId);
-    const { error } = await guest(guestCode).rpc('patch_live_state', { p_session_id: guestId, p_patch: { written: 'C12' } });
+    const { error } = await guest(guestCode, guestSecret).rpc('patch_live_state', { p_session_id: guestId, p_patch: { written: 'C12' } });
     const after = await liveStateOf(guestId);
     await resetLiveState(guestId);
     expect(error, error?.message).toBeNull();
@@ -340,9 +350,9 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
     expect(data ?? [], 'the account-less guest flow must keep reading its own room').toHaveLength(1);
   });
 
-  test('C6: a guest presenting the room code can overwrite live_state (the full-overwrite write path)', async () => {
+  test('C6: the seated guest (room code + seat secret) can overwrite live_state (the full-overwrite write path)', async () => {
     await resetLiveState(guestId);
-    const { error } = await guest(guestCode).from('clarity_sessions').update({ live_state: { written: 'C6' } }).eq('id', guestId);
+    const { error } = await guest(guestCode, guestSecret).from('clarity_sessions').update({ live_state: { written: 'C6' } }).eq('id', guestId);
     const after = await liveStateOf(guestId);
     await resetLiveState(guestId);
     expect(error, error?.message).toBeNull();
@@ -404,7 +414,7 @@ test.describe('P1302: a clarity_sessions row is readable only by its parties, or
 
   test('A11: a guest presenting the code cannot patch an ended room', async () => {
     await resetLiveState(endedId);
-    await guest(endedCode).rpc('patch_live_state', { p_session_id: endedId, p_patch: { tampered: 'A11' } });
+    await guest(endedCode, endedSecret).rpc('patch_live_state', { p_session_id: endedId, p_patch: { tampered: 'A11' } });
     const after = await liveStateOf(endedId);
     expect(after?.tampered, 'a guest patched a room whose session has ended').toBeUndefined();
   });

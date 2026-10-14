@@ -22,6 +22,8 @@ import {
   subscribeToClaritySession,
   updateClaritySessionLiveState,
   patchClaritySessionLiveState,
+  isGuestSeatLost,
+  GUEST_SEAT_LOST_MESSAGE,
   clearSessionJoiner,
   uploadSessionRecording,
   // uploadAudioChunk is replaced by uploadSingleChunk + queue (P566)
@@ -353,6 +355,7 @@ async function awardBadgeIfEligible({
 // the ClarityLivePage component, and to keep this file's exports
 // component-only (react-refresh/only-export-components).
 
+
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
@@ -406,6 +409,8 @@ export function ClarityLivePage() {
    */
   useLinksTriggerOverride(isJoinViaLink || view !== 'start' || session !== null ? 'decline' : null);
   const [error, setError] = useState<string | null>(null);
+  // P1224: set when a guest's write is refused and re-joining could not restore the seat.
+  const [guestSeatLost, setGuestSeatLost] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true); // For session restoration
@@ -1620,10 +1625,24 @@ export function ClarityLivePage() {
       try {
         // P525+: Route to full overwrite or JSONB merge based on write contents.
         // See shouldUseFullOverwrite() for the decision logic and bug-fix history.
-        const dbCall = shouldUseFullOverwrite(updates, stateBeforeUpdate as Record<string, unknown>)
+        const useFullOverwrite = shouldUseFullOverwrite(updates, stateBeforeUpdate as Record<string, unknown>);
+        const write = () => (useFullOverwrite
           ? updateClaritySessionLiveState(session.id, newState)
-          : patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
-        await raceWithTimeout(dbCall, UPDATE_TIMEOUT_MS);
+          : patchClaritySessionLiveState(session.id, updates as Record<string, unknown>));
+        try {
+          await raceWithTimeout(write(), UPDATE_TIMEOUT_MS);
+        } catch (firstErr) {
+          // P1224: a guest whose seat credential is missing or stale (a seat from before seat
+          // credentials existed, or one this tab left) is refused, and retrying the same write can
+          // never succeed. Re-join once — claim_joiner_seat issues a fresh credential when the seat
+          // is free or abandoned — then retry the write once. A seat someone else now holds stays
+          // refused, and the catch below tells the guest instead of offering a retry.
+          if (!isGuestSeatLost(firstErr) || isCreatorRef.current || !session.joinerName) throw firstErr;
+          const rejoined = await joinClaritySession(session.code, session.joinerName);
+          if (!rejoined) throw firstErr;
+          analytics.track('live_guest_seat_recovered', { session_id: session.id });
+          await raceWithTimeout(write(), UPDATE_TIMEOUT_MS);
+        }
         // P609: Merge only the written keys into the confirmed ref, preserving
         // any partner updates that arrived via Realtime during the in-flight period.
         // Previously `confirmedLiveStateRef.current = newState` would overwrite partner
@@ -1658,7 +1677,11 @@ export function ClarityLivePage() {
           });
         } catch { /* never let analytics break the app */ }
         // Check if it's a migration error
-        if (err instanceof Error && err.message.includes('migration')) {
+        if (isGuestSeatLost(err)) {
+          // P1224: not retryable — this tab no longer holds the guest seat (see the re-join above).
+          // Leave the room view for the join form, which is the re-join action.
+          setGuestSeatLost(true);
+        } else if (err instanceof Error && err.message.includes('migration')) {
           setError('Unable to save changes. Please refresh the page and try again.');
         } else {
           // Show user-friendly error for other cases
@@ -3765,6 +3788,20 @@ export function ClarityLivePage() {
   }, [confirmExitMeeting]);
 
   // Handle starting a new session after partner left
+  // P1224: the guest lost its seat and re-joining did not restore it. Retrying a write can never
+  // succeed, so leave the room view for the join form of the same link — the existing re-join
+  // path — and say why there.
+  useEffect(() => {
+    if (!guestSeatLost) return;
+    setGuestSeatLost(false);
+    clearStoredSession();
+    clearActiveSession();
+    setSession(null);
+    setLiveState(DEFAULT_LIVE_STATE);
+    setView('start');
+    setError(GUEST_SEAT_LOST_MESSAGE);
+  }, [guestSeatLost, clearActiveSession]);
+
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
     // P28.1: Stop recording and upload before starting new session
     await stopAndUploadRecording();

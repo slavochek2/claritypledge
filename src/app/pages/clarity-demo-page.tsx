@@ -17,6 +17,8 @@ import {
   updateDemoFlowState,
   saveDemoRound,
   saveClarityIdea,
+  isGuestSeatLost,
+  GUEST_SEAT_LOST_MESSAGE,
   type ClaritySession,
   type DemoFlowState,
 } from "@/app/data/api";
@@ -192,20 +194,53 @@ export function ClarityDemoPage() {
     }
   };
 
-  // Update demo state and sync to Supabase
+  /**
+   * P1224: every shared-state write goes through here. Resolves true only once the write has
+   * landed, so callers commit their local transition AFTER it — never optimistically ahead of a
+   * write the database may refuse (the two phones would diverge). A guest whose seat credential
+   * is missing or stale re-joins once and retries; if the seat is someone else's now, the guest
+   * is returned to the join form with a non-retry message, the same as on the live page.
+   */
+  const runSharedWrite = useCallback(async (write: () => Promise<void>): Promise<boolean> => {
+    if (!session) return false;
+    try {
+      await write();
+      return true;
+    } catch (first) {
+      if (!isGuestSeatLost(first)) {
+        console.error("Failed to sync demo state:", first);
+        return false;
+      }
+      if (!isCreator && session.joinerName) {
+        try {
+          const rejoined = await joinClaritySession(session.code, session.joinerName);
+          if (rejoined) {
+            await write();
+            return true;
+          }
+        } catch (second) {
+          if (!isGuestSeatLost(second)) {
+            console.error("Failed to sync demo state after re-joining:", second);
+            return false;
+          }
+        }
+      }
+      setRoomCode(session.code);
+      setName(session.joinerName ?? "");
+      setSession(null);
+      setView("start");
+      setError(GUEST_SEAT_LOST_MESSAGE);
+      return false;
+    }
+  }, [session, isCreator]);
+
+  // Update demo state and sync to Supabase — local state follows a write that landed.
   const handleUpdateDemoState = useCallback(async (updates: Partial<DemoFlowState>) => {
     if (!session) return;
-
-    // Optimistic update
-    setDemoState(prev => ({ ...prev, ...updates }));
-
-    // Sync to database
-    try {
-      await updateDemoFlowState(session.id, updates);
-    } catch (err) {
-      console.error("Failed to sync demo state:", err);
+    if (await runSharedWrite(() => updateDemoFlowState(session.id, updates))) {
+      setDemoState(prev => ({ ...prev, ...updates }));
     }
-  }, [session]);
+  }, [session, runSharedWrite]);
 
   // Save a completed round to the database
   const handleSaveRound = useCallback(async () => {
@@ -271,18 +306,20 @@ export function ClarityDemoPage() {
         positionConfirmed: false,
       };
 
-      setDemoState(newState);
-      await updateDemoFlowState(session.id, newState);
+      if (await runSharedWrite(() => updateDemoFlowState(session.id, newState))) {
+        setDemoState(newState);
+      }
     }
-  }, [session, demoState.currentLevel]);
+  }, [session, demoState.currentLevel, runSharedWrite]);
 
   // Complete the demo
   const handleDemoComplete = useCallback(async () => {
     if (!session) return;
 
-    await updateClarityDemoStatus(session.id, "completed");
-    setView("complete");
-  }, [session]);
+    if (await runSharedWrite(() => updateClarityDemoStatus(session.id, "completed"))) {
+      setView("complete");
+    }
+  }, [session, runSharedWrite]);
 
   // Determine if user is in "join mode" (has entered a room code)
   const isJoinMode = roomCode.trim().length > 0;
@@ -494,8 +531,11 @@ export function ClarityDemoPage() {
             onClick={async () => {
               // Initialize demo state and update status
               const initialState = createInitialDemoState();
-              await updateDemoFlowState(session.id, initialState);
-              await updateClarityDemoStatus(session.id, "in_progress");
+              const started = await runSharedWrite(async () => {
+                await updateDemoFlowState(session.id, initialState);
+                await updateClarityDemoStatus(session.id, "in_progress");
+              });
+              if (!started) return;
               setDemoState(initialState);
               setView("demo");
             }}

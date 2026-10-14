@@ -297,13 +297,18 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
   // most here is not a surviving exploit, it is a guest who can no longer leave a room. The
   // next three tests are the positive controls: the legitimate flows must still work.
 
-  test('POSITIVE CONTROL: a guest holding the room code CAN release their own seat', async () => {
+  test('POSITIVE CONTROL: the seated guest CAN release their own seat', async () => {
     const room = await seedRoom('fix-positive', { guestName: 'Legitimate Guest' });
+    // P1224: the seated guest is the one holding the seat secret — the room code alone no longer
+    // releases any seat, including one claimed before P1269.
+    const secret = crypto.randomUUID();
+    await supabaseAdmin.from('clarity_sessions').update({ joiner_seat_secret: secret }).eq('id', room.id);
 
     const anon = makeAnonClient();
     const { error } = await anon.rpc('release_joiner_seat', {
       p_session_id: room.id,
       p_code: room.code,
+      p_seat_secret: secret,
     });
 
     const after = await readRow(room.id);

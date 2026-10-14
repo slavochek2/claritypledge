@@ -18,9 +18,8 @@
  *      is indistinguishable from "there was nothing to release";
  *   2. the rightful guest CAN still leave with the secret — otherwise a function that
  *      refuses everybody would pass every assertion above it;
- *   3. a legacy seat carrying no secret still releases on the room code — the false-
- *      positive half (`.claude/rules/epistemic.md` gate 7c), and the reason the fallback
- *      is gated on the ROW's column rather than on what the caller chose to send.
+ *   3. (inverted by P1224, 2026-10-14) a legacy seat carrying no secret no longer releases
+ *      on the room code either — see the test of that name.
  *
  * REQUIRES P1269 (20260911090000) — `clarity_sessions.joiner_seat_secret`. The first test
  * asserts the column is there rather than letting every later assertion fail obscurely.
@@ -156,9 +155,14 @@ test.describe('P1314 C — release_joiner_seat requires the seat secret', () => 
     ).toBe(true);
   });
 
-  test('gate 7c: a LEGACY seat carrying no secret still releases on the room code', async () => {
+  // INVERTED 2026-10-14 by P1224 (orchestrator decision): a seat claimed before P1269 carries no
+  // secret, and the room code no longer authorizes releasing it. Such seats are all weeks old and
+  // already accept no guest write; their guest recovers by re-joining, which issues a fresh secret.
+  // The false-positive half of gate 7c is now the CONTROL above (rightful guest leaves with the
+  // secret) plus P1224's integration suite (signed-in joiner leaves by identity).
+  test('P1224: a LEGACY seat carrying no secret no longer releases on the room code', async () => {
     await claimAsGuest('Legacy Guest');
-    // Simulate a seat claimed before P1269 — the only state in which the code branch applies.
+    // Simulate a seat claimed before P1269.
     await supabaseAdmin
       .from('clarity_sessions')
       .update({ joiner_seat_secret: null })
@@ -172,8 +176,10 @@ test.describe('P1314 C — release_joiner_seat requires the seat secret', () => 
       p_session_id: sessionId,
       p_code: code,
     });
-    expect(error, 'a guest mid-session when this deploys must still be able to leave').toBeNull();
-    expect((await seatRow()).joiner_seat_claimed_at).toBeNull();
+    expect(error?.message, 'a room code must not release a seat').toContain('not the seated joiner');
+    const after = await seatRow();
+    expect(after.joiner_seat_claimed_at, 'the legacy seat must still be occupied').not.toBeNull();
+    expect((after.live_state as { joinerEnded?: boolean } | null)?.joinerEnded).toBeUndefined();
   });
 
   test('the fallback is gated on the ROW, not the argument — a secret-bearing seat ignores the code', async () => {

@@ -75,6 +75,8 @@ WHERE id = p_session_id;
 
 **Why this matters:** `confirmedLiveStateRef.current` (the local "last confirmed" ref) can be stale if a subscription event was skipped while a write was in-flight. A full overwrite from a stale ref silently clears fields written by the partner. The partial merge makes stale-ref writes safe by default.
 
+**Who may write (P1224).** Signed-in participants write by identity (`auth.uid()` is the creator or the seated joiner). An account-less guest writes its session — and leaves its seat — only as the seated guest, by presenting the seat credential `claim_joiner_seat` issued to it (P1269), and only while the seat is occupied; releasing the seat retires the credential. The client custodies it in `src/app/data/seat-secret.ts`, presents it via `src/lib/room-capability.ts`, and restores it whenever a session re-enters the client, so a reload keeps the guest able to act. A guest seat claimed before P1269 holds no credential and accepts no guest write; the guest re-joins through `claim_joiner_seat`, which issues a fresh one. Client side, a refused guest write surfaces as `GuestSeatLostError` (`api.ts` — including a row update that matched zero rows); the live page re-joins once and retries, else returns the guest to the join form. Migration: `20261014093000_p1224_guest_writes_require_seat_secret.sql`.
+
 ### event_practice_rooms (P406 — Practice Rooms)
 
 Enables participants to signal session readiness on an event page without out-of-band link exchange.

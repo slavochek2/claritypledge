@@ -19,7 +19,12 @@ pipeline_ran: [create-bug]
 
 ## Summary
 
-The anon-callable `SECURITY DEFINER` RPC that lets a **guest** joiner (no profile) merge a
+**Scope narrowed (2026-10-14).** The original hole below was closed by P1302. The blocker this
+spec named (the guest-reclaim arm) was decided and closed by P1269. This spec now tracks the
+remaining hardening: **guest writes now require the seat credential** that only the seated guest
+holds. Details are in `.private/docs/security-log.md` (2026-10-14 entries), not here.
+
+*Original summary, kept for history:* The anon-callable `SECURITY DEFINER` RPC that lets a **guest** joiner (no profile) merge a
 partial update into a `/live` session's `live_state` takes the session's id as its only
 authorization input. Session ids are not secret — several public read paths return them — so
 any anonymous caller who obtains one can write arbitrary keys into that guest-joined session's
@@ -87,6 +92,11 @@ Any anonymous caller holding a session id can merge keys into a guest-joined ses
 - `src/app/data/api.ts` — `updateLiveState()` partial-merge caller
 - `claim_joiner_seat` (P1047) — the natural place to mint a per-seat secret
 
+Changed by the fix (2026-10-14): `supabase/migrations/20261014093000_p1224_guest_writes_require_seat_secret.sql`,
+`src/lib/room-capability.ts`, `src/app/data/seat-secret.ts`, `src/app/data/api.ts` (`mapSessionFromDb`),
+`docs/technical/database.md`; guest controls in existing integration suites (P1047, P1053, P1058,
+P1302, P1314) now act as the seated guest, presenting its credential.
+
 ## Severity
 
 **Medium** — integrity of a live session's shared state for guest-joined sessions; no data
@@ -94,15 +104,42 @@ read, no account impact. Theoretical (no evidence of exploitation).
 
 ## Fix Approach
 
-Two candidates, decide in `/architect`: (a) mint a per-seat secret in `claim_joiner_seat`,
+**Decided and built (2026-10-14): option (a), reusing the seat credential P1269 already mints.**
+Guest writes now require the seat credential. Seats claimed before P1269 carry none and fail
+closed (no backfill); their guest recovers through the normal join path, which issues a fresh one.
+The client keeps the credential across reloads (the P1058 lesson).
+
+Deploy order: **client first, then the migration**, with at least one session length between. The
+migration carries a `requires-frontend:` marker for this.
+
+*Original options, kept for history:* Two candidates, decide in `/architect`: (a) mint a per-seat secret in `claim_joiner_seat`,
 store it hashed, require it as a third RPC argument for the guest path (the `client_secret`
 pattern P1114's `event_room_members` already uses); or (b) restrict the anon path to an
 allowlist of keys and drop the rating-phase statement from the anon-reachable branch. (a) closes
 the class; (b) shrinks it. Prefer (a).
 
+## Founder Decisions
+
+**[FOUNDER DECISION: guest seat-lost message]** Shown on the join form when a guest's write is
+refused and re-joining cannot restore the seat (someone else holds it). Proposed and implemented:
+
+> You are no longer in this session. Open the session link again to rejoin.
+
+Defined once as `GUEST_SEAT_LOST_MESSAGE` in `src/app/data/api.ts`, used by the live and demo
+pages; pinned by `e2e/p1224-guest-writes-after-reload.spec.ts` and `src/tests/p1224-demo-seat-lost.test.tsx`.
+
 ## Acceptance Criteria
 
-- [ ] An anon caller with a valid session id but no seat secret gets a permission error from the guest patch path
-- [ ] A guest who joined normally can still merge live_state updates (P399 partial-merge contract unchanged)
-- [ ] An authenticated joiner's path is unchanged (`joiner_profile_id = auth.uid()`)
-- [ ] Integration test under `e2e/integration/` proves the rejection and the two allowed paths
+- [x] A caller who is not the seated guest is refused on every guest write path, with a permission error where the path reports one, and the row is unchanged — integration A1-A4, A6 (each failed before the migration, passes after)
+- [x] Seats claimed before P1269 accept no guest write (fail closed) and their guest recovers by re-joining — integration A4, C4
+- [x] A guest who joined normally can still merge live_state updates (P399 partial-merge contract unchanged), write its other session fields, and leave its seat — integration C1, C2, C9; real-browser rounds `e2e/p1278-real-browser-round.spec.ts` B/C/D pass
+- [x] A guest who reloads keeps writing — integration C3; real-browser `e2e/p1224-guest-writes-after-reload.spec.ts` (fails with the client restore removed, passes with it); unit `src/tests/p1224-seat-secret-header.test.ts`
+- [x] An authenticated joiner's path is unchanged (`joiner_profile_id = auth.uid()`) — integration C5, C10; real-browser round A
+- [x] The creator's path is unchanged — integration C6; a signed-in non-participant is still refused with the unchanged contract — C7
+- [x] Integration test under `e2e/integration/` proves the rejections and the allowed paths — `20261014093000_p1224_guest_writes_require_seat_secret.spec.ts`
+- [x] A guest who has left its seat keeps no write authority; re-joining issues a new credential — integration A8 (failed before, passes after), C11
+- [x] A guest tab whose write is refused for a missing or stale credential is never told to retry: it re-joins once (seat free or abandoned → the write lands) or, when someone else holds the seat, returns to the join form with a non-retry message — real-browser `e2e/p1224-guest-writes-after-reload.spec.ts` (both fail with the client's handling disabled, pass with it); unit `src/tests/p1224-seat-secret-header.test.ts`
+- [x] The demo page handles the same refusal the same way, and moves its local state only after a write lands — unit `src/tests/p1224-demo-seat-lost.test.tsx` (start, advance, complete; 5 of 6 fail with unhandled rejections before the change)
+- [x] A newly issued credential is never shadowed by a stale stored one when storage writes fail — unit `src/tests/p1224-seat-secret-header.test.ts` (3 fail before the change)
+- [ ] [FOUNDER DECISION] Copy for the non-retry message (see below) — implemented with the proposed text, awaiting approval
+- [ ] [post-deploy] Client deployed to prod, then the migration applied to prod; installed function body and row policy read back from prod; prod smoke passes

@@ -43,9 +43,12 @@ function makeAnonClient() {
  * open room is reachable by anon only with its code, so the guest controls below use this shape:
  * it is what the deployed client sends (src/lib/room-capability.ts).
  */
-function makeGuestClient(roomCode: string) {
+function makeGuestClient(roomCode: string, seatSecret?: string) {
+  // P1224: a guest's WRITES are authorized by its seat secret, presented beside the room code.
+  const headers: Record<string, string> = { 'x-clarity-room-code': roomCode };
+  if (seatSecret) headers['x-clarity-seat-secret'] = seatSecret;
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { 'x-clarity-room-code': roomCode } },
+    global: { headers },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -72,7 +75,10 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
    * `target_listener_id IS NULL`, owned by the victim. Created via the ADMIN client
    * so the seed itself is not what is under test.
    */
-  async function seedVictimSession(label: string) {
+  async function seedVictimSession(label: string, opts: { seatedGuest?: boolean } = {}) {
+    // P1224: a guest WRITE control needs a seated guest holding the secret claim_joiner_seat would
+    // have minted, presented the way the deployed client does. Join controls need the seat free.
+    const seatSecret = opts.seatedGuest ? crypto.randomUUID() : undefined;
     const { data, error } = await supabaseAdmin
       .from('clarity_sessions')
       .insert({
@@ -81,13 +87,16 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
         creator_profile_id: victim.user.id,
         target_listener_id: null,
         joiner_name: 'guest',
+        ...(seatSecret
+          ? { joiner_seat_claimed_at: new Date().toISOString(), joiner_seat_secret: seatSecret }
+          : {}),
         state: {},
       })
       .select('id, code, creator_profile_id, joiner_profile_id')
       .single();
     expect(error, `seed failed: ${error?.message}`).toBeNull();
     createdSessionIds.push(data!.id);
-    return data!;
+    return { ...data!, seatSecret };
   }
 
   /** Re-reads the row bypassing RLS, so assertions see ground truth. */
@@ -293,8 +302,8 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   });
 
   test('control: anonymous guest can still write state (api.ts updateClaritySessionState)', async () => {
-    const row = await seedVictimSession('control state');
-    const anon = makeGuestClient(row.code);
+    const row = await seedVictimSession('control state', { seatedGuest: true });
+    const anon = makeGuestClient(row.code, row.seatSecret);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -307,8 +316,8 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   });
 
   test('control: anonymous guest can still write live_state + mode (api.ts updateLiveState)', async () => {
-    const row = await seedVictimSession('control live_state');
-    const anon = makeGuestClient(row.code);
+    const row = await seedVictimSession('control live_state', { seatedGuest: true });
+    const anon = makeGuestClient(row.code, row.seatSecret);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -322,8 +331,8 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   });
 
   test('control: anonymous guest can still write demo_status (api.ts updateDemoStatus)', async () => {
-    const row = await seedVictimSession('control demo_status');
-    const anon = makeGuestClient(row.code);
+    const row = await seedVictimSession('control demo_status', { seatedGuest: true });
+    const anon = makeGuestClient(row.code, row.seatSecret);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -482,6 +491,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
    */
   test('control: legacy null-creator row stays locked to anonymous callers (P396)', async () => {
     const nullCreatorCode = makeRoomCode();
+    const nullCreatorSecret = crypto.randomUUID();
     const { data: seed, error: seedError } = await supabaseAdmin
       .from('clarity_sessions')
       .insert({
@@ -489,6 +499,10 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
         creator_name: 'P1047 null-creator room',
         creator_profile_id: null,
         target_listener_id: null,
+        // P1224: a seated guest, so the strongest anonymous caller below passes USING.
+        joiner_name: 'guest',
+        joiner_seat_claimed_at: new Date().toISOString(),
+        joiner_seat_secret: nullCreatorSecret,
         state: {},
       })
       .select('id')
@@ -498,8 +512,9 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
 
     // P1302: the strongest anonymous caller — one presenting the room's code — so the row is
     // visible and the refusal below is WITH CHECK's doing, not the row simply being invisible
-    // (which would surface as no error at all).
-    const anon = makeGuestClient(nullCreatorCode);
+    // (which would surface as no error at all). P1224: the strongest caller now also presents the
+    // seat secret, without which USING already refuses and this control would be blind.
+    const anon = makeGuestClient(nullCreatorCode, nullCreatorSecret);
     const { error } = await anon
       .from('clarity_sessions')
       .update({ state: { step: 'guest-wrote-this' } })
@@ -518,9 +533,10 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
   });
 
   test('control: anonymous guest can still call patch_live_state RPC', async () => {
-    const row = await seedVictimSession('control rpc');
+    const row = await seedVictimSession('control rpc', { seatedGuest: true });
     // P1302: the guest arm of patch_live_state asks for the room code, like every other guest path.
-    const anon = makeGuestClient(row.code);
+    // P1224: and for the seat secret, which only the seated guest holds.
+    const anon = makeGuestClient(row.code, row.seatSecret);
 
     const { error } = await anon.rpc('patch_live_state', {
       p_session_id: row.id,

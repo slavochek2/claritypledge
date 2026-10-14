@@ -19,8 +19,8 @@ import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
 import { logDbError } from './db-error-logger';
-import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
-import { getSeatSecret, setSeatSecret, clearSeatSecret } from './seat-secret';
+import { clientHasSession, clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
+import { getSeatSecret, setSeatSecret, clearSeatSecret, restoreSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 import type {
@@ -935,6 +935,10 @@ function mapSessionFromDb(dbSession: DbClaritySession, knownCode: string): Clari
   // Register it so REST requests present the code — the only credential an account-less guest
   // has (room-capability.ts). Every code-bearing path funnels through here.
   holdRoomCode(code);
+  // P1224: a guest's writes are authorized by its seat secret, not by the code. Restoring it here
+  // is what keeps a reloaded guest able to act — the secret survives in storage, but nothing
+  // presents it until the session re-enters the client. No-op when this tab holds no secret.
+  restoreSeatSecret(dbSession.id);
   return {
     id: dbSession.id,
     code,
@@ -1222,6 +1226,42 @@ export async function getClaritySession(code: string): Promise<ClaritySession | 
 }
 
 /**
+ * P1224: an account-less guest's write was refused because this tab does not hold the seat's
+ * credential — the seat predates P1269, was left, or was taken over. Retrying the same write can
+ * never succeed; the caller must re-join (joinClaritySession) or tell the guest.
+ */
+export class GuestSeatLostError extends Error {
+  constructor(public readonly sessionId: string) {
+    super('This tab no longer holds the guest seat for this session');
+    this.name = 'GuestSeatLostError';
+  }
+}
+
+export function isGuestSeatLost(err: unknown): err is GuestSeatLostError {
+  return err instanceof GuestSeatLostError;
+}
+
+/**
+ * P1224: shown on the join form when a guest's write is refused and re-joining could not restore
+ * the seat (someone else holds it). Shared by the live and demo pages.
+ * [FOUNDER DECISION: copy — proposed in features/p1224_guest_live_state_patch_keyed_only_by_session_id.md]
+ */
+export const GUEST_SEAT_LOST_MESSAGE =
+  'You are no longer in this session. Open the session link again to rejoin.';
+
+/**
+ * P1224: a direct row UPDATE that the row policy filters out is not an error to PostgREST — it
+ * answers success with zero rows, and the UI would confirm a write that never happened. So the
+ * session-row writers ask for the written id back and, for an account-less caller, treat zero
+ * rows as a lost seat. A signed-in participant keeps the existing contract (no throw).
+ */
+async function assertGuestRowWritten(sessionId: string, rows: unknown[] | null): Promise<void> {
+  if (rows && rows.length > 0) return;
+  if (await clientHasSession()) return;
+  throw new GuestSeatLostError(sessionId);
+}
+
+/**
  * Updates the session state (for realtime sync).
  * @param sessionId - The session UUID
  * @param state - Partial state to merge
@@ -1230,15 +1270,17 @@ export async function updateClaritySessionState(
   sessionId: string,
   state: Record<string, unknown>
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clarity_sessions')
     .update({ state })
-    .eq('id', sessionId);
+    .eq('id', sessionId)
+    .select('id');
 
   if (error) {
     console.error('Error updating session state:', error.message);
     throw new Error(error.message);
   }
+  await assertGuestRowWritten(sessionId, data);
 }
 
 /**
@@ -1251,10 +1293,11 @@ export async function updateClaritySessionLiveState(
   liveState: Record<string, unknown>
 ): Promise<void> {
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clarity_sessions')
     .update({ live_state: liveState, mode: 'live' })
-    .eq('id', sessionId);
+    .eq('id', sessionId)
+    .select('id');
 
   if (error) {
     console.error('[Live API] Error updating live state:', error.message, error.code, error.details);
@@ -1266,6 +1309,7 @@ export async function updateClaritySessionLiveState(
     }
     throw new Error(error.message);
   }
+  await assertGuestRowWritten(sessionId, data);
 }
 
 /**
@@ -1293,6 +1337,11 @@ export async function patchClaritySessionLiveState(
   });
 
   if (error) {
+    // P1224: the guest arm refuses an account-less caller without the seat credential (42501).
+    // Only an account-less caller can receive it here; a signed-in refusal stays a silent no-op.
+    if (error.code === '42501' && !(await clientHasSession())) {
+      throw new GuestSeatLostError(sessionId);
+    }
     console.error('[Live API] Error patching live state:', error.message, error.code, error.details);
     // P525: Capture in Sentry for visibility
     try { Sentry.captureException(new Error(`[Live API] patchLiveState: ${error.message}`), { extra: { code: error.code, details: error.details, sessionId } }); } catch { /* */ }
@@ -1309,15 +1358,17 @@ export async function updateClarityDemoStatus(
   sessionId: string,
   demoStatus: 'waiting' | 'in_progress' | 'completed'
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clarity_sessions')
     .update({ demo_status: demoStatus })
-    .eq('id', sessionId);
+    .eq('id', sessionId)
+    .select('id');
 
   if (error) {
     console.error('Error updating demo status:', error.message);
     throw new Error(error.message);
   }
+  await assertGuestRowWritten(sessionId, data);
 }
 
 // ============================================================================
@@ -1473,9 +1524,9 @@ export async function clearSessionJoiner(sessionId: string, code: string | null)
   // The secret is read here rather than threaded through the three call sites: none of them
   // has any business handling a bearer credential, and seat-secret.ts exists precisely to keep
   // it out of the session object, React state, analytics and Sentry. Null is correct and
-  // expected for a SIGNED-IN joiner (their arm authorizes on auth.uid() and never needed one)
-  // and for a legacy seat claimed before P1269 (the server falls back to the code for those,
-  // gated on its own column and not on what we send).
+  // expected for a SIGNED-IN joiner (their arm authorizes on auth.uid() and never needed one).
+  // P1224: a guest seat claimed before P1269 holds no secret and can no longer be released by an
+  // anonymous caller at all; every call site below catches the refusal and carries on leaving.
   // The key is OMITTED when we hold no secret, rather than sent as null. PostgREST resolves
   // an overload by the named arguments supplied, and P1314 C's migration
   // (20260915100000) lives on a different branch — so between this code deploying and that
@@ -1680,15 +1731,17 @@ export async function updateDemoFlowState(
     ...demoState,
   };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clarity_sessions')
     .update({ state: mergedState })
-    .eq('id', sessionId);
+    .eq('id', sessionId)
+    .select('id');
 
   if (error) {
     console.error('Error updating demo flow state:', error.message);
     throw new Error(error.message);
   }
+  await assertGuestRowWritten(sessionId, data);
 
 }
 
