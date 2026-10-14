@@ -69,8 +69,12 @@ describe('P1453: banner_credit is server-written only', () => {
   it('delete-own-profile then INSERT cannot carry a credit in', async () => {
     const c = await signedIn(user);
     const { data: before } = await supabaseAdmin.from('profiles').select('*').eq('id', user.user.id).single();
+    // P1137: client-role DELETE on profiles is revoked, so the client half of this path is refused;
+    // the INSERT guard is still exercised from a service-role-cleared row.
     const { error: delErr } = await c.from('profiles').delete().eq('id', user.user.id);
-    expect(delErr).toBeNull();
+    expect(delErr?.code).toBe('42501');
+    const { error: adminDelErr } = await supabaseAdmin.from('profiles').delete().eq('id', user.user.id);
+    expect(adminDelErr).toBeNull();
     const row = { ...before, banner_credit: FORGED };
     const { error: insErr } = await c.from('profiles').insert(row);
     expect(insErr).toBeNull();

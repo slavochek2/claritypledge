@@ -16,7 +16,8 @@
  *
  *   Path 3 — delete-own-profile (20250117 DELETE policy) + a fresh direct INSERT
  *     (20260219 INSERT policy, no column scope). The P880 guard trigger forces new
- *     client-role rows to is_verified=false / has_pledged=false.
+ *     client-role rows to is_verified=false / has_pledged=false. Since P1137 the client
+ *     delete itself is refused; the INSERT half is exercised from a service-role-cleared row.
  *
  * Plus a POSITIVE proof that the legitimate server-controlled path still works: the
  * dedicated SECURITY DEFINER accessors `mark_self_verified()` + `set_my_pledge(true)`
@@ -133,13 +134,18 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
   });
 
   test('Path 3: delete-own-profile + direct INSERT cannot seed is_verified / has_pledged', async () => {
-    // The attack: drop your own row (DELETE policy: email = auth.email()), then re-create
-    // it via a direct INSERT (INSERT policy: auth.uid() = id) carrying is_verified=true.
+    // P1137: client-role DELETE on profiles is revoked (no product flow deletes a profile from the
+    // client; erasure is erase_my_account()), so the first half of this path is now refused.
     const { error: deleteError } = await victimClient
       .from('profiles')
       .delete()
       .eq('id', victimId);
-    expect(deleteError, `[P880][path3] self-delete should be allowed: ${deleteError?.message}`).toBeNull();
+    expect(deleteError?.code, `[P880][path3] client self-delete must be refused (P1137)`).toBe('42501');
+
+    // The INSERT half is still guarded on its own: put the caller in the row-less state with the
+    // service role, then attempt the direct INSERT carrying is_verified=true.
+    const { error: adminDelete } = await supabaseAdmin.from('profiles').delete().eq('id', victimId);
+    expect(adminDelete, `[P880][path3] service-role setup delete: ${adminDelete?.message}`).toBeNull();
 
     const { error: insertError } = await victimClient.from('profiles').insert({
       id: victimId,

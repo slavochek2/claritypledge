@@ -195,6 +195,12 @@ export function AuthCallbackPage() {
       // This handles the case where a /live user (anonymous auth) logs in via magic link
       // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
       // Only run for /live registrations — other sources don't have anonymous profiles to migrate.
+      // P1137: when set, the profile write below goes through migrate_live_profile, which
+      // removes the old row, creates the new one and carries is_test_account in ONE server
+      // transaction. The client no longer deletes the old row itself: once it was gone, no
+      // server call could recover its trust flags, and a failed create left the user with
+      // no profile at all.
+      let migrateFromLegacyProfile = false;
       if (!existingProfile && isLiveRegistration && authUser.email) {
         // P877: profiles.email/linkedin_url/reason are revoked from authenticated.
         // get_my_profile_by_email (SECURITY DEFINER) returns the full row ONLY when the
@@ -223,48 +229,7 @@ export function AuthCallbackPage() {
             // Continue anyway but log for debugging
           }
 
-          // Save old profile data for recovery if upsert fails
-          const oldProfileBackup = {
-            id: profileByEmail.id,
-            email: profileByEmail.email,
-            name: profileByEmail.name,
-            slug: profileByEmail.slug,
-            role: profileByEmail.role,
-            linkedin_url: profileByEmail.linkedin_url,
-            reason: profileByEmail.reason,
-            avatar_color: profileByEmail.avatar_color,
-            avatar_url: profileByEmail.avatar_url,
-            avatar_provider: profileByEmail.avatar_provider,
-            is_verified: profileByEmail.is_verified,
-            has_pledged: profileByEmail.has_pledged,
-            pledge_version: profileByEmail.pledge_version,
-            accepted_terms_version: profileByEmail.accepted_terms_version,
-            created_at: profileByEmail.created_at,
-          };
-
-          // Delete old profile - it was created with anonymous auth ID
-          // The new upsert will create fresh profile with correct auth ID
-          // If upsert fails, we'll attempt to restore from oldProfileBackup
-          const { error: deleteError } = await supabase
-            .from('profiles')
-            .delete()
-            .eq('id', profileByEmail.id);
-
-          if (deleteError) {
-            console.error('❌ Failed to delete old profile during migration:', deleteError);
-            // Continue anyway - the upsert might still work or give clearer error
-          } else {
-            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-            if (import.meta.env.DEV) console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
-          }
-
-          // Store backup to sessionStorage (survives page reload, unlike window)
-          // This enables recovery if upsert fails or page reloads mid-migration
-          try {
-            sessionStorage.setItem('__profileMigrationBackup', JSON.stringify(oldProfileBackup));
-          } catch {
-            console.warn('⚠️ Could not store profile backup to sessionStorage');
-          }
+          migrateFromLegacyProfile = true;
 
           // Use data from old profile for the new one
           existingProfile = {
@@ -282,15 +247,9 @@ export function AuthCallbackPage() {
             witnesses: [],
             reciprocations: 0,
             pledgeVersion: profileByEmail.pledge_version,
-            // P1133: fixes is_internal for THIS login's analytics event only.
-            // upsert_my_profile's INSERT column list never includes is_test_account
-            // (P571's RLS pins it against ordinary client writes — same trust-column
-            // class as is_verified/has_pledged), so the delete+upsert below still
-            // persists the new row with is_test_account=false regardless of this
-            // value. Every login AFTER this migration reads is_test_account:false
-            // from the DB again. A real fix needs a SECURITY DEFINER RPC (like
-            // markSelfVerified/setMyPledge below) and is out of scope for P1133's
-            // Non-Goals (no schema/RPC changes) — tracked separately, see spec Risks.
+            // P1133: is_internal for THIS login's analytics event. The stored value is
+            // carried server-side by migrate_live_profile (P1137), which reads it from the
+            // old row itself — this in-memory copy is never written back.
             isTestAccount: profileByEmail.is_test_account ?? false,
           };
         }
@@ -399,6 +358,7 @@ export function AuthCallbackPage() {
       if (import.meta.env.DEV) console.log('🔄 Existing user from useAuth:', user);
 
       // Try to upsert with retry logic for slug conflicts
+      const profileWriteRpc = migrateFromLegacyProfile ? 'migrate_live_profile' : 'upsert_my_profile';
       let upsertError = null;
       let retries = 0;
 
@@ -406,8 +366,9 @@ export function AuthCallbackPage() {
         // P877: profiles.email/linkedin_url/reason are revoked from authenticated, so a
         // direct .upsert() (which reads EXCLUDED.email) fails. upsert_my_profile writes
         // the caller's own row server-side (id forced to auth.uid()).
+        // P1137: a /live migration writes through migrate_live_profile instead (same p_data).
         const { error } = await supabase
-          .rpc('upsert_my_profile', { p_data: upsertData });
+          .rpc(profileWriteRpc, { p_data: upsertData });
 
         if (!error) {
           // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
@@ -467,7 +428,7 @@ export function AuthCallbackPage() {
 
         // P877: own-row write via SECURITY DEFINER accessor (see above).
         const { error: finalError } = await supabase
-          .rpc('upsert_my_profile', { p_data: upsertData });
+          .rpc(profileWriteRpc, { p_data: upsertData });
 
         if (finalError) {
           upsertError = finalError;
@@ -478,37 +439,8 @@ export function AuthCallbackPage() {
       }
 
       if (upsertError) {
-        // Attempt to recover migrated profile if we have a backup
-        let backup: Record<string, unknown> | null = null;
-        try {
-          const backupStr = sessionStorage.getItem('__profileMigrationBackup');
-          if (backupStr) {
-            backup = JSON.parse(backupStr);
-          }
-        } catch {
-          console.warn('⚠️ Could not read profile backup from sessionStorage');
-        }
-
-        if (backup) {
-          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          if (import.meta.env.DEV) console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
-          const { error: restoreError } = await supabase
-            .from('profiles')
-            .insert(backup);
-
-          if (restoreError) {
-            console.error('❌ CRITICAL: Failed to restore profile backup:', restoreError);
-            Sentry.captureException(new Error('Profile migration recovery failed'), {
-              extra: { backup, upsertError, restoreError },
-            });
-          } else {
-            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-            if (import.meta.env.DEV) console.log('✅ Old profile restored successfully');
-          }
-          // Clean up backup
-          sessionStorage.removeItem('__profileMigrationBackup');
-        }
-
+        // P1137: a failed migrate_live_profile rolls back in full, so the old /live
+        // profile is still in place — there is nothing to restore client-side.
         analytics.track('auth_callback_failed', { reason: 'profile_upsert_failed' });
         setStatus("Error creating profile. Please contact support.");
         console.error("❌ Error upserting profile:", upsertError);
@@ -540,9 +472,6 @@ export function AuthCallbackPage() {
       // login re-runs this. Zero replayed is the normal case, not a failure.
       const { error: replayErr } = await replayLetterPositions();
       if (replayErr) console.warn('⚠️ replay_letter_positions failed (non-fatal):', replayErr.message);
-
-      // Clean up backup on success
-      sessionStorage.removeItem('__profileMigrationBackup');
 
       // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');

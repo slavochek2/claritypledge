@@ -193,7 +193,7 @@ Since P396 (2026-02-19) there is **no unverified-profile state**. `getOrCreateGu
 
 ### Legacy remnants (harmless, but don't build on them)
 
-- `AuthCallbackPage` still contains the `source=live` by-email migration branch (delete old anonymous-ID profile → recreate under the new auth ID). Nothing sends `source=live` anymore; it exists for any pre-P396 guest profile.
+- `AuthCallbackPage` still contains the `source=live` by-email migration branch (old anonymous-ID profile → recreated under the new auth ID, server-side and atomically via `migrate_live_profile` since P1137, which also carries `is_test_account`). Nothing sends `source=live` anymore; it exists for any pre-P396 guest profile.
 - `clarity-live-page.tsx` comments around `handlePositionSelectInLive` still say "Unverified guests (is_verified=false) skip DB sync" — post-P396 the skipped case is simply `!user`.
 - `/me` (`me-page.tsx`) still renders a "Verify Your Email" prompt for a user **with no slug**. Since P736 made `profiles.slug NOT NULL`, this branch is unreachable for new accounts; logged-in users are redirected to `/p/{slug}`, logged-out users to `/login`.
 - `src/app/hooks/useVerificationGate.ts` still exists and is imported by `doc-detail-page.tsx`.

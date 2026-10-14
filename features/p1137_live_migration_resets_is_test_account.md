@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 disclosure: public
 rank: 227
@@ -8,8 +8,11 @@ workstream: analytics
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [live, migration, is_test_account, trust-columns]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-10-14'
+root_cause: The client deleted the legacy row before creating the new one through upsert_my_profile, which never writes is_test_account, so the flag was gone before any server call could carry it.
+resolution: New SECURITY DEFINER migrate_live_profile(jsonb) migrates only an anonymous-owned legacy row matching the caller's confirmed email (case-insensitive, unambiguous), creating the caller's row insert-only and carrying is_test_account in one transaction; AuthCallbackPage's /live branch calls it instead of delete + upsert. Client DELETE on profiles removed; is_test_account server-owned on client INSERT.
 ---
 
 # P1137: `/live` account migration silently resets `is_test_account` to false, permanently
@@ -103,12 +106,51 @@ upsert path for ALL callers, not just the migration case.
 
 ## Acceptance Criteria
 
-- [ ] A profile with `is_test_account = true` that migrates via `/live` → authenticated login
+- [x] A profile with `is_test_account = true` that migrates via `/live` → authenticated login
       still has `is_test_account = true` in the database afterward — verified by querying the row,
       not just the in-memory/analytics value
-- [ ] A profile with `is_test_account = false` migrating the same way stays `false` (no accidental
-      flip in the other direction)
-- [ ] The new RPC is NOT callable to set an arbitrary caller's `is_test_account` to `true` at will
+      *(Evidence: integration test "true -> true" reads the new row back with the service role
+      after calling the RPC the migration branch now uses; `src/tests/p1137-live-migration-flag-carry.test.tsx`
+      pins that the branch calls `migrate_live_profile` and no client-side delete.)*
+- [x] A profile with `is_test_account = false` migrating the same way stays `false` (no accidental
+      flip in the other direction) *(Evidence: integration test "false -> false".)*
+- [x] The new RPC is NOT callable to set an arbitrary caller's `is_test_account` to `true` at will
       outside the migration flow (would defeat the point of the P571 lock)
-- [ ] Regression test covers both migration directions (true→true, false→false) against the real
-      RPC, not a mock
+      *(Evidence: the function takes no flag argument and ignores any flag in its payload; integration
+      tests cover an existing-profile caller (refused), a fresh caller asking for `true` (gets `false`),
+      another address's flagged row (untouched), and anon (42501). Both caller tests went red against
+      a deliberately weakened function on the test project, then green on the real one. The column is
+      also server-owned on client-role INSERT (second migration below) —
+      `e2e/integration/20261014071138_p1137_pin_test_account_flag_on_insert.spec.ts`.)*
+- [x] Regression test covers both migration directions (true→true, false→false) against the real
+      RPC, not a mock *(Evidence: `e2e/integration/20261014071137_p1137_live_migration_carries_test_flag.spec.ts`,
+      7/7 on the test project.)*
+
+## Resolution
+
+**Fix:** `supabase/migrations/20261014071137_p1137_live_migration_carries_test_flag.sql` adds
+`migrate_live_profile(p_data jsonb)` (SECURITY DEFINER, `search_path = ''`, authenticated only). In one
+transaction it locks the candidate legacy rows (email equal to the caller's confirmed auth email,
+case-insensitively — the same rule as `get_my_profile_by_email`), refuses ambiguity, and migrates only a
+row owned by an anonymous auth user (the pre-P396 guest identity). It reads that row's
+`is_test_account`, deletes it, creates the caller's row insert-only (so it can never act on a row that
+already exists), fills it via `upsert_my_profile` (called, not copied), and sets `is_test_account = true`
+only when the legacy row had it. It never writes `false` and never takes the value from the caller. The
+legacy owner's auth record is locked with the profile and re-checked immediately before the delete. The
+same migration removes client-role DELETE on profiles entirely: no product flow deletes a profile from
+the client (erasure is `erase_my_account()`), so removal is server-side only and a profile's
+server-owned classification cannot be reset by re-creating the row.
+
+`AuthCallbackPage.tsx` now routes the `/live` branch's write through the function and no longer deletes
+the legacy row or keeps a sessionStorage backup — a failed create rolls back the delete, so there is
+nothing to restore.
+
+**Trust-column consistency:** `supabase/migrations/20261014071138_p1137_pin_test_account_flag_on_insert.sql`
+makes `is_test_account` server-owned on client-role INSERT as well, via a separate guard trigger
+(P1453/P1485 pattern; the shared `guard_profile_trust_columns` is not redefined).
+
+**Deploy order:** migrations before the frontend bundle (the bundle calls the new function; the reverse
+order breaks only this legacy branch).
+
+**Exposure note:** nothing currently sends `source=live` (see `docs/technical/authentication.md`), and
+prod has no profile owned by an anonymous auth user, so the branch has nothing to act on today.

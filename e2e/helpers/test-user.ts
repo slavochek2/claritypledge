@@ -471,8 +471,10 @@ export async function deleteTestUser(userId: string) {
     if (sessionsError) fail('clarity_sessions pre-clean', sessionsError);
   }
 
-  // Delete profile (cascades remaining FK-linked records)
-  const { error: profileError } = await supabaseAdmin
+  // Delete profile (cascades remaining FK-linked records).
+  // P1137: via profileWriter, not supabaseAdmin. Clients have no DELETE on profiles, and many specs
+  // sign in ON supabaseAdmin (see profileWriter above), after which its requests carry a user JWT.
+  const { error: profileError } = await profileWriter
     .from('profiles')
     .delete()
     .eq('id', userId);

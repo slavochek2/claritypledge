@@ -627,7 +627,7 @@ Public bucket, 2 MB, webp/jpeg/png. The first bucket the browser writes to: `aut
 | Select | Anyone | RLS `using(true)` (all rows), BUT column grants restrict columns (see P877 below) |
 | Insert | Authenticated | Create own profile only (`auth.uid() = id`) |
 | Update | Authenticated | Update own profile only (`auth.uid() = id`) |
-| Delete | Authenticated | Delete own profile only (`auth.uid() = id`) |
+| Delete | — | No client DELETE (P1137: policy dropped, privilege revoked from anon/authenticated). Removal is server-side only: `erase_my_account()`, `migrate_live_profile()`, service_role |
 
 **P877 — column-level PII gate (email, linkedin_url, reason):** RLS is row-level only; it does not gate columns. `anon`+`authenticated` have a column-scoped `GRANT SELECT` on the non-sensitive columns only — `email`/`linkedin_url`/`reason` are **not** directly selectable (or filterable in a WHERE) by either role (returns `42501`). Read/write them via the `SECURITY DEFINER` accessors instead:
 - `get_profile_by_id(uuid)` / `get_profile_by_slug(text)` — display fields always; `email` → owner only; `linkedin_url`/`reason` → verified+pledged (public-by-design) or owner
@@ -640,6 +640,7 @@ Public bucket, 2 MB, webp/jpeg/png. The first bucket the browser writes to: `aut
 - `lookup_party_by_email(text)` — resolve an invitee to a party (no email out); authenticated only
 - `email_exists(text)` — login email check (boolean only)
 - `upsert_my_profile(jsonb)` — own-row write (forces `id = auth.uid()`); needed because `.upsert()` reads `EXCLUDED.email` which requires the revoked SELECT privilege
+- `migrate_live_profile(jsonb)` — the `/live` migration's write (P1137): in one transaction, removes the caller's legacy row (a profile owned by an anonymous auth user whose email matches the caller's confirmed email case-insensitively; refused if ambiguous or if the owner is a regular account), creates the caller's row insert-only and fills it via `upsert_my_profile`, and carries `is_test_account`. Takes no flag argument; authenticated only
 - `admin_list_users()` — every non-test profile with `email`, `linkedin_url` and `auth.users.last_sign_in_at`, for `/admin/users` (P1381). Admin-only via `assert_admin()`.
 
 **Admin-only RPCs (P1381) — the pattern for every founder/admin surface.** The repo is public, so the gate can never be a client check. It is `profiles.is_admin`, which clients can neither read (not in any column GRANT) nor write (pinned by `guard_profile_trust_columns` for anon/authenticated). `unique_admin` (P878) allows **one** `is_admin = true` row; granting a second admin means relaxing that index deliberately. Every admin-only function must:

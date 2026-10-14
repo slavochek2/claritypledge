@@ -20,7 +20,15 @@ vi.mock('@playwright/test', () => ({
   test: { info: () => { if (!inPlaywright) throw new Error('not in a test'); return {}; } },
   expect: { soft: (...a: unknown[]) => soft(...a) },
 }));
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({}) }));
+// P1137: the profile delete runs on test-user.ts's own never-signed-in service client (profileWriter,
+// built with createClient), so that client resolves profile deletes from the same error map.
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({
+    from: (table: string) => ({
+      delete: () => ({ eq: () => Promise.resolve({ error: errors[table] ?? null }) }),
+    }),
+  }),
+}));
 vi.mock('../../e2e/helpers/supabase-admin', () => {
   const result = (table: string) => Promise.resolve({ error: errors[table] ?? null });
   return {
