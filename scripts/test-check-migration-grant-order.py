@@ -18,6 +18,16 @@ import subprocess
 import sys
 import tempfile
 
+# Every fixture below is a scratch repo. Run from pre-commit (it is, whenever the checker is
+# staged), this process inherits the hook's GIT_DIR / GIT_INDEX_FILE, which override
+# `git -C` and would aim the fixtures' `git add` at the COMMITTING repo's index (P1273).
+# Scrubbed once here, the same family scripts/test-block-banned-git.py scrubs (P1131).
+for _v in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE",
+           "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_PREFIX",
+           "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE",
+           "GIT_CEILING_DIRECTORIES", "GIT_TEMPLATE_DIR"):
+    os.environ.pop(_v, None)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CHECKER = os.path.join(HERE, "check-migration-grant-order.py")
 REAL_DIR = os.path.join(os.path.dirname(HERE), "supabase", "migrations")
@@ -617,6 +627,125 @@ for desc, b_body, refused in (
     else:
         check(f"7.3 ACCEPT: comment edit to a revoke whose function was later {desc}",
               code == 0, out + err)
+
+# ---------------------------------------------------------------------------
+print("\nP1488: --index under a REAL pre-commit hook, from a linked worktree and from main")
+# git exports GIT_DIR to hooks, absolute and without GIT_WORK_TREE, from a linked worktree
+# (not from a main checkout). With GIT_DIR set, git takes the cwd as the top of the work
+# tree, so the checker's `git -C <migrations dir> ls-files` read the migrations dir as the
+# repo root: every entry came back as supabase/migrations/..., none was a bare migration
+# name, and the corpus was EMPTY. A staged migration then exited 2 ("not found"), and a
+# commit staging only a rename or deletion passed --invariant over 0 migrations. A
+# reconstructed env would only prove the variables I thought of, so these cases run an
+# actual `git commit` and read what the checker said inside the hook.
+
+
+def hook_run(repo_root, worktree, *pathspec):
+    """`git commit` in `worktree` through a pre-commit hook that runs the checker exactly
+    as pre-commit-checks.sh does (targets = staged ACMR migrations, so none for a
+    deletion-only commit). The hook records exit code + output and then aborts, so the
+    fixture stays staged."""
+    rec = tempfile.mkdtemp(prefix="mgo-hookrec-")
+    hook = os.path.join(repo_root, ".git", "hooks", "pre-commit")
+    targets = "$(git diff --cached --name-only --diff-filter=ACMR | grep '^supabase/migrations/.*\\.sql$')"
+    with open(hook, "w") as fh:
+        fh.write("#!/bin/sh\n"
+                 f"'{sys.executable}' '{CHECKER}' --index --dir \"$PWD/supabase/migrations\" "
+                 f"--invariant {targets} > '{rec}/out' 2>&1\n"
+                 f"echo $? > '{rec}/rc'\n"
+                 "exit 1\n")
+    os.chmod(hook, 0o755)
+    subprocess.run(["git", "-C", worktree, "-c", f"core.hooksPath={os.path.dirname(hook)}",
+                    "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+                    "commit", "-q", "-m", "fixture", *pathspec], capture_output=True)
+    if not os.path.exists(os.path.join(rec, "rc")):
+        return None, "hook did not run"
+    with open(os.path.join(rec, "rc")) as fh, open(os.path.join(rec, "out")) as fo:
+        return int(fh.read().strip()), fo.read()
+
+
+def linked_worktree(root):
+    wt = tempfile.mkdtemp(prefix="mgo-wt-")
+    os.rmdir(wt)
+    git(root, "worktree", "add", "-q", "-b", "feat", wt)
+    return wt, os.path.join(wt, "supabase", "migrations")
+
+
+root, d = git_repo({A: REVOKE_AUTH}, stage=[A])
+commit_all(root)
+wt, wd = linked_worktree(root)
+with open(os.path.join(wd, B), "w") as fh:
+    fh.write("SELECT 1;\n")
+git(wt, "add", f"supabase/migrations/{B}")
+code, out = hook_run(root, wt)
+check("P1488: a harmless migration committed from a linked worktree passes inside the hook",
+      code == 0 and "across 2 migrations" in out, f"exit {code}: {out}")
+
+with open(os.path.join(wd, B), "w") as fh:
+    fh.write(GRANT_AUTH)
+git(wt, "add", f"supabase/migrations/{B}")
+code, out = hook_run(root, wt)
+check("P1488: from a linked worktree the hook still REFUSES a contradiction (exit 1, not 2)",
+      code == 1 and "widens-revoked" in out, f"exit {code}: {out}")
+
+# A pathspec commit records the WORKING TREE copy of the named path, through a temporary
+# index git exports as GIT_INDEX_FILE. The default index still holds the harmless version,
+# so a fix that dropped GIT_INDEX_FILE would read that and pass a GRANT being committed.
+with open(os.path.join(wd, B), "w") as fh:
+    fh.write("SELECT 1;\n")
+git(wt, "add", f"supabase/migrations/{B}")
+with open(os.path.join(wd, B), "w") as fh:
+    fh.write(GRANT_AUTH)
+code, out = hook_run(root, wt, "--", f"supabase/migrations/{B}")
+check("P1488: a pathspec commit from a linked worktree is judged on the temporary index "
+      "it records (refused, though the default index holds a harmless copy)",
+      code == 1 and "widens-revoked" in out, f"exit {code}: {out}")
+
+# The kept GIT_INDEX_FILE is only sound for the repository GIT_DIR names. Pointed at a
+# different one, the checker must refuse rather than read one repo's paths from another's index.
+other, od = git_repo({A: REVOKE_AUTH}, stage=[A])
+p = subprocess.run([sys.executable, CHECKER, "--index", "--invariant", "--dir", od],
+                   capture_output=True, text=True, cwd=wt,
+                   env={**os.environ, "GIT_DIR": subprocess.run(
+                       ["git", "-C", wt, "rev-parse", "--absolute-git-dir"],
+                       capture_output=True, text=True, check=True).stdout.strip()})
+check("P1488: GIT_DIR naming a different repository than --dir exits 2, never reads it",
+      p.returncode == 2 and "another repository" in p.stderr, f"exit {p.returncode}: {p.stdout}{p.stderr}")
+
+# Deleting the re-assert leaves the unacknowledged GRANT as the last word. The commit
+# stages no ACMR migration, so the hook runs --invariant alone — which over an empty
+# corpus reported "holds across 0 migrations" and exited 0.
+root, d = git_repo({A: REVOKE_AUTH, B: GRANT_AUTH, C: REVOKE_AUTH}, stage=[A, B, C])
+commit_all(root)
+wt, wd = linked_worktree(root)
+git(wt, "rm", "-q", f"supabase/migrations/{C}")
+code, out = hook_run(root, wt)
+check("P1488: deleting a re-assert from a linked worktree is refused inside the hook "
+      "(exit 1, not a vacuous 0)",
+      code == 1 and "REFUSED" in out, f"exit {code}: {out}")
+
+# Control: the main checkout, where git exports only a relative GIT_INDEX_FILE. This
+# passed before the fix too; it pins that the fix did not trade one checkout for the other.
+root, d = git_repo({A: REVOKE_AUTH}, stage=[A])
+commit_all(root)
+with open(os.path.join(d, B), "w") as fh:
+    fh.write(GRANT_AUTH)
+git(root, "add", f"supabase/migrations/{B}")
+code, out = hook_run(root, root)
+check("P1488 control: from the main checkout the hook refuses the same contradiction",
+      code == 1 and "widens-revoked" in out, f"exit {code}: {out}")
+with open(os.path.join(d, B), "w") as fh:
+    fh.write("SELECT 1;\n")
+git(root, "add", f"supabase/migrations/{B}")
+code, out = hook_run(root, root)
+check("P1488 control: from the main checkout a harmless migration passes",
+      code == 0 and "across 2 migrations" in out, f"exit {code}: {out}")
+
+# An index that holds no migrations at all is a scoping fault, never a clean tree.
+root, d = git_repo({A: REVOKE_AUTH}, stage=[])
+code, out, err = run_gate(d, invariant=True)
+check("P1488: --index over an index holding no migrations exits 2, never 0",
+      code == 2 and "did NOT run" in err, f"exit {code}: {out}{err}")
 
 # ---------------------------------------------------------------------------
 print("\nThe real migrations (gate 7c and 7d)")

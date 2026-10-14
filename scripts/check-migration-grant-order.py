@@ -486,8 +486,49 @@ def load(dir_path):
     return files, parsed
 
 
+_GIT_ENV = None
+
+
+def _git_env(dir_path):
+    """The environment for reading the index of the repository that holds `dir_path`.
+
+    P1488: git exports GIT_DIR to its hooks, absolute and with no GIT_WORK_TREE, from a
+    linked worktree (not from a main checkout). With GIT_DIR set git takes the CWD as the
+    top of the work tree, so `git -C <migrations dir> ls-files -- .` treated the
+    migrations directory as the repo root, listed every entry as supabase/migrations/...,
+    and the corpus came back empty: a staged migration was "not found" (exit 2) and a
+    deletion-only commit passed --invariant over 0 migrations. Same family as P1273/P1346.
+
+    So the repo-scoping variables are dropped and git finds the repository from dir_path.
+    GIT_INDEX_FILE is KEPT: for `git commit -a` or a pathspec commit it names a temporary
+    index, and that is what the commit records. A relative value (the main checkout's
+    `.git/index`) resolves against the top level, which is where discovery lands.
+    Keeping it is only sound for the same repository, so an inherited GIT_DIR naming a
+    different one than dir_path is refused rather than read.
+    """
+    global _GIT_ENV
+    if _GIT_ENV is not None:
+        return _GIT_ENV
+    p = subprocess.run(["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True)
+    scrub = set(p.stdout.split()) if p.returncode == 0 and p.stdout.strip() else {
+        "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG_PARAMETERS", "GIT_PREFIX"}
+    scrub.discard("GIT_INDEX_FILE")
+    env = {k: v for k, v in os.environ.items() if k not in scrub}
+    inherited = os.environ.get("GIT_DIR")
+    if inherited:
+        q = subprocess.run(["git", "-C", dir_path, "rev-parse", "--absolute-git-dir"],
+                           capture_output=True, text=True, env=env)
+        found = q.stdout.strip()
+        if q.returncode != 0 or os.path.realpath(found) != os.path.realpath(os.path.abspath(inherited)):
+            raise CannotRun(f"GIT_DIR names {inherited}, but {dir_path} belongs to "
+                            f"{found or 'no repository'}; refusing to read another repository's index")
+    _GIT_ENV = env
+    return env
+
+
 def _git(dir_path, *args):
-    p = subprocess.run(["git", "-C", dir_path, *args], capture_output=True)
+    p = subprocess.run(["git", "-C", dir_path, *args], capture_output=True, env=_git_env(dir_path))
     if p.returncode != 0:
         raise CannotRun(f"git {' '.join(args)} failed: "
                         f"{p.stderr.decode('utf-8', errors='replace').strip()}")
@@ -520,7 +561,8 @@ def load_index(dir_path):
     # One `git cat-file --batch` for every blob: a process per migration made this gate
     # take ~14s on 413 files, on every commit that stages a migration.
     p = subprocess.run(["git", "-C", dir_path, "cat-file", "--batch"],
-                       input="".join(entries[f] + "\n" for f in files).encode(), capture_output=True)
+                       input="".join(entries[f] + "\n" for f in files).encode(), capture_output=True,
+                       env=_git_env(dir_path))
     if p.returncode != 0:
         raise CannotRun(f"git cat-file --batch failed: {p.stderr.decode('utf-8', errors='replace').strip()}")
     out, pos, parsed = p.stdout, 0, {}
@@ -773,6 +815,10 @@ def main():
 
     try:
         files, parsed = load_index(dir_path) if args.index else load(dir_path)
+        # An empty corpus is a scoping fault, never a clean tree: every rule here holds
+        # vacuously over nothing, and --invariant then reports "holds across 0" (P1488).
+        if not files:
+            raise CannotRun(f"no migrations found in {'the index under ' if args.index else ''}{dir_path}")
         if args.tree:
             transitions, final, _ = analyse(files, parsed)
             print(f"{len(transitions)} revoke-then-grant transition(s) across {len(files)} migrations:")
