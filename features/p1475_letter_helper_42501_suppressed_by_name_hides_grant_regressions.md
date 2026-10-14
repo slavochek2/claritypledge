@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry, observability, letters, error-handling]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P1475: Letter-helper 42501 is suppressed by function name alone, so a signed-in user losing EXECUTE would never reach Sentry
