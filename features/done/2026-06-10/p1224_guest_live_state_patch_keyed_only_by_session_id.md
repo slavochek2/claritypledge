@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 disclosure: public
 rank: 252
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, rls, live, guest, rpc]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-10-14
 ---
 
 # P1224: Guest live-state patch RPC is authorized by session id alone
