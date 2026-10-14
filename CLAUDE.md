@@ -24,11 +24,9 @@ This file provides guidance for AI agents working with code in this repository. 
 
 > **Principle:** Check what already exists before building new.
 
-1. **Check git history**: `git log --oneline --all -- <path>` or `git log --all --grep="keyword"`
-2. **Search codebase**: `grep -r "ComponentName" src/`
-3. **Read the feature spec completely** if working from a P-number
-4. **Scan `features/done/INDEX.md`** for related past work and prior decisions
-5. **Verify assumptions before building — at every phase, scoped to schema/API/state dependencies.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. A change with no such dependency (copy, CSS, styling-only) doesn't need this pass. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **For answering questions about existing behavior:** a pure "what does it do" fact (is there a loading state, what prop name) — read the code directly. But if the question is "why is it built this way," "is it safe to change this," or the code looks deliberate-but-odd — `grep docs/decisions.md` for the relevant token first (when unsure which kind of question it is, treat it as a rationale question): the log holds invariants and rejected alternatives that source grep cannot surface.
+1. **Read the feature spec completely** if working from a P-number
+2. **Scan `features/done/INDEX.md`** for related past work and prior decisions
+3. **Verify assumptions before building — at every phase, scoped to schema/API/state dependencies.** Before writing code, a spec, or an architect plan that depends on a schema column, API response, or state invariant — verify it. A change with no such dependency (copy, CSS, styling-only) doesn't need this pass. Don't trust type definitions alone; check the migration files and `docs/technical/database.md`. "I'll assume X" → stop and verify X. **For answering questions about existing behavior:** a pure "what does it do" fact (is there a loading state, what prop name) — read the code directly. But if the question is "why is it built this way," "is it safe to change this," or the code looks deliberate-but-odd — `grep docs/decisions.md` for the relevant token first (when unsure which kind of question it is, treat it as a rationale question): the log holds invariants and rejected alternatives that source grep cannot surface.
 
 ---
 
@@ -186,7 +184,7 @@ After ship/deploy-adjacent work, state explicitly whether the change is live in 
 
 > **Principle:** Don't defer parallelizable work. AI agents execute in minutes, not hours.
 
-If you catch yourself saying "this will take hours" → spawn agents. The cost of spawning (5 min) < cost of context-switching back later (20+ min). Parallel agents for: updating multiple docs, searching multiple code areas, independent validations, multi-file refactors.
+If you catch yourself saying "this will take hours" → do it now, not later. Parallelize within the global subagent fan-out limits (default one; a second only for a named independent failure domain; 3+ needs the founder's ok) — never as a reason to exceed them.
 
 ---
 
@@ -308,7 +306,7 @@ No flow-picker (`/pick-flow` deprecated 2026-10-07 — models choose the flow th
 
 ## Git Safety (Firewall)
 
-Hard stops — rules auto-load when editing `src/`, `scripts/`, or `.sh` files via `.claude/rules/git.md`. See that file for the full banned-command list and reasoning.
+Hard stops — `.claude/rules/git.md` loads in every session (`globs: "*"`). See that file for the full banned-command list and reasoning.
 
 ---
 
@@ -334,12 +332,9 @@ Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.
 ```bash
 ./scripts/pre-commit-checks.sh  # REQUIRED before committing
 npm run kanban                   # Feature prioritization (port 9050)
-npm run dev && npm test && npm run build  # Standard dev loop
 ```
 
 **Kanban always from w0:** Run `kanban` or `kanban main` from the main repo only. Kanban reads `features/` from wherever it's launched — running from a worktree shows stale status for other features.
-
-**Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 
 **Source of truth docs** (all in `docs/`)**:** `CHARTER.md` (doc routing — one fact, one home) · `definitions.md` (concepts) · `lean-canvas.md` (business) · `hypotheses.md` (active bets) · `decisions.md` (trade-offs) · `philosophy.md` (WHY).
 
