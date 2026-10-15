@@ -43,4 +43,4 @@ Direction, not design (founder, 2026-10-16):
 
 ## Related
 
-- P1495 (v10 prototype, reuse only): `features/p1495_clarity_chat_v10_one_prototype_reuse_only.md`, which exists only on branch `feature/p1437-conversation-groups-v2`, not on main. P1459 Clarity Ledger: `features/p1459_clarity_chat_clarity_ledger.md`.
+- P1495 (v10 prototype, reuse only): `features/p1495_clarity_chat_v10_one_prototype_reuse_only.md`; its latest copy is on branch `feature/p1437-conversation-groups-v2` (main holds an older one). P1459 Clarity Ledger: `features/p1459_clarity_chat_clarity_ledger.md`.
