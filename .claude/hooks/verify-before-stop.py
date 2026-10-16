@@ -37,6 +37,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _transcript_lib import (
@@ -63,18 +64,34 @@ EDIT_TOOLS = ("Edit", "Write")
 # The founder re-typed the end-of-build review standard 145 times in 119 sessions, and
 # 76-80% of those asks followed work where no build skill ran (P1505 falsify review). So
 # the trigger lives HERE, at the end of any turn, not inside /dev or /fix.
-# Fires only when ALL hold: the turn's last message announces completion; this session
-# edited a reviewable file (Edit/Write/MultiEdit/NotebookEdit with a path); and no review
-# receipt (scripts/review_receipt.py) covers that file's CURRENT content.
-# Known limit: edits made by shell commands or by subagents are not seen.
+# Fires only when ALL hold: the turn announces completion (not a question, not negated);
+# this session SUCCESSFULLY edited a reviewable file; and the latest review receipt
+# (scripts/review_receipt.py) does not cover that file's current content.
+# Edits are read from the WHOLE transcript (not the 2000-line window), so long sessions
+# do not forget them. Known limit: shell edits and subagent edits are not seen.
 REVIEW_EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
-REVIEWABLE_PREFIXES = ("src/", "e2e/", "scripts/", "supabase/", ".claude/commands/", ".claude/hooks/")
+# Reviewable = everything in a repo EXCEPT prose. A deny-list, so settings.json, workflows,
+# package.json and rules are covered by default (P1505 review, Opus finding 8).
+NOT_REVIEWABLE_PREFIXES = ("docs/", "features/", "content/")
 DONE_RE = re.compile(
-    r"\b(done|implemented|finished|complete[d]?|committed|shipped|fixed|"
-    r"ready for (qa|review|you)|all set|works now|landed)\b",
+    r"\b(done|implemented|finished|complete[d]?|committed|shipped|fixed|pushed|merged|deployed|"
+    r"ready (to ship|for (qa|uat|review|you))|all set|works now|landed|wrapped up)\b",
     re.IGNORECASE,
 )
-SKIP_REVIEW_RE = re.compile(r"\b(skip|no|without)( the)? reviews?\b", re.IGNORECASE)
+# A completion word right after one of these is not a completion claim.
+# Searched in the same clause, up to 30 chars before the word ("once this is done").
+NEGATION_RE = re.compile(r"(\bnot\b|n't\b|\bonce\b|\buntil\b|\bif\b|\bbefore\b|\bnothing\b|\bto be\b|\bwhen\b)[^.!?\n]*$", re.IGNORECASE)
+# Explicit, affirmative waivers only — never "do not skip review", never a quoted mention.
+WAIVE_RE = re.compile(
+    r"\b(skip|no need for|drop)( the| a| any)? (code |end-of-build )?reviews?\b|"
+    r"\bno reviews? (needed|required|necessary)\b|\bwithout (a |any |the )?reviews?\b",
+    re.IGNORECASE,
+)
+WAIVE_NEGATED_RE = re.compile(r"(\bdo not|\bdon'?t|\bnever|\bnot)\s+$", re.IGNORECASE)
+QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|`[^`]*`")
+REVIEW_TIME_BUDGET_S = 6.0   # hook timeout is 20s; leave room for gates 1-2 and their output
+REVIEW_MAX_FILES = 300
+
 
 # --- KDD output-shape gate -------------------------------------------------
 # The sentinel is the mandatory closing line of /kdd step 7.2. Tolerant of the
@@ -197,49 +214,110 @@ def _load_receipts():
         return None
 
 
-def unreviewed_edits(entries, last_assistant_text):
-    """Reviewable files this session edited whose current content has no review receipt."""
-    if not last_assistant_text or not DONE_RE.search(last_assistant_text):
-        return []
-    # The founder can waive it for the turn: their latest typed message says skip/no review.
-    for entry in reversed(entries):
-        if entry.get("type") == "user":
-            text = extract_text(get_message_content(entry))
-            if text.strip():
-                if SKIP_REVIEW_RE.search(text):
-                    return []
-                break
-    paths = []
-    for entry in entries:
-        if entry.get("type") != "assistant":
-            continue
-        for tu in extract_tool_uses(get_message_content(entry)):
-            if tu.get("name") not in REVIEW_EDIT_TOOLS:
-                continue
-            inp = tu.get("input") or {}
-            p = inp.get("file_path") or inp.get("notebook_path")
-            if p and p not in paths:
-                paths.append(p)
-    if not paths:
-        return []
-    rr = _load_receipts()
-    if rr is None:
-        return []
-    reviewable = []
-    for p in paths:
-        loc = rr.locate(p)
-        if loc and loc[1].replace(os.sep, "/").startswith(REVIEWABLE_PREFIXES):
-            reviewable.append(p)
+def announces_completion(turn_text, last_assistant_text):
+    """True when the turn claims the work is complete. A turn ending in a question is
+    asking the founder something, not announcing completion."""
+    if not turn_text or last_assistant_text.rstrip().endswith("?"):
+        return False
+    for m in DONE_RE.finditer(turn_text):
+        if not NEGATION_RE.search(turn_text[max(0, m.start() - 30):m.start()]):
+            return True
+    return False
+
+
+def founder_waived(text):
+    text = QUOTED_RE.sub(" ", text or "")
+    for m in WAIVE_RE.finditer(text):
+        if not WAIVE_NEGATED_RE.search(text[max(0, m.start() - 12):m.start()]):
+            return True
+    return False
+
+
+def session_edits(transcript_path):
+    """Paths successfully edited this session, read from the WHOLE transcript.
+    A tool call whose result is an error is not an edit."""
+    requested, failed = [], set()
     try:
-        return rr.unreviewed(reviewable)
+        with open(transcript_path, errors="replace") as f:
+            for line in f:
+                if '"tool_use"' not in line and '"tool_result"' not in line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                content = get_message_content(entry)
+                if not isinstance(content, list):
+                    continue
+                for b in content:
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "tool_use" and b.get("name") in REVIEW_EDIT_TOOLS:
+                        inp = b.get("input") or {}
+                        p = inp.get("file_path") or inp.get("notebook_path")
+                        if p:
+                            requested.append((b.get("id"), p))
+                    elif b.get("type") == "tool_result" and b.get("is_error"):
+                        failed.add(b.get("tool_use_id"))
+    except Exception:
+        return []
+    seen, out = set(), []
+    for tid, p in requested:
+        if tid in failed or p in seen:
+            continue
+        seen.add(p)
+        out.append(p)
+    return out
+
+
+def unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text):
+    """Reviewable files this session edited whose current content has no review receipt.
+    Fails open (returns []) on any error or when over its time budget."""
+    start = time.monotonic()
+    try:
+        if not announces_completion(turn_text, last_assistant_text):
+            return []
+        paths = session_edits(transcript_path)[:REVIEW_MAX_FILES]
+        if not paths:
+            return []
+        rr = _load_receipts()
+        if rr is None:
+            return []
+        reviewable = []
+        for p in paths:
+            if time.monotonic() - start > REVIEW_TIME_BUDGET_S:
+                return []
+            loc = rr.locate(p)
+            if not loc:
+                continue
+            rel = loc[1].replace(os.sep, "/")
+            if rel.startswith(NOT_REVIEWABLE_PREFIXES) or (rel.endswith(".md") and not rel.startswith(".claude/")):
+                continue
+            reviewable.append(p)
+        missing = rr.unreviewed(reviewable)
+        if not missing:
+            return []
+        # The founder can waive it: their latest typed message explicitly says skip review.
+        # The waiver is recorded, so a later docs-only turn does not re-raise these files.
+        for entry in reversed(entries):
+            if entry.get("type") == "user":
+                text = extract_text(get_message_content(entry))
+                if text.strip():
+                    if founder_waived(text):
+                        rr.waive(missing, "founder: " + text.strip()[:120])
+                        return []
+                    break
+        return missing
     except Exception:
         return []
 
 
 def main():
     data = load_input()
-    if data.get("stop_hook_active"):
-        sys.exit(0)  # already blocked once this turn — avoid an infinite loop
+    # A block forces the agent to keep working; the stop that follows must not run unchecked
+    # (P1505 review, Opus finding 2). On that follow-up stop only gate 1 (SAFETY) runs, and
+    # only while its own per-session budget lasts — the loop guard stays intact.
+    followup = bool(data.get("stop_hook_active"))
 
     transcript_path = data.get("transcript_path")
     if not transcript_path:
@@ -293,6 +371,16 @@ def main():
                     verified_since_edit = True
         claim_problem = seen_edit and not verified_since_edit
 
+    if followup:
+        if claim_problem and _retry_count(f"{data.get('session_id')}-claim", bump=True) < 2:
+            sys.stderr.write(
+                "BLOCKED: your last message claims something is live/working/fixed, but no "
+                "verification has run since the last Edit/Write. Verify first and cite the "
+                "output, or retract the claim.\n"
+            )
+            sys.exit(2)
+        sys.exit(0)
+
     # --- Gate 2 (FORMAT): KDD output shape, subject to a per-session budget.
     #     Exhausting that budget silences THIS gate only — never gate 1.
     problems = kdd_violations(turn_text)
@@ -307,7 +395,7 @@ def main():
 
     # --- Gate 3 (REVIEW, P1505): completion announced over unreviewed edits. Computed
     #     after gate 1 and reported alongside it — never instead of it.
-    unreviewed = unreviewed_edits(entries, last_assistant_text)
+    unreviewed = unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text)
 
     if not problems and not claim_problem and not unreviewed:
         sys.exit(0)
@@ -334,7 +422,7 @@ def main():
             "BLOCKED (P1505 review gate): you announced completion, but these files you edited "
             "have no independent review of their current content: " + shown + ".\n"
             "Run the end-of-build review standard now: /slava:build:finish on exactly these files "
-            "(it picks reviewers by stakes and writes the receipt via scripts/review_receipt.py). "
+            "(snapshot, reviewers by stakes, then the receipt via scripts/review_receipt.py). "
             "Report '<received> of <spawned>' and every finding as FIXED or for the founder. "
             "If the founder said to skip review, say so plainly instead."
         )

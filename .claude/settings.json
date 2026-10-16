@@ -100,7 +100,7 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-before-stop.py",
-            "timeout": 10
+            "timeout": 20
           }
         ]
       }

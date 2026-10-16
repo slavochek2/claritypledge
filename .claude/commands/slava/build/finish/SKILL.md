@@ -1,8 +1,8 @@
 ---
 name: finish
-description: "Internal review dispatcher — called by /dev and /fix for code review. Run standalone only if you coded manually without /dev."
-when_to_use: "Automatically inside /dev (step 9.5) and /fix (QA gate). Standalone use: only when user coded without /dev and wants a review before /ship."
-version: 1.1.0
+description: "The end-of-build review standard (P1505): classifies what changed, runs criteria reviewers plus external reviewers by stakes (Gemini review model always, Codex, Opus), and writes the review receipt. Called by /dev and /fix; run standalone after any ad-hoc build, or when the Stop-hook review gate asks for it."
+when_to_use: "Automatically inside /dev (step 9.5) and /fix (QA gate). Standalone: at the end of any build done outside /dev or /fix, and whenever the Stop-hook review gate (verify-before-stop.py) names files to review."
+version: 1.2.0
 ---
 
 # /finish
@@ -98,6 +98,10 @@ For each review type, check for existing artifacts. Skip reviews that already co
 > review simply runs — the safe direction. Apply the same reasoning before extending this to the other
 > review types; they are not fixed here because only `code` gates a ship.
 
+**File-argument mode never skips** (`/finish <file>...`, which the Stop-hook gate asks for): a
+`.finish-reviewed` stamp is not a review receipt, so skipping would leave the gate blocking with
+nothing written. Every row below applies only to the no-argument mode.
+
 Report what was skipped: "Skipping uat — UAT scorecard p621.md exists (5/5 passing)."
 
 ---
@@ -141,23 +145,40 @@ Find all specific issues (expect 3-15 for typical changes). If genuinely clean, 
 Founder ruling 2026-10-16: start with the cheapest, add as stakes rise, and keep the bar for Codex
 low. Under-reviewing costs the founder's attention later, and that costs more than reviews do.
 
+**The main session runs this step, never a subagent.** It needs several background Bash calls and,
+for Opus, an `Agent`. When `/dev` or `/fix` dispatch `/finish code` as a subagent, that subagent does
+the criteria review only. The caller runs Step 4b and Step 6b in parallel with it.
+
+**0. Snapshot first.** Before any reviewer starts, run
+`python3 scripts/review_receipt.py snapshot -- <CHANGED_FILES>` and keep the printed path. The receipt
+records exactly what the reviewers saw, and nothing written later.
+
 | Reviewer | Runs when | How |
 |---|---|---|
-| Gemini (review model) | **every run** | `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --review <prompt file> <files>` |
-| Codex | more than one file changed, OR the diff is over 50 lines, OR this is a long run | `~/.agents/bin/codex-review --prompt-file <prompt file>` |
-| Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, auth, `.claude/hooks/`, `scripts/git-ops.sh`, `scripts/ship-gates.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt; for security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
+| Gemini (review model) | **every run** | write a prompt file (the `criteria/code.md` text plus the diffs), then run `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt file>` |
+| Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes) | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
+| Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, an auth path (`**/auth*`, `**/*session*`, RLS), `.claude/hooks/`, `.claude/settings.json`, `scripts/git-ops.sh`, `scripts/ship-gates.sh`, `scripts/pre-commit-checks.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt that writes its report to a file. For security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
 
 The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
 `model-watch`). Never write it into this file.
 
-- **Prompt:** inline `criteria/code.md` and the changed files' diffs. Give the UI lenses only when
-  UI files changed (`src/app/**/*.tsx`, `*.css`).
-- **Launch:** start each external reviewer as its **own** `run_in_background` Bash call, with output to a
+- **Prompt:** the UI lenses go in only when UI files changed (`src/app/**/*.tsx`, `*.css`).
+  - Text-only reviewers judge layout and the first-time walk from the code.
+  - The rendered half (screenshots, `.claude/rules/visual-qa.md`) belongs to the main session or `/verify`.
+- **Launch:** start each external reviewer as its **own** `run_in_background` Bash call, writing its output to a
   file under the scratchpad. When it finishes, require `[ -s <file> ]` and an `ASK-MODEL:` first line
-  with `exit=0`. An empty file or a non-zero exit means **that review did not run**, whatever else it says.
-- **Count:** state `<received> of <spawned>`, naming any reviewer missing. A silent reviewer is not a clean one.
-- **Freshness:** run after the last code change. A fix applied after a review is unreviewed code. Re-review it
-  once; any new HIGH after that goes to the founder (decisions.md 2026-10-14 stopping rule).
+  with `exit=0`.
+- **Failures:** a non-zero exit, a model MISMATCH, an empty file, or a missing `REVIEW_GEMINI_MODEL` key all
+  mean **that review did not run**, whatever else the output says.
+  - Re-run it once by a different route (for example without `--model`, falling back to the default
+    `GEMINI_MODEL`, and say so).
+  - Otherwise report it as missing. Never count it as clean.
+- **Count:** state `<received> of <spawned>`, naming any reviewer that is missing. Opus counts here but is not receipt
+  evidence, because the receipt needs at least one `ask-model` output. A receipt written with a reviewer
+  missing must say so in the report.
+- **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
+  - Re-snapshot and re-review the changed files once, with the reviewers that found the fixed issues.
+  - Any new HIGH after that goes to the founder (decisions.md 2026-10-14 [process], "Overnight autonomous batch — when to stop review rounds").
 
 ### Delegated reviews
 
@@ -223,7 +244,7 @@ fi
 
 ## Step 6: Write Artifact
 
-**Subagent mode — skip this step.** When `/finish` is dispatched as a subagent by `/dev` (step 9.5) or `/fix` (QA gate step 1), the caller writes the stamp itself in step 9.5a / 1a. Subagents cannot reliably run this step — only standalone `/finish` invocations reach Step 6.
+**Subagent mode — skip this step and Step 6b.** When `/finish` is dispatched as a subagent by `/dev` (step 9.5) or `/fix` (QA gate step 1), the caller writes the stamp and the receipt itself in step 9.5a / 1a. Subagents cannot reliably run this step — only standalone `/finish` invocations reach Step 6.
 
 After review completes, write the shared stamp at `<git-common-dir>/.finish-reviewed` (resolves to the main repo from any worktree, mirroring `.privacy-reviewed`, P950/P1002):
 
@@ -239,20 +260,25 @@ echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",
 
 JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so `branch` lets gate 2.7 distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). **`sha` is not read by gate 2.7's matching logic at all** — gate 2.7 matches on `branch` (feature-branch arm) or `pn` (no-branch arm) only. `sha` is consumed by two separate freshness checks: this skill's own Step 3 skip-detection (`sha == HEAD`), and gate 2.7b's warn-only staleness check, which on the no-branch path compares the entry's `sha` against current `HEAD` via `git merge-base --is-ancestor` (added alongside this note — the no-branch arm previously had no staleness signal at all). Append (don't overwrite) so partial runs are preserved.
 
-### Step 6b: Review receipt (P1505 — every run, standalone or dispatched)
+### Step 6b: Review receipt (P1505; written by whoever ran Step 4b)
 
-After findings are fixed or set aside, record what was reviewed, as it is now:
+After findings are fixed or set aside, and after any re-review of fixes:
 
 ```bash
-python3 scripts/review_receipt.py write --evidence <each external reviewer output file> -- <CHANGED_FILES>
+python3 scripts/review_receipt.py write --snapshot <path from Step 4b.0> --evidence <each ask-model output file>
 ```
 
-It refuses unless at least one evidence file is a successful `ask-model` run. That refusal means Step 4b
-did not actually happen — fix that, never the evidence. The receipt is what clears the Stop-hook
-gate. When dispatched as a subagent by `/dev` or `/fix`, return the evidence paths so the caller writes it.
+`write` refuses in these cases. Each one means the review did not cover the code as it is now:
+- no evidence file is a successful `ask-model` run written after the snapshot
+- a file changed after the snapshot
 
-**Every finding ends in one of two states:** FIXED, or listed to the founder with one line on why it was
-set aside (decisions.md 2026-10-05). Never absorb one silently.
+Fix the review, never the evidence. The receipt is what clears the Stop-hook gate.
+
+**Every finding ends in one of two states:**
+- FIXED
+- listed to the founder with one line on why it was set aside
+
+Never absorb one silently. This is decisions.md 2026-10-05 [process], a proposed rule that this skill adopts.
 
 ---
 
@@ -261,7 +287,7 @@ set aside (decisions.md 2026-10-05). Never absorb one silently.
 - **Parallel = fast.** All subagent reviews run simultaneously.
 - **User-approved fixes.** `/finish` presents findings and asks before applying. This matches how `/dev` and `/fix` use it (they inherit the same approval gate).
 - **Partial results OK.** If one subagent times out, fix what was found and note what was skipped.
-- **Re-run is cheap.** `/finish` after fixes will skip already-reviewed types (checks `.finish-reviewed` timestamps).
+- **Re-run is cheap.** `/finish` with no arguments skips already-reviewed types (checks `.finish-reviewed`). File-argument mode never skips.
 
 ## Related Skills
 
