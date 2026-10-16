@@ -467,10 +467,11 @@ From `/goalify p1503`, 2026-10-16. These are appended and rewrite nothing above.
 | RD-6 | Anything the build needs that this spec does not decide | **Not invented** (founder brief). The loop takes the nearest spec-traceable option, or leaves the element out, and logs it in `assumptions.md` under `## For the founder`. It does not stop. Each NEW element is named in the build report. |
 | RD-7 | Turn budget | 60, not goalify's default 30. The run is five build slices plus at least two full review rounds and a Codex pass. `feedback.md` records the turns actually consumed. |
 | RD-8 | Where v11 gets P1503 from | Only the spec file is copied from main onto the branch. Main is **not** merged in (198 commits, and unrelated to this work). |
+| RD-9 | Final reviews | **Codex and Gemini 4 Argon both review at the end** (founder, 2026-10-16, a standing request), each on technical correctness, code quality, and UX/UI from the user's perspective. A fifth blind lens (ux) removes or simplifies unnecessary text, turns text into visuals, and catches confusing or broken things before the founder sees them. |
 
 ## Verification Contract
 
-**27 rows: 22 MECHANICAL, 4 COMPARABLE, 1 HUMAN-ONLY (4%).** CHECK 1 recomputes these numbers and does not trust this sentence.
+**28 rows: 22 MECHANICAL, 5 COMPARABLE, 1 HUMAN-ONLY (4%).** CHECK 1 recomputes these numbers and does not trust this sentence.
 Every row's test resolves this spec by glob (`features/**/p1503_*.md`), never by literal path, because `/ship`
 moves the file. No command contains a pipe, because the gate splits rows on `|`. A filter matching no test
 files must fail its row, so every vitest row names explicit files, except R-2, whose four prefixes each match
@@ -505,12 +506,13 @@ at `52e27cd47^`, the parent of the commit that deleted v9.
 | R-2 every existing prototype test still passes (v6, v7, v8, v10) | MECHANICAL | `npx vitest run src/tests/p1437-v6 src/tests/p1437-v7 src/tests/p1485-v8 src/tests/p1495-v10` | src/tests/p1495-v10-review.test.tsx |
 | R-3 v10 is frozen: its folder and its four tests are byte-identical to the pre-run tip | MECHANICAL | `git diff --quiet 495748c29 -- src/app/prototypes/conversation-groups/v10 src/tests/p1495-v10-alice.test.tsx src/tests/p1495-v10-bob.test.tsx src/tests/p1495-v10-ledger.test.tsx src/tests/p1495-v10-review.test.tsx` | src/app/prototypes/conversation-groups/v10 |
 | R-4 routing and real mode: the route renders v11 by default, v10 under ?v=10, v8 under ?v=8; with the real loader mocked, the ?real=1 path still loads and the agent is named Mira; no v11 file imports from a .local path except through the existing real-case loader | MECHANICAL | `npx vitest run src/tests/p1503-v11-routing.test.tsx` | src/tests/p1503-v11-routing.test.tsx |
-| R-5 build report: per-AC evidence, every NEW element named, and reports received of spawned stated for reuse audit, design, visual QA, blind walk and Codex; every Codex finding marked FIXED or FOUNDER | MECHANICAL | `npx vitest run src/tests/p1503-evidence.test.ts` | features/verification/p1503/build-report.md |
+| R-5 build report: per-AC evidence, every NEW element named, reports received of spawned for all five lenses; codex-review.md (via codex-review) and gemini-review.md (via delegate-gemini, served model Gemini 4 Argon verified) both exist, each covering three headings (technical correctness, code quality, UX and UI from the user's perspective), run after the last code change, every finding marked FIXED or FOUNDER | MECHANICAL | `npx vitest run src/tests/p1503-evidence.test.ts` | features/verification/p1503/build-report.md |
 | R-6 superseded prototype specs closed on the branch (P1467, P1469, P1484, P1485, P1495 archived, status rejected); update specs untouched on the branch (RD-5) | MECHANICAL | `npx vitest run src/tests/p1503-related-specs.test.ts` | src/tests/p1503-related-specs.test.ts |
 | C-1 reuse audit, screen half: every rendered element on every main-path state at 375 and 1440 traces to a section 0 row, a P1495 reuse-map row, or a NEW element named in the build report | COMPARABLE | blind-reviewer (lens: reuse) | features/verification/p1503/review-round-*.md |
 | C-2 design consistency: frame against Telegram, @ and threads against Buzz, cards against the real /feed; each mismatch fixed or listed in assumptions.md under For the founder | COMPARABLE | blind-reviewer (lens: design) | features/verification/p1503/review-round-*.md |
 | C-3 visual QA at 375, 320 and 1440 plus the empty states in UX Notes, against .claude/rules/visual-qa.md | COMPARABLE | blind-reviewer (lens: visual) | features/verification/p1503/review-round-*.md |
-| H-1 Codex findings the loop did not fix | HUMAN-ONLY | founder, AT /ship | features/verification/p1503/codex-review.md |
+| C-4 UX simplification from the user's perspective: no text the screen already shows, wordy text cut or turned into a visual, nothing that does not work or confuses a first-time user; each finding fixed or listed under For the founder | COMPARABLE | blind-reviewer (lens: ux) | features/verification/p1503/review-round-*.md |
+| H-1 Codex and Gemini findings the loop did not fix | HUMAN-ONLY | founder, AT /ship | features/verification/p1503/gemini-review.md |
 
 **Reviewer roster.** Each lens is a fresh agent per round, never the agent that built or fixed the code.
 
@@ -520,15 +522,16 @@ at `52e27cd47^`, the parent of the commit that deleted v9.
 | reuse | renders, section 0, the P1495 reuse map, the build report's NEW list | the diff, the intent | 375 and 1440 for every main-path state |
 | design | renders, the three named references (RD-2), the UI Contract and Messages tables | the diff, the intent, the Decisions rationale | 375, 1440 |
 | visual | renders, `.claude/rules/visual-qa.md` | the diff, the intent | 375, 320, 1440, every UX Notes empty state |
+| ux | renders of every main-path state and the UX Notes task | the spec, the diff, the intent | 375 and 1440 |
 
 Renders show only the fictional Alice, Bob and mock group members. A review prompt never carries real
 content. Each lens writes `features/verification/p1503/lens/round-N-<lens>.md` (outside CHECK 5's glob)
-with its own verdict. A fifth fresh agent, the aggregator, reads the four lens files and writes
-`review-round-N.md` directly: `VERDICT: PASS` only if all four lenses PASS, then one `SCREENSHOT: <sha256>  <path>`
+with its own verdict. A fifth fresh agent, the aggregator, reads the five lens files and writes
+`review-round-N.md` directly: `VERDICT: PASS` only if all five lenses PASS, then one `SCREENSHOT: <sha256>  <path>`
 line for every image any lens judged. CHECK 5 needs the last two rounds to PASS back to back.
 
 **Evidence lives in `features/verification/p1503/`:** `contract.sha256` (the pin, on main),
-`typecheck-baseline.tsv`, `review-round-N.md`, `lens/`, `build-report.md`, `codex-review.md`, `assumptions.md`
+`typecheck-baseline.tsv`, `review-round-N.md`, `lens/`, `build-report.md`, `codex-review.md`, `gemini-review.md`, `assumptions.md`
 (every call the loop made alone, with a For-the-founder section per RD-6), and `feedback.md` (`corrections given`
 and `turns consumed`, written at the moment they happen). The UAT scorecard is `features/uat/p1503.md`, one
 row per AC with a result.
