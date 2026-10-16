@@ -1801,20 +1801,7 @@ skill-file change and needs separate approval.
 
 ---
 
-## P1402 post-push: switch prod st1 to our own clip
-
-**ID:** INBOX-114
-**Date:** 2026-10-04
-**Status:** proposed
-**due:** week
-
-After P1402 is pushed AND its migration 20261004150000 is on prod AND the new frontend is live: set prod story st1 (883d89f5-4449-46b2-a663-f4f2c7204c22) video_url to publicMediaUrl('event-prep/cognitive-understanding-v1.mp4'). Founder-approved 2026-10-04. Not before the deploy: the old frontend reads only YouTube URLs and would show st1 without its video. Revert: set it back to https://youtu.be/k4zpMYIKK5A. Then check the /feed pinned story plays on claritypledge.com.
-
-/prioritize 2026-10-16: still open, prod st1 video_url reads https://youtu.be/k4zpMYIKK5A (anon REST read). The switch is a prod write and needs a fresh founder yes.
-
-2026-10-16: done on prod with founder yes; video_url now the media-bucket clip (PATCH returned the new value). Remaining: watch the pinned story play on claritypledge.com/feed.
-
----
+<!-- Resolved 2026-10-16: ST1 video switched to the founder clip and verified playing on /feed (1280x720, 84.4 s, currentTime advancing, no media error) -->
 
 
 ## Rework goals.md into weekly measurable goals (P1399 goals review)
@@ -1915,20 +1902,7 @@ The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/
 
 <!-- cleared by /day 2026-10-15: "The GPU billed-hours check cannot run from the day script [day:da4cc7eb]", check cp.cost ran and reported ok -->
 
-## The sign-in canary reports Google sign-in may be broken [day:584cdc87]
-
-**ID:** INBOX-129
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-06 (check: cp.ops, severity: high).
-
-gh issue 18 "Auth canary failing — Google sign-in may be broken", opened 2026-10-06T06:22Z. Overnight signups still succeeded (2 confirmed), so it may be the canary itself.
-
-Still open on 2026-10-07 (/day cp.ops).
-
----
+<!-- cleared by /day 2026-10-16: "The sign-in canary reports Google sign-in may be broken [day:584cdc87]", check cp.ops ran and reported ok -->
 
 <!-- Resolved 2026-10-16: "Stranded signups alert is open and escalated" — see decisions.md 2026-10-16 [process] -->
 
