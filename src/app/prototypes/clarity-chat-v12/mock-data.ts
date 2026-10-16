@@ -15,18 +15,26 @@ export interface Person {
   nickname: string;
   email: string;
   bio: string;
+  /** The production avatar's colour and pledge ring. */
+  avatarColor: string;
+  pledger: boolean;
+  role: string;
 }
 
 export const PEOPLE: Record<PersonId, Person> = {
-  bob: { id: 'bob', name: 'Bob Keller', nickname: 'bobk', email: 'bob@example.com', bio: 'Runs the Chiang Mai circle.' },
-  dana: { id: 'dana', name: 'Dana Ortiz', nickname: 'dana', email: 'dana@example.com', bio: 'Came to her first Clarity Night.' },
-  alice: { id: 'alice', name: 'Alice Moreau', nickname: 'alicem', email: 'alice@example.com', bio: 'Facilitator.' },
-  carol: { id: 'carol', name: 'Carol Singh', nickname: 'carols', email: 'carol@example.com', bio: 'Product designer.' },
-  eli: { id: 'eli', name: 'Eli Brandt', nickname: 'eli', email: 'eli@example.com', bio: 'Founder, Berlin.' },
+  bob: { id: 'bob', name: 'Bob Keller', nickname: 'bobk', email: 'bob@example.com', bio: 'Runs the Chiang Mai circle.', avatarColor: '#2563eb', pledger: true, role: 'Organizer' },
+  dana: { id: 'dana', name: 'Dana Ortiz', nickname: 'dana', email: 'dana@example.com', bio: 'Came to her first Clarity Night.', avatarColor: '#0891b2', pledger: false, role: 'Engineer' },
+  alice: { id: 'alice', name: 'Alice Moreau', nickname: 'alicem', email: 'alice@example.com', bio: 'Facilitator.', avatarColor: '#1d4ed8', pledger: true, role: 'Facilitator' },
+  carol: { id: 'carol', name: 'Carol Singh', nickname: 'carols', email: 'carol@example.com', bio: 'Product designer.', avatarColor: '#0d9488', pledger: true, role: 'Product designer' },
+  eli: { id: 'eli', name: 'Eli Brandt', nickname: 'eli', email: 'eli@example.com', bio: 'Founder, Berlin.', avatarColor: '#475569', pledger: false, role: 'Founder' },
   /* Attends tonight and has no 1:1 with anyone yet: "Message" on her profile starts a new chat. */
-  fay: { id: 'fay', name: 'Fay Okafor', nickname: 'fayo', email: 'fay@example.com', bio: 'Coming to her second Clarity Night.' },
-  sam: { id: 'sam', name: 'Sam Rivera', nickname: 'samr', email: 'sam@example.com', bio: 'Writes about negotiation.' },
+  fay: { id: 'fay', name: 'Fay Okafor', nickname: 'fayo', email: 'fay@example.com', bio: 'Coming to her second Clarity Night.', avatarColor: '#0e7490', pledger: false, role: 'Teacher' },
+  sam: { id: 'sam', name: 'Sam Rivera', nickname: 'samr', email: 'sam@example.com', bio: 'Writes about negotiation.', avatarColor: '#64748b', pledger: false, role: 'Writer' },
 };
+
+/** Clarity partners (an agreement exists): the Partners folder, and a 1:1 header with no "Invite as partner". */
+export const PARTNERS: [PersonId, PersonId][] = [['bob', 'alice']];
+export const arePartners = (a: PersonId, b: PersonId) => PARTNERS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 
 export interface Group { id: string; name: string; members: PersonId[] }
 export interface EventInfo { id: string; groupId: string; name: string; when: string; attendees: PersonId[]; today?: boolean }
@@ -70,10 +78,15 @@ export const TRANSCRIPT_TEXT = [
 
 export const COPY = {
   chats: 'Chats',
-  all: 'All',
+  all: 'All chats',
+  partners: 'Partners',
   unread: 'Unread',
   archived: 'Archived chats',
   invite: 'Invite partner',
+  inviteAsPartner: 'Invite as partner',
+  partner: 'Partner',
+  replies: (n: number) => `${n} ${n === 1 ? 'reply' : 'replies'}`,
+  replyInThread: 'Reply in thread',
   message: 'Message',
   search: 'Search chats and people',
   transcript: 'Transcript posted',
@@ -87,14 +100,14 @@ export const COPY = {
 } as const;
 
 /**
- * The side menu: the real app pages it would open (the prototype opens each in a new tab, so the click-through
- * keeps its state). Partners is production's /p/<slug>/partners; /me redirects to the signed-in profile. Tools
- * is production's links menu, which needs the app's nav context, so the prototype names it instead of mounting it.
+ * The side menu: the real app pages, with the bottom nav's own labels and icons (bottom-nav.tsx), each opened in
+ * a new tab so the click-through keeps its state. Tools is production's links menu, which needs the app's nav
+ * context, so the prototype names it instead of mounting it.
  */
-export const MENU_PAGES: { label: string; path: string | null }[] = [
-  { label: 'Feed', path: '/feed' },
-  { label: 'Letters', path: '/letters' },
-  { label: 'Partners', path: '/me' }, // production's Partners tab is /p/<my-slug>/partners; /me resolves the slug
-  { label: 'Groups', path: '/groups' },
-  { label: 'Tools', path: null },
+export const MENU_PAGES: { id: 'home' | 'letters' | 'partners' | 'groups' | 'tools'; label: string; path: string | null }[] = [
+  { id: 'home', label: 'Home', path: '/feed' },
+  { id: 'letters', label: 'Letters', path: '/letters' },
+  { id: 'partners', label: 'Partners', path: '/me' }, // production's Partners tab is /p/<my-slug>/partners; /me resolves the slug
+  { id: 'groups', label: 'Groups', path: '/groups' },
+  { id: 'tools', label: 'Tools', path: null },
 ];

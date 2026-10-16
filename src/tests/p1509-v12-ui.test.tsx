@@ -1,9 +1,12 @@
 /**
  * @file p1509-v12-ui.test.tsx
- * @description P1509 v12 walkthrough, one block per acceptance criterion that a DOM can decide: the list +
- * menu, member vs attendee tabs, posting/commenting/forwarding/picker in the event channel, the transcript
- * placeholder, the one message menu, "Forwarded from" + the stranger's profile, scoped search, Message, unread +
- * archive, the three mock states, and that no cut v11 feature appears. Fictional people only.
+ * @description P1509 v12 walkthrough, one block per acceptance criterion that a DOM can decide: the list, the
+ * folder rail + tabs and the ☰ drawer, member vs attendee folders, posting / thread replies / forwarding / picker
+ * in the event channel, the transcript placeholder, the message toolbar (Reply, Forward on hover or tap),
+ * "Forwarded from" + the stranger's profile (production's profile card), scoped search, Message, Invite as
+ * partner in a 1:1, unread + archive, the three mock states, and that no cut v11 feature appears. Fictional
+ * people only. The rail and the tabs are both in the DOM (CSS picks one per width), so tabs are read from the
+ * phone tabs and ☰ from the first of its two buttons.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -17,12 +20,15 @@ const rows = () => screen.getByTestId('chat-rows');
 const row = (id: string) => rows().querySelector<HTMLElement>(`[data-chat="${id}"]`);
 const openRow = (id: string) => fireEvent.click(within(row(id)!).getAllByRole('button')[0]!);
 const asDana = () => fireEvent.click(screen.getByRole('radio', { name: /Dana/ }));
-const tab = (name: RegExp) => fireEvent.click(screen.getByRole('tab', { name }));
+const tabs = () => screen.getByTestId('folder-tabs');
+const tab = (name: RegExp) => fireEvent.click(within(tabs()).getByRole('tab', { name }));
+const openMenu = () => fireEvent.click(screen.getAllByRole('button', { name: 'Open menu' })[0]!);
 const chatView = () => screen.getByTestId('chat-view');
 const msg = (text: string | RegExp) => within(chatView()).getByText(text).closest('li')!;
-/** Radix opens its menus on pointerdown. */
-const openMenuOn = (li: HTMLElement) => fireEvent.pointerDown(within(li).getByRole('button', { name: 'Message' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-const typeAndSend = (root: HTMLElement, label: string, text: string) => {
+/** A message's toolbar action (hover shows it on desktop, a tap on a phone; both are the same buttons). */
+const act = (li: HTMLElement, name: 'Reply' | 'Forward') => fireEvent.click(within(within(li).getByRole('toolbar')).getByRole('button', { name }));
+const MSG_BOX = /^Message /;
+const typeAndSend = (root: HTMLElement, label: string | RegExp, text: string) => {
   fireEvent.change(within(root).getByRole('textbox', { name: label }), { target: { value: text } });
   fireEvent.click(within(root).getByRole('button', { name: 'Send' }));
 };
@@ -30,10 +36,10 @@ const typeAndSend = (root: HTMLElement, label: string, text: string) => {
 describe('P1509 v12 prototype', () => {
   it('AC1: opens on the chat list with ☰, search and folder tabs; opening a chat shows it and Back returns', () => {
     renderV12();
-    expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Open menu' })).toHaveLength(2); // the phone header's and the rail's
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /^All/ })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /^Unread/ })).toBeTruthy();
+    expect(within(tabs()).getByRole('tab', { name: /^All chats/ })).toBeTruthy();
+    expect(within(tabs()).getByRole('tab', { name: /^Unread/ })).toBeTruthy();
     expect(screen.getByTestId('chat-list').className).toContain('flex w-full');
     openRow('dm-bob-alice');
     expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-alice');
@@ -42,16 +48,31 @@ describe('P1509 v12 prototype', () => {
     expect(screen.getByTestId('chat-list').className).toContain('flex w-full');
   });
 
-  it('AC2: the side menu lists the pages, today\'s event and Invite partner, profile at the bottom', () => {
+  it('AC2: the ☰ drawer opens with my profile on top, then the app pages with the bottom nav\'s labels, then today\'s event', () => {
     renderV12();
-    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    openMenu();
     const menu = screen.getByRole('dialog', { name: 'Menu' });
-    for (const label of ['Feed', 'Letters', 'Partners', 'Groups', 'Tools', 'Invite partner']) expect(within(menu).getByText(label)).toBeTruthy();
-    expect(within(menu).getByText("Today's event")).toBeTruthy();
-    const profile = within(menu).getByTestId('menu-profile');
-    expect(profile.textContent).toContain('Bob Keller');
-    // the profile sits after the list
-    expect(menu.querySelector('ul')!.compareDocumentPosition(profile) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(menu.textContent).toContain('Bob Keller');
+    const items = within(within(menu).getByRole('list', { name: 'Menu items' })).getAllByRole('listitem').map((li) => li.textContent).filter(Boolean);
+    expect(items).toEqual(['My Profile', 'Home', 'Letters', 'Partners', 'Groups', 'Tools', "Today's eventClarity Night, Oct 16"]);
+    // every page carries an icon, as in the bottom nav
+    for (const label of ['Home', 'Letters', 'Partners', 'Groups', 'Tools']) expect(within(menu).getByText(label).closest('a,button')!.querySelector('svg')).toBeTruthy();
+    expect(within(menu).getByText('Home').closest('a')!.getAttribute('href')).toBe('/feed');
+    // Invite partner lives in a 1:1 now, not in the menu
+    expect(within(menu).queryByText('Invite partner')).toBeNull();
+    fireEvent.click(within(menu).getByTestId('menu-profile'));
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
+    expect(screen.getByTestId('compact-profile-card').textContent).toContain('Bob Keller');
+  });
+
+  it('desktop: a dark folder rail holds ☰ and one folder per tab, with unread badges', () => {
+    renderV12();
+    const rail = screen.getByTestId('folder-rail');
+    expect(rail.className).toContain('bg-slate-800');
+    expect(within(rail).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    expect(within(rail).getAllByRole('tab').map((t) => t.lastElementChild!.textContent)).toEqual(['All chats', 'Unread', 'Partners', 'Chiang Mai Clarity', 'Founders Circle', 'Berlin Clarity']);
+    fireEvent.click(within(rail).getByRole('tab', { name: /Partners/ }));
+    expect(within(rows()).getAllByRole('listitem').map((li) => li.getAttribute('data-chat'))).toEqual(['dm-bob-alice']);
   });
 
   it('AC3: Bob\'s group tab shows all its channels; Dana\'s shows only the event channel', () => {
@@ -72,14 +93,15 @@ describe('P1509 v12 prototype', () => {
       if (who === 'Dana') asDana();
       openRow('ch-night-oct16');
       expect(within(chatView()).getByTestId('transcript-post').textContent).toContain('Transcript posted');
-      typeAndSend(chatView(), 'Post to the channel', `${who} was here`);
+      typeAndSend(chatView(), MSG_BOX, `${who} was here`);
       expect(msg(`${who} was here`)).toBeTruthy();
-      // comment under a post
-      fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByRole('button', { name: /comment/i }));
-      const thread = screen.getByTestId('comments');
-      typeAndSend(thread, 'Comment', `${who} comments`);
-      expect(within(thread).getByText(`${who} comments`)).toBeTruthy();
-      fireEvent.click(within(thread).getAllByRole('button', { name: 'Back' })[0]!);
+      // reply in a post's thread: "1 reply" opens it beside the channel
+      fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByTestId('replies-link'));
+      const thread = screen.getByTestId('thread-panel');
+      typeAndSend(thread, 'Reply in thread', `${who} replies`);
+      expect(within(thread).getByText(`${who} replies`)).toBeTruthy();
+      fireEvent.click(within(thread).getByRole('button', { name: 'Close thread' }));
+      expect(within(msg('Bring one disagreement you would like to understand better.')).getByTestId('replies-link').textContent).toMatch(/2 replies$/);
       // the picker posts one of my points or stories
       fireEvent.click(within(chatView()).getByRole('button', { name: 'Post a point or story' }));
       const pick = screen.getByRole('dialog', { name: 'Post a point or story' });
@@ -88,8 +110,7 @@ describe('P1509 v12 prototype', () => {
       fireEvent.click(first);
       expect(within(chatView()).getAllByTestId('share-card').some((c) => c.textContent?.includes(title))).toBe(true);
       // forward a post
-      openMenuOn(msg(`${who} was here`));
-      fireEvent.click(screen.getByRole('menuitem', { name: /Forward/ }));
+      act(msg(`${who} was here`), 'Forward');
       const fwd = screen.getByRole('dialog', { name: 'Forward to' });
       const target = who === 'Bob' ? 'dm-bob-alice' : 'dm-dana-alice';
       fireEvent.click(within(fwd).getAllByRole('button').find((b) => b.textContent?.includes('Alice Moreau'))!);
@@ -101,21 +122,26 @@ describe('P1509 v12 prototype', () => {
     });
   }
 
-  it('AC6: one menu with Reply and Forward; Reply quotes in a 1:1 and opens comments in a channel', () => {
+  it('AC6: every message carries Reply and Forward; Reply quotes in a 1:1 and opens the thread in a channel', () => {
     renderV12();
     openRow('dm-bob-alice');
-    openMenuOn(msg('This is the exercise I want to try.'));
-    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Reply', 'Forward']);
-    fireEvent.click(screen.getByRole('menuitem', { name: /Reply/ }));
+    const li = msg('This is the exercise I want to try.');
+    expect(within(within(li).getByRole('toolbar')).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Forward']);
+    // a tap selects the row and shows the same toolbar on its own line
+    fireEvent.click(within(li).getByText('This is the exercise I want to try.'));
+    expect(li.querySelector('[data-selected]')).toBeTruthy();
+    act(li, 'Reply');
     expect(screen.getByTestId('reply-bar').textContent).toContain('This is the exercise');
-    typeAndSend(chatView(), 'Message', 'Count me in');
+    typeAndSend(chatView(), MSG_BOX, 'Count me in');
     expect(within(msg('Count me in')).getByTestId('reply-quote').textContent).toContain('This is the exercise');
-    // in a channel, Reply opens the post's comments
+    expect(screen.queryByTestId('reply-bar')).toBeNull();
+    // in a channel, Reply opens the post's thread
     fireEvent.click(within(chatView()).getByRole('button', { name: 'Back' }));
     openRow('ch-night-oct16');
-    openMenuOn(msg('Bring one disagreement you would like to understand better.'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Reply/ }));
-    expect(screen.getByTestId('comments')).toBeTruthy();
+    act(msg('Bring one disagreement you would like to understand better.'), 'Reply');
+    expect(within(screen.getByTestId('thread-panel')).getByText('I will bring one about remote work.')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('thread-panel')).toBeNull();
   });
 
   it('AC7: "Forwarded from" the stranger opens a profile with no Message button', () => {
@@ -125,7 +151,7 @@ describe('P1509 v12 prototype', () => {
     expect(label.textContent).toBe('Forwarded from Sam Rivera');
     fireEvent.click(within(label).getByRole('button', { name: 'Sam Rivera' }));
     const profile = screen.getByTestId('profile');
-    expect(within(profile).getByText('Sam Rivera')).toBeTruthy();
+    expect(within(profile).getByTestId('compact-profile-card').textContent).toContain('Sam Rivera');
     expect(within(profile).queryByRole('button', { name: 'Message' })).toBeNull();
     expect(profile.textContent).not.toContain('sam@example.com');
   });
@@ -153,7 +179,7 @@ describe('P1509 v12 prototype', () => {
   it('AC10: unread on chats and tabs; archive moves a chat under Archived chats; a mock message brings it back', () => {
     renderV12();
     expect(within(row('dm-bob-alice')!).getByLabelText('2 unread')).toBeTruthy();
-    expect(within(screen.getByRole('tab', { name: /^All/ })).getByLabelText('5 unread')).toBeTruthy();
+    expect(within(within(tabs()).getByRole('tab', { name: /^All/ })).getByLabelText('5 unread')).toBeTruthy();
     fireEvent.contextMenu(within(row('dm-bob-eli')!).getAllByRole('button')[0]!);
     fireEvent.click(screen.getByRole('menuitem', { name: /Archive/ }));
     expect(row('dm-bob-eli')).toBeNull();
@@ -182,20 +208,19 @@ describe('P1509 v12 prototype', () => {
     expect(row('dm-bob-carol')).toBeTruthy();
   });
 
-  it('review: pressing a name or "Show all" inside a bubble does not open the bubble menu', () => {
+  it('review: pressing a name or "Show all" inside a message does not select the row', () => {
     renderV12();
     openRow('ch-night-oct16');
-    const showAll = within(chatView()).getByRole('button', { name: 'Show all' });
-    fireEvent.pointerDown(showAll, { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(showAll);
-    expect(screen.queryByRole('menuitem')).toBeNull();
+    const transcript = within(chatView()).getByTestId('transcript-post').closest('li')!;
+    fireEvent.click(within(transcript).getByRole('button', { name: 'Show all' }));
     expect(within(chatView()).getByRole('button', { name: 'Show less' })).toBeTruthy();
-    const name = within(msg('Bring one disagreement you would like to understand better.')).getByRole('button', { name: 'Bob Keller' });
-    fireEvent.pointerDown(name, { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    expect(screen.queryByRole('menuitem')).toBeNull();
+    expect(transcript.querySelector('[data-selected]')).toBeNull();
+    const post = msg('Bring one disagreement you would like to understand better.');
+    fireEvent.click(within(post).getByRole('button', { name: 'Bob Keller' }));
+    expect(screen.getByTestId('profile')).toBeTruthy();
   });
 
-  it('review: profile, members and invite keep a Back button on desktop', () => {
+  it('review: profile and members keep a Back button on desktop', () => {
     renderV12();
     openRow('ch-night-oct16');
     fireEvent.click(screen.getByTestId('channel-header'));
@@ -214,15 +239,18 @@ describe('P1509 v12 prototype', () => {
     fireEvent.click(within(screen.getByTestId('profile')).getByRole('button', { name: 'Message' }));
     expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-fay');
     expect(within(chatView()).getByText(/No messages yet/)).toBeTruthy();
-    typeAndSend(chatView(), 'Message', 'Hi Fay');
+    typeAndSend(chatView(), MSG_BOX, 'Hi Fay');
     expect(msg('Hi Fay')).toBeTruthy();
   });
 
-  it('review: Invite partner opens the existing new-partner flow', () => {
+  it('Invite as partner sits in a 1:1 with someone who is not a partner yet, and opens the existing new-partner flow', () => {
     renderV12();
-    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Invite partner' }));
-    expect(within(screen.getByTestId('invite')).getByRole('link').getAttribute('href')).toBe('/agreements/new');
+    openRow('dm-bob-carol');
+    expect(within(chatView()).getByTestId('invite-as-partner').getAttribute('href')).toBe('/agreements/new');
+    fireEvent.click(within(chatView()).getByRole('button', { name: 'Back' }));
+    openRow('dm-bob-alice');
+    expect(within(chatView()).queryByTestId('invite-as-partner')).toBeNull();
+    expect(within(chatView()).getByTestId('partner-chip').textContent).toBe('Partner');
   });
 
   it('review: after the Archived view empties, archiving again stays on the main list', () => {
@@ -234,7 +262,7 @@ describe('P1509 v12 prototype', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /Unarchive/ }));
     fireEvent.contextMenu(within(row('dm-bob-carol')!).getAllByRole('button')[0]!);
     fireEvent.click(screen.getByRole('menuitem', { name: /Archive/ }));
-    expect(screen.getByRole('tab', { name: /^All/ })).toBeTruthy();
+    expect(within(tabs()).getByRole('tab', { name: /^All/ })).toBeTruthy();
     expect(row('dm-bob-eli')).toBeTruthy();
     expect(row('dm-bob-carol')).toBeNull();
   });
@@ -249,7 +277,7 @@ describe('P1509 v12 prototype', () => {
 
   it('review: Escape closes the side menu', () => {
     renderV12();
-    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    openMenu();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
   });
@@ -261,7 +289,7 @@ describe('P1509 v12 prototype', () => {
     expect(row('dm-bob-dana')).toBeNull();
     asDana();
     openRow('dm-bob-dana');
-    typeAndSend(chatView(), 'Message', 'See you there');
+    typeAndSend(chatView(), MSG_BOX, 'See you there');
     fireEvent.click(screen.getByRole('radio', { name: /Bob/ }));
     expect(within(row('dm-bob-dana')!).getByLabelText('2 unread')).toBeTruthy();
   });
@@ -269,7 +297,7 @@ describe('P1509 v12 prototype', () => {
   it('AC11: ?state=empty, ?state=loading and ?state=fail each show their state', () => {
     const a = renderV12('/tree/clarity-chat?state=empty');
     expect(screen.getByTestId('empty-list').textContent).toContain('No chats yet');
-    expect(within(screen.getByTestId('empty-list')).getByRole('button', { name: 'Invite partner' })).toBeTruthy();
+    expect(within(screen.getByTestId('empty-list')).getByRole('link', { name: 'Invite partner' }).getAttribute('href')).toBe('/agreements/new');
     a.unmount();
     const b = renderV12('/tree/clarity-chat?state=loading');
     expect(screen.getByTestId('list-skeleton')).toBeTruthy();
@@ -294,11 +322,11 @@ describe('P1509 v12 prototype', () => {
     for (const persona of ['Bob', 'Dana'] as const) {
       fireEvent.click(screen.getByRole('radio', { name: new RegExp(persona) }));
       check(`${persona} list`);
-      fireEvent.click(screen.getByRole('button', { name: 'Open menu' })); check(`${persona} menu`);
+      openMenu(); check(`${persona} menu`);
       fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Close menu' }));
       openRow('ch-night-oct16'); check(`${persona} channel`);
-      fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByRole('button', { name: /comment/i })); check(`${persona} comments`);
-      fireEvent.click(within(screen.getByTestId('comments')).getAllByRole('button', { name: 'Back' })[0]!);
+      fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByTestId('replies-link')); check(`${persona} thread`);
+      fireEvent.click(within(screen.getByTestId('thread-panel')).getByRole('button', { name: 'Close thread' }));
       fireEvent.click(screen.getByTestId('channel-header')); check(`${persona} members`);
       fireEvent.click(within(screen.getByTestId('members')).getByRole('button', { name: /Alice Moreau/ })); check(`${persona} profile`);
       fireEvent.click(within(screen.getByTestId('profile')).getByRole('button', { name: 'Back' }));

@@ -22,14 +22,21 @@ describe('P1509 v12 visibility', () => {
   });
 
   it('Dana gets a tab only for the group whose channel she sees; Bob gets one per group, including one with no channel', () => {
-    expect(tabsFor(initialState({ viewer: 'dana' })).map((t) => t.id)).toEqual(['all', 'unread', 'cm']);
-    expect(tabsFor(initialState()).map((t) => t.id)).toEqual(['all', 'unread', 'cm', 'fc', 'bc']);
+    expect(tabsFor(initialState({ viewer: 'dana' })).map((t) => t.id)).toEqual(['all', 'unread', 'cm']); // no partner yet: no Partners folder
+    expect(tabsFor(initialState()).map((t) => t.id)).toEqual(['all', 'unread', 'partners', 'cm', 'fc', 'bc']);
     expect(chatsInTab(initialState(), 'bc')).toEqual([]);
   });
 
   it('All holds every 1:1 and every channel I can see; nobody sees another pair\'s 1:1', () => {
     const dana = initialState({ viewer: 'dana' });
     expect(ids(chatsInTab(dana, 'all'))).toEqual(['ch-night-oct16', 'dm-bob-dana', 'dm-dana-alice']);
+  });
+});
+
+describe('P1509 v12 Partners folder', () => {
+  it('holds only 1:1s with a partner', () => {
+    expect(ids(chatsInTab(initialState(), 'partners'))).toEqual(['dm-bob-alice']);
+    expect(chatsInTab(initialState({ viewer: 'dana' }), 'partners')).toEqual([]);
   });
 });
 

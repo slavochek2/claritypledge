@@ -4,7 +4,7 @@
  * send/reply/comment/forward. No React, no network: every function takes the state and returns the next one,
  * so the rules the backend spec must enforce (visibility, the messaging rule, search scope) are testable here.
  */
-import { EVENTS, GROUPS, PEOPLE, type PersonId, type Shareable, type ViewerId, TRANSCRIPT_TEXT } from './mock-data';
+import { arePartners, EVENTS, GROUPS, PEOPLE, type PersonId, type Shareable, type ViewerId, TRANSCRIPT_TEXT } from './mock-data';
 
 export interface Chat { id: string; kind: 'dm' | 'channel'; members?: [PersonId, PersonId]; eventId?: string }
 
@@ -39,7 +39,7 @@ export interface State {
   seq: number;
 }
 
-export type Tab = 'all' | 'unread' | string; // a group id
+export type Tab = 'all' | 'unread' | 'partners' | string; // or a group id
 
 const pair = (a: PersonId, b: PersonId): [PersonId, PersonId] => [a, b];
 
@@ -134,18 +134,20 @@ export function chatsInTab(st: State, tab: Tab): Chat[] {
   const live = visibleChats(st).filter((c) => !isArchived(st, c.id));
   if (tab === 'all') return live;
   if (tab === 'unread') return live.filter((c) => unreadOf(st, c.id) > 0);
+  if (tab === 'partners') return live.filter((c) => c.kind === 'dm' && arePartners(st.viewer, otherOf(st, c)));
   return live.filter((c) => c.kind === 'channel' && eventOf(c)?.groupId === tab);
 }
 
 export const archivedChats = (st: State): Chat[] => st.archived[st.viewer].map((id) => chatById(st, id)).filter((c): c is Chat => !!c && canSee(st.viewer, c));
 
-/** One tab per group I am in, as a member or through an event channel I can see. */
+/** All, Unread, Partners (only once I have one), then one tab per group I am in, as a member or through an event channel I can see. */
 export function tabsFor(st: State): { id: Tab; label: string; unread: number }[] {
   const sum = (cs: Chat[]) => cs.reduce((n, c) => n + unreadOf(st, c.id), 0);
   const groups = GROUPS.filter((g) => g.members.includes(st.viewer) || st.chats.some((c) => c.kind === 'channel' && eventOf(c)?.groupId === g.id && canSee(st.viewer, c)));
   return [
-    { id: 'all', label: 'All', unread: sum(chatsInTab(st, 'all')) },
+    { id: 'all', label: 'All chats', unread: sum(chatsInTab(st, 'all')) },
     { id: 'unread', label: 'Unread', unread: sum(chatsInTab(st, 'unread')) },
+    ...(st.chats.some((c) => c.kind === 'dm' && canSee(st.viewer, c) && arePartners(st.viewer, otherOf(st, c))) ? [{ id: 'partners', label: 'Partners', unread: sum(chatsInTab(st, 'partners')) }] : []),
     ...groups.map((g) => ({ id: g.id, label: g.name, unread: sum(chatsInTab(st, g.id)) })),
   ];
 }
