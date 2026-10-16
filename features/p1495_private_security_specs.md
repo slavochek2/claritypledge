@@ -50,6 +50,23 @@ change, and **1 CI gate breaks if the stub is "closed as done"** (measured: exit
 last finding changes the proposed shape: the stub is never moved into `features/done/`. It
 is either deleted at close or, as recommended (D8), never created.
 
+## What changes for the founder
+
+Checked against how specs are actually handled today (conversation history since 2026-08,
+founder messages only): specs are named by P-number in chat ("ship 1236", "why is 1302
+still open in kanban?"), sometimes by pasted path (`features/p1094_….md`); the kanban is
+the place to confirm a spec closed and its worktree went away; specs are filed from chat
+through `/create-spec`, never by hand.
+
+| Activity | Today | After P1495 |
+|---|---|---|
+| **Creating** | Say what's needed; `/create-spec` picks public or embargo | Same. Embargo now also covers privacy-sensitive specs, and no "security review pending" file appears on the public repo |
+| **Finding by P-number** | Agent resolves `pN` in `features/` or `features/done/` | Same words. A finished private spec resolves to `.private/features/done/<sprint>/` |
+| **Kanban** | Done column shows all closed specs | Main board also shows private finished specs, **visibly marked private** (badge). A worktree board is unchanged. In flight, the spec shows on its worktree board as today |
+| **Editor search** | `.private/` already searchable (local `.vscode/settings.json`); worktrees excluded, so an in-flight embargo spec is not found | After archive the spec is under `.private/` and **is** found. In flight: unchanged |
+| **Links** | A doc can link `features/done/…` | A public doc **cannot** link a private spec (validator refuses). Private notes can. Pasting the path in chat works as today |
+| **Extra step at close** | Run `publish-spec` after prod confirmation | No publish. The archive runs at close; the branch is removed only once an off-machine copy is confirmed. No additional founder action is expected (see the contract above) |
+
 ## Appetite
 
 **Blast radius: medium.** Touches `scripts/git-ops.sh` (replaces `cmd_publish_spec`), one
