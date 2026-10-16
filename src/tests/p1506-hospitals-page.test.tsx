@@ -3,7 +3,7 @@
  * rule, citations, and the unlisted/link-preview contract (api/og.ts + vercel.json).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -13,7 +13,13 @@ const captureException = vi.fn();
 vi.mock('@sentry/react', () => ({ captureException: (...a: unknown[]) => captureException(...a) }));
 // Reduced motion: the chat lands on its final state, which is what these tests read.
 const reducedMotion = { value: true };
-vi.mock('framer-motion', async (orig) => ({ ...(await orig<typeof import('framer-motion')>()), useReducedMotion: () => reducedMotion.value }));
+// jsdom has no layout, so in-view is driven by hand where a test needs scroll-in.
+const inViewMock = { value: false };
+vi.mock('framer-motion', async (orig) => ({
+  ...(await orig<typeof import('framer-motion')>()),
+  useReducedMotion: () => reducedMotion.value,
+  useInView: () => inViewMock.value,
+}));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { HospitalsPage } from '@/app/pages/hospitals-page';
@@ -28,7 +34,7 @@ function renderPage() {
 beforeEach(() => track.mockClear());
 
 describe('P1506 /hospitals — content', () => {
-  it('renders the sections in landing order: hero, stat, why, chat, cases, path, terms, value, close', () => {
+  it('renders the sections in landing order: hero, stat, why (with where it costs most), chat, path, terms, value, close', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Reveal gaps in understanding between hospital staff before they become mistakes',
@@ -39,7 +45,6 @@ describe('P1506 /hospitals — content', () => {
     const order = [
       'Why gaps stay invisible',
       'Revealing a gap takes 3 seconds',
-      'Where gaps cost most',
       'How revealing gaps becomes a team norm',
       'One new team norm, in writing',
       'What the hospital can expect',
@@ -56,6 +61,7 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByText('The impact of a one-off communication workshop fades. A team norm stays.')).toBeInTheDocument();
     for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
+    expect(screen.getByText('Where gaps cost most')).toBeInTheDocument();
     for (const c of ['Between departments', 'Across seniority', 'Patients and families']) expect(screen.getByText(c)).toBeInTheDocument();
     for (const c of ['International patients', 'Vendor and investment choices', 'Introducing change']) expect(screen.queryByText(c)).toBeNull();
     for (const s of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(s)).toBeInTheDocument();
@@ -84,15 +90,16 @@ describe('P1506 /hospitals — content', () => {
     renderPage();
     const stat = screen.getByTestId('stat-card');
     expect(stat.textContent).toContain('of 23,658 US malpractice cases studied involved a communication failure.');
-    const sup = within(stat).getByRole('link', { name: /Reference 2: CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
+    const sup = within(stat).getByRole('link', { name: /Reference 1: CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
     expect(sup).toHaveAttribute('href', '#references');
-    expect(screen.getByRole('link', { name: /Reference 1: HA Thailand/ })).toHaveAttribute('href', '#references');
+    expect(screen.getByRole('link', { name: /Reference 2: HA Thailand/ })).toHaveAttribute('href', '#references');
     const refs = document.getElementById('references')!;
     expect(refs.textContent).toContain('References');
     const items = within(refs).getAllByRole('listitem');
     expect(items).toHaveLength(2);
-    expect(within(items[0]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/backend\.ha\.or\.th\//);
-    expect(within(items[1]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/www\.rmf\.harvard\.edu\//);
+    // Numbered in reading order: the stat (CRICO) comes before read-back (HA Thailand).
+    expect(within(items[0]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/www\.rmf\.harvard\.edu\//);
+    expect(within(items[1]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/backend\.ha\.or\.th\//);
   });
 
   it('has one action, Book a 15-min discovery call → /intro, in the hero and the closing section only', () => {
@@ -128,6 +135,46 @@ describe('P1506 /hospitals — the exchange', () => {
       expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '0');
     } finally {
       reducedMotion.value = true;
+    }
+  });
+
+  it('on scroll-in it plays forward once to the final state, and tracks the view once', () => {
+    reducedMotion.value = false;
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderPage();
+      const visual = () => screen.getByTestId('exchange-visual');
+      expect(visual()).toHaveAttribute('data-phase', '0');
+      inViewMock.value = true;
+      rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
+      const seen: string[] = [];
+      for (const ms of [200, 700, 900, 900, 900, 900]) {
+        act(() => { vi.advanceTimersByTime(ms); });
+        seen.push(visual().getAttribute('data-phase')!);
+      }
+      expect(seen).toEqual(['1', '2', '3', '4', '5', '6']);
+      // A motion-preference flip after playing never replays or regresses it.
+      reducedMotion.value = true;
+      rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
+      reducedMotion.value = false;
+      rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(visual()).toHaveAttribute('data-phase', '6');
+      expect(track.mock.calls.filter((c) => c[0] === 'hospitals_exchange_viewed')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      inViewMock.value = false;
+      reducedMotion.value = true;
+    }
+  });
+
+  it('reduced-motion visitors still register the exchange view', () => {
+    inViewMock.value = true;
+    try {
+      renderPage();
+      expect(track).toHaveBeenCalledWith('hospitals_exchange_viewed');
+    } finally {
+      inViewMock.value = false;
     }
   });
 

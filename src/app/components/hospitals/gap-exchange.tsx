@@ -99,11 +99,11 @@ function VoiceNote() {
 function VerifiedEquation() {
   return (
     <div className="flex items-center justify-center gap-3 font-bold text-2xl text-foreground">
-      <span className="flex flex-col items-center leading-none"><span className="text-foreground/70">8</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">{NURSE}</small></span>
+      <span className="flex flex-col items-center leading-none"><span className="text-foreground/70">8</span><small className="text-xs font-semibold text-foreground/70 mt-1">{NURSE}</small></span>
       <span className="text-muted-foreground font-normal text-base">vs</span>
-      <span className="flex flex-col items-center leading-none"><span className="text-blue-600">4</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">Doctor</small></span>
+      <span className="flex flex-col items-center leading-none"><span className="text-blue-600">4</span><small className="text-xs font-semibold text-foreground/70 mt-1">Doctor</small></span>
       <span className="text-muted-foreground font-normal text-base">&rarr;</span>
-      <span className="flex flex-col items-center leading-none"><span className="bg-blue-600 text-white rounded-md px-2.5 py-0.5">4</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">{EXCHANGE_COPY.verifiedLabel}</small></span>
+      <span className="flex flex-col items-center leading-none"><span className="bg-blue-600 text-white rounded-md px-2.5 py-0.5">4</span><small className="text-xs font-semibold text-foreground/70 mt-1">{EXCHANGE_COPY.verifiedLabel}</small></span>
     </div>
   );
 }
@@ -113,16 +113,31 @@ export function GapExchange() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.35 });
   const [phase, setPhase] = useState(reduce ? FINAL : 0);
+  // Plays once per page view: a later in-view or motion-preference change never replays it.
+  const played = useRef(false);
+
+  // The view is tracked whatever the motion preference, once.
+  const tracked = useRef(false);
+  useEffect(() => {
+    if (!inView || tracked.current) return;
+    tracked.current = true;
+    analytics.track("hospitals_exchange_viewed");
+  }, [inView]);
 
   useEffect(() => {
     if (reduce) {
+      played.current = true;
       setPhase(FINAL);
       return;
     }
-    if (!inView) return;
-    analytics.track("hospitals_exchange_viewed");
-    const timers = SCHEDULE.map((ms, i) => setTimeout(() => setPhase(i + 1), ms));
-    return () => timers.forEach(clearTimeout);
+    if (!inView || played.current) return;
+    played.current = true;
+    // Phase only moves forward, so a cleanup mid-play can't leave the chat half-hidden.
+    const timers = SCHEDULE.map((ms, i) => setTimeout(() => setPhase((p) => Math.max(p, i + 1)), ms));
+    return () => {
+      timers.forEach(clearTimeout);
+      setPhase(FINAL);
+    };
   }, [inView, reduce]);
 
   const fade = (show: boolean) => ({
@@ -141,7 +156,7 @@ export function GapExchange() {
             <img src={AVATAR.nurse} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="min-w-0 text-left">
               <p className="text-sm font-semibold leading-tight">{NURSE}</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">ward nurse</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">ward nurse · chat with the doctor</p>
             </div>
           </div>
           <div className="bg-[#efeae2] px-3 py-4 flex flex-col gap-2">
@@ -155,7 +170,7 @@ export function GapExchange() {
         <motion.div className="mx-auto max-w-md mt-6 rounded-2xl border border-border bg-card p-5 text-center shadow-sm" {...fade(phase >= 5)}>
           <VerifiedEquation />
           <p className="mt-4 font-bold">{EXCHANGE_COPY.outcomeLine}</p>
-          <p className="text-muted-foreground">{EXCHANGE_COPY.outcomeText}</p>
+          <p className="text-foreground/75">{EXCHANGE_COPY.outcomeText}</p>
           <motion.div {...fade(phase >= 6)}>
             <p className="mt-5 text-sm font-bold">{EXCHANGE_COPY.then}</p>
             <div className="mt-2 grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 text-left">

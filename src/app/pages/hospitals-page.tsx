@@ -31,13 +31,13 @@ import { HOSPITALS_OG } from "@/app/content/hospitals-og";
 const REFERENCES = [
   {
     n: 1,
-    label: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
-    url: "https://backend.ha.or.th/fileupload/DOCUMENT/00537/7639551a-50b9-459c-9ff3-98f65c3d8cb8.pdf",
+    label: "CRICO Strategies (2015), Malpractice Risks in Communication Failures",
+    url: "https://www.rmf.harvard.edu/News-and-Blog/Press-Releases-Home/Press-Releases/2016/February/Failures-in-Communication-Contribute-to-Medical-Malpractice",
   },
   {
     n: 2,
-    label: "CRICO Strategies (2015), Malpractice Risks in Communication Failures",
-    url: "https://www.rmf.harvard.edu/News-and-Blog/Press-Releases-Home/Press-Releases/2016/February/Failures-in-Communication-Contribute-to-Medical-Malpractice",
+    label: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
+    url: "https://backend.ha.or.th/fileupload/DOCUMENT/00537/7639551a-50b9-459c-9ff3-98f65c3d8cb8.pdf",
   },
 ] as const;
 
@@ -48,7 +48,6 @@ const VALUES: { icon: HospitalIconName; text: string }[] = [
   { icon: "stay", text: "Lower staff turnover" },
 ];
 
-// The brochure's six, cut to the three a hospital decision-maker recognises first.
 const CASES: { icon: HospitalIconName; text: string }[] = [
   { icon: "dept", text: "Between departments" },
   { icon: "rank", text: "Across seniority" },
@@ -130,12 +129,13 @@ function NormChart() {
     <figure className="w-full max-w-md mx-auto">
       <svg viewBox="0 0 200 60" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
         <line x1="8" y1="48" x2="196" y2="48" stroke="#e5e7eb" />
+        <line x1="8" y1="4" x2="8" y2="48" stroke="#e5e7eb" />
         <path d="M8 46 C30 46 34 12 46 12 C60 12 66 42 110 45 L196 46" fill="none" stroke="#9ca3af" strokeWidth="2.2" />
         <path d="M8 46 C50 44 80 32 110 22 C140 13 170 11 196 10" fill="none" stroke="#2563eb" strokeWidth="2.6" />
         <text x="52" y="9" fontSize="9" fill="#4b5563">One-off workshop</text>
         <text x="196" y="26" textAnchor="end" fontSize="9" fill="#2563eb" fontWeight="700">Team norm</text>
         <text x="196" y="58" textAnchor="end" fontSize="8.5" fill="#6b7280">time &rarr;</text>
-        <text x="8" y="58" fontSize="8.5" fill="#6b7280">in use</text>
+        <text x="6.5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 6.5 47)">in use</text>
       </svg>
       <figcaption id="norm-chart-desc" className="sr-only">
         Chart of how much the practice is in use over time: after a one-off workshop, use peaks and then fades back to
@@ -146,11 +146,12 @@ function NormChart() {
 }
 
 /** Icon-over-label tile grid, staggered in on scroll. */
-function TileGrid({ items, cols }: { items: { icon: HospitalIconName; text: string }[]; cols: string }) {
+/** `rowsOnNarrow`: below 400px, each tile is one compact icon-and-label row. */
+function TileGrid({ items, cols, rowsOnNarrow = false }: { items: { icon: HospitalIconName; text: string }[]; cols: string; rowsOnNarrow?: boolean }) {
   return (
     <motion.ul className={`grid ${cols} gap-3 sm:gap-6`} variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
       {items.map((v) => (
-        <motion.li key={v.text} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card px-2 py-5 sm:p-6 text-center shadow-sm flex flex-col items-center gap-3">
+        <motion.li key={v.text} variants={STAGGER_ITEM} className={`rounded-xl border border-border bg-card shadow-sm flex gap-3 ${rowsOnNarrow ? "flex-row items-center px-4 py-3 text-left min-[400px]:flex-col min-[400px]:px-2 min-[400px]:py-5 min-[400px]:text-center sm:p-6" : "flex-col items-center px-2 py-5 sm:p-6 text-center"}`}>
           <HospitalIcon name={v.icon} className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600" />
           <span className="text-[13px] min-[360px]:text-sm sm:text-base font-semibold leading-snug">{v.text}</span>
         </motion.li>
@@ -194,7 +195,7 @@ export function HospitalsPage() {
                 <CountUpPercent target={30} />
               </p>
               <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-                of 23,658 US malpractice cases studied involved a communication failure.<RefSup n={2} />
+                of 23,658 US malpractice cases studied involved a communication failure.<RefSup n={1} />
               </p>
             </div>
           </Reveal>
@@ -213,13 +214,19 @@ export function HospitalsPage() {
             <motion.ul className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
                 <CheckIcon className="w-6 h-6 text-blue-600 shrink-0" aria-hidden="true" />
-                <span><b className="block">Clinical orders</b><span className="text-muted-foreground">Read-back already protects them.<RefSup n={1} /></span></span>
+                <span><b className="block">Clinical orders</b><span className="text-muted-foreground">Read-back already protects them.<RefSup n={2} /></span></span>
               </motion.li>
               <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
                 <XIcon className="w-6 h-6 text-muted-foreground shrink-0" aria-hidden="true" />
                 <span><b className="block">Everyday conversations</b><span className="text-muted-foreground">No such habit.</span></span>
               </motion.li>
             </motion.ul>
+            {/* The brochure's six "where gaps cost most", cut to the three a decision-maker
+                recognises first, folded in here: on their own they were a section with no claim. */}
+            <Reveal className="mt-12">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700 mb-5">Where gaps cost most</p>
+              <TileGrid items={CASES} cols="grid-cols-1 min-[400px]:grid-cols-3" rowsOnNarrow />
+            </Reveal>
           </div>
         </section>
 
@@ -228,15 +235,7 @@ export function HospitalsPage() {
           <GapExchangeSection />
         </section>
 
-        {/* 5. Where it costs most — the three most load-bearing of the brochure's six. */}
-        <section className={SECTION}>
-          <div className="container mx-auto max-w-4xl">
-            <Reveal><SectionHeader title="Where gaps cost most" /></Reveal>
-            <TileGrid items={CASES} cols="grid-cols-3" />
-          </div>
-        </section>
-
-        {/* 6. How it becomes a norm — the workshop-fades chart is the reason for the path,
+        {/* 5. How it becomes a norm — the workshop-fades chart is the reason for the path,
             so "how it's different" is this section's opening, not a section of its own.
             The steps light up one after another as the norm spreads. */}
         <section className={`${SECTION} bg-muted/30`}>
@@ -257,7 +256,7 @@ export function HospitalsPage() {
                   <span className="min-w-0 flex-1">
                     <b className="block">{p.title}</b>
                     <span className="text-sm text-muted-foreground">{p.text}</span>
-                    <span className="block lg:hidden w-24 mt-2"><PeopleStrip {...p.strip} /></span>
+                    <span className="block lg:hidden w-32 mt-2"><PeopleStrip {...p.strip} /></span>
                   </span>
                 </motion.li>
               ))}
@@ -265,7 +264,7 @@ export function HospitalsPage() {
           </div>
         </section>
 
-        {/* 7. The norm in writing — the Clarity Group Terms specimen, as on /builders.
+        {/* 6. The norm in writing — the Clarity Group Terms specimen, as on /builders.
             Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
             No Accept button: a live action on a marketing page is a dead control (P955).
             [FOUNDER DECISION: section heading — drafted, see spec build notes] */}
@@ -281,7 +280,7 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 8. What the hospital can expect — the value, last before the ask. */}
+        {/* 7. What the hospital can expect — the value, last before the ask. */}
         <section className={`${SECTION} bg-muted/30`}>
           <div className="container mx-auto max-w-5xl">
             <Reveal><SectionHeader title="What the hospital can expect" /></Reveal>
@@ -289,7 +288,7 @@ export function HospitalsPage() {
           </div>
         </section>
 
-        {/* 9. Closing CTA */}
+        {/* 8. Closing CTA */}
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-4xl text-center">
@@ -302,7 +301,7 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 10. References */}
+        {/* 9. References */}
         <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
           <div className="container mx-auto max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
