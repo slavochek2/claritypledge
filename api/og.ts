@@ -366,10 +366,14 @@ const ROUTES: Array<{
   { pattern: /^\/story\/([^/]+)$/, handler: (m) => ogForStory(m[1]) },
   { pattern: /^\/point\/([^/]+)$/, handler: (m) => ogForPoint(m[1]) },
   { pattern: /^\/p\/([^/]+)$/, handler: (m) => ogForProfile(m[1]) },
-  // P1506: static card, no DB lookup. /hospital is the spoken form and gets the same card.
+];
+
+/** P1506: static cards need no database, so they are served before the Supabase env guard.
+ *  /hospital is the spoken form and gets the same card. */
+const STATIC_ROUTES: Array<{ pattern: RegExp; og: OgData }> = [
   {
-    pattern: /^\/hospitals?$/,
-    handler: async () => ({ ...HOSPITALS_OG, url: `${BASE_URL}/hospitals`, type: 'website', noIndex: true }),
+    pattern: /^\/hospitals?\/?$/,
+    og: { ...HOSPITALS_OG, url: `${BASE_URL}/hospitals`, type: 'website', noIndex: true },
   },
 ];
 
@@ -379,6 +383,16 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<void> {
+  const staticPathParam = req.query.path;
+  const staticPath = (Array.isArray(staticPathParam) ? staticPathParam[0] : staticPathParam) || '/';
+  const staticRoute = STATIC_ROUTES.find((r) => r.pattern.test(staticPath));
+  if (staticRoute) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    res.status(200).send(ogHtml(staticRoute.og));
+    return;
+  }
+
   // Missing env vars — return fallback without Supabase lookup
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.error('og.ts: Missing SUPABASE_URL or SUPABASE_ANON_KEY — returning generic OG tags');

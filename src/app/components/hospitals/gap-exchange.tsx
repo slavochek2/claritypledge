@@ -10,7 +10,8 @@
  * static ordered list (GapExchangeStatic) — the spec's "if JS fails" fallback, as far as an
  * SPA can honour it. Copy is verbatim from the brochure (texts9.py `en`).
  */
-import { Component, useState, type ReactNode } from "react";
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 import { PersonFigure, HospitalIcon } from "./hospital-icons";
 import { EXCHANGE_COPY } from "@/app/content/hospitals-exchange";
@@ -97,22 +98,47 @@ export function GapExchangeStatic() {
 export function GapExchange() {
   const [step, setStep] = useState<Step>(0);
   const [choice, setChoice] = useState<Choice>(null);
+  // Nothing is announced or focused until the visitor acts: on page load the live region
+  // stays empty so it never interrupts the page's own announcement.
+  const [interacted, setInteracted] = useState(false);
+  // Bumped on every transition so a repeated state (e.g. back to step 3) still re-announces.
+  const [turn, setTurn] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The control that was activated usually unmounts; move keyboard focus to the next one.
+  useEffect(() => {
+    if (!interacted) return;
+    rootRef.current?.querySelector<HTMLButtonElement>("[data-focus-next]")?.focus();
+  }, [step, turn, interacted]);
 
   const go = (next: Step, picked: Choice = choice) => {
     setStep(next);
     setChoice(picked);
+    setInteracted(true);
+    setTurn((t) => t + 1);
     analytics.track("hospitals_exchange_step", { step: next, ...(picked ? { choice: picked } : {}) });
   };
 
-  const announcement =
-    step === 4
+  const announcement = !interacted
+    ? ""
+    : step === 4
       ? choice === "move-on"
         ? `${EXCHANGE_COPY.moveOn}. ${EXCHANGE_COPY.moveOnCost}`
         : `${EXCHANGE_COPY.close}. ${EXCHANGE_COPY.closeCost}`
       : ANNOUNCE[step];
 
+  // Clear, then set on the next tick: a message identical to the previous one (back to step 3)
+  // is still a change the screen reader hears.
+  const [liveText, setLiveText] = useState("");
+  useEffect(() => {
+    setLiveText("");
+    if (!announcement) return;
+    const t = setTimeout(() => setLiveText(announcement), 50);
+    return () => clearTimeout(t);
+  }, [announcement, turn]);
+
   return (
-    <div data-testid="gap-exchange">
+    <div data-testid="gap-exchange" ref={rootRef}>
       <Header />
       <div className="grid gap-4 max-w-2xl">
         <div className="rounded-2xl bg-slate-100 p-4 flex flex-col gap-3 min-h-[15rem]">
@@ -122,7 +148,7 @@ export function GapExchange() {
           {step >= 2 && <Bubble who="A">{EXCHANGE_COPY.m3}</Bubble>}
           {step < 3 && (
             <div className="flex justify-center pt-1">
-              <button type="button" className={`${BTN} border-blue-600 text-blue-700 bg-white hover:bg-blue-50`} onClick={() => go((step + 1) as Step)}>
+              <button type="button" data-focus-next className={`${BTN} border-blue-600 text-blue-700 bg-white hover:bg-blue-50`} onClick={() => go((step + 1) as Step)}>
                 Next
               </button>
             </div>
@@ -138,7 +164,7 @@ export function GapExchange() {
 
             {step === 3 ? (
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button type="button" className={`${BTN} border-slate-300 text-[#1e3a5f] bg-slate-50 hover:bg-slate-100`} onClick={() => go(4, "move-on")}>
+                <button type="button" data-focus-next className={`${BTN} border-slate-300 text-[#1e3a5f] bg-slate-50 hover:bg-slate-100`} onClick={() => go(4, "move-on")}>
                   {EXCHANGE_COPY.moveOn}
                 </button>
                 <button type="button" className={`${BTN} border-slate-300 text-[#1e3a5f] bg-slate-50 hover:bg-slate-100`} onClick={() => go(4, "close-gap")}>
@@ -154,7 +180,7 @@ export function GapExchange() {
 
             {step === 4 && (
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button type="button" className={`${BTN} border-slate-300 text-slate-700 bg-white hover:bg-slate-50`} onClick={() => go(3, null)}>
+                <button type="button" className={`${BTN} border-slate-300 text-slate-700 bg-white hover:bg-slate-50`} data-focus-next onClick={() => go(3, null)}>
                   Try the other choice
                 </button>
                 <button type="button" className={`${BTN} border-slate-300 text-slate-700 bg-white hover:bg-slate-50`} onClick={() => go(0, null)}>
@@ -165,15 +191,21 @@ export function GapExchange() {
           </div>
         )}
       </div>
-      <p className="sr-only" aria-live="polite" data-testid="exchange-live">{announcement}</p>
+      <p className="sr-only" aria-live="polite" data-testid="exchange-live">
+        {liveText}
+      </p>
     </div>
   );
 }
 
-class ExchangeBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export class ExchangeBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    // The static list keeps the page whole; Sentry makes sure the broken exchange is noticed.
+    Sentry.captureException(error, { tags: { surface: "hospitals-exchange" } });
   }
   render() {
     return this.state.failed ? <GapExchangeStatic /> : this.props.children;

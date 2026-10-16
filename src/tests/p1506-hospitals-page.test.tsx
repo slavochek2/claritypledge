@@ -3,16 +3,18 @@
  * rule, citations, and the unlisted/link-preview contract (api/og.ts + vercel.json).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const track = vi.fn();
+const captureException = vi.fn();
+vi.mock('@sentry/react', () => ({ captureException: (...a: unknown[]) => captureException(...a) }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { HospitalsPage } from '@/app/pages/hospitals-page';
-import { GapExchangeStatic } from '@/app/components/hospitals/gap-exchange';
+import { GapExchangeStatic, ExchangeBoundary } from '@/app/components/hospitals/gap-exchange';
 import { EXCHANGE_COPY } from '@/app/content/hospitals-exchange';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
 
@@ -83,25 +85,31 @@ describe('P1506 /hospitals — content', () => {
 });
 
 describe('P1506 /hospitals — interactive exchange', () => {
-  it('steps through, announces each step, both choices have outcomes, Replay resets', () => {
+  it('steps through, announces each step, both choices have outcomes, Replay resets', async () => {
     renderPage();
     const live = screen.getByTestId('exchange-live');
     expect(live).toHaveAttribute('aria-live', 'polite');
+    // Nothing is announced on page load.
+    expect(live.textContent).toBe('');
     // Step 1 visible before any tap.
     expect(screen.getByText(EXCHANGE_COPY.m1)).toBeInTheDocument();
     expect(screen.queryByText(EXCHANGE_COPY.m3)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(live.textContent).toBe('B answers: 8');
+    await waitFor(() => expect(live.textContent).toBe('B answers: 8'));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText(EXCHANGE_COPY.m3)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
     expect(screen.getByText(EXCHANGE_COPY.outcomeLine)).toBeInTheDocument();
 
+    // Focus follows the controls: the Next button unmounted, the first choice took focus.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
+
     fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Try the other choice' }));
     expect(screen.getByTestId('exchange-outcome').textContent).toContain(EXCHANGE_COPY.moveOnCost);
-    expect(live.textContent).toContain(EXCHANGE_COPY.moveOnCost);
+    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.moveOnCost));
 
     fireEvent.click(screen.getByRole('button', { name: 'Try the other choice' }));
     fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.close }));
@@ -125,6 +133,28 @@ describe('P1506 /hospitals — interactive exchange', () => {
     const animated = Array.from(document.querySelectorAll('[class*="animate-in"]'));
     expect(animated.length).toBeGreaterThan(0);
     for (const el of animated) expect(el.className).not.toMatch(/(^|\s)animate-in/);
+  });
+
+  it('a repeated state is re-announced (cleared, then set again)', async () => {
+    renderPage();
+    const live = screen.getByTestId('exchange-live');
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.outcomeLine));
+    const atStep3 = live.textContent;
+    fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
+    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.moveOnCost));
+    fireEvent.click(screen.getByRole('button', { name: 'Try the other choice' }));
+    expect(live.textContent).toBe('');
+    await waitFor(() => expect(live.textContent).toBe(atStep3));
+  });
+
+  it('if the interactive exchange throws, the boundary renders the static list and reports it', () => {
+    const Boom = () => { throw new Error('boom'); };
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<ExchangeBoundary><Boom /></ExchangeBoundary>);
+    spy.mockRestore();
+    expect(screen.getByTestId('gap-exchange-static')).toBeInTheDocument();
+    expect(captureException).toHaveBeenCalled();
   });
 
   it('static fallback renders the full sequence as a list', () => {
@@ -177,6 +207,31 @@ describe('P1506 /hospitals — unlisted + link preview', () => {
     const i = v.rewrites.indexOf(r);
     const spa = v.rewrites.findIndex((x: { destination: string }) => x.destination === '/index.html');
     expect(i).toBeLessThan(spa);
+  });
+
+  it('vercel.json sends X-Robots-Tag noindex for /hospitals (crawlers that skip JS)', () => {
+    const v = JSON.parse(read('vercel.json'));
+    const h = v.headers.find((x: { source: string }) => x.source === '/hospitals');
+    expect(h.headers).toContainEqual({ key: 'X-Robots-Tag', value: 'noindex, nofollow' });
+  });
+
+  it('api/og serves the hospital card even without database env vars', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    vi.stubEnv('SUPABASE_URL', '');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('SUPABASE_ANON_KEY', '');
+    try {
+      const { default: handler } = await import('../../api/og');
+      let body = '';
+      const res = { setHeader: () => {}, status: () => ({ send: (h: string) => { body = h; } }) } as unknown as VercelResponse;
+      await handler({ query: { path: '/hospital' } } as unknown as VercelRequest, res);
+      expect(body).toContain(HOSPITALS_OG.title);
+      expect(body).toContain('noindex, nofollow');
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 
   it('api/og serves the hospital card with noindex', async () => {

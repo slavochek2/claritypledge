@@ -16,7 +16,7 @@ import { GapExchangeSection } from "@/app/components/hospitals/gap-exchange";
 import { HOSPITALS_OG } from "@/app/content/hospitals-og";
 
 
-export const SOURCES = [
+const SOURCES = [
   {
     n: 1,
     cite: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
@@ -196,9 +196,10 @@ export function HospitalsPage() {
       <section className="px-4 py-8">
         <div className="container mx-auto max-w-4xl">
           <SectionTitle>How revealing gaps becomes a team norm</SectionTitle>
-          <ol className="relative grid grid-cols-1 sm:grid-cols-5 gap-6 sm:gap-2">
+          <div className="relative">
             <div aria-hidden="true" className="hidden sm:block absolute left-[10%] right-[10%] top-[3.1rem] h-0.5 bg-blue-200" />
             <div aria-hidden="true" className="sm:hidden absolute left-[1.05rem] top-4 bottom-4 w-0.5 bg-blue-200" />
+          <ol className="relative grid grid-cols-1 sm:grid-cols-5 gap-6 sm:gap-2">
             {PATH.map((p, i) => (
               <li key={p.title} className="relative flex sm:block gap-4 items-start sm:text-center">
                 <div className="hidden sm:block"><PeopleStrip {...p.strip} /></div>
@@ -213,6 +214,7 @@ export function HospitalsPage() {
               </li>
             ))}
           </ol>
+          </div>
         </div>
       </section>
 
