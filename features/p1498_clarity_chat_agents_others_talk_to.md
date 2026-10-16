@@ -16,7 +16,7 @@ driver: heuristic
 
 ## Problem
 
-> Founder, 2026-10-16: "rewind functionality is only with my own agent can I go back to some previous message for example in a specific thread or in my conversation"
+> Founder, 2026-10-16: "in the future, we might imagine other agents that people can talk to. Maybe just not the mirror agent because the mirror agent is somebody only you talk to."
 
 Today each user has exactly one agent: a private mirror only they can talk to. Alice cannot let Bob talk to an agent she runs, so agents stay a solo tool rather than something people share. Showing more agents also raises a navigation question the current single-agent layout never had to answer.
 

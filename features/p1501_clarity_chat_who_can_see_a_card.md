@@ -18,7 +18,7 @@ driver: heuristic
 
 > Founder, 2026-10-16: "If it's private, then it's shared with specific people. And sometimes I don't see who it's shared with"
 
-A card does not say who can see it. In v11 the answer is implicit: a card in a chat is seen by that chat's members, and a draft is seen only by its author. Once cards travel further, Bob has no way to know whether a card is private to him, shared with Alice, or visible to more people.
+A card does not say who can see it. In v11 the answer is implicit: a public card is seen by anyone, a private card in a chat by that chat's members, and a draft only by its author. Once cards travel further, Bob has no way to know whether a card is private to him, shared with Alice, or visible to more people.
 
 ## Appetite
 
@@ -28,7 +28,7 @@ Placeholder, scoped when picked up.
 
 Direction, not design (founder, 2026-10-16):
 - A card shows its **visibility list** ("Shared with: Alice"), like a chat's member list.
-- **Deferred** because v11 grants no permissions: a card is either in a chat (seen by its members) or a draft (seen only by its author).
+- **Deferred** because v11 grants no permissions: a card is public (seen by anyone), private in a chat (seen by its members, never forwarded), or a draft (seen only by its author).
 
 ## Risks / Non-Goals
 

@@ -27,8 +27,8 @@ Placeholder, scoped when picked up.
 ## Solution
 
 Direction, not design (founder, 2026-10-16):
-- The card's **Details** view shows a log of what happened to the item: positions taken and changed, Alice's guess of Bob's position next to Bob's actual answer, ratings and predictions, edits.
-- The Clarity Ledger (P1459) **merges into Details**: no separate ledger surface, no card flip.
+- The card's **Details** view shows a log of what happened to the item: positions taken and changed, Bob's guess of Alice's position next to Alice's actual answer, ratings and predictions, edits.
+- The Clarity Ledger (P1459) **merges into Details**: no separate ledger page and no card flip; a chat's ⋮ → Clarity Ledger lists that chat's items, each opening Details (P1503 D19).
 
 ## Risks / Non-Goals
 

@@ -16,7 +16,7 @@ driver: heuristic
 
 ## Problem
 
-> Founder, 2026-10-16: "in the future, we might imagine other agents that people can talk to. Maybe just not the mirror agent because the mirror agent is somebody only you talk to."
+> Founder, 2026-10-16: "rewind functionality is only with my own agent can I go back to some previous message for example in a specific thread or in my conversation"
 
 When a conversation with your own agent goes down a wrong path, the only option is to keep going or start over. Every later reply carries the wrong turn forward. Alice needs a way to return to the point where it went wrong and continue from there.
 

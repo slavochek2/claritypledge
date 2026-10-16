@@ -44,5 +44,5 @@ Placeholder; scoped when picked up.
 
 ## Related
 
-P1495 (v10 prototype; spec on branch feature/p1437-conversation-groups-v2) · Clarity Chat v11 main spec (to be filed) ·
+P1495 (v10 prototype; spec on branch feature/p1437-conversation-groups-v2) · P1503 (Clarity Chat v11) ·
 P1501 (who can see a card)
