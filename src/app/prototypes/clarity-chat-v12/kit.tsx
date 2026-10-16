@@ -70,7 +70,8 @@ export function Message({ person, time, compact = false, highlight = false, sele
       ref={row}
       data-selected={selected || undefined}
       className={cn('group relative mx-2 flex gap-2.5 rounded-xl px-2 [@media(hover:hover)]:hover:bg-gray-100', compact ? 'py-1' : 'pb-1.5 pt-2.5', selected && 'bg-gray-100', highlight && 'bg-blue-50 [@media(hover:hover)]:hover:bg-blue-50')}
-      onClick={(e) => { if (onSelect && !(e.target as HTMLElement).closest('button,a,input,textarea,label,[role="menu"],[role="toolbar"]')) onSelect(); }}
+      /* A tap selects (touch has no hover); a mouse already has the hover toolbar, so its click selects nothing. */
+      onPointerUp={(e) => { if (e.pointerType !== 'mouse' && onSelect && !(e.target as HTMLElement).closest('button,a,input,textarea,label,[role="menu"],[role="toolbar"]')) onSelect(); }}
     >
       <div className="w-9 shrink-0">{!compact && <button type="button" aria-label={`Open ${PEOPLE[person].name}`} onClick={() => onPerson(person)}><Avatar person={person} /></button>}</div>
       <div className="min-w-0 flex-1">

@@ -219,7 +219,9 @@ export function retry(st: State, msgId: string): State {
   const inMsgs = st.msgs.find((x) => x.id === msgId);
   const comments = Object.fromEntries(Object.entries(st.comments).map(([k, v]) => [k, v.map(fix)]));
   const next: State = { ...st, failSends: false, comments, msgs: st.msgs.map(fix) };
-  return inMsgs?.failed ? fanOut(next, fix(inMsgs)) : next;
+  const inComments = Object.values(st.comments).flat().find((x) => x.id === msgId);
+  const failed = inMsgs?.failed ? inMsgs : inComments?.failed ? inComments : undefined;
+  return failed ? fanOut(next, fix(failed)) : next;
 }
 
 /** Comment under a post in a channel I can see. People only, no agent. */
@@ -228,7 +230,9 @@ export function comment(st: State, postId: string, text: string): State {
   if (!post || !readable(st, postId)) return st;
   const [id, seq] = nextId(st, 'c');
   const c = m(id, post.chatId, st.viewer, text, NOW, { failed: st.failSends || undefined });
-  return { ...st, seq, comments: { ...st.comments, [postId]: [...(st.comments[postId] ?? []), c] } };
+  const next = { ...st, seq, comments: { ...st.comments, [postId]: [...(st.comments[postId] ?? []), c] } };
+  /* A thread reply reaches the channel's other readers like a post does (unread, out of the archive); a failed one waits for Retry. */
+  return c.failed ? next : fanOut(next, c);
 }
 
 /** Forward a message I can read into a chat I belong to; the copy names the original author. */

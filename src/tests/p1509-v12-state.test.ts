@@ -164,6 +164,18 @@ describe('P1509 v12 delivery', () => {
     const ids = st.msgs.filter((x) => x.chatId === 'dm-bob-alice').map((x) => x.text);
     expect(ids.slice(-2)).toEqual(['first', 'later']);
   });
+  it('a thread reply reaches the other persona: unread, and out of the archive; a failed one only after Retry', () => {
+    let st = archive(initialState(), 'ch-night-oct16');
+    st = comment({ ...st, viewer: 'dana' }, 'm9', 'hi');
+    expect(st.unread.bob['ch-night-oct16']).toBe(2);
+    expect(st.archived.bob).not.toContain('ch-night-oct16');
+    expect(st.unread.dana['ch-night-oct16']).toBe(3); // never unread for the author
+    let f = comment(initialState({ fail: true, viewer: 'dana' }), 'm9', 'x');
+    expect(f.unread.bob['ch-night-oct16']).toBe(1);
+    f = retry(f, f.comments.m9!.at(-1)!.id);
+    expect(f.unread.bob['ch-night-oct16']).toBe(2);
+  });
+
   it('?state=fail: a comment fails too, and Retry fixes it', () => {
     let st = comment(initialState({ fail: true }), 'm9', 'x');
     const c = st.comments.m9!.at(-1)!;

@@ -70,6 +70,8 @@ describe('P1509 v12 prototype', () => {
     const rail = screen.getByTestId('folder-rail');
     expect(rail.className).toContain('bg-slate-800');
     expect(within(rail).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    // every folder is a line icon, groups included (no initials badges)
+    for (const t of within(rail).getAllByRole('tab')) expect(t.querySelector('svg')).toBeTruthy();
     expect(within(rail).getAllByRole('tab').map((t) => t.lastElementChild!.textContent)).toEqual(['All chats', 'Unread', 'Partners', 'Chiang Mai Clarity', 'Founders Circle', 'Berlin Clarity']);
     fireEvent.click(within(rail).getByRole('tab', { name: /Partners/ }));
     expect(within(rows()).getAllByRole('listitem').map((li) => li.getAttribute('data-chat'))).toEqual(['dm-bob-alice']);
@@ -128,7 +130,10 @@ describe('P1509 v12 prototype', () => {
     const li = msg('This is the exercise I want to try.');
     expect(within(within(li).getByRole('toolbar')).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Forward']);
     // a tap selects the row and shows the same toolbar on its own line
-    fireEvent.click(within(li).getByText('This is the exercise I want to try.'));
+    // a mouse click selects nothing (hover already shows the toolbar); a tap selects the row
+    fireEvent.pointerUp(within(li).getByText('This is the exercise I want to try.'), { pointerType: 'mouse' });
+    expect(li.querySelector('[data-selected]')).toBeNull();
+    fireEvent.pointerUp(within(li).getByText('This is the exercise I want to try.'), { pointerType: 'touch' });
     expect(li.querySelector('[data-selected]')).toBeTruthy();
     act(li, 'Reply');
     expect(screen.getByTestId('reply-bar').textContent).toContain('This is the exercise');
@@ -323,7 +328,7 @@ describe('P1509 v12 prototype', () => {
       fireEvent.click(screen.getByRole('radio', { name: new RegExp(persona) }));
       check(`${persona} list`);
       openMenu(); check(`${persona} menu`);
-      fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Close menu' }));
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Close menu' })); // the scrim
       openRow('ch-night-oct16'); check(`${persona} channel`);
       fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByTestId('replies-link')); check(`${persona} thread`);
       fireEvent.click(within(screen.getByTestId('thread-panel')).getByRole('button', { name: 'Close thread' }));

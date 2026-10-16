@@ -11,11 +11,10 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { useSearchParams } from 'react-router-dom';
 import {
   Archive, ArrowLeft, CalendarDays, FileText, Forward, Handshake, HomeIcon, LandmarkIcon, LayoutGrid, Link2, MailIcon, Menu, MessageCircle,
-  MessagesSquare, Reply, Search, UserIcon, UsersIcon, X, type LucideIcon,
+  MessagesSquare, MessageSquareDot, Reply, Search, UserIcon, UsersIcon, X, type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompactProfileCard } from '@/app/components/profile/compact-profile-card';
-import { OrgInitials } from '@/app/components/organizations/org-initials';
 import type { Profile as ProfileData } from '@/app/types';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -42,7 +41,8 @@ type View =
   | { kind: 'profile'; person: PersonId; back: View };
 
 const MENU_ICON: Record<(typeof MENU_PAGES)[number]['id'], LucideIcon> = { home: HomeIcon, letters: MailIcon, partners: UsersIcon, groups: LandmarkIcon, tools: LayoutGrid };
-const FOLDER_ICON: Record<string, LucideIcon> = { all: MessagesSquare, unread: MessageCircle, partners: UsersIcon };
+/** Every folder is a line icon, as in the bottom nav: a group folder carries the Groups icon. */
+const FOLDER_ICON: Record<string, LucideIcon> = { all: MessagesSquare, unread: MessageSquareDot, partners: UsersIcon };
 
 /* ---------- small pieces ---------- */
 
@@ -52,8 +52,9 @@ const dayLabel = (chat: Chat) => {
   return ev && !ev.today ? ev.when : 'Today';
 };
 
-const ChannelMark = ({ size = 'list' }: { size?: 'list' | 'sm' }) => (
-  <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white', size === 'list' ? 'h-12 w-12 text-lg' : 'h-8 w-8 text-sm')}>#</span>
+/** `onBlue`: on a selected (blue) row the mark turns white, so it never vanishes into the highlight. */
+const ChannelMark = ({ size = 'list', onBlue = false }: { size?: 'list' | 'sm'; onBlue?: boolean }) => (
+  <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full font-semibold', onBlue ? 'bg-white text-blue-600' : 'bg-blue-600 text-white', size === 'list' ? 'h-12 w-12 text-lg' : 'h-8 w-8 text-sm')}>#</span>
 );
 
 const ChatAvatar = ({ st, chat, size = 'list' }: { st: State; chat: Chat; size?: 'list' | 'sm' }) => (chat.kind === 'dm' ? <Avatar person={otherOf(st, chat)} size={size} /> : <ChannelMark size={size} />);
@@ -173,7 +174,7 @@ function ChatRow({ st, chat, active, onOpen, onArchive, archived }: { st: State;
         aria-current={active ? 'true' : undefined}
         className={cn('flex min-h-[68px] w-full items-center gap-3 px-3 py-2 text-left', active ? 'bg-blue-600 text-white' : HOVER)}
       >
-        <ChatAvatar st={st} chat={chat} />
+        {chat.kind === 'dm' ? <Avatar person={otherOf(st, chat)} size="list" /> : <ChannelMark onBlue={active} />}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className={cn('truncate text-[15px] font-semibold', active ? 'text-white' : 'text-gray-900')}>{chatTitle(st, chat)}</span>
@@ -208,7 +209,6 @@ function Skeleton() {
 /* ---------- folders: a dark rail on desktop, tabs on a phone ---------- */
 
 type Folder = { id: Tab; label: string; unread: number };
-const groupName = (id: string) => GROUPS.find((g) => g.id === id)?.name;
 const Badge = ({ n, className }: { n: number; className?: string }) => (n > 0 ? <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1.5 text-[11px] font-semibold text-white', className)} aria-label={`${n} unread`}>{n}</span> : null);
 
 /** Telegram desktop's folder rail: ☰ on top, then one icon-and-label button per folder, dark. */
@@ -218,15 +218,15 @@ function FolderRail({ folders, active, onPick, onMenu }: { folders: Folder[]; ac
       <button type="button" aria-label="Open menu" onClick={onMenu} className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white"><Menu className="h-6 w-6" /></button>
       <div role="tablist" aria-orientation="vertical" aria-label="Folders" className="flex flex-col">
         {folders.map((f) => {
-          const Icon = FOLDER_ICON[f.id];
+          const Icon = FOLDER_ICON[f.id] ?? LandmarkIcon;
           const on = f.id === active;
           return (
             <button key={f.id} type="button" role="tab" aria-selected={on} onClick={() => onPick(f.id)} className={cn('relative flex min-h-[64px] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium leading-tight', on ? 'bg-slate-900 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white')}>
               <span className="relative">
-                {Icon ? <Icon className="h-6 w-6" aria-hidden="true" /> : <span className="block h-7 w-7 overflow-hidden rounded-md [&>*]:!h-7 [&>*]:!w-7 [&>*]:!text-[11px]"><OrgInitials name={groupName(f.id) ?? f.label} /></span>}
+                <Icon className="h-6 w-6" aria-hidden="true" />
                 <Badge n={f.unread} className="absolute -right-3 -top-2 ring-2 ring-slate-800" />
               </span>
-              <span className="line-clamp-2 w-full break-words text-center">{f.label}</span>
+              <span className="w-full truncate text-center" title={f.label}>{f.label}</span>
             </button>
           );
         })}
@@ -261,17 +261,17 @@ function useEscape(onClose: () => void, on = true) {
 
 function SideMenu({ viewer, todayEvent, onClose, onEvent, onProfile }: { viewer: ViewerId; todayEvent?: { id: string; name: string }; onClose: () => void; onEvent: (eventId: string) => void; onProfile: () => void }) {
   useEscape(onClose);
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => { panel.current?.focus(); }, []);
   const me = PEOPLE[viewer];
   const item = cn('flex min-h-12 w-full items-center gap-4 px-5 text-left text-[15px] font-medium text-gray-900', HOVER);
   const icon = 'h-[22px] w-[22px] shrink-0 text-gray-500';
   return (
     <div className="fixed inset-0 z-50 flex" role="dialog" aria-label="Menu">
-      <nav className="flex h-full w-[300px] max-w-[85vw] flex-col bg-white shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-left">
+      {/* Telegram's drawer has no ✕: the scrim and Escape close it. Focus lands on the drawer itself, not on a control. */}
+      <nav ref={panel} tabIndex={-1} className="flex h-full w-[300px] outline-none max-w-[85vw] flex-col bg-white shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-left">
         <div className="border-b px-5 pb-4 pt-6">
-          <div className="flex items-start justify-between">
-            <Avatar person={viewer} size="list" />
-            <button type="button" autoFocus aria-label="Close menu" onClick={onClose} className={cn('-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-gray-500', HOVER)}><X className="h-5 w-5" /></button>
-          </div>
+          <Avatar person={viewer} size="list" />
           <p className="mt-3 truncate font-semibold text-gray-900">{me.name}</p>
           <p className="truncate text-sm text-gray-500">@{me.nickname}</p>
         </div>
@@ -301,7 +301,7 @@ function SideMenu({ viewer, todayEvent, onClose, onEvent, onProfile }: { viewer:
           )}
         </ul>
       </nav>
-      <button type="button" aria-label="Close menu backdrop" onClick={onClose} className="flex-1 bg-black/40" />
+      <button type="button" aria-label="Close menu" onClick={onClose} className="flex-1 bg-black/40" />
     </div>
   );
 }
