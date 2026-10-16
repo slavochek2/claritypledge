@@ -1,6 +1,5 @@
 ---
-status: qa
-delivery_stage: ship
+status: all-done
 pipeline_ran: [create-spec, dev, ship]
 type: task
 rank: 320
@@ -11,6 +10,7 @@ disclosure: public
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-16
 ---
 > **Founder contract (2026-10-16, verbatim):** *"If something is sensitive, it stays in .private forever. If something is not sensitive, it is public forever."*
 > The founder never takes an extra step and never needs to understand the mechanism. **Decided:** the off-machine copy is made automatically: the branch is kept until the nightly backup snapshot is verified to hold the archived spec and UAT blobs, then deleted by the tool. There is no founder push step; this replaces the earlier "founder pushes .private" design. Kanban marks private specs visibly. Editor search of `.private/` is enabled locally.
@@ -522,11 +522,11 @@ same commit shape `publish-spec` produces today, recoverable from git history.
 
 ## Related
 
-- [P1255](done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md) — the
+- [P1255](p1255_security_specs_publish_before_the_defect_is_fixed.md) — the
   embargo design this changes (its D4 and the publish step).
-- [P1464](done/2026-06-10/p1464_ship_embargo_spec_rides_code_commits.md) — the content
+- [P1464](p1464_ship_embargo_spec_rides_code_commits.md) — the content
   classifier this depends on.
-- [P1266](p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md) — its
+- [P1266](../../p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md) — its
   publish-side items are superseded.
 - `docs/decisions.md` 2026-10-12 (P1464), 2026-09-15 (embargo deploy order; branch-born dead
   ends), 2026-09-11 (P1302, P1303 incidents), 2026-09-04 [technical] (credential-topic specs
