@@ -37,7 +37,7 @@ SPEC=$(find features/ -name "p${P_NUM}*" -not -path "*/archive/*" | head -1)
 
 **Hard stops:**
 - No P-number provided → "Usage: /postmortem pN"
-- Spec not found → "No spec found for P{N}"
+- Spec not found → also check `.private/features/done/` (local main checkout only; never link or quote it in public files); still missing → "No spec found for P{N}"
 - Spec status is not `done` or `all-done` → "P{N} is still {status} — postmortem runs on shipped features only"
 - Not on main branch → "Postmortem must run from main (writes to docs/decisions.md)"
 

@@ -194,6 +194,8 @@ A check you have never seen fail is not a check.
 
 ## Phase 5 — emit
 
+**Refuse on a `disclosure: embargo` spec.** The pin below is committed to main, so its contract and criteria would publish the spec's content. Stop and tell the founder.
+
 **1. Pin the contract to main.** Without this the gate reads its judging criteria
 from the branch it is judging, and the loop can delete a row it is about to fail.
 

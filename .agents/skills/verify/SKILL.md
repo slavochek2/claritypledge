@@ -82,6 +82,8 @@ If argument given (e.g., `p273`):
 find features -name "*p273*" -not -path "*/archive/*" 2>/dev/null
 ```
 
+Not found: a closed spec may be in `.private/features/done/` (local main checkout only; never link or quote it in public files).
+
 If no argument, infer from branch:
 ```bash
 git branch --show-current  # e.g., feature/p273-verification-gate → p273

@@ -118,6 +118,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - **public-only** — nothing in it names a person, partner or organisation non-publicly, quotes what someone said, carries deal terms, or is something you would not want a competitor to read (pricing figures, GTM sequencing). Write it to `docs/decisions.md` as usual.
    - **split** — the decision itself is public-safe but its reasons are not. Write the name-free half (context, decision, alternatives, falsifier) to `docs/decisions.md`, ending with `**Details private:** .private/docs/decisions.md YYYY-MM-DD "<heading>"`. Write the named half to `.private/docs/decisions.md` (main checkout — see below) with `**Public entry:** docs/decisions.md YYYY-MM-DD "<public heading>"`.
    - **private-only** — the whole decision is sensitive. Write it to `.private/docs/decisions.md` only, with `**Public entry:** none`. Add a short public entry only if it changes the product.
+   - **Embargo sessions default private.** If the session touched a `disclosure: embargo` spec, default EVERY entry to **private-only**; a public entry is written only after the founder has reviewed its text.
    - **not cp business** (personal life, the founder's own machines) — write nothing; tell the founder to run `/kdd-private`.
 
    Headings in BOTH logs are name-free (names go in the body only), so a pointer to a heading never leaks a name. Link raw evidence (event folders, CRM notes) from the private entry; never move or copy it. Exact pricing stays in `.private/docs/business/pricing-decisions.md` — link it.
@@ -205,7 +206,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 5. **Update done-features index:**
 
-   After any feature is closed (moved to `features/done/`), append it to `features/done/INDEX.md`.
+   After any feature is closed (moved to `features/done/`), append it to `features/done/INDEX.md` — except a `disclosure: embargo` spec, whose close is appended to `.private/features/done/INDEX.md`, never the public index.
 
    Find the right domain section and add one line:
    ```

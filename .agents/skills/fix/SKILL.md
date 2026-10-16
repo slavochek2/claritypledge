@@ -597,7 +597,7 @@ Before updating frontmatter:
    **Review each hit and classify. For each hit, state one of these dispositions explicitly:**
 
    - **(i) Actionable deferral** — spec body names a concrete follow-up ("bootstrap coverage for X, extracting comparator to Y"). File a P-number NOW via `/create-bug` inline. Record the new P-numbers for the manifest (step 6). Edit the original deferral paragraph to name the new P-number inline (so Patch D's re-grep passes).
-   - **(ii) Already-filed deferral** — text names a P-number inline (e.g. "file as P765 if needed" or "P745 divergence"). Verify: `ls features/p{N}_*.md features/done/**/p{N}_*.md`. If missing → treat as (i).
+   - **(ii) Already-filed deferral** — text names a P-number inline (e.g. "file as P765 if needed" or "P745 divergence"). Verify: `ls features/p{N}_*.md features/done/**/p{N}_*.md`. If missing, also check `.private/features/done/**/p{N}_*.md` (local main checkout only; never link or quote it in public files) before treating as (i).
    - **(iii) Not a deferral** — AC regression guard ("Surfaces listed under Out of scope are visually unchanged"), parenthetical cite of a rule defined elsewhere in the same spec ("(out of scope, Invariant 4)"), or section header. Say why and move on.
 
    **Tier-1 / Tier-2 classifier (single test):**

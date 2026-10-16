@@ -45,6 +45,8 @@ git log --oneline --all | grep -i "pN\|feat(pN)\|fix(pN)"
 
 # Find the feature spec
 find features/ features/done/ -name "pN_*.md" 2>/dev/null | head -5
+# not found: a privately archived embargo spec (local main checkout only; never link or quote it publicly)
+find .private/features/done -name "pN_*.md" 2>/dev/null | head -5
 ```
 
 Report findings:
@@ -129,6 +131,11 @@ If the feature spec was in `features/done/`, move it back to `features/` with `s
 
 ```bash
 git mv features/done/{sprint}/pN_name.md features/pN_name.md
+```
+
+A spec found only under `.private/features/done/` is never moved back into `features/` (it would publish it): reopen it as a branch-born embargo spec instead, or ask the founder.
+
+```bash
 # Edit frontmatter: status: blocked, remove completed_at, add delivery_stage: dev
 ```
 

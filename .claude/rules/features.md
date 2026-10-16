@@ -18,7 +18,7 @@ disclosure: public    # REQUIRED on NEW specs: public | embargo (see Disclosure 
 ---
 ```
 
-## Disclosure (`disclosure:`) — where a spec is AUTHORED (P1255)
+## Disclosure (`disclosure:`) — where a spec is AUTHORED (P1255, P1507)
 
 ```yaml
 disclosure: public | embargo
@@ -26,14 +26,13 @@ disclosure: public | embargo
 
 **`public`** — safe to publish now. The answer for the overwhelming majority of specs.
 
-**`embargo`** — this spec describes a **live, unfixed defect in an authenticated or
-anon-reachable surface**. It is authored **branch-born**: filed inside a worktree on its
-own `feature/pN-*` branch and never seeded onto `main`, so it is not published until the
-fix is confirmed live on prod. `/ship` merges the code and withholds the spec;
-`./scripts/git-ops.sh publish-spec pN` publishes it afterwards, hard-asserting the spec's
-migrations are in `origin/main`'s `deploy-manifest [prod].migrations` **and** that the
-authenticated prod smoke test passes. The manifest is a record, not the database — never
-the manifest alone.
+**`embargo`** — this spec must **never be published**: a live or fixed security defect,
+privacy-sensitive content, or similar (founder, P1507: *"sensitive stays in .private
+forever"*). Authored **branch-born** in its own worktree (`feature/pN-*`), never on `main`,
+and no public placeholder. `/ship` merges the code and withholds the spec; once the fix is
+live, `./scripts/git-ops.sh archive-spec pN` (prod gates: migrations in `origin/main`'s
+`deploy-manifest [prod]` **and** the prod smoke) moves it into `.private/features/done/`.
+The branch is deleted by `archive-spec --finish-pending` once the nightly backup proves it.
 
 **Default closed when the call is genuinely unclear.** Over-classifying costs one
 `git-ops.sh claim` and is fully reversible. Under-classifying publishes a live hole.
@@ -63,9 +62,9 @@ the disclosure. Same finding that rejected P1248 and P936's names watchlist ([pi
 after the fact would be a lie — it gets `public`. While its defect is open, **add no
 further detail to it**; closing the defect is the actual remedy.
 
-**Write commit subjects for an embargoed spec in roles, not specifics.** The branch's commit
-subjects and `/ship`'s `chore: close pN — <title>` reach `main` *ahead* of the spec itself,
-and a title routinely names the component and the hole (`…_insertable_directly`,
+**Write commit subjects for an embargoed spec in roles, not specifics.** The branch's code
+commit subjects reach `main` (the spec never does), and a title routinely names the
+component and the hole (`…_insertable_directly`,
 `…_keyed_only_by_session_id`). A subject is a publication channel the embargo does not
 cover. Same discipline [pii.md](pii.md) already requires for names.
 

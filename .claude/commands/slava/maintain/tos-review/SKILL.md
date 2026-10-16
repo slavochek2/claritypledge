@@ -25,7 +25,7 @@ Run this after batches of shipped features, especially when new APIs, data flows
 
 1. `src/app/content/copy.ts` → `LEGAL_LAST_UPDATED` — determines review window
 2. `src/app/content/tos.md` — current ToS text (markdown source of record)
-3. `features/done/INDEX.md` — all shipped features; filter by date > last ToS update
+3. `features/done/INDEX.md` — all shipped features; filter by date > last ToS update. Also read `.private/features/done/INDEX.md` (local main checkout; absent in worktrees) so privacy-category changes archived privately are not dropped from the audit; never quote it in public files
 4. `supabase/functions/` — edge functions (third-party API calls, data processing)
 5. `.env.local`, `vite.config.ts`, and `src/` — third-party service inventory (VITE_ vars + frontend service calls)
 

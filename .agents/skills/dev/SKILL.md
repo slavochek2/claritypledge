@@ -71,7 +71,7 @@ You're not just writing code — you're building something that will run in prod
 
 After worktree setup (so CWD resolves to the correct branch):
 1. Read the full spec file (`features/pN*.md`) — Decisions section first, then Acceptance Criteria, then tasks
-2. If spec has `type: change-request` and `changes: pN` in frontmatter: also read the predecessor spec at `features/done/**/pN_*.md` (or `features/pN_*.md` if not yet shipped). Report: "Reading predecessor P{N} for context: {path}". If predecessor not found, warn but don't block.
+2. If spec has `type: change-request` and `changes: pN` in frontmatter: also read the predecessor spec at `features/done/**/pN_*.md` (or `features/pN_*.md` if not yet shipped; or, local main checkout only, `.private/features/done/**/pN_*.md` for a privately archived embargo spec — never link or quote it in public files). Report: "Reading predecessor P{N} for context: {path}". If predecessor not found, warn but don't block.
 3. If spec references DB columns/tables: verify they exist (`curl` the REST API or check migration files)
 4. If spec has mixed `[x]`/`[ ]` acceptance criteria (rewritten matryoshka bug): announce which layers are done and which remain. Focus implementation on unchecked items only.
 

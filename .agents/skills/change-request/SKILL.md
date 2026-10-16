@@ -63,6 +63,8 @@ find features/done features/archive -name "p{N}_*.md" 2>/dev/null | head -3
 ls features/p{N}_*.md 2>/dev/null
 ```
 
+Not found: a closed spec not found under `features/done/` may be in `.private/features/done/` (local main checkout only; never link or quote it in public files): `find .private/features/done -name "p{N}_*.md" 2>/dev/null | head -3`.
+
 **Do not skip reading it.** A redesign spec that doesn't reference the original is not traceable.
 
 ---

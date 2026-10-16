@@ -23,48 +23,32 @@ Before creating any file: `git worktree list | head -1 | awk '{print $1}'`. Comp
 
 ### Classification runs BEFORE the location guard (P1255)
 
-Ask first: **will this spec describe a live, unfixed defect in an authenticated or
-anon-reachable surface?**
+Ask first: **must this spec never be published?** Yes if it describes a security defect
+(live or already fixed), privacy-sensitive content, or anything similar. You decide; when
+unsure, answer yes (default closed).
 
 **If no** — the overwhelming majority — apply the guard above unchanged: stop and
 redirect to w0.
 
-**If yes**, do not stop. The spec is *embargoed*: it is authored branch-born so it is
-not published until the fix is confirmed live on prod.
+**If yes**, do not stop. The spec is *embargoed*: it is authored branch-born, never
+reaches `main`, and is archived privately (never published) once the fix is confirmed on prod.
 
 1. `./scripts/next-p-number.sh` → `pN`.
 2. `./scripts/git-ops.sh claim pN <slug>` → creates `feature/pN-<slug>` + worktree
    (or stay in the current worktree if it is already dedicated to this work).
 3. Write the spec **inside that worktree** at `features/pN_<slug>.md` with
-   `disclosure: embargo`. Derive the worktree root with `git rev-parse --show-toplevel`
-   and prefix every path with it — a file written to the main-repo path from inside a
-   worktree lands on the shared checkout (`.claude/rules/git.md`).
-4. Commit a **neutral stub** to `main` at `features/pN_security-review-pending.md` so the
-   P-number sequence carries no gap. From P400 on, only 2.3% of numbers are absent, so a
-   fresh gap in the tail is near-certain evidence that a spec was withheld — and
-   countable, and timestamped by its neighbours. The stub must use a **generic** filename:
-   real slugs routinely name the defect class (`…_insertable_directly`,
-   `…_keyed_only_by_session_id`), which would reintroduce the exact leak it closes.
-
-   ```yaml
-   ---
-   status: backlog
-   type: task
-   rank: <bottom of backlog>
-   tags: [disclosure-embargo]
-   disclosure: public
-   created_date: <today>
-   ---
-   # P<N>: Under disclosure embargo
-
-   This P-number is reserved for a spec under active security disclosure embargo.
-   Details — including the affected component and the nature of the issue — are
-   withheld until the underlying defect is confirmed fixed on production. This stub
-   exists so the P-number sequence carries no gap.
-   ```
-5. **Say so explicitly**, never silently: *"Filing pN as a branch-born embargoed spec on
-   `feature/pN-<slug>` — it will not reach `main` until `git-ops.sh publish-spec pN`
-   confirms the fix is live on prod."*
+   `disclosure: embargo`, committed only on its feature branch. Derive the worktree root
+   with `git rev-parse --show-toplevel` and prefix every path with it — a file written to
+   the main-repo path from inside a worktree lands on the shared checkout
+   (`.claude/rules/git.md`).
+4. **No public placeholder.** Never create `features/pN_security-review-pending.md` or any
+   stub: the P-number is held by the branch, the worktree lock and later the `.private`
+   archive (`next-p-number.sh` reads all of them).
+5. **Refuse `absorbs:` on an embargo spec** — a spec bound for private archive may not absorb
+   another spec.
+6. **Say so explicitly**, never silently: *"Filing pN as a branch-born embargoed spec on
+   `feature/pN-<slug>` — it never reaches `main`; `git-ops.sh archive-spec pN` archives it
+   privately once the fix is confirmed live on prod."*
 
 **Why the guard is not simply removed.** It exists to prevent *accidental* stranding
 ([decisions.md](../../../../docs/decisions.md) 2026-03-02 [process]). Embargo is
@@ -377,7 +361,7 @@ rank: {calculated}
 workstream: {infer or omit}
 created_date: '{YYYY-MM-DD}'
 tags: [{2-4 relevant tags}]
-disclosure: public              # public | embargo — embargo ONLY for a live, unfixed defect in an authenticated/anon-reachable surface (see .claude/rules/features.md)
+disclosure: public              # public | embargo — embargo = must never be published: security defect (live or fixed), privacy-sensitive content (see .claude/rules/features.md)
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated

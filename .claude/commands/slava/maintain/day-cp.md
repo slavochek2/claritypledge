@@ -218,6 +218,10 @@ if not d.get('spec_closed') or not d.get('branch_deleted'):
 " 2>/dev/null
 done
 
+echo "=== PENDING PRIVATE ARCHIVES ==="
+# Finish embargo-spec archives whose off-machine backup is now proven (deletes the branch). Run from the MAIN checkout; never fails the day.
+./scripts/git-ops.sh archive-spec --finish-pending 2>&1 | tail -1 || true   # last line: "N of M pending archive(s) finished"
+
 echo "=== STASH ==="
 git stash list 2>/dev/null || echo "none"
 
