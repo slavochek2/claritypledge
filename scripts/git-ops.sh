@@ -3518,24 +3518,25 @@ ship_spec_disclosure() {
 #                               pair to .private/features/done/<sprint>/, commit them
 #                               plus a manifest in the inner repo, verify blob ids.
 #                               Branch, worktree and main are untouched.
-#   archive-spec pN --finish    Half 2. Prove every manifest blob is in the latest
-#                               restic snapshot (started AFTER the archive), byte for
-#                               byte; then delete a legacy stub on main if one exists,
+#   archive-spec pN --finish    Half 2. Require the nightly backup's proof that a
+#                               snapshot taken AFTER the archive holds every manifest
+#                               blob, byte for byte; then delete a legacy stub on main if one exists,
 #                               tear down the worktree and delete the branch.
 #   archive-spec --finish-pending   Half 2 for every archive whose branch still exists.
 #                               Never fails on a missing proof — that is the normal
 #                               state until the nightly backup has run.
 #
-# Why restic and not a push: pushes are never automatic, and the founder takes no
-# extra step. The nightly home-directory backup already uploads .private/ to cloud
-# storage. Its snapshot is the off-machine copy; a local commit is not.
+# Why the backup and not a push: pushes are never automatic, and the founder takes
+# no extra step. The nightly home-directory backup already uploads .private/ to
+# cloud storage, and after each verified snapshot it writes a proof per archived
+# spec (pp scripts/restic-backup.sh). The snapshot is the off-machine copy; a local
+# commit is not.
 #
 # Prod gates (unchanged from publish-spec, now the "is it really done" check):
 #   1. Every migration carrying pN's token is in origin/main's deploy-manifest
 #      [prod].migrations. 2. No migration -> explicit --yes. 3. Authenticated prod
 #      smoke passes now (the manifest is a record, not the database).
 # ----------------------------------------------------------------------------
-ARCHIVE_RESTIC="${CP_ARCHIVE_RESTIC:-/opt/homebrew/bin/restic}"
 
 archive_prod_gates() {
   local pn="$1" branch="$2" assume_yes="$3" skip_smoke="$4"
@@ -3700,28 +3701,32 @@ cmd_archive_spec() {
   echo "archive-spec: branch $branch kept until the nightly backup holds these files; 'archive-spec --finish-pending' then removes it" >&2
 }
 
-# archive_offsite_check <manifest-rel>: 0 when the latest restic snapshot started
-# after archived_at and holds every destination with the recorded blob id.
+# archive_offsite_check <manifest-rel>: 0 when the nightly backup's proof file says a
+# snapshot taken AFTER archived_at holds every manifest destination with its blob id.
+#
+# Why a proof file and not a restic call here: only the backup job holds the
+# repository credentials, and it must never execute code from this agent-writable
+# tree (security review, 2026-10-16). So the job reads the manifests as data,
+# verifies each file in its own snapshot, and writes <pN>.proof; this reads it.
+# A proof file is forgeable by anything running as the founder — the cost of a
+# forgery is a branch deleted while the .private copy (still on this disk, and in
+# every later snapshot) remains: loss of a redundant copy, never a publication.
+ARCHIVE_PROOF_DIR="${CP_ARCHIVE_PROOF_DIR:-$HOME/.local/state/claritypledge/archive-proof}"
 archive_offsite_check() {
   local mrel="$1" P="$REPO_ROOT/.private"
+  local pn; pn="$(basename "$mrel" .manifest)"
+  local proof="$ARCHIVE_PROOF_DIR/${pn}.proof"
   local at; at="$(sed -n 's/^archived_at=//p' "$P/$mrel")"
   [[ "$at" =~ ^[0-9]+$ ]] || { echo "archive-spec: manifest $mrel has no archived_at" >&2; return 1; }
-  [[ -x "$ARCHIVE_RESTIC" ]] || { echo "archive-spec: restic not found at $ARCHIVE_RESTIC" >&2; return 1; }
-  local snap_t
-  snap_t="$( "$ARCHIVE_RESTIC" snapshots --latest 1 --json 2>/dev/null | python3 -c '
-import json,sys,re,datetime
-d=json.load(sys.stdin)
-if not d: sys.exit(1)
-t=d[-1]["time"]
-t=re.sub(r"\.(\d+)", lambda m: "."+(m.group(1)+"000000")[:6], t).replace("Z","+00:00")
-print(int(datetime.datetime.fromisoformat(t).timestamp()))' )" \
-    || { echo "archive-spec: no restic snapshot readable" >&2; return 1; }
-  (( snap_t > at )) || { echo "archive-spec: latest snapshot predates the archive — waiting for the next nightly backup" >&2; return 1; }
-  local b src d got
+  [[ -f "$proof" ]] || { echo "archive-spec: no backup proof for $pn yet — the nightly backup writes it" >&2; return 1; }
+  local st; st="$(sed -n 's/^snapshot_time=//p' "$proof" | sed -n '1p')"
+  [[ "$st" =~ ^[0-9]+$ ]] || { echo "archive-spec: proof for $pn has no snapshot_time" >&2; return 1; }
+  (( st > at )) || { echo "archive-spec: the proving snapshot predates the archive — waiting for the next nightly backup" >&2; return 1; }
+  local b src d
   while IFS=$'\t' read -r b src d; do
     [[ "$b" =~ ^[0-9a-f]{40}$ ]] || continue
-    got="$( set -o pipefail; "$ARCHIVE_RESTIC" dump latest "$P/$d" 2>/dev/null | git hash-object --stdin )" || got=""
-    [[ "$got" == "$b" ]] || { echo "archive-spec: off-machine copy of $d missing or different" >&2; return 1; }
+    grep -qxF "${b}"$'\t'"${d}" "$proof" \
+      || { echo "archive-spec: off-machine copy of $d missing or different" >&2; return 1; }
   done < "$P/$mrel"
   return 0
 }
@@ -5375,8 +5380,8 @@ SUBCOMMANDS (P788 extension — T06)
                                withheld: after the prod gates, commit the spec and
                                its UAT pair into the private .private repo (never
                                published). --finish deletes the branch once the
-                               latest nightly restic snapshot holds every archived
-                               blob byte for byte. 'archive-spec --finish-pending'
+                               nightly backup has proven a later snapshot holds
+                               every archived blob byte for byte. 'archive-spec --finish-pending'
                                runs --finish for every archive still waiting.
 
   push-docs                    Automate the P919 staging hop for doc/KDD commits

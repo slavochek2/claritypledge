@@ -16,8 +16,8 @@
 #   publish-spec is gone ............................................... R11
 #   --finish-pending sweeps every unfinished archive ................... R13
 #
-# The off-machine copy is restic. A fake restic serves a snapshot from a
-# directory keyed by the path below '.private/', so no network is touched.
+# The off-machine copy is the nightly backup; it proves each archive by writing
+# a proof file, which this suite writes itself. No network is touched.
 #
 # Usage: scripts/test-p1507-archive-spec.sh [path/to/git-ops.sh]
 
@@ -44,26 +44,13 @@ pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*" >&2; FAILURES=$((FAILURES + 1)); }
 show() { sed 's/^/    /' "$1" >&2; }
 
-# ── fake restic ─────────────────────────────────────────────────────────────
-# FAKE_SNAP/<path below .private/> is the snapshot's copy; FAKE_SNAP/.time is
-# the snapshot's start time (ISO-8601). Anything else exits non-zero.
-mkdir -p "$SCRATCH/bin"
-cat > "$SCRATCH/bin/restic" <<'EOF'
-#!/usr/bin/env bash
-snap="${FAKE_SNAP:?}"
-case "$1" in
-  snapshots)
-    [[ -f "$snap/.time" ]] || { echo '[]'; exit 0; }
-    printf '[{"time":"%s","id":"fake"}]\n' "$(cat "$snap/.time")" ;;
-  dump)
-    rel="${3#*/.private/}"
-    [[ "$rel" != "$3" && -f "$snap/$rel" ]] || { echo "restic: path not found: $3" >&2; exit 1; }
-    cat "$snap/$rel" ;;
-  *) echo "fake restic: unsupported $*" >&2; exit 2 ;;
-esac
-EOF
-chmod +x "$SCRATCH/bin/restic"
-export CP_ARCHIVE_RESTIC="$SCRATCH/bin/restic"
+# ── the off-machine proof ───────────────────────────────────────────────────
+# The nightly backup job verifies each archive manifest against its own snapshot
+# and writes <pN>.proof (snapshot_time=<epoch>, then blob<TAB>dest per file). The
+# suite plays that job: snapshot() hashes what a snapshot would hold and writes
+# the proof exactly as the job does; tests then corrupt it to exercise refusals.
+export CP_ARCHIVE_PROOF_DIR="$SCRATCH/proof"
+mkdir -p "$CP_ARCHIVE_PROOF_DIR"
 
 # mk <name> — a main repo with the real ship scripts and an inner .private repo.
 mk() {
@@ -82,7 +69,6 @@ mk() {
   ( cd "$d/.private" && git init -q && git config user.email c@t && git config user.name c \
     && git config commit.gpgsign false && echo idx > INDEX.md && git add INDEX.md \
     && git commit -qm seed && git branch -M main ) >/dev/null 2>&1
-  mkdir -p "$SCRATCH/snap-$1"
   echo "$d"
 }
 
@@ -121,16 +107,22 @@ shipped() {
   echo "$d"
 }
 
-# snapshot <repo> [iso-time] — copy the repo's .private tree into its fake snapshot.
+# snapshot <repo> [epoch] — write proofs for every manifest, hashing the live
+# .private files (what a snapshot taken now would hold). Default time: now + 60s.
 snapshot() {
-  local d="$1" s="$SCRATCH/snap-$(basename "$1")"
-  rm -rf "$s"; mkdir -p "$s"
-  ( cd "$d/.private" && tar cf - --exclude .git . ) | ( cd "$s" && tar xf - )
-  echo "${2:-$(date -u -v+1M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '+1 min' +%Y-%m-%dT%H:%M:%SZ)}" > "$s/.time"
+  local d="$1" t="${2:-$(( $(date -u +%s) + 60 ))}" mf pn
+  while IFS= read -r mf; do
+    pn="$(basename "$mf" .manifest)"
+    { echo "snapshot_time=$t"
+      grep -E $'^[0-9a-f]{40}\t' "$mf" | while IFS=$'\t' read -r b s dd; do
+        printf '%s\t%s\n' "$(git hash-object "$d/.private/$dd")" "$dd"; done
+    } > "$CP_ARCHIVE_PROOF_DIR/$pn.proof"
+  done < <(find "$d/.private/features/done" -name 'p*.manifest' 2>/dev/null)
 }
+proof() { echo "$CP_ARCHIVE_PROOF_DIR/$1.proof"; }
 finish() {  # finish <repo> <pN> [extra args]
   local d="$1"; shift
-  FAKE_SNAP="$SCRATCH/snap-$(basename "$d")" run "$d" archive-spec "$@" --finish
+  run "$d" archive-spec "$@" --finish
 }
 
 PDIR=".private/$SPRINT"
@@ -157,8 +149,8 @@ else
 fi
 R1="$d"
 
-# R2 — Half 2 with the snapshot missing the UAT blob refuses; branch survives.
-snapshot "$R1"; rm -f "$SCRATCH/snap-r1/$SPRINT/uat/p9101.md"
+# R2 — Half 2 with the proof missing the UAT blob refuses; branch survives.
+snapshot "$R1"; sed -i '' '/uat\/p9101.md$/d' "$(proof p9101)"
 finish "$R1" p9101; rc=$?
 if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R2: a blob missing from the off-machine snapshot refuses (exit $rc); branch still exists"
@@ -167,7 +159,7 @@ else
 fi
 
 # R3 — the snapshot holds different bytes: refuse.
-snapshot "$R1"; echo tampered >> "$SCRATCH/snap-r1/$SPRINT/p9101_demo.md"
+echo tampered >> "$R1/$PDIR/p9101_demo.md"; snapshot "$R1"; git -C "$R1/.private" checkout -q -- .
 finish "$R1" p9101; rc=$?
 if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R3: snapshot bytes differ from the branch blob: refused (exit $rc); branch still exists"
@@ -176,7 +168,7 @@ else
 fi
 
 # R4 — the latest snapshot started before the archive: refuse.
-snapshot "$R1" "2001-01-01T00:00:00Z"
+snapshot "$R1" 978307200
 finish "$R1" p9101; rc=$?
 if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R4: snapshot older than the archive: refused (exit $rc); branch still exists"
@@ -296,7 +288,7 @@ fi
 d="$(shipped r13 p9113)"
 run "$d" archive-spec p9113 --yes --skip-smoke; rc1=$?
 snapshot "$d"
-FAKE_SNAP="$SCRATCH/snap-r13" run "$d" archive-spec --finish-pending; rc2=$?
+run "$d" archive-spec --finish-pending; rc2=$?
 if [[ $rc1 -eq 0 && $rc2 -eq 0 ]] && ! git -C "$d" rev-parse --verify -q feature/p9113-x >/dev/null; then
   pass "R13: --finish-pending removed the proven branch (exit 0)"
 else
