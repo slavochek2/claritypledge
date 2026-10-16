@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 185
+**Next ID:** 186
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2380,5 +2380,16 @@ have failed. Test-only; no product change. Same family as INBOX-142 (midnight re
 **due:** week
 
 Diagnosed 2026-10-15 and confirmed by replaying real transcripts: inside a subagent the PreToolUse hook receives the parent session's transcript, so a founder complaint in the parent arms the block and the subagent's own screenshots (its own subagents transcript) can never clear it. Proposed fix, awaiting the founder's yes: arm only from the parent, also accept screenshot evidence from the subagent's own transcript after the complaint (fall back to today's behaviour if that file is absent), and stop teammate messages from arming it; open founder call: should a complaint inside pasted text still arm it? Droppable if the hook is retired or Claude Code starts passing the subagent transcript itself.
+
+---
+
+## inbox.sh run in a worktree writes to the main checkout's inbox store
+
+**ID:** INBOX-185
+**Date:** 2026-10-16
+**Status:** proposed
+**due:** week
+
+During the first rotating inbox review (2026-10-16), inbox.sh annotate and delete run inside an agent worktree edited the main checkout's docs/process-learnings.md, not the worktree copy; the edits had to be reverted by hand. Suspect tools/kanban/inbox-cli.ts resolves the store via the git common dir despite INBOX_PROJECT_ROOT. Done when a worktree run edits only the worktree copy (with a test); droppable if inbox writes are moved to main-only by design.
 
 ---
