@@ -144,3 +144,9 @@ visible before Alice answers; a calibration score turns many checks into a trend
 - **Value hypothesis (H-card, UNTESTED):** people keep notes on others all the time, but never ones the other person can grade. A card whose predictions the person can check gives a reason to come back: your picture of people gets better. Falsifier: users who complete a check do not return to the card.
 - **Bob sets his own guess** of the other person's position; the agent never pre-fills it, or calibration measures the agent.
 - **Each finished check** adds a Journey to Understanding entry to the card (P1459).
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+In v11, Bob's guess of Alice's position is **private to Bob**: it sharpens the point (the agent offers to make the
+point more polarising when his guess sits close to his own position) and, after she answers, Bob sees it next to her
+position. Alice never sees it in v11; showing her how Bob sees her belongs with "their story" (P1497).

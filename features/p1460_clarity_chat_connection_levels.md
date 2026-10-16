@@ -75,3 +75,9 @@ Chain: precondition for **find the moment** and **show the gap** at scale: the c
 - **Known/unknown is dropped** (founder, 2026-10-13). A private known/unknown tag is manual work with no use now that mutual recommendations are gone.
 - **Messaging works like Slack or WhatsApp:** you can message anyone whose email or number you have; block and "mark as spam" are the safety valve.
 - **Two states remain: a normal chat, and Partner** (the agreement, with the existing pending invitation). Contacts are private cards (P1458), separate from both; a non-user can at most be "invited".
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+Kept open as production work. v11 keeps only **normal chat vs partner**: "+ New" → New chat / New partner (today's
+partner flow, also for someone without an account); in a chat header "Invite as partner" → "Partner invite pending"
+→ a "Partner" label; a Partners inbox filter; no avatar badge; no separate connections page (everything is a chat).

@@ -187,3 +187,8 @@ stored) is for `/architect`.
 - decisions.md 2026-08-19 — the mirror agent is a design, not a shipped surface; keep definitions.md accurate.
 - Prototype: `/tree/letter-chat` on `feature/p1390-letter-review-proto`; demoed as presi4 slide 20
   (fictional Bob and Alice on the real ikigai1 points).
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+Kept open as the production letter-writing work. In v11, letters only appear as links to existing letters (📎);
+writing a letter with the agent in chat is this spec.

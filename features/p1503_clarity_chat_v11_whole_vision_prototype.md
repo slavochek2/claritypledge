@@ -43,7 +43,7 @@ is tested inside the product it will live in?
   that no production caller passes (the P1495 precedent). Mock data only; no network writes.
 - **Reversibility:** git revert.
 - **Decision density:** high, mostly spent: D1-D27 were made in the 2026-10-15/16 rounds and confirmed. The build
-  starts after the open founder decisions F1-F9 (below) are answered.
+  F1-F9 were answered 2026-10-16 (below); three copy decisions remain, none blocking the build.
 - **Viewports:** phone (375, also checked at 320) and desktop (1440), built together.
 
 ## Decisions (founder, 2026-10-15/16)
@@ -80,21 +80,19 @@ Recorded so nobody re-asks them. Referenced below as D-n.
 | D26 | Reuse: anything that renders a point, story, position, guess or rating is a production or P1495 component (P1495 reuse map rows 1-4, 20, 23, 26-28). The frame may be built new, Telegram-styled. |
 | D27 | Phone and desktop together. |
 
-## Open founder decisions (answer before the build)
+## Founder answers to the review questions (2026-10-16)
 
-Each has a recommendation; reviewers (Opus, Gemini 4 Argon, Codex, 2026-10-16) surfaced them.
-
-| # | Question | Recommendation |
+| # | Question | Answer |
 |---|---|---|
-| F1 | On the main path, is Alice a Clarity Chat member? | Yes. Bob clarifies in his bridged WhatsApp chat with Alice; "Send to Alice" delivers into the **Bob-Alice Clarity chat**, where she answers and where Bob sees the result; the WhatsApp chat gets the notice plus link, which opens that chat for her. A non-member answering by link is P1456. |
-| F2 | Do Alice's answers reach Bob as she taps, or when she sends? | When she sends (P1484 D25): her answers are marked "Only visible to you" until she taps "Send to Bob". |
-| F3 | Does Bob predict, 0-10, how well Alice will understand his story? | Yes: it is what the story's gap is made of (P1495 step 6; `CalibrationVerdict` needs it). |
-| F4 | Can Bob edit his story after Alice has rated it? | No: like a point, a sent story locks once the other person has rated it. Before that, an edit makes a new version and clears Bob's own prediction for it. |
-| F5 | Agent label: "Mira · Bob's mirror agent" (2026-10-12 ruling), "managed by Bob" (Buzz), or "Operated by Bob" (production)? | The ruling's wording, already decided: "{agent} · {owner}'s mirror agent". |
-| F6 | Letters in v11? | 📎 has a Letters tab that attaches a link to an existing letter; no "Write a letter" chip and no new letter flow. |
-| F7 | Bridged notice text in WhatsApp (point statement only, never story text, guess or numbers). | `[FOUNDER DECISION: copy]` e.g. "Bob shared a point with you in Clarity Chat: '{statement}'. {link}". Bridged group chats get no Clarity items in v11. |
-| F8 | The fictional agent's name in mock mode (real mode: Mira). | `[FOUNDER DECISION: name]` |
-| F9 | Move P1462 (production menu move) and P1431 (real transcript-to-letter) from "supersede" to "update"? | Yes: v11 is a prototype; both own production work. |
+| F1 | Is Alice a Clarity Chat member on the main path? | **Yes.** "Send to Alice" delivers into the Bob-Alice Clarity chat; the bridged WhatsApp chat gets the notice plus a link to it. How someone becomes a member from a WhatsApp invitation is P1456. |
+| F2 | Do Alice's answers reach Bob as she taps? | **Yes, as everywhere else in the product:** a tapped position is submitted and can be changed later. Her **first** position on a received point is recorded as her blind answer (it opens the story); later changes show as changes. A story rating keeps its own Submit (production rating card). |
+| F3 | Predictions? | **Two, with different audiences.** Bob's guess of Alice's position on the point is **private to Bob** (it shapes the point; see §3). Bob's 0-10 prediction of how well Alice will understand his story is revealed to both after her rating (as in letters). |
+| F4 | Can Bob edit his story after Alice rated it? | **Not in v11:** it locks once rated. Whether rated stories should instead be kept as snapshots while the live story moves on is P1504. |
+| F5 | Agent label | "{agent} · {owner}'s mirror agent" (2026-10-12 ruling). |
+| F6 | Letters | 📎 attaches a link to an existing letter. Writing letters in chat is P1431. |
+| F7 | What reaches WhatsApp | The per-action translation table lives in P1457 (the bridge spec); v11 mocks its first rows (§2). |
+| F8 | Mock agent name | **Mira** (as in real mode). |
+| F9 | Older specs | Production work stays open and is updated; only the prototype rounds v5-v10 (P1467, P1469, P1484, P1485, P1495) and the separate ledger (P1459) are closed. |
 
 ## Solution
 
@@ -128,7 +126,8 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
   items, items already in this chat, general drafts, and drafts made for this chat's person. Other items show as
   disabled with the chat they belong to. Choosing a draft runs the same Send step as in its thread.
 - **Bridged chat (mock):** network mark in the header; a banner says whose account bridges it; a strip lens shows
-  Alice's WhatsApp, where a sent item appears as the F7 notice plus link; tapping the link opens the Bob-Alice
+  Alice's WhatsApp, where Clarity actions appear per the translation table in P1457 (v11 mocks: a shared point,
+  a shared story, a shared letter link; nothing sealed ever); tapping the link opens the Bob-Alice
   Clarity chat in Alice's lens (F1).
 - **Event channel (mock):** a table thread with /transcribe lines; the strip has "Add a reply (mock)" to grow it.
 
@@ -138,6 +137,9 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 - A "Threads ({n})" bar at the top of the agent chat lists its threads; each opens with the quoted source and pins
   the item in focus (D20); chips by context: "Suggest points", "Suggest a story", "Suggest a story for this point".
 - The agent proposes the fitting format (point or story) from the material; Bob steers in plain words. No mode picker.
+- **The private guess sharpens the point:** when Bob's guess of Alice's position sits close to his own, the agent says
+  so in the thread and offers to sharpen the point so the two positions would differ most (the most informative
+  point). `[FOUNDER DECISION: the agent's wording]`
 - **Bob's own story, only from his words** (P1484 D13): an agent draft of Bob's story uses only what Bob wrote in the
   source; any sentence the agent inferred is marked and must be kept or deleted by Bob before Send.
 - Draft endings (D17): a draft that carries a guess of a person's position offers only **Send to {name}** (2026-10-12
@@ -148,31 +150,34 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 
 1. Bob taps Clarify on Alice's message in the bridged WhatsApp chat → his agent thread opens (side panel on desktop
    with Alice's chat still visible; full screen on phone).
-2. The agent proposes 1-3 points; Bob takes his position with `PositionButtons` and guesses Alice's with `GuessMenu`.
+2. The agent proposes 1-3 points. On the draft, Bob takes his position with `PositionButtons` and guesses Alice's with
+   `GuessMenu`. Positions on a draft are private until Send (a draft is his alone).
 3. Bob adds his story (required on the main path; a point alone may also be sent): "Add a story" (manual) or the chip
    "Suggest a story".
-4. Bob predicts how well Alice will understand his story (F3, `ComprehensionRatingCard`, P1495 sentence).
-5. Before Send, the preview tells Bob that after Alice answers she will see his guess and his prediction
-   (P1469 D14) `[FOUNDER DECISION: copy]`.
+4. Bob predicts how well Alice will understand his story (`ComprehensionRatingCard`, P1495 sentence).
+5. Before Send, the preview tells Bob what Alice will see. Draft copy, `[FOUNDER DECISION: copy]`: *"Alice will see
+   your point and your story. After she rates the story, she'll see how well you expected her to understand it. Your
+   guess of her position stays private."*
 6. Send to Alice → the item arrives in the Bob-Alice Clarity chat as a **reply quoting** the source message.
-7. Alice answers blind: her position, then the story opens, she reads and rates it. Her answers are marked "Only
-   visible to you" until "Send to Bob" (F2).
-8. After she sends: both see the guess line rendered as below; Bob sees his prediction next to her rating
-   (`CalibrationVerdict perspective="sender"`), Alice sees `perspective="reader"`.
+7. Alice taps her position (submitted at once, as everywhere; her first position is her blind answer). That opens
+   Bob's story; she reads it and rates it with the rating card's Submit.
+8. After her rating, both see the story result: Bob `CalibrationVerdict perspective="sender"`, Alice
+   `perspective="reader"`. Bob also sees, privately, his guess next to her position (the v10 BLOCKED step).
 
 **One exchange per point per person:** a point is sent to a person once; stories added later join that exchange,
 each with its own prediction and seal. A second mention of the point in that chat is a reference (D20).
 
-**Guess line renderings** (above the card, `EyesHeader` + `GuessMenu`, P1495 row 20):
-- Bob, before Alice sends: "Alice in Bob's eyes · {guess} (your guess)".
-- Bob, after: "Alice in Bob's eyes · {guess}" next to "Alice · {her position}".
-- Alice, before she sends: nothing. After: "Alice in Bob's eyes · {guess}" next to her own position.
+**Guess line** (above the card, `EyesHeader` + `GuessMenu`, P1495 row 20), **shown to Bob only:**
+- before Alice answers: "Alice in Bob's eyes · {guess} (your guess)";
+- after: "Alice in Bob's eyes · {guess}" next to "Alice · {her position}".
+Alice never sees Bob's guess in v11; showing her how Bob sees her belongs with "their story" (P1497).
 
 ### 5. Details (D19)
 
 One view per item (side panel on desktop, full screen on phone): the card, the guess line, story ratings and
 predictions (`CalibrationVerdict` / `RatingDotsPending`). **Details and the Clarity Ledger apply the same seals per
-viewer as the chat:** before Alice sends her answer, her Details shows the point only; no story, guess or numbers.
+viewer as the chat:** before Alice takes a position, her Details shows the point only; Bob's guess never appears in
+her Details; his story prediction appears only after her rating.
 
 ### 6. Actions (D11, D21, F4)
 
@@ -230,11 +235,11 @@ Strings decided in the rounds or production. Anything else on the main path need
 | Thread status | "Read {n} replies" · "{n} new replies since this draft" | D14 |
 | Repeat reference | "↗ Point: {statement}" · "↗ Story: {first words}" | D20 |
 | Update lines | "{author} updated the point" · "Story linked to {point}" | D20, D16 |
-| Alice's pending answers | "Only visible to you" · "Send to Bob" | F2 (P1484 / v8 strings) |
-| Agent identity | F5 | F5 |
-| Pre-send exposure notice | `[FOUNDER DECISION: copy]` | §4 step 5 |
-| Bridged notice | F7 | F7 |
-| Mock agent name | F8 | F8 |
+| Agent identity | "{agent} · {owner}'s mirror agent" | F5, 2026-10-12 ruling |
+| Pre-send notice | §4 step 5 draft | `[FOUNDER DECISION: copy]` |
+| Sharpen-the-point prompt | §3 | `[FOUNDER DECISION: copy]` |
+| Bridged notices | P1457 translation table | F7 |
+| Mock agent name | "Mira" | F8 |
 | Message actions | "Reply" · "Forward" · "Clarify" | D11, D14 |
 | Strip | "Add a reply (mock)" · Alice's WhatsApp lens label | prototype only |
 
@@ -264,8 +269,9 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
 - [ ] 9. **Drafts.** Edit and delete work; a draft with a guess offers "Send to {name}" and no Publish; tapping Send
       is the only way the item reaches Alice.
 - [ ] 10. **Loop and seals.** The item arrives in the Bob-Alice Clarity chat as a reply quoting the source; before
-       Alice sends, neither her chat nor her Details shows Bob's story, guess or prediction; after she sends, Bob's
-       chat shows his guess next to her position and his prediction next to her rating (the v10 BLOCKED step).
+       Alice taps a position, neither her chat nor her Details shows Bob's story or prediction; Bob's guess never
+       appears anywhere in Alice's view; after her position Bob privately sees his guess next to it; after her rating
+       both see the story result (the v10 BLOCKED step).
 - [ ] 11. **Repeats.** Sending the same point twice in one chat shows one card plus one reference; an edit updates the
        one card with "{author} updated the point".
 - [ ] 12. **Details.** Opens from a card and from ⋮ → Clarity Ledger; no card flips anywhere.
@@ -273,8 +279,8 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
        Delete; a story Alice has rated offers Bob no Edit (F4).
 - [ ] 14. **Partners.** "+ New" → New partner reaches today's partner flow for someone without an account; "Invite as
        partner" → send → "Partner invite pending" → accepted in Alice's lens → "Partner".
-- [ ] 15. **Bridge (mock).** Alice's WhatsApp lens shows only the notice (point statement, no story, guess or numbers)
-       plus a link; the link opens the Bob-Alice Clarity chat in Alice's lens; her Clarity reply does not appear in
+- [ ] 15. **Bridge (mock).** Alice's WhatsApp lens shows only the P1457 notices for the mocked actions (never story
+       text, a guess or a number) plus a link; the link opens the Bob-Alice Clarity chat in Alice's lens; her Clarity reply does not appear in
        the WhatsApp lens.
 - [ ] 16. **Mobile.** Every screen works at 375 and 320 without horizontal scroll; every hover action has a long-press
        or ⋯ equivalent.
@@ -283,7 +289,7 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
 
 ## Done-When
 
-- [ ] F1-F9 answered and written into this spec.
+- [x] F1-F9 answered and written into this spec (2026-10-16).
 - [ ] Typecheck errors per file match the branch baseline; all P1495 and v8 tests pass; new v11 tests cover AC 5, 6,
       9, 10, 11, 13.
 - [ ] AC 1 output with its control and the reviews attached with `<reports received> of <spawned>`: reuse audit,
@@ -306,7 +312,8 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
 **Reversals this spec makes (to record):** 2026-10-12 left-menu/imports order (D1) and the private thread inside the
 Bob-Alice DM (D13); P1469 D18 "Letters, checks and threads exist only in the ClarityPledge space" (D4/D23) and D19
 "None in the letter loop or in agent chats" (threads, D13); P1484 "In v7 she answers nowhere in chat" (Alice answers
-in chat, §4).
+in chat, §4) and P1484 D25 "Nothing reaches Bob before" she sends (positions submit on tap, F2); P1469 D14 "Bob agrees
+to that exposure" now covers only the story prediction (the guess stays private, F3).
 
 **Non-Goals**
 - Do NOT build: their story (P1497), card history (P1496), rewind (P1499), other agents (P1498), Canvas from event
@@ -322,8 +329,9 @@ in chat, §4).
 - My own position is set only with production `PositionButtons`; a guess of another person's position only with
   P1495's `GuessMenu`.
 - Agents never score and never write for the other person; an agent's owner is always shown.
-- Seals apply on every surface (chat, Details, Clarity Ledger, previews, bridged notice): Bob's story opens for Alice
-  only after her answer on the point; Bob's guess and numbers only after her matching answer is sent.
+- Seals apply on every surface (chat, Details, Clarity Ledger, previews, bridged notices): Bob's story opens for
+  Alice only after her first position on the point; his story prediction only after her rating; his guess of her
+  position never, in v11.
 - A prediction about a person is private or addressed to that person; it is never published.
 - A private item never reaches a person outside the chat it was sent to, including through 📎.
 - Bob's own story contains only his words unless he kept an inferred sentence explicitly.
@@ -331,15 +339,16 @@ in chat, §4).
 
 ## Related
 
-**Supersedes** (close after F-answers): P1495 (v10), P1485 (v8, branch only), P1484 (v7), P1469 (v6), P1467 (v5),
-P1460 (connection levels); P1459 → P1496. P1462 and P1431 per F9.
-**Update with this direction:** P1457 (real bridge: D4, D23, F1, F7), P1461 (D5), P1455 (D11, D13), P1456 (no
-connection levels; the non-member path), P1458 (guess line §4), P1465 (aim at the guess line), P1470 (deferred: no
-agent flags in v11).
+**Closes** (prototype rounds; closed on the prototype branch, they reach main when it ships): P1467 (v5), P1469 (v6),
+P1484 (v7), P1485 (v8), P1495 (v10). **Closed on main:** P1459 → merged into P1496.
+**Update with this direction (production work, kept open):** P1457 (real bridge + the translation table), P1460
+(partners: D8, D9), P1461 (D5), P1462 (production menu, after v11), P1431 (letters written in chat), P1455 (D11,
+D13), P1456 (non-member path, including becoming a member from a WhatsApp invitation), P1458 (guess private to Bob),
+P1465 (aim at the guess line), P1470 (deferred: no agent flags in v11).
 **Follow-ups:** P1496 history in Details · P1497 their story · P1498 other agents · P1499 rewind · P1500 Canvas from
-event threads · P1501 who can see a card · P1502 private library. **Keep:** P1466.
+event threads · P1501 who can see a card · P1502 private library · P1504 story versions and snapshots. **Keep:** P1466.
 **Rulings:** 2026-10-12 [product] mental model and mirror-agent role ("Alice in Bob's eyes"; "<Name> · Bob's mirror
 agent"; predictions private or addressed) · 2026-10-12 [product] Clarity Chat letter thread (reversed by D13) ·
 2026-09-16 [product] Links menu on every surface (D7) · P1495 Build Evidence (branch).
 **Reviews of this spec (2026-10-16):** 3 of 3 reported — Opus, Gemini 4 Argon (served model verified), Codex
-(gpt-6.1-sol, high). Their blockers are resolved above or listed as F1-F9.
+(gpt-6.1-sol, high). Their blockers are resolved above; F1-F9 answered by the founder.

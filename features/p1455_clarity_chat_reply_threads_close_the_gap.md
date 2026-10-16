@@ -86,3 +86,9 @@ measurement into a repair.
 
 - **Threads only where two topics run at once.** Group channels keep threads; one-to-one chats and agent chats use quote-replies (Telegram-style). The letter loop has no threads.
 - **Closing the gap continues in the Bob-Alice chat**, where the letter now arrives (P1469 decision 11), so this spec designs replies inside that chat, not in a separate thread.
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+v11 replaces "a letter is a private thread in the chat" with: preparation lives in threads inside my chat with my
+agent; what I send arrives in the shared chat as a **reply quoting** the source message; Reply (quoted) and Forward
+exist on every message. Closing the gap by continued exchange remains this spec's subject.

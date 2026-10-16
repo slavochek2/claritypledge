@@ -61,3 +61,9 @@ loop. Lowest hypothesis value, which is why it sits late in the order.
 ## Done-when for promoting out of placeholder
 
 - A test moves from a pair to a group of three or more.
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+A group is a space holding **channels only**; direct messages always live in the one inbox. Channel types:
+**Members** (every group member), **Event** (that event's attendees and host only, not all members), **Invite-only**
+(people chosen by name). A multi-person chat outside any group is a group chat in the inbox.

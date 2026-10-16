@@ -79,3 +79,31 @@ must bring every moment by hand.
 - **Imported sources are spaces** (P1469 decision 18): a left rail with ClarityPledge, WhatsApp via Beeper, Telegram via Beeper; a light skin per network; composer "Message on WhatsApp" when Beeper is connected, "Read-only · imported <date>" otherwise.
 - **Alice never sees Bob's imported history**, and letters never quote her imported messages word for word.
 - **The first import triggers one scan for stuck conversations** (P1470); afterwards detection speaks only when it finds one.
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+This spec is the real bridge; P1503 mocks it. Direction from the 2026-10-15/16 rounds:
+- **One inbox** holds bridged chats, each marked with its source network and filterable per network (Beeper model);
+  not spaces, no left rail. Same person on two networks = two chats.
+- One side runs the bridge; the other person can consent to see the shared history through it. Their Clarity Chat
+  messages stay in Clarity Chat (the bridge is the first person's account). Revoking hides the history from them;
+  the bridge owner's copy stays (their own backup).
+- Business vision and risk position: private notes (`.private/docs/business/`).
+
+### WhatsApp translation table (v1, maintained here)
+
+Principle: plain messages pass through the bridge as normal messages. A Clarity item reaches the network as **one
+line plus a link**, only when it asks the other person to do something or shows them a result. Sealed content (story
+text before her answer, guesses, numbers) never reaches the network. Copy is `[FOUNDER DECISION]` until approved.
+
+| Clarity action by Bob in a bridged chat | What Alice sees in WhatsApp |
+|---|---|
+| Plain message, reply, forward of text | the message itself |
+| Shares a point | "Bob shared a point with you in Clarity Chat: '{statement}'. {link}" |
+| Shares a story | "Bob shared a story with you in Clarity Chat. {link}" (no story text) |
+| Shares a letter link | "Bob sent you a Clarity letter. {link}" |
+| Rates Alice's story | "Bob read your story. See how it landed: {link}" (no number) |
+| Invites Alice as a partner | "Bob invited you to be partners in Clarity Chat. {link}" |
+| Takes a position on Alice's point | nothing (it asks nothing of her; she sees it in Clarity Chat) `[FOUNDER DECISION: or a notice, for more pull?]` |
+| Clarify, drafts, agent threads | nothing (private to Bob) |
+| Anything in a bridged group chat | nothing in v11 |

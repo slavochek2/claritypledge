@@ -64,3 +64,9 @@ how everything looks without testing whether the loop works.
 ## Update 2026-10-13 (from the v5 walk-through, see P1469)
 
 - The left rail also carries **spaces** (ClarityPledge, WhatsApp via Beeper, Telegram via Beeper), modelled on Slack's workspace rail and Beeper's network rail (P1469 decision 18, P1457).
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+Kept open as the **production** menu work, after the v11 prototype. v11's frame: Telegram-based; home is the chat
+list; one drawer from the avatar (My Profile, Explore, Settings, About); Tools one click at the top level; "+ New";
+on desktop a narrow rail of spaces (Inbox, each group). The left-sidebar move described above is superseded by that.

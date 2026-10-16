@@ -1,5 +1,6 @@
 ---
-status: backlog
+status: rejected
+superseded_by: p1496
 type: story
 disclosure: public
 rank: 1000100

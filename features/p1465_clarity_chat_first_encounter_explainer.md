@@ -85,3 +85,7 @@ gap is ever shown. Adoption of the whole loop depends on this card.
 
 - **The explainer graphic is removed** (avatar → arrow → dashed avatar; founder: "why?!").
 - **Alice no longer meets Bob's agent.** She meets the idea on the card itself: after her position is locked, Bob's story of her arrives under the header "<name> in Bob's eyes · <guess>" with one neutral line from the letter (P1469 decision 13).
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+Aim the 10-second explainer at v11's guess line ("Alice in Bob's eyes · … (your guess)"), which only Bob sees.

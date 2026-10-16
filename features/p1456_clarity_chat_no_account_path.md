@@ -86,3 +86,9 @@ Without it the loop only works between existing members.
 - **The link is not proof of identity.** Alice confirms her number with a WhatsApp one-time code (WhatsApp authentication templates, offered by providers such as Twilio Verify; per-message cost; needs a Meta-verified business sender). Email stays the fallback.
 - **Beeper transport:** in its on-device mode messages go from the device straight to WhatsApp, end-to-end encrypted; the older cloud mode decrypts on Beeper's servers. Check the mode before relying on it.
 - The prototype (P1469) sends by email only.
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+v11 assumes Alice is already a member. **Becoming a member from a WhatsApp invitation** belongs here: Bob's
+bridged notice carries a link; Alice answers without an account, verifies (email or WhatsApp number) to save, and
+lands in the Bob-Alice Clarity chat. No connection levels (unknown/known): only normal chat vs partner.

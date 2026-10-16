@@ -94,3 +94,8 @@ Decision density: high: who the user is decides whether to build at all.
 - [P1469](p1469_clarity_chat_letter_loop_v6.md) (the prototype assumes this works) ·
   [P1457](p1457_clarity_chat_data_import.md) (import, which triggers the first scan).
 - `/slava:understanding:detect` (closest existing piece; evidence-anchoring rules reusable).
+
+## Direction update 2026-10-16 (P1503, Clarity Chat v11)
+
+Deferred for v11: no agent-flagged moments in imported chats; v11 starts every clarification from Clarify on a
+message.
