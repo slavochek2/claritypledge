@@ -59,7 +59,7 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.queryByRole('button', { name: /accept/i })).toBeNull();
   });
 
-  it('the 30% stat counts up (and renders the real number without animation)', () => {
+  it('the 30% stat renders the real number before any animation (count-up itself not exercised in jsdom)', () => {
     renderPage();
     expect(screen.getByTestId('stat-card').textContent).toContain('30%');
   });

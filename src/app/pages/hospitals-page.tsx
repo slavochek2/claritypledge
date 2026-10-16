@@ -104,7 +104,7 @@ function CountUpPercent({ target }: { target: number }) {
 function RefSup({ n }: { n: 1 | 2 }) {
   return (
     <sup className="ml-0.5">
-      <a href="#references" aria-label={`Reference ${n}: ${REFERENCES[n - 1].label}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-500 hover:text-blue-600">
+      <a href="#references" aria-label={`Reference ${n}: ${REFERENCES[n - 1].label}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-600 hover:text-blue-700">
         {n}
       </a>
     </sup>
@@ -240,7 +240,7 @@ export function HospitalsPage() {
         <section className={SECTION}>
           <div className="container mx-auto max-w-5xl">
             <Reveal><SectionHeader title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>} /></Reveal>
-            <motion.ol className="grid grid-cols-1 sm:grid-cols-5 gap-4" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+            <motion.ol className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               {PATH.map((p, i) => (
                 <motion.li key={p.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 text-center shadow-sm flex flex-col items-center">
                   <div className="w-28"><PeopleStrip {...p.strip} /></div>

@@ -43,15 +43,15 @@ function Bubble({ who, time, children }: { who: "A" | "B"; time: string; childre
   const isA = who === "A";
   return (
     <div className={`flex gap-2 items-end ${isA ? "justify-end" : ""} ${ENTER}`}>
-      {!isA && <img src={AVATAR.B} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />}
+      {!isA && <img src={AVATAR.B} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />}
       <div
         className={`max-w-[80%] rounded-lg px-3 py-2 text-[15px] leading-snug shadow-sm text-[#111b21] ${
           isA ? "bg-[#d9fdd3] rounded-tr-sm" : "bg-white rounded-tl-sm"
         }`}
       >
-        {!isA && <span className="block text-[12px] font-semibold text-blue-700 mb-0.5">B</span>}
+        {isA ? <span className="sr-only">A: </span> : <span className="block text-[12px] font-semibold text-blue-700 mb-0.5">B<span className="sr-only">: </span></span>}
         {children}
-        <span className="block text-right text-[10px] text-[#54656f] mt-0.5">
+        <span aria-hidden="true" className="block text-right text-[10px] text-[#54656f] mt-0.5">
           {time}
           {isA && <span className="text-blue-500"> ✓✓</span>}
         </span>
@@ -63,7 +63,7 @@ function Bubble({ who, time, children }: { who: "A" | "B"; time: string; childre
 function VerifiedEquation() {
   return (
     <div className="flex items-center justify-center gap-3 font-bold text-2xl text-foreground" aria-label="B said 8, A guessed 4, verified understanding 4">
-      <span className="flex flex-col items-center leading-none"><span className="text-slate-600">8</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">B</small></span>
+      <span className="flex flex-col items-center leading-none"><span className="text-foreground/70">8</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">B</small></span>
       <span className="text-muted-foreground font-normal text-base">vs</span>
       <span className="flex flex-col items-center leading-none"><span className="text-blue-600">4</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">A</small></span>
       <span className="text-muted-foreground font-normal text-base" aria-hidden="true">&rarr;</span>
@@ -152,8 +152,8 @@ export function GapExchange() {
         {/* Chat header — the two colleagues */}
         <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
           <div className="flex -space-x-2 shrink-0" aria-hidden="true">
-            <img src={AVATAR.A} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-card" />
-            <img src={AVATAR.B} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-card" />
+            <img src={AVATAR.A} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover ring-2 ring-card" />
+            <img src={AVATAR.B} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover ring-2 ring-card" />
           </div>
           <div className="min-w-0 text-left">
             <p className="text-sm font-semibold leading-tight">A and B</p>
@@ -192,7 +192,7 @@ export function GapExchange() {
               </button>
             </div>
           ) : (
-            <div className={`mt-2 rounded-lg bg-blue-50 border border-blue-100 p-3 ${ENTER}`} data-testid="exchange-outcome">
+            <div className={`mt-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 ${ENTER}`} data-testid="exchange-outcome">
               <b className="block text-blue-700">{choice === "move-on" ? EXCHANGE_COPY.moveOn : EXCHANGE_COPY.close}</b>
               <span className="text-foreground/80">{choice === "move-on" ? EXCHANGE_COPY.moveOnCost : EXCHANGE_COPY.closeCost}</span>
             </div>
