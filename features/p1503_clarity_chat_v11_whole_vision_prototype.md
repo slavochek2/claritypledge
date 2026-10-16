@@ -176,7 +176,7 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
    "Suggest a story".
 4. Bob predicts how well Alice will understand his story (`ComprehensionRatingCard`, P1495 sentence).
 5. Before Send, the preview labels each item with the C2 label family (Messages): point "Visible now", story
-   "Visible after their answer", prediction "Visible after their rating", guess "Visible only to you".
+   "Visible after their answer", prediction "Visible after their rating", guess "Only visible to you".
 6. Send to Alice → the item arrives in the Bob-Alice Clarity chat as a **reply quoting** the source message.
 7. Before her first position Alice sees only the point statement and the position buttons: no Bob position, no
    position counts, no story footer (as v10 and production letters do). She taps her position (submitted at once, as
