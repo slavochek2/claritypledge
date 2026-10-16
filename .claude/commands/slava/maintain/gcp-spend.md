@@ -114,7 +114,7 @@ Using resource data from step 1, calculate weekly estimates with this pricing ta
 Formula: `weekly_cost = hourly_rate × 168` (VMs), `monthly_cost / 4.33` (disks/storage)
 
 **Known resources (update if new VMs are added):**
-- `clarity-agent`: e2-standard-4, 100GB pd-balanced — cloud coding agent + LinkedIn Helper
+- `clarity-agent`: e2-standard-4, 100GB pd-balanced — LinkedIn Helper + Postiz (cloud coding agent retired 2026-10-16)
 - `ghost-prod`: e2-small, 20GB pd-standard — Ghost blog server
 - `gcs-signed-url`: Cloud Function 2nd gen — minimal cost
 - `claritypledge-backups/mac`: 211 GB Restic backup — **Coldline** ($0.004/GB/mo), 90-day lifecycle, ~$0.85/month
