@@ -490,6 +490,23 @@ describe('day v2: the prompt', () => {
     expect(p).not.toContain('Room has ended') // parked
     expect(p).toMatch(/not verified/i) // the unverified finding is flagged
   })
+
+  it('never asks to reconnect a service whose connection is not broken (stale Fix decision)', () => {
+    const withMixpanel = (state: 'not-used' | 'not-connected') =>
+      ok(synthReport({ connections: [{ id: 'mixpanel', label: 'Mixpanel', state }] }))
+    const lines = [line({ kind: 'connection', target: 'mixpanel', step: 'Re-auth Mixpanel' })]
+
+    const healthy = withMixpanel('not-used')
+    const hv = buildView(healthy, lines)
+    expect(buildPrompt(healthy, hv)).not.toContain('Reconnect these services')
+    expect(collect(hv).connections).toHaveLength(0)
+
+    // known-bad control: the same decision on a broken connection must still be sent
+    const broken = withMixpanel('not-connected')
+    const bv = buildView(broken, lines)
+    expect(buildPrompt(broken, bv)).toContain('Reconnect these services')
+    expect(collect(bv).connections).toHaveLength(1)
+  })
 })
 
 describe('day v2: small rules', () => {

@@ -1508,7 +1508,9 @@ export function collect(view: DayView, alreadySent: ReadonlySet<string> = new Se
   const issues = view.issues
     .map((issue) => ({ issue, ...effective(issue) }))
     .filter((x) => x.option_id !== PARK && (x.written || isAgentWork(x.issue)) && !sentBefore(alreadySent, x.issue, x))
-  const connections = Object.values(view.connection_fixes).filter((d) => !alreadySent.has(sentKey.connection(d.target)))
+  // A Fix decision outlives the breakage it answered: send it only while the connection is still broken.
+  const broken = new Set(view.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
+  const connections = Object.values(view.connection_fixes).filter((d) => broken.has(d.target) && !alreadySent.has(sentKey.connection(d.target)))
   const budgets = Object.values(view.budgets).filter((d) => !alreadySent.has(sentKey.budget(d.target, d.amount)))
   const reflection = Object.values(view.reflection).filter((d) => !(ledger && d.story) && !alreadySent.has(sentKey.reflection(d.target, d.position, d.story)))
   const stories = (ledger ?? []).filter((e) => e.state === 'open' || e.state === 'sent')
