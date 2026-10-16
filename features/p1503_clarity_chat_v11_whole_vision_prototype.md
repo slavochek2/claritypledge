@@ -16,6 +16,22 @@ driver: heuristic
 
 # P1503: Clarity Chat v11, one prototype of the whole vision, mobile and desktop
 
+## Run This
+
+Type this from anywhere in the repo. The main checkout is fine. There is nothing to `cd` into and nothing
+to rebase: the worktree on this branch already exists and already carries this spec with the pinned contract.
+
+    /goal "Work in the worktree on branch feature/p1437-conversation-groups-v2. Then: ./scripts/goal-gate.sh p1503 exits 0, output pasted. Stop after 60 turns."
+
+`/goal` is native Claude Code, not a repo skill. The founder types it, because no agent can invoke it for
+them. The condition names an exit code on purpose: the evaluator reads the transcript and runs nothing, so
+the only condition it can trust names something the agent cannot write.
+
+**Why the worktree clause is not decoration.** The gate hard-refuses to run on the shared main checkout,
+so a loop started there cannot reach exit 0. Naming the branch rather than a slot keeps this line correct
+if the work ever moves. **Recovery (P1479):** if a run is killed mid-gate, the branch can be left pointing
+at its merge-base. Restore it with `git reset --soft <sha of backup/p1503-start>` inside the worktree.
+
 ## Problem
 
 **Situation:** v10 (P1495, branch `feature/p1437-conversation-groups-v2`) built the Clarify loop from reused
@@ -436,3 +452,83 @@ agent"; predictions private or addressed) · 2026-10-12 [product] Clarity Chat l
 2026-09-16 [product] Links menu on every surface (D7) · P1495 Build Evidence (branch).
 **Reviews of this spec (2026-10-16):** 3 of 3 reported — Opus, Gemini 4 Argon (served model verified), Codex
 (gpt-6.1-sol, high). Their blockers are resolved above; F1-F9 answered by the founder.
+
+## Resolved Decisions
+
+From `/goalify p1503`, 2026-10-16. These are appended and rewrite nothing above.
+
+| # | Question | Answer |
+|---|---|---|
+| RD-1 | C3: the exact wording of the WhatsApp lines | **The Messages table lines, verbatim** (founder). AC 15's test asserts those five strings. |
+| RD-2 | The blind reviewers' visual reference | **The named products plus this spec** (founder): Telegram for the frame, Buzz for @ and threads, the real `/feed` for cards, plus the UI Contract and Messages. There is no separate mock-approval round. |
+| RD-3 | What a review round contains | **All four lenses, every round** (founder): reuse audit, design consistency, visual QA, blind walk. Each round uses fresh agents and one fresh aggregator. The confirming round re-runs all four. |
+| RD-4 | Who does the blind walk (AC 17) | **A fresh agent** (founder) that has seen no prototype version and not this spec. It gets only the UX Notes task and the phone-viewport page. |
+| RD-5 | The "update specs updated" half of the last Done-When line | **Already satisfied on main** (verified by grep at goalify: all ten update specs mention P1503). The branch copies are 198 commits stale. **The loop must not edit P1457, P1460-P1462, P1431, P1455, P1456, P1458, P1465 or P1470 on the branch**, because that would only make merge conflicts. The closure half is already on the branch: P1467, P1469, P1484, P1485 and P1495 are in `features/archive/` with `status: rejected`. |
+| RD-6 | Anything the build needs that this spec does not decide | **Not invented** (founder brief). The loop takes the nearest spec-traceable option, or leaves the element out, and logs it in `assumptions.md` under `## For the founder`. It does not stop. Each NEW element is named in the build report. |
+| RD-7 | Turn budget | 60, not goalify's default 30. The run is five build slices plus at least two full review rounds and a Codex pass. `feedback.md` records the turns actually consumed. |
+| RD-8 | Where v11 gets P1503 from | Only the spec file is copied from main onto the branch. Main is **not** merged in (198 commits, and unrelated to this work). |
+
+## Verification Contract
+
+**27 rows: 22 MECHANICAL, 4 COMPARABLE, 1 HUMAN-ONLY (4%).** CHECK 1 recomputes these numbers and does not trust this sentence.
+Every row's test resolves this spec by glob (`features/**/p1503_*.md`), never by literal path, because `/ship`
+moves the file. No command contains a pipe, because the gate splits rows on `|`. A filter matching no test
+files must fail its row, so every vitest row names explicit files, except R-2, whose four prefixes each match
+frozen files.
+
+**Facts these rows rest on, measured at goalify (2026-10-16):** the branch tip before this run is `495748c29`.
+`backup/p1503-start` is goalify's setup commit on top of it, which carries this spec and the baseline. At `495748c29`, `tsc -p tsconfig.app.json` reports 1167 errors in 266 files. This
+matches the P1495 build evidence and is the baseline in `features/verification/p1503/typecheck-baseline.tsv`,
+pinned by goalify and not written by the loop. The v9 known-bad control is `src/app/prototypes/v9/shared/position-picker.tsx`
+at `52e27cd47^`, the parent of the commit that deleted v9.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| AC-1 reuse gate committed under scripts/prototype/ with raw-tag regex ([\s>/]or end); passes on the v11 card and loop files; frame/ is the only raw-tag exemption; fails if a frame file imports a card, position, guess or rating component; the v9 picker control fails both parts; mock points carry tags | MECHANICAL | `npx vitest run src/tests/p1503-reuse-gate.test.ts` | scripts/prototype/reuse-gate.sh |
+| AC-2 frame: chat list first on phone, logo returns to it on desktop, no Chats or Home item, drawer holds exactly My Profile, Explore, Settings, About, Tools one click, space switcher reaches each group | MECHANICAL | `npx vitest run src/tests/p1503-v11-frame.test.tsx` | src/tests/p1503-v11-frame.test.tsx |
+| AC-3 inbox: network marks, each network filter shows only its chats, Partners filter, order is Archived row, then agent pinned, then recency | MECHANICAL | `npx vitest run src/tests/p1503-v11-inbox.test.tsx` | src/tests/p1503-v11-inbox.test.tsx |
+| AC-4 groups: a space shows channels only, an event channel lists only its attendees and host | MECHANICAL | `npx vitest run src/tests/p1503-v11-groups.test.tsx` | src/tests/p1503-v11-groups.test.tsx |
+| AC-5 composer: exactly @, paperclip, emoji, mic; the picker finds by typing and by tab and refuses a private item from another chat; Reply quotes; Forward of a public point sends the same point and a position in one chat shows in the other | MECHANICAL | `npx vitest run src/tests/p1503-v11-composer.test.tsx` | src/tests/p1503-v11-composer.test.tsx |
+| AC-6 agent threads: Clarify opens a thread starting with the quote; the quote returns to the source; the drafts badge shows to Bob and not to Alice; nothing reaches the shared chat before Send; an @agent message is not posted in the shared chat | MECHANICAL | `npx vitest run src/tests/p1503-v11-threads.test.tsx` | src/tests/p1503-v11-threads.test.tsx |
+| AC-7 live thread: the replies count rises after Add a reply (mock); an earlier draft shows the new-replies badge; Send to targets the quoted author's direct chat | MECHANICAL | `npx vitest run src/tests/p1503-v11-live-thread.test.tsx` | src/tests/p1503-v11-live-thread.test.tsx |
+| AC-8 chips: only in agent conversations, change with context, fill the input without sending | MECHANICAL | `npx vitest run src/tests/p1503-v11-chips.test.tsx` | src/tests/p1503-v11-chips.test.tsx |
+| AC-9 drafts: edit and delete work; a draft with a guess offers Send to and no Publish; Send is the only way an item reaches Alice | MECHANICAL | `npx vitest run src/tests/p1503-v11-drafts.test.tsx` | src/tests/p1503-v11-drafts.test.tsx |
+| AC-10 loop and seals in chat and Details: arrives as a reply quoting the source; before her position Alice sees no Bob position, counts, story or prediction; between position and rating, story but no prediction; Bob's guess absent from Alice's DOM before her position, after it, and after her rating; WhereYouStand for Bob after her position; both see the result after her rating | MECHANICAL | `npx vitest run src/tests/p1503-v11-seals.test.tsx` | src/tests/p1503-v11-seals.test.tsx |
+| AC-11 repeats: the same point twice gives one card plus one reference; an edit shows the production version chain on the one card | MECHANICAL | `npx vitest run src/tests/p1503-v11-repeats.test.tsx` | src/tests/p1503-v11-repeats.test.tsx |
+| AC-12 Details opens from a card and from the Clarity Ledger menu; no card flip anywhere | MECHANICAL | `npx vitest run src/tests/p1503-v11-details.test.tsx` | src/tests/p1503-v11-details.test.tsx |
+| AC-13 actions: private items offer no Forward; a point another person holds a position on offers no Edit or Delete; a story Alice rated offers Bob no Edit | MECHANICAL | `npx vitest run src/tests/p1503-v11-actions.test.tsx` | src/tests/p1503-v11-actions.test.tsx |
+| AC-14 partners: New partner reaches today's partner flow for someone without an account; Invite as partner, send, pending, accepted in Alice's lens, Partner | MECHANICAL | `npx vitest run src/tests/p1503-v11-partners.test.tsx` | src/tests/p1503-v11-partners.test.tsx |
+| AC-15 bridge (mock): Alice's WhatsApp lens shows only the RD-1 lines for the mocked actions, never story text, a guess or a number; the link opens the Bob-Alice Clarity chat in Alice's lens; her Clarity reply is absent from the WhatsApp lens | MECHANICAL | `npx vitest run src/tests/p1503-v11-bridge.test.tsx` | src/tests/p1503-v11-bridge.test.tsx |
+| AC-16 mobile: every screen at 375 and 320 has document scrollWidth no larger than innerWidth; every hover action has a long-press or menu equivalent | MECHANICAL | `npx playwright test e2e/p1503-v11-mobile.spec.ts --project=chromium` | e2e/p1503-v11-mobile.spec.ts |
+| AC-17 blind walk: a fresh agent given only the UX Notes task finishes all three parts on the phone viewport with zero BLOCKED steps, every stop recorded with its screenshot | COMPARABLE | blind-reviewer (lens: walk) | features/verification/p1503/review-round-*.md |
+| R-1 typecheck: zero errors in any file under v11/; every other file's error count is no higher than in the pinned baseline | MECHANICAL | `npx vitest run src/tests/p1503-typecheck-baseline.test.ts` | features/verification/p1503/typecheck-baseline.tsv |
+| R-2 every existing prototype test still passes (v6, v7, v8, v10) | MECHANICAL | `npx vitest run src/tests/p1437-v6 src/tests/p1437-v7 src/tests/p1485-v8 src/tests/p1495-v10` | src/tests/p1495-v10-review.test.tsx |
+| R-3 v10 is frozen: its folder and its four tests are byte-identical to the pre-run tip | MECHANICAL | `git diff --quiet 495748c29 -- src/app/prototypes/conversation-groups/v10 src/tests/p1495-v10-alice.test.tsx src/tests/p1495-v10-bob.test.tsx src/tests/p1495-v10-ledger.test.tsx src/tests/p1495-v10-review.test.tsx` | src/app/prototypes/conversation-groups/v10 |
+| R-4 routing and real mode: the route renders v11 by default, v10 under ?v=10, v8 under ?v=8; with the real loader mocked, the ?real=1 path still loads and the agent is named Mira; no v11 file imports from a .local path except through the existing real-case loader | MECHANICAL | `npx vitest run src/tests/p1503-v11-routing.test.tsx` | src/tests/p1503-v11-routing.test.tsx |
+| R-5 build report: per-AC evidence, every NEW element named, and reports received of spawned stated for reuse audit, design, visual QA, blind walk and Codex; every Codex finding marked FIXED or FOUNDER | MECHANICAL | `npx vitest run src/tests/p1503-evidence.test.ts` | features/verification/p1503/build-report.md |
+| R-6 superseded prototype specs closed on the branch (P1467, P1469, P1484, P1485, P1495 archived, status rejected); update specs untouched on the branch (RD-5) | MECHANICAL | `npx vitest run src/tests/p1503-related-specs.test.ts` | src/tests/p1503-related-specs.test.ts |
+| C-1 reuse audit, screen half: every rendered element on every main-path state at 375 and 1440 traces to a section 0 row, a P1495 reuse-map row, or a NEW element named in the build report | COMPARABLE | blind-reviewer (lens: reuse) | features/verification/p1503/review-round-*.md |
+| C-2 design consistency: frame against Telegram, @ and threads against Buzz, cards against the real /feed; each mismatch fixed or listed in assumptions.md under For the founder | COMPARABLE | blind-reviewer (lens: design) | features/verification/p1503/review-round-*.md |
+| C-3 visual QA at 375, 320 and 1440 plus the empty states in UX Notes, against .claude/rules/visual-qa.md | COMPARABLE | blind-reviewer (lens: visual) | features/verification/p1503/review-round-*.md |
+| H-1 Codex findings the loop did not fix | HUMAN-ONLY | founder, AT /ship | features/verification/p1503/codex-review.md |
+
+**Reviewer roster.** Each lens is a fresh agent per round, never the agent that built or fixed the code.
+
+| lens | given | forbidden | guaranteed renders |
+|---|---|---|---|
+| walk | the dev page at 375x812 (mock data, never `?real=1`) and the UX Notes task, verbatim | the spec, the diff, earlier rounds, any prototype version | its own screenshots of every stop |
+| reuse | renders, section 0, the P1495 reuse map, the build report's NEW list | the diff, the intent | 375 and 1440 for every main-path state |
+| design | renders, the three named references (RD-2), the UI Contract and Messages tables | the diff, the intent, the Decisions rationale | 375, 1440 |
+| visual | renders, `.claude/rules/visual-qa.md` | the diff, the intent | 375, 320, 1440, every UX Notes empty state |
+
+Renders show only the fictional Alice, Bob and mock group members. A review prompt never carries real
+content. Each lens writes `features/verification/p1503/lens/round-N-<lens>.md` (outside CHECK 5's glob)
+with its own verdict. A fifth fresh agent, the aggregator, reads the four lens files and writes
+`review-round-N.md` directly: `VERDICT: PASS` only if all four lenses PASS, then one `SCREENSHOT: <sha256>  <path>`
+line for every image any lens judged. CHECK 5 needs the last two rounds to PASS back to back.
+
+**Evidence lives in `features/verification/p1503/`:** `contract.sha256` (the pin, on main),
+`typecheck-baseline.tsv`, `review-round-N.md`, `lens/`, `build-report.md`, `codex-review.md`, `assumptions.md`
+(every call the loop made alone, with a For-the-founder section per RD-6), and `feedback.md` (`corrections given`
+and `turns consumed`, written at the moment they happen). The UAT scorecard is `features/uat/p1503.md`, one
+row per AC with a result.
