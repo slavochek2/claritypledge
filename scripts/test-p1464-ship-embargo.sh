@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 # test-p1464-ship-embargo.sh — hermetic canary for P1464: under
 # `disclosure: embargo`, `git-ops.sh ship` must not land the embargoed spec on
-# main through branch commits, and `publish-spec` must retire the neutral stub.
+# main through branch commits. (Its closing step is archive-spec since P1507;
+# that step has its own suite, scripts/test-p1507-archive-spec.sh.)
 #
 # Acceptance Criteria mapping (features/p1464_*.md):
 #   AC1 code-only + spec-only commits: code ships, spec withheld, journaled,
 #       --resume a no-op ............................................ A1 (stub on main), A2 (branch-born, no stub)
 #   AC2 mixed commit refused before any pick, main unchanged ......... B1 (stub on main), B2 (branch-born)
 #   AC3 public spec on the same fixtures ships as before ............. C1 (main tree identical to the pre-fix script's)
-#   AC5 publish-spec publishes the withheld spec AND removes the stub  D1
-#   Shell-safety: no > < | tokens in any ship / publish-spec output .. Z
+#   AC5 (superseded by P1507) publish-spec is gone; main untouched ..... D1
+#   Shell-safety: no > < | tokens in any ship / archive-spec output .. Z
 #   Codex review findings: F0 final message, F1/F1b quoted names, F2 ambiguous
 #   specs, F3 done/ + archive/, F4 conflict resume, F5 crash-window journal, F6 merges
 #   Codex round 2 (content rule): G1 add-then-delete, G1b resume after branch
 #   delete, G2 stub-named embargo file, G3 another P-number's embargoed spec
 #   Codex round 3: H1 CRLF, H2 BOM, H3 indented YAML, H4 .markdown, H5 .MD,
 #   H6 close commit on --resume refuses a staged embargoed spec
-#   Codex round 4: I1 quoted keys, I2 bare pX.md UAT pairing, I3 publish rewrite
+#   Codex round 4: I1 quoted keys, I2 bare pX.md UAT pairing, (I3 removed with publish-spec, P1507)
 #
 # Usage: scripts/test-p1464-ship-embargo.sh [path/to/git-ops.sh]
 #   The optional argument runs the suite against another git-ops.sh (gate 7:
@@ -255,18 +256,13 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
-# D1 — publish-spec publishes the withheld spec and removes the stub
-# ════════════════════════════════════════════════════════════════════════════
-d="$A1_REPO"
-run "$d" publish-spec p9001 --yes --skip-smoke; rc=$?
-ns="$(git -C "$d" show --name-status --no-renames --format= HEAD | sort | tr '\t\n' ' ')"
-if [[ $rc -eq 0 ]] \
-   && [[ "$ns" == "A $SPRINT/p9001_demo.md D features/p9001_security-review-pending.md " ]] \
-   && git -C "$d" show "main:$SPRINT/p9001_demo.md" | grep -qx 'disclosure: public' \
-   && git -C "$d" show "main:$SPRINT/p9001_demo.md" | grep -q 'Stamped.'; then
-  pass "D1: publish-spec adds the final spec to done and deletes the stub in ONE commit (exit 0)"
+# D1 — P1507: publish-spec no longer exists; nothing on main changes
+d="$A1_REPO"; h0="$(git -C "$d" rev-parse main)"; rc=0
+( cd "$d" && bash scripts/git-ops.sh publish-spec p9001 --yes --skip-smoke </dev/null ) >/dev/null 2>&1 || rc=$?
+if [[ $rc -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]]; then
+  pass "D1: publish-spec is gone (exit $rc); main unchanged — sensitive specs are archived, never published"
 else
-  fail "D1: publish-spec (exit $rc; HEAD paths: $ns)"; show "$SCRATCH/out.log"
+  fail "D1: publish-spec still runs (exit $rc)"
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -274,7 +270,7 @@ fi
 # ════════════════════════════════════════════════════════════════════════════
 
 # F0 — the final message on an embargoed ship does not claim the branch is gone.
-if grep -q "branch retained until publish-spec" "$SCRATCH/a1.log" \
+if grep -q "branch retained until archive-spec" "$SCRATCH/a1.log" \
    && ! grep -q "branch and journal cleaned up" "$SCRATCH/a1.log"; then
   pass "F0: embargoed ship's final line says the branch is retained, not cleaned up"
 else
@@ -295,7 +291,7 @@ else
   fail "F1: quoted spec name in a mixed commit (exit $rc)"; show "$SCRATCH/out.log"
 fi
 
-# F1b — the same non-ASCII spec, split correctly, ships withheld and publishes.
+# F1b — the same non-ASCII spec, split correctly, ships withheld.
 d="$(mk f1b)"; add_gated_stub "$d" p9017
 ( cd "$d" && git checkout -q -b feature/p9017-x \
   && echo code > src.ts && git add src.ts && git commit -qm "fix(p9017): code" \
@@ -304,30 +300,30 @@ d="$(mk f1b)"; add_gated_stub "$d" p9017
 review_stamp "$d" p9017
 run "$d" ship p9017; rc1=$?
 leaked="$(git -C "$d" log main -z --name-only --format= | tr '\0' '\n' | grep -c 'p9017_é' || true)"
-run "$d" publish-spec p9017 --yes --skip-smoke; rc2=$?
-if [[ $rc1 -eq 0 && "$leaked" == "0" && $rc2 -eq 0 ]] \
-   && git -C "$d" cat-file -e "main:$SPRINT/p9017_é.md" 2>/dev/null \
-   && ! git -C "$d" cat-file -e main:features/p9017_security-review-pending.md 2>/dev/null; then
-  pass "F1b: non-ASCII embargoed spec withheld at ship (exit 0) and published with the stub removed (exit 0)"
+if [[ $rc1 -eq 0 && "$leaked" == "0" ]]; then
+  pass "F1b: non-ASCII embargoed spec withheld at ship (exit 0), never on main"
 else
-  fail "F1b: non-ASCII spec ship/publish (ship $rc1, leaked $leaked, publish $rc2)"; show "$SCRATCH/out.log"
+  fail "F1b: non-ASCII spec ship (ship $rc1, leaked $leaked)"; show "$SCRATCH/out.log"
 fi
 
-# F2 — two non-stub specs disagreeing on disclosure: ship and publish-spec refuse.
+# F2 — two non-stub specs disagreeing on disclosure: ship and archive-spec refuse.
 d="$(mk f2)"; add_stub "$d" p9011
 ( cd "$d" && git checkout -q -b feature/p9011-x \
   && echo code > src.ts && git add src.ts && git commit -qm "fix(p9011): code" \
   && spec_body p9011 public > features/p9011_aaa.md && git add features && git commit -qm "spec(p9011): aaa" \
   && spec_body p9011 embargo > features/p9011_zzz.md && git add features && git commit -qm "spec(p9011): zzz" \
   && git checkout -q main ) >/dev/null 2>&1
+( cd "$d" && printf '.private/\n' > .gitignore && git add .gitignore && git commit -qm ignore \
+  && mkdir .private && cd .private && git init -q && git config user.email c@t && git config user.name c \
+  && echo i > INDEX.md && git add INDEX.md && git commit -qm s ) >/dev/null 2>&1
 review_stamp "$d" p9011; h0="$(git -C "$d" rev-parse main)"
 run "$d" ship p9011; rc1=$?; cp "$SCRATCH/out.log" "$SCRATCH/f2.log"
-run "$d" publish-spec p9011 --yes --skip-smoke; rc2=$?
+run "$d" archive-spec p9011 --yes --skip-smoke; rc2=$?
 if [[ $rc1 -ne 0 && $rc2 -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
    && grep -q "disagree on disclosure" "$SCRATCH/f2.log" && grep -q "ambiguous" "$SCRATCH/out.log"; then
-  pass "F2: public + embargoed specs on one branch: ship refuses (exit $rc1), publish-spec refuses (exit $rc2), main unchanged"
+  pass "F2: public + embargoed specs on one branch: ship refuses (exit $rc1), archive-spec refuses (exit $rc2), main unchanged"
 else
-  fail "F2: ambiguous specs (ship $rc1, publish $rc2)"; show "$SCRATCH/f2.log"; show "$SCRATCH/out.log"
+  fail "F2: ambiguous specs (ship $rc1, archive $rc2)"; show "$SCRATCH/f2.log"; show "$SCRATCH/out.log"
 fi
 
 # F3 — the spec placed under features/done/ or features/archive/ is still protected.
@@ -580,7 +576,7 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
-# Codex round 4: quoted keys, bare pX.md UAT pairing, publish-spec rewrite.
+# Codex round 4: quoted keys, bare pX.md UAT pairing.
 # ════════════════════════════════════════════════════════════════════════════
 variant_case i1a-dquote-key p9301 p9391 features/p9391_q.md $'---\n"disclosure": embargo\n---\n# %s: secret\n'
 variant_case i1b-squote-key p9304 p9394 features/p9394_q.md $'---\n\'disclosure\' : "embargo"\n---\n# %s: secret\n'
@@ -601,23 +597,6 @@ else
   fail "I2: bare pX.md UAT pairing (exit $rc)"; show "$SCRATCH/out.log"
 fi
 
-# I3 — publish-spec must rewrite `disclosure : embargo` to public, and verify it.
-d="$(mk i3)"; add_stub "$d" p9303
-( cd "$d" && git checkout -q -b feature/p9303-x \
-  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9303): code" \
-  && spec_body p9303 embargo | sed 's/^disclosure: embargo$/disclosure : embargo/' > features/p9303_demo.md \
-  && git add features && git commit -qm "spec(p9303): add" \
-  && git checkout -q main ) >/dev/null 2>&1
-review_stamp "$d" p9303
-run "$d" ship p9303; rc1=$?
-run "$d" publish-spec p9303 --yes --skip-smoke; rc2=$?
-pub="$(git -C "$d" show "main:$SPRINT/p9303_demo.md" 2>/dev/null)"
-if [[ $rc1 -eq 0 && $rc2 -eq 0 ]] && grep -qx 'disclosure: public' <<<"$pub" && ! grep -qi 'embargo' <<<"$(sed -n '/^---$/,/^---$/p' <<<"$pub")"; then
-  pass "I3: publish-spec rewrites 'disclosure : embargo' to public (ship $rc1, publish $rc2)"
-else
-  fail "I3: publish rewrite (ship $rc1, publish $rc2)"; show "$SCRATCH/out.log"
-fi
-
 # ════════════════════════════════════════════════════════════════════════════
 # Z — shell-safety: no redirect-parseable tokens in any transcript
 # ════════════════════════════════════════════════════════════════════════════
@@ -626,7 +605,7 @@ fi
 if bad="$(sed '/^#CP_DIAGNOSTIC_BEGIN$/,/^#CP_DIAGNOSTIC_END$/d' "$SCRATCH/all.log" | grep -nE '[<>|]')"; then
   fail "Z: output carries > < | tokens:"; printf '%s\n' "$bad" | sed 's/^/    /' >&2
 else
-  pass "Z: no > < | tokens in ship / publish-spec output"
+  pass "Z: no > < | tokens in ship / archive-spec output"
 fi
 
 echo ""

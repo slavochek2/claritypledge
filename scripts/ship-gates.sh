@@ -341,9 +341,10 @@ fi
 #
 # What actually enforces the embargo is git-ops.sh, which for `disclosure:
 # embargo` merges the code and simply does not seed the spec onto main. The hard
-# prod assertions live in `git-ops.sh publish-spec`, which runs AFTER the prod
-# apply. This gate exists so the operator is told, at ship time, that the spec is
-# being withheld and what closes it out.
+# prod assertions live in `git-ops.sh archive-spec` (P1507), which runs AFTER the
+# prod apply and moves the spec into .private for good — it is never published.
+# This gate exists so the operator is told, at ship time, that the spec is being
+# withheld and what closes it out.
 disclosure_val="$(printf '%s\n' "$spec_content" \
   | sed -n '/^---$/,/^---$/p' \
   | { $GREP -E '^disclosure:' || true; } \
@@ -356,11 +357,11 @@ disclosure_val="$(printf '%s\n' "$spec_content" \
 if [[ "$disclosure_val" == "embargo" ]]; then
   echo "GATE 1.5 EMBARGO: ${pn} is disclosure: embargo — the code merges, the spec does NOT."
   echo "  The spec stays branch-born; branch and worktree are retained by ship."
-  echo "  After the prod apply, publish it from the main checkout:"
-  echo "    ./scripts/git-ops.sh publish-spec ${pn}"
+  echo "  After the prod apply, archive it privately from the main checkout:"
+  echo "    ./scripts/git-ops.sh archive-spec ${pn}"
   echo "  That step hard-asserts the spec's migrations are in origin/main"
   echo "  deploy-manifest [prod].migrations AND that the authenticated prod smoke"
-  echo "  test passes — the manifest is a record, not the database."
+  echo "  test passes, then moves the spec into .private; it is never published (P1507)."
 elif [[ -n "$disclosure_val" ]]; then
   echo "GATE 1.5 PASS: ${pn} is disclosure: ${disclosure_val} — publishes normally."
 else
@@ -608,7 +609,7 @@ review_types_for_branch() {
     esac
   done < <(cd "$REPO_ROOT" && git diff --no-renames --raw -z "main...$1" 2>/dev/null)
   # The manifest records what reached prod, and other gates trust it (the
-  # publish-spec embargo check): it rides with migrations only beside a real
+  # archive-spec embargo check): it rides with migrations only beside a real
   # one (Opus review M1).
   [[ -n "$manifest" && -z "$sql" ]] && code=1
   if [[ "$n" -eq 0 || -n "$code" ]]; then echo code; return 0; fi
