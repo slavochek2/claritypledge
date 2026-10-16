@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 187
+**Next ID:** 189
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2402,5 +2402,27 @@ During the first rotating inbox review (2026-10-16), inbox.sh annotate and delet
 **due:** week
 
 Founder asked (P1506 redesign round) whether the other landings need updating once /hospitals ships. Decide, via /create-spec: (1) the norm wording, /hospitals says "make it normal to ask how well we understand each other" while /builders says "make it normal to admit I don't understand"; (2) whether the five-step "how revealing gaps becomes a team norm" path should replace or sit beside HowPlatformWorks on /builders and /hiring; (3) extracting the Reveal / CountUpPercent / RefSup helpers now duplicated in three landing files. Done when a spec exists or the founder drops it.
+
+---
+
+## requires-frontend must be repointed by hand after every cherry-pick
+
+**ID:** INBOX-187
+**Date:** 2026-10-16
+**Status:** proposed
+**due:** week
+
+A migration's `-- requires-frontend: <sha>` names the client commit on the feature branch; `/ship` cherry-picks, so main carries a different SHA and the annotation points at a commit main does not contain. It was repointed by hand four times in the 2026-10-14 batch (e.g. `1a0f489fa p1493: repoint requires-frontend ... (P1106)`). Proposed fix: have `git-ops.sh ship` rewrite the annotation to the landed SHA from its own journal (source_sha : landed_sha), in the same close commit, and fail loudly when a named SHA is not in the journal.
+
+---
+
+## A kanban vite run inside a worktree creates a real tools/kanban/node_modules that blocks the dependency symlink
+
+**ID:** INBOX-188
+**Date:** 2026-10-16
+**Status:** proposed
+**due:** week
+
+vite's `cacheDir` is `node_modules/.vite-<port>` (tools/kanban/vite.config.ts). Started from a worktree whose `tools/kanban/node_modules` is absent, it creates a real directory there; a later `ln -s` then lands inside it, and pre-commit's "Kanban typecheck" blocks with "node_modules is missing" (P1507, 2026-10-16). Proposed fix: `setup-worktree.sh` creates the tools/kanban/node_modules symlink the pre-commit check already tells agents to make, or move cacheDir outside node_modules.
 
 ---

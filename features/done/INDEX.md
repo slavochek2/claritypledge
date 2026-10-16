@@ -420,6 +420,7 @@ Last updated: 2026-10-16
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1507** (Oct 16) Sensitive specs archived privately, never published — archive-spec replaces publish-spec; the backup job proves the copy, never runs repo code
 - **P1505** (Oct 16) End-of-build review gate — trigger at "done" in the Stop hook, not skill pointers: 76-80% of review asks were ad-hoc
 - **P1489** (Oct 14) Day card ranking: registry severity is a ceiling, not a floor; founder cards first; a Day-page prod choice never authorises the agent
 - **P1439** (Oct 08) `/ship` seed lost the spec's trailing newline since June (`$()` strips it), so the add/add fix never worked; up-front refusal on co-tenant edits — never round-trip file bytes through `$()`; a test that pre-builds the state under test exercises nothing
