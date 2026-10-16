@@ -180,6 +180,20 @@ def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _deleted_tracked(path):
+    """True for a file git knows (in HEAD or the index) that was deleted from disk — a real
+    deletion /finish legitimately passes along, unlike a path that never existed."""
+    path = os.path.abspath(path)
+    d = os.path.dirname(path)
+    while d and not os.path.isdir(d):
+        d = os.path.dirname(d)
+    repo = _repo_of_dir(os.path.realpath(d)) if d else None
+    if not repo:
+        return False
+    rel = os.path.relpath(os.path.join(os.path.realpath(os.path.dirname(path)) if os.path.isdir(os.path.dirname(path)) else os.path.dirname(path), os.path.basename(path)), repo[0])
+    return _git(repo[0], "cat-file", "-e", "HEAD:" + rel) is not None or bool(_git(repo[0], "ls-files", "--", rel))
+
+
 def cmd_snapshot(argv):
     files = argv[argv.index("--") + 1:] if "--" in argv else argv
     if not files:
@@ -187,7 +201,7 @@ def cmd_snapshot(argv):
         return 2
     # A path that does not exist is a caller mistake (e.g. a whole file list passed as ONE
     # argument by an unsplit shell variable), never a "deleted" file to snapshot silently.
-    missing = [p for p in files if not os.path.lexists(p)]
+    missing = [p for p in files if not os.path.lexists(p) and not _deleted_tracked(p)]
     if missing:
         print("review_receipt: REFUSED — no such file: " + ", ".join(missing)
               + " (pass each path as its own argument)", file=sys.stderr)

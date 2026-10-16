@@ -199,6 +199,9 @@ check "'Done, want me to commit?' still counts as completion" 2 "$(rc run_hook "
 
 echo "[snapshot] a path list passed as one argument is refused"
 check "snapshot refuses a non-existent path" 1 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts $REPO/src/b.ts")"
+rm "$REPO/docs/x.md"
+check "snapshot accepts a deliberately deleted tracked file" 0 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts" "$REPO/docs/x.md")"
+git -C "$REPO" checkout -q -- docs/x.md
 
 echo "[gate] latency with many edited files"
 T18="$TMP/many.jsonl"; : > "$T18"
