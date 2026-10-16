@@ -126,6 +126,7 @@ The original Solution (standards file + pointers) failed the falsify review (sec
 - **A founder waiver covers every file still unreviewed when it fires,** not only the files edited after it.
 - **Ambiguous waivers keep the review.** A founder message with any negation or condition in the same sentence ("don't worry, skip review") is not treated as a waiver. Say "skip review" plainly to waive.
 - **A statement that opens like a question is dropped.** "Have completed the implementation, want me to commit?" reads as a question, so the turn passes. Agents here write "I've completed…", which still blocks (Codex confirm round).
+- **Snapshot path edge cases.** A never-existing path that happens to match a tracked file as a wildcard pattern (a file literally named `src/*.ts`), and a deleted file reached through a symlinked repo path, are mis-handled. Both are exotic (final Codex confirm).
 - **Negation is heuristic.** "I checked if X and it's done" reads as negated, so the turn passes. An unpaired quote or backtick in the founder's message can hide a waiver.
 - **The evidence mtime check assumes the reviewer writes after the snapshot.** On APFS the timestamps are sub-second, and reviewer runs take minutes.
 
