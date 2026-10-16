@@ -13,5 +13,6 @@ export const EXCHANGE_COPY = {
   moveOn: "Move on",
   moveOnCost: "Cost: three seconds.",
   close: "Close the gap",
-  closeCost: "Cost: a minute or more. B explains back what A meant.",
+  // Brochure: "B explains back what A meant." The page names the two colleagues (see gap-exchange.tsx).
+  closeCost: "Cost: a minute or more. Mai explains back what the doctor meant.",
 } as const;

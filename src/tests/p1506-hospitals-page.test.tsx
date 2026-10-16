@@ -1,9 +1,9 @@
 /**
- * P1506 — /hospitals use-case page. Copy, the interactive exchange, analytics, the one-CTA
+ * P1506 — /hospitals use-case page. Copy, section order, the auto-playing exchange, analytics, the one-CTA
  * rule, citations, and the unlisted/link-preview contract (api/og.ts + vercel.json).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -11,10 +11,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const track = vi.fn();
 const captureException = vi.fn();
 vi.mock('@sentry/react', () => ({ captureException: (...a: unknown[]) => captureException(...a) }));
+// Reduced motion: the chat lands on its final state, which is what these tests read.
+const reducedMotion = { value: true };
+vi.mock('framer-motion', async (orig) => ({ ...(await orig<typeof import('framer-motion')>()), useReducedMotion: () => reducedMotion.value }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { HospitalsPage } from '@/app/pages/hospitals-page';
-import { GapExchangeStatic, ExchangeBoundary } from '@/app/components/hospitals/gap-exchange';
+import { GapExchangeStatic, ExchangeBoundary, NURSE } from '@/app/components/hospitals/gap-exchange';
 import { EXCHANGE_COPY } from '@/app/content/hospitals-exchange';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
 
@@ -25,29 +28,37 @@ function renderPage() {
 beforeEach(() => track.mockClear());
 
 describe('P1506 /hospitals — content', () => {
-  it('renders all 8 sections with the brochure copy', () => {
+  it('renders the sections in landing order: hero, stat, why, chat, cases, path, terms, value, close', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Reveal gaps in understanding between hospital staff before they become mistakes',
     );
-    expect(screen.getByText('Clarity Pledge helps hospital teams establish and maintain one new team norm:')).toBeInTheDocument();
+    // Redesign round 2: the "Clarity Pledge helps hospital teams…" lead-in is gone; the norm stands alone.
+    expect(screen.queryByText(/Clarity Pledge helps hospital teams/)).toBeNull();
     expect(screen.getByText('Make it normal to ask how well we understand each other')).toBeInTheDocument();
-    for (const h of [
-      'What the hospital can expect',
-      'Why gaps in mutual understanding stay invisible',
-      EXCHANGE_COPY.heading,
-      'Where gaps in understanding cost most',
+    const order = [
+      'Why gaps stay invisible',
+      'Revealing a gap takes 3 seconds',
+      'Where gaps cost most',
       'How revealing gaps becomes a team norm',
-      'How Clarity Pledge is different',
       'One new team norm, in writing',
-    ]) expect(screen.getByRole('heading', { name: h })).toBeInTheDocument();
+      'What the hospital can expect',
+      'Reveal the gaps before they become mistakes.',
+    ];
+    const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(h2.filter((t) => order.includes(t!))).toEqual(order);
+    // The stat sits between the hero and the first section heading.
+    const stat = screen.getByTestId('stat-card');
+    const why = screen.getByRole('heading', { name: order[0] });
+    expect(stat.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // "How it's different" is merged into the path section.
+    expect(screen.queryByRole('heading', { name: 'How Clarity Pledge is different' })).toBeNull();
+    expect(screen.getByText('The impact of a one-off communication workshop fades. A team norm stays.')).toBeInTheDocument();
     for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
-    for (const c of ['Between departments', 'Across seniority', 'Patients and families', 'International patients', 'Vendor and investment choices', 'Introducing change'])
-      expect(screen.getByText(c)).toBeInTheDocument();
+    for (const c of ['Between departments', 'Across seniority', 'Patients and families']) expect(screen.getByText(c)).toBeInTheDocument();
+    for (const c of ['International patients', 'Vendor and investment choices', 'Introducing change']) expect(screen.queryByText(c)).toBeNull();
     for (const s of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(s)).toBeInTheDocument();
-    expect(screen.getByText('Clarity Pledge helps teams establish and keep this norm.')).toBeInTheDocument();
-    // Founder ruling (redesign round): no founder block on this page.
     expect(screen.queryByAltText(/founder of Clarity Pledge/)).toBeNull();
     expect(screen.queryByText('slava@claritypledge.com')).toBeNull();
   });
@@ -75,6 +86,7 @@ describe('P1506 /hospitals — content', () => {
     expect(stat.textContent).toContain('of 23,658 US malpractice cases studied involved a communication failure.');
     const sup = within(stat).getByRole('link', { name: /Reference 2: CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
     expect(sup).toHaveAttribute('href', '#references');
+    expect(screen.getByRole('link', { name: /Reference 1: HA Thailand/ })).toHaveAttribute('href', '#references');
     const refs = document.getElementById('references')!;
     expect(refs.textContent).toContain('References');
     const items = within(refs).getAllByRole('listitem');
@@ -90,6 +102,8 @@ describe('P1506 /hospitals — content', () => {
     for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
     expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
     expect(screen.queryByRole('link', { name: /take the pledge/i })).toBeNull();
+    // No buttons anywhere: the chat plays by itself.
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
   it('gives the chart a text alternative', () => {
@@ -98,71 +112,40 @@ describe('P1506 /hospitals — content', () => {
   });
 });
 
-describe('P1506 /hospitals — interactive exchange', () => {
-  it('steps through, announces each step, both choices have outcomes, Replay resets', async () => {
+describe('P1506 /hospitals — the exchange', () => {
+  it('with reduced motion, the chat shows its final state: every message, the verified result and both choices', () => {
     renderPage();
-    const live = screen.getByTestId('exchange-live');
-    expect(live).toHaveAttribute('aria-live', 'polite');
-    // Nothing is announced on page load.
-    expect(live.textContent).toBe('');
-    // Step 1 visible before any tap.
-    expect(screen.getByText(EXCHANGE_COPY.m1)).toBeInTheDocument();
-    expect(screen.queryByText(EXCHANGE_COPY.m3)).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(live.textContent).toBe('B answers: 8'));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(EXCHANGE_COPY.m3)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
-    expect(screen.getByText(EXCHANGE_COPY.outcomeLine)).toBeInTheDocument();
-
-    // Focus follows the controls: the Next button unmounted, the first choice took focus.
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
-
-    fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Try the other choice' }));
-    expect(screen.getByTestId('exchange-outcome').textContent).toContain(EXCHANGE_COPY.moveOnCost);
-    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.moveOnCost));
-
-    fireEvent.click(screen.getByRole('button', { name: 'Try the other choice' }));
-    fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.close }));
-    expect(screen.getByTestId('exchange-outcome').textContent).toContain(EXCHANGE_COPY.closeCost);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Replay' }));
-    expect(screen.queryByText(EXCHANGE_COPY.m3)).toBeNull();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
+    const visual = screen.getByTestId('exchange-visual');
+    expect(visual).toHaveAttribute('data-phase', '6');
+    for (const t of [EXCHANGE_COPY.m1, EXCHANGE_COPY.m3, EXCHANGE_COPY.outcomeLine, EXCHANGE_COPY.moveOnCost, EXCHANGE_COPY.closeCost])
+      expect(visual.textContent).toContain(t);
   });
 
-  it('all controls are native buttons (Tab + Enter/Space work natively)', () => {
-    renderPage();
-    const next = screen.getByRole('button', { name: 'Next' });
-    expect(next.tagName).toBe('BUTTON');
-    expect(next).toHaveAttribute('type', 'button');
+  it('without reduced motion, nothing has played before the chat scrolls into view', () => {
+    reducedMotion.value = false;
+    try {
+      renderPage();
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '0');
+    } finally {
+      reducedMotion.value = true;
+    }
   });
 
-  it('animations are motion-safe only (reduced motion = no animation)', () => {
+  it('the animated chat is hidden from screen readers; a transcript carries the sequence in order', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    const animated = Array.from(document.querySelectorAll('[class*="animate-in"]'));
-    expect(animated.length).toBeGreaterThan(0);
-    for (const el of animated) expect(el.className).not.toMatch(/(^|\s)animate-in/);
+    expect(screen.getByTestId('exchange-visual')).toHaveAttribute('aria-hidden', 'true');
+    const transcript = within(screen.getByTestId('gap-exchange')).getAllByRole('listitem').map((li) => li.textContent);
+    expect(transcript).toEqual([
+      `The doctor sends ${NURSE} a voice message explaining something.`,
+      `Doctor: ${EXCHANGE_COPY.m1}`,
+      `${NURSE}: ${EXCHANGE_COPY.m2}`,
+      `Doctor: ${EXCHANGE_COPY.m3}`,
+      `${EXCHANGE_COPY.outcomeLine}: 4. ${EXCHANGE_COPY.outcomeText}`,
+      `${EXCHANGE_COPY.then} ${EXCHANGE_COPY.moveOn} (${EXCHANGE_COPY.moveOnCost}) or ${EXCHANGE_COPY.close} (${EXCHANGE_COPY.closeCost})`,
+    ]);
   });
 
-  it('a repeated state is re-announced (cleared, then set again)', async () => {
-    renderPage();
-    const live = screen.getByTestId('exchange-live');
-    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.outcomeLine));
-    const atStep3 = live.textContent;
-    fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.moveOn }));
-    await waitFor(() => expect(live.textContent).toContain(EXCHANGE_COPY.moveOnCost));
-    fireEvent.click(screen.getByRole('button', { name: 'Try the other choice' }));
-    expect(live.textContent).toBe('');
-    await waitFor(() => expect(live.textContent).toBe(atStep3));
-  });
-
-  it('if the interactive exchange throws, the boundary renders the static list and reports it', () => {
+  it('if the exchange throws, the boundary renders the transcript visibly and reports it', () => {
     const Boom = () => { throw new Error('boom'); };
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<ExchangeBoundary><Boom /></ExchangeBoundary>);
@@ -174,21 +157,15 @@ describe('P1506 /hospitals — interactive exchange', () => {
   it('static fallback renders the full sequence as a list', () => {
     render(<GapExchangeStatic />);
     const items = within(screen.getByTestId('gap-exchange-static')).getAllByRole('listitem');
-    expect(items).toHaveLength(5);
-    expect(items[4].textContent).toContain(EXCHANGE_COPY.closeCost);
+    expect(items).toHaveLength(6);
+    expect(items[5].textContent).toContain(EXCHANGE_COPY.closeCost);
   });
 });
 
 describe('P1506 /hospitals — analytics', () => {
-  it('tracks page view, each exchange step, and the CTA', () => {
+  it('tracks page view and the CTA by location', () => {
     renderPage();
     expect(track).toHaveBeenCalledWith('landing_page_viewed', { variant: 'hospitals' });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(track).toHaveBeenCalledWith('hospitals_exchange_step', { step: 1 });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.close }));
-    expect(track).toHaveBeenCalledWith('hospitals_exchange_step', { step: 4, choice: 'close-gap' });
     const [hero, closing] = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
     fireEvent.click(hero);
     expect(track).toHaveBeenCalledWith('hospitals_cta_clicked', { location: 'hero' });

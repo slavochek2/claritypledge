@@ -16,7 +16,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, XIcon } from "lucide-react";
 import { motion, MotionConfig, useInView, useReducedMotion, animate, type Variants } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
@@ -48,13 +48,11 @@ const VALUES: { icon: HospitalIconName; text: string }[] = [
   { icon: "stay", text: "Lower staff turnover" },
 ];
 
+// The brochure's six, cut to the three a hospital decision-maker recognises first.
 const CASES: { icon: HospitalIconName; text: string }[] = [
   { icon: "dept", text: "Between departments" },
   { icon: "rank", text: "Across seniority" },
   { icon: "heart", text: "Patients and families" },
-  { icon: "globe", text: "International patients" },
-  { icon: "case", text: "Vendor and investment choices" },
-  { icon: "change", text: "Introducing change" },
 ];
 
 const PATH = [
@@ -68,6 +66,8 @@ const PATH = [
 // ── Motion (presi port via framer-motion), duplicated from program-page (see header).
 const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 const STAGGER_ITEM: Variants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } };
+// The path steps light up one after another, slower than the tiles: the norm spreading.
+const PATH_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.3 } } };
 const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
 const SECTION = "px-4 py-20 lg:py-28 border-t border-border";
 
@@ -148,11 +148,11 @@ function NormChart() {
 /** Icon-over-label tile grid, staggered in on scroll. */
 function TileGrid({ items, cols }: { items: { icon: HospitalIconName; text: string }[]; cols: string }) {
   return (
-    <motion.ul className={`grid grid-cols-2 ${cols} gap-3 sm:gap-6`} variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+    <motion.ul className={`grid ${cols} gap-3 sm:gap-6`} variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
       {items.map((v) => (
-        <motion.li key={v.text} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card px-3 py-5 sm:p-6 text-center shadow-sm flex flex-col items-center gap-3">
+        <motion.li key={v.text} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card px-2 py-5 sm:p-6 text-center shadow-sm flex flex-col items-center gap-3">
           <HospitalIcon name={v.icon} className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600" />
-          <span className="text-sm sm:text-base font-semibold leading-snug">{v.text}</span>
+          <span className="text-[13px] min-[360px]:text-sm sm:text-base font-semibold leading-snug">{v.text}</span>
         </motion.li>
       ))}
     </motion.ul>
@@ -170,15 +170,14 @@ export function HospitalsPage() {
       <div className="bg-background text-foreground">
         <SEO title={HOSPITALS_OG.title} description={HOSPITALS_OG.description} url="/hospitals" image={HOSPITALS_OG.image} noIndex />
 
-        {/* 1. Hero */}
+        {/* 1. Hero — H1 + the norm + the one action. */}
         <section className="relative px-4 pt-20 pb-20 lg:pt-28 lg:pb-28">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <div className="container mx-auto max-w-4xl text-center">
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
               Reveal gaps in understanding between hospital staff <span className="text-blue-500">before</span> they become mistakes
             </h1>
-            <p className="mt-6 text-lg sm:text-xl text-muted-foreground font-medium max-w-2xl mx-auto text-balance">Clarity Pledge helps hospital teams establish and maintain one new team norm:</p>
-            <p className="mt-5 mx-auto max-w-2xl rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-xl sm:text-2xl font-bold text-blue-700 text-balance">
+            <p className="mt-8 mx-auto max-w-2xl rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-xl sm:text-2xl font-bold text-blue-700 text-balance">
               Make it normal to ask how well we understand each other
             </p>
             <div className="mt-10 flex justify-center">
@@ -187,27 +186,7 @@ export function HospitalsPage() {
           </div>
         </section>
 
-        {/* 2. Outcomes */}
-        <section className={`${SECTION} bg-muted/30`}>
-          <div className="container mx-auto max-w-5xl">
-            <Reveal><SectionHeader title="What the hospital can expect" /></Reveal>
-            <TileGrid items={VALUES} cols="lg:grid-cols-4" />
-          </div>
-        </section>
-
-        {/* 3. Why gaps stay invisible */}
-        <section className={SECTION}>
-          <Reveal className="container mx-auto max-w-3xl text-center">
-            <SectionHeader title={<span className="inline-block text-balance">Why gaps in mutual understanding stay <span className="text-blue-500">invisible</span></span>} />
-            <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
-              Saying how much you really understood, or asking a colleague how much they did, can feel awkward or
-              disrespectful, especially across seniority. So people nod, and the gap surfaces later. Read-back already
-              protects clinical orders.<RefSup n={1} /> Everyday conversations have no such habit.
-            </p>
-          </Reveal>
-        </section>
-
-        {/* 4. The stat — count-up on scroll-in, as the 46% on /hiring */}
+        {/* 2. The stakes — the stat right under the hero, as /builders and /hiring do. */}
         <section className={`${SECTION} bg-muted/30`}>
           <Reveal className="container mx-auto max-w-3xl text-center">
             <div data-testid="stat-card">
@@ -221,49 +200,72 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 5. The exchange — WhatsApp chat between the two colleagues */}
-        <section className={SECTION} aria-label="Revealing a gap">
-          <Reveal>
-            <GapExchangeSection />
-          </Reveal>
-        </section>
-
-        {/* 6. Use cases */}
-        <section className={`${SECTION} bg-muted/30`}>
-          <div className="container mx-auto max-w-5xl">
-            <Reveal><SectionHeader title="Where gaps in understanding cost most" /></Reveal>
-            <TileGrid items={CASES} cols="md:grid-cols-3" />
+        {/* 3. Why gaps stay invisible — one line, then the read-back contrast as two cards. */}
+        <section className={SECTION}>
+          <div className="container mx-auto max-w-3xl text-center">
+            <Reveal>
+              <SectionHeader title={<span className="inline-block text-balance">Why gaps stay <span className="text-blue-500">invisible</span></span>} />
+              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed text-balance">
+                Asking a colleague how much they really understood can feel awkward, especially across seniority. So people
+                nod, and the gap surfaces later.
+              </p>
+            </Reveal>
+            <motion.ul className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+              <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
+                <CheckIcon className="w-6 h-6 text-blue-600 shrink-0" aria-hidden="true" />
+                <span><b className="block">Clinical orders</b><span className="text-muted-foreground">Read-back already protects them.<RefSup n={1} /></span></span>
+              </motion.li>
+              <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
+                <XIcon className="w-6 h-6 text-muted-foreground shrink-0" aria-hidden="true" />
+                <span><b className="block">Everyday conversations</b><span className="text-muted-foreground">No such habit.</span></span>
+              </motion.li>
+            </motion.ul>
           </div>
         </section>
 
-        {/* 7. Five-step path */}
+        {/* 4. The exchange — auto-playing chat, as the Maya chat on /builders. */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <GapExchangeSection />
+        </section>
+
+        {/* 5. Where it costs most — the three most load-bearing of the brochure's six. */}
         <section className={SECTION}>
+          <div className="container mx-auto max-w-4xl">
+            <Reveal><SectionHeader title="Where gaps cost most" /></Reveal>
+            <TileGrid items={CASES} cols="grid-cols-3" />
+          </div>
+        </section>
+
+        {/* 6. How it becomes a norm — the workshop-fades chart is the reason for the path,
+            so "how it's different" is this section's opening, not a section of its own.
+            The steps light up one after another as the norm spreads. */}
+        <section className={`${SECTION} bg-muted/30`}>
           <div className="container mx-auto max-w-5xl">
-            <Reveal><SectionHeader title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>} /></Reveal>
-            <motion.ol className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+            <Reveal className="text-center">
+              <SectionHeader
+                title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>}
+                subtitle="The impact of a one-off communication workshop fades. A team norm stays."
+              />
+              <NormChart />
+            </Reveal>
+            <motion.ol className="mt-12 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4" variants={PATH_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               {PATH.map((p, i) => (
-                <motion.li key={p.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 text-center shadow-sm flex flex-col items-center">
-                  <div className="w-28"><PeopleStrip {...p.strip} /></div>
-                  <div className="my-3 w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center">{i + 1}</div>
-                  <b className="block">{p.title}</b>
-                  <span className="text-sm text-muted-foreground">{p.text}</span>
+                <motion.li key={p.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-4 lg:p-5 shadow-sm flex lg:flex-col items-start lg:items-center gap-4 lg:gap-0 text-left lg:text-center">
+                  {/* Desktop: strip above the number. Mobile: number left, strip under the text. */}
+                  <div className="hidden lg:block w-28"><PeopleStrip {...p.strip} /></div>
+                  <div className="lg:my-3 w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0">{i + 1}</div>
+                  <span className="min-w-0 flex-1">
+                    <b className="block">{p.title}</b>
+                    <span className="text-sm text-muted-foreground">{p.text}</span>
+                    <span className="block lg:hidden w-24 mt-2"><PeopleStrip {...p.strip} /></span>
+                  </span>
                 </motion.li>
               ))}
             </motion.ol>
           </div>
         </section>
 
-        {/* 8. How it's different */}
-        <section className={`${SECTION} bg-muted/30`}>
-          <Reveal className="container mx-auto max-w-3xl text-center">
-            <SectionHeader title="How Clarity Pledge is different" />
-            <p className="text-lg sm:text-xl text-muted-foreground font-medium">The impact of a one-off communication workshop fades.</p>
-            <p className="mt-3 text-xl sm:text-2xl font-bold text-blue-600">Clarity Pledge helps teams establish and keep this norm.</p>
-            <div className="mt-10"><NormChart /></div>
-          </Reveal>
-        </section>
-
-        {/* 9. The norm in writing — the Clarity Group Terms specimen, as on /builders.
+        {/* 7. The norm in writing — the Clarity Group Terms specimen, as on /builders.
             Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
             No Accept button: a live action on a marketing page is a dead control (P955).
             [FOUNDER DECISION: section heading — drafted, see spec build notes] */}
@@ -279,7 +281,15 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 10. Closing CTA [FOUNDER DECISION: heading — drafted from the H1, see build notes] */}
+        {/* 8. What the hospital can expect — the value, last before the ask. */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <div className="container mx-auto max-w-5xl">
+            <Reveal><SectionHeader title="What the hospital can expect" /></Reveal>
+            <TileGrid items={VALUES} cols="grid-cols-2 lg:grid-cols-4" />
+          </div>
+        </section>
+
+        {/* 9. Closing CTA */}
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-4xl text-center">
@@ -292,7 +302,7 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 11. References */}
+        {/* 10. References */}
         <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
           <div className="container mx-auto max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
