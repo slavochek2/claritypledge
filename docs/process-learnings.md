@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 179
+**Next ID:** 185
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1437,18 +1437,11 @@ Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 3
 
 The first /prioritize pass over the inbox (2026-09-15, P1317) left 88 open entries: 68 public and 20 private. On or after 2026-10-15, add up both stores with `./scripts/inbox.sh count`. If the total is not below 88, file intake throttling (P1081's standing fallback) as a spec that week. Do not re-debate it; the pass pre-committed to this. Droppable once that spec exists or the count is below 88.
 
----
-
-## P887 canary copies every scripts/lib entry as a file and fails on any subdirectory
-
-**ID:** INBOX-77
-**Date:** 2026-09-15
-**Status:** proposed
-**due:** month
-
-src/tests/p887-reproduce.test.ts buildSandbox (around line 85) runs copyFileSync over readdirSync('scripts/lib'). Any directory there (a Python __pycache__ from importing a module in scripts/lib, which is gitignored and so invisible in git status) makes the pre-commit canary fail with ENOTSUP, blocking an unrelated commit that stages migrate.sh. Hit 2026-09-15 on P1322; worked around by PYTHONDONTWRITEBYTECODE=1 in test-keyring-escrow.sh. Fix: copy files only (skip directories), or copy only the lib files migrate.sh actually sources.
+Promote recommended by /prioritize 2026-10-16: trigger met, 263 open (144 public + 119 private) on 2026-10-16 vs the 88 threshold; per this entry, file intake throttling as a spec via /create-spec.
 
 ---
+
+<!-- Resolved 2026-10-16: "P887 canary copies every scripts/lib entry as a file and fails on any subdirectory" — see decisions.md 2026-10-16 [process] -->
 ## The Links menu's standing lists are compile-time constants with no founder write path
 
 **ID:** INBOX-78
@@ -1553,16 +1546,7 @@ Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 ---
 
 
-## Observe P1346 on the first worktree commit that stages git-ops.sh after it ships
-
-**ID:** INBOX-88
-**Date:** 2026-09-22
-**Status:** proposed
-**due:** week
-
-P1346's last criterion cannot be observed before merge: the pre-commit hook always runs MAIN's pre-commit-checks.sh and run-quiet.sh. After /ship p1346, make one commit from a linked worktree that stages scripts/git-ops.sh (e.g. the P1342 ship itself, if it lands after) and confirm it completes and 'git config core.bare' on the main checkout still prints false. Record the result in P1346's done spec. Droppable once observed.
-
----
+<!-- Resolved 2026-10-16: "Observe P1346 on the first worktree commit that stages git-ops.sh after it ships" — see decisions.md 2026-10-16 [process] -->
 
 ## Stop deploy-manifest.json conflicting on every /ship of a branch with migrations
 
@@ -1575,16 +1559,7 @@ The worktree migration procedure (apply via main's migrate.sh, commit main's man
 
 ---
 
-## Fix p887-reproduce.test.ts failing whenever scripts/lib/__pycache__ exists
-
-**ID:** INBOX-90
-**Date:** 2026-09-22
-**Status:** proposed
-**due:** week
-
-src/tests/p887-reproduce.test.ts copies scripts/lib/ file by file and fails with ENOTSUP on any subdirectory; the keyring Python helper creates scripts/lib/__pycache__ (gitignored), so the test — and the pre-commit hook on main — fails for every session after any keyring use. Blocked the P1349 ship on 2026-09-22 until the cache folder was deleted. Done when the copy skips directories (or copies recursively) and the test passes with a __pycache__ folder present.
-
----
+<!-- Resolved 2026-10-16: "Fix p887-reproduce.test.ts failing whenever scripts/lib/__pycache__ exists" — see decisions.md 2026-10-16 [process] -->
 
 ## Run the Gemini-vs-Opus story-writer benchmark at the first story-draft
 
@@ -1620,16 +1595,7 @@ P1367 shipped with this Done-When unobserved: draft mode now creates `.private/e
 
 ---
 
-## Add the trio pointer to P1337 and P1338 once their co-tenant edits are committed (P1367)
-
-**ID:** INBOX-95
-**Date:** 2026-09-28
-**Status:** proposed
-**due:** week
-
-P1367 S4 asks both specs to carry a one-line pointer: in-person Clarity Nights run trios (6/6/3 minutes, three rounds), superseding pairs (decisions.md 2026-09-28 [product]); observer self-rating before paraphrase is tentative. Not added on 2026-09-28 because another session held uncommitted edits in both files. Add it when `git status` shows them clean, before the 6 Oct deck is built.
-
----
+<!-- Resolved 2026-10-16: "Add the trio pointer to P1337 and P1338 once their co-tenant edits are committed (P1367)" — see decisions.md 2026-10-16 [process] -->
 
 ## Check whether share-dropdown's non-modal menu lets a dismissing tap through
 
@@ -1686,16 +1652,7 @@ Found in the P1366 review: rsvpToEvent has no host check and the post-signup aut
 
 ---
 
-## p887-reproduce test breaks when scripts/lib has a __pycache__ folder
-
-**ID:** INBOX-101
-**Date:** 2026-09-29
-**Status:** proposed
-**due:** week
-
-Hit while shipping P1366: src/tests/p887-reproduce.test.ts buildSandbox copies every entry of scripts/lib with copyFileSync, so a gitignored __pycache__ directory (created by any python import of scripts/lib/keyring.py) fails the whole pre-commit test step with ENOTSUP. Skip directories (or copy only tracked files) in buildSandbox. Drop if scripts/lib stops holding python modules.
-
----
+<!-- Resolved 2026-10-16: "p887-reproduce test breaks when scripts/lib has a __pycache__ folder" — see decisions.md 2026-10-16 [process] -->
 
 ## "Show less" on fully visible stories is confusing (product-wide) (due: month)
 
@@ -1853,6 +1810,10 @@ skill-file change and needs separate approval.
 
 After P1402 is pushed AND its migration 20261004150000 is on prod AND the new frontend is live: set prod story st1 (883d89f5-4449-46b2-a663-f4f2c7204c22) video_url to publicMediaUrl('event-prep/cognitive-understanding-v1.mp4'). Founder-approved 2026-10-04. Not before the deploy: the old frontend reads only YouTube URLs and would show st1 without its video. Revert: set it back to https://youtu.be/k4zpMYIKK5A. Then check the /feed pinned story plays on claritypledge.com.
 
+/prioritize 2026-10-16: still open, prod st1 video_url reads https://youtu.be/k4zpMYIKK5A (anon REST read). The switch is a prod write and needs a fresh founder yes.
+
+2026-10-16: done on prod with founder yes; video_url now the media-bucket clip (PATCH returned the new value). Remaining: watch the pinned story play on claritypledge.com/feed.
+
 ---
 
 
@@ -1950,33 +1911,9 @@ The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/
 ---
 
 
-## A new browser error: invalid regular expression on an event prepare page [day:0e1b7e7c]
+<!-- cleared by /day 2026-10-15: "A new browser error: invalid regular expression on an event prepare page [day:0e1b7e7c]", check cp.sentry ran and reported ok -->
 
-**ID:** INBOX-127
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-06 (check: cp.sentry, severity: medium).
-
-Sentry JAVASCRIPT-REACT-3N: SyntaxError invalid group specifier name, 2 events, 0 users, culprit /events/<slug>/prepare. First seen shortly before this run.
-
-Still open on 2026-10-07 (/day cp.sentry).
-
----
-
-## The GPU billed-hours check cannot run from the day script [day:da4cc7eb]
-
-**ID:** INBOX-128
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** month
-
-Found by /day on 2026-10-06 (check: cp.cost, severity: low).
-
-Run directly via python3 today: transcribe-session billed 0.91h in 24h (threshold 3h), so spend is fine. Only the check wiring is broken.
-
----
+<!-- cleared by /day 2026-10-15: "The GPU billed-hours check cannot run from the day script [day:da4cc7eb]", check cp.cost ran and reported ok -->
 
 ## The sign-in canary reports Google sign-in may be broken [day:584cdc87]
 
@@ -1993,20 +1930,7 @@ Still open on 2026-10-07 (/day cp.ops).
 
 ---
 
-## Stranded signups alert is open and escalated [day:ad204c1c]
-
-**ID:** INBOX-130
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-06 (check: cp.ops, severity: medium).
-
-gh issue 15 "Stranded signups", labels p1155-escalated-2d, p1155-escalated-7d, last updated 2026-10-04. cp.signups reads 0 unconfirmed in the 24h to 7d window.
-
-Still open on 2026-10-07 (/day cp.ops).
-
----
+<!-- Resolved 2026-10-16: "Stranded signups alert is open and escalated" — see decisions.md 2026-10-16 [process] -->
 
 ## P1181 is built and waiting for you [day:8d2338f0]
 
@@ -2023,37 +1947,9 @@ Still open on 2026-10-07 (/day cp.w1).
 
 ---
 
-## P1274 is closed but still sits in features [day:137604a3]
+<!-- Resolved 2026-10-16: "P1274 is closed but still sits in features" — see decisions.md 2026-10-16 [process] -->
 
-**ID:** INBOX-132
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** month
-
-Found by /day on 2026-10-06 (check: cp.w1, severity: low).
-
-features/p1274_the_three_p1053_review_lenses_that_never_ran.md. Agent runs /slava:maintain:fix-kanban.
-
-Still open on 2026-10-07 (/day cp.w1).
-
-Still open on 2026-10-08 (/day cp.w1).
-
----
-
-## A ship of P1389 started and never finished [day:614b4121]
-
-**ID:** INBOX-133
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
-
-./scripts/git-ops.sh ship p1389 --resume
-
-Still open on 2026-10-07 (/day cp.w1).
-
----
+<!-- Resolved 2026-10-16: "A ship of P1389 started and never finished" — see decisions.md 2026-10-16 [process] -->
 
 ## Give worktrees tools/kanban/node_modules safely (link helper, nested exemptions, dep opt-out)
 
@@ -2077,18 +1973,7 @@ Founder-approved: on the event page, the host's grouped participant rows pass sh
 
 ---
 
-## A browser abort error was logged on a hike event page [day:3571e5ad]
-
-**ID:** INBOX-137
-**Date:** 2026-10-07
-**Status:** proposed
-**due:** month
-
-Found by /day on 2026-10-07 (check: cp.sentry, severity: low).
-
-JAVASCRIPT-REACT-3P: AbortError, browsing context is going away, 1 event about 4h ago, on the social-hike event page.
-
----
+<!-- cleared by /day 2026-10-15: "A browser abort error was logged on a hike event page [day:3571e5ad]", check cp.sentry ran and reported ok -->
 
 ## The deferred-work inbox holds a large backlog with no exit [day:299d2a5b]
 
@@ -2116,18 +2001,7 @@ Report at .private/reports/efficiency/2026-10-07.md. Skill threshold: P3 above 2
 
 ---
 
-## CLAUDE.md is at its 350-line budget [day:31f206f8]
-
-**ID:** INBOX-140
-**Date:** 2026-10-07
-**Status:** proposed
-**due:** month
-
-Found by /day on 2026-10-07 (check: cp.weekly, severity: low).
-
-wc -l CLAUDE.md = 350. No broken links found. 15 technical docs are older than 30 days; not triaged this pass.
-
----
+<!-- Resolved 2026-10-16: "CLAUDE.md is at its 350-line budget" — see decisions.md 2026-10-16 [process] -->
 
 ## A CLAUDE.md change since the last run was not run through the claude-md gate [day:3038e55b]
 
@@ -2166,18 +2040,7 @@ Follow-ups from P1435. (1) On a run's first load the Day page shows card 1 for a
 
 ---
 
-## An event RSVP was refused by a database security rule [day:641f9da8]
-
-**ID:** INBOX-145
-**Date:** 2026-10-08
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-08 (check: cp.sentry, severity: high).
-
-Sentry JAVASCRIPT-REACT-3Q: Error "DB error in rsvpToEvent: new row violates row-level security policy for table event_rsvps". 1 event, 0 users counted, first and last seen about 4 hours before this run, on the social hike event page of 2026-10-11. Three of today's four new sign-ups came with a hike RSVP, so RSVP works in general; this may be a sign-in timing case.
-
----
+<!-- cleared by /day 2026-10-15: "An event RSVP was refused by a database security rule [day:641f9da8]", check cp.sentry ran and reported ok -->
 
 
 
@@ -2272,44 +2135,11 @@ The hook that blocks UI edits after the founder says a change is not visible sca
 
 ---
 
-## A ship of P1446 started and never finished [day:b2ae844c]
+<!-- Resolved 2026-10-16: "A ship of P1446 started and never finished" — see decisions.md 2026-10-16 [process] -->
 
-**ID:** INBOX-159
-**Date:** 2026-10-12
-**Status:** proposed
-**due:** week
+<!-- cleared by /day 2026-10-15: "A new calendar source suggestion waits for review [day:81f2fee1]", check cp.sources ran and reported ok -->
 
-Found by /day on 2026-10-12 (check: cp.w1, severity: medium).
-
-Journal started 2026-10-09T10:10:34Z, spec_closed=False, branch_deleted=False, 0 commits unlanded. Resume: ./scripts/git-ops.sh ship p1446 --resume. Same fault key as the earlier pass today.
-
----
-
-## A new calendar source suggestion waits for review [day:81f2fee1]
-
-**ID:** INBOX-160
-**Date:** 2026-10-12
-**Status:** proposed
-**due:** month
-
-Found by /day on 2026-10-12 (check: cp.sources, severity: low).
-
-1 new suggestion: https://claritypledge.com/cm (the site's own page, likely not a real source). Visitor-typed data, never opened.
-
----
-
-## Open alert: stranded signups, people started signup and never got in [day:443436a1]
-
-**ID:** INBOX-161
-**Date:** 2026-10-12
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-12 (check: cp.ops, severity: medium).
-
-Issue 19 "Stranded signups" opened 2026-10-11T14:20Z. Matches cp.signups: 1 unconfirmed sign-up. Fix command is in the issue body.
-
----
+<!-- Resolved 2026-10-16: "Open alert: stranded signups, people started signup and never got in" — see decisions.md 2026-10-16 [process] -->
 
 ## Day page: shorten card copy written by /day (P1463 follow-up)
 
@@ -2386,6 +2216,8 @@ src/tests/p1364-list-return-cache.test.tsx ('POP serves the cached list on the s
 
 P1468 removed the only reader of day-cp Wave 1's spend estimate (the dropped spend line). The EST_PER_DAY computation (day-cp.md Wave 1, ~lines 282-352 on the P1468 branch) still runs every /day and nothing reads it. After P1468 ships: grep for readers again and remove it if none (Monitoring has its own spend source).
 
+/prioritize 2026-10-16: P1468 shipped 2026-10-13; grep for EST_PER_DAY/EST_SINCE_LAST finds only its producer in day-cp.md (lines 303-373), no reader. Ready to remove; needs skill-edit approval.
+
 ---
 
 ## P1468 post-ship checks after the next /day run
@@ -2425,6 +2257,8 @@ sends no security headers), so after the next `/push` deploys it:
 2. Open a letter's live overlay on prod and confirm the `/live` iframe renders.
 
 If either fails, reopen via `/change-request` on P907. Delete this note once both pass.
+
+/prioritize 2026-10-16: check 1 passes on prod (curl -sI shows x-frame-options: SAMEORIGIN). Check 2 (letter live overlay iframe renders) not yet observed.
 
 ---
 
@@ -2575,5 +2409,26 @@ a day (it blocked an overnight-batch commit).
 Fix: pin the clock (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime` at a fixed midday UTC)
 or build the fixture at a fixed offset inside the same UTC day; add a case at 23:30 UTC that would
 have failed. Test-only; no product change. Same family as INBOX-142 (midnight refetch).
+
+---
+
+<!-- cleared by /day 2026-10-15: "New Sentry issue: SecurityError request denied on /cm [day:e433904b]", check cp.sentry ran and reported ok -->
+
+<!-- cleared by /day 2026-10-15: "New Sentry issue: Minified error kr on /cm [day:e338c2c1]", check cp.sentry ran and reported ok -->
+
+<!-- cleared by /day 2026-10-15: "New Sentry issue: Service worker registration denied on /cm [day:a94d2ce6]", check cp.sentry ran and reported ok -->
+
+<!-- cleared by /day 2026-10-15: "New Sentry issue: Service worker script fetch failed on /events [day:093dfbc7]", check cp.sentry ran and reported ok -->
+
+<!-- Resolved 2026-10-16: "Deploy drift detected on prod" — see decisions.md 2026-10-16 [process] -->
+
+## Fix the screenshot-before-re-edit hook blocking subagents
+
+**ID:** INBOX-184
+**Date:** 2026-10-16
+**Status:** proposed
+**due:** week
+
+Diagnosed 2026-10-15 and confirmed by replaying real transcripts: inside a subagent the PreToolUse hook receives the parent session's transcript, so a founder complaint in the parent arms the block and the subagent's own screenshots (its own subagents transcript) can never clear it. Proposed fix, awaiting the founder's yes: arm only from the parent, also accept screenshot evidence from the subagent's own transcript after the complaint (fall back to today's behaviour if that file is absent), and stop teammate messages from arming it; open founder call: should a complaint inside pasted text still arm it? Droppable if the hook is retired or Claude Code starts passing the subagent transcript itself.
 
 ---
