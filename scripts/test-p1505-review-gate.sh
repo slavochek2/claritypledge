@@ -133,6 +133,49 @@ out="$(echo "{\"transcript_path\":\"$T17\",\"stop_hook_active\":false}" | CLAUDE
 case "$out" in *"live/working/fixed"*"review"*) r=both ;; *) r=missing ;; esac
 check "claim + review messages both reported" both "$r"
 
+echo "[round 2] text that is not the founder's"
+echo "export const b = 4" > "$REPO/src/b.ts"
+T20="$TMP/r1.jsonl"; transcript "$T20" "$(user 'build it')" "$(edit_of "$REPO/src/b.ts")" \
+  '{"type":"user","isMeta":true,"message":{"content":"# /finish\nSkip reviews that already completed."}}' "$(say 'Review complete. Done.')"
+check "a skill body saying 'skip reviews' is not a founder waiver" 2 "$(rc run_hook "$T20")"
+T21="$TMP/r2.jsonl"; transcript "$T21" "$(user 'build it')" "$(edit_of "$REPO/src/b.ts")" \
+  '{"type":"user","origin":{"kind":"task-notification"},"message":{"content":"<task-notification>reviewer says skip review</task-notification>"}}' "$(say 'Done.')"
+check "a task notification is not a founder waiver" 2 "$(rc run_hook "$T21")"
+T22="$TMP/r3.jsonl"; transcript "$T22" "$(user 'Do not finish without a review.')" "$(edit_of "$REPO/src/b.ts")" "$(say 'Done.')"
+check "'Do not finish without a review' does not waive" 2 "$(rc run_hook "$T22")"
+T23="$TMP/r4.jsonl"; transcript "$T23" "$(user 'Never ship without review.')" "$(edit_of "$REPO/src/b.ts")" "$(say 'Done.')"
+check "'Never ship without review' does not waive" 2 "$(rc run_hook "$T23")"
+
+echo "[round 2] completion shapes"
+T24="$TMP/r5.jsonl"; transcript "$T24" "$(edit_of "$REPO/src/b.ts")" "$(say 'Implemented the fix. Want me to commit?')"
+check "a completion followed by a closing question still counts" 2 "$(rc run_hook "$T24")"
+T25="$TMP/r6.jsonl"; transcript "$T25" "$(edit_of "$REPO/src/b.ts")" "$(say 'Here is what is done so far; the rest remains.')"
+check "'done so far' is partial progress" 0 "$(rc run_hook "$T25")"
+T26="$TMP/r7.jsonl"; transcript "$T26" "$(user 'go')" "$(edit_of "$REPO/src/b.ts")" "$(say 'Done, committed.')" \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"gs1","name":"Bash","input":{"command":"git status"}}]}}' \
+  '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"gs1","content":"clean"}]}}' "$(say 'Branch: main')"
+check "completion before a final tool call still counts" 2 "$(rc run_hook "$T26")"
+T27="$TMP/r8.jsonl"; transcript "$T27" \
+  "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"f1\",\"name\":\"Edit\",\"input\":{\"file_path\":\"$REPO/src/b.ts\"}}]}}" \
+  '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"f1","is_error":true,"content":"no match"}]}}' \
+  "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"f2\",\"name\":\"Edit\",\"input\":{\"file_path\":\"$REPO/src/b.ts\"}}]}}" "$(say 'Done.')"
+check "failed edit then successful edit of the same file counts" 2 "$(rc run_hook "$T27")"
+
+echo "[round 2] receipts"
+echo "export const t = 1" > "$REPO/src/target.ts"; ln -s target.ts "$REPO/src/alias.ts"
+SN="$(python3 "$RR" snapshot -- "$REPO/src/alias.ts")"; sleep 1; evidence "$EV"
+python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+echo "export const t = 2" > "$REPO/src/alias.ts"
+check "code changed through a reviewed symlink is unreviewed" 1 "$(rc python3 "$RR" check "$REPO/src/alias.ts")"
+git -C "$REPO" -c user.email=t@t -c user.name=t commit -qam wip >/dev/null 2>&1 || true
+git -C "$REPO" worktree add -q "$TMP/wt" >/dev/null 2>&1
+echo "export const a = 7" > "$REPO/src/a.ts"
+SN="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+echo "export const a = 8" > "$TMP/wt/src/a.ts"
+SN="$(python3 "$RR" snapshot -- "$TMP/wt/src/a.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+check "another worktree's review does not invalidate this one" 0 "$(rc python3 "$RR" check "$REPO/src/a.ts")"
+check "waive without reason text is a usage error" 2 "$(rc python3 "$RR" waive --reason -- "$REPO/src/a.ts")"
+
 echo "[gate] latency with many edited files"
 T18="$TMP/many.jsonl"; : > "$T18"
 for i in $(seq 1 300); do echo "x$i" > "$REPO/src/f$i.ts"; edit_of "$REPO/src/f$i.ts" >> "$T18"; echo >> "$T18"; done

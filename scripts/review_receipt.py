@@ -66,8 +66,11 @@ def _repo_of_dir(d):
 
 
 def locate(path):
-    """Return (receipts_file, relpath) for a file inside a git repo, else None.
-    The relpath is lexical: a symlink is classified by where it sits, not where it points."""
+    """Return (receipts_file, key) for a file inside a git repo, else None.
+    key = "<worktree toplevel>::<relpath>": receipts are per worktree, so another worktree
+    reviewing its own version of the same path does not invalidate this one.
+    The relpath is lexical: a symlink is classified by where it sits, not where it points;
+    a symlinked parent directory falls back to its resolved location."""
     path = os.path.abspath(path)
     d = os.path.dirname(path)
     while d and not os.path.isdir(d):
@@ -78,17 +81,33 @@ def locate(path):
     if not repo:
         return None
     top, common = repo
-    lexical = os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path)) \
-        if os.path.isdir(os.path.dirname(path)) else path
-    if not lexical.startswith(top + os.sep):
-        return None
-    return os.path.join(common, RECEIPTS_NAME), os.path.relpath(lexical, top)
+    rel = None
+    for cand in (path, os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path))):
+        if cand.startswith(top + os.sep):
+            rel = os.path.relpath(cand, top)
+            break
+    if rel is None:
+        unresolved_top = os.path.abspath(d)
+        while unresolved_top and os.path.realpath(unresolved_top) != top:
+            parent = os.path.dirname(unresolved_top)
+            if parent == unresolved_top:
+                return None
+            unresolved_top = parent
+        rel = os.path.relpath(path, unresolved_top)
+    return os.path.join(common, RECEIPTS_NAME), top + "::" + rel
 
 
 def fingerprint(path):
     try:
         if os.path.islink(path):
-            return "link:" + os.readlink(path)
+            # The link AND what it points at: editing code through a link changes the hash.
+            target = os.readlink(path)
+            try:
+                with open(path, "rb") as f:
+                    body = hashlib.sha256(f.read()).hexdigest()
+            except FileNotFoundError:
+                body = "dangling"
+            return "link:" + target + ":" + body
         with open(path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
     except FileNotFoundError:
@@ -259,8 +278,12 @@ def cmd_waive(argv):
     if "--reason" not in argv or "--" not in argv:
         print("usage: review_receipt.py waive --reason TEXT -- FILE...", file=sys.stderr)
         return 2
-    reason = argv[argv.index("--reason") + 1]
-    files = argv[argv.index("--") + 1:]
+    r, dd = argv.index("--reason"), argv.index("--")
+    if r + 1 >= len(argv) or r + 1 == dd or r > dd:
+        print("usage: review_receipt.py waive --reason TEXT -- FILE...", file=sys.stderr)
+        return 2
+    reason = argv[r + 1]
+    files = argv[dd + 1:]
     n = waive(files, reason)
     print(f"review_receipt: waived {n} file(s)")
     return 0 if n else 1

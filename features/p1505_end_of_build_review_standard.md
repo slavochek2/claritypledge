@@ -118,6 +118,15 @@ The original Solution (standards file + pointers) failed the falsify review (sec
 - [x] `REVIEW_GEMINI_MODEL` is in model-defaults.env and in the inventory row, and `model-watch` reports no drift for it
 - [ ] The standard is run on this build itself: Argon + Codex (several files) + Opus (ship tooling), with `<received> of <spawned>` and a receipt written
 
+## Known limitations (recorded per the 2026-10-14 stopping rule, not fixed)
+
+- **Shell and subagent edits are invisible to the gate.** It reads Edit/Write/MultiEdit/NotebookEdit calls in this session's transcript. This build itself patched the hook through Python heredocs, and the gate never saw those edits. They were covered here only because the review was run by hand.
+- **Evidence can be forged on purpose.** A hand-written `ASK-MODEL: … exit=0` line created after the snapshot passes. The receipt prevents accidents; it is not a security boundary.
+- **After a block, the follow-up stop runs no review gate.** That is the loop guard. A bare "Done." after a block ends the turn, so the gate makes the review the default, not a certainty. The claim gate still runs there, with a per-session budget of 2.
+- **A founder waiver covers every file still unreviewed when it fires,** not only the files edited after it.
+- **Negation is heuristic.** "I checked if X and it's done" reads as negated, so the turn passes. An unpaired quote or backtick in the founder's message can hide a waiver.
+- **The evidence mtime check assumes the reviewer writes after the snapshot.** On APFS the timestamps are sub-second, and reviewer runs take minutes.
+
 ## Success Measure (post-ship, filed to the inbox at ship, not a checkbox)
 
 Over the 30 days after ship, count founder-typed end-of-build review asks with the same `hist` queries

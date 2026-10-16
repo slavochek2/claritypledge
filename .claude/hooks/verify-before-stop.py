@@ -79,6 +79,9 @@ DONE_RE = re.compile(
     re.IGNORECASE,
 )
 # A completion word right after one of these is not a completion claim.
+# A completion word followed by one of these describes partial progress, not completion.
+PARTIAL_AFTER_RE = re.compile(r"^\s*(with (part|step|phase|the first)|so far)\b", re.IGNORECASE)
+TRAILING_QUESTION_RE = re.compile(r"[^.!?\n]*\?\s*$")
 # Searched in the same clause, up to 30 chars before the word ("once this is done").
 NEGATION_RE = re.compile(r"(\bnot\b|n't\b|\bonce\b|\buntil\b|\bif\b|\bbefore\b|\bnothing\b|\bto be\b|\bwhen\b)[^.!?\n]*$", re.IGNORECASE)
 # Explicit, affirmative waivers only — never "do not skip review", never a quoted mention.
@@ -87,7 +90,9 @@ WAIVE_RE = re.compile(
     r"\bno reviews? (needed|required|necessary)\b|\bwithout (a |any |the )?reviews?\b",
     re.IGNORECASE,
 )
-WAIVE_NEGATED_RE = re.compile(r"(\bdo not|\bdon'?t|\bnever|\bnot)\s+$", re.IGNORECASE)
+# A waiver with a negation or condition ANYWHERE in its clause is not a waiver
+# ("Do not finish without a review", "Never ship without review").
+WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|\bunless\b|\bwhy\b)[^.!?\n]*$", re.IGNORECASE)
 QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|`[^`]*`")
 REVIEW_TIME_BUDGET_S = 6.0   # hook timeout is 20s; leave room for gates 1-2 and their output
 REVIEW_MAX_FILES = 300
@@ -214,21 +219,38 @@ def _load_receipts():
         return None
 
 
-def announces_completion(turn_text, last_assistant_text):
-    """True when the turn claims the work is complete. A turn ending in a question is
-    asking the founder something, not announcing completion."""
-    if not turn_text or last_assistant_text.rstrip().endswith("?"):
-        return False
-    for m in DONE_RE.finditer(turn_text):
-        if not NEGATION_RE.search(turn_text[max(0, m.start() - 30):m.start()]):
-            return True
+def announces_completion(turn_text):
+    """True when the turn claims the work is complete. A closing question ("Want me to
+    commit?") is dropped first, so it neither hides a completion nor creates one."""
+    text = TRAILING_QUESTION_RE.sub("", turn_text or "")
+    for m in DONE_RE.finditer(text):
+        if NEGATION_RE.search(text[max(0, m.start() - 30):m.start()]):
+            continue
+        if PARTIAL_AFTER_RE.search(text[m.end():m.end() + 24]):
+            continue
+        return True
     return False
+
+
+def is_founder_message(entry):
+    """A message the founder typed. Skill bodies (isMeta), task notifications, system
+    reminders and tool results are user-TYPE entries too, and must never count as the
+    founder's words (P1505 review round 2: /finish's own text read as a waiver)."""
+    if entry.get("type") != "user" or entry.get("isMeta"):
+        return False
+    origin = entry.get("origin")
+    if isinstance(origin, dict) and origin.get("kind") and origin.get("kind") != "human":
+        return False
+    text = extract_text(get_message_content(entry)).strip()
+    if not text:
+        return False
+    return not text.startswith(("<task-notification", "<system-reminder", "Base directory for this skill"))
 
 
 def founder_waived(text):
     text = QUOTED_RE.sub(" ", text or "")
     for m in WAIVE_RE.finditer(text):
-        if not WAIVE_NEGATED_RE.search(text[max(0, m.start() - 12):m.start()]):
+        if not WAIVE_NEGATED_RE.search(text[max(0, m.start() - 60):m.start()]):
             return True
     return False
 
@@ -270,12 +292,12 @@ def session_edits(transcript_path):
     return out
 
 
-def unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text):
+def unreviewed_edits(transcript_path, entries, turn_text):
     """Reviewable files this session edited whose current content has no review receipt.
     Fails open (returns []) on any error or when over its time budget."""
     start = time.monotonic()
     try:
-        if not announces_completion(turn_text, last_assistant_text):
+        if not announces_completion(turn_text):
             return []
         paths = session_edits(transcript_path)[:REVIEW_MAX_FILES]
         if not paths:
@@ -290,7 +312,7 @@ def unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text):
             loc = rr.locate(p)
             if not loc:
                 continue
-            rel = loc[1].replace(os.sep, "/")
+            rel = loc[1].split("::", 1)[-1].replace(os.sep, "/")
             if rel.startswith(NOT_REVIEWABLE_PREFIXES) or (rel.endswith(".md") and not rel.startswith(".claude/")):
                 continue
             reviewable.append(p)
@@ -300,13 +322,12 @@ def unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text):
         # The founder can waive it: their latest typed message explicitly says skip review.
         # The waiver is recorded, so a later docs-only turn does not re-raise these files.
         for entry in reversed(entries):
-            if entry.get("type") == "user":
+            if is_founder_message(entry):
                 text = extract_text(get_message_content(entry))
-                if text.strip():
-                    if founder_waived(text):
-                        rr.waive(missing, "founder: " + text.strip()[:120])
-                        return []
-                    break
+                if founder_waived(text):
+                    rr.waive(missing, "founder: " + text.strip()[:120])
+                    return []
+                break
         return missing
     except Exception:
         return []
@@ -395,7 +416,18 @@ def main():
 
     # --- Gate 3 (REVIEW, P1505): completion announced over unreviewed edits. Computed
     #     after gate 1 and reported alongside it — never instead of it.
-    unreviewed = unreviewed_edits(transcript_path, entries, turn_text, last_assistant_text)
+    # The review gate's "turn" runs back to the founder's last message, across tool calls:
+    # a completion announced before a final `git status` is still a completion.
+    review_chunks = []
+    for entry in reversed(entries):
+        if is_founder_message(entry):
+            break
+        if entry.get("type") == "assistant":
+            text = extract_text(get_message_content(entry))
+            if text.strip():
+                review_chunks.append(text)
+    review_turn_text = "\n".join(reversed(review_chunks))
+    unreviewed = unreviewed_edits(transcript_path, entries, review_turn_text)
 
     if not problems and not claim_problem and not unreviewed:
         sys.exit(0)

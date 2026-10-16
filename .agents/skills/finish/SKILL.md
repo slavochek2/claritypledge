@@ -162,7 +162,8 @@ records exactly what the reviewers saw, and nothing written later.
 The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
 `model-watch`). Never write it into this file.
 
-- **Prompt:** the UI lenses go in only when UI files changed (`src/app/**/*.tsx`, `*.css`).
+- **Prompt:** every snapshotted file must be in the review input. Use the diff for tracked files, and the **full
+  content** for new or untracked ones, since `git diff` shows nothing for them. The UI lenses go in only when UI files changed (`src/app/**/*.tsx`, `*.css`).
   - Text-only reviewers judge layout and the first-time walk from the code.
   - The rendered half (screenshots, `.claude/rules/visual-qa.md`) belongs to the main session or `/verify`.
 - **Launch:** start each external reviewer as its **own** `run_in_background` Bash call, writing its output to a
@@ -172,13 +173,19 @@ The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`
   mean **that review did not run**, whatever else the output says.
   - Re-run it once by a different route (for example without `--model`, falling back to the default
     `GEMINI_MODEL`, and say so).
+  - If `delegate-gemini` exits 2 (its credential-shape scan refused the payload), run `codex-review` as the
+    evidence reviewer instead. Never edit the payload to get past the scan.
   - Otherwise report it as missing. Never count it as clean.
 - **Count:** state `<received> of <spawned>`, naming any reviewer that is missing. Opus counts here but is not receipt
   evidence, because the receipt needs at least one `ask-model` output. A receipt written with a reviewer
   missing must say so in the report.
 - **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
-  - Re-snapshot and re-review the changed files once, with the reviewers that found the fixed issues.
-  - Any new HIGH after that goes to the founder (decisions.md 2026-10-14 [process], "Overnight autonomous batch — when to stop review rounds").
+  - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one external
+    (`ask-model`) reviewer**, alongside whichever reviewer found the fixed issues, or no receipt can be written.
+  - Stopping rule (decisions.md 2026-10-14 [process], "Overnight autonomous batch — when to stop review rounds"):
+    fix every finding a reviewer reproduces on a shape this repo actually produces, or one that falsely blocks
+    a legitimate workflow. Record exotic shapes as "Known limitations" in the spec. "Zero findings" is not
+    the bar for parser-shaped gates; "no realistic open finding" is.
 
 ### Delegated reviews
 
