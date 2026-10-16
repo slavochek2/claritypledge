@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Feature, Status, FeatureType, Size, DeliveryStage } from '../lib/types'
 import { readPref, STORAGE_KEYS } from '../lib/kanbanStorage'
+import { PrivateTag } from './PrivateTag'
 import vscodeIcon from '../assets/vscode.svg'
 
 interface CardDialogProps {
@@ -586,6 +587,11 @@ export function CardDialog({
           >
             {feature.title}
           </h1>
+          {feature.private && (
+            <div style={{ marginTop: -16, marginBottom: 24 }}>
+              <PrivateTag />
+            </div>
+          )}
 
           {/* Editable Properties */}
           <div

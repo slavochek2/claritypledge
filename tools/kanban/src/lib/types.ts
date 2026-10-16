@@ -68,6 +68,8 @@ export interface Feature {
   locked_at?: string // ISO timestamp of last manual status change
   // Implementation flow chosen by /pick-flow or agent (P451)
   flow?: 'fix' | 'dev' | 'inline' | 'quick-feature'
+  // P1507: embargoed spec shown on the main board from .private/ or a worktree; read-only
+  private?: boolean
 }
 
 // Article — content pipeline item (P449: content kanban)

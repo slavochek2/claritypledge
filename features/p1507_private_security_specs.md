@@ -94,9 +94,9 @@ classifier is the thing that keeps a spec off `main`), so it is not a skim job.
 - **No committed list of which specs are sensitive** (features.md, P1248, P936). Scope is
   each spec's own frontmatter; this spec names no embargoed spec.
 - **The branch is deleted only after an OFF-MACHINE copy is verified by hash.** Every
-  archived blob (spec, and UAT pair if any) must be present on the private remote with the
-  same git blob id as on the branch. A local commit, or a restic snapshot nobody has listed,
-  does not count. Until then the branch stays.
+  archived blob (spec, and UAT pair if any) must be in a nightly backup snapshot taken
+  after the archive, with the same git blob id as on the branch, as proven by the backup
+  job itself. A local commit does not count. Until then the branch stays.
 - **A spec that will be archived privately is never an absorber.** `ship-gates.sh:192-196`
   takes absorption evidence only from a single copy under `features/done/` with a public
   close history, and that cannot exist for a private spec.
@@ -107,8 +107,9 @@ classifier is the thing that keeps a spec off `main`), so it is not a skim job.
 Keep the branch-born lifecycle exactly as it is today until the code has shipped and the
 fix is live. Replace the final `publish-spec` step with **`git-ops.sh archive-spec pN`**:
 
-The step runs in two halves. The pause between them is a push of the private repo,
-which is the founder's action (pushes are never automatic).
+The step runs in two halves. The pause between them is the next nightly backup, which
+needs no founder action. (Superseded design: a founder push of the `.private` repo. The
+founder contract above removed every extra step.)
 
 **Half 1 — `archive-spec pN`:**
 
@@ -130,7 +131,7 @@ which is the founder's action (pushes are never automatic).
    no `git mv` and no outer `git add`. The private copy keeps `disclosure: embargo`. D4 of
    P1255 rewrote that value only because the copy was going public.
 4. **Commit exactly the manifest's paths in the inner `.private` repo.** It is its own git
-   repo, mirrored to the self-hosted private remote (`.private/INDEX.md:5`). Run `gitleaks
+   repo (`.private/INDEX.md:5`). Run `gitleaks
    protect --staged` first, per that repo's rule. Then confirm `git -C .private rev-parse
    HEAD:<dest>` equals the branch blob id for every entry. Git blob ids depend only on
    content, so equal ids mean the bytes are identical.
@@ -138,14 +139,20 @@ which is the founder's action (pushes are never automatic).
    them). This is the lesson of decisions.md 2026-09-11 [process], "An embargoed spec reached main,
    and taking it off main did not take it off the branches cut from that tip": a ref cut while spec content
    was reachable keeps it, and shipping that ref later would carry it to `main`.
-6. **Stop.** Print the push the founder needs to run in `.private`. The branch and worktree
-   are untouched.
+6. **Stop.** The branch and worktree are untouched until the backup proves the copy.
 
 **Half 2 — `archive-spec pN --finish`:**
 
-7. **Fetch the private remote and verify each manifest entry on it**:
-   `git -C .private rev-parse <remote>/<branch>:<dest>` must equal the recorded blob id. Any
-   miss stops the step with nothing deleted. This is the off-machine copy, proven by hash.
+7. **Read the backup's proof.** After each verified snapshot, the nightly backup job reads
+   every `pN.manifest` as plain data (strict line shape, no `..`), dumps each listed file
+   from its own snapshot, hashes it, and writes `pN.proof` (snapshot time plus blob id per
+   file) outside the repo. Half 2 requires a proof whose snapshot started after
+   `archived_at` and that lists every manifest blob. Any miss stops the step with nothing
+   deleted. **Built this way after the 2026-10-16 security review:** the job holds the
+   backup credentials, which agents are walled off from, so it must never execute code from
+   this agent-writable repo. A forged proof costs at most the branch, while the `.private`
+   copy remains on disk and in every later snapshot. `archive-spec --finish-pending` runs
+   Half 2 for every archive still waiting (from `/day`).
 8. **Public side, depending on D8.** Under the recommended option there is no public stub,
    so this step does nothing on `main`. Under the stub-kept option, make one commit under
    `main.lock` that only deletes the stub. Its subject is fixed text, `chore: close pN`,
@@ -204,7 +211,7 @@ generic name is just as much a register. Options:
 | Authored, in flight | `features/pN_<slug>.md` on local branch `feature/pN-<slug>` in a worktree; `main` has nothing (S1) or a placeholder (S0/S2) | Yes, on the unpushed branch | Home-directory restic backup (`.git` included since 2026-08-25, excludes only regenerable caches). **Not verified against a snapshot listing** — Done-When. Never on GitHub: `git ls-remote --heads origin` returned exactly one head, `main` (2026-10-15) |
 | Code shipped, waiting for prod | Same branch, retained by ship (`git-ops.sh:5097-5098`); code is on `main` | Yes, on the branch | Same as above |
 | Archived, not yet verified off-machine (after Half 1) | Both: the branch, and `.private/features/done/<sprint>/` committed in the inner repo | Yes, twice, on one disk | restic only. **Measured 2026-10-15: the inner repo is 17 commits ahead of its remote with 113 uncommitted paths**, so "it is in `.private`" does not mean "it is off this machine" |
-| Done (after Half 2) | `.private/features/done/<sprint>/` is the **only** copy; the branch is deleted | Yes, in the inner repo | The private remote, with every blob id verified (step 7), plus restic |
+| Done (after Half 2) | `.private/features/done/<sprint>/` is the **only** copy; the branch is deleted | Yes, in the inner repo | The nightly backup snapshot, with every blob id verified (step 7), plus restic |
 | Never buildable (notes, incidents) | `.private/...` from creation | Inner repo only | Same as Done |
 
 **On "it looks like it's in the repo but isn't committed":** a file under `.private/` sits
@@ -400,8 +407,8 @@ census scope but also rewritten:
       pair if present) and commits exactly those paths in the inner repo. Each committed blob
       id equals the branch blob id. The branch and worktree are untouched, and nothing on
       `main` changes.
-- [ ] `archive-spec pN --finish` (Half 2) deletes the branch only after every manifest blob id
-      is found on the private remote-tracking ref after a fetch. A control with one blob
+- [ ] `archive-spec pN --finish` (Half 2) deletes the branch only after the backup's proof
+      shows every manifest blob id in a snapshot newer than the archive. A control with one blob
       missing from the remote refuses, and the branch still exists afterwards (exit code
       pasted).
 - [ ] Under S0/S2 only: the `main` commit contains exactly one path, the stub deletion, with
@@ -437,9 +444,9 @@ census scope but also rewritten:
 
 - [ ] VS Code Quick Open for the archived spec's number finds its `.private/features/done/` file (founder screenshot or a computer-use check).
 
-- [ ] One real sensitive spec goes through ship, Half 1, a founder push of `.private`, and
+- [ ] One real sensitive spec goes through ship, Half 1, a nightly backup, and
       Half 2: `git ls-tree -r --name-only origin/main` holds no file with its slug, the
-      private remote holds the manifest's blob ids, and `restic ls latest` lists
+      backup's proof holds the manifest's blob ids, and the snapshot lists
       `.private/features/done/<sprint>/<file>`.
 - [ ] P1266's two `publish-spec` Done-When items are marked superseded by this spec.
 - [ ] A `docs/decisions.md` entry records the change and the founder answers that overturn

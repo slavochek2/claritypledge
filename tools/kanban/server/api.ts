@@ -177,7 +177,7 @@ async function getCachedFeatures(worktreePath?: string): Promise<Feature[]> {
   return features
 }
 
-async function parseFeatureFile(filePath: string): Promise<Feature | null> {
+async function parseFeatureFile(filePath: string, isPrivate = false): Promise<Feature | null> {
   try {
     const content = readFileSync(filePath, 'utf-8')
     const { data, content: body } = parseFrontmatter(content)
@@ -263,6 +263,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       prepped: !!data.prepped_date,
       locked_at: typeof data.locked_at === 'string' ? data.locked_at : undefined,
       flow,
+      ...(isPrivate ? { private: true as const } : {}),
     }
   } catch (err) {
     console.error(`[kanban] parseFeatureFile failed for ${filePath}:`, err)
@@ -270,25 +271,19 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
   }
 }
 
-async function getFeatures(worktreePath?: string): Promise<Feature[]> {
-  const featuresDir = getFeaturesDir(worktreePath)
-  const features: Feature[] = []
-
+// Recursively collect feature spec files under a directory (shared scanner rules).
+async function collectFeatureFiles(rootDir: string): Promise<string[]> {
+  const files: string[] = []
   async function scanDir(dir: string) {
     try {
       const entries = await readdir(dir, { withFileTypes: true })
-
       for (const entry of entries) {
         const fullPath = join(dir, entry.name)
-
         if (entry.isDirectory()) {
           // Skip folders using shared scanner-rules logic (P147: prevents drift like P137)
-          if (!shouldSkipFolder(entry.name)) {
-            await scanDir(fullPath)
-          }
+          if (!shouldSkipFolder(entry.name)) await scanDir(fullPath)
         } else if (isFeatureFile(entry.name)) {
-          const feature = await parseFeatureFile(fullPath)
-          if (feature) features.push(feature)
+          files.push(fullPath)
         }
       }
     } catch (err) {
@@ -298,8 +293,67 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
       }
     }
   }
+  await scanDir(rootDir)
+  return files
+}
 
-  await scanDir(featuresDir)
+function pNumberOf(id: string): string | null {
+  const m = id.match(/^(p\d+)/i)
+  return m ? m[1].toLowerCase() : null
+}
+
+// P1507: sensitive specs (frontmatter `disclosure: embargo`) never live on main.
+// The main board also shows them, tagged private: (a) archived copies under
+// <root>/.private/features/, (b) in-flight copies in live worktrees. Read-only here.
+async function getPrivateFeatures(publicFeatures: Feature[]): Promise<Feature[]> {
+  const seen = new Set<string>()
+  for (const f of publicFeatures) {
+    seen.add(f.id)
+    const n = pNumberOf(f.id)
+    if (n) seen.add(n)
+  }
+  const out: Feature[] = []
+  const accept = (f: Feature) => {
+    const n = pNumberOf(f.id)
+    if (seen.has(f.id) || (n && seen.has(n))) return
+    seen.add(f.id)
+    if (n) seen.add(n)
+    out.push(f)
+  }
+
+  // (a) .private archive wins over a worktree copy of the same pN
+  for (const file of await collectFeatureFiles(join(DEFAULT_PROJECT_ROOT, '.private', 'features'))) {
+    const f = await parseFeatureFile(file, true)
+    if (f) accept(f)
+  }
+
+  // (b) embargoed specs in live worktrees
+  if (!WORKTREES_DISABLED) {
+    for (const wt of getWorktrees()) {
+      if (wt.path === DEFAULT_PROJECT_ROOT) continue
+      for (const file of await collectFeatureFiles(getFeaturesDir(wt.path))) {
+        try {
+          const { data } = parseFrontmatter(readFileSync(file, 'utf-8'))
+          if (String(data.disclosure ?? '').trim().toLowerCase() !== 'embargo') continue
+        } catch {
+          continue
+        }
+        const f = await parseFeatureFile(file, true)
+        if (f) accept(f)
+      }
+    }
+  }
+  return out
+}
+
+async function getFeatures(worktreePath?: string): Promise<Feature[]> {
+  const features: Feature[] = []
+  for (const file of await collectFeatureFiles(getFeaturesDir(worktreePath))) {
+    const feature = await parseFeatureFile(file)
+    if (feature) features.push(feature)
+  }
+  // Worktree boards are unchanged; only the main board mixes in private specs.
+  if (!worktreePath) features.push(...(await getPrivateFeatures(features)))
   return features.sort((a, b) => a.id.localeCompare(b.id))
 }
 
@@ -675,6 +729,14 @@ app.patch('/api/features/:id', async (req, res) => {
 
     if (!feature) {
       return res.status(404).json({ error: 'Feature not found' })
+    }
+
+    // P1507: private cards are read-only on the main board. Their files sit outside
+    // the board's write paths (a worktree's own board, or the private archive).
+    if (feature.private) {
+      return res.status(403).json({
+        error: 'private spec: change it on its worktree board, or it is archived',
+      })
     }
 
     // Read current file

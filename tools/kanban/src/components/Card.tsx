@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Feature, FeatureType } from '../lib/types'
 import { CardDialog } from './CardDialog'
+import { PrivateTag } from './PrivateTag'
 import vscodeIcon from '../assets/vscode.svg'
 
 interface CardProps {
@@ -41,6 +42,8 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: feature.id,
     data: { status: feature.status },
+    // P1507: private cards are read-only on this board (the API refuses writes too)
+    disabled: feature.private === true,
   })
 
   // dnd-kit's attributes also carry role and tabIndex, with the same values as the literals
@@ -93,7 +96,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
             : 'var(--bg-card)',
         borderRadius: 'var(--radius-card)',
         padding: '10px 10px 12px',
-        cursor: isDragging ? 'grabbing' : 'grab',
+        cursor: feature.private ? 'pointer' : isDragging ? 'grabbing' : 'grab',
         opacity: isDragging ? 0.9 : 1,
         boxShadow: isDragging ? 'var(--shadow-card-dragging)' : 'var(--shadow-card)',
         zIndex: isDragging ? 100 : 1,
@@ -171,6 +174,11 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
 
       {/* Properties — each property type on its own row */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {feature.private && (
+          <div style={{ display: 'flex' }}>
+            <PrivateTag />
+          </div>
+        )}
         {/* Rank + Size */}
         {(feature.rank !== undefined || feature.size) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
