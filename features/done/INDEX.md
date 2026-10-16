@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-14
+Last updated: 2026-10-16
 
 ---
 
@@ -420,6 +420,7 @@ Last updated: 2026-10-14
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1505** (Oct 16) End-of-build review gate — trigger at "done" in the Stop hook, not skill pointers: 76-80% of review asks were ad-hoc
 - **P1489** (Oct 14) Day card ranking: registry severity is a ceiling, not a floor; founder cards first; a Day-page prod choice never authorises the agent
 - **P1439** (Oct 08) `/ship` seed lost the spec's trailing newline since June (`$()` strips it), so the add/add fix never worked; up-front refusal on co-tenant edits — never round-trip file bytes through `$()`; a test that pre-builds the state under test exercises nothing
 - **P1438** (Oct 08) Private companion decisions log + privacy gate before `/kdd` commits — a search that reads only the public log misses private rulings silently, so the helper prints whether the private log was searched; judgment must run before the commit, not after; the new known-names check found a June leak a manual redaction had half-fixed

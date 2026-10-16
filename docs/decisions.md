@@ -8,6 +8,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-16 [process]: The end-of-build review fires at "done", not inside /dev or /fix (P1505)
+
+**Context:** The founder typed an end-of-build review request 145 times in 119 sessions (Aug 21 to Oct 16; 4.4 a day in October), and asked again 7 times when a part was missed. The request named Codex and Gemini, correctness, code quality, design-system reuse, cutting text into visuals, and UX from the user's view. The first plan was to write the standard into one file and add pointer lines in `/dev`, `/fix` and `/goalify`. A falsify review (one root-cause agent, plus Gemini 4 Argon and Codex) showed that 76-80% of these asks followed work where no build skill ran, so pointers would reach at most about 20% of them. All five proposals failed a replay of a real ad-hoc session.
+**Decision:** The trigger lives in the Stop hook (`.claude/hooks/verify-before-stop.py`, gate 3). It blocks once when a turn announces completion and this session edited reviewable files (everything except docs, features and content prose) that have no review receipt for their current content. `/finish` is the single home of the standard: lenses in `criteria/code.md`, and the reviewer roster by stakes in Step 4b. Gemini (`REVIEW_GEMINI_MODEL` in `~/.agents/model-defaults.env`) runs every time, Codex for more than one file or 50 lines, Opus for hooks, gates, auth and data. Receipts (`scripts/review_receipt.py`) bind to a snapshot taken before the review, so a fix applied after the review is unreviewed code. `/dev` and `/fix` now stamp the reviewed sha, not the post-fix HEAD, and the optional "(y/n) run /finish" lines are gone. A founder waiver must be explicit and unconditional; anything ambiguous keeps the review.
+**Alternatives rejected:**
+- A standards file plus skill pointers: misses the ad-hoc 76-80%.
+- An always-on rule: it relies on the same instruction-following that was already failing.
+- A `/goalify` pointer: breaks goalify's own CONTRACT-never-PROCEDURE rule.
+- A model id in prose: invisible to `model-watch`.
+**Consequences:** Every cp session now runs the gate. It was built and then reviewed in four rounds by Argon, Codex and Opus, plus confirm rounds. Each round found real bypasses (skill text and notifications read as the founder's waiver, receipts forgeable with old outputs, fixes certified as reviewed), and each fix has a test that fails on the previous commit (61 cases). Exotic shapes are recorded as "Known limitations" in the spec, the biggest being that shell and subagent edits are invisible to the gate. Two traps hit during the build: a zsh unsplit `$F` passed a 9-file list as one path, so every snapshot covered nothing until `snapshot` learned to refuse missing paths; and a hermetic test staged into the real index from inside the pre-commit hook until it unset `GIT_DIR`/`GIT_INDEX_FILE`. Falsifier: 30 days after ship, founder-typed review asks stay above 2 a day (baseline 4.4).
+**References:** [p1505](../features/done/2026-06-10/p1505_end_of_build_review_standard.md) · `scripts/test-p1505-review-gate.sh` · decisions.md 2026-10-14 [process] (review stopping rule) · private ruling 2026-10-16 (reviewer choice by stakes)
+
 ## 2026-10-16 [process]: Inbox rotating review — first window resolves two entries, drops three, keeps twenty-five
 
 **Context:** First run of the rotating review (`scripts/inbox-review-order.sh`, commit aeea92f3a): the 15 never-reviewed `due: week` and 15 `due: month` public entries, each checked against its artifact.
