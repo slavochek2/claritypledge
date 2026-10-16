@@ -39,6 +39,7 @@ describe('P1506 /hospitals — content', () => {
       'Where gaps in understanding cost most',
       'How revealing gaps becomes a team norm',
       'How Clarity Pledge is different',
+      'One new team norm, in writing',
     ]) expect(screen.getByRole('heading', { name: h })).toBeInTheDocument();
     for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
@@ -46,7 +47,21 @@ describe('P1506 /hospitals — content', () => {
       expect(screen.getByText(c)).toBeInTheDocument();
     for (const s of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(s)).toBeInTheDocument();
     expect(screen.getByText('Clarity Pledge helps teams establish and keep this norm.')).toBeInTheDocument();
-    expect(screen.getByAltText('Vyacheslav Ladischenski (Slava), founder of Clarity Pledge')).toHaveAttribute('src', '/founder-photo.jpg');
+    // Founder ruling (redesign round): no founder block on this page.
+    expect(screen.queryByAltText(/founder of Clarity Pledge/)).toBeNull();
+    expect(screen.queryByText('slava@claritypledge.com')).toBeNull();
+  });
+
+  it('shows the Clarity Group Terms specimen, with no live accept control', () => {
+    renderPage();
+    const cert = screen.getByLabelText('Clarity Group Terms');
+    expect(cert.textContent).toContain('Clarity Group Terms');
+    expect(screen.queryByRole('button', { name: /accept/i })).toBeNull();
+  });
+
+  it('the 30% stat counts up (and renders the real number without animation)', () => {
+    renderPage();
+    expect(screen.getByTestId('stat-card').textContent).toContain('30%');
   });
 
   it('has no first-person service offer', () => {
@@ -54,28 +69,27 @@ describe('P1506 /hospitals — content', () => {
     expect(container.textContent).not.toMatch(/\bI (deliver|coach|help|run|offer)\b/);
   });
 
-  it('cites each statistic inline (author, year, title → primary source) and lists Sources', () => {
+  it('cites each statistic inline and lists the standard References section', () => {
     renderPage();
     const stat = screen.getByTestId('stat-card');
-    expect(stat.textContent).toContain('30%');
     expect(stat.textContent).toContain('of 23,658 US malpractice cases studied involved a communication failure.');
-    const inline = within(stat).getByRole('link', { name: /CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
-    expect(inline.getAttribute('href')).toMatch(/^https:\/\/www\.rmf\.harvard\.edu\//);
-    const sources = document.getElementById('sources')!;
-    expect(within(sources).getAllByRole('listitem')).toHaveLength(2);
-    expect(sources.textContent).toContain('HA Thailand');
-    expect(sources.textContent).toContain('CRICO Strategies');
+    const sup = within(stat).getByRole('link', { name: /Reference 2: CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
+    expect(sup).toHaveAttribute('href', '#references');
+    const refs = document.getElementById('references')!;
+    expect(refs.textContent).toContain('References');
+    const items = within(refs).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(within(items[0]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/backend\.ha\.or\.th\//);
+    expect(within(items[1]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/www\.rmf\.harvard\.edu\//);
   });
 
-  it('has exactly one primary CTA → /intro, and the email is a plain link', () => {
+  it('has one action, Book a 15-min discovery call → /intro, in the hero and the closing section only', () => {
     renderPage();
     const cta = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
-    expect(cta).toHaveLength(1);
-    expect(cta[0]).toHaveAttribute('href', '/intro');
-    expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(1);
-    const mail = screen.getByRole('link', { name: 'slava@claritypledge.com' });
-    expect(mail).toHaveAttribute('href', 'mailto:slava@claritypledge.com');
-    expect(mail.className).not.toMatch(/bg-/);
+    expect(cta).toHaveLength(2);
+    for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
+    expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
+    expect(screen.queryByRole('link', { name: /take the pledge/i })).toBeNull();
   });
 
   it('gives the chart a text alternative', () => {
@@ -175,8 +189,11 @@ describe('P1506 /hospitals — analytics', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: EXCHANGE_COPY.close }));
     expect(track).toHaveBeenCalledWith('hospitals_exchange_step', { step: 4, choice: 'close-gap' });
-    fireEvent.click(screen.getByRole('link', { name: /Book a 15-min discovery call/ }));
+    const [hero, closing] = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
+    fireEvent.click(hero);
     expect(track).toHaveBeenCalledWith('hospitals_cta_clicked', { location: 'hero' });
+    fireEvent.click(closing);
+    expect(track).toHaveBeenCalledWith('hospitals_cta_clicked', { location: 'closing' });
   });
 });
 

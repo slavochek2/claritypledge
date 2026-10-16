@@ -2,29 +2,41 @@
  * /hospitals — P1506. Share-by-link use-case page for people from the health industry.
  *
  * Copy is the English page of the hospital brochure, verbatim (layout and line breaks only);
- * deviations are listed in the spec's build notes. Unlisted: noIndex, no nav item, no sitemap
- * entry. Clarity Pledge is the subject throughout — no first-person service offer.
- * Exactly one primary CTA ("Book a 15-min discovery call" → /intro); the email is a plain link.
+ * deviations are listed in the spec's build notes. Layout follows the site's landing pattern
+ * (/builders build-right-thing-landing.tsx, /hiring program-page.tsx): centred SectionHeader
+ * titles, py-20 lg:py-28 sections alternating bg-muted/30, Reveal on scroll, a count-up stat,
+ * a WhatsApp-style chat beat, the Clarity Group Terms specimen, a closing CTA and References.
+ * Unlisted: noIndex, no nav item, no sitemap entry. Clarity Pledge is the subject throughout,
+ * no first-person service offer. The page's one action, "Book a 15-min discovery call" →
+ * /intro, appears in the hero and the closing section, as on the other landings.
+ *
+ * Reveal / CountUpPercent / RefSup are duplicated from program-page.tsx, as
+ * build-right-thing-landing.tsx already does (see its header): extracting them would edit
+ * the frozen landings, which is the follow-up spec's call.
  */
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarIcon } from "lucide-react";
+import { motion, MotionConfig, useInView, useReducedMotion, animate, type Variants } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
+import { SectionHeader } from "@/app/components/landing/section-header";
+import { CertificateFrame, CertificateOathBody } from "@/app/components/agreements/certificate-frame";
+import { TemplateStamp } from "@/app/components/agreements/template-stamp";
+import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { HospitalIcon, PeopleStrip, type HospitalIconName } from "@/app/components/hospitals/hospital-icons";
 import { GapExchangeSection } from "@/app/components/hospitals/gap-exchange";
 import { HOSPITALS_OG } from "@/app/content/hospitals-og";
 
-
-const SOURCES = [
+const REFERENCES = [
   {
     n: 1,
-    cite: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
+    label: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
     url: "https://backend.ha.or.th/fileupload/DOCUMENT/00537/7639551a-50b9-459c-9ff3-98f65c3d8cb8.pdf",
   },
   {
     n: 2,
-    cite: "CRICO Strategies, Malpractice Risks in Communication Failures, 2015",
+    label: "CRICO Strategies (2015), Malpractice Risks in Communication Failures",
     url: "https://www.rmf.harvard.edu/News-and-Blog/Press-Releases-Home/Press-Releases/2016/February/Failures-in-Communication-Contribute-to-Medical-Malpractice",
   },
 ] as const;
@@ -53,33 +65,61 @@ const PATH = [
   { title: "Maintain", text: "New staff onboard fast, digitally.", strip: { blue: [0, 1, 2, 3, 4], plus: true } },
 ];
 
-const NAVY = "text-[#1e3a5f]";
+// ── Motion (presi port via framer-motion), duplicated from program-page (see header).
+const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
+const STAGGER_ITEM: Variants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } };
+const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
+const SECTION = "px-4 py-20 lg:py-28 border-t border-border";
 
-/** Inline citation: superscript number + author/year/title, linked to the primary source. */
-function Cite({ n }: { n: 1 | 2 }) {
-  const s = SOURCES[n - 1];
+function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={VIEWPORT_ONCE}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** 0 → target on scroll-in. Starts at the real target so a page whose JS never animates
+ *  still shows the right number (see program-page.tsx). */
+function CountUpPercent({ target }: { target: number }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [val, setVal] = useState(target);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
+    return () => controls.stop();
+  }, [inView, target, reduce]);
+  return <span ref={ref}>{val}%</span>;
+}
+
+/** Citation superscript → the References list (the standard landing pattern). */
+function RefSup({ n }: { n: 1 | 2 }) {
   return (
     <sup className="ml-0.5">
-      <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.cite} aria-label={`Source ${n}: ${s.cite}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-600 hover:text-blue-700">
+      <a href="#references" aria-label={`Reference ${n}: ${REFERENCES[n - 1].label}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-500 hover:text-blue-600">
         {n}
       </a>
     </sup>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className={`text-xl sm:text-2xl font-bold ${NAVY} border-b border-slate-200 pb-2 mb-5`}>{children}</h2>;
-}
-
-function PrimaryCTA() {
+function PrimaryCTA({ location }: { location: "hero" | "closing" }) {
   return (
     <Link
       to="/intro"
-      onClick={() => analytics.track("hospitals_cta_clicked", { location: "hero" })}
-      className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 px-6 sm:px-8 py-4 text-base"
+      onClick={() => analytics.track("hospitals_cta_clicked", { location })}
+      className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all text-[15px] min-[360px]:text-base sm:text-lg px-5 sm:px-10 py-4 sm:py-5"
     >
       <CalendarIcon className="w-5 h-5 shrink-0" />
-      Book a 15-min discovery call
+      <span className="whitespace-nowrap">Book a 15-min discovery call</span>
     </Link>
   );
 }
@@ -87,7 +127,7 @@ function PrimaryCTA() {
 /** Workshop-impact-fades vs team-norm chart, with a text alternative. */
 function NormChart() {
   return (
-    <figure className="w-full max-w-sm">
+    <figure className="w-full max-w-md mx-auto">
       <svg viewBox="0 0 200 60" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
         <line x1="8" y1="48" x2="196" y2="48" stroke="#e5e7eb" />
         <path d="M8 46 C30 46 34 12 46 12 C60 12 66 42 110 45 L196 46" fill="none" stroke="#9ca3af" strokeWidth="2.2" />
@@ -105,170 +145,171 @@ function NormChart() {
   );
 }
 
+/** Icon-over-label tile grid, staggered in on scroll. */
+function TileGrid({ items, cols }: { items: { icon: HospitalIconName; text: string }[]; cols: string }) {
+  return (
+    <motion.ul className={`grid grid-cols-2 ${cols} gap-3 sm:gap-6`} variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+      {items.map((v) => (
+        <motion.li key={v.text} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card px-3 py-5 sm:p-6 text-center shadow-sm flex flex-col items-center gap-3">
+          <HospitalIcon name={v.icon} className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600" />
+          <span className="text-sm sm:text-base font-semibold leading-snug">{v.text}</span>
+        </motion.li>
+      ))}
+    </motion.ul>
+  );
+}
+
 export function HospitalsPage() {
   useEffect(() => {
     analytics.track("landing_page_viewed", { variant: "hospitals" });
   }, []);
+  const coa = COA_VERSIONS[CURRENT_COA_VERSION];
 
   return (
-    <div className="bg-white text-slate-800">
-      <SEO title={HOSPITALS_OG.title} description={HOSPITALS_OG.description} url="/hospitals" image={HOSPITALS_OG.image} noIndex />
+    <MotionConfig reducedMotion="user">
+      <div className="bg-background text-foreground">
+        <SEO title={HOSPITALS_OG.title} description={HOSPITALS_OG.description} url="/hospitals" image={HOSPITALS_OG.image} noIndex />
 
-      {/* 1. Hero */}
-      <section className="px-4 pt-12 pb-10 sm:pt-20">
-        <div className="container mx-auto max-w-4xl">
-          <h1 className={`font-['Playfair_Display',Georgia,serif] text-3xl sm:text-5xl font-bold leading-[1.12] ${NAVY} text-balance`}>
-            Reveal gaps in understanding between hospital staff <em className="not-italic text-blue-600">before</em> they become mistakes
-          </h1>
-          <p className="mt-5 text-lg sm:text-xl text-slate-700">Clarity Pledge helps hospital teams establish and maintain one new team norm:</p>
-          <p className="mt-4 border-l-4 border-blue-600 bg-blue-50 rounded-r-xl px-5 py-4 font-['Playfair_Display',Georgia,serif] text-2xl sm:text-3xl font-bold text-blue-600">
-            Make it normal to ask how well we understand each other
-          </p>
-          <div className="mt-8">
-            <PrimaryCTA />
+        {/* 1. Hero */}
+        <section className="relative px-4 pt-20 pb-20 lg:pt-28 lg:pb-28">
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+          <div className="container mx-auto max-w-4xl text-center">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
+              Reveal gaps in understanding between hospital staff <span className="text-blue-500">before</span> they become mistakes
+            </h1>
+            <p className="mt-6 text-lg sm:text-xl text-muted-foreground font-medium max-w-2xl mx-auto text-balance">Clarity Pledge helps hospital teams establish and maintain one new team norm:</p>
+            <p className="mt-5 mx-auto max-w-2xl rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-xl sm:text-2xl font-bold text-blue-700 text-balance">
+              Make it normal to ask how well we understand each other
+            </p>
+            <div className="mt-10 flex justify-center">
+              <PrimaryCTA location="hero" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 2. Outcomes */}
-      <section className="px-4 py-8">
-        <div className="container mx-auto max-w-4xl">
-          <SectionTitle>What the hospital can expect</SectionTitle>
-          <ul className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-4">
-            {VALUES.map((v) => (
-              <li key={v.text} className={`flex items-center gap-3 font-semibold ${NAVY}`}>
-                <HospitalIcon name={v.icon} className="w-7 h-7 shrink-0 text-blue-600" />
-                {v.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        {/* 2. Outcomes */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <div className="container mx-auto max-w-5xl">
+            <Reveal><SectionHeader title="What the hospital can expect" /></Reveal>
+            <TileGrid items={VALUES} cols="lg:grid-cols-4" />
+          </div>
+        </section>
 
-      {/* 3. Why gaps stay invisible + stat */}
-      <section className="px-4 py-8">
-        <div className="container mx-auto max-w-4xl">
-          <SectionTitle>Why gaps in mutual understanding stay invisible</SectionTitle>
-          <div className="grid gap-6 md:grid-cols-[1.35fr_1fr] items-center">
-            <p className="text-slate-700 leading-relaxed">
+        {/* 3. Why gaps stay invisible */}
+        <section className={SECTION}>
+          <Reveal className="container mx-auto max-w-3xl text-center">
+            <SectionHeader title={<span className="inline-block text-balance">Why gaps in mutual understanding stay <span className="text-blue-500">invisible</span></span>} />
+            <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
               Saying how much you really understood, or asking a colleague how much they did, can feel awkward or
               disrespectful, especially across seniority. So people nod, and the gap surfaces later. Read-back already
-              protects clinical orders.<Cite n={1} /> Everyday conversations have no such habit.
+              protects clinical orders.<RefSup n={1} /> Everyday conversations have no such habit.
             </p>
-            <div className="rounded-xl bg-blue-50 p-5 flex gap-4 items-center" data-testid="stat-card">
-              <div className="font-['Playfair_Display',Georgia,serif] text-5xl font-bold text-blue-600 leading-none">30%</div>
-              <p className="text-slate-700 text-sm">
-                of 23,658 US malpractice cases studied involved a communication failure.<Cite n={2} />
-                <span className="block mt-1 text-xs text-slate-500">
-                  <a href={SOURCES[1].url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-slate-700">
-                    CRICO Strategies (2015), <i>Malpractice Risks in Communication Failures</i>
-                  </a>
-                </span>
+          </Reveal>
+        </section>
+
+        {/* 4. The stat — count-up on scroll-in, as the 46% on /hiring */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <Reveal className="container mx-auto max-w-3xl text-center">
+            <div data-testid="stat-card">
+              <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
+                <CountUpPercent target={30} />
+              </p>
+              <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
+                of 23,658 US malpractice cases studied involved a communication failure.<RefSup n={2} />
               </p>
             </div>
+          </Reveal>
+        </section>
+
+        {/* 5. The exchange — WhatsApp chat between the two colleagues */}
+        <section className={SECTION} aria-label="Revealing a gap">
+          <Reveal>
+            <GapExchangeSection />
+          </Reveal>
+        </section>
+
+        {/* 6. Use cases */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <div className="container mx-auto max-w-5xl">
+            <Reveal><SectionHeader title="Where gaps in understanding cost most" /></Reveal>
+            <TileGrid items={CASES} cols="md:grid-cols-3" />
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 4. Interactive exchange */}
-      <section className="px-4 py-8" aria-label="Revealing a gap">
-        <div className="container mx-auto max-w-4xl">
-          <GapExchangeSection />
-        </div>
-      </section>
-
-      {/* 5. Use cases */}
-      <section className="px-4 py-8">
-        <div className="container mx-auto max-w-4xl">
-          <SectionTitle>Where gaps in understanding cost most</SectionTitle>
-          <ul className="grid grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3 gap-4">
-            {CASES.map((c) => (
-              <li key={c.text} className={`flex items-center gap-3 font-semibold ${NAVY}`}>
-                <HospitalIcon name={c.icon} className="w-7 h-7 shrink-0 text-blue-600" />
-                {c.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* 6. Five-step path */}
-      <section className="px-4 py-8">
-        <div className="container mx-auto max-w-4xl">
-          <SectionTitle>How revealing gaps becomes a team norm</SectionTitle>
-          <div className="relative">
-            <div aria-hidden="true" className="hidden sm:block absolute left-[10%] right-[10%] top-[3.1rem] h-0.5 bg-blue-200" />
-            <div aria-hidden="true" className="sm:hidden absolute left-[1.05rem] top-4 bottom-4 w-0.5 bg-blue-200" />
-          <ol className="relative grid grid-cols-1 sm:grid-cols-5 gap-6 sm:gap-2">
-            {PATH.map((p, i) => (
-              <li key={p.title} className="relative flex sm:block gap-4 items-start sm:text-center">
-                <div className="hidden sm:block"><PeopleStrip {...p.strip} /></div>
-                <div className="relative shrink-0 w-[2.1rem] h-[2.1rem] sm:w-7 sm:h-7 sm:mx-auto sm:my-2 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center">
-                  {i + 1}
-                </div>
-                <div>
-                  <div className="sm:hidden -ml-1 mb-1 w-28"><PeopleStrip {...p.strip} /></div>
-                  <b className={`block ${NAVY}`}>{p.title}</b>
-                  <span className="text-sm text-slate-600">{p.text}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
+        {/* 7. Five-step path */}
+        <section className={SECTION}>
+          <div className="container mx-auto max-w-5xl">
+            <Reveal><SectionHeader title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>} /></Reveal>
+            <motion.ol className="grid grid-cols-1 sm:grid-cols-5 gap-4" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+              {PATH.map((p, i) => (
+                <motion.li key={p.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 text-center shadow-sm flex flex-col items-center">
+                  <div className="w-28"><PeopleStrip {...p.strip} /></div>
+                  <div className="my-3 w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center">{i + 1}</div>
+                  <b className="block">{p.title}</b>
+                  <span className="text-sm text-muted-foreground">{p.text}</span>
+                </motion.li>
+              ))}
+            </motion.ol>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 7. How it's different */}
-      <section className="px-4 py-8">
-        <div className="container mx-auto max-w-4xl">
-          <SectionTitle>How Clarity Pledge is different</SectionTitle>
-          <div className="grid gap-6 md:grid-cols-[1.6fr_1fr] items-center">
-            <p className={`text-lg font-semibold ${NAVY} leading-relaxed`}>
-              The impact of a one-off communication workshop fades.
-              <span className="block mt-2 text-xl font-bold text-blue-600">Clarity Pledge helps teams establish and keep this norm.</span>
-            </p>
-            <NormChart />
-          </div>
-        </div>
-      </section>
+        {/* 8. How it's different */}
+        <section className={`${SECTION} bg-muted/30`}>
+          <Reveal className="container mx-auto max-w-3xl text-center">
+            <SectionHeader title="How Clarity Pledge is different" />
+            <p className="text-lg sm:text-xl text-muted-foreground font-medium">The impact of a one-off communication workshop fades.</p>
+            <p className="mt-3 text-xl sm:text-2xl font-bold text-blue-600">Clarity Pledge helps teams establish and keep this norm.</p>
+            <div className="mt-10"><NormChart /></div>
+          </Reveal>
+        </section>
 
-      {/* 8. Founder + sources */}
-      <section className="px-4 py-10">
-        <div className="container mx-auto max-w-4xl border-t border-slate-200 pt-8">
-          <div className="flex items-center gap-4">
-            <img
-              src="/founder-photo.jpg"
-              alt="Vyacheslav Ladischenski (Slava), founder of Clarity Pledge"
-              className="w-16 h-16 rounded-full object-cover shrink-0"
-              loading="lazy"
-            />
-            <div className="text-sm text-slate-600 min-w-0">
-              <b className={`block text-base ${NAVY}`}>Vyacheslav Ladischenski (Slava)</b>
-              Founder
-              <span className="block break-words">
-                <a href="mailto:slava@claritypledge.com" className="text-blue-700 underline underline-offset-2 inline-block py-2.5">slava@claritypledge.com</a>
-                <span aria-hidden="true"> &middot; </span>
-                <a href="https://linkedin.com/in/ladischenski" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline underline-offset-2 inline-block py-2.5">
-                  linkedin.com/in/ladischenski
-                </a>
-              </span>
+        {/* 9. The norm in writing — the Clarity Group Terms specimen, as on /builders.
+            Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
+            No Accept button: a live action on a marketing page is a dead control (P955).
+            [FOUNDER DECISION: section heading — drafted, see spec build notes] */}
+        <section className={`${SECTION} overflow-hidden`}>
+          <Reveal className="container mx-auto max-w-3xl">
+            <SectionHeader title={<span className="inline-block text-balance">One new team norm, <span className="text-blue-500">in writing</span></span>} />
+            <div className="relative">
+              <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
+                <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
+              </CertificateFrame>
+              <TemplateStamp animate />
             </div>
-          </div>
+          </Reveal>
+        </section>
 
-          <div id="sources" className="mt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Sources</p>
-            <ol className="text-xs text-slate-500 space-y-1.5">
-              {SOURCES.map((s) => (
-                <li key={s.n} className="flex gap-1.5">
-                  <span className="shrink-0">{s.n}.</span>
-                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-block py-3 underline underline-offset-2 hover:text-slate-700">{s.cite}</a>
+        {/* 10. Closing CTA [FOUNDER DECISION: heading — drafted from the H1, see build notes] */}
+        <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
+          <Reveal className="container mx-auto max-w-4xl text-center">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-balance">
+              Reveal the gaps <span className="text-blue-500">before they become mistakes.</span>
+            </h2>
+            <div className="mt-12 flex justify-center">
+              <PrimaryCTA location="closing" />
+            </div>
+          </Reveal>
+        </section>
+
+        {/* 11. References */}
+        <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
+          <div className="container mx-auto max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
+            <ol className="text-xs text-muted-foreground space-y-1.5">
+              {REFERENCES.map((r) => (
+                <li key={r.n} className="flex gap-1.5">
+                  <span className="shrink-0 py-3">{r.n}.</span>
+                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-block py-3 hover:text-foreground underline underline-offset-2">
+                    {r.label}
+                  </a>
                 </li>
               ))}
             </ol>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </MotionConfig>
   );
 }
 

@@ -75,9 +75,9 @@ CTA (founder decision 2026-10-16): "Book a 15-min discovery call" → /intro, pe
 - [x] Visiting /hospitals shows the page with the site's top menu and footer, signed in or not; /hospital redirects there.
 - [x] All 8 sections are present with the brochure's English copy; any wording change is listed in build notes.
 - [x] The exchange: real buttons usable by Tab and Enter/Space; each step announced via aria-live; step 1 visible before any tap; both choices show an outcome; Replay works; with prefers-reduced-motion, steps change without animation; if JS fails, the full sequence renders as a static list.
-- [x] Each statistic has an inline citation linking to its primary source, and a Sources list is on the page.
+- [x] Each statistic has an inline citation, and the standard References section (as on /builders) lists each primary source.
 - [x] Page HTML carries `robots: noindex, nofollow`; no sitemap entry; no nav item links to /hospitals; link preview (OG title, description, image) is hospital-specific.
-- [ ] Exactly one primary CTA; contact email is a plain link.
+- [x] One action, "Book a 15-min discovery call" → /intro, in the hero and a closing CTA section (the landing pattern; founder ruling, redesign round). No secondary "take the pledge" button, no founder block.
 - [x] Analytics: `landing_page_viewed` with `variant: "hospitals"` on load, `hospitals_exchange_step` per step, `hospitals_cta_clicked` on the CTA (verified in Mixpanel after deploy; pre-deploy, verified by unit test). `[post-deploy]` confirm events in Mixpanel.
 - [x] Screenshots at 320px, 375px and desktop, including each exchange step and the chart; no overflow; touch targets ≥40px; the chart has a text alternative; reviewed by a separate QA subagent.
 
@@ -104,3 +104,16 @@ Deviations:
 - **Source links.** HA Thailand → HA's own 2024 Patient Safety Goals document (backend.ha.or.th, confirmed it lists "Communication: P2"). CRICO → the Harvard Risk Management Foundation (CRICO) press release on the 2015 report; that host returns 403 to automated fetches, so its text was not re-read in this build. The founder's 2026-10-16 PDF check is the verification of record.
 - **Link previews.** The SPA's client-side meta is invisible to LINE/WhatsApp/LinkedIn crawlers, so /hospitals is added to the bot-UA rewrite into `api/og.ts`, which serves a static hospital card with `robots: noindex, nofollow`. LINE's crawler UA contains `facebookexternalhit`, already in the matcher. OG image: `public/banners/hospitals-og.png` (1200×630), rendered from the brochure fonts and colours.
 - `/hospital` redirects both client-side (React route) and at the edge (vercel.json, non-permanent).
+
+### Redesign round (founder feedback after the first build)
+
+The first build followed the print brochure's layout; the founder asked for the site's own. Changes:
+- Layout rebuilt on the /builders and /hiring pattern: centred SectionHeader titles, `py-20 lg:py-28` sections alternating `bg-muted/30`, Reveal on scroll, icon tiles as cards.
+- The 30% stat is its own section and counts up on scroll, as the 46% on /hiring.
+- The exchange is a WhatsApp-style group chat (HardTruthChat's palette). Avatars `public/hospitals/colleague-{a,b}.jpg` are illustrations generated for this page (Gemini image model), generic, nobody real.
+- Founder block removed. Sources became the standard References section; superscripts jump to it.
+- CTA in the hero and a closing section; no secondary button; no Q&A.
+- Clarity Group Terms specimen added (founder: yes), identical to /builders' block, no Accept button.
+- [FOUNDER DECISION: two drafted headings] Certificate section: "One new team norm, in writing". Closing CTA: "Reveal the gaps before they become mistakes." (drafted from the H1). Replace freely.
+- Follow-up filed as INBOX-186: reconciling the other landings (norm wording, the norm path vs HowPlatformWorks, the duplicated helpers).
+- Visual QA subagent: 1 of 1 reported, 0 HIGH / 6 MEDIUM. Fixed: empty chat area, CTA label wrapping at 320px, hero sub-line stub. Dismissed after measuring: "Next" under 40px (measured ≥44px), tiny desktop text (an artefact of the halved screenshots). Set aside as consistent with the other landings: centred body paragraph, left-aligned References.
