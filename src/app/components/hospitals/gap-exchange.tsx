@@ -62,7 +62,7 @@ function Bubble({ who, time, children }: { who: "A" | "B"; time: string; childre
 
 function VerifiedEquation() {
   return (
-    <div className="flex items-center justify-center gap-3 font-bold text-2xl text-foreground" aria-label="B said 8, A guessed 4, verified understanding 4">
+    <div role="img" className="flex items-center justify-center gap-3 font-bold text-2xl text-foreground" aria-label="B said 8, A guessed 4, verified understanding 4">
       <span className="flex flex-col items-center leading-none"><span className="text-foreground/70">8</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">B</small></span>
       <span className="text-muted-foreground font-normal text-base">vs</span>
       <span className="flex flex-col items-center leading-none"><span className="text-blue-600">4</span><small className="text-[11px] font-semibold text-muted-foreground mt-1">A</small></span>
