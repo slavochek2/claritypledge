@@ -1,4 +1,5 @@
 import { getThumbnailUrl } from '../src/lib/video.js';
+import { HOSPITALS_OG } from '../src/app/content/hospitals-og.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Vercel Serverless Function — serves dynamic OG meta tags to bot crawlers.
@@ -100,6 +101,8 @@ interface OgData {
   image: string;
   url: string;
   type: string;
+  /** P1506: unlisted pages also tell crawlers not to index the preview HTML. */
+  noIndex?: boolean;
 }
 
 // ── Route-specific fetchers ─────────────────────────────────────────────
@@ -347,7 +350,7 @@ function ogHtml(og: OgData): string {
   <meta name="twitter:title" content="${esc(og.title)}" />
   <meta name="twitter:description" content="${esc(og.description)}" />
   <meta name="twitter:image" content="${esc(og.image)}" />
-  <meta name="description" content="${esc(og.description)}" />
+  <meta name="description" content="${esc(og.description)}" />${og.noIndex ? '\n  <meta name="robots" content="noindex, nofollow" />' : ''}
 </head>
 <body></body>
 </html>`;
@@ -363,6 +366,11 @@ const ROUTES: Array<{
   { pattern: /^\/story\/([^/]+)$/, handler: (m) => ogForStory(m[1]) },
   { pattern: /^\/point\/([^/]+)$/, handler: (m) => ogForPoint(m[1]) },
   { pattern: /^\/p\/([^/]+)$/, handler: (m) => ogForProfile(m[1]) },
+  // P1506: static card, no DB lookup. /hospital is the spoken form and gets the same card.
+  {
+    pattern: /^\/hospitals?$/,
+    handler: async () => ({ ...HOSPITALS_OG, url: `${BASE_URL}/hospitals`, type: 'website', noIndex: true }),
+  },
 ];
 
 // ── Handler ─────────────────────────────────────────────────────────────

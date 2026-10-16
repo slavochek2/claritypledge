@@ -126,6 +126,7 @@ const AdminTopicsPage = lazy(() => import("@/app/pages/admin-topics-page").then(
 const TopicsPage = lazy(() => import("@/app/pages/topics-page").then(m => ({ default: m.TopicsPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
+const HospitalsPage = lazy(() => import("@/app/pages/hospitals-page").then(m => ({ default: m.HospitalsPage })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
@@ -428,6 +429,17 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+
+        {/* P1506: unlisted hospitals use-case page (share-by-link; not in nav or sitemap). */}
+        <Route
+          path="/hospitals"
+          element={
+            <ClarityLandingLayout surface="public">
+              <LazyRoute><HospitalsPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+        <Route path="/hospital" element={<Navigate to="/hospitals" replace />} />
         {/* Offer page — canonical URL is /pricing (P1087, UAT round 5). It was /program,
             with /pricing redirecting here; the direction is now reversed. "Pricing" is the
             word people scan a nav for, and it matches both the new nav item and the page's

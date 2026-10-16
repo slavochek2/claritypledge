@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/hospital",
+      "destination": "/hospitals",
+      "permanent": false
+    },
+    {
       "source": "/presi",
       "destination": "/presi/",
       "permanent": false
@@ -236,6 +241,17 @@
         }
       ],
       "destination": "/api/og?path=/p/:slug"
+    },
+    {
+      "source": "/hospitals",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/og?path=/hospitals"
     },
     {
       "source": "/((?!api|_next|.*\\..*).*)",
