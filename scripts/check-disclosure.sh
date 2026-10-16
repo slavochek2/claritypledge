@@ -51,6 +51,54 @@ else
   read_blob() { git show ":$1" 2>/dev/null || true; }
 fi
 
+# ── P1507: `disclosure: embargo` content must never reach main ──────────────
+# A sensitive spec lives on its own unpushed branch, then in .private forever. The
+# one leak nothing else stopped is a copy committed on main by mistake — including
+# one copied back out of .private (P1507 leak path 3; probe 2026-10-15: this script
+# exited 0 for it). Scope is every ADDED or MODIFIED features/** markdown blob, by
+# CONTENT, at any depth; deletions are fine. Range mode reads every commit in the
+# range, so a spec added and deleted inside one push is still refused: it would be
+# in public history. Staged mode applies only on `main`; on a feature branch an
+# embargoed spec is exactly where it should be.
+# The parser fails toward protected, the same tolerance as git-ops.sh
+# ship_disclosure_of_content: BOM, CRLF, indented fences, indented / quoted /
+# any-case key, whitespace before the colon.
+EMB_PY='
+import re, sys
+t = sys.stdin.buffer.read().decode("utf-8", "replace").lstrip("﻿").replace("\r", "")
+lines = t.split("\n")
+i = 0
+while i < len(lines) and not lines[i].strip(): i += 1
+if i >= len(lines) or lines[i].strip() != "---": sys.exit(1)
+for l in lines[i + 1:]:
+    if l.strip() == "---": break
+    if re.match(r"""^\s*["\x27]?disclosure["\x27]?\s*:\s*["\x27]?embargo\b""", l, re.I): sys.exit(0)
+sys.exit(1)
+'
+is_md_feature() { [[ "$1" == features/* ]] && [[ "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" =~ \.(md|markdown)$ ]]; }
+leaks=""
+if [[ -n "$RANGE" ]]; then
+  while IFS= read -r c; do
+    [[ -z "$c" ]] && continue
+    while IFS= read -r -d '' p; do
+      is_md_feature "$p" || continue
+      if git show "${c}:${p}" 2>/dev/null | python3 -c "$EMB_PY"; then leaks+="  ${p} (commit ${c:0:12})"$'\n'; fi
+    done < <(git diff-tree -r -z --root --no-commit-id --name-only --diff-filter=AM "$c" -- features 2>/dev/null)
+  done < <(git rev-list "$RANGE" 2>/dev/null)
+elif [[ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" == "main" ]]; then
+  while IFS= read -r -d '' p; do
+    is_md_feature "$p" || continue
+    if git show ":${p}" 2>/dev/null | python3 -c "$EMB_PY"; then leaks+="  ${p}"$'\n'; fi
+  done < <(git diff --cached -z --name-only --diff-filter=AM -- features 2>/dev/null)
+fi
+if [[ -n "$leaks" ]]; then
+  echo "${RED}✗ disclosure: embargo content must never reach main (P1507):${NC}"
+  printf '%s' "$leaks"
+  echo "${YELLOW}  A sensitive spec stays on its own feature branch while in flight, then in${NC}"
+  echo "${YELLOW}  .private forever (git-ops.sh archive-spec). Unstage it; never copy it back.${NC}"
+  exit 1
+fi
+
 if [[ -z "$new_specs" ]]; then
   echo "${GREEN}✓ No newly added specs to check${NC}"
   exit 0

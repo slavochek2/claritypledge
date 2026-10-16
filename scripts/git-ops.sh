@@ -1307,7 +1307,7 @@ commit_staged_exact() {
   # cleans up on failure must special-case 3. Found by adversarial review, 2026-09-09.
   #
   # SCOPE, stated so it is not inferred: rc 3 survives to the shell ONLY through
-  # `commit-to-main`. The other three callers (publish-spec, the branch-born seed,
+  # `commit-to-main`. The other three callers (archive-spec, the branch-born seed,
   # the in-branch spec-close) still exit 1 via die() for both failure classes --
   # their messages no longer claim "no commit exists", but their exit CODE cannot
   # distinguish. None of them writes to the index on failure, so none can cause the
@@ -2747,7 +2747,7 @@ PY
 # depth (done/ and archive/ included: a spec placed there is still the spec),
 # EXCEPT the neutral stub at exactly features/pN_security-review-pending.md (top
 # level only), the one artefact that belongs on main; plus features/uat/pN.md.
-# Used to pick pN's own spec files (verdict, publish-spec). WHAT ship withholds
+# Used to pick pN's own spec files (verdict, archive-spec). WHAT ship withholds
 # is decided by content instead: see ship_embargo_classify.
 # Callers must pass RAW paths (from a -z enumeration), never git's C-quoted form.
 ship_is_embargo_path() {
@@ -2915,7 +2915,7 @@ ship_refuse_staged_embargo() {
   {
     echo "ship: refusing the $what commit — staged content is disclosure: embargo:"
     printf '%s\n' "$hits"
-    echo "Nothing was committed. Restore the spec's intended disclosure, or publish it via publish-spec."
+    echo "Nothing was committed. Restore the spec's intended disclosure, or archive it privately via archive-spec after the fix ships."
   } >&2
   exit 1
 }
@@ -3506,196 +3506,281 @@ ship_spec_disclosure() {
 }
 
 # ----------------------------------------------------------------------------
-# Subcommand: publish-spec  (P1255, Build Sequence step 6b)
+# Subcommand: archive-spec  (P1507 — replaces P1255's publish-spec)
 #
-# Publishes a spec that `ship` deliberately withheld because it carried
-# `disclosure: embargo`. This is the deferred half of a normal close: the code
-# already merged at ship time, the branch and worktree were retained, and the
-# spec file still exists only on its own branch.
+# Founder contract (2026-10-16): "If something is sensitive, it stays in .private
+# forever." A spec that `ship` withheld because it carries `disclosure: embargo`
+# is never published. Once the fix is confirmed on prod it is ARCHIVED into the
+# inner `.private` git repo (ignored by this repo, never pushed to GitHub), and
+# its branch is deleted only after the off-machine copy is proven.
 #
-# Why it is a separate step and not a pre-merge gate (R1): ship.md:66 mandates
-# merge-first-then-migrate, because stamp-deploy-manifest.sh refuses to run from
-# inside a worktree and migrating pre-merge dirties main's manifest into a
-# guaranteed cherry-pick conflict. So the prod stamp this step waits for cannot
-# exist until AFTER the merge. A gate placed before the merge would deadlock.
+#   archive-spec pN [--yes]     Half 1. Prod gates, then write the spec and its UAT
+#                               pair to .private/features/done/<sprint>/, commit them
+#                               plus a manifest in the inner repo, verify blob ids.
+#                               Branch, worktree and main are untouched.
+#   archive-spec pN --finish    Half 2. Prove every manifest blob is in the latest
+#                               restic snapshot (started AFTER the archive), byte for
+#                               byte; then delete a legacy stub on main if one exists,
+#                               tear down the worktree and delete the branch.
+#   archive-spec --finish-pending   Half 2 for every archive whose branch still exists.
+#                               Never fails on a missing proof — that is the normal
+#                               state until the nightly backup has run.
 #
-# Gates, all hard:
-#   1. Every migration carrying this spec's pN token is present in
-#      origin/main:supabase/deploy-manifest.json -> .prod.migrations.
-#   2. If the spec has NO migration, there is nothing a manifest can confirm —
-#      require an explicit --yes. Fails closed (toward non-disclosure).
-#   3. The authenticated prod smoke test passes RIGHT NOW. The manifest is a
-#      record, not the database: .private/docs/security-log.md 2026-08-10 has an
-#      incident where it recorded a migration as applied whose effects were
-#      absent. Manifest = trigger, live check = confirmation, never manifest alone.
+# Why restic and not a push: pushes are never automatic, and the founder takes no
+# extra step. The nightly home-directory backup already uploads .private/ to cloud
+# storage. Its snapshot is the off-machine copy; a local commit is not.
+#
+# Prod gates (unchanged from publish-spec, now the "is it really done" check):
+#   1. Every migration carrying pN's token is in origin/main's deploy-manifest
+#      [prod].migrations. 2. No migration -> explicit --yes. 3. Authenticated prod
+#      smoke passes now (the manifest is a record, not the database).
 # ----------------------------------------------------------------------------
-cmd_publish_spec() {
-  local pn="" assume_yes=0 skip_smoke=0
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --yes)         assume_yes=1; shift ;;
-      --skip-smoke)  skip_smoke=1; shift ;;   # test-only knob; never in normal use
-      p[0-9]*)       pn="$1"; shift ;;
-      *)             die "publish-spec: unknown argument '$1'" ;;
-    esac
-  done
-  [[ -n "$pn" ]] || die "publish-spec: usage: git-ops.sh publish-spec pN [--yes]"
-  [[ "$pn" =~ ^p[0-9]+$ ]] || die "publish-spec: pN must match p[0-9]+ (got: $pn)"
+ARCHIVE_RESTIC="${CP_ARCHIVE_RESTIC:-/opt/homebrew/bin/restic}"
 
-  # Must run from the main checkout: this commits to main, and the branch it
-  # tears down at the end may be the very worktree a caller is standing in.
-  local _top; _top="$( git rev-parse --show-toplevel )"
-  [[ "$_top" == "$REPO_ROOT" ]] || \
-    die "publish-spec: run from the main checkout ($REPO_ROOT), not $_top"
-
-  local branch; branch="$(resolve_ship_branch "$pn")"
-  [[ -n "$branch" ]] || die "publish-spec: no feature/${pn}-* or fix/${pn}-* branch — nothing to publish (already published?)"
-
-  # `local x=""` then `x="$(...)" || x=""` — the file's own safe idiom (L1380).
-  # `git ls-tree -r` emits the whole tree, so a `head -1` really would SIGPIPE
-  # the upstream grep; and grep exits 1 when the spec is absent.
-  # P1464: the stub (features/pN_security-review-pending.md) also matches
-  # features/pN_*.md and sorts first for any slug after "s", so exclude it.
-  ship_collect_branch_specs "$branch" "$pn"
-  local _nspec=${#SHIP_EMB_SPECS[@]}
-  (( _nspec > 0 )) || die "publish-spec: no features/${pn}_*.md on $branch"
-  (( _nspec == 1 )) || die "publish-spec: $branch carries $_nspec spec files for $pn — ambiguous; keep exactly one, then re-run"
-  local branch_spec="${SHIP_EMB_SPECS[0]}"
-
-  local disc; disc="$(ship_spec_disclosure "$branch" "$branch_spec")"
-  [[ "$disc" == "embargo" ]] || \
-    die "publish-spec: $pn is 'disclosure: ${disc:-<absent>}', not embargo — a normal 'git-ops.sh ship $pn' publishes it"
-
-  # ── Gate 1/2: migrations present on prod ──────────────────────────────────
+archive_prod_gates() {
+  local pn="$1" branch="$2" assume_yes="$3" skip_smoke="$4"
   local pnum="${pn#p}"
-  # The trailing boundary is load-bearing: a bare `p126` also matches p1268,
-  # p1260 and so on, which would demand THOSE specs' migrations be on prod before
-  # p126 could publish. Fail-closed rather than insecure, but wrong — verified by
-  # command 2026-09-08 against the repo's 253 pN-tokened migrations.
+  # Trailing boundary: a bare p126 must not match p1268 (verified 2026-09-08).
   local migs=""
   migs="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$branch" -- supabase/migrations 2>/dev/null \
     | { /usr/bin/grep -E "p${pnum}([^0-9]|\$)" || true; } )" || migs=""
   if [[ -n "$migs" ]]; then
     local manifest; manifest="$( cd "$REPO_ROOT" && git show origin/main:supabase/deploy-manifest.json 2>/dev/null )" \
-      || die "publish-spec: cannot read origin/main:supabase/deploy-manifest.json"
-    local missing=0
+      || die "archive-spec: cannot read origin/main:supabase/deploy-manifest.json"
+    local missing=0 m base ver
     while IFS= read -r m; do
       [[ -z "$m" ]] && continue
-      local base ver
       base="$(basename "$m")"
-      # The manifest records BARE VERSIONS — stamp-deploy-manifest.sh writes
-      # `20260911120000`, never `20260911120000_p1302_session_access_predicate.sql`.
-      # Comparing the basename therefore never matched, so this gate refused EVERY
-      # spec that carried migrations, no matter how thoroughly they were applied:
-      # the failure path was exercised (P1266 Done-When) and the pass path never was.
-      # Found 2026-09-14 on P1302, whose four migrations were live on prod and
-      # correctly recorded. Accept either form: the bare version is what is written
-      # today, the full basename keeps any older manifest readable.
+      # The manifest records bare versions; accept the full basename too (2026-09-14, P1302).
       ver="$(printf '%s' "$base" | sed -E 's/^([0-9]+)[_.].*/\1/')"
       if ! printf '%s' "$manifest" | python3 -c \
         "import json,sys; d=json.load(sys.stdin); m=d.get('prod',{}).get('migrations',[]); sys.exit(0 if ('$ver' in m or '$base' in m) else 1)"; then
-        echo "publish-spec: NOT applied to prod: $base" >&2
+        echo "archive-spec: NOT applied to prod: $base" >&2
         missing=$((missing + 1))
       fi
     done <<<"$migs"
-    (( missing == 0 )) || die "publish-spec: $missing migration(s) for $pn are absent from origin/main deploy-manifest [prod].migrations — apply to prod and stamp the manifest first"
-    echo "publish-spec: all $pn migrations present in origin/main [prod].migrations" >&2
+    (( missing == 0 )) || die "archive-spec: $missing migration(s) for $pn are absent from origin/main deploy-manifest [prod].migrations — apply to prod and stamp the manifest first"
+    echo "archive-spec: all $pn migrations present in origin/main [prod].migrations" >&2
   else
-    if (( assume_yes == 0 )); then
-      die "publish-spec: $pn has no migration, so no manifest can confirm the fix is live on prod. Confirm the fix is deployed and re-run with --yes."
-    fi
-    echo "publish-spec: no migrations for $pn — proceeding on explicit operator ack (--yes)" >&2
+    (( assume_yes == 1 )) || die "archive-spec: $pn has no migration, so no manifest can confirm the fix is live on prod. Confirm the fix is deployed and re-run with --yes."
+    echo "archive-spec: no migrations for $pn — proceeding on explicit operator ack (--yes)" >&2
   fi
-
-  # ── Gate 3: live confirmation (the manifest is a record, not the database) ──
   if (( skip_smoke == 0 )); then
-    echo "publish-spec: running authenticated prod smoke test..." >&2
+    echo "archive-spec: running authenticated prod smoke test..." >&2
     ( cd "$REPO_ROOT" && node scripts/prod-smoke-test.mjs ) \
-      || die "publish-spec: prod smoke test FAILED — refusing to publish $pn while prod does not demonstrate the fixed behaviour"
+      || die "archive-spec: prod smoke test FAILED — refusing to archive $pn while prod does not demonstrate the fixed behaviour"
   else
-    echo "publish-spec: WARNING — prod smoke skipped (--skip-smoke); this is a test-only path" >&2
+    echo "archive-spec: WARNING — prod smoke skipped (--skip-smoke); this is a test-only path" >&2
   fi
+}
 
-  # ── Publish under the main lock, serialized against ship / commit-to-main ──
-  acquire_main_lock 120 >/dev/null || die "publish-spec: could not acquire main.lock"
-  # shellcheck disable=SC2064 — expand now: the trap must name this exact lock.
-  trap "release_main_lock >/dev/null 2>&1 || true" EXIT
+# archive_manifest_path <pN>: the newest manifest for pN under .private, or nothing.
+archive_manifest_path() {
+  local pn="$1"
+  ( cd "$REPO_ROOT" && find .private/features/done -name "${pn}.manifest" -type f 2>/dev/null | sort | tail -1 )
+}
 
-  local _head; _head="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
-  [[ "$_head" == "main" ]] || die "publish-spec: HEAD is not main (got $_head)"
-  local _gd; _gd="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
-  [[ -e "$_gd/CHERRY_PICK_HEAD" || -e "$_gd/rebase-merge" || -e "$_gd/rebase-apply" || -e "$_gd/MERGE_HEAD" ]] \
-    && die "publish-spec: operation in progress — refusing to commit inside another session's cherry-pick, rebase or merge"
+cmd_archive_spec() {
+  local pn="" assume_yes=0 skip_smoke=0 finish=0 pending=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --yes)            assume_yes=1; shift ;;
+      --skip-smoke)     skip_smoke=1; shift ;;   # test-only knob; never in normal use
+      --finish)         finish=1; shift ;;
+      --finish-pending) pending=1; shift ;;
+      p[0-9]*)          pn="$1"; shift ;;
+      *)                die "archive-spec: unknown argument '$1'" ;;
+    esac
+  done
+
+  # Runs from the main checkout only: the inner repo lives there, and the branch
+  # this tears down may be the worktree a caller is standing in.
+  local _top; _top="$( git rev-parse --show-toplevel )"
+  [[ "$_top" == "$REPO_ROOT" ]] || die "archive-spec: run from the main checkout ($REPO_ROOT), not $_top"
+  [[ -d "$REPO_ROOT/.private/.git" ]] || die "archive-spec: $REPO_ROOT/.private is not a git repository — nowhere private to archive into"
+  ( cd "$REPO_ROOT" && git check-ignore -q .private/x ) \
+    || die "archive-spec: .private/ is not ignored by this repo — refusing to write a sensitive spec where it could be committed"
+
+  if (( pending == 1 )); then
+    [[ -z "$pn" ]] || die "archive-spec: --finish-pending takes no pN"
+    archive_finish_pending
+    return 0
+  fi
+  [[ -n "$pn" ]] || die "archive-spec: usage: git-ops.sh archive-spec pN [--yes] [--finish]  or  archive-spec --finish-pending"
+  [[ "$pn" =~ ^p[0-9]+$ ]] || die "archive-spec: pN must match p[0-9]+ (got: $pn)"
+
+  if (( finish == 1 )); then archive_finish "$pn"; return $?; fi
+
+  # ── Half 1 ────────────────────────────────────────────────────────────────
+  local branch; branch="$(resolve_ship_branch "$pn")"
+  [[ -n "$branch" ]] || die "archive-spec: no feature/${pn}-* or fix/${pn}-* branch — nothing to archive (already archived?)"
+  [[ -z "$(archive_manifest_path "$pn")" ]] \
+    || die "archive-spec: $pn is already archived ($(archive_manifest_path "$pn")) — run 'archive-spec $pn --finish'"
+
+  ship_collect_branch_specs "$branch" "$pn"
+  local _nspec=${#SHIP_EMB_SPECS[@]}
+  (( _nspec > 0 )) || die "archive-spec: no features/${pn}_*.md on $branch"
+  (( _nspec == 1 )) || die "archive-spec: $branch carries $_nspec spec files for $pn — ambiguous; keep exactly one, then re-run"
+  local branch_spec="${SHIP_EMB_SPECS[0]}"
+  local disc; disc="$(ship_spec_disclosure "$branch" "$branch_spec")"
+  [[ "$disc" == "embargo" ]] || \
+    die "archive-spec: $pn is 'disclosure: ${disc:-<absent>}', not embargo — a normal 'git-ops.sh ship $pn' closes it"
+
+  local -a srcs=("$branch_spec")
+  ( cd "$REPO_ROOT" && git cat-file -e "${branch}:features/uat/${pn}.md" 2>/dev/null ) && srcs+=("features/uat/${pn}.md")
+
+  # Any OTHER ref that reaches a commit touching these paths would carry the spec
+  # to main if it were ever shipped (decisions.md 2026-09-11 [process], P1302).
+  local _ref _hits=""
+  while IFS= read -r _ref; do
+    [[ -z "$_ref" || "$_ref" == "refs/heads/$branch" ]] && continue
+    if [[ -n "$( cd "$REPO_ROOT" && git rev-list -1 "$_ref" -- "${srcs[@]}" 2>/dev/null )" ]]; then
+      _hits+=" ${_ref#refs/heads/}"
+    fi
+  done < <( cd "$REPO_ROOT" && git for-each-ref --format='%(refname)' refs/heads refs/tags refs/remotes )
+  [[ -z "$_hits" ]] || die "archive-spec: these refs also reach a commit carrying the $pn spec:${_hits} — remove the spec from them first (shipping one would publish it); nothing was written"
+
+  archive_prod_gates "$pn" "$branch" "$assume_yes" "$skip_smoke"
 
   local sprint_dir; sprint_dir="$(resolve_ship_sprint_dir)"
-  mkdir -p "$REPO_ROOT/$sprint_dir"
-  local dest="${sprint_dir}/$(basename "$branch_spec")"
+  local inner_dir="$sprint_dir"                        # path inside the inner repo
+  local mrel="${inner_dir}/${pn}.manifest"
+  local P="$REPO_ROOT/.private"
+  local i0; i0="$(git -C "$P" rev-parse HEAD 2>/dev/null)" || die "archive-spec: .private has no commits"
+  [[ -z "$(git -C "$P" diff --cached --name-only)" ]] \
+    || die "archive-spec: the .private index already has staged changes — commit or unstage them first; nothing was written"
 
-  # Write the BRANCH copy (the only complete one) to its closed location on main.
-  ( cd "$REPO_ROOT" && git show "${branch}:${branch_spec}" > "$dest" ) \
-    || die "publish-spec: could not extract $branch_spec from $branch"
-
-  ship_rewrite_frontmatter "$REPO_ROOT/$dest" || die "publish-spec: frontmatter rewrite failed"
-
-  # D4 (founder, 2026-09-08): the field reads `public` once published. Leaving
-  # `embargo` in features/done/ would publish a permanent, computable
-  # "this hole was open for completed_at - created_date days" figure for every
-  # security fix, forever — a per-spec exposure-duration index, which is close to
-  # the committed list of what is sensitive that Invariant 1 forbids.
-  python3 - "$REPO_ROOT/$dest" <<'PYEOF'
-import sys, re, pathlib
-p = pathlib.Path(sys.argv[1]); t = p.read_text()
-end = t.find("\n---\n", 4)
-fm, rest = t[4:end], t[end + 5:]
-# P1464: the same tolerance as ship_disclosure_of_content (indent, quoted key,
-# any case, space before the colon); every matching line is rewritten.
-fm = re.sub(r'^[ \t]*["\']?disclosure["\']?[ \t]*:.*$', 'disclosure: public', fm, flags=re.M | re.I)
-p.write_text("---\n" + fm + "\n---\n" + rest)
-PYEOF
-  # P1464: never trust the rewrite; read the result back with the ship reader.
-  [[ "$(ship_disclosure_of_content < "$REPO_ROOT/$dest")" == "public" ]] || {
-    rm -f "$REPO_ROOT/$dest"
-    die "publish-spec: after rewriting, $dest still does not read disclosure: public — refusing to publish; nothing was staged"
-  }
-
-  ( cd "$REPO_ROOT" && git add -- "$dest" ) || die "publish-spec: git add failed"
-  # P1464: the publish commit is also the one that retires the neutral stub, and
-  # that removes any copy of the spec a pre-P1464 ship leaked onto features/ (so
-  # the result is a move, not a duplicate P-number). Both only if tracked on main.
-  local -a _ps_paths=("$dest")
-  local _ps_rm
-  for _ps_rm in "features/${pn}_security-review-pending.md" "$branch_spec"; do
-    [[ "$_ps_rm" == "$dest" ]] && continue
-    if ( cd "$REPO_ROOT" && git ls-files --error-unmatch -- "$_ps_rm" >/dev/null 2>&1 ); then
-      ( cd "$REPO_ROOT" && git rm -q -- "$_ps_rm" ) || die "publish-spec: git rm $_ps_rm failed"
-      _ps_paths+=("$_ps_rm")
-      echo "publish-spec: removing $_ps_rm from main in the same commit" >&2
-    fi
+  local -a paths=() lines=()
+  local s dest blob
+  for s in "${srcs[@]}"; do
+    if [[ "$s" == features/uat/* ]]; then dest="${inner_dir}/uat/$(basename "$s")"; else dest="${inner_dir}/$(basename "$s")"; fi
+    [[ ! -e "$P/$dest" ]] || die "archive-spec: $P/$dest already exists — refusing to overwrite; nothing was written"
+    blob="$( cd "$REPO_ROOT" && git rev-parse "${branch}:${s}" )"
+    mkdir -p "$P/$(dirname "$dest")"
+    ( cd "$REPO_ROOT" && git show "${branch}:${s}" ) > "$P/$dest" || die "archive-spec: could not extract $s from $branch"
+    paths+=("$dest"); lines+=("$blob	$s	$dest")
   done
-  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.quotePath GIT_CONFIG_VALUE_0=false \
-  commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "${_ps_paths[@]}" \
-    || die "publish-spec: the spec-publish commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused) or whether a commit LANDED recording the wrong files. Do not retry until you know which."
-  echo "publish-spec: $pn published at $dest" >&2
+  {
+    echo "# archive-spec manifest (P1507). blob<TAB>source<TAB>destination, paths relative to the repo / .private."
+    echo "branch=$branch"
+    echo "archived_at=$(date -u +%s)"
+    printf '%s\n' "${lines[@]}"
+  } > "$P/$mrel"
+  paths+=("$mrel")
 
-  # ── Teardown: what ship's Phase 3 deliberately skipped ────────────────────
+  _archive_undo() {
+    local f; for f in "${paths[@]}"; do ( cd "$P" && git rm -q --cached --ignore-unmatch -- "$f" ) >/dev/null 2>&1; rm -f "$P/$f"; done
+    git -C "$P" reset -q --soft "$i0" 2>/dev/null; git -C "$P" reset -q -- "${paths[@]}" 2>/dev/null
+  }
+  ( cd "$P" && git add -- "${paths[@]}" ) || { _archive_undo; die "archive-spec: git add in .private failed"; }
+  if command -v gitleaks >/dev/null 2>&1; then
+    ( cd "$P" && gitleaks protect --staged --no-banner ) >/dev/null 2>&1 \
+      || { _archive_undo; die "archive-spec: gitleaks found a secret in the archived files — nothing was committed"; }
+  else
+    echo "archive-spec: WARNING — gitleaks not installed; secret scan skipped" >&2
+  fi
+  local staged; staged="$(git -C "$P" diff --cached --name-only | sort)"
+  [[ "$staged" == "$(printf '%s\n' "${paths[@]}" | sort)" ]] \
+    || { _archive_undo; die "archive-spec: the .private index holds other paths than the archive — nothing was committed"; }
+  git -C "$P" commit -q -m "archive $pn spec (P1507): withheld from the public repo for good" >/dev/null 2>&1 \
+    || { _archive_undo; die "archive-spec: commit in .private failed"; }
+
+  # Equal blob ids mean identical bytes: git blob ids depend on content only.
+  local l b src d bad=0
+  for l in "${lines[@]}"; do
+    IFS=$'\t' read -r b src d <<<"$l"
+    [[ "$(git -C "$P" rev-parse "HEAD:$d" 2>/dev/null)" == "$b" ]] || { echo "archive-spec: blob mismatch for $d" >&2; bad=1; }
+  done
+  if (( bad == 1 )); then
+    git -C "$P" reset -q --hard "$i0" 2>/dev/null
+    for d in "${paths[@]}"; do rm -f "$P/$d"; done
+    die "archive-spec: the committed blob differs from the branch blob (a filter or hook in .private rewrote it) — inner commit rolled back"
+  fi
+  echo "archive-spec: $pn archived in .private at $inner_dir ($(git -C "$P" rev-parse --short HEAD))" >&2
+  echo "archive-spec: branch $branch kept until the nightly backup holds these files; 'archive-spec --finish-pending' then removes it" >&2
+}
+
+# archive_offsite_check <manifest-rel>: 0 when the latest restic snapshot started
+# after archived_at and holds every destination with the recorded blob id.
+archive_offsite_check() {
+  local mrel="$1" P="$REPO_ROOT/.private"
+  local at; at="$(sed -n 's/^archived_at=//p' "$P/$mrel")"
+  [[ "$at" =~ ^[0-9]+$ ]] || { echo "archive-spec: manifest $mrel has no archived_at" >&2; return 1; }
+  [[ -x "$ARCHIVE_RESTIC" ]] || { echo "archive-spec: restic not found at $ARCHIVE_RESTIC" >&2; return 1; }
+  local snap_t
+  snap_t="$( "$ARCHIVE_RESTIC" snapshots --latest 1 --json 2>/dev/null | python3 -c '
+import json,sys,re,datetime
+d=json.load(sys.stdin)
+if not d: sys.exit(1)
+t=d[-1]["time"]
+t=re.sub(r"\.(\d+)", lambda m: "."+(m.group(1)+"000000")[:6], t).replace("Z","+00:00")
+print(int(datetime.datetime.fromisoformat(t).timestamp()))' )" \
+    || { echo "archive-spec: no restic snapshot readable" >&2; return 1; }
+  (( snap_t > at )) || { echo "archive-spec: latest snapshot predates the archive — waiting for the next nightly backup" >&2; return 1; }
+  local b src d got
+  while IFS=$'\t' read -r b src d; do
+    [[ "$b" =~ ^[0-9a-f]{40}$ ]] || continue
+    got="$( set -o pipefail; "$ARCHIVE_RESTIC" dump latest "$P/$d" 2>/dev/null | git hash-object --stdin )" || got=""
+    [[ "$got" == "$b" ]] || { echo "archive-spec: off-machine copy of $d missing or different" >&2; return 1; }
+  done < "$P/$mrel"
+  return 0
+}
+
+archive_finish() {
+  local pn="$1" mrel; mrel="$(archive_manifest_path "$pn")"
+  [[ -n "$mrel" ]] || die "archive-spec: $pn has no archive manifest — run 'archive-spec $pn' first"
+  mrel="${mrel#.private/}"
+  local branch; branch="$(sed -n 's/^branch=//p' "$REPO_ROOT/.private/$mrel")"
+  [[ -n "$branch" ]] || die "archive-spec: manifest $mrel names no branch"
+  archive_offsite_check "$mrel" \
+    || die "archive-spec: off-machine copy of $pn not proven — branch $branch kept"
+
+  # Legacy stub (pre-P1507 specs only): delete it in a one-path commit with a fixed subject.
+  local stub="features/${pn}_security-review-pending.md"
+  if ( cd "$REPO_ROOT" && git ls-files --error-unmatch -- "$stub" >/dev/null 2>&1 ); then
+    acquire_main_lock 120 >/dev/null || die "archive-spec: could not acquire main.lock"
+    # shellcheck disable=SC2064
+    trap "release_main_lock >/dev/null 2>&1 || true" EXIT
+    local _head; _head="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
+    [[ "$_head" == "main" ]] || die "archive-spec: HEAD is not main (got $_head)"
+    local _gd; _gd="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+    [[ -e "$_gd/CHERRY_PICK_HEAD" || -e "$_gd/rebase-merge" || -e "$_gd/rebase-apply" || -e "$_gd/MERGE_HEAD" ]] \
+      && die "archive-spec: operation in progress — refusing to commit inside another session's cherry-pick, rebase or merge"
+    ( cd "$REPO_ROOT" && git rm -q -- "$stub" ) || die "archive-spec: git rm $stub failed"
+    commit_staged_exact "chore: close $pn" "$stub" \
+      || die "archive-spec: the stub-removal commit did not complete as requested — read commit_staged_exact's output above before retrying"
+    release_main_lock >/dev/null 2>&1 || true; trap - EXIT
+  fi
+
   local wt_path=""
   wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
               awk -v br="refs/heads/${branch}" '
                 /^worktree / { path = substr($0, 10); next }
                 /^branch / { if ($2 == br) print path }
               ' | sed -n '1p' )" || wt_path=""
-  local _ps_retained=0
-  if [[ -n "$wt_path" ]]; then
-    teardown_worktree_if_clean "$wt_path" "publish-spec" || _ps_retained=1
+  if [[ -n "$wt_path" ]] && ! teardown_worktree_if_clean "$wt_path" "archive-spec"; then
+    die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $branch kept"
   fi
-  if (( _ps_retained == 1 )); then
-    echo "publish-spec: branch $branch kept with its worktree." >&2
-  elif ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
-    ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
-      echo "publish-spec: WARNING — branch delete failed for $branch" >&2
+  if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
+    ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 \
+      || die "archive-spec: branch delete failed for $branch"
   fi
-  echo "publish-spec: $pn complete. Push when ready (pushes are never automatic)." >&2
+  echo "archive-spec: $pn done — the only copy is .private/$mrel and its siblings, held off-machine by the nightly backup" >&2
 }
+
+archive_finish_pending() {
+  local m pn n=0 ok=0
+  while IFS= read -r m; do
+    [[ -z "$m" ]] && continue
+    pn="$(basename "$m" .manifest)"
+    local br; br="$(sed -n 's/^branch=//p' "$REPO_ROOT/$m")"
+    ( cd "$REPO_ROOT" && git rev-parse --verify -q "$br" >/dev/null ) || continue
+    n=$((n + 1))
+    if ( archive_finish "$pn" ); then ok=$((ok + 1)); fi
+  done < <( cd "$REPO_ROOT" && find .private/features/done -name 'p*.manifest' -type f 2>/dev/null | sort )
+  echo "archive-spec: $ok of $n pending archive(s) finished" >&2
+}
+
 
 # ----------------------------------------------------------------------------
 # Closure gate (P1246)
@@ -3949,7 +4034,7 @@ cmd_ship() {
   local branch_spec_file=""
   # P1255: set when the spec carries `disclosure: embargo`. Suppresses the spec
   # seed, the spec-close git mv, and Phase 3 teardown — the branch and worktree
-  # must survive so the spec stays branch-born until `publish-spec` runs.
+  # must survive so the spec stays branch-born until `archive-spec` runs.
   local ship_embargoed=0
   if (( journal_exists == 0 )); then
     # Resolve the spec FIRST (it has no branch dependency) so the no-branch
@@ -4526,7 +4611,7 @@ The branch is authoritative for shipped migrations. Compare each file with
   # cleanly. Common path (spec already on main): need_seed=0, this block is a no-op.
   # P1255: an embargoed spec must NOT be seeded onto main. Seeding is what
   # publishes a branch-born spec, and publication is deferred until the fix is
-  # confirmed live on prod (`git-ops.sh publish-spec pN`). The code cherry-picks
+  # confirmed live on prod (`git-ops.sh archive-spec pN`, P1507: archived privately, never published). The code cherry-picks
   # above have already run — R1: this gates PUBLICATION, never the merge.
   # Gating the merge would deadlock against ship.md:66, which mandates
   # merge-first-then-migrate, so the prod stamp a pre-merge gate waits for cannot
@@ -4965,11 +5050,11 @@ The branch is authoritative for shipped migrations. Compare each file with
   #
   # P1255: skipped entirely for `disclosure: embargo`. The close is what moves the
   # spec into features/done/ and commits it to main — i.e. publication. It runs
-  # later, from `git-ops.sh publish-spec pN`, once the fix is confirmed live on
+  # later, from `git-ops.sh archive-spec pN`, once the fix is confirmed live on
   # prod. Deliberately NOT recorded as spec_closed: the spec genuinely is not
   # closed, and a resume must be able to finish the job after publication.
   if (( ship_embargoed == 1 )); then
-    echo "ship: $pn spec close deferred (disclosure: embargo) — run 'git-ops.sh publish-spec $pn' after the prod apply." >&2
+    echo "ship: $pn spec close deferred (disclosure: embargo) — run 'git-ops.sh archive-spec $pn' after the prod apply (it is archived privately, never published)." >&2
   elif ! ship_journal_flag "$pn" "spec_closed"; then
     # P1198: a commit added to the branch while Phase 1 ran is unjournaled. Stop
     # BEFORE closing, so the spec is not closed over work that never landed.
@@ -5093,9 +5178,9 @@ The branch is authoritative for shipped migrations. Compare each file with
   # P1255: skipped for `disclosure: embargo`. The spec file lives ONLY on this
   # branch until publication; deleting the branch here would destroy the only
   # copy that exists anywhere. The branch and worktree are torn down by
-  # `publish-spec` instead, after the spec has landed on main.
+  # `archive-spec` instead (P1507).
   if (( ship_embargoed == 1 )); then
-    echo "ship: $pn branch + worktree retained (disclosure: embargo) — the spec exists only on $branch until it is published." >&2
+    echo "ship: $pn branch + worktree retained (disclosure: embargo) — the spec exists only on $branch until 'archive-spec' moves it into .private." >&2
   elif (( EMB_MODE == 1 )); then
     echo "ship: $branch retained — it holds withheld embargoed spec content ($(printf '%s' "$EMB_PNS" | tr '\n' ' ' | sed 's/ $//')) that exists nowhere else; move it to its own branch before deleting this one." >&2
   elif ! ship_journal_flag "$pn" "branch_deleted"; then
@@ -5158,7 +5243,7 @@ The branch is authoritative for shipped migrations. Compare each file with
   rm -f "$journal"
 
   if (( ship_embargoed == 1 || EMB_MODE == 1 )); then
-    echo "ship: $pn code landed on main; journal cleaned up; branch retained until publish-spec."
+    echo "ship: $pn code landed on main; journal cleaned up; branch retained until archive-spec."
   else
     echo "ship: $pn landed on main; branch and journal cleaned up."
   fi
@@ -5285,6 +5370,14 @@ SUBCOMMANDS (P788 extension — T06)
                                No branch + a comment/withdrawn/retracted spec
                                classified on origin/main closes administratively:
                                gates 2.5/2.7 and the stamp are skipped (P1444).
+  archive-spec <p-number> [--yes] [--finish]
+                               P1507. For a 'disclosure: embargo' spec that ship
+                               withheld: after the prod gates, commit the spec and
+                               its UAT pair into the private .private repo (never
+                               published). --finish deletes the branch once the
+                               latest nightly restic snapshot holds every archived
+                               blob byte for byte. 'archive-spec --finish-pending'
+                               runs --finish for every archive still waiting.
 
   push-docs                    Automate the P919 staging hop for doc/KDD commits
                                that are ahead of origin/main (no P-number needed).
@@ -6333,7 +6426,7 @@ main() {
     switch-safe)     cmd_switch_safe "$@" ;;
     sync)            cmd_sync "$@" ;;
     ship)            cmd_ship "$@" ;;
-    publish-spec)    cmd_publish_spec "$@" ;;
+    archive-spec)    cmd_archive_spec "$@" ;;
     ship-to-prod)    cmd_ship_to_prod "$@" ;;
     push-docs)       cmd_push_docs "$@" ;;
     help|-h|--help)  print_usage; exit 0 ;;
