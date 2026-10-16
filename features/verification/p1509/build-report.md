@@ -89,3 +89,36 @@ counts as read. Today's event in the menu is checked against what the viewer can
 
 Known limitations (prototype only): the dialogs do not trap focus, and the share-card links point at
 mock ids.
+
+## Round 3: consistency pass (founder feedback)
+
+The founder's asks, and what changed:
+- Messages, the hover toolbar (Reply, Forward; a tap on a phone), threads and the composer are now v11's, ported into
+  `kit.tsx` (v11 itself is still untouched). "Comment" is gone: a channel post has "N replies", and Reply opens its thread
+  beside the channel.
+- Desktop gets Telegram's dark folder rail (All chats, Unread, Partners, one per group, every one a line icon).
+  ☰ opens a Telegram drawer over everything: my profile on top, then Home, Letters, Partners, Groups and Tools with the
+  bottom nav's own labels and icons, then today's event. There is no ✕: the scrim or Escape closes it.
+- Profiles are production's `CompactProfileCard`. Avatars are production's `GravatarAvatar` (the ring only for pledgers).
+- Invite partner moved out of the menu into a 1:1's header ("Invite as partner", or "Partner" once they are one). Empty
+  states still offer it. There is a new Partners folder.
+
+Reviews: Gemini (2 HIGH, 2 MEDIUM, then the fix diff), Opus design critique (7 HIGH, 8 MEDIUM), Codex on the final content
+(3 rounds). Fixed: thread replies now reach unread and the archive; a mouse click no longer selects a row; rail icons;
+the drawer focus ring; the selected-row channel mark; failed sends are shown and retryable only by their author, can't be
+forwarded by anyone else and never reorder another person's list; an IME Enter never sends; forward fails under
+`?state=fail`; there is no thread under an unsent post; an unsent message offers Retry only; a thread scrolls to a new reply.
+Rejected with reasons (in the session): the pledge ring and the production card's empty pledge band (production behaviour),
+the phone toolbar shown under the tapped row (v11's deliberate choice), Invite in the header (founder's call), the paperclip
+in channels only (only channels have the picker).
+
+Open for the founder:
+4. **Thread replies and list order.** A reply in a thread badges the channel but does not move it up or change its
+   preview (Telegram's channel comments behave this way). Codex flagged it twice. [FOUNDER DECISION]
+5. **The drawer repeats the bottom nav** (Home, Letters, Partners), and "Partners" is both a folder and a page.
+   [FOUNDER DECISION: is the drawer the navigation on chat routes, and is the folder name right?]
+6. **Partners in the drawer opens /me**, which lands on the profile and not on `/p/<slug>/partners`. The mock has no real slug.
+   It needs the signed-in slug in production.
+
+Known limitations (prototype only): the dialogs do not trap focus; there is no mic in the composer (v11's dictation hook is
+not on main).
