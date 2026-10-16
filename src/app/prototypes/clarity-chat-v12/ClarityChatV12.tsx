@@ -102,7 +102,8 @@ function MessageRow({ msg, compact, highlight, replies, onPerson, onReply, onFor
 }) {
   const [selected, setSelected] = useState(false);
   const act = (f: () => void) => () => { setSelected(false); f(); };
-  const toolbar = (
+  /* A message that never sent offers Retry only (Telegram): nothing can reply to it or forward it yet. */
+  const toolbar = msg.failed ? undefined : (
     <Toolbar shown={selected}>
       <ToolButton label="Reply" onClick={act(onReply)}><Reply className={TOOL_ICON} /></ToolButton>
       <ToolButton label="Forward" onClick={act(onForward)}><Forward className={TOOL_ICON} /></ToolButton>
@@ -110,7 +111,7 @@ function MessageRow({ msg, compact, highlight, replies, onPerson, onReply, onFor
   );
   return (
     <li data-msg={msg.id}>
-      <Message person={msg.who} time={msg.time} compact={compact} highlight={highlight} selected={selected} onSelect={() => setSelected((s) => !s)} onPerson={onPerson} toolbar={toolbar}>
+      <Message person={msg.who} time={msg.time} compact={compact} highlight={highlight} selected={selected} onSelect={msg.failed ? undefined : () => setSelected((s) => !s)} onPerson={onPerson} toolbar={toolbar}>
         {msg.fwdFrom && (
           <p className="text-xs font-medium text-blue-700" data-testid="forwarded-label">
             {COPY.forwardedFrom} <button type="button" onClick={() => onPerson(msg.fwdFrom!)} className="font-semibold hover:underline">{PEOPLE[msg.fwdFrom].name}</button>

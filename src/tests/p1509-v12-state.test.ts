@@ -174,6 +174,14 @@ describe('P1509 v12 delivery', () => {
     const post = st.msgs.at(-1)!;
     expect(comment({ ...st, failSends: false }, post.id, 'reply')).toEqual({ ...st, failSends: false });
   });
+  it('nobody can forward someone else\'s unsent message, and it never reorders their list', () => {
+    let st = send(initialState({ fail: true }), 'dm-bob-dana', 'private draft');
+    const id = st.msgs.at(-1)!.id;
+    const dana = { ...st, viewer: 'dana' as const, failSends: false };
+    expect(forward(dana, id, 'dm-dana-alice')).toBe(dana);
+    st = { ...dana, msgs: [...dana.msgs.filter((x) => x.id !== id), { id: 'mz', chatId: 'dm-dana-alice', who: 'alice', text: 'newest', time: 'now' }, dana.msgs.find((x) => x.id === id)!] };
+    expect(visibleChats(st)[0]!.id).toBe('dm-dana-alice');
+  });
   it('a new 1:1 gets one id per pair, whoever starts it', () => {
     const a = dmWith(initialState(), 'fay')!;
     expect(a.chatId).toBe('dm-bob-fay');

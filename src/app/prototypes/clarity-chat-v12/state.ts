@@ -129,7 +129,8 @@ export const chatById = (st: State, id: string) => st.chats.find((c) => c.id ===
 
 /** Chats I can see, most recent message first (a chat with no messages sorts last). */
 export function visibleChats(st: State): Chat[] {
-  const order = (c: Chat) => st.msgs.map((x) => x.chatId).lastIndexOf(c.id);
+  /* Only messages I can see order my list: someone else's unsent message must not move a chat up. */
+  const order = (c: Chat) => st.msgs.filter((x) => shownTo(st, x)).map((x) => x.chatId).lastIndexOf(c.id);
   return st.chats.filter((c) => canSee(st.viewer, c)).sort((a, b) => order(b) - order(a));
 }
 
@@ -204,7 +205,7 @@ function fanOut(st: State, msg: Msg): State {
 function readable(st: State, msgId: string): Msg | undefined {
   const x = st.msgs.find((y) => y.id === msgId) ?? Object.values(st.comments).flat().find((y) => y.id === msgId);
   const c = x && chatById(st, x.chatId);
-  return x && c && canSee(st.viewer, c) ? x : undefined;
+  return x && c && canSee(st.viewer, c) && shownTo(st, x) ? x : undefined;
 }
 
 export function send(st: State, chatId: string, text: string, extra: Partial<Msg> = {}): State {

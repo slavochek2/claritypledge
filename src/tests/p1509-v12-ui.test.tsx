@@ -324,6 +324,8 @@ describe('P1509 v12 prototype', () => {
     b.unmount();
     renderV12('/tree/clarity-chat?state=fail');
     const failed = screen.getByTestId('send-failed');
+    // an unsent message offers Retry only: no Reply or Forward to lose text into
+    expect(within(failed.closest('li')!).queryByRole('toolbar')).toBeNull();
     expect(failed.textContent).toContain('Not sent');
     fireEvent.click(within(failed).getByRole('button', { name: 'Retry' }));
     expect(screen.queryByTestId('send-failed')).toBeNull();
