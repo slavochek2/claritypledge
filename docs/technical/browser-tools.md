@@ -278,12 +278,6 @@ Target the specific process, or free a port with `lsof -ti:PORT | xargs kill`.
 **Chrome DevTools opens a visible browser window:** known issue, headless flag not taking
 effect. Postponed — not a sign anything is misconfigured.
 
-**Feature-specific test targets:**
-- *Event "Verify Together" button* — requires login; Event detail page → Participants section;
-  visible when `isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom`
-- *Waiting room* — requires being the sub-room initiator; `/events/{slug}/waiting/{subRoomId}`;
-  create a sub-room while logged in, then verify navigation (`e2e/event-waiting-room.spec.ts`)
-
 **Claude in Chrome not responding:**
 - Check Chrome has the Claude extension installed and enabled
 - Verify `claude --chrome` was used to start the session

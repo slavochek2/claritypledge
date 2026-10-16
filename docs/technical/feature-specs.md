@@ -132,40 +132,21 @@ root_cause: brief description   # after investigation
 
 ---
 
-#### `milestone` (OPTIONAL but RECOMMENDED)
+#### `workstream` (OPTIONAL)
 
-**Purpose:** Assigns feature to product track for milestone planning
+**Purpose:** Names the product area a spec belongs to, so the kanban can group related work.
 
-**Valid values:**
-- `C1`, `C2`, `C3`, ... - Coaching track
-- `R1`, `R2`, `R3`, ... - Recognition track
-- `E1`, `E2`, `E3`, ... - Enhancements track
-- `X1`, `X2`, `X3`, ... - Exploratory track
-- `foundation` - Meta-work (infrastructure, tooling, refactors)
+**Values:** free text, one product area per spec (e.g. `infrastructure`, `clarity-chat`, `events`,
+`letters`). Reuse an existing value rather than inventing a near-synonym; list the ones in use with:
 
-**How to determine:**
-1. List available milestones: `ls docs/milestones/*.md`
-2. Read `docs/milestones/README.md` for track descriptions
-3. Classify:
-   - Coaching features (sifter, profiles, calibration) → `C*`
-   - Recognition/rewards/points → `R*`
-   - UI improvements, optimizations → `E*`
-   - Experiments, research → `X*`
-   - Infrastructure, tooling → `foundation`
-
-**Example:**
-```yaml
-# Feature: "Add dark mode toggle"
-workstream: E1  # UI enhancement
-
-# Bug: "Login broken on Safari"
-workstream: C1  # Blocks coaching (users can't access)
-
-# Task: "Refactor auth to new Supabase SDK"
-workstream: foundation  # Infrastructure work
+```bash
+grep -h '^workstream:' features/*.md | sort | uniq -c | sort -rn
 ```
 
-**Leave empty if:** Feature doesn't fit into any current milestone track.
+The older `C1`/`R1`/`E1`/`X1` track codes and the `docs/milestones/` folder they pointed to are
+retired; a few older specs still carry those codes.
+
+**Leave empty if:** no existing area fits and the spec does not start a new one.
 
 ---
 
