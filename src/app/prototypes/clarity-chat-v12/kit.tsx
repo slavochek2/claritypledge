@@ -146,7 +146,7 @@ export function Composer({ placeholder, value, onValue, onSend, quote, picker, p
         {quote}
         <div className="flex items-end gap-0.5">
           <textarea id={inputId} value={value} onChange={(e) => onValue(e.target.value)} rows={1} placeholder={placeholder} aria-label={placeholder}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia?.('(pointer: fine)').matches) { e.preventDefault(); send(); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && window.matchMedia?.('(pointer: fine)').matches) { e.preventDefault(); send(); } }}
             className="block min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-base leading-6 outline-none placeholder:text-gray-500 md:text-[15px]" />
           {onAttach && <Tip label="Post a point or story"><button type="button" aria-label="Post a point or story" aria-expanded={!!pickerOpen} onClick={onAttach} className={cn(ROUND, 'text-gray-600 hover:bg-gray-100')}><Paperclip className="h-5 w-5" /></button></Tip>}
           {sendable && <Tip label="Send"><button type="submit" aria-label="Send" className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700')}><ArrowUp className="h-[18px] w-[18px]" /></button></Tip>}

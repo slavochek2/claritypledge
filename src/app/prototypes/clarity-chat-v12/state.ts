@@ -232,7 +232,7 @@ export function retry(st: State, msgId: string): State {
 /** Comment under a post in a channel I can see. People only, no agent. */
 export function comment(st: State, postId: string, text: string): State {
   const post = st.msgs.find((x) => x.id === postId);
-  if (!post || !readable(st, postId)) return st;
+  if (!post || post.failed || !readable(st, postId)) return st; // no thread under a post that never left
   const [id, seq] = nextId(st, 'c');
   const c = m(id, post.chatId, st.viewer, text, NOW, { failed: st.failSends || undefined });
   const next = { ...st, seq, comments: { ...st.comments, [postId]: [...(st.comments[postId] ?? []), c] } };
@@ -246,7 +246,9 @@ export function forward(st: State, msgId: string, toChatId: string): State {
   const to = chatById(st, toChatId);
   if (!src || !to || !canSee(st.viewer, to)) return st;
   const [id, seq] = nextId(st, 'm');
-  return deliver({ ...st, seq }, m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, transcript: src.transcript }));
+  const copy = m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, transcript: src.transcript, failed: st.failSends || undefined });
+  /* A forward is a send: under `?state=fail` it fails like one and reaches nobody until Retry. */
+  return copy.failed ? { ...st, seq, msgs: [...st.msgs, copy] } : deliver({ ...st, seq }, copy);
 }
 
 export const archive = (st: State, chatId: string): State =>

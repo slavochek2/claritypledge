@@ -280,6 +280,21 @@ describe('P1509 v12 prototype', () => {
     expect(screen.queryByRole('dialog', { name: 'Post a point or story' })).toBeNull();
   });
 
+  it('review: Enter that confirms an input-method word (IME) does not send', () => {
+    renderV12();
+    openRow('dm-bob-alice');
+    const box = within(chatView()).getByRole('textbox', { name: MSG_BOX });
+    fireEvent.change(box, { target: { value: 'にほ' } });
+    const before = within(chatView()).getAllByRole('listitem').length;
+    const mm = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: true, media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    fireEvent.keyDown(box, { key: 'Enter', isComposing: true });
+    expect(within(chatView()).getAllByRole('listitem').length).toBe(before);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    window.matchMedia = mm;
+    expect(msg('にほ')).toBeTruthy();
+  });
+
   it('review: Escape closes the side menu', () => {
     renderV12();
     openMenu();

@@ -161,6 +161,19 @@ describe('P1509 v12 delivery', () => {
     st = comment(initialState({ fail: true }), 'm9', 'later');
     expect(repliesOf({ ...st, viewer: 'dana' }, 'm9').map((x) => x.text)).toEqual(['I will bring one about remote work.']);
   });
+  it('?state=fail: a forward fails like a send and reaches nobody until Retry', () => {
+    let st = forward(initialState({ fail: true }), 'm3', 'dm-bob-dana');
+    const copy = st.msgs.at(-1)!;
+    expect(copy.failed).toBe(true);
+    expect(st.unread.dana['dm-bob-dana'] ?? 0).toBe(0);
+    st = retry(st, copy.id);
+    expect(st.unread.dana['dm-bob-dana']).toBe(1);
+  });
+  it('no thread reply under a post that never sent', () => {
+    const st = send(initialState({ fail: true }), 'ch-night-oct16', 'unsent');
+    const post = st.msgs.at(-1)!;
+    expect(comment({ ...st, failSends: false }, post.id, 'reply')).toEqual({ ...st, failSends: false });
+  });
   it('a new 1:1 gets one id per pair, whoever starts it', () => {
     const a = dmWith(initialState(), 'fay')!;
     expect(a.chatId).toBe('dm-bob-fay');
