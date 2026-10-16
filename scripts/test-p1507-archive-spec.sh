@@ -374,6 +374,17 @@ if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "gitleaks is not ins
   pass "R20: without gitleaks Half 1 refuses (exit $rc), nothing written"
 else fail "R20: no gitleaks (exit $rc)"; show "$SCRATCH/out.log"; fi
 
+# R21 — a merge commit on the branch (git cherry cannot see it) blocks Half 1.
+d="$(shipped r21 p9141)"
+( cd "$d" && git checkout -q -b side main && echo m > merge-only.ts && git add merge-only.ts && git commit -qm side \
+  && git checkout -q feature/p9141-x && git merge -q --no-ff side -m "merge side" && git checkout -q main ) >/dev/null 2>&1
+git -C "$d" branch -D side >/dev/null 2>&1
+i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
+run "$d" archive-spec p9141 --yes --skip-smoke; rc=$?
+if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "merge commits" "$SCRATCH/out.log"; then
+  pass "R21: a merge commit on the branch refuses (exit $rc), nothing written"
+else fail "R21: merge on branch (exit $rc)"; show "$SCRATCH/out.log"; fi
+
 # Z — no redirect-parseable tokens in output.
 if bad="$(sed '/^#CP_DIAGNOSTIC_BEGIN$/,/^#CP_DIAGNOSTIC_END$/d' "$SCRATCH/all.log" | grep -nE '[<>|]')"; then
   fail "Z: output carries > < | tokens:"; printf '%s\n' "$bad" | sed 's/^/    /' >&2

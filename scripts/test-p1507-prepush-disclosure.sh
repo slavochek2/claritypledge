@@ -20,6 +20,7 @@ git config user.email c@t; git config user.name c; git config commit.gpgsign fal
 git checkout -q -B main "$(git -C "$W" rev-parse HEAD)" >/dev/null 2>&1
 git update-ref refs/remotes/origin/main HEAD
 base="$(git rev-parse HEAD)"
+[[ -f scripts/pre-push-checks.sh && -f scripts/check-disclosure.sh ]] || { echo "FIXTURE: hook scripts missing from the clone"; exit 2; }
 
 push_line() { printf 'refs/heads/main %s refs/heads/main %s\n' "$1" "$base"; }
 hook() { push_line "$1" | bash scripts/pre-push-checks.sh /tmp/p1507-mirror.git /tmp/p1507-mirror.git 2>&1; }
@@ -33,7 +34,8 @@ else echo "FAIL: P1 (exit $rc)"; printf '%s\n' "$out" | tail -20 | sed 's/^/    
 git reset -q --hard "$base"
 spec public > features/p99999_x.md; git add features/p99999_x.md; git commit -qm ok --no-verify
 out="$(hook "$(git rev-parse HEAD)")"; rc=$?
-if [[ "$out" != *"$MSG"* ]]; then echo "PASS: P2 a public spec push is not refused by the P1507 check (hook exit $rc from later layers)"
+if [[ $rc -ne 127 && "$out" != *"No such file"* && "$out" != *"$MSG"* ]] \
+   && bash scripts/check-disclosure.sh --range "$base..HEAD" >/dev/null 2>&1; then echo "PASS: P2 a public spec push is not refused by the P1507 check (hook exit $rc from later layers)"
 else echo "FAIL: P2 public spec refused"; printf '%s\n' "$out" | tail -20 | sed 's/^/    /'; FAIL=$((FAIL+1)); fi
 
 (( FAIL == 0 )) && echo "RESULT: all passed" || { echo "RESULT: $FAIL failure(s)"; exit 1; }

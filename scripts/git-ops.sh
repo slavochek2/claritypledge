@@ -3636,6 +3636,10 @@ cmd_archive_spec() {
   # lose the second kind, and any OTHER embargoed file on the branch, for good
   # (review 2026-10-16, Opus M5/M6). Refuse unless every unshipped commit touches
   # only the files this archive keeps.
+  # A merge commit hides from git cherry, and its resolution can carry work no
+  # single commit shows (Codex re-review 2026-10-16). Refuse rather than reason.
+  local _merges; _merges="$( cd "$REPO_ROOT" && git rev-list --merges "main..$branch" 2>/dev/null | sed -n '1,3p' | tr '\n' ' ' )"
+  [[ -z "$_merges" ]] || die "archive-spec: $branch contains merge commits not on main (${_merges% }) — archive-spec cannot prove their changes shipped; rebase the branch onto main without merges first; nothing was written"
   local _c _f _extra="" _withheld=()
   while IFS= read -r _c; do
     [[ "$_c" == "+ "* ]] || continue
