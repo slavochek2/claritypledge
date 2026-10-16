@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-16 [process]: Inbox rotating review — first window resolves two entries, drops three, keeps twenty-five
+
+**Context:** First run of the rotating review (`scripts/inbox-review-order.sh`, commit aeea92f3a): the 15 never-reviewed `due: week` and 15 `due: month` public entries, each checked against its artifact.
+**Decision:** Resolved: "Retire or rewrite e2e/p674-linear-flow.spec.ts" (filed 2026-08-14) — P1217 commit 08a9a7b0e deleted the two describes that asserted the rejected P674 design and kept the state-machine tests, which is the salvage option the entry asked the founder to choose; "Did the close path actually shrink the queue" (filed 2026-08-14) — no: the public store went from 9 open at the P1081 baseline to 131 today (212 in both stores when aeea92f3a landed), so the accepted risk fired; the response taken was checked rotating verdicts (aeea92f3a), and throttling intake remains open under the separate INBOX-76 trigger. Dropped three entries as superseded or duplicated (/reproduce, P1241, the voice/notes review skills). Every keep carries a `Reviewed 2026-10-16` line naming what is still missing.
+**Consequences:** The next window starts from the next never-reviewed entries. INBOX-9 and INBOX-31 are recommended for promotion to specs.
+**References:** `docs/process-learnings.md`; decisions.md 2026-10-16 [process] (prioritize pass)
+
+---
+
 ## 2026-10-16 [process]: Inbox prioritize pass closes twelve public entries already settled elsewhere; two stale technical-doc sections corrected
 
 **Context:** The 2026-10-15 /day flagged 263 open inbox entries (144 public, 119 private) and 16 technical docs untouched for 30+ days. A /prioritize pass read every public entry (first read delegated to Gemini, every close re-verified by command) and checked each old doc for references to files or features that no longer exist.

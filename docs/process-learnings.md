@@ -60,6 +60,8 @@ UI it names fails as a bare timeout, with no assertion error to read.
 Worth checking whether the other specs that share those selectors (`speak-freely-button`,
 `p400-story-card-rendering`, `live-rating-drawer`) are affected before fixing them one by one.
 
+Reviewed 2026-10-16 (weekly): keep — e2e/p272-live-verification.spec.ts:169/219/222 still click 'Does X understand you?'; src renders 'Did X understand you?' (live-mode-view.tsx:1380/1464/1496). Selector repair still missing.
+
 ---
 
 ## A /live round has no identity in its row, so a client cannot tell whether it already recorded one
@@ -79,6 +81,8 @@ One remedy covers both: an exchange index on the row beside `session_id`, with a
 index, so the creator's client can write a round it may already have written and let the database
 ignore the duplicate. Schema change: its own migration and integration spec (P270). Not needed
 for the guest path to work, which is why P1278 shipped without it.
+
+Reviewed 2026-10-16 (monthly): keep — no migration adds a per-round/exchange key to story_verifications (grep of supabase/migrations returned nothing).
 
 ---
 
@@ -101,6 +105,8 @@ line and per-ref verdicts. If it does, delete this entry and add a one-line `[pr
 `docs/decisions.md`. If it does not, the step's command path is wrong and needs a fix.
 
 
+
+Reviewed 2026-10-16 (weekly): keep — unverified. P1260 shipped and weekly SKILL.md:252 defines the REFS: line, but no /weekly output since the merge was available to confirm it printed; gc is not read-only so not re-run here.
 
 ---
 
@@ -129,6 +135,8 @@ first" and show the one command. The second is smaller and does not weaken the g
 Falsifier: on a spec at `status: qa` on main with no branch and no `ready for QA` commit, run
 `./scripts/git-ops.sh ship pN` — it refuses on the code-presence gate.
 
+Reviewed 2026-10-16 (monthly): keep — ship.md:183 says the direct-to-main path refuses without a 'ready for QA' stamp, but still does not tell inline work to write one or show the command.
+
 ---
 
 ## The Codex-vs-Opus review bake-off is unresolved — n=1, and the control lens never reported
@@ -156,6 +164,8 @@ the exact failure the entry warns about.
 
 Falsifier: three reviews from now, `grep -c "reports received" docs/decisions.md` shows no new
 ratios recorded — the benchmark was adopted in writing and never executed.
+
+Reviewed 2026-10-16 (monthly): keep — decisions.md shows multi-lens reviews with N-of-N counts but no scored Codex-vs-Opus missed-by-other ratios; benchmark not run.
 
 ---
 
@@ -189,6 +199,8 @@ closed when the hole closes and the systemic problem walks away untracked.
 
 Promote recommended by /prioritize 2026-09-15: the entry itself says it needs its own spec, and no open spec covers manifest-vs-live drift.
 
+Reviewed 2026-10-16 (weekly): keep — no open spec covers manifest-vs-live drift (P1054 is out-of-band objects, not manifest trust). Still missing: its own spec; recommend inbox-promote.
+
 ---
 
 ## A probe that returns a loud wrong number is not covered by the run-a-control rule
@@ -215,6 +227,8 @@ wrong column returning empty).
 
 Presented at `/kdd` 2026-08-21; founder deferred. Needs the `/slava:maintain:claude-md` gate before any
 edit to the global rules.
+
+Reviewed 2026-10-16 (weekly): keep — global CLAUDE.md probe rules cover empty/all-pass and coverage/metric, not 'enumerate what a count counted'. Rule edit still needs the claude-md gate; low priority.
 
 ---
 
@@ -261,6 +275,8 @@ Narrative: `content/articles/a55_the-refutation-that-never-ran.md` (enriched 202
 
 **Related:** CLAUDE.md "Working Style Patterns" (overintellectualization — this is the testable form of it) · narrative `content/articles/a55_the-refutation-that-never-ran.md` · [hypotheses.md](hypotheses.md) "do not move the wedge on n=1" ([decisions.md](decisions.md) 2026-07-07).
 
+Reviewed 2026-10-16 (weekly): keep — founder-owned pre-commitment; thresholds still [FOUNDER DECISION]. Not an agent close.
+
 ---
 
 ## Spotting the illusion of recursive understanding in the wild
@@ -286,47 +302,17 @@ This is **not** a test of the pause-then-ask default — it is a control observa
 
 **Related:** [lean-canvas.md](lean-canvas.md) "Reactive-deployment hazard" note. Behavioral assay against repeating the 2026-05-09 escalation pattern. Narrative: `content/articles/a49_the-stranger-who-broke-it.md`. Source: 2026-07-16 conversation (other party is a private individual — kept unidentifiable).
 
----
-
-## Default to e2e test for verification — never delegate manual testing to user
-
-**ID:** INBOX-13
-**Date:** 2026-03-23
-**Status:** proposed
-
-Agent asked user to manually test /live session flow 4+ times instead of writing an e2e test. Playwright two-party infrastructure exists (`e2e/helpers/test-user.ts`, `test-realtime.ts`) and can reproduce any session scenario. When writing a reproducer, extract exact conditions from screenshots/bug reports — don't assume the happy path (this session: the bug was same-name users, but the first e2e test used different names and got a false green).
-
-**Fix:** (A) When investigating a /live bug, write the e2e reproducer FIRST before theorizing. (B) Always extract the exact user conditions from evidence (screenshot names, console output) into test parameters. (C) After CSS changes on /live, run `npx playwright test e2e/live-rating-drawer.spec.ts` before reporting success.
+Reviewed 2026-10-16 (weekly): keep — data collection at 1 of 3; founder-owned.
 
 ---
+
+<!-- Dropped 2026-10-16: "Default to e2e test for verification" — superseded by /reproduce (Playwright multi-context reproducer before /fix, reproduce/SKILL.md:48-57) -->
 
 <!-- Resolved 2026-08-14: "/dev pre-flight doesn't check branch lineage — /ship surprise risk" — see decisions.md 2026-08-14 [process]. /dev half shipped (dev.md:86); /pick-flow half dropped with reasoning. First entry closed through the /weekly step 2.5 path (P1081). -->
 
-## Dead code not caught by /finish or pre-commit
+<!-- Dropped 2026-10-16: "Dead code not caught by /finish or pre-commit" — duplicate of open spec P1241 (configure knip, then triage) -->
 
-**ID:** INBOX-14
-**Date:** 2026-03-02
-**Status:** proposed
-
-`PointCardDetail.tsx` had zero production callers and lived in `src/app/components/` undetected — caught only by an ad-hoc consistency audit, not by `/finish` or any automated check. `/finish` checks correctness and patterns; it does not detect zero-caller exports.
-
-**Fix:** Add dead-code detection (`knip` or `ts-prune`) to `scripts/pre-commit-checks.sh` or as a step in `/maintain:cleanup`. Zero-caller components accumulate silently across feature merges.
-
----
-
-## Raw ideas processing has no skill (`/process-raw-ideas`)
-
-**ID:** INBOX-15
-**Date:** 2026-03-01
-**Status:** proposed
-
-Two separate sessions involved processing voice notes into structured product/philosophical content (extract ideas → classify → file spec / doc update / private content). Each session reinvented the intake flow with no template: what gets filed where, what stays private, what becomes a spec vs doc update.
-
-**Fix:** Create `/process-raw-ideas` skill. Steps: (1) read raw transcript, (2) extract distinct ideas, (3) classify each: spec / doc update / private / drop, (4) file or draft in the right place, (5) surface open questions and dropped threads. Should handle the "some content is private, some public" split explicitly.
-
----
-
----
+<!-- Dropped 2026-10-16: "Raw ideas processing has no skill" — superseded by global /samsung-voice-review and /samsung-notes-review (raw notes to threads with public/private routing) -->
 
 <!-- Removed 2026-03-16: "Session goal alignment needed at start" — see P518 -->
 <!-- Removed 2026-03-16: "Listener needs exactly two choices" — see P517 -->
@@ -346,6 +332,8 @@ Observed during Pair C session. Three bugs that break the session flow:
 
 **Fix:** These should be fixed before the next facilitated session — each one causes visible confusion and breaks the experience for channel partners evaluating the tool.
 
+Reviewed 2026-10-16 (weekly): keep — item 1 fixed (P528, src/index.css:47 overscroll-behavior-y: contain, 2fe484e8e). Items 2 (tap targets) and 3 (position-removal feedback on /live) unverified.
+
 ---
 
 ## Synchronous sales calls as acquisition bottleneck
@@ -358,29 +346,13 @@ Intro calls that don't directly deliver session value get deprioritized under ba
 
 **Related:** ladischenski.com pricing page needs improvements — comparison anchoring, explicit session length, ROI story, FCO price range. See customer price evaluation conversation 2026-03-20.
 
+Reviewed 2026-10-16 (weekly): keep — GTM/strategy note; founder's call per decisions.md 2026-10-16 (idea-type entries not dropped on model judgement). Unverified whether the pricing page changed.
+
 ---
 
 <!-- Resolved 2026-09-15: "A second, undocumented inbox exists at .claude/process-learnings.md" — folded by P1317; see decisions.md 2026-09-15 [process] -->
 
-## Did the close path actually shrink the queue, or does intake still outrun it?
-
-**ID:** INBOX-18
-**Date:** 2026-08-14
-**Status:** proposed
-**due:** month
-
-P1081 accepted a known risk rather than mitigating it: **intake is not throttled.** Automated
-writers (`/claude-conversations-to-cp`) can keep filing faster than the weekly close retires. The
-spec's stated trigger for revisiting is *"only if the count rises after step 1 ships."*
-
-Baseline at ship: **9 open public / 2 open private** (2026-08-14).
-
-**Resolved when** a month of counts shows the total flat or falling — the close path works, record
-it and drop this. **If the total has risen**, the accepted risk has fired: the fallback the spec
-already names is throttling intake (stop automated runs filing proposals nobody intends to act on),
-*not* closing harder.
-
----
+<!-- Resolved 2026-10-16: "Did the close path actually shrink the queue" — see decisions.md 2026-10-16 [process]: Inbox rotating review -->
 ## Instrument the `/live` clarify sub-loop so P1080's bug class is visible in prod
 
 **ID:** INBOX-19
@@ -406,6 +378,8 @@ so the post-fix round-2→3 continuation rate can be read directly.
 explicitly, because the current state means no future fix in this area can be verified against real
 sessions either.
 
+Reviewed 2026-10-16 (weekly): keep — live_phase_transition still tracks ratingPhase only (clarity-live-page.tsx:749-787); no event on the speaker-deciding skip/good-enough exit (only live_clarify_started/_done).
+
 ---
 
 ## Recovery net for stuck `/live` sessions — the never-filed "P525b"
@@ -429,6 +403,8 @@ to be.
 **Droppable if** telemetry (entry above) shows zero stuck sessions over a meaningful sample after
 P1080 — the net is insurance against the *next* bug, so absence of the last one is weak evidence.
 
+Reviewed 2026-10-16 (monthly): keep — grep -rni 'reset round|watchdog' src returns nothing; no recovery control exists.
+
 ---
 
 ## Patch the programme-health verdict criteria — the pivots-vs-corroboration blind spot
@@ -451,6 +427,8 @@ criteria are fixed in advance and were not tuned to the result.
 (a `/kdd` or `/docs-strategy-update` job — never inside a run whose verdict it would flip).
 **Droppable if** the next two runs show the ratio inverting on its own, which would mean the
 criteria were reading a one-off period rather than a structural gap.
+
+Reviewed 2026-10-16 (monthly): keep — programme-health/SKILL.md verdict table still has no accommodation-ratio clause that can demote criterion 3.
 
 ---
 ## P976's stale-echo canary has never run its own assertions — and now that it does, it fails
@@ -483,33 +461,11 @@ whether step 4's `waitForUIUpdate` can pass spuriously before concluding either 
 it. **Do not** adjust the assertion to match current behaviour without establishing which of (a)/(b)
 is true — that is how the P1080 assertion pinned a deadlock for five months.
 
----
-
-## Retire or rewrite `e2e/p674-linear-flow.spec.ts` — 7 permanently-red tests for a REJECTED spec
-
-**ID:** INBOX-23
-**Date:** 2026-08-14
-**Status:** proposed
-**due:** week
-
-`features/archive/p674_simplify_live_free_mode_only.md` is `status: rejected` — the "merge guided and
-open into a single linear flow" design was decided against. Its 521-line e2e spec was never removed
-and contributes **7 of the 11 pre-existing failures** in the /live suite.
-
-The tests assert the rejected design directly: `p674-linear-flow.spec.ts:424` requires the
-Guided/Open toggle to be **absent**, while `p562-free-mode.spec.ts` passes asserting it is
-**present** — two tests in one suite asserting opposite things, with the rejected one red. Several
-also call `advanceSessionState(code, { phase: 'celebration' })`, writing a key (`phase`) that is not
-a live_state field at all, on top of a phase value that does not exist.
-
-**Decision needed (founder):** delete the file, or salvage the 1–2 tests that cover still-valid
-behaviour and delete the rest. Deleting tests is normally forbidden — the exception here is that the
-spec they encode was explicitly rejected, so they are not protecting anything.
-
-**Why it matters beyond tidiness:** 7 always-red tests train everyone to read a red /live suite as
-normal, which is how P1080 survived — nobody could tell signal from the standing noise.
+Reviewed 2026-10-16 (weekly): keep — 1bd3a462b repaired the wait call; its own message says the test now fails on a real assertion and leaves (a)/(b) open. No later commit on the spec.
 
 ---
+
+<!-- Resolved 2026-10-16: "Retire or rewrite e2e/p674-linear-flow.spec.ts" — see decisions.md 2026-10-16 [process]: Inbox rotating review -->
 
 ## `/live` mode switcher may stay disabled after a completed round (p617 UAT-6)
 
@@ -537,6 +493,8 @@ permanently disabled control is a plausible real defect, and the p617 suite's ot
      directly (a factual correction is a bug fix, not a strategy change). Propagated to hypotheses,
      progress, lean-canvas, theory-of-change, research-programme, goals, the LessWrong blog draft,
      p1028, p948, p1084. See decisions.md 2026-08-27 [product]. -->
+Reviewed 2026-10-16 (monthly): keep — unverified; needs a browser reproduction (the entry forbids touching the test first). Test still present at e2e/p617-mode-switcher-lifecycle.spec.ts.
+
 
 <!-- Resolved 2026-09-15: "Reap zombie vite/playwright processes between e2e runs" — see decisions.md 2026-09-15 [process] -->
 
@@ -556,6 +514,8 @@ repo has already measured a routing line firing 0 times out of 30. Drop if a res
 back-reference lands some other way, or if a currency signal turns out to be cheaper to add at
 read time than at write time.
 
+Reviewed 2026-10-16 (monthly): keep — no supersession gate in .claude/commands/slava/maintain/kdd/ (grep supersed returned nothing).
+
 ---
 
 ## Rewrite referrers when git-ops.sh ship moves a spec
@@ -574,6 +534,8 @@ delivery-critical path with locking and a cherry-pick sequencer, and it deserves
 rather than riding along with a docs fix. Drop if the periodic `fix-doc-links.cjs --apply` run
 proves to keep the count flat on its own.
 
+Reviewed 2026-10-16 (monthly): keep — git-ops.sh ship_rebase_doc_links (04ffa3c5f, P1094) re-bases the moved spec's OWN links; referrers elsewhere are still not rewritten.
+
 ---
 
 ## Tell a not-signed-in reader their rating will not be saved
@@ -590,6 +552,8 @@ refusal itself is correct and deliberate (P1067 confirmed the anonymous write su
 exist); this is purely the missing explanation at the moment it happens. Small copy-and-state change,
 no schema. Related but distinct from P1092, which builds server-side reader state so those ratings
 *can* be kept — if P1092 ships first this note is obsolete, so drop it then rather than doing both.
+
+Reviewed 2026-10-16 (weekly): keep — P1092 closed all-done but retired the anonymous-write AC ('never built'), so the drop condition did not fire; whether the reading page now explains the refusal is unverified.
 
 ---
 
@@ -611,6 +575,8 @@ canary at `--workers=1` to remove doubt about a flake. Fix is per-layer fixtures
 own header already notes layers get one story each — L6 reuses L4's).
 
 **due:** month
+
+Reviewed 2026-10-16 (monthly): keep — L6 still reuses storyL4 (p1067 integration spec :324-326); per-layer fixture not done.
 
 ---
 
@@ -656,6 +622,8 @@ here because the shape recurs: an append-only log checked from the middle of the
 stops covering everything added below it.
 
 **due:** month
+
+Reviewed 2026-10-16 (monthly): keep — item 2 fixed (detect_cospecs excludes --diff-filter=A adds, git-ops.sh ~2382-2392); item 3 fixed per entry; item 1 (Phase 3 before 2b) unverified.
 
 ---
 
@@ -709,6 +677,8 @@ Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08
 
 **due:** month
 Promote recommended by /prioritize 2026-09-15: its trigger is met — 7 goalify feedback.md files exist and no goalify-update spec does.
+Reviewed 2026-10-16 (monthly): keep — trigger met (per /prioritize 2026-09-15) and no goalify-update spec exists in features/; recommend inbox-promote.
+
 
 
 ## Activate the goal-gate boundary — push, prove it red, then mark it required
@@ -771,6 +741,8 @@ displayed figure, run in `/day` or pre-deploy rather than in the unit suite. Wor
 only if a third paid link appears — with two, the blast radius is small and the comments
 are accurate today. Droppable if the links move to a CMS or env config with its own check.
 
+Reviewed 2026-10-16 (monthly): keep — still conditional on a third paid link; offers-section.tsx still holds the same two. Low priority.
+
 ---
 
 ## Harvested YouTube comments may carry private individuals' identifiers onto a public page — unverified
@@ -803,6 +775,8 @@ it survives if P1141 is descoped or parked.
 **Resolves at:** read `/slava:disagreement:prepare`'s opposition-selection section end to end and
 state whether harvested comment text can reach `stories.content` or a quote. If it can, filter it.
 
+Reviewed 2026-10-16 (monthly): keep — privacy. prepare.md:369-377 harvests YouTube comments; neither prepare.md nor positions.md has a commenter-identifier filter (grep). Still needs the end-to-end read + filter.
+
 ---
 
 ## Harness-readiness check + tested-combinations table
@@ -820,6 +794,8 @@ and reports what is missing, to run on day one with a new tool, and (b) a dated 
 harness/model combinations have actually been tested versus assumed. Drop this if P1151's
 research finds an existing tool that already reports harness conformance, or if the other
 harnesses stay read-only scratchpads where guardrails do not matter.
+
+Reviewed 2026-10-16 (monthly): keep — P1151 all-done with a 118-skill conformance check, but no harness-readiness check or tested-combinations table found (grep). Neither drop condition shown.
 
 ---
 
