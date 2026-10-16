@@ -10,6 +10,9 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 ---
+> **Founder contract (2026-10-16, verbatim):** *"If something is sensitive, it stays in .private forever. If something is not sensitive, it is public forever."*
+> The founder never takes an extra step and never needs to understand the mechanism. **Decided:** the off-machine copy is made automatically: the branch is kept until the nightly backup snapshot is verified to hold the archived spec and UAT blobs, then deleted by the tool. There is no founder push step; this replaces the earlier "founder pushes .private" design. Kanban marks private specs visibly. Editor search of `.private/` is enabled locally.
+
 
 # P1495: Sensitive specs are archived privately, never published — even after the fix ships
 
