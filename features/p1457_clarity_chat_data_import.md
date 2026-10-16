@@ -94,7 +94,7 @@ This spec is the real bridge; P1503 mocks it. Direction from the 2026-10-15/16 r
 
 Principle: plain messages pass through the bridge as normal messages. A Clarity item reaches the network as **one
 line plus a link**, only when it asks the other person to do something or shows them a result. Sealed content (story
-text before her answer, guesses, numbers) never reaches the network. Copy is `[FOUNDER DECISION]` until approved.
+text before her answer, guesses, numbers) never reaches the network. Copy is `[FOUNDER DECISION]` until approved. **Superseded 2026-10-16 by the shortest set in P1503 "Messages"** (one Send = at most one message, written as Bob, a short readable start plus the link); the rows below are kept as the first draft.
 
 | Clarity action by Bob in a bridged chat | What Alice sees in WhatsApp |
 |---|---|

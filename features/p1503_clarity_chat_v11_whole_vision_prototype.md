@@ -43,7 +43,7 @@ is tested inside the product it will live in?
   that no production caller passes (the P1495 precedent). Mock data only; no network writes.
 - **Reversibility:** git revert.
 - **Decision density:** high, mostly spent: D1-D27 were made in the 2026-10-15/16 rounds and confirmed. The build
-  F1-F9 were answered 2026-10-16 (below); three copy decisions remain, none blocking the build.
+  F1-F9 were answered 2026-10-16 (below); message choices C1-C4 default to their recommendation.
 - **Viewports:** phone (375, also checked at 320) and desktop (1440), built together.
 
 ## Decisions (founder, 2026-10-15/16)
@@ -87,7 +87,7 @@ Recorded so nobody re-asks them. Referenced below as D-n.
 | F1 | Is Alice a Clarity Chat member on the main path? | **Yes.** "Send to Alice" delivers into the Bob-Alice Clarity chat; the bridged WhatsApp chat gets the notice plus a link to it. How someone becomes a member from a WhatsApp invitation is P1456. |
 | F2 | Do Alice's answers reach Bob as she taps? | **Yes, as everywhere else in the product:** a tapped position is submitted and can be changed later. Her **first** position on a received point is recorded as her blind answer (it opens the story); later changes show as changes. A story rating keeps its own Submit (production rating card). |
 | F3 | Predictions? | **Two, with different audiences.** Bob's guess of Alice's position on the point is **private to Bob** (it shapes the point; see §3). Bob's 0-10 prediction of how well Alice will understand his story is revealed to both after her rating (as in letters). |
-| F4 | Can Bob edit his story after Alice rated it? | **Not in v11:** it locks once rated. Whether rated stories should instead be kept as snapshots while the live story moves on is P1504. |
+| F4 | Can Bob edit his story after Alice rated it? | **Not in v11:** once Alice has rated it, Bob can no longer edit its text (its visibility does not change; a public story stays public). Whether rated stories should instead be kept as snapshots while the live story moves on is P1504. |
 | F5 | Agent label | "{agent} · {owner}'s mirror agent" (2026-10-12 ruling). |
 | F6 | Letters | 📎 attaches a link to an existing letter. Writing letters in chat is P1431. |
 | F7 | What reaches WhatsApp | The per-action translation table lives in P1457 (the bridge spec); v11 mocks its first rows (§2). |
@@ -236,12 +236,59 @@ Strings decided in the rounds or production. Anything else on the main path need
 | Repeat reference | "↗ Point: {statement}" · "↗ Story: {first words}" | D20 |
 | Update lines | "{author} updated the point" · "Story linked to {point}" | D20, D16 |
 | Agent identity | "{agent} · {owner}'s mirror agent" | F5, 2026-10-12 ruling |
-| Pre-send notice | §4 step 5 draft | `[FOUNDER DECISION: copy]` |
-| Sharpen-the-point prompt | §3 | `[FOUNDER DECISION: copy]` |
-| Bridged notices | P1457 translation table | F7 |
+| Pre-send labels, sharpen chip, bridged lines, every other message | see Messages | C1-C4 |
 | Mock agent name | "Mira" | F8 |
 | Message actions | "Reply" · "Forward" · "Clarify" | D11, D14 |
 | Strip | "Add a reply (mock)" · Alice's WhatsApp lens label | prototype only |
+
+## Messages (shortest set; drafted by a UX writer, critiqued by Gemini 4 Argon, 2026-10-16)
+
+Rules: Mira never narrates what the screen already shows, and speaks only to ask or to warn. Write only what breaks an
+assumption. Privacy is one 🔒 icon (tap: "Only visible to you"), never a sentence, and never inside Bob's own agent
+chat. A repeat is a badge or a mark, never a new line. Choices C1-C4 below default to the recommendation.
+
+| Where | Treatment | Copy or visual |
+|---|---|---|
+| Mira introducing suggestions | none | 0 words; the cards speak |
+| Sharpen the point (§3) | chip only | "≈ Same as yours · Sharpen" |
+| Drafts in a person's chat (D13) | badge by the composer | Mira's avatar + "2 drafts" (only Bob sees it) |
+| Live thread (D14) | stamp on the thread header | "💬 12 replies", updating in place |
+| Stale draft (D14) | badge on the draft | "↻ 3 new replies" |
+| Point edited (D20) | subtext on the card | "Edited by {author}" |
+| Story linked to a point | none | the card's story count changes |
+| Same item mentioned again (D20) | compact chip | "↗ {statement or first words}" |
+| Guess line, Bob only (§4) | text, `EyesHeader` (C1) | "🔒 Alice in Bob's eyes · {guess} (your guess)"; after she answers, "Alice · {position}" beside it (§4) |
+| Inferred sentence in Bob's story (§3) | dashed highlight + keep/delete | first time only: "Mira inferred this · keep or delete" |
+| Agent identity (F5) | chat header and inbox subtext | "Mira · Bob's mirror agent" |
+| Bridged chat | header subtext, no banner | network icon + "via your WhatsApp" |
+| Story sealed for Alice | on the sealed card, every time | "🔒 Answer the point to open Bob's story" |
+| Alice changed her position | mark beside it | "↺" (tap: earlier position) |
+| Partner pending (D9) | header status | "Partner invite pending" |
+| 📎 item from another chat | subtext on the disabled row | "🔒 In {name}'s chat" |
+| Draft with a guess | subtext by Send | "Has your guess · Send only" |
+| Story after Alice rated it | Edit disabled in ⋯ | "Rated · can't edit" |
+| Before sending (§4 step 5) | short labels on the preview, every time (C2) | point "Visible now" · story "After she answers" · prediction "After she rates" · guess "🔒 Only you" |
+| Bob's story prediction (§4 step 4) | rating card question | production sentence (P1495) |
+
+**WhatsApp (bridged), one Send = at most one message, written as Bob, short readable start plus link (C3):**
+
+| Bob's action | What Alice's WhatsApp shows |
+|---|---|
+| Shares a point (with or without a story) | "{statement}" {link} |
+| Shares a story alone | "A story for you: {link}" |
+| Shares a letter link | "A letter for you: {link}" |
+| Rates Alice's story | "Read your story: {link}" |
+| Invites Alice as a partner | "Partners on Clarity? {link}" |
+| Takes a position on Alice's point | nothing (C4) |
+
+**Founder choices (defaults applied):**
+- C1. Guess line as words ("Alice in Bob's eyes") rather than hollow/filled markers: **words** (2026-10-12 ruling; the
+  missing guess was v10's blocker).
+- C2. Before-sending privacy shown as four short labels every time, rather than a sentence once per person: **labels
+  every time**.
+- C3. WhatsApp lines start with 2-4 readable words before the link, rather than a bare link relying on the preview:
+  **readable start** (previews often fail; a bare link looks like phishing). Exact wording `[FOUNDER DECISION]`.
+- C4. No WhatsApp line when Bob takes a position on Alice's point: **none**.
 
 ## Acceptance Criteria
 
@@ -302,7 +349,7 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
 | Risk | Label | Note |
 |---|---|---|
 | Whole-vision scope overwhelms one build | MITIGATE | Slices on one branch, each verified before the next: frame → inbox and groups → agent threads → loop, seals and Details → bridge and event mocks |
-| Shared state across live threads, versions and seals breaks | MITIGATE | One exchange per point per person; stories lock once rated (F4); live thread changes never edit a draft, they only show "{n} new replies since this draft" |
+| Shared state across live threads, versions and seals breaks | MITIGATE | One exchange per point per person; a story's text can no longer be edited once rated (F4); live thread changes never edit a draft, they only show "{n} new replies since this draft" |
 | The bridge leaks sealed or private content | MITIGATE | Notice carries the point statement only; the link opens only for the named recipient; no Clarity items into bridged group chats |
 | The agent invents Bob's first-person story | MITIGATE | Only-from-his-words rule (§3) |
 | Reversed rulings go unrecorded | MITIGATE | Recorded below; `/kdd` after the build writes them to decisions.md |
