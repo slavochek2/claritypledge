@@ -110,6 +110,54 @@ describe('P1509 v12 unread and archive', () => {
   });
 });
 
+describe('P1509 v12 rule leaks the backend must not copy', () => {
+  it('forward refuses a SOURCE message the viewer cannot read', () => {
+    const dana = initialState({ viewer: 'dana' });
+    expect(forward(dana, 'm11', 'dm-bob-dana')).toBe(dana); // m11 is in Oct 2, Dana was not there
+    expect(forward(dana, 'm6', 'dm-bob-dana')).toBe(dana); // m6 is Bob and Eli's 1:1
+  });
+  it('comment refuses a post the viewer cannot read', () => {
+    const dana = initialState({ viewer: 'dana' });
+    expect(comment(dana, 'm11', 'leak')).toBe(dana);
+  });
+  it('send refuses a chat the viewer cannot see', () => {
+    const dana = initialState({ viewer: 'dana' });
+    expect(send(dana, 'ch-fc-sept', 'leak')).toBe(dana);
+  });
+});
+
+describe('P1509 v12 delivery', () => {
+  it('a send reaches the other persona: unread, and out of the archive', () => {
+    let st = archive(initialState(), 'dm-bob-dana');
+    st = send({ ...st, viewer: 'dana' }, 'dm-bob-dana', 'hi');
+    expect(st.unread.bob['dm-bob-dana']).toBe(2);
+    expect(st.archived.bob).not.toContain('dm-bob-dana');
+    expect(st.unread.dana['dm-bob-dana'] ?? 0).toBe(0); // never unread for the author
+  });
+  it('forwarding into an archived chat brings it back', () => {
+    const st = forward(archive(initialState(), 'dm-bob-carol'), 'm3', 'dm-bob-carol');
+    expect(isArchived(st, 'dm-bob-carol')).toBe(false);
+  });
+  it('a failed send reaches nobody until Retry', () => {
+    let st = send(initialState({ fail: true, viewer: 'dana' }), 'dm-bob-dana', 'hi');
+    expect(st.unread.bob['dm-bob-dana']).toBe(1);
+    st = retry(st, st.msgs.at(-1)!.id);
+    expect(st.unread.bob['dm-bob-dana']).toBe(2);
+  });
+  it('a new 1:1 gets one id per pair, whoever starts it', () => {
+    const a = dmWith(initialState(), 'fay')!;
+    expect(a.chatId).toBe('dm-bob-fay');
+    expect(dmWith({ ...a.next, viewer: 'dana' }, 'fay')!.chatId).toBe('dm-dana-fay');
+  });
+  it('?state=fail: a comment fails too, and Retry fixes it', () => {
+    let st = comment(initialState({ fail: true }), 'm9', 'x');
+    const c = st.comments.m9!.at(-1)!;
+    expect(c.failed).toBe(true);
+    st = retry(st, c.id);
+    expect(st.comments.m9!.at(-1)!.failed).toBeUndefined();
+  });
+});
+
 describe('P1509 v12 writing', () => {
   it('forward names the original author through re-forwards, and only into a chat I can see', () => {
     let st = forward(initialState(), 'm2', 'dm-bob-carol');

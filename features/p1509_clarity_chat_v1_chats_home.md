@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 42
 workstream: clarity-chat
 created_date: '2026-10-16'
 tags: [clarity-chat, messaging, navigation, events]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -129,19 +129,19 @@ replaces P1503's "one drawer from the avatar" (decisions.md 2026-10-16). Confirm
 
 ## Acceptance Criteria
 
-- [ ] On mobile width v12 opens on the chat list with ☰, search and the folder tabs; opening a chat replaces the list and back returns. On desktop the list and the open chat sit side by side
-- [ ] The side menu lists Feed, Letters, Partners, Groups, Tools, today's event and Invite partner, with profile at the bottom
-- [ ] As Bob, the group's tab shows all its channels; as Dana, it shows only the event channel
-- [ ] In the event channel, both Bob and Dana can post, comment under a post, forward a post, and post one of their own points or stories from the picker
-- [ ] The event channel shows the "Transcript posted" placeholder
-- [ ] Tapping or hovering a message shows the same menu, Reply and Forward; Reply quotes in a 1:1 and opens comments in a channel
-- [ ] A forwarded message shows "Forwarded from <name>"; tapping the stranger's name opens a profile with no Message button
-- [ ] Searching a shared person's name finds them; searching the stranger's name finds no one; their exact email finds no one either
-- [ ] A shared person's profile shows Message, and tapping it opens the 1:1 chat
-- [ ] Unread counts show on chats and tabs; archiving a chat moves it under "Archived chats", and a new mock message brings it back
-- [ ] `?state=empty`, `?state=loading` and `?state=fail` each show their state
-- [ ] Nothing in the strip list's "Cut" rows appears anywhere in v12
-- [ ] The build report includes a table mapping each v12 screen to the existing code or data it would use, and lists what is new for the backend spec
+- [x] On mobile width v12 opens on the chat list with ☰, search and the folder tabs; opening a chat replaces the list and back returns. On desktop the list and the open chat sit side by side
+- [x] The side menu lists Feed, Letters, Partners, Groups, Tools, today's event and Invite partner, with profile at the bottom
+- [x] As Bob, the group's tab shows all its channels; as Dana, it shows only the event channel
+- [x] In the event channel, both Bob and Dana can post, comment under a post, forward a post, and post one of their own points or stories from the picker
+- [x] The event channel shows the "Transcript posted" placeholder
+- [x] Tapping or hovering a message shows the same menu, Reply and Forward; Reply quotes in a 1:1 and opens comments in a channel
+- [x] A forwarded message shows "Forwarded from <name>"; tapping the stranger's name opens a profile with no Message button
+- [x] Searching a shared person's name finds them; searching the stranger's name finds no one; their exact email finds no one either
+- [x] A shared person's profile shows Message, and tapping it opens the 1:1 chat
+- [x] Unread counts show on chats and tabs; archiving a chat moves it under "Archived chats", and a new mock message brings it back
+- [x] `?state=empty`, `?state=loading` and `?state=fail` each show their state
+- [x] Nothing in the strip list's "Cut" rows appears anywhere in v12
+- [x] The build report includes a table mapping each v12 screen to the existing code or data it would use, and lists what is new for the backend spec
 - [ ] The founder has clicked through v12 and approved it
 
 ## UX Notes

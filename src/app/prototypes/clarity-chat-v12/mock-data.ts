@@ -1,12 +1,12 @@
 /**
  * @file mock-data.ts
- * @description P1509 v12 mock world. Three groups (one with no event yet), three events (each with its one channel), five people and
- * one stranger. Bob is a member of both groups and attended every event; Dana attended only the next
+ * @description P1509 v12 mock world. Three groups (one with no event yet), three events (each with its one channel), six people and
+ * one stranger. Bob is a member of all three groups and attended every event; Dana and Fay attended only the next
  * Chiang Mai event and is a member of nothing. Sam shares nothing with anyone and appears only as the
  * "Forwarded from" author of one message. Mock only: nothing here is read from or written to a server.
  */
 
-export type PersonId = 'bob' | 'dana' | 'alice' | 'carol' | 'eli' | 'sam';
+export type PersonId = 'bob' | 'dana' | 'alice' | 'carol' | 'eli' | 'fay' | 'sam';
 export type ViewerId = 'bob' | 'dana';
 
 export interface Person {
@@ -23,6 +23,8 @@ export const PEOPLE: Record<PersonId, Person> = {
   alice: { id: 'alice', name: 'Alice Moreau', nickname: 'alicem', email: 'alice@example.com', bio: 'Facilitator.' },
   carol: { id: 'carol', name: 'Carol Singh', nickname: 'carols', email: 'carol@example.com', bio: 'Product designer.' },
   eli: { id: 'eli', name: 'Eli Brandt', nickname: 'eli', email: 'eli@example.com', bio: 'Founder, Berlin.' },
+  /* Attends tonight and has no 1:1 with anyone yet: "Message" on her profile starts a new chat. */
+  fay: { id: 'fay', name: 'Fay Okafor', nickname: 'fayo', email: 'fay@example.com', bio: 'Coming to her second Clarity Night.' },
   sam: { id: 'sam', name: 'Sam Rivera', nickname: 'samr', email: 'sam@example.com', bio: 'Writes about negotiation.' },
 };
 
@@ -37,7 +39,7 @@ export const GROUPS: Group[] = [
 ];
 
 export const EVENTS: EventInfo[] = [
-  { id: 'night-oct16', groupId: 'cm', name: 'Clarity Night, Oct 16', when: 'Today, 19:00', attendees: ['bob', 'alice', 'dana'], today: true },
+  { id: 'night-oct16', groupId: 'cm', name: 'Clarity Night, Oct 16', when: 'Today, 19:00', attendees: ['bob', 'alice', 'dana', 'fay'], today: true },
   { id: 'night-oct02', groupId: 'cm', name: 'Clarity Night, Oct 2', when: 'Oct 2', attendees: ['bob', 'alice', 'carol'] },
   { id: 'fc-sept', groupId: 'fc', name: 'Founders dinner, Sept', when: 'Sept 28', attendees: ['bob', 'eli'] },
 ];
@@ -92,7 +94,7 @@ export const COPY = {
 export const MENU_PAGES: { label: string; path: string | null }[] = [
   { label: 'Feed', path: '/feed' },
   { label: 'Letters', path: '/letters' },
-  { label: 'Partners', path: '/me' },
+  { label: 'Partners', path: '/me' }, // production's Partners tab is /p/<my-slug>/partners; /me resolves the slug
   { label: 'Groups', path: '/groups' },
   { label: 'Tools', path: null },
 ];

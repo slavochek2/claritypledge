@@ -91,8 +91,13 @@ describe('P1509 v12 prototype', () => {
       openMenuOn(msg(`${who} was here`));
       fireEvent.click(screen.getByRole('menuitem', { name: /Forward/ }));
       const fwd = screen.getByRole('dialog', { name: 'Forward to' });
+      const target = who === 'Bob' ? 'dm-bob-alice' : 'dm-dana-alice';
       fireEvent.click(within(fwd).getAllByRole('button').find((b) => b.textContent?.includes('Alice Moreau'))!);
       expect(screen.queryByRole('dialog', { name: 'Forward to' })).toBeNull();
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'Back' }));
+      openRow(target);
+      const copy = msg(`${who} was here`);
+      expect(within(copy).getByTestId('forwarded-label').textContent).toBe(`Forwarded from ${who === 'Bob' ? 'Bob Keller' : 'Dana Ortiz'}`);
     });
   }
 
@@ -164,9 +169,79 @@ describe('P1509 v12 prototype', () => {
   it('AC10b: swiping a row left archives it (mobile)', () => {
     renderV12();
     const b = within(row('dm-bob-carol')!).getAllByRole('button')[0]!;
-    fireEvent.touchStart(b, { touches: [{ clientX: 300 }] });
-    fireEvent.touchEnd(b, { changedTouches: [{ clientX: 200 }] });
+    fireEvent.touchStart(b, { touches: [{ clientX: 300, clientY: 400 }] });
+    fireEvent.touchEnd(b, { changedTouches: [{ clientX: 200, clientY: 410 }] });
     expect(row('dm-bob-carol')).toBeNull();
+  });
+
+  it('AC10c: a mostly vertical drag (a scroll) never archives', () => {
+    renderV12();
+    const b = within(row('dm-bob-carol')!).getAllByRole('button')[0]!;
+    fireEvent.touchStart(b, { touches: [{ clientX: 300, clientY: 400 }] });
+    fireEvent.touchEnd(b, { changedTouches: [{ clientX: 235, clientY: 150 }] });
+    expect(row('dm-bob-carol')).toBeTruthy();
+  });
+
+  it('review: pressing a name or "Show all" inside a bubble does not open the bubble menu', () => {
+    renderV12();
+    openRow('ch-night-oct16');
+    const showAll = within(chatView()).getByRole('button', { name: 'Show all' });
+    fireEvent.pointerDown(showAll, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(showAll);
+    expect(screen.queryByRole('menuitem')).toBeNull();
+    expect(within(chatView()).getByRole('button', { name: 'Show less' })).toBeTruthy();
+    const name = within(msg('Bring one disagreement you would like to understand better.')).getByRole('button', { name: 'Bob Keller' });
+    fireEvent.pointerDown(name, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    expect(screen.queryByRole('menuitem')).toBeNull();
+  });
+
+  it('review: profile, members and invite keep a Back button on desktop', () => {
+    renderV12();
+    openRow('ch-night-oct16');
+    fireEvent.click(screen.getByTestId('channel-header'));
+    const back = within(screen.getByTestId('members')).getByRole('button', { name: 'Back' });
+    expect(back.className).not.toContain('lg:hidden');
+    fireEvent.click(within(screen.getByTestId('members')).getByRole('button', { name: /Fay Okafor/ }));
+    expect(within(screen.getByTestId('profile')).getByRole('button', { name: 'Back' }).className).not.toContain('lg:hidden');
+    fireEvent.click(within(screen.getByTestId('profile')).getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('members')).toBeTruthy();
+  });
+
+  it('review: Message on someone with no 1:1 yet starts a new empty chat', () => {
+    renderV12();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), { target: { value: 'Fay' } });
+    fireEvent.click(within(screen.getByRole('list', { name: 'People results' })).getByRole('button'));
+    fireEvent.click(within(screen.getByTestId('profile')).getByRole('button', { name: 'Message' }));
+    expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-fay');
+    expect(within(chatView()).getByText(/No messages yet/)).toBeTruthy();
+    typeAndSend(chatView(), 'Message', 'Hi Fay');
+    expect(msg('Hi Fay')).toBeTruthy();
+  });
+
+  it('review: Invite partner opens the existing new-partner flow', () => {
+    renderV12();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Invite partner' }));
+    expect(within(screen.getByTestId('invite')).getByRole('link').getAttribute('href')).toBe('/agreements/new');
+  });
+
+  it('review: Escape closes the side menu', () => {
+    renderV12();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
+  });
+
+  it('review: a message Dana sends un-archives and badges the chat for Bob', () => {
+    renderV12();
+    fireEvent.contextMenu(within(row('dm-bob-dana')!).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Archive/ }));
+    expect(row('dm-bob-dana')).toBeNull();
+    asDana();
+    openRow('dm-bob-dana');
+    typeAndSend(chatView(), 'Message', 'See you there');
+    fireEvent.click(screen.getByRole('radio', { name: /Bob/ }));
+    expect(within(row('dm-bob-dana')!).getByLabelText('2 unread')).toBeTruthy();
   });
 
   it('AC11: ?state=empty, ?state=loading and ?state=fail each show their state', () => {
@@ -190,12 +265,23 @@ describe('P1509 v12 prototype', () => {
     expect(screen.getByTestId('empty-group').textContent).toContain('No event channel');
   });
 
-  it('AC12: no cut v11 feature appears', () => {
+  it('AC12: no cut v11 feature appears, on any screen, for either persona', () => {
+    const CUT = ['WhatsApp', 'Telegram', 'LinkedIn', 'Mira', 'Clarify', 'Edit', 'Delete', 'Details', 'Ledger', 'New chat', 'Explore', 'Settings', 'About', 'Trip planning', 'Ask Mira', 'Ask panel', 'emoji'];
+    const check = (where: string) => { const text = document.body.textContent ?? ''; for (const cut of CUT) expect(text, `${cut} on ${where}`).not.toContain(cut); };
     renderV12();
-    openRow('ch-night-oct16');
-    const text = document.body.textContent ?? '';
-    for (const cut of ['WhatsApp', 'Telegram', 'LinkedIn', 'Mira', 'Clarify', 'Edit', 'Delete', 'Details', 'Ledger', 'New chat', 'New partner', 'Explore', 'Settings', 'About', 'Trip planning', 'Ask']) {
-      expect(text, cut).not.toContain(cut);
+    for (const persona of ['Bob', 'Dana'] as const) {
+      fireEvent.click(screen.getByRole('radio', { name: new RegExp(persona) }));
+      check(`${persona} list`);
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' })); check(`${persona} menu`);
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'Menu' })).getByRole('button', { name: 'Close menu' }));
+      openRow('ch-night-oct16'); check(`${persona} channel`);
+      fireEvent.click(within(msg('Bring one disagreement you would like to understand better.')).getByRole('button', { name: /comment/i })); check(`${persona} comments`);
+      fireEvent.click(within(screen.getByTestId('comments')).getAllByRole('button', { name: 'Back' })[0]!);
+      fireEvent.click(screen.getByTestId('channel-header')); check(`${persona} members`);
+      fireEvent.click(within(screen.getByTestId('members')).getByRole('button', { name: /Alice Moreau/ })); check(`${persona} profile`);
+      fireEvent.click(within(screen.getByTestId('profile')).getByRole('button', { name: 'Back' }));
+      fireEvent.click(within(screen.getByTestId('members')).getByRole('button', { name: 'Back' }));
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'Back' }));
     }
   });
 });

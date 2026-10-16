@@ -15,7 +15,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import { COPY, EVENTS, GROUPS, MENU_PAGES, PEOPLE, SHAREABLE, type PersonId, type ViewerId } from './mock-data';
 import {
-  archive, archivedChats, canMessage, channelMembers, chatById, chatTitle, chatsInTab, comment, dmWith, forward, initialState, isArchived,
+  archive, archivedChats, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, comment, dmWith, forward, initialState, isArchived,
   lastMsg, mockIncoming, msgsOf, openChat, otherOf, retry, search, send, tabsFor, unarchive, unreadOf, visibleChats,
   type Chat, type Msg, type State, type Tab,
 } from './state';
@@ -43,16 +43,20 @@ function Avatar({ person, size = 'md' }: { person: PersonId; size?: 'sm' | 'md' 
   return <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-800', cls)}>{initials(p.name)}</span>;
 }
 
+/** A control inside a message bubble: its press must not also open the bubble's Reply/Forward menu. */
+const insideBubble = { onPointerDown: (e: { stopPropagation: () => void }) => e.stopPropagation(), onKeyDown: (e: { stopPropagation: () => void }) => e.stopPropagation() };
+
 const ChannelMark = () => <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-lg font-semibold text-blue-700">#</span>;
 
 function PersonLink({ person, onOpen, className }: { person: PersonId; onOpen: (p: PersonId) => void; className?: string }) {
-  return <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(person); }} className={cn('font-semibold underline-offset-2 hover:underline', className)}>{PEOPLE[person].name}</button>;
+  return <button type="button" {...insideBubble} onClick={(e) => { e.stopPropagation(); onOpen(person); }} className={cn('font-semibold underline-offset-2 hover:underline', className)}>{PEOPLE[person].name}</button>;
 }
 
-function Header({ onBack, title, children }: { onBack?: () => void; title: ReactNode; children?: ReactNode }) {
+/** `panel`: a page opened from a chat (profile, members, invite). It keeps Back on desktop too, where the list beside it cannot return there. */
+function Header({ onBack, title, children, panel = false }: { onBack?: () => void; title: ReactNode; children?: ReactNode; panel?: boolean }) {
   return (
     <header className="flex min-h-14 shrink-0 items-center gap-2 border-b px-2 lg:px-4">
-      {onBack && <button type="button" aria-label="Back" onClick={onBack} className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full lg:hidden', HOVER)}><ArrowLeft className="h-5 w-5" /></button>}
+      {onBack && <button type="button" aria-label="Back" onClick={onBack} className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', !panel && 'lg:hidden', HOVER)}><ArrowLeft className="h-5 w-5" /></button>}
       <div className="min-w-0 flex-1">{title}</div>
       {children}
     </header>
@@ -79,7 +83,7 @@ function TranscriptBody({ text }: { text: string }) {
     <div data-testid="transcript-post">
       <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-900"><FileText className="h-4 w-4" aria-hidden="true" />{COPY.transcript}</div>
       <p className={cn('whitespace-pre-line text-sm text-gray-700', !open && 'line-clamp-3')}>{text}</p>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="mt-1 min-h-10 text-sm font-medium text-blue-700">{open ? 'Show less' : 'Show all'}</button>
+      <button type="button" {...insideBubble} onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="mt-1 min-h-10 text-sm font-medium text-blue-700">{open ? 'Show less' : 'Show all'}</button>
     </div>
   );
 }
@@ -103,10 +107,11 @@ function MessageRow({ msg, mine, inChannel, comments, onPerson, onReply, onForwa
               {msg.quote && <div className="my-1 border-l-2 border-blue-500 pl-2 text-xs text-gray-600" data-testid="reply-quote"><span className="font-semibold text-blue-800">{PEOPLE[msg.quote.who].name}</span><span className="block truncate">{msg.quote.text}</span></div>}
               {msg.transcript ? <TranscriptBody text={msg.text} /> : msg.text && <p className="whitespace-pre-line break-words text-[15px] text-gray-900">{msg.text}</p>}
               {msg.share && (
-                <div className="mt-1 flex items-center gap-2 rounded-lg border bg-white px-3 py-2" data-testid="share-card">
+                /* A plain link card. The mock ids resolve to nothing in production, so the prototype opens it in a new tab. */
+                <a href={`/${msg.share.kind}/${msg.share.id}`} target="_blank" rel="noreferrer" {...insideBubble} onClick={(e) => e.stopPropagation()} className="mt-1 flex min-h-11 items-center gap-2 rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" data-testid="share-card">
                   <Link2 className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
                   <span className="min-w-0"><span className="block text-xs text-gray-500">{msg.share.kind === 'point' ? 'Point' : 'Story'}</span><span className="block text-sm font-medium text-gray-900">{msg.share.title}</span></span>
-                </div>
+                </a>
               )}
               <span className="mt-0.5 block text-right text-[11px] text-gray-500">{msg.time}</span>
             </div>
@@ -140,7 +145,7 @@ function MessageRow({ msg, mine, inChannel, comments, onPerson, onReply, onForwa
 
 function ChatRow({ st, chat, active, onOpen, onArchive, archived }: { st: State; chat: Chat; active: boolean; onOpen: () => void; onArchive: () => void; archived: boolean }) {
   const [menu, setMenu] = useState(false);
-  const touch = useRef<number | null>(null);
+  const touch = useRef<{ x: number; y: number } | null>(null);
   const last = lastMsg(st, chat.id);
   const unread = unreadOf(st, chat.id);
   const who = last && (last.who === st.viewer ? 'You: ' : chat.kind === 'channel' ? `${PEOPLE[last.who].name.split(' ')[0]}: ` : '');
@@ -151,8 +156,14 @@ function ChatRow({ st, chat, active, onOpen, onArchive, archived }: { st: State;
         type="button"
         onClick={onOpen}
         onContextMenu={(e) => { e.preventDefault(); setMenu(true); }}
-        onTouchStart={(e) => { touch.current = e.touches[0]?.clientX ?? null; }}
-        onTouchEnd={(e) => { const x = e.changedTouches[0]?.clientX; if (touch.current !== null && x !== undefined && touch.current - x > 60) onArchive(); touch.current = null; }}
+        onTouchStart={(e) => { const t = e.touches[0]; touch.current = t ? { x: t.clientX, y: t.clientY } : null; }}
+        onTouchEnd={(e) => {
+          /* A left swipe archives; a mostly vertical drag is a scroll and never does. */
+          const t = e.changedTouches[0];
+          const start = touch.current;
+          touch.current = null;
+          if (start && t && start.x - t.clientX > 60 && Math.abs(t.clientY - start.y) < (start.x - t.clientX) / 2) onArchive();
+        }}
         aria-current={active ? 'true' : undefined}
         className={cn('flex min-h-[64px] w-full items-center gap-3 px-3 py-2 text-left', active ? 'bg-blue-50' : HOVER)}
       >
@@ -190,13 +201,23 @@ function Skeleton() {
 
 /* ---------- side menu ---------- */
 
-function SideMenu({ viewer, onClose, onEvent, onInvite, onProfile }: { viewer: ViewerId; onClose: () => void; onEvent: (eventId: string) => void; onInvite: () => void; onProfile: () => void }) {
-  const today = EVENTS.find((e) => e.today);
+/** Escape closes a hand-rolled dialog. */
+function useEscape(onClose: () => void) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+}
+
+function SideMenu({ viewer, todayEvent, onClose, onEvent, onInvite, onProfile }: { viewer: ViewerId; todayEvent?: { id: string; name: string }; onClose: () => void; onEvent: (eventId: string) => void; onInvite: () => void; onProfile: () => void }) {
+  useEscape(onClose);
+  const today = todayEvent;
   const item = cn('flex min-h-12 w-full items-center px-4 text-left text-[15px] text-gray-900', HOVER);
   return (
     <div className="fixed inset-0 z-40 flex" role="dialog" aria-label="Menu">
       <nav className="flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-xl">
-        <div className="flex min-h-14 items-center justify-between border-b px-4"><span className="font-semibold text-gray-900">Clarity</span><button type="button" aria-label="Close menu" onClick={onClose} className={cn('flex h-11 w-11 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button></div>
+        <div className="flex min-h-14 items-center justify-between border-b px-4"><span className="font-semibold text-gray-900">Clarity</span><button type="button" autoFocus aria-label="Close menu" onClick={onClose} className={cn('flex h-11 w-11 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button></div>
         <ul aria-label="Menu items" className="flex-1 overflow-y-auto py-2">
           {MENU_PAGES.map((p) => (
             <li key={p.label}>
@@ -225,7 +246,7 @@ function Profile({ st, person, onBack, onMessage }: { st: State; person: PersonI
   const shared = [...GROUPS.filter((g) => g.members.includes(st.viewer) && g.members.includes(person)).map((g) => g.name), ...EVENTS.filter((e) => e.attendees.includes(st.viewer) && e.attendees.includes(person)).map((e) => e.name)];
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="profile">
-      <Header onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">Profile</h1>} />
+      <Header panel onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">Profile</h1>} />
       <div className="flex flex-col items-center gap-3 overflow-y-auto px-4 py-8 text-center">
         <Avatar person={person} size="lg" />
         <h2 className="text-xl font-semibold text-gray-900">{p.name}</h2>
@@ -243,7 +264,7 @@ function Members({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; o
   const list = channelMembers(chat);
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="members">
-      <Header onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">{list.length} members</h1>} />
+      <Header panel onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">{list.length} members</h1>} />
       <ul className="overflow-y-auto py-2">
         {list.map((p) => <li key={p}><button type="button" onClick={() => onPerson(p)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER)}><Avatar person={p} size="sm" /><span className="text-[15px] text-gray-900">{PEOPLE[p].name}</span></button></li>)}
       </ul>
@@ -254,20 +275,21 @@ function Members({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; o
 function Invite({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="invite">
-      <Header onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">{COPY.invite}</h1>} />
+      <Header panel onBack={onBack} title={<h1 className="truncate text-base font-semibold text-gray-900">{COPY.invite}</h1>} />
       <div className="mx-auto flex max-w-md flex-col gap-3 px-4 py-8 text-[15px] text-gray-700">
         <p>To message someone you share no group or event with, invite them as a partner. This opens the existing new-partner flow, unchanged.</p>
-        <a href="/me" target="_blank" rel="noreferrer" className={BLUE}>Open the new-partner flow</a>
+        <a href="/agreements/new" target="_blank" rel="noreferrer" className={BLUE}>Open the new-partner flow</a>
       </div>
     </div>
   );
 }
 
 function ForwardPicker({ st, onPick, onClose }: { st: State; onPick: (chatId: string) => void; onClose: () => void }) {
+  useEscape(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center" role="dialog" aria-label="Forward to">
       <div className="flex max-h-[80vh] w-full flex-col rounded-t-2xl bg-white sm:max-w-sm sm:rounded-2xl">
-        <div className="flex min-h-14 items-center justify-between border-b px-4"><h2 className="font-semibold text-gray-900">Forward to</h2><button type="button" aria-label="Close" onClick={onClose} className={cn('flex h-11 w-11 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button></div>
+        <div className="flex min-h-14 items-center justify-between border-b px-4"><h2 className="font-semibold text-gray-900">Forward to</h2><button type="button" autoFocus aria-label="Close" onClick={onClose} className={cn('flex h-11 w-11 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button></div>
         <ul className="overflow-y-auto py-2">
           {visibleChats(st).map((c) => (
             <li key={c.id}><button type="button" onClick={() => onPick(c.id)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER)}>{c.kind === 'dm' ? <Avatar person={otherOf(st, c)} size="sm" /> : <span className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-50 font-semibold text-blue-700">#</span>}<span className="truncate text-[15px] text-gray-900">{chatTitle(st, c)}</span></button></li>
@@ -283,7 +305,11 @@ function ForwardPicker({ st, onPick, onClose }: { st: State; onPick: (chatId: st
 export function ClarityChatV12() {
   const [params] = useSearchParams();
   const mode = params.get('state');
-  const fresh = (viewer: ViewerId = 'bob') => initialState({ viewer, empty: mode === 'empty', fail: mode === 'fail' });
+  /* `?state=fail` opens on the chat holding the failed send, already read. */
+  const fresh = (viewer: ViewerId = 'bob') => {
+    const st0 = initialState({ viewer, empty: mode === 'empty', fail: mode === 'fail' });
+    return mode === 'fail' && viewer === 'bob' ? openChat(st0, 'dm-bob-alice') : st0;
+  };
   const [st, setSt] = useState<State>(() => fresh());
   const [view, setView] = useState<View>(() => (mode === 'fail' ? { kind: 'chat', chatId: 'dm-bob-alice' } : { kind: 'none' }));
   const [tab, setTab] = useState<Tab>('all');
@@ -331,7 +357,10 @@ export function ClarityChatV12() {
 
   const tabs = tabsFor(st);
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'all';
-  const rows = showArchived ? archivedChats(st) : chatsInTab(st, activeTab);
+  /* The Archived view closes itself once nothing is left in it, and stays closed. */
+  const inArchived = showArchived && archivedChats(st).length > 0;
+  useEffect(() => { if (showArchived && !inArchived) setShowArchived(false); }, [showArchived, inArchived]);
+  const rows = inArchived ? archivedChats(st) : chatsInTab(st, activeTab);
   const results = q.trim() ? search(st, q) : null;
   const archivedCount = archivedChats(st).length;
   const openChatId = view.kind === 'chat' || view.kind === 'comments' || view.kind === 'members' ? view.chatId : null;
@@ -341,7 +370,7 @@ export function ClarityChatV12() {
   const list = (
     <>
       <ListTop onMenu={() => setDrawer(true)} q={q} onQ={setQ} />
-      {!results && !showArchived && (
+      {!results && !inArchived && (
         <div role="tablist" aria-label="Folders" className="flex shrink-0 gap-1 overflow-x-auto border-b px-2 pr-8 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none]">
           {tabs.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={t.id === activeTab} onClick={() => setTab(t.id)} className={cn('inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium', t.id === activeTab ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-600 hover:text-gray-900')}>
@@ -350,7 +379,7 @@ export function ClarityChatV12() {
           ))}
         </div>
       )}
-      {showArchived && (
+      {inArchived && (
         <div className="flex min-h-12 shrink-0 items-center gap-1 border-b px-2"><button type="button" aria-label="Back to chats" onClick={() => setShowArchived(false)} className={cn('flex h-11 w-11 items-center justify-center rounded-full', HOVER)}><ArrowLeft className="h-5 w-5" /></button><h2 className="font-semibold text-gray-900">{COPY.archived}</h2></div>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -360,12 +389,12 @@ export function ClarityChatV12() {
           <div className="flex flex-col items-center gap-3 px-6 py-16 text-center" data-testid="empty-list"><p className="text-[15px] text-gray-700">{COPY.emptyList}</p><button type="button" className={BLUE} onClick={() => setView({ kind: 'invite' })}>{COPY.invite}</button></div>
         ) : (
           <ul aria-label="Chats" data-testid="chat-rows" className="pb-4">
-            {!showArchived && activeTab === 'all' && archivedCount > 0 && (
+            {!inArchived && activeTab === 'all' && archivedCount > 0 && (
               <li><button type="button" onClick={() => setShowArchived(true)} className={cn('flex min-h-12 w-full items-center gap-3 px-3 text-left text-sm font-medium text-gray-700', HOVER)}><span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100"><Archive className="h-4 w-4" aria-hidden="true" /></span><span className="flex-1">{COPY.archived}</span><span className="text-xs text-gray-500">{archivedCount}</span></button></li>
             )}
-            {rows.map((c) => <ChatRow key={c.id} st={st} chat={c} active={c.id === openChatId} archived={showArchived} onOpen={() => open(c.id)} onArchive={() => toggleArchive(c)} />)}
-            {rows.length === 0 && !showArchived && activeTab !== 'all' && activeTab !== 'unread' && <li className="px-6 py-12 text-center text-sm text-gray-500" data-testid="empty-group">{COPY.emptyGroup}</li>}
-            {rows.length === 0 && activeTab === 'unread' && !showArchived && <li className="px-6 py-12 text-center text-sm text-gray-500">No unread chats.</li>}
+            {rows.map((c) => <ChatRow key={c.id} st={st} chat={c} active={c.id === openChatId} archived={inArchived} onOpen={() => open(c.id)} onArchive={() => toggleArchive(c)} />)}
+            {rows.length === 0 && !inArchived && activeTab !== 'all' && activeTab !== 'unread' && <li className="px-6 py-12 text-center text-sm text-gray-500" data-testid="empty-group">{COPY.emptyGroup}</li>}
+            {rows.length === 0 && activeTab === 'unread' && !inArchived && <li className="px-6 py-12 text-center text-sm text-gray-500">No unread chats.</li>}
           </ul>
         )}
       </div>
@@ -375,7 +404,9 @@ export function ClarityChatV12() {
   const main = (() => {
     if (view.kind === 'profile') return <Profile st={st} person={view.person} onBack={() => setView(view.back)} onMessage={() => message(view.person)} />;
     if (view.kind === 'invite') return <Invite onBack={() => setView({ kind: 'none' })} />;
-    const chat = openChatId ? chatById(st, openChatId) : undefined;
+    /* Only a chat the current viewer may see ever renders, whatever the view still points at. */
+    const found = openChatId ? chatById(st, openChatId) : undefined;
+    const chat = found && canSee(st.viewer, found) ? found : undefined;
     if (!chat) return <div className="hidden h-full items-center justify-center bg-gray-50 lg:flex" data-testid="empty-main"><span className="rounded-full bg-white px-3 py-1 text-sm text-gray-500 shadow-sm">{COPY.selectChat}</span></div>;
     if (view.kind === 'members') return <Members chat={chat} onBack={() => setView({ kind: 'chat', chatId: chat.id })} onPerson={showProfile} />;
     if (view.kind === 'comments') return <Comments st={st} chat={chat} postId={view.postId} input={input(`c:${view.postId}`)} onInput={setInput(`c:${view.postId}`)} onBack={() => setView({ kind: 'chat', chatId: chat.id })} onPerson={showProfile} onSend={(t) => { set((s) => comment(s, view.postId, t)); setInput(`c:${view.postId}`)(''); }} onForward={setForwarding} onRetry={(id) => set((s) => retry(s, id))} />;
@@ -399,10 +430,17 @@ export function ClarityChatV12() {
 
   return (
     <>
-      <Frame strip={<Strip viewer={st.viewer} onViewer={switchViewer} onReset={() => reset()} onMock={() => { const r = mockIncoming(st); if (r) { setSt(r.next); toast(`New message in ${chatTitle(r.next, chatById(r.next, r.chatId)!)}`); } }} />} chatOpen={view.kind !== 'none'} list={list} main={main} />
+      <Frame strip={<Strip viewer={st.viewer} onViewer={switchViewer} onReset={() => reset()} onMock={() => {
+        const r = mockIncoming(st);
+        if (!r) { toast('No chat to deliver a mock message to.'); return; }
+        /* Arriving in the chat on screen, it is read at once (Telegram). */
+        setSt(r.chatId === openChatId ? openChat(r.next, r.chatId) : r.next);
+        toast(`New message in ${chatTitle(r.next, chatById(r.next, r.chatId)!)}`);
+      }} />} chatOpen={view.kind !== 'none'} list={list} main={main} />
       {drawer && (
         <SideMenu
           viewer={st.viewer} onClose={() => setDrawer(false)}
+          todayEvent={EVENTS.find((e) => e.today && st.chats.some((c) => c.eventId === e.id && canSee(st.viewer, c)))}
           onEvent={(eventId) => { setDrawer(false); const c = st.chats.find((x) => x.eventId === eventId); if (c) open(c.id); }}
           onInvite={() => { setDrawer(false); setView({ kind: 'invite' }); }}
           onProfile={() => { setDrawer(false); showProfile(st.viewer); }}

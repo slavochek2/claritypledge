@@ -173,47 +173,80 @@ const nextId = (st: State, prefix: string): [string, number] => [`${prefix}${st.
 
 export const openChat = (st: State, chatId: string): State => ({ ...st, unread: { ...st.unread, [st.viewer]: { ...st.unread[st.viewer], [chatId]: 0 } } });
 
-export function send(st: State, chatId: string, text: string, extra: Partial<Msg> = {}): State {
-  const [id, seq] = nextId(st, 'm');
-  return { ...st, seq, msgs: [...st.msgs, m(id, chatId, st.viewer, text, NOW, { ...extra, failed: st.failSends || undefined })] };
+/**
+ * A message lands in a chat: every persona who sees the chat gets it out of the archive, and everyone but the
+ * author gets it as unread. One path for sends, forwards and mock arrivals, so the backend's fan-out has one model.
+ */
+function deliver(st: State, msg: Msg): State {
+  return { ...fanOut(st, msg), msgs: [...st.msgs, msg] };
 }
 
-/** Retry a failed send: in the prototype the retry always succeeds and later sends do too. */
-export const retry = (st: State, msgId: string): State => ({ ...st, failSends: false, msgs: st.msgs.map((x) => (x.id === msgId ? { ...x, failed: undefined, time: NOW } : x)) });
+/** The fan-out half of delivery, for a message already in the list (a retried send resolves in place). */
+function fanOut(st: State, msg: Msg): State {
+  const c = chatById(st, msg.chatId);
+  if (!c) return st;
+  const unread = { ...st.unread };
+  const archived = { ...st.archived };
+  for (const v of ['bob', 'dana'] as ViewerId[]) {
+    if (!canSee(v, c)) continue;
+    archived[v] = archived[v].filter((x) => x !== msg.chatId);
+    if (v !== msg.who) unread[v] = { ...unread[v], [msg.chatId]: (unread[v][msg.chatId] ?? 0) + 1 };
+  }
+  return { ...st, unread, archived };
+}
 
+/** A message or comment I may read: it sits in a chat I can see. */
+function readable(st: State, msgId: string): Msg | undefined {
+  const x = st.msgs.find((y) => y.id === msgId) ?? Object.values(st.comments).flat().find((y) => y.id === msgId);
+  const c = x && chatById(st, x.chatId);
+  return x && c && canSee(st.viewer, c) ? x : undefined;
+}
+
+export function send(st: State, chatId: string, text: string, extra: Partial<Msg> = {}): State {
+  const c = chatById(st, chatId);
+  if (!c || !canSee(st.viewer, c)) return st;
+  const [id, seq] = nextId(st, 'm');
+  const msg = m(id, chatId, st.viewer, text, NOW, { ...extra, failed: st.failSends || undefined });
+  /* A failed send never left this device: nobody else receives it until Retry. */
+  return msg.failed ? { ...st, seq, msgs: [...st.msgs, msg] } : deliver({ ...st, seq }, msg);
+}
+
+/** Retry a failed send or comment: in the prototype the retry always succeeds and later sends do too. */
+export function retry(st: State, msgId: string): State {
+  const fix = (x: Msg) => (x.id === msgId ? { ...x, failed: undefined, time: NOW } : x);
+  const inMsgs = st.msgs.find((x) => x.id === msgId);
+  const comments = Object.fromEntries(Object.entries(st.comments).map(([k, v]) => [k, v.map(fix)]));
+  const next: State = { ...st, failSends: false, comments, msgs: st.msgs.map(fix) };
+  return inMsgs?.failed ? fanOut(next, fix(inMsgs)) : next;
+}
+
+/** Comment under a post in a channel I can see. People only, no agent. */
 export function comment(st: State, postId: string, text: string): State {
   const post = st.msgs.find((x) => x.id === postId);
-  if (!post) return st;
+  if (!post || !readable(st, postId)) return st;
   const [id, seq] = nextId(st, 'c');
-  return { ...st, seq, comments: { ...st.comments, [postId]: [...(st.comments[postId] ?? []), m(id, post.chatId, st.viewer, text, NOW)] } };
+  const c = m(id, post.chatId, st.viewer, text, NOW, { failed: st.failSends || undefined });
+  return { ...st, seq, comments: { ...st.comments, [postId]: [...(st.comments[postId] ?? []), c] } };
 }
 
-/** Forward into a chat I belong to; the copy names the original author. */
+/** Forward a message I can read into a chat I belong to; the copy names the original author. */
 export function forward(st: State, msgId: string, toChatId: string): State {
-  const src = st.msgs.find((x) => x.id === msgId) ?? Object.values(st.comments).flat().find((x) => x.id === msgId);
+  const src = readable(st, msgId);
   const to = chatById(st, toChatId);
   if (!src || !to || !canSee(st.viewer, to)) return st;
   const [id, seq] = nextId(st, 'm');
-  return { ...st, seq, msgs: [...st.msgs, m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, transcript: src.transcript })] };
+  return deliver({ ...st, seq }, m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, transcript: src.transcript }));
 }
 
 export const archive = (st: State, chatId: string): State =>
   isArchived(st, chatId) ? st : { ...st, archived: { ...st.archived, [st.viewer]: [...st.archived[st.viewer], chatId] } };
 export const unarchive = (st: State, chatId: string): State => ({ ...st, archived: { ...st.archived, [st.viewer]: st.archived[st.viewer].filter((id) => id !== chatId) } });
 
-/** A new message arrives from someone else: it counts as unread and brings the chat out of the archive, for every viewer who sees it. */
+/** A new message arrives from someone else (the strip's mock): unread and out of the archive for whoever sees it. */
 export function incoming(st: State, chatId: string, who: PersonId, text: string): State {
-  const c = chatById(st, chatId);
-  if (!c) return st;
+  if (!chatById(st, chatId)) return st;
   const [id, seq] = nextId(st, 'm');
-  const viewers = (['bob', 'dana'] as ViewerId[]).filter((v) => v !== who && canSee(v, c));
-  const unread = { ...st.unread };
-  const archived = { ...st.archived };
-  for (const v of viewers) {
-    unread[v] = { ...unread[v], [chatId]: (unread[v][chatId] ?? 0) + 1 };
-    archived[v] = archived[v].filter((x) => x !== chatId);
-  }
-  return { ...st, seq, unread, archived, msgs: [...st.msgs, m(id, chatId, who, text, NOW)] };
+  return deliver({ ...st, seq }, m(id, chatId, who, text, NOW));
 }
 
 /** The strip's "Mock new message": into my most recently archived chat, else my first chat, from someone else in it. */
@@ -229,6 +262,7 @@ export function dmWith(st: State, other: PersonId): { next: State; chatId: strin
   if (!canMessage(st.viewer, other)) return null;
   const found = st.chats.find((c) => c.kind === 'dm' && c.members!.includes(st.viewer) && c.members!.includes(other));
   if (found) return { next: unarchive(st, found.id), chatId: found.id };
-  const chat: Chat = { id: `dm-${st.viewer}-${other}`, kind: 'dm', members: pair(st.viewer, other) };
+  /* One id per pair whoever starts it, so two sides never create two chats. */
+  const chat: Chat = { id: `dm-${[st.viewer, other].sort().join('-')}`, kind: 'dm', members: pair(st.viewer, other) };
   return { next: { ...st, chats: [...st.chats, chat] }, chatId: chat.id };
 }
