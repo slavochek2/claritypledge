@@ -79,7 +79,7 @@ function TranscriptBody({ text }: { text: string }) {
     <div data-testid="transcript-post">
       <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-900"><FileText className="h-4 w-4" aria-hidden="true" />{COPY.transcript}</div>
       <p className={cn('whitespace-pre-line text-sm text-gray-700', !open && 'line-clamp-3')}>{text}</p>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="mt-1 min-h-8 text-sm font-medium text-blue-700">{open ? 'Show less' : 'Show all'}</button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="mt-1 min-h-10 text-sm font-medium text-blue-700">{open ? 'Show less' : 'Show all'}</button>
     </div>
   );
 }
@@ -97,7 +97,7 @@ function MessageRow({ msg, mine, inChannel, comments, onPerson, onReply, onForwa
       <div className={cn('flex min-w-0 max-w-[85%] flex-col sm:max-w-[75%]', mine && !inChannel && 'items-end')}>
         <DropdownMenu open={menu} onOpenChange={setMenu} modal={false}>
           <DropdownMenuTrigger asChild>
-            <div role="button" tabIndex={0} aria-label="Message" className={cn('cursor-pointer rounded-2xl px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-blue-500', mine ? 'bg-blue-50' : 'bg-gray-100')}>
+            <div role="button" tabIndex={0} aria-label="Message" className={cn('cursor-pointer rounded-2xl px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-blue-500', mine ? 'bg-blue-50' : 'bg-gray-100', menu && 'ring-2 ring-blue-400')} data-selected={menu || undefined}>
               {inChannel && <PersonLink person={msg.who} onOpen={onPerson} className="block text-sm text-blue-800" />}
               {msg.fwdFrom && <div className="text-xs text-gray-600" data-testid="forwarded-label">{COPY.forwardedFrom} <PersonLink person={msg.fwdFrom} onOpen={onPerson} className="text-blue-700" /></div>}
               {msg.quote && <div className="my-1 border-l-2 border-blue-500 pl-2 text-xs text-gray-600" data-testid="reply-quote"><span className="font-semibold text-blue-800">{PEOPLE[msg.quote.who].name}</span><span className="block truncate">{msg.quote.text}</span></div>}
@@ -119,11 +119,11 @@ function MessageRow({ msg, mine, inChannel, comments, onPerson, onReply, onForwa
         {msg.failed && (
           <div className="mt-1 flex items-center gap-2 text-xs text-red-700" data-testid="send-failed">
             {COPY.notSent}
-            <button type="button" onClick={onRetry} className="min-h-8 rounded-md px-2 font-semibold text-blue-700 hover:bg-blue-50">{COPY.retry}</button>
+            <button type="button" onClick={onRetry} className="min-h-10 rounded-md px-3 font-semibold text-blue-700 hover:bg-blue-50">{COPY.retry}</button>
           </div>
         )}
         {inChannel && onComments && (
-          <button type="button" onClick={onComments} className="mt-0.5 flex min-h-8 items-center gap-1 self-start rounded-md px-1 text-xs font-medium text-blue-700 hover:bg-blue-50">
+          <button type="button" onClick={onComments} className="flex min-h-10 items-center gap-1 self-start rounded-md px-2 text-xs font-medium text-blue-700 hover:bg-blue-50">
             <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />{comments ? `${comments} comment${comments === 1 ? '' : 's'}` : 'Comment'}
           </button>
         )}
@@ -342,7 +342,7 @@ export function ClarityChatV12() {
     <>
       <ListTop onMenu={() => setDrawer(true)} q={q} onQ={setQ} />
       {!results && !showArchived && (
-        <div role="tablist" aria-label="Folders" className="flex shrink-0 gap-1 overflow-x-auto border-b px-2 pr-8 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none]">
+        <div role="tablist" aria-label="Folders" className="flex shrink-0 gap-1 overflow-x-auto border-b px-2 pr-8 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none]">
           {tabs.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={t.id === activeTab} onClick={() => setTab(t.id)} className={cn('inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium', t.id === activeTab ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-600 hover:text-gray-900')}>
               {t.label}{t.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white" aria-label={`${t.unread} unread`}>{t.unread}</span>}
