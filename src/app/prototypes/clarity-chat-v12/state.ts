@@ -118,7 +118,10 @@ export const channelMembers = (c: Chat): PersonId[] => {
 
 export const otherOf = (st: State, c: Chat): PersonId => c.members!.find((p) => p !== st.viewer)!;
 export const chatTitle = (st: State, c: Chat): string => (c.kind === 'dm' ? PEOPLE[otherOf(st, c)].name : eventOf(c)?.name ?? c.id);
-export const msgsOf = (st: State, chatId: string) => st.msgs.filter((x) => x.chatId === chatId);
+/** A failed send never left its author's device: only the author sees it (with Retry). */
+export const shownTo = (st: State, x: Msg) => !x.failed || x.who === st.viewer;
+export const msgsOf = (st: State, chatId: string) => st.msgs.filter((x) => x.chatId === chatId && shownTo(st, x));
+export const repliesOf = (st: State, postId: string) => (st.comments[postId] ?? []).filter((x) => shownTo(st, x));
 export const lastMsg = (st: State, chatId: string) => msgsOf(st, chatId).at(-1);
 export const unreadOf = (st: State, chatId: string) => st.unread[st.viewer][chatId] ?? 0;
 export const isArchived = (st: State, chatId: string) => st.archived[st.viewer].includes(chatId);
@@ -215,6 +218,8 @@ export function send(st: State, chatId: string, text: string, extra: Partial<Msg
 
 /** Retry a failed send or comment: in the prototype the retry always succeeds and later sends do too. */
 export function retry(st: State, msgId: string): State {
+  const target = st.msgs.find((x) => x.id === msgId) ?? Object.values(st.comments).flat().find((x) => x.id === msgId);
+  if (!target || target.who !== st.viewer) return st; // only the author can resend
   const fix = (x: Msg) => (x.id === msgId ? { ...x, failed: undefined, time: NOW } : x);
   const inMsgs = st.msgs.find((x) => x.id === msgId);
   const comments = Object.fromEntries(Object.entries(st.comments).map(([k, v]) => [k, v.map(fix)]));

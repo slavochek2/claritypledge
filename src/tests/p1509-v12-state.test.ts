@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   archive, archivedChats, canMessage, canSee, chatById, chatsInTab, comment, dmWith, forward, incoming, initialState, isArchived, mockIncoming,
-  openChat, retry, search, send, tabsFor, unreadOf, visibleChats,
+  msgsOf, openChat, repliesOf, retry, search, send, tabsFor, unreadOf, visibleChats,
 } from '@/app/prototypes/clarity-chat-v12/state';
 
 const ids = (cs: { id: string }[]) => cs.map((c) => c.id).sort();
@@ -150,6 +150,16 @@ describe('P1509 v12 delivery', () => {
     expect(st.unread.bob['dm-bob-dana']).toBe(1);
     st = retry(st, st.msgs.at(-1)!.id);
     expect(st.unread.bob['dm-bob-dana']).toBe(2);
+  });
+  it('a failed send or reply is shown only to its author, and only the author can Retry it', () => {
+    let st = send(initialState({ fail: true }), 'dm-bob-dana', 'not yet');
+    const id = st.msgs.at(-1)!.id;
+    expect(msgsOf(st, 'dm-bob-dana').map((x) => x.id)).toContain(id);
+    const dana = { ...st, viewer: 'dana' as const };
+    expect(msgsOf(dana, 'dm-bob-dana').map((x) => x.id)).not.toContain(id);
+    expect(retry(dana, id)).toBe(dana);
+    st = comment(initialState({ fail: true }), 'm9', 'later');
+    expect(repliesOf({ ...st, viewer: 'dana' }, 'm9').map((x) => x.text)).toEqual(['I will bring one about remote work.']);
   });
   it('a new 1:1 gets one id per pair, whoever starts it', () => {
     const a = dmWith(initialState(), 'fay')!;

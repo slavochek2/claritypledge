@@ -23,7 +23,7 @@ import { Avatar, Composer, Divider, Message, MsgText, QuoteBar, SidePanel, ToolB
 import { arePartners, COPY, EVENTS, GROUPS, MENU_PAGES, PEOPLE, SHAREABLE, type PersonId, type ViewerId } from './mock-data';
 import {
   archive, archivedChats, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, comment, dmWith, forward, initialState, isArchived,
-  lastMsg, mockIncoming, msgsOf, openChat, otherOf, retry, search, send, tabsFor, unarchive, unreadOf, visibleChats,
+  lastMsg, mockIncoming, msgsOf, openChat, repliesOf, otherOf, retry, search, send, tabsFor, unarchive, unreadOf, visibleChats,
   type Chat, type Msg, type State, type Tab,
 } from './state';
 
@@ -619,7 +619,7 @@ function ChatView({ st, chat, input, onInput, replyTo, picker, onPicker, threadI
         {msgs.length === 0 && <p className="px-6 py-12 text-center text-sm text-gray-500">No messages yet. Say hello.</p>}
         {msgs.length > 0 && <Divider>{dayLabel(chat)}</Divider>}
         <MessageList label="Messages" msgs={msgs} render={(m, compact) => (
-          <MessageRow key={m.id} msg={m} compact={compact} highlight={m.id === threadId} replies={channel ? st.comments[m.id] ?? [] : undefined}
+          <MessageRow key={m.id} msg={m} compact={compact} highlight={m.id === threadId} replies={channel ? repliesOf(st, m.id) : undefined}
             onPerson={onPerson} onReply={() => onReply(m)} onForward={() => onForward(m.id)} onThread={channel ? () => onThread(m) : undefined} onRetry={() => onRetry(m.id)} />
         )} />
         <div ref={end} />
@@ -644,7 +644,7 @@ function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, o
   st: State; chat: Chat; postId: string; input: string; onInput: (v: string) => void; onClose: () => void; onPerson: (p: PersonId) => void; onSend: (t: string) => void; onForward: (id: string) => void; onRetry: (id: string) => void;
 }) {
   const post = st.msgs.find((x) => x.id === postId);
-  const replies = st.comments[postId] ?? [];
+  const replies = repliesOf(st, postId);
   useEscape(onClose);
   if (!post) return null;
   /* Reply inside a thread answers in the same thread: it focuses the reply field. */
