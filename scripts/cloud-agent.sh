@@ -430,7 +430,7 @@ echo "3. Starting task: \"$TASK\""
 if [ "$USE_CLAUDE" = true ]; then
     echo "   Using: Claude Opus 4.5"
 else
-    echo "   Using: Gemini 3 Pro via Aider"
+    echo "   Using: Gemini 3.8 Flash via Aider"
 fi
 echo ""
 
