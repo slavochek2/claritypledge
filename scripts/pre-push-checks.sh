@@ -190,6 +190,26 @@ for line in "${PUSH_REFS[@]}"; do
     echo "   create it, silently defeating this scan. Use the committed allowlist instead.)"
     exit 1
   fi
+
+  # P1507: no `disclosure: embargo` content may leave this machine on any ref. CI's
+  # disclosure-gate runs only AFTER a push has landed (the staging branch is public),
+  # and commits reach main without the pre-commit hook (cherry-pick, merge, rebase,
+  # a detached HEAD fast-forwarded). This is the pre-publication check. No flag
+  # waives it; fails closed if the checker is missing.
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+  if [ ! -x "./scripts/check-disclosure.sh" ] && [ ! -f "./scripts/check-disclosure.sh" ]; then
+    echo "  ❌ PUSH BLOCKED: scripts/check-disclosure.sh missing — cannot prove no embargoed spec is in $RANGE"
+    exit 1
+  fi
+  if ! bash ./scripts/check-disclosure.sh --range "$RANGE" > /tmp/cp-disclosure-push.log 2>&1; then
+    echo ""
+    echo "  ❌ PUSH BLOCKED: sensitive spec content in range $RANGE (P1507)"
+    head -15 /tmp/cp-disclosure-push.log
+    echo ""
+    echo "  A disclosure: embargo spec must never leave this machine. Remove it from"
+    echo "  these commits (it belongs on its own branch, then in .private)."
+    exit 1
+  fi
 done
 
 # ── Layer 2: Privacy judgment gate ───────────────────────────────────────────

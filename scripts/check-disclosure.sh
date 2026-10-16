@@ -55,41 +55,53 @@ fi
 # A sensitive spec lives on its own unpushed branch, then in .private forever. The
 # one leak nothing else stopped is a copy committed on main by mistake — including
 # one copied back out of .private (P1507 leak path 3; probe 2026-10-15: this script
-# exited 0 for it). Scope is every ADDED or MODIFIED features/** markdown blob, by
-# CONTENT, at any depth; deletions are fine. Range mode reads every commit in the
-# range, so a spec added and deleted inside one push is still refused: it would be
-# in public history. Staged mode applies only on `main`; on a feature branch an
-# embargoed spec is exactly where it should be.
-# The parser fails toward protected, the same tolerance as git-ops.sh
-# ship_disclosure_of_content: BOM, CRLF, indented fences, indented / quoted /
-# any-case key, whitespace before the colon.
+# exited 0 for it). Scope is every ADDED or MODIFIED markdown blob under features/
+# (any case), by CONTENT, at any depth; deletions are fine. Renames count as adds
+# (--no-renames). Range mode reads every commit in the range, a merge against its
+# first parent, so a spec added and deleted inside one push, or introduced by a
+# merge, is still refused: it would be in public history. Staged mode runs on every
+# HEAD except a feature/ or fix/ branch (where an embargoed spec belongs), so a
+# detached HEAD later fast-forwarded onto main is covered too.
+# The parser is at least as strict as git-ops.sh ship_disclosure_of_content: a
+# `disclosure:` KEY line reading embargo ANYWHERE in the file counts (ship accepts
+# a fence anywhere), tolerating BOM, CRLF, indentation, quoted / any-case key,
+# whitespace before the colon and inside a quote. A prose mention mid-line does not.
+# Fails closed when python3 is missing.
 EMB_PY='
 import re, sys
-t = sys.stdin.buffer.read().decode("utf-8", "replace").lstrip("﻿").replace("\r", "")
-lines = t.split("\n")
-i = 0
-while i < len(lines) and not lines[i].strip(): i += 1
-if i >= len(lines) or lines[i].strip() != "---": sys.exit(1)
-for l in lines[i + 1:]:
-    if l.strip() == "---": break
-    if re.match(r"""^\s*["\x27]?disclosure["\x27]?\s*:\s*["\x27]?embargo\b""", l, re.I): sys.exit(0)
-sys.exit(1)
+t = sys.stdin.buffer.read().decode("utf-8", "replace").lstrip("\ufeff").replace("\r", "")
+pat = re.compile(r"""^\s*["\x27]?disclosure["\x27]?\s*:\s*["\x27]?\s*embargo\b""", re.I)
+sys.exit(0 if any(pat.match(l) for l in t.split("\n")) else 1)
 '
-is_md_feature() { [[ "$1" == features/* ]] && [[ "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" =~ \.(md|markdown)$ ]]; }
+command -v python3 >/dev/null 2>&1 || { echo "${RED}✗ check-disclosure: python3 is required for the P1507 embargo guard${NC}"; exit 1; }
+is_md_feature() {
+  local lc; lc="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  [[ "$lc" == features/* && "$lc" =~ \.(md|markdown)$ ]]
+}
 leaks=""
 if [[ -n "$RANGE" ]]; then
   while IFS= read -r c; do
     [[ -z "$c" ]] && continue
+    if git rev-parse -q --verify "${c}^2" >/dev/null 2>&1; then
+      list_cmd=(git diff -z --name-only --no-renames --diff-filter=AM "${c}^1" "$c")
+    else
+      list_cmd=(git diff-tree -r -z --root --no-commit-id --no-renames --name-only --diff-filter=AM "$c")
+    fi
     while IFS= read -r -d '' p; do
       is_md_feature "$p" || continue
       if git show "${c}:${p}" 2>/dev/null | python3 -c "$EMB_PY"; then leaks+="  ${p} (commit ${c:0:12})"$'\n'; fi
-    done < <(git diff-tree -r -z --root --no-commit-id --name-only --diff-filter=AM "$c" -- features 2>/dev/null)
+    done < <("${list_cmd[@]}" 2>/dev/null)
   done < <(git rev-list "$RANGE" 2>/dev/null)
-elif [[ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" == "main" ]]; then
-  while IFS= read -r -d '' p; do
-    is_md_feature "$p" || continue
-    if git show ":${p}" 2>/dev/null | python3 -c "$EMB_PY"; then leaks+="  ${p}"$'\n'; fi
-  done < <(git diff --cached -z --name-only --diff-filter=AM -- features 2>/dev/null)
+else
+  _head="$(git symbolic-ref -q --short HEAD 2>/dev/null || echo DETACHED)"
+  case "$_head" in
+    feature/*|fix/*) : ;;   # an embargoed spec belongs on its own branch
+    *)
+      while IFS= read -r -d '' p; do
+        is_md_feature "$p" || continue
+        if git show ":${p}" 2>/dev/null | python3 -c "$EMB_PY"; then leaks+="  ${p}"$'\n'; fi
+      done < <(git diff --cached -z --name-only --no-renames --diff-filter=AM 2>/dev/null) ;;
+  esac
 fi
 if [[ -n "$leaks" ]]; then
   echo "${RED}✗ disclosure: embargo content must never reach main (P1507):${NC}"

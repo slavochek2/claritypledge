@@ -45,6 +45,17 @@ stage docs/x.md "$(spec 'disclosure: embargo')";                          staged
 stage features/p8_x.md "$(spec 'disclosure: public')"; ( cd "$D" && git commit -qm p8 ) >/dev/null 2>&1
 stage features/p8_x.md "$(spec 'disclosure: embargo')";                   staged 1 "S8: modifying a tracked spec to embargo on main refused"
 
+# Review findings 2026-10-16 (Opus, Gemini, Codex): bypasses that must be refused.
+stage features/p20_x.md "$(printf -- '<!-- note -->\n---\nstatus: x\ndisclosure: embargo\n---\n')"; staged 1 "S10: a comment before the frontmatter is still refused (ship reads it as embargo)"
+stage features/p21_x.md "$(spec "disclosure: ' embargo '")";                staged 1 "S11: whitespace inside the quotes refused"
+stage Features/p22_x.md "$(spec 'disclosure: embargo')";                    staged 1 "S12: a capitalised Features/ dir refused"
+stage features/p23_x.md "$(spec 'disclosure: public')"; ( cd "$D" && git commit -qm p23 ) >/dev/null 2>&1
+( cd "$D" && git mv features/p23_x.md features/p24_x.md && spec 'disclosure: embargo' > features/p24_x.md && git add features/p24_x.md ) >/dev/null 2>&1
+staged 1 "S13: a rename that turns a spec into embargo refused"
+( cd "$D" && git checkout -q --detach ) >/dev/null 2>&1
+stage features/p25_x.md "$(spec 'disclosure: embargo')";                    staged 1 "S14: a detached HEAD (later fast-forwarded onto main) refused"
+( cd "$D" && git checkout -q main ) >/dev/null 2>&1
+
 # ── staged mode, on a feature branch (a worktree): embargo is the expected state ──
 ( cd "$D" && git checkout -q -b feature/p9-x ) >/dev/null 2>&1
 stage features/p9_x.md "$(spec 'disclosure: embargo')";                   staged 0 "S9: embargo spec on its own feature branch passes"
@@ -72,6 +83,11 @@ rng 1 "G3: embargo added then deleted inside the range still refused (it is in h
   && git add features && git commit -qm stub ) >/dev/null 2>&1; base="$(git -C "$D" rev-parse main)"
 ( cd "$D" && git checkout -q -b r4 && git rm -q features/p13_security-review-pending.md && git commit -qm "chore: close p13" ) >/dev/null 2>&1
 rng 0 "G4: legacy stub deletion ('chore: close pN') passes"
+
+( cd "$D" && git checkout -q main && git checkout -q -b r5 && echo a > a.txt && git add a.txt && git commit -qm side \
+  && git checkout -q main && git checkout -q -b r6 && git merge -q --no-ff --no-commit r5 \
+  && mkdir -p features && spec 'disclosure: embargo' > features/p26_x.md && git add features && git commit -qm merge ) >/dev/null 2>&1
+rng 1 "G5: an embargo spec introduced only by a merge commit refused"
 
 echo ""
 if (( FAILURES > 0 )); then echo "RESULT: $FAILURES failure(s)"; exit 1; fi
