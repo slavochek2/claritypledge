@@ -83,6 +83,10 @@ DONE_RE = re.compile(
 PARTIAL_AFTER_RE = re.compile(r"^\s*(with (part|step|phase|the first)|so far)\b", re.IGNORECASE)
 # Only the closing interrogative CLAUSE: "Done, want me to commit?" keeps "Done".
 TRAILING_QUESTION_RE = re.compile(r"[^.!?,;\n]*\?\s*$")
+LAST_SENTENCE_QUESTION_RE = re.compile(r"[^.!?\n]*\?\s*$")
+INTERROGATIVE_RE = re.compile(
+    r"^\s*(is|are|was|were|did|does|do|can|could|should|shall|will|would|have|has|"
+    r"what|which|how|why|when|where|who)\b", re.IGNORECASE)
 # Searched in the same clause, up to 30 chars before the word ("once this is done").
 NEGATION_RE = re.compile(r"(\bnot\b|n't\b|\bonce\b|\buntil\b|\bif\b|\bbefore\b|\bnothing\b|\bto be\b|\bwhen\b)[^.!?\n]*$", re.IGNORECASE)
 # Explicit, affirmative waivers only — never "do not skip review", never a quoted mention.
@@ -91,9 +95,11 @@ WAIVE_RE = re.compile(
     r"\bno reviews? (needed|required|necessary)\b|\bwithout (a |any |the )?reviews?\b",
     re.IGNORECASE,
 )
-# A waiver with a negation or condition ANYWHERE in its clause is not a waiver
-# ("Do not finish without a review", "Never ship without review").
-WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|\bunless\b|\bwhy\b)[^.!?,;\n]*$", re.IGNORECASE)
+# A waiver with a negation or condition ANYWHERE in its sentence is not a waiver
+# ("Do not, under any circumstances, skip review", "If it is docs-only, skip review").
+# Ambiguous cases ("don't worry, skip review") therefore keep the review: an unneeded
+# review costs less than a missed one (founder ruling 2026-10-16).
+WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|\bunless\b|\bwhy\b)[^.!?\n]*$", re.IGNORECASE)
 # Quoted mentions are never instructions. Single quotes count only as a pair that is not
 # part of a word, so contractions ("don't") are left alone.
 QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|‘[^’]*’|`[^`]*`|(?<![A-Za-z])'[^'\n]+'(?![A-Za-z])")
@@ -225,7 +231,12 @@ def _load_receipts():
 def announces_completion(turn_text):
     """True when the turn claims the work is complete. A closing question ("Want me to
     commit?") is dropped first, so it neither hides a completion nor creates one."""
-    text = TRAILING_QUESTION_RE.sub("", turn_text or "")
+    text = turn_text or ""
+    m = LAST_SENTENCE_QUESTION_RE.search(text)
+    if m and INTERROGATIVE_RE.match(m.group(0)):
+        text = text[:m.start()]
+    else:
+        text = TRAILING_QUESTION_RE.sub("", text)
     for m in DONE_RE.finditer(text):
         if NEGATION_RE.search(text[max(0, m.start() - 30):m.start()]):
             continue
