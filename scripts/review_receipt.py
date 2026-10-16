@@ -185,6 +185,13 @@ def cmd_snapshot(argv):
     if not files:
         print("usage: review_receipt.py snapshot -- FILE...", file=sys.stderr)
         return 2
+    # A path that does not exist is a caller mistake (e.g. a whole file list passed as ONE
+    # argument by an unsplit shell variable), never a "deleted" file to snapshot silently.
+    missing = [p for p in files if not os.path.lexists(p)]
+    if missing:
+        print("review_receipt: REFUSED — no such file: " + ", ".join(missing)
+              + " (pass each path as its own argument)", file=sys.stderr)
+        return 1
     groups = _group(files)
     if not groups:
         print("review_receipt: REFUSED — none of these files is in a git repo", file=sys.stderr)

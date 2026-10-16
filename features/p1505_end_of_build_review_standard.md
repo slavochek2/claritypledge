@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 41
 created_date: '2026-10-16'
@@ -116,7 +116,7 @@ The original Solution (standards file + pointers) failed the falsify review (sec
 - [x] `/finish` carries the roster and the new lenses. `criteria/code.md` holds the lens text, and grep finds it in no other skill file.
 - [x] `dev.md` and `fix.md` stamp the reviewed sha. The optional y/n lines are gone.
 - [x] `REVIEW_GEMINI_MODEL` is in model-defaults.env and in the inventory row, and `model-watch` reports no drift for it
-- [ ] The standard is run on this build itself: Argon + Codex (several files) + Opus (ship tooling), with `<received> of <spawned>` and a receipt written
+- [x] The standard is run on this build itself: Argon + Codex (several files) + Opus (ship tooling), with `<received> of <spawned>` and a receipt written
 
 ## Known limitations (recorded per the 2026-10-14 stopping rule, not fixed)
 
@@ -125,6 +125,7 @@ The original Solution (standards file + pointers) failed the falsify review (sec
 - **After a block, the follow-up stop runs no review gate.** That is the loop guard. A bare "Done." after a block ends the turn, so the gate makes the review the default, not a certainty. The claim gate still runs there, with a per-session budget of 2.
 - **A founder waiver covers every file still unreviewed when it fires,** not only the files edited after it.
 - **Ambiguous waivers keep the review.** A founder message with any negation or condition in the same sentence ("don't worry, skip review") is not treated as a waiver. Say "skip review" plainly to waive.
+- **A statement that opens like a question is dropped.** "Have completed the implementation, want me to commit?" reads as a question, so the turn passes. Agents here write "I've completed…", which still blocks (Codex confirm round).
 - **Negation is heuristic.** "I checked if X and it's done" reads as negated, so the turn passes. An unpaired quote or backtick in the founder's message can hide a waiver.
 - **The evidence mtime check assumes the reviewer writes after the snapshot.** On APFS the timestamps are sub-second, and reviewer runs take minutes.
 

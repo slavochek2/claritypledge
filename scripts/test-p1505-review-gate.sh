@@ -197,6 +197,9 @@ echo "export const b = 6" > "$REPO/src/b.ts"
 T34="$TMP/q5.jsonl"; transcript "$T34" "$(edit_of "$REPO/src/b.ts")" "$(say 'Done, want me to commit?')"
 check "'Done, want me to commit?' still counts as completion" 2 "$(rc run_hook "$T34")"
 
+echo "[snapshot] a path list passed as one argument is refused"
+check "snapshot refuses a non-existent path" 1 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts $REPO/src/b.ts")"
+
 echo "[gate] latency with many edited files"
 T18="$TMP/many.jsonl"; : > "$T18"
 for i in $(seq 1 300); do echo "x$i" > "$REPO/src/f$i.ts"; edit_of "$REPO/src/f$i.ts" >> "$T18"; echo >> "$T18"; done
