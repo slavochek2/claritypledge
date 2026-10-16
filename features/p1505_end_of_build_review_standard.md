@@ -5,7 +5,7 @@ rank: 41
 created_date: '2026-10-16'
 tags: [process, review, skills, reviewers]
 disclosure: public
-severity: medium
+severity: high
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -149,3 +149,22 @@ Over the 30 days after ship, count founder-typed end-of-build review asks with t
 - [P1503](p1503_clarity_chat_v11_whole_vision_prototype.md): RD-9 and the Verification Contract are the source text.
 - [decisions.md](../docs/decisions.md) 2026-10-12 (review freshness), 2026-10-14 (independent reviewers not redundant, stopping rule), 2026-10-05 (findings set aside are told to the founder, proposed).
 - Private ruling 2026-10-16: reviewer choice by stakes, with a low bar for Codex.
+
+## Falsify Review (2026-10-16): the Solution above FAILS, kept as filed for the record
+
+Reports: root cause 1 of 1, Gemini 4 Argon (served model verified) 1 of 1, Codex (gpt-6.1-sol, high) 1 of 1. The creative fan-out phase was not run (it needs 3+ agents); both reviewers proposed alternatives instead.
+
+| Finding | How known |
+|---|---|
+| **The real cause is a missing trigger, not a missing file.** 19-20 of 25 sampled October review asks (76-80%) came after work where no `/dev`, `/fix`, `/goalify` or `/finish` ran. Pointers in those skills cannot fire there. | Root-cause agent; 15 of 15 sessions re-checked by command |
+| P1-P4 each FAIL a replay of the 2026-10-08 shape (fix done in open conversation, then the founder asks "did you review it with codex?"). P5 is worth doing but schedules nothing. | Codex replay; Argon independently |
+| As written the spec removes roughly 15-30 of 145 asks, leaving about 3.3-3.7 per day, which is above its own failure line of 2 | Both reviewers' scenario estimates, **not measured** |
+| The existing Stop hook (`verify-before-stop.py`) lets an unreviewed "done" end the turn; it has no review check | Codex replay; the hook's 11/11 suite re-run |
+| `/dev` 9.5 and the `/fix` QA gate apply fixes, commit, and only then stamp HEAD, so post-review fixes carry a fresh-looking stamp | `dev.md:195-197`, `fix.md:623-625`, read |
+| A `/goalify` pointer would break goalify's own CONTRACT-never-PROCEDURE rule | `goalify/SKILL.md:24-36` |
+| A reviewer model id in a prose file is invisible to `model-watch` (it does not scan `.md`). A new key in `~/.agents/model-defaults.env` is inside its scan roots. | `model-watch` lines 38-46, read |
+| At least 64 of 145 asks name ship, commit, kdd or close in the same message | Regex over kept quotes, a lower bound |
+
+**Severity revised to medium-high** for founder attention (Codex: high; Argon: medium). The direct user risk is not quantified.
+
+Options and the recommendation are pending the founder's decision. Do not build from the Solution section above.
