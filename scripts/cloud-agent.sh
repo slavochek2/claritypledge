@@ -445,7 +445,7 @@ if [ "$USE_CLAUDE" = false ]; then
         # Start new session with Aider + Gemini
         tmux new-session -d -s agent bash -c \"
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-3-pro-preview --message '$TASK' --yes-always 2>&1 | tee /tmp/agent-output.log
+            aider --model gemini/gemini-3.8-flash --message '$TASK' --yes-always 2>&1 | tee /tmp/agent-output.log
             echo ''
             echo '=== TASK COMPLETE ==='
             echo 'Committing work...'
