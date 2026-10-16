@@ -225,6 +225,28 @@ describe('P1509 v12 prototype', () => {
     expect(within(screen.getByTestId('invite')).getByRole('link').getAttribute('href')).toBe('/agreements/new');
   });
 
+  it('review: after the Archived view empties, archiving again stays on the main list', () => {
+    renderV12();
+    fireEvent.contextMenu(within(row('dm-bob-eli')!).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Archive/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Archived chats/ }));
+    fireEvent.contextMenu(within(row('dm-bob-eli')!).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Unarchive/ }));
+    fireEvent.contextMenu(within(row('dm-bob-carol')!).getAllByRole('button')[0]!);
+    fireEvent.click(screen.getByRole('menuitem', { name: /Archive/ }));
+    expect(screen.getByRole('tab', { name: /^All/ })).toBeTruthy();
+    expect(row('dm-bob-eli')).toBeTruthy();
+    expect(row('dm-bob-carol')).toBeNull();
+  });
+
+  it('review: Escape closes the point/story picker', () => {
+    renderV12();
+    openRow('ch-night-oct16');
+    fireEvent.click(within(chatView()).getByRole('button', { name: 'Post a point or story' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Post a point or story' })).toBeNull();
+  });
+
   it('review: Escape closes the side menu', () => {
     renderV12();
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));

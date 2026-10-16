@@ -149,6 +149,14 @@ describe('P1509 v12 delivery', () => {
     expect(a.chatId).toBe('dm-bob-fay');
     expect(dmWith({ ...a.next, viewer: 'dana' }, 'fay')!.chatId).toBe('dm-dana-fay');
   });
+  it('Retry resolves a failed send in place, without moving it below later messages', () => {
+    let st = send(initialState({ fail: true }), 'dm-bob-alice', 'first');
+    const failed = st.msgs.at(-1)!.id;
+    st = incoming(st, 'dm-bob-alice', 'alice', 'later');
+    st = retry(st, failed);
+    const ids = st.msgs.filter((x) => x.chatId === 'dm-bob-alice').map((x) => x.text);
+    expect(ids.slice(-2)).toEqual(['first', 'later']);
+  });
   it('?state=fail: a comment fails too, and Retry fixes it', () => {
     let st = comment(initialState({ fail: true }), 'm9', 'x');
     const c = st.comments.m9!.at(-1)!;

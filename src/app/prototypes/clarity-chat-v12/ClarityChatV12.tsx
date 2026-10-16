@@ -349,6 +349,10 @@ export function ClarityChatV12() {
     setSt(r.next); setQ(''); open(r.chatId);
   };
 
+  /* The Archived view closes itself once nothing is left in it, and stays closed (hook kept above the loading return). */
+  const archivedEmpty = archivedChats(st).length === 0;
+  useEffect(() => { if (showArchived && archivedEmpty) setShowArchived(false); }, [showArchived, archivedEmpty]);
+
   if (mode === 'loading') {
     return (
       <Frame strip={<Strip viewer={st.viewer} onViewer={switchViewer} onReset={() => reset()} />} chatOpen={false} list={<><ListTop onMenu={() => undefined} q="" onQ={() => undefined} /><Skeleton /></>} main={<div className="hidden h-full animate-pulse flex-col gap-3 p-6 lg:flex" data-testid="chat-skeleton"><div className="h-6 w-1/3 rounded bg-gray-200" /><div className="h-16 w-2/3 rounded-2xl bg-gray-100" /><div className="h-16 w-1/2 self-end rounded-2xl bg-gray-100" /></div>} />
@@ -357,9 +361,7 @@ export function ClarityChatV12() {
 
   const tabs = tabsFor(st);
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'all';
-  /* The Archived view closes itself once nothing is left in it, and stays closed. */
   const inArchived = showArchived && archivedChats(st).length > 0;
-  useEffect(() => { if (showArchived && !inArchived) setShowArchived(false); }, [showArchived, inArchived]);
   const rows = inArchived ? archivedChats(st) : chatsInTab(st, activeTab);
   const results = q.trim() ? search(st, q) : null;
   const archivedCount = archivedChats(st).length;
@@ -515,6 +517,12 @@ function ChatView({ st, chat, input, onInput, replyTo, picker, onPicker, onBack,
   const msgs = msgsOf(st, chat.id);
   const quoted = replyTo ? st.msgs.find((x) => x.id === replyTo) : undefined;
   const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!picker) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onPicker(false); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [picker, onPicker]);
   useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }); }, [msgs.length, chat.id]);
   const title = channel
     ? <button type="button" onClick={onMembers} className="flex min-h-11 min-w-0 flex-col items-start text-left" data-testid="channel-header"><span className="truncate text-base font-semibold text-gray-900">#&nbsp;{chatTitle(st, chat)}</span><span className="text-xs text-gray-500">{channelMembers(chat).length} members</span></button>
