@@ -61,7 +61,7 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByText('The impact of a one-off communication workshop fades. A team norm stays.')).toBeInTheDocument();
     for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
-    expect(screen.getByText('Where gaps cost most')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Where gaps cost most' })).toBeInTheDocument();
     for (const c of ['Between departments', 'Across seniority', 'Patients and families']) expect(screen.getByText(c)).toBeInTheDocument();
     for (const c of ['International patients', 'Vendor and investment choices', 'Introducing change']) expect(screen.queryByText(c)).toBeNull();
     for (const s of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(s)).toBeInTheDocument();
@@ -161,6 +161,26 @@ describe('P1506 /hospitals — the exchange', () => {
       act(() => { vi.advanceTimersByTime(5000); });
       expect(visual()).toHaveAttribute('data-phase', '6');
       expect(track.mock.calls.filter((c) => c[0] === 'hospitals_exchange_viewed')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      inViewMock.value = false;
+      reducedMotion.value = true;
+    }
+  });
+
+  it('switching to reduced motion mid-play jumps to the final state', () => {
+    reducedMotion.value = false;
+    inViewMock.value = true;
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderPage();
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '2');
+      reducedMotion.value = true;
+      rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '6');
+      act(() => { vi.advanceTimersByTime(5000); });
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '6');
     } finally {
       vi.useRealTimers();
       inViewMock.value = false;

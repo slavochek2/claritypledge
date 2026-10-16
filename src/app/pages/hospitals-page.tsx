@@ -129,13 +129,13 @@ function NormChart() {
     <figure className="w-full max-w-md mx-auto">
       <svg viewBox="0 0 200 60" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
         <line x1="8" y1="48" x2="196" y2="48" stroke="#e5e7eb" />
-        <line x1="8" y1="4" x2="8" y2="48" stroke="#e5e7eb" />
+        <line x1="9" y1="4" x2="9" y2="48" stroke="#e5e7eb" />
         <path d="M8 46 C30 46 34 12 46 12 C60 12 66 42 110 45 L196 46" fill="none" stroke="#9ca3af" strokeWidth="2.2" />
         <path d="M8 46 C50 44 80 32 110 22 C140 13 170 11 196 10" fill="none" stroke="#2563eb" strokeWidth="2.6" />
         <text x="52" y="9" fontSize="9" fill="#4b5563">One-off workshop</text>
         <text x="196" y="26" textAnchor="end" fontSize="9" fill="#2563eb" fontWeight="700">Team norm</text>
         <text x="196" y="58" textAnchor="end" fontSize="8.5" fill="#6b7280">time &rarr;</text>
-        <text x="6.5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 6.5 47)">in use</text>
+        <text x="5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 5 47)">in use</text>
       </svg>
       <figcaption id="norm-chart-desc" className="sr-only">
         Chart of how much the practice is in use over time: after a one-off workshop, use peaks and then fades back to
@@ -224,7 +224,7 @@ export function HospitalsPage() {
             {/* The brochure's six "where gaps cost most", cut to the three a decision-maker
                 recognises first, folded in here: on their own they were a section with no claim. */}
             <Reveal className="mt-12">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700 mb-5">Where gaps cost most</p>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700 mb-5">Where gaps cost most</h3>
               <TileGrid items={CASES} cols="grid-cols-1 min-[400px]:grid-cols-3" rowsOnNarrow />
             </Reveal>
           </div>

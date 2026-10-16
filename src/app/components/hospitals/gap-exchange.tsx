@@ -131,13 +131,15 @@ export function GapExchange() {
       return;
     }
     if (!inView || played.current) return;
-    played.current = true;
-    // Phase only moves forward, so a cleanup mid-play can't leave the chat half-hidden.
-    const timers = SCHEDULE.map((ms, i) => setTimeout(() => setPhase((p) => Math.max(p, i + 1)), ms));
-    return () => {
-      timers.forEach(clearTimeout);
-      setPhase(FINAL);
-    };
+    // Phase only moves forward; "played" is set only when the last step lands, so an effect
+    // cleanup mid-play (StrictMode, remount) simply lets the next run start over.
+    const timers = SCHEDULE.map((ms, i) =>
+      setTimeout(() => {
+        setPhase((p) => Math.max(p, i + 1));
+        if (i + 1 === FINAL) played.current = true;
+      }, ms),
+    );
+    return () => timers.forEach(clearTimeout);
   }, [inView, reduce]);
 
   const fade = (show: boolean) => ({
