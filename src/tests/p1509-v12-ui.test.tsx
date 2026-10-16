@@ -295,6 +295,22 @@ describe('P1509 v12 prototype', () => {
     expect(msg('にほ')).toBeTruthy();
   });
 
+  it('review: a reply sent in a thread scrolls into view', () => {
+    const spy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = spy;
+    try {
+      renderV12();
+      openRow('ch-night-oct16');
+      act(msg('Bring one disagreement you would like to understand better.'), 'Reply');
+      spy.mockClear();
+    typeAndSend(screen.getByTestId('thread-panel'), 'Reply in thread', 'late reply');
+    expect(spy).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('review: Escape closes the side menu', () => {
     renderV12();
     openMenu();

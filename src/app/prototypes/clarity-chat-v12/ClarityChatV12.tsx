@@ -646,7 +646,10 @@ function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, o
 }) {
   const post = st.msgs.find((x) => x.id === postId);
   const replies = repliesOf(st, postId);
+  const end = useRef<HTMLDivElement>(null);
   useEscape(onClose);
+  /* Like the chat: a new reply (mine or arriving) scrolls into view. */
+  useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }); }, [replies.length, postId]);
   if (!post) return null;
   /* Reply inside a thread answers in the same thread: it focuses the reply field. */
   const focusComposer = () => document.getElementById('v12-thread-input')?.focus();
@@ -656,6 +659,7 @@ function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, o
         <ul aria-label="Post"><MessageRow msg={post} compact={false} onPerson={onPerson} onReply={focusComposer} onForward={() => onForward(post.id)} onRetry={() => onRetry(post.id)} /></ul>
         <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground"><span className="shrink-0">{COPY.replies(replies.length)}</span><span className="h-px flex-1 bg-gray-200" /></div>
         <MessageList label="Replies" msgs={replies} render={(c, compact) => <MessageRow key={c.id} msg={c} compact={compact} onPerson={onPerson} onReply={focusComposer} onForward={() => onForward(c.id)} onRetry={() => onRetry(c.id)} />} />
+        <div ref={end} />
       </div>
       <Composer value={input} onValue={onInput} onSend={onSend} placeholder={COPY.replyInThread} inputId="v12-thread-input" />
     </SidePanel>
