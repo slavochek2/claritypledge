@@ -64,8 +64,8 @@ Recorded so nobody re-asks them. Referenced below as D-n.
 | D10 | Composer: **@** (people and my agent), **📎** (picker over my items, search plus type tabs), emoji, mic (dictation). No "+" menu. No one-tap transcribe. |
 | D11 | Reply (quoted above the composer) on every message and every sent card; Forward on every message and every public card. Forward on a point or story sends the same object, not a copy. The cards' existing share link stays. No separate "Share" button. |
 | D12 | My agent always has a name and its owner is always shown as visible text. Only my mirror agent exists in v11 (no Agents tab). In a shared chat, a message starting with "@<agent>" is never posted there: it opens my agent thread about that chat with the typed text as its first message. |
-| D13 | Preparation lives in **threads inside my chat with my agent**. **Reverses** the 2026-10-12 ruling's "private thread inside the Bob-Alice DM". A thread starts with the quoted source message (author, and which chat or channel), no title; tapping the quote returns there. In the source chat, a chip only I see ("{n} drafts for {name}") opens the thread. |
-| D14 | Clarify is one action on any message. On a message that has a thread, Clarify brings the whole thread **live**: each agent answer says "Read {n} replies"; a draft made earlier shows "{n} new replies since this draft" when replies arrive. |
+| D13 | Preparation lives in **threads inside my chat with my agent**. **Reverses** the 2026-10-12 ruling's "private thread inside the Bob-Alice DM". A thread starts with the quoted source message (author, and which chat or channel), no title; tapping the quote returns there. In the source chat, a badge only I see (Mira's avatar + "{n} drafts") opens the thread. |
+| D14 | Clarify is one action on any message. On a message that has a thread, Clarify brings the whole thread **live**: the thread header shows "💬 {n} replies"; a draft made earlier shows "↻ {n} new replies" when replies arrive. |
 | D15 | Anything meant for a specific person starts with Clarify on one of their messages; the quoted author is the recipient. Free chat with my agent (outside threads) is mirror work; its results are general drafts. |
 | D16 | Suggestion chips above the input, in agent conversations only, by context; a chip **fills the input** and never sends. "Add a story" on a card stays manual. |
 | D17 | Drafts: edit and delete. A draft becomes a real item, with its visibility fixed, at its first use: **Send to {name}** (private to that chat) or **Publish to my profile** (public). The agent never sends or publishes. |
@@ -125,9 +125,9 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 - **📎 picker:** search plus tabs All / Points / Stories / Letters / Drafts. Eligible to attach in this chat: my public
   items, items already in this chat, general drafts, and drafts made for this chat's person. Other items show as
   disabled with the chat they belong to. Choosing a draft runs the same Send step as in its thread.
-- **Bridged chat (mock):** network mark in the header; a banner says whose account bridges it; a strip lens shows
-  Alice's WhatsApp, where Clarity actions appear per the translation table in P1457 (v11 mocks: a shared point,
-  a shared story, a shared letter link; nothing sealed ever); tapping the link opens the Bob-Alice
+- **Bridged chat (mock):** network mark in the header; the header subtext says "via your WhatsApp"; a strip lens shows
+  Alice's WhatsApp, where Clarity actions appear per the translation table in P1457 (v11 mocks every row of the
+  Messages WhatsApp table; nothing sealed ever); tapping the link opens the Bob-Alice
   Clarity chat in Alice's lens (F1).
 - **Event channel (mock):** a table thread with /transcribe lines; the strip has "Add a reply (mock)" to grow it.
 
@@ -137,14 +137,14 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 - A "Threads ({n})" bar at the top of the agent chat lists its threads; each opens with the quoted source and pins
   the item in focus (D20); chips by context: "Suggest points", "Suggest a story", "Suggest a story for this point".
 - The agent proposes the fitting format (point or story) from the material; Bob steers in plain words. No mode picker.
-- **The private guess sharpens the point:** when Bob's guess of Alice's position sits close to his own, the agent says
-  so in the thread and offers to sharpen the point so the two positions would differ most (the most informative
-  point). `[FOUNDER DECISION: the agent's wording]`
+- **The private guess sharpens the point:** when Bob's guess of Alice's position sits close to his own, the chip
+  "≈ Same as yours · Sharpen" appears (no agent narration); tapping it asks Mira to sharpen the point so the two
+  positions would differ most.
 - **Bob's own story, only from his words** (P1484 D13): an agent draft of Bob's story uses only what Bob wrote in the
   source; any sentence the agent inferred is marked and must be kept or deleted by Bob before Send.
 - Draft endings (D17): a draft that carries a guess of a person's position offers only **Send to {name}** (2026-10-12
   ruling: a prediction about a person is private or addressed to that person). **Publish to my profile** exists only
-  for drafts without a guess. Linking a story to a point shows "Story linked to {point}" and the card count updates.
+  for drafts without a guess. Linking a story to a point updates the card's story count (no message).
 
 ### 4. The loop (D18, F1-F4)
 
@@ -155,9 +155,8 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 3. Bob adds his story (required on the main path; a point alone may also be sent): "Add a story" (manual) or the chip
    "Suggest a story".
 4. Bob predicts how well Alice will understand his story (`ComprehensionRatingCard`, P1495 sentence).
-5. Before Send, the preview tells Bob what Alice will see. Draft copy, `[FOUNDER DECISION: copy]`: *"Alice will see
-   your point and your story. After she rates the story, she'll see how well you expected her to understand it. Your
-   guess of her position stays private."*
+5. Before Send, the preview labels each item with the C2 label family (Messages): point "Visible now", story
+   "Visible after their answer", prediction "Visible after their rating", guess "Visible only to you".
 6. Send to Alice → the item arrives in the Bob-Alice Clarity chat as a **reply quoting** the source message.
 7. Alice taps her position (submitted at once, as everywhere; her first position is her blind answer). That opens
    Bob's story; she reads it and rates it with the rating card's Submit.
@@ -167,7 +166,9 @@ agent is Mira. Fictional people: Alice, Bob, plus mock group members. Signed out
 **One exchange per point per person:** a point is sent to a person once; stories added later join that exchange,
 each with its own prediction and seal. A second mention of the point in that chat is a reference (D20).
 
-**Guess line** (above the card, `EyesHeader` + `GuessMenu`, P1495 row 20), **shown to Bob only:**
+**Guess line** (above the card, **the production pattern for showing a person's position above a point**: the
+header line on another person's profile, name followed by `PositionBadge`, `profile-page-v2.tsx` around line 2059;
+the name reads "Alice in Bob's eyes" per the 2026-10-12 ruling; `GuessMenu` only while Bob is choosing), **shown to Bob only:**
 - before Alice answers: "Alice in Bob's eyes · {guess} (your guess)";
 - after: "Alice in Bob's eyes · {guess}" next to "Alice · {her position}".
 Alice never sees Bob's guess in v11; showing her how Bob sees her belongs with "their story" (P1497).
@@ -198,11 +199,11 @@ her Details; his story prediction appears only after her rating.
 | Public | author (new version) | author | ✓ | ✓ | ✓ | ✓ |
 
 **Letters (F6):** a letter link in a chat offers Reply and opens the letter page; nothing else.
-An item edit in a shared chat shows "{author} updated the point" (the author, never the agent; D12).
+An item edit in a shared chat shows "Edited by {author}" on the card (the author, never the agent; D12).
 
 ### 7. Second path: event channel (D14, D24)
 
-Clarify on a table thread's parent message opens an agent thread quoting it plus "Read {n} replies". "Send to" goes
+Clarify on a table thread's parent message opens an agent thread quoting it, with "💬 {n} replies" in its header. "Send to" goes
 to the **quoted author's direct chat**, never into the channel. Clarify from a channel's or thread's ⋮ menu produces
 general drafts only (no recipient, no guess).
 
@@ -229,12 +230,12 @@ Strings decided in the rounds or production. Anything else on the main path need
 | Drawer | "My Profile" · "Explore" · "Settings" · "About" | D6 |
 | Agent chips | "Suggest points" · "Suggest a story" · "Suggest a story for this point" · "Suggest a point" | D16 |
 | Draft actions | "Send to {name}" · "Publish to my profile" · "Edit" · "Delete" | D17 |
-| Draft chip | "{n} drafts for {name}" | D13 |
+| Draft badge | Mira's avatar + "{n} drafts" | D13, Messages |
 | Agent threads bar | "Threads ({n})" | Solution §3 |
 | Guess line | per §4 renderings | D18; 2026-10-12 mental-model ruling |
-| Thread status | "Read {n} replies" · "{n} new replies since this draft" | D14 |
-| Repeat reference | "↗ Point: {statement}" · "↗ Story: {first words}" | D20 |
-| Update lines | "{author} updated the point" · "Story linked to {point}" | D20, D16 |
+| Thread status | "💬 {n} replies" · "↻ {n} new replies" | D14, Messages |
+| Repeat reference | "↗ {statement or first words}" | D20, Messages |
+| Edit mark | "Edited by {author}" (no line for linking) | D20, Messages |
 | Agent identity | "{agent} · {owner}'s mirror agent" | F5, 2026-10-12 ruling |
 | Pre-send labels, sharpen chip, bridged lines, every other message | see Messages | C1-C4 |
 | Mock agent name | "Mira" | F8 |
@@ -244,8 +245,8 @@ Strings decided in the rounds or production. Anything else on the main path need
 ## Messages (shortest set; drafted by a UX writer, critiqued by Gemini 4 Argon, 2026-10-16)
 
 Rules: Mira never narrates what the screen already shows, and speaks only to ask or to warn. Write only what breaks an
-assumption. Privacy is one 🔒 icon (tap: "Only visible to you"), never a sentence, and never inside Bob's own agent
-chat. A repeat is a badge or a mark, never a new line. Choices C1-C4 below default to the recommendation.
+assumption. The 🔒 icon keeps its product meaning only: a **private item**. "Only you see this" states use the existing "Only
+visible to you" mark (eye-off icon, v8 `OnlyYou`), never inside Bob's own agent chat. A repeat is a badge or a mark, never a new line. Choices C1-C4 below default to the recommendation.
 
 | Where | Treatment | Copy or visual |
 |---|---|---|
@@ -257,17 +258,17 @@ chat. A repeat is a badge or a mark, never a new line. Choices C1-C4 below defau
 | Point edited (D20) | subtext on the card | "Edited by {author}" |
 | Story linked to a point | none | the card's story count changes |
 | Same item mentioned again (D20) | compact chip | "↗ {statement or first words}" |
-| Guess line, Bob only (§4) | text, `EyesHeader` (C1) | "🔒 Alice in Bob's eyes · {guess} (your guess)"; after she answers, "Alice · {position}" beside it (§4) |
+| Guess line, Bob only (§4) | the profile header pattern (C1) | "Alice in Bob's eyes" + position badge, marked "(your guess)"; after she answers, "Alice" + her badge beside it (§4) |
 | Inferred sentence in Bob's story (§3) | dashed highlight + keep/delete | first time only: "Mira inferred this · keep or delete" |
 | Agent identity (F5) | chat header and inbox subtext | "Mira · Bob's mirror agent" |
 | Bridged chat | header subtext, no banner | network icon + "via your WhatsApp" |
-| Story sealed for Alice | on the sealed card, every time | "🔒 Answer the point to open Bob's story" |
+| Story sealed for Alice | on the sealed card, every time | "Visible after your answer" (same label family as C2) |
 | Alice changed her position | mark beside it | "↺" (tap: earlier position) |
 | Partner pending (D9) | header status | "Partner invite pending" |
 | 📎 item from another chat | subtext on the disabled row | "🔒 In {name}'s chat" |
 | Draft with a guess | subtext by Send | "Has your guess · Send only" |
 | Story after Alice rated it | Edit disabled in ⋯ | "Rated · can't edit" |
-| Before sending (§4 step 5) | short labels on the preview, every time (C2) | point "Visible now" · story "After she answers" · prediction "After she rates" · guess "🔒 Only you" |
+| Before sending (§4 step 5) | one consistent label per item, every time (C2) | point "Visible now" · story "Visible after their answer" · prediction "Visible after their rating" · guess "Visible only to you" |
 | Bob's story prediction (§4 step 4) | rating card question | production sentence (P1495) |
 
 **WhatsApp (bridged), one Send = at most one message, written as Bob, short readable start plus link (C3):**
@@ -282,10 +283,10 @@ chat. A repeat is a badge or a mark, never a new line. Choices C1-C4 below defau
 | Takes a position on Alice's point | nothing (C4) |
 
 **Founder choices (defaults applied):**
-- C1. Guess line as words ("Alice in Bob's eyes") rather than hollow/filled markers: **words** (2026-10-12 ruling; the
-  missing guess was v10's blocker).
-- C2. Before-sending privacy shown as four short labels every time, rather than a sentence once per person: **labels
-  every time**.
+- C1. Guess line: **reuse the profile header pattern** (name + position badge above the point), named "Alice in
+  Bob's eyes" (founder 2026-10-16: reuse what the app already does; 2026-10-12 ruling for the name).
+- C2. **One label family everywhere:** "Visible now" · "Visible after their answer" · "Visible after their rating" ·
+  "Visible only to you" (founder 2026-10-16: consistent format; no "she"; no lock icon, which means a private item).
 - C3. WhatsApp lines start with 2-4 readable words before the link, rather than a bare link relying on the preview:
   **readable start** (previews often fail; a bare link looks like phishing). Exact wording `[FOUNDER DECISION]`.
 - C4. No WhatsApp line when Bob takes a position on Alice's point: **none**.
@@ -308,10 +309,10 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
       from another chat; Reply quotes the message above the input; Forward of a public point sends the same point
       (a position taken in one chat shows in the other).
 - [ ] 6. **Agent threads.** Clarify opens a thread in my agent chat starting with the quoted message; the quote
-      returns to the source chat; the source chat shows "{n} drafts for {name}" to Bob and not to Alice; nothing
+      returns to the source chat; the source chat shows Mira's avatar + "{n} drafts" to Bob and not to Alice; nothing
       appears in the shared chat until Send; "@<agent> …" typed in the shared chat is not posted there.
-- [ ] 7. **Live thread.** On the event path, "Read {n} replies" rises after "Add a reply (mock)"; an earlier draft shows
-      "{n} new replies since this draft"; "Send to" targets the quoted author's direct chat.
+- [ ] 7. **Live thread.** On the event path, "💬 {n} replies" rises after "Add a reply (mock)"; an earlier draft shows
+      "↻ {n} new replies"; "Send to" targets the quoted author's direct chat.
 - [ ] 8. **Chips.** Only in agent conversations, change with context, fill the input without sending.
 - [ ] 9. **Drafts.** Edit and delete work; a draft with a guess offers "Send to {name}" and no Publish; tapping Send
       is the only way the item reaches Alice.
@@ -320,7 +321,7 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
        appears anywhere in Alice's view; after her position Bob privately sees his guess next to it; after her rating
        both see the story result (the v10 BLOCKED step).
 - [ ] 11. **Repeats.** Sending the same point twice in one chat shows one card plus one reference; an edit updates the
-       one card with "{author} updated the point".
+       one card with "Edited by {author}".
 - [ ] 12. **Details.** Opens from a card and from ⋮ → Clarity Ledger; no card flips anywhere.
 - [ ] 13. **Actions.** Private items offer no Forward; a point another person holds a position on offers no Edit or
        Delete; a story Alice has rated offers Bob no Edit (F4).
@@ -349,8 +350,8 @@ Checked at 375 (and 320) and 1440, fresh session, fictional data, not signed in 
 | Risk | Label | Note |
 |---|---|---|
 | Whole-vision scope overwhelms one build | MITIGATE | Slices on one branch, each verified before the next: frame → inbox and groups → agent threads → loop, seals and Details → bridge and event mocks |
-| Shared state across live threads, versions and seals breaks | MITIGATE | One exchange per point per person; a story's text can no longer be edited once rated (F4); live thread changes never edit a draft, they only show "{n} new replies since this draft" |
-| The bridge leaks sealed or private content | MITIGATE | Notice carries the point statement only; the link opens only for the named recipient; no Clarity items into bridged group chats |
+| Shared state across live threads, versions and seals breaks | MITIGATE | One exchange per point per person; a story's text can no longer be edited once rated (F4); live thread changes never edit a draft, they only show "↻ {n} new replies" |
+| The bridge leaks sealed or private content | MITIGATE | WhatsApp lines carry only what the Messages table lists (point statement at most); the link opens only for the named recipient; no Clarity items into bridged group chats |
 | The agent invents Bob's first-person story | MITIGATE | Only-from-his-words rule (§3) |
 | Reversed rulings go unrecorded | MITIGATE | Recorded below; `/kdd` after the build writes them to decisions.md |
 | Mock bridge suggests a real integration exists | ACCEPT | Strip label; the real bridge is P1457 |
@@ -372,6 +373,10 @@ to that exposure" now covers only the story prediction (the guess stays private,
 - Do NOT let the agent post into a shared chat, publish, or send.
 
 ## Invariants
+
+- **Reuse before inventing** (founder, 2026-10-16): for every element, first check whether the app already solves the
+  same problem somewhere (feed, /stake, profiles, letters, compare) and reuse that component and pattern. New design
+  only for problems that are actually new; each new one is named in the build report.
 
 - My own position is set only with production `PositionButtons`; a guess of another person's position only with
   P1495's `GuessMenu`.
