@@ -330,7 +330,8 @@ function classifyTarget(fromFile, target) {
   // checkout, where `.private/` is ignored and would otherwise read as external).
   // Every other .private/ target (e.g. docs/security-log.md) stays external.
   for (const abs of candidates) {
-    const rel = path.relative(REPO_ROOT, abs).split(path.sep).join('/');
+    // Lower-cased: macOS resolves `.Private/Features/...` to the same folder.
+    const rel = path.relative(REPO_ROOT, abs).split(path.sep).join('/').toLowerCase();
     if (rel === '.private/features' || rel.startsWith('.private/features/')) return 'private-spec';
   }
 

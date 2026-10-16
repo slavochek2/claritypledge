@@ -48,6 +48,13 @@ beforeAll(async () => {
   put(join(WT, 'features', 'p9998_wt.md'), spec('in-progress', "disclosure: ' EMBARGO '\n", 'In flight secret'))
   // public spec only in a worktree must NOT show on main
   put(join(WT, 'features', 'p9997_pub.md'), spec('today', '', 'Public in worktree'))
+  // stale archived status, and stubs
+  put(join(ROOT, '.private', 'features', 'done', 'x', 'p9990_stale.md'), spec('qa', 'disclosure: embargo\n', 'Stale archived'))
+  put(join(ROOT, 'features', 'p9991_security-review-pending.md'), spec('backlog', 'disclosure: embargo\n', 'Stub with real private'))
+  put(join(WT, 'features', 'p9991_real.md'), spec('in-progress', 'disclosure: embargo\n', 'Real private for stub'))
+  put(join(ROOT, 'features', 'p9992_security-review-pending.md'), spec('backlog', '', 'Stub alone'))
+  put(join(ROOT, 'features', 'p9993_ordinary.md'), spec('today', '', 'Ordinary public'))
+  put(join(ROOT, '.private', 'features', 'done', 'x', 'p9993_dup.md'), spec('qa', 'disclosure: embargo\n', 'Private dup'))
   // not embargo
   put(join(WT, 'features', 'p9996_other.md'), spec('today', 'disclosure: public\n', 'Other'))
 
@@ -111,10 +118,35 @@ describe('P1507: private specs on the main board', () => {
     expect(hits[0].title).toBe('Archived secret')
   })
 
+  it('shows anything under .private/features/done/ as all-done, whatever its frontmatter says', async () => {
+    const f = (await main()).find((x) => x.id === 'p9990_stale')
+    expect(f?.private).toBe(true)
+    expect(f?.status).toBe('all-done')
+  })
+
+  it('keeps the frontmatter status for in-flight worktree private specs', async () => {
+    expect((await main()).find((x) => x.id === 'p9998_wt')?.status).toBe('in-progress')
+  })
+
+  it('a private spec replaces the legacy public stub of the same pN', async () => {
+    const ids = (await main()).map((x) => x.id)
+    expect(ids).toContain('p9991_real')
+    expect(ids).not.toContain('p9991_security-review-pending')
+  })
+
+  it('keeps a stub when no private spec exists for its pN', async () => {
+    expect((await main()).map((x) => x.id)).toContain('p9992_security-review-pending')
+  })
+
+  it('ordinary public duplicates still win over a private spec', async () => {
+    const hits = (await main()).filter((x) => x.id.startsWith('p9993'))
+    expect(hits.map((x) => x.id)).toEqual(['p9993_ordinary'])
+  })
+
   it('leaves a worktree board unchanged (own specs only, no private flag)', async () => {
     const res = await fetch(`${BASE}/api/features?refresh=true&worktree=${encodeURIComponent(WT)}`)
     const list = (await res.json()) as F[]
-    expect(list.map((x) => x.id).sort()).toEqual(['p1001_public', 'p1002_public', 'p9996_other', 'p9997_pub', 'p9998_wt', 'p9999_x'])
+    expect(list.map((x) => x.id).sort()).toEqual(['p1001_public', 'p1002_public', 'p9991_real', 'p9996_other', 'p9997_pub', 'p9998_wt', 'p9999_x'])
     expect(list.every((x) => x.private === undefined)).toBe(true)
   })
 
@@ -140,6 +172,19 @@ describe('P1507: private specs on the main board', () => {
       body: JSON.stringify({ path: f.path }),
     })
     expect(res.status).toBe(403)
+  })
+})
+
+describe('P1507: read-only dialog', () => {
+  it('private features are read-only, public ones are not', async () => {
+    const { isReadOnlyFeature } = await import('../../src/lib/readOnly')
+    expect(isReadOnlyFeature({ private: true })).toBe(true)
+    expect(isReadOnlyFeature({})).toBe(false)
+  })
+
+  it('renders the read-only note', async () => {
+    const { ReadOnlyNote } = await import('../../src/components/ReadOnlyNote')
+    expect(renderToStaticMarkup(createElement(ReadOnlyNote))).toContain('Private spec \u2014 read-only here')
   })
 })
 

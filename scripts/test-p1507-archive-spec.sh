@@ -81,7 +81,7 @@ spec_body() {
 branch_split() {
   local d="$1" pn="$2" disc="$3"
   ( cd "$d" && git checkout -q -b "feature/${pn}-x" \
-    && echo code > src.ts && git add src.ts && git commit -qm "fix(${pn}): code" \
+    && echo code > "src-${pn}.ts" && git add "src-${pn}.ts" && git commit -qm "fix(${pn}): code" \
     && spec_body "$pn" "$disc" > "features/${pn}_demo.md" && git add features && git commit -qm "spec(${pn}): add" \
     && mkdir -p features/uat && spec_body "$pn" "$disc" "Stamped." > "features/${pn}_demo.md" \
     && echo uat > "features/uat/${pn}.md" && git add features && git commit -qm "spec(${pn}): stamp + uat" \
@@ -152,7 +152,7 @@ R1="$d"
 # R2 — Half 2 with the proof missing the UAT blob refuses; branch survives.
 snapshot "$R1"; sed -i '' '/uat\/p9101.md$/d' "$(proof p9101)"
 finish "$R1" p9101; rc=$?
-if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
+if [[ $rc -ne 0 ]] && grep -q "missing or different" "$SCRATCH/out.log" && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R2: a blob missing from the off-machine snapshot refuses (exit $rc); branch still exists"
 else
   fail "R2: missing blob (exit $rc)"; show "$SCRATCH/out.log"
@@ -161,7 +161,7 @@ fi
 # R3 — the snapshot holds different bytes: refuse.
 echo tampered >> "$R1/$PDIR/p9101_demo.md"; snapshot "$R1"; git -C "$R1/.private" checkout -q -- .
 finish "$R1" p9101; rc=$?
-if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
+if [[ $rc -ne 0 ]] && grep -q "missing or different" "$SCRATCH/out.log" && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R3: snapshot bytes differ from the branch blob: refused (exit $rc); branch still exists"
 else
   fail "R3: different bytes (exit $rc)"; show "$SCRATCH/out.log"
@@ -170,7 +170,7 @@ fi
 # R4 — the latest snapshot started before the archive: refuse.
 snapshot "$R1" 978307200
 finish "$R1" p9101; rc=$?
-if [[ $rc -ne 0 ]] && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
+if [[ $rc -ne 0 ]] && grep -q "predates the archive" "$SCRATCH/out.log" && git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null; then
   pass "R4: snapshot older than the archive: refused (exit $rc); branch still exists"
 else
   fail "R4: stale snapshot (exit $rc)"; show "$SCRATCH/out.log"
@@ -184,7 +184,7 @@ finish "$R1" p9101; rc=$?
 if [[ $rc -eq 0 && "$(git -C "$R1" rev-parse main)" == "$h0" ]] \
    && ! git -C "$R1" rev-parse --verify -q feature/p9101-x >/dev/null \
    && [[ ! -d "$R1/.claude/worktrees/w9" ]] \
-   && ! git -C "$R1" ls-tree -r --name-only main | grep -q p9101; then
+   && ! git -C "$R1" ls-tree -r --name-only main -- features | grep -q p9101; then
   pass "R5: off-machine proof found: branch + worktree removed, no main commit, nothing of p9101 on main (exit 0)"
 else
   fail "R5: finish (exit $rc)"; show "$SCRATCH/out.log"
@@ -242,26 +242,33 @@ fi
 d="$(mk r9)"; branch_split "$d" p9109 public
 i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
 run "$d" archive-spec p9109 --yes --skip-smoke; rc=$?
-if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0"; then
-  pass "R9: a public spec refuses (exit $rc), nothing written"
+d2="$(mk r9b)"
+( cd "$d2" && git checkout -q -b feature/p9119-x && spec_body p9119 public | sed '/^disclosure:/d' > features/p9119_demo.md \
+  && git add features && git commit -qm "spec(p9119): add" && git checkout -q main ) >/dev/null 2>&1
+run "$d2" archive-spec p9119 --yes --skip-smoke; rc2=$?
+if [[ $rc -ne 0 && $rc2 -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "'disclosure: absent'" "$SCRATCH/out.log"; then
+  pass "R9: a public spec refuses (exit $rc), a spec with no field refuses with 'absent' (exit $rc2), nothing written"
 else
   fail "R9: public spec (exit $rc)"; show "$SCRATCH/out.log"
 fi
 
 # R10 — a pN migration absent from origin/main's prod manifest refuses; so does
 # a spec with no migration and no --yes.
-d="$(shipped r10 p9110)"
+d="$(mk r10)"
+( cd "$d" && mkdir -p supabase && echo '{"prod":{"migrations":[]}}' > supabase/deploy-manifest.json \
+  && git add supabase && git commit -qm manifest ) >/dev/null 2>&1
+branch_split "$d" p9110 embargo
 ( cd "$d" && git checkout -q feature/p9110-x && mkdir -p supabase/migrations \
   && echo 'select 1;' > supabase/migrations/20260101000000_p9110_fix.sql \
-  && git add supabase && git commit -qm "fix(p9110): migration" && git checkout -q main \
-  && echo '{"prod":{"migrations":[]}}' > supabase-manifest.tmp \
-  && mkdir -p supabase && mv supabase-manifest.tmp supabase/deploy-manifest.json \
-  && git add supabase && git commit -qm manifest && git update-ref refs/remotes/origin/main main ) >/dev/null 2>&1
+  && git add supabase && git commit -qm "fix(p9110): migration" && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9110; run "$d" ship p9110 || { echo "FIXTURE: ship p9110 failed" >&2; show "$SCRATCH/out.log"; }
+( cd "$d" && git update-ref refs/remotes/origin/main main ) >/dev/null 2>&1
 i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
-run "$d" archive-spec p9110 --skip-smoke; rc=$?
+run "$d" archive-spec p9110 --skip-smoke; rc=$?; cp "$SCRATCH/out.log" "$SCRATCH/r10.log"
 d2="$(shipped r10b p9120)"; i2="$(git -C "$d2/.private" rev-parse HEAD)"; h2="$(git -C "$d2" rev-parse main)"
 run "$d2" archive-spec p9120 --skip-smoke; rc2=$?
-if [[ $rc -ne 0 && $rc2 -ne 0 ]] && unchanged "$d" "$i0" "$h0" && unchanged "$d2" "$i2" "$h2"; then
+if [[ $rc -ne 0 && $rc2 -ne 0 ]] && unchanged "$d" "$i0" "$h0" && unchanged "$d2" "$i2" "$h2" \
+   && grep -q "absent from origin/main deploy-manifest" "$SCRATCH/r10.log" && grep -q "has no migration" "$SCRATCH/out.log"; then
   pass "R10: migration not on prod refuses (exit $rc); no migration without --yes refuses (exit $rc2)"
 else
   fail "R10: prod gates (exit $rc / $rc2)"; show "$SCRATCH/out.log"
@@ -269,8 +276,8 @@ fi
 
 # R11 — publish-spec no longer exists.
 # Not through run(): the unknown-subcommand help text is not under test for Z.
-rc=0; ( cd "$R1" && bash scripts/git-ops.sh publish-spec p9101 --yes --skip-smoke </dev/null ) >/dev/null 2>&1 || rc=$?
-if [[ $rc -ne 0 ]]; then pass "R11: publish-spec is gone (exit $rc)"; else fail "R11: publish-spec still runs"; fi
+rc=0; ( cd "$R1" && bash scripts/git-ops.sh publish-spec p9101 --yes --skip-smoke </dev/null ) >"$SCRATCH/r11.log" 2>&1 || rc=$?
+if [[ $rc -ne 0 ]] && grep -q "unknown subcommand 'publish-spec'" "$SCRATCH/r11.log"; then pass "R11: publish-spec is gone (exit $rc)"; else fail "R11: publish-spec still runs"; fi
 
 # R12 — the inner repo stores different bytes (a clean filter rewrites them).
 d="$(shipped r12 p9112)"
@@ -294,6 +301,78 @@ if [[ $rc1 -eq 0 && $rc2 -eq 0 ]] && ! git -C "$d" rev-parse --verify -q feature
 else
   fail "R13: finish-pending (half1 $rc1, sweep $rc2)"; show "$SCRATCH/out.log"
 fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# Review findings 2026-10-16 (Codex, Opus, Gemini, criteria) — one case each
+# ════════════════════════════════════════════════════════════════════════════
+
+# R14 — a truncated manifest (no entries) plus a fresh proof must not delete the branch.
+d="$(shipped r14 p9114)"; run "$d" archive-spec p9114 --yes --skip-smoke
+snapshot "$d"; m="$(find "$d/.private/features" -name p9114.manifest)"
+sed -i '' -E '/^[0-9a-f]{40}/d' "$m"
+finish "$d" p9114; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "lists no archived spec" "$SCRATCH/out.log" && git -C "$d" rev-parse --verify -q feature/p9114-x >/dev/null; then
+  pass "R14: an empty manifest refuses (exit $rc); branch kept"
+else fail "R14: empty manifest (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R15 — a commit added to the branch after Half 1 blocks Half 2.
+d="$(shipped r15 p9115)"; run "$d" archive-spec p9115 --yes --skip-smoke
+( cd "$d" && git checkout -q feature/p9115-x && echo late > late.ts && git add late.ts && git commit -qm late && git checkout -q main ) >/dev/null 2>&1
+snapshot "$d"; finish "$d" p9115; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "moved since it was archived" "$SCRATCH/out.log" && git -C "$d" rev-parse --verify -q feature/p9115-x >/dev/null; then
+  pass "R15: branch advanced after the archive refuses (exit $rc); branch kept"
+else fail "R15: advanced branch (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R16 — unshipped code on the branch blocks Half 1 (deleting the branch would lose it).
+d="$(shipped r16 p9116)"
+( cd "$d" && git checkout -q feature/p9116-x && echo late > late.ts && git add late.ts && git commit -qm "fix(p9116): late" && git checkout -q main ) >/dev/null 2>&1
+i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
+run "$d" archive-spec p9116 --yes --skip-smoke; rc=$?
+if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "late.ts" "$SCRATCH/out.log"; then
+  pass "R16: unshipped code on the branch refuses (exit $rc), names the file, nothing written"
+else fail "R16: unshipped code (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R17 — another embargoed file on the branch (ship withholds it by content) blocks Half 1.
+d="$(mk r17)"; branch_split "$d" p9117 embargo
+( cd "$d" && git checkout -q feature/p9117-x && spec_body p9117 embargo > features/p9117-exploit-notes.md \
+  && git add features && git commit -qm "spec(p9117): notes" && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9117; run "$d" ship p9117
+i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
+run "$d" archive-spec p9117 --yes --skip-smoke; rc=$?
+if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "exploit-notes" "$SCRATCH/out.log"; then
+  pass "R17: an extra embargoed file on the branch refuses (exit $rc), nothing written"
+else fail "R17: extra embargoed file (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R18 — a blob-mismatch rollback keeps the founder's unrelated uncommitted .private edits.
+d="$(shipped r18 p9118)"
+( cd "$d/.private" && git config filter.mangle.clean 'sed s/Secret/Public/' && git config filter.mangle.smudge cat \
+  && printf '*.md filter=mangle\n' > .gitattributes && git add .gitattributes && git commit -qm attrs ) >/dev/null 2>&1
+echo "founder's unsaved note" >> "$d/.private/INDEX.md"; i0="$(git -C "$d/.private" rev-parse HEAD)"
+run "$d" archive-spec p9118 --yes --skip-smoke; rc=$?
+if [[ $rc -ne 0 && "$(git -C "$d/.private" rev-parse HEAD)" == "$i0" ]] && grep -q "unsaved note" "$d/.private/INDEX.md" \
+   && [[ -z "$(find "$d/.private/features" -type f 2>/dev/null)" ]]; then
+  pass "R18: rollback removed only its own files; the uncommitted .private edit survived (exit $rc)"
+else fail "R18: rollback scope (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R19 — --finish-pending with one proven and one unproven archive: exit 0, only the proven goes.
+d="$(mk r19)"
+for pn in p9131 p9132; do branch_split "$d" "$pn" embargo; review_stamp "$d" "$pn"
+  run "$d" ship "$pn" || { echo "FIXTURE: ship $pn" >&2; show "$SCRATCH/out.log"; }
+  run "$d" archive-spec "$pn" --yes --skip-smoke || { echo "FIXTURE: archive $pn" >&2; show "$SCRATCH/out.log"; }; done
+snapshot "$d"; rm -f "$(proof p9132)"
+run "$d" archive-spec --finish-pending; rc=$?
+if [[ $rc -eq 0 ]] && ! git -C "$d" rev-parse --verify -q feature/p9131-x >/dev/null \
+   && git -C "$d" rev-parse --verify -q feature/p9132-x >/dev/null && grep -q "1 of 2" "$SCRATCH/out.log"; then
+  pass "R19: sweep finished the proven archive, kept the unproven one, exit 0"
+else fail "R19: mixed sweep (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R20 — no gitleaks: refuse rather than commit unscanned.
+d="$(shipped r20 p9140)"; i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
+rc=0; ( cd "$d" && PATH="/usr/bin:/bin:/usr/sbin:/sbin" bash scripts/git-ops.sh archive-spec p9140 --yes --skip-smoke </dev/null ) >"$SCRATCH/out.log" 2>&1 || rc=$?
+cat "$SCRATCH/out.log" >> "$SCRATCH/all.log"
+if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "gitleaks is not installed" "$SCRATCH/out.log"; then
+  pass "R20: without gitleaks Half 1 refuses (exit $rc), nothing written"
+else fail "R20: no gitleaks (exit $rc)"; show "$SCRATCH/out.log"; fi
 
 # Z — no redirect-parseable tokens in output.
 if bad="$(sed '/^#CP_DIAGNOSTIC_BEGIN$/,/^#CP_DIAGNOSTIC_END$/d' "$SCRATCH/all.log" | grep -nE '[<>|]')"; then

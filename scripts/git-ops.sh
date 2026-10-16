@@ -3625,23 +3625,45 @@ cmd_archive_spec() {
   local branch_spec="${SHIP_EMB_SPECS[0]}"
   local disc; disc="$(ship_spec_disclosure "$branch" "$branch_spec")"
   [[ "$disc" == "embargo" ]] || \
-    die "archive-spec: $pn is 'disclosure: ${disc:-<absent>}', not embargo — a normal 'git-ops.sh ship $pn' closes it"
+    die "archive-spec: $pn is 'disclosure: ${disc:-absent}', not embargo — a normal 'git-ops.sh ship $pn' closes it"
 
   local -a srcs=("$branch_spec")
   ( cd "$REPO_ROOT" && git cat-file -e "${branch}:features/uat/${pn}.md" 2>/dev/null ) && srcs+=("features/uat/${pn}.md")
+  local tip; tip="$( cd "$REPO_ROOT" && git rev-parse "$branch" )"
 
-  # Any OTHER ref that reaches a commit touching these paths would carry the spec
-  # to main if it were ever shipped (decisions.md 2026-09-11 [process], P1302).
-  local _ref _hits=""
-  while IFS= read -r _ref; do
-    [[ -z "$_ref" || "$_ref" == "refs/heads/$branch" ]] && continue
-    if [[ -n "$( cd "$REPO_ROOT" && git rev-list -1 "$_ref" -- "${srcs[@]}" 2>/dev/null )" ]]; then
-      _hits+=" ${_ref#refs/heads/}"
-    fi
-  done < <( cd "$REPO_ROOT" && git for-each-ref --format='%(refname)' refs/heads refs/tags refs/remotes )
-  [[ -z "$_hits" ]] || die "archive-spec: these refs also reach a commit carrying the $pn spec:${_hits} — remove the spec from them first (shipping one would publish it); nothing was written"
+  # Every branch commit with no equivalent on main ('+' in git cherry) is either a
+  # withheld spec commit or work that never shipped. Deleting the branch later would
+  # lose the second kind, and any OTHER embargoed file on the branch, for good
+  # (review 2026-10-16, Opus M5/M6). Refuse unless every unshipped commit touches
+  # only the files this archive keeps.
+  local _c _f _extra="" _withheld=()
+  while IFS= read -r _c; do
+    [[ "$_c" == "+ "* ]] || continue
+    _c="${_c#+ }"; _withheld+=("$_c")
+    while IFS= read -r -d '' _f; do
+      local _keep=0 _s
+      for _s in "${srcs[@]}"; do [[ "$_f" == "$_s" ]] && _keep=1; done
+      (( _keep == 1 )) || _extra+=" ${_c:0:12}:${_f}"
+    done < <( cd "$REPO_ROOT" && git diff-tree -r -z --root --no-commit-id --no-renames --name-only "$_c" 2>/dev/null )
+  done < <( cd "$REPO_ROOT" && git cherry main "$branch" 2>/dev/null )
+  [[ -z "$_extra" ]] || die "archive-spec: $branch has unshipped changes outside the archived spec:${_extra} — ship them, or move them, first (deleting the branch would lose them); nothing was written"
+
+  # Any OTHER ref that contains a withheld commit would carry the spec to main if it
+  # were ever shipped (decisions.md 2026-09-11 [process], P1302). Reachability of the
+  # withheld commits, not path history: a once-public path's history is harmless.
+  local _hits="" _r
+  for _c in ${_withheld[@]+"${_withheld[@]}"}; do
+    while IFS= read -r _r; do
+      [[ -z "$_r" || "$_r" == "refs/heads/$branch" ]] && continue
+      [[ " $_hits " == *" ${_r#refs/heads/} "* ]] || _hits+=" ${_r#refs/heads/}"
+    done < <( cd "$REPO_ROOT" && git for-each-ref --contains "$_c" --format='%(refname)' refs/heads refs/tags refs/remotes 2>/dev/null )
+  done
+  [[ -z "$_hits" ]] || die "archive-spec: these refs also contain a withheld $pn spec commit:${_hits} — remove the spec from them first (shipping one would publish it); nothing was written"
 
   archive_prod_gates "$pn" "$branch" "$assume_yes" "$skip_smoke"
+
+  command -v gitleaks >/dev/null 2>&1 \
+    || die "archive-spec: gitleaks is not installed — the .private repo requires a secret scan before every commit; nothing was written"
 
   local sprint_dir; sprint_dir="$(resolve_ship_sprint_dir)"
   local inner_dir="$sprint_dir"                        # path inside the inner repo
@@ -3651,39 +3673,56 @@ cmd_archive_spec() {
   [[ -z "$(git -C "$P" diff --cached --name-only)" ]] \
     || die "archive-spec: the .private index already has staged changes — commit or unstage them first; nothing was written"
 
-  local -a paths=() lines=()
+  # Plan every destination before writing any, so a refusal leaves nothing behind.
+  local -a paths=() lines=() plan=()
   local s dest blob
   for s in "${srcs[@]}"; do
     if [[ "$s" == features/uat/* ]]; then dest="${inner_dir}/uat/$(basename "$s")"; else dest="${inner_dir}/$(basename "$s")"; fi
     [[ ! -e "$P/$dest" ]] || die "archive-spec: $P/$dest already exists — refusing to overwrite; nothing was written"
+    plan+=("$s	$dest")
+  done
+  [[ ! -e "$P/$mrel" ]] || die "archive-spec: $P/$mrel already exists; nothing was written"
+
+  _archive_undo() {   # remove ONLY what this run wrote; never touch other .private work
+    local f
+    if [[ "$(git -C "$P" rev-parse HEAD 2>/dev/null)" != "$i0" ]]; then
+      if [[ "$(git -C "$P" rev-parse HEAD^ 2>/dev/null)" == "$i0" ]] \
+         && [[ "$(git -C "$P" log -1 --format=%s HEAD)" == "archive $pn spec (P1507)"* ]]; then
+        git -C "$P" reset -q --soft "$i0"
+      else
+        echo "archive-spec: .private HEAD moved under this run — leaving it; inspect 'git -C .private log -3'" >&2
+      fi
+    fi
+    git -C "$P" reset -q -- "${paths[@]}" 2>/dev/null
+    for f in "${paths[@]}"; do rm -f "$P/$f"; done
+  }
+  local _pl
+  for _pl in "${plan[@]}"; do
+    IFS=$'\t' read -r s dest <<<"$_pl"
     blob="$( cd "$REPO_ROOT" && git rev-parse "${branch}:${s}" )"
     mkdir -p "$P/$(dirname "$dest")"
-    ( cd "$REPO_ROOT" && git show "${branch}:${s}" ) > "$P/$dest" || die "archive-spec: could not extract $s from $branch"
-    paths+=("$dest"); lines+=("$blob	$s	$dest")
+    paths+=("$dest")
+    ( cd "$REPO_ROOT" && git show "${branch}:${s}" ) > "$P/$dest" || { _archive_undo; die "archive-spec: could not extract $s from $branch"; }
+    lines+=("$blob	$s	$dest")
   done
   {
     echo "# archive-spec manifest (P1507). blob<TAB>source<TAB>destination, paths relative to the repo / .private."
     echo "branch=$branch"
+    echo "branch_tip=$tip"
     echo "archived_at=$(date -u +%s)"
     printf '%s\n' "${lines[@]}"
   } > "$P/$mrel"
   paths+=("$mrel")
 
-  _archive_undo() {
-    local f; for f in "${paths[@]}"; do ( cd "$P" && git rm -q --cached --ignore-unmatch -- "$f" ) >/dev/null 2>&1; rm -f "$P/$f"; done
-    git -C "$P" reset -q --soft "$i0" 2>/dev/null; git -C "$P" reset -q -- "${paths[@]}" 2>/dev/null
-  }
-  ( cd "$P" && git add -- "${paths[@]}" ) || { _archive_undo; die "archive-spec: git add in .private failed"; }
-  if command -v gitleaks >/dev/null 2>&1; then
-    ( cd "$P" && gitleaks protect --staged --no-banner ) >/dev/null 2>&1 \
-      || { _archive_undo; die "archive-spec: gitleaks found a secret in the archived files — nothing was committed"; }
-  else
-    echo "archive-spec: WARNING — gitleaks not installed; secret scan skipped" >&2
-  fi
+  # No line-ending conversion: the committed blob must be the branch blob byte for byte.
+  local -a G=(git -C "$P" -c core.autocrlf=false -c core.safecrlf=false)
+  "${G[@]}" add -- "${paths[@]}" || { _archive_undo; die "archive-spec: git add in .private failed"; }
+  ( cd "$P" && gitleaks protect --staged --no-banner ) >/dev/null 2>&1 \
+    || { _archive_undo; die "archive-spec: gitleaks found a secret in the archived files — nothing was committed"; }
   local staged; staged="$(git -C "$P" diff --cached --name-only | sort)"
   [[ "$staged" == "$(printf '%s\n' "${paths[@]}" | sort)" ]] \
     || { _archive_undo; die "archive-spec: the .private index holds other paths than the archive — nothing was committed"; }
-  git -C "$P" commit -q -m "archive $pn spec (P1507): withheld from the public repo for good" >/dev/null 2>&1 \
+  "${G[@]}" commit -q -m "archive $pn spec (P1507): withheld from the public repo for good" >/dev/null 2>&1 \
     || { _archive_undo; die "archive-spec: commit in .private failed"; }
 
   # Equal blob ids mean identical bytes: git blob ids depend on content only.
@@ -3693,9 +3732,8 @@ cmd_archive_spec() {
     [[ "$(git -C "$P" rev-parse "HEAD:$d" 2>/dev/null)" == "$b" ]] || { echo "archive-spec: blob mismatch for $d" >&2; bad=1; }
   done
   if (( bad == 1 )); then
-    git -C "$P" reset -q --hard "$i0" 2>/dev/null
-    for d in "${paths[@]}"; do rm -f "$P/$d"; done
-    die "archive-spec: the committed blob differs from the branch blob (a filter or hook in .private rewrote it) — inner commit rolled back"
+    _archive_undo
+    die "archive-spec: the committed blob differs from the branch blob (a filter or hook in .private rewrote it) — inner commit rolled back, other .private work untouched"
   fi
   echo "archive-spec: $pn archived in .private at $inner_dir ($(git -C "$P" rev-parse --short HEAD))" >&2
   echo "archive-spec: branch $branch kept until the nightly backup holds these files; 'archive-spec --finish-pending' then removes it" >&2
@@ -3722,12 +3760,21 @@ archive_offsite_check() {
   local st; st="$(sed -n 's/^snapshot_time=//p' "$proof" | sed -n '1p')"
   [[ "$st" =~ ^[0-9]+$ ]] || { echo "archive-spec: proof for $pn has no snapshot_time" >&2; return 1; }
   (( st > at )) || { echo "archive-spec: the proving snapshot predates the archive — waiting for the next nightly backup" >&2; return 1; }
-  local b src d
-  while IFS=$'\t' read -r b src d; do
-    [[ "$b" =~ ^[0-9a-f]{40}$ ]] || continue
+  # Every non-header line must be a well-formed entry, and there must be at least
+  # one, including the spec itself: a truncated manifest proves nothing (review
+  # 2026-10-16: an empty manifest let --finish delete the branch).
+  local b src d line n=0 has_spec=0
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == "#"* || "$line" =~ ^(branch|branch_tip|archived_at)= ]] && continue
+    IFS=$'\t' read -r b src d <<<"$line"
+    if [[ ! "$b" =~ ^[0-9a-f]{40}$ || -z "$src" || -z "$d" || "$line" != "$b"$'\t'"$src"$'\t'"$d" ]]; then
+      echo "archive-spec: manifest $mrel has a malformed entry — refusing" >&2; return 1
+    fi
     grep -qxF "${b}"$'\t'"${d}" "$proof" \
       || { echo "archive-spec: off-machine copy of $d missing or different" >&2; return 1; }
+    n=$((n + 1)); [[ "$src" == features/uat/* ]] || has_spec=1
   done < "$P/$mrel"
+  (( n > 0 && has_spec == 1 )) || { echo "archive-spec: manifest $mrel lists no archived spec — refusing" >&2; return 1; }
   return 0
 }
 
@@ -3739,6 +3786,14 @@ archive_finish() {
   [[ -n "$branch" ]] || die "archive-spec: manifest $mrel names no branch"
   archive_offsite_check "$mrel" \
     || die "archive-spec: off-machine copy of $pn not proven — branch $branch kept"
+  # The branch must still be exactly what was archived: a commit added after Half 1
+  # is in no archive and no snapshot (review 2026-10-16, Codex 4).
+  local want_tip; want_tip="$(sed -n 's/^branch_tip=//p' "$REPO_ROOT/.private/$mrel")"
+  if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
+    [[ "$want_tip" =~ ^[0-9a-f]{40}$ ]] || die "archive-spec: manifest $mrel records no branch_tip — branch $branch kept"
+    [[ "$( cd "$REPO_ROOT" && git rev-parse "$branch" )" == "$want_tip" ]] \
+      || die "archive-spec: $branch moved since it was archived — its new commits are in no archive; ship or archive them first. Branch kept"
+  fi
 
   # Legacy stub (pre-P1507 specs only): delete it in a one-path commit with a fixed subject.
   local stub="features/${pn}_security-review-pending.md"

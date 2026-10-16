@@ -46,4 +46,11 @@ if [[ $rc -ne 0 ]] && grep -q "p1_s.md" "$T/out" && ! grep -q "security-log.md" 
   pass "L3: staged mode fails the private-spec link and not the security-log link (exit $rc)"
 else fail "L3: staged mixed (exit $rc)"; sed 's/^/    /' "$T/out" >&2; fi
 
+# L4 — a case variant (macOS resolves it to the same folder) is still refused.
+r="$(mk l4)"; printf '[s](../.Private/Features/done/2026-01-01/p1_s.md)\n' > "$r/docs/a.md"
+( cd "$r" && git add docs && git commit -qm a ) >/dev/null 2>&1
+runv "$r" --embargo-only; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "private archived spec" "$T/out"; then pass "L4: a case-variant link into .Private/Features fails (exit $rc)"
+else fail "L4: case variant (exit $rc)"; sed 's/^/    /' "$T/out" >&2; fi
+
 (( FAIL == 0 )) && echo "RESULT: all passed" || { echo "RESULT: $FAIL failure(s)"; exit 1; }

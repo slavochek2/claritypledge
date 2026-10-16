@@ -306,10 +306,18 @@ function pNumberOf(id: string): string | null {
 // The main board also shows them, tagged private: (a) archived copies under
 // <root>/.private/features/, (b) in-flight copies in live worktrees. Read-only here.
 async function getPrivateFeatures(publicFeatures: Feature[]): Promise<Feature[]> {
+  // Legacy public stubs (pN_security-review-pending.md) stand in for a spec that is
+  // really private; the real private card replaces them. Ordinary public cards win.
+  const isStub = (id: string) => /^p\d+_security-review-pending$/i.test(id)
+  const stubs = new Set<string>()
   const seen = new Set<string>()
   for (const f of publicFeatures) {
-    seen.add(f.id)
     const n = pNumberOf(f.id)
+    if (isStub(f.id) && n) {
+      stubs.add(f.id)
+      continue
+    }
+    seen.add(f.id)
     if (n) seen.add(n)
   }
   const out: Feature[] = []
@@ -321,13 +329,19 @@ async function getPrivateFeatures(publicFeatures: Feature[]): Promise<Feature[]>
     out.push(f)
   }
 
-  // (a) .private archive wins over a worktree copy of the same pN
-  for (const file of await collectFeatureFiles(join(DEFAULT_PROJECT_ROOT, '.private', 'features'))) {
+  // (a) .private archive wins over a worktree copy of the same pN. The archive keeps
+  // the branch blob byte for byte, so its frontmatter status is stale: anything under
+  // done/ is finished by definition. The file itself is left untouched.
+  const archiveRoot = join(DEFAULT_PROJECT_ROOT, '.private', 'features')
+  const doneRoot = join(archiveRoot, 'done') + sep
+  for (const file of await collectFeatureFiles(archiveRoot)) {
     const f = await parseFeatureFile(file, true)
-    if (f) accept(f)
+    if (!f) continue
+    if (file.startsWith(doneRoot)) f.status = 'all-done'
+    accept(f)
   }
 
-  // (b) embargoed specs in live worktrees
+  // (b) embargoed specs in live worktrees keep their frontmatter status
   if (!WORKTREES_DISABLED) {
     for (const wt of getWorktrees()) {
       if (wt.path === DEFAULT_PROJECT_ROOT) continue
@@ -341,6 +355,18 @@ async function getPrivateFeatures(publicFeatures: Feature[]): Promise<Feature[]>
         const f = await parseFeatureFile(file, true)
         if (f) accept(f)
       }
+    }
+  }
+
+  // A stub is dropped from the board only when its real private spec is present.
+  const replaced = new Set<string>()
+  for (const f of out) {
+    const n = pNumberOf(f.id)
+    for (const stubId of stubs) if (pNumberOf(stubId) === n) replaced.add(stubId)
+  }
+  if (replaced.size) {
+    for (let i = publicFeatures.length - 1; i >= 0; i--) {
+      if (replaced.has(publicFeatures[i].id)) publicFeatures.splice(i, 1)
     }
   }
   return out

@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm'
 import { Feature, Status, FeatureType, Size, DeliveryStage } from '../lib/types'
 import { readPref, STORAGE_KEYS } from '../lib/kanbanStorage'
 import { PrivateTag } from './PrivateTag'
+import { ReadOnlyNote } from './ReadOnlyNote'
+import { isReadOnlyFeature } from '../lib/readOnly'
 import vscodeIcon from '../assets/vscode.svg'
 
 interface CardDialogProps {
@@ -466,6 +468,8 @@ export function CardDialog({
   }
 
   const isArticle = /^a\d/.test(feature.id)
+  // P1507: private specs are read-only here (API returns 403 for any write)
+  const readOnly = isReadOnlyFeature(feature)
 
   // Editable property definitions
   const editableProperties: { key: EditingField; options?: (string | null)[] }[] = [
@@ -534,6 +538,7 @@ export function CardDialog({
         >
           {/* Open in VS Code button */}
           <button
+            disabled={readOnly}
             onClick={(e) => {
               e.stopPropagation()
               fetch('/api/open', {
@@ -542,9 +547,9 @@ export function CardDialog({
                 body: JSON.stringify({ path: feature.path }),
               })
             }}
-            title="Open in VS Code"
+            title={readOnly ? 'Not available for private specs' : 'Open in VS Code'}
             className="kb-icon"
-            style={{ fontSize: 14 }}
+            style={{ fontSize: 14, ...(readOnly ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}
           >
             <img
               src={vscodeIcon}
@@ -593,6 +598,8 @@ export function CardDialog({
             </div>
           )}
 
+          {readOnly && <ReadOnlyNote />}
+
           {/* Editable Properties */}
           <div
             style={{
@@ -610,14 +617,15 @@ export function CardDialog({
                 <div
                   key={key}
                   role="button"
-                  tabIndex={0}
+                  tabIndex={readOnly ? -1 : 0}
+                  aria-disabled={readOnly || undefined}
                   style={{
                     ...propertyRowStyle,
                     position: 'relative',
                     background: isEditing ? 'var(--bg-hover)' : undefined,
                   }}
                   onClick={() => {
-                    if (!isEditing) {
+                    if (!isEditing && !readOnly) {
                       setEditingField(key)
                       if (key === 'rank') {
                         setTextInputValue(value !== undefined ? String(value) : '')
@@ -625,7 +633,7 @@ export function CardDialog({
                     }
                   }}
                   onKeyDown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
+                    if ((e.key === 'Enter' || e.key === ' ') && !isEditing && !readOnly) {
                       setEditingField(key)
                       if (key === 'rank') {
                         setTextInputValue(value !== undefined ? String(value) : '')
@@ -633,7 +641,7 @@ export function CardDialog({
                     }
                   }}
                   onMouseEnter={(e) => {
-                    if (!isEditing) e.currentTarget.style.background = 'var(--bg-hover)'
+                    if (!isEditing && !readOnly) e.currentTarget.style.background = 'var(--bg-hover)'
                   }}
                   onMouseLeave={(e) => {
                     if (!isEditing) e.currentTarget.style.background = 'transparent'
