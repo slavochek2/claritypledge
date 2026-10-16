@@ -72,14 +72,14 @@ CTA (founder decision 2026-10-16): "Book a 15-min discovery call" → /intro, pe
 
 ## Acceptance Criteria
 
-- [ ] Visiting /hospitals shows the page with the site's top menu and footer, signed in or not; /hospital redirects there.
-- [ ] All 8 sections are present with the brochure's English copy; any wording change is listed in build notes.
-- [ ] The exchange: real buttons usable by Tab and Enter/Space; each step announced via aria-live; step 1 visible before any tap; both choices show an outcome; Replay works; with prefers-reduced-motion, steps change without animation; if JS fails, the full sequence renders as a static list.
-- [ ] Each statistic has an inline citation linking to its primary source, and a Sources list is on the page.
-- [ ] Page HTML carries `robots: noindex, nofollow`; no sitemap entry; no nav item links to /hospitals; link preview (OG title, description, image) is hospital-specific.
+- [x] Visiting /hospitals shows the page with the site's top menu and footer, signed in or not; /hospital redirects there.
+- [x] All 8 sections are present with the brochure's English copy; any wording change is listed in build notes.
+- [x] The exchange: real buttons usable by Tab and Enter/Space; each step announced via aria-live; step 1 visible before any tap; both choices show an outcome; Replay works; with prefers-reduced-motion, steps change without animation; if JS fails, the full sequence renders as a static list.
+- [x] Each statistic has an inline citation linking to its primary source, and a Sources list is on the page.
+- [x] Page HTML carries `robots: noindex, nofollow`; no sitemap entry; no nav item links to /hospitals; link preview (OG title, description, image) is hospital-specific.
 - [ ] Exactly one primary CTA; contact email is a plain link.
-- [ ] Analytics: `landing_page_viewed` with `variant: "hospitals"` on load, `hospitals_exchange_step` per step, `hospitals_cta_clicked` on the CTA (verified in Mixpanel after deploy; pre-deploy, verified by unit test). `[post-deploy]` confirm events in Mixpanel.
-- [ ] Screenshots at 320px, 375px and desktop, including each exchange step and the chart; no overflow; touch targets ≥40px; the chart has a text alternative; reviewed by a separate QA subagent.
+- [x] Analytics: `landing_page_viewed` with `variant: "hospitals"` on load, `hospitals_exchange_step` per step, `hospitals_cta_clicked` on the CTA (verified in Mixpanel after deploy; pre-deploy, verified by unit test). `[post-deploy]` confirm events in Mixpanel.
+- [x] Screenshots at 320px, 375px and desktop, including each exchange step and the chart; no overflow; touch targets ≥40px; the chart has a text alternative; reviewed by a separate QA subagent.
 
 ## Related
 
@@ -92,6 +92,9 @@ Copy source: brochure English dict (founder's private archive). Wording changes 
 - Stat card: the brochure's footnote is split into an inline citation link "CRICO Strategies (2015), *Malpractice Risks in Communication Failures*" under the stat; wording of the stat sentence unchanged.
 - Sources list adds the full institute name: "HA Thailand (Healthcare Accreditation Institute)".
 - Exchange UI chrome not in the brochure: "Next", "Try the other choice", "Replay".
+- `/hospitals` also sends `X-Robots-Tag: noindex, nofollow` (vercel.json): the static `index.html` declares `index, follow`, which a crawler that skips JS would otherwise see.
+- Exchange a11y: focus moves to the next control after each step (the activated one unmounts); the live region is silent on load and is cleared-then-set so a repeated message is re-read. Known limitation, untested in a real screen reader: on reaching step 3, focus lands on "Move on" and its label may be spoken before the queued step-3 announcement.
+- Analytics AC: verified by unit test pre-deploy; Mixpanel confirmation stays a post-deploy step.
 - Chart axis label "in use" placed bottom-left (brochure had it unused).
 
 Deviations:
