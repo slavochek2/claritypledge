@@ -36,6 +36,7 @@ git diff --cached --name-only           # Staged changes
 git diff main...HEAD --name-only        # All branch changes vs main
 git branch --show-current               # Current branch
 git log main..HEAD --oneline            # Branch commits
+git ls-files --others --exclude-standard # New, untracked files (no diff shows them)
 ```
 
 Union all file lists into `CHANGED_FILES`. **If files were passed as arguments, `CHANGED_FILES` is

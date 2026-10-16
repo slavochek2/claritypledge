@@ -81,7 +81,8 @@ DONE_RE = re.compile(
 # A completion word right after one of these is not a completion claim.
 # A completion word followed by one of these describes partial progress, not completion.
 PARTIAL_AFTER_RE = re.compile(r"^\s*(with (part|step|phase|the first)|so far)\b", re.IGNORECASE)
-TRAILING_QUESTION_RE = re.compile(r"[^.!?\n]*\?\s*$")
+# Only the closing interrogative CLAUSE: "Done, want me to commit?" keeps "Done".
+TRAILING_QUESTION_RE = re.compile(r"[^.!?,;\n]*\?\s*$")
 # Searched in the same clause, up to 30 chars before the word ("once this is done").
 NEGATION_RE = re.compile(r"(\bnot\b|n't\b|\bonce\b|\buntil\b|\bif\b|\bbefore\b|\bnothing\b|\bto be\b|\bwhen\b)[^.!?\n]*$", re.IGNORECASE)
 # Explicit, affirmative waivers only — never "do not skip review", never a quoted mention.
@@ -92,8 +93,10 @@ WAIVE_RE = re.compile(
 )
 # A waiver with a negation or condition ANYWHERE in its clause is not a waiver
 # ("Do not finish without a review", "Never ship without review").
-WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|\bunless\b|\bwhy\b)[^.!?\n]*$", re.IGNORECASE)
-QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|`[^`]*`")
+WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|\bunless\b|\bwhy\b)[^.!?,;\n]*$", re.IGNORECASE)
+# Quoted mentions are never instructions. Single quotes count only as a pair that is not
+# part of a word, so contractions ("don't") are left alone.
+QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|‘[^’]*’|`[^`]*`|(?<![A-Za-z])'[^'\n]+'(?![A-Za-z])")
 REVIEW_TIME_BUDGET_S = 6.0   # hook timeout is 20s; leave room for gates 1-2 and their output
 REVIEW_MAX_FILES = 300
 
@@ -236,7 +239,7 @@ def is_founder_message(entry):
     """A message the founder typed. Skill bodies (isMeta), task notifications, system
     reminders and tool results are user-TYPE entries too, and must never count as the
     founder's words (P1505 review round 2: /finish's own text read as a waiver)."""
-    if entry.get("type") != "user" or entry.get("isMeta"):
+    if entry.get("type") != "user" or entry.get("isMeta") or entry.get("isCompactSummary"):
         return False
     origin = entry.get("origin")
     if isinstance(origin, dict) and origin.get("kind") and origin.get("kind") != "human":
@@ -244,7 +247,13 @@ def is_founder_message(entry):
     text = extract_text(get_message_content(entry)).strip()
     if not text:
         return False
-    return not text.startswith(("<task-notification", "<system-reminder", "Base directory for this skill"))
+    # Entries with no `origin` (older CLIs, peer messages) are judged by their opening text.
+    return not text.startswith((
+        "<task-notification", "<system-reminder", "Base directory for this skill",
+        "Another Claude session", "<teammate-message", "<local-command-stdout", "<command-name",
+        "<command-message", "<bash-stdout", "<bash-input", "[Request interrupted",
+        "This session is being continued from a previous conversation",
+    ))
 
 
 def founder_waived(text):
