@@ -300,7 +300,7 @@ else echo "CHECK cp.gemini-batch ok the batch key matches its digest and answers
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
 # (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal.
-#  Below also emits EST_PER_DAY — a resource-based €/day estimate, NOT billed actuals. Billed €: weekly /gcp-spend.)
+#  Billed €: the dispatcher's GCP BUDGETS block and weekly /gcp-spend.)
 GCP_PROJECT="gen-lang-client-0869694595"
 # Every `gcloud ... list` is graded on its own exit code (P1399 review): an empty listing piped into a
 # loop or a parser read exactly like "no leaks" when the listing itself had failed. TRIP_FAILED
@@ -341,38 +341,6 @@ for REGION in us-east4 us-central1; do
 done
 } > "$TRIPWIRE_OUT" 2>&1
 cat "$TRIPWIRE_OUT"
-# €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
-# Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
-# between runs won't show here (only BigQuery billing history would) — that's what the tripwire above is for.
-# Window comes from $SINCE, which the dispatcher owns — this sub-day never reads the
-# marker file itself (pp p48). If both halves computed their own window, a half that
-# failed would still let the other advance it, and the two would silently disagree.
-NOW_EPOCH=$(date +%s)
-if [ -n "${SINCE:-}" ]; then
-  LR_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$SINCE" +%s 2>/dev/null || date -d "$SINCE" +%s 2>/dev/null)
-  DAYS_ELAPSED=$(python3 -c "print(max(0.04,($NOW_EPOCH-${LR_EPOCH:-$NOW_EPOCH})/86400))")
-else
-  DAYS_ELAPSED=1
-fi
-export DAYS_ELAPSED
-INSTANCES="$(gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null)"; LIST_RC=$?
-if [ "$LIST_RC" -ne 0 ]; then
-  TRIP_FAILED="$TRIP_FAILED compute-instances"
-  echo "EST_PER_DAY: not computed — the instance listing failed (exit $LIST_RC)"
-else
-  printf '%s\n' "$INSTANCES" | python3 -c '
-import sys, os
-HR={"e2-micro":0.0084,"e2-small":0.0168,"e2-medium":0.0335,"e2-standard-2":0.0670,"e2-standard-4":0.1340,"e2-standard-8":0.2681,"n1-standard-1":0.0475}
-usd_day=0.16  # disk+storage baseline/day (from /gcp-spend inventory)
-for line in sys.stdin:
-    p=line.split()
-    if len(p)>=3 and p[2]=="RUNNING":
-        usd_day+=HR.get(p[1],0)*24
-days=float(os.environ.get("DAYS_ELAPSED","1"))
-eur_day=usd_day*0.92  # rough USD->EUR; estimate only
-print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
-'
-fi
 TRIP_N="$(grep -cE '^(GPU_WARM|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
 # A billed-hours query that did not run is unchecked, never clean (scripts/gpu-warm-check.py).
 grep -q '^GPU_CHECK_FAILED:' "$TRIPWIRE_OUT" && TRIP_FAILED="$TRIP_FAILED gpu-hours"
