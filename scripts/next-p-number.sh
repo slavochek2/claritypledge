@@ -114,6 +114,25 @@ if [[ -n "$lock_highest" ]] && [[ -z "$highest" || "$lock_highest" -gt "$highest
   highest="$lock_highest"
 fi
 
+# P1507: a sensitive spec has no public placeholder. While in flight its number is
+# held by its BRANCH (feature/pN-*, fix/pN-*: a slot lock can be released and a
+# worktree dir removed before the spec is archived); once archived, by its copy in
+# the MAIN checkout's .private/features/. Resolve the main checkout through the
+# common git dir so a run from a worktree (which has no .private) still sees it.
+# Local-only reads: this script never publishes what it scans.
+MAIN_ROOT="$REPO_ROOT"
+_common="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+[[ -n "$_common" && "$(basename "$_common")" == ".git" ]] && MAIN_ROOT="$(dirname "$_common")"
+private_highest=$(find "$MAIN_ROOT/.private/features" -name "[pP]*.md" 2>/dev/null \
+  | grep -v "/uat/" | grep -v "_uat\.md" \
+  | grep -oiE '/p[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
+branch_highest=$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' \
+    'refs/heads/feature/' 'refs/heads/fix/' 2>/dev/null \
+  | sed -nE 's#^(feature|fix)/[pP]([0-9]{1,7})([-_].*)?$#\2#p' | sort -n | tail -1)
+for _h in "$private_highest" "$branch_highest"; do
+  if [[ -n "$_h" ]] && [[ -z "$highest" || "$_h" -gt "$highest" ]]; then highest="$_h"; fi
+done
+
 if [ -z "$highest" ]; then
   echo 1
 else

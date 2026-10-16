@@ -292,7 +292,7 @@ function isEmbargoedSpec(rel, abs) {
 }
 
 /**
- * Classify a link target: 'live' | 'dead' | 'external'.
+ * Classify a link target: 'live' | 'dead' | 'external' | 'embargoed' | 'private-spec'.
  *
  * Existence on disk is NOT sufficient (adversarial review, 2026-08-16). The gate
  * ran against the author's working tree, so a target that exists locally but was
@@ -323,6 +323,16 @@ function classifyTarget(fromFile, target) {
     path.resolve(path.dirname(fromFile), fsPath),
     path.resolve(REPO_ROOT, fsPath.replace(/^\/+/, ''))
   ];
+
+  // P1507: a sensitive spec ends its life in .private/features/, never published.
+  // A public link to it names it and its location; refuse it whether or not the
+  // file exists here (it never exists in CI or in a worktree, and does on the main
+  // checkout, where `.private/` is ignored and would otherwise read as external).
+  // Every other .private/ target (e.g. docs/security-log.md) stays external.
+  for (const abs of candidates) {
+    const rel = path.relative(REPO_ROOT, abs).split(path.sep).join('/');
+    if (rel === '.private/features' || rel.startsWith('.private/features/')) return 'private-spec';
+  }
 
   for (const abs of candidates) {
     if (!fs.existsSync(abs)) continue;
@@ -360,7 +370,7 @@ function classifyTarget(fromFile, target) {
 /** Back-compat boolean wrapper: external counts as resolved (not our problem). */
 function targetResolves(fromFile, target) {
   const outcome = classifyTarget(fromFile, target);
-  return outcome !== 'dead' && outcome !== 'embargoed';
+  return outcome !== 'dead' && outcome !== 'embargoed' && outcome !== 'private-spec';
 }
 
 /**
@@ -502,8 +512,10 @@ function printDead(dead, limit) {
       // file that is sitting right there.
       const note =
         e.why === 'embargoed'
-          ? `  ${YELLOW}← linked spec is under disclosure embargo (P1255); do not publish this link until the spec is promoted${NC}`
-          : '';
+          ? `  ${YELLOW}← linked spec is under disclosure embargo (P1255); it is never published, so never link it${NC}`
+          : e.why === 'private-spec'
+            ? `  ${YELLOW}← links a private archived spec (P1507); public docs never name one${NC}`
+            : '';
       console.log(`    line ${e.line}: ${e.target}${note}`);
     }
   }
@@ -557,7 +569,7 @@ function main() {
   }
 
   if (EMBARGO_ONLY) {
-    dead = dead.filter(d => d.why === 'embargoed');
+    dead = dead.filter(d => d.why === 'embargoed' || d.why === 'private-spec');
     console.log(`Scope: ${scopeLabel}`);
     console.log(`Mode: embargo-only (dead links are NOT gated here)`);
     if (dead.length === 0) {
@@ -567,10 +579,9 @@ function main() {
     console.log(`${RED}✗ Links to embargoed spec(s): ${dead.length}${NC}\n`);
     printDead(dead, 50);
     console.log('');
-    console.log(`${RED}✗ A doc links to a spec under disclosure embargo (P1255).${NC}`);
-    console.log(`${YELLOW}  The spec is withheld from main until its defect is confirmed fixed`);
-    console.log(`  on prod. Remove the link, or publish the spec first:`);
-    console.log(`      ./scripts/git-ops.sh publish-spec pNNNN${NC}`);
+    console.log(`${RED}✗ A doc links to a sensitive spec (embargoed, or archived in .private).${NC}`);
+    console.log(`${YELLOW}  Sensitive specs are never published (P1507), so a public doc may not`);
+    console.log(`  link one. Remove the link; describe the work in roles, not by its spec.${NC}`);
     process.exit(1);
   }
 
