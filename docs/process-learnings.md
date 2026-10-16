@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 186
+**Next ID:** 187
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2391,5 +2391,16 @@ Diagnosed 2026-10-15 and confirmed by replaying real transcripts: inside a subag
 **due:** week
 
 During the first rotating inbox review (2026-10-16), inbox.sh annotate and delete run inside an agent worktree edited the main checkout's docs/process-learnings.md, not the worktree copy; the edits had to be reverted by hand. Suspect tools/kanban/inbox-cli.ts resolves the store via the git common dir despite INBOX_PROJECT_ROOT. Done when a worktree run edits only the worktree copy (with a test); droppable if inbox writes are moved to main-only by design.
+
+---
+
+## Reconcile the use-case landings with /hospitals (norm wording, norm path, shared helpers)
+
+**ID:** INBOX-186
+**Date:** 2026-10-16
+**Status:** proposed
+**due:** week
+
+Founder asked (P1506 redesign round) whether the other landings need updating once /hospitals ships. Decide, via /create-spec: (1) the norm wording, /hospitals says "make it normal to ask how well we understand each other" while /builders says "make it normal to admit I don't understand"; (2) whether the five-step "how revealing gaps becomes a team norm" path should replace or sit beside HowPlatformWorks on /builders and /hiring; (3) extracting the Reveal / CountUpPercent / RefSup helpers now duplicated in three landing files. Done when a spec exists or the founder drops it.
 
 ---
