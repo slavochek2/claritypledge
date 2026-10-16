@@ -1,7 +1,7 @@
 ---
 status: qa
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 type: task
 rank: 320
 workstream: infra
