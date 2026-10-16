@@ -306,6 +306,39 @@ defect class P1081 was filed against, and they render as red cards on the kanban
 ./scripts/inbox.sh list --store private --due week
 ```
 
+**Review at most 15 entries per run, in rotation** (2026-10-16). This is a reading budget, never a
+cap on the inbox: the queue may grow as large as work produces it. The window is never-reviewed
+entries first, then the least recently reviewed:
+
+```bash
+./scripts/inbox-review-order.sh docs/process-learnings.md week            # main checkout paths
+./scripts/inbox-review-order.sh .private/docs/process-learnings.md week
+```
+
+After each verdict, record it on the entry so the next run moves on —
+`./scripts/inbox.sh annotate --store <s> <ID> --text "Reviewed YYYY-MM-DD (weekly): <verdict> — <evidence in one line>"`.
+Plain oldest-first re-read the same 15 every week and never reached the rest. Name the remainder as
+one line (`N more in scope, next run`).
+
+**Every reviewed entry gets a verdict, checked against its artifact** (2026-10-16). Until this date
+every offer recommended `keep` with unverified evidence, so the founder was shown dozens of
+identical cards and nothing ever left the store: 212 open, weekly-scope entries back to February.
+A recommendation that is always the same is not a review. For each entry, run the read-only check
+the entry itself names — does the file, selector, spec or behaviour it describes still stand
+(`grep`, `ls features/done/`, `git log -S`), was the fix it proposes already shipped — then
+recommend one of:
+- `resolve` — the artifact shows the entry's own outcome happened (a closed spec is not proof that
+  its behaviour shipped; check the behaviour or the deploy where the entry asks for it).
+- `drop` — positive evidence that it no longer applies: the thing it names was removed or replaced
+  (find the replacement, not just a failed grep — a rename looks like an absence), or a recorded
+  decision superseded it.
+- `keep` — still open; name the one thing that is still missing. `keep` is never the default
+  answer to "I did not check".
+`--why` carries the claim checked, the command or source, what it returned, and what is still
+uncertain. `--evidence verified` only when that result supports this specific verdict; an entry you
+could not check, or a check that came back inconclusive, gets `keep` with `--evidence unverified`
+and says why. Recommending is required; **closing still needs the founder's named pick** (rules below).
+
 For each in-scope entry:
 - Age it from its `**Date:**` field (`./scripts/inbox.sh show --store <s> <ID>`). 2+ weeks without
   action → flag: "sitting since [date]".
@@ -314,8 +347,9 @@ For each in-scope entry:
 #### The close offer
 
 **Inside `/day` (`$DAY_STEP` is set), there is no prompt** (P1399): nobody can answer inside the
-sub-day's subagent. Record each in-scope entry as a finding the founder answers on the Day page, and
-change nothing in the store here — the session Start fixing opens carries out a picked resolve or
+sub-day's subagent. Record each `resolve` or `drop` verdict as a finding the founder answers on the Day
+page; a checked `keep` gets no card (it is re-read in its turn) and is counted in the report line.
+Change nothing in the store here except the `Reviewed` annotation — the session Start fixing opens carries out a picked resolve or
 drop, by the rules below:
 
 ```bash
@@ -325,12 +359,13 @@ drop, by the rules below:
   --point-a "open since <its Date>" --obstacle "<why it is still open, from the entry>" \
   --point-b "resolved with a recorded decision, dropped with a reason, or kept on purpose" \
   --option keep="Keep it open" --option resolve="Resolve it (record what was decided)" \
-  --option drop="Drop it (say why)" --recommend keep --fit 50 --risk "Keeping a finished entry open leaves a stale item on the board" --evidence unverified <<'BODY'
+  --option drop="Drop it (say why)" --recommend <resolve|drop|keep> --why "<what the artifact check returned>" \
+  --fit <0-100> --risk "<the one way this verdict backfires>" --evidence <verified|unverified> <<'BODY'
 <the entry, from ./scripts/inbox.sh show>
 BODY
 ```
 
-Recommend `keep` because this step's own rules forbid inferring that an entry "looks done" (so the evidence is `unverified`: the entry was not checked against whether it is finished). `--fit` is how likely the recommended option fixes the real cause without breaking something else, `--risk` the one most likely way it backfires (one line, at most 200 characters), `--evidence` whether the cause was checked against its source. A
+Use `--recommend` with the verdict from the artifact check above, and `--why` for what that check returned. `--fit` is how likely the recommended option fixes the real cause without breaking something else, `--risk` the one most likely way it backfires (one line, at most 200 characters), `--evidence` whether the cause was checked against its source. A
 **private** entry (`INBOX-P…`) keeps the default private store, and its title stays out of anything
 public.
 
@@ -346,8 +381,8 @@ entry. **Entries are named by their ID** (P1317) — there is one number system,
 
 ```
 PROCESS DEBT — 8 open, oldest 2026-05-19. Close any?
-  INBOX-31   An objection is a conjecture, not a refutation      2026-07-27  (2w+)
-  INBOX-40   Spotting the illusion of recursive understanding    2026-05-19  (2w+)
+  INBOX-31   An objection is a conjecture, not a refutation      2026-07-27  resolve — decided in decisions.md 2026-08-02
+  INBOX-40   Spotting the illusion of recursive understanding    2026-05-19  keep — no detector exists yet
   ...
 Reply with IDs: `resolve INBOX-31`, `drop INBOX-40`, `keep` / silence = all keep.
 ```
@@ -356,8 +391,9 @@ Rules that make this safe to run unattended:
 
 - **Default is keep.** No reply, an unparseable reply, or a run where nobody is watching → change
   nothing, and emit the count to ACTIONS. This step must never block a `/day`-triggered run.
-- **One entry at a time, named by the founder.** Never bulk-close, never infer that an entry "looks
-  done", never propose a sweep. The entries hold live content — one is an unfilled pre-commitment.
+- **One entry at a time, named by the founder.** Never bulk-close and never close on your own
+  verdict, however well checked: the verdict is a recommendation, the founder's named pick is the
+  close. The entries hold live content — one is an unfilled pre-commitment.
 - **Match the full ID token.** `resolve INBOX-3` names `INBOX-3`, never `INBOX-31`; a bare number
   (`resolve 3`) is ambiguous — ask which ID.
 - **`resolve INBOX-<n>`** — the graduation rule (`docs/decisions.md` 2026-02-26), in this order:
@@ -390,8 +426,8 @@ PROCESS DEBT: [N open — list them; or "none"; or "PUBLIC STORE ABSENT — unex
 CHRONIC:      [patterns appearing 2+ times — or "none"]
 ```
 
-Keep the scan itself short. The close is founder-driven and takes as long as it takes; do not
-expand the *reading* half beyond age + chronic-pattern detection.
+The close is founder-driven and takes as long as it takes; the reading half is bounded by the
+15-entry window, not by skipping the artifact check.
 
 ---
 

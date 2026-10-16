@@ -253,7 +253,9 @@ absence. Then filter to `due: month`:
 ./scripts/inbox.sh list --store private --due month
 ```
 
-Surface them **by ID**, age-flag anything sitting 2+ **months**, and offer the same close — one
+Surface them **by ID**, in the same 15-entry rotation (`./scripts/inbox-review-order.sh <store> month`, annotated `Reviewed … (monthly)`), each with a verdict
+checked against its artifact exactly as in `/weekly` step 2.5, age-flag anything sitting 2+
+**months**, and offer the same close — one
 list, one prompt, `resolve INBOX-<n>` / `drop INBOX-<n>` / default keep. **Inside `/day`** there is
 no prompt: record the offer per entry exactly as `/weekly` step 2.5 does inside `/day` (same
 options, same loop guard), with `--check cp.monthly --review monthly --topic "Monthly review" --fault-key
