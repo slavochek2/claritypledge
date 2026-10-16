@@ -62,8 +62,8 @@ through `/create-spec`, never by hand.
 |---|---|---|
 | **Creating** | Say what's needed; `/create-spec` picks public or embargo | Same. Embargo now also covers privacy-sensitive specs, and no "security review pending" file appears on the public repo |
 | **Finding by P-number** | Agent resolves `pN` in `features/` or `features/done/` | Same words. A finished private spec resolves to `.private/features/done/<sprint>/` |
-| **Kanban** | Done column shows all closed specs | Main board also shows private finished specs, **visibly marked private** (badge). A worktree board is unchanged. In flight, the spec shows on its worktree board as today |
-| **Editor search** | `.private/` already searchable (local `.vscode/settings.json`); worktrees excluded, so an in-flight embargo spec is not found | After archive the spec is under `.private/` and **is** found. In flight: unchanged |
+| **Kanban** | Main board shows `features/` and `features/done/`; an in-flight embargo spec appears only on its own worktree board | **Founder requirement (2026-10-16):** the main board shows every private spec, in **any** status, mixed in with the public ones and marked with a visible `.private` tag. In flight it is read from its worktree's branch copy; finished, from `.private/features/done/`. No separate lane |
+| **Editor search** | `.private/` is searchable (local `.vscode/settings.json`), but `.claude/worktrees` is excluded, so an in-flight embargo spec is **not** found. **Founder-observed 2026-10-16:** Quick Open for `1494` finds nothing, because P1494 lives only in `w3` | Once archived, the spec sits under `.private/` and **is** found. While in flight: unchanged. Re-check once in VS Code after the first real archive (Done-When) |
 | **Links** | A doc can link `features/done/…` | A public doc **cannot** link a private spec (validator refuses). Private notes can. Pasting the path in chat works as today |
 | **Extra step at close** | Run `publish-spec` after prod confirmation | No publish. The archive runs at close; the branch is removed only once an off-machine copy is confirmed. No additional founder action is expected (see the contract above) |
 
@@ -430,6 +430,8 @@ census scope but also rewritten:
 - [ ] `.agents/skills/` regenerated.
 
 ## Done-When
+
+- [ ] VS Code Quick Open for the archived spec's number finds its `.private/features/done/` file (founder screenshot or a computer-use check).
 
 - [ ] One real sensitive spec goes through ship, Half 1, a founder push of `.private`, and
       Half 2: `git ls-tree -r --name-only origin/main` holds no file with its slug, the
