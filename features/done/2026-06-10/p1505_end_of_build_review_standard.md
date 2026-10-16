@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 41
 created_date: '2026-10-16'
 tags: [process, review, skills, reviewers]
 disclosure: public
 severity: high
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-16
 ---
 
 # P1505: The end-of-build review standard lives in the founder's head and is re-typed every build
@@ -42,7 +42,7 @@ that runs no review. `/dev` and `/fix` call `/finish code`, which is one Sonnet 
 | re-asks because a part was missed | 7, all in October | measured, each quote confirmed by a direct `hist` query |
 
 It is not just the typing. A review left out or run too early has let defects through:
-- [decisions.md](../docs/decisions.md) 2026-10-12: a review ran after round 1 only, and a Codex run then found two MEDIUM bugs that had already reached "ready".
+- [decisions.md](../../../docs/decisions.md) 2026-10-12: a review ran after round 1 only, and a Codex run then found two MEDIUM bugs that had already reached "ready".
 - 2026-10-14: Codex found HIGHs that `/finish` and Gemini both passed, and Gemini passed a fail-open that `/finish` caught.
 - 2026-10-16: on P1503, Opus, Argon and Codex each found blockers the other two missed.
 
@@ -150,8 +150,8 @@ Over the 30 days after ship, count founder-typed end-of-build review asks with t
 
 ## Related
 
-- [P1503](p1503_clarity_chat_v11_whole_vision_prototype.md): RD-9 and the Verification Contract are the source text.
-- [decisions.md](../docs/decisions.md) 2026-10-12 (review freshness), 2026-10-14 (independent reviewers not redundant, stopping rule), 2026-10-05 (findings set aside are told to the founder, proposed).
+- [P1503](../../p1503_clarity_chat_v11_whole_vision_prototype.md): RD-9 and the Verification Contract are the source text.
+- [decisions.md](../../../docs/decisions.md) 2026-10-12 (review freshness), 2026-10-14 (independent reviewers not redundant, stopping rule), 2026-10-05 (findings set aside are told to the founder, proposed).
 - Private ruling 2026-10-16: reviewer choice by stakes, with a low bar for Codex.
 
 ## Falsify Review (2026-10-16): the ORIGINAL Solution (standards file + pointers) failed; option A replaced it
