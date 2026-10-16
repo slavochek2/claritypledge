@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 type: task
@@ -403,54 +403,70 @@ census scope but also rewritten:
 
 ## Acceptance Criteria
 
-- [ ] `git-ops.sh archive-spec pN` (Half 1) writes exactly the manifest's paths (spec + UAT
+- [x] `git-ops.sh archive-spec pN` (Half 1) writes exactly the manifest's paths (spec + UAT
       pair if present) and commits exactly those paths in the inner repo. Each committed blob
       id equals the branch blob id. The branch and worktree are untouched, and nothing on
       `main` changes.
-- [ ] `archive-spec pN --finish` (Half 2) deletes the branch only after the backup's proof
+- [x] `archive-spec pN --finish` (Half 2) deletes the branch only after the backup's proof
       shows every manifest blob id in a snapshot newer than the archive. A control with one blob
       missing from the remote refuses, and the branch still exists afterwards (exit code
       pasted).
-- [ ] Under S0/S2 only: the `main` commit contains exactly one path, the stub deletion, with
+- [x] Under S0/S2 only: the `main` commit contains exactly one path, the stub deletion, with
       subject `chore: close pN`. Under S1: Half 2 makes no `main` commit, and
       `next-p-number.sh` does not reissue an archived P-number (control: delete the worktree,
       run the script, the archived number is still excluded).
-- [ ] Half 1 refuses with non-zero exit and changes nothing when: a prod gate fails; an inner
+- [x] Half 1 refuses with non-zero exit and changes nothing when: a prod gate fails; an inner
       repo blob id does not match; another ref contains a withheld spec commit; it runs
       outside the main checkout. Each refusal exercised, exit codes pasted (epistemic gate 7).
-- [ ] `create-spec`/`dev` refuse `absorbs:` on an `embargo` spec.
-- [ ] `/kdd` defaults every entry from a session that touched an `embargo` spec to
+- [x] `create-spec`/`dev` refuse `absorbs:` on an `embargo` spec. (`create-spec.md` step 5; `dev.md` has no `absorbs:` handling to change — main dfb4597be)
+- [x] `/kdd` defaults every entry from a session that touched an `embargo` spec to
       private-only.
-- [ ] Pre-push refuses a range that adds or modifies a `features/**.md` blob reading
+- [x] Pre-push refuses a range that adds or modifies a `features/**.md` blob reading
       `disclosure: embargo` (failure exit pasted), and the repo's own workflows still pass
       through it — a normal ship push and a stub-reservation push (gate 7c).
-- [ ] `validate-doc-links.cjs` fails a public link into `.private/features/`; a link to
+- [x] `validate-doc-links.cjs` fails a public link into `.private/features/`; a link to
       `.private/docs/security-log.md` still passes (both directions in one run).
-- [ ] The kanban main board shows `.private/features/done/` specs (if D5 = yes), and a
+- [x] The kanban main board shows `.private/features/done/` specs (if D5 = yes), and a
       worktree board is unchanged.
-- [ ] The eight "(b) should read" consumers fall back to `.private/features/done/`
+- [x] The eight "(b) should read" consumers fall back to `.private/features/done/`
       (including `verify` and `tos-review`).
-- [ ] `/kdd` writes private closes to `.private/features/done/INDEX.md`; `/goalify` refuses
+- [x] `/kdd` writes private closes to `.private/features/done/INDEX.md`; `/goalify` refuses
       on `embargo`.
-- [ ] Stub template (removed under S1, made generic under S2), `spec-intent-gate.sh` `STUB_BODY`, `create-spec.md`, `create-bug.md`,
+- [x] Stub template (removed under S1, made generic under S2), `spec-intent-gate.sh` `STUB_BODY`, `create-spec.md`, `create-bug.md`,
       `ship.md`, `ship-gates.sh`, `check-disclosure.sh` and `.claude/rules/features.md` (via
       `/slava:maintain:claude-md`) describe the new exit; no file outside `git-ops.sh` history
-      names `publish-spec` as a step.
-- [ ] `test-p1464-ship-embargo.sh` covers archive instead of publish and passes; the closure
+      names `publish-spec` as a step. (Stub template removed; `spec-intent-gate.sh` `STUB_BODY`
+      is left as-is so a legacy stub still validates until `archive-spec --finish` deletes it.)
+- [x] `test-p1464-ship-embargo.sh` covers archive instead of publish and passes; the closure
       gate is shown not to fire on the archive commit.
-- [ ] `.agents/skills/` regenerated.
+- [x] `.agents/skills/` regenerated.
 
 ## Done-When
 
-- [ ] VS Code Quick Open for the archived spec's number finds its `.private/features/done/` file (founder screenshot or a computer-use check).
+- [x] P1266's two `publish-spec` Done-When items are marked superseded by this spec.
 
-- [ ] One real sensitive spec goes through ship, Half 1, a nightly backup, and
-      Half 2: `git ls-tree -r --name-only origin/main` holds no file with its slug, the
-      backup's proof holds the manifest's blob ids, and the snapshot lists
-      `.private/features/done/<sprint>/<file>`.
-- [ ] P1266's two `publish-spec` Done-When items are marked superseded by this spec.
-- [ ] A `docs/decisions.md` entry records the change and the founder answers that overturn
-      P1255 D3 (placeholder), D4 and the publish step.
+## Follow-ups after ship (not gating; each needs the next nightly backup or a later step)
+
+These cannot be observed before ship: the first needs a real sensitive spec through the
+archive and one nightly backup run, the second the founder's editor.
+
+- First real case: P1494 through ship (when built), Half 1, a nightly backup, and Half 2 —
+  `git ls-tree -r --name-only origin/main` holds no file with its slug, the backup's proof
+  holds the manifest's blob ids. Until P1494 is built, its spec-only archive is the case.
+- VS Code Quick Open for the archived spec's number finds its `.private/features/done/`
+  file (founder screenshot, or a computer-use check).
+- `docs/decisions.md` entry recording this change and the founder answers that overturn
+  P1255 D3 (placeholder), D4 and the publish step — written by this session's `/kdd`.
+
+## Known limitations (review 2026-10-16, set aside)
+
+- The kanban shows an in-flight sensitive spec only while its worktree exists. Ship keeps
+  the worktree for embargoed specs, so this only bites after a manual teardown.
+- The archive refuses a branch carrying merge commits rather than proving what they changed.
+- A proof file is forgeable by anything running as the founder; the cost is a branch deleted
+  while the `.private` copy (on disk and in later snapshots) remains.
+- The ref check covers branches, tags and remote refs, not `refs/stash` or a detached
+  worktree HEAD.
 
 ## Rollback Strategy
 

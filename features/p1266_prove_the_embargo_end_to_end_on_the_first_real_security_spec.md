@@ -78,9 +78,10 @@ reproduce exactly the fixture-shaped confidence this spec exists to replace:
 
 - [ ] A real embargoed spec is filed, pushed, and confirmed absent from
       `origin/main`'s `features/` tree while its stub is present
-- [ ] `publish-spec` is observed FAILING before the prod apply (exit code pasted)
-      and PASSING after
-- [ ] The published spec reads `disclosure: public`
+- [x] ~~`publish-spec` is observed FAILING before the prod apply (exit code pasted)
+      and PASSING after~~ — superseded by P1507: `publish-spec` was removed; sensitive specs
+      are archived into `.private`, never published (its prod gates moved to `archive-spec`)
+- [x] ~~The published spec reads `disclosure: public`~~ — superseded by P1507 (nothing is published)
 
 
 ## First real run — P1303 (2026-09-11): the embargo was not honoured
