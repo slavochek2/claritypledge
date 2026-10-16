@@ -59,6 +59,23 @@ VERIFY_BASH_RE = re.compile(r"\b(curl|git log origin/main|vercel inspect|vercel 
 VERIFY_TOOL_PREFIXES = BROWSER_TOOL_PREFIXES + ("WebFetch",)
 EDIT_TOOLS = ("Edit", "Write")
 
+# --- Review gate (P1505) ----------------------------------------------------
+# The founder re-typed the end-of-build review standard 145 times in 119 sessions, and
+# 76-80% of those asks followed work where no build skill ran (P1505 falsify review). So
+# the trigger lives HERE, at the end of any turn, not inside /dev or /fix.
+# Fires only when ALL hold: the turn's last message announces completion; this session
+# edited a reviewable file (Edit/Write/MultiEdit/NotebookEdit with a path); and no review
+# receipt (scripts/review_receipt.py) covers that file's CURRENT content.
+# Known limit: edits made by shell commands or by subagents are not seen.
+REVIEW_EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+REVIEWABLE_PREFIXES = ("src/", "e2e/", "scripts/", "supabase/", ".claude/commands/", ".claude/hooks/")
+DONE_RE = re.compile(
+    r"\b(done|implemented|finished|complete[d]?|committed|shipped|fixed|"
+    r"ready for (qa|review|you)|all set|works now|landed)\b",
+    re.IGNORECASE,
+)
+SKIP_REVIEW_RE = re.compile(r"\b(skip|no|without)( the)? reviews?\b", re.IGNORECASE)
+
 # --- KDD output-shape gate -------------------------------------------------
 # The sentinel is the mandatory closing line of /kdd step 7.2. Tolerant of the
 # agent substituting a real item number for the literal N.
@@ -168,6 +185,57 @@ def is_verifying_tool_use(tu):
     return False
 
 
+def _load_receipts():
+    """Import the receipt helper from this repo's scripts/. None if unavailable (fail open)."""
+    try:
+        scripts = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts"))
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        import review_receipt  # noqa: E402
+        return review_receipt
+    except Exception:
+        return None
+
+
+def unreviewed_edits(entries, last_assistant_text):
+    """Reviewable files this session edited whose current content has no review receipt."""
+    if not last_assistant_text or not DONE_RE.search(last_assistant_text):
+        return []
+    # The founder can waive it for the turn: their latest typed message says skip/no review.
+    for entry in reversed(entries):
+        if entry.get("type") == "user":
+            text = extract_text(get_message_content(entry))
+            if text.strip():
+                if SKIP_REVIEW_RE.search(text):
+                    return []
+                break
+    paths = []
+    for entry in entries:
+        if entry.get("type") != "assistant":
+            continue
+        for tu in extract_tool_uses(get_message_content(entry)):
+            if tu.get("name") not in REVIEW_EDIT_TOOLS:
+                continue
+            inp = tu.get("input") or {}
+            p = inp.get("file_path") or inp.get("notebook_path")
+            if p and p not in paths:
+                paths.append(p)
+    if not paths:
+        return []
+    rr = _load_receipts()
+    if rr is None:
+        return []
+    reviewable = []
+    for p in paths:
+        loc = rr.locate(p)
+        if loc and loc[1].replace(os.sep, "/").startswith(REVIEWABLE_PREFIXES):
+            reviewable.append(p)
+    try:
+        return rr.unreviewed(reviewable)
+    except Exception:
+        return []
+
+
 def main():
     data = load_input()
     if data.get("stop_hook_active"):
@@ -237,7 +305,11 @@ def main():
         if _retry_count(session_id, bump=True) >= RETRY_LIMIT:
             problems = []
 
-    if not problems and not claim_problem:
+    # --- Gate 3 (REVIEW, P1505): completion announced over unreviewed edits. Computed
+    #     after gate 1 and reported alongside it — never instead of it.
+    unreviewed = unreviewed_edits(entries, last_assistant_text)
+
+    if not problems and not claim_problem and not unreviewed:
         sys.exit(0)
 
     messages = []
@@ -255,6 +327,16 @@ def main():
             "why it matters built on one real artifact from this session, "
             "'Does that match what you saw?', the cost line, the do-nothing line, "
             "the ask, and your pick. Internal identifiers stay behind the depth offer."
+        )
+    if unreviewed:
+        shown = ", ".join(unreviewed[:8]) + (f" (+{len(unreviewed) - 8} more)" if len(unreviewed) > 8 else "")
+        messages.append(
+            "BLOCKED (P1505 review gate): you announced completion, but these files you edited "
+            "have no independent review of their current content: " + shown + ".\n"
+            "Run the end-of-build review standard now: /slava:build:finish on exactly these files "
+            "(it picks reviewers by stakes and writes the receipt via scripts/review_receipt.py). "
+            "Report '<received> of <spawned>' and every finding as FIXED or for the founder. "
+            "If the founder said to skip review, say so plainly instead."
         )
     sys.stderr.write("\n\n".join(messages) + "\n")
     sys.exit(2)

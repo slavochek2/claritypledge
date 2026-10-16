@@ -731,6 +731,21 @@ if [ -n "$BROWSER_EVIDENCE_STAGED" ]; then
 else
     echo ">>> Browser-evidence hook canary skipped (no browser-evidence hook staged)"
 fi
+# 4.7e-bis. P1505 review-gate canary — same trigger discipline as 4.7e (deletions included).
+# verify-before-stop.py now also blocks a "done" over edited code with no review receipt; the
+# receipt rule lives in scripts/review_receipt.py, which the hook imports. Both sides are pinned:
+# an unreviewed completion BLOCKS, and receipts, docs-only edits and "skip review" PASS.
+REVIEW_GATE_STAGED=$(echo "$BROWSER_EVIDENCE_ALL_STAGED" | grep -E '^(\.claude/hooks/(verify-before-stop|_transcript_lib)\.py|scripts/(review_receipt\.py|test-p1505-review-gate\.sh))$' || true)
+if [ -n "$REVIEW_GATE_STAGED" ]; then
+    if [ -f "scripts/test-p1505-review-gate.sh" ]; then
+        if ! run_quiet "Review-gate canary (P1505)" bash scripts/test-p1505-review-gate.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Review-gate canary... ${RED}✗ scripts/test-p1505-review-gate.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
 echo ""
 
 # 4.7f. P1116 mechanization canaries — run when a hook, the validator, or one of their

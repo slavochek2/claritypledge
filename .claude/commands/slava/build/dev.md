@@ -192,7 +192,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    - **Config/infra change:** paste command output confirming the change took effect
    - "It should work because [reasoning]" is NOT evidence. Run it and paste the result.
 9. **Commit** — Only if ALL tests pass AND verification evidence is produced
-9.5. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed. End your response with a summary line in this exact format: `Found: N HIGH, M MEDIUM issues.` (substitute actual integers; exclude LOW). The caller needs these counts for the review stamp." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+9.5. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with this explicit instruction: "Review all code changes on this branch vs main. Spec: [current spec path]. Proceed directly — no scope confirmation needed. End your response with a summary line in this exact format: `Found: N HIGH, M MEDIUM issues.` (substitute actual integers; exclude LOW). The caller needs these counts for the review stamp. Also run Step 4b (external reviewers by stakes) and list each reviewer output file on a final line `Evidence: <path> <path>`." **Before applying any fix, record `REVIEWED_SHA=$(git rev-parse HEAD)`**: the stamp must name the code that was reviewed, not the code after the fixes (P1505). Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 
 9.5a. **Write review stamp** — after the approval gate in 9.5 completes (whether user chose all HIGH / select / skip), append one JSON line to the shared `.finish-reviewed` stamp at `<git-common-dir>/.finish-reviewed` (resolves to the main repo from any worktree, mirroring `.privacy-reviewed`, P950/P1002):
    ```bash
@@ -202,8 +202,9 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
    PN="p{N}"            # ← the spec being reviewed; "-" only when there genuinely is none
-   SHA="$(git rev-parse HEAD)"
+   SHA="$REVIEWED_SHA"   # recorded in the review step BEFORE fixes (P1505) — never HEAD after fixes
    echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+   python3 scripts/review_receipt.py write --evidence <Evidence paths from the reviewer> -- <changed files>   # clears the P1505 Stop-hook gate
    ```
 
    **P1203 — the stamp must name the spec it reviewed.** On a feature branch the `branch` field
@@ -218,7 +219,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `source scripts/keyring.sh && KEYRING_REASON="verify-prod <feature>" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY && VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="$PROD_SUPABASE_SERVICE_ROLE_KEY" npx playwright test e2e/verify-prod-<feature>.spec.ts` — the key comes from the per-access lock (one dialog, **Allow** never "Always Allow"), never a pasted or plaintext copy (P1316)
 9.9. **Untracked test file check** — Run `git status --short | grep "^?? e2e/p${N}"` (substituting the actual P-number). If any `e2e/pN-*.spec.ts` files appear as untracked (`??`), inspect them: if they test a rejected design or have broken setup, fix or delete before declaring done. An untracked test file is invisible to CI and strands work that looks complete but isn't.
-9.95. **Review freshness** — before step 10, read the latest `"type":"code"` entry in `<git-common-dir>/.finish-reviewed` whose `pn` is this spec. If its `sha` is not HEAD and either it is not an ancestor of HEAD (`git merge-base --is-ancestor <sha> HEAD` fails) or `git diff --name-only <sha> HEAD -- . ':!features/'` is non-empty, the review predates the current code: re-run 9.5 and 9.5a, then continue. A stamp covers only the commits that existed when it was written — feedback rounds inside one session add code after it (P1463: two MEDIUM bugs reached the ship offer this way, decisions.md 2026-10-12 [process]).
+9.95. **Review freshness** — before step 10, read the latest `"type":"code"` entry in `<git-common-dir>/.finish-reviewed` whose `pn` is this spec. If its `sha` is not HEAD and either it is not an ancestor of HEAD (`git merge-base --is-ancestor <sha> HEAD` fails) or `git diff --name-only <sha> HEAD -- . ':!features/'` is non-empty, the review predates the current code: re-run 9.5 and 9.5a **once**, then continue; new HIGHs from that re-review go to the founder rather than another round (decisions.md 2026-10-14). A stamp covers only the commits that existed when it was written — feedback rounds inside one session add code after it (P1463: two MEDIUM bugs reached the ship offer this way, decisions.md 2026-10-12 [process]).
 10. **UAT gate** — Set `status: qa` when every completion checkbox is ticked (guards in the Feature UAT Gate below); keep existing `delivery_stage: dev` (already set by pipeline stamp on entry — do NOT set delivery_stage again). Do NOT move to `features/done/`. Tell the user where the work is — **a branch if one was claimed, `main` if step 0 routed this to main** — and that `/ship pN` closes it either way.
 
 ---
@@ -464,7 +465,7 @@ The dev agent runs a comprehensive checklist before marking work complete:
 1. Runs full test suite (E2E + unit + smoke)
 2. Verifies no existing tests broken (regression check)
 3. Checks acceptance criteria from spec
-4. If UI modified → suggests running /finish
+4. Review ran (step 9.5, every change; UI lenses when UI changed) and its receipt is current
 5. Reports results to user with clear pass/fail status
 
 **Never skip verification:** The agent MUST verify all criteria before returning. Partial completion is not allowed - iterate until all checks pass.
@@ -520,9 +521,7 @@ Before marking a feature complete, `/dev` verifies:
 - [ ] Acceptance criteria met (from spec Business Requirements section)
 
 **Conditional checks:**
-- [ ] If UI files modified (*.tsx, *.css, styles):
-  - Agent suggests: "UI files were modified. Run /finish before marking done to verify UI compliance (buttons, colors, accessibility)? (y/n)"
-  - If user approves → run /finish
+- [ ] Review is not optional: step 9.5 runs `/finish` on every change, with UI lenses when UI files changed (P1505)
 - [ ] If UI feature: No console errors in browser
 - [ ] If API changes: No breaking changes to existing endpoints (or documented as breaking)
 
@@ -669,8 +668,7 @@ Running completion checklist...
 ✅ Acceptance criteria verified
 
 ⚠️  UI files modified: src/app/sifter/[id]/results/page.tsx
-    Recommend /finish.
-    Run now? (y/n)
+    Running /finish (step 9.5 — review is not optional, P1505)...
 
 Feature implementation complete.
 ```
@@ -730,8 +728,7 @@ Running completion checklist...
 ✅ Acceptance criteria verified
 
 ⚠️  UI files modified: src/app/components/ProfileHeader.tsx
-    Recommend /finish.
-    Run now? (y/n)
+    Running /finish (step 9.5 — review is not optional, P1505)...
 
 Feature implementation complete.
 ```

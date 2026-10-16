@@ -620,7 +620,7 @@ Before updating frontmatter:
 
 After both gate checks pass:
 
-1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed. End your response with a summary line in this exact format: `Found: N HIGH, M MEDIUM issues.` (substitute actual integers; exclude LOW). The caller needs these counts for the review stamp." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+1. **Review** — Spawn `/finish code` as a subagent (`model: "sonnet"`) with: "Review all code changes on this branch vs main. Spec: [spec path if exists]. Proceed directly — no scope confirmation needed. End your response with a summary line in this exact format: `Found: N HIGH, M MEDIUM issues.` (substitute actual integers; exclude LOW). The caller needs these counts for the review stamp. Also run Step 4b (external reviewers by stakes) and list each reviewer output file on a final line `Evidence: <path> <path>`." **Before applying any fix, record `REVIEWED_SHA=$(git rev-parse HEAD)`**: the stamp must name the code that was reviewed, not the code after the fixes (P1505). Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 
 1a. **Write review stamp** — after the approval gate in step 1 completes, append one JSON line to the shared `.finish-reviewed` stamp at `<git-common-dir>/.finish-reviewed` (resolves to the main repo from any worktree, mirroring `.privacy-reviewed`, P950/P1002):
    ```bash
@@ -630,8 +630,9 @@ After both gate checks pass:
    GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
    PN="p{N}"            # ← the spec being reviewed; "-" only when there genuinely is none
-   SHA="$(git rev-parse HEAD)"
+   SHA="$REVIEWED_SHA"   # recorded in the review step BEFORE fixes (P1505) — never HEAD after fixes
    echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+   python3 scripts/review_receipt.py write --evidence <Evidence paths from the reviewer> -- <changed files>   # clears the P1505 Stop-hook gate
    ```
 
    **P1203 — the stamp must name the spec it reviewed.** On a feature branch the `branch` field

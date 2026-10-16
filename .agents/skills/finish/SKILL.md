@@ -16,7 +16,13 @@ Smart review dispatcher. Classifies what changed, runs the right reviews, skips 
 ```bash
 /finish              # Review all changes (auto-classify)
 /finish code         # Code review only (for /dev and /fix auto-mode)
+/finish <file>...    # Review exactly these files — what the P1505 Stop-hook gate asks for
 ```
+
+**This skill is the founder's end-of-build review standard (P1505), in one place.** The lenses
+live in `criteria/code.md`; who reviews is Step 4b; proof it ran is Step 6b. Nothing else
+restates them — point here. The Stop hook (`.claude/hooks/verify-before-stop.py`) blocks a
+"done" over edited code that has no receipt, so this runs whether or not `/dev` or `/fix` did.
 
 ---
 
@@ -32,7 +38,8 @@ git branch --show-current               # Current branch
 git log main..HEAD --oneline            # Branch commits
 ```
 
-Union all file lists into `CHANGED_FILES`.
+Union all file lists into `CHANGED_FILES`. **If files were passed as arguments, `CHANGED_FILES` is
+exactly those files** — on the shared main checkout the diff also holds co-tenant work.
 
 **If empty:** Report "Nothing to review — working tree clean, no commits ahead of main." → exit.
 
@@ -129,6 +136,29 @@ Find all specific issues (expect 3-15 for typical changes). If genuinely clean, 
 )
 ```
 
+### Step 4b: External reviewers by stakes (P1505 — always, in addition to the subagents above)
+
+Founder ruling 2026-10-16: start with the cheapest, add as stakes rise, and keep the bar for Codex
+low. Under-reviewing costs the founder's attention later, and that costs more than reviews do.
+
+| Reviewer | Runs when | How |
+|---|---|---|
+| Gemini (review model) | **every run** | `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --review <prompt file> <files>` |
+| Codex | more than one file changed, OR the diff is over 50 lines, OR this is a long run | `~/.agents/bin/codex-review --prompt-file <prompt file>` |
+| Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, auth, `.claude/hooks/`, `scripts/git-ops.sh`, `scripts/ship-gates.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt; for security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
+
+The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
+`model-watch`). Never write it into this file.
+
+- **Prompt:** inline `criteria/code.md` and the changed files' diffs. Give the UI lenses only when
+  UI files changed (`src/app/**/*.tsx`, `*.css`).
+- **Launch:** start each external reviewer as its **own** `run_in_background` Bash call, with output to a
+  file under the scratchpad. When it finishes, require `[ -s <file> ]` and an `ASK-MODEL:` first line
+  with `exit=0`. An empty file or a non-zero exit means **that review did not run**, whatever else it says.
+- **Count:** state `<received> of <spawned>`, naming any reviewer missing. A silent reviewer is not a clean one.
+- **Freshness:** run after the last code change. A fix applied after a review is unreviewed code. Re-review it
+  once; any new HIGH after that goes to the founder (decisions.md 2026-10-14 stopping rule).
+
 ### Delegated reviews
 
 - **`uat`:** Report "UAT needed — run `/verify` after fixing any issues from this review."
@@ -208,6 +238,21 @@ echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",
 **Write the JSON compactly — no space after the colons.** The ship gate now tolerates `"type": "code"` as well, but three writers and one reader sharing an unspecified literal is what produced the defect: a real review of `feature/p1197-navtrace` (4 issues found, 3 fixed) failed gate 2.7 for months purely because its entry was written with spaces. Match this template exactly.
 
 JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so `branch` lets gate 2.7 distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). **`sha` is not read by gate 2.7's matching logic at all** — gate 2.7 matches on `branch` (feature-branch arm) or `pn` (no-branch arm) only. `sha` is consumed by two separate freshness checks: this skill's own Step 3 skip-detection (`sha == HEAD`), and gate 2.7b's warn-only staleness check, which on the no-branch path compares the entry's `sha` against current `HEAD` via `git merge-base --is-ancestor` (added alongside this note — the no-branch arm previously had no staleness signal at all). Append (don't overwrite) so partial runs are preserved.
+
+### Step 6b: Review receipt (P1505 — every run, standalone or dispatched)
+
+After findings are fixed or set aside, record what was reviewed, as it is now:
+
+```bash
+python3 scripts/review_receipt.py write --evidence <each external reviewer output file> -- <CHANGED_FILES>
+```
+
+It refuses unless at least one evidence file is a successful `ask-model` run. That refusal means Step 4b
+did not actually happen — fix that, never the evidence. The receipt is what clears the Stop-hook
+gate. When dispatched as a subagent by `/dev` or `/fix`, return the evidence paths so the caller writes it.
+
+**Every finding ends in one of two states:** FIXED, or listed to the founder with one line on why it was
+set aside (decisions.md 2026-10-05). Never absorb one silently.
 
 ---
 

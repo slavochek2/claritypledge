@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 41
 created_date: '2026-10-16'
 tags: [process, review, skills, reviewers]
 disclosure: public
 severity: high
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -81,50 +81,42 @@ It is not just the typing. A review left out or run too early has let defects th
 | P1503 Verification Contract (RD-9, C-1..C-4, roster) | The most complete written form of this standard: Codex + Argon final reviews under four headings, a reuse lens with an analog search, a ux lens that cuts text and turns it into visuals, blind lenses with given and forbidden inputs, and every finding marked FIXED or FOUNDER. | It lives inside one spec. The next spec would have to re-type it. **This is the text to extract** into the standard. |
 | `/goalify` | Turns a spec into a contract with blind reviewer rows. | Its design rule is *"CONTRACT, never PROCEDURE … names no skills, no flow, no model tier"*. See Risks. |
 
-## Solution
+## Solution — option A, founder-approved 2026-10-16 ("A is ok")
 
-1. **One standards file, the only copy.** It holds:
-   - **lenses:** correctness, code quality, design-system and component reuse (for every new element, search for an existing analog), text cut or turned into visuals, and a user-view walk
-   - **when each lens fires:** the UI lenses only when UI files changed, using `/finish`'s existing path classification
-   - **the reviewer roster by stakes** (private ruling 2026-10-16): Argon first; add Codex for anything a bit complex (a longer run, more than one file, or work that already needs a second model); add Opus as stakes rise; escalate to `/adversarial-review` for security, data or ship tooling
-   - **run rules:** run after the last code change (`/dev` step 9.95); launch external reviewers the way `/adversarial-review` does; report `<received> of <spawned>`; every finding ends FIXED, or listed for the founder with a one-line reason
-   - **content:** extracted from P1503 RD-9 and C-1..C-4, then generalised
+The original Solution (standards file + pointers) failed the falsify review (section at the end). Rebuilt around **the trigger**:
 
-   Model ids appear only here, apart from `~/.agents/model-defaults.env`.
-2. **`/finish` is the loader.** It is already the end-of-build dispatcher that `/dev` and `/fix` call. Its step 4 reads the standard and adds the external reviewers by stakes. Two changes go with that:
-   - `criteria/code.md` drops the parts the standard now owns and points to it.
-   - The standalone `/finish` stays the manual entry point.
-
-   `[FOUNDER DECISION: loader. Extending /finish (recommended: no second dispatcher, and the stamp and sha-keyed skip are reused) or a new thin command as first proposed]`
-3. **One pointer line each in `/dev`, `/fix` and `/goalify`.** No copied text. `/dev` and `/fix` already reach `/finish`, so their line only names the standard. `/goalify`'s line tells the contract to cite the standard for its final-review rows instead of re-typing them.
-4. **Where the file lives:** `[FOUNDER DECISION: cp only (.claude/), or global (~/.agents/) so pp builds get it too (21 of 145 asks were in pp). Recommendation: global, with cp's design-system specifics referenced from the cp side]`
-5. **Register the Argon pin** in the private Gemini consumer inventory, so `model-watch` sees it. A pin outside that inventory is the dead-pin failure from the private ruling of 2026-10-16.
+1. **Stop-hook review gate** — a third check in `.claude/hooks/verify-before-stop.py`. When the turn's last message announces completion (done / ready / implemented / committed / shipped / fixed …) AND this session edited reviewable files (`src/`, `e2e/`, `scripts/`, `supabase/`, `.claude/commands/`, `.claude/hooks/`) AND no review receipt matches those files' current content, it blocks once and tells the agent to run `/finish` on exactly those files. It fires whether or not a build skill ran — the 76-80% case.
+2. **Review receipt** — `scripts/review_receipt.py`: `check <files…>` and `write --evidence <reviewer-output…> -- <files…>` (a Python module so the hook imports the same fingerprint rule). The fingerprint is a hash of the files' current content, so an edit after the review makes the receipt stale. `write` refuses unless at least one evidence file is a non-empty `ask-model` output with `exit=0` (an external reviewer really ran). Receipts live in `<git-common-dir>/.review-receipts`; the `.finish-reviewed` stamp is untouched.
+3. **`/finish` is the single home of the standard.** The lenses stay in `criteria/code.md`, extended with the P1503 lenses (an existing-analog search for every new element, cut text or turn it into visuals, a first-time-user walk). `/finish` gains the reviewer roster by stakes:
+   - Argon on every run, via `REVIEW_GEMINI_MODEL`.
+   - Codex when more than one file changed or the diff is over 50 lines.
+   - An Opus adversary for migrations, edge functions, auth or ship tooling, naming `/adversarial-review` as the escalation.
+   - UI lenses only when UI files changed.
+   - A `<received> of <spawned>` count, every finding marked FIXED or listed for the founder with a reason, then the receipt.
+4. **Model id** — a new key `REVIEW_GEMINI_MODEL=gemini-4-argon` in `~/.agents/model-defaults.env`, which is inside `model-watch`'s scan roots. It also gets a pointer row in the private Gemini consumer inventory. No model id is written in any prose file.
+5. **Shared fixes** — `/dev` 9.5/9.5a and the `/fix` QA gate stamp the sha that was **reviewed**, not the sha after the fixes, so 9.95 re-reviews post-review fixes. The optional "(y/n) run /finish" lines (`dev.md` ~467, ~524) are removed. `/goalify` is not touched.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A `/goalify` pointer that names reviewers breaks its own CONTRACT-never-PROCEDURE rule | MITIGATE | The pointer names the standard as the source of the final-review **outcome** rows. Model ids stay in the standard. `[FOUNDER DECISION: accept this one exception to goalify's rule, or keep /goalify out and rely on /dev's review inside the loop]` |
-| Four reviewers on every build is noise and cost | MITIGATE | The stakes roster: a one-file, non-UI change gets Argon (plus the existing `/finish` Sonnet review) only. Falsifier from the ruling: Codex adds nothing beyond Argon and Opus on small multi-file changes. |
-| The Argon intro price doubles on 2026-11-30 | ACCEPT | Already a dated watch item in the private Gemini inventory. The roster is one edit in one file. |
-| A reviewer runs before the last change and its pass is stale | MITIGATE | The standard requires a run after the last code change; `/dev` 9.95 already re-runs on a stale stamp. |
-| Silent reviewers read as clean | MITIGATE | The `<received> of <spawned>` line and the non-empty output check are both mandatory in the standard. |
+| The gate nags on turns that are not build completions | MITIGATE | Needs all three conditions. It blocks at most once per turn (`stop_hook_active`). Docs-only and spec-only edits are not reviewable. |
+| Shell edits (sed, heredoc) are invisible to the Edit/Write scan | ACCEPT | Most edits use Edit/Write. Recorded as a known limit. |
+| The agent writes a receipt without reviewing | MITIGATE | `write` requires real `ask-model` evidence with exit=0. This is accident prevention, not a security boundary. |
+| A review after every fix round loops | MITIGATE | 9.95 re-reviews once. New HIGHs after that go to the founder (2026-10-14 stopping rule). |
+| pp and Codex sessions are not covered | DEFER | cp first (founder). Extend if the pp asks continue. |
 
-**Non-Goals**
-- Do NOT copy lens text into `/dev`, `/fix`, `/goalify` or any spec. Pointer lines only.
-- Do NOT merge `/adversarial-review` or `visual-qa.md` into the standard. Point to them.
-- Do NOT change the `.finish-reviewed` stamp format or `/ship` gate 2.7.
-- Do NOT change model defaults in `~/.agents/model-defaults.env`.
+**Non-Goals:** do NOT change the `.finish-reviewed` format or `/ship` gate 2.7 · do NOT touch `/goalify` · do NOT change the default `GEMINI_MODEL`/`CODEX_MODEL` · do NOT weaken the hook's existing claim gate or KDD gate ordering.
 
 ## Done-When
 
-- [ ] The standards file exists, and a distinctive sentence from each lens appears in exactly one file across `.claude/` and `~/.agents/` (grep count = 1)
-- [ ] `/dev`, `/fix` and `/goalify` each carry one pointer line, and none contains lens text (same grep)
-- [ ] Two real past diffs, run through the standard: a non-UI script diff triggers no UI lens, and a UI diff triggers every UI lens. Control in both directions.
-- [ ] Three real past diffs map to the right roster: one file → Argon; several files → Argon + Codex; ship tooling → plus Opus, with escalation named
-- [ ] One full run on a real diff shows the served Argon model verified, every external output non-empty, `<received> of <spawned>`, and every finding FIXED or FOUNDER
-- [ ] `model-watch` reports the new Argon pin with no drift
-- [ ] Founder decisions above recorded in this spec
+- [x] Hook suite: an ad-hoc reviewable edit plus "done" with no receipt → blocks. A matching receipt → passes. An edit after the receipt → blocks. Docs-only → passes. No completion language → passes. `stop_hook_active` → passes. The existing 11 cases still pass.
+- [x] Replay of a real past ad-hoc session transcript (the 2026-10-08 shape) through the new hook → blocks. A known-good control → passes.
+- [x] `review_receipt.py write` refuses an empty evidence file and an `exit=4` evidence file (controls), and accepts a real `ask-model` output
+- [x] `/finish` carries the roster and the new lenses. `criteria/code.md` holds the lens text, and grep finds it in no other skill file.
+- [x] `dev.md` and `fix.md` stamp the reviewed sha. The optional y/n lines are gone.
+- [x] `REVIEW_GEMINI_MODEL` is in model-defaults.env and in the inventory row, and `model-watch` reports no drift for it
+- [ ] The standard is run on this build itself: Argon + Codex (several files) + Opus (ship tooling), with `<received> of <spawned>` and a receipt written
 
 ## Success Measure (post-ship, filed to the inbox at ship, not a checkbox)
 
@@ -150,7 +142,7 @@ Over the 30 days after ship, count founder-typed end-of-build review asks with t
 - [decisions.md](../docs/decisions.md) 2026-10-12 (review freshness), 2026-10-14 (independent reviewers not redundant, stopping rule), 2026-10-05 (findings set aside are told to the founder, proposed).
 - Private ruling 2026-10-16: reviewer choice by stakes, with a low bar for Codex.
 
-## Falsify Review (2026-10-16): the Solution above FAILS, kept as filed for the record
+## Falsify Review (2026-10-16): the ORIGINAL Solution (standards file + pointers) failed; option A replaced it
 
 Reports: root cause 1 of 1, Gemini 4 Argon (served model verified) 1 of 1, Codex (gpt-6.1-sol, high) 1 of 1. The creative fan-out phase was not run (it needs 3+ agents); both reviewers proposed alternatives instead.
 
@@ -167,4 +159,4 @@ Reports: root cause 1 of 1, Gemini 4 Argon (served model verified) 1 of 1, Codex
 
 **Severity revised to medium-high** for founder attention (Codex: high; Argon: medium). The direct user risk is not quantified.
 
-Options and the recommendation are pending the founder's decision. Do not build from the Solution section above.
+Founder chose option A (2026-10-16); the Solution section now describes it.

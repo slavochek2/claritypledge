@@ -22,6 +22,8 @@ You are an ADVERSARIAL senior developer, design auditor, and UX reviewer — com
 - **Position UI:** All position badges use blue (`bg-blue-100 text-blue-700`). Never semantic colors for agree/disagree.
 - **Accessibility:** Color contrast, focus states, no red-on-green.
 - **Component reuse:** If similar code exists in 2+ places, flag for extraction.
+- **Existing analog for every NEW element:** for each element this change introduces (component, pattern, label, icon, layout), search `src/app/components` and `src/app/pages` for something that already solves the same problem. An analog found is a finding until it is reused (P1503 C-1).
+- **Design-system match:** tokens, type scale, spacing and buttons match the rest of the app; name the sibling you compared against.
 
 ## UX (only if UI files changed)
 
@@ -30,6 +32,9 @@ You are an ADVERSARIAL senior developer, design auditor, and UX reviewer — com
 - **Feedback:** Do users know what's happening? Loading indicators, success confirmations.
 - **Dead ends:** Anywhere users get stuck with no path forward?
 - **Missing states:** What does count=0 look like? Very long text? 999 items?
+- **First-time user walk:** walk the main path as someone who has never seen the app. Name each step where they would be confused, stuck or unsure what happened, before the founder finds it.
+- **Cut text, show it instead:** flag any text the screen already shows, wordy copy that can be cut, and explanation that would be clearer as a visual (icon, state, diagram). Copy changes themselves are `[FOUNDER DECISION]` — propose, do not invent.
+- **Visual QA:** for rendered states, apply `.claude/rules/visual-qa.md` (it owns the checklist).
 
 ## Output Format
 
