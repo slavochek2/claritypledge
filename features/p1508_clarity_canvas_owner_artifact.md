@@ -41,7 +41,7 @@ Outcome: the founder's own canvas lives in Clarity Pledge.
 ## Appetite
 
 Blast radius: one new surface plus the system-tag set, which the feed and `/stake` also read.
-Writes: one definer function for box tags, a box-tag carry-forward on new versions, and a seed.
+Writes: the seed, and a database rule that only the service role writes box tags.
 Reversibility: medium (system-tag set and a function; plus a record if `/architect` adds one).
 Decision density: a few (marked below).
 
@@ -54,14 +54,19 @@ Decision density: a few (marked below).
 - **Box tags are system tags, never parsed from hashtags** (review 2026-10-17). Typed hashtags
   cannot carry them: `extractHashtags` matches `#(\w+)` (`src/lib/utils.ts:185`). Today's system
   tags are a fixed set (`src/lib/feed-utils.ts:21-31`); extend it with one box-tag pattern
-  (`/architect` names the nine keys) and check the feed and `/stake` still separate user and system
+  (twelve keys) and check the feed and `/stake` still separate user and system
   tags. **Write path:** clients cannot write `system_tags` (insert hard-codes `[]`,
-  `points-service-real.ts:215`; a trigger restores them on update, p630 migration). So: one
-  SECURITY DEFINER function that lets a point's **own author** set its box tag (the later chat
-  agent needs the same path); the founder seed runs as a service-role script. **Versions:** a new
-  version of a point carries its box tag forward, so editing never drops a point off the canvas.
+  `points-service-real.ts:215`; a trigger restores them on update, p630 migration). So: the founder seed runs as a service-role script; no client write path in this
+  spec (see Who edits).
   The project tag is a plain user tag, typed as a hashtag as today. A point with the project tag
-  and no box tag is not shown; a point with two box tags shows in both.
+  and no box tag is not shown. One box per point (v9 rule, `v9-SPEC.md:158`).
+  **Write guard:** box tags are written only by the service role; the database rejects or strips
+  them on any authenticated write, tested by a direct API write, not only through
+  the app's service. **Versions:** no product path creates point versions today; box-tag
+  carry-forward moves to the chat spec, which creates versions.
+  **Readers of the system-tag set:** extending it touches hashtag extraction, tag filters in the
+  points and stories services, and sequence ordering on `/stake` and the feed; box-tag pills are
+  hidden on cards the way v-tags are (allowed card change).
 - **New read path.** No existing service fits: `getPublicPointsFeed` takes one tag and no owner
   (`points-service-real.ts:777`), `getPointsByValidator` has an owner and no tag (`:307`), and both
   filter to public (`:801`, `:327`). Add one read: owner + project tag + box tags, returning what
@@ -75,16 +80,25 @@ Decision density: a few (marked below).
   Opening it shows the full production point card with its stories in a side panel on desktop and
   a full-screen sheet on mobile (v10's own depth model). The card gains a `'canvas'` value in its `surface` prop
   (`feed-point-card.tsx:67`, used for analytics); no other card behaviour changes.
-- **Layout.** Desktop: the nine titled boxes as a grid within one screen; points stack inside a box
+- **Layout.** Desktop: the twelve titled boxes as a grid within one screen; points stack inside a box
   and the box scrolls vertically. Mobile: boxes stacked with titles; a box with several points
   swipes sideways with snap and an "n / N" counter. No canvas/letter switcher.
 - **Seed:** the founder's canvas from the playground decomposition (`data-v9.js`, an older canvas;
   freshness does not matter), inserted by a script under the founder's account.
-- **Build order:** `/tree` prototype with the production components and seed data → founder
-  review → production route.
+- **Who edits (founder, 2026-10-17):** owners do not edit the canvas directly; their agent does,
+  in Clarity Chat (follow-up spec). In this spec the canvas is read-only on screen and box tags are
+  written only by the service-role seed. The author-only definer write path moves to the chat spec.
+- **Card size:** compact card = statement clamped to 2 lines + the existing `PositionButtons` with
+  its `compact`/`narrow` props (icon-only below 270px already exists). Clicking opens the side
+  panel, not `/point/:id`. If twelve boxes still don't fit, drop tag pills and footer; no variant loop.
+- **Build order:** one `/dev` run builds the real route on test data and stops at the UAT gate;
+  the founder's review there is the prototype review.
 
 [FOUNDER DECISION: the address shape (e.g. `/canvas/<id>`) and the canvas's display name.]
-[FOUNDER DECISION: box titles (lean-canvas standard nine, or adapted wording).]
+**Boxes (founder, 2026-10-17): a Clarity Canvas is the lean canvas's nine boxes plus three ikigai
+boxes: what I love, what I'm good at, what the world needs** (the fourth ikigai circle, what I can
+be paid for, is the lean canvas's revenue box). Twelve boxes in total.
+[FOUNDER DECISION: exact box titles and the twelve-box layout.]
 [FOUNDER DECISION: whether a canvas needs its own record (title, owner, project tag), or is fully
 derived from owner + project tag until the artifacts spec. `/architect` recommends.]
 
@@ -95,6 +109,7 @@ derived from owner + project tag until the artifacts spec. `/architect` recommen
 - Signed-out viewer: reads public points; position buttons follow the card's existing signed-out
   behaviour.
 - Superseded point versions are not shown.
+- Signing out or switching account clears private points, stories and the open panel at once.
 - Loading: box skeletons. Read error: one error message for the page, no partial grid.
 
 ## Risks / Non-Goals
@@ -103,29 +118,29 @@ derived from owner + project tag until the artifacts spec. `/architect` recommen
 |---|---|---|
 | Owners don't want their canvas public | DEFER | Prerequisite for the event; owned by the follow-up artifacts + sharing spec. This spec shows the owner everything and others public points only. |
 | Anyone can tag a point with someone else's project tag | MITIGATE | Only the owner's own points appear. |
-| Full cards don't fit nine boxes on one screen | MITIGATE | Compact card in the box, full card in the side panel. |
+| Full cards don't fit twelve boxes on one screen | MITIGATE | Compact card in the box, full card in the side panel. |
 | Sideways swipe fights page scroll on mobile | MITIGATE | Snap + counter; verify at 320px. |
 | Prototype drifts from production cards | MITIGATE | Prototype imports the production components. |
 
 **Non-Goals**
 - Do NOT add sharing, group or event visibility, or inbox listing.
 - Do NOT wire Clarity Chat, uploads or agents (P1500 and siblings).
-- Do NOT build a canvas creation UI or let owners type box tags.
+- Do NOT build a canvas creation UI or any on-screen editing; owners change their canvas through their agent (follow-up).
 - Do NOT add a letter view or switcher; do NOT touch P1332.
-- Do NOT change point or story card behaviour beyond the new compact prop and the `'canvas'` surface value.
+- Do NOT change point or story card behaviour beyond the compact form, the open-panel override, hiding box-tag pills, and the `'canvas'` surface value.
 - Do NOT build the v10 "viewing as" lens (follow-up).
 
 ## Acceptance Criteria
 
-- [ ] The founder opens their canvas at its own address and sees their points in the nine titled boxes, private ones included.
+- [ ] The founder opens their canvas at its own address and sees their points in the twelve titled boxes, private ones included.
 - [ ] Signed out, the same address shows only the public points.
 - [ ] Opening a point shows the production point card with its stories; a position taken there persists.
 - [ ] At 1440x900 the page does not scroll (`document.documentElement.scrollHeight <= innerHeight`); a box with many points scrolls inside itself.
 - [ ] At 375px and 320px boxes stack with titles; a box with 2+ points swipes sideways and shows "n / N".
 - [ ] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
 - [ ] An empty box renders titled; an unknown canvas address shows not-found.
-- [ ] Editing a point on the canvas (new version) keeps it in the same box.
-- [ ] A signed-in user cannot set a box tag on someone else's point.
+- [ ] A signed-in user's direct API write cannot set a box tag (only the service-role seed can).
+- [ ] After signing out on the owner's canvas, no private point or story stays on screen.
 - [ ] The feed and `/stake` pages show the same tags as before for existing points.
 
 ## Related
