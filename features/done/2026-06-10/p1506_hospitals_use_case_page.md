@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 41
 workstream: gtm
 created_date: '2026-10-16'
 tags: [landing, use-case, hospitals]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-17
 ---
 
 # P1506: /hospitals use-case page
