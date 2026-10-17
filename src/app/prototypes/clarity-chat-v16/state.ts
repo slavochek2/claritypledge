@@ -85,6 +85,8 @@ export interface State {
   realGoing: Record<string, boolean>;
   /** v16: the real title and date of each seeded event, by chat-mock event id. Absent = the mock's own text stands in. */
   realEvents: Record<string, { name: string; when: string; day: string; today: boolean }>;
+  /** v16: the slugs of the groups the directory says the viewer is in. null = not known yet (or the read failed): the chat mock's roster stands in. */
+  realGroups: string[] | null;
 }
 
 export type Tab = 'all' | 'unread' | 'partners' | 'groups';
@@ -163,6 +165,7 @@ export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: 
     realPartners: opts.seedPartners === false || opts.noPartners ? {} : Object.fromEntries(PARTNERS.flatMap(([x, y]) => (x === (opts.viewer ?? 'bob') ? [[y, 'partner']] : y === (opts.viewer ?? 'bob') ? [[x, 'partner']] : []))),
     realGoing: {},
     realEvents: {},
+    realGroups: null,
   };
 }
 
@@ -189,28 +192,46 @@ export function canSee(viewer: PersonId, c: Chat): boolean {
 const sees = (st: State, v: ViewerId, c: Chat): boolean => {
   if (c.kind !== 'channel') return canSee(v, c);
   if (c.eventId) return isGoing(st, c.eventId, v);
-  if (!c.groupId || st.left[v].includes(c.groupId)) return false;
-  return (groupOf(c)?.members.includes(v) ?? false) || st.joined[v].includes(c.groupId);
+  return !!c.groupId && isMember(st, v, c.groupId);
 };
 
-/** A member of a group: on its roster or joined here, and not left. */
-export const isMember = (st: State, v: ViewerId, groupId: string) =>
-  ((GROUPS.find((g) => g.id === groupId)?.members.includes(v) ?? false) || st.joined[v].includes(groupId)) && !st.left[v].includes(groupId);
+/**
+ * A member of a group, and not left here. For the viewer that is the REAL membership (the directory's `myOrgIds`) once it is known,
+ * plus a group joined on this screen; for anyone else, or while it is not known, the chat mock's roster stands in.
+ */
+export function isMember(st: State, v: ViewerId, groupId: string): boolean {
+  if (st.left[v].includes(groupId)) return false;
+  if (st.joined[v].includes(groupId)) return true;
+  if (v === st.viewer && st.realGroups) return st.realGroups.includes(groupId);
+  return GROUPS.find((g) => g.id === groupId)?.members.includes(v) ?? false;
+}
 /** Groups I am a member of (the sidebar's "Your groups"). */
 export const myGroups = (st: State) => GROUPS.filter((g) => isMember(st, st.viewer, g.id));
 
+/**
+ * The group or event the viewer and `b` share. The viewer's side is REAL (their group memberships and seats); the other person's side is
+ * the chat mock's roster (the only place a non-seeded person is known). Without a state it is the pure roster rule.
+ */
+function sharedGroupOrEvent(a: PersonId, b: PersonId, st?: State): { group?: (typeof GROUPS)[number]; event?: EventInfo } {
+  const va = a as ViewerId;
+  const group = GROUPS.find((x) => x.members.includes(b) && (st ? isMember(st, va, x.id) : x.members.includes(a)));
+  if (group) return { group };
+  const event = EVENTS.find((x) => x.attendees.includes(b) && (st ? isGoing(st, x.id, va) : x.attendees.includes(a)));
+  return { event };
+}
+
 /** I can message someone only if we share a group as members, or an event. */
-export function canMessage(a: PersonId, b: PersonId): boolean {
-  if (a === b) return false;
-  return GROUPS.some((g) => g.members.includes(a) && g.members.includes(b)) || EVENTS.some((e) => e.attendees.includes(a) && e.attendees.includes(b));
+export function canMessage(st: State, other: PersonId): boolean {
+  if (st.viewer === other) return false;
+  const { group, event } = sharedGroupOrEvent(st.viewer, other, st);
+  return !!group || !!event;
 }
 
 /** What two people share, for a new chat's opener: "attend Clarity Night, Oct 16" / "are in Chiang Mai Clarity". */
 export function sharedWith(a: PersonId, b: PersonId, st?: State): string {
-  const g = GROUPS.find((x) => x.members.includes(a) && x.members.includes(b));
-  if (g) return `are in ${g.name}`;
-  const e = EVENTS.find((x) => x.attendees.includes(a) && x.attendees.includes(b));
-  return e ? `attend ${st ? eventName(st, e) : e.name}` : '';
+  const { group, event } = sharedGroupOrEvent(a, b, st);
+  if (group) return `are in ${group.name}`;
+  return event ? `attend ${st ? eventName(st, event) : event.name}` : '';
 }
 
 /** General: the group's members. An event channel: that event's RSVPs (the Members screen reads the real attendees). */
@@ -326,7 +347,7 @@ export function search(st: State, q: string): { chats: Chat[]; people: PersonId[
   };
   const all = (Object.keys(PEOPLE) as PersonId[]).filter((id) => id !== st.viewer && match(id));
   /* v14 #11: everyone matching comes back; `others` are people I share nothing with (their "No chat yet" state cannot send). */
-  return { chats, people: all.filter((id) => canMessage(st.viewer, id)), others: all.filter((id) => !canMessage(st.viewer, id)) };
+  return { chats, people: all.filter((id) => canMessage(st, id)), others: all.filter((id) => !canMessage(st, id)) };
 }
 
 /**
@@ -502,7 +523,7 @@ export const liveLinesLeft = (st: State, chatId: string) =>
 
 /** The Message button: the existing 1:1, or a new empty one. Only when the messaging rule allows. */
 export function dmWith(st: State, other: PersonId): { next: State; chatId: string } | null {
-  if (!canMessage(st.viewer, other)) return null;
+  if (!canMessage(st, other)) return null;
   const found = st.chats.find((c) => c.kind === 'dm' && c.members!.includes(st.viewer) && c.members!.includes(other));
   if (found) return { next: unarchive(st, found.id), chatId: found.id };
   /* One id per pair whoever starts it, so two sides never create two chats. */

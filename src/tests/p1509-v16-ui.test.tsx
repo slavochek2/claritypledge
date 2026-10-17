@@ -22,6 +22,7 @@ import { getDeliveriesForLetter, getInboxItems } from '@/app/data/letters-servic
 import { getProfileBySlug } from '@/app/data/api';
 import { getAdminTopics } from '@/app/data/topic-voting';
 import { agreementsService } from '@/app/data/agreements-service';
+import { organizationsService } from '@/app/data/organizations-service';
 import { createRoom } from '@/app/data/transcribe-service';
 import * as F from './p1509-v16-fixtures';
 
@@ -74,7 +75,8 @@ vi.mock('@/app/data/stories-service', async (importOriginal) => {
     getPublicStoriesFeed: vi.fn(async () => { h.maybeFail('feed'); return [F.STORY_HIKE, F.STORY_SISTER] as never; }),
     /* The hike story argues TWO points, so a click on the second one can be told from a click on the first. */
     getPointsForStories: vi.fn(async (ids: string[]) => new Map(ids.map((id) => [id, id === 'st-bob-1' ? [F.POINT_SUMMARY_DISAGREEMENT, { ...F.POINT_SUMMARY_DISAGREEMENT, id: F.POINT_REPEAT.id, statement: F.POINT_REPEAT.statement, tags: F.POINT_REPEAT.tags, positionCounts: F.POINT_REPEAT.positionCounts }] : []])) as never),
-    getStoriesForPoints: vi.fn(async () => new Map() as never),
+    /* Bob's point is argued by Dana's story and by Bob's own, so a nested story's Details and the "Your story" slot can be told apart. */
+    getStoriesForPoints: vi.fn(async (ids: string[]) => new Map(ids.map((id) => [id, id === 'pt-bob-1' ? [F.STORY_SISTER, F.STORY_HIKE] : []])) as never),
     getStoriesByAuthor: vi.fn(async (id: string) => (id === 'u-bob' ? [F.STORY_HIKE] : [F.STORY_SISTER]) as never),
   } };
 });
@@ -96,11 +98,12 @@ vi.mock('@/app/data/organizations-service', async (importOriginal) => {
     listPublicOrganizations: vi.fn(async () => { h.maybeFail('groups'); return orgs as never; }),
     getMemberCounts: vi.fn(async () => ({ 'org-cm': 3, 'org-online': 2 })),
     getParticipation: vi.fn(async () => ({})),
-    getMyMembershipOrgIds: vi.fn(async () => [...h.state.myOrgIds]),
+    /* Memberships belong to whoever is signed in: Bob has `myOrgIds`, Dana (a member of nothing) has none. */
+    getMyMembershipOrgIds: vi.fn(async () => ((h.state.snapshot as { user?: { id: string } } | null)?.user?.id === 'u-dana' ? [] : [...h.state.myOrgIds])),
     getEventSummaries: vi.fn(async () => ({})),
     getOrganizationBySlug: vi.fn(async (slug: string) => (orgs.find((o) => o.slug === slug) ?? null) as never),
     getMembers: vi.fn(async (slug: string) => { h.maybeFail('members'); return (F.MEMBERS[slug] ?? []) as never; }),
-    getMyMembership: vi.fn(async (orgId: string) => (h.state.myOrgIds.includes(orgId) ? { role: orgId === 'org-cm' ? 'organizer' : 'member', termsVersion: 1, acceptedAt: '' } : null) as never),
+    getMyMembership: vi.fn(async (orgId: string) => ((h.state.snapshot as { user?: { id: string } } | null)?.user?.id !== 'u-dana' && h.state.myOrgIds.includes(orgId) ? { role: orgId === 'org-cm' ? 'organizer' : 'member', termsVersion: 1, acceptedAt: '' } : null) as never),
   } };
 });
 
@@ -1505,10 +1508,10 @@ describe('P1509 v16 Share picker cards, Home widgets, group order, Admin on a ph
   };
   const MORE = { name: /More actions for this/ };
 
-  it('the Share picker card has no "+ Add a point" and no ⋯ (production\'s Home card, for the same story, still has both); expand and Details stay', async () => {
+  it('the Share picker card has no "+ Add a point" and no ⋯ (production\'s Home card, for the same story, still has "+ Add a point", which opens a new tab); expand and Details stay', async () => {
     const a = renderV16(`${BASE}?view=home`);
     const feedStory = (await screen.findAllByTestId('feed-story'))[0]!;
-    expect(within(feedStory).getByRole('button', MORE)).toBeTruthy(); // production's card is untouched
+    expect(within(feedStory).queryByRole('button', MORE)).toBeNull(); // Home loses the ⋯ too (Delete is a write), see "Fix 3b"
     expect(within(feedStory).getByRole('button', { name: 'Add a point to this story' })).toBeTruthy();
     a.unmount();
     renderV16();
@@ -1708,6 +1711,7 @@ const EXPECTED_TOASTS: string[] = [
   'Archived …', // result, with Undo
   'Forwarded to …', // result
   'Inviting to Clarity Live from a chat is coming soon (mock).', // its menu item says Coming soon first
+  'New Draft is coming soon.', // the button says Coming soon first
   'Not saved: prototype. Joined … for this screen only.', // labelled mock, before (the page note) and after
   'Not saved: prototype. Left … for this screen only.',
   'Not saved: prototype. Your position is shown here only.',
@@ -2409,3 +2413,225 @@ describe('P1509 v16 review fixes 2', () => {
 function chooseSuggestedTermsIn() {
   fireEvent.click(within(screen.getByTestId('partner-invite-page')).getByRole('button', { name: 'Use suggested terms' }));
 }
+
+/**
+ * Review fixes 3 (final review of fix 2). Each test was run against the unfixed code first.
+ */
+describe('P1509 v16 review fixes 3', () => {
+  const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+  const spyOpen = () => vi.spyOn(window, 'open').mockImplementation(() => null);
+  const NEW_TAB = '_blank';
+
+  describe('Codex1 a nested card\'s Details opens ITS record, in both directions', () => {
+    it('point -> story: a story nested in a point opens /story/<its id>, not /point/<parent>', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home&tab=points`);
+      const point = () => screen.getAllByTestId('feed-point')[0]!;
+      await screen.findAllByTestId('feed-point');
+      fireEvent.click(within(point()).getByTestId('feed-point-story-expander'));
+      const details = within(point()).getAllByTestId('nested-details-story');
+      expect(details).toHaveLength(2);
+      fireEvent.click(details[0]!);
+      expect(open).toHaveBeenLastCalledWith('/story/st-dana-1', NEW_TAB, 'noopener,noreferrer');
+      fireEvent.click(details[1]!);
+      expect(open).toHaveBeenLastCalledWith('/story/st-bob-1', NEW_TAB, 'noopener,noreferrer');
+    });
+
+    it('story -> point: a point nested in a story opens /point/<its id>', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home`);
+      const story = () => screen.getAllByTestId('feed-story')[0]!;
+      await screen.findAllByTestId('feed-story');
+      fireEvent.click(within(story()).getByTestId('feed-story-point-expander'));
+      const details = within(story()).getAllByTestId('nested-details-point');
+      fireEvent.click(details[0]!);
+      expect(open).toHaveBeenLastCalledWith('/point/pt-bob-1', NEW_TAB, 'noopener,noreferrer');
+      fireEvent.click(details[1]!);
+      expect(open).toHaveBeenLastCalledWith('/point/pt-dana-1', NEW_TAB, 'noopener,noreferrer');
+    });
+  });
+
+  describe('Codex3 production authoring buttons inside Home cards open in a new tab, not this one', () => {
+    it('"Add a point to this story", "Your story" and a nested story\'s body', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home`);
+      const story = (await screen.findAllByTestId('feed-story'))[0]!;
+      fireEvent.click(within(story).getByRole('button', { name: 'Add a point to this story' }));
+      expect(open).toHaveBeenLastCalledWith('/story/st-bob-1?addPoint=true', NEW_TAB, 'noopener,noreferrer');
+      expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('home'); // still in the prototype
+      fireEvent.click(within(screen.getByTestId('feed-tabs')).getByRole('tab', { name: /Points/ }));
+      const point = screen.getAllByTestId('feed-point')[0]!;
+      fireEvent.click(within(point).getByRole('button', { name: 'Your story' }));
+      expect(open).toHaveBeenLastCalledWith('/story/st-bob-1', NEW_TAB, 'noopener,noreferrer');
+      fireEvent.click(within(point).getByTestId('feed-point-story-expander'));
+      fireEvent.click(within(within(point).getAllByTestId('quoted-story')[0]!).getByText(/How I misread my sister/));
+      expect(open).toHaveBeenLastCalledWith('/story/st-dana-1', NEW_TAB, 'noopener,noreferrer');
+      expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('home');
+    });
+  });
+
+  describe('Codex2 the profile "You share" recovers when the groups read fails', () => {
+    it('error with Retry (not "Looking up…" forever); Retry brings the line back', async () => {
+      h.fail('groups', 1);
+      renderV16(`${BASE}?view=profile&person=alice`);
+      const line = await screen.findByTestId('you-share');
+      await waitFor(() => expect(line.textContent).toContain('Could not load what you share'));
+      expect(line.textContent).not.toContain('Looking up');
+      fireEvent.click(within(line).getByRole('button', { name: 'Retry' }));
+      await waitFor(() => expect(screen.getByTestId('you-share').textContent).toContain('You share: '));
+    });
+  });
+
+  describe('Codex4 a failed refresh after RSVP is not silent', () => {
+    it('shows an alert with Retry; Retry brings the controls up to date', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-online-oct23&group=online`);
+      const btn = await screen.findByTestId('rsvp-button');
+      h.fail('event', 1); // the refresh read after the RSVP fails
+      fireEvent.click(btn);
+      expect((await screen.findByTestId('refresh-failed')).textContent).toMatch(/out of date/);
+      expect(screen.queryByTestId('rsvp-going')).toBeNull(); // the controls are the old ones, and it says so
+      fireEvent.click(within(screen.getByTestId('refresh-failed')).getByRole('button', { name: 'Retry' }));
+      await screen.findByTestId('rsvp-going');
+      expect(screen.queryByTestId('refresh-failed')).toBeNull();
+    });
+  });
+
+  describe('Codex5 a group with no events opens on About', () => {
+    it('no Events tab, and About is the selected one', async () => {
+      vi.mocked(organizationsService.getOrganizationBySlug).mockResolvedValueOnce({ ...F.ORG_CM, hasEvents: false } as never);
+      renderV16(`${BASE}?view=group&group=cm`);
+      const tabs = await screen.findByTestId('group-tabs');
+      expect(within(tabs).queryByRole('tab', { name: 'Events' })).toBeNull();
+      expect(within(tabs).getByRole('tab', { name: 'About' }).getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('group-about')).toBeTruthy();
+      expect(screen.queryByTestId('group-events')).toBeNull();
+    });
+
+    it('control: a group with events still opens on Events', async () => {
+      renderV16(`${BASE}?view=group&group=cm`);
+      const tabs = await screen.findByTestId('group-tabs');
+      expect(within(tabs).getByRole('tab', { name: 'Events' }).getAttribute('aria-selected')).toBe('true');
+    });
+  });
+
+  describe('Codex6 a chat link that leads nowhere says so, with a Back, on a phone too', () => {
+    it('a chat that does not exist', async () => {
+      stubViewport(false);
+      renderV16(`${BASE}?view=chats&chat=no-such-chat`);
+      const box = screen.getByTestId('chat-unavailable');
+      expect(box.textContent).toMatch(/isn.t available/);
+      fireEvent.click(within(box).getAllByRole('button', { name: /Back/ })[0]!);
+      expect(screen.getByTestId('chat-list')).toBeTruthy();
+      expect(screen.queryByTestId('chat-unavailable')).toBeNull();
+      expect(screen.getByTestId('bottom-tabs')).toBeTruthy();
+    });
+
+    it('an event channel whose seat was cancelled', async () => {
+      h.state.cancelled.add('ev-oct16:u-bob');
+      stubViewport(false);
+      renderV16(`${BASE}?view=chats&chat=ch-night-oct16`);
+      await screen.findByTestId('chat-unavailable');
+    });
+
+    it('a thread id that is not a post of this chat leaves the conversation on screen (not hidden behind a blank panel)', async () => {
+      stubViewport(false);
+      renderV16(`${BASE}?view=chats&chat=dm-bob-alice&thread=nope`);
+      expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-alice');
+      expect(chatView().closest('.hidden')).toBeNull();
+      expect(screen.queryByTestId('thread-panel')).toBeNull();
+    });
+  });
+
+  describe('Gemini1 focus goes back to the control that opened a sheet, even through a menu', () => {
+    it('General ⋯ -> Leave group -> Esc: focus returns to the ⋯ button (the menu item is gone)', async () => {
+      renderV16();
+      openRow('gen-cm');
+      const more = within(chatView()).getByRole('button', { name: 'More' });
+      more.focus();
+      fireEvent.click(more);
+      const item = within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: 'Leave group' });
+      item.focus(); // a click focuses the item; it unmounts with the menu
+      fireEvent.click(item);
+      const dlg = await screen.findByRole('dialog', { name: 'Leave group' });
+      await settle();
+      expect(dlg.contains(document.activeElement)).toBe(true);
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Leave group' })).toBeNull());
+      expect(document.activeElement).toBe(more);
+    });
+  });
+
+  describe('Gemini2 + Gemini5 the messaging rule, the opener, General and Leave group use the REAL memberships and seats', () => {
+    it('a seat cancelled earlier: Fay (whom Bob only shared tonight with) can no longer be messaged, in search', async () => {
+      h.state.cancelled.add('ev-oct16:u-bob');
+      renderV16();
+      await waitFor(() => expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeNull()); // the seats have loaded
+      fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), { target: { value: 'fay' } });
+      const row = within(screen.getByRole('list', { name: 'People results' })).getByText('Fay Okafor').closest('li')!;
+      expect(row.textContent).toContain('No chat yet · you share no group or event');
+    });
+
+    it('control: with the seat, Fay is a person Bob can message', async () => {
+      renderV16();
+      await settle();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Search' }), { target: { value: 'fay' } });
+      const row = within(screen.getByRole('list', { name: 'People results' })).getByText('Fay Okafor').closest('li')!;
+      expect(row.textContent).not.toContain('you share no group or event');
+    });
+
+    it('a group Bob really belongs to (online) gives him its General channel and Leave group, though the chat mock\'s roster does not list him', async () => {
+      h.state.myOrgIds = ['org-cm', 'org-online'];
+      renderV16();
+      await waitFor(() => expect(document.querySelector('[data-chat="gen-online"]')).toBeTruthy());
+      openRow('gen-online');
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+      expect(within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: 'Leave group' })).toBeTruthy();
+    });
+
+    it('a group the directory says Bob is NOT in (cm) takes its General channel away, though the roster lists him', async () => {
+      h.state.myOrgIds = [];
+      renderV16();
+      await waitFor(() => expect(document.querySelector('[data-chat="gen-cm"]')).toBeNull());
+    });
+  });
+
+  describe('Gemini3 + Gemini4', () => {
+    it('New Draft answers a click with the same "coming soon" message the other Coming soon controls give', async () => {
+      renderV16(`${BASE}?view=letters`);
+      fireEvent.click(await screen.findByTestId('new-draft'));
+      expect(await screen.findByText('New Draft is coming soon.')).toBeTruthy();
+    });
+
+    it('no Retry in the prototype is wired to an empty function', () => {
+      const dir = 'src/app/prototypes/clarity-chat-v16';
+      for (const f of readdirSync(dir).filter((n) => /\.tsx?$/.test(n))) expect(readFileSync(`${dir}/${f}`, 'utf8'), f).not.toMatch(/onRetry=\{\(\) => \{\s*\}\}/);
+    });
+
+    it('the Home widget\'s forced error has a Retry that goes through the hook (it keeps showing the forced error, like the other surfaces)', async () => {
+      renderV16(`${BASE}?view=home&real=error`);
+      await settle();
+      const widget = screen.getByTestId('home-side-widgets');
+      fireEvent.click(within(widget).getByRole('button', { name: 'Retry' }));
+      expect(within(screen.getByTestId('home-side-widgets')).getByTestId('real-error')).toBeTruthy();
+    });
+  });
+});
+
+describe('P1509 v16 fix 3b Home cards carry no ⋯ (Delete is a write, Edit leaves the tab)', () => {
+  it('stories and points on Home, expanded or not, render no ⋯ menu, so no Delete / Edit / Share-menu is reachable; "+ Add a point" and Details stay', async () => {
+    renderV16(`${BASE}?view=home`);
+    const stories = await screen.findAllByTestId('feed-story');
+    for (const card of stories) expect(within(card).queryByRole('button', { name: /More actions for this/ })).toBeNull();
+    fireEvent.click(within(stories[0]!).getByTestId('feed-story-point-expander')); // nested point cards too
+    expect(within(screen.getAllByTestId('feed-story')[0]!).queryByRole('button', { name: /More actions for this/ })).toBeNull();
+    expect(within(stories[0]!).getByRole('button', { name: 'Add a point to this story' })).toBeTruthy();
+    fireEvent.click(within(screen.getByTestId('feed-tabs')).getByRole('tab', { name: /Points/ }));
+    const points = screen.getAllByTestId('feed-point');
+    for (const card of points) {
+      expect(within(card).queryByRole('button', { name: /More actions for this/ })).toBeNull();
+      expect(within(card).getByRole('button', { name: /Details/ })).toBeTruthy();
+    }
+    expect(screen.queryByRole('menuitem', { name: /^(Delete|Edit)/ })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Delete (point|story)/);
+  });
+});

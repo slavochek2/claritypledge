@@ -107,6 +107,8 @@ export type Query<T> = {
   retry: () => void;
   /** Read again in place (after an RSVP): the data on screen stays until the new answer lands. */
   refresh: () => void;
+  /** The last in-place refresh failed: the data on screen is the old answer. Surface it (with `refresh` as the Retry). */
+  refreshFailed: boolean;
 };
 
 /** `?real=` forces every real surface into one state. */
@@ -123,7 +125,7 @@ export function useRealOverride(): RealOverride | null {
 export function useRealQuery<T>(fetcher: () => Promise<T>, deps: unknown[], opts: { emptyValue: T; isEmpty: (v: T) => boolean; enabled?: boolean }): Query<T> {
   const override = useRealOverride();
   const enabled = opts.enabled ?? true;
-  const [state, setState] = useState<{ status: Query<T>['status']; data: T | undefined }>({ status: 'loading', data: undefined });
+  const [state, setState] = useState<{ status: Query<T>['status']; data: T | undefined; refreshFailed?: boolean }>({ status: 'loading', data: undefined });
   const [nonce, setNonce] = useState(0);
   const run = useRef(0);
   const silent = useRef(false);
@@ -135,19 +137,20 @@ export function useRealQuery<T>(fetcher: () => Promise<T>, deps: unknown[], opts
     const keep = silent.current;
     silent.current = false;
     if (!keep) setState({ status: 'loading', data: undefined });
+    else setState((s) => (s.refreshFailed ? { ...s, refreshFailed: false } : s));
     fetchRef.current().then(
       (data) => { if (id === run.current) setState({ status: 'ready', data }); },
-      () => { if (id === run.current) setState((s) => (keep && s.data !== undefined ? s : { status: 'error', data: undefined })); },
+      () => { if (id === run.current) setState((s) => (keep && s.data !== undefined ? { ...s, refreshFailed: true } : { status: 'error', data: undefined })); },
     );
     return () => { run.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [override, enabled, nonce, ...deps]);
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   const refresh = useCallback(() => { silent.current = true; setNonce((n) => n + 1); }, []);
-  if (override === 'loading' || !enabled) return { status: 'loading', data: undefined, empty: false, retry, refresh };
-  if (override === 'error') return { status: 'error', data: undefined, empty: false, retry, refresh };
-  if (override === 'empty') return { status: 'ready', data: opts.emptyValue, empty: true, retry, refresh };
-  return { status: state.status, data: state.data, empty: state.status === 'ready' && state.data !== undefined && opts.isEmpty(state.data), retry, refresh };
+  if (override === 'loading' || !enabled) return { status: 'loading', data: undefined, empty: false, retry, refresh, refreshFailed: false };
+  if (override === 'error') return { status: 'error', data: undefined, empty: false, retry, refresh, refreshFailed: false };
+  if (override === 'empty') return { status: 'ready', data: opts.emptyValue, empty: true, retry, refresh, refreshFailed: false };
+  return { status: state.status, data: state.data, empty: state.status === 'ready' && state.data !== undefined && opts.isEmpty(state.data), retry, refresh, refreshFailed: !!state.refreshFailed };
 }
 
 /* ---------- is_admin ---------- */

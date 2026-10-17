@@ -9,7 +9,7 @@ import type { Shareable } from '@/app/prototypes/clarity-chat-v16/mock-data';
 import {
   archive, archivedUnreadCount, canSee, chatById, chatsInTab, comment, deleteMsg, editMsg, filterShareables, forward, groupSections, initialState, leaveGroup,
   liveLinesLeft, membersOnly, msgsOf, nextLiveLine, repliesOf, search, send, sendVoice, sharedWith, tabsFor, totalUnread, visibleChats, type State,
-  acceptInvite, attendeesOf, channelMembers, claimMirror, clarify, groupActivity, groupOfEvent, isGoing, markUnread, mirrorLabel, openChat, renameMirror, toggleRsvp, invitePartner, isMember, joinGroup, mirrorName, myGroups, partnerState, positionOf, setPosition, unreadOf,
+  acceptInvite, attendeesOf, canMessage, channelMembers, claimMirror, clarify, groupActivity, groupOfEvent, isGoing, markUnread, mirrorLabel, openChat, renameMirror, toggleRsvp, invitePartner, isMember, joinGroup, mirrorName, myGroups, partnerState, positionOf, setPosition, unreadOf,
 } from '@/app/prototypes/clarity-chat-v16/state';
 
 const asDana = (st: State): State => ({ ...st, viewer: 'dana' });
@@ -332,5 +332,29 @@ describe('P1509 v16 iteration (state)', () => {
     expect(isGoing(st, 'night-oct16')).toBe(false);
     st = toggleRsvp(st, 'online-oct23'); // cancel a seat that was reserved earlier
     expect(isGoing(st, 'online-oct23')).toBe(false);
+  });
+
+  it('the messaging rule and the opener follow the viewer\'s REAL memberships and seats; the other person is the roster', () => {
+    const st = initialState();
+    expect(canMessage(st, 'carol')).toBe(true); // cm, per the roster
+    expect(canMessage(st, 'fay')).toBe(true); // tonight
+    expect(canMessage(st, 'bob')).toBe(false);
+    const nothing: State = { ...st, realGroups: [], realGoing: { 'night-oct16': false, 'night-oct02': false, 'online-sept': false } };
+    expect(canMessage(nothing, 'carol')).toBe(false);
+    expect(canMessage(nothing, 'fay')).toBe(false);
+    expect(sharedWith('bob', 'fay', nothing)).toBe('');
+    const online: State = { ...nothing, realGroups: ['online'] };
+    expect(canMessage(online, 'eli')).toBe(true);
+    expect(sharedWith('bob', 'eli', online)).toBe('are in Clarity Practice Community · Online');
+    expect(sharedWith('bob', 'fay')).toBe('attend Clarity Night, Oct 16'); // the pure roster rule is unchanged
+  });
+
+  it('a group the directory says the viewer is in opens its General channel; one it does not list closes it; a joined overlay still wins', () => {
+    const st = initialState();
+    expect(visibleChats(st).some((c) => c.id === 'gen-cm')).toBe(true);
+    expect(visibleChats({ ...st, realGroups: ['online'] }).some((c) => c.id === 'gen-online')).toBe(true);
+    expect(visibleChats({ ...st, realGroups: [] }).some((c) => c.id === 'gen-cm')).toBe(false);
+    expect(isMember(joinGroup({ ...st, realGroups: [] }, 'cm', false), 'bob', 'cm')).toBe(true);
+    expect(isMember({ ...st, realGroups: ['cm'] }, 'dana', 'cm')).toBe(false); // someone else: the roster
   });
 });

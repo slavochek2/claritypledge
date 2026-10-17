@@ -66,7 +66,7 @@ import {
 import {
   acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
   comment, deleteMsg, dmWith, editMsg, eventDay, eventOf, eventWhen, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
-  isArchived, isGoing, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
+  isArchived, isGoing, isMember, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
   partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
   visibleChats, type Chat, type Msg, type State, type Tab,
 } from './state';
@@ -260,7 +260,7 @@ function overlaySummary(p: PointSummary, shown: PositionType | null): PointSumma
 }
 
 /** What the cards need from the prototype: my positions, where Details goes, and a click on an author. */
-type CardCtx = { st: State; viewerId: string; onPosition: (pointId: string, p: PositionType | null, server: PositionType | null) => void; onDetails: (kind: 'point' | 'story', id: string) => void; onSlug: (slug: string) => void };
+type CardCtx = { st: State; viewerId: string; /** Open a production path in a new tab. */ onOpen: (path: string) => void; onPosition: (pointId: string, p: PositionType | null, server: PositionType | null) => void; onDetails: (kind: 'point' | 'story', id: string) => void; onSlug: (slug: string) => void };
 const Cards = createContext<CardCtx | null>(null);
 
 /** What the real surfaces share: who is signed in, whether they are an admin, the groups directory, and the bridge back to the chat mock. */
@@ -288,11 +288,15 @@ const GROUP_DEFAULT: Record<string, PositionType> = { agree: 'agree', unsure: 'u
  * returned for the point, so a click on that same position clears it. A link to a test persona's profile opens it here.
  * An anonymous viewer's FeedPointCard keeps its own localStorage path (no network), so the wrapper lets it through.
  */
-function MockCard({ own, quotedIds = [], serverPosition, letAnonThrough = false, children, testId, strip = false }: {
+function MockCard({ own, quotedIds = [], quotedStoryIds = [], yourStoryId, serverPosition, letAnonThrough = false, children, testId, strip = false }: {
   /** The card's own subject: a point, or a story. */
   own: { kind: 'point' | 'story'; id: string };
   /** A story's linked points, in the order the card renders them (its quoted point cards). */
   quotedIds?: string[];
+  /** A point's linked stories, in the order the card renders them (its quoted stories). */
+  quotedStoryIds?: string[];
+  /** The viewer's own story on this point, for the "Your story" slot. */
+  yourStoryId?: string;
   serverPosition: (pointId: string) => PositionType | null; letAnonThrough?: boolean; children: ReactNode; testId: string;
   /** A card offered for sharing or sitting in a chat: no ⋯ menu, no "+ Add a point". */
   strip?: boolean;
@@ -301,12 +305,14 @@ function MockCard({ own, quotedIds = [], serverPosition, letAnonThrough = false,
   const { session } = useAuth();
   const box = useRef<HTMLDivElement>(null);
   useStripChrome(box, strip);
+  const indexIn = (sel: string, el: Element) => [...(box.current?.querySelectorAll(sel) ?? [])].indexOf(el);
   const capture = (e: MouseEvent) => {
     const el = e.target as HTMLElement;
-    /* A story's quoted point cards carry no point id in the DOM: they render in `linkedPoints` order, so the card's index IS the point. */
+    /* Nested cards carry no id in the DOM: they render in `linkedPoints` / `linkedStories` order, so a card's index IS its record. */
     const quoted = el.closest<HTMLElement>('[data-testid="quoted-point-card"]');
+    const quotedStory = el.closest<HTMLElement>('[data-testid="quoted-story"]');
     const pointId = quoted
-      ? quotedIds[[...(box.current?.querySelectorAll('[data-testid="quoted-point-card"]') ?? [])].indexOf(quoted)]
+      ? quotedIds[indexIn('[data-testid="quoted-point-card"]', quoted)]
       : own.kind === 'point' ? own.id : undefined;
     const seg = el.closest<HTMLElement>('[data-testid$="-group"]');
     if (seg) {
@@ -319,7 +325,25 @@ function MockCard({ own, quotedIds = [], serverPosition, letAnonThrough = false,
     const btn = el.closest('button');
     if (btn && /Details/.test(btn.textContent ?? '')) {
       e.preventDefault(); e.stopPropagation();
-      if (quoted) { if (pointId) ctx.onDetails('point', pointId); } else ctx.onDetails(own.kind, own.id);
+      if (quoted) { if (pointId) ctx.onDetails('point', pointId); }
+      else if (quotedStory) { const id = quotedStoryIds[indexIn('[data-testid="quoted-story"]', quotedStory)]; if (id) ctx.onDetails('story', id); }
+      else ctx.onDetails(own.kind, own.id);
+      return;
+    }
+    /* The footer's slot buttons ("Add a point", "Your story", "Add a story") navigate in THIS tab, which leaves the prototype (and signs the persona out): they open the same page in a new tab. */
+    if (btn && btn.closest('[data-testid="story-card-footer"], [data-testid="point-card-footer"]') && !/expander/.test(btn.dataset.testid ?? '')) {
+      e.preventDefault(); e.stopPropagation();
+      const label = btn.getAttribute('aria-label') ?? '';
+      if (label === 'Add a point to this story') ctx.onOpen(`/story/${encodeURIComponent(own.id)}?addPoint=true`);
+      else if (label === 'Your story') { if (yourStoryId) ctx.onOpen(`/story/${encodeURIComponent(yourStoryId)}`); }
+      else if (own.kind === 'point') ctx.onOpen(`/create?pointId=${encodeURIComponent(own.id)}`);
+      return;
+    }
+    /* A nested story opens on a click anywhere on it. */
+    if (quotedStory) {
+      e.preventDefault(); e.stopPropagation();
+      const id = quotedStoryIds[indexIn('[data-testid="quoted-story"]', quotedStory)];
+      if (id) ctx.onDetails('story', id);
       return;
     }
     const a = el.closest('a');
@@ -338,11 +362,14 @@ function MockCard({ own, quotedIds = [], serverPosition, letAnonThrough = false,
  * still owns the nodes); expand and Details stay.
  */
 const CARD_CHROME = '[aria-label^="More actions for this"], [aria-label="Add a point to this story"]';
+/** Every production card in v16 loses its ⋯ (Delete is a write to the test project; Edit leaves the tab and drops the persona session). */
+const CARD_MENU = '[aria-label^="More actions for this"]';
 function useStripChrome(ref: RefObject<HTMLElement | null>, on: boolean) {
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!on || !el) return;
-    const hide = () => el.querySelectorAll<HTMLElement>(CARD_CHROME).forEach((n) => { n.hidden = true; n.style.display = 'none'; });
+    if (!el) return;
+    const selector = on ? CARD_CHROME : CARD_MENU;
+    const hide = () => el.querySelectorAll<HTMLElement>(selector).forEach((n) => { n.hidden = true; n.style.display = 'none'; });
     hide();
     const watch = new MutationObserver(hide);
     watch.observe(el, { childList: true, subtree: true });
@@ -355,7 +382,7 @@ export function RealPointCard({ point, linkedStories, testId = 'share-point', st
   const ctx = useContext(Cards)!;
   const shown = positionOf(ctx.st, point.id, point.userPosition?.position ?? null);
   return (
-    <MockCard testId={testId} strip={strip} own={{ kind: 'point', id: point.id }} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough>
+    <MockCard testId={testId} strip={strip} own={{ kind: 'point', id: point.id }} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough quotedStoryIds={linkedStories?.map((x) => x.id)} yourStoryId={linkedStories?.find((x) => x.authorId === ctx.viewerId)?.id}>
       <FeedPointCard point={overlayPoint(point, ctx.viewerId, shown)} linkedStories={linkedStories} />
     </MockCard>
   );
@@ -808,14 +835,14 @@ function Profile({ st, person, onBack, onMessage, onInvite }: { st: State; perso
             <Button asChild variant="outline" className="min-h-10"><a href={`/p/${encodeURIComponent(personaSlug(person))}`} target="_blank" rel="noreferrer">See full profile</a></Button>
             {!self && <Button asChild variant="outline" className="min-h-10"><a href={`/compare/${encodeURIComponent(personaSlug(person))}`} target="_blank" rel="noreferrer">Compare with me</a></Button>}
           </div>
-          {!self && canMessage(st.viewer, person) && <PrimaryButton className="w-full" onClick={onMessage}><MessageCircle className="h-4 w-4" />{COPY.message}</PrimaryButton>}
+          {!self && canMessage(st, person) && <PrimaryButton className="w-full" onClick={onMessage}><MessageCircle className="h-4 w-4" />{COPY.message}</PrimaryButton>}
           {ps === 'none' && <OutlineButton className="w-full" onClick={onInvite} data-testid="profile-invite"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</OutlineButton>}
           {ps === 'pending' && <p className="text-center text-sm font-medium text-gray-700" data-testid="profile-invite-sent">{COPY.inviteSent}</p>}
           {ps === 'partner' && <p className="text-center text-sm font-medium text-blue-700" data-testid="profile-partner">{COPY.partner}</p>}
           {!self && (
             <p className="px-1 text-sm text-gray-500" data-testid="you-share">
-              {shared.status === 'loading' ? 'Looking up what you share…'
-                : shared.status === 'error' ? <>Could not load what you share. <button type="button" onClick={shared.retry} className="font-medium text-blue-700 underline">Retry</button></>
+              {groups.status === 'error' || shared.status === 'error' ? <>Could not load what you share. <button type="button" onClick={groups.status === 'error' ? groups.retry : shared.retry} className="inline-flex min-h-10 items-center font-medium text-blue-700 underline">Retry</button></>
+                : shared.status === 'loading' ? 'Looking up what you share…'
                   : shared.data && shared.data.length > 0 ? `You share: ${shared.data.join(', ')}` : 'You share no group or event.'}
             </p>
           )}
@@ -956,7 +983,7 @@ const slugOfHref = (a: Element | null) => a?.getAttribute('href')?.split('/p/')[
  * PersonRow per member (production renders PledgerGrid, which needs its own data shape).
  */
 function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson, onJoin, onLeave }: {
-  st: State; slug: string; tab: GroupTab; onTab: (t: GroupTab) => void; onBack: () => void; onEvent: (eventSlug: string, groupSlug: string) => void; onChannel: (id: string) => void;
+  st: State; slug: string; tab: GroupTab | undefined; onTab: (t: GroupTab | undefined) => void; onBack: () => void; onEvent: (eventSlug: string, groupSlug: string) => void; onChannel: (id: string) => void;
   onPerson: (p: PersonId) => void; onJoin: () => void; onLeave: () => void;
 }) {
   const { profileId, groups } = useReal();
@@ -970,6 +997,9 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
   const organizers = members.filter((m) => m.role === 'organizer').length;
   const events = [...upcoming, ...past];
   const chatGroup = chatGroupOf(slug);
+  /* A group with no events has no Events tab: it opens on About, as production's org-page does. */
+  const firstTab: GroupTab = org.hasEvents ? 'events' : 'about';
+  const shownTab: GroupTab = !tab || (tab === 'events' && !org.hasEvents) ? firstTab : tab;
   const chans = chatGroup ? groupSections(st).find((x) => x.groupId === chatGroup)?.chats ?? [] : [];
   return (
     <Page testId="group-page" title={org.name} onBack={onBack}>
@@ -977,7 +1007,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
         <div className="mx-auto min-w-0 max-w-4xl space-y-6">
           <OrgHeader org={org} memberCount={members.length} isMember={member} myRole={member ? (myRole ?? 'member') : null} organizerCount={organizers} participation={groups.data?.participation[org.id]}
             onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={profileId} />
-          <Tabs value={tab} onValueChange={(v) => onTab(v as GroupTab)}>
+          <Tabs value={shownTab} onValueChange={(v) => onTab(v === firstTab ? undefined : (v as GroupTab))}>
             <TabsList className="h-auto w-full min-w-0 justify-start gap-4 overflow-x-auto overflow-y-hidden rounded-none border-b border-border bg-transparent p-0 [scrollbar-width:none] sm:gap-6" data-testid="group-tabs">
               {org.hasEvents && <TabsTrigger value="events" className={ORG_TAB_CLASS}>Events</TabsTrigger>}
               <TabsTrigger value="members" className={ORG_TAB_CLASS}>Members</TabsTrigger>
@@ -1121,6 +1151,12 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="event-page" data-group={org?.slug}>
       <Header backAlways onBack={onBack} title={<PageTitle>{event.title}</PageTitle>} />
       <div className="min-h-0 flex-1 overflow-y-auto bg-background" onClickCapture={keep}>
+        {q.refreshFailed && (
+          <div role="alert" data-testid="refresh-failed" className="flex flex-wrap items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-sm text-gray-800">
+            <span>Could not refresh this event, so what you see may be out of date.</span>
+            <OutlineButton onClick={q.refresh}>Retry</OutlineButton>
+          </div>
+        )}
         {/* Review #2: a short hero on phones, so "Reserve a seat" is in the first screen at 320x640. */}
         <BannerDisplay bannerUrl={event.bannerUrl ?? null} fallbackColor={hostColor} altText={event.title} heightClassName="h-16 sm:h-32 md:h-64" />
         <div className="mx-auto min-w-0 max-w-6xl px-4 py-3 sm:py-6">
@@ -1274,7 +1310,7 @@ function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => 
               <TabsTrigger value="sent" className={LETTER_TAB_CLASS}>Published</TabsTrigger>
             </TabsList>
             {/* No production route creates a draft by itself (the draft is made by a write inside the Drafts tab): so it says Coming soon up front. */}
-            <OutlineButton size="sm" className="mb-1 shrink-0 gap-1.5" aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
+            <OutlineButton size="sm" className="mb-1 shrink-0 gap-1.5" onClick={() => toast('New Draft is coming soon.')} aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
           </div>
           {(['inbox', 'drafts', 'sent'] as const).map((b) => <TabsContent key={b} value={b} className="mt-4">{rows(b)}</TabsContent>)}
         </Tabs>
@@ -1294,9 +1330,9 @@ const PositionsNote = () => <p className="px-1 text-xs text-gray-500" data-testi
  */
 function HomeWidget({ kind }: { kind: 'side' | 'top' }) {
   const forced = useRealOverride();
-  if (forced === 'loading') return <RealSkeleton rows={1} what="events and groups" />;
-  if (forced === 'error') return <RealError what="events and groups" onRetry={() => {}} />;
-  if (forced === 'empty') return <RealEmpty>No events scheduled yet.</RealEmpty>;
+  /* The forced state goes through the same boundary and retry as every other real surface (the hook answers the override itself). */
+  const q = useRealQuery<null>(async () => null, [], { emptyValue: null, isEmpty: () => true, enabled: forced !== null });
+  if (forced) return <RealBoundary q={q} what="events and groups" empty={<p>No events scheduled yet.</p>}>{() => null}</RealBoundary>;
   return kind === 'side' ? <HomeSideRail /> : <HomeTopBlock />;
 }
 
@@ -1644,8 +1680,22 @@ const SHEET_CLASS = 'inset-x-0 bottom-0 left-0 top-auto z-50 flex max-h-[85vh] w
  * Where focus goes back to when a sheet closes: the control that was focused when it opened. (Radix only restores to a DialogTrigger,
  * and these sheets are opened from state, not from a trigger.)
  */
+let lastOutsideMenu: HTMLElement | null = null;
+if (typeof document !== 'undefined') {
+  /* The last control focused that is not a menu row: when a sheet is opened FROM a menu item the item unmounts with the menu, so this is the menu's trigger. */
+  document.addEventListener('focusin', (e) => {
+    const t = e.target as HTMLElement | null;
+    if (t && t !== document.body && !t.closest('[role="menu"]') && !t.closest('[role="dialog"]')) lastOutsideMenu = t;
+  }, true);
+}
+function openerNow(): HTMLElement | null {
+  const active = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
+  const usable = !!active && active !== document.body && !active.closest('[role="menu"]');
+  return usable ? active : lastOutsideMenu;
+}
+
 function useGiveFocusBack() {
-  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
+  const opener = useRef<HTMLElement | null>(openerNow());
   return (e: Event) => {
     e.preventDefault();
     const el = opener.current;
@@ -1977,9 +2027,12 @@ function PrototypeV16() {
   const chatMain = (() => {
     if (loc.with) return <NoChatYet st={st} person={loc.with as PersonId} onBack={chatBack} onPerson={showProfile} onMessage={() => message(loc.with as PersonId)} />;
     const chat = openChatObj;
+    /* A link to a chat that does not exist, or that this person cannot see (an event channel needs a seat): say so, with a Back, at every width. */
+    if (!chat && chatParam) return <ChatUnavailable onBack={chatBack} />;
     if (!chat) return <div className="hidden h-full items-center justify-center bg-gray-50 lg:flex" data-testid="empty-main"><span className="rounded-full bg-white px-3 py-1 text-sm text-gray-500 shadow-sm">{COPY.selectChat}</span></div>;
     if (loc.members) return <Members chat={chat} onBack={() => back({ view: 'chats', chat: chat.id })} onPerson={showProfile} />;
-    const threadId = loc.thread;
+    /* A thread id that is not a post of this chat is ignored: the conversation stays on screen. */
+    const threadId = loc.thread && st.msgs.some((x) => x.id === loc.thread && x.chatId === chat.id) ? loc.thread : undefined;
     const openThread = (postId: string) => go({ view: 'chats', chat: chat.id, thread: postId });
     const closeThread = () => back({ view: 'chats', chat: chat.id });
     const chatView = (
@@ -2024,7 +2077,7 @@ function PrototypeV16() {
     );
   })();
 
-  const groupTab = (loc.tab as GroupTab | undefined) ?? 'events';
+  const groupTab = loc.tab as GroupTab | undefined;
   const detailOpen = (view === 'chats' && (!!chatParam || !!loc.with)) || !['home', 'chats', 'letters', 'tools', 'groups', 'events', 'group', 'event', 'directory'].includes(view);
   const content = (() => {
     if (view === 'profile' && loc.person && PEOPLE[loc.person as PersonId]) {
@@ -2053,7 +2106,7 @@ function PrototypeV16() {
     if (view === 'directory') return <DirectoryPage st={st} onBack={() => back({ view: 'groups' })} onGroup={openGroup} />;
     if (view === 'group' && loc.group) {
       const gid = loc.group;
-      return <GroupPage st={st} slug={gid} tab={groupTab} onTab={(t) => go({ view: 'group', group: gid, tab: t === 'events' ? undefined : t }, true)} onBack={() => back({ view: 'directory' })}
+      return <GroupPage st={st} slug={gid} tab={groupTab} onTab={(t) => go({ view: 'group', group: gid, tab: t }, true)} onBack={() => back({ view: 'directory' })}
         onEvent={openEvent} onChannel={open} onPerson={showProfile} onJoin={() => go({ view: 'join', group: gid })} onLeave={() => setLeaving(gid)} />;
     }
     if (view === 'join' && loc.group) {
@@ -2085,6 +2138,12 @@ function PrototypeV16() {
   const groupsQ = useRealQuery<GroupsDirectory>(loadGroupsDirectory, [profileId], {
     emptyValue: { orgs: [], memberCounts: {}, participation: {}, myOrgIds: [], eventSummaries: {} }, isEmpty: (d) => d.orgs.length === 0, enabled: !!authViewer && !!profileId,
   });
+  /* The viewer's real memberships feed the chat world (General channels, the messaging rule, Leave group). */
+  const groupsKey = groupsQ.status === 'ready' && groupsQ.data ? JSON.stringify(groupsQ.data.orgs.filter((o) => groupsQ.data!.myOrgIds.includes(o.id)).map((o) => o.slug).sort()) : 'null';
+  useEffect(() => {
+    const next = JSON.parse(groupsKey) as string[] | null;
+    setSt((cur) => (JSON.stringify(cur.realGroups) === groupsKey ? cur : { ...cur, realGroups: next }));
+  }, [groupsKey]);
   const partnersQ = useRealQuery<PartnersData>(() => loadPartners({ id: profileId, email: auth.user?.email ?? null }), [profileId, auth.user?.email], {
     emptyValue: { agreements: [], incoming: [] }, isEmpty: (d) => d.agreements.length + d.incoming.length === 0, enabled: !!authViewer && !!profileId,
   });
@@ -2112,7 +2171,7 @@ function PrototypeV16() {
   };
   const real: RealContext = { profileId, name: auth.user?.name ?? PEOPLE[st.viewer].name, email: auth.user?.email ?? null, isAdmin, groups: groupsQ, partners: partnersQ, onRsvp };
   const cardCtx: CardCtx = {
-    st, viewerId: profileId,
+    st, viewerId: profileId, onOpen: openInApp,
     onPosition: (id, p, server) => { set((s) => setPosition(s, id, p, server)); toast('Not saved: prototype. Your position is shown here only.'); },
     onDetails: (kind, id) => openInApp(`/${kind}/${encodeURIComponent(id)}`),
     onSlug: (slug) => { const p = personaFromSlug(slug); if (p) showProfile(p); else openInApp(`/p/${encodeURIComponent(slug)}`); },
@@ -2258,11 +2317,24 @@ function SearchResults({ st, results, onChat, onPerson, onMessage, onInvite }: {
   );
 }
 
+/** A chat link that leads nowhere for this person. */
+function ChatUnavailable({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-testid="chat-unavailable">
+      <Header backAlways onBack={onBack} title={<PageTitle>Chat</PageTitle>} />
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="text-sm text-gray-700">This chat isn&apos;t available. It may not exist, or you may not have access to it any more (an event channel needs a seat).</p>
+        <OutlineButton onClick={onBack}>Back to chats</OutlineButton>
+      </div>
+    </div>
+  );
+}
+
 /** Someone with no chat and nothing shared: the "No chat yet" state, with no composer until we share a group or event. */
 function NoChatYet({ st, person, onBack, onPerson, onMessage }: { st: State; person: PersonId; onBack: () => void; onPerson: (p: PersonId) => void; onMessage: () => void }) {
   if (!PEOPLE[person]) return null;
   const first = PEOPLE[person].name.split(' ')[0]!;
-  const can = canMessage(st.viewer, person);
+  const can = canMessage(st, person);
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="chat-view" data-chat-open={`new:${person}`}>
       <Header onBack={onBack} title={<button type="button" onClick={() => onPerson(person)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={person} size="sm" /><span className="truncate text-base font-semibold text-gray-900">{PEOPLE[person].name}</span></button>}>
@@ -2397,7 +2469,7 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
       ...(ev ? [{ label: 'Event details', Icon: CalendarDays, onSelect: () => onEvent(ev.id) }] : []),
       { label: 'Members', Icon: UsersIcon, onSelect: onMembers },
       { label: 'Group page', Icon: LandmarkIcon, onSelect: onGroupPage },
-      ...(group && !ev && (st.joined[st.viewer].includes(group.id) || group.members.includes(st.viewer)) ? [{ label: 'Leave group', Icon: LogOut, onSelect: onLeave, danger: true }] : []),
+      ...(group && !ev && isMember(st, st.viewer, group.id) ? [{ label: 'Leave group', Icon: LogOut, onSelect: onLeave, danger: true }] : []),
     ]
     : mirror
       ? [{ label: 'Rename', Icon: Pencil, onSelect: onRename }]
