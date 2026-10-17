@@ -20,7 +20,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import { useLocation, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom';
 import {
   Archive, ArrowLeft, CalendarDays, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Forward, Handshake, HomeIcon, LandmarkIcon,
-  LayoutGrid, Lock, LogOut, MailIcon, MapPin, MessageCircle, MessagesSquare, MessageSquareText, Mic, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Reply,
+  Globe, LayoutGrid, Lock, LogOut, MailIcon, MapPin, MessageCircle, MessagesSquare, MessageSquareText, Mic, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Reply,
   MoreHorizontal, Search, Settings, Shield, Trash2, UserIcon, UsersIcon, Video, X, type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -48,7 +48,7 @@ import { COA_VERSIONS, CURRENT_COA_VERSION } from '@/app/content/coa-versions';
 import { formatLocalDateTime } from '@/app/utils/format-time';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { TERMS_PLACEHOLDER } from '@/app/pages/create-agreement-page';
-import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
+import type { AgreementVisibility, ClarityAgreement } from '@/app/data/agreements-service.interface';
 import type { Organization, OrgMember } from '@/app/data/organizations-service.interface';
 import type { EventAttendee, LetterDelivery, PointSummary, PointWithUserPosition, PositionType, Profile as ProfileData, StoryWithAuthor } from '@/app/types';
 import { Button } from '@/components/ui/button';
@@ -65,15 +65,15 @@ import {
 } from './mock-data';
 import {
   acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
-  comment, deleteMsg, dmWith, editMsg, eventOf, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
+  comment, deleteMsg, dmWith, editMsg, eventDay, eventOf, eventWhen, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
   isArchived, isGoing, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
   partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
   visibleChats, type Chat, type Msg, type State, type Tab,
 } from './state';
 import {
   CHAT_EVENT_REF, cancelRsvp, chatEventOf, chatGroupOf, loadDeliveries, loadChatEventAttendees, loadEventDetail, loadEventsList, loadFeed, loadGroupDetail, loadGroupsDirectory, loadLetters, loadMyShareables, loadPartners, loadProfile,
-  loadMySeats, loadSharedWith, onTestProject, partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealOverride, useRealQuery, viewerOf,
-  type EventDetail, type EventsList, type FeedData, type GroupDetail, type GroupsDirectory, type LetterRowData, type PartnersData, type Query,
+  loadMyEvents, loadSharedWith, onTestProject, partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealOverride, useRealQuery, viewerOf,
+  type EventDetail, type EventsList, type FeedData, type MyEvent, type GroupDetail, type GroupsDirectory, type LetterRowData, type PartnersData, type Query,
 } from './real-data';
 import { isSeededPersonaEmail, PERSONA_IDS, personaEmail, personaFromSlug, personaSlug } from './personas';
 import { supabase } from '@/lib/supabase';
@@ -153,9 +153,9 @@ function useNav() {
 
 /* ---------- small pieces ---------- */
 
-const dayLabel = (chat: Chat) => {
+const dayLabel = (st: State, chat: Chat) => {
   const ev = eventOf(chat);
-  return ev && !ev.today ? ev.when : 'Today';
+  return ev ? eventDay(st, ev) : 'Today';
 };
 
 /** An event channel is a calendar; General is the group's members-only channel, so it is a lock (v16). */
@@ -617,6 +617,7 @@ function ProfileMenuItems({ a, onPick, phone = false }: { a: MenuActions; onPick
   const out = (to: string, label: string, Icon?: LucideIcon) => (
     <a key={to} href={to} target="_blank" rel="noreferrer" role="menuitem" className={MENU_ITEM}>{Icon ? <Icon className="h-4 w-4 text-gray-500" /> : <span className="w-4" />}{label}</a>
   );
+  const logOut = <div className="mt-1 border-t pt-1"><button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onLogOut)} data-testid="log-out"><LogOut className="h-4 w-4 text-gray-500" />Log Out</button></div>;
   return (
     <>
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onProfile)}><UserIcon className="h-4 w-4 text-gray-500" />My Profile</button>
@@ -626,13 +627,15 @@ function ProfileMenuItems({ a, onPick, phone = false }: { a: MenuActions; onPick
       {phone && EVENTS_ITEM && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onEvents)} data-testid="menu-events"><CalendarDays className="h-4 w-4 text-gray-500" />{EVENTS_ITEM.label}</button>}
       {out('/sessions', 'Session History', CalendarDays)}
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onSettings)}><Settings className="h-4 w-4 text-gray-500" />Settings</button>
+      {/* On a phone Log Out sits right after Settings, so it is on screen without scrolling the sheet (the long reading lists come after). */}
+      {phone && logOut}
       <div role="group" aria-label="Use cases"><p className={MENU_HEAD}>Use cases</p>{AUDIENCE_LINKS.map((l) => out(l.to, l.label, l.Icon))}</div>
       <div role="group" aria-label="Learn"><p className={MENU_HEAD}>Learn</p>{LEARN.map((l) => out(l.to, l.label, l.Icon))}</div>
       {PLEDGERS_ITEM && out(PLEDGERS_ITEM.to, PLEDGERS_ITEM.label, PLEDGERS_ITEM.Icon)}
       {isAdmin && (
         <div role="group" aria-label="Admin" data-testid="admin-group"><p className={MENU_HEAD}>Admin</p>{ADMIN_LINKS.map((l) => out(l.to, l.label, Shield))}</div>
       )}
-      <div className="mt-1 border-t pt-1"><button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onLogOut)} data-testid="log-out"><LogOut className="h-4 w-4 text-gray-500" />Log Out</button></div>
+      {!phone && logOut}
     </>
   );
 }
@@ -794,10 +797,17 @@ function Profile({ st, person, onBack, onMessage, onInvite }: { st: State; perso
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="profile">
       <Header backAlways onBack={onBack} title={<PageTitle>{self ? 'My profile' : 'Profile'}</PageTitle>} />
       <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50">
-        <div className="mx-auto flex max-w-xl flex-col gap-3 px-3 py-4" onClickCapture={stayInPrototype}>
-          <RealBoundary q={q} what="this profile" empty={<p>{PEOPLE[person].name} has no profile in the test project yet. Run the persona seed script.</p>}>
-            {(p) => p && <CompactProfileCard profile={p} isOwner={self} />}
-          </RealBoundary>
+        <div className="mx-auto flex max-w-xl flex-col gap-3 px-3 py-4">
+          <div onClickCapture={stayInPrototype}>
+            <RealBoundary q={q} what="this profile" empty={<p>{PEOPLE[person].name} has no profile in the test project yet. Run the persona seed script.</p>}>
+              {(p) => p && <CompactProfileCard profile={p} isOwner={self} />}
+            </RealBoundary>
+          </div>
+          {/* Their Stories and Points, and the comparison, live on production's own pages: links into them (new tab), nothing written here. */}
+          <div className="flex flex-wrap gap-2" data-testid="profile-links">
+            <Button asChild variant="outline" className="min-h-10"><a href={`/p/${encodeURIComponent(personaSlug(person))}`} target="_blank" rel="noreferrer">See full profile</a></Button>
+            {!self && <Button asChild variant="outline" className="min-h-10"><a href={`/compare/${encodeURIComponent(personaSlug(person))}`} target="_blank" rel="noreferrer">Compare with me</a></Button>}
+          </div>
           {!self && canMessage(st.viewer, person) && <PrimaryButton className="w-full" onClick={onMessage}><MessageCircle className="h-4 w-4" />{COPY.message}</PrimaryButton>}
           {ps === 'none' && <OutlineButton className="w-full" onClick={onInvite} data-testid="profile-invite"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</OutlineButton>}
           {ps === 'pending' && <p className="text-center text-sm font-medium text-gray-700" data-testid="profile-invite-sent">{COPY.inviteSent}</p>}
@@ -958,7 +968,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
   const { org, members, myRole, upcoming, past } = q.data;
   const member = (myRole !== null || st.joined[st.viewer].includes(slug)) && !st.left[st.viewer].includes(slug);
   const organizers = members.filter((m) => m.role === 'organizer').length;
-  const events = [...upcoming.map((e) => ({ e, past: false })), ...past.map((e) => ({ e, past: true }))];
+  const events = [...upcoming, ...past];
   const chatGroup = chatGroupOf(slug);
   const chans = chatGroup ? groupSections(st).find((x) => x.groupId === chatGroup)?.chats ?? [] : [];
   return (
@@ -976,15 +986,22 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
             </TabsList>
             <TabsContent value="events" className="pt-4">
               {events.length > 0 ? (
-                <ul aria-label={`${org.name} events`} className="space-y-3" data-testid="group-events">
-                  {events.map(({ e, past: isPast }) => (
-                    <li key={e.id}><button type="button" onClick={() => onEvent(e.slug, slug)} className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left hover:border-blue-500/50 hover:shadow">
-                      <CalendarDays className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
-                      <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{e.title}</span><span className="block text-sm text-muted-foreground">{formatLocalDateTime(e.datetime, { timeZone: e.timezone })} · {e.location}{isPast ? ' · past' : ''}</span></span>
-                      <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                    </button></li>
+                <div className="space-y-6" data-testid="group-events">
+                  {([['Upcoming', upcoming, false], ['Past', past, true]] as const).filter(([, list]) => list.length > 0).map(([label, list, isPast]) => (
+                    <section key={label} aria-label={`${org.name} ${label.toLowerCase()} events`}>
+                      <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{label} ({list.length})</h3>
+                      <ul className="space-y-3">
+                        {list.map((e) => (
+                          <li key={e.id}><button type="button" onClick={() => onEvent(e.slug, slug)} className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left hover:border-blue-500/50 hover:shadow">
+                            <CalendarDays className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+                            <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{e.title}</span><span className="block truncate text-sm text-muted-foreground" data-testid="group-event-meta">{formatLocalDateTime(e.datetime, { timeZone: e.timezone })} · {e.location}{isPast ? ' · past' : ''}</span></span>
+                            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                          </button></li>
+                        ))}
+                      </ul>
+                    </section>
                   ))}
-                </ul>
+                </div>
               ) : <RealEmpty>No events yet. Events this group schedules will be listed here.</RealEmpty>}
             </TabsContent>
             <TabsContent value="members" className="pt-4">
@@ -1062,27 +1079,24 @@ function JoinPage({ st, slug, onBack, onJoined }: { st: State; slug: string; onB
   );
 }
 
-/** What `?real=empty` shows on an event page: the event frame with nobody going. */
-const stubEvent = (slug: string): EventDetail => ({
-  event: { id: `stub-${slug}`, slug, title: 'Event', description: '', datetime: '2099-01-01T12:00:00.000Z', durationMinutes: 60, timezone: 'UTC', location: '', hostId: '', createdAt: CREATED, status: 'upcoming', hostName: '', hostSlug: '' },
-  attendees: [], going: false, org: null,
-});
-
 /**
  * v15 #3: an event page modelled on production EventDetail: the real BannerDisplay, a Back that returns to THIS
  * event's group, the Details / room tab row (production label: "Join now" near the start, else "Event Room"), the
  * title card (date, location), Reserve a seat then the "You're going!" card (the real rsvpToEvent / cancelRsvp, unchanged),
- * the topic-vote area (placeholder: the production TopicsPage reads live topics), the organizer and the Participants
+ * the topic-vote area ("Coming soon": the production TopicsPage reads live topics and writes votes), the organizer and the Participants
  * card of real PersonRows, and "Open event chat" to the matching channel of the chat mock.
  */
 function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: { st: State; slug: string; groupHint?: string; onBack: () => void; onGroup: (groupSlug: string | null) => void; onChat: (chatId: string) => void; onPerson: (p: PersonId) => void }) {
   const { profileId, onRsvp } = useReal();
-  const q = useRealQuery<EventDetail | null>(() => loadEventDetail(slug, profileId, groupHint), [slug, profileId, groupHint], { emptyValue: stubEvent(slug), isEmpty: () => false });
+  const q = useRealQuery<EventDetail | null>(() => loadEventDetail(slug, profileId, groupHint), [slug, profileId, groupHint], { emptyValue: null, isEmpty: () => false });
+  const forcedEmpty = useRealOverride() === 'empty';
   const [busy, setBusy] = useState(false);
   const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else openInApp(a.getAttribute('href')); };
   const frame = (body: ReactNode, title = 'Event') => <Page testId="event-page" title={title} onBack={onBack}>{body}</Page>;
   if (q.status === 'loading') return frame(<RealSkeleton what="this event" />);
   if (q.status === 'error') return frame(<RealError what="this event" onRetry={q.retry} />);
+  /* An empty state shows nothing it did not read: no made-up date, no organiser. */
+  if (forcedEmpty) return frame(<RealEmpty>No details for this event yet.</RealEmpty>);
   if (!q.data) return frame(<p className="px-4 py-8 text-sm text-gray-600">This event does not exist.</p>);
   const { event, attendees, going, org } = q.data;
   const ended = event.status === 'completed' || new Date(event.datetime).getTime() + event.durationMinutes * 60_000 < Date.now();
@@ -1135,16 +1149,23 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
                     ) : <Button onClick={toggle} disabled={busy} className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" data-testid="rsvp-button">Reserve a seat</Button>}
                 </div>
                 {event.description && <p className="text-base leading-relaxed">{event.description}</p>}
+                {/* Host only: the existing production pages for editing the event and running it (new tab; v16 writes nothing here). */}
+                {event.hostId === profileId && (
+                  <div className="mt-4 flex flex-wrap gap-2" data-testid="host-links">
+                    <Button asChild variant="outline" className="min-h-10"><a href={`/events/${encodeURIComponent(event.slug)}/edit`} target="_blank" rel="noreferrer">Edit event</a></Button>
+                    <Button asChild variant="outline" className="min-h-10"><a href={`/events/${encodeURIComponent(event.slug)}/host`} target="_blank" rel="noreferrer">Host panel</a></Button>
+                  </div>
+                )}
                 <div className="mt-4">
                   {canChat && chat ? <OutlineButton onClick={() => onChat(chat.id)} data-testid="open-event-chat"><MessagesSquare className="h-4 w-4" />Open event chat</OutlineButton>
                     : <p className="text-sm text-muted-foreground" data-testid="event-chat-closed">{chat ? 'The event chat opens to the people who RSVP.' : 'This event has no chat in the prototype.'}</p>}
                 </div>
               </div>
               {!ended && !cancelled && (
-                /* PLACEHOLDER: production embeds TopicsPage here (live topics and votes); this keeps its frame. */
-                <div id="topic-vote" data-testid="topic-vote" data-placeholder="TopicsPage" className="mb-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5">
-                  <h2 className="text-base font-semibold text-gray-900">Vote on tonight&apos;s topics</h2>
-                  <p className="mt-1 text-sm text-gray-600">Placeholder: the production topic vote (TopicsPage) renders here with live topics.</p>
+                /* Production embeds TopicsPage here. It reads live topics AND writes votes, so it cannot be reused read-only: the area says so. */
+                <div id="topic-vote" data-testid="topic-vote" className="mb-6 rounded-xl border border-border bg-muted p-4 sm:p-5">
+                  <h2 className="text-base font-semibold text-gray-900">Topic vote</h2>
+                  <p className="mt-1 text-sm text-gray-600">Voting on this event&apos;s topics: <span className="font-medium text-gray-800">{COPY.comingSoon}</span></p>
                 </div>
               )}
             </div>
@@ -1194,10 +1215,13 @@ function LetterCard({ l }: { l: LetterRowData }) {
             {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
         )}
+        {l.box === 'inbox' && <span className={cn('block h-2 w-2 shrink-0 rounded-full bg-blue-600', !l.unread && 'opacity-0')} aria-hidden="true" data-testid={l.unread ? 'unread-dot' : undefined} />}
         <WhoAvatar slug={l.whoSlug} name={l.who} />
         <div className="min-w-0 flex-1">
+          {l.unread && <span className="sr-only">Unread. </span>}
           <p className={cn('truncate text-[15px] text-gray-900', l.unread ? 'font-bold' : 'font-semibold')} data-testid="letter-title">{l.title}</p>
           <p className="truncate text-xs text-gray-500">{l.summary ? `${l.summary} · Updated ${l.when}` : `${l.who} · ${l.when}`}</p>
+          {l.steps && <p className="truncate text-xs text-gray-500" data-testid="letter-steps">{l.steps}</p>}
         </div>
         {l.box === 'drafts' && <LetterStatusBadge status="in_progress" label="Draft" />}
         <div data-testid="letter-actions" className="flex shrink-0 items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
@@ -1243,14 +1267,14 @@ function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => 
     <Page testId="letters-page" title="Clarity Letters">
       <div className="mx-auto max-w-2xl px-4 py-6">
         <Tabs value={tab} onValueChange={(v) => onTab(v as LetterBox)}>
-          <div className="flex items-end justify-between">
-            <TabsList className="h-auto w-auto justify-start rounded-none border-b p-0" data-testid="letter-tabs">
+          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2" data-testid="letters-header">
+            <TabsList className="h-auto w-auto max-w-full justify-start overflow-x-auto rounded-none border-b p-0" data-testid="letter-tabs">
               <TabsTrigger value="inbox" aria-label={unreadN === undefined ? 'Inbox' : `Inbox, ${unreadN} unread`} className={LETTER_TAB_CLASS}>Inbox{unreadN === undefined ? '' : ` (${unreadN})`}</TabsTrigger>
               <TabsTrigger value="drafts" className={LETTER_TAB_CLASS}>Drafts</TabsTrigger>
               <TabsTrigger value="sent" className={LETTER_TAB_CLASS}>Published</TabsTrigger>
             </TabsList>
             {/* No production route creates a draft by itself (the draft is made by a write inside the Drafts tab): so it says Coming soon up front. */}
-            <OutlineButton size="sm" className="mb-1 gap-1.5" aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
+            <OutlineButton size="sm" className="mb-1 shrink-0 gap-1.5" aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
           </div>
           {(['inbox', 'drafts', 'sent'] as const).map((b) => <TabsContent key={b} value={b} className="mt-4">{rows(b)}</TabsContent>)}
         </Tabs>
@@ -1328,11 +1352,17 @@ function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onT
       <div className="mx-auto flex w-full max-w-5xl justify-center gap-8 px-4 py-6">
         <div className="w-full min-w-0 max-w-2xl">
           {!isDesktop && <div onClickCapture={rail} data-testid="home-top-widgets"><HomeWidget kind="top" /></div>}
-          <div className="relative mb-4">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search stories and points..." aria-label="Search stories and points" className="h-10 pl-9 text-base md:text-sm" data-testid="home-search" />
+          <div className="mb-4 flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search stories and points..." aria-label="Search stories and points" className="h-10 pl-9 text-base md:text-sm" data-testid="home-search" />
+            </div>
+            {/* Production's header CTA: the existing /create page (new tab). */}
+            <PrimaryButton asChild className="shrink-0 px-3 sm:px-4">
+              <a href="/create" target="_blank" rel="noreferrer" aria-label="Share a Story" data-testid="share-a-story"><Plus className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">Share a Story</span></a>
+            </PrimaryButton>
           </div>
-          <div className="-mt-2 mb-3"><PositionsNote /></div>
+          <div className="mb-3"><PositionsNote /></div>
           <RealBoundary q={q} what="the feed" skeleton={<div data-testid="real-skeleton" role="status" aria-busy="true" aria-label="Loading the feed"><FeedSkeleton /></div>} empty={nothing(tab)}>
             {(d) => {
               const stories = d.stories.filter((s) => feedMatches(needle, s.content, s.tags ?? []));
@@ -1453,7 +1483,15 @@ function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onP
     if (p) onPartner(p); else openInApp(other?.slug ? `/p/${other.slug}` : null);
   };
   const list = (rows: ClarityAgreement[]) => (
-    <ul className="space-y-0.5">{rows.map((a) => <div key={a.id} data-agreement={a.id} onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></div>)}</ul>
+    <ul className="space-y-0.5">
+      {rows.map((a) => (
+        <li key={a.id} className="flex items-center gap-2">
+          <div data-agreement={a.id} className="min-w-0 flex-1" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></div>
+          {/* Production's agreement page (sealed agreement, Download Image, Share): the row opens the chat, this opens the agreement. */}
+          <Button asChild variant="outline" size="sm" className="min-h-10 shrink-0"><a href={`/agreements/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer" data-testid="agreement-action">Agreement</a></Button>
+        </li>
+      ))}
+    </ul>
   );
   return (
     <Page testId="partners-page" title="Partners" onBack={onBack}>
@@ -1504,6 +1542,7 @@ function PartnerInvitePage({ st, who, onBack, onSent }: { st: State; who?: Perso
   const [q, setQ] = useState('');
   const [typedName, setTypedName] = useState('');
   const [terms, setTerms] = useState('');
+  const [visibility, setVisibility] = useState<AgreementVisibility>('public'); // production's default
   const [termsError, setTermsError] = useState<string | undefined>();
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1525,7 +1564,7 @@ function PartnerInvitePage({ st, who, onBack, onSent }: { st: State; who?: Perso
     setTermsError(terms.trim() ? undefined : 'Terms cannot be empty');
     if (!terms.trim()) return;
     setBusy(true); setProblem(null);
-    const r = await sendPartnerInvite({ email, personId: person, name, termsText: terms });
+    const r = await sendPartnerInvite({ email, personId: person, name, termsText: terms, visibility });
     setBusy(false);
     if (!r.ok) { setProblem(r.message); return; }
     onSent(person);
@@ -1567,6 +1606,18 @@ function PartnerInvitePage({ st, who, onBack, onSent }: { st: State; who?: Perso
                 termsText={terms} termsPlaceholder={TERMS_PLACEHOLDER} termsError={termsError} onTermsChange={(t) => { setTerms(t); setTermsError(undefined); }}
                 footer={
                   <div className="space-y-3">
+                    {/* Production's Visibility choice (create-agreement-page VISIBILITY_OPTIONS), default Public, passed to createAgreement as is. */}
+                    <fieldset>
+                      <legend className="mb-2 block text-sm font-medium">Visibility</legend>
+                      <div role="radiogroup" aria-label="Visibility" className="flex gap-2">
+                        {([['public', 'Public', Globe, 'Anyone can view this agreement.'], ['private', 'Private', Lock, 'Only you and your partner can view this agreement.']] as const).map(([value, label, Icon, tip]) => (
+                          <button key={value} type="button" role="radio" aria-checked={visibility === value} title={tip} onClick={() => setVisibility(value)}
+                            className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium', visibility === value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-input bg-background text-muted-foreground hover:bg-accent')}>
+                            <Icon className="h-4 w-4" aria-hidden="true" />{label}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
                     {problem && <p role="alert" data-testid="invite-problem" className="text-sm font-medium text-red-700">{problem}</p>}
                     <PrimaryButton type="submit" className="w-full" disabled={busy} data-testid="send-invite">{busy ? 'Sending…' : COPY.sendInvite}</PrimaryButton>
                   </div>
@@ -1780,9 +1831,14 @@ function PrototypeV16() {
   /* A different persona signed in: fresh screens for the new lens (the mock chats themselves persist, as the old lens switch did). */
   const lens = useRef(authViewer);
   useEffect(() => {
-    if (!authViewer || lens.current === authViewer) { if (authViewer) lens.current = authViewer; return; }
+    if (!authViewer) return;
+    const before = lens.current;
     lens.current = authViewer;
-    setSt((cur) => ({ ...cur, viewer: authViewer })); setTab('all'); setShowArchived(false); setQ(''); closeOverlays(); go({ view: 'chats' }, true);
+    if (before === authViewer) return;
+    setSt((cur) => ({ ...cur, viewer: authViewer }));
+    /* The FIRST time auth resolves (nobody -> a persona) is a load, not a lens change: a reload or a deep link keeps the view it opened on. */
+    if (!before) return;
+    setTab('all'); setShowArchived(false); setQ(''); closeOverlays(); go({ view: 'chats' }, true);
   }, [authViewer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (f: (s: State) => State) => setSt((cur) => f(authViewer && cur.viewer !== authViewer ? { ...cur, viewer: authViewer } : cur));
@@ -2039,12 +2095,14 @@ function PrototypeV16() {
     setSt((cur) => (JSON.stringify(cur.realPartners) === partnerKey ? cur : { ...cur, realPartners: next }));
   }, [partnerKey]);
   /* The viewer's real seats: event channels open from these, so a seat reserved or cancelled before this visit is already reflected. */
-  const seatsQ = useRealQuery<Record<string, boolean>>(() => loadMySeats(profileId), [profileId], { emptyValue: {}, isEmpty: () => false, enabled: !!authViewer && !!profileId });
-  const seatsKey = JSON.stringify(seatsQ.data ?? {});
+  const eventsQ = useRealQuery<Record<string, MyEvent>>(() => loadMyEvents(profileId), [profileId], { emptyValue: {}, isEmpty: () => false, enabled: !!authViewer && !!profileId });
+  const eventsKey = JSON.stringify(eventsQ.data ?? {});
   useEffect(() => {
-    const next = JSON.parse(seatsKey) as State['realGoing'];
-    setSt((cur) => (JSON.stringify(cur.realGoing) === seatsKey ? cur : { ...cur, realGoing: next }));
-  }, [seatsKey]);
+    const mine = JSON.parse(eventsKey) as Record<string, MyEvent>;
+    const realGoing = Object.fromEntries(Object.entries(mine).map(([id, e]) => [id, e.going]));
+    const realEvents = Object.fromEntries(Object.entries(mine).map(([id, e]) => [id, { name: e.name, when: e.when, day: e.day, today: e.today }]));
+    setSt((cur) => (JSON.stringify(cur.realEvents) === JSON.stringify(realEvents) && JSON.stringify(cur.realGoing) === JSON.stringify(realGoing) ? cur : { ...cur, realGoing, realEvents }));
+  }, [eventsKey]);
   const isAdmin = useIsAdmin(authViewer ? profileId : undefined);
   const groupName = (slug: string) => groupsQ.data?.orgs.find((o) => o.slug === slug)?.name ?? GROUPS.find((g) => g.id === slug)?.name ?? slug;
   /* A real RSVP keeps the chat mock's seat for the event seeded under the same mock id in step, so its channel opens or closes with it. */
@@ -2182,7 +2240,7 @@ function SearchResults({ st, results, onChat, onPerson, onMessage, onInvite }: {
       {everyone.length > 0 && <h2 className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">People</h2>}
       <ul aria-label="People results">{everyone.map((p) => {
         const hasChat = st.chats.some((c) => c.kind === 'dm' && c.members!.includes(st.viewer) && c.members!.includes(p));
-        const shared = sharedWith(st.viewer, p);
+        const shared = sharedWith(st.viewer, p, st);
         return (
           <li key={p} className="flex items-center">
             <button type="button" className={row} onClick={() => onMessage(p)}>
@@ -2211,7 +2269,7 @@ function NoChatYet({ st, person, onBack, onPerson, onMessage }: { st: State; per
         <TranscribeButton />
       </Header>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-testid="empty-chat">
-        <p className="text-sm text-gray-600">{can ? COPY.newChatOpener(first, sharedWith(st.viewer, person)) : `No chat yet with ${first}. You can message ${first} once you share a group or event.`}</p>
+        <p className="text-sm text-gray-600">{can ? COPY.newChatOpener(first, sharedWith(st.viewer, person, st)) : `No chat yet with ${first}. You can message ${first} once you share a group or event.`}</p>
         {can ? <PrimaryButton onClick={onMessage}>{COPY.message}</PrimaryButton> : <OutlineButton onClick={() => onPerson(person)}>View profile</OutlineButton>}
       </div>
     </div>
@@ -2223,21 +2281,23 @@ function NoChatYet({ st, person, onBack, onPerson, onMessage }: { st: State; per
 function DmTitle({ st, chat, onPerson, onPartners }: { st: State; chat: Chat; onPerson: (p: PersonId) => void; onPartners: () => void }) {
   const other = otherOf(st, chat);
   const state = partnerState(st, other);
+  /* The person's name keeps priority. Beside the name the state is a chip from `sm` up; on a phone it moves into the line under the name. */
+  const stateWord = state === 'partner' ? COPY.partner : state === 'pending' ? COPY.inviteSent : null;
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <button type="button" onClick={() => onPerson(other)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={other} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{chatTitle(st, chat)}</span><span className="block truncate text-xs text-gray-500">{PEOPLE[other].role}</span></span></button>
+      <button type="button" onClick={() => onPerson(other)} data-testid="dm-name" className="flex min-h-11 min-w-[5rem] items-center gap-2.5 text-left"><Avatar person={other} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{chatTitle(st, chat)}</span><span className="block truncate text-xs text-gray-500">{PEOPLE[other].role}{stateWord && <span className="sm:hidden" data-testid="partner-sub"> · {stateWord}</span>}</span></span></button>
       {state === 'partner' && (
         <Tip label="Your partners" side="bottom">
-          <button type="button" onClick={onPartners} data-testid="partner-tag" className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-3 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Handshake className="h-3 w-3" aria-hidden="true" />{COPY.partner}</button>
+          <button type="button" onClick={onPartners} aria-label={COPY.partner} data-testid="partner-tag" className="hidden min-h-10 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-3 text-xs font-semibold text-blue-700 hover:bg-blue-100 sm:inline-flex"><Handshake className="h-3 w-3" aria-hidden="true" />{COPY.partner}</button>
         </Tip>
       )}
       {/* v11 PendingLine: production's LetterStatusBadge (in progress) with its label override. */}
-      {state === 'pending' && <span data-testid="partner-pending" className="inline-flex shrink-0"><LetterStatusBadge status="in_progress" label={COPY.inviteSent} /></span>}
+      {state === 'pending' && <span data-testid="partner-pending" className="hidden shrink-0 sm:inline-flex"><LetterStatusBadge status="in_progress" label={COPY.inviteSent} /></span>}
     </div>
   );
 }
 
-type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger?: boolean; /** No production destination yet: says so before it is touched. */ soon?: boolean };
+type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger?: boolean; /** No production destination yet: says so before it is touched. */ soon?: boolean; /** Offered in the menu on a phone only (a wider header has the button). */ phoneOnly?: boolean };
 
 /**
  * A chat header's word labels fit where the pane is wide: a tablet's single pane (sm up to lg) and a wide desktop (xl up). In between
@@ -2257,8 +2317,8 @@ function ChatMenu({ entries }: { entries: MenuEntry[] }) {
       <Tip label="More" side="bottom"><button type="button" aria-label="More" aria-expanded={on} onClick={() => setOn(!on)} className={cn('flex h-11 w-11 items-center justify-center rounded-full text-gray-600', HOVER)}><MoreHorizontal className="h-5 w-5" /></button></Tip>
       {on && (
         <div role="menu" className="absolute right-0 top-12 z-30 w-56 rounded-xl border bg-white p-1 shadow-xl" data-testid="chat-menu">
-          {entries.map(({ label, Icon, onSelect, danger, soon }) => (
-            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}{soon && <span className="ml-auto text-xs text-gray-500">{COPY.comingSoon}</span>}</button>
+          {entries.map(({ label, Icon, onSelect, danger, soon, phoneOnly }) => (
+            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700', phoneOnly && 'sm:hidden')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}{soon && <span className="ml-auto text-xs text-gray-500">{COPY.comingSoon}</span>}</button>
           ))}
         </div>
       )}
@@ -2276,11 +2336,11 @@ function ChatMenu({ entries }: { entries: MenuEntry[] }) {
 function TranscribeButton() {
   return (
     <Tip label={`${COPY.transcribe}: ${COPY.comingSoon}`} side="bottom">
-      <OutlineButton onClick={() => toast(`${COPY.transcribe} from a chat is coming soon.`)} aria-label={`${COPY.transcribe}, ${COPY.comingSoon.toLowerCase()}`} data-testid="transcribe-button" className="shrink-0 gap-1.5 px-2.5 text-gray-700">
+      <OutlineButton onClick={() => toast(`${COPY.transcribe} from a chat is coming soon.`)} aria-label={`${COPY.transcribe}, ${COPY.comingSoon.toLowerCase()}`} data-testid="transcribe-button" className="h-auto min-h-10 shrink-0 flex-col gap-0 px-1.5 py-1 text-gray-700 sm:flex-row sm:gap-1.5 sm:px-2.5">
         <Mic className="h-4 w-4" aria-hidden="true" />
         <span className={HEADER_LABEL}>{COPY.transcribe}</span>
         {/* Never hidden at any width: on a touch screen there is no tip, so this is the only place the state is said. */}
-        <span className="text-xs font-normal text-gray-500" data-testid="transcribe-soon">{COPY.comingSoon}</span>
+        <span className="text-[10px] font-normal leading-tight text-gray-500 sm:text-xs" data-testid="transcribe-soon">{COPY.comingSoon}</span>
       </OutlineButton>
     </Tip>
   );
@@ -2321,7 +2381,7 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
           <span className="block truncate text-base font-semibold text-gray-900">{rowTitle(st, chat, true)}</span>
           <span className="flex min-w-0 items-center gap-1 truncate text-xs text-gray-500">
             {ev
-              ? <><span className="truncate">{ev.when}</span> · <GoingCount mockEventId={ev.id} /></>
+              ? <><span className="truncate">{eventWhen(st, ev)}</span> · <GoingCount mockEventId={ev.id} /></>
               : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span data-testid="members-only">{COPY.membersOnly}</span><span className="truncate"> · {group?.name}</span></>}
           </span>
         </span>
@@ -2341,11 +2401,14 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
     ]
     : mirror
       ? [{ label: 'Rename', Icon: Pencil, onSelect: onRename }]
-      : [{ label: COPY.inviteToLive, Icon: Video, onSelect: onInviteLive, soon: true }];
+      : [
+        ...(showInvite ? [{ label: COPY.invite, Icon: Handshake, onSelect: () => onInvite(other!), phoneOnly: true }] : []),
+        { label: COPY.inviteToLive, Icon: Video, onSelect: onInviteLive, soon: true },
+      ];
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="chat-view" data-chat-open={chat.id}>
       <Header onBack={onBack} title={title}>
-        {showInvite && <Tip label={COPY.invite} side="bottom"><OutlineButton onClick={() => onInvite(other!)} aria-label={COPY.invite} data-testid="invite-partner" className="shrink-0 px-2.5"><Handshake className="h-4 w-4" aria-hidden="true" /><span className={HEADER_LABEL}>{COPY.invite}</span></OutlineButton></Tip>}
+        {showInvite && <Tip label={COPY.invite} side="bottom"><OutlineButton onClick={() => onInvite(other!)} aria-label={COPY.invite} data-testid="invite-partner" className="hidden shrink-0 px-2.5 sm:inline-flex"><Handshake className="h-4 w-4" aria-hidden="true" /><span className={HEADER_LABEL}>{COPY.invite}</span></OutlineButton></Tip>}
         <TranscribeButton />
         <ChatMenu entries={entries} />
       </Header>
@@ -2360,10 +2423,10 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
         )}
         {msgs.length === 0 && !mirror && (
           <p className="px-6 py-12 text-center text-sm text-gray-500" data-testid="empty-chat">
-            {channel ? 'No messages yet.' : COPY.newChatOpener(otherFirst, sharedWith(st.viewer, other!))}
+            {channel ? 'No messages yet.' : COPY.newChatOpener(otherFirst, sharedWith(st.viewer, other!, st))}
           </p>
         )}
-        {msgs.length > 0 && <Divider>{dayLabel(chat)}</Divider>}
+        {msgs.length > 0 && <Divider>{dayLabel(st, chat)}</Divider>}
         <MessageList label="Messages" msgs={msgs} render={(m, compact) => (
           <MessageRow key={m.id} st={st} msg={m} own={m.who === st.viewer && !m.agent} compact={compact && !m.agent && !msgs[msgs.indexOf(m) - 1]?.agent} highlight={m.id === threadId} replies={repliesOf(st, m.id)} liveThread={!!m.table && ev?.live}
             onPerson={onPerson} onReply={() => onReply(m)} onForward={() => onForward(m.id)} onThread={m.failed ? undefined : () => onThread(m)} onRetry={() => onRetry(m.id)}

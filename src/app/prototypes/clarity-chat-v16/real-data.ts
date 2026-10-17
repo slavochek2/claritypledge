@@ -36,8 +36,8 @@ import { eventsService } from '@/app/data/events-service';
 import { agreementsService } from '@/app/data/agreements-service';
 import { getAdminTopics } from '@/app/data/topic-voting';
 import { filterAgreementsForViewer } from '@/app/components/agreements/filter-agreements';
-import { formatTimeAgo } from '@/app/utils/format-time';
-import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
+import { formatLocalDate, formatLocalDateTime, formatTimeAgo } from '@/app/utils/format-time';
+import type { AgreementVisibility, ClarityAgreement } from '@/app/data/agreements-service.interface';
 import type { Organization, OrgMember, OrgRole } from '@/app/data/organizations-service.interface';
 import type { EventAttendee, EventWithHost, LetterDelivery, PointSummary, PointWithUserPosition, Profile, StoryWithAuthor } from '@/app/types';
 import { isSeededPersonaEmail, isTestProject, PERSONA_SESSION_ENDPOINT, personaFromSlug, personaSlug } from './personas';
@@ -199,7 +199,11 @@ export async function loadMyShareables(profileId: string): Promise<Shareable[]> 
   const [points, stories] = await Promise.all([
     pointsService.getPointsForProfileDisplay(profileId, profileId),
     storiesService.getStoriesByAuthor(profileId),
-  ]);
+  ]).then(([pts, sts]) => [
+    /* Only what the viewer could actually share: a private point or an unpublished story (a letter draft's body) is never offered. */
+    pts.filter((p) => p.visibility !== 'private'),
+    sts.filter((x) => x.visibility !== 'private'),
+  ] as const);
   const linked = stories.length ? await storiesService.getPointsForStories(stories.map((s) => s.id), profileId).catch(() => new Map<string, PointSummary[]>()) : new Map<string, PointSummary[]>();
   return [
     ...points.map((p): Shareable => ({ id: p.id, kind: 'point', title: p.statement, tags: p.tags ?? [], real: { point: p } })),
@@ -231,6 +235,8 @@ export interface LetterRowData {
   summary?: string;
   /** Inbox only. */
   unread?: boolean;
+  /** Inbox only, where the data has it: "0 of 1 steps". */
+  steps?: string;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -240,6 +246,7 @@ export async function loadLetters(box: LetterBox, profileId: string, myName: str
     const items = await getInboxItems(profileId);
     return items.map((i) => ({
       id: i.delivery_id, box, title: i.title, who: i.actor_name, whoSlug: i.actor_slug ?? null, when: formatTimeAgo(i.timestamp), unread: !i.read_at,
+      steps: i.steps_completed !== undefined && i.total_steps !== undefined ? `${Math.min(i.steps_completed, i.total_steps)} of ${i.total_steps} steps` : undefined,
       actions: i.type === 'received' && !i.completed_at
         ? [{ label: 'Read', href: `/letter/${i.delivery_id}`, primary: true }]
         : [{ label: 'Results', href: `/letter/${i.letter_id}/results?delivery=${i.delivery_id}`, primary: true }],
@@ -353,17 +360,23 @@ async function findEventOrg(eventId: string, hint?: string): Promise<Organizatio
 export const rsvp = async (eventId: string, profileId: string) => { requireTestProject(); return eventsService.rsvpToEvent(eventId, profileId); };
 export const cancelRsvp = async (eventId: string, profileId: string) => { requireTestProject(); return eventsService.cancelRsvp(eventId, profileId); };
 
+/** What the chat world takes from the REAL event seeded under a chat-mock event id. */
+export interface MyEvent { going: boolean; name: string; /** "Oct 17 · 7:00 PM". */ when: string; /** "Oct 17". */ day: string; today: boolean }
+
 /**
- * The viewer's real seats, by chat-mock event id: true = going, false = not going. An event that does not exist in the test project
- * has no entry (the chat mock's roster then stands in). Event channels open from this, so a seat reserved or cancelled before this
- * visit is already reflected.
+ * The viewer's real seats AND the real facts (title, date) of each event the chat mock has a channel for, by chat-mock event id. An
+ * event that does not exist in the test project has no entry: the chat mock's own text and roster then stand in. Event channels open
+ * from `going`, so a seat reserved or cancelled before this visit is already reflected; the channel's name and date are the real ones.
  */
-export async function loadMySeats(profileId: string): Promise<Record<string, boolean>> {
-  const seats = await Promise.all(EVENTS.map(async (e): Promise<[string, boolean] | null> => {
+export async function loadMyEvents(profileId: string): Promise<Record<string, MyEvent>> {
+  const rows = await Promise.all(EVENTS.map(async (e): Promise<[string, MyEvent] | null> => {
     const event = await eventsService.getEventBySlug(seedEventSlug(e.id));
-    return event ? [e.id, await eventsService.isUserRsvpd(event.id, profileId)] : null;
+    if (!event) return null;
+    const going = await eventsService.isUserRsvpd(event.id, profileId);
+    const day = formatLocalDate(event.datetime, { timeZone: event.timezone });
+    return [e.id, { going, name: event.title, when: formatLocalDateTime(event.datetime, { timeZone: event.timezone }), day, today: day === formatLocalDate(new Date(), { timeZone: event.timezone }) }];
   }));
-  return Object.fromEntries(seats.filter((x): x is [string, boolean] => x !== null));
+  return Object.fromEntries(rows.filter((x): x is [string, MyEvent] => x !== null));
 }
 
 /**
@@ -408,13 +421,13 @@ export type InviteResult = { ok: true } | { ok: false; reason: 'refused' | 'fail
  * never be delivered); anything else is refused HERE, with no profile lookup, no agreement and no mail request.
  * A picked persona is invited by profile id (as production's picker does), a typed persona address by email.
  */
-export async function sendPartnerInvite(input: { email: string; personId?: PersonId; name: string; termsText: string }): Promise<InviteResult> {
+export async function sendPartnerInvite(input: { email: string; personId?: PersonId; name: string; termsText: string; /** Production's choice; its default is Public. */ visibility?: AgreementVisibility }): Promise<InviteResult> {
   if (!isSeededPersonaEmail(input.email)) return { ok: false, reason: 'refused', message: COPY.inviteRefused };
   if (!onTestProject()) return { ok: false, reason: 'refused', message: 'Prototype invites are sent only on the Supabase test project.' };
   try {
     const partnerProfileId = input.personId ? (await loadProfile(personaSlug(input.personId)).catch(() => null))?.id : undefined;
     const agreement = await agreementsService.createAgreement({
-      partnerEmail: input.email.trim().toLowerCase(), partnerProfileId, partnerDisplayName: input.name, termsText: input.termsText.trim(), visibility: 'private',
+      partnerEmail: input.email.trim().toLowerCase(), partnerProfileId, partnerDisplayName: input.name, termsText: input.termsText.trim(), visibility: input.visibility ?? 'public',
     });
     return agreement ? { ok: true } : { ok: false, reason: 'failed', message: 'Could not send the invite. You may already have an agreement with this person.' };
   } catch {

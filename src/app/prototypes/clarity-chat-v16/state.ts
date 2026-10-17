@@ -14,7 +14,7 @@
  * search scope) are testable here.
  */
 import type { PositionType } from '@/app/types';
-import { COPY, EVENTS, GROUPS, PARTNERS, PEOPLE, type PersonId, type Shareable, type ViewerId } from './mock-data';
+import { COPY, EVENTS, GROUPS, PARTNERS, PEOPLE, type EventInfo, type PersonId, type Shareable, type ViewerId } from './mock-data';
 
 /** A channel belongs to a group: its `# general` (no eventId, members only) or one event's closed channel. */
 export interface Chat { id: string; kind: 'dm' | 'channel' | 'mirror'; members?: [PersonId, PersonId]; groupId?: string; eventId?: string; /** A mirror chat's one owner. */ owner?: ViewerId }
@@ -83,6 +83,8 @@ export interface State {
   realPartners: Partial<Record<PersonId, 'pending' | 'partner'>>;
   /** v16: the viewer's real seats by chat-mock event id (true = going), read from the events service. Absent = not known: the roster stands in. */
   realGoing: Record<string, boolean>;
+  /** v16: the real title and date of each seeded event, by chat-mock event id. Absent = the mock's own text stands in. */
+  realEvents: Record<string, { name: string; when: string; day: string; today: boolean }>;
 }
 
 export type Tab = 'all' | 'unread' | 'partners' | 'groups';
@@ -160,6 +162,7 @@ export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: 
     positions: { bob: {}, dana: {} },
     realPartners: opts.seedPartners === false || opts.noPartners ? {} : Object.fromEntries(PARTNERS.flatMap(([x, y]) => (x === (opts.viewer ?? 'bob') ? [[y, 'partner']] : y === (opts.viewer ?? 'bob') ? [[x, 'partner']] : []))),
     realGoing: {},
+    realEvents: {},
   };
 }
 
@@ -203,14 +206,22 @@ export function canMessage(a: PersonId, b: PersonId): boolean {
 }
 
 /** What two people share, for a new chat's opener: "attend Clarity Night, Oct 16" / "are in Chiang Mai Clarity". */
-export function sharedWith(a: PersonId, b: PersonId): string {
+export function sharedWith(a: PersonId, b: PersonId, st?: State): string {
   const g = GROUPS.find((x) => x.members.includes(a) && x.members.includes(b));
   if (g) return `are in ${g.name}`;
   const e = EVENTS.find((x) => x.attendees.includes(a) && x.attendees.includes(b));
-  return e ? `attend ${e.name}` : '';
+  return e ? `attend ${st ? eventName(st, e) : e.name}` : '';
 }
 
 /** General: the group's members. An event channel: that event's RSVPs (the Members screen reads the real attendees). */
+/** An event's name, date line and day label: the REAL event's when it is seeded, else the chat mock's. */
+export const eventName = (st: State, ev: EventInfo) => st.realEvents[ev.id]?.name ?? ev.name;
+export const eventWhen = (st: State, ev: EventInfo) => st.realEvents[ev.id]?.when ?? ev.when;
+export const eventDay = (st: State, ev: EventInfo) => {
+  const real = st.realEvents[ev.id];
+  return real ? (real.today ? 'Today' : real.day) : ev.today ? 'Today' : ev.when;
+};
+
 export const channelMembers = (c: Chat): PersonId[] => {
   const ev = eventOf(c);
   return ev ? [...ev.attendees] : [...(groupOf(c)?.members ?? [])];
@@ -237,7 +248,7 @@ export const mirrorLabel = (st: State, v: ViewerId = st.viewer): string => {
   return !name ? COPY.yourMirror : name === role ? role : `${name} · ${role}`;
 };
 export const chatTitle = (st: State, c: Chat): string =>
-  (c.kind === 'mirror' ? mirrorLabel(st, c.owner) : c.kind === 'dm' ? PEOPLE[otherOf(st, c)].name : eventOf(c)?.name ?? COPY.general);
+  (c.kind === 'mirror' ? mirrorLabel(st, c.owner) : c.kind === 'dm' ? PEOPLE[otherOf(st, c)].name : (eventOf(c) ? eventName(st, eventOf(c)!) : COPY.general));
 /** A failed send never left its author's device: only the author sees it (with Retry). */
 export const shownTo = (st: State, x: Msg) => !x.failed || x.who === st.viewer;
 export const msgsOf = (st: State, chatId: string) => st.msgs.filter((x) => x.chatId === chatId && shownTo(st, x));

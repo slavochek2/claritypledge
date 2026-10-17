@@ -233,6 +233,9 @@ export function planPositions(): { positions: PlannedPosition[]; asked: Record<s
     const voters = PERSONA_IDS.filter((id) => id !== s.author && !(VIEWER_IDS as readonly PersonId[]).includes(id));
     const taken = wanted.slice(0, voters.length);
     taken.forEach((position, i) => positions.push({ pointKey: s.id, persona: voters[i] as PersonId, position }));
+    // The author holds a position on their own point, as 70% of the test project's real authors do (sampled: 140 of
+    // the 200 latest points). Without it the point is missing from the author's own "my points" (Share picker).
+    positions.push({ pointKey: s.id, persona: s.author, position: 'agree' });
     asked[s.id] = wanted.length;
     seeded[s.id] = taken.length;
   }

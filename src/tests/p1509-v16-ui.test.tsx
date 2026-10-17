@@ -735,7 +735,7 @@ describe('P1509 v16 skeleton, error with Retry, empty — every real surface', (
     { name: 'Groups (phone tab)', url: `${BASE}?view=groups`, scope: () => screen.getByTestId('groups-page'), empty: /not in any group yet/ },
     { name: 'Directory', url: `${BASE}?view=directory`, scope: () => screen.getByTestId('directory-page'), empty: /No public groups yet/ },
     { name: 'Group page', url: `${BASE}?view=group&group=cm`, scope: () => screen.getByTestId('group-page'), empty: /No events yet/ },
-    { name: 'Event page', url: `${BASE}?view=event&event=p1509-night-oct16&group=cm`, scope: () => screen.getByTestId('event-page'), empty: /No one has reserved a seat yet/ },
+    { name: 'Event page', url: `${BASE}?view=event&event=p1509-night-oct16&group=cm`, scope: () => screen.getByTestId('event-page'), empty: /No details for this event yet/ },
     { name: 'Profile', url: `${BASE}?view=profile&person=alice`, scope: () => screen.getByTestId('profile'), empty: /no profile in the test project yet/ },
     { name: 'Partners', url: `${BASE}?view=partners`, scope: () => screen.getByTestId('partners-page'), empty: /No partners yet/ },
   ];
@@ -1030,7 +1030,7 @@ describe('P1509 v16 Invite partner', () => {
     expect(termsBox().value).toBe(TERMS_PLACEHOLDER);
     sendInvite();
     await waitFor(() => expect(create()).toHaveBeenCalledTimes(1));
-    expect(create()).toHaveBeenCalledWith({ partnerEmail: personaEmail('dana'), partnerProfileId: 'u-dana', partnerDisplayName: 'Dana Ortiz', termsText: TERMS_PLACEHOLDER.trim(), visibility: 'private' });
+    expect(create()).toHaveBeenCalledWith({ partnerEmail: personaEmail('dana'), partnerProfileId: 'u-dana', partnerDisplayName: 'Dana Ortiz', termsText: TERMS_PLACEHOLDER.trim(), visibility: 'public' });
     await waitFor(() => expect(screen.queryByTestId('partner-invite-page')).toBeNull());
     expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-dana');
     expect(screen.getByTestId('partner-pending').textContent).toBe('Invite sent');
@@ -1279,11 +1279,12 @@ describe('P1509 v16 Transcribe, Clarity Live, General and the message menu', () 
     }
   });
 
-  it('Invite to Clarity Live is only in the ⋯ menu of a 1:1 chat: not a header button, not in a channel or the mirror', () => {
+  it('Invite to Clarity Live is only in the ⋯ menu of a 1:1 chat: not a header button, not in a channel or the mirror', async () => {
     renderV16();
     openRow('dm-bob-alice');
+    await screen.findByTestId('partner-tag');
     expect(within(chatView().querySelector('header')!).queryByRole('button', { name: /Clarity Live/ })).toBeNull();
-    expect(chatMenuItems()).toEqual(['Invite to Clarity LiveComing soon']);
+    expect(chatMenuItems()).toEqual(['Invite to Clarity LiveComing soon']); // Alice is a partner (once the agreements have loaded), so no Invite partner entry
     fireEvent.click(screen.getByRole('menuitem', { name: /^Invite to Clarity Live/ }));
     back();
     for (const id of ['gen-cm', 'ch-night-oct16', 'mirror-bob']) {
@@ -2139,3 +2140,272 @@ describe('P1509 v16 review fixes 1', () => {
     });
   });
 });
+
+/**
+ * Review fixes 2 (live browser audit). Each test was run against the unfixed code first.
+ */
+describe('P1509 v16 review fixes 2', () => {
+  const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+  const resolving = () => ({ session: null, user: null, isLoading: true, sessionChecked: false, signOut: async () => {}, refreshProfile: async () => {} });
+
+  describe('B1 a reload or deep link keeps its view when auth resolves later', () => {
+    it.each([
+      ['letters', '?view=letters', () => screen.findByTestId('letters-page')],
+      ['an event', '?view=event&event=p1509-night-oct16&group=cm', () => screen.findByTestId('event-page')],
+      ['a chat', '?view=chats&chat=dm-bob-alice', async () => { await screen.findByTestId('chat-view'); return screen.getByTestId('chat-view'); }],
+    ])('%s', async (_n, query, landed) => {
+      h.set(resolving());
+      renderV16(`${BASE}${query}`);
+      expect(screen.getByTestId('auth-checking')).toBeTruthy();
+      h.set(h.snap(F.BOB)); // auth resolves: undefined -> Bob is not a lens change
+      await landed();
+      await settle();
+      expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe(new URLSearchParams(query).get('view'));
+      if (query.includes('chat=')) expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-alice');
+    });
+
+    it('control: a REAL persona change (Bob -> Dana) still resets to the chat list', async () => {
+      renderV16(`${BASE}?view=letters`);
+      expect(screen.getByTestId('letters-page')).toBeTruthy();
+      await asDana();
+      await waitFor(() => expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('chats'));
+    });
+  });
+
+  describe('B3 B4 B5 narrow screens', () => {
+    it('B3 the Letters header wraps instead of pushing New Draft off the screen', async () => {
+      renderV16(`${BASE}?view=letters`);
+      const header = await screen.findByTestId('letters-header');
+      expect(header.className).toContain('flex-wrap');
+      expect(within(header).getByTestId('new-draft').className).toContain('shrink-0');
+    });
+
+    it('B4 the person\'s name keeps priority in a 1:1 header: on a phone the Partner chip moves under the name, Invite partner moves into the menu, and Transcribe stacks its Coming soon under the mic', async () => {
+      renderV16(`${BASE}?view=chats&chat=dm-bob-alice`);
+      const tag = await screen.findByTestId('partner-tag');
+      expect(tag.className).toMatch(/(^|\s)hidden(\s|$)/); // beside the name only from sm up
+      expect(tag.className).toContain('sm:inline-flex');
+      const sub = screen.getByTestId('partner-sub'); // the line under the name, phone only
+      expect(sub.textContent).toBe(' · Partner');
+      expect(sub.className).toContain('sm:hidden');
+      const t = screen.getByTestId('transcribe-button');
+      expect(t.className).toContain('flex-col'); // narrow: icon over the words
+      expect(t.className).toContain('sm:flex-row');
+      expect(within(t).getByTestId('transcribe-soon').textContent).toBe('Coming soon'); // still said, never hidden
+      const name = within(chatView().querySelector('header')!).getByTestId('dm-name');
+      expect(name.className).toContain('min-w-[5rem]'); // the name is the last thing to give way
+      expect(name.className).not.toContain('min-w-0');
+    });
+
+    it('B4 a 1:1 with no partner state: Invite partner is a header button from sm up and a ⋯ menu entry on a phone', () => {
+      renderV16(`${BASE}?view=chats&chat=dm-bob-eli`);
+      const btn = screen.getByTestId('invite-partner');
+      expect(btn.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(btn.className).toContain('sm:inline-flex');
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+      const entry = within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: /^Invite partner/ });
+      expect(entry.className).toContain('sm:hidden');
+      fireEvent.click(entry);
+      expect(screen.getByTestId('partner-invite-page')).toBeTruthy();
+    });
+
+    it('B5 a long location (a raw maps URL) is cut with an ellipsis inside the event row, not printed past the card', async () => {
+      const longPlace = 'https://www.google.com/maps/search/?api=1&query=' + 'x'.repeat(120);
+      const orig = vi.mocked(eventsService.getPastEvents).getMockImplementation()!;
+      vi.mocked(eventsService.getPastEvents).mockImplementation((async (org?: string) => ((await orig(org)) as { location: string }[]).map((e) => ({ ...e, location: longPlace }))) as never);
+      renderV16(`${BASE}?view=group&group=cm`);
+      const meta = (await screen.findAllByTestId('group-event-meta'))[1]!;
+      expect(meta.textContent).toContain('https://www.google.com/maps');
+      expect(meta.className).toContain('truncate');
+      vi.mocked(eventsService.getPastEvents).mockImplementation(orig);
+    });
+  });
+
+  describe('B6b the Share picker only offers what could be shared', () => {
+    it('a private (unpublished) story and a private point are not offered; public ones are', async () => {
+      vi.mocked(storiesService.getStoriesByAuthor).mockResolvedValueOnce([F.STORY_HIKE, { ...F.STORY_HIKE, id: 'st-private', content: 'Draft. Most of the people I meet here moved for a reason', visibility: 'private' }] as never);
+      vi.mocked(pointsService.getPointsForProfileDisplay).mockResolvedValueOnce([F.POINT_DISAGREEMENT, { ...F.POINT_DISAGREEMENT, id: 'pt-private', statement: 'A private thought', visibility: 'private' }] as never);
+      renderV16();
+      openRow('dm-bob-alice');
+      fireEvent.click(screen.getByRole('button', { name: 'Share a point or story' }));
+      const dlg = screen.getByRole('dialog', { name: 'Share a point or story' });
+      await within(dlg).findByTestId('attach-results');
+      expect(within(dlg).queryByText('A private thought')).toBeNull();
+      expect(within(dlg).getByRole('button', { name: /^Share Disagreement is information/ })).toBeTruthy();
+      fireEvent.click(within(dlg).getByRole('tab', { name: 'Stories' }));
+      expect(within(dlg).queryByText(/Draft\. Most of the people/)).toBeNull();
+      expect(within(dlg).getByRole('button', { name: /^Share The hike where we got lost/ })).toBeTruthy();
+    });
+  });
+
+  describe('B7 the event page shows no internal placeholder and invents nothing', () => {
+    it('the topic vote area says "Topic vote: Coming soon", never "Placeholder"', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-online-oct23&group=online`);
+      const area = await screen.findByTestId('topic-vote');
+      expect(area.textContent).toContain('Topic vote');
+      expect(area.textContent).toContain('Coming soon');
+      expect(document.body.textContent).not.toMatch(/Placeholder|TopicsPage/);
+    });
+
+    it('?real=empty is a proper empty state: no invented date and no "?" organiser', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-online-oct23&real=empty`);
+      await settle();
+      const page = screen.getByTestId('event-page');
+      expect(page.textContent).not.toMatch(/January 1|2099/);
+      expect(page.textContent).not.toMatch(/Event Organizer/);
+      expect(within(page).getByTestId('real-empty').textContent).toMatch(/No details for this event yet/);
+    });
+  });
+
+  describe('B8 the chat world takes event facts from the REAL event when one is seeded', () => {
+    it('channel name, header, list row, forward list and the opener use the real title and date, not mock-data\'s', async () => {
+      const orig = vi.mocked(eventsService.getEventBySlug).getMockImplementation()!;
+      vi.mocked(eventsService.getEventBySlug).mockImplementation((async (slug: string) => (slug === 'p1509-night-oct16' ? { ...F.EVENT_NIGHT_OCT16, title: 'Clarity Night, Oct 17', datetime: '2099-10-17T12:00:00.000Z' } : orig(slug))) as never);
+      renderV16();
+      await waitFor(() => expect(within(document.querySelector<HTMLElement>('[data-chat="ch-night-oct16"]')!).getByTestId('row-title').textContent).toBe('Clarity Night, Oct 17'));
+      openRow('ch-night-oct16');
+      const header = chatView().querySelector('header')!;
+      expect(header.textContent).toContain('Clarity Night, Oct 17');
+      expect(header.textContent).not.toContain('Oct 16');
+      expect(header.textContent).toMatch(/Oct 17/); // the date line is the real one
+      expect(header.textContent).not.toContain('Today, 19:00');
+      tool(msg(/Bring one disagreement/), 'Forward');
+      const dlg = screen.getByRole('dialog', { name: 'Forward to' });
+      expect(within(dlg).getByText('Clarity Night, Oct 17')).toBeTruthy();
+      expect(within(dlg).queryByText('Clarity Night, Oct 16')).toBeNull();
+      vi.mocked(eventsService.getEventBySlug).mockImplementation(orig);
+    });
+  });
+
+  describe('B12 the phone profile sheet reaches Log Out without scrolling', () => {
+    it('Log Out is among the first rows (before Use cases, Learn and Pledgers)', () => {
+      stubViewport(false);
+      renderV16();
+      tabbar('Profile');
+      const rows = within(screen.getByTestId('me-menu')).getAllByRole('menuitem').map((b) => b.textContent);
+      const at = rows.findIndex((t) => /Log Out/.test(t ?? ''));
+      expect(at).toBeGreaterThan(-1);
+      expect(at).toBeLessThan(9); // 9 rows of 44px = 396px of the 674px sheet at 375x812
+      expect(rows.findIndex((t) => /For builders/.test(t ?? ''))).toBeGreaterThan(at);
+      expect(rows.findIndex((t) => /Pledgers/.test(t ?? ''))).toBeGreaterThan(at);
+    });
+
+    it('the desktop menu keeps Log Out last (it is a popover, not a sheet)', async () => {
+      renderV16();
+      fireEvent.click(screen.getByTestId('sidebar-me'));
+      const rows = within(screen.getByTestId('me-menu')).getAllByRole('menuitem').map((b) => b.textContent);
+      expect(rows.at(-1)).toMatch(/Log Out/);
+    });
+  });
+
+  describe('audit #9 the Home right rail obeys ?real=', () => {
+    it('covered by review fixes 1 (Gemini#5): the widgets are not mounted under ?real= and no service is called', async () => {
+      renderV16(`${BASE}?view=home&real=loading`);
+      await settle();
+      expect(screen.queryByTestId('home-side-rail')).toBeNull();
+      expect(within(screen.getByTestId('home-side-widgets')).getByTestId('real-skeleton')).toBeTruthy();
+    });
+  });
+
+  describe('restored losses: links into the existing production pages (new tab, no writes)', () => {
+    const link = (root: HTMLElement, name: string | RegExp) => within(root).getByRole('link', { name }) as HTMLAnchorElement;
+    const opensNewTab = (a: HTMLAnchorElement) => { expect(a.target).toBe('_blank'); expect(a.rel).toContain('noreferrer'); };
+
+    it('R1 Home has "Share a Story" -> /create', async () => {
+      renderV16(`${BASE}?view=home`);
+      const a = link(await screen.findByTestId('home-page'), 'Share a Story');
+      expect(a.getAttribute('href')).toBe('/create');
+      opensNewTab(a);
+    });
+
+    it('R2 every Partners row has an "Agreement" action -> /agreements/:id (the row still opens the chat)', async () => {
+      renderV16(`${BASE}?view=partners`);
+      const page = screen.getByTestId('partners-page');
+      await waitFor(() => expect(page.textContent).toContain('Active (1)'));
+      const links = within(page).getAllByTestId('agreement-action') as HTMLAnchorElement[];
+      expect(links.map((a) => a.textContent)).toEqual(['Agreement', 'Agreement']);
+      expect(links.map((a) => a.getAttribute('href'))).toEqual(['/agreements/ag-bob-alice', '/agreements/ag-bob-carol']);
+      links.forEach(opensNewTab);
+      fireEvent.click(within(page).getByText('Alice Moreau'));
+      expect(chatView().getAttribute('data-chat-open')).toBe('dm-bob-alice');
+    });
+
+    it('R3 the host of an event (and only the host) gets Edit event and Host panel', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-night-oct02&group=cm`); // Bob hosts Oct 2
+      await screen.findByTestId('rsvp-area');
+      const page = screen.getByTestId('event-page'); // the loaded page, not the loading frame
+      expect(link(page, 'Edit event').getAttribute('href')).toBe('/events/p1509-night-oct02/edit');
+      expect(link(page, 'Host panel').getAttribute('href')).toBe('/events/p1509-night-oct02/host');
+      opensNewTab(link(page, 'Host panel'));
+    });
+
+    it('R3 control: Bob is not the host of Oct 16 (Alice is), so neither link shows', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`);
+      await screen.findByTestId('rsvp-area');
+      expect(screen.queryByRole('link', { name: 'Edit event' })).toBeNull();
+      expect(screen.queryByRole('link', { name: 'Host panel' })).toBeNull();
+    });
+
+    it('R4 the group page splits events into Upcoming and Past', async () => {
+      renderV16(`${BASE}?view=group&group=cm`);
+      const events = await screen.findByTestId('group-events');
+      const heads = within(events).getAllByRole('heading').map((x) => x.textContent);
+      expect(heads).toEqual(['Upcoming (1)', 'Past (1)']);
+      const [up, past] = within(events).getAllByRole('list');
+      expect(up!.textContent).toContain('Clarity Night, Oct 16');
+      expect(past!.textContent).toContain('Clarity Night, Oct 2');
+    });
+
+    it('R5 the invite form has production\'s Visibility choice (default Public) and passes it to createAgreement; the safety gate still comes first', async () => {
+      renderV16(`${BASE}?view=invite&with=dana`);
+      const group = screen.getByRole('radiogroup', { name: 'Visibility' });
+      const [pub, priv] = within(group).getAllByRole('radio');
+      expect([pub!.textContent, priv!.textContent]).toEqual(['Public', 'Private']);
+      expect(pub!.getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(priv!);
+      expect(priv!.getAttribute('aria-checked')).toBe('true');
+      chooseSuggestedTermsIn();
+      fireEvent.click(screen.getByTestId('send-invite'));
+      await waitFor(() => expect(vi.mocked(agreementsService.createAgreement)).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(agreementsService.createAgreement)).toHaveBeenCalledWith(expect.objectContaining({ partnerEmail: personaEmail('dana'), visibility: 'private' }));
+    });
+
+    it('R6 inbox rows show Unread and the step progress where the data has it', async () => {
+      vi.mocked(getInboxItems).mockResolvedValueOnce([
+        { ...F.INBOX[0]!, steps_completed: 0, total_steps: 1 },
+        { ...F.INBOX[1]!, read_at: '2026-10-06T10:00:00.000Z', steps_completed: 3, total_steps: 5 },
+      ] as never);
+      renderV16(`${BASE}?view=letters`);
+      const cards = await screen.findAllByTestId('letter-card');
+      expect(cards[0]!.textContent).toContain('Unread.');
+      expect(cards[0]!.textContent).toContain('0 of 1 steps');
+      expect(cards[1]!.textContent).not.toContain('Unread.');
+      expect(cards[1]!.textContent).toContain('3 of 5 steps');
+    });
+
+    it('R7 a profile has See full profile -> /p/:slug and Compare with me -> /compare/:slug (own profile: the first only)', async () => {
+      renderV16(`${BASE}?view=profile&person=alice`);
+      const page = await screen.findByTestId('profile');
+      expect(link(page, 'See full profile').getAttribute('href')).toBe('/p/p1509-alice');
+      expect(link(page, 'Compare with me').getAttribute('href')).toBe('/compare/p1509-alice');
+      opensNewTab(link(page, 'Compare with me'));
+    });
+
+    it('R7 control: on my own profile there is nothing to compare', async () => {
+      renderV16(`${BASE}?view=profile&person=bob`);
+      const page = await screen.findByTestId('profile');
+      expect(link(page, 'See full profile').getAttribute('href')).toBe('/p/p1509-bob');
+      expect(within(page).queryByRole('link', { name: 'Compare with me' })).toBeNull();
+    });
+
+    it('Resend and Revoke stay out on purpose (they send mail)', async () => {
+      renderV16(`${BASE}?view=partners`);
+      await waitFor(() => expect(screen.getByTestId('partners-page').textContent).toContain('Active (1)'));
+      expect(within(screen.getByTestId('partners-page')).queryByRole('button', { name: /Resend|Revoke|Cancel/ })).toBeNull();
+    });
+  });
+});
+
+function chooseSuggestedTermsIn() {
+  fireEvent.click(within(screen.getByTestId('partner-invite-page')).getByRole('button', { name: 'Use suggested terms' }));
+}

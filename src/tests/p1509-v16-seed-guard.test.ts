@@ -231,12 +231,17 @@ describe('seed plan', () => {
     expect(GROUPS.map((g) => g.slug)).toEqual(['cm', 'online']);
   });
 
-  it('no seeded position comes from the point author or from a viewer', () => {
+  // Each author holds one `agree` on their own point (70% of real authors on the test project do; without it the
+  // point is missing from the author's Share picker). A viewer (bob, dana) never holds one on someone else's point.
+  it('the author holds one agree on their own point; viewers hold none on anyone else\'s', () => {
     const { positions } = planPositions();
     const author = new Map(SEED_SHAREABLE.map((s) => [s.id, s.author]));
     for (const p of positions) {
-      expect(p.persona).not.toBe(author.get(p.pointKey));
-      expect(['bob', 'dana']).not.toContain(p.persona);
+      if (p.persona === author.get(p.pointKey)) expect(p.position).toBe('agree');
+      else expect(['bob', 'dana']).not.toContain(p.persona);
+    }
+    for (const s of SEED_SHAREABLE.filter((x) => x.kind === 'point')) {
+      expect(positions.filter((p) => p.pointKey === s.id && p.persona === s.author)).toHaveLength(1);
     }
     expect(new Set(positions.map((p) => `${p.pointKey}:${p.persona}`)).size).toBe(positions.length);
   });
