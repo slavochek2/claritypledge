@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 189
+**Next ID:** 190
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2424,5 +2424,16 @@ A migration's `-- requires-frontend: <sha>` names the client commit on the featu
 **due:** week
 
 vite's `cacheDir` is `node_modules/.vite-<port>` (tools/kanban/vite.config.ts). Started from a worktree whose `tools/kanban/node_modules` is absent, it creates a real directory there; a later `ln -s` then lands inside it, and pre-commit's "Kanban typecheck" blocks with "node_modules is missing" (P1507, 2026-10-16). Proposed fix: `setup-worktree.sh` creates the tools/kanban/node_modules symlink the pre-commit check already tells agents to make, or move cacheDir outside node_modules.
+
+---
+
+## Events with a linked transcription room cannot be deleted
+
+**ID:** INBOX-189
+**Date:** 2026-10-17
+**Status:** proposed
+**due:** week
+
+Found in the P1509 v16 seed review, outside its scope. transcribe_rooms.event_id is REFERENCES events ON DELETE SET NULL (migration 20260823190000_p1149_transcribe_room_tables.sql, line 35), but the BEFORE UPDATE trigger transcribe_rooms_guard_immutable_columns (20260824000000_p1149_room_end_policy_column_guard.sql) raises on any event_id change, so the FK's SET NULL action errors and the event delete fails, on every delete path including prod. Fix options: let the trigger accept NEW.event_id IS NULL when pg_trigger_depth() > 1 (a cascade), or choose CASCADE or RESTRICT deliberately. Route: /create-bug then /fix. Droppable if events are never deleted by design (then make the FK RESTRICT and say so).
 
 ---
