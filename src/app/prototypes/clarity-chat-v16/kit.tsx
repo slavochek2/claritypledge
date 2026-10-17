@@ -232,10 +232,14 @@ export const COMPOSER_MAX = 136;
 /** Seconds as m:ss. */
 export const clock = (secs: number) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
 
+/** The voice control captures nothing in this prototype, so it says so before anyone uses it (a tooltip, and the name a screen reader hears). */
+export const VOICE_LABEL = 'Record a voice message (mock: no audio is recorded)';
+
 /**
  * The composer (WhatsApp/Telegram anatomy): 📎 on the LEFT, the field, then 🎤 while the field is empty and Send once
- * there is text. The mic records a mock voice note: a red timer row with Cancel and Send; under a second it is dropped.
+ * there is text. The mic makes a MOCK voice note (no audio is captured, and the row says so): a timer row with Cancel and Send; under a second it is dropped.
  */
+
 export function Composer({ placeholder, value, onValue, onSend, onVoice, quote, onAttach, inputId, canSendEmpty = false }: {
   /** Send shows with an empty field (an attachment is staged). */
   canSendEmpty?: boolean;
@@ -270,7 +274,7 @@ export function Composer({ placeholder, value, onValue, onSend, onVoice, quote, 
           <div className="flex min-h-10 items-center gap-2 px-2" data-testid="recording">
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" aria-hidden="true" />
             <span className="text-[15px] tabular-nums text-gray-900" aria-live="polite">{clock(rec)}</span>
-            <span className="min-w-0 flex-1 truncate text-sm text-gray-500">Recording…</span>
+            <span className="min-w-0 flex-1 text-sm leading-tight text-gray-600" data-testid="recording-note">Mock: no audio is recorded</span>
             <button type="button" onClick={() => setRec(null)} className="min-h-10 rounded-full px-3 text-sm font-medium text-gray-700 hover:bg-gray-100">Cancel</button>
             <Tip label="Send voice message"><button type="button" aria-label="Send voice message" onClick={stop} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700')}><ArrowUp className="h-[18px] w-[18px]" /></button></Tip>
           </div>
@@ -282,7 +286,7 @@ export function Composer({ placeholder, value, onValue, onSend, onVoice, quote, 
               className="block max-h-[136px] min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-base leading-6 outline-none placeholder:text-gray-500 md:text-[15px]" />
             {sendable
               ? <Tip label="Send"><button type="submit" aria-label="Send" className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700')}><ArrowUp className="h-[18px] w-[18px]" /></button></Tip>
-              : onVoice && <Tip label="Record a voice message"><button type="button" aria-label="Record a voice message" onClick={() => setRec(0)} className={cn(ROUND, 'text-gray-600 hover:bg-gray-100')}><Mic className="h-5 w-5" /></button></Tip>}
+              : onVoice && <Tip label={VOICE_LABEL}><button type="button" aria-label={VOICE_LABEL} onClick={() => setRec(0)} className={cn(ROUND, 'text-gray-600 hover:bg-gray-100')}><Mic className="h-5 w-5" /></button></Tip>}
           </div>
         )}
       </form>

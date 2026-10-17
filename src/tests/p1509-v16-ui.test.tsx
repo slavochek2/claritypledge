@@ -12,6 +12,7 @@ import { act as rtlAct, fireEvent, render, screen, waitFor, within } from '@test
 import { MemoryRouter } from 'react-router-dom';
 import { ClarityChatV16, SHEET_DISMISS_PX } from '@/app/prototypes/clarity-chat-v16/ClarityChatV16';
 import { SIDEBAR_KEY } from '@/app/prototypes/clarity-chat-v16/mock-data';
+import { VOICE_LABEL } from '@/app/prototypes/clarity-chat-v16/kit';
 import { isSeededPersonaEmail, personaEmail } from '@/app/prototypes/clarity-chat-v16/personas';
 import { TERMS_PLACEHOLDER } from '@/app/pages/create-agreement-page';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +40,8 @@ const h = vi.hoisted(() => {
     rsvpOk: true,
     adminIds: ['u-bob'] as string[],
     adminThrows: false,
+    /** Profile ids production's agent-account lookup reports as agents (the story card then draws the agent byline). */
+    agentIds: [] as string[],
     signInStatus: 200,
     signInError: '',
     people: {} as Record<string, unknown>,
@@ -178,6 +181,11 @@ vi.mock('@/app/data/api', async (importOriginal) => {
   return { ...orig, getProfileBySlug: vi.fn(async (slug: string) => F.profileOf(slug) as never) };
 });
 
+vi.mock('@/app/contexts/agent-accounts-context', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/app/contexts/agent-accounts-context')>();
+  return { ...orig, useAgentAccountIds: () => ({ isAgentAccountId: (id?: string | null) => !!id && h.state.agentIds.includes(id), operatorNameFor: () => null, isLoading: false }) };
+});
+
 vi.setConfig({ testTimeout: 20_000 });
 
 const BASE = '/tree/clarity-chat-v16';
@@ -210,7 +218,7 @@ const asDana = async () => { fireEvent.click(screen.getByRole('radio', { name: '
 beforeEach(() => {
   vi.clearAllMocks();
   h.state.myOrgIds = ['org-cm'];
-  h.state.cancelled.clear(); h.state.added.clear(); h.state.failures = {}; h.state.rsvpOk = true; h.state.adminIds = ['u-bob']; h.state.adminThrows = false;
+  h.state.cancelled.clear(); h.state.added.clear(); h.state.failures = {}; h.state.rsvpOk = true; h.state.adminIds = ['u-bob']; h.state.adminThrows = false; h.state.agentIds = [];
   h.state.signInStatus = 200; h.state.signInError = ''; h.state.agreements = null;
   /* The prototype fails closed unless it is pointed at the TEST project (vitest's own URL is localhost). */
   vi.stubEnv('VITE_SUPABASE_URL', 'https://gfjctyxqlwexxwsmkakq.supabase.co');
@@ -1155,11 +1163,11 @@ describe('P1509 v16 composer', () => {
     renderV16();
     openRow('dm-bob-alice');
     const composer = screen.getByTestId('composer');
-    expect(within(composer).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Share a point or story', 'Record a voice message']);
+    expect(within(composer).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Share a point or story', VOICE_LABEL]);
     const bar = within(msg('Ready for tonight?')).getByRole('toolbar');
     expect(bar.className).toContain('opacity-0');
     expect(bar.className).toContain('group-hover:opacity-100');
-    fireEvent.click(within(composer).getByRole('button', { name: 'Record a voice message' }));
+    fireEvent.click(within(composer).getByRole('button', { name: VOICE_LABEL }));
     rtlAct(() => { vi.advanceTimersByTime(3000); });
     fireEvent.click(within(composer).getByRole('button', { name: 'Send voice message' }));
     expect(within(chatView()).getAllByTestId('voice-note')).toHaveLength(1);
@@ -2968,5 +2976,124 @@ describe('P1509 v16 visual QA', () => {
     const a = screen.getByTestId('share-a-story');
     expect(a.textContent).toContain('Share');
     expect(a.querySelector('span.sm\\:hidden')!.textContent).toBe('Share');
+  });
+});
+
+/**
+ * Last batch (final whole-branch review): the author controls of a Home story, Reset after a real RSVP, external bio links, the mock voice note.
+ */
+describe('P1509 v16 last batch', () => {
+  const spyOpen = () => vi.spyOn(window, 'open').mockImplementation(() => null);
+  const NEW_TAB = '_blank';
+  const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+  const stayed = () => {
+    expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('home'); // the prototype is still mounted and on Home
+    expect(vi.mocked(supabase.auth.signOut)).not.toHaveBeenCalled(); // and the persona is still signed in
+  };
+
+  describe('H1 a Home story\'s author controls open /p/<slug> in a new tab (production calls navigate() itself)', () => {
+    it('the avatar and the name, on every story', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home`);
+      const stories = await screen.findAllByTestId('feed-story');
+      for (const [i, who] of [[0, F.STORY_HIKE], [1, F.STORY_SISTER]] as const) {
+        const story = stories[i]!;
+        const buttons = within(story).getAllByRole('button');
+        const avatar = buttons[0]!; // the first control in the card is the author's avatar
+        const name = buttons.find((b) => b.textContent === who.authorName)!;
+        expect(name).toBeTruthy();
+        fireEvent.click(avatar);
+        expect(open).toHaveBeenLastCalledWith(`/p/${who.authorSlug}`, NEW_TAB, 'noopener,noreferrer');
+        open.mockClear();
+        fireEvent.click(name);
+        expect(open).toHaveBeenLastCalledWith(`/p/${who.authorSlug}`, NEW_TAB, 'noopener,noreferrer');
+        stayed();
+      }
+    });
+
+    it('the agent byline\'s name (an agent author draws it instead of the plain name)', async () => {
+      h.state.agentIds = [F.BOB.id];
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home`);
+      const story = (await screen.findAllByTestId('feed-story'))[0]!;
+      const name = within(story).getAllByRole('button').find((b) => b.textContent === F.STORY_HIKE.authorName)!;
+      expect(name.closest('[data-agent-row]') ?? story.querySelector('[data-agent-row]')).toBeTruthy(); // it IS the agent card, not the plain one
+      fireEvent.click(name);
+      expect(open).toHaveBeenLastCalledWith(`/p/${F.STORY_HIKE.authorSlug}`, NEW_TAB, 'noopener,noreferrer');
+      stayed();
+    });
+
+    it('the point card\'s equivalents: a story nested in a point opens its author in a new tab too', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home&tab=points`);
+      const point = (await screen.findAllByTestId('feed-point'))[0]!;
+      fireEvent.click(within(point).getByTestId('feed-point-story-expander'));
+      const quoted = within(point).getAllByTestId('quoted-story');
+      const author = within(quoted[0]!).getAllByRole('button').find((b) => b.textContent === F.STORY_SISTER.authorName)!;
+      expect(author).toBeTruthy();
+      fireEvent.click(author);
+      expect(open).toHaveBeenLastCalledWith(`/p/${F.STORY_SISTER.authorSlug}`, NEW_TAB, 'noopener,noreferrer');
+      stayed();
+    });
+  });
+
+  describe('H2 Reset keeps a real RSVP write', () => {
+    it('cancel, then Reset: the channel stays gone', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`);
+      fireEvent.click(await screen.findByTestId('cancel-rsvp'));
+      await waitFor(() => expect(screen.getByTestId('rsvp-button').textContent).toBe('Reserve a seat'));
+      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+      await settle();
+      place('Chats');
+      expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeNull();
+    });
+
+    it('reserve, then Reset: the channel stays', async () => {
+      h.state.cancelled.add('ev-oct16:u-bob'); // Bob starts without a seat
+      renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`);
+      fireEvent.click(await screen.findByTestId('rsvp-button'));
+      await screen.findByTestId('rsvp-going');
+      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+      await settle();
+      place('Chats');
+      expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeTruthy();
+    });
+  });
+
+  describe('M3 external links in a production block open in a new tab; other schemes do nothing', () => {
+    const withLinkedIn = (url: string) => vi.mocked(getProfileBySlug).mockImplementation((async (slug: string) => ({ ...(F.profileOf(slug) as object), linkedinUrl: url })) as never);
+    const restore = () => vi.mocked(getProfileBySlug).mockImplementation((async (slug: string) => F.profileOf(slug)) as never);
+    it('a LinkedIn address opens with noopener,noreferrer', async () => {
+      withLinkedIn('https://www.linkedin.com/in/alice-example');
+      try {
+        const open = spyOpen();
+        renderV16(`${BASE}?view=profile&person=alice`);
+        fireEvent.click(await screen.findByRole('link', { name: /LinkedIn profile/ }));
+        expect(open).toHaveBeenCalledWith('https://www.linkedin.com/in/alice-example', NEW_TAB, 'noopener,noreferrer');
+      } finally { restore(); }
+    });
+    it('a javascript: address is never opened', async () => {
+      withLinkedIn('javascript:alert(1)');
+      try {
+        const open = spyOpen();
+        renderV16(`${BASE}?view=profile&person=alice`);
+        fireEvent.click(await screen.findByRole('link', { name: /LinkedIn profile/ }));
+        expect(open).not.toHaveBeenCalled();
+      } finally { restore(); }
+    });
+  });
+
+  describe('M5 the voice note says it is a mock before anyone uses it', () => {
+    it('the mic is named as a mock, and the recording row says no audio is recorded (not "Recording…")', () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      const composer = screen.getByTestId('composer');
+      const mic = within(composer).getByRole('button', { name: /Record a voice message/ });
+      expect(mic.getAttribute('aria-label')).toMatch(/mock: no audio is recorded/);
+      fireEvent.click(mic);
+      const row = within(composer).getByTestId('recording');
+      expect(row.textContent).toContain('Mock: no audio is recorded');
+      expect(row.textContent).not.toMatch(/Recording/);
+    });
   });
 });

@@ -615,6 +615,16 @@ export const toggleRsvp = (st: State, eventId: string): State => {
   const mine = st.rsvps[v];
   return { ...st, rsvps: { ...st.rsvps, [v]: mine.includes(eventId) ? drop(mine) : [...mine, eventId] } };
 };
+/**
+ * A real RSVP write succeeded: the seat is now what the service says, so it becomes the viewer's starting seat (`realGoing`) and the
+ * mock overlays for it are dropped. Reset clears overlays only, so a seat that was really reserved or cancelled survives it.
+ */
+export const settleRsvp = (st: State, eventId: string, going: boolean): State => {
+  if (!EVENTS.some((e) => e.id === eventId)) return st;
+  const v = st.viewer;
+  const drop = (xs: string[]) => xs.filter((x) => x !== eventId);
+  return { ...st, realGoing: { ...st.realGoing, [eventId]: going }, rsvps: { ...st.rsvps, [v]: drop(st.rsvps[v]) }, cancelled: { ...st.cancelled, [v]: drop(st.cancelled[v]) } };
+};
 export const attendeesOf = (st: State, eventId: string): PersonId[] => {
   const e = EVENTS.find((x) => x.id === eventId);
   if (!e) return [];

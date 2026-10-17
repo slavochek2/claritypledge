@@ -58,7 +58,8 @@ import { Input } from '@/components/ui/input';
 import { Toaster } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn, stripAgentPrefix } from '@/lib/utils';
+import { safeLinkHref } from '@/app/prototypes/events/location-utils';
 import { Avatar, clock, Composer, Divider, HIT, Message, MirrorAvatar, MsgText, OutlineButton, PrimaryButton, QuietButton, QuoteBar, RealBoundary, RealEmpty, RealError, RealSkeleton, SidePanel, Tip, ToolButton, Toolbar, TOOL_ICON, useDismiss } from './kit';
 import {
   COPY, EVENTS, GROUPS, MOBILE_TABS, PEOPLE, PLACE_LABEL, PLACES, SIDEBAR_KEY,
@@ -67,8 +68,8 @@ import {
 import {
   acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
   comment, deleteMsg, dmWith, editMsg, eventDay, eventOf, eventWhen, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
-  isArchived, isGoing, isMember, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
-  partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
+  isArchived, isMember, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
+  partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, settleRsvp, summary, tabsFor, totalUnread, unarchive, unreadOf,
   visibleChats, type Chat, type Msg, type State, type Tab,
 } from './state';
 import {
@@ -227,13 +228,24 @@ export function openInApp(href: string | null | undefined) {
   window.open(href, '_blank', 'noopener,noreferrer');
 }
 
+/**
+ * A link a production block carries: a path in this app opens through `openInApp`; an external http(s) address (a bio's LinkedIn, a
+ * map) opens in a new tab with `noopener,noreferrer`, passed through `safeLinkHref` (any other scheme, `javascript:` included, is ignored).
+ */
+export function openLink(href: string | null | undefined) {
+  if (!href) return;
+  if (href.startsWith('/')) { openInApp(href); return; }
+  const safe = safeLinkHref(href);
+  if (safe) window.open(safe, '_blank', 'noopener,noreferrer');
+}
+
 /** A link inside a production block (a profile's pledge, a point) opens its real page in a new tab. */
 const stayInPrototype = (e: MouseEvent) => {
   const a = (e.target as HTMLElement).closest('a');
   if (!a) return;
   e.preventDefault();
   e.stopPropagation();
-  openInApp(a.getAttribute('href'));
+  openLink(a.getAttribute('href'));
 };
 
 /* ---------- production cards with real rows (v16) ---------- */
@@ -297,9 +309,11 @@ const GROUP_DEFAULT: Record<string, PositionType> = { agree: 'agree', unsure: 'u
  * returned for the point, so a click on that same position clears it. A link to a test persona's profile opens it here.
  * An anonymous viewer's FeedPointCard keeps its own localStorage path (no network), so the wrapper lets it through.
  */
-function MockCard({ own, quotedIds = [], quotedStoryIds = [], serverPosition, letAnonThrough = false, children, testId, strip = false }: {
+function MockCard({ own, author, quotedIds = [], quotedStoryIds = [], serverPosition, letAnonThrough = false, children, testId, strip = false }: {
   /** The card's own subject: a point, or a story. */
   own: { kind: 'point' | 'story'; id: string };
+  /** A story card's author: production's avatar, name and agent byline call react-router's `navigate` directly, so they are caught here. */
+  author?: { slug: string; name: string };
   /** A story's linked points, in the order the card renders them (its quoted point cards). */
   quotedIds?: string[];
   /** A point's linked stories, in the order the card renders them (its quoted stories). */
@@ -348,11 +362,26 @@ function MockCard({ own, quotedIds = [], quotedStoryIds = [], serverPosition, le
       ctx.onOpen(`/story/${encodeURIComponent(own.id)}?addPoint=true`);
       return;
     }
+    /*
+     * A story card's author controls (the avatar, the name, the agent byline's name) call `navigate('/p/<slug>')` themselves, which no
+     * provider can redirect: left alone they would unmount the prototype and sign the persona out. The avatar is the card's first
+     * button; the name button's text is the author's name (an agent's without its "Agent · " prefix).
+     */
+    if (author && own.kind === 'story' && btn && !quoted && !quotedStory) {
+      const shown = (stripAgentPrefix(author.name) ?? author.name).trim();
+      const isAvatar = btn === box.current?.querySelector('button');
+      const isName = (btn.textContent ?? '').trim() === shown;
+      if (isAvatar || isName) {
+        e.preventDefault(); e.stopPropagation();
+        if (author.slug) ctx.onOpen(`/p/${encodeURIComponent(author.slug)}`);
+        return;
+      }
+    }
     const a = el.closest('a');
     if (a) {
       e.preventDefault(); e.stopPropagation();
       const slug = a.getAttribute('href')?.split('/p/')[1]?.split(/[?#/]/)[0];
-      if (slug) ctx.onSlug(slug); else openInApp(a.getAttribute('href'));
+      if (slug) ctx.onSlug(slug); else openLink(a.getAttribute('href'));
     }
   };
   return <div ref={box} data-testid={testId} onClickCapture={capture}>{children}</div>;
@@ -395,7 +424,7 @@ export function RealStoryCard({ story, linkedPoints, testId = 'share-story', str
   const ctx = useContext(Cards)!;
   const serverOf = (id: string) => linkedPoints?.find((p) => p.id === id)?.userPosition ?? null;
   return (
-    <MockCard testId={testId} strip={strip} own={{ kind: 'story', id: story.id }} quotedIds={linkedPoints?.map((p) => p.id)} serverPosition={serverOf}>
+    <MockCard testId={testId} strip={strip} own={{ kind: 'story', id: story.id }} author={{ slug: story.authorSlug, name: story.authorName }} quotedIds={linkedPoints?.map((p) => p.id)} serverPosition={serverOf}>
       <FeedStoryCard story={story} currentUserId={ctx.viewerId} linkedPoints={linkedPoints?.map((p) => overlaySummary(p, positionOf(ctx.st, p.id, p.userPosition ?? null)))} />
     </MockCard>
   );
@@ -1022,7 +1051,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
   const chans = chatGroup ? groupSections(st).find((x) => x.groupId === chatGroup)?.chats ?? [] : [];
   return (
     <Page testId="group-page" title={org.name} onBack={onBack}>
-      <div className="min-w-0 px-4 py-6" data-group={slug} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); openInApp(a.getAttribute('href')); } }}>
+      <div className="min-w-0 px-4 py-6" data-group={slug} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); openLink(a.getAttribute('href')); } }}>
         <div className="mx-auto min-w-0 max-w-4xl space-y-6">
           <OrgHeader org={org} memberCount={members.length} isMember={member} myRole={member ? (myRole ?? 'member') : null} organizerCount={organizers} participation={groups.data?.participation[org.id]}
             onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={profileId} />
@@ -1055,7 +1084,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
             </TabsContent>
             <TabsContent value="members" className="pt-4">
               {members.length > 0 ? (
-                <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const p = personaFromSlug(slugOfHref(a)); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); else openInApp(a.getAttribute('href')); } }}>
+                <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const p = personaFromSlug(slugOfHref(a)); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); else openLink(a.getAttribute('href')); } }}>
                   {members.map((m) => <MemberRow key={m.profileId} m={m} />)}
                 </div>
               ) : <RealEmpty>No members yet.</RealEmpty>}
@@ -1143,7 +1172,7 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
   /* What the last successful write made true, until the next read lands: so the control never offers the stale action. */
   const [seat, setSeat] = useState<boolean | null>(null);
   useEffect(() => { setSeat(null); }, [q.data]);
-  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else openInApp(a.getAttribute('href')); };
+  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else openLink(a.getAttribute('href')); };
   const frame = (body: ReactNode, title = 'Event') => <Page testId="event-page" title={title} onBack={onBack}>{body}</Page>;
   if (q.status === 'loading') return frame(<RealSkeleton what="this event" />);
   if (q.status === 'error') return frame(<RealError what="this event" onRetry={q.retry} />);
@@ -1466,7 +1495,7 @@ function EventsPage({ onEvent, onBack }: { onEvent: (slug: string) => void; onBa
     if (!a) return;
     e.preventDefault(); e.stopPropagation();
     const slug = (a.getAttribute('href') ?? '').split('/').filter(Boolean)[1];
-    if (slug) onEvent(slug); else openInApp(a.getAttribute('href'));
+    if (slug) onEvent(slug); else openLink(a.getAttribute('href'));
   };
   const grid = (label: string, list: EventsList['upcoming']) => list.length > 0 && (
     <section aria-label={label}>
@@ -2216,7 +2245,7 @@ function PrototypeV16() {
   /* A real RSVP keeps the chat mock's seat for the event seeded under the same mock id in step, so its channel opens or closes with it. */
   const onRsvp = (eventSlug: string, going: boolean) => {
     const mockId = chatEventOf(eventSlug);
-    if (mockId) set((s) => (isGoing(s, mockId) === going ? s : toggleRsvp(s, mockId)));
+    if (mockId) set((s) => settleRsvp(s, mockId, going));
   };
   const real: RealContext = { profileId, name: auth.user?.name ?? PEOPLE[st.viewer].name, email: auth.user?.email ?? null, isAdmin, groups: groupsQ, partners: partnersQ, onRsvp };
   const cardCtx: CardCtx = {
