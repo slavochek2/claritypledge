@@ -306,25 +306,25 @@ suggested partner terms.
 
 ### v16 Acceptance Criteria
 
-- [ ] Branch rebased onto main; full test suite and pre-commit checks pass
-- [ ] Home, Share picker, profiles, letters, groups, events and partners each show a named seeded record, and the build report pairs each with the test-project query that returns it
-- [ ] Each real-data surface shows its skeleton, error-with-Retry and empty state (screenshots in the build report)
-- [ ] An invite to an address outside the seeded domain is refused in the UI; no email is sent
-- [ ] Design-system check: every button and colour in v16 maps to a design-system token or variant; exceptions listed
-- [ ] Mobile opens on Chats; bottom bar order Chats · Home · Groups · Letters · Profile
-- [ ] Desktop sidebar matches the decision row above; collapse works; logo goes Home
-- [ ] Profile menu on mobile is a sheet that closes on swipe-down and outside tap
-- [ ] "Invite partner" is the only partner verb anywhere; works with a name and with an email; suggested terms present
-- [ ] No "+ New" and no "New chat" anywhere
+- [x] Branch rebased onto main; full test suite and pre-commit checks pass
+- [x] Home, Share picker, profiles, letters, groups, events and partners each show a named seeded record, and the build report pairs each with the test-project query that returns it
+- [x] Each real-data surface shows its skeleton, error-with-Retry and empty state (screenshots in the build report)
+- [x] An invite to an address outside the seeded domain is refused in the UI; no email is sent
+- [x] Design-system check: every button and colour in v16 maps to a design-system token or variant; exceptions listed
+- [x] Mobile opens on Chats; bottom bar order Chats · Home · Groups · Letters · Profile
+- [x] Desktop sidebar matches the decision row above; collapse works; logo goes Home
+- [x] Profile menu on mobile is a sheet that closes on swipe-down and outside tap
+- [x] "Invite partner" is the only partner verb anywhere; works with a name and with an email; suggested terms present
+- [x] No "+ New" and no "New chat" anywhere
 - [ ] Transcribe button top-right in every chat header starts capture in one press, live bar shows it; Live invite only in 1:1 ⋯ menu
-- [ ] Tools icon+label sits right of the profile picture on desktop, always visible; no "More"; Use cases and Learn are in the profile menu
-- [ ] General shows lock + "Members only"
-- [ ] Thread forward shows "Thread · N replies" and opens the thread
-- [ ] Mirror: Clarify on all messages; Rename works; role always shown; no back bar
-- [ ] Share picker card has no Add point / ⋯; Share is the single primary button
-- [ ] Letters cards act only through their buttons
-- [ ] Non-admin persona never sees Admin (test)
-- [ ] Mark as unread works on desktop and touch
-- [ ] Parity/navigation table in the build report covers every page named above, with no unexplained loss
-- [ ] Separate visual-QA subagent passes at desktop, 375 and 320; each Gemini UX finding marked fixed or listed with a reason
+- [x] Tools icon+label sits right of the profile picture on desktop, always visible; no "More"; Use cases and Learn are in the profile menu
+- [x] General shows lock + "Members only"
+- [x] Thread forward shows "Thread · N replies" and opens the thread
+- [x] Mirror: Clarify on all messages; Rename works; role always shown; no back bar
+- [x] Share picker card has no Add point / ⋯; Share is the single primary button
+- [x] Letters cards act only through their buttons
+- [x] Non-admin persona never sees Admin (test)
+- [x] Mark as unread works on desktop and touch
+- [x] Parity/navigation table in the build report covers every page named above, with no unexplained loss
+- [x] Separate visual-QA subagent passes at desktop, 375 and 320; each Gemini UX finding marked fixed or listed with a reason
 - [ ] The founder has clicked through v16 and approved it
