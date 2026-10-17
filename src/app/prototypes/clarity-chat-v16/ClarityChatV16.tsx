@@ -31,6 +31,7 @@ import { CompactProfileCard } from '@/app/components/profile/compact-profile-car
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
+import { LinksInNewTabContext } from '@/app/components/shared/links-in-new-tab';
 import { HomeSideRail, HomeTopBlock } from '@/app/components/feed/home-side-rail';
 import { OrgHeader } from '@/app/components/organizations/org-header';
 import { OrgCard } from '@/app/pages/org-directory-page';
@@ -64,14 +65,14 @@ import {
   type LetterBox, type MobileTab, type PersonId, type Place, type Shareable, type ViewerId,
 } from './mock-data';
 import {
-  acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
+  acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
   comment, deleteMsg, dmWith, editMsg, eventDay, eventOf, eventWhen, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
   isArchived, isGoing, isMember, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
   partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
   visibleChats, type Chat, type Msg, type State, type Tab,
 } from './state';
 import {
-  CHAT_EVENT_REF, cancelRsvp, chatEventOf, chatGroupOf, loadDeliveries, loadChatEventAttendees, loadEventDetail, loadEventsList, loadFeed, loadGroupDetail, loadGroupsDirectory, loadLetters, loadMyShareables, loadPartners, loadProfile,
+  CHAT_EVENT_REF, cancelRsvp, chatEventOf, chatGroupOf, loadDeliveries, loadChatEventAttendees, loadEventDetail, loadEventsList, loadFeed, loadGroupDetail, loadGroupMembers, loadGroupsDirectory, loadLetters, loadMyShareables, loadPartners, loadProfile,
   loadMyEvents, loadSharedWith, onTestProject, partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealOverride, useRealQuery, viewerOf,
   type EventDetail, type EventsList, type FeedData, type MyEvent, type GroupDetail, type GroupsDirectory, type LetterRowData, type PartnersData, type Query,
 } from './real-data';
@@ -288,15 +289,13 @@ const GROUP_DEFAULT: Record<string, PositionType> = { agree: 'agree', unsure: 'u
  * returned for the point, so a click on that same position clears it. A link to a test persona's profile opens it here.
  * An anonymous viewer's FeedPointCard keeps its own localStorage path (no network), so the wrapper lets it through.
  */
-function MockCard({ own, quotedIds = [], quotedStoryIds = [], yourStoryId, serverPosition, letAnonThrough = false, children, testId, strip = false }: {
+function MockCard({ own, quotedIds = [], quotedStoryIds = [], serverPosition, letAnonThrough = false, children, testId, strip = false }: {
   /** The card's own subject: a point, or a story. */
   own: { kind: 'point' | 'story'; id: string };
   /** A story's linked points, in the order the card renders them (its quoted point cards). */
   quotedIds?: string[];
   /** A point's linked stories, in the order the card renders them (its quoted stories). */
   quotedStoryIds?: string[];
-  /** The viewer's own story on this point, for the "Your story" slot. */
-  yourStoryId?: string;
   serverPosition: (pointId: string) => PositionType | null; letAnonThrough?: boolean; children: ReactNode; testId: string;
   /** A card offered for sharing or sitting in a chat: no ⋯ menu, no "+ Add a point". */
   strip?: boolean;
@@ -330,20 +329,15 @@ function MockCard({ own, quotedIds = [], quotedStoryIds = [], yourStoryId, serve
       else ctx.onDetails(own.kind, own.id);
       return;
     }
-    /* The footer's slot buttons ("Add a point", "Your story", "Add a story") navigate in THIS tab, which leaves the prototype (and signs the persona out): they open the same page in a new tab. */
-    if (btn && btn.closest('[data-testid="story-card-footer"], [data-testid="point-card-footer"]') && !/expander/.test(btn.dataset.testid ?? '')) {
+    /*
+     * A story card's "+ Add a point" navigates with react-router's `navigate` (not `useOpenPath`), which would leave the prototype in
+     * this tab and sign the persona out: it opens the same page in a new tab. Point cards and nested cards go through `useOpenPath`,
+     * which the LinksInNewTab provider around the prototype already turns into a new tab; their own controls ("…more", video quotes,
+     * the author link) are left to run.
+     */
+    if (own.kind === 'story' && btn?.getAttribute('aria-label') === 'Add a point to this story') {
       e.preventDefault(); e.stopPropagation();
-      const label = btn.getAttribute('aria-label') ?? '';
-      if (label === 'Add a point to this story') ctx.onOpen(`/story/${encodeURIComponent(own.id)}?addPoint=true`);
-      else if (label === 'Your story') { if (yourStoryId) ctx.onOpen(`/story/${encodeURIComponent(yourStoryId)}`); }
-      else if (own.kind === 'point') ctx.onOpen(`/create?pointId=${encodeURIComponent(own.id)}`);
-      return;
-    }
-    /* A nested story opens on a click anywhere on it. */
-    if (quotedStory) {
-      e.preventDefault(); e.stopPropagation();
-      const id = quotedStoryIds[indexIn('[data-testid="quoted-story"]', quotedStory)];
-      if (id) ctx.onDetails('story', id);
+      ctx.onOpen(`/story/${encodeURIComponent(own.id)}?addPoint=true`);
       return;
     }
     const a = el.closest('a');
@@ -382,7 +376,7 @@ export function RealPointCard({ point, linkedStories, testId = 'share-point', st
   const ctx = useContext(Cards)!;
   const shown = positionOf(ctx.st, point.id, point.userPosition?.position ?? null);
   return (
-    <MockCard testId={testId} strip={strip} own={{ kind: 'point', id: point.id }} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough quotedStoryIds={linkedStories?.map((x) => x.id)} yourStoryId={linkedStories?.find((x) => x.authorId === ctx.viewerId)?.id}>
+    <MockCard testId={testId} strip={strip} own={{ kind: 'point', id: point.id }} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough quotedStoryIds={linkedStories?.map((x) => x.id)}>
       <FeedPointCard point={overlayPoint(point, ctx.viewerId, shown)} linkedStories={linkedStories} />
     </MockCard>
   );
@@ -864,13 +858,7 @@ function Members({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; o
   const ev = eventOf(chat);
   const going = useRealQuery<EventAttendee[] | null>(() => loadChatEventAttendees(ev!.id), [ev?.id], { emptyValue: [], isEmpty: (a) => !a || a.length === 0, enabled: !!ev });
   if (!ev) {
-    const list = channelMembers(chat);
-    return (
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="members">
-        <Header backAlways onBack={onBack} title={<PageTitle>{list.length} members</PageTitle>} />
-        <ul className="overflow-y-auto py-2">{list.map((p) => <PersonRow key={p} p={p} onPerson={onPerson} />)}</ul>
-      </div>
-    );
+    return <GroupMembers chat={chat} onBack={onBack} onPerson={onPerson} />;
   }
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="members">
@@ -882,6 +870,29 @@ function Members({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; o
               const p = personaFromSlug(a.slug);
               return p ? <PersonRow key={a.profileId} p={p} onPerson={onPerson} /> : (
                 <li key={a.profileId} className="flex min-h-14 items-center gap-3 px-4"><WhoAvatar slug={a.slug} name={a.name} /><span className="text-[15px] text-gray-900">{a.name}</span></li>
+              );
+            })}
+          </ul>
+        )}
+      </RealBoundary>
+    </div>
+  );
+}
+
+/** General's Members: the group's REAL members (`getMembers`, as the group page lists them); a person who is a test persona opens their profile. */
+function GroupMembers({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; onPerson: (p: PersonId) => void }) {
+  const slug = chat.groupId ?? '';
+  const members = useRealQuery<OrgMember[]>(() => loadGroupMembers(slug), [slug], { emptyValue: [], isEmpty: (m) => m.length === 0, enabled: !!slug });
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="members">
+      <Header backAlways onBack={onBack} title={<PageTitle>{members.data ? `${members.data.length} members` : 'Members'}</PageTitle>} />
+      <RealBoundary q={members} what="the members" empty={<p>No members yet.</p>}>
+        {(rows) => (
+          <ul className="overflow-y-auto py-2" aria-label="Members">
+            {rows.map((m) => {
+              const p = personaFromSlug(m.slug);
+              return p ? <PersonRow key={m.profileId} p={p} onPerson={onPerson} /> : (
+                <li key={m.profileId} className="flex min-h-14 items-center gap-3 px-4"><WhoAvatar slug={m.slug} name={m.name} /><span className="text-[15px] text-gray-900">{m.name}</span></li>
               );
             })}
           </ul>
@@ -993,7 +1004,8 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
   if (q.status === 'error') return <Page testId="group-page" title="Group" onBack={onBack}><RealError what="this group" onRetry={q.retry} /></Page>;
   if (!q.data) return missing;
   const { org, members, myRole, upcoming, past } = q.data;
-  const member = (myRole !== null || st.joined[st.viewer].includes(slug)) && !st.left[st.viewer].includes(slug);
+  /* The membership read can fail on its own (myRole null): the directory's memberships still count. */
+  const member = (myRole !== null && !st.left[st.viewer].includes(slug)) || memberOfOrg(st, groups.data, org);
   const organizers = members.filter((m) => m.role === 'organizer').length;
   const events = [...upcoming, ...past];
   const chatGroup = chatGroupOf(slug);
@@ -1121,6 +1133,9 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
   const q = useRealQuery<EventDetail | null>(() => loadEventDetail(slug, profileId, groupHint), [slug, profileId, groupHint], { emptyValue: null, isEmpty: () => false });
   const forcedEmpty = useRealOverride() === 'empty';
   const [busy, setBusy] = useState(false);
+  /* What the last successful write made true, until the next read lands: so the control never offers the stale action. */
+  const [seat, setSeat] = useState<boolean | null>(null);
+  useEffect(() => { setSeat(null); }, [q.data]);
   const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else openInApp(a.getAttribute('href')); };
   const frame = (body: ReactNode, title = 'Event') => <Page testId="event-page" title={title} onBack={onBack}>{body}</Page>;
   if (q.status === 'loading') return frame(<RealSkeleton what="this event" />);
@@ -1128,7 +1143,8 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
   /* An empty state shows nothing it did not read: no made-up date, no organiser. */
   if (forcedEmpty) return frame(<RealEmpty>No details for this event yet.</RealEmpty>);
   if (!q.data) return frame(<p className="px-4 py-8 text-sm text-gray-600">This event does not exist.</p>);
-  const { event, attendees, going, org } = q.data;
+  const { event, attendees, org } = q.data;
+  const going = seat ?? q.data.going;
   const ended = event.status === 'completed' || new Date(event.datetime).getTime() + event.durationMinutes * 60_000 < Date.now();
   const cancelled = event.status === 'cancelled';
   const chatEvent = chatEventOf(event.slug);
@@ -1139,7 +1155,7 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
     try {
       const ok = going ? await cancelRsvp(event.id, profileId) : await rsvp(event.id, profileId);
       if (!ok) toast.error(going ? 'Could not cancel your RSVP.' : 'Could not reserve a seat. The event may be full or over.');
-      else { onRsvp(event.slug, !going); q.refresh(); }
+      else { setSeat(!going); onRsvp(event.slug, !going); q.refresh(); }
     } catch {
       toast.error('Something went wrong. Try again.');
     } finally {
@@ -1518,20 +1534,27 @@ function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onP
     const p = personaFromSlug(other?.slug);
     if (p) onPartner(p); else openInApp(other?.slug ? `/p/${other.slug}` : null);
   };
+  /* AgreementRow renders its own <li>, so each row sits in its own <ul> (a list item inside a list item is invalid markup). */
   const list = (rows: ClarityAgreement[]) => (
-    <ul className="space-y-0.5">
+    <div className="space-y-0.5">
       {rows.map((a) => (
-        <li key={a.id} className="flex items-center gap-2">
-          <div data-agreement={a.id} className="min-w-0 flex-1" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></div>
+        <div key={a.id} className="flex items-center gap-2">
+          <ul data-agreement={a.id} className="min-w-0 flex-1" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></ul>
           {/* Production's agreement page (sealed agreement, Download Image, Share): the row opens the chat, this opens the agreement. */}
           <Button asChild variant="outline" size="sm" className="min-h-10 shrink-0"><a href={`/agreements/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer" data-testid="agreement-action">Agreement</a></Button>
-        </li>
+        </div>
       ))}
-    </ul>
+    </div>
   );
   return (
     <Page testId="partners-page" title="Partners" onBack={onBack}>
       <div className="mx-auto mt-3 max-w-2xl px-4">
+        {q.refreshFailed && (
+          <div role="alert" data-testid="refresh-failed" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted px-3 py-2 text-sm text-gray-800">
+            <span>Could not refresh your partners, so this list may be out of date.</span>
+            <OutlineButton onClick={q.refresh}>Retry</OutlineButton>
+          </div>
+        )}
         <RealBoundary q={q} what="your partners" empty={<><p className="text-sm text-muted-foreground">No partners yet. Invite someone to get started.</p>{invite}</>}>
           {(d) => {
             const active = d.agreements.filter((a) => a.status === 'active');
@@ -1898,7 +1921,8 @@ function PrototypeV16() {
   const closeOverlays = () => { setForwarding(null); setAttach(null); setLeaving(null); setDeleting(null); setRenaming(false); setSheet(false); };
 
   const reset = (viewer: ViewerId = st.viewer) => {
-    setSt(fresh(viewer)); setTab('all'); setShowArchived(false); setQ(''); setInputs({}); setReplyTo({}); setStaged({}); closeOverlays(); go({}, true);
+    /* What the real services said (groups, seats, event facts, partners) is not chat-mock state: Reset keeps it. */
+    setSt((cur) => ({ ...fresh(viewer), realGroups: cur.realGroups, realGoing: cur.realGoing, realEvents: cur.realEvents, realPartners: cur.realPartners })); setTab('all'); setShowArchived(false); setQ(''); setInputs({}); setReplyTo({}); setStaged({}); closeOverlays(); go({}, true);
   };
   const doSignIn = async (id: ViewerId) => {
     abortPendingSignIn();
@@ -2025,6 +2049,7 @@ function PrototypeV16() {
 
   const chatBack = () => back({ view: 'chats' });
   const chatMain = (() => {
+    if (loc.with && !PEOPLE[loc.with as PersonId]) return <ChatUnavailable onBack={chatBack} />;
     if (loc.with) return <NoChatYet st={st} person={loc.with as PersonId} onBack={chatBack} onPerson={showProfile} onMessage={() => message(loc.with as PersonId)} />;
     const chat = openChatObj;
     /* A link to a chat that does not exist, or that this person cannot see (an event channel needs a seat): say so, with a Back, at every width. */
@@ -2179,6 +2204,8 @@ function PrototypeV16() {
   const signedOut = !authViewer;
   return (
     <TooltipProvider delayDuration={300}>
+      {/* Production's own switch (P1336) for "links leave in a new tab": every in-app path a point card or a nested card opens leaves in a new tab, so the persona session stays. */}
+      <LinksInNewTabContext.Provider value>
       <Cards.Provider value={cardCtx}>
       <RealCtx.Provider value={real}>
       <div className="fixed inset-0 flex flex-col overflow-hidden bg-white" data-testid="v16-app" data-layout={isDesktop ? 'desktop' : 'mobile'}>
@@ -2230,6 +2257,7 @@ function PrototypeV16() {
       <Toaster />
       </RealCtx.Provider>
       </Cards.Provider>
+      </LinksInNewTabContext.Provider>
     </TooltipProvider>
   );
 }

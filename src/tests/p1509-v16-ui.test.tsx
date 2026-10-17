@@ -2452,7 +2452,7 @@ describe('P1509 v16 review fixes 3', () => {
   });
 
   describe('Codex3 production authoring buttons inside Home cards open in a new tab, not this one', () => {
-    it('"Add a point to this story", "Your story" and a nested story\'s body', async () => {
+    it('"Add a point to this story" and "Your story" (the nested story\'s text opens nothing: Details is the way in)', async () => {
       const open = spyOpen();
       renderV16(`${BASE}?view=home`);
       const story = (await screen.findAllByTestId('feed-story'))[0]!;
@@ -2464,8 +2464,9 @@ describe('P1509 v16 review fixes 3', () => {
       fireEvent.click(within(point).getByRole('button', { name: 'Your story' }));
       expect(open).toHaveBeenLastCalledWith('/story/st-bob-1', NEW_TAB, 'noopener,noreferrer');
       fireEvent.click(within(point).getByTestId('feed-point-story-expander'));
+      const calls = open.mock.calls.length;
       fireEvent.click(within(within(point).getAllByTestId('quoted-story')[0]!).getByText(/How I misread my sister/));
-      expect(open).toHaveBeenLastCalledWith('/story/st-dana-1', NEW_TAB, 'noopener,noreferrer');
+      expect(open.mock.calls.length).toBe(calls); // production: tapping a nested story's text on a list card does nothing; Details is the way in
       expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('home');
     });
   });
@@ -2489,7 +2490,7 @@ describe('P1509 v16 review fixes 3', () => {
       h.fail('event', 1); // the refresh read after the RSVP fails
       fireEvent.click(btn);
       expect((await screen.findByTestId('refresh-failed')).textContent).toMatch(/out of date/);
-      expect(screen.queryByTestId('rsvp-going')).toBeNull(); // the controls are the old ones, and it says so
+      expect(screen.getByTestId('rsvp-going')).toBeTruthy(); // the controls show what the write made true, and the alert says the rest may be old
       fireEvent.click(within(screen.getByTestId('refresh-failed')).getByRole('button', { name: 'Retry' }));
       await screen.findByTestId('rsvp-going');
       expect(screen.queryByTestId('refresh-failed')).toBeNull();
@@ -2633,5 +2634,161 @@ describe('P1509 v16 fix 3b Home cards carry no ⋯ (Delete is a write, Edit leav
     }
     expect(screen.queryByRole('menuitem', { name: /^(Delete|Edit)/ })).toBeNull();
     expect(document.body.textContent).not.toMatch(/Delete (point|story)/);
+  });
+});
+
+/**
+ * Batch 3c (freshness reviews of fix 3 + the live re-check). Each test was run against the unfixed code first.
+ */
+describe('P1509 v16 batch 3c', () => {
+  const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+  const spyOpen = () => vi.spyOn(window, 'open').mockImplementation(() => null);
+  const NEW_TAB = '_blank';
+
+  describe('a nested story\'s own controls keep working (only navigation is routed)', () => {
+    const openNested = async () => {
+      renderV16(`${BASE}?view=home&tab=points`);
+      const point = () => screen.getAllByTestId('feed-point')[0]!;
+      await screen.findAllByTestId('feed-point');
+      fireEvent.click(within(point()).getByTestId('feed-point-story-expander'));
+      return () => within(point()).getAllByTestId('quoted-story');
+    };
+
+    it('"…more" expands a long nested story in place and opens nothing', async () => {
+      const long = { ...F.STORY_SISTER, content: 'A very long story about listening. '.repeat(30) };
+      vi.mocked(storiesService.getStoriesForPoints).mockImplementationOnce((async (ids: string[]) => new Map(ids.map((id) => [id, id === 'pt-bob-1' ? [long, F.STORY_HIKE] : []]))) as never);
+      const open = spyOpen();
+      const nested = await openNested();
+      const more = within(nested()[0]!).getByTestId('more-link');
+      expect(nested()[0]!.textContent!.length).toBeLessThan(900);
+      fireEvent.click(more);
+      expect(within(nested()[0]!).queryByTestId('more-link')).toBeNull(); // expanded
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('the author link opens that author\'s profile (/p/<slug>), not the story', async () => {
+      const open = spyOpen();
+      const nested = await openNested();
+      fireEvent.click(within(nested()[0]!).getByText('Dana Ortiz'));
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(open).toHaveBeenLastCalledWith('/p/p1509-dana', NEW_TAB, 'noopener,noreferrer');
+    });
+
+    it('Details still opens /story/<id> in a new tab; a click on the text itself opens nothing (production\'s list-card rule)', async () => {
+      const open = spyOpen();
+      const nested = await openNested();
+      fireEvent.click(within(nested()[1]!).getByTestId('nested-details-story'));
+      expect(open).toHaveBeenLastCalledWith('/story/st-bob-1', NEW_TAB, 'noopener,noreferrer');
+      fireEvent.click(within(nested()[0]!).getByText(/How I misread my sister/));
+      expect(open).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('RSVP never repeats a stale write', () => {
+    it('reserve -> the control immediately offers Cancel (even though the refresh fails); a second press cancels, it does not reserve again', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-online-oct23&group=online`);
+      const reserve = await screen.findByTestId('rsvp-button');
+      h.fail('event', 1); // the follow-up read fails
+      fireEvent.click(reserve);
+      await screen.findByTestId('refresh-failed');
+      expect(screen.getByTestId('rsvp-going')).toBeTruthy(); // the write's result, shown at once
+      expect(screen.queryByTestId('rsvp-button')).toBeNull(); // no stale "Reserve a seat"
+      fireEvent.click(screen.getByTestId('cancel-rsvp'));
+      await waitFor(() => expect(vi.mocked(eventsService.cancelRsvp)).toHaveBeenCalledWith('ev-oct23', 'u-bob'));
+      expect(vi.mocked(eventsService.rsvpToEvent)).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.getByTestId('rsvp-button').textContent).toBe('Reserve a seat'));
+    });
+
+    it('cancel -> the control immediately offers Reserve; a second press reserves', async () => {
+      renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`); // Bob is going
+      const cancel = await screen.findByTestId('cancel-rsvp');
+      h.fail('event', 1);
+      fireEvent.click(cancel);
+      await screen.findByTestId('refresh-failed');
+      expect(screen.getByTestId('rsvp-button').textContent).toBe('Reserve a seat');
+      fireEvent.click(screen.getByTestId('rsvp-button'));
+      await waitFor(() => expect(vi.mocked(eventsService.rsvpToEvent)).toHaveBeenCalledWith('ev-oct16', 'u-bob'));
+      expect(vi.mocked(eventsService.cancelRsvp)).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Reset keeps what the real data said', () => {
+    it('the real groups, seats and partners survive Reset', async () => {
+      h.state.myOrgIds = ['org-cm', 'org-online'];
+      h.state.cancelled.add('ev-oct16:u-bob');
+      h.state.agreements = [{ ...F.AGREEMENT_BOB_CAROL_PENDING, status: 'active', partnerSignedAt: '2026-10-01T00:00:00.000Z' }];
+      renderV16();
+      await waitFor(() => expect(document.querySelector('[data-chat="gen-online"]')).toBeTruthy());
+      await waitFor(() => expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeNull());
+      tab(/^Partners/);
+      await waitFor(() => expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-carol"]')).toBeTruthy());
+      fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+      await settle();
+      expect(document.querySelector('[data-chat="gen-online"]')).toBeTruthy(); // a real group, not the roster
+      expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeNull(); // a cancelled real seat
+      tab(/^Partners/);
+      expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-carol"]')).toBeTruthy(); // a real partner
+      expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-alice"]')).toBeNull();
+    });
+  });
+
+  describe('Partners markup and refresh', () => {
+    it('N1 no <li> inside an <li>, and React logs nothing about it', async () => {
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderV16(`${BASE}?view=partners`);
+      const page = screen.getByTestId('partners-page');
+      await waitFor(() => expect(page.textContent).toContain('Active (1)'));
+      expect(page.querySelectorAll('li li')).toHaveLength(0);
+      expect(errors.mock.calls.map((c) => String(c[0]) + String(c[1] ?? '')).filter((m) => /cannot be a descendant|cannot contain a nested|validateDOMNesting/.test(m))).toEqual([]);
+    });
+
+    it('a failed refresh after Invite sent: the header still says Invite sent, the Partners page says its list may be out of date, and Retry recovers', async () => {
+      renderV16(`${BASE}?view=invite&with=dana`);
+      fireEvent.click(within(screen.getByTestId('partner-invite-page')).getByRole('button', { name: 'Use suggested terms' }));
+      h.fail('partners', 1); // the refresh read after the invite fails
+      fireEvent.click(screen.getByTestId('send-invite'));
+      await waitFor(() => expect(vi.mocked(agreementsService.createAgreement)).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId('partner-invite-page')).toBeNull());
+      openRow('dm-bob-dana');
+      expect(screen.getByTestId('partner-pending').textContent).toBe('Invite sent'); // the overlay holds
+      back();
+      fireEvent.click(screen.getByTestId('sidebar-me'));
+      fireEvent.click(within(screen.getByTestId('me-menu')).getByText('Partners'));
+      const alert = await screen.findByTestId('refresh-failed');
+      expect(alert.textContent).toMatch(/out of date/);
+      h.state.agreements = [F.AGREEMENT_BOB_ALICE, F.AGREEMENT_BOB_CAROL_PENDING, { ...F.AGREEMENT_BOB_CAROL_PENDING, id: 'ag-bob-dana', partner: { ...F.PARTY_CAROL, profileId: 'u-dana', slug: 'p1509-dana', name: 'Dana Ortiz' }, partnerProfileId: 'u-dana' }];
+      fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
+      await waitFor(() => expect(screen.getByTestId('partners-page').textContent).toContain('Invite sent (2)'));
+      expect(screen.queryByTestId('refresh-failed')).toBeNull();
+    });
+  });
+
+  describe('group membership and rosters', () => {
+    it('the group page treats the viewer as a member from the directory when getMyMembership fails', async () => {
+      vi.mocked(organizationsService.getMyMembership).mockRejectedValueOnce(new Error('transient'));
+      renderV16(`${BASE}?view=group&group=cm&tab=about`);
+      await screen.findByTestId('group-about');
+      await settle();
+      expect(within(screen.getByTestId('group-about')).queryByRole('button', { name: /Join this group/ })).toBeNull();
+    });
+
+    it('a group\'s General Members list is the REAL org members (getMembers), not the chat mock roster', async () => {
+      vi.mocked(organizationsService.getMembers).mockResolvedValueOnce([...F.MEMBERS.cm!, F.member({ profileId: F.DANA.id, slug: F.DANA.slug, name: F.DANA.name })] as never);
+      renderV16();
+      openRow('gen-cm');
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+      fireEvent.click(within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: 'Members' }));
+      const members = await screen.findByTestId('members');
+      await waitFor(() => expect(members.textContent).toContain('4 members'));
+      expect(members.textContent).toContain('Dana Ortiz');
+    });
+
+    it('?with=<nobody> says the chat is not available, with a Back, instead of a blank pane', async () => {
+      stubViewport(false);
+      renderV16(`${BASE}?view=chats&with=nobody`);
+      const box = screen.getByTestId('chat-unavailable');
+      fireEvent.click(within(box).getAllByRole('button', { name: /Back/ })[0]!);
+      expect(screen.getByTestId('chat-list')).toBeTruthy();
+    });
   });
 });

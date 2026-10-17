@@ -291,6 +291,9 @@ export interface GroupDetail {
   past: EventWithHost[];
 }
 
+/** A group's real members (what its page lists). */
+export const loadGroupMembers = (slug: string): Promise<OrgMember[]> => organizationsService.getMembers(slug);
+
 /** Null when no public group has this slug. */
 export async function loadGroupDetail(slug: string): Promise<GroupDetail | null> {
   const org = await organizationsService.getOrganizationBySlug(slug);
