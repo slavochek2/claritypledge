@@ -3131,7 +3131,10 @@ describe('P1509 v16 final visual batch', () => {
       expect(full.className).toMatch(/(^|\s)hidden(\s|$)/);
       expect(full.className).toContain('sm:inline');
       expect(short.className).toContain('sm:hidden');
-      expect(short.getAttribute('aria-hidden')).toBe('true'); // read once, not twice
+      // Each form is display:none at the other breakpoint, which also removes it from the accessibility tree, so a
+      // screen reader reads exactly one. aria-hidden on either would leave phones with no date at all (review 15).
+      expect(short.hasAttribute('aria-hidden')).toBe(false);
+      expect(full.hasAttribute('aria-hidden')).toBe(false);
       for (const el of [full, short]) { expect(el.className).toContain('whitespace-nowrap'); expect(el.className).not.toContain('truncate'); }
       expect(short.parentElement!.className).toContain('flex-wrap');
       expect((await within(header).findByTestId('going-count')).parentElement!.textContent).toMatch(/^· \d+ going$/);

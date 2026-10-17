@@ -2581,7 +2581,7 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
               ? <>
                 {/* The date is the useful part: it is never cut. On a phone it is the short form, and "· 4 going" is what wraps under it when the line is full. */}
                 <span className="hidden whitespace-nowrap sm:inline" data-testid="channel-when">{eventWhen(st, ev)}</span>
-                <span className="whitespace-nowrap sm:hidden" data-testid="channel-when-short" aria-hidden="true">{shortWhen(eventWhen(st, ev))}</span>
+                <span className="whitespace-nowrap sm:hidden" data-testid="channel-when-short">{shortWhen(eventWhen(st, ev))}</span>
                 <span className="whitespace-nowrap">· <GoingCount mockEventId={ev.id} /></span>
               </>
               : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span className="shrink-0 whitespace-nowrap" data-testid="members-only">{COPY.membersOnly}</span><span className="truncate" data-testid="channel-group"> · {group?.name}</span></>}
