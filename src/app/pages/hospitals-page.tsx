@@ -8,7 +8,8 @@
  * a WhatsApp-style chat beat, the Clarity Group Terms specimen, a closing CTA and References.
  * Unlisted: noIndex, no nav item, no sitemap entry. Clarity Pledge is the subject throughout,
  * no first-person service offer. The page's one action, "Book a 15-min discovery call" →
- * /intro, appears in the hero and the closing section, as on the other landings.
+ * /intro, appears in the hero and the closing section; the hero adds the /builders quiet
+ * "or Take the Pledge" link, the pledger strip and the scroll cue.
  *
  * Reveal / CountUpPercent / RefSup are duplicated from program-page.tsx, as
  * build-right-thing-landing.tsx already does (see its header): extracting them would edit
@@ -27,6 +28,7 @@ import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { HospitalIcon, PeopleStrip, type HospitalIconName } from "@/app/components/hospitals/hospital-icons";
 import { GapExchangeSection } from "@/app/components/hospitals/gap-exchange";
 import { HOSPITALS_OG } from "@/app/content/hospitals-og";
+import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
 
 const REFERENCES = [
   {
@@ -53,7 +55,6 @@ const REFERENCES = [
 
 const VALUES: { icon: HospitalIconName; text: string }[] = [
   { icon: "shield", text: "Fewer mistakes and rework" },
-  { icon: "star", text: "Better patient experience" },
   { icon: "scale", text: "Better decisions" },
   { icon: "stay", text: "Lower staff turnover" },
 ];
@@ -69,8 +70,8 @@ const REASONS: { icon: typeof EyeOffIcon; title: string; text: string; ref: 2 | 
 const PATH = [
   { title: "See the cost", text: "Where gaps cost the most.", strip: { blue: [], questions: [1, 3] } },
   { title: "Find champions", text: "People who naturally reveal gaps.", strip: { blue: [1] } },
-  { title: "Spread", text: "In important meetings, with support.", strip: { blue: [1, 2, 3] } },
-  { title: "Norm", text: "Checking before key decisions is expected.", strip: { blue: [0, 1, 2, 3, 4] } },
+  { title: "Spread", text: "In important meetings, with a simple structure.", strip: { blue: [1, 2, 3] } },
+  { title: "Norm", text: "Verifying before important decisions is expected.", strip: { blue: [0, 1, 2, 3, 4] } },
   { title: "Maintain", text: "New staff onboard fast, digitally.", strip: { blue: [0, 1, 2, 3, 4], plus: true } },
 ];
 
@@ -184,7 +185,7 @@ export function HospitalsPage() {
 
         {/* 1. Hero — eyebrow pill, H1, the one action (the /builders hero pattern).
             [FOUNDER DECISION: pill text — drafted] */}
-        <section className="relative px-4 pt-20 pb-20 lg:pt-28 lg:pb-28">
+        <section className="relative px-4 pt-20 pb-8 lg:pt-28 lg:pb-10">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <div className="container mx-auto max-w-4xl text-center">
             <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-[11px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em]">
@@ -194,14 +195,23 @@ export function HospitalsPage() {
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
               Reveal gaps in understanding between hospital staff <span className="text-blue-500">before</span> they become mistakes
             </h1>
-            <div className="mt-10 flex justify-center">
+            {/* /builders hero pattern: one primary, the pledge as a quiet text link, then pledgers. */}
+            <div className="mt-10 flex flex-col items-center gap-3">
               <PrimaryCTA location="hero" />
+              <p className="text-muted-foreground">
+                or{" "}
+                <Link to="/sign-pledge" className="inline-flex items-center min-h-10 text-blue-500 hover:text-blue-600 underline underline-offset-4">
+                  Take the Pledge
+                </Link>
+              </p>
             </div>
+            <PledgerAvatarStack className="pt-2" />
           </div>
+          <ScrollIndicator label="Why it matters" targetId="stakes" className="pt-6" />
         </section>
 
         {/* 2. The stakes — the stat right under the hero, as /builders and /hiring do. */}
-        <section className={`${SECTION} bg-muted/30`}>
+        <section id="stakes" className={`${SECTION} bg-muted/30 scroll-mt-16`}>
           <Reveal className="container mx-auto max-w-3xl text-center">
             <div data-testid="stat-card">
               <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
@@ -244,7 +254,7 @@ export function HospitalsPage() {
         <section className={SECTION}>
           <div className="container mx-auto max-w-5xl">
             <Reveal><SectionHeader title={<>The value for the <span className="text-blue-500">hospital</span></>} /></Reveal>
-            <TileGrid items={VALUES} cols="grid-cols-2 lg:grid-cols-4" />
+            <TileGrid items={VALUES} cols="grid-cols-3" />
           </div>
         </section>
 
@@ -272,7 +282,6 @@ export function HospitalsPage() {
             <Reveal className="text-center">
               <SectionHeader
                 title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>}
-                subtitle="The impact of a one-off communication workshop fades. A team norm stays."
               />
               <NormChart />
             </Reveal>
@@ -313,8 +322,8 @@ export function HospitalsPage() {
             <ol className="text-xs text-muted-foreground space-y-1.5">
               {REFERENCES.map((r) => (
                 <li key={r.n} className="flex gap-1.5">
-                  <span className="shrink-0 py-3">{r.n}.</span>
-                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-block py-3 hover:text-foreground underline underline-offset-2">
+                  <span className="shrink-0">{r.n}.</span>
+                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
                     {r.label}
                   </a>
                 </li>

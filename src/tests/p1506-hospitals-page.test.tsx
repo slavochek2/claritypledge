@@ -20,10 +20,15 @@ vi.mock('framer-motion', async (orig) => ({
   useReducedMotion: () => reducedMotion.value,
   useInView: () => inViewMock.value,
 }));
+// The pledger strip reads the DB; the page only needs it present.
+vi.mock('@/app/components/landing/social-proof', () => ({
+  PledgerAvatarStack: () => <div data-testid="pledgers" />,
+  ScrollIndicator: ({ label }: { label: string }) => <button type="button">{label}</button>,
+}));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { HospitalsPage } from '@/app/pages/hospitals-page';
-import { GapExchangeStatic, ExchangeBoundary, NURSE } from '@/app/components/hospitals/gap-exchange';
+import { GapExchangeStatic, ExchangeBoundary, DOCTOR } from '@/app/components/hospitals/gap-exchange';
 import { EXCHANGE_COPY } from '@/app/content/hospitals-exchange';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
 
@@ -45,7 +50,7 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByText('Patient safety starts with understanding')).toBeInTheDocument();
     const order = [
       'Why almost nobody verifies understanding',
-      'Revealing a gap takes 3 seconds',
+      'Reveal a gap, then close it',
       'The value for the hospital',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
@@ -59,8 +64,10 @@ describe('P1506 /hospitals — content', () => {
     expect(stat.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // "How it's different" is merged into the path section.
     expect(screen.queryByRole('heading', { name: 'How Clarity Pledge is different' })).toBeNull();
-    expect(screen.getByText('The impact of a one-off communication workshop fades. A team norm stays.')).toBeInTheDocument();
-    for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
+    // Latest round: the chart tells the workshop-fades story alone, no subtitle.
+    expect(screen.queryByText(/one-off communication workshop fades/)).toBeNull();
+    expect(screen.queryByText('Better patient experience')).toBeNull();
+    for (const v of ['Fewer mistakes and rework', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
     for (const r of ['Hierarchy', 'Illusion of transparency', 'Curse of knowledge'])
       expect(screen.getByRole('heading', { level: 3, name: r })).toBeInTheDocument();
@@ -109,15 +116,18 @@ describe('P1506 /hospitals — content', () => {
     expect(within(items[3]).getByRole('link').getAttribute('href')).toBe('https://doi.org/10.1086/261651');
   });
 
-  it('has one action, Book a 15-min discovery call → /intro, in the hero and the closing section only', () => {
+  it('has one primary action, Book a 15-min discovery call → /intro, in the hero and the closing section only', () => {
     renderPage();
     const cta = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
     expect(cta).toHaveLength(2);
     for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
     expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
-    expect(screen.queryByRole('link', { name: /take the pledge/i })).toBeNull();
-    // No buttons anywhere: the chat plays by itself.
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    // One primary; the founder asked for the pledge back as the /builders quiet text link.
+    // The only button is the scroll cue: the chat plays by itself.
+    // The /builders hero: the pledge as a quiet secondary link, pledgers, and the scroll cue.
+    expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
+    expect(screen.getByTestId('pledgers')).toBeInTheDocument();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Why it matters']);
   });
 
   it('gives the chart a text alternative', () => {
@@ -130,8 +140,8 @@ describe('P1506 /hospitals — the exchange', () => {
   it('with reduced motion, the chat shows its final state: every message, the verified result and the choice', () => {
     renderPage();
     const visual = screen.getByTestId('exchange-visual');
-    expect(visual).toHaveAttribute('data-phase', '6');
-    for (const t of [EXCHANGE_COPY.m1, EXCHANGE_COPY.m3, EXCHANGE_COPY.verifiedLabel, EXCHANGE_COPY.choice])
+    expect(visual).toHaveAttribute('data-phase', '7');
+    for (const t of [EXCHANGE_COPY.m1, EXCHANGE_COPY.m3, EXCHANGE_COPY.verified, EXCHANGE_COPY.revealed, EXCHANGE_COPY.close])
       expect(visual.textContent).toContain(t);
   });
 
@@ -155,19 +165,19 @@ describe('P1506 /hospitals — the exchange', () => {
       inViewMock.value = true;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       const seen: string[] = [];
-      // Steps land at 150, 700, 2200, 3200, 4500, 5600 ms (SCHEDULE).
-      for (const ms of [200, 600, 1500, 1000, 1300, 1100]) {
+      // Steps land at 150, 700, 2200, 3200, 4500, 5500, 6600 ms (SCHEDULE).
+      for (const ms of [200, 600, 1500, 1000, 1300, 1000, 1100]) {
         act(() => { vi.advanceTimersByTime(ms); });
         seen.push(visual().getAttribute('data-phase')!);
       }
-      expect(seen).toEqual(['1', '2', '3', '4', '5', '6']);
+      expect(seen).toEqual(['1', '2', '3', '4', '5', '6', '7']);
       // A motion-preference flip after playing never replays or regresses it.
       reducedMotion.value = true;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       reducedMotion.value = false;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       act(() => { vi.advanceTimersByTime(7000); });
-      expect(visual()).toHaveAttribute('data-phase', '6');
+      expect(visual()).toHaveAttribute('data-phase', '7');
       expect(track.mock.calls.filter((c) => c[0] === 'hospitals_exchange_viewed')).toHaveLength(1);
     } finally {
       vi.useRealTimers();
@@ -186,9 +196,9 @@ describe('P1506 /hospitals — the exchange', () => {
       expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '2');
       reducedMotion.value = true;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
-      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '6');
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '7');
       act(() => { vi.advanceTimersByTime(5000); });
-      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '6');
+      expect(screen.getByTestId('exchange-visual')).toHaveAttribute('data-phase', '7');
     } finally {
       vi.useRealTimers();
       inViewMock.value = false;
@@ -211,12 +221,13 @@ describe('P1506 /hospitals — the exchange', () => {
     expect(screen.getByTestId('exchange-visual')).toHaveAttribute('aria-hidden', 'true');
     const transcript = within(screen.getByTestId('gap-exchange')).getAllByRole('listitem').map((li) => li.textContent);
     expect(transcript).toEqual([
-      `The doctor sends ${NURSE} a voice message explaining something.`,
-      `Doctor: ${EXCHANGE_COPY.m1}`,
-      `${NURSE}: ${EXCHANGE_COPY.m2}`,
-      `Doctor: ${EXCHANGE_COPY.m3}`,
-      `8 vs 4. ${EXCHANGE_COPY.verifiedLabel}: 4.`,
-      EXCHANGE_COPY.choice,
+      `The nurse sends ${DOCTOR} a voice message explaining something.`,
+      `Nurse: ${EXCHANGE_COPY.m1}`,
+      `${DOCTOR}: ${EXCHANGE_COPY.m2}`,
+      `Nurse: ${EXCHANGE_COPY.m3}`,
+      EXCHANGE_COPY.verified,
+      EXCHANGE_COPY.revealed,
+      EXCHANGE_COPY.close,
     ]);
   });
 
@@ -232,8 +243,8 @@ describe('P1506 /hospitals — the exchange', () => {
   it('static fallback renders the full sequence as a list', () => {
     render(<GapExchangeStatic />);
     const items = within(screen.getByTestId('gap-exchange-static')).getAllByRole('listitem');
-    expect(items).toHaveLength(6);
-    expect(items[5].textContent).toContain(EXCHANGE_COPY.choice);
+    expect(items).toHaveLength(7);
+    expect(items[6].textContent).toContain(EXCHANGE_COPY.close);
   });
 });
 

@@ -2,11 +2,12 @@
  * P1506 — the brochure's "3-second exchange", as an auto-playing WhatsApp chat (the /builders
  * HardTruthChat pattern: plays once on scroll-in, no clicking).
  *
- * The viewer is the doctor (right, green); the chat is with Mai, a ward nurse (left, white).
- * A voice note stands for "A has just explained something" without inventing clinical
- * content. Then the question, Mai's 8, the doctor's 4, and two system messages: the verified
- * result (8 vs 4 → 4) and the choice (close the gap, or move on). Avatars are illustrations generated for this page, nobody real.
- * [FOUNDER DECISION: the name "Mai" and the doctor/nurse pairing — drafted]
+ * The viewer is the nurse (right, green), who explains; the chat is with Dr. Mai (left, white),
+ * who receives: it is harder for the senior side to paraphrase, so the doctor explains back.
+ * A voice note stands for "the nurse has just explained something" without inventing clinical
+ * content. Then the question, the doctor's 8, the nurse's 4, and three system messages: the
+ * verified result, the 3 seconds, and how to close the gap. Avatars are illustrations, nobody real.
+ * [FOUNDER DECISION: the name "Mai", the heading, and the nurse→doctor direction — drafted]
  *
  * Accessibility: the animated chat is aria-hidden; a sr-only transcript carries the same
  * sequence in order, so screen-reader users never depend on timing. Reduced motion lands on
@@ -23,19 +24,19 @@ import { EXCHANGE_COPY } from "@/app/content/hospitals-exchange";
 
 /** Illustrated, not photographs: generic colleagues, nobody real. */
 const AVATAR = { doctor: "/hospitals/colleague-a.jpg", nurse: "/hospitals/colleague-b.jpg" } as const;
-export const NURSE = "Mai";
+export const DOCTOR = "Dr. Mai";
 
-/** 0 idle · 1 voice note · 2 question · 3 Mai's 8 · 4 doctor's 4 · 5 verified · 6 the choice. */
-const FINAL = 6;
+/** 0 idle · 1 voice note · 2 question · 3 doctor's 8 · 4 nurse's 4 · 5 verified · 6 3 seconds · 7 how to close. */
+const FINAL = 7;
 // Paced for a first read: the question and the 4 get time before the reply lands.
-const SCHEDULE = [150, 700, 2200, 3200, 4500, 5600];
+const SCHEDULE = [150, 700, 2200, 3200, 4500, 5500, 6600];
 
 function Heading() {
   return (
     <SectionHeader
       title={
         <span className="inline-block text-balance">
-          Revealing a gap takes <span className="text-blue-500">{EXCHANGE_COPY.seconds}</span>
+          Reveal a gap, then <span className="text-blue-500">close it</span>
         </span>
       }
     />
@@ -45,12 +46,13 @@ function Heading() {
 function Transcript({ className }: { className?: string }) {
   return (
     <ol className={className}>
-      <li>The doctor sends {NURSE} a voice message explaining something.</li>
-      <li>Doctor: {EXCHANGE_COPY.m1}</li>
-      <li>{NURSE}: {EXCHANGE_COPY.m2}</li>
-      <li>Doctor: {EXCHANGE_COPY.m3}</li>
-      <li>8 vs 4. {EXCHANGE_COPY.verifiedLabel}: 4.</li>
-      <li>{EXCHANGE_COPY.choice}</li>
+      <li>The nurse sends {DOCTOR} a voice message explaining something.</li>
+      <li>Nurse: {EXCHANGE_COPY.m1}</li>
+      <li>{DOCTOR}: {EXCHANGE_COPY.m2}</li>
+      <li>Nurse: {EXCHANGE_COPY.m3}</li>
+      <li>{EXCHANGE_COPY.verified}</li>
+      <li>{EXCHANGE_COPY.revealed}</li>
+      <li>{EXCHANGE_COPY.close}</li>
     </ol>
   );
 }
@@ -68,7 +70,7 @@ export function GapExchangeStatic() {
 function Bubble({ mine, time, children }: { mine: boolean; time: string; children: ReactNode }) {
   return (
     <div className={`flex gap-2 items-end ${mine ? "justify-end" : ""}`}>
-      {!mine && <img src={AVATAR.nurse} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />}
+      {!mine && <img src={AVATAR.doctor} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />}
       <div className={`max-w-[80%] rounded-lg px-3 py-2 text-[15px] leading-snug shadow-sm text-[#111b21] ${mine ? "bg-[#d9fdd3] rounded-tr-sm" : "bg-white rounded-tl-sm"}`}>
         {children}
         <span className="block text-right text-[10px] text-[#54656f] mt-0.5">
@@ -83,7 +85,7 @@ function Bubble({ mine, time, children }: { mine: boolean; time: string; childre
 function VoiceNote() {
   return (
     <span className="flex items-center gap-2 min-w-[9.5rem] sm:min-w-[11rem]">
-      <img src={AVATAR.doctor} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />
+      <img src={AVATAR.nurse} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />
       <MicIcon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
       <span className="flex items-end gap-[2px] h-5 flex-1">
         {[3, 6, 9, 5, 12, 8, 4, 10, 7, 13, 6, 9, 4, 8, 5, 11, 6, 3].map((h, i) => (
@@ -101,21 +103,6 @@ function SystemNote({ children }: { children: ReactNode }) {
     <div className="self-center max-w-[92%] rounded-md bg-[#e7f0fb] px-3 py-1.5 text-center text-[12.5px] leading-snug text-[#1f3a5f]">
       {children}
     </div>
-  );
-}
-
-function VerifiedNote() {
-  return (
-    <SystemNote>
-      <span className="flex items-center justify-center gap-2 font-bold text-lg leading-none">
-        <span className="text-[#54656f]">8</span>
-        <span className="text-xs font-normal text-[#54656f]">vs</span>
-        <span className="text-blue-600">4</span>
-        <span className="text-xs font-normal text-[#54656f]">&rarr;</span>
-        <span className="bg-blue-600 text-white rounded px-2 py-0.5">4</span>
-      </span>
-      <span className="block mt-1.5 font-semibold">{EXCHANGE_COPY.verifiedLabel}</span>
-    </SystemNote>
   );
 }
 
@@ -166,19 +153,20 @@ export function GapExchange() {
       <div aria-hidden="true" data-testid="exchange-visual" data-phase={phase}>
         <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
-            <img src={AVATAR.nurse} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
+            <img src={AVATAR.doctor} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="min-w-0 text-left">
-              <p className="text-sm font-semibold leading-tight">{NURSE}</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">Ward nurse</p>
+              <p className="text-sm font-semibold leading-tight">{DOCTOR}</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">Ward doctor</p>
             </div>
           </div>
           <div className="bg-[#efeae2] px-3 py-4 flex flex-col gap-2">
             <motion.div {...fade(phase >= 1)}><Bubble mine time="09:40"><VoiceNote /></Bubble></motion.div>
             <motion.div {...fade(phase >= 2)}><Bubble mine time="09:41">{EXCHANGE_COPY.m1}</Bubble></motion.div>
-            <motion.div {...fade(phase >= 3)}><Bubble mine={false} time="09:41"><b className="text-2xl">{EXCHANGE_COPY.m2}</b></Bubble></motion.div>
+            <motion.div {...fade(phase >= 3)}><Bubble mine={false} time="09:41">{EXCHANGE_COPY.m2}</Bubble></motion.div>
             <motion.div {...fade(phase >= 4)}><Bubble mine time="09:41">{EXCHANGE_COPY.m3}</Bubble></motion.div>
-            <motion.div className="flex flex-col" {...fade(phase >= 5)}><VerifiedNote /></motion.div>
-            <motion.div className="flex flex-col" {...fade(phase >= 6)}><SystemNote>{EXCHANGE_COPY.choice}</SystemNote></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 5)}><SystemNote><b>{EXCHANGE_COPY.verified}</b></SystemNote></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 6)}><SystemNote>{EXCHANGE_COPY.revealed}</SystemNote></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 7)}><SystemNote>{EXCHANGE_COPY.close}</SystemNote></motion.div>
           </div>
         </div>
       </div>
