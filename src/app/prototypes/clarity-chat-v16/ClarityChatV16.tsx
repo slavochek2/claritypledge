@@ -809,6 +809,35 @@ function BottomTabs({ st, active, onTab }: { st: State; active: MobileTab | null
 export const SHEET_DISMISS_PX = 80;
 
 /**
+ * The sheet's scrolling list: it ends above the screen edge (the safe-area inset on a notched phone, never less than 1rem), and when
+ * more rows are hidden below a fade and a chevron say it scrolls.
+ */
+function SheetScroll({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    watch?.observe(el);
+    return () => { el.removeEventListener('scroll', measure); watch?.disconnect(); };
+  }, []);
+  return (
+    <div className="relative flex min-h-0 flex-col">
+      <div ref={box} data-sheet-scroll className="min-h-0 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
+      {more && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center bg-gradient-to-t from-white via-white/90 to-transparent pb-1" data-testid="sheet-more" aria-hidden="true">
+          <ChevronDown className="h-5 w-5 text-gray-500" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * The phone's profile menu: a bottom sheet. It closes on a swipe down, on a tap outside it and on Esc. (Not a page.)
  * The drag follows the finger; letting go past SHEET_DISMISS_PX closes, short of it springs back.
  */
@@ -833,7 +862,7 @@ function BottomSheet({ label, onClose, children }: { label: string; onClose: () 
       >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         <div className="flex shrink-0 justify-center pb-1 pt-2" aria-hidden="true"><span className="h-1 w-10 rounded-full bg-gray-300" /></div>
-        <div data-sheet-scroll className="min-h-0 overflow-y-auto px-2 pb-3">{children}</div>
+        <SheetScroll>{children}</SheetScroll>
       </DialogContent>
     </Dialog>
   );
@@ -954,7 +983,7 @@ function GroupsPage({ st, onGroup, onBrowse }: { st: State; onGroup: (slug: stri
   const browse = <OutlineButton onClick={onBrowse} data-testid="browse-groups"><Search className="h-4 w-4" />Browse groups</OutlineButton>;
   return (
     <Page testId="groups-page" title="Your groups">
-      <RealBoundary q={dirQ} what="your groups" empty={<><p>You are not in any group yet. No public groups exist in this project yet.</p>{browse}</>}>
+      <RealBoundary q={dirQ} what="your groups" empty={<p>You are not in any group yet. No public groups exist in this project yet.</p>}>
         {(d) => {
           const mine = myOrgsOf(st, d).sort(byActivity(st));
           return (
@@ -1583,7 +1612,7 @@ function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onP
     <div className="space-y-0.5">
       {rows.map((a) => (
         <div key={a.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-          <ul data-agreement={a.id} className="min-w-0 flex-1" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></ul>
+          <ul data-agreement={a.id} className="min-w-0 flex-1 [&_p.text-xs]:whitespace-normal" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></ul>
           {/* Production's agreement page (sealed agreement, Download Image, Share): the row opens the chat, this opens the agreement. */}
           <Button asChild variant="outline" size="sm" className="min-h-10 shrink-0 self-end sm:self-auto"><a href={`/agreements/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer" data-testid="agreement-action">Agreement</a></Button>
         </div>
@@ -2502,6 +2531,13 @@ function TranscribeButton() {
   );
 }
 
+/** "Saturday, October 17 · 7:00 PM" as "Sat, Oct 17 · 7:00 PM": the phone header's date. A form without a weekday or month name (Today, 19:00) is unchanged. */
+export function shortWhen(when: string) {
+  return when
+    .replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g, (d) => d.slice(0, 3))
+    .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b(?= \d)/g, (m) => m.slice(0, 3));
+}
+
 /** "N going" for an event channel: the real RSVP list of the event seeded under the same mock id. */
 function GoingCount({ mockEventId }: { mockEventId: string }) {
   const q = useRealQuery<EventAttendee[] | null>(() => loadChatEventAttendees(mockEventId), [mockEventId], { emptyValue: [], isEmpty: (a) => !a || a.length === 0 });
@@ -2540,16 +2576,21 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
         <ChannelMark chat={chat} size="sm" className="hidden sm:flex" />
         <span className="min-w-0">
           <span className={HEAD_NAME} data-testid="channel-name">{rowTitle(st, chat, true)}</span>
-          <span className="flex min-w-0 items-center gap-1 text-xs text-gray-500">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1 text-xs text-gray-500">
             {ev
-              ? <><span className="truncate" data-testid="channel-when">{eventWhen(st, ev)}</span><span className="shrink-0">·</span><span className="shrink-0 whitespace-nowrap"><GoingCount mockEventId={ev.id} /></span></>
+              ? <>
+                {/* The date is the useful part: it is never cut. On a phone it is the short form, and "· 4 going" is what wraps under it when the line is full. */}
+                <span className="hidden whitespace-nowrap sm:inline" data-testid="channel-when">{eventWhen(st, ev)}</span>
+                <span className="whitespace-nowrap sm:hidden" data-testid="channel-when-short" aria-hidden="true">{shortWhen(eventWhen(st, ev))}</span>
+                <span className="whitespace-nowrap">· <GoingCount mockEventId={ev.id} /></span>
+              </>
               : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span className="shrink-0 whitespace-nowrap" data-testid="members-only">{COPY.membersOnly}</span><span className="truncate" data-testid="channel-group"> · {group?.name}</span></>}
           </span>
         </span>
       </div>
     )
     : mirror
-      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" className="hidden sm:inline-flex" /><span className="min-w-0"><span className={HEAD_NAME} data-testid="mirror-name">{mirrorLabel(st)}</span><span className="hidden truncate text-xs text-gray-500 sm:block">Your agent</span></span></div>
+      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" className="hidden sm:inline-flex" /><span className="min-w-0"><span className={HEAD_NAME} data-testid="mirror-name">{mirrorLabel(st)}</span><span className="block truncate text-xs text-gray-500" data-testid="mirror-role">Your agent</span></span></div>
       : <DmTitle st={st} chat={chat} onPerson={onPerson} onPartners={onPartners} />;
   const otherFirst = other ? PEOPLE[other].name.split(' ')[0]! : '';
   const showInvite = !!other && partnerState(st, other) === 'none';

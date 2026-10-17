@@ -8,9 +8,9 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act as rtlAct, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act as rtlAct, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ClarityChatV16, SHEET_DISMISS_PX } from '@/app/prototypes/clarity-chat-v16/ClarityChatV16';
+import { ClarityChatV16, SHEET_DISMISS_PX, shortWhen } from '@/app/prototypes/clarity-chat-v16/ClarityChatV16';
 import { SIDEBAR_KEY } from '@/app/prototypes/clarity-chat-v16/mock-data';
 import { VOICE_LABEL } from '@/app/prototypes/clarity-chat-v16/kit';
 import { isSeededPersonaEmail, personaEmail } from '@/app/prototypes/clarity-chat-v16/personas';
@@ -2851,12 +2851,12 @@ describe('P1509 v16 visual QA', () => {
   });
 
   describe('VQ8-12 narrow headers keep the essentials', () => {
-    it('an event channel keeps its NAME (two lines on a phone, mark steps aside); the date line gives way', async () => {
+    it('an event channel keeps its NAME (two lines on a phone, mark steps aside) and its date (never truncated)', async () => {
       renderV16(`${BASE}?view=chats&chat=ch-night-oct16`);
       const name = await screen.findByTestId('channel-name');
       expect(name.className).toContain('line-clamp-2');
       expect(name.className).toContain('sm:line-clamp-1');
-      expect(within(screen.getByTestId('channel-header')).getByTestId('channel-when').className).toContain('truncate');
+      expect(within(screen.getByTestId('channel-header')).getByTestId('channel-when').className).not.toContain('truncate');
       expect(screen.getByTestId('channel-header').firstElementChild!.className).toMatch(/(^|\s)hidden(\s|$)/);
     });
 
@@ -2877,14 +2877,14 @@ describe('P1509 v16 visual QA', () => {
       expect(name.textContent).toContain('Partner · Facilitator');
     });
 
-    it('the mirror keeps its role text: the name wraps to two lines instead of being cut, and "Your agent" gives way', async () => {
+    it('the mirror keeps its role text: the name wraps to two lines instead of being cut, and "Your agent" is there at every width', async () => {
       renderV16(`${BASE}?view=chats&chat=mirror-bob`);
       fireEvent.change(within(screen.getByTestId('mirror-claim')).getByRole('textbox'), { target: { value: 'Echo' } });
       fireEvent.click(screen.getByTestId('mirror-keep'));
       const name = screen.getByTestId('mirror-name');
       expect(name.textContent).toBe("Echo · Bob's mirror");
       expect(name.className).toContain('line-clamp-2');
-      expect(name.nextElementSibling!.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(name.nextElementSibling!.className).not.toMatch(/(^|\s)hidden(\s|$)/);
     });
 
     it('Partners rows keep their date: the Agreement action sits under the row on a phone and beside it from sm', async () => {
@@ -3095,5 +3095,107 @@ describe('P1509 v16 last batch', () => {
       expect(row.textContent).toContain('Mock: no audio is recorded');
       expect(row.textContent).not.toMatch(/Recording/);
     });
+  });
+});
+
+/**
+ * Final visual batch (visual-QA retry 2).
+ */
+describe('P1509 v16 final visual batch', () => {
+  const bare = (cls: string) => !/(^|\s)hidden(\s|$)/.test(cls);
+
+  it('A1 the mirror header shows its role line at every width (never hidden below sm), like the 1:1 header does', async () => {
+    renderV16(`${BASE}?view=chats&chat=mirror-bob`);
+    const header = await screen.findByTestId('mirror-header');
+    const role = within(header).getByTestId('mirror-role');
+    expect(role.textContent).toBe('Your agent');
+    expect(bare(role.className)).toBe(true);
+    expect(role.className).not.toMatch(/(^|\s)sm:block(\s|$)/); // no width-gated reveal: it is simply there
+  });
+
+  describe('A3 the event header keeps its date readable on a phone', () => {
+    it('shortWhen: weekday and month names shorten; a form without them is untouched', () => {
+      expect(shortWhen('Saturday, October 17 · 7:00 PM')).toBe('Sat, Oct 17 · 7:00 PM');
+      expect(shortWhen('Wednesday, September 2 · 7:00 PM')).toBe('Wed, Sep 2 · 7:00 PM');
+      expect(shortWhen('Today, 19:00')).toBe('Today, 19:00');
+      expect(shortWhen('May 4')).toBe('May 4');
+    });
+    it('the full date is from sm up, the short date below it; neither truncates, and "· N going" is what wraps', async () => {
+      renderV16(`${BASE}?view=chats&chat=ch-night-oct16`);
+      const header = await screen.findByTestId('channel-header');
+      const full = within(header).getByTestId('channel-when');
+      const short = within(header).getByTestId('channel-when-short');
+      expect(full.textContent).toMatch(/^[A-Z][a-z]+day, [A-Z][a-z]+ \d+ · /); // the fixture's own date
+      expect(short.textContent).toBe(shortWhen(full.textContent!));
+      expect(short.textContent).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d+ · /);
+      expect(full.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(full.className).toContain('sm:inline');
+      expect(short.className).toContain('sm:hidden');
+      expect(short.getAttribute('aria-hidden')).toBe('true'); // read once, not twice
+      for (const el of [full, short]) { expect(el.className).toContain('whitespace-nowrap'); expect(el.className).not.toContain('truncate'); }
+      expect(short.parentElement!.className).toContain('flex-wrap');
+      expect((await within(header).findByTestId('going-count')).parentElement!.textContent).toMatch(/^· \d+ going$/);
+    });
+  });
+
+  describe('A4 the phone profile sheet ends clear of the screen edge and signals that it scrolls', () => {
+    const overflow = (scrollHeight: number, clientHeight: number) => {
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight);
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(clientHeight);
+    };
+    const openSheet = () => { stubViewport(false); renderV16(); fireEvent.click(screen.getByRole('button', { name: /Profile/ })); };
+    it('bottom padding is at least 1rem and uses the safe-area inset', () => {
+      openSheet();
+      const list = screen.getByTestId('sheet').querySelector('[data-sheet-scroll]')!;
+      expect(list.className).toContain('pb-[max(1rem,env(safe-area-inset-bottom))]');
+    });
+    it('a fade and chevron show while rows are hidden below, and are gone when everything fits', () => {
+      overflow(900, 400);
+      openSheet();
+      expect(screen.getByTestId('sheet-more')).toBeTruthy();
+      expect(screen.getByTestId('sheet-more').className).toContain('pointer-events-none'); // it never blocks a tap on the row under it
+      cleanup();
+      vi.restoreAllMocks();
+      overflow(300, 400);
+      stubViewport(false);
+      renderV16();
+      fireEvent.click(screen.getByRole('button', { name: /Profile/ }));
+      expect(screen.queryByTestId('sheet-more')).toBeNull();
+    });
+  });
+
+  it('B2 Retry is one control with one look on every surface that has it (the grey one in the shots was the hover state)', async () => {
+    const looks = new Set<string>();
+    for (const url of [`${BASE}?view=home&real=error`, `${BASE}?view=letters&real=error`, `${BASE}?view=groups&real=error`, `${BASE}?view=partners&real=error`, `${BASE}?view=event&event=p1509-night-oct16&group=cm&real=error`]) {
+      const { unmount } = renderV16(url);
+      const retry = (await screen.findAllByRole('button', { name: 'Retry' }))[0]!;
+      looks.add(retry.className);
+      expect(retry.className).toContain('border'); // the outline variant
+      expect(retry.className).not.toContain('bg-secondary');
+      unmount();
+    }
+    expect(looks.size).toBe(1);
+  });
+
+  it('B3 an empty directory says so and offers no Browse groups button (it would open an empty list)', async () => {
+    renderV16(`${BASE}?view=groups&real=empty`);
+    const page = await screen.findByTestId('groups-page');
+    await within(page).findByText(/No public groups exist in this project yet/);
+    expect(within(page).queryByRole('button', { name: /Browse groups/ })).toBeNull();
+  });
+
+  it('B3b a directory that has groups, none mine, keeps the Browse groups button', async () => {
+    h.state.myOrgIds = [];
+    renderV16(`${BASE}?view=groups`);
+    const page = await screen.findByTestId('groups-page');
+    await within(page).findByTestId('real-empty');
+    expect(within(page).getByRole('button', { name: /Browse groups/ })).toBeTruthy();
+  });
+
+  it('C3 a Partners row lets its meta line wrap (no ellipsis on "1 month active")', async () => {
+    renderV16(`${BASE}?view=partners`);
+    const row = (await screen.findAllByTestId('agreement-action'))[0]!.parentElement!.querySelector('[data-agreement]')!;
+    expect(row.className).toContain('[&_p.text-xs]:whitespace-normal');
+    expect(row.querySelector('p.text-xs')!.textContent).toMatch(/·|active|Invited/);
   });
 });
