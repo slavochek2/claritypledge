@@ -40,67 +40,102 @@ Outcome: the founder's own canvas lives in Clarity Pledge.
 
 ## Appetite
 
-Blast radius: one new surface; reads existing points/stories, writes nothing new to them.
-Reversibility: high if no schema change; medium if `/architect` adds a canvas record.
+Blast radius: one new surface plus the system-tag set, which the feed and `/stake` also read.
+Writes: one definer function for box tags, a box-tag carry-forward on new versions, and a seed.
+Reversibility: medium (system-tag set and a function; plus a record if `/architect` adds one).
 Decision density: a few (marked below).
 
 ## Solution
 
 - **A canvas is an owner's artifact with its own address**, not a `/stake` tag filter. It belongs
-  to one owner and is identified by a project tag. Its contents are that owner's points carrying
-  the project tag, placed into boxes by box tags (`canvas:<box>`), per the 2026-05-19 ruling that the
-  canvas is a tag-grouped view and the lean canvas is one layout. Stories show as they already do
-  behind a point.
-- **Reuse the real components.** Each point renders with the current production point card
-  (`feed-point-card.tsx` family: position buttons, details, linked stories); stories with the
-  current story card. The playground cards are outdated reference only. No look-alike cards.
-- **Layout.** Desktop: the 9 lean-canvas boxes as a grid that fits one screen, each box titled.
-  Mobile: boxes stacked, each with its title. A box holding several points scrolls sideways inside
-  the box; boxes never grow to fit.
-- **No canvas/letter switcher.**
-- **Viewing as** (v10 lens: show one person's positions on the canvas): include only if it reuses
-  existing position data with no new query shape; otherwise drop to a follow-up.
-- **Seed:** the founder's canvas, from the hand-made decomposition in the playground (`data-v9.js`,
-  an older canvas; being up to date does not matter for the showcase).
-- **Prototype first** on a `/tree` route with real components and seed data; founder reviews; then
-  build the production route.
+  to one owner and is identified by a project tag. Its contents are that owner's current-version
+  points carrying the project tag, placed into boxes by box tags, per the 2026-05-19 ruling that the
+  canvas is a tag-grouped view and the lean canvas is one layout.
+- **Box tags are system tags, never parsed from hashtags** (review 2026-10-17). Typed hashtags
+  cannot carry them: `extractHashtags` matches `#(\w+)` (`src/lib/utils.ts:185`). Today's system
+  tags are a fixed set (`src/lib/feed-utils.ts:21-31`); extend it with one box-tag pattern
+  (`/architect` names the nine keys) and check the feed and `/stake` still separate user and system
+  tags. **Write path:** clients cannot write `system_tags` (insert hard-codes `[]`,
+  `points-service-real.ts:215`; a trigger restores them on update, p630 migration). So: one
+  SECURITY DEFINER function that lets a point's **own author** set its box tag (the later chat
+  agent needs the same path); the founder seed runs as a service-role script. **Versions:** a new
+  version of a point carries its box tag forward, so editing never drops a point off the canvas.
+  The project tag is a plain user tag, typed as a hashtag as today. A point with the project tag
+  and no box tag is not shown; a point with two box tags shows in both.
+- **New read path.** No existing service fits: `getPublicPointsFeed` takes one tag and no owner
+  (`points-service-real.ts:777`), `getPointsByValidator` has an owner and no tag (`:307`), and both
+  filter to public (`:801`, `:327`). Add one read: owner + project tag + box tags, returning what
+  the point card needs, linked stories batch-fetched (never per card).
+- **Visibility.** The owner sees all their own points on their canvas, private included (owner SELECT
+  policy, p586 migration lines 278-282). Anyone else sees public points only, until the follow-up
+  sharing spec.
+- **Reuse the real components.** Inside a box each point shows as a **compact** form of the
+  production point card (statement + positions): a new prop on the same component (none exists
+  today, `feed-point-card.tsx:67-73`), not a look-alike.
+  Opening it shows the full production point card with its stories in a side panel on desktop and
+  a full-screen sheet on mobile (v10's own depth model). The card gains a `'canvas'` value in its `surface` prop
+  (`feed-point-card.tsx:67`, used for analytics); no other card behaviour changes.
+- **Layout.** Desktop: the nine titled boxes as a grid within one screen; points stack inside a box
+  and the box scrolls vertically. Mobile: boxes stacked with titles; a box with several points
+  swipes sideways with snap and an "n / N" counter. No canvas/letter switcher.
+- **Seed:** the founder's canvas from the playground decomposition (`data-v9.js`, an older canvas;
+  freshness does not matter), inserted by a script under the founder's account.
+- **Build order:** `/tree` prototype with the production components and seed data → founder
+  review → production route.
 
 [FOUNDER DECISION: the address shape (e.g. `/canvas/<id>`) and the canvas's display name.]
 [FOUNDER DECISION: box titles (lean-canvas standard nine, or adapted wording).]
 [FOUNDER DECISION: whether a canvas needs its own record (title, owner, project tag), or is fully
 derived from owner + project tag until the artifacts spec. `/architect` recommends.]
 
+## UX Notes
+
+- Empty box: titled, subdued, no placeholder points.
+- Unknown canvas or owner: not-found page.
+- Signed-out viewer: reads public points; position buttons follow the card's existing signed-out
+  behaviour.
+- Superseded point versions are not shown.
+- Loading: box skeletons. Read error: one error message for the page, no partial grid.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Canvas points are public, and owners don't want their canvas public | DEFER | Prerequisite for the event; owned by the follow-up artifacts + sharing spec (builds on P1181, community-scoped visibility, parked on its branch). This spec shows the owner's own canvas and public points only. |
-| Anyone can tag a point with someone else's project tag | MITIGATE | Only the owner's own points are shown on their canvas. |
-| A box with many points becomes unusable on mobile | MITIGATE | Sideways scroll inside the box; check at 320px. |
-| Prototype drifts from production cards again | MITIGATE | Prototype imports the production components, no copies. |
+| Owners don't want their canvas public | DEFER | Prerequisite for the event; owned by the follow-up artifacts + sharing spec. This spec shows the owner everything and others public points only. |
+| Anyone can tag a point with someone else's project tag | MITIGATE | Only the owner's own points appear. |
+| Full cards don't fit nine boxes on one screen | MITIGATE | Compact card in the box, full card in the side panel. |
+| Sideways swipe fights page scroll on mobile | MITIGATE | Snap + counter; verify at 320px. |
+| Prototype drifts from production cards | MITIGATE | Prototype imports the production components. |
 
 **Non-Goals**
-- Do NOT add sharing, group or event visibility, or inbox listing (follow-up artifacts spec).
-- Do NOT wire Clarity Chat, uploads or agents (P1500 and its siblings).
-- Do NOT build a canvas creation UI; points are created as today (hashtags become tags).
+- Do NOT add sharing, group or event visibility, or inbox listing.
+- Do NOT wire Clarity Chat, uploads or agents (P1500 and siblings).
+- Do NOT build a canvas creation UI or let owners type box tags.
 - Do NOT add a letter view or switcher; do NOT touch P1332.
-- Do NOT change point or story cards' behaviour; reuse them as they are.
+- Do NOT change point or story card behaviour beyond the new compact prop and the `'canvas'` surface value.
+- Do NOT build the v10 "viewing as" lens (follow-up).
 
 ## Acceptance Criteria
 
-- [ ] The founder opens their canvas at its own address and sees their points in the nine titled boxes.
-- [ ] Every point on the canvas is the production point card: they can take a position and open its stories.
-- [ ] On desktop the nine boxes fit one screen without page scroll at 1440x900.
-- [ ] On a 375px and a 320px screen, boxes stack with titles; a box with 3+ points scrolls sideways inside itself.
-- [ ] A point by another user carrying the same project tag does not appear on the owner's canvas.
-- [ ] The founder approved the `/tree` prototype before the production route was built.
+- [ ] The founder opens their canvas at its own address and sees their points in the nine titled boxes, private ones included.
+- [ ] Signed out, the same address shows only the public points.
+- [ ] Opening a point shows the production point card with its stories; a position taken there persists.
+- [ ] At 1440x900 the page does not scroll (`document.documentElement.scrollHeight <= innerHeight`); a box with many points scrolls inside itself.
+- [ ] At 375px and 320px boxes stack with titles; a box with 2+ points swipes sideways and shows "n / N".
+- [ ] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
+- [ ] An empty box renders titled; an unknown canvas address shows not-found.
+- [ ] Editing a point on the canvas (new version) keeps it in the same box.
+- [ ] A signed-in user cannot set a box tag on someone else's point.
+- [ ] The feed and `/stake` pages show the same tags as before for existing points.
 
 ## Related
 
 - P1500 Clarity Canvas from event threads (chat follow-up) · P1332 canvas to letter (backlog) ·
   P611 renderer (rejected) · P1181 community-scoped visibility (branch, parked) · P1503 Clarity Chat prototype
 - Rulings: `docs/decisions.md` 2026-05-19 [product] x3 (parked pending demand; tag-grouped schema
-  view; four curation principles)
+  view; four curation principles). This spec resumes the parked canvas on the event (closest to
+  recovery signals 2 and 4) and makes it an owner artifact rather than `/d/<docId>?view=canvas`;
+  record that in decisions.md when the spec is approved.
 - Design reference: `~/Projects/public/superdesign-playground/clarity-canvas/` (v9-SPEC.md, v10-SPEC.md, v10-mvp.html)
 
 ## Open Questions
