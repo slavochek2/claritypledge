@@ -118,6 +118,7 @@ const ClarityChatV12 = lazy(() => import("@/app/prototypes/clarity-chat-v12/Clar
 const ClarityChatV13 = lazy(() => import("@/app/prototypes/clarity-chat-v13/ClarityChatV13").then(m => ({ default: m.ClarityChatV13 })));
 const ClarityChatV14 = lazy(() => import("@/app/prototypes/clarity-chat-v14/ClarityChatV14").then(m => ({ default: m.ClarityChatV14 })));
 const ClarityChatV15 = lazy(() => import("@/app/prototypes/clarity-chat-v15/ClarityChatV15").then(m => ({ default: m.ClarityChatV15 })));
+const ClarityChatV16 = lazy(() => import("@/app/prototypes/clarity-chat-v16/ClarityChatV16").then(m => ({ default: m.ClarityChatV16 })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
@@ -1182,6 +1183,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/clarity-chat-v13" element={<LazyRoute><ClarityChatV13 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/clarity-chat-v14" element={<LazyRoute><ClarityChatV14 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/clarity-chat-v15" element={<LazyRoute><ClarityChatV15 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/clarity-chat-v16" element={<LazyRoute><ClarityChatV16 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a

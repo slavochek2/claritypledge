@@ -7,7 +7,7 @@ created_date: '2026-10-16'
 tags: [clarity-chat, messaging, navigation, events]
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, dev.2]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -252,10 +252,10 @@ own tests may be adapted only where the rebase breaks them, each change named in
 | Area | Decision |
 |---|---|
 | First tab | **Chats first.** Mobile bottom bar: Chats · Home · Groups · Letters · Profile. "Home" keeps its name for the feed. |
-| Desktop sidebar | Modelled on Claude / ChatGPT (founder screenshots): small Clarity Pledge logo + collapse button top-left (logo click = Home, as today); Search; **Invite partner**; places Chats · Home · Groups · Letters · Events; a collapsed **More** (Use cases, Learn, Tools); profile + menu at the bottom-left. |
+| Desktop sidebar | Modelled on Claude / ChatGPT (founder screenshots): small Clarity Pledge logo + collapse button top-left (logo click = Home, as today); Search; **Invite partner**; places Chats · Home · Groups · Letters · Events. Bottom-left row: profile picture (opens the profile menu) and, on the same line to its right, a small **Tools** icon with its label, always visible, quiet styling. No "More" item: Use cases and Learn live in the profile menu next to Settings. |
 | Mobile profile menu | A bottom sheet that closes on swipe-down or outside tap, not a full page. |
 | Partner wording | One verb everywhere: **Invite partner** (sidebar, 1:1 chat header, profile). States: Invite partner → Invite sent → Partner. Accepts a name (picks a person in the app and uses their profile email) or an email, reusing the existing new-partner flow and its suggested terms. An invited email with no account shows "Invite sent" and no chat until accepted. "+ New" and "New chat" are removed: search already finds anyone you may message. |
-| Transcribe | A voice button in the composer of **every** chat (like ChatGPT/Claude voice). Each capture mints a new room through the existing create path (rooms are per code and end; `transcribe_rooms` has no chat link), and the link back to the chat lives only in the client, since chats are mock. If that cannot be wired without a schema change, the button says "Coming soon" everywhere rather than faking it. |
+| Transcribe | A **Transcribe** button at the top right of **every** chat header; one press starts capture immediately (like play / joining a voice channel), and the existing compact live bar shows it running with Stop. Each capture mints a new room through the existing create path (rooms are per code and end; `transcribe_rooms` has no chat link), and the link back to the chat lives only in the client, since chats are mock. If that cannot be wired without a schema change, the button says "Coming soon" everywhere rather than faking it. |
 | Clarity Live | Not a header button. "Invite to Clarity Live" in the ⋯ menu of a **1:1** chat only. |
 | General channel | Keeps the name "General"; shows a lock and the description "Members only". Event channels = that event's RSVPs. |
 | Thread forward | Forwarding a message that has a thread arrives as one card "Thread · N replies" that opens the full thread; same when sent to the mirror. |
@@ -316,7 +316,8 @@ suggested partner terms.
 - [ ] Profile menu on mobile is a sheet that closes on swipe-down and outside tap
 - [ ] "Invite partner" is the only partner verb anywhere; works with a name and with an email; suggested terms present
 - [ ] No "+ New" and no "New chat" anywhere
-- [ ] Composer voice button in every chat; Live invite only in 1:1 ⋯ menu
+- [ ] Transcribe button top-right in every chat header starts capture in one press, live bar shows it; Live invite only in 1:1 ⋯ menu
+- [ ] Tools icon+label sits right of the profile picture on desktop, always visible; no "More"; Use cases and Learn are in the profile menu
 - [ ] General shows lock + "Members only"
 - [ ] Thread forward shows "Thread · N replies" and opens the thread
 - [ ] Mirror: Clarify on all messages; Rename works; role always shown; no back bar
