@@ -208,3 +208,122 @@ to the target (founder asked for it); ⋯ and the title both open group actions 
 a deleted point/story placeholder card.
 
 Tests: `src/tests/p1509-v13-*.test.ts(x)`.
+
+---
+
+## v16 iteration — real data, and the founder's v15 review (added 2026-10-17)
+
+**Why:** v15 rebuilt Home, the Share picker, the people list and "New partner" around mock data,
+so each felt invented. Founder framing, verbatim: *"maybe if we wire directly the actual points and
+stories from the database, that would be better ... it's not a prototype anymore"* and
+*"if we are rebuilding then functionality has to stay ... or at least I need to know about that."*
+v16 stops mocking what the database already holds. Built on the same branch and route family
+(`/tree/clarity-chat-v16`); v15 stays as it is.
+
+**Data source (founder decision 2026-10-17: "local database").** Localhost reads the Supabase
+**test project** (`.env.local`), never prod. v16 reads, through the app's existing data hooks and
+RPCs, everything that already has tables: profiles, points with positions, stories, letters, groups,
+events + RSVPs, partners and partner invites, `is_admin`. A small set of named test personas is seeded
+in the test project so screens have content; the seed is a script, re-runnable, and removes only
+rows it created. **Chat messages, channels, threads, unread, archive and the mirror stay mock**
+(no tables exist; the backend is follow-up 0) and every mock surface is labelled as such in the build
+report.
+
+**Supersedes (v16 only):** the Non-Goal "Do NOT build any backend, table, migration or real data. Mock
+data only" becomes *no new tables/migrations; read existing tables*; "Clarify" is removed from the Non-Goal
+and strip-list "Cut" rows (v15 already shipped it on the mirror); "Do NOT change any existing flow" stands —
+real flows (RSVP, invite) are **reused unchanged**, never modified.
+
+**Where the data comes from:** existing services in `src/app/data/` — points `points-service*`, stories
+`stories-service*`, letters `letters-service.ts`, groups `organizations-service*`, events + RSVP
+`events-service*` (`rsvpToEvent`), partners `agreements-service-real.ts` (+ suggested terms in
+`create-agreement-page.tsx`), profiles `api.ts`. Do not build a new hook layer.
+
+**Breakpoints:** desktop (≥1024px) = the collapsible sidebar below, no ☰; mobile = bottom bar + profile sheet.
+
+**States for every real-data surface:** skeleton while loading; inline error with Retry if the query fails;
+an explicit empty state (0 points, 0 letters, 0 groups) — never a blank panel.
+
+**Step 0:** rebase the branch onto main (40 commits behind on 2026-10-17, incl. P1506 /hospitals). v15's
+own tests may be adapted only where the rebase breaks them, each change named in the build report.
+
+### Decisions (founder, 2026-10-17)
+
+| Area | Decision |
+|---|---|
+| First tab | **Chats first.** Mobile bottom bar: Chats · Home · Groups · Letters · Profile. "Home" keeps its name for the feed. |
+| Desktop sidebar | Modelled on Claude / ChatGPT (founder screenshots): small Clarity Pledge logo + collapse button top-left (logo click = Home, as today); Search; **Invite partner**; places Chats · Home · Groups · Letters · Events; a collapsed **More** (Use cases, Learn, Tools); profile + menu at the bottom-left. |
+| Mobile profile menu | A bottom sheet that closes on swipe-down or outside tap, not a full page. |
+| Partner wording | One verb everywhere: **Invite partner** (sidebar, 1:1 chat header, profile). States: Invite partner → Invite sent → Partner. Accepts a name (picks a person in the app and uses their profile email) or an email, reusing the existing new-partner flow and its suggested terms. An invited email with no account shows "Invite sent" and no chat until accepted. "+ New" and "New chat" are removed: search already finds anyone you may message. |
+| Transcribe | A voice button in the composer of **every** chat (like ChatGPT/Claude voice). Each capture mints a new room through the existing create path (rooms are per code and end; `transcribe_rooms` has no chat link), and the link back to the chat lives only in the client, since chats are mock. If that cannot be wired without a schema change, the button says "Coming soon" everywhere rather than faking it. |
+| Clarity Live | Not a header button. "Invite to Clarity Live" in the ⋯ menu of a **1:1** chat only. |
+| General channel | Keeps the name "General"; shows a lock and the description "Members only". Event channels = that event's RSVPs. |
+| Thread forward | Forwarding a message that has a thread arrives as one card "Thread · N replies" that opens the full thread; same when sent to the mirror. |
+| Mirror | Clarify appears on every message, including in the mirror chat. No "Back to <chat>" bar: the forwarded card links to its source. ⋯ menu on the mirror chat with **Rename**. Role always shown: "<Name> · <First>'s mirror" (decisions.md 2026-10-12 ruling). |
+
+### Fixes (agreed, no decision needed)
+
+- Share picker / story card inside chat: no "+ Add point", no ⋯; keep expand and Details. **Share** is
+  the one solid primary button, on hover (desktop) and always visible (touch).
+- Letters cards: the card body is not clickable; only its buttons act (Edit, Prepare, Results…).
+  Actions on hover on desktop, always visible on touch. Published letters keep expand.
+- "Browse groups" is a quiet outline button below your groups, not a list row.
+- No "Group info" entry in the chat list; it lives in the channel ⋯ → Group page.
+- Admin entry visible only when `is_admin`; a test proves a non-admin never sees it.
+- Message menu gains **Mark as unread** (right-click desktop, long-press touch).
+- Desktop Home restores the production widgets (Events, Groups, Search).
+- Groups sorted by latest activity; "Your groups" first, then Browse.
+- Design-system pass: buttons, colours and type checked against the design system.
+
+### Parity and navigation audit (founder: "at least I need to know")
+
+Every page reachable from v16 **and** every route in `src/App.tsx` outside `/tree/*` (closed list,
+derived at build time, not typed by hand) gets one row in the build report: reached from where · back works · forward
+works · bottom bar shown or deliberately hidden · anything lost vs production. Anything lost is
+either restored or listed for the founder — never dropped silently. Known losses to restore first:
+suggested partner terms.
+
+### v16 Invariants (additive)
+
+- Prod is never read or written by the prototype. Test-project writes come only from the seed script
+  and from user actions on real flows (RSVP, invite), all against test users.
+- No new tables, columns or migrations in v16.
+- Mirror shows its role whenever its name shows.
+- **No real email leaves the test project.** `send-agreement-emails` sends through Mailgun and its
+  `APP_URL` falls back to the prod site, so the client refuses any invite recipient outside the seeded
+  persona domain, and the test project's function secrets are checked before the first invite.
+- The seed script aborts unless the Supabase URL is the test project, tags every row it creates, and its
+  reset deletes only tagged rows (dependent rows such as RSVPs first).
+
+### v16 Risks
+
+| Risk | Label | Note |
+|---|---|---|
+| Test project is shared with e2e suites; seeded personas collide | MITIGATE | Distinct persona prefix; seed removes only its own rows |
+| Real flows (invite) send real email from test | MITIGATE | Invite only to the seeded persona addresses; check the mail path before the first run |
+| Mixing mock chat with real people confuses review | MITIGATE | Build report labels each surface real / mock |
+| Transcribe-from-any-chat needs room ownership rules not yet designed | DEFER | "Coming soon" where not wireable; backend spec decides |
+
+### v16 Acceptance Criteria
+
+- [ ] Branch rebased onto main; full test suite and pre-commit checks pass
+- [ ] Home, Share picker, profiles, letters, groups, events and partners each show a named seeded record, and the build report pairs each with the test-project query that returns it
+- [ ] Each real-data surface shows its skeleton, error-with-Retry and empty state (screenshots in the build report)
+- [ ] An invite to an address outside the seeded domain is refused in the UI; no email is sent
+- [ ] Design-system check: every button and colour in v16 maps to a design-system token or variant; exceptions listed
+- [ ] Mobile opens on Chats; bottom bar order Chats · Home · Groups · Letters · Profile
+- [ ] Desktop sidebar matches the decision row above; collapse works; logo goes Home
+- [ ] Profile menu on mobile is a sheet that closes on swipe-down and outside tap
+- [ ] "Invite partner" is the only partner verb anywhere; works with a name and with an email; suggested terms present
+- [ ] No "+ New" and no "New chat" anywhere
+- [ ] Composer voice button in every chat; Live invite only in 1:1 ⋯ menu
+- [ ] General shows lock + "Members only"
+- [ ] Thread forward shows "Thread · N replies" and opens the thread
+- [ ] Mirror: Clarify on all messages; Rename works; role always shown; no back bar
+- [ ] Share picker card has no Add point / ⋯; Share is the single primary button
+- [ ] Letters cards act only through their buttons
+- [ ] Non-admin persona never sees Admin (test)
+- [ ] Mark as unread works on desktop and touch
+- [ ] Parity/navigation table in the build report covers every page named above, with no unexplained loss
+- [ ] Separate visual-QA subagent passes at desktop, 375 and 320; each Gemini UX finding marked fixed or listed with a reason
+- [ ] The founder has clicked through v16 and approved it
