@@ -200,7 +200,7 @@ export function HospitalsPage() {
               <PrimaryCTA location="hero" />
               <p className="text-muted-foreground">
                 or{" "}
-                <Link to="/sign-pledge" className="inline-flex items-center min-h-10 text-blue-500 hover:text-blue-600 underline underline-offset-4">
+                <Link to="/sign-pledge" onClick={() => analytics.track("hospitals_pledge_clicked")} className="inline-flex items-center min-h-10 text-blue-500 hover:text-blue-600 underline underline-offset-4">
                   Take the Pledge
                 </Link>
               </p>
