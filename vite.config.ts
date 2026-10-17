@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs'
 import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
+import { p1509PersonaSessionPlugin } from './src/app/prototypes/clarity-chat-v16/persona-session-plugin'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -92,6 +93,8 @@ export default defineConfig({
     // P1416: <meta name="app-build"> — a fingerprint of the app's own inputs, so the update prompt
     // ignores deploys that change nothing users run (docs, skills, tests). Build only.
     appBuildFingerprintPlugin(__dirname),
+    // P1509 v16: dev-server-only persona sign-in for /tree/clarity-chat-v16 (apply: 'serve'; absent from builds).
+    p1509PersonaSessionPlugin(__dirname),
     // Dev-only: serve any static deck under public/<name>/ at its clean URL
     // (e.g. /presi, /presi2, future /presiN), matching the Vercel /<name> →
     // /<name>/ redirect + static-file serving. Without this, Vite hands /<name>/

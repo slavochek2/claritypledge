@@ -118,7 +118,10 @@ const ClarityChatV12 = lazy(() => import("@/app/prototypes/clarity-chat-v12/Clar
 const ClarityChatV13 = lazy(() => import("@/app/prototypes/clarity-chat-v13/ClarityChatV13").then(m => ({ default: m.ClarityChatV13 })));
 const ClarityChatV14 = lazy(() => import("@/app/prototypes/clarity-chat-v14/ClarityChatV14").then(m => ({ default: m.ClarityChatV14 })));
 const ClarityChatV15 = lazy(() => import("@/app/prototypes/clarity-chat-v15/ClarityChatV15").then(m => ({ default: m.ClarityChatV15 })));
-const ClarityChatV16 = lazy(() => import("@/app/prototypes/clarity-chat-v16/ClarityChatV16").then(m => ({ default: m.ClarityChatV16 })));
+// P1509 v16: DEV-conditional so `vite build` drops the dynamic import and emits no chunk (not only an unreachable route).
+const ClarityChatV16 = import.meta.env.DEV
+  ? lazy(() => import("@/app/prototypes/clarity-chat-v16/ClarityChatV16").then(m => ({ default: m.ClarityChatV16 })))
+  : () => null;
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
