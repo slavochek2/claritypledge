@@ -4,14 +4,14 @@
  *
  * The viewer is the doctor (right, green); the chat is with Mai, a ward nurse (left, white).
  * A voice note stands for "A has just explained something" without inventing clinical
- * content. Then the question, Mai's 8, the doctor's 4, the verified result and the two
- * choices with their cost. Avatars are illustrations generated for this page, nobody real.
+ * content. Then the question, Mai's 8, the doctor's 4, and two system messages: the verified
+ * result (8 vs 4 → 4) and the choice (close the gap, or move on). Avatars are illustrations generated for this page, nobody real.
  * [FOUNDER DECISION: the name "Mai" and the doctor/nurse pairing — drafted]
  *
  * Accessibility: the animated chat is aria-hidden; a sr-only transcript carries the same
  * sequence in order, so screen-reader users never depend on timing. Reduced motion lands on
  * the final state. If the component throws, the error boundary renders the transcript visibly.
- * Copy is verbatim from the brochure (texts9.py `en`) except the speaker names.
+ * Copy is from the brochure (texts9.py `en`); the result and choice lines are condensed.
  */
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import * as Sentry from "@sentry/react";
@@ -25,9 +25,10 @@ import { EXCHANGE_COPY } from "@/app/content/hospitals-exchange";
 const AVATAR = { doctor: "/hospitals/colleague-a.jpg", nurse: "/hospitals/colleague-b.jpg" } as const;
 export const NURSE = "Mai";
 
-/** 0 idle · 1 voice note · 2 question · 3 Mai's 8 · 4 doctor's 4 · 5 verified · 6 choices. */
+/** 0 idle · 1 voice note · 2 question · 3 Mai's 8 · 4 doctor's 4 · 5 verified · 6 the choice. */
 const FINAL = 6;
-const SCHEDULE = [150, 800, 1700, 2600, 3500, 4300];
+// Paced for a first read: the question and the 4 get time before the reply lands.
+const SCHEDULE = [150, 700, 2200, 3200, 4500, 5600];
 
 function Heading() {
   return (
@@ -48,10 +49,8 @@ function Transcript({ className }: { className?: string }) {
       <li>Doctor: {EXCHANGE_COPY.m1}</li>
       <li>{NURSE}: {EXCHANGE_COPY.m2}</li>
       <li>Doctor: {EXCHANGE_COPY.m3}</li>
-      <li>{EXCHANGE_COPY.outcomeLine}: 4. {EXCHANGE_COPY.outcomeText}</li>
-      <li>
-        {EXCHANGE_COPY.then} {EXCHANGE_COPY.moveOn} ({EXCHANGE_COPY.moveOnCost}) or {EXCHANGE_COPY.close} ({EXCHANGE_COPY.closeCost})
-      </li>
+      <li>8 vs 4. {EXCHANGE_COPY.verifiedLabel}: 4.</li>
+      <li>{EXCHANGE_COPY.choice}</li>
     </ol>
   );
 }
@@ -83,7 +82,7 @@ function Bubble({ mine, time, children }: { mine: boolean; time: string; childre
 
 function VoiceNote() {
   return (
-    <span className="flex items-center gap-2 min-w-[11rem]">
+    <span className="flex items-center gap-2 min-w-[9.5rem] sm:min-w-[11rem]">
       <img src={AVATAR.doctor} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />
       <MicIcon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
       <span className="flex items-end gap-[2px] h-5 flex-1">
@@ -96,15 +95,27 @@ function VoiceNote() {
   );
 }
 
-function VerifiedEquation() {
+/** A centred WhatsApp-style system message: tinted, borderless, so it never reads as a button. */
+function SystemNote({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center justify-center gap-3 font-bold text-2xl text-foreground">
-      <span className="flex flex-col items-center leading-none"><span className="text-foreground/70">8</span><small className="text-xs font-semibold text-foreground/70 mt-1">{NURSE}</small></span>
-      <span className="text-muted-foreground font-normal text-base">vs</span>
-      <span className="flex flex-col items-center leading-none"><span className="text-blue-600">4</span><small className="text-xs font-semibold text-foreground/70 mt-1">Doctor</small></span>
-      <span className="text-muted-foreground font-normal text-base">&rarr;</span>
-      <span className="flex flex-col items-center leading-none"><span className="bg-blue-600 text-white rounded-md px-2.5 py-0.5">4</span><small className="text-xs font-semibold text-foreground/70 mt-1">{EXCHANGE_COPY.verifiedLabel}</small></span>
+    <div className="self-center max-w-[92%] rounded-md bg-[#e7f0fb] px-3 py-1.5 text-center text-[12.5px] leading-snug text-[#1f3a5f]">
+      {children}
     </div>
+  );
+}
+
+function VerifiedNote() {
+  return (
+    <SystemNote>
+      <span className="flex items-center justify-center gap-2 font-bold text-lg leading-none">
+        <span className="text-[#54656f]">8</span>
+        <span className="text-xs font-normal text-[#54656f]">vs</span>
+        <span className="text-blue-600">4</span>
+        <span className="text-xs font-normal text-[#54656f]">&rarr;</span>
+        <span className="bg-blue-600 text-white rounded px-2 py-0.5">4</span>
+      </span>
+      <span className="block mt-1.5 font-semibold">{EXCHANGE_COPY.verifiedLabel}</span>
+    </SystemNote>
   );
 }
 
@@ -158,7 +169,7 @@ export function GapExchange() {
             <img src={AVATAR.nurse} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="min-w-0 text-left">
               <p className="text-sm font-semibold leading-tight">{NURSE}</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">ward nurse · chat with the doctor</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">Ward nurse</p>
             </div>
           </div>
           <div className="bg-[#efeae2] px-3 py-4 flex flex-col gap-2">
@@ -166,27 +177,10 @@ export function GapExchange() {
             <motion.div {...fade(phase >= 2)}><Bubble mine time="09:41">{EXCHANGE_COPY.m1}</Bubble></motion.div>
             <motion.div {...fade(phase >= 3)}><Bubble mine={false} time="09:41"><b className="text-2xl">{EXCHANGE_COPY.m2}</b></Bubble></motion.div>
             <motion.div {...fade(phase >= 4)}><Bubble mine time="09:41">{EXCHANGE_COPY.m3}</Bubble></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 5)}><VerifiedNote /></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 6)}><SystemNote>{EXCHANGE_COPY.choice}</SystemNote></motion.div>
           </div>
         </div>
-
-        <motion.div className="mx-auto max-w-md mt-6 rounded-2xl border border-border bg-card p-5 text-center shadow-sm" {...fade(phase >= 5)}>
-          <VerifiedEquation />
-          <p className="mt-4 font-bold">{EXCHANGE_COPY.outcomeLine}</p>
-          <p className="text-foreground/75">{EXCHANGE_COPY.outcomeText}</p>
-          <motion.div {...fade(phase >= 6)}>
-            <p className="mt-5 text-sm font-bold">{EXCHANGE_COPY.then}</p>
-            <div className="mt-2 grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 text-left">
-              <div className="rounded-lg border border-border bg-muted/40 p-3">
-                <b className="block">{EXCHANGE_COPY.moveOn}</b>
-                <span className="text-sm text-muted-foreground">{EXCHANGE_COPY.moveOnCost}</span>
-              </div>
-              <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3">
-                <b className="block text-blue-700">{EXCHANGE_COPY.close}</b>
-                <span className="text-sm text-foreground/80">{EXCHANGE_COPY.closeCost}</span>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
       </div>
     </div>
   );

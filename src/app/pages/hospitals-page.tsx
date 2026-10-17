@@ -16,7 +16,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarIcon, CheckIcon, XIcon } from "lucide-react";
+import { BrainIcon, CalendarIcon, EyeOffIcon, HeartPulseIcon, UsersIcon } from "lucide-react";
 import { motion, MotionConfig, useInView, useReducedMotion, animate, type Variants } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
@@ -39,6 +39,16 @@ const REFERENCES = [
     label: "HA Thailand (Healthcare Accreditation Institute), Patient Safety Goals, P2 Communication",
     url: "https://backend.ha.or.th/fileupload/DOCUMENT/00537/7639551a-50b9-459c-9ff3-98f65c3d8cb8.pdf",
   },
+  {
+    n: 3,
+    label: "Newton (1990), The Rocky Road from Actions to Intentions (Stanford dissertation; the tapper–listener study)",
+    url: "https://gwern.net/doc/psychology/cognitive-bias/illusion-of-depth/1990-newton.pdf",
+  },
+  {
+    n: 4,
+    label: "Camerer, Loewenstein & Weber (1989), The Curse of Knowledge in Economic Settings, Journal of Political Economy",
+    url: "https://doi.org/10.1086/261651",
+  },
 ] as const;
 
 const VALUES: { icon: HospitalIconName; text: string }[] = [
@@ -48,10 +58,12 @@ const VALUES: { icon: HospitalIconName; text: string }[] = [
   { icon: "stay", text: "Lower staff turnover" },
 ];
 
-const CASES: { icon: HospitalIconName; text: string }[] = [
-  { icon: "dept", text: "Between departments" },
-  { icon: "rank", text: "Across seniority" },
-  { icon: "heart", text: "Patients and families" },
+// Why almost nobody verifies — the /builders trio, shortened. Hierarchy and read-back (the
+// brochure's "why gaps stay invisible") lead: it is the reason a hospital reader recognises.
+const REASONS: { icon: typeof EyeOffIcon; title: string; text: string; ref: 2 | 3 | 4 }[] = [
+  { icon: UsersIcon, title: "Hierarchy", text: "Asking how much someone really understood feels awkward, especially across seniority. Read-back covers clinical orders, not everyday talk.", ref: 2 },
+  { icon: EyeOffIcon, title: "Illusion of transparency", text: "We think our meaning is obvious. People tapping a song expect half of listeners to name it; 2.5% do.", ref: 3 },
+  { icon: BrainIcon, title: "Curse of knowledge", text: "Once you know something, it is hard to feel what the other person is missing.", ref: 4 },
 ];
 
 const PATH = [
@@ -89,7 +101,7 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
 function CountUpPercent({ target }: { target: number }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const inView = useInView(ref, { once: true, amount: 0.2 });
   const [val, setVal] = useState(target);
   useEffect(() => {
     if (reduce || !inView) return;
@@ -100,7 +112,7 @@ function CountUpPercent({ target }: { target: number }) {
 }
 
 /** Citation superscript → the References list (the standard landing pattern). */
-function RefSup({ n }: { n: 1 | 2 }) {
+function RefSup({ n }: { n: 1 | 2 | 3 | 4 }) {
   return (
     <sup className="ml-0.5">
       <a href="#references" aria-label={`Reference ${n}: ${REFERENCES[n - 1].label}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-600 hover:text-blue-700">
@@ -127,7 +139,7 @@ function PrimaryCTA({ location }: { location: "hero" | "closing" }) {
 function NormChart() {
   return (
     <figure className="w-full max-w-md mx-auto">
-      <svg viewBox="0 0 200 60" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
+      <svg viewBox="-6 0 206 62" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
         <line x1="8" y1="48" x2="196" y2="48" stroke="#e5e7eb" />
         <line x1="9" y1="4" x2="9" y2="48" stroke="#e5e7eb" />
         <path d="M8 46 C30 46 34 12 46 12 C60 12 66 42 110 45 L196 46" fill="none" stroke="#9ca3af" strokeWidth="2.2" />
@@ -146,12 +158,11 @@ function NormChart() {
 }
 
 /** Icon-over-label tile grid, staggered in on scroll. */
-/** `rowsOnNarrow`: below 400px, each tile is one compact icon-and-label row. */
-function TileGrid({ items, cols, rowsOnNarrow = false }: { items: { icon: HospitalIconName; text: string }[]; cols: string; rowsOnNarrow?: boolean }) {
+function TileGrid({ items, cols }: { items: { icon: HospitalIconName; text: string }[]; cols: string }) {
   return (
     <motion.ul className={`grid ${cols} gap-3 sm:gap-6`} variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
       {items.map((v) => (
-        <motion.li key={v.text} variants={STAGGER_ITEM} className={`rounded-xl border border-border bg-card shadow-sm flex gap-3 ${rowsOnNarrow ? "flex-row items-center px-4 py-3 text-left min-[400px]:flex-col min-[400px]:px-2 min-[400px]:py-5 min-[400px]:text-center sm:p-6" : "flex-col items-center px-2 py-5 sm:p-6 text-center"}`}>
+        <motion.li key={v.text} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card shadow-sm flex flex-col items-center gap-3 px-2 py-5 sm:p-6 text-center">
           <HospitalIcon name={v.icon} className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600" />
           <span className="text-[13px] min-[360px]:text-sm sm:text-base font-semibold leading-snug">{v.text}</span>
         </motion.li>
@@ -171,16 +182,18 @@ export function HospitalsPage() {
       <div className="bg-background text-foreground">
         <SEO title={HOSPITALS_OG.title} description={HOSPITALS_OG.description} url="/hospitals" image={HOSPITALS_OG.image} noIndex />
 
-        {/* 1. Hero — H1 + the norm + the one action. */}
+        {/* 1. Hero — eyebrow pill, H1, the one action (the /builders hero pattern).
+            [FOUNDER DECISION: pill text — drafted] */}
         <section className="relative px-4 pt-20 pb-20 lg:pt-28 lg:pb-28">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <div className="container mx-auto max-w-4xl text-center">
+            <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-[11px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em]">
+              <HeartPulseIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              Patient safety starts with understanding
+            </div>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
               Reveal gaps in understanding between hospital staff <span className="text-blue-500">before</span> they become mistakes
             </h1>
-            <p className="mt-8 mx-auto max-w-2xl rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-xl sm:text-2xl font-bold text-blue-700 text-balance">
-              Make it normal to ask how well we understand each other
-            </p>
             <div className="mt-10 flex justify-center">
               <PrimaryCTA location="hero" />
             </div>
@@ -201,32 +214,24 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 3. Why gaps stay invisible — one line, then the read-back contrast as two cards. */}
+        {/* 3. Why almost nobody verifies — the /builders section, three icon cards. */}
         <section className={SECTION}>
-          <div className="container mx-auto max-w-3xl text-center">
+          <div className="container mx-auto max-w-4xl">
             <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">Why gaps stay <span className="text-blue-500">invisible</span></span>} />
-              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed text-balance">
-                Asking a colleague how much they really understood can feel awkward, especially across seniority. So people
-                nod, and the gap surfaces later.
-              </p>
+              <SectionHeader title={<span className="inline-block text-balance">Why almost nobody <span className="text-blue-500">verifies</span> understanding</span>} />
             </Reveal>
-            <motion.ul className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
-                <CheckIcon className="w-6 h-6 text-blue-600 shrink-0" aria-hidden="true" />
-                <span><b className="block">Clinical orders</b><span className="text-muted-foreground">Read-back already protects them.<RefSup n={2} /></span></span>
-              </motion.li>
-              <motion.li variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-3">
-                <XIcon className="w-6 h-6 text-muted-foreground shrink-0" aria-hidden="true" />
-                <span><b className="block">Everyday conversations</b><span className="text-muted-foreground">No such habit.</span></span>
-              </motion.li>
+            <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+              {REASONS.map((r) => (
+                <motion.li key={r.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <r.icon className="w-8 h-8 text-blue-600 mb-3" aria-hidden="true" />
+                  <h3 className="text-lg font-bold mb-2">{r.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {r.text}
+                    <RefSup n={r.ref} />
+                  </p>
+                </motion.li>
+              ))}
             </motion.ul>
-            {/* The brochure's six "where gaps cost most", cut to the three a decision-maker
-                recognises first, folded in here: on their own they were a section with no claim. */}
-            <Reveal className="mt-12">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700 mb-5">Where gaps cost most</h3>
-              <TileGrid items={CASES} cols="grid-cols-1 min-[400px]:grid-cols-3" rowsOnNarrow />
-            </Reveal>
           </div>
         </section>
 
@@ -235,10 +240,34 @@ export function HospitalsPage() {
           <GapExchangeSection />
         </section>
 
-        {/* 5. How it becomes a norm — the workshop-fades chart is the reason for the path,
+        {/* 5. The value for the hospital — right after the mechanism. [FOUNDER DECISION: heading — drafted] */}
+        <section className={SECTION}>
+          <div className="container mx-auto max-w-5xl">
+            <Reveal><SectionHeader title={<>The value for the <span className="text-blue-500">hospital</span></>} /></Reveal>
+            <TileGrid items={VALUES} cols="grid-cols-2 lg:grid-cols-4" />
+          </div>
+        </section>
+
+        {/* 6. The norm in writing — the Clarity Group Terms specimen, as on /builders.
+            Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
+            No Accept button: a live action on a marketing page is a dead control (P955).
+            Heading is the norm itself, moved down from the hero. */}
+        <section className={`${SECTION} bg-muted/30 overflow-hidden`}>
+          <Reveal className="container mx-auto max-w-3xl">
+            <SectionHeader title={<span className="inline-block text-balance">Make it <span className="text-blue-500">normal</span> to ask how well we understand each other</span>} />
+            <div className="relative">
+              <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
+                <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
+              </CertificateFrame>
+              <TemplateStamp animate />
+            </div>
+          </Reveal>
+        </section>
+
+        {/* 7. How it becomes a norm — the workshop-fades chart is the reason for the path,
             so "how it's different" is this section's opening, not a section of its own.
             The steps light up one after another as the norm spreads. */}
-        <section className={`${SECTION} bg-muted/30`}>
+        <section className={SECTION}>
           <div className="container mx-auto max-w-5xl">
             <Reveal className="text-center">
               <SectionHeader
@@ -261,30 +290,6 @@ export function HospitalsPage() {
                 </motion.li>
               ))}
             </motion.ol>
-          </div>
-        </section>
-
-        {/* 6. The norm in writing — the Clarity Group Terms specimen, as on /builders.
-            Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
-            No Accept button: a live action on a marketing page is a dead control (P955).
-            [FOUNDER DECISION: section heading — drafted, see spec build notes] */}
-        <section className={`${SECTION} overflow-hidden`}>
-          <Reveal className="container mx-auto max-w-3xl">
-            <SectionHeader title={<span className="inline-block text-balance">One new team norm, <span className="text-blue-500">in writing</span></span>} />
-            <div className="relative">
-              <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
-                <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
-              </CertificateFrame>
-              <TemplateStamp animate />
-            </div>
-          </Reveal>
-        </section>
-
-        {/* 7. What the hospital can expect — the value, last before the ask. */}
-        <section className={`${SECTION} bg-muted/30`}>
-          <div className="container mx-auto max-w-5xl">
-            <Reveal><SectionHeader title="What the hospital can expect" /></Reveal>
-            <TileGrid items={VALUES} cols="grid-cols-2 lg:grid-cols-4" />
           </div>
         </section>
 

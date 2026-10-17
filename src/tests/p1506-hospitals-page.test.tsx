@@ -34,20 +34,21 @@ function renderPage() {
 beforeEach(() => track.mockClear());
 
 describe('P1506 /hospitals — content', () => {
-  it('renders the sections in landing order: hero, stat, why (with where it costs most), chat, path, terms, value, close', () => {
+  it('renders the sections in landing order: hero, stat, why nobody verifies, chat, value, terms, path, close', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Reveal gaps in understanding between hospital staff before they become mistakes',
     );
     // Redesign round 2: the "Clarity Pledge helps hospital teams…" lead-in is gone; the norm stands alone.
     expect(screen.queryByText(/Clarity Pledge helps hospital teams/)).toBeNull();
-    expect(screen.getByText('Make it normal to ask how well we understand each other')).toBeInTheDocument();
+    // Final round: hero is pill + H1 + CTA; the norm line became the Group Terms heading.
+    expect(screen.getByText('Patient safety starts with understanding')).toBeInTheDocument();
     const order = [
-      'Why gaps stay invisible',
+      'Why almost nobody verifies understanding',
       'Revealing a gap takes 3 seconds',
+      'The value for the hospital',
+      'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
-      'One new team norm, in writing',
-      'What the hospital can expect',
       'Reveal the gaps before they become mistakes.',
     ];
     const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
@@ -61,9 +62,11 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByText('The impact of a one-off communication workshop fades. A team norm stays.')).toBeInTheDocument();
     for (const v of ['Fewer mistakes and rework', 'Better patient experience', 'Better decisions', 'Lower staff turnover'])
       expect(screen.getByText(v)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Where gaps cost most' })).toBeInTheDocument();
-    for (const c of ['Between departments', 'Across seniority', 'Patients and families']) expect(screen.getByText(c)).toBeInTheDocument();
-    for (const c of ['International patients', 'Vendor and investment choices', 'Introducing change']) expect(screen.queryByText(c)).toBeNull();
+    for (const r of ['Hierarchy', 'Illusion of transparency', 'Curse of knowledge'])
+      expect(screen.getByRole('heading', { level: 3, name: r })).toBeInTheDocument();
+    // "Where gaps cost most" is cut entirely.
+    expect(screen.queryByText('Where gaps cost most')).toBeNull();
+    expect(screen.queryByText('Between departments')).toBeNull();
     for (const s of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(s)).toBeInTheDocument();
     expect(screen.queryByAltText(/founder of Clarity Pledge/)).toBeNull();
     expect(screen.queryByText('slava@claritypledge.com')).toBeNull();
@@ -93,13 +96,17 @@ describe('P1506 /hospitals — content', () => {
     const sup = within(stat).getByRole('link', { name: /Reference 1: CRICO Strategies \(2015\), Malpractice Risks in Communication Failures/ });
     expect(sup).toHaveAttribute('href', '#references');
     expect(screen.getByRole('link', { name: /Reference 2: HA Thailand/ })).toHaveAttribute('href', '#references');
+    expect(screen.getByRole('link', { name: /Reference 3: Newton \(1990\)/ })).toHaveAttribute('href', '#references');
+    expect(screen.getByRole('link', { name: /Reference 4: Camerer/ })).toHaveAttribute('href', '#references');
     const refs = document.getElementById('references')!;
     expect(refs.textContent).toContain('References');
     const items = within(refs).getAllByRole('listitem');
-    expect(items).toHaveLength(2);
-    // Numbered in reading order: the stat (CRICO) comes before read-back (HA Thailand).
+    expect(items).toHaveLength(4);
+    // Numbered in reading order: stat (CRICO), then the reasons (HA Thailand, Newton, Camerer).
     expect(within(items[0]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/www\.rmf\.harvard\.edu\//);
     expect(within(items[1]).getByRole('link').getAttribute('href')).toMatch(/^https:\/\/backend\.ha\.or\.th\//);
+    expect(within(items[2]).getByRole('link').getAttribute('href')).toMatch(/1990-newton\.pdf$/);
+    expect(within(items[3]).getByRole('link').getAttribute('href')).toBe('https://doi.org/10.1086/261651');
   });
 
   it('has one action, Book a 15-min discovery call → /intro, in the hero and the closing section only', () => {
@@ -120,11 +127,11 @@ describe('P1506 /hospitals — content', () => {
 });
 
 describe('P1506 /hospitals — the exchange', () => {
-  it('with reduced motion, the chat shows its final state: every message, the verified result and both choices', () => {
+  it('with reduced motion, the chat shows its final state: every message, the verified result and the choice', () => {
     renderPage();
     const visual = screen.getByTestId('exchange-visual');
     expect(visual).toHaveAttribute('data-phase', '6');
-    for (const t of [EXCHANGE_COPY.m1, EXCHANGE_COPY.m3, EXCHANGE_COPY.outcomeLine, EXCHANGE_COPY.moveOnCost, EXCHANGE_COPY.closeCost])
+    for (const t of [EXCHANGE_COPY.m1, EXCHANGE_COPY.m3, EXCHANGE_COPY.verifiedLabel, EXCHANGE_COPY.choice])
       expect(visual.textContent).toContain(t);
   });
 
@@ -148,7 +155,8 @@ describe('P1506 /hospitals — the exchange', () => {
       inViewMock.value = true;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       const seen: string[] = [];
-      for (const ms of [200, 700, 900, 900, 900, 900]) {
+      // Steps land at 150, 700, 2200, 3200, 4500, 5600 ms (SCHEDULE).
+      for (const ms of [200, 600, 1500, 1000, 1300, 1100]) {
         act(() => { vi.advanceTimersByTime(ms); });
         seen.push(visual().getAttribute('data-phase')!);
       }
@@ -158,7 +166,7 @@ describe('P1506 /hospitals — the exchange', () => {
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       reducedMotion.value = false;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
-      act(() => { vi.advanceTimersByTime(5000); });
+      act(() => { vi.advanceTimersByTime(7000); });
       expect(visual()).toHaveAttribute('data-phase', '6');
       expect(track.mock.calls.filter((c) => c[0] === 'hospitals_exchange_viewed')).toHaveLength(1);
     } finally {
@@ -207,8 +215,8 @@ describe('P1506 /hospitals — the exchange', () => {
       `Doctor: ${EXCHANGE_COPY.m1}`,
       `${NURSE}: ${EXCHANGE_COPY.m2}`,
       `Doctor: ${EXCHANGE_COPY.m3}`,
-      `${EXCHANGE_COPY.outcomeLine}: 4. ${EXCHANGE_COPY.outcomeText}`,
-      `${EXCHANGE_COPY.then} ${EXCHANGE_COPY.moveOn} (${EXCHANGE_COPY.moveOnCost}) or ${EXCHANGE_COPY.close} (${EXCHANGE_COPY.closeCost})`,
+      `8 vs 4. ${EXCHANGE_COPY.verifiedLabel}: 4.`,
+      EXCHANGE_COPY.choice,
     ]);
   });
 
@@ -225,7 +233,7 @@ describe('P1506 /hospitals — the exchange', () => {
     render(<GapExchangeStatic />);
     const items = within(screen.getByTestId('gap-exchange-static')).getAllByRole('listitem');
     expect(items).toHaveLength(6);
-    expect(items[5].textContent).toContain(EXCHANGE_COPY.closeCost);
+    expect(items[5].textContent).toContain(EXCHANGE_COPY.choice);
   });
 });
 
