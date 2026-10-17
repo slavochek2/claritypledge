@@ -234,7 +234,7 @@ describe('P1087 — the public nav is one grouped structure', () => {
   it('carries every audience landing, unfiltered', () => {
     const useCases = PUBLIC_NAV_GROUPS[0].items.map((i) => i.to);
     expect(useCases).toEqual(AUDIENCE_LINKS.map((a) => a.to));
-    expect(useCases).toHaveLength(5); // P1506 adds /hospitals
+    expect(useCases).toEqual(['/builders', '/hiring', '/hospitals', '/founder', '/coach']); // P1506 adds /hospitals after /hiring
   });
 
   it('lists no destination twice across groups', () => {
