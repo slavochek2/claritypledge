@@ -11,10 +11,12 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, type RefObject } from 'react';
 import { ArrowLeft, ArrowUp, FlipHorizontal2, Mic, PanelRight, Paperclip, Reply, X } from 'lucide-react';
+import { Button, type ButtonProps } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { PEOPLE, type PersonId } from './mock-data';
+import type { Query } from './real-data';
 
 /**
  * v14 #5: one hook for every hand-rolled popover, menu and sheet. While `on`, a pointer press outside `ref` (or
@@ -41,7 +43,18 @@ export function useDismiss(onClose: () => void, on = true, refs: RefObject<HTMLE
   }, [on]);
 }
 
+/**
+ * v16 design-system pass: every labelled button is the shadcn Button. The solid blue one is the page's single primary
+ * (design-system.md, Button Decision Rules #1); Outline is a real alternative (#2); Quiet is a ghost (#3).
+ */
+export const PRIMARY_CLASS = 'min-h-11 bg-blue-600 text-white hover:bg-blue-700';
+export function PrimaryButton({ className, ...p }: ButtonProps) { return <Button className={cn(PRIMARY_CLASS, className)} {...p} />; }
+export function OutlineButton({ className, ...p }: ButtonProps) { return <Button variant="outline" className={cn('min-h-10', className)} {...p} />; }
+export function QuietButton({ className, ...p }: ButtonProps) { return <Button variant="ghost" className={cn('min-h-10 text-gray-700', className)} {...p} />; }
+
 export const TOOL_ICON = 'h-[18px] w-[18px]';
+/** A 44px hit area around a smaller visible control (the avatar and the name in a message row) without moving anything. */
+export const HIT = "relative after:absolute after:-inset-2 after:content-['']";
 const ROUND = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full';
 
 /** The dark hover tip every icon-only control carries. Needs the TooltipProvider at the prototype root. */
@@ -104,16 +117,26 @@ export function ToolButton({ label, onClick, children, text = false }: { label: 
  * One message row (Slack anatomy): avatar, name, time, body. `compact` hides avatar and name when the sender is
  * the same as the row above. Hover (pointer devices) shows the toolbar; a tap (`selected`) shows it on its own line.
  */
-export function Message({ person, time, compact = false, highlight = false, selected = false, onSelect, onPerson, toolbar, onContextMenu, children, agentName }: {
+/** v16: how long a finger rests on a message before its menu opens, and how far it may drift (a scroll is not a press). */
+export const LONG_PRESS_MS = 500;
+const LONG_PRESS_DRIFT_PX = 10;
+
+export function Message({ person, time, compact = false, highlight = false, selected = false, onSelect, onPerson, toolbar, onContextMenu, onLongPress, children, agentName }: {
   person: PersonId; time?: string; compact?: boolean; highlight?: boolean; selected?: boolean;
   /** v15 #10: said by `person`'s mirror agent, shown under this name with the mirror avatar. */
   agentName?: string;
   onSelect?: () => void; onPerson: (p: PersonId) => void; toolbar?: ReactNode; children: ReactNode;
   /** v14 #6: right-click opens the message's context menu. */
   onContextMenu?: (e: ReactMouseEvent) => void;
+  /** v16: a long press on a touch screen opens the same menu, at the finger. */
+  onLongPress?: (at: { x: number; y: number }) => void;
 }) {
   const row = useRef<HTMLDivElement>(null);
+  const press = useRef<{ x: number; y: number; timer: number } | null>(null);
+  const pressed = useRef(false);
   useEffect(() => { if (selected) row.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [selected]);
+  useEffect(() => () => { if (press.current) window.clearTimeout(press.current.timer); }, []);
+  const endPress = () => { if (press.current) window.clearTimeout(press.current.timer); press.current = null; };
   return (
     /* Right-click is a pointer shortcut only: every item it offers is also on the keyboard-reachable toolbar. */
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -122,16 +145,33 @@ export function Message({ person, time, compact = false, highlight = false, sele
       data-selected={selected || undefined}
       onContextMenu={onContextMenu}
       className={cn('group relative mx-2 flex gap-2.5 rounded-xl px-2 [@media(hover:hover)]:hover:bg-gray-100', compact ? 'py-1' : 'pb-1.5 pt-2.5', selected && 'bg-gray-100', highlight && 'bg-blue-50 [@media(hover:hover)]:hover:bg-blue-50')}
+      /* v16: a long press opens the message menu; the lift that ends it must not also count as a tap. */
+      onTouchStart={onLongPress ? (e) => {
+        const t = e.touches[0];
+        if (!t || (e.target as HTMLElement).closest('button,a,input,textarea,label,[role="menu"],[role="toolbar"]')) return;
+        endPress();
+        const at = { x: t.clientX, y: t.clientY };
+        press.current = { ...at, timer: window.setTimeout(() => { pressed.current = true; press.current = null; onLongPress(at); }, LONG_PRESS_MS) };
+      } : undefined}
+      onTouchMove={onLongPress ? (e) => {
+        const t = e.touches[0];
+        if (press.current && t && Math.hypot(t.clientX - press.current.x, t.clientY - press.current.y) > LONG_PRESS_DRIFT_PX) endPress();
+      } : undefined}
+      onTouchEnd={onLongPress ? () => { endPress(); pressed.current = false; } : undefined}
+      onTouchCancel={onLongPress ? () => { endPress(); pressed.current = false; } : undefined}
       /* A tap selects (touch has no hover); a mouse already has the hover toolbar, so its click selects nothing. */
-      onPointerUp={(e) => { if (e.pointerType !== 'mouse' && onSelect && !(e.target as HTMLElement).closest('button,a,input,textarea,label,[role="menu"],[role="toolbar"]')) onSelect(); }}
+      onPointerUp={(e) => {
+        if (pressed.current) { pressed.current = false; return; }
+        if (e.pointerType !== 'mouse' && onSelect && !(e.target as HTMLElement).closest('button,a,input,textarea,label,[role="menu"],[role="toolbar"]')) onSelect();
+      }}
     >
-      <div className="w-9 shrink-0">{!compact && (agentName ? <MirrorAvatar owner={person} /> : <button type="button" aria-label={`Open ${PEOPLE[person].name}`} onClick={() => onPerson(person)}><Avatar person={person} /></button>)}</div>
+      <div className="w-9 shrink-0">{!compact && (agentName ? <MirrorAvatar owner={person} /> : <button type="button" aria-label={`Open ${PEOPLE[person].name}`} onClick={() => onPerson(person)} className={HIT}><Avatar person={person} /></button>)}</div>
       <div className="min-w-0 flex-1">
         {!compact && (
           <div className="flex flex-wrap items-center gap-x-1.5 leading-6">
             {agentName
               ? <span className="min-w-0 max-w-full truncate text-[15px] font-semibold text-gray-900" data-testid="agent-name">{agentName}</span>
-              : <button type="button" onClick={() => onPerson(person)} className="min-w-0 max-w-full truncate text-[15px] font-semibold text-gray-900 hover:underline hover:underline-offset-2">{PEOPLE[person].name}</button>}
+              : <button type="button" onClick={() => onPerson(person)} className={cn(HIT, 'min-w-0 max-w-full text-[15px] font-semibold text-gray-900 hover:underline hover:underline-offset-2')}><span className="block truncate">{PEOPLE[person].name}</span></button>}
             {time && <span className="text-xs text-muted-foreground">{time}</span>}
           </div>
         )}
@@ -181,7 +221,7 @@ export function QuoteBar({ author, text, onRemove }: { author: string; text: str
         <p className="truncate text-xs font-semibold text-blue-700">{author}</p>
         <p className="truncate text-sm text-gray-700">{text}</p>
       </div>
-      <button type="button" aria-label="Cancel reply" onClick={onRemove} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+      <button type="button" aria-label="Cancel reply" onClick={onRemove} className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"><X className="h-4 w-4" /></button>
     </div>
   );
 }
@@ -248,4 +288,41 @@ export function Composer({ placeholder, value, onValue, onSend, onVoice, quote, 
       </form>
     </footer>
   );
+}
+
+/* ---------- v16: the states every real-data surface has besides its data ---------- */
+
+/** Pulsing placeholders shaped like the rows they stand for. */
+export function RealSkeleton({ rows = 3, what = 'content' }: { rows?: number; what?: string }) {
+  return (
+    <div role="status" aria-busy="true" aria-label={`Loading ${what}`} data-testid="real-skeleton" className="space-y-3 px-4 py-4">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex animate-pulse items-start gap-3 rounded-lg border border-border bg-card p-4">
+          <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
+          <div className="min-w-0 flex-1 space-y-2"><div className="h-4 w-1/3 rounded bg-muted" /><div className="h-4 w-full rounded bg-muted" /><div className="h-4 w-3/4 rounded bg-muted" /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The inline error: what failed and a Retry that reads again. */
+export function RealError({ what, onRetry }: { what: string; onRetry: () => void }) {
+  return (
+    <div role="alert" data-testid="real-error" className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+      <p className="text-sm text-gray-700">Could not load {what}. Try again.</p>
+      <OutlineButton onClick={onRetry}>Retry</OutlineButton>
+    </div>
+  );
+}
+
+/** An explicit empty state, never a blank panel. */
+export const RealEmpty = ({ children }: { children: ReactNode }) => <div data-testid="real-empty" className="flex flex-col items-center gap-3 px-6 py-12 text-center text-sm text-gray-600">{children}</div>;
+
+/** skeleton while loading, error with Retry, the empty node, else the data. */
+export function RealBoundary<T>({ q, what, empty, skeleton, children }: { q: Query<T>; what: string; empty: ReactNode; skeleton?: ReactNode; children: (data: T) => ReactNode }) {
+  if (q.status === 'loading') return <>{skeleton ?? <RealSkeleton what={what} />}</>;
+  if (q.status === 'error') return <RealError what={what} onRetry={q.retry} />;
+  if (q.empty || q.data === undefined) return <RealEmpty>{empty}</RealEmpty>;
+  return <>{children(q.data)}</>;
 }

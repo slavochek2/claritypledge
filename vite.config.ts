@@ -94,7 +94,7 @@ export default defineConfig({
     // ignores deploys that change nothing users run (docs, skills, tests). Build only.
     appBuildFingerprintPlugin(__dirname),
     // P1509 v16: dev-server-only persona sign-in for /tree/clarity-chat-v16 (apply: 'serve'; absent from builds).
-    p1509PersonaSessionPlugin(__dirname),
+    p1509PersonaSessionPlugin(),
     // Dev-only: serve any static deck under public/<name>/ at its clean URL
     // (e.g. /presi, /presi2, future /presiN), matching the Vercel /<name> →
     // /<name>/ redirect + static-file serving. Without this, Vite hands /<name>/

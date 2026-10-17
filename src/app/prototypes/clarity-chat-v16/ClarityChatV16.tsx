@@ -1,31 +1,40 @@
 /**
  * @file ClarityChatV16.tsx
- * @description P1509 v15 prototype at /tree/clarity-chat-v15. Rule: WIRE, DON'T INVENT. Real production components
+ * @description P1509 v16 prototype at /tree/clarity-chat-v16. v16 reads the TEST project: the viewer is whoever is signed
+ * in (a seeded Bob or Dana persona, real-data.ts), and Home, the Share picker, profiles, Letters, Groups, Events and
+ * Partners render rows from the app's existing services. STILL MOCK, and labelled so in state.ts / mock-data.ts: chats,
+ * channels, threads, unread, archive, the mirror and the live transcript. A position taken on a card, joining or leaving
+ * a group stay local overlays (no position or membership write). `?real=loading|error|empty` forces every real surface
+ * into that state.
+ * v16 iteration (founder decisions 2026-10-17): desktop (>= 1024px) is the collapsible sidebar, a phone gets the bottom bar
+ * and a profile sheet; Chats first; ONE partner verb (Invite partner -> Invite sent -> Partner) whose recipient must be a
+ * seeded persona before any request is made; Transcribe in every chat header (says "Coming soon": see TranscribeButton);
+ * Invite to Clarity Live only in a 1:1's menu; General is members only; a forwarded thread is one card; the mirror shows
+ * its role and has Rename.
+ * P1509 v15 prototype at /tree/clarity-chat-v15. Rule: WIRE, DON'T INVENT. Real production components
  * render wherever they take mock props (FeedPointCard, FeedStoryCard, OrgHeader, OrgCard, PersonRow, BannerDisplay,
- * CertificateFrame, AgreementCertificate, AgreementRow, LetterStatusBadge, CaptureInfoButton, the shadcn Tabs);
+ * CertificateFrame, AgreementCertificate, AgreementRow, LetterStatusBadge, EventCard, HomeSideRail, the shadcn Tabs);
  * where a component reads live data or auth, its structure is copied and the placeholder is labelled in code.
- * Sidebar: me (top), Home (the feed), Chats, Letters, Tools, then "Your groups" and Browse groups. A group page is
- * OrgPage's (Events / Members / About via ?tab=, plus Chats); an event page is EventDetail's; Back is history with a
- * fallback that is ALWAYS the event's own group. One mirror agent per viewer, pinned in Chats, claimed by naming it,
- * receives Clarify. Mock data only (state.ts): no Supabase reads or writes from this file.
  */
-import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { useLocation, useNavigate, useNavigationType, useSearchParams } from 'react-router-dom';
 import {
-  Archive, ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Forward, Handshake, Hash, HomeIcon, Info, LandmarkIcon,
-  LayoutGrid, LogOut, MailIcon, MapPin, MessageCircle, MessagesSquare, MessageSquareText, Mic, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Play, Plus, Reply,
-  MoreHorizontal, Search, Settings, Shield, Square, Trash2, UserIcon, UsersIcon, Video, X, type LucideIcon,
+  Archive, ArrowLeft, CalendarDays, CalendarPlus, CheckCircle2, ChevronDown, ChevronRight, Forward, Handshake, HomeIcon, LandmarkIcon,
+  LayoutGrid, Lock, LogOut, MailIcon, MapPin, MessageCircle, MessagesSquare, MessageSquareText, Mic, PanelLeftClose, PanelLeftOpen, Pencil, Play, Plus, Reply,
+  MoreHorizontal, Search, Settings, Shield, Trash2, UserIcon, UsersIcon, Video, X, type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { CompactProfileCard } from '@/app/components/profile/compact-profile-card';
-import { SessionBar } from '@/app/components/session/session-bar';
-import { CaptureInfoButton, SessionStopButton } from '@/app/components/session/capture-controls';
-import { SHORT } from '@/app/components/session/capture-status';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
+import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
+import { HomeSideRail, HomeTopBlock } from '@/app/components/feed/home-side-rail';
 import { OrgHeader } from '@/app/components/organizations/org-header';
 import { OrgCard } from '@/app/pages/org-directory-page';
+import { EventCard } from '@/app/prototypes/events/components/EventCard';
 import { PersonRow as ProdPersonRow } from '@/app/components/shared/PersonRow';
 import { BannerDisplay } from '@/app/components/shared/banner';
 import { CertificateFrame, CertificateOathBody } from '@/app/components/agreements/certificate-frame';
@@ -33,53 +42,73 @@ import { AgreementCertificate } from '@/app/components/agreements/agreement-cert
 import { AgreementRow } from '@/app/components/agreements/agreement-row';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { LetterStatusBadge } from '@/app/components/letters/letter-status-badge';
-import { AUDIENCE_LINKS, EVENTS_LIST_TO, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
+import { AUDIENCE_LINKS, EVENTS_LIST_TO, EVENTS_NAV_TO, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { buildLinksMenu, type LinksMenuEntry } from '@/app/data/event-links';
 import { COA_VERSIONS, CURRENT_COA_VERSION } from '@/app/content/coa-versions';
+import { formatLocalDateTime } from '@/app/utils/format-time';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
+import { TERMS_PLACEHOLDER } from '@/app/pages/create-agreement-page';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
-import type { Organization } from '@/app/data/organizations-service.interface';
-import type { PointSummary, PointWithUserPosition, PositionType, Profile as ProfileData, StoryWithAuthor } from '@/app/types';
+import type { Organization, OrgMember } from '@/app/data/organizations-service.interface';
+import type { EventAttendee, LetterDelivery, PointSummary, PointWithUserPosition, PositionType, Profile as ProfileData, StoryWithAuthor } from '@/app/types';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Toaster } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { Avatar, clock, Composer, Divider, Message, MirrorAvatar, MsgText, QuoteBar, SidePanel, Tip, ToolButton, Toolbar, TOOL_ICON, useDismiss } from './kit';
+import { Avatar, clock, Composer, Divider, HIT, Message, MirrorAvatar, MsgText, OutlineButton, PrimaryButton, QuietButton, QuoteBar, RealBoundary, RealEmpty, RealError, RealSkeleton, SidePanel, Tip, ToolButton, Toolbar, TOOL_ICON, useDismiss } from './kit';
 import {
-  ADMINS, COPY, EVENTS, GROUPS, MOBILE_TABS, PEOPLE, PLACE_LABEL, PLACES, SHAREABLE, SIDEBAR_KEY,
-  type EventInfo, type Group, type LetterBox, type MobileTab, type PersonId, type Place, type Shareable, type ViewerId,
+  COPY, EVENTS, GROUPS, MOBILE_TABS, PEOPLE, PLACE_LABEL, PLACES, SIDEBAR_KEY,
+  type LetterBox, type MobileTab, type PersonId, type Place, type Shareable, type ViewerId,
 } from './mock-data';
 import {
-  acceptInvite, archive, archivedChats, archivedUnreadCount, attendeesOf, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, claimMirror, clarify, clarifyOrigin, contactsOf, defaultMirrorName, lettersIn,
-  comment, deleteMsg, dmWith, editMsg, eventOf, eventsOfGroup, findShareable, forward, groupOf, groupOfEvent, groupPeople, groupSections, initialState, invitePartner,
-  isArchived, isGoing, isMember, joinGroup, lastMsg, leaveGroup, liveLinesLeft, mirrorChatId, mirrorName, msgsOf, myGroups, nextLiveLine, openChat, otherOf,
-  partnerState, positionOf, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
+  acceptInvite, archive, archivedChats, archivedUnreadCount, canMessage, canSee, channelMembers, chatById, chatTitle, chatsInTab, claimMirror, clarify, defaultMirrorName,
+  comment, deleteMsg, dmWith, editMsg, eventOf, filterShareables, forward, groupActivity, groupOf, groupSections, initialState, invitePartner,
+  isArchived, isGoing, joinGroup, lastMsg, leaveGroup, liveLinesLeft, markUnread, mirrorChatId, mirrorLabel, msgsOf, nextLiveLine, openChat, otherOf,
+  partnerState, positionOf, renameMirror, repliesOf, retry, search, send, sendVoice, setPosition, sharedWith, summary, tabsFor, toggleRsvp, totalUnread, unarchive, unreadOf,
   visibleChats, type Chat, type Msg, type State, type Tab,
 } from './state';
+import {
+  CHAT_EVENT_REF, cancelRsvp, chatEventOf, chatGroupOf, loadDeliveries, loadChatEventAttendees, loadEventDetail, loadEventsList, loadFeed, loadGroupDetail, loadGroupsDirectory, loadLetters, loadMyShareables, loadPartners, loadProfile,
+  partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealQuery, viewerOf,
+  type EventDetail, type EventsList, type FeedData, type GroupDetail, type GroupsDirectory, type LetterRowData, type PartnersData, type Query,
+} from './real-data';
+import { isSeededPersonaEmail, PERSONA_IDS, personaEmail, personaFromSlug, personaSlug } from './personas';
+import { supabase } from '@/lib/supabase';
 
 const HOVER = '[@media(hover:hover)]:hover:bg-gray-100';
-const BLUE = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700';
-const OUTLINE = 'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-50';
-const STRIP_BUTTON = 'inline-flex min-h-10 shrink-0 items-center rounded-md border bg-white px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50';
 const MENU_ITEM = cn('flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-gray-900', HOVER);
 const MENU_HEAD = 'px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500';
-/** Production's capture-controls CONTROL_CLASS (not exported): PauseResumeButton reads the live capture context, so its look is copied. */
-const CAPTURE_CONTROL = 'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors';
-/** Production's room-capture-bar ICON_BUTTON (not exported). */
-const CAPTURE_ICON_BUTTON = 'inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 disabled:opacity-50';
 /** Production's org-page ORG_TAB_CLASS (not exported). */
 const ORG_TAB_CLASS = 'min-h-11 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none';
 /** Production's letters-page trigger class. */
-const LETTER_TAB_CLASS = 'rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3';
+const LETTER_TAB_CLASS = 'min-h-11 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3';
 
-const PLACE_ICON: Record<Place | MobileTab, LucideIcon> = { home: HomeIcon, chats: MessagesSquare, letters: MailIcon, tools: LayoutGrid, groups: LandmarkIcon, me: UserIcon };
+const PLACE_ICON: Record<Place | MobileTab | 'tools', LucideIcon> = { home: HomeIcon, chats: MessagesSquare, letters: MailIcon, tools: LayoutGrid, groups: LandmarkIcon, events: CalendarDays, me: UserIcon };
+
+/** Desktop is >= 1024px (Tailwind lg): the sidebar. Below it: the bottom bar and the profile sheet. The same query production's home rail uses. */
+const DESKTOP_QUERY = '(min-width: 1024px)';
+function useIsDesktop(): boolean {
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia?.(DESKTOP_QUERY).matches === true);
+  useEffect(() => {
+    const mq = window.matchMedia?.(DESKTOP_QUERY);
+    if (!mq) return;
+    const change = () => setOn(mq.matches);
+    change();
+    mq.addEventListener('change', change);
+    return () => mq.removeEventListener('change', change);
+  }, []);
+  return on;
+}
+
+/** The pending sign-out of a persona after the page unmounted; a remount in the same tick cancels it. */
+let leaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 /* ---------- URL state + history-based back ---------- */
 
-type Loc = { view?: string; chat?: string; thread?: string; members?: string; group?: string; letter?: string; person?: string; with?: string; tab?: string; event?: string };
-const LOC_KEYS: (keyof Loc)[] = ['view', 'chat', 'thread', 'members', 'group', 'letter', 'person', 'with', 'tab', 'event'];
+type Loc = { view?: string; chat?: string; thread?: string; members?: string; group?: string; person?: string; with?: string; tab?: string; event?: string };
+const LOC_KEYS: (keyof Loc)[] = ['view', 'chat', 'thread', 'members', 'group', 'person', 'with', 'tab', 'event'];
 
 /**
  * Push a screen, or go back. Back is history: `navigate(-1)` when this tab has an in-app entry to return to,
@@ -105,8 +134,8 @@ function useNav() {
   const loc: Loc = Object.fromEntries(LOC_KEYS.map((k) => [k, params.get(k) ?? undefined]).filter(([, v]) => v)) as Loc;
   const go = (next: Loc, replace = false) => {
     const p = new URLSearchParams();
-    const mode = params.get('state');
-    if (mode) p.set('state', mode);
+    /* The prototype's own switches survive every navigation: ?state= (mock chat modes) and ?real= (forced real-data state). */
+    for (const k of ['state', 'real']) { const v = params.get(k); if (v) p.set(k, v); }
     for (const k of LOC_KEYS) { const v = next[k]; if (v) p.set(k, v); }
     navigate({ pathname: location.pathname, search: `?${p.toString()}` }, { replace });
   };
@@ -125,8 +154,9 @@ const dayLabel = (chat: Chat) => {
   return ev && !ev.today ? ev.when : 'Today';
 };
 
+/** An event channel is a calendar; General is the group's members-only channel, so it is a lock (v16). */
 const ChannelMark = ({ chat, size = 'list', onBlue = false }: { chat: Chat; size?: 'list' | 'sm'; onBlue?: boolean }) => {
-  const Icon = chat.eventId ? CalendarDays : Hash;
+  const Icon = chat.eventId ? CalendarDays : Lock;
   return (
     <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full', onBlue ? 'bg-white text-blue-600' : 'bg-blue-600 text-white', size === 'list' ? 'h-12 w-12' : 'h-8 w-8')}>
       <Icon className={size === 'list' ? 'h-5 w-5' : 'h-4 w-4'} />
@@ -138,7 +168,9 @@ const ChatAvatar = ({ st, chat, size = 'list' }: { st: State; chat: Chat; size?:
   (chat.kind === 'mirror' ? <MirrorAvatar owner={st.viewer} size={size} /> : chat.kind === 'dm' ? <Avatar person={otherOf(st, chat)} size={size} /> : <ChannelMark chat={chat} size={size} />);
 
 const rowTitle = (st: State, c: Chat, inSection = false) =>
-  c.kind !== 'channel' ? chatTitle(st, c) : c.eventId ? chatTitle(st, c) : inSection ? `# ${COPY.general}` : `${groupOf(c)?.name} · # ${COPY.general}`;
+  c.kind !== 'channel' ? chatTitle(st, c) : c.eventId ? chatTitle(st, c) : inSection ? COPY.general : `${groupOf(c)?.name} · ${COPY.general}`;
+
+const Badge = ({ n, className }: { n: number; className?: string }) => (n > 0 ? <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-semibold text-white', className)} aria-label={`${n} unread`}>{n}</span> : null);
 
 function Header({ onBack, title, children, backAlways = false }: { onBack?: () => void; title: ReactNode; children?: ReactNode; backAlways?: boolean }) {
   return (
@@ -181,55 +213,76 @@ const stayInPrototype = (e: MouseEvent) => {
   toast('This opens the real page in the app.');
 };
 
-/* ---------- production cards with mock props (v15 #4, #8) ---------- */
+/* ---------- production cards with real rows (v16) ---------- */
 
 const CREATED = '2026-10-01T00:00:00.000Z';
-const mockId = (p: PersonId) => `mock-${p}`;
 const ZERO: Record<PositionType, number> = { strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0 };
-/** Production's DB counts include the viewer's own position, so the mock adds it in. */
-const countsWith = (x: Shareable, mine: PositionType | null): Record<PositionType, number> => {
-  const c = { ...ZERO, ...x.counts };
-  if (mine) c[mine] += 1;
-  return c;
-};
 const total = (c: Record<PositionType, number>) => Object.values(c).reduce((a, b) => a + b, 0);
 
-function asPoint(x: Shareable, viewer: ViewerId, mine: PositionType | null): PointWithUserPosition {
-  const a = PEOPLE[x.author];
-  const counts = countsWith(x, mine);
-  return {
-    id: x.id, statement: x.title, firstValidatorId: mockId(x.author), createdAt: CREATED, updatedAt: CREATED, tags: x.tags, systemTags: [], visibility: 'public',
-    creatorName: a.name, creatorSlug: a.slug, creatorAvatarColor: a.avatarColor, positionCounts: counts, totalPositions: total(counts),
-    userPosition: mine ? { id: `pos-${viewer}-${x.id}`, pointId: x.id, userId: mockId(viewer), position: mine, createdAt: CREATED, updatedAt: CREATED } : undefined,
-  };
-}
-function asStory(x: Shareable): StoryWithAuthor {
-  const a = PEOPLE[x.author];
-  return {
-    id: x.id, authorId: mockId(x.author), content: x.excerpt ?? x.title, visibility: 'public', currentVersion: 1, understoodCount: 0,
-    createdAt: CREATED, updatedAt: CREATED, tags: x.tags, systemTags: [], authorName: a.name, authorSlug: a.slug, authorAvatarColor: a.avatarColor, authorRole: a.role,
-    authorHasPledged: a.pledger, authorEarsCount: 0,
-  };
-}
-function asSummary(x: Shareable, mine: PositionType | null): PointSummary {
-  return { id: x.id, statement: x.title, tags: x.tags, systemTags: [], visibility: 'public', positionCounts: countsWith(x, mine), userPosition: mine };
+/**
+ * The counts with my position moved from the one the server knew to the one shown. Production's counts include the
+ * viewer's own position, so a local change (never written) must move one count from the old bucket to the new.
+ */
+function shiftCounts<C extends Record<string, number>>(counts: C, server: PositionType | null, shown: PositionType | null): C {
+  if (server === shown) return counts;
+  const next: Record<string, number> = { ...counts };
+  if (server) next[server] = Math.max(0, (next[server] ?? 0) - 1);
+  if (shown) next[shown] = (next[shown] ?? 0) + 1;
+  return next as C;
 }
 
-/** What the cards need from the prototype: my positions and where Details goes. */
-type CardCtx = { st: State; onPosition: (pointId: string, p: PositionType | null) => void; onDetails: (x: Shareable) => void };
+function overlayPoint(p: PointWithUserPosition, viewerId: string, shown: PositionType | null): PointWithUserPosition {
+  const server = p.userPosition?.position ?? null;
+  if (server === shown) return p;
+  const counts = shiftCounts({ ...ZERO, ...p.positionCounts }, server, shown);
+  return {
+    ...p, positionCounts: counts, totalPositions: total(counts),
+    userPosition: shown ? { id: `pos-${viewerId}-${p.id}`, pointId: p.id, userId: viewerId, position: shown, createdAt: CREATED, updatedAt: CREATED } : undefined,
+  };
+}
+function overlaySummary(p: PointSummary, shown: PositionType | null): PointSummary {
+  const server = p.userPosition ?? null;
+  return server === shown ? p : { ...p, positionCounts: shiftCounts({ ...ZERO, ...p.positionCounts }, server, shown), userPosition: shown };
+}
+
+/** What the cards need from the prototype: my positions, where Details goes, and a click on an author. */
+type CardCtx = { st: State; viewerId: string; onPosition: (pointId: string, p: PositionType | null, server: PositionType | null) => void; onDetails: (kind: 'point' | 'story', id: string) => void; onSlug: (slug: string) => void };
 const Cards = createContext<CardCtx | null>(null);
+
+/** What the real surfaces share: who is signed in, whether they are an admin, the groups directory, and the bridge back to the chat mock. */
+type RealContext = {
+  profileId: string; name: string; email: string | null; isAdmin: boolean;
+  groups: Query<GroupsDirectory>;
+  /** The partners read: the Partners page, and the Invite partner -> Invite sent -> Partner states. */
+  partners: Query<PartnersData>;
+  /** A real RSVP changed: keep the chat mock's seat for the matching event in step, so its channel opens or closes. */
+  onRsvp: (eventSlug: string, going: boolean) => void;
+};
+const RealCtx = createContext<RealContext | null>(null);
+const useReal = () => useContext(RealCtx)!;
+/** A member of a real group: on the roster the service returned, or joined here, and not left here (the last two are local overlays). */
+const memberOfOrg = (st: State, dir: GroupsDirectory | undefined, org: Organization) =>
+  ((dir?.myOrgIds.includes(org.id) ?? false) || st.joined[st.viewer].includes(org.slug)) && !st.left[st.viewer].includes(org.slug);
+const myOrgsOf = (st: State, dir: GroupsDirectory | undefined) => (dir?.orgs ?? []).filter((o) => memberOfOrg(st, dir, o));
 const GROUP_DEFAULT: Record<string, PositionType> = { agree: 'agree', unsure: 'unsure', disagree: 'disagree' };
 
 /**
  * WRAPPER around a production card, so it never writes. The real cards save positions with `sendPositionWrite`
  * (Supabase) and open `/point/:id` / `/story/:id`. This wrapper catches, in the capture phase, a click on a
- * position segment (`[data-testid="<group>-group"]`), on `Details →`, or on any link, and answers it from mock state:
- * the position comes back to the card through its own `userPosition` prop, exactly as a refetch would deliver it.
+ * position segment (`[data-testid="<group>-group"]`), on `Details →`, or on any link, and answers it locally: the
+ * position comes back to the card through its own `userPosition` prop. `server` says which position the service
+ * returned for the point, so a click on that same position clears it. A link to a test persona's profile opens it here.
  * An anonymous viewer's FeedPointCard keeps its own localStorage path (no network), so the wrapper lets it through.
  */
-function MockCard({ pointId, letAnonThrough = false, onDetails, children, testId }: { pointId?: string; letAnonThrough?: boolean; onDetails: () => void; children: ReactNode; testId: string }) {
+function MockCard({ pointId, serverPosition, letAnonThrough = false, onDetails, children, testId, strip = false }: {
+  pointId?: string; serverPosition: (pointId: string) => PositionType | null; letAnonThrough?: boolean; onDetails: () => void; children: ReactNode; testId: string;
+  /** A card offered for sharing or sitting in a chat: no ⋯ menu, no "+ Add a point". */
+  strip?: boolean;
+}) {
   const ctx = useContext(Cards)!;
   const { session } = useAuth();
+  const box = useRef<HTMLDivElement>(null);
+  useStripChrome(box, strip);
   const capture = (e: MouseEvent) => {
     const el = e.target as HTMLElement;
     const seg = el.closest<HTMLElement>('[data-testid$="-group"]');
@@ -237,36 +290,70 @@ function MockCard({ pointId, letAnonThrough = false, onDetails, children, testId
       if (letAnonThrough && !session) return;
       e.preventDefault(); e.stopPropagation();
       const pick = GROUP_DEFAULT[(seg.dataset.testid ?? '').replace(/-group$/, '')];
-      if (pick) ctx.onPosition(seg.closest('[data-testid="quoted-point-card"]') ? (seg.closest('[data-point]') as HTMLElement | null)?.dataset.point ?? pointId : pointId, pick);
+      const target = seg.closest('[data-testid="quoted-point-card"]') ? (seg.closest('[data-point]') as HTMLElement | null)?.dataset.point ?? pointId : pointId;
+      if (pick) ctx.onPosition(target, pick, serverPosition(target));
       return;
     }
     const btn = el.closest('button');
     if (btn && /Details/.test(btn.textContent ?? '')) { e.preventDefault(); e.stopPropagation(); onDetails(); return; }
-    if (el.closest('a')) { e.preventDefault(); e.stopPropagation(); toast('This opens the real page in the app.'); }
+    const a = el.closest('a');
+    if (a) {
+      e.preventDefault(); e.stopPropagation();
+      const slug = a.getAttribute('href')?.split('/p/')[1]?.split(/[?#/]/)[0];
+      if (slug) ctx.onSlug(slug); else toast('This opens the real page in the app.');
+    }
   };
-  return <div data-testid={testId} onClickCapture={capture}>{children}</div>;
+  return <div ref={box} data-testid={testId} onClickCapture={capture}>{children}</div>;
 }
 
-/** A point (production FeedPointCard) or a story (production FeedStoryCard, its one point with positions and Details →). */
-export function ShareCard({ item, full = false }: { item: Shareable; full?: boolean }) {
+/**
+ * v16: production's cards carry authoring chrome (the ⋯ menu, a story author's "+ Add a point") that has no place on a card
+ * offered for sharing or sitting in a chat. The cards are production components, so the chrome is hidden, not removed (React
+ * still owns the nodes); expand and Details stay.
+ */
+const CARD_CHROME = '[aria-label^="More actions for this"], [aria-label="Add a point to this story"]';
+function useStripChrome(ref: RefObject<HTMLElement | null>, on: boolean) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!on || !el) return;
+    const hide = () => el.querySelectorAll<HTMLElement>(CARD_CHROME).forEach((n) => { n.hidden = true; n.style.display = 'none'; });
+    hide();
+    const watch = new MutationObserver(hide);
+    watch.observe(el, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, [ref, on]);
+}
+
+/** A real point in production's FeedPointCard, my position overlaid. */
+export function RealPointCard({ point, linkedStories, testId = 'share-point', strip = false }: { point: PointWithUserPosition; linkedStories?: StoryWithAuthor[]; testId?: string; strip?: boolean }) {
   const ctx = useContext(Cards)!;
+  const shown = positionOf(ctx.st, point.id, point.userPosition?.position ?? null);
+  return (
+    <MockCard testId={testId} strip={strip} pointId={point.id} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough onDetails={() => ctx.onDetails('point', point.id)}>
+      <FeedPointCard point={overlayPoint(point, ctx.viewerId, shown)} linkedStories={linkedStories} />
+    </MockCard>
+  );
+}
+
+/** A real story in production's FeedStoryCard, its linked points with my positions overlaid. */
+export function RealStoryCard({ story, linkedPoints, testId = 'share-story', strip = false }: { story: StoryWithAuthor; linkedPoints?: PointSummary[]; testId?: string; strip?: boolean }) {
+  const ctx = useContext(Cards)!;
+  const serverOf = (id: string) => linkedPoints?.find((p) => p.id === id)?.userPosition ?? null;
+  return (
+    <MockCard testId={testId} strip={strip} pointId={linkedPoints?.[0]?.id} serverPosition={serverOf} onDetails={() => ctx.onDetails('story', story.id)}>
+      <FeedStoryCard story={story} currentUserId={ctx.viewerId} linkedPoints={linkedPoints?.map((p) => overlaySummary(p, positionOf(ctx.st, p.id, p.userPosition ?? null)))} />
+    </MockCard>
+  );
+}
+
+/** A shared point or story (picker, composer, a message): its real row in its production card. */
+export function ShareCard({ item, full = false }: { item: Shareable; full?: boolean }) {
   const width = full ? 'w-full' : 'max-w-md';
-  const v = ctx.st.viewer;
-  if (item.kind === 'point') {
-    return (
-      <div className={cn('mt-1', width)}>
-        <MockCard testId="share-point" pointId={item.id} letAnonThrough onDetails={() => ctx.onDetails(item)}>
-          <FeedPointCard point={asPoint(item, v, positionOf(ctx.st, item.id))} linkedStories={[]} />
-        </MockCard>
-      </div>
-    );
-  }
-  const linked = (item.points ?? []).map((id) => SHAREABLE.find((x) => x.id === id)).filter((x): x is Shareable => !!x);
+  const { point, story, linkedPoints } = item.real;
   return (
     <div className={cn('mt-1', width)}>
-      <MockCard testId="share-story" pointId={linked[0]?.id} onDetails={() => ctx.onDetails(item)}>
-        <FeedStoryCard story={asStory(item)} currentUserId={mockId(v)} linkedPoints={linked.map((p) => asSummary(p, positionOf(ctx.st, p.id)))} />
-      </MockCard>
+      {item.kind === 'point' && point && <RealPointCard point={point} strip />}
+      {item.kind === 'story' && story && <RealStoryCard story={story} linkedPoints={linkedPoints} strip />}
     </div>
   );
 }
@@ -274,7 +361,7 @@ export function ShareCard({ item, full = false }: { item: Shareable; full?: bool
 function VoiceNote({ secs }: { secs: number }) {
   return (
     <div className="mt-1 inline-flex min-h-11 items-center gap-2 rounded-full bg-gray-100 pl-1 pr-4" data-testid="voice-note">
-      <button type="button" aria-label="Play voice message" onClick={() => toast('Playback is mocked in the prototype.')} className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white"><Play className="h-4 w-4" /></button>
+      <button type="button" aria-label="Play voice message" onClick={() => toast('Playback is mocked in the prototype.')} className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Play className="h-4 w-4" /></button>
       <span className="flex items-end gap-0.5" aria-hidden="true">{[3, 6, 4, 8, 5, 9, 4, 6, 3, 7, 5, 4].map((h, i) => <span key={i} className="w-0.5 rounded bg-gray-400" style={{ height: h * 2 }} />)}</span>
       <span className="text-xs tabular-nums text-gray-600">{clock(secs)}</span>
     </div>
@@ -284,32 +371,37 @@ function VoiceNote({ secs }: { secs: number }) {
 
 /* ---------- one message ---------- */
 
-/** Right-click on a message (v14 #6): Reply, Forward, Thread, and for my own Edit and Delete. */
-function ContextMenu({ at, own, onClose, onReply, onForward, onThread, onEdit, onDelete }: {
-  at: { x: number; y: number }; own: boolean; onClose: () => void; onReply: () => void; onForward: () => void; onThread?: () => void; onEdit: () => void; onDelete: () => void;
+/** Right-click (or a long press on a touch screen) on a message: Reply, Forward, Thread, Mark as unread, and for my own Edit and Delete. */
+function ContextMenu({ at, own, onClose, onReply, onForward, onThread, onMarkUnread, onEdit, onDelete }: {
+  at: { x: number; y: number }; own: boolean; onClose: () => void; onReply: () => void; onForward: () => void; onThread?: () => void; onMarkUnread: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(onClose, true, [ref]);
   const pick = (f: () => void) => () => { onClose(); f(); };
   const x = Math.max(8, Math.min(at.x, (typeof window !== 'undefined' ? window.innerWidth : 1024) - 216));
-  const y = Math.max(8, Math.min(at.y, (typeof window !== 'undefined' ? window.innerHeight : 768) - 240));
+  const y = Math.max(8, Math.min(at.y, (typeof window !== 'undefined' ? window.innerHeight : 768) - 280));
   return (
     <div ref={ref} role="menu" aria-label="Message menu" data-testid="message-menu" style={{ left: x, top: y }} className="fixed z-50 w-52 rounded-xl border bg-white p-1 shadow-xl">
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onReply)}><Reply className="h-4 w-4 text-gray-500" />Reply</button>
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onForward)}><Forward className="h-4 w-4 text-gray-500" />Forward</button>
       {onThread && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onThread)}><MessageSquareText className="h-4 w-4 text-gray-500" />Thread</button>}
+      <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onMarkUnread)}><MessagesSquare className="h-4 w-4 text-gray-500" />{COPY.markUnread}</button>
       {own && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onEdit)}><Pencil className="h-4 w-4 text-gray-500" />Edit</button>}
       {own && <button type="button" role="menuitem" className={cn(MENU_ITEM, 'text-red-700')} onClick={pick(onDelete)}><Trash2 className="h-4 w-4" />Delete</button>}
     </div>
   );
 }
 
+/** The thread count, "Thread · 3 replies" (a forwarded thread is one card with this as its button). */
+const threadLabel = (n: number) => `Thread · ${COPY.replies(n)}`;
 
-/** Hover (or a tap on a phone) shows Reply, Forward, Thread, Clarify (v15 #10). Right-click opens the full menu. */
-function MessageRow({ st, msg, own, compact, highlight, replies, onPerson, onReply, onForward, onThread, onRetry, onEdit, onDelete, onClarify, liveThread }: {
+/** Hover (or a tap on a phone) shows Reply, Forward, Thread, Clarify (v15 #10). Right-click or a long press opens the full menu. */
+function MessageRow({ st, msg, own, compact, highlight, replies, onPerson, onReply, onForward, onThread, onRetry, onEdit, onDelete, onClarify, onMarkUnread, onOrigin, liveThread }: {
   st: State; msg: Msg; own: boolean; compact: boolean; highlight?: boolean; replies?: Msg[]; liveThread?: boolean;
   onPerson: (p: PersonId) => void; onReply: () => void; onForward: () => void; onThread?: () => void; onRetry: () => void;
-  onEdit: (text: string) => void; onDelete: () => void; onClarify?: () => void;
+  onEdit: (text: string) => void; onDelete: () => void; onClarify?: () => void; onMarkUnread: () => void;
+  /** v16: a forwarded card links to the chat it came from. */
+  onOrigin?: (chatId: string) => void;
 }) {
   const [selected, setSelected] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -318,13 +410,14 @@ function MessageRow({ st, msg, own, compact, highlight, replies, onPerson, onRep
   useDismiss(() => setSelected(false), selected, [li]);
   const act = (f: () => void) => () => { setSelected(false); f(); };
   const editable = own && !msg.failed && !msg.voice && !msg.transcribed && !msg.agent;
-  const mirror = mirrorName(st);
+  const mirror = mirrorLabel(st);
+  const origin = msg.from && onOrigin && visibleChats(st).some((c) => c.id === msg.from) ? msg.from : undefined;
   const toolbar = msg.failed || draft !== null ? undefined : (
     <Toolbar shown={selected}>
       <ToolButton label="Reply" onClick={act(onReply)}><Reply className={TOOL_ICON} /></ToolButton>
       <ToolButton label="Forward" onClick={act(onForward)}><Forward className={TOOL_ICON} /></ToolButton>
       {onThread && <ToolButton label="Thread" onClick={act(onThread)}><MessageSquareText className={TOOL_ICON} /></ToolButton>}
-      {/* v11's Clarify: the agent's face and the word. The tip names my mirror. */}
+      {/* v11's Clarify: the agent's face and the word. The tip names my mirror and its role. */}
       {onClarify && (
         <Tip label={`${COPY.clarify} with ${mirror}`}>
           <button type="button" onClick={act(onClarify)} aria-label={`${COPY.clarify} with ${mirror}`} data-testid="clarify-button" className="flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg px-2.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 lg:h-9 lg:px-2">
@@ -335,48 +428,66 @@ function MessageRow({ st, msg, own, compact, highlight, replies, onPerson, onRep
     </Toolbar>
   );
   const save = () => { if (draft !== null) onEdit(draft); setDraft(null); };
+  const openMenu = (at: { x: number; y: number }) => { setSelected(false); setMenu(at); };
+  const quote = msg.quote && (origin ? (
+    <button type="button" onClick={() => onOrigin!(origin)} data-testid="reply-quote" aria-label={`Open the original in ${rowTitle(st, chatById(st, origin)!)}`} className="my-1 block min-h-10 w-full max-w-md rounded-lg border-l-2 border-blue-600 bg-gray-50 py-1 pl-2 pr-2 text-left hover:bg-gray-100">
+      <span className="block text-xs font-semibold text-blue-700">{PEOPLE[msg.quote.who].name}</span>
+      <span className="block truncate text-sm text-gray-600">{msg.quote.text}</span>
+      <span className="block text-xs font-medium text-blue-700">In {rowTitle(st, chatById(st, origin)!)}</span>
+    </button>
+  ) : (
+    <div className="my-1 border-l-2 border-blue-600 pl-2" data-testid="reply-quote">
+      <p className="text-xs font-semibold text-blue-700">{PEOPLE[msg.quote.who].name}</p>
+      <p className="truncate text-sm text-gray-600">{msg.quote.text}</p>
+    </div>
+  ));
+  const body = msg.table
+    ? <p className="mt-1 inline-flex items-center gap-1.5 rounded-lg border bg-gray-50 px-3 py-1.5 text-sm font-semibold text-gray-900" data-testid="table-post"><UsersIcon className="h-4 w-4" aria-hidden="true" />{msg.text}</p>
+    : msg.text && <MsgText>{msg.text}{msg.edited && <span className="ml-1.5 text-xs text-gray-500" data-testid="edited-mark">(edited)</span>}</MsgText>;
   return (
     <li ref={li} data-msg={msg.id}>
       <Message person={msg.who} agentName={msg.agent ? mirror : undefined} time={msg.time} compact={compact} highlight={highlight} selected={selected} onSelect={msg.failed ? undefined : () => setSelected((s) => !s)} onPerson={onPerson} toolbar={toolbar}
-        onContextMenu={msg.failed ? undefined : (e) => { e.preventDefault(); setSelected(false); setMenu({ x: e.clientX, y: e.clientY }); }}>
+        onContextMenu={msg.failed ? undefined : (e) => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY }); }}
+        onLongPress={msg.failed ? undefined : openMenu}>
         {msg.fwdFrom && (
           <p className="text-xs font-medium text-blue-700" data-testid="forwarded-label">
-            {COPY.forwardedFrom} <button type="button" onClick={() => onPerson(msg.fwdFrom!)} className="font-semibold hover:underline">{PEOPLE[msg.fwdFrom].name}</button>
+            {COPY.forwardedFrom} <button type="button" onClick={() => onPerson(msg.fwdFrom!)} className={cn(HIT, 'font-semibold hover:underline')}>{PEOPLE[msg.fwdFrom].name}</button>
           </p>
         )}
         {msg.chatId.startsWith('mirror-') && msg.quote && !msg.agent && <p className="text-xs font-medium text-blue-700" data-testid="clarify-label">Sent to {mirror} to clarify</p>}
-        {msg.quote && (
-          <div className="my-1 border-l-2 border-blue-600 pl-2" data-testid="reply-quote">
-            <p className="text-xs font-semibold text-blue-700">{PEOPLE[msg.quote.who].name}</p>
-            <p className="truncate text-sm text-gray-600">{msg.quote.text}</p>
-          </div>
-        )}
+        {quote}
         {draft !== null ? (
           <div className="mt-1" data-testid="edit-message">
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Edit message" rows={2} autoFocus
               onKeyDown={(e) => { if (e.key === 'Escape') setDraft(null); if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); save(); } }}
               className="block w-full resize-none rounded-lg border px-3 py-2 text-base outline-none focus:border-gray-500 md:text-[15px]" />
             <div className="mt-1 flex gap-2">
-              <button type="button" onClick={() => setDraft(null)} className={OUTLINE}>Cancel</button>
-              <button type="button" onClick={save} className={cn(BLUE, 'min-h-10')}>Save</button>
+              <OutlineButton onClick={() => setDraft(null)}>Cancel</OutlineButton>
+              <PrimaryButton className="min-h-10" onClick={save}>Save</PrimaryButton>
             </div>
           </div>
-        ) : msg.table
-          ? <p className="mt-1 inline-flex items-center gap-1.5 rounded-lg border bg-gray-50 px-3 py-1.5 text-sm font-semibold text-gray-900" data-testid="table-post"><UsersIcon className="h-4 w-4" aria-hidden="true" />{msg.text}</p>
-          : msg.text && <MsgText>{msg.text}{msg.edited && <span className="ml-1.5 text-xs text-gray-500" data-testid="edited-mark">(edited)</span>}</MsgText>}
+        ) : msg.threadCard && onThread && replies && replies.length > 0 ? (
+          /* v16: a forwarded post with a thread is ONE card; its button opens the full thread. */
+          <div className="mt-1 max-w-md overflow-hidden rounded-xl border bg-white" data-testid="thread-card">
+            {(msg.text || msg.table) && <div className="px-3 py-2">{body}</div>}
+            <button type="button" onClick={onThread} data-testid="thread-card-open" className={cn('flex min-h-11 w-full items-center gap-2 bg-gray-50 px-3 text-left text-sm font-semibold text-blue-700', msg.text && 'border-t', HOVER)}>
+              <MessageSquareText className="h-4 w-4" aria-hidden="true" />{threadLabel(replies.length)}
+            </button>
+          </div>
+        ) : body}
         {msg.voice && <VoiceNote secs={msg.voice} />}
         {msg.share && <ShareCard item={msg.share} />}
         {msg.transcribed && !msg.table && <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500" data-testid="transcribed-mark"><Mic className="h-3 w-3" aria-hidden="true" />{COPY.transcribed}</p>}
         {msg.failed && (
           <div className="mt-1 flex items-center gap-2 text-xs text-red-700" data-testid="send-failed">
             {COPY.notSent}
-            <button type="button" onClick={onRetry} className="min-h-10 rounded-md px-3 font-semibold text-blue-700 hover:bg-blue-50">{COPY.retry}</button>
+            <QuietButton className="text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry}>{COPY.retry}</QuietButton>
           </div>
         )}
-        {onThread && replies && replies.length > 0 && <RepliesLink replies={replies} onOpen={onThread} live={liveThread} />}
+        {onThread && !msg.threadCard && replies && replies.length > 0 && <RepliesLink replies={replies} onOpen={onThread} live={liveThread} />}
       </Message>
       {menu && (
-        <ContextMenu at={menu} own={editable || (own && !msg.failed && !msg.agent)} onClose={() => setMenu(null)} onReply={onReply} onForward={onForward} onThread={onThread}
+        <ContextMenu at={menu} own={editable || (own && !msg.failed && !msg.agent)} onClose={() => setMenu(null)} onReply={onReply} onForward={onForward} onThread={onThread} onMarkUnread={onMarkUnread}
           onEdit={() => (editable ? setDraft(msg.text) : toast('Only text can be edited.'))} onDelete={onDelete} />
       )}
     </li>
@@ -424,7 +535,6 @@ function ChatRow({ st, chat, active, onOpen, onArchive, archived, inSection = fa
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className={cn('truncate text-[15px] font-semibold', active ? 'text-white' : 'text-gray-900')} data-testid="row-title">{rowTitle(st, chat, inSection)}</span>
-            {mirror && st.mirror[st.viewer] && <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] font-semibold', active ? 'bg-white text-blue-700' : 'bg-blue-50 text-blue-700')} data-testid="mirror-tag">{COPY.yourMirror}</span>}
             {live && <span className={cn('shrink-0 rounded-full px-1.5 text-[11px] font-semibold', active ? 'bg-white text-blue-700' : 'bg-red-50 text-red-700')}>LIVE</span>}
             <span className={cn('ml-auto shrink-0 text-xs', active ? 'text-blue-100' : 'text-gray-500')}>{mirror ? 'Pinned' : last?.time}</span>
           </span>
@@ -445,7 +555,6 @@ function ChatRow({ st, chat, active, onOpen, onArchive, archived, inSection = fa
 }
 
 type Folder = { id: Tab; label: string; unread: number };
-const Badge = ({ n, className }: { n: number; className?: string }) => (n > 0 ? <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-semibold text-white', className)} aria-label={`${n} unread`}>{n}</span> : null);
 
 function FolderTabs({ folders, active, onPick }: { folders: Folder[]; active: Tab; onPick: (t: Tab) => void }) {
   return (
@@ -460,22 +569,7 @@ function FolderTabs({ folders, active, onPick }: { folders: Folder[]; active: Ta
 }
 
 
-/** v11's "+ New" (frame/shell.tsx NewMenu): New chat and New partner. */
-function NewMenu({ onNewChat, onNewPartner }: { onNewChat: () => void; onNewPartner: () => void }) {
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button type="button" aria-label={COPY.newMenu} data-testid="new-menu" className={cn('flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2.5 text-sm font-medium text-blue-700', HOVER)}>{COPY.newMenu}</button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-        <DropdownMenuItem onSelect={onNewChat}>{COPY.newChat}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={onNewPartner}>{COPY.newPartner}</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/* ---------- the profile menu, the sidebar, the phone tab bar (v15 #1) ---------- */
+/* ---------- the profile menu, the sidebar, the phone tab bar and profile sheet ---------- */
 
 /** Learn: production's PUBLIC_NAV_GROUPS "Learn" group, the in-app items (Manifesto, About). */
 const LEARN = (PUBLIC_NAV_GROUPS.find((g) => g.label === 'Learn')?.items ?? []).filter((i) => i.to === '/manifesto' || i.to === '/about');
@@ -484,10 +578,15 @@ const EVENTS_ITEM = PRODUCT.find((i) => i.to === EVENTS_LIST_TO);
 const PLEDGERS_ITEM = PRODUCT.find((i) => i.to === '/pledgers');
 const ADMIN_LINKS = [{ to: '/admin/users', label: 'Users' }, { to: '/admin/topics', label: 'Topics' }] as const;
 
-type MenuActions = { onProfile: () => void; onPartners: () => void; onSettings: () => void; onLogOut: () => void; onTools: () => void };
+type MenuActions = { onProfile: () => void; onPartners: () => void; onSettings: () => void; onLogOut: () => void; onTools: () => void; onInvite: () => void };
 
-/** The account menu: production's labels (navigation-menu-items.tsx, simple-navigation.tsx, nav-links.ts). */
-function ProfileMenuItems({ viewer, a, onPick, tools = false }: { viewer: ViewerId; a: MenuActions; onPick: (f: () => void) => () => void; /** The phone has no Tools tab (review #13). */ tools?: boolean }) {
+/**
+ * The account menu: production's labels (navigation-menu-items.tsx, simple-navigation.tsx, nav-links.ts). Use cases and Learn
+ * sit next to Settings (v16: there is no "More"). The phone sheet adds what the sidebar has outside this menu: Invite partner,
+ * Events and Tools.
+ */
+function ProfileMenuItems({ a, onPick, phone = false }: { a: MenuActions; onPick: (f: () => void) => () => void; /** The phone has no sidebar, so Invite partner, Events and Tools live here. */ phone?: boolean }) {
+  const { isAdmin } = useReal();
   const out = (to: string, label: string, Icon?: LucideIcon) => (
     <a key={to} href={to} target="_blank" rel="noreferrer" role="menuitem" className={MENU_ITEM}>{Icon ? <Icon className="h-4 w-4 text-gray-500" /> : <span className="w-4" />}{label}</a>
   );
@@ -495,17 +594,15 @@ function ProfileMenuItems({ viewer, a, onPick, tools = false }: { viewer: Viewer
     <>
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onProfile)}><UserIcon className="h-4 w-4 text-gray-500" />My Profile</button>
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onPartners)}><Handshake className="h-4 w-4 text-gray-500" />Partners</button>
-      {tools && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onTools)} data-testid="menu-tools"><LayoutGrid className="h-4 w-4 text-gray-500" />{PLACE_LABEL.tools}</button>}
+      {phone && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onInvite)} data-testid="menu-invite"><Handshake className="h-4 w-4 text-gray-500" />{COPY.invite}</button>}
+      {phone && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onTools)} data-testid="menu-tools"><LayoutGrid className="h-4 w-4 text-gray-500" />{PLACE_LABEL.tools}</button>}
+      {phone && EVENTS_ITEM && out(EVENTS_ITEM.to, EVENTS_ITEM.label, EVENTS_ITEM.Icon)}
       {out('/sessions', 'Session History', CalendarDays)}
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onSettings)}><Settings className="h-4 w-4 text-gray-500" />Settings</button>
       <div role="group" aria-label="Use cases"><p className={MENU_HEAD}>Use cases</p>{AUDIENCE_LINKS.map((l) => out(l.to, l.label, l.Icon))}</div>
       <div role="group" aria-label="Learn"><p className={MENU_HEAD}>Learn</p>{LEARN.map((l) => out(l.to, l.label, l.Icon))}</div>
-      <div role="group" aria-label="More">
-        <p className={MENU_HEAD}>More</p>
-        {EVENTS_ITEM && out(EVENTS_ITEM.to, EVENTS_ITEM.label, EVENTS_ITEM.Icon)}
-        {PLEDGERS_ITEM && out(PLEDGERS_ITEM.to, PLEDGERS_ITEM.label, PLEDGERS_ITEM.Icon)}
-      </div>
-      {ADMINS.includes(viewer) && (
+      {PLEDGERS_ITEM && out(PLEDGERS_ITEM.to, PLEDGERS_ITEM.label, PLEDGERS_ITEM.Icon)}
+      {isAdmin && (
         <div role="group" aria-label="Admin" data-testid="admin-group"><p className={MENU_HEAD}>Admin</p>{ADMIN_LINKS.map((l) => out(l.to, l.label, Shield))}</div>
       )}
       <div className="mt-1 border-t pt-1"><button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onLogOut)} data-testid="log-out"><LogOut className="h-4 w-4 text-gray-500" />Log Out</button></div>
@@ -513,21 +610,22 @@ function ProfileMenuItems({ viewer, a, onPick, tools = false }: { viewer: Viewer
   );
 }
 
-function MeButton({ viewer, showName, testId, menuClass, a }: { viewer: ViewerId; showName: boolean; testId: string; menuClass: string; a: MenuActions }) {
+/** The profile picture at the sidebar's bottom-left: it opens the account menu upward. */
+function MeButton({ viewer, name, collapsed, a }: { viewer: ViewerId; name: string; collapsed: boolean; a: MenuActions }) {
   const [on, setOn] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(() => setOn(false), on, [ref, btn]);
   return (
     <div className="relative">
-      <button ref={btn} type="button" aria-label="My account" aria-expanded={on} onClick={() => setOn(!on)} data-testid={testId}
-        className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-lg px-1.5 text-left', HOVER)}>
+      <button ref={btn} type="button" aria-label="My account" aria-expanded={on} onClick={() => setOn(!on)} data-testid="sidebar-me"
+        className={cn('flex min-h-11 items-center gap-2.5 rounded-lg px-1.5 text-left', HOVER)}>
         <Avatar person={viewer} size="sm" />
-        {showName && <span className="min-w-0 truncate text-sm font-medium text-gray-900">{PEOPLE[viewer].name}</span>}
+        <span className="sr-only">{name}</span>
       </button>
       {on && (
-        <div ref={ref} role="menu" aria-label="My account" className={cn('z-50 max-h-[70vh] w-64 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl', menuClass)} data-testid="me-menu">
-          <ProfileMenuItems viewer={viewer} a={a} onPick={(f) => () => { setOn(false); f(); }} />
+        <div ref={ref} role="menu" aria-label="My account" className={cn('absolute z-50 max-h-[70vh] w-64 overflow-y-auto rounded-xl border bg-white p-1 shadow-xl', collapsed ? 'bottom-0 left-full ml-2' : 'bottom-full left-0 mb-1')} data-testid="me-menu">
+          <ProfileMenuItems a={a} onPick={(f) => () => { setOn(false); f(); }} />
         </div>
       )}
     </div>
@@ -541,79 +639,72 @@ function writeCollapsed(v: boolean) {
   try { window.localStorage.setItem(SIDEBAR_KEY, v ? '1' : '0'); } catch { /* storage blocked: the toggle still works for this visit */ }
 }
 
-
-function Sidebar({ st, place, activeGroup, onPlace, onGroup, onBrowse, me }: {
-  st: State; place: Place | null; activeGroup?: string; onPlace: (p: Place) => void; onGroup: (groupId: string) => void; onBrowse: () => void; me: (showName: boolean) => ReactNode;
+/**
+ * The desktop sidebar (>= 1024px), modelled on Claude / ChatGPT: logo (Home) and collapse at the top; Search; Invite partner;
+ * the places Chats, Home, Groups, Letters, Events; then, at the bottom-left, the profile picture and Tools side by side.
+ */
+function Sidebar({ st, viewer, name, place, tools, a, onPlace, onHome, onSearch, onInvite, onTools }: {
+  st: State; viewer: ViewerId; name: string; place: Place | null; tools: boolean; a: MenuActions;
+  onPlace: (p: Place) => void; onHome: () => void; onSearch: () => void; onInvite: () => void; onTools: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [groupsOpen, setGroupsOpen] = useState(true);
   const toggle = () => setCollapsed((c) => { writeCollapsed(!c); return !c; });
   const unread = totalUnread(st);
-  const groups = myGroups(st);
   const item = (on: boolean) => cn('relative flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm font-medium', on ? 'bg-blue-50 text-blue-700' : cn('text-gray-800', HOVER));
+  /* A sidebar row: icon + label, or (collapsed) the icon alone with its tip. */
+  const row = (key: string, label: string, Icon: LucideIcon, onClick: () => void, opts: { on?: boolean; n?: number; testId?: string } = {}) => {
+    const body = (
+      <button type="button" onClick={onClick} aria-current={opts.on ? 'page' : undefined} aria-label={collapsed ? label : undefined} data-testid={opts.testId} className={cn(item(!!opts.on), collapsed && 'justify-center px-0')}>
+        <span className="relative"><Icon className="h-5 w-5 shrink-0" aria-hidden="true" />{collapsed && <Badge n={opts.n ?? 0} className="absolute -right-3 -top-2 ring-2 ring-gray-50" />}</span>
+        {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+        {!collapsed && <Badge n={opts.n ?? 0} />}
+      </button>
+    );
+    return <li key={key}>{collapsed ? <Tip label={label} side="right">{body}</Tip> : body}</li>;
+  };
   return (
     <nav aria-label="Sidebar" data-testid="sidebar" data-collapsed={collapsed || undefined}
-      className={cn('hidden shrink-0 flex-col border-r bg-gray-50 p-2 md:flex', collapsed ? 'w-[64px]' : 'w-[248px]')}>
-      <div className={cn('mb-1 flex items-center gap-1', collapsed ? 'flex-col' : 'justify-between')}>
-        <div className="min-w-0 flex-1" data-testid="sidebar-top">{me(!collapsed)}</div>
+      className={cn('flex shrink-0 flex-col border-r bg-gray-50 p-2', collapsed ? 'w-[64px]' : 'w-[248px]')}>
+      <div className={cn('mb-1 flex items-center gap-1', collapsed ? 'flex-col' : 'justify-between')} data-testid="sidebar-top">
+        <button type="button" onClick={onHome} aria-label="Clarity Pledge, Home" data-testid="sidebar-logo" className={cn('flex min-h-11 min-w-0 items-center rounded-lg px-1.5', HOVER)}>
+          <ClarityLogo size="sm" iconOnly={collapsed} />
+        </button>
         <Tip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
           <button type="button" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggle} data-testid="sidebar-toggle" className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600', HOVER)}>
             {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
         </Tip>
       </div>
-      <ul aria-label="Places" className="space-y-0.5">
-        {PLACES.map((p) => {
-          const Icon = PLACE_ICON[p];
-          const n = p === 'chats' ? unread : 0;
-          const body = (
-            <button type="button" onClick={() => onPlace(p)} aria-current={place === p ? 'page' : undefined} aria-label={collapsed ? PLACE_LABEL[p] : undefined} className={cn(item(place === p), collapsed && 'justify-center px-0')}>
-              <span className="relative"><Icon className="h-5 w-5 shrink-0" aria-hidden="true" />{collapsed && <Badge n={n} className="absolute -right-3 -top-2 ring-2 ring-gray-50" />}</span>
-              {!collapsed && <span className="min-w-0 flex-1 truncate">{PLACE_LABEL[p]}</span>}
-              {!collapsed && <Badge n={n} />}
-            </button>
-          );
-          return <li key={p}>{collapsed ? <Tip label={PLACE_LABEL[p]} side="right">{body}</Tip> : body}</li>;
-        })}
+      <ul aria-label="Actions" className="space-y-0.5">
+        {row('search', 'Search', Search, onSearch, { testId: 'sidebar-search' })}
+        {row('invite', COPY.invite, Handshake, onInvite, { testId: 'sidebar-invite' })}
       </ul>
-      {!collapsed && (
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
-          <button type="button" aria-expanded={groupsOpen} onClick={() => setGroupsOpen(!groupsOpen)} data-testid="sidebar-groups-toggle" className={cn('flex min-h-9 w-full items-center gap-1 rounded-md px-2.5 text-xs font-semibold uppercase tracking-wide text-gray-500', HOVER)}>
-            Your groups{groupsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+      <ul aria-label="Places" className="mt-2 space-y-0.5 border-t pt-2">
+        {PLACES.map((p) => row(p, PLACE_LABEL[p], PLACE_ICON[p], () => onPlace(p), { on: place === p, n: p === 'chats' ? unread : 0 }))}
+      </ul>
+      <div className="flex-1" />
+      <div className={cn('flex gap-1 border-t pt-2', collapsed ? 'flex-col items-center' : 'items-center')} data-testid="sidebar-bottom">
+        <MeButton viewer={viewer} name={name} collapsed={collapsed} a={a} />
+        {/* Tools: icon and label side by side, always visible, quiet. */}
+        {collapsed ? (
+          <Tip label={PLACE_LABEL.tools} side="right">
+            <button type="button" onClick={onTools} aria-label={PLACE_LABEL.tools} aria-current={tools ? 'page' : undefined} data-testid="sidebar-tools" className={cn('flex h-11 w-11 items-center justify-center rounded-lg text-gray-500', HOVER)}><LayoutGrid className="h-5 w-5" aria-hidden="true" /></button>
+          </Tip>
+        ) : (
+          <button type="button" onClick={onTools} aria-current={tools ? 'page' : undefined} data-testid="sidebar-tools" className={cn('flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-sm text-gray-500', tools && 'bg-blue-50 text-blue-700', HOVER)}>
+            <LayoutGrid className="h-5 w-5" aria-hidden="true" />{PLACE_LABEL.tools}
           </button>
-          {groupsOpen && (
-            <>
-              <ul aria-label="Your groups" className="space-y-0.5">
-                {groups.map((g) => {
-                  const n = (groupSections(st).find((x) => x.groupId === g.id)?.chats ?? []).reduce((s, c) => s + unreadOf(st, c.id), 0);
-                  return (
-                    <li key={g.id}>
-                      <button type="button" onClick={() => onGroup(g.id)} aria-current={activeGroup === g.id ? 'true' : undefined} className={cn(item(activeGroup === g.id), 'min-h-10 font-normal')}>
-                        <LandmarkIcon className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
-                        <span className="min-w-0 flex-1 truncate">{g.name}</span>
-                        <Badge n={n} />
-                      </button>
-                    </li>
-                  );
-                })}
-                {groups.length === 0 && <li className="px-2.5 py-1 text-xs text-gray-500">You are not in a group yet.</li>}
-              </ul>
-              <button type="button" onClick={onBrowse} data-testid="browse-groups" className={cn('mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-blue-700', HOVER)}>
-                <Search className="h-4 w-4" aria-hidden="true" />Browse groups
-              </button>
-            </>
-          )}
-        </div>
-      )}
-      {collapsed && <div className="flex-1" />}
+        )}
+      </div>
     </nav>
   );
 }
 
+/** The phone's bottom bar: Chats, Home, Groups, Letters, Profile. Profile opens a sheet instead of a page. */
 function BottomTabs({ st, active, onTab }: { st: State; active: MobileTab | null; onTab: (p: MobileTab) => void }) {
   const unread = totalUnread(st);
   return (
-    <nav aria-label="Places" data-testid="bottom-tabs" className="flex shrink-0 border-t bg-white md:hidden">
+    <nav aria-label="Places" data-testid="bottom-tabs" className="flex shrink-0 border-t bg-white">
       {MOBILE_TABS.map((p) => {
         const Icon = PLACE_ICON[p];
         return (
@@ -627,67 +718,34 @@ function BottomTabs({ st, active, onTab }: { st: State; active: MobileTab | null
   );
 }
 
-/* ---------- live transcription ---------- */
-
-type Capture = { chatId: string; paused: boolean } | null;
-
-/** Pinned at the top of a live event channel: Transcribe when idle; Pause/Resume + Stop while I transcribe. */
-function CaptureBanner({ capture, chatId, onStart, onPause, onStop }: { capture: Capture; chatId: string; onStart: () => void; onPause: () => void; onStop: () => void }) {
-  const mine = capture?.chatId === chatId ? capture : null;
-  return (
-    <div data-testid="live-banner" className="shrink-0">
-      {mine ? (
-        <SessionBar
-          ariaLabel="Room transcription" testId="capture-bar"
-          text={mine.paused ? 'Transcribing paused' : 'Transcribing · what you say posts here as you'}
-          showDot={!mine.paused}
-          extra={<>
-            <button type="button" onClick={onPause} aria-pressed={mine.paused} className={CAPTURE_CONTROL} data-testid={mine.paused ? 'capture-resume' : 'capture-pause'}>
-              {mine.paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}{mine.paused ? 'Resume' : 'Pause'}
-            </button>
-            <SessionStopButton onClick={onStop} label="Stop" ariaLabel="Stop transcribing" testId="capture-stop" />
-          </>}
-        />
-      ) : (
-        <SessionBar tone="idle" ariaLabel="Room transcription" testId="capture-idle" text="Event in progress. Transcribe to post what you say."
-          primary={{ label: 'Transcribe', onClick: onStart, testId: 'capture-start' }} />
-      )}
-    </div>
-  );
-}
-
+/** How far a finger must drag the sheet down before it lets go. */
+export const SHEET_DISMISS_PX = 80;
 
 /**
- * v15 #9: FAITHFUL COPY of production's CompactCaptureBar (room-capture-bar.tsx:48-90). The real one is not exported
- * and reads useRoomCapture() (the live recorder), so its markup, classes, labels and test ids are reproduced here:
- * the status word (capture-status SHORT), the level meter (capture-level-meter's markup, animated by a mock), the
- * real ⓘ (CaptureInfoButton, reused), then Pause/Resume, Stop and Open the room as icons.
+ * The phone's profile menu: a bottom sheet. It closes on a swipe down, on a tap outside it and on Esc. (Not a page.)
+ * The drag follows the finger; letting go past SHEET_DISMISS_PX closes, short of it springs back.
  */
-function CompactCaptureBarCopy({ paused, onPause, onStop, onOpen }: { paused: boolean; onPause: () => void; onStop: () => void; onOpen: () => void }) {
-  const short = paused ? SHORT.paused : SHORT.running;
-  const [tick, setTick] = useState(0);
-  useEffect(() => { if (paused) return; const t = window.setInterval(() => setTick((n) => n + 1), 300); return () => window.clearInterval(t); }, [paused]);
-  const lit = paused ? 0 : [2, 4, 3, 5, 1, 4][tick % 6]!;
+function BottomSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  useDismiss(onClose);
+  const start = useRef<number | null>(null);
+  const [drag, setDrag] = useState(0);
+  const panel = useRef<HTMLDivElement>(null);
   return (
-    <div role="status" aria-label={`Room transcription: ${short}`} data-testid="room-capture-bar" data-form="short"
-      className="relative z-40 shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-1">
-      <div className="mx-auto flex max-w-4xl items-center gap-2">
-        <span className="text-sm font-medium text-blue-900">{short}</span>
-        <span aria-hidden="true" data-testid="capture-level-meter" data-level={lit} className="inline-flex h-3.5 items-end gap-[2px]">
-          {Array.from({ length: 5 }, (_, i) => <i key={i} data-lit={i < lit ? 'true' : 'false'} style={{ height: `${40 + i * 15}%` }} className="block w-[3px] rounded-sm bg-blue-200 transition-colors duration-75 data-[lit=true]:bg-blue-600" />)}
-        </span>
-        <CaptureInfoButton />
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" className={CAPTURE_ICON_BUTTON} onClick={onPause} aria-label={paused ? 'Resume' : 'Pause'} aria-pressed={paused}>
-            {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
-          </button>
-          <button type="button" className={`${CAPTURE_ICON_BUTTON} hover:text-destructive active:bg-destructive/10 active:text-destructive`} onClick={onStop} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
-            <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-          </button>
-          <button type="button" className={CAPTURE_ICON_BUTTON} onClick={onOpen} aria-label="Open the room" data-testid="room-capture-bar-open">
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" role="dialog" aria-label={label} data-testid="sheet" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div
+        ref={panel} data-testid="sheet-panel" style={{ transform: drag ? `translateY(${drag}px)` : undefined }}
+        className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-xl"
+        onTouchStart={(e) => { start.current = (panel.current?.querySelector('[data-sheet-scroll]')?.scrollTop ?? 0) === 0 ? (e.touches[0]?.clientY ?? null) : null; }}
+        onTouchMove={(e) => { const y = e.touches[0]?.clientY; if (start.current !== null && y !== undefined) setDrag(Math.max(0, y - start.current)); }}
+        onTouchEnd={(e) => {
+          const y = e.changedTouches[0]?.clientY;
+          const dy = start.current !== null && y !== undefined ? y - start.current : 0;
+          start.current = null;
+          if (dy > SHEET_DISMISS_PX) onClose(); else setDrag(0);
+        }}
+      >
+        <div className="flex shrink-0 justify-center pb-1 pt-2" aria-hidden="true"><span className="h-1 w-10 rounded-full bg-gray-300" /></div>
+        <div data-sheet-scroll className="min-h-0 overflow-y-auto px-2 pb-3">{children}</div>
       </div>
     </div>
   );
@@ -695,21 +753,24 @@ function CompactCaptureBarCopy({ paused, onPause, onStop, onOpen }: { paused: bo
 
 /* ---------- pages ---------- */
 
-const asProfile = (id: PersonId): ProfileData => {
-  const p = PEOPLE[id];
-  return { id: `mock-${id}`, slug: p.slug, name: p.name, email: p.email, role: p.role, bio: p.bio, avatarColor: p.avatarColor, hasPledged: p.pledger, signedAt: '', isVerified: true, witnesses: [], reciprocations: 0 };
-};
-
-function Profile({ st, person, onBack, onMessage }: { st: State; person: PersonId; onBack: () => void; onMessage: () => void }) {
+/** A person's profile: the real profile row of their test persona (api.getProfileBySlug). "You share" is the chat mock's roster. */
+function Profile({ st, person, onBack, onMessage, onInvite }: { st: State; person: PersonId; onBack: () => void; onMessage: () => void; onInvite: () => void }) {
   const self = person === st.viewer;
+  const q = useRealQuery<ProfileData | null>(() => loadProfile(personaSlug(person)), [person], { emptyValue: null, isEmpty: (p) => p === null });
   const shared = [...GROUPS.filter((g) => g.members.includes(st.viewer) && g.members.includes(person)).map((g) => g.name), ...EVENTS.filter((e) => e.attendees.includes(st.viewer) && e.attendees.includes(person)).map((e) => e.name)];
+  const ps = self ? null : partnerState(st, person);
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="profile">
       <Header backAlways onBack={onBack} title={<PageTitle>{self ? 'My profile' : 'Profile'}</PageTitle>} />
       <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50">
         <div className="mx-auto flex max-w-xl flex-col gap-3 px-3 py-4" onClickCapture={stayInPrototype}>
-          <CompactProfileCard profile={asProfile(person)} isOwner={self} />
-          {!self && canMessage(st.viewer, person) && <button type="button" onClick={onMessage} className={cn(BLUE, 'w-full')}><MessageCircle className="h-4 w-4" />{COPY.message}</button>}
+          <RealBoundary q={q} what="this profile" empty={<p>{PEOPLE[person].name} has no profile in the test project yet. Run the persona seed script.</p>}>
+            {(p) => p && <CompactProfileCard profile={p} isOwner={self} />}
+          </RealBoundary>
+          {!self && canMessage(st.viewer, person) && <PrimaryButton className="w-full" onClick={onMessage}><MessageCircle className="h-4 w-4" />{COPY.message}</PrimaryButton>}
+          {ps === 'none' && <OutlineButton className="w-full" onClick={onInvite} data-testid="profile-invite"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</OutlineButton>}
+          {ps === 'pending' && <p className="text-center text-sm font-medium text-gray-700" data-testid="profile-invite-sent">{COPY.inviteSent}</p>}
+          {ps === 'partner' && <p className="text-center text-sm font-medium text-blue-700" data-testid="profile-partner">{COPY.partner}</p>}
           {!self && <p className="px-1 text-sm text-gray-500">{shared.length > 0 ? `You share: ${shared.join(', ')}` : 'You share no group or event.'}</p>}
         </div>
       </div>
@@ -721,43 +782,89 @@ const PersonRow = ({ p, onPerson }: { p: PersonId; onPerson: (p: PersonId) => vo
   <li><button type="button" onClick={() => onPerson(p)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER)}><Avatar person={p} size="sm" /><span className="min-w-0"><span className="block text-[15px] text-gray-900">{PEOPLE[p].name}</span><span className="block text-xs text-gray-500">{PEOPLE[p].role}</span></span></button></li>
 );
 
+/**
+ * General: its members (the group's roster). An event channel (v16): that event's RSVPs, read from the real attendee list
+ * (`getEventAttendees` for the event seeded under the same mock id), not a roster typed here.
+ */
 function Members({ chat, onBack, onPerson }: { chat: Chat; onBack: () => void; onPerson: (p: PersonId) => void }) {
-  const list = channelMembers(chat);
+  const ev = eventOf(chat);
+  const going = useRealQuery<EventAttendee[] | null>(() => loadChatEventAttendees(ev!.id), [ev?.id], { emptyValue: [], isEmpty: (a) => !a || a.length === 0, enabled: !!ev });
+  if (!ev) {
+    const list = channelMembers(chat);
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="members">
+        <Header backAlways onBack={onBack} title={<PageTitle>{list.length} members</PageTitle>} />
+        <ul className="overflow-y-auto py-2">{list.map((p) => <PersonRow key={p} p={p} onPerson={onPerson} />)}</ul>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="members">
-      <Header backAlways onBack={onBack} title={<PageTitle>{list.length} members</PageTitle>} />
-      <ul className="overflow-y-auto py-2">{list.map((p) => <PersonRow key={p} p={p} onPerson={onPerson} />)}</ul>
+      <Header backAlways onBack={onBack} title={<PageTitle>{going.data ? `${going.data.length} going` : 'Going'}</PageTitle>} />
+      <RealBoundary q={going} what="who is going" empty={<p>No one has reserved a seat yet.</p>}>
+        {(rows) => (
+          <ul className="overflow-y-auto py-2" aria-label="Going">
+            {(rows ?? []).map((a) => {
+              const p = personaFromSlug(a.slug);
+              return p ? <PersonRow key={a.profileId} p={p} onPerson={onPerson} /> : (
+                <li key={a.profileId} className="flex min-h-14 items-center gap-3 px-4"><WhoAvatar slug={a.slug} name={a.name} /><span className="text-[15px] text-gray-900">{a.name}</span></li>
+              );
+            })}
+          </ul>
+        )}
+      </RealBoundary>
     </div>
   );
 }
 
+/** A person's avatar: the persona's chat-world face when the slug is a test persona, else the production avatar from the row's name. */
+function WhoAvatar({ slug, name, size = 'sm' }: { slug: string | null | undefined; name: string; size?: 'xs' | 'sm' }) {
+  const persona = personaFromSlug(slug);
+  if (persona) return <Avatar person={persona} size={size} />;
+  return <GravatarAvatar name={name} avatarColor={undefined} photoUrl={undefined} isPledger={false} showRing={false} size="sm" className={size === 'xs' ? '!h-5 !w-5 !text-[10px]' : '!h-8 !w-8 !text-xs'} />;
+}
 
-/** Production `Organization` from the mock group. */
-const asOrg = (g: Group): Organization => ({ id: `org-${g.id}`, slug: g.slug, name: g.name, blurb: g.blurb, description: g.description, visibility: 'public', hasEvents: g.hasEvents });
+/** Newest group activity first (the chat mock's message order); a group with no chat yet sorts after those that have one. */
+const byActivity = (st: State) => (a: Organization, b: Organization) => groupActivity(st, chatGroupOf(b.slug)) - groupActivity(st, chatGroupOf(a.slug)) || a.name.localeCompare(b.name);
 
-/** Phone "Groups" tab: my groups, and Browse groups. */
-function GroupsPage({ st, onGroup, onBrowse }: { st: State; onGroup: (id: string) => void; onBrowse: () => void }) {
-  const groups = myGroups(st);
+/** The Groups place: your groups, sorted by latest activity (the memberships the service returned), then a quiet Browse groups button. */
+function GroupsPage({ st, onGroup, onBrowse }: { st: State; onGroup: (slug: string) => void; onBrowse: () => void }) {
+  const dirQ = useReal().groups;
+  const browse = <OutlineButton onClick={onBrowse} data-testid="browse-groups"><Search className="h-4 w-4" />Browse groups</OutlineButton>;
   return (
     <Page testId="groups-page" title="Your groups">
-      <ul aria-label="Your groups" className="py-2">
-        {groups.map((g) => (
-          <li key={g.id}><button type="button" onClick={() => onGroup(g.id)} className={cn('flex min-h-16 w-full items-center gap-3 px-4 text-left', HOVER)}>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><LandmarkIcon className="h-5 w-5" aria-hidden="true" /></span>
-            <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold text-gray-900">{g.name}</span><span className="block text-xs text-gray-500">{groupPeople(g.id).length} members</span></span>
-            <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
-          </button></li>
-        ))}
-        {groups.length === 0 && <li className="px-6 py-8 text-center text-sm text-gray-500">You are not in any group yet.</li>}
-      </ul>
-      <div className="px-4"><button type="button" onClick={onBrowse} className={OUTLINE}><Search className="h-4 w-4" />Browse groups</button></div>
+      <RealBoundary q={dirQ} what="your groups" empty={<><p>You are not in any group yet. No public groups exist in this project yet.</p>{browse}</>}>
+        {(d) => {
+          const mine = myOrgsOf(st, d).sort(byActivity(st));
+          return (
+            <>
+              <ul aria-label="Your groups" className="py-2">
+                {mine.map((g) => {
+                  const n = (groupSections(st).find((x) => x.groupId === chatGroupOf(g.slug))?.chats ?? []).reduce((sum, c) => sum + unreadOf(st, c.id), 0);
+                  return (
+                    <li key={g.id}><button type="button" onClick={() => onGroup(g.slug)} className={cn('flex min-h-16 w-full items-center gap-3 px-4 text-left', HOVER)}>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><LandmarkIcon className="h-5 w-5" aria-hidden="true" /></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold text-gray-900">{g.name}</span>{d.memberCounts?.[g.id] != null && <span className="block text-xs text-gray-500">{d.memberCounts[g.id]} members</span>}</span>
+                      <Badge n={n} />
+                      <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    </button></li>
+                  );
+                })}
+                {mine.length === 0 && <li className="px-6 py-8 text-center text-sm text-gray-500" data-testid="real-empty">You are not in any group yet.</li>}
+              </ul>
+              <div className="px-4 pb-6">{browse}</div>
+            </>
+          );
+        }}
+      </RealBoundary>
     </Page>
   );
 }
 
 /** A copy of OrgDirectoryPage's structure, its cards the production OrgCard (the card's link is kept in the prototype). */
-function DirectoryPage({ st, onBack, onGroup }: { st: State; onBack: () => void; onGroup: (id: string) => void }) {
-  const open = (g: Group) => (e: MouseEvent) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); onGroup(g.id); } };
+function DirectoryPage({ st, onBack, onGroup }: { st: State; onBack: () => void; onGroup: (slug: string) => void }) {
+  const dirQ = useReal().groups;
+  const open = (g: Organization) => (e: MouseEvent) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); onGroup(g.slug); } };
   return (
     <Page testId="directory-page" title="Clarity Groups" onBack={onBack}>
       <div className="px-4 py-6">
@@ -766,13 +873,17 @@ function DirectoryPage({ st, onBack, onGroup }: { st: State; onBack: () => void;
             <h1 className="text-2xl font-bold sm:text-3xl">Clarity Groups</h1>
             <p className="mt-2 max-w-prose text-base text-muted-foreground">Communities practising calibrated communication together. Go into one to see its events and members.</p>
           </header>
-          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {GROUPS.map((g) => (
-              <li key={g.id} onClickCapture={open(g)} data-group={g.id}>
-                <OrgCard org={asOrg(g)} memberCount={groupPeople(g.id).length} eventSummary={{ pastCount: eventsOfGroup(g.id).filter((e) => e.past).length } as never} isMine={isMember(st, st.viewer, g.id)} />
-              </li>
-            ))}
-          </ul>
+          <RealBoundary q={dirQ} what="groups" empty={<p>No public groups yet.</p>}>
+            {(d) => (
+              <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[...d.orgs].sort((a, b) => Number(memberOfOrg(st, d, b)) - Number(memberOfOrg(st, d, a)) || byActivity(st)(a, b)).map((g) => (
+                  <li key={g.id} onClickCapture={open(g)} data-group={g.slug}>
+                    <OrgCard org={g} memberCount={d.memberCounts?.[g.id] ?? null} participation={d.participation[g.id]} eventSummary={d.eventSummaries[g.id]} isMine={memberOfOrg(st, d, g)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </RealBoundary>
           <p className="text-sm text-muted-foreground">Looking for a single event? <a href={EVENTS_LIST_TO} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">Browse all events</a>.</p>
         </div>
       </div>
@@ -782,66 +893,85 @@ function DirectoryPage({ st, onBack, onGroup }: { st: State; onBack: () => void;
 
 type GroupTab = 'events' | 'members' | 'about' | 'chats';
 
+/** What `?real=empty` shows on a group page: the header with every tab empty. */
+const stubGroup = (slug: string): GroupDetail => ({
+  org: { id: `stub-${slug}`, slug, name: GROUPS.find((g) => g.id === slug)?.name ?? slug, blurb: null, description: null, visibility: 'public', hasEvents: true },
+  members: [], myRole: null, upcoming: [], past: [],
+});
+
+/** The profile slug in a production link (`/p/<slug>`), if it is one. */
+const slugOfHref = (a: Element | null) => a?.getAttribute('href')?.split('/p/')[1]?.split(/[?#/]/)[0];
+
 /**
  * A copy of production OrgPage (org-page.tsx): the real OrgHeader, then Events / Members / About tabs in `?tab=`
- * (the default, Events, carries no param), plus v15's Chats tab (the group's channels). Members renders the real
- * PersonRow per person (production renders PledgerGrid, which needs its own data shape). Events is a mock list in
- * place of the embedded production EventsList (which reads the events service).
+ * (the default, Events, carries no param), plus v15's Chats tab (the group's channels, still the chat mock). The org,
+ * its roster and its events are the service rows (organizationsService + eventsService); Members renders the real
+ * PersonRow per member (production renders PledgerGrid, which needs its own data shape).
  */
-function GroupPage({ st, groupId, tab, onTab, onBack, onEvent, onChannel, onPerson, onJoin, onLeave }: {
-  st: State; groupId: string; tab: GroupTab; onTab: (t: GroupTab) => void; onBack: () => void; onEvent: (id: string) => void; onChannel: (id: string) => void;
+function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson, onJoin, onLeave }: {
+  st: State; slug: string; tab: GroupTab; onTab: (t: GroupTab) => void; onBack: () => void; onEvent: (eventSlug: string, groupSlug: string) => void; onChannel: (id: string) => void;
   onPerson: (p: PersonId) => void; onJoin: () => void; onLeave: () => void;
 }) {
-  const g = GROUPS.find((x) => x.id === groupId);
-  if (!g) return <Page testId="group-page" title="Group" onBack={onBack}><p className="px-4 py-8 text-sm text-gray-600">This group does not exist.</p></Page>;
-  const member = isMember(st, st.viewer, g.id);
-  const people = groupPeople(g.id);
-  const chans = groupSections(st).find((x) => x.groupId === g.id)?.chats ?? [];
-  const events = eventsOfGroup(g.id);
+  const { profileId, groups } = useReal();
+  const q = useRealQuery<GroupDetail | null>(() => loadGroupDetail(slug), [slug, profileId], { emptyValue: stubGroup(slug), isEmpty: () => false });
+  const missing = <Page testId="group-page" title="Group" onBack={onBack}><p className="px-4 py-8 text-sm text-gray-600">This group does not exist.</p></Page>;
+  if (q.status === 'loading') return <Page testId="group-page" title="Group" onBack={onBack}><RealSkeleton what="this group" /></Page>;
+  if (q.status === 'error') return <Page testId="group-page" title="Group" onBack={onBack}><RealError what="this group" onRetry={q.retry} /></Page>;
+  if (!q.data) return missing;
+  const { org, members, myRole, upcoming, past } = q.data;
+  const member = (myRole !== null || st.joined[st.viewer].includes(slug)) && !st.left[st.viewer].includes(slug);
+  const organizers = members.filter((m) => m.role === 'organizer').length;
+  const events = [...upcoming.map((e) => ({ e, past: false })), ...past.map((e) => ({ e, past: true }))];
+  const chatGroup = chatGroupOf(slug);
+  const chans = chatGroup ? groupSections(st).find((x) => x.groupId === chatGroup)?.chats ?? [] : [];
   return (
-    <Page testId="group-page" title={g.name} onBack={onBack}>
-      <div className="min-w-0 px-4 py-6" data-group={g.id} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); toast('This opens the real page in the app.'); } }}>
+    <Page testId="group-page" title={org.name} onBack={onBack}>
+      <div className="min-w-0 px-4 py-6" data-group={slug} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); toast('This opens the real page in the app.'); } }}>
         <div className="mx-auto min-w-0 max-w-4xl space-y-6">
-          <OrgHeader org={asOrg(g)} memberCount={people.length} isMember={member} myRole={member ? (g.organizers.includes(st.viewer) ? 'organizer' : 'member') : null} organizerCount={g.organizers.length}
-            onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={mockId(st.viewer)} />
+          <OrgHeader org={org} memberCount={members.length} isMember={member} myRole={member ? (myRole ?? 'member') : null} organizerCount={organizers} participation={groups.data?.participation[org.id]}
+            onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={profileId} />
           <Tabs value={tab} onValueChange={(v) => onTab(v as GroupTab)}>
             <TabsList className="h-auto w-full min-w-0 justify-start gap-4 overflow-x-auto overflow-y-hidden rounded-none border-b border-border bg-transparent p-0 [scrollbar-width:none] sm:gap-6" data-testid="group-tabs">
-              {g.hasEvents && <TabsTrigger value="events" className={ORG_TAB_CLASS}>Events</TabsTrigger>}
+              {org.hasEvents && <TabsTrigger value="events" className={ORG_TAB_CLASS}>Events</TabsTrigger>}
               <TabsTrigger value="members" className={ORG_TAB_CLASS}>Members</TabsTrigger>
               <TabsTrigger value="about" className={ORG_TAB_CLASS}>About</TabsTrigger>
               <TabsTrigger value="chats" className={ORG_TAB_CLASS}>Chats</TabsTrigger>
             </TabsList>
             <TabsContent value="events" className="pt-4">
-              <ul aria-label={`${g.name} events`} className="space-y-3" data-testid="group-events">
-                {events.map((e) => (
-                  <li key={e.id}><button type="button" onClick={() => onEvent(e.id)} className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left hover:border-blue-500/50 hover:shadow">
-                    <CalendarDays className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
-                    <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{e.name}</span><span className="block text-sm text-muted-foreground">{e.when} · {e.location}{e.past ? ' · past' : ''}</span></span>
-                    <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                  </button></li>
-                ))}
-              </ul>
+              {events.length > 0 ? (
+                <ul aria-label={`${org.name} events`} className="space-y-3" data-testid="group-events">
+                  {events.map(({ e, past: isPast }) => (
+                    <li key={e.id}><button type="button" onClick={() => onEvent(e.slug, slug)} className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left hover:border-blue-500/50 hover:shadow">
+                      <CalendarDays className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+                      <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{e.title}</span><span className="block text-sm text-muted-foreground">{formatLocalDateTime(e.datetime, { timeZone: e.timezone })} · {e.location}{isPast ? ' · past' : ''}</span></span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    </button></li>
+                  ))}
+                </ul>
+              ) : <RealEmpty>No events yet. Events this group schedules will be listed here.</RealEmpty>}
             </TabsContent>
             <TabsContent value="members" className="pt-4">
-              <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const slug = a?.getAttribute('href')?.split('/p/')[1]; const p = slug && (Object.keys(PEOPLE) as PersonId[]).find((id) => PEOPLE[id].slug === slug); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); } }}>
-                {people.map((p) => <ProdPersonRow key={p} profileId={mockId(p)} slug={PEOPLE[p].slug} name={PEOPLE[p].name} avatarColor={PEOPLE[p].avatarColor} isPledger={PEOPLE[p].pledger} showEarBadge={false} />)}
-              </div>
+              {members.length > 0 ? (
+                <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const p = personaFromSlug(slugOfHref(a)); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); else toast('This opens the real page in the app.'); } }}>
+                  {members.map((m) => <MemberRow key={m.profileId} m={m} />)}
+                </div>
+              ) : <RealEmpty>No members yet.</RealEmpty>}
             </TabsContent>
             <TabsContent value="about" className="pt-4">
               <div className="mx-auto max-w-2xl space-y-6" data-testid="group-about">
                 <div className="space-y-4 rounded-lg border border-border bg-card p-6 md:p-8">
                   <p className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-relaxed">This group runs on the <button type="button" onClick={onJoin} className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">Clarity Group Terms</button>. Every member accepts them on joining.</p>
-                  <p className="break-words text-base leading-relaxed">{g.description}</p>
+                  {org.description ? <p className="break-words text-base leading-relaxed">{org.description}</p> : <p className="text-base text-muted-foreground">This group has not written an About yet.</p>}
                 </div>
                 {!member && <Button onClick={onJoin} className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-700">Join this group</Button>}
               </div>
             </TabsContent>
             <TabsContent value="chats" className="pt-4">
               {chans.length > 0 ? (
-                <ul aria-label={`${g.name} channels`} className="overflow-hidden rounded-xl border bg-white" data-testid="group-chats">
-                  {chans.map((c) => <li key={c.id}><button type="button" onClick={() => onChannel(c.id)} className={cn('flex min-h-12 w-full items-center gap-3 px-3 text-left', HOVER)}><ChannelMark chat={c} size="sm" /><span className="min-w-0 flex-1 truncate text-sm text-gray-900">{rowTitle(st, c, true)}</span><span className="text-xs text-gray-500">{c.eventId ? 'members + attendees' : 'members'}</span></button></li>)}
+                <ul aria-label={`${org.name} channels`} className="overflow-hidden rounded-xl border bg-white" data-testid="group-chats">
+                  {chans.map((c) => <li key={c.id}><button type="button" onClick={() => onChannel(c.id)} className={cn('flex min-h-12 w-full items-center gap-3 px-3 text-left', HOVER)}><ChannelMark chat={c} size="sm" /><span className="min-w-0 flex-1 truncate text-sm text-gray-900">{rowTitle(st, c, true)}</span><span className="text-xs text-gray-500">{c.eventId ? 'RSVPs only' : COPY.membersOnly}</span></button></li>)}
                 </ul>
-              ) : <p className="py-8 text-center text-sm text-muted-foreground" data-testid="group-chats">Join the group to see its chats.</p>}
+              ) : <p className="py-8 text-center text-sm text-muted-foreground" data-testid="group-chats">{chatGroup ? 'Join the group to see its chats.' : 'This group has no chats in the prototype.'}</p>}
             </TabsContent>
           </Tabs>
         </div>
@@ -850,92 +980,129 @@ function GroupPage({ st, groupId, tab, onTab, onBack, onEvent, onChannel, onPers
   );
 }
 
-/** A copy of org-join-page's structure: the real CertificateFrame and CertificateOathBody with the current Clarity Group Terms. */
-function JoinPage({ st, groupId, onBack, onJoined }: { st: State; groupId: string; onBack: () => void; onJoined: () => void }) {
-  const g = GROUPS.find((x) => x.id === groupId);
-  if (!g) return null;
+const MemberRow = ({ m }: { m: OrgMember }) => (
+  <ProdPersonRow profileId={m.profileId} slug={m.slug ?? ''} name={m.name} avatarColor={m.avatarColor ?? '#2563eb'} avatarUrl={m.avatarUrl} isPledger={m.hasPledged} showEarBadge={false} linkToProfile={!!m.slug} />
+);
+
+/** A copy of org-join-page's structure: the real CertificateFrame and CertificateOathBody with the current Clarity Group Terms. Joining is a local overlay. */
+function JoinPage({ st, slug, onBack, onJoined }: { st: State; slug: string; onBack: () => void; onJoined: (name: string) => void }) {
+  const dirQ = useReal().groups;
   const coa = COA_VERSIONS[CURRENT_COA_VERSION];
-  const member = isMember(st, st.viewer, g.id);
   return (
-    <Page testId="join-page" title={member ? `${g.name} — terms` : `Join ${g.name}`} onBack={onBack}>
-      <div className="px-4 pb-16 pt-6">
-        <div className="mx-auto max-w-2xl space-y-6">
-          <div>
-            <h1 className="text-center text-2xl font-bold md:text-3xl">{member ? `${g.name} — terms` : `Join ${g.name}`}</h1>
-            <p className="mt-2 text-center text-muted-foreground">{coa.intro}</p>
-          </div>
-          <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
-            <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
-            <div className="space-y-2 pt-2">
-              {member ? (
-                <Button variant="outline" className="min-h-11 w-full" onClick={onBack}>Back to {g.name}</Button>
-              ) : (
-                <>
-                  <Button onClick={onJoined} size="lg" className="min-h-11 w-full bg-blue-600 py-4 text-base font-semibold text-white hover:bg-blue-700 md:py-6 md:text-lg" data-testid="accept-join">Accept terms &amp; join</Button>
-                  <p className="text-center text-[10px] text-[#1A1A1A]/60 md:text-xs">Accept the terms to join {g.name}.</p>
-                </>
-              )}
+    <Page testId="join-page" title="Join group" onBack={onBack}>
+      <RealBoundary q={dirQ} what="this group" empty={<p>This group does not exist.</p>}>
+        {(d) => {
+          const g = d.orgs.find((o) => o.slug === slug);
+          if (!g) return <p className="px-4 py-8 text-sm text-gray-600">This group does not exist.</p>;
+          const member = memberOfOrg(st, d, g);
+          return (
+            <div className="px-4 pb-16 pt-6">
+              <div className="mx-auto max-w-2xl space-y-6">
+                <div>
+                  <h1 className="text-center text-2xl font-bold md:text-3xl">{member ? `${g.name} — terms` : `Join ${g.name}`}</h1>
+                  <p className="mt-2 text-center text-muted-foreground">{coa.intro}</p>
+                </div>
+                <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
+                  <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
+                  <div className="space-y-2 pt-2">
+                    {member ? (
+                      <Button variant="outline" className="min-h-11 w-full" onClick={onBack}>Back to {g.name}</Button>
+                    ) : (
+                      <>
+                        <Button onClick={() => onJoined(g.name)} size="lg" className="min-h-11 w-full bg-blue-600 py-4 text-base font-semibold text-white hover:bg-blue-700 md:py-6 md:text-lg" data-testid="accept-join">Accept terms &amp; join</Button>
+                        <p className="text-center text-[10px] text-[#1A1A1A]/60 md:text-xs">Accept the terms to join {g.name}.</p>
+                      </>
+                    )}
+                  </div>
+                </CertificateFrame>
+              </div>
             </div>
-          </CertificateFrame>
-        </div>
-      </div>
+          );
+        }}
+      </RealBoundary>
     </Page>
   );
 }
 
+/** What `?real=empty` shows on an event page: the event frame with nobody going. */
+const stubEvent = (slug: string): EventDetail => ({
+  event: { id: `stub-${slug}`, slug, title: 'Event', description: '', datetime: '2099-01-01T12:00:00.000Z', durationMinutes: 60, timezone: 'UTC', location: '', hostId: '', createdAt: CREATED, status: 'upcoming', hostName: '', hostSlug: '' },
+  attendees: [], going: false, org: null,
+});
+
 /**
  * v15 #3: an event page modelled on production EventDetail: the real BannerDisplay, a Back that returns to THIS
  * event's group, the Details / room tab row (production label: "Join now" near the start, else "Event Room"), the
- * title card (date, location), Reserve a seat then the "You're going!" card, the topic-vote area (placeholder: the
- * production TopicsPage reads live topics), the organizer and the Participants card of real PersonRows, and
- * "Open event chat" to the event's channel.
+ * title card (date, location), Reserve a seat then the "You're going!" card (the real rsvpToEvent / cancelRsvp, unchanged),
+ * the topic-vote area (placeholder: the production TopicsPage reads live topics), the organizer and the Participants
+ * card of real PersonRows, and "Open event chat" to the matching channel of the chat mock.
  */
-function EventPage({ st, event, onBack, onGroup, onChat, onPerson }: { st: State; event: EventInfo; onBack: () => void; onGroup: () => void; onChat: () => void; onPerson: (p: PersonId) => void }) {
-  const g = GROUPS.find((x) => x.id === event.groupId)!;
-  const going = isGoing(st, event.id);
-  const people = attendeesOf(st, event.id);
-  const host = PEOPLE[event.host];
-  const chat = st.chats.find((c) => c.eventId === event.id);
+function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: { st: State; slug: string; groupHint?: string; onBack: () => void; onGroup: (groupSlug: string | null) => void; onChat: (chatId: string) => void; onPerson: (p: PersonId) => void }) {
+  const { profileId, onRsvp } = useReal();
+  const q = useRealQuery<EventDetail | null>(() => loadEventDetail(slug, profileId, groupHint), [slug, profileId, groupHint], { emptyValue: stubEvent(slug), isEmpty: () => false });
+  const [busy, setBusy] = useState(false);
+  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else toast('This opens the real page in the app.'); };
+  const frame = (body: ReactNode, title = 'Event') => <Page testId="event-page" title={title} onBack={onBack}>{body}</Page>;
+  if (q.status === 'loading') return frame(<RealSkeleton what="this event" />);
+  if (q.status === 'error') return frame(<RealError what="this event" onRetry={q.retry} />);
+  if (!q.data) return frame(<p className="px-4 py-8 text-sm text-gray-600">This event does not exist.</p>);
+  const { event, attendees, going, org } = q.data;
+  const ended = event.status === 'completed' || new Date(event.datetime).getTime() + event.durationMinutes * 60_000 < Date.now();
+  const cancelled = event.status === 'cancelled';
+  const chatEvent = chatEventOf(event.slug);
+  const chat = chatEvent ? st.chats.find((c) => c.eventId === chatEvent) : undefined;
   const canChat = !!chat && visibleChats(st).some((c) => c.id === chat.id);
-  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const slug = a.getAttribute('href')?.split('/p/')[1]; const p = slug && (Object.keys(PEOPLE) as PersonId[]).find((id) => PEOPLE[id].slug === slug); if (p) onPerson(p); else toast('This opens the real page in the app.'); };
-  const ctx = useContext(EventCtx);
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      const ok = going ? await cancelRsvp(event.id, profileId) : await rsvp(event.id, profileId);
+      if (!ok) toast.error(going ? 'Could not cancel your RSVP.' : 'Could not reserve a seat. The event may be full or over.');
+      else { onRsvp(event.slug, !going); q.refresh(); }
+    } catch {
+      toast.error('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const hostColor = event.hostAvatarColor ?? '#2563eb';
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="event-page" data-group={g.id}>
-      <Header backAlways onBack={onBack} title={<PageTitle>{event.name}</PageTitle>} />
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="event-page" data-group={org?.slug}>
+      <Header backAlways onBack={onBack} title={<PageTitle>{event.title}</PageTitle>} />
       <div className="min-h-0 flex-1 overflow-y-auto bg-background" onClickCapture={keep}>
         {/* Review #2: a short hero on phones, so "Reserve a seat" is in the first screen at 320x640. */}
-        <BannerDisplay bannerUrl={null} fallbackColor={host.avatarColor} altText={event.name} heightClassName="h-16 sm:h-32 md:h-64" />
+        <BannerDisplay bannerUrl={event.bannerUrl ?? null} fallbackColor={hostColor} altText={event.title} heightClassName="h-16 sm:h-32 md:h-64" />
         <div className="mx-auto min-w-0 max-w-6xl px-4 py-3 sm:py-6">
-          {/* Review #2: the header arrow is history Back; this link always goes to the event's OWN group. */}
-          <button type="button" onClick={onGroup} data-testid="event-back-link" className="mb-2 inline-flex min-h-10 max-w-full items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:mb-4"><ArrowLeft className="h-4 w-4 shrink-0" /><span className="truncate">Back to {g.name}</span></button>
-          {!event.past && (
+          {/* Review #2: the header arrow is history Back; this link always goes to the event's OWN group (found from the group's own event lists). */}
+          <button type="button" onClick={() => onGroup(org?.slug ?? null)} data-testid="event-back-link" className="mb-2 inline-flex min-h-10 max-w-full items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:mb-4"><ArrowLeft className="h-4 w-4 shrink-0" /><span className="truncate">Back to {org?.name ?? 'groups'}</span></button>
+          {!ended && !cancelled && (
             <div className="mb-3 flex w-full items-center sm:mb-6 justify-start gap-6 overflow-x-auto border-b border-border">
               <span className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">Details</span>
-              <button type="button" onClick={() => toast('The event room opens here in the app.')} data-testid="event-room-tab" className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground">{event.today ? 'Join now' : 'Event Room'}</button>
+              <button type="button" onClick={() => toast('The event room opens here in the app.')} data-testid="event-room-tab" className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground">Event Room</button>
             </div>
           )}
           <div className="flex flex-col gap-6 lg:flex-row">
             <div className="min-w-0 flex-1">
               <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
-                <h1 className="mb-3 text-2xl font-bold md:mb-4 md:text-3xl">{event.name}</h1>
-                <div className="mb-3 flex items-center gap-3 text-muted-foreground"><CalendarPlus className="h-5 w-5 flex-shrink-0" /><span className="font-medium text-foreground">{event.when}</span></div>
-                <div className="mb-4 flex items-center gap-3 text-muted-foreground">{event.location === 'Online' ? <Video className="h-5 w-5 flex-shrink-0" /> : <MapPin className="h-5 w-5 flex-shrink-0" />}<span>{event.location}</span></div>
+                <h1 className="mb-3 text-2xl font-bold md:mb-4 md:text-3xl">{event.title}</h1>
+                <div className="mb-3 flex items-center gap-3 text-muted-foreground"><CalendarPlus className="h-5 w-5 flex-shrink-0" /><span className="font-medium text-foreground">{formatLocalDateTime(event.datetime, { timeZone: event.timezone })}</span></div>
+                <div className="mb-4 flex items-center gap-3 text-muted-foreground">{/online/i.test(event.location) ? <Video className="h-5 w-5 flex-shrink-0" /> : <MapPin className="h-5 w-5 flex-shrink-0" />}<span>{event.location}</span></div>
                 <div className="mb-4" data-testid="rsvp-area">
-                  {event.past ? <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Ended</Button>
+                  {cancelled ? <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Cancelled</Button>
+                    : ended ? <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Ended</Button>
                     : going ? (
                       <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-4 sm:p-4" data-testid="rsvp-going">
                         <div className="flex items-center gap-3"><CheckCircle2 className="h-6 w-6 flex-shrink-0 text-green-600" /><div><p className="font-semibold text-green-800">You&apos;re going!</p><p className="text-sm text-green-700">See you there</p></div></div>
-                        <div className="mt-2 text-center"><Button variant="ghost" size="sm" className="min-h-10" onClick={() => ctx?.toggle(event.id)} data-testid="cancel-rsvp">Cancel RSVP</Button></div>
+                        <div className="mt-2 text-center"><Button variant="ghost" size="sm" className="min-h-10" disabled={busy} onClick={toggle} data-testid="cancel-rsvp">Cancel RSVP</Button></div>
                       </div>
-                    ) : <Button onClick={() => ctx?.toggle(event.id)} className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" data-testid="rsvp-button">Reserve a seat</Button>}
+                    ) : <Button onClick={toggle} disabled={busy} className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" data-testid="rsvp-button">Reserve a seat</Button>}
                 </div>
-                <p className="text-base leading-relaxed">{event.description}</p>
+                {event.description && <p className="text-base leading-relaxed">{event.description}</p>}
                 <div className="mt-4">
-                  {canChat ? <button type="button" onClick={onChat} className={OUTLINE} data-testid="open-event-chat"><MessagesSquare className="h-4 w-4" />Open event chat</button>
-                    : <p className="text-sm text-muted-foreground" data-testid="event-chat-closed">The event chat opens to the group&apos;s members and the event&apos;s attendees.</p>}
+                  {canChat && chat ? <OutlineButton onClick={() => onChat(chat.id)} data-testid="open-event-chat"><MessagesSquare className="h-4 w-4" />Open event chat</OutlineButton>
+                    : <p className="text-sm text-muted-foreground" data-testid="event-chat-closed">{chat ? 'The event chat opens to the people who RSVP.' : 'This event has no chat in the prototype.'}</p>}
                 </div>
               </div>
-              {!event.past && (
+              {!ended && !cancelled && (
                 /* PLACEHOLDER: production embeds TopicsPage here (live topics and votes); this keeps its frame. */
                 <div id="topic-vote" data-testid="topic-vote" data-placeholder="TopicsPage" className="mb-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5">
                   <h2 className="text-base font-semibold text-gray-900">Vote on tonight&apos;s topics</h2>
@@ -946,11 +1113,14 @@ function EventPage({ st, event, onBack, onGroup, onChat, onPerson }: { st: State
             <div className="space-y-6 lg:w-96 lg:flex-shrink-0">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Event Organizer</h2>
-                <ProdPersonRow profileId={mockId(event.host)} slug={host.slug} name={host.name} avatarColor={host.avatarColor} isPledger={host.pledger} showEarBadge={false} />
+                <ProdPersonRow profileId={event.hostId} slug={event.hostSlug} name={event.hostName} avatarColor={hostColor} avatarUrl={event.hostAvatarUrl} isPledger={event.hostHasPledged ?? false} showEarBadge={false} />
               </div>
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm" data-testid="participants">
-                <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Participants ({people.length})</h2>
-                <div className="space-y-2">{people.map((p) => <ProdPersonRow key={p} profileId={mockId(p)} slug={PEOPLE[p].slug} name={PEOPLE[p].name} avatarColor={PEOPLE[p].avatarColor} isPledger={PEOPLE[p].pledger} showEarBadge={false} />)}</div>
+                <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Participants ({attendees.length})</h2>
+                <div className="space-y-2">
+                  {attendees.map((a) => <ProdPersonRow key={a.profileId} profileId={a.profileId} slug={a.slug} name={a.name} avatarColor={a.avatarColor ?? '#2563eb'} avatarUrl={a.avatarUrl} isPledger={a.hasPledged} earCount={a.earCount} showEarBadge={false} />)}
+                  {attendees.length === 0 && <p className="text-sm text-muted-foreground" data-testid="real-empty">No one has reserved a seat yet.</p>}
+                </div>
               </div>
             </div>
           </div>
@@ -959,35 +1129,89 @@ function EventPage({ st, event, onBack, onGroup, onChat, onPerson }: { st: State
     </div>
   );
 }
-const EventCtx = createContext<{ toggle: (id: string) => void } | null>(null);
 
-/** Letters: production's three tabs (letters-page.tsx: Inbox, Drafts, Published = `sent`), mock rows. */
+/** Letters: production's three tabs (letters-page.tsx: Inbox, Drafts, Published = `sent`), each its own read. */
 const LETTERS_EMPTY: Record<LetterBox, string> = { inbox: 'No letters yet.', drafts: 'No drafts yet.', sent: 'You have not published a letter yet.' };
-/** Review #8: Drafts and Published are the viewer's own (lettersIn); every tab has an empty state. */
-function LettersPage({ st, tab, onTab, onLetter }: { st: State; tab: LetterBox; onTab: (t: LetterBox) => void; onLetter: (id: string) => void }) {
-  const rows = (box: LetterBox) => lettersIn(st, box).length === 0 ? <p className="rounded-lg border bg-white px-4 py-10 text-center text-sm text-gray-500" data-testid={`letters-empty-${box}`}>{LETTERS_EMPTY[box]}</p> : (
-    <ul aria-label={box} className="divide-y rounded-lg border bg-white">
-      {lettersIn(st, box).map((l) => (
-        <li key={l.id}><button type="button" onClick={() => onLetter(l.id)} className={cn('flex min-h-16 w-full items-center gap-3 px-4 py-2 text-left', HOVER)} data-testid="letter-row">
-          <Avatar person={l.author} size="sm" />
-          <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold text-gray-900">{l.title}</span><span className="block text-xs text-gray-500">{PEOPLE[l.author].name} · {l.date}</span></span>
-          {box === 'drafts' && <LetterStatusBadge status="in_progress" label="Draft" />}
-        </button></li>
-      ))}
-    </ul>
+const LETTERS_WHAT: Record<LetterBox, string> = { inbox: 'your inbox', drafts: 'your drafts', sent: 'your published letters' };
+const useLettersQuery = (box: LetterBox) => {
+  const { profileId, name } = useReal();
+  return useRealQuery<LetterRowData[]>(() => loadLetters(box, profileId, name), [box, profileId, name], { emptyValue: [], isEmpty: (rows) => rows.length === 0 });
+};
+
+/** A delivery's status in words (production's sent-tab labels). */
+const DELIVERY_STATUS: Record<string, string> = { sent: 'Sent', in_progress: 'In progress', completed: 'Completed' };
+
+/**
+ * One letter. v16: the card body opens nothing; only its buttons act (Read / Results, Edit + Prepare, Open overview). The buttons
+ * show on hover on a desktop and are always there on a touch screen. A published letter keeps its expander (who it went to).
+ */
+function LetterCard({ l }: { l: LetterRowData }) {
+  const [open, setOpen] = useState(false);
+  const deliveries = useRealQuery<LetterDelivery[]>(() => loadDeliveries(l.id), [l.id], { emptyValue: [], isEmpty: (d) => d.length === 0, enabled: l.box === 'sent' && open });
+  return (
+    <li className="group rounded-lg border bg-white" data-testid="letter-card" data-box={l.box}>
+      <div className="flex items-center gap-3 px-3 py-2">
+        {l.box === 'sent' && (
+          <button type="button" aria-expanded={open} aria-label={open ? 'Collapse' : 'Expand'} onClick={() => setOpen(!open)} className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500', HOVER)}>
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        )}
+        <WhoAvatar slug={l.whoSlug} name={l.who} />
+        <div className="min-w-0 flex-1">
+          <p className={cn('truncate text-[15px] text-gray-900', l.unread ? 'font-bold' : 'font-semibold')} data-testid="letter-title">{l.title}</p>
+          <p className="truncate text-xs text-gray-500">{l.summary ? `${l.summary} · Updated ${l.when}` : `${l.who} · ${l.when}`}</p>
+        </div>
+        {l.box === 'drafts' && <LetterStatusBadge status="in_progress" label="Draft" />}
+        <div data-testid="letter-actions" className="flex shrink-0 items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+          {l.actions.map((a) => (
+            <Button key={a.label} asChild size="sm" variant={a.primary ? 'default' : 'outline'} className={cn('min-h-10', a.primary && 'bg-blue-600 text-white hover:bg-blue-700')}>
+              <a href={a.href} target="_blank" rel="noreferrer">{a.label}</a>
+            </Button>
+          ))}
+        </div>
+      </div>
+      {open && (
+        <div className="border-t bg-gray-50 px-3 py-2" data-testid="letter-expanded">
+          <RealBoundary q={deliveries} what="who this letter went to" empty={<p>Not delivered to anyone yet.</p>}>
+            {(rows) => (
+              <ul aria-label="Deliveries" className="divide-y">
+                {rows.map((x) => (
+                  <li key={x.id} className="flex min-h-12 items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate text-gray-900">{x.receiver_name ?? x.receiver_email ?? 'Link respondent'}</span>
+                    <span className="text-gray-500">{DELIVERY_STATUS[x.status] ?? x.status}</span>
+                    {(x.status === 'completed' || x.status === 'in_progress') && (
+                      <Button asChild size="sm" variant="outline" className="min-h-10"><a href={`/letter/${l.id}/results?delivery=${x.id}`} target="_blank" rel="noreferrer">Results</a></Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </RealBoundary>
+        </div>
+      )}
+    </li>
   );
-  const inboxN = lettersIn(st, 'inbox').length;
+}
+
+function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => void }) {
+  const queries: Record<LetterBox, Query<LetterRowData[]>> = { inbox: useLettersQuery('inbox'), drafts: useLettersQuery('drafts'), sent: useLettersQuery('sent') };
+  const rows = (box: LetterBox) => (
+    <RealBoundary q={queries[box]} what={LETTERS_WHAT[box]} empty={<p data-testid={`letters-empty-${box}`}>{LETTERS_EMPTY[box]}</p>}>
+      {(list) => <ul aria-label={box} className="space-y-2">{list.map((l) => <LetterCard key={l.id} l={l} />)}</ul>}
+    </RealBoundary>
+  );
+  const unreadN = queries.inbox.data?.filter((l) => l.unread).length;
   return (
     <Page testId="letters-page" title="Clarity Letters">
       <div className="mx-auto max-w-2xl px-4 py-6">
         <Tabs value={tab} onValueChange={(v) => onTab(v as LetterBox)}>
           <div className="flex items-end justify-between">
             <TabsList className="h-auto w-auto justify-start rounded-none border-b p-0" data-testid="letter-tabs">
-              <TabsTrigger value="inbox" aria-label={`Inbox, ${inboxN} unread`} className={LETTER_TAB_CLASS}>Inbox ({inboxN})</TabsTrigger>
+              <TabsTrigger value="inbox" aria-label={unreadN === undefined ? 'Inbox' : `Inbox, ${unreadN} unread`} className={LETTER_TAB_CLASS}>Inbox{unreadN === undefined ? '' : ` (${unreadN})`}</TabsTrigger>
               <TabsTrigger value="drafts" className={LETTER_TAB_CLASS}>Drafts</TabsTrigger>
               <TabsTrigger value="sent" className={LETTER_TAB_CLASS}>Published</TabsTrigger>
             </TabsList>
-            <Button size="sm" className="mb-1 bg-blue-500 text-white hover:bg-blue-700" onClick={() => toast('New Draft opens the letter editor in the app.')}><Plus className="h-4 w-4" />New Draft</Button>
+            <PrimaryButton size="sm" className="mb-1" onClick={() => toast('New Draft opens the letter editor in the app.')}><Plus className="h-4 w-4" />New Draft</PrimaryButton>
           </div>
           {(['inbox', 'drafts', 'sent'] as const).map((b) => <TabsContent key={b} value={b} className="mt-4">{rows(b)}</TabsContent>)}
         </Tabs>
@@ -996,46 +1220,113 @@ function LettersPage({ st, tab, onTab, onLetter }: { st: State; tab: LetterBox; 
   );
 }
 
-function LetterView({ st, letterId, onBack }: { st: State; letterId: string; onBack: () => void }) {
-  const l = (['inbox', 'drafts', 'sent'] as const).flatMap((b) => lettersIn(st, b)).find((x) => x.id === letterId);
-  if (!l) return null;
-  return (
-    <Page testId="letter-view" title="Letter" onBack={onBack}>
-      <article className="mx-auto w-full max-w-2xl px-4 py-6">
-        <h2 className="text-xl font-semibold text-gray-900">{l.title}</h2>
-        <p className="mt-1 flex items-center gap-2 text-sm text-gray-500"><Avatar person={l.author} size="xs" />{PEOPLE[l.author].name} · {l.date}</p>
-        <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-gray-800">{l.body}</p>
-      </article>
-    </Page>
-  );
+const EMPTY_FEED: FeedData = { stories: [], points: [], storyPoints: new Map(), pointStories: new Map() };
+
+/** A feed filter in the spirit of production's search box: words match the text or any tag (a leading # is ignored). */
+const feedMatches = (needle: string, text: string, tags: string[]) => {
+  const n = needle.replace(/^#/, '');
+  return !n || text.toLowerCase().includes(n) || tags.some((t) => t.toLowerCase().includes(n));
+};
+
+/**
+ * Production's own links (a next event, a group, All events / All groups) lead to routes the prototype does not have:
+ * the click is answered inside the prototype with the matching screen.
+ */
+function useRailLinks(go: { event: (slug: string) => void; group: (slug: string) => void; events: () => void; groups: () => void }) {
+  return (e: MouseEvent) => {
+    const a = (e.target as HTMLElement).closest('a');
+    if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    const href = a.getAttribute('href') ?? '';
+    const slug = href.split('/').filter(Boolean)[1];
+    if (href === EVENTS_LIST_TO) go.events();
+    else if (href === EVENTS_NAV_TO) go.groups();
+    else if (href.startsWith(`${EVENTS_NAV_TO}/`) && slug) go.group(slug);
+    else if (href.startsWith('/events/') && slug) go.event(slug);
+    else toast('This opens the real page in the app.');
+  };
 }
 
-/** Home = production's feed structure (feed-page.tsx): Stories (default) and Points tabs with counts, the real cards. */
-function HomePage({ st, tab, onTab, onBrowse }: { st: State; tab: 'stories' | 'points'; onTab: (t: 'stories' | 'points') => void; onBrowse: () => void }) {
-  const visible = st.empty ? [] : SHAREABLE.filter((x) => x.author === st.viewer || canMessage(st.viewer, x.author) || true);
-  const stories = visible.filter((x) => x.kind === 'story');
-  const points = visible.filter((x) => x.kind === 'point');
+/**
+ * Home = production's feed page (feed-page.tsx): the search field, Stories (default) and Points tabs with counts, the real
+ * cards of the public feed, and the production widgets: Next events and Groups (HomeSideRail on a desktop, HomeTopBlock on a phone).
+ */
+function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onTab: (t: 'stories' | 'points') => void; onBrowse: () => void; go: Parameters<typeof useRailLinks>[0] }) {
+  const { profileId } = useReal();
+  const [text, setText] = useState('');
+  const needle = text.trim().toLowerCase();
+  const q = useRealQuery<FeedData>(() => loadFeed(profileId), [profileId], { emptyValue: EMPTY_FEED, isEmpty: (d) => d.stories.length === 0 && d.points.length === 0 });
+  const rail = useRailLinks(go);
   const tabBtn = (t: 'stories' | 'points', label: string) => (
     <button role="tab" aria-selected={tab === t} onClick={() => onTab(t)} className={`relative min-h-10 whitespace-nowrap px-2 py-2 text-sm font-medium transition-colors sm:px-4 ${tab === t ? 'text-blue-600' : 'text-muted-foreground hover:text-foreground'}`}>
       {label}{tab === t && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
     </button>
   );
+  const nothing = (what: 'stories' | 'points') => (
+    <div className="flex flex-col items-center gap-3 py-12 text-center" data-testid="home-empty">
+      <p className="text-sm text-muted-foreground">{needle ? `No ${what} match “${text.trim()}”.` : `No ${what} yet. Join a group to see what its people share.`}</p>
+      {!needle && <OutlineButton onClick={onBrowse}><Search className="h-4 w-4" />Browse groups</OutlineButton>}
+    </div>
+  );
   return (
     <Page testId="home-page" title="Home">
-      <div className="mx-auto w-full max-w-2xl px-4 py-6">
-        <div role="tablist" className="mb-4 flex items-center gap-0 border-b border-border" data-testid="feed-tabs">
-          {tabBtn('stories', `Stories (${stories.length})`)}
-          {tabBtn('points', `Points (${points.length})`)}
+      <div className="mx-auto flex w-full max-w-5xl justify-center gap-8 px-4 py-6">
+        <div className="w-full min-w-0 max-w-2xl">
+          <div onClickCapture={rail} data-testid="home-top-widgets"><HomeTopBlock /></div>
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search stories and points..." aria-label="Search stories and points" className="h-10 pl-9 text-base md:text-sm" data-testid="home-search" />
+          </div>
+          <RealBoundary q={q} what="the feed" skeleton={<div data-testid="real-skeleton" role="status" aria-busy="true" aria-label="Loading the feed"><FeedSkeleton /></div>} empty={nothing(tab)}>
+            {(d) => {
+              const stories = d.stories.filter((s) => feedMatches(needle, s.content, s.tags ?? []));
+              const points = d.points.filter((p) => feedMatches(needle, p.statement, p.tags ?? []));
+              return (
+                <>
+                  <div role="tablist" className="mb-4 flex items-center gap-0 border-b border-border" data-testid="feed-tabs">
+                    {tabBtn('stories', `Stories (${stories.length})`)}
+                    {tabBtn('points', `Points (${points.length})`)}
+                  </div>
+                  <div role="tabpanel" className="space-y-4" data-testid={`feed-${tab}`}>
+                    {tab === 'stories'
+                      ? stories.map((s) => <div key={s.id} className="w-full"><RealStoryCard story={s} linkedPoints={d.storyPoints.get(s.id)} testId="feed-story" /></div>)
+                      : points.map((p) => <div key={p.id} className="w-full"><RealPointCard point={p} linkedStories={d.pointStories.get(p.id)} testId="feed-point" /></div>)}
+                    {(tab === 'stories' ? stories : points).length === 0 && nothing(tab)}
+                  </div>
+                </>
+              );
+            }}
+          </RealBoundary>
         </div>
-        <div role="tabpanel" className="space-y-4" data-testid={`feed-${tab}`}>
-          {(tab === 'stories' ? stories : points).map((x) => <ShareCard key={x.id} item={x} full />)}
-          {(tab === 'stories' ? stories : points).length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-12 text-center" data-testid="home-empty">
-              <p className="text-sm text-muted-foreground">{tab === 'stories' ? 'No stories yet.' : 'No points yet.'} Join a group to see what its people share.</p>
-              <button type="button" onClick={onBrowse} className={OUTLINE}><Search className="h-4 w-4" />Browse groups</button>
-            </div>
-          )}
-        </div>
+        <div onClickCapture={rail} data-testid="home-side-widgets"><HomeSideRail /></div>
+      </div>
+    </Page>
+  );
+}
+
+/** The Events place: every public event, upcoming then past, as production's /events/list lists them (the same EventCard). */
+function EventsPage({ onEvent }: { onEvent: (slug: string) => void }) {
+  const { user } = useAuth();
+  const q = useRealQuery<EventsList>(loadEventsList, [], { emptyValue: { upcoming: [], past: [] }, isEmpty: (d) => d.upcoming.length + d.past.length === 0 });
+  const open = (e: MouseEvent) => {
+    const a = (e.target as HTMLElement).closest('a');
+    if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    const slug = (a.getAttribute('href') ?? '').split('/').filter(Boolean)[1];
+    if (slug) onEvent(slug); else toast('This opens the real page in the app.');
+  };
+  const grid = (label: string, list: EventsList['upcoming']) => list.length > 0 && (
+    <section aria-label={label}>
+      <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{label} ({list.length})</h2>
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">{list.map((ev) => <li key={ev.id}><EventCard event={ev} isLoggedIn={!!user} userId={user?.id} /></li>)}</ul>
+    </section>
+  );
+  return (
+    <Page testId="events-page" title="Events">
+      <div className="mx-auto max-w-4xl space-y-8 px-4 py-6" onClickCapture={open}>
+        <RealBoundary q={q} what="events" empty={<p>No events yet.</p>}>
+          {(d) => <>{grid('Upcoming', d.upcoming)}{grid('Past', d.past)}</>}
+        </RealBoundary>
       </div>
     </Page>
   );
@@ -1078,127 +1369,156 @@ function SettingsPage({ onBack }: { onBack: () => void }) {
   );
 }
 
-/** Phone Profile tab: the same account menu as a page. */
-function MePage({ viewer, a }: { viewer: ViewerId; a: MenuActions }) {
-  return (
-    <Page testId="me-page" title={PEOPLE[viewer].name}>
-      <div role="menu" aria-label="My account" className="px-2 py-2" data-testid="me-menu"><ProfileMenuItems viewer={viewer} a={a} onPick={(f) => f} tools /></div>
-    </Page>
-  );
-}
-
-/** The signed-out stub (Log Out is a mock). */
-function SignedOut({ onLogIn }: { onLogIn: () => void }) {
+/** Nobody signed in, or someone who is not a Bob or Dana test persona: the page offers the two personas. */
+function SignedOut({ busy, error, signedInName, onSignIn }: { busy: ViewerId | null; error: string | null; signedInName?: string; onSignIn: (v: ViewerId) => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center" data-testid="signed-out">
-      <p className="text-lg font-semibold text-gray-900">You are logged out.</p>
-      <p className="text-sm text-gray-600">Stand-in for production&apos;s signed-out screen.</p>
-      <button type="button" onClick={onLogIn} className={BLUE}>Log In</button>
+      <p className="text-lg font-semibold text-gray-900">{signedInName ? 'You are not signed in as a test persona.' : 'You are signed out.'}</p>
+      <p className="max-w-md text-sm text-gray-600">This prototype reads the test project as one of its seeded personas. Sign in as one to continue.</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {LENSES.map((l, i) => (i === 0
+          ? <PrimaryButton key={l.id} disabled={busy !== null} onClick={() => onSignIn(l.id)} data-testid={`sign-in-${l.id}`}>{busy === l.id ? `Signing in as ${l.label}…` : `Sign in as ${l.label}`}</PrimaryButton>
+          : <OutlineButton key={l.id} disabled={busy !== null} onClick={() => onSignIn(l.id)} data-testid={`sign-in-${l.id}`}>{busy === l.id ? `Signing in as ${l.label}…` : `Sign in as ${l.label}`}</OutlineButton>))}
+      </div>
+      {error && <p role="alert" data-testid="sign-in-error" className="max-w-md text-sm font-medium text-red-700">{error}</p>}
     </div>
   );
 }
 
-const asAgreement = (st: State, other: PersonId, status: 'active' | 'pending'): ClarityAgreement => {
-  const party = (p: PersonId) => ({ profileId: mockId(p), name: PEOPLE[p].name, slug: PEOPLE[p].slug, avatarColor: PEOPLE[p].avatarColor, avatarUrl: null, hasPledged: PEOPLE[p].pledger });
-  return {
-    id: `ag-${st.viewer}-${other}`, displayId: 'A-0000', creatorProfileId: mockId(st.viewer), partnerProfileId: mockId(other), partnerEmail: PEOPLE[other].email, partnerDisplayName: PEOPLE[other].name,
-    termsText: '', status, visibility: 'private', invitationToken: 'mock', invitationExpiresAt: CREATED, createdAt: CREATED, partnerSignedAt: status === 'active' ? CREATED : null,
-    terminatedAt: null, terminatedBy: null, agreementVersion: CURRENT_AGREEMENT_VERSION, creator: party(st.viewer), partner: party(other),
+/** A copy of profile-connections-page's structure ("My Partners"): the real AgreementRow per agreement the service returned; a row opens our 1:1 when the partner is a test persona. Resend and Cancel are never offered (they write and send mail). */
+function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onPartner: (p: PersonId) => void; onInvite: () => void }) {
+  const { profileId, partners: q } = useReal();
+  const invite = <PrimaryButton onClick={onInvite} data-testid="partners-invite">{COPY.invite}</PrimaryButton>;
+  const open = (a: ClarityAgreement) => (e: MouseEvent) => {
+    if (!(e.target as HTMLElement).closest('a')) return;
+    e.preventDefault(); e.stopPropagation();
+    const other = a.creator?.profileId === profileId ? a.partner : a.creator;
+    const p = personaFromSlug(other?.slug);
+    if (p) onPartner(p); else toast('This opens the real page in the app.');
   };
-};
-
-/** A copy of profile-connections-page's structure ("My Partners"): the real AgreementRow per agreement; a row opens our 1:1. */
-function PartnersPage({ st, onBack, onPartner, onNew }: { st: State; onBack: () => void; onPartner: (p: PersonId) => void; onNew: () => void }) {
-  const all = (Object.keys(PEOPLE) as PersonId[]).filter((p) => p !== st.viewer);
-  const active = all.filter((p) => partnerState(st, p) === 'partner');
-  const pending = all.filter((p) => partnerState(st, p) === 'pending');
-  const has = active.length + pending.length > 0;
-  const list = (ps: PersonId[], status: 'active' | 'pending') => (
-    <ul className="space-y-0.5">{ps.map((p) => <div key={p} data-partner={p} onClickCapture={(e) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); e.stopPropagation(); onPartner(p); } }}><AgreementRow agreement={asAgreement(st, p, status)} currentProfileId={mockId(st.viewer)} /></div>)}</ul>
+  const list = (rows: ClarityAgreement[]) => (
+    <ul className="space-y-0.5">{rows.map((a) => <div key={a.id} data-agreement={a.id} onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></div>)}</ul>
   );
   return (
     <Page testId="partners-page" title="Partners" onBack={onBack}>
       <div className="mx-auto mt-3 max-w-2xl px-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">My Partners</h1>
-          {has && <Button className="min-h-11 bg-blue-600 text-white hover:bg-blue-700/90" onClick={onNew}>Invite a new partner</Button>}
-        </div>
-        <section aria-label="Partner Agreements">
-          {!has ? (
-            <div className="py-8 text-center"><p className="mb-4 text-sm text-muted-foreground">No partners yet. Invite someone to get started.</p><Button className="min-h-11 bg-blue-600 text-white" onClick={onNew}>Invite a new partner</Button></div>
-          ) : (
-            <div className="space-y-6">
-              {active.length > 0 && <div><h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Active ({active.length})</h2>{list(active, 'active')}</div>}
-              {pending.length > 0 && <div><h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pending invitation ({pending.length})</h2>{list(pending, 'pending')}</div>}
-            </div>
-          )}
-        </section>
+        <RealBoundary q={q} what="your partners" empty={<><p className="text-sm text-muted-foreground">No partners yet. Invite someone to get started.</p>{invite}</>}>
+          {(d) => {
+            const active = d.agreements.filter((a) => a.status === 'active');
+            const pending = d.agreements.filter((a) => a.status === 'pending');
+            return (
+              <>
+                <div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-bold text-foreground">My Partners</h1>{invite}</div>
+                <section aria-label="Partner Agreements" className="space-y-6">
+                  {d.incoming.length > 0 && (
+                    <div>
+                      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Invited to sign ({d.incoming.length})</h2>
+                      <ul className="space-y-0.5">{d.incoming.map((a) => (
+                        <li key={a.id} data-testid="incoming-invite"><a href={`/agreements/${a.id}/accept?token=${encodeURIComponent(a.invitationToken)}`} target="_blank" rel="noreferrer" aria-label={`Invitation from ${a.creator?.name ?? 'someone'}`} className={cn('flex min-h-14 items-center gap-3 rounded-lg px-4 py-3', HOVER)}>
+                          <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-foreground">{a.creator?.name ?? 'Someone'}</span><span className="block truncate text-xs text-muted-foreground">Invited you to co-sign</span></span>
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Review</span>
+                        </a></li>
+                      ))}</ul>
+                    </div>
+                  )}
+                  {active.length > 0 && <div><h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Active ({active.length})</h2>{list(active)}</div>}
+                  {pending.length > 0 && <div><h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{COPY.inviteSent} ({pending.length})</h2>{list(pending)}</div>}
+                </section>
+              </>
+            );
+          }}
+        </RealBoundary>
       </div>
     </Page>
   );
 }
 
+/** Who an invite goes to: a person picked in the app, or an address someone typed. */
+type Recipient = { kind: 'person'; id: PersonId } | { kind: 'email'; email: string };
+
 /**
- * v11's New partner / Invite as partner page (ClarityChatV11.tsx:451, 474-482): the production AgreementCertificate in
- * creation mode inside CertificatePageShell, then Seal & Send. With `who`, the partner is fixed. Without it (review #5)
- * the partner is PICKED from a people list that filters as you type; Seal & Send stays hidden until someone is picked,
- * so no "sent" ever shows without an invite being created.
+ * Invite partner: production's creation certificate (the same AgreementCertificate and its "Use suggested terms") around ONE
+ * field, "Name or email". A person picked here is invited at their persona address; a typed address is checked FIRST.
+ * SAFETY: `isSeededPersonaEmail` runs before anything else on Send. An address that is not a seeded persona is refused with an
+ * inline message and no request is made at all (no profile lookup, no agreement, no mail). The terms are required, as in production.
  */
 function PartnerInvitePage({ st, who, onBack, onSent }: { st: State; who?: PersonId; onBack: () => void; onSent: (p: PersonId) => void }) {
-  const [picked, setPicked] = useState<PersonId | undefined>(who);
+  const { name: myName } = useReal();
+  const [recipient, setRecipient] = useState<Recipient | null>(who ? { kind: 'person', id: who } : null);
   const [q, setQ] = useState('');
+  const [typedName, setTypedName] = useState('');
+  const [terms, setTerms] = useState('');
+  const [termsError, setTermsError] = useState<string | undefined>();
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const s = q.trim().toLowerCase();
-  const people = (Object.keys(PEOPLE) as PersonId[]).filter((p) => p !== st.viewer && partnerState(st, p) === 'none'
-    && (!s || PEOPLE[p].name.toLowerCase().includes(s) || PEOPLE[p].slug.includes(s) || PEOPLE[p].email === s));
+  const typedEmail = s.includes('@') ? q.trim() : null;
+  const people = (Object.keys(PEOPLE) as PersonId[]).filter((p) => p !== st.viewer && partnerState(st, p) === 'none' && (!s || PEOPLE[p].name.toLowerCase().includes(s) || PEOPLE[p].slug.includes(s)));
+  const pickEmail = (email: string) => {
+    const persona = PERSONA_IDS.find((id) => personaEmail(id) === email.toLowerCase());
+    setRecipient(persona ? { kind: 'person', id: persona } : { kind: 'email', email });
+    setProblem(null);
+  };
+  const email = recipient?.kind === 'person' ? personaEmail(recipient.id) : recipient?.email ?? '';
+  const submit = async () => {
+    if (!recipient) return;
+    /* The safety gate comes first: for anything but a seeded persona nothing below this line runs, so no request is made. */
+    if (!isSeededPersonaEmail(email)) { setProblem(COPY.inviteRefused); return; }
+    const person = recipient.kind === 'person' ? recipient.id : PERSONA_IDS.find((id) => personaEmail(id) === email.toLowerCase())!;
+    const name = PEOPLE[person].name;
+    setTermsError(terms.trim() ? undefined : 'Terms cannot be empty');
+    if (!terms.trim()) return;
+    setBusy(true); setProblem(null);
+    const r = await sendPartnerInvite({ email, personId: person, name, termsText: terms });
+    setBusy(false);
+    if (!r.ok) { setProblem(r.message); return; }
+    onSent(person);
+  };
   return (
-    <Page testId="partner-invite-page" title={COPY.newPartner} onBack={onBack}>
+    <Page testId="partner-invite-page" title={COPY.invite} onBack={onBack}>
       <div className="mx-auto max-w-3xl space-y-3 py-4">
         {!who && (
           <div className="px-4" data-testid="partner-picker">
-            {picked ? (
+            {recipient ? (
               <div className="flex min-h-12 items-center gap-3 rounded-lg border bg-white px-3">
-                <Avatar person={picked} size="sm" /><span className="min-w-0 flex-1 truncate text-[15px] text-gray-900">{PEOPLE[picked].name}</span>
-                <button type="button" onClick={() => setPicked(undefined)} className={cn(OUTLINE, 'shrink-0')}>Change</button>
+                {recipient.kind === 'person' ? <Avatar person={recipient.id} size="sm" /> : <UserIcon className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />}
+                <span className="min-w-0 flex-1 truncate text-[15px] text-gray-900">{recipient.kind === 'person' ? PEOPLE[recipient.id].name : recipient.email}</span>
+                <OutlineButton className="shrink-0" onClick={() => { setRecipient(null); setProblem(null); }}>Change</OutlineButton>
               </div>
             ) : (
               <>
                 <label className="flex min-h-11 items-center gap-2 rounded-full bg-gray-100 px-3 text-gray-500">
                   <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people by name" aria-label="Search people" className="min-w-0 flex-1 bg-transparent text-base text-gray-900 outline-none md:text-sm" />
+                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or email" aria-label="Name or email" className="min-w-0 flex-1 bg-transparent text-base text-gray-900 outline-none md:text-sm" />
                 </label>
                 <ul aria-label="People" className="mt-2 overflow-hidden rounded-lg border bg-white">
-                  {people.map((p) => <PersonRow key={p} p={p} onPerson={setPicked} />)}
-                  {people.length === 0 && <li className="px-4 py-6 text-center text-sm text-gray-500">No one matches.</li>}
+                  {typedEmail && (
+                    <li><button type="button" onClick={() => pickEmail(typedEmail)} data-testid="use-email" className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left text-[15px] text-gray-900', HOVER)}>Invite {typedEmail}</button></li>
+                  )}
+                  {people.map((p) => <PersonRow key={p} p={p} onPerson={(id) => { setRecipient({ kind: 'person', id }); setProblem(null); }} />)}
+                  {people.length === 0 && !typedEmail && <li className="px-4 py-6 text-center text-sm text-gray-500">No one matches.</li>}
                 </ul>
               </>
             )}
           </div>
         )}
-        {picked && (
-          <>
+        {recipient && (
+          <form onSubmit={(e) => { e.preventDefault(); void submit(); }}>
             <CertificatePageShell className="py-2">
-              <AgreementCertificate variant="creation" agreementVersion={CURRENT_AGREEMENT_VERSION} creatorName={PEOPLE[st.viewer].name} creatorSignedAt={CREATED}
-                partnerNameValue={PEOPLE[picked].name} partnerNameReadOnly onPartnerNameChange={() => {}} termsText="" onTermsChange={() => {}} />
+              <AgreementCertificate variant="creation" agreementVersion={CURRENT_AGREEMENT_VERSION} creatorName={myName} creatorSignedAt={CREATED}
+                partnerNameValue={recipient.kind === 'person' ? PEOPLE[recipient.id].name : typedName} partnerNameReadOnly={recipient.kind === 'person'}
+                partnerNamePlaceholder="Full name of your partner" onPartnerNameChange={setTypedName}
+                termsText={terms} termsPlaceholder={TERMS_PLACEHOLDER} termsError={termsError} onTermsChange={(t) => { setTerms(t); setTermsError(undefined); }}
+                footer={
+                  <div className="space-y-3">
+                    {problem && <p role="alert" data-testid="invite-problem" className="text-sm font-medium text-red-700">{problem}</p>}
+                    <PrimaryButton type="submit" className="w-full" disabled={busy} data-testid="send-invite">{busy ? 'Sending…' : COPY.sendInvite}</PrimaryButton>
+                  </div>
+                } />
             </CertificatePageShell>
-            <div className="px-4"><Button type="button" className={cn(BLUE, 'w-full')} onClick={() => onSent(picked)} data-testid="seal-and-send">{COPY.sealAndSend}</Button></div>
-          </>
+          </form>
         )}
       </div>
-    </Page>
-  );
-}
-
-/** v11's New chat: pick someone I can message. */
-function NewChatPage({ st, onBack, onPick, onBrowse }: { st: State; onBack: () => void; onPick: (p: PersonId) => void; onBrowse: () => void }) {
-  const people = contactsOf(st);
-  return (
-    <Page testId="new-chat-page" title={COPY.newChat} onBack={onBack}>
-      {people.length > 0 ? <ul className="py-2">{people.map((p) => <PersonRow key={p} p={p} onPerson={onPick} />)}</ul> : (
-        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" data-testid="no-contacts">
-          <p className="text-sm text-gray-600">Join a group or RSVP to an event to message people there.</p>
-          <button type="button" onClick={onBrowse} className={OUTLINE}><Search className="h-4 w-4" />Browse groups</button>
-        </div>
-      )}
     </Page>
   );
 }
@@ -1233,12 +1553,13 @@ function ForwardFlow({ st, msgId, onDone, onClose }: { st: State; msgId: string;
             {src.text && <p className="mt-1 line-clamp-4 text-sm text-gray-900">{src.text}</p>}
             {src.voice && <VoiceNote secs={src.voice} />}
             {src.share && <ShareCard item={src.share} />}
+            {repliesOf(st, src.id).length > 0 && <p className="mt-2 text-sm font-semibold text-blue-700" data-testid="forward-thread-note">{threadLabel(repliesOf(st, src.id).length)}, forwarded with it</p>}
           </div>
           <label className="mt-3 block text-sm text-gray-700">Add a note (optional)
             <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border px-3 text-base outline-none focus:border-gray-500 md:text-sm" />
           </label>
         </div>
-        <div className="border-t p-3"><button type="button" onClick={() => onDone(target.id, note)} className={cn(BLUE, 'w-full')}><Forward className="h-4 w-4" />Send</button></div>
+        <div className="border-t p-3"><PrimaryButton className="w-full" onClick={() => onDone(target.id, note)}><Forward className="h-4 w-4" />Send</PrimaryButton></div>
       </Sheet>
     );
   }
@@ -1255,11 +1576,13 @@ function ForwardFlow({ st, msgId, onDone, onClose }: { st: State; msgId: string;
 }
 
 
-/** The composer's Share (v15 #8, was 📎 Attach): Points and Stories tabs, each item in its production card with Share beside it. */
-function AttachDialog({ st, onPick, onClose }: { st: State; onPick: (s: Shareable) => void; onClose: () => void }) {
+/** The composer's Share (v15 #8, was 📎 Attach): MY points and stories (the ones I hold or wrote), each in its production card with Share beside it. */
+function AttachDialog({ onPick, onClose }: { onPick: (s: Shareable) => void; onClose: () => void }) {
+  const { profileId } = useReal();
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<'point' | 'story'>('point');
-  const items = findShareable(st, q, kind);
+  const mine = useRealQuery<Shareable[]>(() => loadMyShareables(profileId), [profileId], { emptyValue: [], isEmpty: (l) => l.length === 0 });
+  const items = mine.data ? filterShareables(mine.data, q, kind) : [];
   return (
     <Sheet wide label={COPY.shareTitle} onClose={onClose} title={COPY.shareTitle}>
       <div className="space-y-2 px-3 pt-3">
@@ -1271,58 +1594,47 @@ function AttachDialog({ st, onPick, onClose }: { st: State; onPick: (s: Shareabl
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search words or #tags" aria-label="Search points and stories" className="min-w-0 flex-1 bg-transparent text-base text-gray-900 outline-none md:text-sm" />
         </label>
       </div>
-      <ul className="space-y-3 overflow-y-auto p-3" data-testid="attach-results" data-kind={kind}>
-        {items.map((s) => (
-          <li key={s.id} className="flex flex-col gap-1">
-            <ShareCard item={s} full />
-            <button type="button" onClick={() => onPick(s)} aria-label={`${COPY.share} ${s.title}`} className={cn(OUTLINE, 'self-end')}>{COPY.share}</button>
-          </li>
-        ))}
-        {items.length === 0 && <li className="px-3 py-8 text-center text-sm text-gray-500">{kind === 'point' ? 'No points match.' : 'No stories match.'} Try fewer words or another #tag.</li>}
-      </ul>
-    </Sheet>
-  );
-}
-
-function GroupInfo({ st, groupId, onClose, onPage, onLeave, onChannel }: { st: State; groupId: string; onClose: () => void; onPage: () => void; onLeave: () => void; onChannel: (id: string) => void }) {
-  const g = GROUPS.find((x) => x.id === groupId)!;
-  const member = isMember(st, st.viewer, groupId);
-  const chans = groupSections(st).find((x) => x.groupId === groupId)?.chats ?? [];
-  const tile = 'flex min-h-16 flex-1 flex-col items-center justify-center gap-1 rounded-xl border bg-white text-sm text-gray-900 hover:bg-gray-50';
-  return (
-    <Sheet label="Group info" onClose={onClose} title="Group info">
-      <div className="overflow-y-auto bg-gray-50 pb-3" data-testid="group-info">
-        <div className="flex flex-col items-center px-4 pb-4 pt-5 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white"><LandmarkIcon className="h-7 w-7" aria-hidden="true" /></span>
-          <h2 className="mt-2 text-lg font-semibold text-gray-900">{g.name}</h2>
-          <p className="text-sm text-gray-500">{groupPeople(groupId).length} members</p>
-        </div>
-        <div className="flex gap-2 px-4">
-          <button type="button" className={tile} onClick={onPage}><LandmarkIcon className="h-5 w-5" />Group page</button>
-          {member && <button type="button" className={tile} onClick={onLeave}><LogOut className="h-5 w-5" />Leave</button>}
-        </div>
-        <h3 className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">{COPY.channels}</h3>
-        <ul className="mx-4 overflow-hidden rounded-xl border bg-white">
-          {chans.map((c) => <li key={c.id}><button type="button" onClick={() => onChannel(c.id)} className={cn('flex min-h-12 w-full items-center gap-3 px-3 text-left', HOVER)}><ChannelMark chat={c} size="sm" /><span className="min-w-0 flex-1 truncate text-sm text-gray-900">{rowTitle(st, c, true)}</span><span className="text-xs text-gray-500">{c.eventId ? 'members + attendees' : 'members'}</span></button></li>)}
-        </ul>
+      <div className="min-h-0 overflow-y-auto">
+        <RealBoundary q={mine} what="your points and stories" empty={<p>You have no points or stories to share yet.</p>}>
+          {() => (
+            <ul className="space-y-3 p-3" data-testid="attach-results" data-kind={kind}>
+              {items.map((s) => (
+                <li key={s.id} className="group relative" data-testid="share-option">
+                  <ShareCard item={s} full />
+                  {/* v16: Share is the picker's one solid button: it shows on hover on a desktop, always on a touch screen. */}
+                  <PrimaryButton size="sm" onClick={() => onPick(s)} aria-label={`${COPY.share} ${s.title}`} data-testid="share-button"
+                    className="absolute right-3 top-3 z-10 min-h-10 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">{COPY.share}</PrimaryButton>
+                </li>
+              ))}
+              {items.length === 0 && <li className="px-3 py-8 text-center text-sm text-gray-500">{kind === 'point' ? 'No points match.' : 'No stories match.'} Try fewer words or another #tag.</li>}
+            </ul>
+          )}
+        </RealBoundary>
       </div>
     </Sheet>
   );
 }
 
-const InviteLink = ({ className, onClick }: { className?: string; onClick: () => void }) => (
-  <button type="button" onClick={onClick} className={className ?? BLUE} data-testid="invite-link"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</button>
+const InviteLink = ({ onClick }: { onClick: () => void }) => (
+  <PrimaryButton onClick={onClick} data-testid="invite-link"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</PrimaryButton>
 );
 
 /* ---------- the prototype ---------- */
 
 export function ClarityChatV16() {
   const { loc, go, back, mode } = useNav();
-  const fresh = (viewer: ViewerId = 'bob') => {
+  const auth = useAuth();
+  const isDesktop = useIsDesktop();
+  /* The viewer is whoever is signed in. A Bob or Dana persona gets a chat world; anyone else (or nobody) gets the signed-out screen. */
+  const authViewer = viewerOf(auth.user);
+  const checking = auth.isLoading || auth.sessionChecked === false;
+  const fresh = (viewer: ViewerId = authViewer ?? 'bob') => {
     const st0 = initialState({ viewer, empty: mode === 'empty', fail: mode === 'fail', noPartners: mode === 'nopartners' });
     return mode === 'fail' && viewer === 'bob' ? openChat(st0, 'dm-bob-alice') : st0;
   };
-  const [st, setSt] = useState<State>(() => fresh());
+  const [stRaw, setSt] = useState<State>(() => fresh());
+  /* The chat state follows the session: when the signed-in persona changes, the lens changes with it (no flicker, no reset of the mock chats). */
+  const st: State = authViewer && stRaw.viewer !== authViewer ? { ...stRaw, viewer: authViewer } : stRaw;
   const [tab, setTab] = useState<Tab>('all');
   const [showArchived, setShowArchived] = useState(false);
   const [q, setQ] = useState('');
@@ -1330,15 +1642,27 @@ export function ClarityChatV16() {
   const [replyTo, setReplyTo] = useState<Record<string, string | undefined>>({});
   const [forwarding, setForwarding] = useState<string | null>(null);
   const [attach, setAttach] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [staged, setStaged] = useState<Record<string, Shareable | undefined>>({});
   const [leaving, setLeaving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [capture, setCapture] = useState<Capture>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  /* The sidebar's Search asks for the cursor in the chat list's search field, which exists once Chats has rendered. */
+  const wantSearch = useRef(false);
+  const [signIn, setSignIn] = useState<{ busy: ViewerId | null; error: string | null }>({ busy: null, error: null });
+  /* The persona session lives on the app's shared supabase client, so it must not outlive this page: leave the route or the tab and a persona is signed out. */
+  const personaNow = useRef(false);
+  personaNow.current = personaFromSlug(auth.user?.slug) !== null;
+  useEffect(() => {
+    if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; } // StrictMode's mount, unmount, mount must not sign anyone out
+    const out = () => { if (personaNow.current) void supabase.auth.signOut({ scope: 'local' }); };
+    window.addEventListener('pagehide', out);
+    return () => { window.removeEventListener('pagehide', out); leaveTimer = setTimeout(() => { leaveTimer = null; out(); }, 0); };
+  }, []);
 
   const view = loc.view ?? 'chats';
   const place: Place | null = (PLACES as readonly string[]).includes(view) ? (view as Place) : null;
-  const mobileTab: MobileTab | null = (MOBILE_TABS as readonly string[]).includes(view) ? (view as MobileTab) : ['group', 'event', 'directory', 'join'].includes(view) ? 'groups' : null;
+  const mobileTab: MobileTab | null = sheet ? 'me' : (MOBILE_TABS as readonly string[]).includes(view) ? (view as MobileTab) : ['group', 'event', 'directory', 'join'].includes(view) ? 'groups' : null;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -1351,18 +1675,31 @@ export function ClarityChatV16() {
   /* Opening a chat (by a click, Back or a deep link) reads it. */
   const urlChat = loc.chat;
   useEffect(() => { if (urlChat) setSt((s) => (unreadOf(s, urlChat) ? openChat(s, urlChat) : s)); }, [urlChat, st.viewer]);
+  useEffect(() => {
+    const field = wantSearch.current ? document.getElementById(SEARCH_ID) : null;
+    if (field) { field.focus(); wantSearch.current = false; }
+  });
+  /* A different persona signed in: fresh screens for the new lens (the mock chats themselves persist, as the old lens switch did). */
+  const lens = useRef(authViewer);
+  useEffect(() => {
+    if (!authViewer || lens.current === authViewer) { if (authViewer) lens.current = authViewer; return; }
+    lens.current = authViewer;
+    setSt((cur) => ({ ...cur, viewer: authViewer })); setTab('all'); setShowArchived(false); setQ(''); closeOverlays(); go({ view: 'chats' }, true);
+  }, [authViewer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (f: (s: State) => State) => setSt((cur) => f(cur));
+  const set = (f: (s: State) => State) => setSt((cur) => f(authViewer && cur.viewer !== authViewer ? { ...cur, viewer: authViewer } : cur));
   const key = (k: string) => `${st.viewer}:${k}`;
   const input = (k: string) => inputs[key(k)] ?? '';
   const setInput = (k: string) => (v: string) => setInputs((cur) => ({ ...cur, [key(k)]: v }));
-  const closeOverlays = () => { setForwarding(null); setAttach(null); setInfo(null); setLeaving(null); setDeleting(null); };
+  const closeOverlays = () => { setForwarding(null); setAttach(null); setLeaving(null); setDeleting(null); setRenaming(false); setSheet(false); };
 
   const reset = (viewer: ViewerId = st.viewer) => {
-    setSt(fresh(viewer)); setTab('all'); setShowArchived(false); setQ(''); setInputs({}); setReplyTo({}); setStaged({}); setCapture(null); closeOverlays(); go({}, true);
+    setSt(fresh(viewer)); setTab('all'); setShowArchived(false); setQ(''); setInputs({}); setReplyTo({}); setStaged({}); closeOverlays(); go({}, true);
   };
-  const switchViewer = (v: ViewerId) => {
-    setSt((cur) => ({ ...cur, viewer: v })); setTab('all'); setShowArchived(false); setQ(''); setCapture(null); closeOverlays(); go({ view: 'chats' }, true);
+  const doSignIn = async (id: ViewerId) => {
+    setSignIn({ busy: id, error: null });
+    const r = await signInAsPersona(id);
+    setSignIn({ busy: null, error: r.ok ? null : r.error });
   };
 
   const open = (chatId: string) => go({ view: 'chats', chat: chatId });
@@ -1379,13 +1716,21 @@ export function ClarityChatV16() {
     if (!r) { go({ view: 'chats', with: person }); return; }
     setSt(r.next); open(r.chatId);
   };
-  const openGroup = (groupId: string) => go({ view: 'group', group: groupId });
-  const openEvent = (eventId: string) => go({ view: 'event', event: eventId });
-  const placeGo = (p: Place | MobileTab) => { if (p === 'chats') { setShowArchived(false); } go({ view: p }); };
+  const openGroup = (slug: string) => go({ view: 'group', group: slug });
+  const openEvent = (eventSlug: string, groupSlug?: string) => go({ view: 'event', event: eventSlug, group: groupSlug });
+  /* The chat mock's event header opens the real event seeded under that mock id, when there is one. */
+  const openChatEvent = (mockEventId: string) => go({ view: 'event', event: `${CHAT_EVENT_REF}${mockEventId}`, group: EVENTS.find((e) => e.id === mockEventId)?.groupId });
+  const invite = (person?: PersonId) => go({ view: 'invite', with: person });
+  const placeGo = (p: Place | MobileTab) => {
+    if (p === 'me') { setSheet((on) => !on); return; }
+    setSheet(false);
+    if (p === 'chats') setShowArchived(false);
+    go({ view: p });
+  };
   const doClarify = (msgId: string) => { set((s) => clarify(s, msgId)); open(mirrorChatId(st.viewer)); };
   const menu: MenuActions = {
-    onProfile: () => showProfile(st.viewer), onPartners: () => go({ view: 'partners' }), onSettings: () => go({ view: 'settings' }), onTools: () => go({ view: 'tools' }),
-    onLogOut: () => { closeOverlays(); setCapture(null); go({ view: 'signedout' }, true); },
+    onProfile: () => showProfile(st.viewer), onPartners: () => go({ view: 'partners' }), onSettings: () => go({ view: 'settings' }), onTools: () => go({ view: 'tools' }), onInvite: () => invite(),
+    onLogOut: () => { closeOverlays(); void auth.signOut({ scope: 'local' }); },
   };
 
   const archivedEmpty = archivedChats(st).length === 0;
@@ -1396,12 +1741,11 @@ export function ClarityChatV16() {
   const liveChat = openChatObj && eventOf(openChatObj)?.live && canSee(st.viewer, openChatObj) ? openChatObj.id : null;
   const pendingFor = st.invites[st.viewer][0];
   const strip = (
-    <Strip viewer={st.viewer} onViewer={switchViewer} onReset={() => reset()}
+    <Strip viewer={authViewer} personaName={auth.user?.name} signedInName={auth.user?.name} busy={signIn.busy} error={authViewer ? signIn.error : null} onSignIn={doSignIn} onReset={() => reset()}
       onLive={liveChat && liveLinesLeft(st, liveChat) > 0 ? () => set((s) => openChat(nextLiveLine(s, liveChat), liveChat)) : undefined}
       onAccept={pendingFor ? () => { set((s) => acceptInvite(s, pendingFor)); toast(`${PEOPLE[pendingFor].name} accepted (mock).`); } : undefined}
       acceptLabel={pendingFor ? `${PEOPLE[pendingFor].name.split(' ')[0]} accepts invite` : undefined} />
   );
-  const meButton = (testId: string, menuClass: string) => (showName: boolean) => <MeButton viewer={st.viewer} showName={showName} testId={testId} menuClass={menuClass} a={menu} />;
 
   const tabs = tabsFor(st);
   const activeTab = tabs.some((t) => t.id === tab) ? tab : 'all';
@@ -1426,10 +1770,9 @@ export function ClarityChatV16() {
       <header className="flex shrink-0 items-center gap-1 px-2 pb-2 pt-2 lg:px-3">
         <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-gray-100 px-3 text-gray-500">
           <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={COPY.search} aria-label="Search" className="min-w-0 flex-1 bg-transparent text-base text-gray-900 outline-none md:text-sm" />
-          {q && <button type="button" aria-label="Clear search" onClick={() => setQ('')} className="flex h-8 w-8 items-center justify-center"><X className="h-4 w-4" /></button>}
+          <input id={SEARCH_ID} value={q} onChange={(e) => setQ(e.target.value)} placeholder={COPY.search} aria-label="Search" className="min-w-0 flex-1 bg-transparent text-base text-gray-900 outline-none md:text-sm" />
+          {q && <button type="button" aria-label="Clear search" onClick={() => setQ('')} className="flex h-10 w-10 items-center justify-center"><X className="h-4 w-4" /></button>}
         </label>
-        <NewMenu onNewChat={() => go({ view: 'newchat' })} onNewPartner={() => go({ view: 'newpartner' })} />
       </header>
       {!results && !inArchived && <FolderTabs folders={tabs} active={activeTab} onPick={pickFolder} />}
       {inArchived && (
@@ -1437,9 +1780,13 @@ export function ClarityChatV16() {
       )}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {results ? (
-          <SearchResults st={st} results={results} onChat={(id) => { setQ(''); open(id); }} onPerson={showProfile} onMessage={message} onInvite={() => { setQ(''); go({ view: 'newpartner' }); }} />
+          <SearchResults st={st} results={results} onChat={(id) => { setQ(''); open(id); }} onPerson={showProfile} onMessage={message} onInvite={() => { setQ(''); invite(); }} />
         ) : st.chats.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 px-6 py-16 text-center" data-testid="empty-list"><p className="text-[15px] text-gray-700">{COPY.emptyList}</p><InviteLink onClick={() => go({ view: 'newpartner' })} /></div>
+          <div className="flex flex-col items-center gap-3 px-6 py-16 text-center" data-testid="empty-list">
+            <p className="text-[15px] text-gray-700">{COPY.emptyList}</p>
+            <InviteLink onClick={() => invite()} />
+            <OutlineButton onClick={() => go({ view: 'directory' })}><Search className="h-4 w-4" />Browse groups</OutlineButton>
+          </div>
         ) : showSections ? (
           <div data-testid="group-sections" className="pb-4">
             <h2 className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{COPY.channels}</h2>
@@ -1447,9 +1794,6 @@ export function ClarityChatV16() {
               <section key={g.groupId} aria-label={g.name}>
                 <div className="flex min-h-10 items-center gap-2 px-3 pt-2" data-testid="group-section-header">
                   <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-700">{g.name}</span>
-                  <button type="button" onClick={() => setInfo(g.groupId)} aria-label={`${COPY.groupInfo}: ${g.name}`} title={COPY.groupInfo} className={cn('inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-medium text-gray-600', HOVER)} data-testid="group-info-button">
-                    <Info className="h-3.5 w-3.5" aria-hidden="true" />{COPY.groupInfo}
-                  </button>
                 </div>
                 <ul aria-label={`${g.name} channels`}>{g.chats.map((c) => row(c, true))}</ul>
               </section>
@@ -1462,7 +1806,7 @@ export function ClarityChatV16() {
             )}
             {rows.map((c) => row(c))}
             {rows.length === 0 && activeTab === 'partners' && !inArchived && (
-              <li className="flex flex-col items-center gap-3 px-6 py-12 text-center" data-testid="empty-partners"><Handshake className="h-8 w-8 text-gray-400" aria-hidden="true" /><p className="text-sm text-gray-600">{COPY.noPartners}</p><InviteLink onClick={() => go({ view: 'newpartner' })} /></li>
+              <li className="flex flex-col items-center gap-3 px-6 py-12 text-center" data-testid="empty-partners"><Handshake className="h-8 w-8 text-gray-400" aria-hidden="true" /><p className="text-sm text-gray-600">{COPY.noPartners}</p><InviteLink onClick={() => invite()} /></li>
             )}
             {rows.length === 0 && activeTab === 'unread' && !inArchived && <li className="px-6 py-12 text-center text-sm text-gray-500">No unread chats.</li>}
           </ul>
@@ -1480,21 +1824,22 @@ export function ClarityChatV16() {
     const threadId = loc.thread;
     const openThread = (postId: string) => go({ view: 'chats', chat: chat.id, thread: postId });
     const closeThread = () => back({ view: 'chats', chat: chat.id });
-    const live = !!eventOf(chat)?.live;
     const chatView = (
       <ChatView
         st={st} chat={chat} input={input(chat.id)} onInput={setInput(chat.id)} replyTo={replyTo[key(chat.id)]} threadId={threadId}
-        banner={live ? <CaptureBanner capture={capture} chatId={chat.id} onStart={() => setCapture({ chatId: chat.id, paused: false })} onPause={() => setCapture((c) => (c ? { ...c, paused: !c.paused } : c))} onStop={() => setCapture(null)} /> : undefined}
-        onBack={chatBack} onPerson={showProfile} onGroupInfo={() => chat.groupId && setInfo(chat.groupId)}
+        onBack={chatBack} onPerson={showProfile}
         onMembers={() => go({ view: 'chats', chat: chat.id, members: '1' })}
         onGroupPage={() => chat.groupId && openGroup(chat.groupId)}
-        onEvent={openEvent} onPartners={() => go({ view: 'partners' })} onOrigin={open}
+        onEvent={openChatEvent} onPartners={() => go({ view: 'partners' })} onOrigin={open}
         onLeave={() => setLeaving(chat.groupId!)}
-        onInvite={(p) => go({ view: 'invite', with: p })}
+        onInvite={(p) => invite(p)}
+        onInviteLive={() => toast('Inviting to Clarity Live from a chat is coming soon (mock).')}
+        onRename={() => setRenaming(true)}
         onReply={(m) => setReplyTo((cur) => ({ ...cur, [key(chat.id)]: m.id }))}
         onCancelReply={() => clearReply(chat.id)}
         onThread={(m) => openThread(m.id)}
         onClarify={doClarify}
+        onMarkUnread={(id) => set((s) => markUnread(s, id))}
         onForward={setForwarding} onRetry={(id) => set((s) => retry(s, id))}
         onEdit={(id, t) => set((s) => editMsg(s, id, t))} onDelete={setDeleting}
         onAttach={() => setAttach(chat.id)}
@@ -1515,52 +1860,52 @@ export function ClarityChatV16() {
         <div className="hidden min-w-0 flex-1 lg:flex lg:flex-col">{chatView}</div>
         <Thread st={st} chat={chat} postId={threadId} input={input(`t:${threadId}`)} onInput={setInput(`t:${threadId}`)} onClose={closeThread} onPerson={showProfile}
           onSend={(t) => set((s) => comment(s, threadId, t))} onVoice={(secs) => secs >= 1 && set((s) => comment(s, threadId, '', { voice: Math.round(secs) }))}
-          onForward={setForwarding} onRetry={(id) => set((s) => retry(s, id))} onEdit={(id, t) => set((s) => editMsg(s, id, t))} onDelete={setDeleting} onClarify={doClarify} />
+          onForward={setForwarding} onRetry={(id) => set((s) => retry(s, id))} onEdit={(id, t) => set((s) => editMsg(s, id, t))} onDelete={setDeleting} onClarify={doClarify}
+          onMarkUnread={(id) => set((s) => markUnread(s, id))} onOrigin={open} />
       </div>
     );
   })();
 
   const groupTab = (loc.tab as GroupTab | undefined) ?? 'events';
-  const detailOpen = (view === 'chats' && (!!chatParam || !!loc.with)) || !!loc.letter || !['home', 'chats', 'letters', 'tools', 'groups', 'me', 'group', 'event', 'directory'].includes(view);
+  const detailOpen = (view === 'chats' && (!!chatParam || !!loc.with)) || !['home', 'chats', 'letters', 'tools', 'groups', 'events', 'group', 'event', 'directory'].includes(view);
   const content = (() => {
     if (view === 'profile' && loc.person && PEOPLE[loc.person as PersonId]) {
       const person = loc.person as PersonId;
-      return <Profile st={st} person={person} onBack={() => back({ view: 'chats' })} onMessage={() => message(person)} />;
+      return <Profile st={st} person={person} onBack={() => back({ view: 'chats' })} onMessage={() => message(person)} onInvite={() => invite(person)} />;
     }
-    if (view === 'home') return <HomePage st={st} tab={loc.tab === 'points' ? 'points' : 'stories'} onTab={(t) => go({ view: 'home', tab: t === 'stories' ? undefined : t }, true)} onBrowse={() => go({ view: 'directory' })} />;
+    if (view === 'home') {
+      return <HomePage tab={loc.tab === 'points' ? 'points' : 'stories'} onTab={(t) => go({ view: 'home', tab: t === 'stories' ? undefined : t }, true)} onBrowse={() => go({ view: 'directory' })}
+        go={{ event: (slug) => openEvent(slug), group: openGroup, events: () => go({ view: 'events' }), groups: () => go({ view: 'directory' }) }} />;
+    }
+    if (view === 'events') return <EventsPage onEvent={(slug) => openEvent(slug)} />;
     if (view === 'tools') return <ToolsPage />;
     if (view === 'settings') return <SettingsPage onBack={() => back({ view: 'chats' })} />;
-    if (view === 'me') return <MePage viewer={st.viewer} a={menu} />;
-    if (view === 'partners') return <PartnersPage st={st} onBack={() => back({ view: 'chats' })} onPartner={message} onNew={() => go({ view: 'newpartner' })} />;
-    if (view === 'newchat') return <NewChatPage st={st} onBack={() => back({ view: 'chats' })} onPick={message} onBrowse={() => go({ view: 'directory' })} />;
-    if (view === 'newpartner' || (view === 'invite' && loc.with)) {
-      const who = view === 'invite' ? (loc.with as PersonId) : undefined;
+    if (view === 'partners') return <PartnersPage onBack={() => back({ view: 'chats' })} onPartner={message} onInvite={() => invite()} />;
+    if (view === 'invite') {
+      const who = loc.with && PEOPLE[loc.with as PersonId] ? (loc.with as PersonId) : undefined;
       return <PartnerInvitePage key={who ?? 'new'} st={st} who={who} onBack={() => back({ view: 'chats' })} onSent={(p) => {
         set((s) => invitePartner(s, p));
-        toast(`Partner invite sent to ${PEOPLE[p].name} (mock).`);
+        partnersQ.refresh();
+        toast(`${COPY.inviteSent} to ${PEOPLE[p].name}.`);
         back({ view: 'chats' });
       }} />;
     }
-    if (view === 'letters') {
-      return loc.letter
-        ? <LetterView st={st} letterId={loc.letter} onBack={() => back({ view: 'letters' })} />
-        : <LettersPage st={st} tab={(loc.tab as LetterBox | undefined) ?? 'inbox'} onTab={(t) => go({ view: 'letters', tab: t === 'inbox' ? undefined : t }, true)} onLetter={(id) => go({ view: 'letters', letter: id, tab: loc.tab })} />;
-    }
+    if (view === 'letters') return <LettersPage tab={(loc.tab as LetterBox | undefined) ?? 'inbox'} onTab={(t) => go({ view: 'letters', tab: t === 'inbox' ? undefined : t }, true)} />;
     if (view === 'groups') return <GroupsPage st={st} onGroup={openGroup} onBrowse={() => go({ view: 'directory' })} />;
     if (view === 'directory') return <DirectoryPage st={st} onBack={() => back({ view: 'groups' })} onGroup={openGroup} />;
     if (view === 'group' && loc.group) {
       const gid = loc.group;
-      return <GroupPage st={st} groupId={gid} tab={groupTab} onTab={(t) => go({ view: 'group', group: gid, tab: t === 'events' ? undefined : t }, true)} onBack={() => back({ view: 'directory' })}
+      return <GroupPage st={st} slug={gid} tab={groupTab} onTab={(t) => go({ view: 'group', group: gid, tab: t === 'events' ? undefined : t }, true)} onBack={() => back({ view: 'directory' })}
         onEvent={openEvent} onChannel={open} onPerson={showProfile} onJoin={() => go({ view: 'join', group: gid })} onLeave={() => setLeaving(gid)} />;
     }
     if (view === 'join' && loc.group) {
       const gid = loc.group;
-      return <JoinPage st={st} groupId={gid} onBack={() => back({ view: 'group', group: gid })} onJoined={() => { set((s) => joinGroup(s, gid)); toast(`Welcome to ${GROUPS.find((g) => g.id === gid)?.name}.`); back({ view: 'group', group: gid }); }} />;
+      return <JoinPage st={st} slug={gid} onBack={() => back({ view: 'group', group: gid })} onJoined={(name) => { set((s) => joinGroup(s, gid, false)); toast(`Welcome to ${name}.`); back({ view: 'group', group: gid }); }} />;
     }
     if (view === 'event' && loc.event) {
-      const ev = EVENTS.find((e) => e.id === loc.event);
-      /* Back: history, or (a deep link) THIS event's own group. Never a fixed group. */
-      if (ev) return <EventPage st={st} event={ev} onBack={() => back({ view: 'group', group: groupOfEvent(ev.id) })} onGroup={() => openGroup(groupOfEvent(ev.id)!)} onChat={() => open(`ch-${ev.id}`)} onPerson={showProfile} />;
+      /* Back: history, or (a deep link) the event's own group when the URL names it, else the directory. */
+      return <EventPage key={loc.event} st={st} slug={loc.event} groupHint={loc.group} onBack={() => back(loc.group ? { view: 'group', group: loc.group } : { view: 'directory' })}
+        onGroup={(g) => (g ? openGroup(g) : go({ view: 'directory' }))} onChat={open} onPerson={showProfile} />;
     }
     const chatOpen = !!chatParam || !!loc.with;
     return (
@@ -1571,55 +1916,78 @@ export function ClarityChatV16() {
     );
   })();
 
-  const captureChat = capture ? chatById(st, capture.chatId) : undefined;
-  const away = capture && captureChat && !(view === 'chats' && chatParam === capture.chatId)
-    ? <CompactCaptureBarCopy paused={capture.paused} onPause={() => setCapture((c) => (c ? { ...c, paused: !c.paused } : c))} onStop={() => setCapture(null)} onOpen={() => open(capture.chatId)} />
-    : null;
-
   function leave(groupId: string) {
-    const name = GROUPS.find((g) => g.id === groupId)?.name;
-    set((s) => leaveGroup({ ...s, joined: { ...s.joined, [s.viewer]: s.joined[s.viewer].filter((g) => g !== groupId) } }, groupId));
-    if (capture && chatById(st, capture.chatId)?.groupId === groupId && !EVENTS.find((e) => `ch-${e.id}` === capture.chatId)?.attendees.includes(st.viewer)) setCapture(null);
+    const name = groupName(groupId);
+    set((s) => leaveGroup({ ...s, joined: { ...s.joined, [s.viewer]: s.joined[s.viewer].filter((g) => g !== groupId) } }, groupId, true));
     go({ view: 'chats' }, true);
     toast(`You left ${name}.`);
   }
 
-  const cardCtx: CardCtx = { st, onPosition: (id, p) => set((s) => setPosition(s, id, p)), onDetails: (x) => toast(`Details opens /${x.kind}/${x.id} in the app.`) };
-  const signedOut = view === 'signedout';
+  const profileId = auth.user?.id ?? '';
+  const groupsQ = useRealQuery<GroupsDirectory>(loadGroupsDirectory, [profileId], {
+    emptyValue: { orgs: [], memberCounts: {}, participation: {}, myOrgIds: [], eventSummaries: {} }, isEmpty: (d) => d.orgs.length === 0, enabled: !!authViewer && !!profileId,
+  });
+  const partnersQ = useRealQuery<PartnersData>(() => loadPartners({ id: profileId, email: auth.user?.email ?? null }), [profileId, auth.user?.email], {
+    emptyValue: { agreements: [], incoming: [] }, isEmpty: (d) => d.agreements.length + d.incoming.length === 0, enabled: !!authViewer && !!profileId,
+  });
+  /* The partner states (Invite sent / Partner) come from the agreements the service returned. */
+  const partnerKey = JSON.stringify(partnersQ.data ? partnerStatesFrom(partnersQ.data, profileId) : {});
+  useEffect(() => {
+    const next = JSON.parse(partnerKey) as State['realPartners'];
+    setSt((cur) => (JSON.stringify(cur.realPartners) === partnerKey ? cur : { ...cur, realPartners: next }));
+  }, [partnerKey]);
+  const isAdmin = useIsAdmin(authViewer ? profileId : undefined);
+  const groupName = (slug: string) => groupsQ.data?.orgs.find((o) => o.slug === slug)?.name ?? GROUPS.find((g) => g.id === slug)?.name ?? slug;
+  /* A real RSVP keeps the chat mock's seat for the event seeded under the same mock id in step, so its channel opens or closes with it. */
+  const onRsvp = (eventSlug: string, going: boolean) => {
+    const mockId = chatEventOf(eventSlug);
+    if (mockId) set((s) => (isGoing(s, mockId) === going ? s : toggleRsvp(s, mockId)));
+  };
+  const real: RealContext = { profileId, name: auth.user?.name ?? PEOPLE[st.viewer].name, email: auth.user?.email ?? null, isAdmin, groups: groupsQ, partners: partnersQ, onRsvp };
+  const cardCtx: CardCtx = {
+    st, viewerId: profileId,
+    onPosition: (id, p, server) => set((s) => setPosition(s, id, p, server)),
+    onDetails: (kind, id) => toast(`Details opens /${kind}/${id} in the app.`),
+    onSlug: (slug) => { const p = personaFromSlug(slug); if (p) showProfile(p); else toast('This opens the real page in the app.'); },
+  };
+  const signedOut = !authViewer;
   return (
     <TooltipProvider delayDuration={300}>
       <Cards.Provider value={cardCtx}>
-      <EventCtx.Provider value={{ toggle: (id) => set((s) => toggleRsvp(s, id)) }}>
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-white" data-testid="v15-app">
+      <RealCtx.Provider value={real}>
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-white" data-testid="v16-app" data-layout={isDesktop ? 'desktop' : 'mobile'}>
         {strip}
-        {signedOut ? <SignedOut onLogIn={() => go({ view: 'home' }, true)} /> : (
+        {checking ? <div className="flex-1" data-testid="auth-checking"><RealSkeleton what="your session" /></div>
+          : signedOut ? <SignedOut busy={signIn.busy} error={signIn.error} signedInName={auth.user?.name} onSignIn={doSignIn} /> : (
           <div className="flex min-h-0 flex-1">
-            <Sidebar st={st} place={place} activeGroup={view === 'group' ? loc.group : undefined} onPlace={placeGo} onGroup={openGroup} onBrowse={() => go({ view: 'directory' })} me={meButton('sidebar-me', 'absolute left-0 top-12')} />
+            {isDesktop && <Sidebar st={st} viewer={st.viewer} name={real.name} place={place} tools={view === 'tools'} a={menu} onPlace={placeGo} onHome={() => go({ view: 'home' })}
+              onSearch={() => { wantSearch.current = true; go({ view: 'chats' }); }} onInvite={() => invite()} onTools={() => go({ view: 'tools' })} />}
             <div className="flex min-w-0 flex-1 flex-col">
-              {away}
               <div className="flex min-h-0 flex-1" data-testid="main-area" data-view={view}>{content}</div>
-              {!detailOpen && <BottomTabs st={st} active={mobileTab} onTab={placeGo} />}
+              {!isDesktop && !detailOpen && <BottomTabs st={st} active={mobileTab} onTab={placeGo} />}
             </div>
           </div>
         )}
       </div>
+      {sheet && !isDesktop && (
+        <BottomSheet label="Profile menu" onClose={() => setSheet(false)}>
+          <div role="menu" aria-label="My account" data-testid="me-menu"><ProfileMenuItems a={menu} onPick={(f) => () => { setSheet(false); f(); }} phone /></div>
+        </BottomSheet>
+      )}
       {forwarding && (
         <ForwardFlow st={st} msgId={forwarding} onClose={() => setForwarding(null)} onDone={(to, note) => {
           set((s) => forward(s, forwarding, to, note)); setForwarding(null); open(to);
           toast(`Forwarded to ${rowTitle(st, chatById(st, to)!)}`);
         }} />
       )}
-      {attach && <AttachDialog st={st} onClose={() => setAttach(null)} onPick={(sh) => { setStaged((cur) => ({ ...cur, [key(attach)]: sh })); setAttach(null); }} />}
-      {info && (
-        <GroupInfo st={st} groupId={info} onClose={() => setInfo(null)} onLeave={() => { setInfo(null); setLeaving(info); }}
-          onChannel={(id) => { setInfo(null); open(id); }} onPage={() => { const g = info; setInfo(null); openGroup(g); }} />
-      )}
+      {attach && <AttachDialog onClose={() => setAttach(null)} onPick={(sh) => { setStaged((cur) => ({ ...cur, [key(attach)]: sh })); setAttach(null); }} />}
+      {renaming && <RenameMirror initial={st.mirror[st.viewer] ?? defaultMirrorName(st.viewer)} onClose={() => setRenaming(false)} onSave={(n) => { set((s) => renameMirror(s, n)); setRenaming(false); }} />}
       {leaving && (
-        <Sheet label="Leave group" onClose={() => setLeaving(null)} title={`Leave ${GROUPS.find((g) => g.id === leaving)?.name}?`}>
-          <p className="px-4 py-4 text-sm text-gray-700">You will lose its # general and event channels. You can rejoin from the group page.</p>
+        <Sheet label="Leave group" onClose={() => setLeaving(null)} title={`Leave ${groupName(leaving)}?`}>
+          <p className="px-4 py-4 text-sm text-gray-700">You will lose its {COPY.general} channel. Event channels follow your RSVPs. You can rejoin from the group page.</p>
           <div className="flex gap-2 border-t p-3">
-            <button type="button" onClick={() => setLeaving(null)} className={cn(OUTLINE, 'min-h-11 flex-1')}>Cancel</button>
-            <button type="button" onClick={() => { const g = leaving; setLeaving(null); leave(g); }} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700">Leave</button>
+            <OutlineButton className="min-h-11 flex-1" onClick={() => setLeaving(null)}>Cancel</OutlineButton>
+            <Button variant="destructive" className="min-h-11 flex-1" onClick={() => { const g = leaving; setLeaving(null); leave(g); }}>Leave</Button>
           </div>
         </Sheet>
       )}
@@ -1627,31 +1995,68 @@ export function ClarityChatV16() {
         <Sheet label="Delete message" onClose={() => setDeleting(null)} title="Delete message?">
           <p className="px-4 py-4 text-sm text-gray-700">It disappears for everyone in this chat. This cannot be undone.</p>
           <div className="flex gap-2 border-t p-3">
-            <button type="button" onClick={() => setDeleting(null)} className={cn(OUTLINE, 'min-h-11 flex-1')}>Cancel</button>
-            <button type="button" onClick={() => { const id = deleting; setDeleting(null); set((s) => deleteMsg(s, id)); if (loc.thread === id) back({ view: 'chats', chat: chatParam }); }} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+            <OutlineButton className="min-h-11 flex-1" onClick={() => setDeleting(null)}>Cancel</OutlineButton>
+            <Button variant="destructive" className="min-h-11 flex-1" onClick={() => { const id = deleting; setDeleting(null); set((s) => deleteMsg(s, id)); if (loc.thread === id) back({ view: 'chats', chat: chatParam }); }}>Delete</Button>
           </div>
         </Sheet>
       )}
       <Toaster />
-      </EventCtx.Provider>
+      </RealCtx.Provider>
       </Cards.Provider>
     </TooltipProvider>
   );
 }
 
-function Strip({ viewer, onViewer, onReset, onLive, onAccept, acceptLabel }: { viewer: ViewerId; onViewer: (v: ViewerId) => void; onReset: () => void; onLive?: () => void; onAccept?: () => void; acceptLabel?: string }) {
-  const lenses: { id: ViewerId; label: string }[] = [{ id: 'bob', label: 'Bob (member, admin)' }, { id: 'dana', label: 'Dana (attendee)' }];
+/** The id of the chat list's search field (the sidebar's Search focuses it). */
+const SEARCH_ID = 'v16-search';
+
+/** Mirror ⋯ → Rename. */
+function RenameMirror({ initial, onClose, onSave }: { initial: string; onClose: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState(initial);
+  return (
+    <Sheet label="Rename mirror" onClose={onClose} title="Rename your mirror">
+      <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave(name); }}>
+        <div className="px-4 py-4">
+          <label className="block text-sm text-gray-700">Name
+            <input value={name} onChange={(e) => setName(e.target.value)} autoFocus className="mt-1 block min-h-11 w-full rounded-lg border px-3 text-base outline-none focus:border-gray-500 md:text-sm" />
+          </label>
+        </div>
+        <div className="flex gap-2 border-t p-3">
+          <OutlineButton type="button" className="min-h-11 flex-1" onClick={onClose}>Cancel</OutlineButton>
+          <PrimaryButton type="submit" className="flex-1">Save</PrimaryButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+const LENSES: { id: ViewerId; label: string }[] = [{ id: 'bob', label: 'Bob' }, { id: 'dana', label: 'Dana' }];
+
+/** The prototype's control strip. The viewer is the signed-in persona: the switch signs in as the other one; nobody signed in offers both. */
+function Strip({ viewer, personaName, signedInName, busy, error, onSignIn, onReset, onLive, onAccept, acceptLabel }: {
+  viewer: ViewerId | null; personaName?: string; signedInName?: string; busy: ViewerId | null; error: string | null; onSignIn: (v: ViewerId) => void; onReset: () => void; onLive?: () => void; onAccept?: () => void; acceptLabel?: string;
+}) {
+  const small = 'shrink-0 px-2.5';
   return (
     /* Review #12: one line at every width (it scrolls sideways on a phone instead of wrapping). */
     <div role="region" aria-label="Prototype controls" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap border-b bg-gray-100 px-2 py-0.5 [scrollbar-width:none] sm:gap-3 sm:px-3">
-      <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:inline">Prototype v15</span>
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:hidden">v15</span>
-      <div role="radiogroup" aria-label="View as" className="inline-flex shrink-0 rounded-lg border bg-white p-0.5">
-        {lenses.map((l) => <button key={l.id} type="button" role="radio" aria-checked={viewer === l.id} aria-label={l.label} onClick={() => onViewer(l.id)} className={cn('min-h-10 rounded-md px-2 text-sm font-medium sm:px-2.5', viewer === l.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50')}><span className="hidden sm:inline">{l.label}</span><span className="sm:hidden">{l.label.split(' ')[0]}</span></button>)}
-      </div>
-      {onLive && <button type="button" onClick={onLive} className={STRIP_BUTTON}>Next transcript line</button>}
-      {onAccept && <button type="button" onClick={onAccept} className={STRIP_BUTTON} data-testid="strip-accept">{acceptLabel}</button>}
-      <button type="button" onClick={onReset} className={STRIP_BUTTON}>Reset</button>
+      <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:inline">Prototype v16 · test project</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:hidden">v16</span>
+      {viewer ? (
+        <div role="radiogroup" aria-label="View as" className="inline-flex shrink-0 rounded-lg border bg-white p-0.5">
+          {LENSES.map((l) => <button key={l.id} type="button" role="radio" aria-checked={viewer === l.id} aria-label={l.label} disabled={busy !== null} onClick={() => viewer !== l.id && onSignIn(l.id)} className={cn('min-h-10 rounded-md px-2 text-sm font-medium sm:px-2.5', viewer === l.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50')}>{l.label}</button>)}
+        </div>
+      ) : (
+        <div className="inline-flex shrink-0 items-center gap-1.5">
+          {signedInName && <span className="text-xs text-gray-600">Signed in as {signedInName}, not a Bob or Dana persona.</span>}
+          {LENSES.map((l) => <OutlineButton key={l.id} disabled={busy !== null} onClick={() => onSignIn(l.id)} className={small} data-testid={`strip-sign-in-${l.id}`}>{busy === l.id ? `Signing in as ${l.label}…` : `Sign in as ${l.label}`}</OutlineButton>)}
+        </div>
+      )}
+      {viewer && <span data-testid="persona-note" className="text-xs text-gray-600">Signed in as {personaName ?? PEOPLE[viewer].name} (test persona)</span>}
+      {error && <span role="alert" data-testid="sign-in-error" className="text-xs font-medium text-red-700">{error}</span>}
+      {onLive && <OutlineButton onClick={onLive} className={small}>Next transcript line</OutlineButton>}
+      {onAccept && <OutlineButton onClick={onAccept} className={small} data-testid="strip-accept">{acceptLabel}</OutlineButton>}
+      <OutlineButton onClick={onReset} className={small}>Reset</OutlineButton>
     </div>
   );
 }
@@ -1695,14 +2100,14 @@ function NoChatYet({ st, person, onBack, onPerson, onMessage }: { st: State; per
       <Header onBack={onBack} title={<button type="button" onClick={() => onPerson(person)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={person} size="sm" /><span className="truncate text-base font-semibold text-gray-900">{PEOPLE[person].name}</span></button>} />
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-testid="empty-chat">
         <p className="text-sm text-gray-600">{can ? COPY.newChatOpener(first, sharedWith(st.viewer, person)) : `No chat yet with ${first}. You can message ${first} once you share a group or event.`}</p>
-        {can ? <button type="button" onClick={onMessage} className={BLUE}>{COPY.message}</button> : <button type="button" onClick={() => onPerson(person)} className={OUTLINE}>View profile</button>}
+        {can ? <PrimaryButton onClick={onMessage}>{COPY.message}</PrimaryButton> : <OutlineButton onClick={() => onPerson(person)}>View profile</OutlineButton>}
       </div>
     </div>
   );
 }
 
 
-/** A 1:1's header (v15 #7): the person, then Partner (opens the agreement), or "Partner invite pending". */
+/** A 1:1's header: the person, then the partner state beside the name: Partner (opens the Partners page) or Invite sent. */
 function DmTitle({ st, chat, onPerson, onPartners }: { st: State; chat: Chat; onPerson: (p: PersonId) => void; onPartners: () => void }) {
   const other = otherOf(st, chat);
   const state = partnerState(st, other);
@@ -1711,41 +2116,74 @@ function DmTitle({ st, chat, onPerson, onPartners }: { st: State; chat: Chat; on
       <button type="button" onClick={() => onPerson(other)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={other} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{chatTitle(st, chat)}</span><span className="block truncate text-xs text-gray-500">{PEOPLE[other].role}</span></span></button>
       {state === 'partner' && (
         <Tip label="Your partners" side="bottom">
-          <button type="button" onClick={onPartners} data-testid="partner-tag" className="inline-flex min-h-6 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Handshake className="h-3 w-3" aria-hidden="true" />{COPY.partner}</button>
+          <button type="button" onClick={onPartners} data-testid="partner-tag" className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-3 text-xs font-semibold text-blue-700 hover:bg-blue-100"><Handshake className="h-3 w-3" aria-hidden="true" />{COPY.partner}</button>
         </Tip>
       )}
       {/* v11 PendingLine: production's LetterStatusBadge (in progress) with its label override. */}
-      {state === 'pending' && <span data-testid="partner-pending" className="inline-flex shrink-0"><LetterStatusBadge status="in_progress" label={COPY.partnerPending} /></span>}
+      {state === 'pending' && <span data-testid="partner-pending" className="inline-flex shrink-0"><LetterStatusBadge status="in_progress" label={COPY.inviteSent} /></span>}
     </div>
   );
 }
 
-function ChannelMenu({ canLeave, onMembers, onGroupPage, onLeave, onEvent }: { canLeave: boolean; onMembers: () => void; onGroupPage: () => void; onLeave: () => void; onEvent?: () => void }) {
+type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger?: boolean };
+
+/**
+ * A chat header's word labels fit where the pane is wide: a tablet's single pane (sm up to lg) and a wide desktop (xl up). In between
+ * (1024 to 1279px) the pane beside the sidebar and the chat list is about 400px, so the buttons are icons with a tip and an aria-label.
+ */
+const HEADER_LABEL = 'hidden sm:inline lg:hidden xl:inline';
+
+/** The ⋯ menu of a chat header: what it offers depends on the kind of chat. */
+function ChatMenu({ entries }: { entries: MenuEntry[] }) {
   const [on, setOn] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(() => setOn(false), on, [ref]);
   const pick = (f: () => void) => () => { setOn(false); f(); };
+  if (entries.length === 0) return null;
   return (
     <div ref={ref} className="relative shrink-0">
       <Tip label="More" side="bottom"><button type="button" aria-label="More" aria-expanded={on} onClick={() => setOn(!on)} className={cn('flex h-11 w-11 items-center justify-center rounded-full text-gray-600', HOVER)}><MoreHorizontal className="h-5 w-5" /></button></Tip>
       {on && (
-        <div role="menu" className="absolute right-0 top-12 z-30 w-52 rounded-xl border bg-white p-1 shadow-xl" data-testid="channel-menu">
-          {onEvent && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onEvent)}><CalendarDays className="h-4 w-4 text-gray-500" />Event details</button>}
-          <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onMembers)}><UsersIcon className="h-4 w-4 text-gray-500" />Members</button>
-          <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onGroupPage)}><LandmarkIcon className="h-4 w-4 text-gray-500" />Group page</button>
-          {canLeave && <button type="button" role="menuitem" className={cn(MENU_ITEM, 'text-red-700')} onClick={pick(onLeave)}><LogOut className="h-4 w-4" />Leave group</button>}
+        <div role="menu" className="absolute right-0 top-12 z-30 w-56 rounded-xl border bg-white p-1 shadow-xl" data-testid="chat-menu">
+          {entries.map(({ label, Icon, onSelect, danger }) => (
+            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}</button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
+/**
+ * v16: Transcribe sits at the top right of EVERY chat header and says "Coming soon" in all of them. It does not start a capture:
+ * the existing create path (`createRoom` -> `enter_transcribe_room`) JOINS the newest room that is still open instead of minting
+ * one (supabase/migrations/20260910120000_p1236_f_enter_shared_room.sql), so a press in a chat would put this person's microphone
+ * in one room shared with whoever else is transcribing, and `transcribe_rooms` has no link back to a chat. Per-chat rooms need a
+ * schema change (spec Risks: DEFER). A button that looked live while capturing nothing would be a fake, so it says so.
+ */
+function TranscribeButton() {
+  return (
+    <Tip label={`${COPY.transcribe}: ${COPY.comingSoon}`} side="bottom">
+      <OutlineButton onClick={() => toast(`${COPY.transcribe} from a chat is coming soon.`)} aria-label={`${COPY.transcribe}, ${COPY.comingSoon.toLowerCase()}`} data-testid="transcribe-button" className="shrink-0 gap-1.5 px-2.5 text-gray-700">
+        <Mic className="h-4 w-4" aria-hidden="true" />
+        <span className={HEADER_LABEL}>{COPY.transcribe}</span>
+        <span className="hidden text-xs font-normal text-gray-500 md:inline lg:hidden xl:inline" data-testid="transcribe-soon">{COPY.comingSoon}</span>
+      </OutlineButton>
+    </Tip>
+  );
+}
 
-function ChatView({ st, chat, input, onInput, replyTo, threadId, banner, onBack, onPerson, onGroupInfo, onMembers, onGroupPage, onEvent, onPartners, onOrigin, onLeave, onInvite, onReply, onCancelReply, onThread, onClarify, onForward, onRetry, onEdit, onDelete, onSend, onVoice, onAttach, staged, onUnstage, onClaim }: {
-  st: State; chat: Chat; input: string; onInput: (v: string) => void; replyTo?: string; threadId?: string; banner?: ReactNode;
-  onBack: () => void; onPerson: (p: PersonId) => void; onGroupInfo: () => void; onMembers: () => void; onGroupPage: () => void; onLeave: () => void; onInvite: (p: PersonId) => void;
+/** "N going" for an event channel: the real RSVP list of the event seeded under the same mock id. */
+function GoingCount({ mockEventId }: { mockEventId: string }) {
+  const q = useRealQuery<EventAttendee[] | null>(() => loadChatEventAttendees(mockEventId), [mockEventId], { emptyValue: [], isEmpty: (a) => !a || a.length === 0 });
+  return q.data ? <span data-testid="going-count">{q.data.length} going</span> : null;
+}
+
+function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerson, onMembers, onGroupPage, onEvent, onPartners, onOrigin, onLeave, onInvite, onInviteLive, onRename, onReply, onCancelReply, onThread, onClarify, onMarkUnread, onForward, onRetry, onEdit, onDelete, onSend, onVoice, onAttach, staged, onUnstage, onClaim }: {
+  st: State; chat: Chat; input: string; onInput: (v: string) => void; replyTo?: string; threadId?: string;
+  onBack: () => void; onPerson: (p: PersonId) => void; onMembers: () => void; onGroupPage: () => void; onLeave: () => void; onInvite: (p: PersonId) => void; onInviteLive: () => void; onRename: () => void;
   onEvent: (eventId: string) => void; onPartners: () => void; onOrigin: (chatId: string) => void;
-  onReply: (m: Msg) => void; onCancelReply: () => void; onThread: (m: Msg) => void; onClarify: (id: string) => void;
+  onReply: (m: Msg) => void; onCancelReply: () => void; onThread: (m: Msg) => void; onClarify: (id: string) => void; onMarkUnread: (id: string) => void;
   onForward: (id: string) => void; onRetry: (id: string) => void; onEdit: (id: string, text: string) => void; onDelete: (id: string) => void;
   onSend: (t: string) => void; onVoice: (secs: number) => void; onAttach: () => void; staged?: Shareable; onUnstage: () => void; onClaim: (name: string) => void;
 }) {
@@ -1760,27 +2198,44 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, banner, onBack,
   useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }); }, [msgs.length, chat.id]);
   /* v15 #10 (coordinator change): the name field is PREFILLED with "{FirstName}'s mirror"; keep it with one tap or type a nickname. */
   const defaultName = defaultMirrorName(st.viewer);
-  const origin = mirror ? clarifyOrigin(st) : undefined;
   const [nameDraft, setNameDraft] = useState(defaultName);
+  const other = chat.kind === 'dm' ? otherOf(st, chat) : undefined;
   const title = channel
-    ? <button type="button" onClick={onGroupInfo} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left" data-testid="channel-header"><ChannelMark chat={chat} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{rowTitle(st, chat, true)}</span><span className="block truncate text-xs text-gray-500">{group?.name} · {channelMembers(chat).length} members</span></span></button>
+    ? (
+      <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="channel-header">
+        <ChannelMark chat={chat} size="sm" />
+        <span className="min-w-0">
+          <span className="block truncate text-base font-semibold text-gray-900">{rowTitle(st, chat, true)}</span>
+          <span className="flex min-w-0 items-center gap-1 truncate text-xs text-gray-500">
+            {ev
+              ? <><span className="truncate">{ev.when}</span> · <GoingCount mockEventId={ev.id} /></>
+              : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span data-testid="members-only">{COPY.membersOnly}</span><span className="truncate"> · {group?.name}</span></>}
+          </span>
+        </span>
+      </div>
+    )
     : mirror
-      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{mirrorName(st)}</span><span className="block truncate text-xs text-gray-500">{COPY.yourMirror} · agent</span></span></div>
+      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{mirrorLabel(st)}</span><span className="block truncate text-xs text-gray-500">Your agent</span></span></div>
       : <DmTitle st={st} chat={chat} onPerson={onPerson} onPartners={onPartners} />;
-  const otherFirst = channel || mirror ? '' : PEOPLE[otherOf(st, chat)].name.split(' ')[0]!;
-  const showInvite = chat.kind === 'dm' && partnerState(st, otherOf(st, chat)) === 'none';
+  const otherFirst = other ? PEOPLE[other].name.split(' ')[0]! : '';
+  const showInvite = !!other && partnerState(st, other) === 'none';
+  const entries: MenuEntry[] = channel
+    ? [
+      ...(ev ? [{ label: 'Event details', Icon: CalendarDays, onSelect: () => onEvent(ev.id) }] : []),
+      { label: 'Members', Icon: UsersIcon, onSelect: onMembers },
+      { label: 'Group page', Icon: LandmarkIcon, onSelect: onGroupPage },
+      ...(group && !ev && (st.joined[st.viewer].includes(group.id) || group.members.includes(st.viewer)) ? [{ label: 'Leave group', Icon: LogOut, onSelect: onLeave, danger: true }] : []),
+    ]
+    : mirror
+      ? [{ label: 'Rename', Icon: Pencil, onSelect: onRename }]
+      : [{ label: COPY.inviteToLive, Icon: Video, onSelect: onInviteLive }];
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="chat-view" data-chat-open={chat.id}>
       <Header onBack={onBack} title={title}>
-        {ev && (
-          <Tip label="Event details" side="bottom">
-            <button type="button" aria-label="Event details" onClick={() => onEvent(ev.id)} data-testid="event-details" className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-600', HOVER)}><Info className="h-5 w-5" /></button>
-          </Tip>
-        )}
-        {channel && <ChannelMenu canLeave={!!group && isMember(st, st.viewer, group.id)} onMembers={onMembers} onGroupPage={onGroupPage} onLeave={onLeave} onEvent={ev ? () => onEvent(ev.id) : undefined} />}
-        {showInvite && <button type="button" onClick={() => onInvite(otherOf(st, chat))} className={cn(OUTLINE, 'shrink-0')} data-testid="invite-as-partner"><Handshake className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">{COPY.inviteAsPartner}</span><span className="sm:hidden">Invite</span></button>}
+        {showInvite && <Tip label={COPY.invite} side="bottom"><OutlineButton onClick={() => onInvite(other!)} aria-label={COPY.invite} data-testid="invite-partner" className="shrink-0 px-2.5"><Handshake className="h-4 w-4" aria-hidden="true" /><span className={HEADER_LABEL}>{COPY.invite}</span></OutlineButton></Tip>}
+        <TranscribeButton />
+        <ChatMenu entries={entries} />
       </Header>
-      {banner}
       <div className="min-h-0 flex-1 overflow-y-auto bg-white py-2">
         {unclaimed && (
           <ul aria-label="Mirror">
@@ -1792,42 +2247,35 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, banner, onBack,
         )}
         {msgs.length === 0 && !mirror && (
           <p className="px-6 py-12 text-center text-sm text-gray-500" data-testid="empty-chat">
-            {channel ? 'No messages yet.' : COPY.newChatOpener(otherFirst, sharedWith(st.viewer, otherOf(st, chat)))}
+            {channel ? 'No messages yet.' : COPY.newChatOpener(otherFirst, sharedWith(st.viewer, other!))}
           </p>
         )}
         {msgs.length > 0 && <Divider>{dayLabel(chat)}</Divider>}
         <MessageList label="Messages" msgs={msgs} render={(m, compact) => (
           <MessageRow key={m.id} st={st} msg={m} own={m.who === st.viewer && !m.agent} compact={compact && !m.agent && !msgs[msgs.indexOf(m) - 1]?.agent} highlight={m.id === threadId} replies={repliesOf(st, m.id)} liveThread={!!m.table && ev?.live}
             onPerson={onPerson} onReply={() => onReply(m)} onForward={() => onForward(m.id)} onThread={m.failed ? undefined : () => onThread(m)} onRetry={() => onRetry(m.id)}
-            onEdit={(t) => onEdit(m.id, t)} onDelete={() => onDelete(m.id)} onClarify={m.failed || mirror ? undefined : () => onClarify(m.id)} />
+            onEdit={(t) => onEdit(m.id, t)} onDelete={() => onDelete(m.id)} onClarify={m.failed ? undefined : () => onClarify(m.id)} onMarkUnread={() => onMarkUnread(m.id)} onOrigin={onOrigin} />
         )} />
         <div ref={end} />
       </div>
-      {origin && (
-        <div className="shrink-0 px-3 pt-1">
-          <button type="button" onClick={() => onOrigin(origin.id)} data-testid="mirror-back-link" className="mx-auto flex min-h-10 w-full max-w-3xl items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-blue-700 hover:bg-blue-50">
-            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="truncate">Back to {rowTitle(st, origin)}</span>
-          </button>
-        </div>
-      )}
       {unclaimed ? (
         <footer className="shrink-0 px-2 pb-2 pt-1 lg:px-3 lg:pb-3" data-testid="mirror-claim">
           <form className="mx-auto flex w-full max-w-3xl items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (nameDraft.trim()) onClaim(nameDraft); }}>
             <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} aria-label={COPY.mirrorAsk} placeholder={COPY.mirrorPlaceholder} className="min-h-11 min-w-0 flex-1 rounded-full border border-gray-300 px-4 text-base outline-none focus:border-gray-500 md:text-[15px]" />
-            <button type="submit" className={BLUE} disabled={!nameDraft.trim()} data-testid="mirror-keep">{nameDraft.trim() === defaultName ? 'Keep' : 'Save'}</button>
+            <PrimaryButton type="submit" data-testid="mirror-keep">{nameDraft.trim() === defaultName ? 'Keep' : 'Save'}</PrimaryButton>
           </form>
         </footer>
       ) : (
         <Composer
           key={chat.id} canSendEmpty={!!staged}
           value={input} onValue={onInput} onSend={onSend} onVoice={onVoice} onAttach={onAttach}
-          placeholder={channel ? `Message ${rowTitle(st, chat, true)}` : mirror ? `Message ${mirrorName(st)}` : `Message ${otherFirst}`}
+          placeholder={channel ? `Message ${rowTitle(st, chat, true)}` : mirror ? `Message ${mirrorLabel(st)}` : `Message ${otherFirst}`}
           quote={<>
             {quoted && <QuoteBar author={PEOPLE[quoted.who].name} text={summary(quoted)} onRemove={onCancelReply} />}
             {staged && (
               <div className="flex items-start gap-2 px-2 pt-1" data-testid="staged-share">
                 <div className="min-w-0 flex-1"><ShareCard item={staged} full /></div>
-                <button type="button" aria-label="Remove shared item" onClick={onUnstage} className="mt-1 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+                <button type="button" aria-label="Remove shared item" onClick={onUnstage} className="mt-1 flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"><X className="h-4 w-4" /></button>
               </div>
             )}
           </>}
@@ -1838,10 +2286,10 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, banner, onBack,
 }
 
 /** A post's thread (Slack's side panel), in a channel or a 1:1 (v14 #6). People only, no agent. */
-function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, onVoice, onForward, onRetry, onEdit, onDelete, onClarify }: {
+function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, onVoice, onForward, onRetry, onEdit, onDelete, onClarify, onMarkUnread, onOrigin }: {
   st: State; chat: Chat; postId: string; input: string; onInput: (v: string) => void; onClose: () => void; onPerson: (p: PersonId) => void;
   onSend: (t: string) => void; onVoice: (secs: number) => void; onForward: (id: string) => void; onRetry: (id: string) => void;
-  onEdit: (id: string, text: string) => void; onDelete: (id: string) => void; onClarify: (id: string) => void;
+  onEdit: (id: string, text: string) => void; onDelete: (id: string) => void; onClarify: (id: string) => void; onMarkUnread: (id: string) => void; onOrigin: (chatId: string) => void;
 }) {
   const post = st.msgs.find((x) => x.id === postId);
   const replies = repliesOf(st, postId);
@@ -1849,9 +2297,10 @@ function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, o
   useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }); }, [replies.length, postId]);
   if (!post) return null;
   const focusComposer = () => document.getElementById('v15-thread-input')?.focus();
+  /* The post at the top is shown whole (its card button would only open this same thread), so it is drawn without the card. */
   const rowOf = (x: Msg, compact: boolean) => (
-    <MessageRow key={x.id} st={st} msg={x} own={x.who === st.viewer} compact={compact} onPerson={onPerson} onReply={focusComposer} onForward={() => onForward(x.id)} onRetry={() => onRetry(x.id)}
-      onEdit={(t) => onEdit(x.id, t)} onDelete={() => onDelete(x.id)} onClarify={() => onClarify(x.id)} />
+    <MessageRow key={x.id} st={st} msg={x.id === postId ? { ...x, threadCard: undefined } : x} own={x.who === st.viewer} compact={compact} onPerson={onPerson} onReply={focusComposer} onForward={() => onForward(x.id)} onRetry={() => onRetry(x.id)}
+      onEdit={(t) => onEdit(x.id, t)} onDelete={() => onDelete(x.id)} onClarify={() => onClarify(x.id)} onMarkUnread={() => onMarkUnread(x.id)} onOrigin={onOrigin} />
   );
   return (
     <SidePanel label="Thread" onClose={onClose} title={<div className="min-w-0"><h1 className="truncate text-base font-semibold text-gray-900">{post.table ? post.text : 'Thread'}</h1><p className="truncate text-xs text-gray-500">{rowTitle(st, chat)}</p></div>}>
@@ -1865,4 +2314,3 @@ function Thread({ st, chat, postId, input, onInput, onClose, onPerson, onSend, o
     </SidePanel>
   );
 }
-

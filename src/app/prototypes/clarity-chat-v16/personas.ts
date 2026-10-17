@@ -17,16 +17,21 @@ import type { PersonId } from './mock-data';
 export const TEST_PROJECT_REF = 'gfjctyxqlwexxwsmkakq';
 export const PERSONA_DOMAIN = 'p1509.invalid';
 /**
- * No password lives in source. Each seed run sets a fresh random password on every persona and writes it to this
- * git-ignored file (`.local/` is in .gitignore). Only the dev server reads it: the browser asks
+ * No password lives in source. Each seed run sets a fresh random password on every persona and writes it to a file
+ * outside the repository (persona-secrets.ts, Node only). Only the dev server reads it: the browser asks
  * PERSONA_SESSION_ENDPOINT for a persona and receives a session, never the password
  * (persona-session-plugin.ts, `apply: 'serve'`, so it does not exist in a production build).
  */
-export const PERSONA_SECRETS_PATH = '.local/p1509-personas.json';
 export const PERSONA_SESSION_ENDPOINT = '/__p1509/persona-session';
 
 export const PERSONA_IDS: PersonId[] = ['bob', 'dana', 'alice', 'carol', 'eli', 'fay', 'sam'];
 export const personaEmail = (id: PersonId) => `${id}@${PERSONA_DOMAIN}`;
+/** Clients cannot read `profiles.email`, so the prototype maps a profile to a persona by its slug. Prefixed so
+ * the shared test project's e2e users can never collide with a persona. */
+export const PERSONA_SLUG_PREFIX = 'p1509-';
+export const personaSlug = (id: PersonId) => `${PERSONA_SLUG_PREFIX}${id}`;
+export const personaFromSlug = (slug: string | null | undefined): PersonId | null =>
+  PERSONA_IDS.find((id) => personaSlug(id) === slug) ?? null;
 
 export function isTestProject(supabaseUrl: string | undefined): boolean {
   if (!supabaseUrl) return false;

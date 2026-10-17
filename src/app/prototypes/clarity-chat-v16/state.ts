@@ -1,6 +1,10 @@
 /**
  * @file state.ts
- * @description P1509 v15 pure state (v14's, plus: one mirror agent per viewer that is claimed by naming it and
+ * @description P1509 v16: the CHAT MOCK's pure state. Chats, channels, threads, unread, archive and the mirror have no
+ * tables, so they stay here; points, stories, letters, groups, events and partners are read through real-data.ts. The
+ * viewer is whoever is signed in (a Bob or Dana test persona); a position taken on a real card is a local overlay
+ * (no position write leaves the prototype). v15 header follows.
+ * P1509 v15 pure state (v14's, plus: one mirror agent per viewer that is claimed by naming it and
  * receives Clarify forwards; joining a group; RSVP; partner invites that go pending then accepted; and the mock
  * positions shared point cards show). v14: who sees which chat, who may message whom, search, unread, archive,
  * send/reply/comment/forward, edit/delete my own message, voice notes and the live transcript. v14: threads in 1:1s
@@ -10,7 +14,7 @@
  * search scope) are testable here.
  */
 import type { PositionType } from '@/app/types';
-import { arePartners, COPY, EVENTS, GROUPS, LETTERS, PEOPLE, SHAREABLE, type Letter, type LetterBox, type PersonId, type Shareable, type ViewerId } from './mock-data';
+import { arePartners, COPY, EVENTS, GROUPS, PEOPLE, type PersonId, type Shareable, type ViewerId } from './mock-data';
 
 /** A channel belongs to a group: its `# general` (no eventId, members only) or one event's closed channel. */
 export interface Chat { id: string; kind: 'dm' | 'channel' | 'mirror'; members?: [PersonId, PersonId]; groupId?: string; eventId?: string; /** A mirror chat's one owner. */ owner?: ViewerId }
@@ -40,6 +44,8 @@ export interface Msg {
   edited?: boolean;
   /** v15 #10: said by the owner's mirror agent (`who` is the owner; the row shows the mirror's face and name). */
   agent?: boolean;
+  /** v16: a forward (or Clarify) of a post that had a thread: it arrives as ONE card "Thread · N replies" whose thread is a copy of the original replies. */
+  threadCard?: boolean;
 }
 
 export interface State {
@@ -71,8 +77,10 @@ export interface State {
   /** v15 #7: partner invites I sent and are not yet accepted, then the ones accepted. */
   invites: Record<ViewerId, PersonId[]>;
   accepted: [PersonId, PersonId][];
-  /** v15 #8: my position on each point (mock; production writes it to point_positions). */
-  positions: Record<ViewerId, Record<string, PositionType>>;
+  /** v15 #8: my position on each point, as a LOCAL overlay on the real one (production writes it to point_positions; v16 never does). `null` = cleared here. */
+  positions: Record<ViewerId, Record<string, PositionType | null>>;
+  /** v16: the partner states the agreements service reported for the signed-in viewer (set by the prototype from the real read). */
+  realPartners: Partial<Record<PersonId, 'pending' | 'partner'>>;
 }
 
 export type Tab = 'all' | 'unread' | 'partners' | 'groups';
@@ -115,7 +123,7 @@ const SEED_MSGS: Msg[] = [
 ];
 
 const SEED_COMMENTS: Record<string, Msg[]> = {
-  m9: [m('c1', 'ch-night-oct16', 'carol', 'I will bring one about remote work.', '12:41')],
+  m9: [m('c1', 'ch-night-oct16', 'fay', 'I will bring one about remote work.', '12:41')],
   m31: [
     m('t1', 'ch-night-oct16', 'bob', 'My claim is that most arguments at work are about definitions, not facts.', '19:11', { transcribed: true }),
     m('t2', 'ch-night-oct16', 'dana', 'Can I repeat it back? People agree on what happened but use the same word for different things.', '19:12', { transcribed: true }),
@@ -148,6 +156,7 @@ export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: 
     invites: { bob: [], dana: [] },
     accepted: [],
     positions: { bob: {}, dana: {} },
+    realPartners: {},
   };
 }
 
@@ -158,25 +167,24 @@ export const groupOf = (c: Chat) => GROUPS.find((g) => g.id === c.groupId);
 export const partners = (st: State, a: PersonId, b: PersonId) =>
   !st.noPartners && (arePartners(a, b) || st.accepted.some(([x, y]) => (x === a && y === b) || (x === b && y === a)));
 
-/** A dm: its two people. `# general`: the group's members. An event channel: the group's members and that event's attendees. */
+/** A dm: its two people. General: the group's members. An event channel (v16): exactly that event's RSVPs. */
 export function canSee(viewer: PersonId, c: Chat): boolean {
   if (c.kind === 'mirror') return c.owner === viewer;
   if (c.kind === 'dm') return !!c.members?.includes(viewer);
-  const group = groupOf(c);
-  if (!group) return false;
-  if (group.members.includes(viewer)) return true;
-  return !!eventOf(c)?.attendees.includes(viewer);
+  const ev = eventOf(c);
+  if (ev) return ev.attendees.includes(viewer);
+  return !!groupOf(c)?.members.includes(viewer);
 }
 
 /**
- * canSee, plus groups this viewer joined (v15), minus groups this viewer has left. An event channel follows my RSVP
- * (v15 review #2): a seat reserved here opens it, a cancelled seat closes it unless I am a member of the group.
+ * canSee, plus groups this viewer joined (v15), minus groups this viewer has left. An event channel IS that event's
+ * RSVPs (v16): a seat reserved opens it, a cancelled seat closes it, and group membership alone never does.
  */
 const sees = (st: State, v: ViewerId, c: Chat): boolean => {
   if (c.kind !== 'channel') return canSee(v, c);
+  if (c.eventId) return isGoing(st, c.eventId, v);
   if (!c.groupId || st.left[v].includes(c.groupId)) return false;
-  if ((groupOf(c)?.members.includes(v) ?? false) || st.joined[v].includes(c.groupId)) return true;
-  return !!c.eventId && isGoing(st, c.eventId, v);
+  return (groupOf(c)?.members.includes(v) ?? false) || st.joined[v].includes(c.groupId);
 };
 
 /** A member of a group: on its roster or joined here, and not left. */
@@ -199,9 +207,10 @@ export function sharedWith(a: PersonId, b: PersonId): string {
   return e ? `attend ${e.name}` : '';
 }
 
+/** General: the group's members. An event channel: that event's RSVPs (the Members screen reads the real attendees). */
 export const channelMembers = (c: Chat): PersonId[] => {
-  const group = groupOf(c);
-  return [...new Set([...(group?.members ?? []), ...(eventOf(c)?.attendees ?? [])])];
+  const ev = eventOf(c);
+  return ev ? [...ev.attendees] : [...(groupOf(c)?.members ?? [])];
 };
 /** The group's whole circle: members plus everyone who attended one of its events. */
 export const groupPeople = (groupId: string): PersonId[] =>
@@ -215,9 +224,17 @@ export const mirrorChatId = (v: ViewerId) => `mirror-${v}`;
 export const mirrorName = (st: State, v: ViewerId = st.viewer) => st.mirror[v] ?? COPY.yourMirror;
 /** The name the claim field is prefilled with, and the one Clarify claims under: "{FirstName}'s mirror". */
 export const defaultMirrorName = (v: ViewerId) => `${PEOPLE[v].name.split(' ')[0]}'s mirror`;
+/**
+ * v16 (decisions.md 2026-10-12): the mirror's role is shown wherever its name is: "<Name> · <First>'s mirror".
+ * When the name IS the default there is nothing to add, and an unclaimed mirror is still "Your mirror".
+ */
+export const mirrorLabel = (st: State, v: ViewerId = st.viewer): string => {
+  const name = st.mirror[v];
+  const role = defaultMirrorName(v);
+  return !name ? COPY.yourMirror : name === role ? role : `${name} · ${role}`;
+};
 export const chatTitle = (st: State, c: Chat): string =>
-  (c.kind === 'mirror' ? mirrorName(st, c.owner) : c.kind === 'dm' ? PEOPLE[otherOf(st, c)].name : eventOf(c)?.name ?? COPY_GENERAL);
-const COPY_GENERAL = 'general';
+  (c.kind === 'mirror' ? mirrorLabel(st, c.owner) : c.kind === 'dm' ? PEOPLE[otherOf(st, c)].name : eventOf(c)?.name ?? COPY.general);
 /** A failed send never left its author's device: only the author sees it (with Retry). */
 export const shownTo = (st: State, x: Msg) => !x.failed || x.who === st.viewer;
 export const msgsOf = (st: State, chatId: string) => st.msgs.filter((x) => x.chatId === chatId && shownTo(st, x));
@@ -299,15 +316,14 @@ export function search(st: State, q: string): { chats: Chat[]; people: PersonId[
 }
 
 /**
- * The 📎 dialog's search: my own items and those of people I can message. Words match the title; `#tag` words must
- * all match (multi-tag is AND). `kind` narrows to points or stories.
+ * The 📎 dialog's search over MY real points and stories (real-data.ts loads them). Words match the title; `#tag` words
+ * must all match (multi-tag is AND). `kind` narrows to points or stories.
  */
-export function findShareable(st: State, q: string, kind: 'all' | 'point' | 'story' = 'all'): Shareable[] {
+export function filterShareables(items: Shareable[], q: string, kind: 'all' | 'point' | 'story' = 'all'): Shareable[] {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const tags = words.filter((w) => w.startsWith('#')).map((w) => w.slice(1)).filter(Boolean);
   const text = words.filter((w) => !w.startsWith('#'));
-  return SHAREABLE.filter((x) => (x.author === st.viewer || canMessage(st.viewer, x.author))
-    && (kind === 'all' || x.kind === kind)
+  return items.filter((x) => (kind === 'all' || x.kind === kind)
     && tags.every((t) => x.tags.some((xt) => xt.startsWith(t)))
     && text.every((w) => x.title.toLowerCase().includes(w) || x.tags.some((xt) => xt.includes(w))));
 }
@@ -387,15 +403,29 @@ export function comment(st: State, postId: string, text: string, extra: Partial<
   return c.failed ? next : fanOut(next, c);
 }
 
+/**
+ * v16: the replies of a post, copied under a new post in another chat (a forward or a Clarify of a post with a thread
+ * arrives as ONE card that opens the full thread, so the copy keeps every reply, its author and its time).
+ */
+function copyThread(st: State, srcId: string, toMsgId: string, toChatId: string, seq: number): { comments: State['comments']; seq: number; count: number } {
+  const replies = repliesOf(st, srcId).filter((r) => !r.failed);
+  if (replies.length === 0) return { comments: st.comments, seq, count: 0 };
+  let n = seq;
+  const copies = replies.map((r): Msg => ({ ...r, id: `c${n++}`, chatId: toChatId }));
+  return { comments: { ...st.comments, [toMsgId]: copies }, seq: n, count: copies.length };
+}
+
 /** Forward a message I can read into a chat I see, with an optional note sent after it; the copy names the original author. */
 export function forward(st: State, msgId: string, toChatId: string, note = ''): State {
   const src = readable(st, msgId);
   const to = chatById(st, toChatId);
   if (!src || !to || !sees(st, st.viewer, to)) return st;
-  const [id, seq] = nextId(st, 'm');
-  const copy = m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, voice: src.voice, failed: st.failSends || undefined });
+  const [id, seq0] = nextId(st, 'm');
+  const thread = copyThread(st, src.id, id, toChatId, seq0);
+  const copy = m(id, toChatId, st.viewer, src.text, NOW, { fwdFrom: src.fwdFrom ?? src.who, share: src.share, voice: src.voice, threadCard: thread.count > 0 || undefined, failed: st.failSends || undefined });
+  const base = { ...st, seq: thread.seq, comments: thread.comments };
   /* A forward is a send: under `?state=fail` it fails like one and reaches nobody until Retry. */
-  const after = copy.failed ? { ...st, seq, msgs: [...st.msgs, copy] } : deliver({ ...st, seq }, copy);
+  const after = copy.failed ? { ...base, msgs: [...st.msgs, copy] } : deliver(base, copy);
   return note.trim() ? send(after, toChatId, note.trim()) : after;
 }
 
@@ -421,9 +451,12 @@ export const archive = (st: State, chatId: string): State =>
   isArchived(st, chatId) ? st : { ...st, archived: { ...st.archived, [st.viewer]: [...st.archived[st.viewer], chatId] } };
 export const unarchive = (st: State, chatId: string): State => ({ ...st, archived: { ...st.archived, [st.viewer]: st.archived[st.viewer].filter((id) => id !== chatId) } });
 
-/** Leave a group (mock): its `# general` and event channels leave my list. Only a member can leave. */
-export const leaveGroup = (st: State, groupId: string): State =>
-  !GROUPS.find((g) => g.id === groupId)?.members.includes(st.viewer) || st.left[st.viewer].includes(groupId)
+/**
+ * Leave a group (a local overlay, no membership write): its `# general` and event channels leave my list. Only a member
+ * can leave. `member` defaults to the chat mock's roster; the Groups screens pass the real membership.
+ */
+export const leaveGroup = (st: State, groupId: string, member: boolean = !!GROUPS.find((g) => g.id === groupId)?.members.includes(st.viewer)): State =>
+  !member || st.left[st.viewer].includes(groupId)
     ? st
     : { ...st, left: { ...st.left, [st.viewer]: [...st.left[st.viewer], groupId] } };
 
@@ -486,26 +519,45 @@ export function clarify(st: State, msgId: string): State {
   const chatId = mirrorChatId(st.viewer);
   /* v15 review #6: Clarify on an unclaimed mirror never blocks: it claims the mirror under the default name. */
   const named: State = st.mirror[st.viewer] ? st : { ...st, mirror: { ...st.mirror, [st.viewer]: defaultMirrorName(st.viewer) } };
-  const [id, seq] = nextId(named, 'm');
+  const [id, seq0] = nextId(named, 'm');
+  /* v16: a post with a thread goes to the mirror as one card too. */
+  const thread = copyThread(named, src.id, id, chatId, seq0);
+  /* v16: the forwarded card links to its source (`from`); a message already in the mirror has no other chat to link to. */
   const from = src.chatId === chatId ? undefined : src.chatId;
-  const quoted = m(id, chatId, st.viewer, '', NOW, { quote: { who: src.fwdFrom ?? src.who, text: summary(src) }, share: src.share, from });
-  const [rid, seq2] = nextId({ ...named, seq }, 'a');
+  const quoted = m(id, chatId, st.viewer, '', NOW, { quote: { who: src.fwdFrom ?? src.who, text: summary(src) }, share: src.share, from, threadCard: thread.count > 0 || undefined });
+  const [rid, seq2] = nextId({ ...named, seq: thread.seq }, 'a');
   const reply = m(rid, chatId, st.viewer, COPY.mirrorReply, NOW, { agent: true });
-  return { ...named, seq: seq2, msgs: [...named.msgs, quoted, reply] };
+  return { ...named, seq: seq2, comments: thread.comments, msgs: [...named.msgs, quoted, reply] };
 }
 
-/** The chat my latest Clarify came from (the mirror's "Back to" link), if I can still see it. */
-export function clarifyOrigin(st: State): Chat | undefined {
-  const id = msgsOf(st, mirrorChatId(st.viewer)).filter((x) => x.from).at(-1)?.from;
-  const c = id ? chatById(st, id) : undefined;
-  return c && sees(st, st.viewer, c) ? c : undefined;
+/** v16 (Mirror ⋯ → Rename): give my mirror a new name, claimed or not. An empty name is not a rename. */
+export function renameMirror(st: State, name: string): State {
+  const n = name.trim();
+  return !n || n === st.mirror[st.viewer] ? st : { ...st, mirror: { ...st.mirror, [st.viewer]: n } };
+}
+
+/**
+ * v16 (message menu → Mark as unread): the chat shows unread again, counting the messages from this one on that
+ * are not mine (at least one). It never lowers a count already there.
+ */
+export function markUnread(st: State, msgId: string): State {
+  const x = readable(st, msgId);
+  if (!x) return st;
+  const inChat = msgsOf(st, x.chatId);
+  const at = inChat.findIndex((y) => y.id === x.id);
+  const fromHere = at < 0 ? 1 : inChat.slice(at).filter((y) => y.who !== st.viewer).length;
+  const n = Math.max(1, fromHere, unreadOf(st, x.chatId));
+  return { ...st, unread: { ...st.unread, [st.viewer]: { ...st.unread[st.viewer], [x.chatId]: n } } };
 }
 
 /* ---------- v15: groups, events, partners, positions ---------- */
 
-/** Join a group (the Join page's "Accept terms & join"). A member already, or a group that does not exist: no-op. */
-export const joinGroup = (st: State, groupId: string): State =>
-  !GROUPS.some((g) => g.id === groupId) || isMember(st, st.viewer, groupId)
+/**
+ * Join a group (the Join page's "Accept terms & join"; a local overlay, no membership write). A member already: no-op.
+ * `already` defaults to the chat mock's roster; the Groups screens pass the real membership.
+ */
+export const joinGroup = (st: State, groupId: string, already: boolean = isMember(st, st.viewer, groupId)): State =>
+  already
     ? st
     : { ...st, joined: { ...st.joined, [st.viewer]: [...st.joined[st.viewer], groupId] }, left: { ...st.left, [st.viewer]: st.left[st.viewer].filter((g) => g !== groupId) } };
 
@@ -537,9 +589,15 @@ export const eventsOfGroup = (groupId: string) => EVENTS.filter((e) => e.groupId
 /** The group an event belongs to: ALWAYS its own (production's `/events` fallback lands every event on cm). */
 export const groupOfEvent = (eventId: string) => EVENTS.find((e) => e.id === eventId)?.groupId;
 
-/** The 1:1 header (v15 #7): Invite as partner, then Partner invite pending, then Partner. */
+/**
+ * The partner state (v16): Invite partner -> Invite sent -> Partner. An accepted agreement the chat mock knows about wins;
+ * then what the agreements service reported (pending -> sent, active -> partner); then an invite sent this visit that
+ * the service has not echoed back yet.
+ */
 export function partnerState(st: State, other: PersonId): 'none' | 'pending' | 'partner' {
   if (partners(st, st.viewer, other)) return 'partner';
+  const real = st.realPartners[other];
+  if (real) return real;
   return st.invites[st.viewer].includes(other) ? 'pending' : 'none';
 }
 export const invitePartner = (st: State, other: PersonId): State =>
@@ -550,21 +608,24 @@ export const acceptInvite = (st: State, other: PersonId): State =>
     ? st
     : { ...st, invites: { ...st.invites, [st.viewer]: st.invites[st.viewer].filter((p) => p !== other) }, accepted: [...st.accepted, [st.viewer, other]], noPartners: false };
 
-export const positionOf = (st: State, pointId: string): PositionType | null => st.positions[st.viewer][pointId] ?? null;
-/** Take a position, or the same one again to clear it (production's toggle). */
-export function setPosition(st: State, pointId: string, position: PositionType | null): State {
+/** My position on a point: the local overlay if I took or cleared one here, else the real position the service returned. */
+export const positionOf = (st: State, pointId: string, real: PositionType | null = null): PositionType | null =>
+  pointId in st.positions[st.viewer] ? st.positions[st.viewer][pointId]! : real;
+/** Take a position, or the same one again to clear it (production's toggle). `real` is the position the point arrived with. */
+export function setPosition(st: State, pointId: string, position: PositionType | null, real: PositionType | null = null): State {
   const mine = { ...st.positions[st.viewer] };
-  if (position === null || mine[pointId] === position) delete mine[pointId];
-  else mine[pointId] = position;
+  const current = positionOf(st, pointId, real);
+  mine[pointId] = position === null || current === position ? null : position;
   return { ...st, positions: { ...st.positions, [st.viewer]: mine } };
 }
 
-/* ---------- v15 review #8: what a viewer has ---------- */
+/* ---------- v16: groups by latest activity ---------- */
 
-/** Letters in a tab: Inbox is letters from others; Drafts and Published are MINE only (production scopes both to the author). */
-export const lettersIn = (st: State, box: LetterBox): Letter[] =>
-  st.empty ? [] : LETTERS.filter((l) => l.box === box && (box === 'inbox' ? l.author !== st.viewer : l.author === st.viewer));
-
-/** People I can start a chat with (New chat). Nobody when I share no group or event yet. */
-export const contactsOf = (st: State): PersonId[] =>
-  st.empty ? [] : (Object.keys(PEOPLE) as PersonId[]).filter((p) => canMessage(st.viewer, p));
+/** Where a group's newest message sits in the shared message order (-1 = nothing yet): higher is more recent. */
+export function groupActivity(st: State, groupId: string | null): number {
+  if (!groupId) return -1;
+  const ids = new Set(st.chats.filter((c) => c.kind === 'channel' && c.groupId === groupId).map((c) => c.id));
+  let last = -1;
+  st.msgs.filter((x) => shownTo(st, x)).forEach((x, i) => { if (ids.has(x.chatId)) last = i; });
+  return last;
+}

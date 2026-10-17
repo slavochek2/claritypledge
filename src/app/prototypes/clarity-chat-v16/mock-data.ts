@@ -1,6 +1,10 @@
 /**
  * @file mock-data.ts
- * @description P1509 v15 mock world. v15 #2: the two REAL groups replace v14's invented ones. Their slugs, names,
+ * @description P1509 v16: what is STILL MOCK. Chats, channels, threads, unread, archive and the mirror have no tables, so
+ * the PEOPLE of the chat world, the group/event rosters that decide which channels exist (GROUPS, EVENTS: "chat mock only"),
+ * and the copy live here. Everything else (points, stories, letters, groups, events, partners, profiles, is_admin) is read
+ * from the test project through real-data.ts. v15 header follows.
+ * P1509 v15 mock world. v15 #2: the two REAL groups replace v14's invented ones. Their slugs, names,
  * blurbs and the opening paragraph of each About are copied from the migrations that seed them
  * (`20260907120000_cm_activist_group_copy.sql` for cm, `20260828164500_p1060_events_org_id.sql` +
  * `20260907180000_online_group_fuller_about.sql` for online). The people, events, letters and points are mock.
@@ -8,7 +12,7 @@
  * Online is "a group you haven't joined" (its Join page). Dana is a member of nothing and attends tonight. Sam shares
  * nothing with anyone. Mock only: nothing here is read from or written to a server.
  */
-import type { PositionType } from '@/app/types';
+import type { PointSummary, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 
 export type PersonId = 'bob' | 'dana' | 'alice' | 'carol' | 'eli' | 'fay' | 'sam';
 export type ViewerId = 'bob' | 'dana';
@@ -37,14 +41,11 @@ export const PEOPLE: Record<PersonId, Person> = {
   sam: { id: 'sam', name: 'Sam Rivera', slug: 'samr', email: 'sam@example.com', bio: 'Writes about negotiation.', avatarColor: '#64748b', pledger: false, role: 'Writer' },
 };
 
-/** v15 #1: the profile menu's Admin group shows only for an admin viewer. */
-export const ADMINS: ViewerId[] = ['bob'];
-
 /** Clarity partners (an agreement exists): the Partners folder, and a 1:1 header with no "Invite as partner". */
 export const PARTNERS: [PersonId, PersonId][] = [['bob', 'alice']];
 export const arePartners = (a: PersonId, b: PersonId) => PARTNERS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 
-/** A group: production's `Organization` fields (organizations-service.interface.ts) plus the mock roster. */
+/** CHAT MOCK ONLY (v16): the roster that decides which channels exist and who is in them. The Groups and Events screens read the real rows. A group is matched to its real org by slug (the id), an event to its real row by slug (`seedEventSlug(id)`, seed-world.ts). A group: production's `Organization` fields (organizations-service.interface.ts) plus the mock roster. */
 export interface Group { id: string; slug: string; name: string; blurb: string | null; description: string; hasEvents: boolean; members: PersonId[]; organizers: PersonId[] }
 export interface EventInfo {
   id: string; groupId: string; name: string; when: string; attendees: PersonId[]; host: PersonId; location: string;
@@ -79,48 +80,43 @@ export const EVENTS: EventInfo[] = [
     description: 'Paired practice with people outside your own field.' },
 ];
 
-/** My existing points and stories, as the Share dialog offers them. */
-export interface Shareable {
-  id: string; kind: 'point' | 'story'; title: string; tags: string[]; author: PersonId; excerpt?: string;
-  /** A story's linked point (production's story card shows it with positions). */
-  points?: string[];
-  /** The point's position counts before the viewer's own (production's 7-point buckets). */
-  counts?: Partial<Record<PositionType, number>>;
+/** What a real point or story needs to render in its production card (real-data.ts fills it from the services). */
+export interface RealShare {
+  point?: PointWithUserPosition;
+  story?: StoryWithAuthor;
+  /** A story's linked points (production's story card shows them with positions). */
+  linkedPoints?: PointSummary[];
 }
-/** Points and stories the Share dialog searches and Home shows: mine and ones from people I share a group or event with. */
-export const SHAREABLE: Shareable[] = [
-  { id: 'pt-bob-1', kind: 'point', title: 'Disagreement is information, not a threat', tags: ['conflict', 'work'], author: 'bob', counts: { agree: 4, unsure: 1, disagree: 1 } },
-  { id: 'st-bob-1', kind: 'story', title: 'The hike where we got lost on purpose', tags: ['trust', 'outdoors'], author: 'bob', points: ['pt-bob-1'], excerpt: 'We left the map in the car and agreed to say out loud every guess we made about the trail.' },
-  { id: 'pt-dana-1', kind: 'point', title: 'Repeat back before you reply', tags: ['listening', 'work'], author: 'dana', counts: { strongly_agree: 2, agree: 3 } },
-  { id: 'st-dana-1', kind: 'story', title: 'How I misread my sister for ten years', tags: ['family', 'listening'], author: 'dana', points: ['pt-dana-1'], excerpt: 'I heard "you never call" as blame. She meant "I miss you".' },
-  { id: 'pt-alice-1', kind: 'point', title: 'Most arguments are about definitions, not facts', tags: ['conflict', 'definitions'], author: 'alice', counts: { agree: 2, unsure: 3, somewhat_disagree: 2 } },
-  { id: 'st-carol-1', kind: 'story', title: 'The design review that went silent', tags: ['work', 'feedback'], author: 'carol', points: ['pt-alice-1'], excerpt: 'Nobody disagreed out loud, and three weeks later everyone had built something different.' },
-];
+/** A real point or story offered by the Share dialog and carried by a chat message. */
+export interface Shareable { id: string; kind: 'point' | 'story'; title: string; tags: string[]; real: RealShare }
 
 export const COPY = {
   chats: 'Chats',
   all: 'All chats',
   partners: 'Partners',
   groups: 'Groups',
-  general: 'general',
+  /* v16: the group's members-only channel. A lock and "Members only" mark it. */
+  general: 'General',
+  membersOnly: 'Members only',
   agreement: 'Agreement',
   channels: 'Channels',
-  groupInfo: 'Group info',
   noPartners: 'No partners yet. A partner is someone you agree to practise clarity with.',
   transcribing: 'Transcribing · live',
   transcribed: 'transcribed',
   unread: 'Unread',
   archived: 'Archived chats',
+  /* v16: one verb for the partner flow everywhere: Invite partner -> Invite sent -> Partner. */
   invite: 'Invite partner',
-  /* v11 COPY (conversation-groups/v11/mock-data.ts) */
-  inviteAsPartner: 'Invite as partner',
-  partnerPending: 'Partner invite pending',
-  newMenu: '+ New',
-  newChat: 'New chat',
-  newPartner: 'New partner',
-  sealAndSend: 'Seal & Send ✦',
+  inviteSent: 'Invite sent',
+  sendInvite: 'Send invite',
+  inviteRefused: 'Prototype invites go only to test personas.',
   clarify: 'Clarify',
   partner: 'Partner',
+  /* v16: Transcribe sits in every chat header; it says "Coming soon" until a per-chat room exists (spec Risks, DEFER). */
+  transcribe: 'Transcribe',
+  comingSoon: 'Coming soon',
+  inviteToLive: 'Invite to Clarity Live',
+  markUnread: 'Mark as unread',
   replies: (n: number) => `${n} ${n === 1 ? 'reply' : 'replies'}`,
   replyInThread: 'Reply in thread',
   message: 'Message',
@@ -142,21 +138,14 @@ export const COPY = {
   shareTitle: 'Share a point or story',
 } as const;
 
-/** Letters (production /letters has Inbox, Drafts and Published tabs, letters-page.tsx). Mock rows only. */
+/** Letters (production /letters has Inbox, Drafts and Published tabs, letters-page.tsx). The rows are real (real-data.ts). */
 export type LetterBox = 'inbox' | 'drafts' | 'sent';
-export interface Letter { id: string; box: LetterBox; author: PersonId; title: string; date: string; body: string }
-export const LETTERS: Letter[] = [
-  { id: 'l-alice', box: 'inbox', author: 'alice', title: 'What I learned facilitating ten nights', date: 'Oct 12', body: 'The best moment of every night is when someone says “yes, exactly” and you can see they mean it. I want more of those, and fewer rounds where people wait for their turn to talk.' },
-  { id: 'l-carol', box: 'inbox', author: 'carol', title: 'Design reviews without silence', date: 'Oct 5', body: 'Silence in a review is not agreement. Since we started repeating back the critique before answering it, our reviews got shorter and the work got better.' },
-  { id: 'l-bob-draft', box: 'drafts', author: 'bob', title: 'Why I run the Chiang Mai circle', date: 'Oct 14', body: 'Draft. Most of the people I meet here moved for a reason they never say out loud.' },
-  { id: 'l-bob-sent', box: 'sent', author: 'bob', title: 'Notes from Clarity Night, Oct 2', date: 'Oct 3', body: 'Three pairs got to “yes, exactly” in under five minutes. Two never did. Here is what the second group had in common.' },
-];
 
-/** The sidebar's places (v15 #1): Home, Chats, Letters, Tools; then "Your groups". */
-export const PLACES = ['home', 'chats', 'letters', 'tools'] as const;
+/** The desktop sidebar's places (v16): Chats first. Tools sits beside the profile picture, not in this list. */
+export const PLACES = ['chats', 'home', 'groups', 'letters', 'events'] as const;
 export type Place = (typeof PLACES)[number];
-/** The phone's bottom tabs (v15 #1). */
-export const MOBILE_TABS = ['home', 'chats', 'letters', 'groups', 'me'] as const;
+/** The phone's bottom tabs (v16): the mobile app opens on Chats; Profile opens a sheet. */
+export const MOBILE_TABS = ['chats', 'home', 'groups', 'letters', 'me'] as const;
 export type MobileTab = (typeof MOBILE_TABS)[number];
-export const PLACE_LABEL: Record<Place | MobileTab, string> = { home: 'Home', chats: 'Chats', letters: 'Letters', tools: 'Tools', groups: 'Groups', me: 'Profile' };
+export const PLACE_LABEL: Record<Place | MobileTab | 'tools', string> = { home: 'Home', chats: 'Chats', letters: 'Letters', tools: 'Tools', groups: 'Groups', events: 'Events', me: 'Profile' };
 export const SIDEBAR_KEY = 'p1509-v16-sidebar-collapsed';
