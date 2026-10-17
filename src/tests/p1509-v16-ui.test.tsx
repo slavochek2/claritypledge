@@ -41,6 +41,8 @@ const h = vi.hoisted(() => {
     signInStatus: 200,
     signInError: '',
     people: {} as Record<string, unknown>,
+    /** Overrides the agreements the service returns for Bob (null = the default Alice active, Carol pending). */
+    agreements: null as unknown[] | null,
   };
   return {
     state,
@@ -70,7 +72,8 @@ vi.mock('@/app/data/stories-service', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/app/data/stories-service')>();
   return { ...orig, storiesService: { ...orig.storiesService,
     getPublicStoriesFeed: vi.fn(async () => { h.maybeFail('feed'); return [F.STORY_HIKE, F.STORY_SISTER] as never; }),
-    getPointsForStories: vi.fn(async (ids: string[]) => new Map(ids.map((id) => [id, id === 'st-bob-1' ? [F.POINT_SUMMARY_DISAGREEMENT] : []])) as never),
+    /* The hike story argues TWO points, so a click on the second one can be told from a click on the first. */
+    getPointsForStories: vi.fn(async (ids: string[]) => new Map(ids.map((id) => [id, id === 'st-bob-1' ? [F.POINT_SUMMARY_DISAGREEMENT, { ...F.POINT_SUMMARY_DISAGREEMENT, id: F.POINT_REPEAT.id, statement: F.POINT_REPEAT.statement, tags: F.POINT_REPEAT.tags, positionCounts: F.POINT_REPEAT.positionCounts }] : []])) as never),
     getStoriesForPoints: vi.fn(async () => new Map() as never),
     getStoriesByAuthor: vi.fn(async (id: string) => (id === 'u-bob' ? [F.STORY_HIKE] : [F.STORY_SISTER]) as never),
   } };
@@ -127,7 +130,7 @@ vi.mock('@/app/data/agreements-service', async (importOriginal) => {
   const F = await import('./p1509-v16-fixtures');
   const orig = await importOriginal<typeof import('@/app/data/agreements-service')>();
   return { ...orig, agreementsService: { ...orig.agreementsService,
-    getAgreementsForProfile: vi.fn(async (id: string) => { h.maybeFail('partners'); return (id === 'u-bob' ? [F.AGREEMENT_BOB_ALICE, F.AGREEMENT_BOB_CAROL_PENDING] : []) as never; }),
+    getAgreementsForProfile: vi.fn(async (id: string) => { h.maybeFail('partners'); return (id === 'u-bob' ? h.state.agreements ?? [F.AGREEMENT_BOB_ALICE, F.AGREEMENT_BOB_CAROL_PENDING] : []) as never; }),
     getIncomingInvitations: vi.fn(async () => [] as never),
     createAgreement: vi.fn(async () => F.AGREEMENT_BOB_CAROL_PENDING as never),
   } };
@@ -205,7 +208,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.state.myOrgIds = ['org-cm'];
   h.state.cancelled.clear(); h.state.added.clear(); h.state.failures = {}; h.state.rsvpOk = true; h.state.adminIds = ['u-bob']; h.state.adminThrows = false;
-  h.state.signInStatus = 200; h.state.signInError = '';
+  h.state.signInStatus = 200; h.state.signInError = ''; h.state.agreements = null;
+  /* The prototype fails closed unless it is pointed at the TEST project (vitest's own URL is localhost). */
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://gfjctyxqlwexxwsmkakq.supabase.co');
   h.set(h.snap(F.BOB));
   /* The dev server's persona endpoint: a session for the persona asked for, or the seed hint (409). The app's supabase client then applies it. */
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
@@ -222,7 +227,7 @@ beforeEach(() => {
     return { data: {}, error: null };
   }) as never);
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); try { window.localStorage.removeItem(SIDEBAR_KEY); } catch { /* ignore */ } });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); try { window.localStorage.removeItem(SIDEBAR_KEY); } catch { /* ignore */ } });
 
 describe('P1509 v16 viewer and sign-in', () => {
   it('the viewer is derived from the signed-in profile slug: Bob, then Dana through the persona endpoint', async () => {
@@ -382,27 +387,28 @@ describe('P1509 v16 sidebar and profile menu', () => {
     expect(within(screen.getByTestId('bottom-tabs')).getByRole('button', { name: /Chats/ }).getAttribute('aria-current')).toBe('page');
   });
 
-  it('phone Profile is a bottom sheet (not a page): it closes on an outside tap, on Esc and on a swipe down past the threshold, and springs back short of it', () => {
+  it('phone Profile is a bottom sheet (not a page): it closes on an outside tap, on Esc and on a swipe down past the threshold, and springs back short of it', async () => {
     stubViewport(false);
     renderV16();
     tabbar('Profile');
     expect(screen.getByTestId('sheet')).toBeTruthy();
     expect(screen.getByTestId('main-area').getAttribute('data-view')).toBe('chats'); // still on Chats: the sheet is not a page
-    fireEvent.click(screen.getByTestId('sheet')); // the backdrop = outside tap
-    expect(screen.queryByTestId('sheet')).toBeNull();
+    await rtlAct(async () => { await new Promise((r) => setTimeout(r, 15)); });
+    fireEvent.pointerDown(screen.getByTestId('dialog-overlay')); // outside tap
+    await waitFor(() => expect(screen.queryByTestId('sheet')).toBeNull());
     tabbar('Profile');
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByTestId('sheet')).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('sheet')).toBeNull());
     tabbar('Profile');
-    const panel = screen.getByTestId('sheet-panel');
-    fireEvent.touchStart(panel, { touches: [{ clientY: 300 }] });
-    fireEvent.touchMove(panel, { touches: [{ clientY: 300 + SHEET_DISMISS_PX - 20 }] });
+    const panel = screen.getByTestId('sheet');
+    fireEvent.touchStart(panel, { touches: [{ clientY: 300 }], changedTouches: [{ clientY: 300 }] });
+    fireEvent.touchMove(panel, { touches: [{ clientY: 300 + SHEET_DISMISS_PX - 20 }], changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX - 20 }] });
     fireEvent.touchEnd(panel, { changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX - 20 }] });
     expect(screen.getByTestId('sheet')).toBeTruthy(); // a short drag springs back
-    fireEvent.touchStart(panel, { touches: [{ clientY: 300 }] });
-    fireEvent.touchMove(panel, { touches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }] });
+    fireEvent.touchStart(panel, { touches: [{ clientY: 300 }], changedTouches: [{ clientY: 300 }] });
+    fireEvent.touchMove(panel, { touches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }], changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }] });
     fireEvent.touchEnd(panel, { changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }] });
-    expect(screen.queryByTestId('sheet')).toBeNull(); // a swipe down closes it
+    await waitFor(() => expect(screen.queryByTestId('sheet')).toBeNull()); // a swipe down closes it
   });
 
   it('the phone sheet holds Invite partner, Tools and Events (there is no sidebar) beside the account menu; picking one closes it', () => {
@@ -601,10 +607,10 @@ describe('P1509 v16 Home, Share picker, profiles, Letters, Tools (real rows)', (
     const story = (await screen.findAllByTestId('feed-story'))[0]!;
     expect(within(story).getByRole('button', { name: /Details/ })).toBeTruthy();
     fireEvent.click(within(story).getByTestId('feed-story-point-expander'));
-    const agree = within(story).getByTestId('agree-group');
-    expect(agree.getAttribute('aria-pressed')).toBe('false');
-    fireEvent.click(agree);
-    expect(within(screen.getAllByTestId('feed-story')[0]!).getByTestId('agree-group').getAttribute('aria-pressed')).toBe('true');
+    const first = () => within(within(screen.getAllByTestId('feed-story')[0]!).getAllByTestId('quoted-point-card')[0]!).getByTestId('agree-group');
+    expect(first().getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(first());
+    expect(first().getAttribute('aria-pressed')).toBe('true');
   });
 
   it('the Share picker lists MY points and stories (the viewer\'s own, from the services) and Share puts the real card in the chat', async () => {
@@ -742,8 +748,9 @@ describe('P1509 v16 skeleton, error with Retry, empty — every real surface', (
 
   it.each(SURFACES)('$name: ?real=error shows an inline error with a Retry button', ({ url, scope }) => {
     renderV16(`${url}&real=error`);
-    const err = within(scope()).getByTestId('real-error');
-    expect(within(err).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    const errs = within(scope()).getAllByTestId('real-error'); // Home also shows the forced state in its Next events / Groups widget
+    expect(errs.length).toBeGreaterThan(0);
+    for (const err of errs) expect(within(err).getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
   it.each(SURFACES)('$name: ?real=empty shows an explicit empty state, never a blank panel', async ({ url, scope, empty }) => {
@@ -1276,8 +1283,8 @@ describe('P1509 v16 Transcribe, Clarity Live, General and the message menu', () 
     renderV16();
     openRow('dm-bob-alice');
     expect(within(chatView().querySelector('header')!).queryByRole('button', { name: /Clarity Live/ })).toBeNull();
-    expect(chatMenuItems()).toEqual(['Invite to Clarity Live']);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Invite to Clarity Live' }));
+    expect(chatMenuItems()).toEqual(['Invite to Clarity LiveComing soon']);
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Invite to Clarity Live/ }));
     back();
     for (const id of ['gen-cm', 'ch-night-oct16', 'mirror-bob']) {
       openRow(id);
@@ -1689,5 +1696,446 @@ describe('P1509 v16 touch targets and primaries', () => {
       expect(primaries.filter((b) => b.disabled).map((b) => b.textContent), `${u || 'chat list'}: disabled primaries`).toEqual([]);
       a.unmount();
     }
+  });
+});
+
+/**
+ * Review fixes 1 (Gemini + Codex review of the committed UI). Each test here was run against the unfixed code first.
+ */
+/** Every toast( literal in the prototype after review fixes 1: results and labelled mocks only. Filled in by the toast test. */
+const EXPECTED_TOASTS: string[] = [
+  'Archived …', // result, with Undo
+  'Forwarded to …', // result
+  'Inviting to Clarity Live from a chat is coming soon (mock).', // its menu item says Coming soon first
+  'Not saved: prototype. Joined … for this screen only.', // labelled mock, before (the page note) and after
+  'Not saved: prototype. Left … for this screen only.',
+  'Not saved: prototype. Your position is shown here only.',
+  'Playback is coming soon.', // the voice note says "Playback: Coming soon" first
+  'Something went wrong. Try again.', // error
+  '… accepted (mock).', // the prototype control strip (not product UI), labelled (mock)
+  '… from a chat is coming soon.', // Transcribe, which says Coming soon first
+  '… to ….', // Invite sent to <name>: result
+]; // plus the toast.error for a refused RSVP and a refused cancel (conditional text)
+
+describe('P1509 v16 review fixes 1', () => {
+  const pressed = (card: HTMLElement) => within(card).getByTestId('agree-group').getAttribute('aria-pressed');
+  const quotedOf = (story: HTMLElement) => within(story).getAllByTestId('quoted-point-card');
+  const spyOpen = () => vi.spyOn(window, 'open').mockImplementation(() => null);
+
+  describe('C1 a click on a story\'s second linked point lands on the second point', () => {
+    it('Home (RealStoryCard in the feed)', async () => {
+      renderV16(`${BASE}?view=home`);
+      const story = () => screen.getAllByTestId('feed-story')[0]!;
+      await screen.findAllByTestId('feed-story');
+      fireEvent.click(within(story()).getByTestId('feed-story-point-expander'));
+      expect(quotedOf(story())).toHaveLength(2);
+      fireEvent.click(within(quotedOf(story())[1]!).getByTestId('agree-group'));
+      expect([pressed(quotedOf(story())[0]!), pressed(quotedOf(story())[1]!)]).toEqual(['false', 'true']);
+      fireEvent.click(within(quotedOf(story())[0]!).getByTestId('agree-group'));
+      expect([pressed(quotedOf(story())[0]!), pressed(quotedOf(story())[1]!)]).toEqual(['true', 'true']);
+    });
+
+    it('the Share picker (RealStoryCard inside ShareCard)', async () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      fireEvent.click(screen.getByRole('button', { name: 'Share a point or story' }));
+      const dlg = screen.getByRole('dialog', { name: 'Share a point or story' });
+      await within(dlg).findByTestId('attach-results');
+      fireEvent.click(within(dlg).getByRole('tab', { name: 'Stories' }));
+      const story = () => within(dlg).getAllByTestId('share-option')[0]!;
+      fireEvent.click(within(story()).getByTestId('feed-story-point-expander'));
+      fireEvent.click(within(quotedOf(story())[1]!).getByTestId('agree-group'));
+      expect([pressed(quotedOf(story())[0]!), pressed(quotedOf(story())[1]!)]).toEqual(['false', 'true']);
+    });
+  });
+
+  describe('C2 a sign-in that finishes after the page is left leaves no persona session', () => {
+    const slowFetch = () => {
+      let release!: () => void;
+      const pending = new Promise<void>((r) => { release = r; });
+      /* Deliberately ignores any AbortSignal: the response arrives late whatever the client did. */
+      vi.stubGlobal('fetch', vi.fn(async () => { await pending; return { ok: true, status: 200, json: async () => ({ access_token: 'tok-dana', refresh_token: 'r' }) }; }));
+      return release;
+    };
+    const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 15)); });
+
+    it('unmount while the request is pending: the late response never reaches setSession', async () => {
+      h.set(h.snap(null));
+      const release = slowFetch();
+      const a = renderV16();
+      fireEvent.click(screen.getByTestId('sign-in-dana'));
+      a.unmount();
+      await settle();
+      release();
+      await settle();
+      expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    });
+
+    it('pagehide while the request is pending does the same', async () => {
+      h.set(h.snap(null));
+      const release = slowFetch();
+      renderV16();
+      fireEvent.click(screen.getByTestId('sign-in-dana'));
+      window.dispatchEvent(new Event('pagehide'));
+      release();
+      await settle();
+      expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    });
+
+    it('left while setSession itself is running: the session it set is signed out (local scope)', async () => {
+      h.set(h.snap(null));
+      let finish!: () => void;
+      vi.mocked(supabase.auth.setSession).mockImplementation((() => new Promise((r) => { finish = () => r({ data: {}, error: null }); })) as never);
+      const a = renderV16();
+      fireEvent.click(screen.getByTestId('sign-in-dana'));
+      await waitFor(() => expect(supabase.auth.setSession).toHaveBeenCalled());
+      a.unmount();
+      await settle();
+      finish();
+      await settle();
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    });
+
+    it('a sign-in that is NOT interrupted still works (control)', async () => {
+      h.set(h.snap(null));
+      renderV16();
+      fireEvent.click(screen.getByTestId('sign-in-dana'));
+      expect(await screen.findByTestId('sidebar')).toBeTruthy();
+      expect(supabase.auth.setSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('C3 fail closed unless the client points at the TEST project', () => {
+    const watched = () => [vi.mocked(getAdminTopics), vi.mocked(storiesService.getPublicStoriesFeed), vi.mocked(agreementsService.getAgreementsForProfile), vi.mocked(eventsService.getUpcomingEvents), vi.mocked(getInboxItems)];
+
+    it.each([['vitest\'s localhost', 'http://localhost:54321'], ['the PROD project', 'https://besjtuodziykmjidubzw.supabase.co'], ['an empty URL', '']])('%s: a blocking notice instead of the prototype, and no service is called', async (_n, url) => {
+      vi.stubEnv('VITE_SUPABASE_URL', url);
+      renderV16(`${BASE}?view=home`);
+      await rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+      expect(screen.getByTestId('wrong-project').textContent).toMatch(/test project/i);
+      expect(screen.queryByTestId('sidebar')).toBeNull();
+      expect(screen.queryByTestId('bottom-tabs')).toBeNull();
+      for (const fn of watched()) expect(fn).not.toHaveBeenCalled();
+      expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+    });
+
+    it('RSVP and invite refuse outside the test project even if called directly', async () => {
+      vi.stubEnv('VITE_SUPABASE_URL', 'http://localhost:54321');
+      const { rsvp, cancelRsvp, sendPartnerInvite } = await import('@/app/prototypes/clarity-chat-v16/real-data');
+      await expect(rsvp('e', 'p')).rejects.toThrow(/test project/i);
+      await expect(cancelRsvp('e', 'p')).rejects.toThrow(/test project/i);
+      expect((await sendPartnerInvite({ email: personaEmail('dana'), personId: 'dana', name: 'Dana Ortiz', termsText: 'x' })).ok).toBe(false);
+      expect(eventsService.rsvpToEvent).not.toHaveBeenCalled();
+      expect(eventsService.cancelRsvp).not.toHaveBeenCalled();
+      expect(agreementsService.createAgreement).not.toHaveBeenCalled();
+    });
+
+    it('on the test project the prototype renders (control)', () => {
+      renderV16();
+      expect(screen.queryByTestId('wrong-project')).toBeNull();
+      expect(screen.getByTestId('sidebar')).toBeTruthy();
+    });
+  });
+
+  describe('C5 one source of truth for partners: the real agreements', () => {
+    const activeWith = (party: typeof F.PARTY_CAROL) => ({ ...F.AGREEMENT_BOB_CAROL_PENDING, id: `ag-bob-${party.slug}`, status: 'active', partnerSignedAt: '2026-10-01T00:00:00.000Z', partner: party, partnerProfileId: party.profileId });
+
+    it('Carol has a real active agreement and Alice has none: the Partners folder, the badges and the header all say Carol, not Alice', async () => {
+      h.state.agreements = [activeWith(F.PARTY_CAROL)];
+      renderV16();
+      tab(/^Partners/);
+      await waitFor(() => expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-carol"]')).toBeTruthy());
+      expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-alice"]')).toBeNull();
+      tab(/^All/);
+      openRow('dm-bob-carol');
+      expect(screen.getByTestId('partner-tag').textContent).toBe('Partner');
+      back();
+      openRow('dm-bob-alice');
+      expect(screen.queryByTestId('partner-tag')).toBeNull();
+      expect(screen.getByTestId('invite-partner')).toBeTruthy();
+    });
+
+    it('?real=empty: nobody is a partner anywhere (the hardcoded Bob and Alice partnership is gone)', async () => {
+      renderV16(`${BASE}?real=empty`);
+      tab(/^Partners/);
+      await rtlAct(async () => { await new Promise((r) => setTimeout(r, 15)); });
+      expect(screen.getByTestId('empty-partners')).toBeTruthy();
+      tab(/^All/);
+      openRow('dm-bob-alice');
+      expect(screen.queryByTestId('partner-tag')).toBeNull();
+    });
+
+    it('the default fixtures: Alice is the active partner and Carol shows Invite sent, in the folder and in the header', async () => {
+      renderV16();
+      tab(/^Partners/);
+      await waitFor(() => expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-alice"]')).toBeTruthy());
+      expect(document.querySelector('[data-testid="chat-rows"] [data-chat="dm-bob-carol"]')).toBeNull(); // pending is not a partner yet
+    });
+  });
+
+  describe('C6 event channels start from the viewer\'s REAL RSVPs, not only after an action', () => {
+    it('a seat cancelled earlier closes its channel on load; a seat reserved earlier opens one', async () => {
+      h.state.cancelled.add('ev-oct16:u-bob'); // persisted: Bob cancelled tonight
+      h.state.added.add('ev-oct23:u-bob'); // persisted: Bob reserved the online event
+      renderV16();
+      await waitFor(() => expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeNull());
+      await waitFor(() => expect(document.querySelector('[data-chat="ch-online-oct23"]')).toBeTruthy());
+      expect(vi.mocked(eventsService.isUserRsvpd)).toHaveBeenCalledWith('ev-oct16', 'u-bob');
+      expect(document.querySelector('[data-chat="ch-night-oct02"]')).toBeTruthy(); // untouched seats stay
+    });
+
+    it('and an action after load still works on top of it (reserve again)', async () => {
+      h.state.cancelled.add('ev-oct16:u-bob');
+      renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`);
+      fireEvent.click(await screen.findByTestId('rsvp-button'));
+      await screen.findByTestId('rsvp-going');
+      place('Chats');
+      await waitFor(() => expect(document.querySelector('[data-chat="ch-night-oct16"]')).toBeTruthy());
+    });
+  });
+
+  describe('C7 controls with a production destination open it; the rest say Coming soon first', () => {
+    it('Details on a point and on a story open /point/:id and /story/:id in a new tab', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=home`);
+      fireEvent.click(within((await screen.findAllByTestId('feed-story'))[0]!).getByRole('button', { name: /Details/ }));
+      expect(open).toHaveBeenLastCalledWith('/story/st-bob-1', '_blank', 'noopener,noreferrer');
+      fireEvent.click(within(screen.getByTestId('feed-tabs')).getByRole('tab', { name: /Points/ }));
+      fireEvent.click(within(screen.getAllByTestId('feed-point')[0]!).getByRole('button', { name: /Details/ }));
+      expect(open).toHaveBeenLastCalledWith('/point/pt-bob-1', '_blank', 'noopener,noreferrer');
+    });
+
+    it('the event page\'s Event Room opens /events/:slug/room in a new tab', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=event&event=p1509-online-oct23&group=online`);
+      fireEvent.click(await screen.findByTestId('event-room-tab'));
+      expect(open).toHaveBeenCalledWith('/events/p1509-online-oct23/room', '_blank', 'noopener,noreferrer');
+    });
+
+    it('New Draft has no production route to open, so it says Coming soon before anyone touches it, and does nothing', async () => {
+      const open = spyOpen();
+      renderV16(`${BASE}?view=letters`);
+      const btn = await screen.findByTestId('new-draft');
+      expect(btn.textContent).toContain('Coming soon');
+      fireEvent.click(btn);
+      expect(open).not.toHaveBeenCalled();
+      expect(document.body.textContent).not.toMatch(/opens the letter editor in the app/);
+    });
+
+    it('Invite to Clarity Live and the voice note play button say Coming soon before interaction', () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+      expect(within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: /Invite to Clarity Live/ }).textContent).toContain('Coming soon');
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+
+    it('every toast( in the prototype is a result message or a labelled mock: this is the whole list, and the "opens the real page" placeholder is gone', () => {
+      const dir = 'src/app/prototypes/clarity-chat-v16';
+      const found: string[] = [];
+      for (const f of readdirSync(dir).filter((n) => /\.tsx?$/.test(n))) {
+        const code = readFileSync(`${dir}/${f}`, 'utf8');
+        expect(code, f).not.toMatch(/opens the real page in the app|opens the letter editor in the app|opens here in the app|Details opens/);
+        for (const m of code.matchAll(/toast(?:\.error)?\(\s*([`'"])((?:(?!\1).)*)\1/g)) found.push(m[2]!.replace(/\$\{[^}]*\}/g, '…'));
+      }
+      expect(found.sort()).toEqual(EXPECTED_TOASTS);
+    });
+  });
+
+  describe('C8 prototype-only actions say so before and after', () => {
+    it('Join: the page says "Not saved: prototype" before the button, and the result says it again', async () => {
+      renderV16(`${BASE}?view=join&group=online`);
+      const note = await screen.findByTestId('prototype-note');
+      const accept = await screen.findByTestId('accept-join');
+      expect(note.textContent).toMatch(/Not saved: prototype/);
+      expect(note.compareDocumentPosition(accept) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // before the button
+      fireEvent.click(accept);
+      expect(await screen.findByText(/Not saved: prototype\. Joined .* for this screen only\./)).toBeTruthy();
+    });
+
+    it('Leave: the confirmation says it before, the result after', async () => {
+      renderV16();
+      openRow('gen-cm');
+      fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+      fireEvent.click(within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: 'Leave group' }));
+      const dlg = screen.getByRole('dialog', { name: 'Leave group' });
+      expect(dlg.textContent).toMatch(/Not saved: prototype/);
+      fireEvent.click(within(dlg).getByRole('button', { name: 'Leave' }));
+      expect(await screen.findByText(/Not saved: prototype\. Left .* for this screen only\./)).toBeTruthy();
+    });
+
+    it('a position taken on a card: Home and the picker say it is not saved, and the result says it too', async () => {
+      renderV16(`${BASE}?view=home`);
+      expect(await screen.findByTestId('prototype-note-positions')).toBeTruthy();
+      fireEvent.click(within(screen.getByTestId('feed-tabs')).getByRole('tab', { name: /Points/ }));
+      fireEvent.click(within(screen.getAllByTestId('feed-point')[0]!).getByTestId('agree-group'));
+      expect(await screen.findByText('Not saved: prototype. Your position is shown here only.')).toBeTruthy();
+      place('Chats');
+      openRow('dm-bob-alice');
+      fireEvent.click(screen.getByRole('button', { name: 'Share a point or story' }));
+      expect(within(screen.getByRole('dialog', { name: 'Share a point or story' })).getByTestId('prototype-note-positions')).toBeTruthy();
+    });
+  });
+
+  describe('C9 the sheets are accessible dialogs: focus is trapped and restored, the background is isolated', () => {
+    const settle = () => rtlAct(async () => { await new Promise((r) => setTimeout(r, 15)); });
+
+    it('the phone profile sheet: focus moves in and stays in, the app behind is hidden from assistive tech, Esc restores focus to the tab', async () => {
+      stubViewport(false);
+      renderV16();
+      const tabBtn = within(screen.getByTestId('bottom-tabs')).getByRole('button', { name: /Profile/ });
+      tabBtn.focus();
+      fireEvent.click(tabBtn);
+      const dlg = await screen.findByRole('dialog', { name: 'Profile menu' });
+      await settle();
+      expect(dlg.contains(document.activeElement)).toBe(true);
+      expect(dlg.getAttribute('aria-modal') ?? 'true').toBe('true');
+      expect(screen.getByTestId('v16-app').closest('[aria-hidden="true"]')).toBeTruthy(); // background isolation
+      screen.getByRole('button', { name: /Chats/, hidden: true }).focus(); // try to leave: the app behind is hidden from assistive tech
+      expect(dlg.contains(document.activeElement)).toBe(true);
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Profile menu' })).toBeNull());
+      expect(document.activeElement).toBe(tabBtn);
+    });
+
+    it('outside tap and swipe down still close it', async () => {
+      stubViewport(false);
+      renderV16();
+      tabbar('Profile');
+      await screen.findByRole('dialog', { name: 'Profile menu' });
+      await settle();
+      fireEvent.pointerDown(screen.getByTestId('dialog-overlay'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Profile menu' })).toBeNull());
+      tabbar('Profile');
+      const panel = await screen.findByTestId('sheet');
+      fireEvent.touchStart(panel, { touches: [{ clientY: 300 }], changedTouches: [{ clientY: 300 }] });
+      fireEvent.touchMove(panel, { touches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }], changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }] });
+      fireEvent.touchEnd(panel, { changedTouches: [{ clientY: 300 + SHEET_DISMISS_PX + 40 }] });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Profile menu' })).toBeNull());
+    });
+
+    it('the generic sheet (Forward) traps focus and gives it back to the control that opened it', async () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      const fwd = within(within(msg('Ready for tonight?')).getByRole('toolbar')).getByRole('button', { name: 'Forward' });
+      fwd.focus();
+      fireEvent.click(fwd);
+      const dlg = await screen.findByRole('dialog', { name: 'Forward to' });
+      await settle();
+      expect(dlg.contains(document.activeElement)).toBe(true);
+      screen.getByRole('button', { name: 'Share a point or story', hidden: true }).focus(); // try to leave
+      expect(dlg.contains(document.activeElement)).toBe(true);
+      expect(screen.getByTestId('v16-app').closest('[aria-hidden="true"]')).toBeTruthy();
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Forward to' })).toBeNull());
+      expect(document.activeElement).toBe(fwd);
+    });
+  });
+
+  describe('C10 Transcribe is in every chat header path and its Coming soon is never hidden', () => {
+    it('including a "No chat yet" header, and the Coming soon text has no responsive hiding at any width', () => {
+      for (const url of ['?view=chats&with=sam', '?view=chats&with=fay', '?view=chats&chat=dm-bob-alice', '?view=chats&chat=gen-cm', '?view=chats&chat=ch-night-oct16', '?view=chats&chat=mirror-bob']) {
+        const a = renderV16(`${BASE}${url}`);
+        const header = screen.getByTestId('chat-view').querySelector('header')!;
+        const btn = within(header).getByTestId('transcribe-button');
+        const soon = within(btn).getByTestId('transcribe-soon');
+        expect(soon.textContent, url).toBe('Coming soon');
+        expect(soon.className, url).not.toMatch(/(^|\s)(\w+:)*hidden(\s|$)/);
+        a.unmount();
+      }
+    });
+  });
+
+  describe('Gemini#2 phone: pages opened from the profile sheet know where they came from', () => {
+    const viaSheet = (testId: string) => { tabbar('Profile'); fireEvent.click(screen.getByTestId(testId)); };
+
+    it('Tools and Events (browse pages) keep the bottom bar with Profile active, and have a Back to where the user came from', () => {
+      stubViewport(false);
+      renderV16(`${BASE}?view=groups`);
+      viaSheet('menu-tools');
+      expect(screen.getByTestId('tools-page')).toBeTruthy();
+      expect(within(screen.getByTestId('bottom-tabs')).getByRole('button', { name: /Profile/ }).getAttribute('aria-current')).toBe('page');
+      back();
+      expect(screen.getByTestId('groups-page')).toBeTruthy(); // where it came from, not Chats
+      tabbar('Profile');
+      fireEvent.click(within(screen.getByTestId('me-menu')).getByRole('menuitem', { name: 'Events' }));
+      expect(screen.getByTestId('events-page')).toBeTruthy();
+      expect(within(screen.getByTestId('bottom-tabs')).getByRole('button', { name: /Profile/ }).getAttribute('aria-current')).toBe('page');
+      back();
+      expect(screen.getByTestId('groups-page')).toBeTruthy();
+    });
+
+    it('Partners, My Profile, Settings and Invite partner (focus pages) hide the bottom bar and have a Back', () => {
+      stubViewport(false);
+      renderV16();
+      for (const label of ['Partners', 'My Profile', 'Settings']) {
+        tabbar('Profile');
+        fireEvent.click(within(screen.getByTestId('me-menu')).getByRole('menuitem', { name: label }));
+        expect(screen.queryByTestId('bottom-tabs'), label).toBeNull();
+        back();
+        expect(screen.getByTestId('chat-list'), label).toBeTruthy();
+        expect(screen.getByTestId('bottom-tabs'), label).toBeTruthy();
+      }
+      viaSheet('menu-invite');
+      expect(screen.queryByTestId('bottom-tabs')).toBeNull();
+      back();
+      expect(screen.getByTestId('bottom-tabs')).toBeTruthy();
+    });
+
+    it('on a desktop the same pages have no Back arrow (they are places in the sidebar)', () => {
+      renderV16();
+      place('Events');
+      const header = screen.getByTestId('events-page').querySelector('header')!;
+      expect(header.querySelector('button[aria-label="Back"]')?.className ?? 'lg:hidden').toContain('lg:hidden');
+    });
+  });
+
+  describe('Gemini#3 the profile "You share" line comes from the real memberships and RSVPs', () => {
+    it('Alice: the real group and the real events both have (Bob cancelled Oct 2, so it is not listed even though the chat mock says he went)', async () => {
+      h.state.cancelled.add('ev-oct2:u-bob');
+      renderV16(`${BASE}?view=profile&person=alice`);
+      const line = await screen.findByTestId('you-share');
+      await waitFor(() => expect(line.textContent).toContain('Clarity Night, Oct 16'));
+      expect(line.textContent).toContain('Communication Activism Community · Chiang Mai');
+      expect(line.textContent).not.toContain('Oct 2');
+    });
+
+    it('Dana: only tonight; and when nothing is shared it says so', async () => {
+      renderV16(`${BASE}?view=profile&person=dana`);
+      const line = await screen.findByTestId('you-share');
+      await waitFor(() => expect(line.textContent).toContain('Clarity Night, Oct 16'));
+      expect(line.textContent).not.toContain('Communication Activism');
+      const none = await (async () => { renderV16(`${BASE}?view=profile&person=sam`); return screen.findAllByTestId('you-share'); })();
+      await waitFor(() => expect(none.at(-1)!.textContent).toBe('You share no group or event.'));
+    });
+  });
+
+  describe('Gemini#5 the Home widgets obey ?real=', () => {
+    it.each([['loading', 'real-skeleton'], ['error', 'real-error'], ['empty', 'real-empty']])('?real=%s shows that state in the widgets and calls no service for them', async (state, testId) => {
+      renderV16(`${BASE}?view=home&real=${state}`);
+      await rtlAct(async () => { await new Promise((r) => setTimeout(r, 20)); });
+      expect(within(screen.getByTestId('home-side-widgets')).getByTestId(testId)).toBeTruthy();
+      expect(screen.queryByTestId('home-side-rail')).toBeNull();
+      expect(vi.mocked(eventsService.getUpcomingEvents)).not.toHaveBeenCalled();
+    });
+
+    it('the phone block obeys it too', async () => {
+      stubViewport(false);
+      renderV16(`${BASE}?view=home&real=error`);
+      expect(within(screen.getByTestId('home-top-widgets')).getByTestId('real-error')).toBeTruthy();
+      expect(vi.mocked(eventsService.getUpcomingEvents)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Gemini#6 the primary button is the design system\'s primary CTA', () => {
+    it('PrimaryButton = Button Decision Rules #1 / Primary CTA Pattern: bg-blue-600, hover:bg-blue-700, rounded-lg; blue-500 is the same colour in tailwind.config.js', () => {
+      h.set(h.snap(null));
+      renderV16();
+      const cls = screen.getByTestId('sign-in-bob').className;
+      for (const token of ['bg-blue-600', 'text-white', 'hover:bg-blue-700', 'rounded-lg']) expect(cls).toContain(token);
+      const cfg = readFileSync('tailwind.config.js', 'utf8');
+      expect(cfg).toMatch(/"500":\s*"#2563eb"/);
+      expect(cfg).toMatch(/"600":\s*"#2563eb"/);
+    });
   });
 });

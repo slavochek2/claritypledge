@@ -45,9 +45,9 @@ export function useDismiss(onClose: () => void, on = true, refs: RefObject<HTMLE
 
 /**
  * v16 design-system pass: every labelled button is the shadcn Button. The solid blue one is the page's single primary
- * (design-system.md, Button Decision Rules #1); Outline is a real alternative (#2); Quiet is a ghost (#3).
+ * (design-system.md, Button Decision Rules #1 and the Primary CTA Pattern: bg-blue-600, hover:bg-blue-700, rounded-lg; blue-500 is the same colour, tailwind.config.js); Outline is a real alternative (#2); Quiet is a ghost (#3).
  */
-export const PRIMARY_CLASS = 'min-h-11 bg-blue-600 text-white hover:bg-blue-700';
+export const PRIMARY_CLASS = 'min-h-11 rounded-lg bg-blue-600 text-white hover:bg-blue-700';
 export function PrimaryButton({ className, ...p }: ButtonProps) { return <Button className={cn(PRIMARY_CLASS, className)} {...p} />; }
 export function OutlineButton({ className, ...p }: ButtonProps) { return <Button variant="outline" className={cn('min-h-10', className)} {...p} />; }
 export function QuietButton({ className, ...p }: ButtonProps) { return <Button variant="ghost" className={cn('min-h-10 text-gray-700', className)} {...p} />; }

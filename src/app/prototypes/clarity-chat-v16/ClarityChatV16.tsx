@@ -52,6 +52,7 @@ import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import type { Organization, OrgMember } from '@/app/data/organizations-service.interface';
 import type { EventAttendee, LetterDelivery, PointSummary, PointWithUserPosition, PositionType, Profile as ProfileData, StoryWithAuthor } from '@/app/types';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Toaster } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -71,7 +72,7 @@ import {
 } from './state';
 import {
   CHAT_EVENT_REF, cancelRsvp, chatEventOf, chatGroupOf, loadDeliveries, loadChatEventAttendees, loadEventDetail, loadEventsList, loadFeed, loadGroupDetail, loadGroupsDirectory, loadLetters, loadMyShareables, loadPartners, loadProfile,
-  partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealQuery, viewerOf,
+  loadMySeats, loadSharedWith, onTestProject, partnerStatesFrom, rsvp, sendPartnerInvite, signInAsPersona, useIsAdmin, useRealOverride, useRealQuery, viewerOf,
   type EventDetail, type EventsList, type FeedData, type GroupDetail, type GroupsDirectory, type LetterRowData, type PartnersData, type Query,
 } from './real-data';
 import { isSeededPersonaEmail, PERSONA_IDS, personaEmail, personaFromSlug, personaSlug } from './personas';
@@ -104,6 +105,9 @@ function useIsDesktop(): boolean {
 
 /** The pending sign-out of a persona after the page unmounted; a remount in the same tick cancels it. */
 let leaveTimer: ReturnType<typeof setTimeout> | null = null;
+/** The persona sign-in that is in flight, if any. Leaving the page (or pagehide) aborts it so a late answer can never apply a session. */
+let pendingSignIn: AbortController | null = null;
+const abortPendingSignIn = () => { pendingSignIn?.abort(); pendingSignIn = null; };
 
 /* ---------- URL state + history-based back ---------- */
 
@@ -184,10 +188,10 @@ function Header({ onBack, title, children, backAlways = false }: { onBack?: () =
 
 const PageTitle = ({ children }: { children: ReactNode }) => <h1 className="truncate text-base font-semibold text-gray-900">{children}</h1>;
 /** A page with a header and a scrolling body. */
-function Page({ testId, title, onBack, children, actions }: { testId: string; title: ReactNode; onBack?: () => void; children: ReactNode; actions?: ReactNode }) {
+function Page({ testId, title, onBack, mobileBack = false, children, actions }: { testId: string; title: ReactNode; onBack?: () => void; /** A place in the desktop sidebar: Back shows on a phone only. */ mobileBack?: boolean; children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid={testId}>
-      <Header backAlways={!!onBack} onBack={onBack} title={<PageTitle>{title}</PageTitle>}>{actions}</Header>
+      <Header backAlways={!!onBack && !mobileBack} onBack={onBack} title={<PageTitle>{title}</PageTitle>}>{actions}</Header>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </div>
   );
@@ -205,12 +209,22 @@ function RepliesLink({ replies, onOpen, live }: { replies: Msg[]; onOpen: () => 
 }
 
 
-/** Production links (a profile's pledge, a point) lead to real routes the mock items do not have: the prototype keeps the click. */
+/**
+ * A production page the prototype does not have a copy of opens in a NEW TAB, as every other in-app link here does. Only a same-origin
+ * path qualifies (one leading slash): anything else (a scheme, a protocol-relative URL, nothing) is ignored, never opened.
+ */
+export function openInApp(href: string | null | undefined) {
+  if (!href || !href.startsWith('/') || href.startsWith('//')) return;
+  window.open(href, '_blank', 'noopener,noreferrer');
+}
+
+/** A link inside a production block (a profile's pledge, a point) opens its real page in a new tab. */
 const stayInPrototype = (e: MouseEvent) => {
-  if (!(e.target as HTMLElement).closest('a')) return;
+  const a = (e.target as HTMLElement).closest('a');
+  if (!a) return;
   e.preventDefault();
   e.stopPropagation();
-  toast('This opens the real page in the app.');
+  openInApp(a.getAttribute('href'));
 };
 
 /* ---------- production cards with real rows (v16) ---------- */
@@ -274,8 +288,12 @@ const GROUP_DEFAULT: Record<string, PositionType> = { agree: 'agree', unsure: 'u
  * returned for the point, so a click on that same position clears it. A link to a test persona's profile opens it here.
  * An anonymous viewer's FeedPointCard keeps its own localStorage path (no network), so the wrapper lets it through.
  */
-function MockCard({ pointId, serverPosition, letAnonThrough = false, onDetails, children, testId, strip = false }: {
-  pointId?: string; serverPosition: (pointId: string) => PositionType | null; letAnonThrough?: boolean; onDetails: () => void; children: ReactNode; testId: string;
+function MockCard({ own, quotedIds = [], serverPosition, letAnonThrough = false, children, testId, strip = false }: {
+  /** The card's own subject: a point, or a story. */
+  own: { kind: 'point' | 'story'; id: string };
+  /** A story's linked points, in the order the card renders them (its quoted point cards). */
+  quotedIds?: string[];
+  serverPosition: (pointId: string) => PositionType | null; letAnonThrough?: boolean; children: ReactNode; testId: string;
   /** A card offered for sharing or sitting in a chat: no ⋯ menu, no "+ Add a point". */
   strip?: boolean;
 }) {
@@ -285,22 +303,30 @@ function MockCard({ pointId, serverPosition, letAnonThrough = false, onDetails, 
   useStripChrome(box, strip);
   const capture = (e: MouseEvent) => {
     const el = e.target as HTMLElement;
+    /* A story's quoted point cards carry no point id in the DOM: they render in `linkedPoints` order, so the card's index IS the point. */
+    const quoted = el.closest<HTMLElement>('[data-testid="quoted-point-card"]');
+    const pointId = quoted
+      ? quotedIds[[...(box.current?.querySelectorAll('[data-testid="quoted-point-card"]') ?? [])].indexOf(quoted)]
+      : own.kind === 'point' ? own.id : undefined;
     const seg = el.closest<HTMLElement>('[data-testid$="-group"]');
-    if (seg && pointId) {
+    if (seg) {
       if (letAnonThrough && !session) return;
       e.preventDefault(); e.stopPropagation();
       const pick = GROUP_DEFAULT[(seg.dataset.testid ?? '').replace(/-group$/, '')];
-      const target = seg.closest('[data-testid="quoted-point-card"]') ? (seg.closest('[data-point]') as HTMLElement | null)?.dataset.point ?? pointId : pointId;
-      if (pick) ctx.onPosition(target, pick, serverPosition(target));
+      if (pointId && pick) ctx.onPosition(pointId, pick, serverPosition(pointId));
       return;
     }
     const btn = el.closest('button');
-    if (btn && /Details/.test(btn.textContent ?? '')) { e.preventDefault(); e.stopPropagation(); onDetails(); return; }
+    if (btn && /Details/.test(btn.textContent ?? '')) {
+      e.preventDefault(); e.stopPropagation();
+      if (quoted) { if (pointId) ctx.onDetails('point', pointId); } else ctx.onDetails(own.kind, own.id);
+      return;
+    }
     const a = el.closest('a');
     if (a) {
       e.preventDefault(); e.stopPropagation();
       const slug = a.getAttribute('href')?.split('/p/')[1]?.split(/[?#/]/)[0];
-      if (slug) ctx.onSlug(slug); else toast('This opens the real page in the app.');
+      if (slug) ctx.onSlug(slug); else openInApp(a.getAttribute('href'));
     }
   };
   return <div ref={box} data-testid={testId} onClickCapture={capture}>{children}</div>;
@@ -329,7 +355,7 @@ export function RealPointCard({ point, linkedStories, testId = 'share-point', st
   const ctx = useContext(Cards)!;
   const shown = positionOf(ctx.st, point.id, point.userPosition?.position ?? null);
   return (
-    <MockCard testId={testId} strip={strip} pointId={point.id} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough onDetails={() => ctx.onDetails('point', point.id)}>
+    <MockCard testId={testId} strip={strip} own={{ kind: 'point', id: point.id }} serverPosition={(id) => (id === point.id ? point.userPosition?.position ?? null : null)} letAnonThrough>
       <FeedPointCard point={overlayPoint(point, ctx.viewerId, shown)} linkedStories={linkedStories} />
     </MockCard>
   );
@@ -340,7 +366,7 @@ export function RealStoryCard({ story, linkedPoints, testId = 'share-story', str
   const ctx = useContext(Cards)!;
   const serverOf = (id: string) => linkedPoints?.find((p) => p.id === id)?.userPosition ?? null;
   return (
-    <MockCard testId={testId} strip={strip} pointId={linkedPoints?.[0]?.id} serverPosition={serverOf} onDetails={() => ctx.onDetails('story', story.id)}>
+    <MockCard testId={testId} strip={strip} own={{ kind: 'story', id: story.id }} quotedIds={linkedPoints?.map((p) => p.id)} serverPosition={serverOf}>
       <FeedStoryCard story={story} currentUserId={ctx.viewerId} linkedPoints={linkedPoints?.map((p) => overlaySummary(p, positionOf(ctx.st, p.id, p.userPosition ?? null)))} />
     </MockCard>
   );
@@ -361,9 +387,10 @@ export function ShareCard({ item, full = false }: { item: Shareable; full?: bool
 function VoiceNote({ secs }: { secs: number }) {
   return (
     <div className="mt-1 inline-flex min-h-11 items-center gap-2 rounded-full bg-gray-100 pl-1 pr-4" data-testid="voice-note">
-      <button type="button" aria-label="Play voice message" onClick={() => toast('Playback is mocked in the prototype.')} className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Play className="h-4 w-4" /></button>
+      <button type="button" aria-label="Play voice message (coming soon)" onClick={() => toast('Playback is coming soon.')} className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"><Play className="h-4 w-4" /></button>
       <span className="flex items-end gap-0.5" aria-hidden="true">{[3, 6, 4, 8, 5, 9, 4, 6, 3, 7, 5, 4].map((h, i) => <span key={i} className="w-0.5 rounded bg-gray-400" style={{ height: h * 2 }} />)}</span>
       <span className="text-xs tabular-nums text-gray-600">{clock(secs)}</span>
+      <span className="text-xs text-gray-500" data-testid="voice-soon">Playback: {COPY.comingSoon}</span>
     </div>
   );
 }
@@ -372,8 +399,8 @@ function VoiceNote({ secs }: { secs: number }) {
 /* ---------- one message ---------- */
 
 /** Right-click (or a long press on a touch screen) on a message: Reply, Forward, Thread, Mark as unread, and for my own Edit and Delete. */
-function ContextMenu({ at, own, onClose, onReply, onForward, onThread, onMarkUnread, onEdit, onDelete }: {
-  at: { x: number; y: number }; own: boolean; onClose: () => void; onReply: () => void; onForward: () => void; onThread?: () => void; onMarkUnread: () => void; onEdit: () => void; onDelete: () => void;
+function ContextMenu({ at, canEdit, canDelete, onClose, onReply, onForward, onThread, onMarkUnread, onEdit, onDelete }: {
+  at: { x: number; y: number }; canEdit: boolean; canDelete: boolean; onClose: () => void; onReply: () => void; onForward: () => void; onThread?: () => void; onMarkUnread: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(onClose, true, [ref]);
@@ -386,8 +413,8 @@ function ContextMenu({ at, own, onClose, onReply, onForward, onThread, onMarkUnr
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onForward)}><Forward className="h-4 w-4 text-gray-500" />Forward</button>
       {onThread && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onThread)}><MessageSquareText className="h-4 w-4 text-gray-500" />Thread</button>}
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onMarkUnread)}><MessagesSquare className="h-4 w-4 text-gray-500" />{COPY.markUnread}</button>
-      {own && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onEdit)}><Pencil className="h-4 w-4 text-gray-500" />Edit</button>}
-      {own && <button type="button" role="menuitem" className={cn(MENU_ITEM, 'text-red-700')} onClick={pick(onDelete)}><Trash2 className="h-4 w-4" />Delete</button>}
+      {canEdit && <button type="button" role="menuitem" className={MENU_ITEM} onClick={pick(onEdit)}><Pencil className="h-4 w-4 text-gray-500" />Edit</button>}
+      {canDelete && <button type="button" role="menuitem" className={cn(MENU_ITEM, 'text-red-700')} onClick={pick(onDelete)}><Trash2 className="h-4 w-4" />Delete</button>}
     </div>
   );
 }
@@ -487,8 +514,8 @@ function MessageRow({ st, msg, own, compact, highlight, replies, onPerson, onRep
         {onThread && !msg.threadCard && replies && replies.length > 0 && <RepliesLink replies={replies} onOpen={onThread} live={liveThread} />}
       </Message>
       {menu && (
-        <ContextMenu at={menu} own={editable || (own && !msg.failed && !msg.agent)} onClose={() => setMenu(null)} onReply={onReply} onForward={onForward} onThread={onThread} onMarkUnread={onMarkUnread}
-          onEdit={() => (editable ? setDraft(msg.text) : toast('Only text can be edited.'))} onDelete={onDelete} />
+        <ContextMenu at={menu} canEdit={editable} canDelete={editable || (own && !msg.failed && !msg.agent)} onClose={() => setMenu(null)} onReply={onReply} onForward={onForward} onThread={onThread} onMarkUnread={onMarkUnread}
+          onEdit={() => setDraft(msg.text)} onDelete={onDelete} />
       )}
     </li>
   );
@@ -578,7 +605,7 @@ const EVENTS_ITEM = PRODUCT.find((i) => i.to === EVENTS_LIST_TO);
 const PLEDGERS_ITEM = PRODUCT.find((i) => i.to === '/pledgers');
 const ADMIN_LINKS = [{ to: '/admin/users', label: 'Users' }, { to: '/admin/topics', label: 'Topics' }] as const;
 
-type MenuActions = { onProfile: () => void; onPartners: () => void; onSettings: () => void; onLogOut: () => void; onTools: () => void; onInvite: () => void };
+type MenuActions = { onProfile: () => void; onPartners: () => void; onSettings: () => void; onLogOut: () => void; onTools: () => void; onInvite: () => void; onEvents: () => void };
 
 /**
  * The account menu: production's labels (navigation-menu-items.tsx, simple-navigation.tsx, nav-links.ts). Use cases and Learn
@@ -596,7 +623,7 @@ function ProfileMenuItems({ a, onPick, phone = false }: { a: MenuActions; onPick
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onPartners)}><Handshake className="h-4 w-4 text-gray-500" />Partners</button>
       {phone && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onInvite)} data-testid="menu-invite"><Handshake className="h-4 w-4 text-gray-500" />{COPY.invite}</button>}
       {phone && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onTools)} data-testid="menu-tools"><LayoutGrid className="h-4 w-4 text-gray-500" />{PLACE_LABEL.tools}</button>}
-      {phone && EVENTS_ITEM && out(EVENTS_ITEM.to, EVENTS_ITEM.label, EVENTS_ITEM.Icon)}
+      {phone && EVENTS_ITEM && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onEvents)} data-testid="menu-events"><CalendarDays className="h-4 w-4 text-gray-500" />{EVENTS_ITEM.label}</button>}
       {out('/sessions', 'Session History', CalendarDays)}
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onSettings)}><Settings className="h-4 w-4 text-gray-500" />Settings</button>
       <div role="group" aria-label="Use cases"><p className={MENU_HEAD}>Use cases</p>{AUDIENCE_LINKS.map((l) => out(l.to, l.label, l.Icon))}</div>
@@ -726,15 +753,15 @@ export const SHEET_DISMISS_PX = 80;
  * The drag follows the finger; letting go past SHEET_DISMISS_PX closes, short of it springs back.
  */
 function BottomSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
-  useDismiss(onClose);
   const start = useRef<number | null>(null);
   const [drag, setDrag] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
+  const giveFocusBack = useGiveFocusBack();
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" role="dialog" aria-label={label} data-testid="sheet" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div
-        ref={panel} data-testid="sheet-panel" style={{ transform: drag ? `translateY(${drag}px)` : undefined }}
-        className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-xl"
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent
+        ref={panel} hideCloseButton data-testid="sheet" aria-label={label} aria-labelledby={undefined} aria-describedby={undefined} onCloseAutoFocus={giveFocusBack} style={{ transform: drag ? `translateY(${drag}px)` : undefined }}
+        className={cn(SHEET_CLASS, 'sm:max-w-none sm:rounded-t-2xl sm:inset-x-0 sm:bottom-0 sm:left-0 sm:top-auto sm:translate-x-0 sm:translate-y-0')}
         onTouchStart={(e) => { start.current = (panel.current?.querySelector('[data-sheet-scroll]')?.scrollTop ?? 0) === 0 ? (e.touches[0]?.clientY ?? null) : null; }}
         onTouchMove={(e) => { const y = e.touches[0]?.clientY; if (start.current !== null && y !== undefined) setDrag(Math.max(0, y - start.current)); }}
         onTouchEnd={(e) => {
@@ -744,10 +771,11 @@ function BottomSheet({ label, onClose, children }: { label: string; onClose: () 
           if (dy > SHEET_DISMISS_PX) onClose(); else setDrag(0);
         }}
       >
+        <DialogTitle className="sr-only">{label}</DialogTitle>
         <div className="flex shrink-0 justify-center pb-1 pt-2" aria-hidden="true"><span className="h-1 w-10 rounded-full bg-gray-300" /></div>
         <div data-sheet-scroll className="min-h-0 overflow-y-auto px-2 pb-3">{children}</div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -757,7 +785,10 @@ function BottomSheet({ label, onClose, children }: { label: string; onClose: () 
 function Profile({ st, person, onBack, onMessage, onInvite }: { st: State; person: PersonId; onBack: () => void; onMessage: () => void; onInvite: () => void }) {
   const self = person === st.viewer;
   const q = useRealQuery<ProfileData | null>(() => loadProfile(personaSlug(person)), [person], { emptyValue: null, isEmpty: (p) => p === null });
-  const shared = [...GROUPS.filter((g) => g.members.includes(st.viewer) && g.members.includes(person)).map((g) => g.name), ...EVENTS.filter((e) => e.attendees.includes(st.viewer) && e.attendees.includes(person)).map((e) => e.name)];
+  /* "You share" is read from the real rows (group memberships and event RSVPs), never from the chat mock's roster. */
+  const { profileId, groups } = useReal();
+  const mine = myOrgsOf(st, groups.data).map((o) => ({ slug: o.slug, name: o.name }));
+  const shared = useRealQuery<string[]>(() => loadSharedWith(profileId, personaSlug(person), mine), [profileId, person, mine.map((m) => m.slug).join()], { emptyValue: [], isEmpty: () => false, enabled: !self && groups.status === 'ready' });
   const ps = self ? null : partnerState(st, person);
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="profile">
@@ -771,7 +802,13 @@ function Profile({ st, person, onBack, onMessage, onInvite }: { st: State; perso
           {ps === 'none' && <OutlineButton className="w-full" onClick={onInvite} data-testid="profile-invite"><Handshake className="h-4 w-4" aria-hidden="true" />{COPY.invite}</OutlineButton>}
           {ps === 'pending' && <p className="text-center text-sm font-medium text-gray-700" data-testid="profile-invite-sent">{COPY.inviteSent}</p>}
           {ps === 'partner' && <p className="text-center text-sm font-medium text-blue-700" data-testid="profile-partner">{COPY.partner}</p>}
-          {!self && <p className="px-1 text-sm text-gray-500">{shared.length > 0 ? `You share: ${shared.join(', ')}` : 'You share no group or event.'}</p>}
+          {!self && (
+            <p className="px-1 text-sm text-gray-500" data-testid="you-share">
+              {shared.status === 'loading' ? 'Looking up what you share…'
+                : shared.status === 'error' ? <>Could not load what you share. <button type="button" onClick={shared.retry} className="font-medium text-blue-700 underline">Retry</button></>
+                  : shared.data && shared.data.length > 0 ? `You share: ${shared.data.join(', ')}` : 'You share no group or event.'}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -926,7 +963,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
   const chans = chatGroup ? groupSections(st).find((x) => x.groupId === chatGroup)?.chats ?? [] : [];
   return (
     <Page testId="group-page" title={org.name} onBack={onBack}>
-      <div className="min-w-0 px-4 py-6" data-group={slug} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); toast('This opens the real page in the app.'); } }}>
+      <div className="min-w-0 px-4 py-6" data-group={slug} onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); if (a && !a.target) { e.preventDefault(); openInApp(a.getAttribute('href')); } }}>
         <div className="mx-auto min-w-0 max-w-4xl space-y-6">
           <OrgHeader org={org} memberCount={members.length} isMember={member} myRole={member ? (myRole ?? 'member') : null} organizerCount={organizers} participation={groups.data?.participation[org.id]}
             onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={profileId} />
@@ -952,7 +989,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
             </TabsContent>
             <TabsContent value="members" className="pt-4">
               {members.length > 0 ? (
-                <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const p = personaFromSlug(slugOfHref(a)); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); else toast('This opens the real page in the app.'); } }}>
+                <div className="space-y-2" data-testid="group-members" onClickCapture={(e) => { const a = (e.target as HTMLElement).closest('a'); const p = personaFromSlug(slugOfHref(a)); if (a) { e.preventDefault(); e.stopPropagation(); if (p) onPerson(p); else openInApp(a.getAttribute('href')); } }}>
                   {members.map((m) => <MemberRow key={m.profileId} m={m} />)}
                 </div>
               ) : <RealEmpty>No members yet.</RealEmpty>}
@@ -1009,6 +1046,7 @@ function JoinPage({ st, slug, onBack, onJoined }: { st: State; slug: string; onB
                       <Button variant="outline" className="min-h-11 w-full" onClick={onBack}>Back to {g.name}</Button>
                     ) : (
                       <>
+                        <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-center text-sm text-gray-800" data-testid="prototype-note">Not saved: prototype. Joining changes this screen only; nothing is written to the group.</p>
                         <Button onClick={() => onJoined(g.name)} size="lg" className="min-h-11 w-full bg-blue-600 py-4 text-base font-semibold text-white hover:bg-blue-700 md:py-6 md:text-lg" data-testid="accept-join">Accept terms &amp; join</Button>
                         <p className="text-center text-[10px] text-[#1A1A1A]/60 md:text-xs">Accept the terms to join {g.name}.</p>
                       </>
@@ -1041,7 +1079,7 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
   const { profileId, onRsvp } = useReal();
   const q = useRealQuery<EventDetail | null>(() => loadEventDetail(slug, profileId, groupHint), [slug, profileId, groupHint], { emptyValue: stubEvent(slug), isEmpty: () => false });
   const [busy, setBusy] = useState(false);
-  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else toast('This opens the real page in the app.'); };
+  const keep = (e: MouseEvent) => { const a = (e.target as HTMLElement).closest('a'); if (!a) return; e.preventDefault(); e.stopPropagation(); const p = personaFromSlug(slugOfHref(a)); if (p) onPerson(p); else openInApp(a.getAttribute('href')); };
   const frame = (body: ReactNode, title = 'Event') => <Page testId="event-page" title={title} onBack={onBack}>{body}</Page>;
   if (q.status === 'loading') return frame(<RealSkeleton what="this event" />);
   if (q.status === 'error') return frame(<RealError what="this event" onRetry={q.retry} />);
@@ -1077,7 +1115,7 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
           {!ended && !cancelled && (
             <div className="mb-3 flex w-full items-center sm:mb-6 justify-start gap-6 overflow-x-auto border-b border-border">
               <span className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">Details</span>
-              <button type="button" onClick={() => toast('The event room opens here in the app.')} data-testid="event-room-tab" className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground">Event Room</button>
+              <button type="button" onClick={() => openInApp(`/events/${encodeURIComponent(event.slug)}/room`)} data-testid="event-room-tab" className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground">Event Room</button>
             </div>
           )}
           <div className="flex flex-col gap-6 lg:flex-row">
@@ -1211,7 +1249,8 @@ function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => 
               <TabsTrigger value="drafts" className={LETTER_TAB_CLASS}>Drafts</TabsTrigger>
               <TabsTrigger value="sent" className={LETTER_TAB_CLASS}>Published</TabsTrigger>
             </TabsList>
-            <PrimaryButton size="sm" className="mb-1" onClick={() => toast('New Draft opens the letter editor in the app.')}><Plus className="h-4 w-4" />New Draft</PrimaryButton>
+            {/* No production route creates a draft by itself (the draft is made by a write inside the Drafts tab): so it says Coming soon up front. */}
+            <OutlineButton size="sm" className="mb-1 gap-1.5" aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
           </div>
           {(['inbox', 'drafts', 'sent'] as const).map((b) => <TabsContent key={b} value={b} className="mt-4">{rows(b)}</TabsContent>)}
         </Tabs>
@@ -1221,6 +1260,21 @@ function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => 
 }
 
 const EMPTY_FEED: FeedData = { stories: [], points: [], storyPoints: new Map(), pointStories: new Map() };
+
+/** Positions taken on a card here are an overlay on the real card and are never written. */
+const PositionsNote = () => <p className="px-1 text-xs text-gray-500" data-testid="prototype-note-positions">Not saved: prototype. A position you take on a card here is shown on this screen only.</p>;
+
+/**
+ * The production Next events / Groups widgets (HomeSideRail on a desktop, HomeTopBlock on a phone). They read their own data, so under
+ * `?real=` they are not mounted at all: the forced state is drawn instead and no service is called, like every other real surface.
+ */
+function HomeWidget({ kind }: { kind: 'side' | 'top' }) {
+  const forced = useRealOverride();
+  if (forced === 'loading') return <RealSkeleton rows={1} what="events and groups" />;
+  if (forced === 'error') return <RealError what="events and groups" onRetry={() => {}} />;
+  if (forced === 'empty') return <RealEmpty>No events scheduled yet.</RealEmpty>;
+  return kind === 'side' ? <HomeSideRail /> : <HomeTopBlock />;
+}
 
 /** A feed filter in the spirit of production's search box: words match the text or any tag (a leading # is ignored). */
 const feedMatches = (needle: string, text: string, tags: string[]) => {
@@ -1243,7 +1297,7 @@ function useRailLinks(go: { event: (slug: string) => void; group: (slug: string)
     else if (href === EVENTS_NAV_TO) go.groups();
     else if (href.startsWith(`${EVENTS_NAV_TO}/`) && slug) go.group(slug);
     else if (href.startsWith('/events/') && slug) go.event(slug);
-    else toast('This opens the real page in the app.');
+    else openInApp(href);
   };
 }
 
@@ -1253,6 +1307,7 @@ function useRailLinks(go: { event: (slug: string) => void; group: (slug: string)
  */
 function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onTab: (t: 'stories' | 'points') => void; onBrowse: () => void; go: Parameters<typeof useRailLinks>[0] }) {
   const { profileId } = useReal();
+  const isDesktop = useIsDesktop();
   const [text, setText] = useState('');
   const needle = text.trim().toLowerCase();
   const q = useRealQuery<FeedData>(() => loadFeed(profileId), [profileId], { emptyValue: EMPTY_FEED, isEmpty: (d) => d.stories.length === 0 && d.points.length === 0 });
@@ -1272,11 +1327,12 @@ function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onT
     <Page testId="home-page" title="Home">
       <div className="mx-auto flex w-full max-w-5xl justify-center gap-8 px-4 py-6">
         <div className="w-full min-w-0 max-w-2xl">
-          <div onClickCapture={rail} data-testid="home-top-widgets"><HomeTopBlock /></div>
+          {!isDesktop && <div onClickCapture={rail} data-testid="home-top-widgets"><HomeWidget kind="top" /></div>}
           <div className="relative mb-4">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search stories and points..." aria-label="Search stories and points" className="h-10 pl-9 text-base md:text-sm" data-testid="home-search" />
           </div>
+          <div className="-mt-2 mb-3"><PositionsNote /></div>
           <RealBoundary q={q} what="the feed" skeleton={<div data-testid="real-skeleton" role="status" aria-busy="true" aria-label="Loading the feed"><FeedSkeleton /></div>} empty={nothing(tab)}>
             {(d) => {
               const stories = d.stories.filter((s) => feedMatches(needle, s.content, s.tags ?? []));
@@ -1298,14 +1354,14 @@ function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onT
             }}
           </RealBoundary>
         </div>
-        <div onClickCapture={rail} data-testid="home-side-widgets"><HomeSideRail /></div>
+        {isDesktop && <div onClickCapture={rail} data-testid="home-side-widgets" className="w-72 shrink-0"><HomeWidget kind="side" /></div>}
       </div>
     </Page>
   );
 }
 
 /** The Events place: every public event, upcoming then past, as production's /events/list lists them (the same EventCard). */
-function EventsPage({ onEvent }: { onEvent: (slug: string) => void }) {
+function EventsPage({ onEvent, onBack }: { onEvent: (slug: string) => void; onBack: () => void }) {
   const { user } = useAuth();
   const q = useRealQuery<EventsList>(loadEventsList, [], { emptyValue: { upcoming: [], past: [] }, isEmpty: (d) => d.upcoming.length + d.past.length === 0 });
   const open = (e: MouseEvent) => {
@@ -1313,7 +1369,7 @@ function EventsPage({ onEvent }: { onEvent: (slug: string) => void }) {
     if (!a) return;
     e.preventDefault(); e.stopPropagation();
     const slug = (a.getAttribute('href') ?? '').split('/').filter(Boolean)[1];
-    if (slug) onEvent(slug); else toast('This opens the real page in the app.');
+    if (slug) onEvent(slug); else openInApp(a.getAttribute('href'));
   };
   const grid = (label: string, list: EventsList['upcoming']) => list.length > 0 && (
     <section aria-label={label}>
@@ -1322,7 +1378,7 @@ function EventsPage({ onEvent }: { onEvent: (slug: string) => void }) {
     </section>
   );
   return (
-    <Page testId="events-page" title="Events">
+    <Page testId="events-page" title="Events" onBack={onBack} mobileBack>
       <div className="mx-auto max-w-4xl space-y-8 px-4 py-6" onClickCapture={open}>
         <RealBoundary q={q} what="events" empty={<p>No events yet.</p>}>
           {(d) => <>{grid('Upcoming', d.upcoming)}{grid('Past', d.past)}</>}
@@ -1334,7 +1390,7 @@ function EventsPage({ onEvent }: { onEvent: (slug: string) => void }) {
 
 /** Tools: production's 3-tab selector (event-links-menu.tsx LinksMenuTabs, not exported: its Radix Tabs copied) over production's buildLinksMenu entries. */
 const LINK_TABS = [{ value: 'tools' as const, label: 'Tools' }, { value: 'points' as const, label: 'Points' }, { value: 'letters' as const, label: 'Letters' }];
-function ToolsPage() {
+function ToolsPage({ onBack }: { onBack: () => void }) {
   const entries = buildLinksMenu(null);
   const row = (e: LinksMenuEntry, k: string) => (
     <a key={k} href={e.to} target="_blank" rel="noreferrer" data-testid="event-links-entry" className={cn('flex min-h-11 items-center justify-between gap-3 rounded-lg border px-4 text-sm font-medium', e.featured ? 'border-blue-300 bg-blue-50 text-blue-700' : 'bg-white text-gray-900 hover:bg-gray-50')}>
@@ -1342,7 +1398,7 @@ function ToolsPage() {
     </a>
   );
   return (
-    <Page testId="tools-page" title="Tools">
+    <Page testId="tools-page" title="Tools" onBack={onBack} mobileBack>
       <div className="mx-auto w-full max-w-xl px-4 py-4">
         <Tabs defaultValue="tools" className="w-full">
           <div className="sticky top-0 z-10 bg-background pb-2">
@@ -1394,7 +1450,7 @@ function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onP
     e.preventDefault(); e.stopPropagation();
     const other = a.creator?.profileId === profileId ? a.partner : a.creator;
     const p = personaFromSlug(other?.slug);
-    if (p) onPartner(p); else toast('This opens the real page in the app.');
+    if (p) onPartner(p); else openInApp(other?.slug ? `/p/${other.slug}` : null);
   };
   const list = (rows: ClarityAgreement[]) => (
     <ul className="space-y-0.5">{rows.map((a) => <div key={a.id} data-agreement={a.id} onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></div>)}</ul>
@@ -1525,15 +1581,39 @@ function PartnerInvitePage({ st, who, onBack, onSent }: { st: State; who?: Perso
 
 /* ---------- sheets ---------- */
 
+/**
+ * Both sheets are the shared Radix `Dialog` (components/ui/dialog.tsx): focus moves in, is trapped and is handed back to the control
+ * that opened it; the page behind is hidden from assistive tech; Esc and an outside press close it. (The shared `Drawer` was not
+ * used: its phone branch is a plain portal with no focus handling at all, and its other branch is vaul, which needs a trigger.)
+ * On a phone a sheet is anchored to the bottom; from `sm` it is a centred card.
+ */
+const SHEET_CLASS = 'inset-x-0 bottom-0 left-0 top-auto z-50 flex max-h-[85vh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-t-2xl border-0 bg-white p-0 data-[state=closed]:animate-none data-[state=open]:animate-none sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl';
+
+/**
+ * Where focus goes back to when a sheet closes: the control that was focused when it opened. (Radix only restores to a DialogTrigger,
+ * and these sheets are opened from state, not from a trigger.)
+ */
+function useGiveFocusBack() {
+  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
+  return (e: Event) => {
+    e.preventDefault();
+    const el = opener.current;
+    if (el && el !== document.body && el.isConnected) el.focus();
+  };
+}
+
 function Sheet({ label, title, onClose, children, wide = false }: { label: string; title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  useDismiss(onClose);
+  const giveFocusBack = useGiveFocusBack();
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-label={label} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={cn('flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white sm:rounded-2xl', wide ? 'sm:max-w-lg' : 'sm:max-w-sm')}>
-        <div className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b px-4"><div className="min-w-0 font-semibold text-gray-900">{title}</div><button type="button" autoFocus aria-label="Close" onClick={onClose} className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button></div>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent hideCloseButton aria-label={label} aria-labelledby={undefined} aria-describedby={undefined} onCloseAutoFocus={giveFocusBack} className={cn(SHEET_CLASS, wide ? 'sm:max-w-lg' : 'sm:max-w-sm')}>
+        <div className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
+          <DialogTitle asChild><div className="min-w-0 font-semibold text-gray-900">{title}</div></DialogTitle>
+          <button type="button" aria-label="Close" onClick={onClose} className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', HOVER)}><X className="h-5 w-5" /></button>
+        </div>
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1586,6 +1666,7 @@ function AttachDialog({ onPick, onClose }: { onPick: (s: Shareable) => void; onC
   return (
     <Sheet wide label={COPY.shareTitle} onClose={onClose} title={COPY.shareTitle}>
       <div className="space-y-2 px-3 pt-3">
+        <PositionsNote />
         <div role="tablist" aria-label="Kind" className="flex gap-1 border-b">
           {(['point', 'story'] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={kind === k} onClick={() => setKind(k)} className={cn('min-h-11 border-b-2 px-4 text-sm font-medium', kind === k ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-600 hover:text-gray-900')}>{k === 'point' ? 'Points' : 'Stories'}</button>)}
         </div>
@@ -1621,7 +1702,23 @@ const InviteLink = ({ onClick }: { onClick: () => void }) => (
 
 /* ---------- the prototype ---------- */
 
+/**
+ * The prototype only runs against the Supabase TEST project. Anywhere else (prod, a local stack, a missing URL) this notice stands
+ * in for the whole prototype, and because nothing below it is mounted no read, RSVP, invite or sign-in can be made.
+ */
 export function ClarityChatV16() {
+  if (!onTestProject()) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-white px-6 text-center" data-testid="wrong-project" role="alert">
+        <p className="text-lg font-semibold text-gray-900">The v16 prototype only runs on the Supabase test project.</p>
+        <p className="max-w-md text-sm text-gray-600">This build is not pointed at it, so the prototype is switched off and nothing was read or written. Point .env.local at the test project and restart the dev server.</p>
+      </div>
+    );
+  }
+  return <PrototypeV16 />;
+}
+
+function PrototypeV16() {
   const { loc, go, back, mode } = useNav();
   const auth = useAuth();
   const isDesktop = useIsDesktop();
@@ -1629,7 +1726,7 @@ export function ClarityChatV16() {
   const authViewer = viewerOf(auth.user);
   const checking = auth.isLoading || auth.sessionChecked === false;
   const fresh = (viewer: ViewerId = authViewer ?? 'bob') => {
-    const st0 = initialState({ viewer, empty: mode === 'empty', fail: mode === 'fail', noPartners: mode === 'nopartners' });
+    const st0 = initialState({ viewer, empty: mode === 'empty', fail: mode === 'fail', noPartners: mode === 'nopartners', seedPartners: false });
     return mode === 'fail' && viewer === 'bob' ? openChat(st0, 'dm-bob-alice') : st0;
   };
   const [stRaw, setSt] = useState<State>(() => fresh());
@@ -1655,14 +1752,15 @@ export function ClarityChatV16() {
   personaNow.current = personaFromSlug(auth.user?.slug) !== null;
   useEffect(() => {
     if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; } // StrictMode's mount, unmount, mount must not sign anyone out
-    const out = () => { if (personaNow.current) void supabase.auth.signOut({ scope: 'local' }); };
+    const out = () => { abortPendingSignIn(); if (personaNow.current) void supabase.auth.signOut({ scope: 'local' }); };
     window.addEventListener('pagehide', out);
     return () => { window.removeEventListener('pagehide', out); leaveTimer = setTimeout(() => { leaveTimer = null; out(); }, 0); };
   }, []);
 
   const view = loc.view ?? 'chats';
   const place: Place | null = (PLACES as readonly string[]).includes(view) ? (view as Place) : null;
-  const mobileTab: MobileTab | null = sheet ? 'me' : (MOBILE_TABS as readonly string[]).includes(view) ? (view as MobileTab) : ['group', 'event', 'directory', 'join'].includes(view) ? 'groups' : null;
+  /* On a phone Events and Tools live under Profile (the sheet), so that tab is the one lit on them. */
+  const mobileTab: MobileTab | null = sheet || view === 'events' || view === 'tools' ? 'me' : (MOBILE_TABS as readonly string[]).includes(view) ? (view as MobileTab) : ['group', 'event', 'directory', 'join'].includes(view) ? 'groups' : null;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -1697,9 +1795,13 @@ export function ClarityChatV16() {
     setSt(fresh(viewer)); setTab('all'); setShowArchived(false); setQ(''); setInputs({}); setReplyTo({}); setStaged({}); closeOverlays(); go({}, true);
   };
   const doSignIn = async (id: ViewerId) => {
+    abortPendingSignIn();
+    const mine = new AbortController();
+    pendingSignIn = mine;
     setSignIn({ busy: id, error: null });
-    const r = await signInAsPersona(id);
-    setSignIn({ busy: null, error: r.ok ? null : r.error });
+    const r = await signInAsPersona(id, mine.signal);
+    if (pendingSignIn === mine) pendingSignIn = null;
+    if (!mine.signal.aborted) setSignIn({ busy: null, error: r.ok ? null : r.error });
   };
 
   const open = (chatId: string) => go({ view: 'chats', chat: chatId });
@@ -1729,7 +1831,7 @@ export function ClarityChatV16() {
   };
   const doClarify = (msgId: string) => { set((s) => clarify(s, msgId)); open(mirrorChatId(st.viewer)); };
   const menu: MenuActions = {
-    onProfile: () => showProfile(st.viewer), onPartners: () => go({ view: 'partners' }), onSettings: () => go({ view: 'settings' }), onTools: () => go({ view: 'tools' }), onInvite: () => invite(),
+    onProfile: () => showProfile(st.viewer), onPartners: () => go({ view: 'partners' }), onSettings: () => go({ view: 'settings' }), onTools: () => go({ view: 'tools' }), onInvite: () => invite(), onEvents: () => go({ view: 'events' }),
     onLogOut: () => { closeOverlays(); void auth.signOut({ scope: 'local' }); },
   };
 
@@ -1744,7 +1846,7 @@ export function ClarityChatV16() {
     <Strip viewer={authViewer} personaName={auth.user?.name} signedInName={auth.user?.name} busy={signIn.busy} error={authViewer ? signIn.error : null} onSignIn={doSignIn} onReset={() => reset()}
       onLive={liveChat && liveLinesLeft(st, liveChat) > 0 ? () => set((s) => openChat(nextLiveLine(s, liveChat), liveChat)) : undefined}
       onAccept={pendingFor ? () => { set((s) => acceptInvite(s, pendingFor)); toast(`${PEOPLE[pendingFor].name} accepted (mock).`); } : undefined}
-      acceptLabel={pendingFor ? `${PEOPLE[pendingFor].name.split(' ')[0]} accepts invite` : undefined} />
+      acceptLabel={pendingFor ? `${PEOPLE[pendingFor].name.split(' ')[0]} accepts invite (mock)` : undefined} />
   );
 
   const tabs = tabsFor(st);
@@ -1877,8 +1979,8 @@ export function ClarityChatV16() {
       return <HomePage tab={loc.tab === 'points' ? 'points' : 'stories'} onTab={(t) => go({ view: 'home', tab: t === 'stories' ? undefined : t }, true)} onBrowse={() => go({ view: 'directory' })}
         go={{ event: (slug) => openEvent(slug), group: openGroup, events: () => go({ view: 'events' }), groups: () => go({ view: 'directory' }) }} />;
     }
-    if (view === 'events') return <EventsPage onEvent={(slug) => openEvent(slug)} />;
-    if (view === 'tools') return <ToolsPage />;
+    if (view === 'events') return <EventsPage onEvent={(slug) => openEvent(slug)} onBack={() => back({ view: 'chats' })} />;
+    if (view === 'tools') return <ToolsPage onBack={() => back({ view: 'chats' })} />;
     if (view === 'settings') return <SettingsPage onBack={() => back({ view: 'chats' })} />;
     if (view === 'partners') return <PartnersPage onBack={() => back({ view: 'chats' })} onPartner={message} onInvite={() => invite()} />;
     if (view === 'invite') {
@@ -1900,7 +2002,7 @@ export function ClarityChatV16() {
     }
     if (view === 'join' && loc.group) {
       const gid = loc.group;
-      return <JoinPage st={st} slug={gid} onBack={() => back({ view: 'group', group: gid })} onJoined={(name) => { set((s) => joinGroup(s, gid, false)); toast(`Welcome to ${name}.`); back({ view: 'group', group: gid }); }} />;
+      return <JoinPage st={st} slug={gid} onBack={() => back({ view: 'group', group: gid })} onJoined={(name) => { set((s) => joinGroup(s, gid, false)); toast(`Not saved: prototype. Joined ${name} for this screen only.`); back({ view: 'group', group: gid }); }} />;
     }
     if (view === 'event' && loc.event) {
       /* Back: history, or (a deep link) the event's own group when the URL names it, else the directory. */
@@ -1920,7 +2022,7 @@ export function ClarityChatV16() {
     const name = groupName(groupId);
     set((s) => leaveGroup({ ...s, joined: { ...s.joined, [s.viewer]: s.joined[s.viewer].filter((g) => g !== groupId) } }, groupId, true));
     go({ view: 'chats' }, true);
-    toast(`You left ${name}.`);
+    toast(`Not saved: prototype. Left ${name} for this screen only.`);
   }
 
   const profileId = auth.user?.id ?? '';
@@ -1936,6 +2038,13 @@ export function ClarityChatV16() {
     const next = JSON.parse(partnerKey) as State['realPartners'];
     setSt((cur) => (JSON.stringify(cur.realPartners) === partnerKey ? cur : { ...cur, realPartners: next }));
   }, [partnerKey]);
+  /* The viewer's real seats: event channels open from these, so a seat reserved or cancelled before this visit is already reflected. */
+  const seatsQ = useRealQuery<Record<string, boolean>>(() => loadMySeats(profileId), [profileId], { emptyValue: {}, isEmpty: () => false, enabled: !!authViewer && !!profileId });
+  const seatsKey = JSON.stringify(seatsQ.data ?? {});
+  useEffect(() => {
+    const next = JSON.parse(seatsKey) as State['realGoing'];
+    setSt((cur) => (JSON.stringify(cur.realGoing) === seatsKey ? cur : { ...cur, realGoing: next }));
+  }, [seatsKey]);
   const isAdmin = useIsAdmin(authViewer ? profileId : undefined);
   const groupName = (slug: string) => groupsQ.data?.orgs.find((o) => o.slug === slug)?.name ?? GROUPS.find((g) => g.id === slug)?.name ?? slug;
   /* A real RSVP keeps the chat mock's seat for the event seeded under the same mock id in step, so its channel opens or closes with it. */
@@ -1946,9 +2055,9 @@ export function ClarityChatV16() {
   const real: RealContext = { profileId, name: auth.user?.name ?? PEOPLE[st.viewer].name, email: auth.user?.email ?? null, isAdmin, groups: groupsQ, partners: partnersQ, onRsvp };
   const cardCtx: CardCtx = {
     st, viewerId: profileId,
-    onPosition: (id, p, server) => set((s) => setPosition(s, id, p, server)),
-    onDetails: (kind, id) => toast(`Details opens /${kind}/${id} in the app.`),
-    onSlug: (slug) => { const p = personaFromSlug(slug); if (p) showProfile(p); else toast('This opens the real page in the app.'); },
+    onPosition: (id, p, server) => { set((s) => setPosition(s, id, p, server)); toast('Not saved: prototype. Your position is shown here only.'); },
+    onDetails: (kind, id) => openInApp(`/${kind}/${encodeURIComponent(id)}`),
+    onSlug: (slug) => { const p = personaFromSlug(slug); if (p) showProfile(p); else openInApp(`/p/${encodeURIComponent(slug)}`); },
   };
   const signedOut = !authViewer;
   return (
@@ -1985,6 +2094,7 @@ export function ClarityChatV16() {
       {leaving && (
         <Sheet label="Leave group" onClose={() => setLeaving(null)} title={`Leave ${groupName(leaving)}?`}>
           <p className="px-4 py-4 text-sm text-gray-700">You will lose its {COPY.general} channel. Event channels follow your RSVPs. You can rejoin from the group page.</p>
+          <p className="mx-4 mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-gray-800" data-testid="prototype-note">Not saved: prototype. Leaving changes this screen only; nothing is written to the group.</p>
           <div className="flex gap-2 border-t p-3">
             <OutlineButton className="min-h-11 flex-1" onClick={() => setLeaving(null)}>Cancel</OutlineButton>
             <Button variant="destructive" className="min-h-11 flex-1" onClick={() => { const g = leaving; setLeaving(null); leave(g); }}>Leave</Button>
@@ -2097,7 +2207,9 @@ function NoChatYet({ st, person, onBack, onPerson, onMessage }: { st: State; per
   const can = canMessage(st.viewer, person);
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="chat-view" data-chat-open={`new:${person}`}>
-      <Header onBack={onBack} title={<button type="button" onClick={() => onPerson(person)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={person} size="sm" /><span className="truncate text-base font-semibold text-gray-900">{PEOPLE[person].name}</span></button>} />
+      <Header onBack={onBack} title={<button type="button" onClick={() => onPerson(person)} className="flex min-h-11 min-w-0 items-center gap-2.5 text-left"><Avatar person={person} size="sm" /><span className="truncate text-base font-semibold text-gray-900">{PEOPLE[person].name}</span></button>}>
+        <TranscribeButton />
+      </Header>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-testid="empty-chat">
         <p className="text-sm text-gray-600">{can ? COPY.newChatOpener(first, sharedWith(st.viewer, person)) : `No chat yet with ${first}. You can message ${first} once you share a group or event.`}</p>
         {can ? <PrimaryButton onClick={onMessage}>{COPY.message}</PrimaryButton> : <OutlineButton onClick={() => onPerson(person)}>View profile</OutlineButton>}
@@ -2125,7 +2237,7 @@ function DmTitle({ st, chat, onPerson, onPartners }: { st: State; chat: Chat; on
   );
 }
 
-type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger?: boolean };
+type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger?: boolean; /** No production destination yet: says so before it is touched. */ soon?: boolean };
 
 /**
  * A chat header's word labels fit where the pane is wide: a tablet's single pane (sm up to lg) and a wide desktop (xl up). In between
@@ -2145,8 +2257,8 @@ function ChatMenu({ entries }: { entries: MenuEntry[] }) {
       <Tip label="More" side="bottom"><button type="button" aria-label="More" aria-expanded={on} onClick={() => setOn(!on)} className={cn('flex h-11 w-11 items-center justify-center rounded-full text-gray-600', HOVER)}><MoreHorizontal className="h-5 w-5" /></button></Tip>
       {on && (
         <div role="menu" className="absolute right-0 top-12 z-30 w-56 rounded-xl border bg-white p-1 shadow-xl" data-testid="chat-menu">
-          {entries.map(({ label, Icon, onSelect, danger }) => (
-            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}</button>
+          {entries.map(({ label, Icon, onSelect, danger, soon }) => (
+            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}{soon && <span className="ml-auto text-xs text-gray-500">{COPY.comingSoon}</span>}</button>
           ))}
         </div>
       )}
@@ -2167,7 +2279,8 @@ function TranscribeButton() {
       <OutlineButton onClick={() => toast(`${COPY.transcribe} from a chat is coming soon.`)} aria-label={`${COPY.transcribe}, ${COPY.comingSoon.toLowerCase()}`} data-testid="transcribe-button" className="shrink-0 gap-1.5 px-2.5 text-gray-700">
         <Mic className="h-4 w-4" aria-hidden="true" />
         <span className={HEADER_LABEL}>{COPY.transcribe}</span>
-        <span className="hidden text-xs font-normal text-gray-500 md:inline lg:hidden xl:inline" data-testid="transcribe-soon">{COPY.comingSoon}</span>
+        {/* Never hidden at any width: on a touch screen there is no tip, so this is the only place the state is said. */}
+        <span className="text-xs font-normal text-gray-500" data-testid="transcribe-soon">{COPY.comingSoon}</span>
       </OutlineButton>
     </Tip>
   );
@@ -2228,7 +2341,7 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
     ]
     : mirror
       ? [{ label: 'Rename', Icon: Pencil, onSelect: onRename }]
-      : [{ label: COPY.inviteToLive, Icon: Video, onSelect: onInviteLive }];
+      : [{ label: COPY.inviteToLive, Icon: Video, onSelect: onInviteLive, soon: true }];
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="chat-view" data-chat-open={chat.id}>
       <Header onBack={onBack} title={title}>

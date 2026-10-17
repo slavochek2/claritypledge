@@ -304,9 +304,33 @@ describe('P1509 v16 iteration (state)', () => {
     st = { ...st, realPartners: { carol: 'pending', eli: 'partner' } };
     expect(partnerState(st, 'carol')).toBe('pending');
     expect(partnerState(st, 'eli')).toBe('partner');
-    expect(partnerState(st, 'alice')).toBe('partner'); // the mock agreement
+    expect(partnerState(st, 'alice')).toBe('none'); // the old mock pair is not consulted once the service has spoken
     st = invitePartner(initialState(), 'fay');
     expect(partnerState(st, 'fay')).toBe('pending');
     expect(partnerState({ ...st, realPartners: { fay: 'partner' } }, 'fay')).toBe('partner');
+  });
+
+  it('one source of truth for partners: the folder, the badge and the header all follow realPartners (and the strip\'s accept), never a hardcoded pair', () => {
+    const st = { ...initialState({ seedPartners: false }), realPartners: { carol: 'partner' as const, eli: 'pending' as const } };
+    expect(chatsInTab(st, 'partners').map((c) => c.id)).toEqual(['dm-bob-carol']);
+    expect(partnerState(st, 'carol')).toBe('partner');
+    expect(partnerState(st, 'alice')).toBe('none'); // the old mock pair is not consulted
+    expect(partnerState(st, 'eli')).toBe('pending');
+    expect(chatsInTab(initialState({ seedPartners: false }), 'partners')).toEqual([]);
+    expect(chatsInTab(acceptInvite(invitePartner(initialState({ seedPartners: false }), 'carol'), 'carol'), 'partners').map((c) => c.id)).toEqual(['dm-bob-carol']);
+  });
+
+  it('event seats start from the viewer\'s real RSVPs when they are known, and an action still works on top', () => {
+    let st: State = { ...initialState(), realGoing: { 'night-oct16': false, 'online-oct23': true } };
+    expect(isGoing(st, 'night-oct16')).toBe(false); // the roster says Bob goes; the real RSVP says he cancelled
+    expect(visibleChats(st).some((c) => c.id === 'ch-night-oct16')).toBe(false);
+    expect(visibleChats(st).some((c) => c.id === 'ch-online-oct23')).toBe(true); // reserved earlier
+    expect(isGoing(st, 'night-oct02')).toBe(true); // not in realGoing: the roster stands in
+    st = toggleRsvp(st, 'night-oct16'); // reserve again
+    expect(isGoing(st, 'night-oct16')).toBe(true);
+    st = toggleRsvp(st, 'night-oct16');
+    expect(isGoing(st, 'night-oct16')).toBe(false);
+    st = toggleRsvp(st, 'online-oct23'); // cancel a seat that was reserved earlier
+    expect(isGoing(st, 'online-oct23')).toBe(false);
   });
 });

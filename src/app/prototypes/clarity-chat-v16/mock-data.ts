@@ -41,9 +41,8 @@ export const PEOPLE: Record<PersonId, Person> = {
   sam: { id: 'sam', name: 'Sam Rivera', slug: 'samr', email: 'sam@example.com', bio: 'Writes about negotiation.', avatarColor: '#64748b', pledger: false, role: 'Writer' },
 };
 
-/** Clarity partners (an agreement exists): the Partners folder, and a 1:1 header with no "Invite as partner". */
+/** The mock pair the pure-state tests start from. The prototype does not use it: partners come from the agreements service (state.realPartners). */
 export const PARTNERS: [PersonId, PersonId][] = [['bob', 'alice']];
-export const arePartners = (a: PersonId, b: PersonId) => PARTNERS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 
 /** CHAT MOCK ONLY (v16): the roster that decides which channels exist and who is in them. The Groups and Events screens read the real rows. A group is matched to its real org by slug (the id), an event to its real row by slug (`seedEventSlug(id)`, seed-world.ts). A group: production's `Organization` fields (organizations-service.interface.ts) plus the mock roster. */
 export interface Group { id: string; slug: string; name: string; blurb: string | null; description: string; hasEvents: boolean; members: PersonId[]; organizers: PersonId[] }

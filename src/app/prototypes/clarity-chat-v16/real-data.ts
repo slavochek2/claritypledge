@@ -40,7 +40,7 @@ import { formatTimeAgo } from '@/app/utils/format-time';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import type { Organization, OrgMember, OrgRole } from '@/app/data/organizations-service.interface';
 import type { EventAttendee, EventWithHost, LetterDelivery, PointSummary, PointWithUserPosition, Profile, StoryWithAuthor } from '@/app/types';
-import { isSeededPersonaEmail, PERSONA_SESSION_ENDPOINT, personaFromSlug, personaSlug } from './personas';
+import { isSeededPersonaEmail, isTestProject, PERSONA_SESSION_ENDPOINT, personaFromSlug, personaSlug } from './personas';
 import { seedEventSlug } from './seed-world';
 import { COPY, EVENTS, GROUPS, type LetterBox, type PersonId, type Shareable, type ViewerId } from './mock-data';
 
@@ -57,21 +57,40 @@ export const viewerOf = (user: { slug?: string | null } | null | undefined): Vie
 export type SignInResult = { ok: true } | { ok: false; error: string };
 
 /**
+ * The client-side half of "never prod": true only when this build's Supabase client points at the TEST project. Read at call
+ * time (not import time) so a misconfigured dev environment is caught wherever it is. The prototype renders nothing, and RSVP and
+ * invite refuse, when this is false.
+ */
+export const onTestProject = (): boolean => isTestProject(import.meta.env.VITE_SUPABASE_URL as string | undefined);
+function requireTestProject(): void {
+  if (!onTestProject()) throw new Error('The v16 prototype only writes to the Supabase test project.');
+}
+
+/**
  * Sign in as a seeded test persona: the dev server hands back a session (never a password) and the app's own supabase
  * client applies it, so AuthProvider picks it up exactly like a real sign-in. 409 = the personas are not seeded.
  */
-export async function signInAsPersona(id: ViewerId): Promise<SignInResult> {
+export async function signInAsPersona(id: ViewerId, signal?: AbortSignal): Promise<SignInResult> {
+  if (!onTestProject()) return { ok: false, error: 'Persona sign-in only works against the Supabase test project.' };
+  const left: SignInResult = { ok: false, error: 'Sign-in cancelled: the page was left.' };
   let res: Response;
   try {
-    res = await fetch(PERSONA_SESSION_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    res = await fetch(PERSONA_SESSION_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal });
   } catch {
-    return { ok: false, error: 'Could not reach the dev server. Persona sign-in only exists on the local dev server.' };
+    return signal?.aborted ? left : { ok: false, error: 'Could not reach the dev server. Persona sign-in only exists on the local dev server.' };
   }
+  /* The page was left while the request was out: whatever came back is dropped, no session is ever applied. */
+  if (signal?.aborted) return left;
   let body: { access_token?: string; refresh_token?: string; error?: string } = {};
   try { body = await res.json(); } catch { /* not JSON: the endpoint is not served here */ }
   if (!res.ok) return { ok: false, error: body.error ?? `Sign-in failed (${res.status}).` };
   if (!body.access_token || !body.refresh_token) return { ok: false, error: 'Persona sign-in is only available on the local dev server.' };
   const { error } = await supabase.auth.setSession({ access_token: body.access_token, refresh_token: body.refresh_token });
+  /* Left while setSession itself was running: the session it just set must not outlive the page. */
+  if (signal?.aborted) {
+    await supabase.auth.signOut({ scope: 'local' });
+    return left;
+  }
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
@@ -331,8 +350,36 @@ async function findEventOrg(eventId: string, hint?: string): Promise<Organizatio
 }
 
 /** The real RSVP flow, unchanged: the services decide capacity, cancelled events and duplicates. */
-export const rsvp = (eventId: string, profileId: string) => eventsService.rsvpToEvent(eventId, profileId);
-export const cancelRsvp = (eventId: string, profileId: string) => eventsService.cancelRsvp(eventId, profileId);
+export const rsvp = async (eventId: string, profileId: string) => { requireTestProject(); return eventsService.rsvpToEvent(eventId, profileId); };
+export const cancelRsvp = async (eventId: string, profileId: string) => { requireTestProject(); return eventsService.cancelRsvp(eventId, profileId); };
+
+/**
+ * The viewer's real seats, by chat-mock event id: true = going, false = not going. An event that does not exist in the test project
+ * has no entry (the chat mock's roster then stands in). Event channels open from this, so a seat reserved or cancelled before this
+ * visit is already reflected.
+ */
+export async function loadMySeats(profileId: string): Promise<Record<string, boolean>> {
+  const seats = await Promise.all(EVENTS.map(async (e): Promise<[string, boolean] | null> => {
+    const event = await eventsService.getEventBySlug(seedEventSlug(e.id));
+    return event ? [e.id, await eventsService.isUserRsvpd(event.id, profileId)] : null;
+  }));
+  return Object.fromEntries(seats.filter((x): x is [string, boolean] => x !== null));
+}
+
+/**
+ * What the viewer and another person share, from the real rows: the groups the viewer is in that list the person as a member, and
+ * the public events both are going to. Names only; a person who shares nothing is an empty list.
+ */
+export async function loadSharedWith(viewerProfileId: string, otherSlug: string, myGroups: { slug: string; name: string }[]): Promise<string[]> {
+  const [groups, events] = await Promise.all([
+    Promise.all(myGroups.map(async (g) => ((await organizationsService.getMembers(g.slug)).some((m) => m.slug === otherSlug) ? g.name : null))),
+    loadEventsList().then(async ({ upcoming, past }) => Promise.all([...upcoming, ...past].map(async (ev) => {
+      const going = await eventsService.getEventAttendees(ev.id);
+      return going.some((a) => a.profileId === viewerProfileId) && going.some((a) => a.slug === otherSlug) ? ev.title : null;
+    }))),
+  ]);
+  return [...groups, ...events].filter((x): x is string => x !== null);
+}
 
 /* ---------- Partners ---------- */
 
@@ -363,6 +410,7 @@ export type InviteResult = { ok: true } | { ok: false; reason: 'refused' | 'fail
  */
 export async function sendPartnerInvite(input: { email: string; personId?: PersonId; name: string; termsText: string }): Promise<InviteResult> {
   if (!isSeededPersonaEmail(input.email)) return { ok: false, reason: 'refused', message: COPY.inviteRefused };
+  if (!onTestProject()) return { ok: false, reason: 'refused', message: 'Prototype invites are sent only on the Supabase test project.' };
   try {
     const partnerProfileId = input.personId ? (await loadProfile(personaSlug(input.personId)).catch(() => null))?.id : undefined;
     const agreement = await agreementsService.createAgreement({

@@ -14,7 +14,7 @@
  * search scope) are testable here.
  */
 import type { PositionType } from '@/app/types';
-import { arePartners, COPY, EVENTS, GROUPS, PEOPLE, type PersonId, type Shareable, type ViewerId } from './mock-data';
+import { COPY, EVENTS, GROUPS, PARTNERS, PEOPLE, type PersonId, type Shareable, type ViewerId } from './mock-data';
 
 /** A channel belongs to a group: its `# general` (no eventId, members only) or one event's closed channel. */
 export interface Chat { id: string; kind: 'dm' | 'channel' | 'mirror'; members?: [PersonId, PersonId]; groupId?: string; eventId?: string; /** A mirror chat's one owner. */ owner?: ViewerId }
@@ -81,6 +81,8 @@ export interface State {
   positions: Record<ViewerId, Record<string, PositionType | null>>;
   /** v16: the partner states the agreements service reported for the signed-in viewer (set by the prototype from the real read). */
   realPartners: Partial<Record<PersonId, 'pending' | 'partner'>>;
+  /** v16: the viewer's real seats by chat-mock event id (true = going), read from the events service. Absent = not known: the roster stands in. */
+  realGoing: Record<string, boolean>;
 }
 
 export type Tab = 'all' | 'unread' | 'partners' | 'groups';
@@ -131,7 +133,7 @@ const SEED_COMMENTS: Record<string, Msg[]> = {
   ],
 };
 
-export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: boolean; noPartners?: boolean } = {}): State {
+export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: boolean; noPartners?: boolean; /** The prototype passes false: the partners come from the agreements service. Pure-state tests keep the mock pair. */ seedPartners?: boolean } = {}): State {
   const msgs = opts.empty ? [] : [...SEED_MSGS];
   if (opts.fail) msgs.push(m('m-failed', 'dm-bob-alice', 'bob', 'Running ten minutes late.', 'now', { failed: true }));
   return {
@@ -156,7 +158,8 @@ export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: 
     invites: { bob: [], dana: [] },
     accepted: [],
     positions: { bob: {}, dana: {} },
-    realPartners: {},
+    realPartners: opts.seedPartners === false || opts.noPartners ? {} : Object.fromEntries(PARTNERS.flatMap(([x, y]) => (x === (opts.viewer ?? 'bob') ? [[y, 'partner']] : y === (opts.viewer ?? 'bob') ? [[x, 'partner']] : []))),
+    realGoing: {},
   };
 }
 
@@ -164,8 +167,8 @@ export function initialState(opts: { viewer?: ViewerId; empty?: boolean; fail?: 
 
 export const eventOf = (c: Chat) => EVENTS.find((e) => e.id === c.eventId);
 export const groupOf = (c: Chat) => GROUPS.find((g) => g.id === c.groupId);
-export const partners = (st: State, a: PersonId, b: PersonId) =>
-  !st.noPartners && (arePartners(a, b) || st.accepted.some(([x, y]) => (x === a && y === b) || (x === b && y === a)));
+/** A partner of the viewer: ONE definition (partnerState), shared by the Partners folder, the badges and the headers. */
+export const partners = (st: State, a: PersonId, b: PersonId) => partnerState(st, a === st.viewer ? b : a) === 'partner';
 
 /** A dm: its two people. General: the group's members. An event channel (v16): exactly that event's RSVPs. */
 export function canSee(viewer: PersonId, c: Chat): boolean {
@@ -563,15 +566,17 @@ export const joinGroup = (st: State, groupId: string, already: boolean = isMembe
 
 /** Going: on the event's list, or reserved here. */
 const seeded = (eventId: string, v: PersonId) => !!EVENTS.find((e) => e.id === eventId)?.attendees.includes(v);
-/** Going: on the event's list (and not cancelled here), or reserved here. */
+/** Where a seat starts: the viewer's real RSVP when the events service has told us, else the chat mock's roster. */
+const baseGoing = (st: State, eventId: string, v: PersonId) => (v === st.viewer && eventId in st.realGoing ? st.realGoing[eventId]! : seeded(eventId, v));
+/** Going: the starting seat (and not cancelled here), or reserved here. */
 export const isGoing = (st: State, eventId: string, v: ViewerId = st.viewer) =>
-  (seeded(eventId, v) && !st.cancelled[v].includes(eventId)) || st.rsvps[v].includes(eventId);
+  (baseGoing(st, eventId, v) && !st.cancelled[v].includes(eventId)) || st.rsvps[v].includes(eventId);
 /** Reserve a seat, or Cancel RSVP. A seeded attendee cancels too (v15 review #2), and can reserve again. */
 export const toggleRsvp = (st: State, eventId: string): State => {
   const v = st.viewer;
   if (!EVENTS.some((e) => e.id === eventId)) return st;
   const drop = (xs: string[]) => xs.filter((x) => x !== eventId);
-  if (seeded(eventId, v)) {
+  if (baseGoing(st, eventId, v)) {
     const c = st.cancelled[v];
     return { ...st, cancelled: { ...st.cancelled, [v]: c.includes(eventId) ? drop(c) : [...c, eventId] } };
   }
@@ -595,8 +600,8 @@ export const groupOfEvent = (eventId: string) => EVENTS.find((e) => e.id === eve
  * the service has not echoed back yet.
  */
 export function partnerState(st: State, other: PersonId): 'none' | 'pending' | 'partner' {
-  if (partners(st, st.viewer, other)) return 'partner';
-  const real = st.realPartners[other];
+  if (st.accepted.some(([x, y]) => (x === st.viewer && y === other) || (x === other && y === st.viewer))) return 'partner';
+  const real = st.noPartners ? undefined : st.realPartners[other];
   if (real) return real;
   return st.invites[st.viewer].includes(other) ? 'pending' : 'none';
 }
