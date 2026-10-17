@@ -35,7 +35,7 @@ const FOUNDER_CLIP = {
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */
 const CRED_POINTS = [
-  { text: "Studied why partnerships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
+  { text: "Studied why relationships break — wrote about what I learned", link: "https://blog.claritypledge.com/two-skills-next-generation-founders/" },
   { text: "Published a 60-page research paper on trust-building", link: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" },
 ] as const;
 

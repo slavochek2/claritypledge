@@ -28,6 +28,7 @@ import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { HospitalIcon, PeopleStrip, type HospitalIconName } from "@/app/components/hospitals/hospital-icons";
 import { GapExchangeSection } from "@/app/components/hospitals/gap-exchange";
 import { HOSPITALS_OG } from "@/app/content/hospitals-og";
+import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
 
 const REFERENCES = [
@@ -147,11 +148,11 @@ function NormChart() {
         <path d="M8 46 C50 44 80 32 110 22 C140 13 170 11 196 10" fill="none" stroke="#2563eb" strokeWidth="2.6" />
         <text x="52" y="9" fontSize="9" fill="#4b5563">One-off workshop</text>
         <text x="196" y="26" textAnchor="end" fontSize="9" fill="#2563eb" fontWeight="700">Team norm</text>
-        <text x="196" y="58" textAnchor="end" fontSize="8.5" fill="#6b7280">time &rarr;</text>
-        <text x="5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 5 47)">in use</text>
+        <text x="196" y="58" textAnchor="end" fontSize="8.5" fill="#6b7280">Time</text>
+        <text x="5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 5 47)">Adoption</text>
       </svg>
       <figcaption id="norm-chart-desc" className="sr-only">
-        Chart of how much the practice is in use over time: after a one-off workshop, use peaks and then fades back to
+        Chart of how widely the practice is adopted over time: after a one-off workshop, use peaks and then fades back to
         near zero; as a team norm, use rises steadily and stays high.
       </figcaption>
     </figure>
@@ -302,12 +303,15 @@ export function HospitalsPage() {
           </div>
         </section>
 
+        {/* Founder credibility — the shared section, byte-identical to /builders, /coach, /founder. */}
+        <FounderCredibility />
+
         {/* 8. Closing CTA */}
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-4xl text-center">
             <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-balance">
-              Reveal the gaps <span className="text-blue-500">before they become mistakes.</span>
+              Reveal gaps in understanding between hospital staff <span className="text-blue-500">before they become mistakes</span>
             </h2>
             <div className="mt-12 flex justify-center">
               <PrimaryCTA location="closing" />

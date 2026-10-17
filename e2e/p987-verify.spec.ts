@@ -48,7 +48,7 @@ test.describe('P987: CP Front-Door Realignment', () => {
     // ("A live 1:1 session" was briefly asserted here too and is deliberately gone —
     // "call" already implies live and 1:1, so it restated the CTA. See UAT-2.)
     const microcopy = main.getByText('Starts with a 15-min call.', { exact: true });
-    await expect(microcopy).toHaveCount(2);
+    await expect(microcopy).toHaveCount(0); // P1506: removed — the CTA label discloses the 15-min call
 
     // "Take the Pledge" secondary CTA EXISTS (inverted from the old stale toHaveCount(0)).
     const pledgeLink = main.getByRole('link', { name: /take the pledge/i });

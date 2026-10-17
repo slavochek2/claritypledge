@@ -25,6 +25,10 @@ vi.mock('@/app/components/landing/social-proof', () => ({
   PledgerAvatarStack: () => <div data-testid="pledgers" />,
   ScrollIndicator: ({ label }: { label: string }) => <button type="button">{label}</button>,
 }));
+// The shared founder section is its own tested component; a stub keeps its video button out of the count.
+vi.mock('@/app/components/landing/founder-credibility', () => ({
+  FounderCredibility: () => <section><h2>Paid for the lesson</h2></section>,
+}));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { HospitalsPage } from '@/app/pages/hospitals-page';
@@ -54,7 +58,8 @@ describe('P1506 /hospitals — content', () => {
       'The value for the hospital',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
-      'Reveal the gaps before they become mistakes.',
+      'Paid for the lesson', // the shared founder section, before the close
+      'Reveal gaps in understanding between hospital staff before they become mistakes', // close, as the H1
     ];
     const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(h2.filter((t) => order.includes(t!))).toEqual(order);

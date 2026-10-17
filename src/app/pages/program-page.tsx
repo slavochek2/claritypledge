@@ -157,19 +157,8 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
   );
 }
 
-/** Sits under EVERY AuditCTA, not just the hero's. It carries the 15-minute disclosure,
- *  so a visitor converting at the bottom of the page must not be shown the button without
- *  it — that is the same broken-promise the bare /intro page used to create. One constant
- *  so the two copies cannot drift. "Free" lives in the CTA label only; repeating it here
- *  is redundant. */
-// The gate is the disclosure, and this line IS the gate: the CTA sells an "audit", and
-// the reader must learn before clicking that the click books a 15-minute call, not the
-// audit. Everything else was redundant with words already on the page — "audit" carries
-// gap-finding, and a "call" is self-evidently live and 1:1, so "a live 1:1 session" and
-// "we find the blind spot" only restated the CTA. Keep the gate; do not add value-claims
-// back. (The audit's format is explained on the call — a reader risking 15 free minutes
-// does not need it first.)
-const AUDIT_MICROCOPY = "Starts with a 15-min call.";
+/* P1506 (founder): no microcopy under the CTA, as on /builders (P1397) — "Book a 15-min
+   discovery call" already discloses the call that "Starts with a 15-min call." used to carry. */
 
 /** The single primary action on the page (P955): "Book a 15-min discovery call"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
@@ -186,7 +175,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
       {/* Calendar, not an arrow, and leading — the same icon in the same position as the
           nav's CTA, which is the same action to the same route. It also carries meaning an
           arrow cannot: an arrow says "this goes somewhere", a calendar says "this opens a
-          booking". That matters here because AUDIT_MICROCOPY is now just "Starts with a
+          booking". That matters here because the label alone now discloses the "Starts with a
           15-min call." — the icon is the second place a reader learns the click books a
           call rather than delivering the audit. */}
       <CalendarIcon className="w-5 h-5 shrink-0" />
@@ -286,7 +275,6 @@ export function ProgramPage() {
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
               <p className="text-muted-foreground">
                 or{" "}
                 {/* inline-flex + min-h-10 gives the tap target the 40px the visual-QA
@@ -502,7 +490,6 @@ export function ProgramPage() {
             </p>
             <div className="flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
             </div>
           </Reveal>
         </section>
