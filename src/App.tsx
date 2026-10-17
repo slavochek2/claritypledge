@@ -115,6 +115,7 @@ const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/Even
 const EventHostPage = lazy(() => import("@/app/prototypes/events/rounds/EventHostPage").then(m => ({ default: m.EventHostPage })));
 const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
 const ClarityChatV12 = lazy(() => import("@/app/prototypes/clarity-chat-v12/ClarityChatV12").then(m => ({ default: m.ClarityChatV12 })));
+const ClarityChatV13 = lazy(() => import("@/app/prototypes/clarity-chat-v13/ClarityChatV13").then(m => ({ default: m.ClarityChatV13 })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
@@ -1176,6 +1177,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/admin-users" element={<LazyRoute><AdminUsersPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/clarity-chat" element={<LazyRoute><ClarityChatV12 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/clarity-chat-v13" element={<LazyRoute><ClarityChatV13 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a

@@ -171,3 +171,40 @@ replaces P1503's "one drawer from the avatar" (decisions.md 2026-10-16). Confirm
 - P1460: connection levels (parked)
 - P1500, P1508: event loop and Clarity Canvas (next after agent chat)
 - P1048: the dead chat table; P1114: Realtime + RLS measurement; P1138: policies without a role
+
+## v13 (founder review of v12, 2026-10-17)
+
+Route: `/tree/clarity-chat-v13` (v12 stays at `/tree/clarity-chat` for comparison). Each line is a decision taken by the
+agent on the founder's open question; every one is **revisitable**.
+
+1. **Me, bottom-left (ChatGPT).** My avatar + name sits at the foot of the folder rail (desktop) and the drawer; it opens
+   a small menu: My profile, Settings (placeholder), Tools. Tools leaves the page list and sits at the bottom of the drawer.
+2. **Composer:** 📎 on the LEFT of the field, 🎤 on the right when the field is empty (Send replaces it once there is text,
+   WhatsApp/Telegram). The mic records a mock voice message (timer, stop = post a voice row). 📎 works in every chat.
+3. **Hover toolbar:** Reply, Thread, Forward. Reply always quotes in place and stays in the chat (also in channels);
+   Thread opens the side thread. Replies-count link still opens the thread.
+4. **Forward:** pick a chat → confirm sheet with a preview of the message and an optional note → Send jumps to the target chat.
+5. **One "Groups" folder** replaces one folder per group. Inside, each group is a section; every group has `# general`
+   (members only) plus one closed channel per event (members + that event's attendees). No public channels yet.
+6. **Channel header:** member count; ⋯ menu = Members, Group page (opens `/groups`), Leave (mock). Clicking the title
+   opens a Telegram-style group info sheet (name, members count, buttons Members / Group page / Leave).
+7. **Partners:** the duplicate is removed from the drawer (the rail folder stays and becomes Contacts later). A partner
+   1:1 header shows "Agreement" which opens the agreement page. With no partners the Partners folder shows an invite empty state.
+8. **New person from search:** opens an empty 1:1 with "No messages yet — say hello to <name>, you both attend <event>".
+9. **@handles dropped:** production profiles have a `slug`, no nickname (docs/technical/database.md). Rows show the role.
+10. **Mock new message** removed from the strip (not a product feature; Reset + viewer stay).
+11. **Event channel fills from Transcribe:** the event channel carries a "Transcribing · live" banner; each speaker's
+    lines post as their own messages (marked 🎙 transcribed); a table conversation is a thread under a "Table 2 · round 1" post.
+12. **Members → real profile:** members list rows open production's CompactProfileCard (unchanged from v12).
+13. **📎 opens a dialog** with a search field (text and #tags, multi-tag), filter All/Points/Stories, and previews drawn in
+    production's own frames (`PointCardShell`, `QuotedStoryShell`). A posted item renders inside the same frame in the chat.
+14. **Navigation:** drawer pages (Home, Letters, Groups) open in the app; each app page's Chats entry returns here
+    (production bottom nav). Prototype opens them in a new tab so the chat state survives.
+
+**Spec review (Gemini 3.8 flash, 2026-10-17)** changed: Thread is offered only in channels (a 1:1 has quote-reply only, so the two
+never compete); the mic has Cancel and drops a recording under 1 s. Kept against the review, with reason: forward jumps
+to the target (founder asked for it); ⋯ and the title both open group actions (Telegram has both); pages open in a new tab
+(prototype harness only, production navigates in-frame). Deferred: "new messages ↓" pill while a live transcript appends;
+a deleted point/story placeholder card.
+
+Tests: `src/tests/p1509-v13-*.test.ts(x)`.
