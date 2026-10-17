@@ -28,8 +28,8 @@ export const DOCTOR = "Dr. Mai";
 
 /** 0 idle · 1 voice note · 2 question · 3 doctor's 8 · 4 nurse's 4 · 5 verified · 6 3 seconds · 7 how to close. */
 const FINAL = 7;
-// Paced for a first read: the question and the 4 get time before the reply lands.
-const SCHEDULE = [150, 700, 2200, 3200, 4500, 5500, 6600];
+// Paced for a first read, but brisk: the founder found the earlier pace (6.6s) slow.
+const SCHEDULE = [150, 500, 1500, 2200, 3100, 3800, 4500];
 
 function Heading() {
   return (

@@ -170,8 +170,8 @@ describe('P1506 /hospitals — the exchange', () => {
       inViewMock.value = true;
       rerender(<MemoryRouter><HospitalsPage /></MemoryRouter>);
       const seen: string[] = [];
-      // Steps land at 150, 700, 2200, 3200, 4500, 5500, 6600 ms (SCHEDULE).
-      for (const ms of [200, 600, 1500, 1000, 1300, 1000, 1100]) {
+      // Steps land at 150, 500, 1500, 2200, 3100, 3800, 4500 ms (SCHEDULE).
+      for (const ms of [200, 350, 1000, 700, 900, 700, 700]) {
         act(() => { vi.advanceTimersByTime(ms); });
         seen.push(visual().getAttribute('data-phase')!);
       }
