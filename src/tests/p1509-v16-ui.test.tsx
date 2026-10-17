@@ -1711,7 +1711,7 @@ const EXPECTED_TOASTS: string[] = [
   'Archived …', // result, with Undo
   'Forwarded to …', // result
   'Inviting to Clarity Live from a chat is coming soon (mock).', // its menu item says Coming soon first
-  'New Draft is coming soon.', // the button says Coming soon first
+  'New draft is coming soon.', // the button says Coming soon first
   'Not saved: prototype. Joined … for this screen only.', // labelled mock, before (the page note) and after
   'Not saved: prototype. Left … for this screen only.',
   'Not saved: prototype. Your position is shown here only.',
@@ -2190,7 +2190,7 @@ describe('P1509 v16 review fixes 2', () => {
       expect(tag.className).toMatch(/(^|\s)hidden(\s|$)/); // beside the name only from sm up
       expect(tag.className).toContain('sm:inline-flex');
       const sub = screen.getByTestId('partner-sub'); // the line under the name, phone only
-      expect(sub.textContent).toBe(' · Partner');
+      expect(sub.textContent).toBe('Partner · '); // before the role: the state matters more than the job title
       expect(sub.className).toContain('sm:hidden');
       const t = screen.getByTestId('transcribe-button');
       expect(t.className).toContain('flex-col'); // narrow: icon over the words
@@ -2294,11 +2294,12 @@ describe('P1509 v16 review fixes 2', () => {
       expect(rows.findIndex((t) => /Pledgers/.test(t ?? ''))).toBeGreaterThan(at);
     });
 
-    it('the desktop menu keeps Log Out last (it is a popover, not a sheet)', async () => {
+    it('the desktop popover has Log Out near the top too (the same order as the sheet), not behind a scroll', async () => {
       renderV16();
       fireEvent.click(screen.getByTestId('sidebar-me'));
       const rows = within(screen.getByTestId('me-menu')).getAllByRole('menuitem').map((b) => b.textContent);
-      expect(rows.at(-1)).toMatch(/Log Out/);
+      expect(rows.findIndex((t) => /Log Out/.test(t ?? ''))).toBeLessThan(9);
+      expect(rows.findIndex((t) => /For builders/.test(t ?? ''))).toBeGreaterThan(rows.findIndex((t) => /Log Out/.test(t ?? '')));
     });
   });
 
@@ -2600,7 +2601,7 @@ describe('P1509 v16 review fixes 3', () => {
     it('New Draft answers a click with the same "coming soon" message the other Coming soon controls give', async () => {
       renderV16(`${BASE}?view=letters`);
       fireEvent.click(await screen.findByTestId('new-draft'));
-      expect(await screen.findByText('New Draft is coming soon.')).toBeTruthy();
+      expect(await screen.findByText('New draft is coming soon.')).toBeTruthy();
     });
 
     it('no Retry in the prototype is wired to an empty function', () => {
@@ -2790,5 +2791,182 @@ describe('P1509 v16 batch 3c', () => {
       fireEvent.click(within(box).getAllByRole('button', { name: /Back/ })[0]!);
       expect(screen.getByTestId('chat-list')).toBeTruthy();
     });
+  });
+});
+
+/**
+ * Visual-QA batch (one retry cycle). Layout is judged in a real browser (numbers in the report); these pin the structure jsdom can see.
+ */
+describe('P1509 v16 visual QA', () => {
+  const noBareHidden = (cls: string) => !/(^|\s)hidden(\s|$)/.test(cls);
+
+  describe('VQ1-3 the Share picker card', () => {
+    it('Share is on a row of its own UNDER the card (never on the title), and the chosen position is a tint, so Share is the only solid fill', async () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      fireEvent.click(screen.getByRole('button', { name: 'Share a point or story' }));
+      const dlg = screen.getByRole('dialog', { name: 'Share a point or story' });
+      await within(dlg).findByTestId('attach-results');
+      const option = within(dlg).getAllByTestId('share-option')[0]!;
+      const card = option.querySelector('[data-testid="share-point"], [data-testid="share-story"]')!;
+      const share = within(option).getByTestId('share-button');
+      expect(card.contains(share)).toBe(false);
+      expect(share.parentElement!.className).toContain('justify-end');
+      expect(share.className).not.toMatch(/(^|\s)absolute(\s|$)/);
+      expect(option.firstElementChild!.className).toContain("[&_[aria-pressed='true']]:!bg-blue-50"); // the override that keeps the chosen segment from being a second solid block
+      expect(share.className).toContain('bg-blue-600');
+    });
+
+    it('VQ5 a phone or tablet always shows Share (hover gating starts at lg), on every card', async () => {
+      renderV16();
+      openRow('dm-bob-alice');
+      fireEvent.click(screen.getByRole('button', { name: 'Share a point or story' }));
+      const dlg = screen.getByRole('dialog', { name: 'Share a point or story' });
+      await within(dlg).findByTestId('attach-results');
+      fireEvent.click(within(dlg).getByRole('tab', { name: 'Stories' }));
+      for (const option of within(dlg).getAllByTestId('share-option')) {
+        const cls = within(option).getByTestId('share-button').className;
+        expect(cls).toContain('lg:[@media(hover:hover)]:opacity-0');
+        expect(cls.split(/\s+/).filter((c) => /^\[@media\(hover:hover\)\]:opacity-0$|^opacity-0$/.test(c))).toEqual([]); // no hover-gating below lg
+      }
+    });
+  });
+
+  it('VQ7 the prototype strip wraps instead of clipping Reset, and its long note is from sm up', () => {
+    renderV16();
+    const strip = screen.getByRole('region', { name: 'Prototype controls' });
+    expect(strip.className).toContain('flex-wrap');
+    expect(strip.className).not.toMatch(/overflow-x-auto|whitespace-nowrap|flex-nowrap/);
+    expect(within(strip).getByRole('button', { name: 'Reset' })).toBeTruthy();
+    expect(screen.getByTestId('persona-note').className).toMatch(/(^|\s)hidden(\s|$)/);
+    expect(screen.getByTestId('persona-note').className).toContain('sm:inline');
+  });
+
+  describe('VQ8-12 narrow headers keep the essentials', () => {
+    it('an event channel keeps its NAME (two lines on a phone, mark steps aside); the date line gives way', async () => {
+      renderV16(`${BASE}?view=chats&chat=ch-night-oct16`);
+      const name = await screen.findByTestId('channel-name');
+      expect(name.className).toContain('line-clamp-2');
+      expect(name.className).toContain('sm:line-clamp-1');
+      expect(within(screen.getByTestId('channel-header')).getByTestId('channel-when').className).toContain('truncate');
+      expect(screen.getByTestId('channel-header').firstElementChild!.className).toMatch(/(^|\s)hidden(\s|$)/);
+    });
+
+    it('General keeps the lock and "Members only" whole; the group name is what truncates', async () => {
+      renderV16(`${BASE}?view=chats&chat=gen-cm`);
+      const only = await screen.findByTestId('members-only');
+      expect(only.className).toContain('whitespace-nowrap');
+      expect(only.className).toContain('shrink-0');
+      expect(screen.getByTestId('members-only-lock').getAttribute('class')).toContain('shrink-0');
+      expect(screen.getByTestId('channel-group').className).toContain('truncate');
+    });
+
+    it('a 1:1 keeps the name before the role, and the state before the job title', async () => {
+      renderV16(`${BASE}?view=chats&chat=dm-bob-alice`);
+      const name = (await screen.findByTestId('dm-name')) as HTMLElement;
+      expect(name.querySelector('span.line-clamp-2')!.textContent).toBe('Alice Moreau');
+      await screen.findByTestId('partner-sub');
+      expect(name.textContent).toContain('Partner · Facilitator');
+    });
+
+    it('the mirror keeps its role text: the name wraps to two lines instead of being cut, and "Your agent" gives way', async () => {
+      renderV16(`${BASE}?view=chats&chat=mirror-bob`);
+      fireEvent.change(within(screen.getByTestId('mirror-claim')).getByRole('textbox'), { target: { value: 'Echo' } });
+      fireEvent.click(screen.getByTestId('mirror-keep'));
+      const name = screen.getByTestId('mirror-name');
+      expect(name.textContent).toBe("Echo · Bob's mirror");
+      expect(name.className).toContain('line-clamp-2');
+      expect(name.nextElementSibling!.className).toMatch(/(^|\s)hidden(\s|$)/);
+    });
+
+    it('Partners rows keep their date: the Agreement action sits under the row on a phone and beside it from sm', async () => {
+      renderV16(`${BASE}?view=partners`);
+      const action = (await screen.findAllByTestId('agreement-action'))[0]!;
+      expect(action.closest('div.flex')!.className).toContain('flex-col');
+      expect(action.closest('div.flex')!.className).toContain('sm:flex-row');
+    });
+  });
+
+  it('VQ13/14 Letters: titles wrap to two lines instead of truncating, and the actions take their own row on a phone', async () => {
+    renderV16(`${BASE}?view=letters`);
+    const card = (await screen.findAllByTestId('letter-card'))[0]!;
+    expect(within(card).getByTestId('letter-title').className).toContain('line-clamp-2');
+    expect(within(card).getByTestId('letter-title').className).not.toContain('truncate');
+    const actions = within(card).getByTestId('letter-actions').className;
+    expect(actions).toContain('w-full');
+    expect(actions).toContain('sm:w-auto');
+    expect(actions).toContain('lg:[@media(hover:hover)]:opacity-0'); // hover only on a wide pointer screen
+  });
+
+  it('VQ15 the group tab row fits a 320px phone (smaller type and gap below sm)', async () => {
+    renderV16(`${BASE}?view=group&group=cm`);
+    const tabs = await screen.findByTestId('group-tabs');
+    expect(tabs.className).toContain('gap-3');
+    for (const t of within(tabs).getAllByRole('tab')) {
+      expect(t.className).toContain('text-sm');
+      expect(t.className).toContain('sm:text-base');
+    }
+  });
+
+  it('VQ21 the "Invite to Clarity Live · Coming soon" item is one line, the badge on the right', () => {
+    renderV16(`${BASE}?view=chats&chat=dm-bob-eli`);
+    fireEvent.click(within(chatView()).getByRole('button', { name: 'More' }));
+    const item = within(screen.getByTestId('chat-menu')).getByRole('menuitem', { name: /^Invite to Clarity Live/ });
+    expect(item.querySelector('span.whitespace-nowrap')!.textContent).toBe('Invite to Clarity Live');
+    const badge = within(item).getByText('Coming soon');
+    expect(badge.className).toContain('ml-auto');
+    expect(badge.className).toContain('whitespace-nowrap');
+    expect(screen.getByTestId('chat-menu').className).toContain('w-72');
+  });
+
+  it('VQ22 the phone Transcribe control says Transcribe (over Coming soon), not just a status label', async () => {
+    renderV16(`${BASE}?view=chats&chat=dm-bob-alice`);
+    const btn = screen.getByTestId('transcribe-button');
+    const word = within(btn).getByTestId('transcribe-word');
+    expect(word.textContent).toBe('Transcribe');
+    expect(noBareHidden(word.className)).toBe(true); // visible on a phone (hidden only between lg and xl)
+    expect(noBareHidden(within(btn).getByTestId('transcribe-soon').className)).toBe(true);
+  });
+
+  it('VQ23 the Letters button is "New draft" (no "+ New" pattern, no plus) with Coming soon', async () => {
+    renderV16(`${BASE}?view=letters`);
+    const btn = await screen.findByTestId('new-draft');
+    expect(btn.textContent).toBe('New draftComing soon');
+    expect(btn.querySelector('svg')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/\+ New|New Draft/);
+  });
+
+  it('VQ24 Cancel RSVP is a real button (outline, at least 44px tall), not a text link', async () => {
+    renderV16(`${BASE}?view=event&event=p1509-night-oct16&group=cm`);
+    const cancel = await screen.findByTestId('cancel-rsvp');
+    expect(cancel.className).toContain('min-h-11');
+    expect(cancel.className).toContain('border');
+  });
+
+  describe('VQ31 the sidebar shows where you are', () => {
+    const active = () => within(sidebar()).queryAllByRole('button').filter((b) => b.getAttribute('aria-current') === 'page').map((b) => b.textContent!.replace(/\d+$/, ''));
+    it.each([
+      ['an open chat', '?view=chats&chat=dm-bob-alice', ['Chats']],
+      ['a profile', '?view=profile&person=alice', ['Chats']],
+      ['Partners', '?view=partners', ['Chats']],
+      ['the invite page', '?view=invite', ['Chats']],
+      ['a group', '?view=group&group=cm', ['Groups']],
+      ['the directory', '?view=directory', ['Groups']],
+      ['an event', '?view=event&event=p1509-night-oct16&group=cm', ['Groups']],
+      ['Letters', '?view=letters', ['Letters']],
+      ['Events', '?view=events', ['Events']],
+    ])('%s', (_n, query, expected) => {
+      renderV16(`${BASE}${query}`);
+      expect(active()).toEqual(expected);
+    });
+  });
+
+  it('VQ34 the Home widget\'s forced state still has its "Next events" heading; the phone Share a Story has a visible word', async () => {
+    renderV16(`${BASE}?view=home&real=empty`);
+    const widget = await screen.findByTestId('home-side-widgets');
+    expect(within(widget).getByRole('heading', { name: 'Next events' })).toBeTruthy();
+    const a = screen.getByTestId('share-a-story');
+    expect(a.textContent).toContain('Share');
+    expect(a.querySelector('span.sm\\:hidden')!.textContent).toBe('Share');
   });
 });

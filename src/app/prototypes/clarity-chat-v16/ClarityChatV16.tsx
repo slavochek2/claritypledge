@@ -83,11 +83,19 @@ const HOVER = '[@media(hover:hover)]:hover:bg-gray-100';
 const MENU_ITEM = cn('flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-gray-900', HOVER);
 const MENU_HEAD = 'px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500';
 /** Production's org-page ORG_TAB_CLASS (not exported). */
-const ORG_TAB_CLASS = 'min-h-11 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none';
+const ORG_TAB_CLASS = 'min-h-11 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-sm sm:text-base data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none';
 /** Production's letters-page trigger class. */
 const LETTER_TAB_CLASS = 'min-h-11 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3';
 
 const PLACE_ICON: Record<Place | MobileTab | 'tools', LucideIcon> = { home: HomeIcon, chats: MessagesSquare, letters: MailIcon, tools: LayoutGrid, groups: LandmarkIcon, events: CalendarDays, me: UserIcon };
+
+/** The sidebar place a screen belongs to, so the sidebar always shows where you are: a chat, a profile, Partners and the invite page are Chats; a group, its join page, the directory and an event are Groups. */
+function placeOf(view: string): Place | null {
+  if ((PLACES as readonly string[]).includes(view)) return view as Place;
+  if (['profile', 'partners', 'invite'].includes(view)) return 'chats';
+  if (['group', 'join', 'directory', 'event'].includes(view)) return 'groups';
+  return null;
+}
 
 /** Desktop is >= 1024px (Tailwind lg): the sidebar. Below it: the bottom bar and the profile sheet. The same query production's home rail uses. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
@@ -160,10 +168,10 @@ const dayLabel = (st: State, chat: Chat) => {
 };
 
 /** An event channel is a calendar; General is the group's members-only channel, so it is a lock (v16). */
-const ChannelMark = ({ chat, size = 'list', onBlue = false }: { chat: Chat; size?: 'list' | 'sm'; onBlue?: boolean }) => {
+const ChannelMark = ({ chat, size = 'list', onBlue = false, className }: { chat: Chat; size?: 'list' | 'sm'; onBlue?: boolean; className?: string }) => {
   const Icon = chat.eventId ? CalendarDays : Lock;
   return (
-    <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full', onBlue ? 'bg-white text-blue-600' : 'bg-blue-600 text-white', size === 'list' ? 'h-12 w-12' : 'h-8 w-8')}>
+    <span aria-hidden="true" className={cn('flex shrink-0 items-center justify-center rounded-full', onBlue ? 'bg-white text-blue-600' : 'bg-blue-600 text-white', size === 'list' ? 'h-12 w-12' : 'h-8 w-8', className)}>
       <Icon className={size === 'list' ? 'h-5 w-5' : 'h-4 w-4'} />
     </span>
   );
@@ -648,15 +656,14 @@ function ProfileMenuItems({ a, onPick, phone = false }: { a: MenuActions; onPick
       {phone && EVENTS_ITEM && <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onEvents)} data-testid="menu-events"><CalendarDays className="h-4 w-4 text-gray-500" />{EVENTS_ITEM.label}</button>}
       {out('/sessions', 'Session History', CalendarDays)}
       <button type="button" role="menuitem" className={MENU_ITEM} onClick={onPick(a.onSettings)}><Settings className="h-4 w-4 text-gray-500" />Settings</button>
-      {/* On a phone Log Out sits right after Settings, so it is on screen without scrolling the sheet (the long reading lists come after). */}
-      {phone && logOut}
+      {/* Log Out sits right after Settings in both menus, so it is on screen without scrolling the sheet or the popover (the long reading lists come after). */}
+      {logOut}
       <div role="group" aria-label="Use cases"><p className={MENU_HEAD}>Use cases</p>{AUDIENCE_LINKS.map((l) => out(l.to, l.label, l.Icon))}</div>
       <div role="group" aria-label="Learn"><p className={MENU_HEAD}>Learn</p>{LEARN.map((l) => out(l.to, l.label, l.Icon))}</div>
       {PLEDGERS_ITEM && out(PLEDGERS_ITEM.to, PLEDGERS_ITEM.label, PLEDGERS_ITEM.Icon)}
       {isAdmin && (
         <div role="group" aria-label="Admin" data-testid="admin-group"><p className={MENU_HEAD}>Admin</p>{ADMIN_LINKS.map((l) => out(l.to, l.label, Shield))}</div>
       )}
-      {!phone && logOut}
     </>
   );
 }
@@ -1020,7 +1027,7 @@ function GroupPage({ st, slug, tab, onTab, onBack, onEvent, onChannel, onPerson,
           <OrgHeader org={org} memberCount={members.length} isMember={member} myRole={member ? (myRole ?? 'member') : null} organizerCount={organizers} participation={groups.data?.participation[org.id]}
             onJoin={onJoin} onLeave={onLeave} onShowMembers={() => onTab('members')} currentUserId={profileId} />
           <Tabs value={shownTab} onValueChange={(v) => onTab(v === firstTab ? undefined : (v as GroupTab))}>
-            <TabsList className="h-auto w-full min-w-0 justify-start gap-4 overflow-x-auto overflow-y-hidden rounded-none border-b border-border bg-transparent p-0 [scrollbar-width:none] sm:gap-6" data-testid="group-tabs">
+            <TabsList className="h-auto w-full min-w-0 justify-start gap-3 overflow-x-auto overflow-y-hidden rounded-none border-b border-border bg-transparent p-0 [scrollbar-width:none] sm:gap-6" data-testid="group-tabs">
               {org.hasEvents && <TabsTrigger value="events" className={ORG_TAB_CLASS}>Events</TabsTrigger>}
               <TabsTrigger value="members" className={ORG_TAB_CLASS}>Members</TabsTrigger>
               <TabsTrigger value="about" className={ORG_TAB_CLASS}>About</TabsTrigger>
@@ -1196,7 +1203,7 @@ function EventPage({ st, slug, groupHint, onBack, onGroup, onChat, onPerson }: {
                     : going ? (
                       <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-4 sm:p-4" data-testid="rsvp-going">
                         <div className="flex items-center gap-3"><CheckCircle2 className="h-6 w-6 flex-shrink-0 text-green-600" /><div><p className="font-semibold text-green-800">You&apos;re going!</p><p className="text-sm text-green-700">See you there</p></div></div>
-                        <div className="mt-2 text-center"><Button variant="ghost" size="sm" className="min-h-10" disabled={busy} onClick={toggle} data-testid="cancel-rsvp">Cancel RSVP</Button></div>
+                        <div className="mt-3"><Button variant="outline" className="min-h-11 w-full bg-white sm:w-auto" disabled={busy} onClick={toggle} data-testid="cancel-rsvp">Cancel RSVP</Button></div>
                       </div>
                     ) : <Button onClick={toggle} disabled={busy} className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" data-testid="rsvp-button">Reserve a seat</Button>}
                 </div>
@@ -1261,7 +1268,7 @@ function LetterCard({ l }: { l: LetterRowData }) {
   const deliveries = useRealQuery<LetterDelivery[]>(() => loadDeliveries(l.id), [l.id], { emptyValue: [], isEmpty: (d) => d.length === 0, enabled: l.box === 'sent' && open });
   return (
     <li className="group rounded-lg border bg-white" data-testid="letter-card" data-box={l.box}>
-      <div className="flex items-center gap-3 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
         {l.box === 'sent' && (
           <button type="button" aria-expanded={open} aria-label={open ? 'Collapse' : 'Expand'} onClick={() => setOpen(!open)} className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500', HOVER)}>
             {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -1269,14 +1276,15 @@ function LetterCard({ l }: { l: LetterRowData }) {
         )}
         {l.box === 'inbox' && <span className={cn('block h-2 w-2 shrink-0 rounded-full bg-blue-600', !l.unread && 'opacity-0')} aria-hidden="true" data-testid={l.unread ? 'unread-dot' : undefined} />}
         <WhoAvatar slug={l.whoSlug} name={l.who} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           {l.unread && <span className="sr-only">Unread. </span>}
-          <p className={cn('truncate text-[15px] text-gray-900', l.unread ? 'font-bold' : 'font-semibold')} data-testid="letter-title">{l.title}</p>
+          <p className={cn('line-clamp-2 break-words text-[15px] text-gray-900', l.unread ? 'font-bold' : 'font-semibold')} data-testid="letter-title">{l.title}</p>
           <p className="truncate text-xs text-gray-500">{l.summary ? `${l.summary} · Updated ${l.when}` : `${l.who} · ${l.when}`}</p>
           {l.steps && <p className="truncate text-xs text-gray-500" data-testid="letter-steps">{l.steps}</p>}
         </div>
         {l.box === 'drafts' && <LetterStatusBadge status="in_progress" label="Draft" />}
-        <div data-testid="letter-actions" className="flex shrink-0 items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+        {/* A phone has no hover: the actions are always there (a row of their own under the text when the text needs the width); from lg a pointer shows them on hover. */}
+        <div data-testid="letter-actions" className="flex w-full shrink-0 items-center justify-end gap-1 sm:w-auto lg:[@media(hover:hover)]:opacity-0 lg:[@media(hover:hover)]:group-focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:opacity-100">
           {l.actions.map((a) => (
             <Button key={a.label} asChild size="sm" variant={a.primary ? 'default' : 'outline'} className={cn('min-h-10', a.primary && 'bg-blue-600 text-white hover:bg-blue-700')}>
               <a href={a.href} target="_blank" rel="noreferrer">{a.label}</a>
@@ -1326,7 +1334,7 @@ function LettersPage({ tab, onTab }: { tab: LetterBox; onTab: (t: LetterBox) => 
               <TabsTrigger value="sent" className={LETTER_TAB_CLASS}>Published</TabsTrigger>
             </TabsList>
             {/* No production route creates a draft by itself (the draft is made by a write inside the Drafts tab): so it says Coming soon up front. */}
-            <OutlineButton size="sm" className="mb-1 shrink-0 gap-1.5" onClick={() => toast('New Draft is coming soon.')} aria-label={`New Draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft"><Plus className="h-4 w-4" />New Draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
+            <OutlineButton size="sm" className="mb-1 shrink-0 gap-1.5" onClick={() => toast('New draft is coming soon.')} aria-label={`New draft, ${COPY.comingSoon.toLowerCase()}`} data-testid="new-draft">New draft<span className="text-xs font-normal text-gray-500">{COPY.comingSoon}</span></OutlineButton>
           </div>
           {(['inbox', 'drafts', 'sent'] as const).map((b) => <TabsContent key={b} value={b} className="mt-4">{rows(b)}</TabsContent>)}
         </Tabs>
@@ -1348,7 +1356,14 @@ function HomeWidget({ kind }: { kind: 'side' | 'top' }) {
   const forced = useRealOverride();
   /* The forced state goes through the same boundary and retry as every other real surface (the hook answers the override itself). */
   const q = useRealQuery<null>(async () => null, [], { emptyValue: null, isEmpty: () => true, enabled: forced !== null });
-  if (forced) return <RealBoundary q={q} what="events and groups" empty={<p>No events scheduled yet.</p>}>{() => null}</RealBoundary>;
+  if (forced) {
+    return (
+      <section className="space-y-3" aria-label="Next events">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-foreground"><CalendarDays className="h-4 w-4" aria-hidden="true" />Next events</h2>
+        <RealBoundary q={q} what="events and groups" empty={<p>No events scheduled yet.</p>}>{() => null}</RealBoundary>
+      </section>
+    );
+  }
   return kind === 'side' ? <HomeSideRail /> : <HomeTopBlock />;
 }
 
@@ -1411,7 +1426,7 @@ function HomePage({ tab, onTab, onBrowse, go }: { tab: 'stories' | 'points'; onT
             </div>
             {/* Production's header CTA: the existing /create page (new tab). */}
             <PrimaryButton asChild className="shrink-0 px-3 sm:px-4">
-              <a href="/create" target="_blank" rel="noreferrer" aria-label="Share a Story" data-testid="share-a-story"><Plus className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">Share a Story</span></a>
+              <a href="/create" target="_blank" rel="noreferrer" aria-label="Share a Story" data-testid="share-a-story"><Plus className="h-4 w-4" aria-hidden="true" /><span className="sm:hidden">Share</span><span className="hidden sm:inline">Share a Story</span></a>
             </PrimaryButton>
           </div>
           <div className="mb-3"><PositionsNote /></div>
@@ -1538,10 +1553,10 @@ function PartnersPage({ onBack, onPartner, onInvite }: { onBack: () => void; onP
   const list = (rows: ClarityAgreement[]) => (
     <div className="space-y-0.5">
       {rows.map((a) => (
-        <div key={a.id} className="flex items-center gap-2">
+        <div key={a.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <ul data-agreement={a.id} className="min-w-0 flex-1" onClickCapture={open(a)}><AgreementRow agreement={a} currentProfileId={profileId} /></ul>
           {/* Production's agreement page (sealed agreement, Download Image, Share): the row opens the chat, this opens the agreement. */}
-          <Button asChild variant="outline" size="sm" className="min-h-10 shrink-0"><a href={`/agreements/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer" data-testid="agreement-action">Agreement</a></Button>
+          <Button asChild variant="outline" size="sm" className="min-h-10 shrink-0 self-end sm:self-auto"><a href={`/agreements/${encodeURIComponent(a.id)}`} target="_blank" rel="noreferrer" data-testid="agreement-action">Agreement</a></Button>
         </div>
       ))}
     </div>
@@ -1781,6 +1796,13 @@ function ForwardFlow({ st, msgId, onDone, onClose }: { st: State; msgId: string;
 
 
 /** The composer's Share (v15 #8, was 📎 Attach): MY points and stories (the ones I hold or wrote), each in its production card with Share beside it. */
+/**
+ * In the Share picker the Share button is the card's only solid fill: the production position control marks the chosen answer with a
+ * solid blue segment, so inside this picker that segment is drawn as a blue tint instead (a style override on the wrapper; the
+ * production component is untouched).
+ */
+const SOLID_SHARE_ONLY = "[&_[aria-pressed='true']]:!bg-blue-50 [&_[aria-pressed='true']]:!text-blue-700";
+
 function AttachDialog({ onPick, onClose }: { onPick: (s: Shareable) => void; onClose: () => void }) {
   const { profileId } = useReal();
   const [q, setQ] = useState('');
@@ -1804,11 +1826,13 @@ function AttachDialog({ onPick, onClose }: { onPick: (s: Shareable) => void; onC
           {() => (
             <ul className="space-y-3 p-3" data-testid="attach-results" data-kind={kind}>
               {items.map((s) => (
-                <li key={s.id} className="group relative" data-testid="share-option">
-                  <ShareCard item={s} full />
-                  {/* v16: Share is the picker's one solid button: it shows on hover on a desktop, always on a touch screen. */}
-                  <PrimaryButton size="sm" onClick={() => onPick(s)} aria-label={`${COPY.share} ${s.title}`} data-testid="share-button"
-                    className="absolute right-3 top-3 z-10 min-h-10 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus-visible:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">{COPY.share}</PrimaryButton>
+                <li key={s.id} className="group" data-testid="share-option">
+                  <div className={SOLID_SHARE_ONLY}><ShareCard item={s} full /></div>
+                  {/* v16: Share is the picker's one solid button, on a row of its own under the card so it never sits on the title. From lg a pointer shows it on hover (the row keeps its height); a phone or tablet always shows it. */}
+                  <div className="flex justify-end pt-2">
+                    <PrimaryButton size="sm" onClick={() => onPick(s)} aria-label={`${COPY.share} ${s.title}`} data-testid="share-button"
+                      className="min-h-10 lg:[@media(hover:hover)]:opacity-0 lg:[@media(hover:hover)]:focus-visible:opacity-100 lg:[@media(hover:hover)]:group-focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:opacity-100">{COPY.share}</PrimaryButton>
+                  </div>
                 </li>
               ))}
               {items.length === 0 && <li className="px-3 py-8 text-center text-sm text-gray-500">{kind === 'point' ? 'No points match.' : 'No stories match.'} Try fewer words or another #tag.</li>}
@@ -1882,7 +1906,7 @@ function PrototypeV16() {
   }, []);
 
   const view = loc.view ?? 'chats';
-  const place: Place | null = (PLACES as readonly string[]).includes(view) ? (view as Place) : null;
+  const place = placeOf(view);
   /* On a phone Events and Tools live under Profile (the sheet), so that tab is the one lit on them. */
   const mobileTab: MobileTab | null = sheet || view === 'events' || view === 'tools' ? 'me' : (MOBILE_TABS as readonly string[]).includes(view) ? (view as MobileTab) : ['group', 'event', 'directory', 'join'].includes(view) ? 'groups' : null;
 
@@ -2293,8 +2317,8 @@ function Strip({ viewer, personaName, signedInName, busy, error, onSignIn, onRes
 }) {
   const small = 'shrink-0 px-2.5';
   return (
-    /* Review #12: one line at every width (it scrolls sideways on a phone instead of wrapping). */
-    <div role="region" aria-label="Prototype controls" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap border-b bg-gray-100 px-2 py-0.5 [scrollbar-width:none] sm:gap-3 sm:px-3">
+    /* It wraps instead of clipping its right edge on a phone (Reset must always be on screen); the long "Signed in as" note is from sm up. */
+    <div role="region" aria-label="Prototype controls" className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b bg-gray-100 px-2 py-0.5 sm:gap-x-3 sm:px-3">
       <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:inline">Prototype v16 · test project</span>
       <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-600 sm:hidden">v16</span>
       {viewer ? (
@@ -2307,9 +2331,9 @@ function Strip({ viewer, personaName, signedInName, busy, error, onSignIn, onRes
           {LENSES.map((l) => <OutlineButton key={l.id} disabled={busy !== null} onClick={() => onSignIn(l.id)} className={small} data-testid={`strip-sign-in-${l.id}`}>{busy === l.id ? `Signing in as ${l.label}…` : `Sign in as ${l.label}`}</OutlineButton>)}
         </div>
       )}
-      {viewer && <span data-testid="persona-note" className="text-xs text-gray-600">Signed in as {personaName ?? PEOPLE[viewer].name} (test persona)</span>}
+      {viewer && <span data-testid="persona-note" className="hidden text-xs text-gray-600 sm:inline">Signed in as {personaName ?? PEOPLE[viewer].name} (test persona)</span>}
       {error && <span role="alert" data-testid="sign-in-error" className="text-xs font-medium text-red-700">{error}</span>}
-      {onLive && <OutlineButton onClick={onLive} className={small}>Next transcript line</OutlineButton>}
+      {onLive && <OutlineButton onClick={onLive} aria-label="Next transcript line" className={small}><span className="sm:hidden">Next line</span><span className="hidden sm:inline">Next transcript line</span></OutlineButton>}
       {onAccept && <OutlineButton onClick={onAccept} className={small} data-testid="strip-accept">{acceptLabel}</OutlineButton>}
       <OutlineButton onClick={onReset} className={small}>Reset</OutlineButton>
     </div>
@@ -2385,7 +2409,7 @@ function DmTitle({ st, chat, onPerson, onPartners }: { st: State; chat: Chat; on
   const stateWord = state === 'partner' ? COPY.partner : state === 'pending' ? COPY.inviteSent : null;
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <button type="button" onClick={() => onPerson(other)} data-testid="dm-name" className="flex min-h-11 min-w-[5rem] items-center gap-2.5 text-left"><Avatar person={other} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{chatTitle(st, chat)}</span><span className="block truncate text-xs text-gray-500">{PEOPLE[other].role}{stateWord && <span className="sm:hidden" data-testid="partner-sub"> · {stateWord}</span>}</span></span></button>
+      <button type="button" onClick={() => onPerson(other)} data-testid="dm-name" className="flex min-h-11 min-w-[5rem] items-center gap-2.5 text-left"><span className="hidden shrink-0 sm:inline-flex"><Avatar person={other} size="sm" /></span><span className="min-w-0"><span className={HEAD_NAME}>{chatTitle(st, chat)}</span><span className="block truncate text-xs text-gray-500">{stateWord && <span className="sm:hidden" data-testid="partner-sub">{stateWord} · </span>}{PEOPLE[other].role}</span></span></button>
       {state === 'partner' && (
         <Tip label="Your partners" side="bottom">
           <button type="button" onClick={onPartners} aria-label={COPY.partner} data-testid="partner-tag" className="hidden min-h-10 shrink-0 items-center gap-1 rounded-full bg-blue-50 px-3 text-xs font-semibold text-blue-700 hover:bg-blue-100 sm:inline-flex"><Handshake className="h-3 w-3" aria-hidden="true" />{COPY.partner}</button>
@@ -2404,6 +2428,8 @@ type MenuEntry = { label: string; Icon: LucideIcon; onSelect: () => void; danger
  * (1024 to 1279px) the pane beside the sidebar and the chat list is about 400px, so the buttons are icons with a tip and an aria-label.
  */
 const HEADER_LABEL = 'hidden sm:inline lg:hidden xl:inline';
+/** A chat header's name: two lines on a phone, one from sm. */
+const HEAD_NAME = 'block break-words text-[15px] font-semibold leading-tight text-gray-900 line-clamp-2 sm:text-base sm:leading-normal sm:line-clamp-1';
 
 /** The ⋯ menu of a chat header: what it offers depends on the kind of chat. */
 function ChatMenu({ entries }: { entries: MenuEntry[] }) {
@@ -2416,9 +2442,9 @@ function ChatMenu({ entries }: { entries: MenuEntry[] }) {
     <div ref={ref} className="relative shrink-0">
       <Tip label="More" side="bottom"><button type="button" aria-label="More" aria-expanded={on} onClick={() => setOn(!on)} className={cn('flex h-11 w-11 items-center justify-center rounded-full text-gray-600', HOVER)}><MoreHorizontal className="h-5 w-5" /></button></Tip>
       {on && (
-        <div role="menu" className="absolute right-0 top-12 z-30 w-56 rounded-xl border bg-white p-1 shadow-xl" data-testid="chat-menu">
+        <div role="menu" className="absolute right-0 top-12 z-30 w-72 max-w-[calc(100vw-1rem)] rounded-xl border bg-white p-1 shadow-xl" data-testid="chat-menu">
           {entries.map(({ label, Icon, onSelect, danger, soon, phoneOnly }) => (
-            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700', phoneOnly && 'sm:hidden')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4', !danger && 'text-gray-500')} />{label}{soon && <span className="ml-auto text-xs text-gray-500">{COPY.comingSoon}</span>}</button>
+            <button key={label} type="button" role="menuitem" className={cn(MENU_ITEM, danger && 'text-red-700', phoneOnly && 'sm:hidden')} onClick={pick(onSelect)}><Icon className={cn('h-4 w-4 shrink-0', !danger && 'text-gray-500')} /><span className="whitespace-nowrap">{label}</span>{soon && <span className="ml-auto shrink-0 whitespace-nowrap pl-2 text-xs text-gray-500">{COPY.comingSoon}</span>}</button>
           ))}
         </div>
       )}
@@ -2437,8 +2463,9 @@ function TranscribeButton() {
   return (
     <Tip label={`${COPY.transcribe}: ${COPY.comingSoon}`} side="bottom">
       <OutlineButton onClick={() => toast(`${COPY.transcribe} from a chat is coming soon.`)} aria-label={`${COPY.transcribe}, ${COPY.comingSoon.toLowerCase()}`} data-testid="transcribe-button" className="h-auto min-h-10 shrink-0 flex-col gap-0 px-1.5 py-1 text-gray-700 sm:flex-row sm:gap-1.5 sm:px-2.5">
-        <Mic className="h-4 w-4" aria-hidden="true" />
-        <span className={HEADER_LABEL}>{COPY.transcribe}</span>
+        <Mic className="hidden h-4 w-4 sm:block" aria-hidden="true" />
+        {/* The word is always there on a phone (stacked over Coming soon) so the control does not read as a status label; icon-only only between lg and xl, where the pane is narrow. */}
+        <span className="text-[11px] font-medium leading-tight sm:text-sm lg:hidden xl:inline" data-testid="transcribe-word">{COPY.transcribe}</span>
         {/* Never hidden at any width: on a touch screen there is no tip, so this is the only place the state is said. */}
         <span className="text-[10px] font-normal leading-tight text-gray-500 sm:text-xs" data-testid="transcribe-soon">{COPY.comingSoon}</span>
       </OutlineButton>
@@ -2473,22 +2500,27 @@ function ChatView({ st, chat, input, onInput, replyTo, threadId, onBack, onPerso
   const defaultName = defaultMirrorName(st.viewer);
   const [nameDraft, setNameDraft] = useState(defaultName);
   const other = chat.kind === 'dm' ? otherOf(st, chat) : undefined;
+  /*
+   * Header text priority on a narrow phone (320px leaves ~120px for the title): the NAME wins and wraps to two lines before it is cut;
+   * the avatar/mark steps aside below `sm` to give it room; the line under the name gives way first (event date, group name, role).
+   * "Members only" and the mirror's role are never the part that is cut.
+   */
   const title = channel
     ? (
       <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="channel-header">
-        <ChannelMark chat={chat} size="sm" />
+        <ChannelMark chat={chat} size="sm" className="hidden sm:flex" />
         <span className="min-w-0">
-          <span className="block truncate text-base font-semibold text-gray-900">{rowTitle(st, chat, true)}</span>
-          <span className="flex min-w-0 items-center gap-1 truncate text-xs text-gray-500">
+          <span className={HEAD_NAME} data-testid="channel-name">{rowTitle(st, chat, true)}</span>
+          <span className="flex min-w-0 items-center gap-1 text-xs text-gray-500">
             {ev
-              ? <><span className="truncate">{eventWhen(st, ev)}</span> · <GoingCount mockEventId={ev.id} /></>
-              : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span data-testid="members-only">{COPY.membersOnly}</span><span className="truncate"> · {group?.name}</span></>}
+              ? <><span className="truncate" data-testid="channel-when">{eventWhen(st, ev)}</span><span className="shrink-0">·</span><span className="shrink-0 whitespace-nowrap"><GoingCount mockEventId={ev.id} /></span></>
+              : <><Lock className="h-3 w-3 shrink-0" aria-hidden="true" data-testid="members-only-lock" /><span className="shrink-0 whitespace-nowrap" data-testid="members-only">{COPY.membersOnly}</span><span className="truncate" data-testid="channel-group"> · {group?.name}</span></>}
           </span>
         </span>
       </div>
     )
     : mirror
-      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" /><span className="min-w-0"><span className="block truncate text-base font-semibold text-gray-900">{mirrorLabel(st)}</span><span className="block truncate text-xs text-gray-500">Your agent</span></span></div>
+      ? <div className="flex min-h-11 min-w-0 items-center gap-2.5" data-testid="mirror-header"><MirrorAvatar owner={st.viewer} size="sm" className="hidden sm:inline-flex" /><span className="min-w-0"><span className={HEAD_NAME} data-testid="mirror-name">{mirrorLabel(st)}</span><span className="hidden truncate text-xs text-gray-500 sm:block">Your agent</span></span></div>
       : <DmTitle st={st} chat={chat} onPerson={onPerson} onPartners={onPartners} />;
   const otherFirst = other ? PEOPLE[other].name.split(' ')[0]! : '';
   const showInvite = !!other && partnerState(st, other) === 'none';
