@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-17 [product]: Hospitals become a fifth use case; no microcopy under a CTA whose label already discloses the call (P1506)
+
+**Context:** P1506 built /hospitals as a use-case landing on the /builders pattern. Two choices reach beyond the page. (1) Whether a hospital audience belongs in the shared "Use cases" menu or stays a direct-link page. (2) /hiring still carried "Starts with a 15-min call." under its CTA, although the CTA itself reads "Book a 15-min discovery call". The 2026-07 entry that introduced `AUDIT_MICROCOPY` did so because the CTA then sold an "audit" and hid the call. That reason no longer holds.
+**Decision:** The menu now reads builders, hiring, hospitals, co-founders, coaches. Microcopy that only restates the CTA label is removed everywhere; /builders already dropped it (P1397) and /hiring now does too. The shared founder section now also appears on /hospitals. Its first point reads "Studied why relationships break" instead of "partnerships", so the wording fits non-founder audiences too.
+**Alternatives rejected:** Keeping /hospitals off the menu. It stays `noIndex` for search engines, but a page reachable only by direct link cannot be found by a visitor who arrives on another page. Keeping the microcopy as a "disclosure gate": the label is now the disclosure.
+**Consequences:** A new use-case page means adding one entry to `AUDIENCE_LINKS` (nav-links.ts), and `p1087-nav-groups.test.tsx` pins the order. Whether /hospitals should be indexed remains a founder call. Falsifier: if hospital visitors arriving through the menu never book a call, the menu slot costs attention on every other page for no return.
+**References:** [p1506](../features/done/2026-06-10/p1506_hospitals_use_case_page.md)
+
+---
+
 ## 2026-10-16 [process]: The end-of-build review fires at "done", not inside /dev or /fix (P1505)
 
 **Context:** The founder typed an end-of-build review request 145 times in 119 sessions (Aug 21 to Oct 16; 4.4 a day in October), and asked again 7 times when a part was missed. The request named Codex and Gemini, correctness, code quality, design-system reuse, cutting text into visuals, and UX from the user's view. The first plan was to write the standard into one file and add pointer lines in `/dev`, `/fix` and `/goalify`. A falsify review (one root-cause agent, plus Gemini 4 Argon and Codex) showed that 76-80% of these asks followed work where no build skill ran, so pointers would reach at most about 20% of them. All five proposals failed a replay of a real ad-hoc session.

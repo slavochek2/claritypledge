@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 ---
 
@@ -252,7 +252,7 @@ Last updated: 2026-10-16
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
-
+- **P1506** (Oct 26) /hospitals use-case page — MotionConfig reducedMotion="user" skips only transforms; pathLength draws need their own useReducedMotion check
 - **P1453** (Oct 26) Artist-style profile banners, signed "after <artist>" — ink chosen from the displayed crop's luminance, stored with the banner; rate limit reserves first, then counts
 - **P1483** (Oct 26) Agent banners navy, people in color — judge a profile treatment on the whole header with real avatars, never on banner strips
 - **P1423** (Oct 26) Cards carry one neutral grey left stripe, none on focus screens — the stripe no longer encodes visibility; private = lock + muted background
