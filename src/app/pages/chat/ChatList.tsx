@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
-import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, MirrorTitle, PersonMark, type PersonLike } from './chat-kit';
+import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark, type PersonLike } from './chat-kit';
 import { useChat } from './chat-state';
 import {
   CHAT_TABS,
@@ -24,6 +24,7 @@ import {
   chatTitle,
   HOME,
   listTime,
+  mirrorRole,
   previewLine,
   searchChats,
   splitChats,
@@ -76,17 +77,25 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className={cn('min-w-0 flex-1 truncate text-[15px] text-foreground', unread ? 'font-bold' : 'font-semibold')} data-testid="row-title">
-              {chat.kind === 'mirror' && chat.title ? <MirrorTitle chat={chat} /> : title}
+              {/* A renamed mirror's own name gets the whole line; its role moves to the second line. */}
+              {chat.kind === 'mirror' ? chat.title ?? mirrorRole(chat) : title}
             </span>
             <span className={cn('shrink-0 text-xs', active ? 'text-gray-700' : 'text-muted-foreground')}>{when}</span>
             {/* The row menu button sits over this slot, so the time never moves when it appears. */}
             <span className="w-8 shrink-0" aria-hidden="true" />
           </span>
           <span className="mt-0.5 flex items-center gap-2">
-            <span className={cn('min-w-0 flex-1 truncate text-sm', unread ? 'text-foreground' : active ? 'text-gray-700' : 'text-muted-foreground', chat.lastMessage?.isDeleted && 'italic')}>
-              {/* Gray like the rest of a read row; only an unread row emphasises the name, in bold (never blue). */}
-              {preview.prefix && <span className={unread ? 'font-semibold text-foreground' : undefined}>{preview.prefix}</span>}
-              {preview.text || (chat.lastMessage ? '' : 'No messages yet')}
+            <span className={cn('flex min-w-0 flex-1 text-sm', unread ? 'text-foreground' : active ? 'text-gray-700' : 'text-muted-foreground', chat.lastMessage?.isDeleted && 'italic')}>
+              {chat.kind === 'mirror' && chat.title && (
+                <span className={cn('shrink-0 whitespace-pre not-italic', active ? 'text-gray-700' : 'text-muted-foreground')} data-testid="row-role">
+                  {mirrorRole(chat)} ·{' '}
+                </span>
+              )}
+              <span className="min-w-0 truncate">
+                {/* Gray like the rest of a read row; only an unread row emphasises the name, in bold (never blue). */}
+                {preview.prefix && <span className={unread ? 'font-semibold text-foreground' : undefined}>{preview.prefix}</span>}
+                {preview.text || (chat.lastMessage ? '' : 'No messages yet')}
+              </span>
             </span>
             {chat.unreadCount > 0 ? (
               <CountBadge n={chat.unreadCount} />

@@ -123,19 +123,20 @@ async function dialogShape(page: Page, w: number, margin = 8) {
     expect(w - (box.x + box.width), `dialog right margin at ${w}`).toBeGreaterThanOrEqual(margin);
   }
 }
-/** In the open forward dialog the mirror row's role is its own segment and is not cut, while the title is. */
+/** In the open forward dialog the renamed mirror's name has the first line (cut when long) and its role is the whole second line. */
 async function mirrorRowKeepsRole(page: Page, w: number) {
   const parts = await page
     .getByRole('dialog')
     .getByRole('button', { name: /Alicetest's mirror/ })
     .evaluate((btn) => {
-      const wrapper = btn.querySelector('span.flex.min-w-0') as HTMLElement;
+      const wrapper = btn.querySelector('span.block.min-w-0') as HTMLElement;
       const [name, role] = Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
-      return { nameCut: name!.scrollWidth > name!.clientWidth, roleCut: role!.scrollWidth > role!.clientWidth, roleText: role!.textContent };
+      return { nameCut: name!.scrollWidth > name!.clientWidth, nameText: name!.textContent, roleCut: role!.scrollWidth > role!.clientWidth, roleText: role!.textContent };
     });
-  expect(parts.nameCut, `the mirror title is the part that is cut in the forward list at ${w}`).toBe(true);
+  expect(parts.nameCut, `the mirror's own name is cut only by the full line in the forward list at ${w}`).toBe(true);
+  expect(parts.nameText).not.toContain("Alicetest's mirror");
   expect(parts.roleCut, `the mirror role is not cut in the forward list at ${w}`).toBe(false);
-  expect(parts.roleText).toBe(" · Alicetest's mirror");
+  expect(parts.roleText).toBe("Alicetest's mirror");
 }
 /** Every button in the row sits on one line. */
 async function oneRow(bar: Locator, label: string) {
@@ -562,6 +563,16 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await rename.getByRole('button', { name: 'Save' }).click();
       await expect(conversation(pageA).getByRole('heading', { name: new RegExp(`^${w === 1280 ? 'Scratchpad' : 'Thinking out loud'} · Alicetest's mirror$`) })).toBeVisible();
       await noHScroll(pageA, `renamed mirror ${w}`);
+      if (w >= 1280) {
+        // At desktop width the renamed mirror's own name fits whole on its line; its role leads the second line.
+        const listed = row(pageA, "Alicetest's mirror");
+        const fit = await listed.evaluate((li) => {
+          const title = li.querySelector('[data-testid="row-title"]') as HTMLElement;
+          return { text: title.textContent, cut: title.scrollWidth > title.clientWidth };
+        });
+        expect(fit.text).toBe('Scratchpad');
+        expect(fit.cut, 'the renamed name is not squeezed in the 1280 list').toBe(false);
+      }
       await shot('mirror-renamed', w);
 
       // Block: confirm dialog, then the blocked composer; unblock puts the field back.
@@ -619,16 +630,24 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await shot('mirror-long-name-header', w);
     await pageA.goto('/home');
     await listReady(pageA);
-    const mirrorTitle = row(pageA, "Alicetest's mirror").locator('[data-testid="row-title"]');
-    const inList = await mirrorTitle.evaluate((el) => {
-      const [name, role] = Array.from(el.querySelectorAll(':scope > span > span')) as HTMLElement[];
-      return { nameCut: name!.scrollWidth > name!.clientWidth, roleCut: role!.scrollWidth > role!.clientWidth, roleText: role!.textContent };
+    const mirrorRow = row(pageA, "Alicetest's mirror");
+    const inList = await mirrorRow.evaluate((li) => {
+      const title = li.querySelector('[data-testid="row-title"]') as HTMLElement;
+      const role = li.querySelector('[data-testid="row-role"]') as HTMLElement;
+      return { nameCut: title.scrollWidth > title.clientWidth, nameText: title.textContent, roleCut: role.scrollWidth > role.clientWidth, roleText: role.textContent, roleRight: role.getBoundingClientRect().right };
     });
-    expect(inList.nameCut, `the title is the part that is cut in the list at ${w}`).toBe(true);
+    expect(inList.nameCut, `the custom name is cut on its own full line in the list at ${w}`).toBe(true);
+    expect(inList.nameText).toBe(LONG);
     expect(inList.roleCut, `the role is not cut in the list at ${w}`).toBe(false);
-    expect(inList.roleText).toBe(" · Alicetest's mirror");
+    expect(inList.roleText).toBe("Alicetest's mirror · ");
+    expect(inList.roleRight).toBeLessThanOrEqual(w);
     await shot('list-mirror-long-name', w);
   }
+
+  await pageA.setViewportSize({ width: 1280, height: 800 });
+  await pageA.goto('/home');
+  await listReady(pageA);
+  await shot('list-renamed', 1280);
 
   // A phone for real: tap a message and the actions open in line, covering nothing; scrolling dismisses them.
   const { ctx, page } = await openTouch(browser, a);

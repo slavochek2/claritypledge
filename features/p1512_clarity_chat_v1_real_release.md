@@ -231,6 +231,7 @@ Reviewed by Gemini review model, Codex and Opus in two full rounds plus two fres
 - The live lost-reply e2e proves one stored row; its Retry-button branch is covered by unit tests only (the Realtime echo settled it first in every live run).
 - Live pages keep pre-existing phone defects (INBOX-194); out of scope by founder decision 1.
 - Collapsed desktop sidebar shows only the logo (founder decision 5), so menu badges are hidden while collapsed.
+- After a slow author-name lookup falls back to a cached name or "Unknown member", a later successful lookup shows the real name, but the internal "missing" set is not cleared and a failed retry can schedule another fallback timer (final Gemini pass, MEDIUM; no visible effect found).
 
 ## Pre-deploy Checklist
 

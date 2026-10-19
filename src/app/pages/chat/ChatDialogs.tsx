@@ -208,7 +208,7 @@ export function ForwardDialog({
                 <li key={c.conversationId}>
                   <button type="button" onClick={() => setTarget(c)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER, FOCUS_RING)}>
                     <ChatMark chat={c} viewerName={owner} />
-                    <ChatRowTitle chat={c} className="flex-1 text-[15px] text-foreground" />
+                    <ChatRowTitle chat={c} stacked className="flex-1 text-[15px] text-foreground" />
                   </button>
                 </li>
               ))}

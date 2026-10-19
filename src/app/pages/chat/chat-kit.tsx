@@ -124,7 +124,19 @@ export function MirrorTitle({ chat, className }: { chat: Pick<ChatSummary, 'titl
  * A chat's name on one line with its role kept: the mirror's role, a channel's "· General" and an event's
  * date are their own segments that never shrink; the name in front of them is what gets the ellipsis.
  */
-export function ChatRowTitle({ chat, className }: { chat: ChatSummary; className?: string }) {
+export function ChatRowTitle({ chat, className, stacked = false }: { chat: ChatSummary; className?: string; /** A renamed mirror: its name on line one, its role on line two. */ stacked?: boolean }) {
+  if (chat.kind === 'mirror' && stacked) {
+    return (
+      <span className={cn('block min-w-0', className)}>
+        <span className="block truncate">{chat.title ?? mirrorRole(chat)}</span>
+        {chat.title && (
+          <span className="block shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground" data-testid="row-role">
+            {mirrorRole(chat)}
+          </span>
+        )}
+      </span>
+    );
+  }
   if (chat.kind === 'mirror') return <MirrorTitle chat={chat} className={className} />;
   const tail =
     chat.kind === 'group'

@@ -759,7 +759,9 @@ describe('conversation', () => {
     svc.renameMirror.mockResolvedValue('Scratchpad');
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
     expect(await screen.findByRole('heading', { name: "Scratchpad · Mia's mirror" })).toBeInTheDocument();
-    expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain("Scratchpad · Mia's mirror");
+    // in the list the name has the first line and the role leads the second
+    expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain('Scratchpad');
+    expect(screen.getByTestId('row-role')).toHaveTextContent("Mia's mirror ·");
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
@@ -1496,16 +1498,24 @@ describe('review round 3', () => {
     const long = 'A very long mirror name that will certainly not fit on one line of a phone';
     const named = mirror('c-mirror', { ownerFirstName: 'Mia', title: long });
 
-    it('in the list the title is the part that truncates and "· Mia\'s mirror" is its own segment that does not shrink', async () => {
-      renderChat('/home', [named, dmChat]);
+    it('in the list the custom name has the whole first line (truncating alone) and "Mia\'s mirror ·" leads the second line, never cut', async () => {
+      renderChat('/home', [mirror('c-mirror', { ownerFirstName: 'Mia', title: long, lastMessage: last('a note', 3, ME.id, ME.name) }), dmChat]);
       await screen.findAllByTestId('row-title');
-      const title = document.querySelector('[data-chat="c-mirror"] [data-testid="row-title"]') as HTMLElement;
-      const [name, role] = Array.from(title.querySelectorAll(':scope > span > span'));
-      expect(name).toHaveTextContent(long);
-      expect(classesOf(name!)).toContain('truncate');
-      expect(role).toHaveTextContent("· Mia's mirror");
-      expect(classesOf(role!)).toContain('shrink-0');
-      expect(classesOf(role!)).not.toContain('truncate');
+      const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
+      const title = within(li).getByTestId('row-title');
+      expect(title).toHaveTextContent(long);
+      expect(title.textContent).not.toContain("Mia's mirror"); // the role is not on this line
+      expect(title.children).toHaveLength(0); // one plain, truncating line
+      expect(classesOf(title)).toContain('truncate');
+      const role = within(li).getByTestId('row-role');
+      expect(role.textContent).toBe("Mia's mirror · ");
+      expect(classesOf(role)).toContain('shrink-0');
+      expect(classesOf(role)).toContain('text-muted-foreground');
+      expect(classesOf(role)).not.toContain('truncate');
+      // the preview follows on the same line and is what truncates there
+      const line2 = role.parentElement as HTMLElement;
+      expect(line2).toHaveTextContent("Mia's mirror · You: a note");
+      expect(classesOf(line2.querySelector(':scope > span.min-w-0') as HTMLElement)).toContain('truncate');
     });
 
     it('in the header the same two segments, under one heading that still reads as the full label', async () => {
@@ -1516,9 +1526,12 @@ describe('review round 3', () => {
       expect(classesOf(role!)).toContain('shrink-0');
     });
 
-    it('with no custom name the role alone is the title', async () => {
+    it('with no custom name the role alone is the first line and the preview is the second', async () => {
       renderChat('/home', [mirrorChat, dmChat]);
       expect(await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
+      const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
+      expect(within(li).queryByTestId('row-role')).not.toBeInTheDocument();
+      expect(li).toHaveTextContent('No messages yet');
     });
   });
 
@@ -1899,10 +1912,15 @@ describe('review round 6', () => {
       const wrapper = btn.querySelector('span.flex.min-w-0') as HTMLElement;
       return Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
     };
-    const [mName, mRole] = segments(/Mia's mirror/);
-    expect(classesOf(mName!)).toContain('truncate');
-    expect(mRole).toHaveTextContent("· Mia's mirror");
-    expect(classesOf(mRole!)).toContain('shrink-0');
+    // A renamed mirror: its name has the whole first line, its role is the second line.
+    const mirrorBtn = within(dialog).getByRole('button', { name: /Mia's mirror/ });
+    const lines = Array.from((mirrorBtn.querySelector('span.block.min-w-0') as HTMLElement).querySelectorAll(':scope > span')) as HTMLElement[];
+    expect(lines[0]).toHaveTextContent(LONG);
+    expect(classesOf(lines[0]!)).toContain('truncate');
+    expect(lines[0]!.textContent).not.toContain("Mia's mirror");
+    expect(lines[1]).toHaveTextContent("Mia's mirror");
+    expect(classesOf(lines[1]!)).toContain('shrink-0');
+    expect(classesOf(lines[1]!)).toContain('text-muted-foreground');
     const [gName, gTail] = segments(/organisation/);
     expect(classesOf(gName!)).toContain('truncate');
     expect(gTail).toHaveTextContent('· General');
