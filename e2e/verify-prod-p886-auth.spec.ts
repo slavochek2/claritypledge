@@ -39,7 +39,12 @@ const TEST_EMAIL = process.env.PROD_TEST_AGENT_EMAIL!;
 const PROD_SRK = process.env.PROD_SERVICE_ROLE_KEY;
 
 test.skip(!process.env.VERIFY_PROD, 'Set VERIFY_PROD=1 to run prod verification');
-test.skip(!!process.env.VERIFY_PROD && !PROD_SRK, 'Set PROD_SERVICE_ROLE_KEY (keychain) — sign-in is link-based (P1510)');
+// Asked for (VERIFY_PROD=1) but unable to sign in = a failure, never a silent skip.
+test.beforeAll(() => {
+  if (process.env.VERIFY_PROD && !PROD_SRK) {
+    throw new Error('PROD_SERVICE_ROLE_KEY missing — pass it from keyring_require; sign-in is link-based (P1510)');
+  }
+});
 
 /** Collect permission-denied symptoms: 401/403 REST responses + 42501 console errors. */
 function watchForPermissionDenied(page: Page) {

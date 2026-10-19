@@ -38,6 +38,21 @@ export async function linkSession({ url, anonKey, serviceKey, email }) {
     throw new Error('linkSession: no account exists for that address — refusing to create one');
   }
 
+  // Minting a link invalidates any earlier unexchanged link for the same account,
+  // so two callers signing in as one account at once (parallel Playwright workers,
+  // the daily smoke during a verify run) can fail each other with "invalid or has
+  // expired". That one error is retried with a fresh link; anything else throws.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await mintAndExchange(base, anonKey, serviceKey, email);
+    } catch (e) {
+      if (attempt >= 4 || !/invalid or has expired/i.test(e.message)) throw e;
+      await new Promise((r) => setTimeout(r, 250 * attempt + Math.floor(Math.random() * 250)));
+    }
+  }
+}
+
+async function mintAndExchange(base, anonKey, serviceKey, email) {
   const gen = await fetch(`${base}/auth/v1/admin/generate_link`, {
     method: 'POST',
     headers: {
