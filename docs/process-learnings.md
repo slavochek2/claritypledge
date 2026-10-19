@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 193
+**Next ID:** 194
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2487,5 +2487,16 @@ Found in the P1509 v16 seed review, outside its scope. transcribe_rooms.event_id
 **due:** week
 
 2026-10-19 (/day follow-up). `audit-secrets-history.sh` reports 1 leak: hardcoded-password-assignment in `src/app/prototypes/clarity-chat-v16/personas.ts` (commit 4c708057, branch feature/p1509-clarity-chat-v12, not pushed). Classified: deliberate test-only password for `.invalid` persona accounts on the TEST project, same model as the e2e test password; no rotation needed. Fix belongs on that branch before it ships: path-scoped `.gitleaks.toml` allowlist for the personas file (or commit-scoped, as for e8f3e391), so the weekly scan reads clean. Done when the history scan exits 0 or this commit is allowlisted.
+
+---
+
+## verify-prod-p886-auth test A: no navigation landmark on prod
+
+**ID:** INBOX-193
+**Date:** 2026-10-19
+**Status:** proposed
+**due:** week
+
+e2e/verify-prod-p886-auth.spec.ts test A fails against prod: getByRole('navigation') is not found for a signed-in user, though the page renders the story feed. Reproduced 2026-10-19 with main's unmodified spec, so it is UI drift, not an auth failure. Done when the header exposes a navigation landmark again or the test's positive gate targets what the header renders now; droppable if that spec is retired.
 
 ---
