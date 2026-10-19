@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: story
 rank: 41
 workstream: clarity-canvas
@@ -159,14 +159,25 @@ standard lean-canvas shape with the three ikigai boxes as a row underneath; if t
 
 - [x] The founder opens their canvas at its own address and sees their points in the twelve titled boxes, private ones included.
 - [x] Signed out, the same address shows only the public points.
-- [x] Opening a point shows the production point card with its stories; a position taken there persists.
-- [x] At 1440x900 the page does not scroll (`document.documentElement.scrollHeight <= innerHeight`); a box with many points scrolls inside itself.
-- [x] At 375px and 320px boxes stack with titles; a box with 2+ points swipes sideways and shows "n / N".
+- [ ] Opening a point shows the production point card with its stories already open, the owner's position, and everyone's positions with names grouped Agree / Unsure / Disagree; a position taken there persists. Previous / Next walk the canvas without closing it.
+- [ ] A box card is text to read, with no buttons: the statement (up to five lines), the owner's position, the others' tally (e.g. "2 agree · 1 disagree"), the story count, and the viewer's own position. The whole card opens the point.
+- [ ] The page scrolls; a box shows at most 3 cards and a "N more" control for the rest. At 375px and 320px boxes stack with titles and there is no sideways page scroll.
+- [ ] The canvas page shows no sales call-to-action in the header; an intro line says whose canvas it is and what to do.
 - [x] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
-- [x] An empty box renders titled; an unknown canvas address shows not-found.
+- [ ] An empty box is shown, titled and marked empty, to the owner only; visitors see only boxes with points. An unknown canvas address shows not-found.
 - [x] A signed-in user's direct API write cannot set a box tag (only the service-role seed can).
 - [x] After signing out on the owner's canvas, no private point or story stays on screen.
 - [x] The feed and `/stake` pages show the same tags as before for existing points.
+
+## Change Request — event redesign (founder, 2026-10-19)
+
+After the first UAT the founder found the canvas unreadable ("occupied by action buttons… you cannot just read it") and asked where agreement and disagreement show. Critiqued by Gemini Argon, Codex Sol and an Opus designer (3 of 3 reported); all three recommended **read first, act on open**. Founder decisions:
+- **Names are visible to everyone** (positions on public points are already public; policy is not to hide). Visitors may look before they vote.
+- **The page may scroll**, but the canvas must stay small and readable: a box shows at most 3 cards plus "N more". This reverses the earlier one-screen AC at 1440x900.
+- **Custom CTA for the event**: the sales call-to-action is hidden on the canvas; the page's own intro carries the instruction (copy is an agent draft, marked FOUNDER DECISION in code).
+- **Empty boxes**: hidden from visitors; the owner sees them. Filling them is content work (refreshed canvas draft, founder approval before any seed).
+- **"Most disputed first" view**: deferred until there are real positions to sort (founder: "okay with this view if you think this is really important").
+- Not built: the perspective switcher and the Letter view from the prototype.
 
 ## Known Limitations
 

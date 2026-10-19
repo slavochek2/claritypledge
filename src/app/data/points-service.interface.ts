@@ -221,6 +221,13 @@ export interface PointsService {
     viewerUserId?: string
   ): Promise<PointWithUserPosition[]>;
 
+  /**
+   * P1508: everyone's positions on a canvas's points, with the person, keyed by point id —
+   * oldest first. The canvas shows who stands where (positions on public points are public).
+   * Throws on a read failure.
+   */
+  getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>>;
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================

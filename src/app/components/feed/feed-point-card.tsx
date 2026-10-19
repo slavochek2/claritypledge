@@ -65,24 +65,19 @@ interface FeedPointCardProps {
   linkedStories?: StoryWithAuthor[];
   /** Which list the card sits on — carried on `feed_card_shared`. */
   surface?: 'feed' | 'stake' | 'canvas';
-  /**
-   * P1508: the compact form a Clarity Canvas box shows — the statement clamped to two lines and
-   * the position buttons, nothing else (no tags, menu or footer). Position behaviour is the same
-   * card's. Default false.
-   */
-  compact?: boolean;
-  /**
-   * P1508: the open-panel override. With it, the compact card's statement is a button that calls
-   * this instead of navigating; the canvas opens the full card in its side panel. Read only when
-   * `compact` is set.
-   */
-  onOpen?: () => void;
+  /** P1508: start with the linked stories shown (the Clarity Canvas's open point, where the
+   *  stories are the reason to open it). Default false: one expander tap. */
+  storiesOpen?: boolean;
+  /** P1508: told after the viewer's position is saved or withdrawn (signed in: the write
+   *  confirmed; signed out: kept in this browser), so a page showing everyone's positions can
+   *  re-read them. Never called once the card has unmounted. */
+  onPositionSaved?: () => void;
   /** P1336: hide the anonymous "Sign up or log in to save your position" nudge — for embeds
    *  where the visitor already has an identity (a registrant in onboarding). Default false. */
   hideAnonSignupCta?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, compact = false, onOpen }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, storiesOpen = false, onPositionSaved }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -93,7 +88,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   const statementRef = useRef<HTMLParagraphElement>(null);
   // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
   const [statementExpanded, setStatementExpanded] = useReturnState(`feed-point-text:${point.id}`, false);
-  const [storiesExpanded, setStoriesExpanded] = useReturnState(`feed-point-stories:${point.id}`, false);
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`feed-point-stories:${point.id}`, storiesOpen);
   const statementOverflows = useTextOverflow(statementRef, [point.statement]);
 
   // Optimistic position state
@@ -133,6 +128,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   serverPositionRef.current = serverPosition;
   // P1420: a settle still running when the card unmounts stops (no reads, no effects).
   const unmounted = useRef(new AbortController());
+  /* P1508: a write that settles after this card is gone (the panel closed, the viewer signed
+     out) must not reach the page that no longer shows it. */
+  const notifySaved = () => { if (!unmounted.current.signal.aborted) onPositionSaved?.(); };
   useEffect(() => {
     const controller = new AbortController();
     unmounted.current = controller;
@@ -155,6 +153,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       // Only for a counted position: both parents lower the TOTAL unconditionally, so calling them
       // for an uncounted one dropped a point another person still holds.
       if (removedPosition) onPointRemoved?.(point.id, removedPosition);
+      notifySaved();
     },
   });
 
@@ -230,6 +229,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       const newPosition = effectivePosition === position ? null : position;
       setAnonPositionState(newPosition);
       setAnonPosition(point.id, newPosition);
+      notifySaved();
       return;
     }
 
@@ -255,6 +255,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         // Bounded: a captive portal can leave the request unanswered for good.
         await sendPositionWrite(userId, point.id, newPosition, generation);
         confirmBaseline(generation, newPosition);
+        notifySaved();
         // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
         // the visual update — no parent callback needed for set-position path
       } catch (err) {
@@ -278,6 +279,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         if (outcome.kind === 'confirmed') {
           confirmBaseline(generation, newPosition);
           recordConfirmedPosition(userId, point.id, generation, newPosition);
+          notifySaved();
           return;
         }
         setLocalPosition(savedLocal.current);
@@ -287,57 +289,6 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       endPositionWrite(userId, point.id); // bounded bookkeeping (P1420 round 3)
     }
   };
-
-  const positionButtons = (
-    <PositionButtons
-      userPosition={effectivePosition}
-      counts={counts}
-      onPositionClick={handlePositionClick}
-      compact={compact}
-      narrow={compact}
-      onClear={async () => {
-        if (!session?.user) {
-          setAnonPositionState(null);
-          setAnonPosition(point.id, null);
-          return;
-        }
-        if (!(await canSendWrite())) return;
-        await guardedRemovePosition(point.id);
-      }}
-    />
-  );
-
-  /* P1508 — the canvas box form. Same frame, same position logic; the statement is the one
-     control that opens the point (in the canvas's side panel, via `onOpen`). */
-  if (compact) {
-    return (
-      <>
-      <RemovePositionDialog {...dialogProps} />
-      <PointCardShell
-        aria-label={`Point: ${point.statement}`}
-        compact
-        data-testid={`canvas-point-card-${point.id}`}
-        data-card="point"
-        data-point-id={point.id}
-        statement={
-          <button
-            type="button"
-            onClick={onOpen}
-            className="min-w-0 flex-1 text-left text-sm font-medium text-foreground break-words line-clamp-2 rounded-sm hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          >
-            <InlineVisibilityIcon visibility={point.visibility} />{' '}
-            {stripHashtags(point.statement, point.tags)}
-          </button>
-        }
-      >
-        <div role="presentation" className="mt-2">{positionButtons}</div>
-        {!hideAnonSignupCta && !session?.user && anonPosition && (
-          <AnonPositionCTA pointId={point.id} position={anonPosition} />
-        )}
-      </PointCardShell>
-      </>
-    );
-  }
 
   return (
     <>
@@ -513,7 +464,21 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 tabbing through it no longer lands on an unrelated control between the last
                 position and the story list. */}
             <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
-              {positionButtons}
+              <PositionButtons
+                userPosition={effectivePosition}
+                counts={counts}
+                onPositionClick={handlePositionClick}
+                onClear={async () => {
+                  if (!session?.user) {
+                    setAnonPositionState(null);
+                    setAnonPosition(point.id, null);
+                    notifySaved();
+                    return;
+                  }
+                  if (!(await canSendWrite())) return;
+                  await guardedRemovePosition(point.id);
+                }}
+              />
             </div>
             {/* P502: Anonymous position CTA */}
             {!hideAnonSignupCta && !session?.user && anonPosition && (

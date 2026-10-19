@@ -72,3 +72,22 @@ describe('getCanvasPoints', () => {
     expect(p.totalPositions).toBe(1);
   });
 });
+
+describe('getCanvasPositions', () => {
+  it('throws when the positions cannot be read (the canvas shows its page error, never "nobody positioned")', async () => {
+    results.set('point_positions', [failure]);
+    await expect(realPointsService.getCanvasPositions(['p1'])).rejects.toThrow();
+  });
+
+  it('groups everyone\'s positions, with the person, by point', async () => {
+    const row = (point_id: string, user_id: string, position: string) => ({
+      id: `${point_id}-${user_id}`, point_id, user_id, position, reasoning: null, created_at: 'x', updated_at: 'y',
+      user: { id: user_id, name: `Name ${user_id}`, slug: user_id, avatar_color: null, avatar_url: null, ears_count: 0, has_pledged: false },
+    });
+    results.set('point_positions', [{ data: [row('p1', 'a', 'agree'), row('p1', 'b', 'disagree'), row('p2', 'a', 'unsure')], error: null }]);
+    const byPoint = await realPointsService.getCanvasPositions(['p1', 'p2', 'p3']);
+    expect(byPoint.get('p1')?.map(p => [p.userName, p.position])).toEqual([['Name a', 'agree'], ['Name b', 'disagree']]);
+    expect(byPoint.get('p2')).toHaveLength(1);
+    expect(byPoint.get('p3')).toEqual([]);
+  });
+});

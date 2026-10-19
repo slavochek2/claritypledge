@@ -177,9 +177,6 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // the footer's site links would compete with that. P1114 rev2: also matches the room's
   // own `/events/:slug/ready`, and the gate itself (`/events/:slug/room`) — same reasoning.
   const isReadyPage = /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
-  // P1508: the desktop canvas is one screen (no page scroll), so the signed-out legal footer
-  // stays below it on phones only, where the page scrolls anyway.
-  const isCanvasPage = location.pathname.startsWith("/canvas/");
   return (
     /**
      * P1323: the Links provider wraps the WHOLE layout — nav and page children alike.
@@ -228,7 +225,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && (
         showSiteFooter
           ? <ClarityFooter />
-          : !showUserMenu && (isCanvasPage ? <div className="lg:hidden"><LegalFooter /></div> : <LegalFooter />)
+          : !showUserMenu && <LegalFooter />
       )}
       {/* P113: Mobile bottom nav for logged-in users */}
       {!logoOnly && <BottomNav />}

@@ -1,10 +1,10 @@
 /**
  * @file p1508-clarity-canvas.test.tsx
  * @description P1508 — Clarity Canvas: box tags as system tags, grouping into twelve boxes,
- * box-tag pills hidden, and the compact card form with its open-panel override.
+ * box-tag pills hidden, and the canvas panel's card with its stories open.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { TagPills } from '@/app/components/shared/tag-pills';
@@ -18,7 +18,7 @@ import {
   isCanvasBoxTag,
   normalizeProjectTag,
 } from '@/lib/canvas-boxes';
-import type { PointWithUserPosition } from '@/app/types';
+import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'viewer-1' } }, user: { id: 'viewer-1' } }) }));
@@ -114,23 +114,29 @@ describe('TagPills', () => {
   });
 });
 
-describe('FeedPointCard compact form', () => {
-  it('shows the statement and the position buttons, nothing else; the statement opens the panel', () => {
-    const onOpen = vi.fn();
-    render(<MemoryRouter><FeedPointCard point={point} surface="canvas" compact onOpen={onOpen} linkedStories={[]} /></MemoryRouter>);
-    const card = screen.getByTestId('canvas-point-card-point-1');
-    expect(card).toHaveAccessibleName(`Point: ${point.statement}`);
-    // no tag pills, footer, menu or Details
-    expect(screen.queryByText('#claritypledge')).toBeNull();
-    expect(screen.queryByTestId('point-card-footer')).toBeNull();
-    expect(screen.queryByRole('button', { name: /details/i })).toBeNull();
-    const open = screen.getByRole('button', { name: /Speakers overestimate/ });
-    expect(open.className).toContain('line-clamp-2');
-    fireEvent.click(open);
-    expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(navigate).not.toHaveBeenCalled();
-    // the production position buttons are there
-    expect(card.querySelectorAll('button').length).toBeGreaterThan(1);
+describe('FeedPointCard on the canvas panel', () => {
+  const story = {
+    id: 'story-1', authorId: 'owner-1', authorName: 'Owner', authorSlug: 'owner', content: 'The story behind the point.',
+    visibility: 'public', createdAt: '2026-10-01T00:00:00Z', understoodCount: 0,
+  } as unknown as StoryWithAuthor;
+
+  it('storiesOpen shows the linked stories without a tap', () => {
+    render(<MemoryRouter><FeedPointCard point={point} surface="canvas" storiesOpen linkedStories={[story]} /></MemoryRouter>);
+    expect(screen.getByText('The story behind the point.')).toBeInTheDocument();
+  });
+
+  it('by default the stories stay behind the expander', () => {
+    render(<MemoryRouter><FeedPointCard point={point} surface="canvas" linkedStories={[story]} /></MemoryRouter>);
+    expect(screen.queryByText('The story behind the point.')).toBeNull();
+    fireEvent.click(screen.getByTestId('feed-point-story-expander'));
+    expect(screen.getByText('The story behind the point.')).toBeInTheDocument();
+  });
+
+  it('onPositionSaved fires once the position is saved', async () => {
+    const onPositionSaved = vi.fn();
+    render(<MemoryRouter><FeedPointCard point={point} surface="canvas" linkedStories={[]} onPositionSaved={onPositionSaved} /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: /^disagree/i })[0]);
+    await waitFor(() => expect(onPositionSaved).toHaveBeenCalledTimes(1));
   });
 
   it('the full card is unchanged: footer, tags, Details still open /point/:id', () => {

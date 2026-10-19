@@ -323,7 +323,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // P1433 D2: in an event's window, "Today's event" REPLACES the marketing CTA for a visitor.
   // Not on pricing: P1351 keeps the event button off pricing (its paid offer is the primary).
   const showTodaysEvent = !!todaysEvent && !isPricingPage;
-  const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage || showTodaysEvent;
+  // P1508: a Clarity Canvas is shared with an event's attendees; its one action is on the page
+  // (open a point, take a position), so no sales offer competes with it.
+  const isCanvasPage = location.pathname.startsWith('/canvas/');
+  const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage || showTodaysEvent || isCanvasPage;
   // P1351: `hideSessionCta` is retired with the session button itself. The header's only
   // signed-in primary is now TonightsEventCta, which hides itself on its own event's pages.
 

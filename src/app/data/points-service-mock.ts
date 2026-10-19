@@ -406,6 +406,10 @@ export const mockPointsService: PointsService = {
     return withCounts.map(point => ({ ...point, userPosition: positionsMap.get(point.id) }));
   },
 
+  async getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>> {
+    return new Map(pointIds.map(id => [id, mockPositions.filter(p => p.pointId === id)]));
+  },
+
   async setPosition(
     _pointId: string,
     _userId: string,

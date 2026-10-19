@@ -950,6 +950,38 @@ export const realPointsService: PointsService = {
     });
   },
 
+  async getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>> {
+    log('⚡ getCanvasPositions:', { count: pointIds.length });
+    const byPoint = new Map<string, PointPositionWithUser[]>(pointIds.map(id => [id, []]));
+    if (pointIds.length === 0) return byPoint;
+
+    // The same select getPositionsForPoint makes, batched; strict, unlike that one.
+    const { data, error } = await supabase
+      .from('point_positions')
+      .select(
+        `
+        *,
+        user:profiles!point_positions_user_id_fkey (
+          id,
+          name,
+          slug,
+          avatar_color,
+          avatar_url,
+          ears_count,
+          has_pledged
+        )
+      `
+      )
+      .in('point_id', pointIds)
+      .order('created_at', { ascending: true });
+    if (error || !data) throwDbError('getCanvasPositions', error, 'Could not load positions');
+
+    (data as DbPositionWithUser[]).forEach(row => {
+      byPoint.get(row.point_id)?.push(mapPositionWithUserFromDb(row));
+    });
+    return byPoint;
+  },
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================
