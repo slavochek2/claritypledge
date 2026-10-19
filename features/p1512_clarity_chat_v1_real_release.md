@@ -55,10 +55,12 @@ the old redirect can be restored, a leaked message cannot be recalled). Decision
 4. Remove the sidebar Search (the chat-list search covers it). Invite partner becomes a **+** next to the
    chat-list search and opens the live invite flow unchanged.
 5. Collapsed sidebar works like ChatGPT: only the logo shows; hovering the logo turns it into the expand icon.
-6. Groups opens on Browse when the user has no groups; otherwise their groups, with Browse right below.
+6. ~~Groups opens on Browse when the user has no groups~~ — dropped 2026-10-19: a user's groups already show as
+   General channels in the chat list, so the live Groups page stays the directory, unchanged.
 7. Starting a 1:1 needs a shared connection (below); a conversation that exists stays open after that ends.
 8. No notifications or email about messages in v1; unread counts in the app only.
-9. The mirror agent is real, answered by Gemini 3.8 (`gemini-3.8-flash`, already used in `_shared/artist-banner-run.ts`).
+9. ~~The mirror is answered by Gemini 3.8~~ — revised 2026-10-19: **no AI in v1.** Clarify forwards the message (with
+   its thread) into the owner's mirror chat; helping turn it into a point or story is the next spec.
 10. Rollout: everyone at once.
 
 ## Open decisions (recommended default in bold; the build uses the default unless the founder changes it)
@@ -72,17 +74,17 @@ the old redirect can be restored, a leaked message cannot be recalled). Decision
   Report and message requests stay out.]
 - [FOUNDER DECISION: D3 — channel history for new members. **A member sees General messages from the
   moment they joined**, not earlier history; event channels likewise from their RSVP.]
-- [FOUNDER DECISION: D4 — event channel window. **RSVPs made after the event ended do not get the channel.**]
+- D4 (decided 2026-10-19) — event channel window: **reuse the app's existing event grace window** (an event counts
+  as ongoing until 12 hours after it starts, `EVENT_GRACE_HOURS`). RSVPs made later do not get the channel. The RSVP
+  insert itself has no date check in the database today, so the channel rule enforces the window on its own.
 - [FOUNDER DECISION: D5 — forwarding. **A forward is a copy (snapshot) of text the forwarder can read,
   shown as "Forwarded from <author>"**; it does not reveal anything else from the source chat, and the
   link back only works for people who can read the source.]
-- [FOUNDER DECISION: D6 — decision 6 (Groups opens on Browse) changes the live Groups page, which today is
-  one flat directory. **It is the one allowed live-page change in this spec**, made in the live page so
-  production gets it too.]
+- D6 (decided 2026-10-19) — no change to the live Groups page (decision 6 dropped).
 - [FOUNDER DECISION: D7 — events already have an external group-chat link for RSVPs. **Keep it unchanged**;
   the event channel is added alongside.]
-- [FOUNDER DECISION: D8 — the mirror's job on Clarify. **In the owner's mirror chat only: what the sender
-  most likely meant and the one question that would check it, in two or three sentences.**]
+- D8 (decided 2026-10-19) — Clarify is a forward to the owner's mirror chat (message plus its thread); the mirror
+  does not reply in v1.
 - [FOUNDER DECISION: D9 — home URL. **`/home` for signed-in users**; signed-out visitors keep `/` → `/feed`
   (P1392). `/chat` is taken (redirects to `/create`, used by the auth callback).]
 - [FOUNDER DECISION: D10 — read state. **Own devices only**; the other person never sees "read".]
@@ -112,7 +114,7 @@ Every function today's navigation carries moves into the shell, none is dropped:
 
 Menu entries open the live routes (`/feed`, `/groups`, `/letters`, `/events/list`, `/p/:id`,
 `/p/:id/partners`, `/settings`). Profile and member rows open the live profile; the v16 profile card goes.
-The page content and behaviour of every live page stay unchanged, except D6.
+The page content and behaviour of every live page stay unchanged.
 
 ### B. Remove the prototype
 
@@ -136,7 +138,7 @@ Tables for conversations, members and messages and a per-member read marker; sha
 |---|---|
 | Join group | General channel from join time (D3) |
 | Leave group | General access ends; existing 1:1s stay |
-| RSVP (before the event ends) | Event channel from RSVP time (D3, D4) |
+| RSVP (up to 12 h after the event starts) | Event channel from RSVP time (D3, D4) |
 | Cancel RSVP | Event channel access ends |
 | Host | Has the event channel (one host per event; group organizers who are not the host do not) |
 | Event deleted | Its channel and messages are deleted with it (must not add a second event-delete blocker like INBOX-189) |
@@ -148,14 +150,13 @@ Tables for conversations, members and messages and a per-member read marker; sha
 Attachments store only the point or story id and render through the reader's own access; an item the reader
 cannot see shows "Not available to you". Read state goes to the owner's own devices only (D10).
 
-### D. Mirror agent on Gemini 3.8
+### D. Mirror chat (no AI in v1)
 
-- One mirror per user; Rename kept; its role always shows ("<Name> · <First>'s mirror").
-- Clarify sends a copy of the message (text and author name only, nothing else from the conversation) to the
-  owner's mirror chat; the mirror answers there (D8). It never posts into the source chat.
-- Server-side edge function; key in the request header (as `transcribe-slice` and `artist-banner-run`), never
-  in the URL. Uses the interactive Gemini key, not the batch key. No tools; the clarified text is untrusted input.
-- Its own daily cap per user, not shared with the banner cap (`ai_rate_limits` has no kind column today).
+- One mirror chat per user, owner-only; Rename kept; its role always shows ("<Name> · <First>'s mirror").
+- Clarify on any message forwards it, with its thread, into the owner's mirror chat as a copy (same rules as
+  forward, D5), linking back to the source for people who can read it. Nothing is posted into the source chat.
+- The mirror does not answer. Turning a clarified message into a point or story (using the understanding
+  chain's detect logic) is the next spec, filed after this one ships.
 
 ## Invariants
 
@@ -163,7 +164,7 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
   one page, written in the spec. Reviewers check every screen against "does a live version exist?" (P1495,
   P1509 v16).
 - **No chat content is readable by a non-member through any path**: REST, RPC, Realtime `postgres_changes`,
-  broadcast, views, search, forward, attach or the mirror function. Every server path that takes a message,
+  broadcast, views, search, forward, attach or Clarify. Every server path that takes a message,
   conversation or thread id checks membership as the caller (a service-role function does its own check).
 - **No one can write what they do not own**: insert themselves into a conversation, post as someone else,
   edit or delete another's message, or point a reply or thread at a message in another conversation.
@@ -179,16 +180,14 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 | Realtime leaks a message | MITIGATE | Invariants plus the canary below |
 | Realtime on the test project has an open problem (`.private/docs/decisions.md` 2026-10-16) | MITIGATE | Step 0: confirm Realtime works on test; fix first if not |
 | Unwanted contact via self-service group join or RSVP | MITIGATE | D2 Block + daily limit, D3, D4 |
-| Messages sent to Google undisclosed | MITIGATE | Privacy policy section before deploy (checklist) |
-| Prompt injection through a clarified message | MITIGATE | No tools; reply goes only to the owner |
-| Mirror cost | MITIGATE | Own daily cap |
 | Signed-in users land on Feed before session restores | MITIGATE | Home redirect waits for the session; tested |
 | Users lose the old home without warning | ACCEPT | Founder chose everyone-at-once; Feed is one tap away |
 | Transcribe leaves chat headers | ACCEPT | Stays in Tools |
 | Event delete fails with a linked transcription room (INBOX-189) | ACCEPT | Separate bug |
 
 **Non-Goals**
-- Do NOT change any live page's content or behaviour, except D6. Moving its navigation into the shell is not a content change.
+- Do NOT change any live page's content or behaviour. Moving its navigation into the shell is not a content change.
+- Do NOT add AI replies to the mirror or point/story suggestions (next spec).
 - Do NOT build Transcribe from chat, Clarity Live invites, topic vote, voice notes, notifications, email,
   report, message requests, typing indicators or read receipts to others.
 - Do NOT build the letter loop, mental models or agents on other people (P1431, P1458).
@@ -205,15 +204,14 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 - [ ] A blocked account cannot send, start a 1:1 or find the blocker
 - [ ] After the shared group ends, the existing 1:1 still works
 - [ ] General and event channels follow the access lifecycle table, including history from join time
-- [ ] Two-user canary per path: a non-member gets nothing via REST, Realtime, search, forward, attach or the mirror function using a real id
+- [ ] Two-user canary per path: a non-member gets nothing via REST, Realtime, search, forward, attach or Clarify using a real id
 - [ ] Write canary: self-insert into a conversation, posting as another user, editing or deleting another's message, and a cross-conversation reply all fail
 - [ ] A deleted message's body is gone over REST and Realtime; an erased account's messages show "Deleted user"; account erase still succeeds
 - [ ] Deleting an event with a channel succeeds
 - [ ] Unread is correct across two devices of one user; mark-as-unread and archive persist
 - [ ] Threads, quote-reply, forward (D5), attach, edit and delete work and persist
-- [ ] Clarify produces a Gemini 3.8 reply in the owner's mirror only; Rename persists; role always shows; the cap stops calls past the limit
+- [ ] Clarify puts the message and its thread into the owner's mirror chat only; Rename persists; role always shows
 - [ ] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite
-- [ ] Groups opens on Browse for a user with no groups (D6)
 - [ ] Existing users see their groups' General channels and their mirror on first open
 - [ ] Phone (375, 320) and desktop pass the visual QA checklist
 - [ ] No prototype route, persona plugin or mock code remains in the build
@@ -223,9 +221,7 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 - [ ] Realtime confirmed working on test (step 0)
 - [ ] Chat migrations (tables, policies, backfill, `erase_my_account` update) applied on test, both canaries green, then prod via `/push`
 - [ ] Chat tables in the Realtime publication only with canary-passing policies
-- [ ] Interactive Gemini key available to the mirror function on prod (name in `.private/`)
-- [ ] Mirror function deployed to prod and smoke-tested
-- [ ] Privacy policy section on chat messages and the mirror's use of Gemini published
+- [ ] Privacy policy section on chat messages published
 
 ## Related
 
