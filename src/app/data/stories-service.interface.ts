@@ -79,10 +79,13 @@ export interface StoriesService {
    * Get public stories that contain any of the given points.
    * Returns a Map<pointId, StoryWithAuthor[]>.
    * @param excludeStoryId - Omit this story from results (e.g., the currently-viewed story)
+   * @param opts.strict - P1508: throw on a read failure instead of returning an empty map
+   *   (the canvas shows one page error, never "0 stories" for a read that failed). Default false.
    */
   getStoriesForPoints(
     pointIds: string[],
-    excludeStoryId?: string
+    excludeStoryId?: string,
+    opts?: { strict?: boolean }
   ): Promise<Map<string, StoryWithAuthor[]>>;
 
   /**

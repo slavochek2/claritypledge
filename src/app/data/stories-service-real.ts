@@ -6,7 +6,7 @@
 import { normalizeVideoQuotes } from '@/lib/video';
 import * as Sentry from '@sentry/react';
 import type { StoriesService } from './stories-service.interface';
-import { logDbError } from './db-error-logger';
+import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 import type {
   Story,
@@ -741,7 +741,8 @@ export const realStoriesService: StoriesService = {
 
   async getStoriesForPoints(
     pointIds: string[],
-    excludeStoryId?: string
+    excludeStoryId?: string,
+    opts?: { strict?: boolean }
   ): Promise<Map<string, StoryWithAuthor[]>> {
     log(' getStoriesForPoints:', { pointIds, excludeStoryId });
 
@@ -787,6 +788,7 @@ export const realStoriesService: StoriesService = {
     const { data, error } = await query;
 
     if (error || !data) {
+      if (opts?.strict) throwDbError('getStoriesForPoints', error, 'Could not load stories');
       logDbError('getStoriesForPoints', error);
       return new Map();
     }

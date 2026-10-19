@@ -242,7 +242,8 @@ export const mockStoriesService: StoriesService = {
 
   async getStoriesForPoints(
     _pointIds: string[],
-    _excludeStoryId?: string
+    _excludeStoryId?: string,
+    _opts?: { strict?: boolean }
   ): Promise<Map<string, StoryWithAuthor[]>> {
     return new Map();
   },

@@ -39,7 +39,8 @@ function makeUserClient(accessToken: string) {
   );
 }
 
-const TAG = 'p1508guard';
+// Unique per worker run: cleanup deletes by this marker, so it must never match another run's rows.
+const TAG = `p1508guard${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`;
 
 async function storedPointTags(id: string): Promise<string[] | null> {
   const { data } = await supabaseAdmin.from('points').select('system_tags').eq('id', id).maybeSingle();
@@ -70,6 +71,15 @@ test.describe('P1508: system tags are written only by privileged roles', () => {
   });
 
   test.afterAll(async () => {
+    // Points outlive their author (first_validator_id is ON DELETE SET NULL): remove this
+    // spec's rows by their marker first, so no `st7` or box-tagged point is stranded on test.
+    const { data: pts } = await supabaseAdmin.from('points').select('id').like('statement', `${TAG} %`);
+    const ids = (pts ?? []).map(p => p.id as string);
+    if (ids.length) {
+      await supabaseAdmin.from('story_points').delete().in('point_id', ids);
+      await supabaseAdmin.from('points').delete().in('id', ids);
+    }
+    if (userId) await supabaseAdmin.from('stories').delete().eq('author_id', userId).like('content', `${TAG} %`);
     if (userId) await deleteTestUser(userId);
   });
 
@@ -95,6 +105,8 @@ test.describe('P1508: system tags are written only by privileged roles', () => {
     expect(await storedPointTags(data!.id)).toEqual([]);
   });
 
+  // Defense in depth: `points` has no client UPDATE policy, so RLS stops this before the
+  // trigger does. The trigger's UPDATE branch is proven by the story UPDATE below.
   test('signed-in point UPDATE of system_tags does not persist', async () => {
     const { data: pt, error } = await userClient.from('points').insert({
       statement: `${TAG} update target ${Date.now()}`, first_validator_id: userId, visibility: 'public',
@@ -123,6 +135,7 @@ test.describe('P1508: system tags are written only by privileged roles', () => {
     expect(await storedStoryTags(clean.data!.id)).toEqual([]);
   });
 
+  // Defense in depth: RLS refuses an anonymous INSERT on its own; the trigger also covers `anon`.
   test('anonymous point INSERT with system_tags is refused', async () => {
     const statement = `${TAG} anon insert ${Date.now()}`;
     const { error } = await makeAnonClient().from('points').insert({
