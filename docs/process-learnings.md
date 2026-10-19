@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 194
+**Next ID:** 195
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2498,5 +2498,16 @@ Found in the P1509 v16 seed review, outside its scope. transcribe_rooms.event_id
 **due:** week
 
 e2e/verify-prod-p886-auth.spec.ts test A fails against prod: getByRole('navigation') is not found for a signed-in user, though the page renders the story feed. Reproduced 2026-10-19 with main's unmodified spec, so it is UI drift, not an auth failure. Done when the header exposes a navigation landmark again or the test's positive gate targets what the header renders now; droppable if that spec is retired.
+
+---
+
+## Fix pre-existing phone/desktop visual defects on live pages found during P1512 visual QA
+
+**ID:** INBOX-194
+**Date:** 2026-10-19
+**Status:** proposed
+**due:** week
+
+Found by the P1512 screenshot review; not caused by P1512 (its diff touches none of these pages, and its spec forbids changing live pages). (1) /letters at 320px: the New Draft button is cut off at the right edge (the page lays out about 362px wide from a no-wrap button), flush at 375. (2) /story/:id at 320: the footer action row overflows the card (share icon over the border, external-link action missing, "0 points" wraps); author name centered against left-aligned meta. (3) /feed at 320: an orphaned middle dot in the story header, "Points (1)" touching "Newest", search placeholder cut; the Next event widget takes about 300px above the feed on phones. (4) Phone touch targets under 40px: Add a story / Add a point pills, edit/trash/share icons, Back link, topic stars, Details buttons. (5) /agreements/new/create: low-contrast placeholder and blue headings that are not actions. (6) Desktop page titles shift position and width between Events, Groups, Letters and Partners; Partners shows a Back link on a top-level page. (7) /live at 320: End Session overflows by about 5px (p1323 AC-9 fails the same before P1512). Each is its own small proposal per P1512 founder decision 1. Droppable per item once a 320/375 screenshot shows it fixed or the page is redesigned.
 
 ---
