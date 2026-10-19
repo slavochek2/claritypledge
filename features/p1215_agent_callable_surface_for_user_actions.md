@@ -53,13 +53,13 @@ were not.**
 | P143 rejection ground | Status |
 |---|---|
 | "Overengineered — saves 2 min/week" | **Cleared.** P143's scope was event CRUD for founder convenience. This is user-facing reach into a product users cannot access from where they work. Different problem — though note the demand evidence is still absent (Open Question 1). |
-| "auth architecture fundamentally broken" | **[REV] LARGELY cleared, one part still open.** Short lifetime removes the token store; delegating the authorization server to Supabase Auth removes the six-RFC build (see Verified protocol facts). **Still genuinely open and a build blocker:** user binding and confused-deputy protection — specifically how Supabase RLS receives the correct `auth.uid()` without any path where a backend trusts a user ID asserted by the connector. One forged request there bypasses RLS entirely. `/architect` owns it. |
+| "auth architecture fundamentally broken" | **[REV] LARGELY cleared, one part still open.** Short lifetime removes the token store; delegating the authorization server to Supabase Auth removes the six-RFC build (see Verified protocol facts). **Still genuinely open and a build blocker:** user binding and confused-deputy protection — specifically how Supabase RLS receives the correct `auth.uid()` without any path where a backend trusts a user ID asserted by the connector. One forged request there bypasses RLS entirely. The authorization design owns it. |
 | "UX too technical for target users" | **[REV] NOT cleared.** "A connect button" is a mockup, not an integration. Unverified: hosted-agent support, callback registration, consent presentation, account selection, re-auth behaviour, failure recovery, and **disconnect**. A user who cannot tell which account they connected or how to revoke it is not better off than one pasting a token. |
 | "no hypothesis connection" | **NOT cleared.** `docs/hypotheses.md` has no active hypothesis this tests (grepped 2026-09-01). See Open Question 1. This is the ground P143 actually died on. |
 
 **Two of four grounds unresolved and one only narrowed. This spec is not implementation-ready
-and must not go to `/dev`.** Its purpose is to hold the verified findings so `/architect` starts
-from them.
+and must not go to `/dev`.** Its purpose is to hold the verified findings so the authorization design starts
+from them (`/architect` was archived 2026-10-19, P1514: the design is now a spec section reviewed by Gemini, Opus and Codex).
 
 ## Appetite
 
@@ -130,7 +130,7 @@ Auth leaves the MCP server responsible for three things, not six RFCs:
 
 Item 3 is the one that matters and it is not boilerplate: it is the *entire* capability boundary
 this spec depends on, and the protocol gives us nothing to lean on. **UNVERIFIED:** this is a
-protocol-and-docs reading, not something built against Supabase Auth this session. `/architect`
+protocol-and-docs reading, not something built against Supabase Auth this session. The authorization design
 confirms it before the P143 ground is marked cleared.
 
 **Prompt injection from tool results: no named mitigation exists in MCP guidance.** The docs
@@ -146,7 +146,7 @@ Expose a deliberately opted-in subset of the existing read surface as agent-call
 the standard protocol, authenticated by a short-lived grant with no refresh token.
 
 **[REV] "Short-lived" must be a number, not a word** — an implementation choosing 24 hours would
-satisfy every row in the first draft while leaving a full day of compromise exposure. `/architect`
+satisfy every row in the first draft while leaving a full day of compromise exposure. The authorization design
 fixes: absolute lifetime, idle timeout, re-auth strength, concurrent-grant policy, replay
 behaviour, and what happens to a call in flight at expiry.
 
@@ -187,8 +187,8 @@ channel (P1104). **[REV]** This holds only if approval is genuine — see the bi
 |---|---|---|
 | **[REV] Poisoned counterparty content exfiltrates the user's own data via the agent's response** | ACCEPT + BOUND | Cannot be engineered away. Bounded by volume ceilings + kill switch; disclosed to the user in plain words |
 | **[REV] Read-only agent misquotes or misrepresents a counterparty's position** | ACCEPT | The product's own comprehension rating is the check; no capability restriction addresses it |
-| Confused deputy / forged user binding via the connector | MITIGATE | Authorization architecture is an `/architect` deliverable and a build blocker |
-| **[REV] OAuth flow attacks** — PKCE ownership, redirect-URI restriction, state/nonce, issuer and audience validation, login-CSRF, approval bound to the attacker's connector | MITIGATE | Enumerated in `/architect`; the first draft named none of them |
+| Confused deputy / forged user binding via the connector | MITIGATE | Authorization architecture is an authorization-design deliverable and a build blocker |
+| **[REV] OAuth flow attacks** — PKCE ownership, redirect-URI restriction, state/nonce, issuer and audience validation, login-CSRF, approval bound to the attacker's connector | MITIGATE | Enumerated in the authorization design; the first draft named none of them |
 | **[REV] Bulk enumeration and cost exhaustion by an authorized agent** | MITIGATE | Ceilings and quotas ship with phase 1, not after |
 | A "read" tool has side effects (marks read, claims a delivery, returns an invite URL) | MITIGATE | Classify by **effect**, not by name; enumeration of tool names proves nothing |
 | **[REV] Add-never-mutate blocks withdrawing a dangerous tool** | MITIGATE | Additions are compatible; **security removals are always permitted** and take precedence |
@@ -295,7 +295,7 @@ quietly restore them.
 > prod" a day after the fixes shipped, and an agent relayed that to the founder as current fact
 > while deciding whether to build on this surface. **Neither a spec status nor this prose is
 > evidence about production. Probe prod, or read the deploy manifest.**
-- [ ] `/architect` has produced the authorization architecture — AS, audience, exchange, callback,
+- [ ] The authorization design (a spec section, multi-model reviewed) covers — AS, audience, exchange, callback,
       user binding, scope enforcement, `auth.uid()` derivation — and it has been adversarially
       reviewed **[REV] build blocker**
       — *Evidence (P1321, 2026-10-08): draft at
@@ -315,7 +315,7 @@ quietly restore them.
    draft and read problem letters on their behalf. The founder must confirm it and file it in
    `docs/hypotheses.md` with a falsifier; until then this question stays open. Gate work now sits in P1321.
 2. ~~Can the authorization MUSTs be delegated?~~ **Answered — yes, see Verified protocol facts.**
-   Remaining sub-question for `/architect`: does Supabase Auth actually issue tokens with the
+   Remaining sub-question for the authorization design: does Supabase Auth actually issue tokens with the
    audience and scope claims this needs, without a refresh token? Verify against Supabase, not
    against the MCP spec.
 3. Does any existing surface assume a browser reader in a way a tool call breaks — session-keyed
