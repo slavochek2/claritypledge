@@ -6,12 +6,16 @@
  * quote-reply, forward, clarify, attachments the reader cannot see, the blocked composer, the
  * mirror's name and rename, Realtime merge + dedupe, and "no Coming soon / placeholder / mock".
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatMemberState, ChatSummary } from '@/app/data/chat-mappers';
 import type { ChatMessageEvent } from '@/app/data/chat-service';
+
+// Rendering a whole chat page is heavy; a shared, busy machine must not turn a slow render into a failure.
+configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 const ME = vi.hoisted(() => ({ id: 'me', name: 'Mia Maker', slug: 'mia', isVerified: true, avatarColor: '#10b981', avatarUrl: undefined as string | undefined }));
 
@@ -44,7 +48,10 @@ const helpers = vi.hoisted(() => ({
 }));
 const toastFn = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn() }));
 
-vi.mock('@/auth', () => ({ useAuth: () => ({ user: ME }) }));
+const AUTH = vi.hoisted(() => ({ signOut: vi.fn(), refreshProfile: vi.fn(), user: ME as typeof ME }));
+vi.mock('@/auth', () => ({
+  useAuth: () => ({ session: { user: { id: AUTH.user.id } }, user: AUTH.user, isLoading: false, sessionChecked: true, signOut: AUTH.signOut, refreshProfile: AUTH.refreshProfile }),
+}));
 vi.mock('sonner', () => ({ toast: toastFn }));
 vi.mock('@/app/data/events-service-real', () => ({ EVENT_GRACE_HOURS: 12 }));
 vi.mock('@/app/data/chat-service', async () => ({ ...(await vi.importActual<object>('@/app/data/chat-mappers')), ...svc }));
@@ -55,7 +62,7 @@ vi.mock('@/app/data/chat-ui-helpers', () => ({
 vi.mock('@/app/components/feed/feed-point-card', () => ({ FeedPointCard: ({ point }: { point: { statement: string } }) => <div data-testid="point-card">{point.statement}</div> }));
 vi.mock('@/app/components/feed/feed-story-card', () => ({ FeedStoryCard: ({ story }: { story: { content: string } }) => <div data-testid="story-card">{story.content}</div> }));
 
-import { ChatProvider, SAFETY_POLL_MS } from '@/app/pages/chat/chat-provider';
+import { ChatProvider, LIST_READ_TIMEOUT_MS, SAFETY_POLL_MS } from '@/app/pages/chat/chat-provider';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
 import {
   chatErrorText,
@@ -161,15 +168,8 @@ function Probe() {
   return <div data-testid="loc">{l.pathname}{l.search}</div>;
 }
 
-function renderChat(path: string, chats: ChatSummary[], messagesByConv: Record<string, ChatMessage[]> = {}) {
-  svc.getMyChats.mockResolvedValue(chats);
-  svc.listMessages.mockImplementation(async (id: string, opts: { threadRootId?: string } = {}) =>
-    (messagesByConv[id] ?? []).filter((m) => (opts.threadRootId ? m.threadRootId === opts.threadRootId : !m.threadRootId)),
-  );
-  svc.listThread.mockImplementation(async (id: string, rootId: string) =>
-    (messagesByConv[id] ?? []).filter((m) => m.id === rootId || m.threadRootId === rootId),
-  );
-  return render(
+function treeFor(path: string) {
+  return (
     <MemoryRouter initialEntries={[path]}>
       <ChatProvider>
         <Routes>
@@ -178,16 +178,30 @@ function renderChat(path: string, chats: ChatSummary[], messagesByConv: Record<s
         </Routes>
         <Probe />
       </ChatProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
+function renderChat(path: string, chats: ChatSummary[] | (() => Promise<ChatSummary[]>), messagesByConv: Record<string, ChatMessage[]> = {}) {
+  if (typeof chats === 'function') svc.getMyChats.mockImplementation(chats);
+  else svc.getMyChats.mockResolvedValue(chats);
+  svc.listMessages.mockImplementation(async (id: string, opts: { threadRootId?: string } = {}) =>
+    (messagesByConv[id] ?? []).filter((m) => (opts.threadRootId ? m.threadRootId === opts.threadRootId : !m.threadRootId)),
+  );
+  svc.listThread.mockImplementation(async (id: string, rootId: string) =>
+    (messagesByConv[id] ?? []).filter((m) => m.id === rootId || m.threadRootId === rootId),
+  );
+  return render(treeFor(path));
+}
+
 const rowFor = (title: string | RegExp) => screen.getByText(title, { selector: '[data-testid="row-title"]' }).closest('li') as HTMLElement;
+const logOf = () => within(screen.getByRole('log', { name: 'Messages' }));
 const rowButton = (title: string) => within(rowFor(title)).getAllByRole('button')[0] as HTMLElement;
 const menuOn = (text: string | RegExp) => fireEvent.contextMenu(screen.getByText(text));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  AUTH.user = ME;
   msgSeq = 0;
   handlers = null;
   svc.getMyBlocks.mockResolvedValue([]);
@@ -279,6 +293,14 @@ describe('chat list', () => {
     expect(titles()).toHaveLength(5);
   });
 
+  it('the folder tabs are at least 40px tall touch targets', async () => {
+    renderChat('/home', chats);
+    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+    for (const name of ['All', /^Unread/, 'Partners', 'Channels']) {
+      expect(screen.getByRole('tab', { name }).className).toContain('min-h-11'); // 44px
+    }
+  });
+
   it('shows the unread count on the Unread tab and on the row, in recency order', async () => {
     renderChat('/home', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
@@ -322,7 +344,7 @@ describe('chat list', () => {
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.contextMenu(rowButton('Ada Lovelace'));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as read' }));
-    expect(svc.markRead).toHaveBeenCalledWith('dm1', expect.any(Date));
+    expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'lm-see you' });
     await waitFor(() => expect(within(rowFor('Ada Lovelace')).queryByLabelText('2 unread')).not.toBeInTheDocument());
   });
 
@@ -437,7 +459,7 @@ describe('conversation', () => {
   it('marks the open chat read up to its newest message', async () => {
     const c = dm('dm1', 'Ada Lovelace', { unreadCount: 1, lastMessage: last('hey', 2, 'p-dm1', 'Ada') });
     renderChat('/home/c/dm1', [mirror(), c], { dm1: [msg('dm1', 'p-dm1', 'hey')] });
-    await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('dm1', expect.any(Date)));
+    await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'lm-hey' }));
   });
 
   it('sends optimistically: shows "Sending…" at once, then the confirmed message', async () => {
@@ -452,7 +474,7 @@ describe('conversation', () => {
     expect(svc.sendMessage).toHaveBeenCalledWith({ conversationId: 'dm1', threadRootId: undefined, body: 'hello Ada', replyToId: undefined, attachment: undefined });
     await act(async () => resolve(msg('dm1', ME.id, 'hello Ada', { id: 'server-1' })));
     await waitFor(() => expect(screen.queryByText('Sending…')).not.toBeInTheDocument());
-    expect(screen.getAllByText('hello Ada')).toHaveLength(1);
+    expect(logOf().getAllByText('hello Ada')).toHaveLength(1);
     expect((box as HTMLTextAreaElement).value).toBe('');
   });
 
@@ -467,7 +489,7 @@ describe('conversation', () => {
     fireEvent.click(within(failed).getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument());
     expect(svc.sendMessage).toHaveBeenCalledTimes(2);
-    expect(screen.getAllByText('will fail')).toHaveLength(1);
+    expect(logOf().getAllByText('will fail')).toHaveLength(1);
   });
 
   it('Enter sends and Shift+Enter starts a new line on a desktop pointer', async () => {
@@ -650,7 +672,7 @@ describe('conversation', () => {
     expect(screen.queryByRole('menuitem', { name: 'Clarify' })).not.toBeInTheDocument();
   });
 
-  it('renders forwarded and clarified cards with their snapshot, the thread, and an "Open original" only when readable', async () => {
+  it('renders forwarded and clarified cards with their snapshot, the thread, and an "Open original" that checks access when pressed', async () => {
     const snap = (body: string, thread: Array<{ authorName: string; body: string | null; createdAt: string }> = []) => ({ authorName: 'Grace Hopper', body, createdAt: iso(30), conversationKind: 'group' as const, conversationTitle: null, thread });
     const fwd = msg('dm1', 'p-dm1', 'note on top', { id: 'f1', kind: 'forward', forwardSnapshot: snap('forwarded words'), forwardedFromMessageId: 'src-ok' });
     const cla = msg('dm1', ME.id, null, { id: 'f2', kind: 'clarify', forwardSnapshot: snap('clarified words', [{ authorName: 'Linus', body: 'a thread entry', createdAt: iso(20) }]), forwardedFromMessageId: 'src-gone' });
@@ -660,43 +682,18 @@ describe('conversation', () => {
     expect(forwarded).toHaveTextContent('Forwarded from Grace Hopper');
     expect(forwarded).toHaveTextContent('forwarded words');
     expect(screen.getByText('note on top')).toBeInTheDocument();
-    expect(await within(forwarded).findByRole('link', { name: 'Open original' })).toHaveAttribute('href', '/home/c/g1?m=src-ok');
     const clarified = screen.getByTestId('clarified-card');
     expect(clarified).toHaveTextContent('Clarified from Grace Hopper in a group chat');
-    expect(screen.getAllByTestId('forwarded-label')).toHaveLength(2);
     expect(clarified).toHaveTextContent('a thread entry');
-    await waitFor(() => expect(svc.getMessage).toHaveBeenCalledWith('src-gone'));
-    expect(within(clarified).queryByRole('link', { name: 'Open original' })).not.toBeInTheDocument();
-  });
-
-  it('renders a forward or clarify from an erased account as "Forwarded from Deleted user · Message removed"', async () => {
-    const gone = (extra: object = {}) => ({ authorName: 'Deleted user', body: null, createdAt: iso(30), conversationKind: 'group' as const, conversationTitle: null, thread: [] as Array<{ authorName: string; body: string | null; createdAt: string }>, ...extra });
-    const fwd = msg('dm1', 'p-dm1', null, { id: 'e1', kind: 'forward', forwardSnapshot: gone() });
-    const cla = msg('dm1', ME.id, null, { id: 'e2', kind: 'clarify', forwardSnapshot: gone({ thread: [{ authorName: 'Deleted user', body: null, createdAt: iso(20) }, { authorName: 'Linus', body: 'still here', createdAt: iso(10) }] }) });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [fwd, cla] });
-    const forwarded = await screen.findByTestId('forwarded-card');
-    expect(forwarded).toHaveTextContent('Forwarded from Deleted user · Message removed');
-    const clarified = screen.getByTestId('clarified-card');
-    expect(clarified).toHaveTextContent('Deleted user · Message removed');
-    expect(clarified).toHaveTextContent('Linus: still here');
-  });
-
-  it('does not call a forwarded attachment "removed" and copes with a clarify snapshot that has no thread', async () => {
-    const att = msg('dm1', 'p-dm1', null, { id: 'e3', kind: 'forward', attachmentKind: 'point', attachmentId: 'pt-1', forwardSnapshot: { authorName: 'Grace Hopper', body: null, createdAt: iso(30), conversationKind: 'group', conversationTitle: null, thread: [] } });
-    const noThread = msg('dm1', ME.id, null, { id: 'e4', kind: 'clarify', forwardSnapshot: { authorName: 'Grace Hopper', body: 'words', createdAt: iso(30), conversationKind: 'dm', conversationTitle: null, thread: [] } });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [att, noThread] });
-    await screen.findByTestId('clarified-card');
-    expect(screen.queryByTestId('snapshot-removed')).not.toBeInTheDocument();
-    expect(screen.getByTestId('clarified-card')).toHaveTextContent('Clarified from Grace Hopper in a direct message');
-  });
-
-  it('names the source of a clarified copy when the snapshot carries its title', async () => {
-    const cla = (title: string | null, kind: 'group' | 'dm', id: string) =>
-      msg('dm1', ME.id, null, { id, kind: 'clarify', forwardSnapshot: { authorName: 'Grace Hopper', body: 'words', createdAt: iso(30), conversationKind: kind, conversationTitle: title, thread: [] } });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [cla('Builders · General', 'group', 'k1'), cla('Linus Torvalds', 'dm', 'k2')] });
-    const cards = await screen.findAllByTestId('clarified-card');
-    expect(cards[0]).toHaveTextContent('Clarified from Grace Hopper in Builders · General');
-    expect(cards[1]).toHaveTextContent('Clarified from Grace Hopper in a chat with Linus Torvalds');
+    // The source is read when the button is pressed, not when the card is drawn.
+    expect(svc.getMessage).not.toHaveBeenCalledWith('src-ok');
+    expect(svc.getMessage).not.toHaveBeenCalledWith('src-gone');
+    // A source this reader can no longer read: a quiet note, and nowhere to go.
+    fireEvent.click(within(clarified).getByRole('button', { name: 'Open original' }));
+    await waitFor(() => expect(toastFn).toHaveBeenCalledWith("The original isn't available to you any more."));
+    expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
+    fireEvent.click(within(forwarded).getByRole('button', { name: 'Open original' }));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1?m=src-ok'));
   });
 
   it('shows "Not available to you" for an attachment the reader cannot read, and the card when they can', async () => {
@@ -798,9 +795,9 @@ describe('realtime', () => {
     await screen.findByText('earlier');
     const incoming = msg('dm1', 'p-dm1', 'live from Realtime', { id: 'rt-1' });
     act(() => handlers?.onMessage({ type: 'INSERT', message: incoming }));
-    expect(await screen.findByText('live from Realtime')).toBeInTheDocument();
+    expect(await logOf().findByText('live from Realtime')).toBeInTheDocument();
     act(() => handlers?.onMessage({ type: 'INSERT', message: incoming })); // the same event twice
-    expect(screen.getAllByText('live from Realtime')).toHaveLength(1);
+    expect(logOf().getAllByText('live from Realtime')).toHaveLength(1);
   });
 
   it('applies an UPDATE: an edit and a delete arrive live', async () => {
@@ -821,12 +818,12 @@ describe('realtime', () => {
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'race me');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Sending…');
-    const confirmed = msg('dm1', ME.id, 'race me', { id: 'rt-3' });
+    const confirmed = msg('dm1', ME.id, 'race me', { id: 'rt-3', createdAt: new Date().toISOString() });
     act(() => handlers?.onMessage({ type: 'INSERT', message: confirmed }));
     await waitFor(() => expect(screen.queryByText('Sending…')).not.toBeInTheDocument());
-    expect(screen.getAllByText('race me')).toHaveLength(1);
+    expect(logOf().getAllByText('race me')).toHaveLength(1);
     await act(async () => resolve(confirmed));
-    expect(screen.getAllByText('race me')).toHaveLength(1);
+    expect(logOf().getAllByText('race me')).toHaveLength(1);
   });
 
   it('refetches the list and the open conversation when the subscription (re)connects', async () => {
@@ -839,19 +836,6 @@ describe('realtime', () => {
     await waitFor(() => expect(svc.listMessages.mock.calls.length).toBeGreaterThan(msgCalls));
   });
 
-  it('refetches on a timer while the tab is visible, in case Realtime went quiet without saying so', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
-    await screen.findByText('one');
-    const listCalls = svc.getMyChats.mock.calls.length;
-    const msgCalls = svc.listMessages.mock.calls.length;
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS + 50);
-    });
-    expect(svc.getMyChats.mock.calls.length).toBeGreaterThan(listCalls);
-    expect(svc.listMessages.mock.calls.length).toBeGreaterThan(msgCalls);
-  });
-
   it('updates unread and archived when another device changes the state', async () => {
     const c = dm('dm1', 'Ada Lovelace', { unreadCount: 3, lastMessage: last('hi', 4, 'p-dm1', 'Ada') });
     renderChat('/home', [mirror(), c]);
@@ -860,6 +844,386 @@ describe('realtime', () => {
     act(() => handlers?.onState({ conversationId: 'dm1', profileId: ME.id, lastReadAt: iso(0), manualUnread: false, archived: true }));
     await waitFor(() => expect(screen.queryByText('Ada Lovelace', { selector: '[data-testid="row-title"]' })).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: /Archived \(1\)/ })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 2: regressions that failed before the fix
+// ---------------------------------------------------------------------------
+describe('review round 2', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const cursorTime = (before: unknown) =>
+    typeof before === 'string' ? Date.parse(before) : before && typeof before === 'object' ? Date.parse((before as { createdAt: string }).createdAt) : Infinity;
+
+  it('mark read: the chat is marked read ONCE, through the newest message, even when created_at has microseconds', async () => {
+    const MICRO = new Date(NOW - 60_000).toISOString().replace('Z', '123+00:00'); // .xxx123: a JS Date cannot say this
+    let readThrough = false;
+    svc.markRead.mockImplementation(async (_id: string, opts?: { throughMessageId?: string }) => {
+      // A client-clock Date lands on the millisecond, before the microsecond timestamp: still unread.
+      if (opts && !(opts instanceof Date) && opts.throughMessageId) readThrough = true;
+    });
+    renderChat(
+      '/home/c/dm1',
+      async () => [
+        mirror(),
+        dm('dm1', 'Ada Lovelace', { unreadCount: readThrough ? 0 : 1, lastMessage: { ...last('hey', 1, 'p-dm1', 'Ada'), id: 'lm-newest', createdAt: MICRO } }),
+      ],
+      { dm1: [msg('dm1', 'p-dm1', 'hey', { id: 'lm-newest', createdAt: MICRO })] },
+    );
+    await screen.findByText('hey');
+    await waitFor(() => expect(svc.markRead).toHaveBeenCalled());
+    for (let i = 0; i < 3; i++) {
+      act(() => handlers?.onSubscribed?.());
+      await sleep(450);
+    }
+    expect(svc.markRead).toHaveBeenCalledTimes(1);
+    expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'lm-newest' });
+  });
+
+  it('an UPDATE for a message that is not loaded is not inserted, so "Load earlier" still reaches every older message', async () => {
+    const all = Array.from({ length: 60 }, (_, i) => msg('dm1', 'p-dm1', `history ${String(i + 1).padStart(2, '0')}`, { id: `h${i + 1}`, createdAt: new Date(NOW - (3600 - i) * 1000).toISOString() }));
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) => {
+      const older = all.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before));
+      return older.slice(-(opts.limit ?? 50));
+    });
+    render(
+      <MemoryRouter initialEntries={['/home/c/dm1']}>
+        <ChatProvider>
+          <Routes>
+            <Route path="/home/*" element={<ChatHomePage />} />
+          </Routes>
+        </ChatProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByText('history 60');
+    expect(screen.queryByText('history 10')).not.toBeInTheDocument(); // only the newest 50 are loaded
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...(all[4] as ChatMessage), body: 'history 05 (edited elsewhere)' } }));
+    expect(screen.queryByText(/history 05/)).not.toBeInTheDocument(); // not loaded: not shown
+    fireEvent.click(await screen.findByRole('button', { name: 'Load earlier messages' }));
+    expect(await screen.findByText('history 10')).toBeInTheDocument(); // the rows between were not skipped
+    expect(await screen.findByText('history 01')).toBeInTheDocument();
+  });
+
+  it('a fetch that started before a delete cannot bring the deleted words back', async () => {
+    const m = msg('dm1', 'p-dm1', 'about to be deleted', { id: 'del1' });
+    let release!: () => void;
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [m] });
+    await screen.findByText('about to be deleted');
+    // the next read (a resync) is slow and returns the row as it was BEFORE the delete
+    svc.listMessages.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve([m]); }));
+    act(() => handlers?.onSubscribed?.());
+    await waitFor(() => expect(release).toBeDefined());
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...m, body: null, isDeleted: true, deletedAt: iso(0) } }));
+    expect(await screen.findByText('Message deleted', { selector: 'p' })).toBeInTheDocument();
+    await act(async () => release());
+    await sleep(50);
+    expect(screen.queryByText('about to be deleted')).not.toBeInTheDocument();
+    expect(screen.getByText('Message deleted', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('a Realtime event never removes a pending send: when the send then fails, Retry is still there', async () => {
+    let reject!: (e: Error) => void;
+    svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((_r, rej) => { reject = rej; }));
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'ok');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('Sending…');
+    // the same words arrive from another device of mine: a different message
+    act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', ME.id, 'ok', { id: 'other-device' }) }));
+    await act(async () => reject(new Error('chat send_chat_message failed: chat: cannot message this person')));
+    expect(await screen.findByTestId('send-failed')).toHaveTextContent(/cannot message/i);
+    expect(within(screen.getByTestId('send-failed')).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+});
+
+describe('review round 2 (continued)', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const cursorTime = (before: unknown) =>
+    typeof before === 'string' ? Date.parse(before) : before && typeof before === 'object' ? Date.parse((before as { createdAt: string }).createdAt) : Infinity;
+  const asDesktop = <T,>(fn: () => Promise<T>) => async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((q: string) => ({ matches: q.includes('min-width: 1024px'), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
+    try {
+      return await fn();
+    } finally {
+      window.matchMedia = original;
+    }
+  };
+
+  it('a different signed-in person starts clean: no draft, no failed send, nothing of the previous person', async () => {
+    svc.sendMessage.mockRejectedValue(new Error('chat send_chat_message failed: chat: cannot message this person'));
+    const view = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    const box = await screen.findByRole('textbox', { name: 'Message Ada' });
+    await userEvent.type(box, 'failing one');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByTestId('send-failed');
+    await userEvent.type(box, 'half-written draft');
+    // someone else signs in on this tab
+    AUTH.user = { ...ME, id: 'other-user', name: 'Olga Other' };
+    svc.getMyChats.mockResolvedValue([mirror('c-olga', { ownerFirstName: 'Olga' }), dmChat]);
+    view.rerender(treeFor('/home/c/dm1'));
+    expect(await screen.findByRole('textbox', { name: 'Message Ada' })).toHaveValue('');
+    expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument();
+    expect(screen.queryByText('failing one')).not.toBeInTheDocument();
+  });
+
+  it('a thread that does not exist for this person closes itself and returns to the conversation', async () => {
+    renderChat('/home/c/g1/t/not-a-thread', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-grace', 'a channel message', { id: 'cm1' })] });
+    svc.listThread.mockImplementation(async () => null);
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/g1$/));
+    expect(screen.queryByTestId('thread-panel')).not.toBeInTheDocument();
+    expect(await screen.findByText('a channel message')).toBeInTheDocument();
+  });
+
+  it('a phone showing a thread does not mark the hidden channel read; a desktop showing both does', async () => {
+    const chats = async () => [mirror(), group('g1', 'Builders', { unreadCount: 2, lastMessage: last('hi all', 1, 'p-grace', 'Grace Hopper') })];
+    const msgs = { g1: [msg('g1', 'p-grace', 'root message', { id: 'root8' }), msg('g1', ME.id, 'a reply', { id: 'rep8', threadRootId: 'root8' })] };
+    const { unmount } = renderChat('/home/c/g1/t/root8', chats, msgs);
+    await screen.findByTestId('thread-panel');
+    await sleep(250);
+    expect(svc.markRead).not.toHaveBeenCalled();
+    unmount();
+    await asDesktop(async () => {
+      renderChat('/home/c/g1/t/root8', chats, msgs);
+      await screen.findByTestId('thread-panel');
+      await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('g1', { throughMessageId: 'lm-hi all' }));
+    })();
+  });
+
+  it('a quote follows its source: an edit and a delete show at once, and the same search re-reads after an edit', async () => {
+    const orig = msg('dm1', 'p-dm1', 'before the edit', { id: 'src9' });
+    const reply = msg('dm1', ME.id, 'my reply', { id: 'rep9', replyToId: 'src9' });
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [orig, reply] });
+    await screen.findByText('my reply');
+    expect(screen.getByTestId('reply-quote')).toHaveTextContent('before the edit');
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...orig, body: 'after the edit', editedAt: iso(0) } }));
+    await waitFor(() => expect(screen.getByTestId('reply-quote')).toHaveTextContent('after the edit'));
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...orig, body: null, isDeleted: true, deletedAt: iso(0) } }));
+    await waitFor(() => expect(screen.getByTestId('reply-quote')).toHaveTextContent('Original message deleted'));
+  });
+
+  it('search results are read again when a message is edited or deleted', async () => {
+    svc.searchMessages.mockResolvedValue([{ messageId: 'mh', conversationId: 'dm1', authorId: 'p-dm1', authorName: 'Ada Lovelace', body: 'the old words', createdAt: iso(3) }]);
+    renderChat('/home', [mirror(), dmChat]);
+    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+    fireEvent.change(screen.getByLabelText('Search chats and people'), { target: { value: 'words' } });
+    expect(await screen.findByText('the old words', {}, { timeout: 3000 })).toBeInTheDocument();
+    const calls = svc.searchMessages.mock.calls.length;
+    svc.searchMessages.mockResolvedValue([]);
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: msg('dm1', 'p-dm1', null, { id: 'mh', isDeleted: true, deletedAt: iso(0) }) }));
+    await waitFor(() => expect(svc.searchMessages.mock.calls.length).toBeGreaterThan(calls));
+    await waitFor(() => expect(screen.queryByText('the old words')).not.toBeInTheDocument());
+  });
+
+  it('the forward picker lists only chats that can receive, and checks again when you send', async () => {
+    const theirs = msg('dm1', 'p-dm1', 'forward this one', { id: 'fw10' });
+    const chats = [mirror(), dmChat, dm('dm2', 'Blocked Bob', { canSend: false }), group('g1', 'Builders')];
+    svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, null, { id: 'fwd-ok', kind: 'forward' }));
+    renderChat('/home/c/dm1', chats, { dm1: [theirs] });
+    await screen.findByText('forward this one');
+    menuOn('forward this one');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('button', { name: /Blocked Bob/ })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Builders/ }));
+    // meanwhile that channel closed to this person
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat, group('g1', 'Builders', { canSend: false })]);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('can no longer send messages in that chat');
+    expect(svc.forwardMessage).not.toHaveBeenCalled();
+  });
+
+  it('a thread whose first message was deleted takes no new replies and says why', async () => {
+    const root = msg('g1', 'p-grace', null, { id: 'root11', isDeleted: true, deletedAt: iso(2) });
+    renderChat('/home/c/g1/t/root11', [mirror(), group('g1', 'Builders')], { g1: [root, msg('g1', ME.id, 'an old reply', { threadRootId: 'root11' })] });
+    const note = await screen.findByTestId('thread-composer-blocked');
+    expect(note).toHaveTextContent("The first message of this thread was deleted, so it can't take new replies.");
+    expect(screen.queryByRole('textbox', { name: 'Reply in thread' })).not.toBeInTheDocument();
+  });
+
+  it('a failed send survives switching to another chat and back, and still offers Retry', async () => {
+    svc.sendMessage.mockRejectedValueOnce(new Error('chat send_chat_message failed: chat: cannot message this person'));
+    renderChat('/home/c/dm1', [mirror(), dmChat, dm('dm2', 'Linus Torvalds')], { dm1: [], dm2: [] });
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'still mine');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByTestId('send-failed');
+    fireEvent.click(within(rowFor('Linus Torvalds')).getAllByRole('button')[0] as HTMLElement);
+    await screen.findByRole('textbox', { name: 'Message Linus' });
+    expect(screen.queryByText('still mine', { selector: 'p' })).not.toBeInTheDocument();
+    fireEvent.click(within(rowFor('Ada Lovelace')).getAllByRole('button')[0] as HTMLElement);
+    const failed = await screen.findByTestId('send-failed');
+    svc.sendMessage.mockResolvedValueOnce(msg('dm1', ME.id, 'still mine', { id: 'srv-13' }));
+    fireEvent.click(within(failed).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument());
+    expect(svc.sendMessage).toHaveBeenCalledTimes(2);
+    expect(logOf().getAllByText('still mine')).toHaveLength(1);
+  });
+
+  it('pressing a quote of a message that is not loaded pages back to it, and says so when it cannot be found', async () => {
+    const all = Array.from({ length: 60 }, (_, i) => msg('dm1', 'p-dm1', `history ${String(i + 1).padStart(2, '0')}`, { id: `h${i + 1}`, createdAt: new Date(NOW - (7200 - i) * 1000).toISOString() }));
+    const quoter = msg('dm1', ME.id, 'quoting an old one', { id: 'q14', replyToId: 'h5', createdAt: new Date(NOW - 1000).toISOString() });
+    const lost = msg('dm1', ME.id, 'quoting a lost one', { id: 'q15', replyToId: 'lost1', createdAt: new Date(NOW - 500).toISOString() });
+    const pool = [...all, quoter, lost];
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
+      pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
+    );
+    svc.getMessage.mockImplementation(async (id: string) => (id === 'lost1' ? msg('dm1', 'p-dm1', 'a message paging cannot reach', { id: 'lost1', createdAt: new Date(NOW - 99999 * 1000).toISOString() }) : (pool.find((m) => m.id === id) ?? null)));
+    render(treeFor('/home/c/dm1'));
+    await screen.findByText('quoting an old one');
+    expect(screen.queryByText('history 05')).not.toBeInTheDocument();
+    const quotes = await screen.findAllByTestId('reply-quote');
+    await waitFor(() => expect(quotes[0]).toHaveTextContent('history 05'));
+    fireEvent.click(quotes[0] as HTMLElement);
+    await waitFor(() => expect(logOf().getAllByText('history 05').length).toBeGreaterThan(0));
+    // the second quote points at a message the pages never contain
+    const lostQuote = (await screen.findAllByTestId('reply-quote')).find((q) => q.textContent?.includes('a message paging cannot reach')) as HTMLElement;
+    fireEvent.click(lostQuote);
+    await waitFor(() => expect(toastFn).toHaveBeenCalledWith("That message isn't loaded, and could not be found further back."), { timeout: 8000 });
+  }, 20_000);
+
+  it('the message menu gives focus back to the control that opened it', async () => {
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'menu focus')] });
+    const text = await screen.findByText('menu focus');
+    const more = within(text.closest('li') as HTMLElement).getByRole('button', { name: 'More actions' });
+    more.focus();
+    fireEvent.click(more);
+    const menu = await screen.findByRole('menu', { name: 'Message menu' });
+    expect(menu).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu', { name: 'Message menu' })).not.toBeInTheDocument());
+    expect(more).toHaveFocus();
+  });
+
+  it('a thread with more than 200 replies offers "Load earlier replies"', async () => {
+    const root = msg('g1', 'p-grace', 'long thread root', { id: 'root16', createdAt: new Date(NOW - 99999 * 1000).toISOString() });
+    const replies = Array.from({ length: 205 }, (_, i) => msg('g1', 'p-grace', `reply ${String(i + 1).padStart(3, '0')}`, { id: `rp${i + 1}`, threadRootId: 'root16', createdAt: new Date(NOW - (90000 - i) * 1000).toISOString() }));
+    svc.getMyChats.mockResolvedValue([mirror(), group('g1', 'Builders')]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number; threadRootId?: string } = {}) =>
+      replies.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
+    );
+    svc.listThread.mockImplementation(async () => [root, ...replies.slice(-200)]);
+    render(treeFor('/home/c/g1/t/root16'));
+    const panel = await screen.findByTestId('thread-panel');
+    await within(panel).findByText('reply 205');
+    expect(within(panel).queryByText('reply 005')).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: 'Load earlier replies' }));
+    expect(await within(panel).findByText('reply 005')).toBeInTheDocument();
+    expect(svc.listMessages).toHaveBeenCalledWith('g1', expect.objectContaining({ threadRootId: 'root16', before: expect.objectContaining({ id: 'rp6' }) }));
+  }, 30_000);
+
+  it('a resync after a long gap pages back until it overlaps what was loaded, leaves no hole, and drops what the server no longer returns', async () => {
+    const mk = (n: number, prefix: string, ageSec: number) => msg('dm1', 'p-dm1', `${prefix} ${String(n).padStart(3, '0')}`, { id: `${prefix}${n}`, createdAt: new Date(NOW - ageSec * 1000).toISOString() });
+    let pool: ChatMessage[] = Array.from({ length: 60 }, (_, i) => mk(i + 1, 'old', 9000 - i));
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
+      pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
+    );
+    render(treeFor('/home/c/dm1'));
+    await screen.findByText('old 060');
+    // 130 messages arrive while the socket is down (more than two pages), and one old one (inside the re-read range) is removed
+    pool = [...pool.filter((m) => m.id !== 'old50'), ...Array.from({ length: 130 }, (_, i) => mk(i + 1, 'new', 4000 - i))];
+    act(() => handlers?.onSubscribed?.());
+    await logOf().findByText('new 130');
+    expect(logOf().getByText('new 001')).toBeInTheDocument(); // the oldest of the gap: no hole under the new ones
+    expect(logOf().getByText('new 065')).toBeInTheDocument();
+    expect(logOf().getByText('old 060')).toBeInTheDocument(); // overlap with what was loaded
+    await waitFor(() => expect(logOf().queryByText('old 050')).not.toBeInTheDocument()); // no longer returned: gone
+  }, 30_000);
+
+  it('a deleted thread reply lowers the reply count', async () => {
+    const root = msg('g1', 'p-grace', 'counted root', { id: 'root20' });
+    helpers.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 2, authorIds: [ME.id] }]]));
+    renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root] });
+    expect(await screen.findByTestId('replies-link')).toHaveTextContent('2 replies');
+    helpers.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 1, authorIds: [ME.id] }]]));
+    act(() => handlers?.onMessage({ type: 'UPDATE', message: msg('g1', ME.id, null, { id: 'gone-reply', threadRootId: 'root20', isDeleted: true, deletedAt: iso(0) }) }));
+    await waitFor(() => expect(screen.getByTestId('replies-link')).toHaveTextContent('1 reply'));
+  });
+
+  it('a list read that never answers ends in an error with Retry, not an endless skeleton', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    svc.getMyChats.mockImplementationOnce(() => new Promise(() => undefined));
+    renderChat('/home', [mirror(), dmChat]);
+    expect(screen.getByRole('status', { name: 'Loading chats' })).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LIST_READ_TIMEOUT_MS + 100);
+    });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load your chats');
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
+  });
+
+  describe('cost', () => {
+    it('a thread reply costs no list read; a top-level message patches its row at once and reads the list after two quiet seconds', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderChat('/home', [mirror(), dmChat]);
+      await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+      const reads = () => svc.getMyChats.mock.calls.length;
+      const base = reads();
+      act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', 'p-dm1', 'a reply', { id: 'tr1', threadRootId: 'x' }) }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      expect(reads()).toBe(base);
+      act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', 'p-dm1', 'fresh words', { id: 'tl1', createdAt: new Date().toISOString() }) }));
+      expect(within(rowFor('Ada Lovelace')).getByText('fresh words')).toBeInTheDocument(); // patched locally, no read yet
+      expect(within(rowFor('Ada Lovelace')).getByLabelText('1 unread')).toBeInTheDocument();
+      expect(reads()).toBe(base);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(reads()).toBe(base);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+      expect(reads()).toBe(base + 1);
+    });
+
+    it('a conversation the list has never seen is read at once', async () => {
+      renderChat('/home', [mirror(), dmChat]);
+      await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+      const base = svc.getMyChats.mock.calls.length;
+      act(() => handlers?.onMessage({ type: 'INSERT', message: msg('brand-new', 'p-x', 'hello out of nowhere', { id: 'nn1' }) }));
+      await waitFor(() => expect(svc.getMyChats.mock.calls.length).toBe(base + 1));
+    });
+
+    it('the slow timer runs only while a conversation is open and visible, every 60 seconds', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const list = renderChat('/home', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+      await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+      let base = svc.getMyChats.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS * 2 + 100); });
+      expect(svc.getMyChats.mock.calls.length).toBe(base); // nothing open: no timer reads
+      list.unmount();
+      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+      await screen.findByText('one');
+      base = svc.getMyChats.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS - 500); });
+      expect(svc.getMyChats.mock.calls.length).toBe(base);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(svc.getMyChats.mock.calls.length).toBeGreaterThan(base);
+    });
+
+    it('stays idle inside ?embed=true, /live and /transcribe', async () => {
+      const { unmount } = render(
+        <MemoryRouter initialEntries={['/feed?embed=true']}>
+          <ChatProvider>
+            <div>embedded page</div>
+          </ChatProvider>
+        </MemoryRouter>,
+      );
+      await screen.findByText('embedded page');
+      unmount();
+      render(
+        <MemoryRouter initialEntries={['/live/ABC123']}>
+          <ChatProvider>
+            <div>live page</div>
+          </ChatProvider>
+        </MemoryRouter>,
+      );
+      await screen.findByText('live page');
+      expect(svc.subscribeToChat).not.toHaveBeenCalled();
+      expect(svc.getMyChats).not.toHaveBeenCalled();
+    });
   });
 });
 

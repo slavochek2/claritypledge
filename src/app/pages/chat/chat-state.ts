@@ -4,11 +4,30 @@
  * must not share a file).
  */
 import { createContext, useContext } from 'react';
-import type { ChatMessageEvent, ChatSummary } from '@/app/data/chat-service';
+import type { ChatAttachmentKind, ChatMessage, ChatMessageEvent, ChatSummary } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 
 /** What the provider tells a listening conversation. `resync` means "refetch, you may have missed events". */
-export type ChatEvent = { type: 'message'; event: ChatMessageEvent } | { type: 'resync' };
+export type ChatEvent =
+  | { type: 'message'; event: ChatMessageEvent }
+  | { type: 'resync' }
+  /** My own send was confirmed by the RPC: the server's row, for whichever conversation has it open. */
+  | { type: 'sent'; message: ChatMessage };
+
+export interface SendInput {
+  body: string | null;
+  replyToId?: string;
+  attachment?: { kind: ChatAttachmentKind; id: string };
+}
+
+/** An unconfirmed message of mine: sending, or failed with a Retry. Lives in the provider's outbox. */
+export interface LocalMessage extends ChatMessage {
+  localId: string;
+  pending: boolean;
+  failed: boolean;
+  error?: string;
+  input: SendInput;
+}
 
 export interface ChatContextValue {
   userId: string;
@@ -18,16 +37,26 @@ export interface ChatContextValue {
   chats: ChatSummary[];
   /** Unread, non-archived chats: the number on the Home entry. */
   unreadCount: number;
-  refresh: () => Promise<void>;
+  /** Reads the list again; resolves with it (null when the read failed). */
+  refresh: () => Promise<ChatSummary[] | null>;
   setArchived: (conversationId: string, archived: boolean) => Promise<void>;
   setManualUnread: (conversationId: string, manualUnread: boolean) => Promise<void>;
-  /** Marks read up to `at` (an ISO time: the newest message seen), or now. */
-  markRead: (conversationId: string, at?: string) => Promise<void>;
+  /** Marks read exactly through `throughMessageId` (a client clock cannot say a microsecond), else up to now. */
+  markRead: (conversationId: string, throughMessageId?: string) => Promise<void>;
   subscribe: (listener: (event: ChatEvent) => void) => () => void;
+  /** The conversation the person is looking at right now (open, tab in front, pane showing), or null. */
+  setViewing: (conversationId: string | null) => void;
+  /** Bumps on every edit / delete event and every resync: things derived from messages re-read. */
+  revision: number;
   authors: Record<string, ChatAuthor>;
   /** Authors whose profile could not be read (or whose lookups kept failing): "Unknown", not a loading shimmer. */
   missingAuthors: ReadonlySet<string>;
   ensureAuthors: (ids: string[]) => void;
+  /** Sends that are in flight or failed, for every conversation; they survive switching chats. */
+  outbox: LocalMessage[];
+  sendMessage: (conversationId: string, threadRootId: string | undefined, input: SendInput) => Promise<void>;
+  retrySend: (localId: string) => Promise<void>;
+  discardSend: (localId: string) => void;
   block: (profileId: string) => Promise<void>;
   unblock: (profileId: string) => Promise<void>;
 }

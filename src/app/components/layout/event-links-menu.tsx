@@ -284,6 +284,10 @@ function LinksMenuTabs({
  * rows below. Round 2 made it a solid, taller blue row; the founder: "it overshadows the
  * following items". A blue border + blue text marks it as the main tool without drowning the rest.
  */
+/** A phone-sheet row: the desktop popover's menu-item look, at touch size. */
+const SHEET_ENTRY_CLASS =
+  'flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
 const FEATURED_ENTRY_CLASS =
   'border-2 border-blue-500 font-semibold text-blue-700 hover:bg-blue-50 focus:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950';
 
@@ -598,7 +602,13 @@ export function EventLinksMenu({
                   type="button"
                   data-testid="event-links-entry"
                   onClick={() => ctxValue.go(entry)}
-                  className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2', entry.featured && FEATURED_ENTRY_CLASS)}
+                  // Ordinary rows read like the desktop popover's: plain, neutral, 44px. Only the
+                  // featured action keeps the room's outlined treatment, as it does on desktop.
+                  className={cn(
+                    entry.featured
+                      ? cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2', FEATURED_ENTRY_CLASS)
+                      : SHEET_ENTRY_CLASS,
+                  )}
                 >
                   <EntryText entry={entry} wrap />
                 </button>

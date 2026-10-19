@@ -27,7 +27,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
   const { user } = useAuth();
   const [forwardSource, setForwardSource] = useState<ChatMessage | null>(null);
   const [deleteSource, setDeleteSource] = useState<ChatMessage | null>(null);
-  const { chats, authors, setManualUnread } = chat;
+  const { chats, authors, setManualUnread, refresh } = chat;
   const { remove } = conv;
   const conversationId = summary.conversationId;
 
@@ -60,7 +60,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
   );
 
   const forwardTargets = useMemo(
-    () => chats.filter((c) => isChatVisibleInList(c) && !(c.kind === 'dm' && !c.other?.id)),
+    () => chats.filter((c) => isChatVisibleInList(c) && c.canSend && !(c.kind === 'dm' && !c.other?.id)),
     [chats],
   );
 
@@ -71,6 +71,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
           source={forwardSource}
           authorName={(forwardSource.authorId && authors[forwardSource.authorId]?.name) || 'Deleted user'}
           chats={forwardTargets}
+          revalidate={refresh}
           owner={{ name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor }}
           onClose={() => setForwardSource(null)}
           onForwarded={(target) =>

@@ -6,7 +6,7 @@
  * Search looks in three places at once: your own chats by title (here, no request), people you
  * share a group, event or partnership with (searchPeople), and message text (searchMessages).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Archive, ArchiveRestore, ChevronRight, MoreHorizontal, Plus, Search, X, CircleDot, CheckCheck } from 'lucide-react';
@@ -119,7 +119,7 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
             {chat.archived ? 'Unarchive' : 'Archive'}
           </DropdownMenuItem>
           {unread ? (
-            <DropdownMenuItem className="min-h-10" onSelect={() => void markRead(chat.conversationId, chat.lastMessage?.createdAt)}>
+            <DropdownMenuItem className="min-h-10" onSelect={() => void markRead(chat.conversationId, chat.lastMessage?.id)}>
               <CheckCheck className="mr-2 h-4 w-4" aria-hidden="true" />
               Mark as read
             </DropdownMenuItem>
@@ -154,15 +154,23 @@ interface RemoteResults {
   failed: boolean;
 }
 
-function useRemoteSearch(query: string): RemoteResults {
+/**
+ * `revision` bumps when a message was edited or deleted (or the chat re-synced): the same search is
+ * read again, quietly, so a hit never keeps showing words that are gone.
+ */
+function useRemoteSearch(query: string, revision: number): RemoteResults {
   const [state, setState] = useState<RemoteResults>({ status: 'idle', people: [], messages: [], failed: false });
+  const searched = useRef('');
   useEffect(() => {
     if (query.length < SEARCH_MIN_CHARS) {
+      searched.current = '';
       setState({ status: 'idle', people: [], messages: [], failed: false });
       return;
     }
     let live = true;
-    setState((s) => ({ ...s, status: 'loading' }));
+    const same = searched.current === query;
+    searched.current = query;
+    if (!same) setState((s) => ({ ...s, status: 'loading' }));
     const timer = setTimeout(() => {
       Promise.allSettled([searchPeople(query), searchMessages(query)]).then(([people, messages]) => {
         if (!live) return;
@@ -173,19 +181,19 @@ function useRemoteSearch(query: string): RemoteResults {
           failed: people.status === 'rejected' || messages.status === 'rejected',
         });
       });
-    }, SEARCH_DEBOUNCE_MS);
+    }, same ? 0 : SEARCH_DEBOUNCE_MS);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, revision]);
   return state;
 }
 
 function SearchResults({ query, chats, onOpen }: { query: string; chats: ChatSummary[]; onOpen: (c: ChatSummary, messageId?: string) => void }) {
   const navigate = useNavigate();
-  const { refresh } = useChat();
-  const remote = useRemoteSearch(query);
+  const { refresh, revision } = useChat();
+  const remote = useRemoteSearch(query, revision);
   const [starting, setStarting] = useState<string | null>(null);
   const matches = useMemo(() => searchChats(chats, query), [chats, query]);
   const byId = useMemo(() => new Map(chats.map((c) => [c.conversationId, c])), [chats]);
@@ -324,9 +332,9 @@ export function ChatList({ activeId }: { activeId: string | null }) {
   };
 
   return (
-    <section aria-label="Chats" className="flex min-w-0 flex-1 flex-col lg:h-dvh" data-testid="chat-list">
+    <section aria-label="Chats" className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="chat-list">
       <h1 className="sr-only">Home</h1>
-      <div className="sticky top-[env(safe-area-inset-top)] z-10 bg-background lg:static">
+      <div className="shrink-0 bg-background">
         <div className="flex items-center gap-2 px-3 pb-2 pt-3">
           <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-muted px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -376,7 +384,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 lg:overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {q ? (
           <SearchResults query={q} chats={chats} onOpen={open} />
         ) : chat.status === 'loading' ? (

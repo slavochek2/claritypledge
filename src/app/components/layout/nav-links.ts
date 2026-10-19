@@ -1,5 +1,6 @@
 import {
   BriefcaseIcon,
+  GraduationCapIcon,
   UsersIcon,
   TargetIcon,
   LandmarkIcon,
@@ -39,7 +40,7 @@ export const AUDIENCE_LINKS = [
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/hospitals", label: "For hospitals", Icon: HeartPulseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
-  { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
+  { to: "/coach", label: "For coaches", Icon: GraduationCapIcon },
 ] as const;
 
 /**

@@ -140,6 +140,10 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // same pattern isReadyPage/isMeetingTermsPage already use for multi-route matches.
   // This component only sees location.pathname, not the page's own sub-state — adding a
   // route here applies every gate to ALL of that route's sub-states. Audit each one.
+  // P1512: Home (the chat list, a conversation, a thread) fills the screen exactly: the page inside
+  // is a flex column, so the offline strip, the session banner and the room bar take their height
+  // from it instead of pushing the composer below the fold.
+  const isChatHome = location.pathname === "/home" || location.pathname.startsWith("/home/");
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/") ||
     location.pathname === "/transcribe" || location.pathname.startsWith("/transcribe/");
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
@@ -236,7 +240,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
         scrolled a little, the page's own sticky header slid off the nav it covers (two menus
         showing) and the bottom Back fell below the fold. dvh is the height actually visible. */}
     <div
-      className={`${isLivePage ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col ${shellColumnPadding}`}
+      className={`${isLivePage || isChatHome ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col ${shellColumnPadding}`}
       data-shell-top-nav={signedInShell ? shellTopNav : undefined}
     >
       <OfflineStrip />
@@ -252,7 +256,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
           on Android/desktop where the inset is 0. */}
-      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${topPadding} ${bottomPadding}`}>
+      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${isChatHome ? "flex flex-col overflow-hidden" : ""} ${topPadding} ${bottomPadding}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe

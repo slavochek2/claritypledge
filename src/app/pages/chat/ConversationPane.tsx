@@ -27,6 +27,8 @@ interface Props {
   conversationId: string;
   /** From a search hit (?m=): scroll to and flash this message. */
   highlightId: string | null;
+  /** False while CSS hides this pane (a phone showing a thread): nothing here may count as seen. */
+  paneVisible: boolean;
 }
 
 /** A link to a chat the person cannot open (never existed, or access ended). */
@@ -42,7 +44,7 @@ function Unavailable() {
   );
 }
 
-export function ConversationPane({ conversationId, highlightId }: Props) {
+export function ConversationPane({ conversationId, highlightId, paneVisible }: Props) {
   const chat = useChat();
   const summary = chat.chats.find((c) => c.conversationId === conversationId);
   if (!summary) {
@@ -56,10 +58,10 @@ export function ConversationPane({ conversationId, highlightId }: Props) {
     if (chat.status === 'error') return <InlineError what="this chat" onRetry={() => void chat.refresh()} />;
     return <Unavailable />;
   }
-  return <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} />;
+  return <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} paneVisible={paneVisible} />;
 }
 
-function ConversationBody({ summary, highlightId }: { summary: ChatSummary; highlightId: string | null }) {
+function ConversationBody({ summary, highlightId, paneVisible }: { summary: ChatSummary; highlightId: string | null; paneVisible: boolean }) {
   const chat = useChat();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -111,19 +113,25 @@ function ConversationBody({ summary, highlightId }: { summary: ChatSummary; high
   const onThread = useCallback((m: ChatMessage) => navigate(chatPath(conversationId, { rootId: m.id })), [navigate, conversationId]);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread: channel ? onThread : undefined });
 
-  // Read state: while this chat is open and in front, everything up to the newest message is read.
-  // "Up to here" is the newer of what is on screen and what the list says exists: if the list is
-  // ahead of the screen, marking only the screen's last message would leave the chat unread, and
-  // the next refetch would ask again, forever.
-  const shownAt = conv.server[conv.server.length - 1]?.createdAt;
-  const listedAt = summary.lastMessage?.createdAt;
-  const readAt = shownAt && listedAt ? (Date.parse(shownAt) >= Date.parse(listedAt) ? shownAt : listedAt) : shownAt ?? listedAt;
-  const { markRead } = chat;
+  // Read state: while this chat is open, in front AND on screen, everything up to the newest message is
+  // read. "Through" is a message id, never a time: created_at has microseconds a JS Date cannot say,
+  // and a time just short of the newest message would leave it unread and ask again, forever.
+  const shownNewest = [...conv.server].reverse().find((m) => !m.threadRootId);
+  const listed = summary.lastMessage;
+  const through =
+    listed && (!shownNewest || Date.parse(listed.createdAt) >= Date.parse(shownNewest.createdAt)) ? listed.id : shownNewest?.id;
+  const { markRead, setViewing } = chat;
   const unread = summary.unreadCount > 0 || summary.manualUnread;
+  const seen = visible && paneVisible;
   useEffect(() => {
-    if (conv.status !== 'ready' || !visible || !unread) return;
-    void markRead(conversationId, readAt);
-  }, [conv.status, visible, unread, markRead, conversationId, readAt]);
+    if (!seen) return;
+    setViewing(conversationId);
+    return () => setViewing(null);
+  }, [seen, conversationId, setViewing]);
+  useEffect(() => {
+    if (conv.status !== 'ready' || !seen || !unread) return;
+    void markRead(conversationId, through);
+  }, [conv.status, seen, unread, markRead, conversationId, through]);
 
   const first = (other?.name ?? '').split(' ')[0] ?? '';
   const placeholder =
@@ -187,7 +195,7 @@ function ConversationBody({ summary, highlightId }: { summary: ChatSummary; high
         </div>
       ) : (
         <Composer
-          draftKey={conversationId}
+          draftKey={`${chat.userId}:${conversationId}`}
           placeholder={placeholder}
           focusToken={focusToken}
           autoFocus

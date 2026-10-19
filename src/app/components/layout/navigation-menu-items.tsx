@@ -67,7 +67,8 @@ interface NavigationMenuItemsProps {
   onSignOut: () => void;
   includeTestIds?: boolean;
   /** 'dropdown' for desktop, 'mobile' for mobile menu */
-  variant?: 'dropdown' | 'mobile';
+  /** 'sheet' is 'mobile' drawn for a modal sheet: one left edge, one icon size, 44px rows (the phone Me sheet). */
+  variant?: 'dropdown' | 'mobile' | 'sheet';
   /** Called when a menu item is clicked (useful for closing mobile menu) */
   onItemClick?: () => void;
   /** P856: hide the Log In item — used by the desktop header dropdown, where
@@ -109,9 +110,15 @@ export function NavigationMenuItems({
   };
 
   // Mobile variant - plain Links with mobile styling
-  if (variant === 'mobile') {
-    const mobileLinkClass = "text-left text-base font-medium hover:text-primary transition-colors py-2";
-    const groupLabelClass = "px-1 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+  if (variant === 'mobile' || variant === 'sheet') {
+    const sheet = variant === 'sheet';
+    const mobileLinkClass = sheet
+      ? "flex min-h-11 w-full items-center gap-3 rounded-md px-2 text-left text-base font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      : "text-left text-base font-medium hover:text-primary transition-colors py-2";
+    const groupLabelClass = sheet
+      ? "px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+      : "px-1 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+    const iconClass = sheet ? "h-5 w-5 shrink-0" : "w-4 h-4 inline mr-2";
 
     return (
       <>
@@ -143,7 +150,7 @@ export function NavigationMenuItems({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <item.Icon className="w-4 h-4 inline mr-2" />
+                  <item.Icon className={iconClass} />
                   {item.label}
                 </a>
               ) : (
@@ -159,7 +166,7 @@ export function NavigationMenuItems({
                     handleItemClick();
                   }}
                 >
-                  <item.Icon className="w-4 h-4 inline mr-2" />
+                  <item.Icon className={iconClass} />
                   {item.label}
                 </Link>
               )
@@ -176,7 +183,7 @@ export function NavigationMenuItems({
               onClick={handleItemClick}
               data-testid={includeTestIds ? 'take-pledge' : undefined}
             >
-              <FileTextIcon className="w-4 h-4 inline mr-2" />
+              <FileTextIcon className={iconClass} />
               Take the Pledge
             </Link>
             {!hideLoginItem && (
@@ -186,7 +193,7 @@ export function NavigationMenuItems({
                 onClick={handleItemClick}
                 data-testid={includeTestIds ? 'login-option' : undefined}
               >
-                <LogIn className="w-4 h-4 inline mr-2" />
+                <LogIn className={iconClass} />
                 Log In
               </Link>
             )}
@@ -196,7 +203,7 @@ export function NavigationMenuItems({
               onClick={handleItemClick}
               data-testid={includeTestIds ? 'create-account-option' : undefined}
             >
-              <UserPlusIcon className="w-4 h-4 inline mr-2" />
+              <UserPlusIcon className={iconClass} />
               Create Account
             </Link>
           </div>
@@ -217,7 +224,7 @@ export function NavigationMenuItems({
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
-              <HistoryIcon className="w-4 h-4 inline mr-2" />
+              <HistoryIcon className={iconClass} />
               Session History
             </Link>
             <Link
@@ -226,7 +233,7 @@ export function NavigationMenuItems({
               onClick={handleItemClick}
               data-testid={includeTestIds ? 'settings' : undefined}
             >
-              <SettingsIcon className="w-4 h-4 inline mr-2" />
+              <SettingsIcon className={iconClass} />
               Settings
             </Link>
             <button
@@ -234,7 +241,7 @@ export function NavigationMenuItems({
               className={mobileLinkClass}
               data-testid={includeTestIds ? 'sign-out' : undefined}
             >
-              <LogOutIcon className="w-4 h-4 inline mr-2" />
+              <LogOutIcon className={iconClass} />
               Log Out
             </button>
           </div>

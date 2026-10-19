@@ -231,7 +231,7 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockSetMyPledge).toHaveBeenCalledWith(false);
 
         // P62: Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -289,7 +289,7 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockSetMyPledge).toHaveBeenCalledWith(true);
 
         // P62: Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -332,7 +332,7 @@ describe('CRITICAL AUTH FLOW', () => {
         const secondCall = mockUpsert.mock.calls[1][0];
         expect(secondCall.slug).toBe('john-doe-2');
         // P62: Redirects to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -397,7 +397,7 @@ describe('CRITICAL AUTH FLOW', () => {
         const finalCall = mockUpsert.mock.calls[3][0];
         expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
         // P62: Redirects to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
 
       vi.restoreAllMocks();
@@ -471,7 +471,7 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockMarkSelfVerified).toHaveBeenCalled();
         expect(mockSetMyPledge).toHaveBeenCalledWith(false);
         // Should redirect to dashboard, not signup
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -508,7 +508,7 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockSetMyPledge).toHaveBeenCalledWith(false);
         expect(mockMarkSelfVerified).toHaveBeenCalled();
         // Should redirect to dashboard
-        expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
   });

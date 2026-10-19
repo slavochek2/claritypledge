@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MailIcon, CalendarCheckIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
+import { HOME_PATH } from "@/app/components/layout/app-shell/shell-nav";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 // P1179/P1323: the Links trigger. Renders as a sibling of the avatar in EVERY right-hand group
 // so it holds the same position at every width. It returns null when the layout's `surface` is
@@ -488,7 +489,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         <div className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link
-            to="/"
+            // P1512: signed in, the logo goes where the sidebar's logo goes: Home.
+            to={showUserMenu ? HOME_PATH : "/"}
             state={{ fromLogo: true }}
             className="hover:opacity-80 transition-opacity shrink-0"
             // P1227: the wordmark is display:none below lg, so the mobile link had no name.

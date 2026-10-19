@@ -22,6 +22,7 @@ export const FixedBottomBar = forwardRef<HTMLDivElement, FixedBottomBarProps>(
     return (
       <div
         ref={ref}
+        data-shell-bar
         className={cn(
           // P852 Phase-3: bottom padding = max(safe-area-inset, 1rem) so the CTA
           // isn't glued to the viewport edge on desktop (where env() resolves to 0)

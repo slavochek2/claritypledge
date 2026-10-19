@@ -9,6 +9,7 @@
  */
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { Divider, InlineError, MessagesSkeleton } from './chat-kit';
@@ -17,7 +18,7 @@ import { describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
 
 export type ConversationApi = ReturnType<typeof useConversationMessages>;
-export type ListActions = Omit<MessageActions, 'onJumpTo' | 'lookup' | 'onRetry' | 'onDiscard' | 'onEdit'>;
+export type ListActions = Omit<MessageActions, 'onJumpTo' | 'lookup' | 'getLoaded' | 'version' | 'onRetry' | 'onDiscard' | 'onEdit'>;
 
 /** Closer to the bottom than this counts as "at the bottom". */
 const BOTTOM_SLOP_PX = 80;
@@ -34,9 +35,11 @@ interface Props {
   targetId?: string | null;
   empty: ReactNode;
   inThread?: boolean;
+  /** "Load earlier messages" in a conversation, "Load earlier replies" in a thread. */
+  earlierLabel?: string;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages' }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -46,7 +49,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const jumpedTo = useRef<string | null>(null);
   /** The message under the reader's eye and where it sits, noted when an earlier page is requested. */
   const keepPlace = useRef<{ id: string; offset: number } | null>(null);
-  const { status, messages, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, retrySend, discard, edit, reload } = conv;
+  const { status, messages, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, getLoaded, syncVersion, retrySend, discard, edit, reload } = conv;
 
   const pageBack = useCallback(() => {
     const el = scroller.current;
@@ -65,15 +68,26 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     setNewCount(0);
   }, []);
 
+  /** Scrolls to a message and flashes it; one that is not loaded yet is paged in first, or reported. */
   const jumpTo = useCallback(
-    (id: string) => {
-      const node = scroller.current?.querySelector<HTMLElement>(`[data-msg="${id}"]`);
+    async (id: string) => {
+      const find = () => scroller.current?.querySelector<HTMLElement>(`[data-msg="${id}"]`) ?? null;
+      let node = find();
+      if (!node) {
+        const found = await ensureLoaded(id).catch(() => false);
+        if (!found) {
+          toast("That message isn't loaded, and could not be found further back.");
+          return;
+        }
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        node = find();
+      }
       if (!node) return;
       node.scrollIntoView?.({ block: 'center' });
       stick.current = false;
       setFlashId(id);
     },
-    [],
+    [ensureLoaded],
   );
 
   useEffect(() => {
@@ -127,19 +141,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   useEffect(() => {
     if (!targetId || status !== 'ready' || jumpedTo.current === targetId) return;
     jumpedTo.current = targetId;
-    let live = true;
-    ensureLoaded(targetId)
-      .then((found) => {
-        if (!live || !found) return;
-        requestAnimationFrame(() => jumpTo(targetId));
-      })
-      .catch(() => {
-        /* the conversation just opens at the bottom */
-      });
-    return () => {
-      live = false;
-    };
-  }, [targetId, status, ensureLoaded, jumpTo]);
+    void jumpTo(targetId);
+  }, [targetId, status, jumpTo]);
 
   const onScroll = () => {
     const el = scroller.current;
@@ -153,8 +156,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const grouping = useMemo(() => describeGrouping(messages), [messages]);
 
   const fullActions: MessageActions = useMemo(
-    () => ({ ...actions, onEdit: edit, onRetry: (id) => void retrySend(id), onDiscard: discard, onJumpTo: jumpTo, lookup }),
-    [actions, edit, retrySend, discard, jumpTo, lookup],
+    () => ({ ...actions, onEdit: edit, onRetry: (id) => void retrySend(id), onDiscard: discard, onJumpTo: (id) => void jumpTo(id), lookup, getLoaded, version: syncVersion }),
+    [actions, edit, retrySend, discard, jumpTo, lookup, getLoaded, syncVersion],
   );
 
   if (status === 'loading') return <div className="min-h-0 flex-1 overflow-hidden"><MessagesSkeleton /></div>;
@@ -173,7 +176,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
           {hasMore && (
             <div className="flex justify-center py-1">
               <Button variant="ghost" className="min-h-10 text-muted-foreground" disabled={loadingEarlier} onClick={() => void pageBack()}>
-                {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
+                {loadingEarlier ? 'Loading…' : earlierLabel}
               </Button>
             </div>
           )}

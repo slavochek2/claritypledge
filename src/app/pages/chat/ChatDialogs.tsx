@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from '@/lib/utils';
 import { forwardMessage, renameMirror, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import { filterShareables, loadMyShareables, type Shareable } from '@/app/data/chat-ui-helpers';
-import { ChannelMark, FOCUS_RING, HOVER, InlineError, MirrorMark, PersonMark } from './chat-kit';
+import { ChannelMark, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
 import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
 
 const SHEET = '[&>button.absolute]:top-2 flex max-h-[85dvh] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-md';
@@ -58,7 +58,7 @@ export function ConfirmDialog({
           </p>
         )}
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" className="min-h-10" onClick={onClose} disabled={busy}>
+          <Button variant="ghost" className="min-h-10 text-muted-foreground" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button variant="destructive" className="min-h-10" onClick={() => void run()} disabled={busy}>
@@ -84,6 +84,7 @@ export function ForwardDialog({
   authorName,
   chats,
   owner,
+  revalidate,
   onClose,
   onForwarded,
 }: {
@@ -92,6 +93,8 @@ export function ForwardDialog({
   /** The chats the person can forward into (already filtered to those they can post to). */
   chats: ChatSummary[];
   owner: { name: string; avatarUrl?: string | null; avatarColor?: string | null };
+  /** Reads the chat list again, so a chat that closed to new messages since the picker opened is caught. */
+  revalidate: () => Promise<ChatSummary[] | null>;
   onClose: () => void;
   onForwarded: (target: ChatSummary) => void;
 }) {
@@ -109,6 +112,13 @@ export function ForwardDialog({
     setBusy(true);
     setError(null);
     try {
+      const fresh = await revalidate();
+      const now = fresh?.find((c) => c.conversationId === target.conversationId);
+      if (fresh && (!now || !now.canSend)) {
+        setError('You can no longer send messages in that chat.');
+        setBusy(false);
+        return;
+      }
       await forwardMessage(source.id, target.conversationId, note.trim() || undefined);
       onForwarded(target);
       onClose();
@@ -159,7 +169,7 @@ export function ForwardDialog({
               )}
             </div>
             <div className="shrink-0 border-t p-3">
-              <Button className="min-h-11 w-full bg-blue-600 text-white hover:bg-blue-700" disabled={busy} onClick={() => void send()}>
+              <Button className={`${PRIMARY_CLASS} min-h-11 w-full`} disabled={busy} onClick={() => void send()}>
                 <Forward className="h-4 w-4" aria-hidden="true" />
                 Send
               </Button>
@@ -340,10 +350,10 @@ export function RenameMirrorDialog({ initial, onClose, onSaved }: { initial: str
             </p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" className="min-h-10" onClick={onClose}>
+            <Button type="button" variant="ghost" className="min-h-10 text-muted-foreground" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="min-h-10 bg-blue-600 text-white hover:bg-blue-700" disabled={!valid || busy}>
+            <Button type="submit" className={PRIMARY_CLASS} disabled={!valid || busy}>
               Save
             </Button>
           </DialogFooter>

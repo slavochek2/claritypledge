@@ -7,6 +7,9 @@
  *   /home/c/:conversationId        a conversation (phone: full screen with its own header)
  *   /home/c/:conversationId/t/:id  a thread in a channel (right panel; full screen on a phone)
  *
+ * The page fills the space the layout leaves it (a flex column with min-h-0), so the offline strip, the
+ * active-session banner and the room-capture bar shrink it instead of pushing the composer off screen.
+ *
  * Desktop (lg+) is two panes: the list (360px) and the conversation; a thread opens as a third
  * pane and, below 2xl, takes the list's place so the conversation never gets narrower than a phone.
  */
@@ -19,6 +22,7 @@ import { ChatList } from './ChatList';
 import { ConversationPane } from './ConversationPane';
 import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
+import { DESKTOP_QUERY, useMediaQuery } from './chat-hooks';
 import { chatPath, isChannel, parseChatRoute } from './chat-view-model';
 
 export default function ChatHomePage() {
@@ -28,6 +32,7 @@ export default function ChatHomePage() {
   const route = parseChatRoute(pathname);
   const highlightId = new URLSearchParams(search).get('m');
   const summary = ctx?.chats.find((c) => c.conversationId === route.conversationId);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   // Escape closes the thread panel (a dialog or menu that handled Escape marked it as taken).
   const threadOpen = !!route.rootId;
@@ -50,18 +55,20 @@ export default function ChatHomePage() {
 
   const conversationOpen = !!route.conversationId;
   const showThread = !!(route.rootId && route.conversationId && summary);
+  // Below lg an open thread hides the conversation behind it: what is hidden has not been seen.
+  const conversationVisible = !showThread || isDesktop;
 
   const listClass = !conversationOpen ? 'flex' : showThread ? 'hidden 2xl:flex' : 'hidden lg:flex';
   const paneClass = !conversationOpen ? 'hidden lg:flex' : showThread ? 'hidden lg:flex' : 'flex';
 
   return (
-    <div className="flex w-full" data-testid="chat-home">
-      <div className={cn('w-full min-w-0 flex-col lg:w-[360px] lg:flex-none lg:border-r', listClass)}>
+    <div className="flex min-h-0 w-full flex-1" data-testid="chat-home">
+      <div className={cn('min-h-0 w-full min-w-0 flex-col lg:w-[360px] lg:flex-none lg:border-r', listClass)}>
         <ChatList activeId={route.conversationId} />
       </div>
-      <div className={cn('h-[calc(100dvh-env(safe-area-inset-top))] min-w-0 flex-1 flex-col lg:h-dvh', paneClass)}>
+      <div className={cn('min-h-0 min-w-0 flex-1 flex-col', paneClass)}>
         {route.conversationId ? (
-          <ConversationPane conversationId={route.conversationId} highlightId={showThread ? null : highlightId} />
+          <ConversationPane conversationId={route.conversationId} highlightId={showThread ? null : highlightId} paneVisible={conversationVisible} />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground" data-testid="no-chat-selected">
             <MessagesSquare className="h-8 w-8" aria-hidden="true" />

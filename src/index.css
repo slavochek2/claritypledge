@@ -231,6 +231,38 @@ body:has([data-nav="bottom"]) .mobile-nav-panel {
   }
 }
 
+/* P1512: the offline strip (1.75rem) stays in flow above content, so the offline variants of the old
+ * nav offsets (5.75rem phone, 6.75rem desktop) shrink to the strip alone where the nav is gone, and the
+ * room-capture offset variants keep their own offset. */
+[data-shell-top-nav="none"] [class*="top-[calc(5.75rem+env(safe-area-inset-top))]"] {
+  top: calc(1.75rem + env(safe-area-inset-top)) !important;
+}
+[data-shell-top-nav="none"] [class*="top-[calc(4rem+var(--room-head-offset)+env(safe-area-inset-top))]"],
+[data-shell-top-nav="none"] [class*="top-[calc(5rem+var(--room-head-offset)+env(safe-area-inset-top))]"] {
+  top: calc(var(--room-head-offset) + env(safe-area-inset-top)) !important;
+}
+
+@media (min-width: 1024px) {
+  [data-shell-top-nav="phone"] [class*="top-[calc(5.75rem+env(safe-area-inset-top))]"],
+  [data-shell-top-nav="phone"] [class*="top-[calc(6.75rem+env(safe-area-inset-top))]"],
+  [data-shell-top-nav="none"] [class*="top-[calc(6.75rem+env(safe-area-inset-top))]"] {
+    top: calc(1.75rem + env(safe-area-inset-top)) !important;
+  }
+  [data-shell-top-nav="phone"] [class*="top-[calc(4rem+var(--room-head-offset)+env(safe-area-inset-top))]"],
+  [data-shell-top-nav="phone"] [class*="top-[calc(5rem+var(--room-head-offset)+env(safe-area-inset-top))]"] {
+    top: calc(var(--room-head-offset) + env(safe-area-inset-top)) !important;
+  }
+
+  /* Full-width fixed bars (terms notice, letter and explain-back action bars) would sit over the
+   * sidebar: from lg up they start where the sidebar ends. Collapsed, the sidebar is 4rem wide. */
+  body:has([data-nav="sidebar"]:not([data-collapsed])) [data-shell-bar] {
+    left: 248px !important;
+  }
+  body:has([data-nav="sidebar"][data-collapsed="true"]) [data-shell-bar] {
+    left: 4rem !important;
+  }
+}
+
 /* Live session inner scroll — hidden scrollbar, still scrollable */
 .live-scroll {
   scrollbar-width: none;

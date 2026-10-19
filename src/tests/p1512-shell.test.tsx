@@ -4,8 +4,9 @@
  * that replace the top nav for a signed-in person, so each route shows exactly one navigation.
  * Signed-out chrome and the routes that keep their own chrome (/live, compact rooms) are unchanged.
  */
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockUseAuth = vi.fn();
@@ -43,7 +44,9 @@ vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
 
 import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';
 import { HomeRedirect, HomeRoute } from '@/app/routes/home-redirect';
+import { PENDING_TIMEOUT_MS } from '@/app/routes/home-readiness';
 import { isShellEntryActive } from '@/app/components/layout/app-shell/shell-nav';
+import { PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 
 const signedIn = {
   session: { user: { id: 'u1' } },
@@ -393,5 +396,143 @@ describe('P1512 — "/" and "/home" redirects', () => {
   it('/home shows its page for a signed-in person', () => {
     renderRoutes('/home');
     expect(screen.getByTestId('where')).toHaveTextContent('/home');
+  });
+});
+
+describe('P1512 review round 2 — logo and readiness', () => {
+  it('the phone top bar logo goes to Home when signed in (like the sidebar logo), and to "/" when signed out', () => {
+    const inShell = renderLayout('/create');
+    expect(inShell.container.querySelector('.lg\\:hidden > [data-nav="main"] a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
+    expect(sidebar(inShell.container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
+    inShell.unmount();
+    mockUseAuth.mockReturnValue(signedOut);
+    const out = renderLayout('/create');
+    expect(out.container.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/');
+  });
+
+  it('/home with a session whose profile could not be loaded shows an inline error with Retry, not the feed and not a spinner', async () => {
+    const refreshProfile = vi.fn();
+    mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: false, refreshProfile });
+    renderRoutes('/home');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('We could not load your account');
+    expect(screen.queryByTestId('where')).toBeNull();
+    fireEvent.click(within(alert).getByRole('button', { name: 'Try again' }));
+    expect(refreshProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('"/" shows the same error for that person instead of dropping them on the feed', async () => {
+    mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: false });
+    renderRoutes('/');
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not load your account');
+    expect(screen.queryByTestId('where')).toBeNull();
+  });
+
+  it('a session that never finishes resolving ends in the error after 15 seconds, never an endless loader', async () => {
+    vi.useFakeTimers();
+    try {
+      mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: true });
+      renderRoutes('/home');
+      expect(screen.queryByRole('alert')).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(PENDING_TIMEOUT_MS + 100);
+      });
+      expect(screen.getByRole('alert')).toHaveTextContent('We could not load your account');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an unverified person is signed out for Home, exactly as the chat provider treats them', async () => {
+    mockUseAuth.mockReturnValue({ ...signedIn, user: { ...signedIn.user, isVerified: false } });
+    renderRoutes('/home');
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/feed'));
+  });
+});
+
+describe('P1512 review round 2 — the phone Me sheet and the Tools sheet', () => {
+  it('the Me sheet is a modal dialog: role, aria-modal, a name, a Close control, focus inside, Escape closes, focus returns to the Me tab', async () => {
+    const user = userEvent.setup();
+    renderLayout('/feed');
+    const meTab = screen.getByTestId('bottom-nav-me');
+    await user.click(meTab);
+    const dialog = await screen.findByRole('dialog', { name: 'Menu' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(dialog).getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    // focus is trapped: tabbing around never leaves the dialog
+    for (let i = 0; i < 40; i++) await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull());
+    await waitFor(() => expect(meTab).toHaveFocus());
+  });
+
+  it('the Close control closes the Me sheet', async () => {
+    const user = userEvent.setup();
+    renderLayout('/feed');
+    await user.click(screen.getByTestId('bottom-nav-me'));
+    await user.click(await screen.findByRole('button', { name: 'Close menu' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull());
+  });
+
+  it('every row in the Me sheet shares one left edge and one icon size', async () => {
+    const user = userEvent.setup();
+    renderLayout('/feed');
+    await user.click(screen.getByTestId('bottom-nav-me'));
+    const dialog = await screen.findByRole('dialog', { name: 'Menu' });
+    const nav = within(dialog).getByRole('navigation', { name: 'Account' });
+    const rows = Array.from(nav.querySelectorAll('a, button')).filter(el => !el.hasAttribute('data-badge'));
+    expect(rows.length).toBeGreaterThan(10);
+    for (const row of rows) {
+      expect(row.className, `${row.textContent} starts at px-2`).toContain('px-2');
+      const icon = row.querySelector('svg');
+      if (icon) expect(icon.getAttribute('class'), `${row.textContent} icon`).toContain('h-5');
+    }
+    const labels = Array.from(nav.querySelectorAll('[id^="nav-group-"], [role="group"] > div')).filter(el => /uppercase/.test(el.className));
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(label.className).toContain('px-2');
+  });
+
+  it('no two entries in the public nav groups share an icon (for hiring and for coaches differ)', () => {
+    const icons = PUBLIC_NAV_GROUPS.flatMap(g => g.items.map(i => i.Icon));
+    expect(new Set(icons).size).toBe(icons.length);
+  });
+
+  it('Tools opened from the Me sheet lists plain neutral rows, like the desktop popover (only the featured action is outlined)', async () => {
+    const user = userEvent.setup();
+    renderLayout('/feed');
+    await user.click(screen.getByTestId('bottom-nav-me'));
+    const dialog = await screen.findByRole('dialog', { name: 'Menu' });
+    await user.click(within(dialog).getByTestId('event-links-button'));
+    const sheet = await screen.findByTestId('event-links-menu');
+    expect(sheet).toHaveAttribute('data-shape', 'sheet');
+    const entries = within(sheet).getAllByTestId('event-links-entry');
+    const plain = entries.filter(e => !e.className.includes('border-2'));
+    expect(plain.length).toBeGreaterThan(3);
+    for (const row of plain) {
+      expect(row.className).not.toContain('border-blue');
+      expect(row.className).not.toContain('text-blue');
+      expect(row.className).toContain('min-h-11');
+    }
+  });
+
+  it('the sidebar Tools row shows an open state while its popover is open', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    const tools = within(sidebar(container) as HTMLElement).getByTestId('event-links-button');
+    expect(tools.className).toContain('data-[state=open]:bg-accent');
+    expect(tools).toHaveAttribute('data-state', 'closed');
+    await user.click(tools);
+    await waitFor(() => expect(tools).toHaveAttribute('data-state', 'open'));
+  });
+
+  it('the avatar popover is as wide as the sidebar row it opens from, and scrolls within the room it has', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
+    const menu = await screen.findByRole('menu');
+    expect(menu.className).toContain('w-[var(--radix-dropdown-menu-trigger-width)]');
+    expect(menu.className).toContain('max-h-[var(--radix-dropdown-menu-content-available-height)]');
   });
 });

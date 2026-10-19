@@ -211,17 +211,69 @@ export function describeGrouping(messages: ChatMessage[]): MessageGroupInfo[] {
   });
 }
 
-/** Inserts or replaces by id, keeping createdAt order (id breaks ties). */
+/** Orders two messages the way the server pages them: by created_at, then id. */
+export function compareMessages(a: Pick<ChatMessage, 'createdAt' | 'id'>, b: Pick<ChatMessage, 'createdAt' | 'id'>): number {
+  const t = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+  return t !== 0 && !Number.isNaN(t) ? t : a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+/**
+ * Of two copies of one message, the newer version: a delete beats everything (the words are gone),
+ * then the later edit. A fetch that started before an edit or delete must never undo it.
+ */
+export function newerVersion<T extends ChatMessage>(have: T, incoming: T): T {
+  if (have.isDeleted && !incoming.isDeleted) return have;
+  if (incoming.isDeleted) return incoming;
+  const edited = (m: ChatMessage) => (m.editedAt ? Date.parse(m.editedAt) : -Infinity);
+  return edited(have) > edited(incoming) ? have : incoming;
+}
+
+/** Inserts or merges by id (newer version wins), keeping the server's order. */
 export function upsertMessage<T extends ChatMessage>(list: T[], next: T): T[] {
   const i = list.findIndex((m) => m.id === next.id);
   if (i >= 0) {
+    const merged = newerVersion(list[i] as T, next);
+    if (merged === list[i]) return list;
     const copy = list.slice();
-    copy[i] = next;
+    copy[i] = merged;
     return copy;
   }
   const out = [...list, next];
-  out.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  out.sort(compareMessages);
   return out;
+}
+
+/** Replaces a loaded message with a newer version; a message that is not loaded is left alone. */
+export function replaceLoaded<T extends ChatMessage>(list: T[], next: T): T[] {
+  return list.some((m) => m.id === next.id) ? upsertMessage(list, next) : list;
+}
+
+/** Adds a newly arrived message at the end, but never one older than what is loaded (that would punch a hole in paging). */
+export function appendIfNewer<T extends ChatMessage>(list: T[], next: T): T[] {
+  if (list.some((m) => m.id === next.id)) return upsertMessage(list, next);
+  const oldest = list[0];
+  if (oldest && compareMessages(next, oldest) < 0) return list;
+  return upsertMessage(list, next);
+}
+
+/**
+ * The loaded window after a re-read of everything from `fetched[0]` up to now: rows older than the
+ * re-read are kept (earlier pages), rows newer than it are kept (they arrived while it ran), and
+ * everything in between is exactly what the server returned, merged by version. A row the server no
+ * longer returns inside that range is dropped.
+ */
+export function reconcileWindow<T extends ChatMessage>(loaded: T[], fetched: T[]): T[] {
+  const lo = fetched[0];
+  const hi = fetched[fetched.length - 1];
+  if (!lo || !hi) return loaded;
+  const byId = new Map(loaded.map((m) => [m.id, m]));
+  const middle = fetched.map((m) => {
+    const have = byId.get(m.id);
+    return have ? newerVersion(have, m) : m;
+  });
+  const older = loaded.filter((m) => compareMessages(m, lo) < 0);
+  const newer = loaded.filter((m) => compareMessages(m, hi) > 0);
+  return [...older, ...middle, ...newer];
 }
 
 /** One line for a quote bar or a forward preview. */

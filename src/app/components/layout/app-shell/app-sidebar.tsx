@@ -87,7 +87,8 @@ function SidebarRow({ entry }: { entry: ShellEntry }) {
 
 /** Tools wears the sidebar-row skin; the menu behind it is the top nav's own Links menu. */
 const TOOLS_APPEARANCE = {
-  className: cn(ROW_BASE, ROW_IDLE, 'text-left'),
+  // data-state=open: while its popover is open the row shows it, like a selected entry.
+  className: cn(ROW_BASE, ROW_IDLE, 'text-left data-[state=open]:bg-accent data-[state=open]:text-foreground'),
   content: (
     <>
       <LayoutGridIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -223,7 +224,13 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                 <ChevronsUpDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-64">
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              sideOffset={8}
+              // The popover is as wide as the account row it opens from (the sidebar), and scrolls inside the room it has.
+              className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+            >
               <NavigationMenuItems onSignOut={handleSignOut} />
             </DropdownMenuContent>
           </DropdownMenu>

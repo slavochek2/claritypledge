@@ -234,8 +234,9 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
     renderBottomNav();
     const sheet = openMeSheet();
     expect(sheet.queryByRole('link', { name: /partners/i })).toBeNull();
-    // Other items still render
-    expect(screen.getByRole('link', { name: /letters/i })).toBeInTheDocument();
+    // Other items still render. The Me sheet is a modal dialog now (P1512 item 22), so the bar behind it is
+    // hidden from the accessibility tree while it is open: look for the link with hidden content included.
+    expect(screen.getByRole('link', { name: /letters/i, hidden: true })).toBeInTheDocument();
   });
 });
 

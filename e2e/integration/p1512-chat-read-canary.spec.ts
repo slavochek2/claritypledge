@@ -137,6 +137,7 @@ test('RPC: an outsider holding a real message id cannot forward, clarify, reply,
     'B forwards m1 to own mirror',
   );
   expect(bFwd.kind).toBe('forward');
+  expect(Object.keys(bFwd.forward_snapshot as object).sort(), 'an ordinary forward snapshot is exactly the allowlist').toEqual(['author_name', 'body', 'created_at']);
   const bClar = await ok<Row>(sB.client.rpc('clarify_chat_message', { p_source: m1.id }), 'B clarifies m1');
   expect(bClar.kind).toBe('clarify');
 
@@ -413,6 +414,14 @@ test('clarify: copies the message and its thread into the caller\'s own mirror o
   );
   expect(fwdOfClarify.forward_snapshot, 'the original snapshot is kept').toBeTruthy();
   expect('thread' in (fwdOfClarify.forward_snapshot as object), 'a forwarded clarify drops its thread').toBe(false);
+  // M2 (D5): a forward is built from an allowlist, so nothing about the SOURCE chat reaches the new audience.
+  expect(Object.keys(fwdOfClarify.forward_snapshot as object).sort(), 'forwarded clarify snapshot keys are exactly the allowlist').toEqual(['author_name', 'body', 'created_at']);
+  expect(JSON.stringify(fwdOfClarify.forward_snapshot), 'the source chat title does not travel').not.toContain('General');
+  const fwdOfDmClarify = await ok<Row>(
+    sB.client.rpc('forward_chat_message', { p_source: dmClarify.id, p_target_conversation: gconv }),
+    'B forwards the dm clarify copy to the group',
+  );
+  expect(Object.keys(fwdOfDmClarify.forward_snapshot as object).sort(), 'dm clarify forwarded: allowlist only (no title, no ref)').toEqual(['author_name', 'body', 'created_at']);
   expect(fwdOfClarify.forward_snapshot?.body).toBe(`root-${RUN}`);
   const inSource = (await adminMessages(gconv)).filter((r) => r.kind === 'clarify');
   expect(inSource, 'nothing is posted into the source chat').toEqual([]);
@@ -484,6 +493,45 @@ test('unread: counts, mark-read, mark-unread and archive agree across two device
   expect(afterSend.manual_unread, 'sending clears the manual unread mark').toBe(false);
   expect(new Date(afterSend.last_read_at!).getTime(), 'sending advances the sender\'s read marker to the message').toBeGreaterThanOrEqual(new Date(reply.created_at).getTime());
   expect(afterSend.unread_count, 'everything up to the reply counts as read').toBe(0);
+});
+
+test('mark read through a message id lands exactly on that message (a client clock cannot leave it unread); the marker never moves back', async () => {
+  test.setTimeout(90_000);
+  type ChatRow = { conversation_id: string; unread_count: number; last_read_at: string | null };
+  const rowB = async () => (await ok<ChatRow[]>(sB.client.rpc('get_my_chats'), 'get_my_chats')).find((r) => r.conversation_id === dm)!;
+  const stateB = async () => {
+    const { data } = await supabaseAdmin.from('chat_member_state').select('last_read_at').eq('conversation_id', dm).eq('profile_id', B.user.id).single();
+    return data!.last_read_at as string;
+  };
+
+  await send(sA, dm, `mr-1-${RUN}`);
+  const older = await send(sA, dm, `mr-2-${RUN}`);
+  const newest = await send(sA, dm, `mr-3-${RUN}`);
+  expect((await rowB()).unread_count, 'control: B has unread messages before marking').toBeGreaterThanOrEqual(3);
+
+  // The exact path the UI uses: through the newest message's id.
+  await ok(sB.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: newest.id }), 'mark through the newest message');
+  expect((await rowB()).unread_count, 'marking through the newest message leaves nothing unread (no microsecond gap)').toBe(0);
+  expect(await stateB(), 'the marker is exactly the message time').toBe(newest.created_at);
+
+  // Never backwards: an older message id, or an old client clock, cannot move it back.
+  await ok(sB.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: older.id }), 'mark through an older message');
+  expect(await stateB(), 'marking through an older message does not move the marker back').toBe(newest.created_at);
+  await ok(sB.client.rpc('mark_chat_read', { p_conversation: dm, p_at: '2020-01-01T00:00:00Z' }), 'mark with an old clock');
+  expect(await stateB()).toBe(newest.created_at);
+  expect((await rowB()).unread_count).toBe(0);
+
+  // Without an id the server uses its own clock: everything already sent is read.
+  const later = await send(sA, dm, `mr-4-${RUN}`);
+  expect((await rowB()).unread_count, 'control: a new message is unread again').toBe(1);
+  await ok(sB.client.rpc('mark_chat_read', { p_conversation: dm }), 'mark read with the server clock');
+  expect((await rowB()).unread_count).toBe(0);
+  expect(new Date(await stateB()).getTime()).toBeGreaterThanOrEqual(new Date(later.created_at).getTime());
+
+  // The id must be a message of THIS conversation that the caller can read.
+  await refused(sB.client.rpc('mark_chat_read', { p_conversation: gconv, p_through_message: newest.id }), 'through a message of another conversation');
+  await refused(sB.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: '00000000-0000-4000-8000-000000000000' }), 'through a message that does not exist');
+  await refused(sC.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: newest.id }), 'outsider through a real message id');
 });
 
 test('Realtime DELETE: a cascade delete leaks no conversation id, profile id or body to other subscribers', async () => {

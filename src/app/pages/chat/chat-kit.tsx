@@ -13,6 +13,8 @@ import { useDismiss } from './chat-hooks';
 
 /** Hover tint only where a real pointer exists (a tap must not leave a row stuck lit). */
 export const HOVER = '[@media(hover:hover)]:hover:bg-accent';
+/** The design system's primary CTA (docs/design-system.md, Button Decision Rules #1): one per screen. */
+export const PRIMARY_CLASS = 'min-h-10 rounded-lg bg-blue-600 text-white hover:bg-blue-700';
 export const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 const SIZE = {
@@ -133,9 +135,15 @@ export interface MenuItem {
  */
 export function PopMenu({ at, items, label, onClose }: { at: { x: number; y: number }; items: MenuItem[]; label: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Focus goes back to whatever opened the menu (the ⋯ button, or the message), as a real menu does.
+  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
   useDismiss(onClose, true, [ref]);
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const back = opener.current;
+    return () => {
+      if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true });
+    };
   }, []);
   const width = 208;
   const height = items.length * 44 + 8;

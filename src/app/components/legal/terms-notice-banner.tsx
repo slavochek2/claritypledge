@@ -29,6 +29,7 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
   return (
     <section
       aria-label="Terms update"
+      data-shell-bar
       style={{ bottom: navOffset }}
       className={`fixed inset-x-0 z-50 border-t border-border bg-background shadow-sheet ${navOffset ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
     >

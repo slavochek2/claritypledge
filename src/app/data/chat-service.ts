@@ -101,13 +101,31 @@ export async function listMessages(
   return ((data ?? []) as unknown as ChatMessageRow[]).map(mapMessageRow).reverse();
 }
 
-/** The thread under a root message: the root first, then its replies, oldest first. */
-export async function listThread(conversationId: string, rootId: string): Promise<ChatMessage[]> {
-  const [root, replies] = await Promise.all([
-    getMessage(rootId),
-    listMessages(conversationId, { threadRootId: rootId, limit: 200 }),
-  ]);
-  return root ? [root, ...replies] : replies;
+/**
+ * The thread under a root message: the root first, then its replies, oldest first.
+ *
+ * Returns null unless `rootId` is a root message (no thread_root_id) OF THIS conversation, the
+ * conversation is a channel (group or event: 1:1s and mirrors have no threads), and the caller can
+ * read it. The root is fetched by BOTH conversation_id and id, so an id from another chat cannot
+ * be used to open a thread here.
+ */
+export async function listThread(conversationId: string, rootId: string): Promise<ChatMessage[] | null> {
+  const conversation = await getConversation(conversationId);
+  if (!conversation || (conversation.kind !== 'group' && conversation.kind !== 'event')) return null;
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select(MESSAGE_COLUMNS)
+    .eq('conversation_id', conversationId)
+    .eq('id', rootId)
+    .maybeSingle();
+  if (error) fail('listThread', error);
+  if (!data) return null;
+  const root = mapMessageRow(data as unknown as ChatMessageRow);
+  if (root.threadRootId !== null) return null;
+
+  const replies = await listMessages(conversationId, { threadRootId: rootId, limit: 200 });
+  return [root, ...replies];
 }
 
 /** One message by id; null when it does not exist or the user may not read it. */
@@ -257,8 +275,26 @@ export async function clarifyMessage(sourceMessageId: string): Promise<ChatMessa
   return mapMessageRow(await rpc<ChatMessageRow>('clarify_chat_message', { p_source: sourceMessageId }));
 }
 
-export async function markRead(conversationId: string, at?: Date): Promise<void> {
-  await rpc<null>('mark_chat_read', { p_conversation: conversationId, ...(at ? { p_at: at.toISOString() } : {}) });
+export interface MarkReadOptions {
+  /** Mark read exactly up to this message (preferred). The marker lands on its created_at. */
+  throughMessageId?: string;
+  /** Legacy client clock. A JS Date has millisecond precision and created_at has microseconds, so
+   * this can land just BEFORE the newest message and leave it unread; use throughMessageId. */
+  at?: Date;
+}
+
+/**
+ * Marks a conversation read for the signed-in user. Pass `{ throughMessageId }` with the newest
+ * message shown: that is exact. A bare Date (the old signature) or `at` still works. With neither,
+ * the server uses its own clock. The marker never moves backwards.
+ */
+export async function markRead(conversationId: string, options?: Date | MarkReadOptions): Promise<void> {
+  const opts: MarkReadOptions = options instanceof Date ? { at: options } : (options ?? {});
+  await rpc<null>('mark_chat_read', {
+    p_conversation: conversationId,
+    ...(opts.throughMessageId ? { p_through_message: opts.throughMessageId } : {}),
+    ...(opts.at ? { p_at: opts.at.toISOString() } : {}),
+  });
 }
 
 export async function setChatState(

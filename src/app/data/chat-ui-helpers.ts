@@ -50,6 +50,9 @@ export async function getChatAuthors(ids: string[]): Promise<ChatAuthor[]> {
   }));
 }
 
+/** At most this many reply rows are read for the counts of one page of roots. */
+const THREAD_STATS_ROW_CAP = 500;
+
 export interface ThreadStat {
   count: number;
   /** Distinct repliers, in first-seen order, for the little faces next to "N replies". */
@@ -65,7 +68,9 @@ export async function getThreadStats(conversationId: string, rootIds: string[]):
     .select('thread_root_id, author_id')
     .eq('conversation_id', conversationId)
     .in('thread_root_id', rootIds)
-    .order('created_at', { ascending: true });
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(THREAD_STATS_ROW_CAP);
   if (error) throw new Error(`chat thread stats failed: ${error.message}`);
   for (const row of (data ?? []) as Array<{ thread_root_id: string | null; author_id: string | null }>) {
     if (!row.thread_root_id) continue;

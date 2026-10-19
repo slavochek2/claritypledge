@@ -159,6 +159,17 @@ describe('P1441: auth callback', () => {
     expect(mockTrack).not.toHaveBeenCalledWith('login_complete', expect.anything());
   });
 
+  it('P1512: with nowhere explicit to go, a signed-in person lands on Home; an explicit redirect is kept', async () => {
+    renderCallback('/auth/callback?source=signup');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true }));
+    expect(mockNavigate).not.toHaveBeenCalledWith('/feed', expect.anything());
+  });
+
+  it('P1512: an explicit ?redirect= wins over the Home default', async () => {
+    renderCallback('/auth/callback?source=signup&redirect=/letters');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/letters', { replace: true }));
+  });
+
   it('auto-RSVPs once and lands on the confirmation page', async () => {
     renderCallback(RSVP_URL);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/hike-1/confirm', { replace: true }));

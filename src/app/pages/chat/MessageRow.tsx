@@ -7,14 +7,15 @@
  * right-click or long press that opens the full menu at the pointer.
  */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { CornerUpRight, Forward, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor, ThreadStat } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
-import { FOCUS_RING, HOVER, PersonMark, PopMenu, type MenuItem } from './chat-kit';
+import { FOCUS_RING, HOVER, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
 import { DESKTOP_HOVER_QUERY, hasFinePointer, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
@@ -39,6 +40,10 @@ export interface MessageActions {
   onDiscard: (localId: string) => void;
   onJumpTo: (messageId: string) => void;
   lookup: (id: string) => Promise<ChatMessage | null>;
+  /** A message that is loaded right now (always current), if it is. */
+  getLoaded: (id: string) => ChatMessage | undefined;
+  /** Bumps on every edit, delete and resync, so things read once (a quote's source) read again. */
+  version: number;
 }
 
 interface Props {
@@ -68,21 +73,28 @@ function AuthorName({ author, authorId, pending, className }: { author: ChatAuth
   );
 }
 
-/** The message a reply points at: its author and words, "Original message deleted", or not available. */
+/**
+ * The message a reply points at: its author and words, "Original message deleted", or not available.
+ * A loaded source is read from the live message list, so an edit, a delete or an erasure shows at
+ * once; a source that is not loaded is read once and again whenever the conversation re-syncs.
+ */
 function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; actions: MessageActions; authors: Record<string, ChatAuthor> }) {
-  const [quoted, setQuoted] = useState<ChatMessage | null | undefined>(undefined);
-  const { lookup } = actions;
+  const [fetched, setFetched] = useState<ChatMessage | null | undefined>(undefined);
+  const { lookup, getLoaded, version } = actions;
   const { missingAuthors } = useChat();
+  const loaded = getLoaded(replyToId);
   useEffect(() => {
+    if (loaded) return;
     let live = true;
     lookup(replyToId).then(
-      (m) => live && setQuoted(m),
-      () => live && setQuoted(null),
+      (m) => live && setFetched(m),
+      () => live && setFetched(null),
     );
     return () => {
       live = false;
     };
-  }, [replyToId, lookup]);
+  }, [replyToId, lookup, loaded, version]);
+  const quoted = loaded ?? fetched;
   if (quoted === undefined) return <div className="my-1 h-9 max-w-md animate-pulse rounded-lg bg-muted/50" aria-hidden="true" />;
   const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown' : '') : 'Deleted user';
   const text = quoted === null ? 'Original message not available' : quoted.isDeleted ? 'Original message deleted' : messageSummary(quoted);
@@ -105,28 +117,35 @@ function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; action
   );
 }
 
-/** "Open original", only when the reader can still read the source (getMessage answers through their own access). */
+/** "Open original": the source is read when pressed (through the reader's own access), not on every render. */
 function OpenOriginal({ sourceId }: { sourceId: string }) {
-  const [target, setTarget] = useState<ChatMessage | null>(null);
-  useEffect(() => {
-    let live = true;
-    getMessage(sourceId).then(
-      (m) => live && setTarget(m && !m.isDeleted ? m : null),
-      () => live && setTarget(null),
-    );
-    return () => {
-      live = false;
-    };
-  }, [sourceId]);
-  if (!target) return null;
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const open = async () => {
+    setBusy(true);
+    try {
+      const target = await getMessage(sourceId);
+      if (target && !target.isDeleted) {
+        navigate(chatPath(target.conversationId, { rootId: target.threadRootId ?? undefined, messageId: target.id }));
+      } else {
+        toast("The original isn't available to you any more.");
+      }
+    } catch {
+      toast.error('Could not open the original. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <Link
-      to={chatPath(target.conversationId, { rootId: target.threadRootId ?? undefined, messageId: target.id })}
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void open()}
       className={cn('mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-blue-700 hover:underline', FOCUS_RING)}
     >
       <CornerUpRight className="h-3.5 w-3.5" aria-hidden="true" />
       Open original
-    </Link>
+    </button>
   );
 }
 
@@ -423,7 +442,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
                     <Button variant="outline" className="min-h-10" onClick={() => setDraft(null)}>
                       Cancel
                     </Button>
-                    <Button className="min-h-10 bg-blue-600 text-white hover:bg-blue-700" disabled={saving} onClick={() => void save()}>
+                    <Button className={PRIMARY_CLASS} disabled={saving} onClick={() => void save()}>
                       Save
                     </Button>
                   </div>

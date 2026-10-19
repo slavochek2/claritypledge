@@ -47,8 +47,19 @@ export function usePageVisible(): boolean {
   return visible;
 }
 
-/** The unsent text of each conversation, kept while the person looks at another chat. */
+/**
+ * The unsent text of each conversation, kept while the person looks at another chat. Keys start
+ * with the signed-in user's id, and everyone else's drafts are dropped when the user changes, so
+ * one person's half-written message can never show up in the next person's composer.
+ */
 const drafts = new Map<string, string>();
+
+/** Drops every draft that does not belong to `userId` (all of them when signed out). */
+export function clearDraftsExcept(userId: string | null): void {
+  for (const key of [...drafts.keys()]) {
+    if (!userId || !key.startsWith(`${userId}:`)) drafts.delete(key);
+  }
+}
 
 export function useDraft(key: string): [string, (value: string) => void] {
   const [value, setValue] = useState(() => drafts.get(key) ?? '');
@@ -85,6 +96,9 @@ export function useMediaQuery(query: string): boolean {
   }, [query]);
   return matches;
 }
+
+/** Tailwind's lg: the two-pane desktop layout. */
+export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /** A wide screen with a real hover: the only place the message toolbar floats over the text. */
 export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';

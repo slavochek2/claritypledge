@@ -4,7 +4,7 @@
 --   chat_member_state, chat_blocks) and new functions that no deployed client calls. The
 --   REVOKE / DROP POLICY statements below act only on objects this same file creates (the
 --   idiom keeps the file re-runnable; the DROP FUNCTION IF EXISTS lines drop only functions this
---   file creates a few lines later, so a changed RETURNS TABLE can be re-applied). Two additive BEFORE INSERT triggers are added to
+--   file creates a few lines later, so a changed RETURNS TABLE or argument list can be re-applied). Two additive BEFORE INSERT triggers are added to
 --   membership and event_rsvps; they only ever replace a client-supplied accepted_at /
 --   rsvped_at with now(), which is the value every existing client already lets the column
 --   DEFAULT supply (grepped src/, e2e/, scripts/: nothing sends either column).
@@ -407,6 +407,21 @@ AS $$
   END;
 $$;
 REVOKE ALL ON FUNCTION public._chat_shared_reason(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- The ONLY shape a forward may carry out of its source (D5). A new key in a source snapshot (source
+-- chat title, kind, opaque refs, thread) therefore never reaches a new audience by accident.
+CREATE OR REPLACE FUNCTION public._chat_forward_snapshot(p_snap jsonb)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT jsonb_build_object(
+    'author_name', COALESCE(p_snap -> 'author_name', to_jsonb('Deleted user'::text)),
+    'body',        COALESCE(p_snap -> 'body', 'null'::jsonb),
+    'created_at',  COALESCE(p_snap -> 'created_at', 'null'::jsonb));
+$$;
+REVOKE ALL ON FUNCTION public._chat_forward_snapshot(jsonb) FROM PUBLIC, anon, authenticated;
 
 -- Opaque, one-way reference to an author inside a copied thread entry. Erasure needs to find "the
 -- entries this person wrote" without the copy carrying their raw id, so clients (who can read the
@@ -1045,7 +1060,6 @@ AS $$
 DECLARE
   v_uid       uuid := auth.uid();
   v_src       public.chat_messages;
-  v_src_kind  text;
   v_author    text;
   v_note      text;
   v_snapshot  jsonb;
@@ -1074,18 +1088,19 @@ BEGIN
   END IF;
 
   IF v_src.kind = 'message' THEN
-    SELECT c.kind INTO v_src_kind FROM public.chat_conversations c WHERE c.id = v_src.conversation_id;
     SELECT COALESCE(p.name, 'Deleted user') INTO v_author
       FROM (SELECT 1) one LEFT JOIN public.profiles p ON p.id = v_src.author_id;
+    -- D5: a forward reveals nothing about the source chat. The snapshot is built from an explicit
+    -- allowlist (author_name, body, created_at), never by copying whatever a source snapshot holds.
     v_snapshot := jsonb_build_object(
       'author_name', v_author,
       'body', v_src.body,
-      'created_at', v_src.created_at,
-      'conversation_kind', v_src_kind);
+      'created_at', v_src.created_at);
     v_orig_id := v_src.author_id;
   ELSE
-    -- forwarding a forward keeps pointing at the original author; a clarify's thread is not carried
-    v_snapshot := v_src.forward_snapshot - 'thread';
+    -- forwarding a forward / clarify keeps pointing at the original author; the source chat's
+    -- title, kind, refs and any thread are NOT carried (allowlist again)
+    v_snapshot := public._chat_forward_snapshot(v_src.forward_snapshot);
     v_orig_id := v_src.forward_author_id;
   END IF;
 
@@ -1218,31 +1233,56 @@ $$;
 REVOKE ALL ON FUNCTION public.clarify_chat_message(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.clarify_chat_message(uuid) TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.mark_chat_read(p_conversation uuid, p_at timestamptz DEFAULT now())
+-- The signature gained p_through_message, so the old two-argument form is dropped first (it is only
+-- ever created by this file; a CREATE OR REPLACE would leave it behind as an overload).
+DROP FUNCTION IF EXISTS public.mark_chat_read(uuid, timestamptz);
+-- p_through_message is the precise way to mark read: the read marker lands exactly on that message's
+-- created_at. A client clock (a JS Date has millisecond precision, created_at has microseconds) can
+-- land a few microseconds BEFORE the newest message and leave it unread forever, so p_at is kept only
+-- for compatibility. Whatever is passed, the marker never moves backwards.
+CREATE OR REPLACE FUNCTION public.mark_chat_read(
+  p_conversation    uuid,
+  p_at              timestamptz DEFAULT NULL,
+  p_through_message uuid DEFAULT NULL
+)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_uid uuid := auth.uid();
+  v_uid   uuid := auth.uid();
+  v_since timestamptz;
+  v_at    timestamptz;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'chat: not authenticated' USING ERRCODE = '42501';
   END IF;
-  IF public._chat_access_since(p_conversation, v_uid) IS NULL THEN
+  v_since := public._chat_access_since(p_conversation, v_uid);
+  IF v_since IS NULL THEN
     RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
   END IF;
+
+  IF p_through_message IS NOT NULL THEN
+    SELECT m.created_at INTO v_at FROM public.chat_messages m
+     WHERE m.id = p_through_message AND m.conversation_id = p_conversation AND m.created_at >= v_since;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'chat: message not available' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    v_at := LEAST(COALESCE(p_at, clock_timestamp()), clock_timestamp());
+  END IF;
+
   INSERT INTO public.chat_member_state (conversation_id, profile_id, last_read_at, manual_unread)
-  VALUES (p_conversation, v_uid, LEAST(COALESCE(p_at, now()), now()), false)
+  VALUES (p_conversation, v_uid, v_at, false)
   ON CONFLICT (conversation_id, profile_id) DO UPDATE
     SET last_read_at  = GREATEST(COALESCE(public.chat_member_state.last_read_at, '-infinity'::timestamptz),
                                  EXCLUDED.last_read_at),
         manual_unread = false;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.mark_chat_read(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.mark_chat_read(uuid, timestamptz) TO authenticated;
+REVOKE ALL ON FUNCTION public.mark_chat_read(uuid, timestamptz, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_chat_read(uuid, timestamptz, uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.set_chat_state(
   p_conversation  uuid,

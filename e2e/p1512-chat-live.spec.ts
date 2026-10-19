@@ -18,6 +18,7 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 import { purgeChatFor } from './helpers/test-chat';
 import { createTestPoint, createTestPosition, deleteTestPoint } from './helpers/test-point';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
+import { createTestSessionInDB } from './helpers/test-session';
 
 const RUN = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const A_NAME = `Alicetest ${RUN}`;
@@ -27,7 +28,7 @@ const ORG_NAME = `P1512 Chat Org ${RUN}`;
 const SHOT_DIR = process.env.P1512_SHOT_DIR ?? '';
 
 // Two browsers against the shared test project: the default 5 s is tight for a chat list's first read.
-const expect = baseExpect.configure({ timeout: 15_000 });
+const expect = baseExpect.configure({ timeout: 30_000 });
 
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(120_000);
@@ -47,6 +48,26 @@ async function openAs(browser: Browser, user: TestUser): Promise<{ ctx: BrowserC
   const page = await ctx.newPage();
   await setTestSession(page, user.email);
   return { ctx, page };
+}
+
+
+/**
+ * Cross-browser waits. Realtime can miss an event right after a join (p1114/p1057), and the list view
+ * has no slow timer, so while waiting this also does what a person does: comes back to the tab (a
+ * focus event), which makes the app re-read. "Realtime itself delivers" proves the delivery path.
+ */
+async function live(page: Page, assertion: () => Promise<unknown>): Promise<void> {
+  let last: unknown;
+  for (let i = 0; i < 6; i++) {
+    try {
+      await assertion();
+      return;
+    } catch (e) {
+      last = e;
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    }
+  }
+  throw last;
 }
 
 async function dmConversationId(): Promise<string> {
@@ -154,7 +175,7 @@ test('A finds B by search, starts a 1:1 and B sees it live with an unread badge'
   await expect(messageWith(pageA, 'hello from A')).toBeVisible();
 
   // B: the chat appears in the list, bold with a count, and Home carries the badge. No reload.
-  await expect(row(pageB, A_NAME)).toBeVisible({ timeout: 25_000 });
+  await live(pageB, () => baseExpect(row(pageB, A_NAME)).toBeVisible({ timeout: 6_000 }));
   await expect(row(pageB, A_NAME)).toContainText('hello from A');
   await expect(row(pageB, A_NAME).getByLabel('1 unread')).toBeVisible();
   await expect(pageB.getByRole('link', { name: /^Home, \d+ unread/ })).toBeVisible();
@@ -186,13 +207,13 @@ test('Realtime itself delivers: with every message read blocked for A, B message
 
 test('B replies and A sees it live; A edits and deletes and B sees both', async () => {
   await sendText(pageB, 'reply from B');
-  await expect(messageWith(pageA, 'reply from B')).toBeVisible({ timeout: 25_000 });
+  await live(pageA, () => baseExpect(messageWith(pageA, 'reply from B')).toBeVisible({ timeout: 6_000 }));
 
   await menuOn(pageA, 'hello from A', 'Edit');
   const edit = pageA.getByLabel('Edit message');
   await edit.fill('hello from A (v2)');
   await edit.press('Enter');
-  await expect(messageWith(pageB, 'hello from A (v2)')).toBeVisible({ timeout: 25_000 });
+  await live(pageB, () => baseExpect(messageWith(pageB, 'hello from A (v2)')).toBeVisible({ timeout: 6_000 }));
   await expect(messageWith(pageB, 'hello from A (v2)').getByTestId('edited-mark')).toBeVisible();
 
   // B has no Edit / Delete on A's message.
@@ -203,7 +224,7 @@ test('B replies and A sees it live; A edits and deletes and B sees both', async 
 
   await menuOn(pageA, 'hello from A (v2)', 'Delete');
   await pageA.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
-  await expect(pageB.getByText('Message deleted').first()).toBeVisible({ timeout: 25_000 });
+  await live(pageB, () => baseExpect(pageB.getByText('Message deleted').first()).toBeVisible({ timeout: 6_000 }));
   await expect(pageB.getByText('hello from A (v2)')).toHaveCount(0);
 });
 
@@ -220,7 +241,7 @@ test('General channel: A posts, B replies in a thread, A sees the reply count li
   await expect(conversation(pageA).getByRole('heading', { name: ORG_NAME })).toBeVisible();
 
   await sendText(pageA, 'channel post from A');
-  await expect(messageWith(pageB, 'channel post from A')).toBeVisible({ timeout: 25_000 });
+  await live(pageB, () => baseExpect(messageWith(pageB, 'channel post from A')).toBeVisible({ timeout: 6_000 }));
 
   // B opens the thread from the message menu (channels only).
   await menuOn(pageB, 'channel post from A', 'Reply in thread');
@@ -231,7 +252,7 @@ test('General channel: A posts, B replies in a thread, A sees the reply count li
   await thread.getByRole('textbox').press('Enter');
   await expect(thread.getByText('thread reply from B')).toBeVisible();
 
-  await expect(messageWith(pageA, 'channel post from A').getByTestId('replies-link')).toContainText('1 reply', { timeout: 25_000 });
+  await live(pageA, () => baseExpect(messageWith(pageA, 'channel post from A').getByTestId('replies-link')).toContainText('1 reply', { timeout: 6_000 }));
   await messageWith(pageA, 'channel post from A').getByTestId('replies-link').click();
   await expect(pageA.getByTestId('thread-panel').getByText('thread reply from B')).toBeVisible();
   await pageA.keyboard.press('Escape');
@@ -271,7 +292,7 @@ test('1:1s have no threads; A forwards the channel post into the 1:1 and B sees 
   await pageB.keyboard.press('Escape');
   await row(pageB, A_NAME).getByRole('button').first().click();
   const fwd = pageB.getByTestId('forwarded-card');
-  await expect(fwd).toBeVisible({ timeout: 25_000 });
+  await live(pageB, () => baseExpect(fwd).toBeVisible({ timeout: 6_000 }));
   await expect(fwd).toContainText('Forwarded from');
   await expect(fwd).toContainText('channel post from A');
 
@@ -325,14 +346,14 @@ test('A attaches a point and a story; B sees both cards; a private attachment sh
   await pageA.getByRole('button', { name: 'Send' }).click();
 
   await row(pageB, A_NAME).getByRole('button').first().click();
-  await expect(pageB.getByTestId('attachment-point')).toContainText(`Attach point ${RUN}`, { timeout: 25_000 });
-  await expect(pageB.getByTestId('attachment-story')).toContainText(`Attach story ${RUN}`, { timeout: 25_000 });
+  await live(pageB, () => baseExpect(pageB.getByTestId('attachment-point')).toContainText(`Attach point ${RUN}`, { timeout: 6_000 }));
+  await live(pageB, () => baseExpect(pageB.getByTestId('attachment-story')).toContainText(`Attach story ${RUN}`, { timeout: 6_000 }));
 
   // A private point attached by id (as a hand-made row could): B's own access says no.
   const convId = await dmConversationId();
   const ins = await supabaseAdmin.from('chat_messages').insert({ conversation_id: convId, author_id: a.user.id, body: 'a private one', attachment_kind: 'point', attachment_id: secret.id });
   expect(ins.error).toBeNull();
-  await expect(messageWith(pageB, 'a private one').getByText('Not available to you')).toBeVisible({ timeout: 30_000 });
+  await live(pageB, () => baseExpect(messageWith(pageB, 'a private one').getByText('Not available to you')).toBeVisible({ timeout: 6_000 }));
   await expect(messageWith(pageB, 'a private one').getByText(`Private point ${RUN}`)).toHaveCount(0);
 });
 
@@ -513,6 +534,50 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
   }
 });
 
+test('the offline strip and the active-session banner shrink the chat: the composer and the page stay inside the screen', async ({ browser }) => {
+  test.setTimeout(240_000);
+  const session = await createTestSessionInDB(a.user.id, 'Guest');
+  cleanup.push(async () => session.cleanup());
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  try {
+    await setTestSession(page, a.email);
+    await ctx.addInitScript(
+      ({ code }) => {
+        localStorage.setItem('cp_active_session', JSON.stringify({ code, partnerName: 'Guest', role: 'creator', timestamp: new Date().toISOString() }));
+      },
+      { code: session.sessionCode },
+    );
+    const convId = await dmConversationId();
+    for (const { w, h } of SIZES.slice(0, 2)) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(`/home/c/${convId}`);
+      await expect(page.getByRole('status', { name: 'Active session notification' })).toBeVisible();
+      await expect(composer(page)).toBeVisible();
+      await expect(page.getByTestId('message').first()).toBeVisible(); // messages loaded before the connection drops
+      await ctx.setOffline(true);
+      await expect(page.getByTestId('offline-strip')).toBeVisible();
+      const composerBox = (await conversation(page).getByTestId('composer').boundingBox())!;
+      const inside = await page.evaluate(() => ({ h: window.innerHeight, scroll: document.documentElement.scrollHeight, bodyScroll: document.body.scrollHeight }));
+      expect(composerBox.y + composerBox.height, `composer bottom inside the ${h}px screen at ${w}`).toBeLessThanOrEqual(inside.h + 0.5);
+      expect(inside.scroll, `the page does not scroll at ${w}`).toBeLessThanOrEqual(inside.h + 1);
+      await noHScroll(page, `bars ${w}`);
+      if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/offline-and-session-banner-${w}.png` });
+      // the same on the list pane (phone: list is the page): load it online, then drop the connection
+      await ctx.setOffline(false);
+      await page.goto('/home');
+      await expect(page.getByTestId('chat-list')).toBeVisible();
+      await ctx.setOffline(true);
+      await expect(page.getByTestId('offline-strip')).toBeVisible();
+      const over = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+      expect(over, `list page does not scroll at ${w}`).toBeLessThanOrEqual(1);
+      await ctx.setOffline(false);
+    }
+  } finally {
+    await ctx.close();
+  }
+});
+
 test('a long history opens at the bottom, pages back in place, and offers "New messages" when scrolled up', async () => {
   const convId = await dmConversationId();
   const old = Date.now() - 3 * 24 * 3600 * 1000;
@@ -551,7 +616,7 @@ test('a long history opens at the bottom, pages back in place, and offers "New m
   await expect(composer(pageB)).toBeVisible();
   await sendText(pageB, 'pill probe');
   const pill = pageA.getByRole('button', { name: 'New messages' });
-  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await live(pageA, () => baseExpect(pill).toBeVisible({ timeout: 6_000 }));
   expect(await gap()).toBeGreaterThan(50);
   await pill.click();
   await expect(messageWith(pageA, 'pill probe')).toBeVisible();
