@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 41
 workstream: clarity-canvas
@@ -157,16 +157,28 @@ standard lean-canvas shape with the three ikigai boxes as a row underneath; if t
 
 ## Acceptance Criteria
 
-- [ ] The founder opens their canvas at its own address and sees their points in the twelve titled boxes, private ones included.
-- [ ] Signed out, the same address shows only the public points.
-- [ ] Opening a point shows the production point card with its stories; a position taken there persists.
-- [ ] At 1440x900 the page does not scroll (`document.documentElement.scrollHeight <= innerHeight`); a box with many points scrolls inside itself.
-- [ ] At 375px and 320px boxes stack with titles; a box with 2+ points swipes sideways and shows "n / N".
-- [ ] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
-- [ ] An empty box renders titled; an unknown canvas address shows not-found.
-- [ ] A signed-in user's direct API write cannot set a box tag (only the service-role seed can).
-- [ ] After signing out on the owner's canvas, no private point or story stays on screen.
-- [ ] The feed and `/stake` pages show the same tags as before for existing points.
+- [x] The founder opens their canvas at its own address and sees their points in the twelve titled boxes, private ones included.
+- [x] Signed out, the same address shows only the public points.
+- [x] Opening a point shows the production point card with its stories; a position taken there persists.
+- [x] At 1440x900 the page does not scroll (`document.documentElement.scrollHeight <= innerHeight`); a box with many points scrolls inside itself.
+- [x] At 375px and 320px boxes stack with titles; a box with 2+ points swipes sideways and shows "n / N".
+- [x] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
+- [x] An empty box renders titled; an unknown canvas address shows not-found.
+- [x] A signed-in user's direct API write cannot set a box tag (only the service-role seed can).
+- [x] After signing out on the owner's canvas, no private point or story stays on screen.
+- [x] The feed and `/stake` pages show the same tags as before for existing points.
+
+## Known Limitations
+
+Recorded from the /dev review (2026-10-19); none blocks the canvas.
+
+| Limitation | Label | Note |
+|---|---|---|
+| Position counts read at most 1,000 position rows per page (the API row cap) | ACCEPT | Shared with /feed and /stake (pre-existing). The founder canvas is ~17 points; an event of 20 attendees is ~340 rows. Server-side aggregation if a canvas ever approaches the cap. |
+| The owner's own positions are read by a canvas-local strict query, not the shared helper | ACCEPT | Keeps the shared helper's lenient behaviour unchanged for feed/stake. |
+| Focus can reach the browser's own chrome from the panel only via the browser's keys | ACCEPT | The page behind is inert and Tab wraps inside the panel. |
+| Guard-spec cleanup ignores delete errors (the canvas spec surfaces them) | ACCEPT | Rows carry a per-run marker; worst case is a stranded test row. |
+| On desktop a box holding more than fits shows the next card as a sliver under the fade | ACCEPT | The intended "more below" cue (visual QA round 2: reads slightly like a glitch in Revenue Streams). |
 
 ## Related
 
