@@ -4,37 +4,36 @@
  *
  * Run: VERIFY_PROD=1 PROD_SUPABASE_URL="<url>" PROD_SUPABASE_ANON_KEY="<key>" PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-agreements.spec.ts
  *
- * PROD_SUPABASE_URL has no default — it must be passed explicitly on every run.
- * A hardcoded prod fallback here would let the repo's shared e2e test password
- * silently authenticate against production if this file were ever run without
- * thinking about the target (see .private/docs/security-log.md, 2026-08-08).
+ * PROD_SUPABASE_URL has no default — it must be passed explicitly on every run,
+ * so this file never reaches production without someone naming the target
+ * (see .private/docs/security-log.md, 2026-08-08).
+ *
+ * P1510: prod refuses password sign-in. The session comes from a service-role
+ * sign-in link exchanged for a user session (scripts/lib/link-session.mjs), so
+ * PROD_SERVICE_ROLE_KEY is required, not optional. Pass it from the keychain
+ * (keyring_require), never from a plaintext copy.
  */
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { linkSession } from '../scripts/lib/link-session.mjs';
 
 const PROD_URL = process.env.PROD_SUPABASE_URL;
 const PROD_ANON_KEY = process.env.PROD_SUPABASE_ANON_KEY!;
 const TEST_EMAIL = 'e2e-agent@claritypledge.com';
-const TEST_PASSWORD = 'test-password-12345';
+const PROD_SRK = process.env.PROD_SERVICE_ROLE_KEY;
 
 test.skip(!process.env.VERIFY_PROD, 'Set VERIFY_PROD=1 to run prod verification');
 test.skip(!!process.env.VERIFY_PROD && !PROD_URL, 'Set PROD_SUPABASE_URL explicitly — no default target');
+test.skip(!!process.env.VERIFY_PROD && !PROD_SRK, 'Set PROD_SERVICE_ROLE_KEY (keychain) — sign-in is link-based (P1510)');
 
 test('agreement creation persists to prod DB', async ({ browser }) => {
-  // Step 1: Sign in to get a valid session
-  const supabase = createClient(PROD_URL!, PROD_ANON_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
+  // Step 1: Sign in by link to get a valid session (P1510)
+  const session = await linkSession({
+    url: PROD_URL!, anonKey: PROD_ANON_KEY, serviceKey: PROD_SRK!, email: TEST_EMAIL,
   });
+  expect(session.access_token).toBeTruthy();
 
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-    email: TEST_EMAIL,
-    password: TEST_PASSWORD,
-  });
-
-  expect(signInError).toBeNull();
-  expect(signInData?.session).toBeTruthy();
-
-  const { access_token, refresh_token } = signInData!.session!;
+  const { access_token, refresh_token } = session;
   const projectRef = PROD_URL!.split('//')[1].split('.')[0];
   const storageKey = `sb-${projectRef}-auth-token`;
 
@@ -45,11 +44,11 @@ test('agreement creation persists to prod DB', async ({ browser }) => {
     expires_in: 3600,
     token_type: 'bearer',
     user: {
-      id: signInData!.user!.id,
-      email: signInData!.user!.email,
-      created_at: signInData!.user!.created_at,
-      app_metadata: signInData!.user!.app_metadata,
-      user_metadata: signInData!.user!.user_metadata,
+      id: session.user.id,
+      email: session.user.email,
+      created_at: session.user.created_at,
+      app_metadata: session.user.app_metadata,
+      user_metadata: session.user.user_metadata,
       aud: 'authenticated',
       role: 'authenticated',
     },
@@ -90,9 +89,8 @@ test('agreement creation persists to prod DB', async ({ browser }) => {
   await expect(page).toHaveURL(/\/partners/, { timeout: 10000 });
 
   // Step 7: Check the agreement exists in the prod DB
-  const prodSRK = process.env.PROD_SERVICE_ROLE_KEY;
-  if (prodSRK) {
-    const adminClient = createClient(PROD_URL!, prodSRK, {
+  {
+    const adminClient = createClient(PROD_URL!, PROD_SRK!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 

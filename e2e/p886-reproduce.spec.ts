@@ -23,16 +23,19 @@
  * migrate and a premature 403 assertion would fail unrelated migrations.
  *
  * Run: VERIFY_PROD=1 npx playwright test e2e/p886-reproduce.spec.ts
- * Env (from .env.local): PROD_SUPABASE_ANON_KEY, PROD_TEST_AGENT_EMAIL, PROD_TEST_AGENT_PASSWORD
+ * Env (from .env.local): PROD_SUPABASE_ANON_KEY, PROD_TEST_AGENT_EMAIL; S4 also needs
+ * PROD_SERVICE_ROLE_KEY (keychain) — prod refuses password sign-in, so S4 signs in by
+ * link (scripts/lib/link-session.mjs, P1510).
  */
 
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { linkSession } from '../scripts/lib/link-session.mjs';
 
 const PROD_URL = process.env.PROD_SUPABASE_URL ?? 'https://besjtuodziykmjidubzw.supabase.co';
 const PROD_ANON_KEY = process.env.PROD_SUPABASE_ANON_KEY;
 const AGENT_EMAIL = process.env.PROD_TEST_AGENT_EMAIL;
-const AGENT_PASSWORD = process.env.PROD_TEST_AGENT_PASSWORD;
+const PROD_SRK = process.env.PROD_SERVICE_ROLE_KEY;
 
 const PII_COLUMNS = ['email', 'linkedin_url', 'reason'] as const;
 
@@ -77,21 +80,17 @@ test.describe('P886: prod profiles PII column gate is re-applied', () => {
   // read ANOTHER user's email. (Own-email reads go through get_profile_by_id.)
   test("authenticated user cannot SELECT another user's email on prod", async () => {
     expect(AGENT_EMAIL, 'PROD_TEST_AGENT_EMAIL missing — source .env.local').toBeTruthy();
-    expect(AGENT_PASSWORD, 'PROD_TEST_AGENT_PASSWORD missing — source .env.local').toBeTruthy();
+    expect(PROD_SRK, 'PROD_SERVICE_ROLE_KEY missing — pass it from keyring_require').toBeTruthy();
 
-    const anon = makeAnonClient();
-    const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({
-      email: AGENT_EMAIL!,
-      password: AGENT_PASSWORD!,
+    const session = await linkSession({
+      url: PROD_URL, anonKey: PROD_ANON_KEY!, serviceKey: PROD_SRK!, email: AGENT_EMAIL!,
     });
-    expect(signInErr, `prod test agent sign-in failed: ${signInErr?.message}`).toBeNull();
-
-    const agentClient = makeUserClient(signIn!.session!.access_token);
+    const agentClient = makeUserClient(session.access_token);
 
     const { data, error } = await agentClient
       .from('profiles')
       .select('email')
-      .neq('id', signIn!.user!.id) // someone else's row
+      .neq('id', session.user.id) // someone else's row
       .limit(1);
 
     expect(

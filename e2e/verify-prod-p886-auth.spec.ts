@@ -9,7 +9,7 @@
  * creating profile"). These tests drive both paths against the LIVE prod app
  * with the gate active:
  *
- *   A. Session restore: password session injected (verify-prod-agreements
+ *   A. Session restore: link-minted session injected (verify-prod-agreements
  *      pattern), app loads, profile-dependent UI renders, zero
  *      permission-denied responses on the wire.
  *   B. Auth-callback processing: a session walks /auth/callback?source=login —
@@ -24,20 +24,22 @@
  * Uses the persistent prod test account (PROD_TEST_AGENT_EMAIL). Sign-ins are
  * ordinary auth events — no rows are created.
  *
- * Run: VERIFY_PROD=1 npx playwright test e2e/verify-prod-p886-auth.spec.ts
- * Env (from .env.local): PROD_SUPABASE_ANON_KEY, PROD_TEST_AGENT_EMAIL,
- *   PROD_TEST_AGENT_PASSWORD
+ * Run: VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY=<from keyring_require> npx playwright test e2e/verify-prod-p886-auth.spec.ts
+ * Env (from .env.local): PROD_SUPABASE_ANON_KEY, PROD_TEST_AGENT_EMAIL.
+ * P1510: prod refuses password sign-in; the session comes from a service-role
+ * sign-in link exchanged for a user session (scripts/lib/link-session.mjs).
  */
 import { test, expect, type Page } from '@playwright/test';
-import { createClient, type Session } from '@supabase/supabase-js';
+import { linkSession } from '../scripts/lib/link-session.mjs';
 
 const PROD_URL = process.env.PROD_SUPABASE_URL ?? 'https://besjtuodziykmjidubzw.supabase.co';
 const APP_URL = 'https://claritypledge.com';
 const PROD_ANON_KEY = process.env.PROD_SUPABASE_ANON_KEY!;
 const TEST_EMAIL = process.env.PROD_TEST_AGENT_EMAIL!;
-const TEST_PASSWORD = process.env.PROD_TEST_AGENT_PASSWORD!;
+const PROD_SRK = process.env.PROD_SERVICE_ROLE_KEY;
 
 test.skip(!process.env.VERIFY_PROD, 'Set VERIFY_PROD=1 to run prod verification');
+test.skip(!!process.env.VERIFY_PROD && !PROD_SRK, 'Set PROD_SERVICE_ROLE_KEY (keychain) — sign-in is link-based (P1510)');
 
 /** Collect permission-denied symptoms: 401/403 REST responses + 42501 console errors. */
 function watchForPermissionDenied(page: Page) {
@@ -58,18 +60,13 @@ function watchForPermissionDenied(page: Page) {
   return hits;
 }
 
-/** Sign in with the prod test agent and return a context with the session injected. */
+/** Sign in the prod test agent by link and return a context with the session injected. */
 async function makeAuthedContext(browser: import('@playwright/test').Browser) {
-  const supabase = createClient(PROD_URL, PROD_ANON_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
+  const session = await linkSession({
+    url: PROD_URL, anonKey: PROD_ANON_KEY, serviceKey: PROD_SRK!, email: TEST_EMAIL,
   });
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-    email: TEST_EMAIL,
-    password: TEST_PASSWORD,
-  });
-  expect(signInError, `sign-in failed: ${signInError?.message}`).toBeNull();
+  expect(session.access_token, 'link sign-in returned no session').toBeTruthy();
 
-  const session: Session = signInData!.session!;
   const projectRef = PROD_URL.split('//')[1].split('.')[0];
   const storageKey = `sb-${projectRef}-auth-token`;
   const sessionPayload = JSON.stringify({
@@ -79,11 +76,11 @@ async function makeAuthedContext(browser: import('@playwright/test').Browser) {
     expires_in: 3600,
     token_type: 'bearer',
     user: {
-      id: signInData!.user!.id,
-      email: signInData!.user!.email,
-      created_at: signInData!.user!.created_at,
-      app_metadata: signInData!.user!.app_metadata,
-      user_metadata: signInData!.user!.user_metadata,
+      id: session.user.id,
+      email: session.user.email,
+      created_at: session.user.created_at,
+      app_metadata: session.user.app_metadata,
+      user_metadata: session.user.user_metadata,
       aud: 'authenticated',
       role: 'authenticated',
     },

@@ -13,6 +13,8 @@
  * header from the client) is a valid fix.
  */
 import { readFileSync } from 'fs';
+import { linkSession } from './lib/link-session.mjs';
+import { keyringGet } from './lib/keyring.mjs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -27,12 +29,11 @@ for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
 
 const PROD_SUPABASE_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 
-const authResp = await fetch(`${PROD_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'apikey': env.PROD_SUPABASE_ANON_KEY },
-  body: JSON.stringify({ email: env.PROD_TEST_AGENT_EMAIL, password: env.PROD_TEST_AGENT_PASSWORD }),
+// P1510: prod refuses password sign-in — sign in by a service-role-minted link.
+const { access_token } = await linkSession({
+  url: PROD_SUPABASE_URL, anonKey: env.PROD_SUPABASE_ANON_KEY, email: env.PROD_TEST_AGENT_EMAIL,
+  serviceKey: keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'probe-gcs-upload-no-header: mint a sign-in link for the prod test agent'),
 });
-const { access_token } = await authResp.json();
 
 const SESSION_CODE = 'P809CB';
 const FILE_NAME = '_dev_canary_no_header.webm';

@@ -8,14 +8,24 @@
  *
  * Usage:
  *   node scripts/prod-smoke-test.mjs
+ *   node scripts/prod-smoke-test.mjs --pre-enforcement   # before P1510 is applied on prod
  *
- * Requires in .env.local:
- *   PROD_TEST_AGENT_EMAIL
- *   PROD_TEST_AGENT_PASSWORD
+ * Requires in .env.local: PROD_TEST_AGENT_EMAIL, PROD_SUPABASE_ANON_KEY.
+ * The prod service-role key comes from the keychain (one dialog per run): it
+ * mints a sign-in link for the smoke account, nothing else. Every data request
+ * below runs under the smoke account's own session, so RLS is still exercised.
+ *
+ * P1510: prod refuses password sign-in, so the session comes from an emailed
+ * link (scripts/lib/link-session.mjs), and step 6 sets a random password on the
+ * smoke account and asserts it is refused. --pre-enforcement skips step 6, for
+ * the run that proves this script before the prod change lands.
  */
 
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { randomBytes } from 'crypto';
+import { linkSession } from './lib/link-session.mjs';
+import { keyringGet } from './lib/keyring.mjs';
 
 // Load .env.local
 function loadEnv() {
@@ -36,12 +46,11 @@ loadEnv();
 
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 const TEST_EMAIL = process.env.PROD_TEST_AGENT_EMAIL;
-const TEST_PASS = process.env.PROD_TEST_AGENT_PASSWORD;
-
 const ANON = process.env.PROD_SUPABASE_ANON_KEY;
+const PRE_ENFORCEMENT = process.argv.includes('--pre-enforcement');
 
-if (!TEST_EMAIL || !TEST_PASS || !ANON) {
-  console.error('Missing PROD_TEST_AGENT_EMAIL, PROD_TEST_AGENT_PASSWORD, or PROD_SUPABASE_ANON_KEY in .env.local');
+if (!TEST_EMAIL || !ANON) {
+  console.error('Missing PROD_TEST_AGENT_EMAIL or PROD_SUPABASE_ANON_KEY in .env.local');
   process.exit(1);
 }
 
@@ -58,13 +67,16 @@ console.log('');
 
 // ── 1. Auth ──────────────────────────────────────────────────────────────────
 console.log('1. Auth');
-const signIn = await fetch(`${PROD_URL}/auth/v1/token?grant_type=password`, {
-  method: 'POST',
-  headers: { apikey: ANON, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASS }),
-}).then(r => r.json());
+let signIn = {};
+let SERVICE_KEY = '';
+try {
+  const serviceKey = SERVICE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'prod smoke test: mint a sign-in link for the smoke account');
+  signIn = await linkSession({ url: PROD_URL, anonKey: ANON, serviceKey, email: TEST_EMAIL });
+} catch (e) {
+  signIn = { error_description: e.message };
+}
 
-ok('sign in succeeds', !!signIn.access_token, signIn.error_description);
+ok('link sign-in succeeds', !!signIn.access_token, signIn.error_description);
 if (!signIn.access_token) { console.log('\nFATAL: cannot authenticate\n'); process.exit(1); }
 
 const userId = signIn.user.id;
@@ -140,6 +152,30 @@ ok(
   piiRes.status >= 400 && /42501|PGRST301/.test(piiBody?.code ?? ''),
   `status=${piiRes.status} code=${piiBody?.code ?? 'none'}`
 );
+
+// ── 6. Password sign-in refused (P1510) ─────────────────────────────────────
+// Canary for a platform upgrade that silently drops the auth.users trigger:
+// give the smoke account a fresh random password through the admin API (one of
+// the paths the trigger must neutralise), then try it. Any session = fail.
+// --pre-enforcement skips this step: the password would really be set.
+console.log('\n6. Password sign-in');
+if (PRE_ENFORCEMENT) {
+  console.log('  ⚠ skipped (--pre-enforcement: P1510 not yet applied on prod)');
+} else {
+  const probePw = `p1510-${randomBytes(18).toString('base64url')}`;
+  const setRes = await fetch(`${PROD_URL}/auth/v1/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: probePw }),
+  });
+  ok('admin password write accepted by the API', setRes.ok, `HTTP ${setRes.status}`);
+  const pwAttempt = await fetch(`${PROD_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: TEST_EMAIL, password: probePw }),
+  }).then(r => r.json()).catch(() => ({}));
+  ok('password sign-in is refused', !pwAttempt.access_token, 'a password produced a session — the P1510 trigger is gone');
+}
 
 // ── Result ────────────────────────────────────────────────────────────────────
 console.log(`\n${pass} passed, ${fail} failed\n`);

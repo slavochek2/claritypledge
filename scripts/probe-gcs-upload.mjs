@@ -17,6 +17,8 @@
  *   node scripts/probe-gcs-upload.mjs
  */
 import { readFileSync } from 'fs';
+import { linkSession } from './lib/link-session.mjs';
+import { keyringGet } from './lib/keyring.mjs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -34,25 +36,25 @@ for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
 const PROD_SUPABASE_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 const PROD_ANON = env.PROD_SUPABASE_ANON_KEY;
 const AGENT_EMAIL = env.PROD_TEST_AGENT_EMAIL;
-const AGENT_PASSWORD = env.PROD_TEST_AGENT_PASSWORD;
 
-if (!PROD_ANON || !AGENT_EMAIL || !AGENT_PASSWORD) {
-  console.error('Missing creds in .env.local: need PROD_SUPABASE_ANON_KEY + PROD_TEST_AGENT_EMAIL + PROD_TEST_AGENT_PASSWORD');
+if (!PROD_ANON || !AGENT_EMAIL) {
+  console.error('Missing creds in .env.local: need PROD_SUPABASE_ANON_KEY + PROD_TEST_AGENT_EMAIL');
   process.exit(1);
 }
 
 // --- Step 1: Auth ------------------------------------------------------------
 console.log('[1/3] Auth as prod test agent...');
-const authResp = await fetch(`${PROD_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'apikey': PROD_ANON },
-  body: JSON.stringify({ email: AGENT_EMAIL, password: AGENT_PASSWORD }),
-});
-if (!authResp.ok) {
-  console.error('Auth failed:', authResp.status, await authResp.text());
+// P1510: prod refuses password sign-in — sign in by a service-role-minted link.
+let access_token;
+try {
+  ({ access_token } = await linkSession({
+    url: PROD_SUPABASE_URL, anonKey: PROD_ANON, email: AGENT_EMAIL,
+    serviceKey: keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'probe-gcs-upload: mint a sign-in link for the prod test agent'),
+  }));
+} catch (e) {
+  console.error('Auth failed:', e.message);
   process.exit(1);
 }
-const { access_token } = await authResp.json();
 console.log('  ok, token length:', access_token.length);
 
 // --- Step 2: Get signed URL --------------------------------------------------
