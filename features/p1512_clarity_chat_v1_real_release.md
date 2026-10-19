@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 43
 workstream: clarity-chat
@@ -213,7 +213,7 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 - [x] Clarify puts the message and its thread into the owner's mirror chat only; Rename persists; role always shows — *Evidence:* e2e (copy only in the clarifier's mirror, checked by admin query) + unit (rename persists; role segment never truncated).
 - [x] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite — *Evidence:* p1512-shell tests + screenshots (collapsed, logo hover); `+` in the chat list opens `/agreements/new/create`.
 - [x] Existing users see their groups' General channels and their mirror on first open — *Evidence:* migration backfill (one General per org, one channel per event, one mirror per profile; counts equal sources in the first-run proof) + e2e new-user list.
-- [ ] Phone (375, 320) and desktop pass the visual QA checklist
+- [x] Phone (375, 320) and desktop pass the visual QA checklist — *Evidence:* four screenshot-only visual QA rounds (separate reviewer, no code); final round no blocking issues, its should-fix fixed (two-line mirror rows) and the other is a live story card (INBOX-194); live e2e asserts no horizontal scroll and the composer on screen at 1280/375/320, with banners.
 - [x] No prototype route, persona plugin or mock code remains in the build — *Evidence:* v12–v16 code, tests, routes, `scripts/p1509-*` and the vite persona plugin deleted; grep clean.
 
 ## Known Limitations (recorded at /dev, 2026-10-19)
