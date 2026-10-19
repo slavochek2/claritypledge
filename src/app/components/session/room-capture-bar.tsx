@@ -152,7 +152,14 @@ export function RoomCaptureBar({ short = false }: { short?: boolean }) {
  * layout under its nav, the room page under its header. While at least one slot is mounted the
  * App-level fallback stays out of the way, so the bar is never drawn twice.
  */
-export function RoomCaptureBarSlot() {
+export function RoomCaptureBarSlot({ topNav = 'all' }: {
+  /**
+   * P1512: which widths have a fixed top nav for the bar to stick under. `all` is every page with
+   * the top nav; the signed-in shell has none on desktop (`phone`: only below lg, on focus pages)
+   * or none anywhere (`none`: the bottom bar carries the phone).
+   */
+  topNav?: 'all' | 'phone' | 'none';
+} = {}) {
   const { registerBarSlot, barVisible } = useRoomCapture();
   // The nav moves down exactly when the offline STRIP shows — read the same signal it reads.
   const offline = useOfflineStripShown();
@@ -162,9 +169,13 @@ export function RoomCaptureBarSlot() {
   // Offline, the nav sits 1.75rem lower under the offline strip (simple-navigation.tsx).
   return barVisible ? (
     // data-testid: the event room measures this slot (any form of the bar) to pin its own head below it (P1429 A4).
-    <div data-testid="room-capture-slot" className={`sticky z-30 ${offline
-      ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]'
-      : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]'}`}>
+    <div data-testid="room-capture-slot" className={`sticky z-30 ${topNav === 'none'
+      ? 'top-[env(safe-area-inset-top)]'
+      : topNav === 'phone'
+        ? (offline ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[env(safe-area-inset-top)]' : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[env(safe-area-inset-top)]')
+        : offline
+          ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]'
+          : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]'}`}>
       <RoomCaptureBar short />
     </div>
   ) : null;

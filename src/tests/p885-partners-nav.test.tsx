@@ -3,13 +3,14 @@
  * @description P885: "Partners" navigation item with invitation badge.
  *
  * UI Contract under test:
- * - Mobile bottom nav (logged-in): 5 items — Home, Letters, Partners, Events, My Profile
+ * - Mobile bottom nav (logged-in): P1512 — 5 tabs: Home, Feed, Groups, Letters, Me. Partners moved
+ *   behind Me (the sheet), and the Me tab carries the pending-invite count so it is not hidden.
  * - Partners links to /p/{slug}/partners; active state on that route
  * - Badge: blue pill, hidden at 0, "99+" cap — identical to Letters badge
  * - Desktop logged-in nav shows a Partners entry linking to the same page
  * - Logged-out users never see Partners
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -126,13 +127,19 @@ function renderBottomNav(route = '/feed') {
 
 function bottomNavLabels() {
   const nav = screen.getByRole('navigation', { name: /mobile navigation/i });
-  return Array.from(nav.querySelectorAll('a span:not(.relative):not([data-badge])'))
-    .map((el) => el.textContent)
-    .filter((t): t is string => !!t && t !== '99+' && !/^\d+$/.test(t));
+  return Array.from(nav.querySelectorAll('a, button'))
+    .map((el) => el.querySelector('span.text-xs')?.textContent)
+    .filter((t): t is string => !!t);
+}
+
+/** P1512: Partners lives in the Me sheet on the phone. */
+function openMeSheet() {
+  fireEvent.click(screen.getByTestId('bottom-nav-me'));
+  return within(screen.getByTestId('me-sheet'));
 }
 
 function partnersLink() {
-  return screen.getByRole('link', { name: /partners/i });
+  return openMeSheet().getByRole('link', { name: /partners/i });
 }
 
 beforeEach(() => {
@@ -147,48 +154,57 @@ beforeEach(() => {
 // Mobile bottom nav
 // ============================================================================
 
-describe('P885 — BottomNav Partners item', () => {
-  it('shows 5 items in order: Home, Letters, Partners, Groups, My Profile', () => {
+describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
+  it('shows 5 tabs in order: Home, Feed, Groups, Letters, Me', () => {
     mockLoggedIn();
     renderBottomNav();
-    // P1193: the 4th item is "Groups" (→ /groups) since the Clarity Group rename.
-    expect(bottomNavLabels()).toEqual(['Home', 'Letters', 'Partners', 'Groups', 'My Profile']);
+    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Me']);
   });
 
-  it('Partners links to /p/{slug}/partners', () => {
+  it('Partners is no longer a tab of its own', () => {
+    mockLoggedIn();
+    renderBottomNav();
+    expect(screen.queryByRole('link', { name: /partners/i })).toBeNull();
+  });
+
+  it('Partners (in the Me sheet) links to /p/{slug}/partners', () => {
     mockLoggedIn();
     renderBottomNav();
     expect(partnersLink()).toHaveAttribute('href', '/p/test-user/partners');
   });
 
-  it('Partners tab shows active state on its route', () => {
+  it('Partners shows active state on its route', () => {
     mockLoggedIn();
     renderBottomNav('/p/test-user/partners');
     expect(partnersLink()).toHaveAttribute('aria-current', 'page');
   });
 
-  it('Partners tab is NOT active on other routes', () => {
+  it('Partners is NOT active on other routes', () => {
     mockLoggedIn();
     renderBottomNav('/feed');
     expect(partnersLink()).not.toHaveAttribute('aria-current');
   });
 
-  it('hides the badge when invitation count is 0', () => {
+  it('hides the badge when invitation count is 0 (sheet row and Me tab)', () => {
     mockLoggedIn();
     mockUsePendingPartnerInvitationCount.mockReturnValue({ count: 0, loading: false });
     renderBottomNav();
+    expect(screen.getByTestId('bottom-nav-me').querySelector('[data-badge]')).toBeNull();
     expect(partnersLink().querySelector('[data-badge]')).toBeNull();
   });
 
-  it('shows the invitation count in a badge when > 0', () => {
+  it('shows the invitation count in a badge when > 0, on the sheet row and on the Me tab', () => {
     mockLoggedIn();
     mockUsePendingPartnerInvitationCount.mockReturnValue({ count: 3, loading: false });
     renderBottomNav();
+    // The Me tab carries the count so a pending invite is visible without opening the sheet.
+    expect(screen.getByTestId('bottom-nav-me').querySelector('[data-badge]')!.textContent).toBe('3');
+    expect(screen.getByTestId('bottom-nav-me')).toHaveAttribute('aria-label', 'Me, 3 pending invitations');
     const badge = partnersLink().querySelector('[data-badge]');
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toBe('3');
-    // Identical style to Letters badge: blue pill, white text
-    expect(badge!.className).toMatch(/bg-blue-500/);
+    // Same style as the Letters badge: blue pill, white text
+    expect(badge!.className).toMatch(/bg-blue-600/);
     expect(badge!.className).toMatch(/text-white/);
   });
 
@@ -216,7 +232,8 @@ describe('P885 — BottomNav Partners item', () => {
   it('omits the Partners item when the user has no slug (no broken link)', () => {
     mockLoggedIn({ slug: null });
     renderBottomNav();
-    expect(screen.queryByRole('link', { name: /partners/i })).toBeNull();
+    const sheet = openMeSheet();
+    expect(sheet.queryByRole('link', { name: /partners/i })).toBeNull();
     // Other items still render
     expect(screen.getByRole('link', { name: /letters/i })).toBeInTheDocument();
   });

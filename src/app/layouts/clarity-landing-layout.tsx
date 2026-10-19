@@ -2,9 +2,12 @@ import { ReactNode } from "react";
 import { isCanvasPathname } from '@/lib/canvas-boxes';
 import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { AppSidebar } from "@/app/components/layout/app-shell/app-sidebar";
+import { useSidebarCollapsed } from "@/app/components/layout/app-shell/sidebar-collapse";
+import { useShellTodaysEvent } from "@/app/components/layout/app-shell/shell-nav";
 import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
-import { isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
+import { CHAT_CONVERSATION_PREFIX, isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineStrip } from "@/app/components/offline/offline-strip";
@@ -101,6 +104,11 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // so the padding that clears it must be there too.
   const showSignedInChrome = showUserMenu || isProfilePending;
 
+  // P1512: collapsed state lives here — the sidebar draws it, the content column pads by it.
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
+  // P1512: an event-day strip rides on the phone bottom bar, so the content must clear it too.
+  const todaysEvent = useShellTodaysEvent();
+
   // P511: Restore active session from localStorage on mount + track state
   const { hasActiveSession } = useActiveSession();
   // P1307 D9: the room transcription bar takes the same in-flow slot as the /live bar.
@@ -162,6 +170,27 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   // P1387: and only where the BottomNav actually shows — same rule, one source.
   const needsBottomPadding = showSignedInChrome && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
+  // P1512: the signed-in shell. A signed-in person on a normal product/public route gets the
+  // sidebar (desktop) and bottom bar (phone) INSTEAD of the top nav, so each route shows exactly
+  // one navigation. Everything that keeps its own chrome is excluded: the compact room pages, the
+  // logo-only intro, /live and /transcribe, immersive letters, and pages with their own navigation.
+  // A completed letter (?done=1) leaves compact mode and so enters the shell, as it re-enters the menus.
+  const signedInShell = showSignedInChrome && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
+    && !(compact && !letterDone) && !logoOnly;
+  // Focus pages hide the phone bottom bar, which would leave the phone with no navigation at all
+  // (and no Tools or Today's event). Those keep the slim top nav below lg only; desktop keeps the sidebar.
+  // P1512: an open chat conversation draws its own header and Back, so the phone gets no top nav there either.
+  const phoneTopNav = signedInShell && !needsBottomPadding && !location.pathname.startsWith(CHAT_CONVERSATION_PREFIX);
+  // Sticky/fixed page elements hard-code the top nav's height as their offset (see index.css).
+  const shellTopNav = phoneTopNav ? "phone" : "none";
+  const shellTopPadding = phoneTopNav
+    ? (offlineStripShown ? "pt-16 lg:pt-0" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-0")
+    : (offlineStripShown ? "" : "pt-[env(safe-area-inset-top)]");
+  const topPadding = signedInShell
+    ? shellTopPadding
+    : needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : "";
+  const bottomPadding = needsBottomPadding ? (todaysEvent ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
+  const shellColumnPadding = signedInShell ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,
@@ -206,20 +235,29 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
         "fixed-height" /live and /transcribe screens were taller than the visible area: the page
         scrolled a little, the page's own sticky header slid off the nav it covers (two menus
         showing) and the bottom Back fell below the fold. dvh is the height actually visible. */}
-    <div className={`${isLivePage ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
+    <div
+      className={`${isLivePage ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col ${shellColumnPadding}`}
+      data-shell-top-nav={signedInShell ? shellTopNav : undefined}
+    >
       <OfflineStrip />
-      {!hasOwnNavigation && !isImmersiveLetterRoute && (
+      {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />}
+      {signedInShell && phoneTopNav && (
+        <div className="lg:hidden">
+          <SimpleNavigation />
+        </div>
+      )}
+      {!signedInShell && !hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
           on Android/desktop where the inset is 0. */}
-      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${topPadding} ${bottomPadding}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe
             mounts its own slot, and capture pauses on the other two. */}
-        {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot />}
+        {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot topNav={signedInShell ? shellTopNav : "all"} />}
         {children}
       </main>
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a

@@ -38,7 +38,7 @@ function isExistingUserWithName(party: { name: string }): boolean {
 // carries the calibration mechanic; the terms add the three dimensions the oath
 // doesn't: channel (sync live / async letters), scope (which topics), and a
 // graceful termination (one final clarity cycle before parting).
-export const TERMS_PLACEHOLDER = `Request channel: [synchronous in live meetings / asynchronous via clarity letters]
+const TERMS_PLACEHOLDER = `Request channel: [synchronous in live meetings / asynchronous via clarity letters]
 Scope: [limited to specific topics or meeting type]
 Termination: [before ending, we each answer one final clarity letter and hold one clarity live session]`;
 

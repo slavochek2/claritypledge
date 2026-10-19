@@ -104,8 +104,15 @@ import { EventLinksContext, EventLinksOverrideContext, type TriggerOverride } fr
 export function EventLinksButton({
   variant = 'sheet',
   owner = 'nav',
+  appearance,
 }: {
   variant?: 'sheet' | 'dropdown';
+  /**
+   * P1512: lets the signed-in shell (sidebar row, phone sheet row) wear its own trigger skin while
+   * opening THE SAME menu. Only the look and the dropdown's anchor change; the entries, the open
+   * state and the testid are this component's own.
+   */
+  appearance?: EventLinksTriggerAppearance;
   /**
    * Which chrome this instance belongs to. The nav's instances stand down when a page has
    * ADOPTED the trigger; a page's instance renders only then. Exactly one is live at a
@@ -142,9 +149,9 @@ export function EventLinksButton({
    * the solid bg-blue-500 fill, which stays reserved for the page's one primary (P955). The width it needs comes from the removed
    * "Start a Clarity Session" header button. Still >= 44px tall (P1179 AC-2).
    */
-  const triggerClass =
+  const triggerClass = appearance?.className ??
     'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blue-300 bg-blue-50 px-3 text-sm font-semibold text-blue-700 shadow-sm transition-colors hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-  const triggerContent = (
+  const triggerContent = appearance?.content ?? (
     <>
       <ToolsIcon className="h-4 w-4" aria-hidden="true" />
       <span>Tools</span>
@@ -167,7 +174,25 @@ export function EventLinksButton({
     );
   }
 
-  return <EventLinksDropdown ctx={ctx} triggerClass={triggerClass} triggerContent={triggerContent} />;
+  return (
+    <EventLinksDropdown
+      ctx={ctx}
+      triggerClass={triggerClass}
+      triggerContent={triggerContent}
+      side={appearance?.side}
+      align={appearance?.align}
+    />
+  );
+}
+
+/** P1512: a trigger skin for the signed-in shell. See `appearance` on EventLinksButton. */
+export interface EventLinksTriggerAppearance {
+  className: string;
+  content: React.ReactNode;
+  /** Dropdown only: which side of the trigger the panel opens on (default bottom). */
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  /** Dropdown only: alignment along that side (default end). */
+  align?: 'start' | 'center' | 'end';
 }
 
 /** The three tabs, in render order. Values are the `group` field on every entry. */
@@ -386,10 +411,14 @@ function EventLinksDropdown({
   ctx,
   triggerClass,
   triggerContent,
+  side,
+  align = 'end',
 }: {
   ctx: NonNullable<React.ContextType<typeof EventLinksContext>>;
   triggerClass: string;
   triggerContent: React.ReactNode;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  align?: 'start' | 'center' | 'end';
 }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -405,7 +434,8 @@ function EventLinksDropdown({
           "end"-aligned panel stays inside the viewport. The nav's own left-hand
           "Use cases" group uses align="start" for the mirrored reason. */}
       <DropdownMenuContent
-        align="end"
+        side={side}
+        align={align}
         sideOffset={8}
         // P1323: w-80, not the original w-64. Measured in a browser at 1280px: the nine
         // approved letter labels need ~218px at text-sm plus the stN code and row padding

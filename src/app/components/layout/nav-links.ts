@@ -71,6 +71,10 @@ export const EVENTS_NAV_TO = "/groups";
 /** P1392: the menu's "Events" item — the upcoming-events list, not a group page. */
 export const EVENTS_LIST_TO = "/events/list";
 
+/** The paid-offer pages. The event-day button stays off them (P1351): a second blue beside the
+ *  page's own buy button is the P1087 competition. Read by the top nav and the signed-in shell. */
+export const PRICING_PATHS: readonly string[] = ["/program", "/pricing", "/offers"];
+
 /**
  * Active-state matcher for the Groups nav item. Covers the group routes AND the
  * events routes, because a visitor who opens an event lands on /events/:slug — the

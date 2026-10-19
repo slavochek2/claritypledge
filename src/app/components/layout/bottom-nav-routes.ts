@@ -4,6 +4,9 @@
  * the layout's bottom padding (P1387), so the two can never diverge again.
  */
 
+/** P1512: an open conversation is a focus page (its own header and composer); the chat LIST (/home) keeps the bar. */
+export const CHAT_CONVERSATION_PREFIX = '/home/c/';
+
 /**
  * True on the routes where the BottomNav hides itself (focus pages with their own header or
  * action bar). P1387: exported so the layout reserves bottom padding by the SAME rule — two
@@ -16,7 +19,7 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
   // so the receiver can be directed onward. Only the /letter/ reading route is exempted;
   // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
   const letterDone = new URLSearchParams(search).get('done') === '1';
-  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration', '/transcribe', '/topics'];
+  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration', '/transcribe', '/topics', CHAT_CONVERSATION_PREFIX];
   // P1347: /topics carries its own pinned bar (Show more + Back), so the menu would cover it.
   // /org/:slug is a browse page, but /org/:slug/join (the terms gate) is a focus
   // page — a prefix entry can't express that, so it gets its own exact pattern.

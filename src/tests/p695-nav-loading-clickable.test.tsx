@@ -40,10 +40,10 @@ describe('P695: nav links clickable during profile loading', () => {
       });
     });
 
-    it('renders Home (Feed) link — not a skeleton', () => {
+    it('renders Feed link (P1512: formerly labelled Home) — not a skeleton', () => {
       render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-      // Should find the Home link; before fix this is hidden behind a skeleton div
-      expect(screen.getByRole('link', { name: /home/i })).toBeInTheDocument();
+      // Should find the Feed link; before fix this is hidden behind a skeleton div
+      expect(screen.getByRole('link', { name: /feed/i })).toBeInTheDocument();
     });
 
     it('renders Letters link — not a skeleton', () => {

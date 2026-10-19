@@ -29,7 +29,7 @@ import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { NavigationMenuItems } from "./navigation-menu-items";
-import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
+import { AUDIENCE_LINKS, EVENTS_NAV_TO, PRICING_PATHS, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from "@/app/hooks/useTonightsEvent";
@@ -291,7 +291,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // a free alignment audit" is a second, equally loud primary sitting directly above a page
   // whose whole job is the €295 buy button — and it routes to a FREE call, so it undercuts
   // the paid action it competes with. The page's own CTAs are the only actions offered here.
-  const isPricingPage = ["/program", "/pricing", "/offers"].includes(location.pathname);
+  const isPricingPage = PRICING_PATHS.includes(location.pathname);
 
   // TWO flags, not one. An earlier P1087 revision used a single flag for both CTAs, which
   // suppressed the logged-IN "Start a Clarity Session" button on /pricing as well —
@@ -370,7 +370,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         }`}
       >
         <HomeIcon className="w-5 h-5" />
-        <span className="text-xs mt-1 font-medium">Home</span>
+        <span className="text-xs mt-1 font-medium">Feed</span>
       </Link>
       <Link
         to="/letters"

@@ -8,11 +8,14 @@ import { resolve } from 'node:path';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 const app = read('src/App.tsx');
+// P1512: HomeRedirect moved out of App.tsx so it can be unit-tested; it is still the "/" route's element.
+const homeRedirect = read('src/app/routes/home-redirect.tsx');
 const feed = read('src/app/pages/feed-page.tsx');
 
 describe('P1392 — feed-first homepage', () => {
   it('"/" redirects to /feed for everyone, forwarding query and hash', () => {
-    const fn = app.slice(app.indexOf('function HomeRedirect'), app.indexOf('/** P486'));
+    expect(app).toMatch(/path="\/"\s*element=\{<HomeRedirect \/>\}/);
+    const fn = homeRedirect.slice(homeRedirect.indexOf('export function HomeRedirect'), homeRedirect.indexOf('/** Guards the signed-in home'));
     expect(fn).toMatch(/<Navigate to=\{`\/feed\$\{location\.search\}\$\{location\.hash\}`\} replace \/>/);
     expect(fn).not.toMatch(/BuildRightThingLanding/);
   });
@@ -71,7 +74,7 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
 
 describe('P1392 review fixes', () => {
   it('invite (?referrer=) and ?login= links on "/" go to the landing, which owns those redirects', () => {
-    const fn = app.slice(app.indexOf('function HomeRedirect'), app.indexOf('/** P486'));
+    const fn = homeRedirect.slice(homeRedirect.indexOf('export function HomeRedirect'), homeRedirect.indexOf('/** Guards the signed-in home'));
     expect(fn).toMatch(/params\.has\("referrer"\) \|\| params\.has\("login"\)/);
     expect(fn).toMatch(/<Navigate to=\{`\/builders\$\{location\.search\}/);
   });

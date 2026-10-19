@@ -79,6 +79,10 @@ interface NavigationMenuItemsProps {
       ignored — which is a worse contract than hiding the item, and the sentence
       above had documented the old behaviour as if it were a guarantee. */
   hideLoginItem?: boolean;
+  /** P1512: the phone "Me" sheet lists the signed-in account block (Session History, Settings,
+      Log Out) itself, right under the person's own entries, so it is not repeated at the end of
+      a long list. Public sections and the signed-out actions are unaffected. */
+  omitAccountGroup?: boolean;
 }
 
 export function NavigationMenuItems({
@@ -87,6 +91,7 @@ export function NavigationMenuItems({
   variant = 'dropdown',
   onItemClick,
   hideLoginItem = false,
+  omitAccountGroup = false,
 }: NavigationMenuItemsProps) {
   // Exactly one of these is true at any time (`showPublicCTAs = !showUserMenu`,
   // use-nav-auth-state.ts) — so the public sections below render unconditionally
@@ -198,7 +203,7 @@ export function NavigationMenuItems({
         )}
 
         {/* Signed-in account actions — the fourth group (P1310) */}
-        {showUserMenu && (
+        {showUserMenu && !omitAccountGroup && (
           <div
             role="group"
             aria-labelledby={groupHeadingId(ACCOUNT_GROUP_LABEL)}
@@ -309,7 +314,7 @@ export function NavigationMenuItems({
       )}
 
       {/* Signed-in account actions — the fourth group (P1310) */}
-      {showUserMenu && (
+      {showUserMenu && !omitAccountGroup && (
         <DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

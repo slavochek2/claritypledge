@@ -5,9 +5,11 @@ import { isChunkErrorMessage } from "@/lib/chunk-error";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
+import { HomeRedirect, HomeRoute } from "@/app/routes/home-redirect";
 import { AuthCallbackPage, AuthVerifyPage, EventLinkPage, AuthProvider, useAuth } from "@/auth";
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
+import { ChatProvider } from "@/app/pages/chat/chat-provider";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
@@ -51,6 +53,7 @@ const MeetingTermsPage = lazy(() => import("@/app/pages/meeting-terms-page").the
 const ReadyPage = lazy(() => import("@/app/pages/ready-page").then(m => ({ default: m.ReadyPage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
+const ChatHomePage = lazy(() => import("@/app/pages/chat/ChatHomePage"));
 const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
 // P1179: the locked stake surface. GLOBAL route — the content is the same at every
 // event; the Links button carries ?event=<slug> so it persists without nesting.
@@ -132,21 +135,6 @@ const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-pa
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
 const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ default: m.OffersPage })));
-
-/** P1392: "/" is the feed, opening on Stories, for everyone — signed in or not, direct
- *  load or logo click. The build-the-right-thing landing (P1004) moved to /builders: it
- *  produced zero bookings as the front door, and the stories ARE the product. Query and
- *  hash are forwarded so UTM-tagged links to "/" keep their attribution. */
-function HomeRedirect() {
-  const location = useLocation();
-  // Pledge-invite (?referrer=) and ?login= links still go through the landing, which owns
-  // those redirects and the landing_page_viewed referrer event (review finding, P1392).
-  const params = new URLSearchParams(location.search);
-  if (params.has("referrer") || params.has("login")) {
-    return <Navigate to={`/builders${location.search}${location.hash}`} replace />;
-  }
-  return <Navigate to={`/feed${location.search}${location.hash}`} replace />;
-}
 
 /** P486: Redirect /chat → /create, forwarding all query params via useSearchParams */
 function ChatRedirect() {
@@ -335,10 +323,12 @@ function StaleChunkPrompt() {
 // Keyed by pathname so each navigation mounts fresh error + Suspense boundaries —
 // allowing the PageLoader fallback to show even inside React Router's startTransition (P938),
 // and resetting any chunk-error state so a route error doesn't bleed into the next route.
-function LazyRoute({ children }: { children: ReactNode }) {
+function LazyRoute({ children, stable = false }: { children: ReactNode; stable?: boolean }) {
   const { pathname } = useLocation();
+  // `stable`: one page owns a whole path family (P1512 Home: /home, /home/c/:id, /home/c/:id/t/:id), so
+  // moving inside it must not remount the page and throw away the open chat, the list's tab and the search.
   return (
-    <ChunkErrorBoundary key={pathname}>
+    <ChunkErrorBoundary key={stable ? undefined : pathname}>
       <Suspense fallback={<PageLoader />}>
         {children}
       </Suspense>
@@ -390,12 +380,30 @@ export default function ClarityPledgeApp() {
       {/* P1416: a resumed PWA never navigates; offer the new build when one is live. */}
       <AppUpdatePrompt />
       <AgentAccountsProvider>
+      {/* P1512: one chat subscription for the signed-in user, so the Home badge works on every page. */}
+      <ChatProvider>
       <TermsAcceptanceGate>
       <Routes>
-        {/* P1392: everyone → /feed (Stories). Landing lives at /builders. */}
+        {/* P1392: signed out → /feed (Stories). Landing lives at /builders.
+            P1512: signed in → /home, once the session has restored. */}
         <Route
           path="/"
           element={<HomeRedirect />}
+        />
+
+        {/* P1512: the signed-in home: the chat list, /home/c/:id a conversation, /home/c/:id/t/:id a thread.
+            Signed-out visitors are sent to the feed. */}
+        <Route
+          path="/home/*"
+          element={
+            <ClarityLandingLayout surface="product">
+              <HomeRoute>
+                <LazyRoute stable>
+                  <ChatHomePage />
+                </LazyRoute>
+              </HomeRoute>
+            </ClarityLandingLayout>
+          }
         />
 
         {/* P1392: the build-the-right-thing landing, formerly "/" for anonymous visitors. */}
@@ -1226,6 +1234,7 @@ export default function ClarityPledgeApp() {
         <Route path="*" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </TermsAcceptanceGate>
+      </ChatProvider>
       </AgentAccountsProvider>
       </RoomCaptureProvider>
       </AuthProvider>

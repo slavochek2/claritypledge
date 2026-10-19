@@ -67,11 +67,11 @@ describe('P1421: header holds its signed-in slots while the profile loads', () =
     const { container } = render(<MemoryRouter><SimpleNavigation /></MemoryRouter>);
     const main = container.querySelector('[data-nav="main"]') as HTMLElement;
     expect(slotLabels(main)).toEqual(['Partners', 'My Profile', 'avatar']);
-    // Order matches the loaded row: Home, Letters, Partners, Groups, My Profile.
+    // Order matches the loaded row: Feed (P1512: formerly "Home"), Letters, Partners, Groups, My Profile.
     const row = main.querySelector('.hidden.lg\\:flex') as HTMLElement;
     const order = Array.from(row.querySelectorAll('a, [data-nav-slot-placeholder]'))
       .map((el) => el.getAttribute('data-nav-slot-placeholder') ?? el.textContent?.trim());
-    expect(order).toEqual(['Home', 'Letters', 'Partners', 'Groups', 'My Profile', 'avatar']);
+    expect(order).toEqual(['Feed', 'Letters', 'Partners', 'Groups', 'My Profile', 'avatar']);
     // Slots are not clickable links (a click there must not navigate anywhere).
     expect(screen.queryByRole('link', { name: /partners/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /my profile/i })).not.toBeInTheDocument();
@@ -107,16 +107,16 @@ describe('P1421: bottom nav appears as soon as the session is known', () => {
     setNavVerifiedHint('u1', true); // this device last saw u1 resolve verified
   });
 
-  it('loading: renders all five tabs, profile-dependent ones as inert slots', () => {
+  it('loading: renders all five tabs, the profile-dependent one (Me, P1512) as an inert slot', () => {
     mockUseAuth.mockReturnValue(loading);
     const { container } = render(<MemoryRouter initialEntries={['/feed']}><BottomNav /></MemoryRouter>);
     const nav = container.querySelector('[data-nav="bottom"]') as HTMLElement;
     expect(nav).not.toBeNull();
     const tabs = Array.from(nav.querySelectorAll('a, [data-nav-slot-placeholder]'));
     expect(tabs.map((t) => t.querySelector('span.text-xs')?.textContent)).toEqual([
-      'Home', 'Letters', 'Partners', 'Groups', 'My Profile',
+      'Home', 'Feed', 'Groups', 'Letters', 'Me',
     ]);
-    expect(slotLabels(nav)).toEqual(['Partners', 'My Profile']);
+    expect(slotLabels(nav)).toEqual(['Me']);
   });
 
   it('signed out: no bottom nav', () => {
