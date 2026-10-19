@@ -160,9 +160,10 @@ standard lean-canvas shape with the three ikigai boxes as a row underneath; if t
 - [x] The founder opens their canvas at its own address and sees their points in the twelve titled boxes, private ones included.
 - [x] Signed out, the same address shows only the public points.
 - [ ] Opening a point shows the production point card with its stories already open, the owner's position, and everyone's positions with names grouped Agree / Unsure / Disagree; a position taken there persists. Previous / Next walk the canvas without closing it.
-- [ ] A box card is text to read, with no buttons: the statement (up to five lines), the owner's position, the others' tally (e.g. "2 agree · 1 disagree"), the story count, and the viewer's own position. The whole card opens the point.
+- [ ] A box card is text to read, with no buttons; the whole card opens the point. Three views, in the address (`?view=`): **Read** (default) shows the statement only (up to five lines); **Positions** adds everyone's tally (e.g. "4 agree · 3 disagree"), a "Split" mark when at least two agree and two disagree, the story count and the viewer's own position; **Compare** shows two people's positions side by side in the compare page's columns (P1337), the viewer's column reading "You", with a person picker and a link to the full compare page.
+- [ ] Boxes follow the founder's reading order: Customer Segments, Problem, Solution, What I love, What the world needs, then UVP, Unfair Advantage, What I'm good at, Channels, Key Metrics, Revenue, Cost — three to a row on desktop.
 - [ ] The page scrolls; a box shows at most 3 cards and a "N more" control for the rest. At 375px and 320px boxes stack with titles and there is no sideways page scroll.
-- [ ] The canvas page shows no sales call-to-action in the header; an intro line says whose canvas it is and what to do.
+- [ ] The canvas page shows no sales call-to-action. Its header is the owner's photo and name with the project tag under it; no intro line. Inside the open point the project tag is shown but is not a link to the feed.
 - [x] A point by another user with the same project tag does not appear; a point with no box tag does not appear.
 - [ ] An empty box is shown, titled and marked empty, to the owner only; visitors see only boxes with points. An unknown canvas address shows not-found.
 - [x] A signed-in user's direct API write cannot set a box tag (only the service-role seed can).
@@ -178,6 +179,8 @@ After the first UAT the founder found the canvas unreadable ("occupied by action
 - **Empty boxes**: hidden from visitors; the owner sees them. Filling them is content work (refreshed canvas draft, founder approval before any seed).
 - **"Most disputed first" view**: deferred until there are real positions to sort (founder: "okay with this view if you think this is really important").
 - Not built: the perspective switcher and the Letter view from the prototype.
+
+**Second round (founder, same day, after UAT of the above):** "this thing that says Vyacheslav strongly agree, one agree, one story is cluttered"; "why are we reinventing stuff… can we not reuse patterns"; "in the beginning I just want to read… sometimes I want to compare with a specific person… or an overview"; box order "should start with customer segment first, then the problem… then the solution, then what you love and how it helps the world, and then the rest"; the header's intro line "is not needed… I just need my photo"; the project tag should not send people to the feed. Built: the Read / Positions / Compare tabs (the feed's tab row, the compare page's columns), the reading order as a plain three-column grid (the lean-canvas shape is dropped), the photo header, the tag not linking out. The content was refreshed on TEST from an up-to-date draft (critiqued by Gemini Argon), with a seven-person demo; open founder questions on that content are listed with the draft, not here.
 
 ## Known Limitations
 

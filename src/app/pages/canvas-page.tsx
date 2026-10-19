@@ -6,9 +6,9 @@
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
  * tag), placed into twelve boxes — the lean canvas's nine and three ikigai boxes.
  *
- * READ FIRST, ACT ON OPEN (founder, event use): a box card is text to read — the statement, where
- * the owner stands, how everyone else stands, how many stories. It has no buttons; the whole card
- * opens the point. The open point (a side panel on desktop, a full-screen sheet on mobile) holds
+ * READ FIRST, ACT ON OPEN (founder, event use): a box card is text to read, with no buttons; the
+ * whole card opens the point. Three views reuse existing patterns: Read (statements only),
+ * Positions (everyone's tally), Compare (two people in the compare page's columns). The open point (a side panel on desktop, a full-screen sheet on mobile) holds
  * the production point card with its stories shown, everyone's positions with names (positions on
  * public points are public), and Previous / Next through the canvas.
  *
@@ -31,6 +31,8 @@ import { storiesService } from '@/app/data/stories-service';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { StanceColumn, type Person } from '@/app/components/compare/statement-row';
+import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS } from '@/lib/compare-positions';
 import { SEO } from '@/app/components/seo';
 import { NotFoundPage } from '@/app/pages/not-found-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
@@ -45,22 +47,27 @@ import {
   type StoryWithAuthor,
 } from '@/app/types';
 
-/** Desktop placement: the standard lean-canvas shape on a 10-column grid. Rows size to their
- *  content (the page scrolls); a box with nothing to show leaves its cell empty. */
-const LEAN_PLACEMENT: Record<string, string> = {
-  'canvas:problem': 'lg:col-start-1 lg:col-span-2 lg:row-start-1 lg:row-span-2',
-  'canvas:solution': 'lg:col-start-3 lg:col-span-2 lg:row-start-1',
-  'canvas:metrics': 'lg:col-start-3 lg:col-span-2 lg:row-start-2',
-  'canvas:uvp': 'lg:col-start-5 lg:col-span-2 lg:row-start-1 lg:row-span-2',
-  'canvas:advantage': 'lg:col-start-7 lg:col-span-2 lg:row-start-1',
-  'canvas:channels': 'lg:col-start-7 lg:col-span-2 lg:row-start-2',
-  'canvas:segments': 'lg:col-start-9 lg:col-span-2 lg:row-start-1 lg:row-span-2',
-  'canvas:cost': 'lg:col-start-1 lg:col-span-5 lg:row-start-3',
-  'canvas:revenue': 'lg:col-start-6 lg:col-span-5 lg:row-start-3',
-};
-const IKIGAI_TAGS: ReadonlySet<string> = new Set(['canvas:love', 'canvas:good-at', 'canvas:world-needs']);
-const LEAN_BOXES = CANVAS_BOXES.filter(b => !IKIGAI_TAGS.has(b.tag));
-const IKIGAI_BOXES = CANVAS_BOXES.filter(b => IKIGAI_TAGS.has(b.tag));
+/** Reading order (founder): who it is for, their problem, the solution, why the owner cares and
+ *  why it matters, then the rest. The grid fills left to right in this order, and Previous /
+ *  Next walk it. */
+const READING_ORDER: readonly CanvasBoxTag[] = [
+  'canvas:segments', 'canvas:problem', 'canvas:solution',
+  'canvas:love', 'canvas:world-needs', 'canvas:uvp',
+  'canvas:advantage', 'canvas:good-at', 'canvas:channels',
+  'canvas:metrics', 'canvas:revenue', 'canvas:cost',
+];
+const ORDERED_BOXES = [...CANVAS_BOXES].sort((a, b) => READING_ORDER.indexOf(a.tag) - READING_ORDER.indexOf(b.tag));
+
+/** Read: statements only. Positions: how everyone stands. Compare: two people side by side. */
+type CanvasView = 'read' | 'positions' | 'compare';
+const VIEWS: { view: CanvasView; label: string }[] = [
+  { view: 'read', label: 'Read' },
+  { view: 'positions', label: 'Positions' },
+  { view: 'compare', label: 'Compare' },
+];
+function viewOf(raw: string | null): CanvasView {
+  return raw === 'positions' || raw === 'compare' ? raw : 'read';
+}
 /** The canvas stays small: a box shows this many cards, and says how many more it holds. */
 const BOX_LIMIT = 3;
 
@@ -80,6 +87,7 @@ type CanvasData =
     status: 'ready';
     ownerId: string;
     ownerName: string;
+    owner: Person;
     points: PointWithUserPosition[];
     stories: Map<string, StoryWithAuthor[]>;
     positions: Map<string, PointPositionWithUser[]>;
@@ -91,10 +99,6 @@ type CanvasData =
 interface Loaded {
   key: string;
   data: CanvasData;
-}
-
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
 }
 
 export function CanvasPage() {
@@ -140,7 +144,20 @@ export function CanvasPage() {
         storiesService.getStoriesForPoints(ids, undefined, { strict: true }),
         pointsService.getCanvasPositions(ids),
       ]);
-      settle({ status: 'ready', ownerId: owner.data.id, ownerName: owner.data.name, points, stories, positions });
+      settle({
+        status: 'ready',
+        ownerId: owner.data.id,
+        ownerName: owner.data.name,
+        owner: {
+          name: owner.data.name,
+          photoUrl: owner.data.avatarUrl ?? undefined,
+          avatarColor: owner.data.avatarColor,
+          hasPledged: owner.data.hasPledged ?? false,
+        },
+        points,
+        stories,
+        positions,
+      });
     } catch {
       settle({ status: 'error' });
     }
@@ -157,19 +174,39 @@ export function CanvasPage() {
   const ready = current?.status === 'ready' ? current : null;
   const isOwner = !!ready && viewerId === ready.ownerId;
 
-  // Reading order: the lean boxes, then ikigai — the order Previous / Next walks.
   const boxes = ready ? groupPointsByBox(ready.points) : null;
-  const ordered = boxes ? [...LEAN_BOXES, ...IKIGAI_BOXES].flatMap(b => boxes.get(b.tag) ?? []) : [];
-  const openIndex = requestedPointId ? ordered.findIndex(p => p.id === requestedPointId) : -1;
-  const openPoint = openIndex >= 0 ? ordered[openIndex] : null;
+  const ordered = boxes ? ORDERED_BOXES.flatMap(b => boxes.get(b.tag) ?? []) : [];
 
-  const setPointParam = useCallback((pointId: string | null) => {
+  // The view lives in the address too (`?view=`, `?with=`), so a shared link opens the same view.
+  const view = viewOf(searchParams.get('view'));
+  const people = ready ? peopleOf(ready, handle) : new Map<string, CanvasPerson>();
+  // Compare: the viewer against someone (signed out: the owner against someone). The default
+  // other side is the owner, or — for the owner — whoever took the most positions.
+  const baseId = viewerId ?? ready?.ownerId ?? '';
+  const others = [...people.values()].filter(p => p.id !== baseId).sort((a, b) => b.count - a.count);
+  const requestedWith = searchParams.get('with');
+  const withPerson = others.find(p => p.id === requestedWith)
+    ?? others.find(p => p.id === ready?.ownerId)
+    ?? others[0]
+    ?? null;
+  // The viewer's own column reads "You", as on the compare page.
+  const baseKnown: Person | null = !ready
+    ? null
+    : people.get(baseId) ?? (baseId === ready.ownerId ? ready.owner : null);
+  const basePerson: Person | null = !ready
+    ? null
+    : viewerId ? { ...(baseKnown ?? { hasPledged: false }), name: 'You' } : baseKnown;
+  const setParams = useCallback((changes: Record<string, string | null>) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      if (pointId) next.set('point', pointId); else next.delete('point');
+      for (const [k, v] of Object.entries(changes)) if (v) next.set(k, v); else next.delete(k);
       return next;
     }, { replace: true });
   }, [setSearchParams]);
+  const openIndex = requestedPointId ? ordered.findIndex(p => p.id === requestedPointId) : -1;
+  const openPoint = openIndex >= 0 ? ordered[openIndex] : null;
+
+  const setPointParam = useCallback((pointId: string | null) => setParams({ point: pointId }), [setParams]);
 
   const closePanel = useCallback(() => {
     setPointParam(null);
@@ -199,26 +236,45 @@ export function CanvasPage() {
       {ready && <SEO title={`${ready.ownerName} · #${projectTag} — Clarity Pledge`} noIndex />}
       <header className="mb-4">
         {ready ? (
-          <>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-xl font-semibold text-foreground">
-                <Link to={`/p/${handle}`} className="rounded-sm hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">{ready.ownerName}</Link>
-              </h1>
-              <span className="text-base text-foreground/60">#{projectTag}</span>
-            </div>
-            {/* [FOUNDER DECISION: intro copy — agent draft, edit freely] */}
-            <p className="mt-1 text-sm text-foreground/70" data-testid="canvas-intro">
-              {isOwner
-                ? 'Your canvas. Open a point to see who stands where, and why.'
-                : viewerId
-                  ? `${firstName(ready.ownerName)}'s business on one page. Open a point to read why, then say where you stand. Positions show with your name.`
-                  : `${firstName(ready.ownerName)}'s business on one page. Open a point to read why, then say where you stand. Sign in so ${firstName(ready.ownerName)} sees your answer.`}
-            </p>
-          </>
+          // Whose canvas, and which project: the owner's photo and name, the project tag under it.
+          <Link
+            to={`/p/${handle}`}
+            className="inline-flex items-center gap-3 rounded-md hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <GravatarAvatar
+              name={ready.owner.name}
+              photoUrl={ready.owner.photoUrl}
+              avatarColor={ready.owner.avatarColor}
+              isPledger={ready.owner.hasPledged}
+              size="md"
+            />
+            <span className="flex min-w-0 flex-col">
+              <h1 className="text-xl font-semibold leading-tight text-foreground">{ready.ownerName}</h1>
+              <span className="text-sm text-foreground/60" data-testid="canvas-project-tag">#{projectTag}</span>
+            </span>
+          </Link>
         ) : (
           current?.status !== 'error' && <div className="h-12 w-72 animate-pulse rounded bg-muted" aria-hidden />
         )}
       </header>
+
+      {ready && (
+        <CanvasViewTabs
+          view={view}
+          onChange={v => setParams({ view: v === 'read' ? null : v })}
+        />
+      )}
+      {ready && view === 'compare' && (
+        <ComparePicker
+          base={basePerson}
+          others={others}
+          withPerson={withPerson}
+          onChange={id => setParams({ with: id })}
+          fullCompareHref={viewerId && withPerson?.slug && withPerson.id !== viewerId
+            ? `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ?? '')}`
+            : null}
+        />
+      )}
 
       {current?.status === 'error' ? (
         // The stake page's error pattern (message + Retry), one for the whole page.
@@ -239,11 +295,13 @@ export function CanvasPage() {
             <CanvasCard
               key={`${point.id}:${panelCloses}`}
               point={point}
-              ownerId={ready.ownerId}
-              ownerName={ready.ownerName}
+              view={view}
               viewerId={viewerId}
               positions={ready.positions.get(point.id) ?? []}
               storyCount={ready.stories.get(point.id)?.length ?? 0}
+              compare={view === 'compare' && basePerson && withPerson
+                ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
+                : null}
               selected={point.id === openPoint?.id}
               onOpen={() => openPanel(point.id)}
             />
@@ -276,6 +334,8 @@ export function CanvasPage() {
             point={openPoint}
             linkedStories={ready.stories.get(openPoint.id) ?? []}
             surface="canvas"
+            // The project tag is where the reader already is: shown, not a link out to the feed.
+            activeTag={projectTag ?? undefined}
             storiesOpen
             onPointRemoved={refresh}
             onPositionSaved={refresh}
@@ -296,45 +356,29 @@ function CanvasGrid({ boxes, renderCard, showEmpty, openPointId }: {
   openPointId: string | null;
 }) {
   const shows = (tag: CanvasBoxTag) => !boxes || showEmpty || (boxes.get(tag)?.length ?? 0) > 0;
-  const renderBox = (box: (typeof CANVAS_BOXES)[number], placement = '') => {
-    if (!shows(box.tag)) return null;
-    // The bottom row: when one of its two boxes is not shown, the other takes the whole row.
-    const alone = (box.tag === 'canvas:cost' && !shows('canvas:revenue')) || (box.tag === 'canvas:revenue' && !shows('canvas:cost'));
-    return (
-      <CanvasBox
-        key={box.tag}
-        tag={box.tag}
-        title={box.title}
-        points={boxes ? boxes.get(box.tag) ?? [] : null}
-        renderCard={renderCard}
-        openPointId={openPointId}
-        className={alone ? 'lg:col-start-1 lg:col-span-10 lg:row-start-3' : placement}
-      />
-    );
-  };
-  const ikigaiShown = IKIGAI_BOXES.filter(b => shows(b.tag));
   return (
-    <div className="flex flex-col gap-3" data-testid="canvas-grid" aria-busy={boxes === null}>
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-10 lg:items-stretch">
-        {LEAN_BOXES.map(box => renderBox(box, LEAN_PLACEMENT[box.tag]))}
-      </div>
-      {ikigaiShown.length > 0 && (
-        <div className={`flex flex-col gap-3 lg:grid ${ikigaiShown.length === 3 ? 'lg:grid-cols-3' : ikigaiShown.length === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-          {ikigaiShown.map(box => renderBox(box))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="canvas-grid" aria-busy={boxes === null}>
+      {ORDERED_BOXES.filter(box => shows(box.tag)).map(box => (
+        <CanvasBox
+          key={box.tag}
+          tag={box.tag}
+          title={box.title}
+          points={boxes ? boxes.get(box.tag) ?? [] : null}
+          renderCard={renderCard}
+          openPointId={openPointId}
+        />
+      ))}
     </div>
   );
 }
 
-function CanvasBox({ tag, title, points, renderCard, openPointId, className }: {
+function CanvasBox({ tag, title, points, renderCard, openPointId }: {
   tag: CanvasBoxTag;
   title: string;
   /** null while loading (skeleton) */
   points: PointWithUserPosition[] | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
   openPointId: string | null;
-  className: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   // The open point (Next, or an address with `?point=`) may sit past the first three: open the
@@ -351,7 +395,7 @@ function CanvasBox({ tag, title, points, renderCard, openPointId, className }: {
       aria-labelledby={headingId}
       data-testid={`canvas-box-${tag}`}
       data-empty={empty || undefined}
-      className={`flex min-w-0 flex-col rounded-lg border p-3 ${empty ? 'border-dashed border-border bg-muted/30' : 'border-border bg-muted/60'} ${className}`}
+      className={`flex min-w-0 flex-col rounded-lg border p-3 ${empty ? 'border-dashed border-border bg-muted/30' : 'border-border bg-muted/60'}`}
     >
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h2 id={headingId} className={`text-sm font-semibold ${empty ? 'text-foreground/60' : 'text-foreground'}`}>{title}</h2>
@@ -383,30 +427,128 @@ function CanvasBox({ tag, title, points, renderCard, openPointId, className }: {
   );
 }
 
+/** Everyone who took a position on any point of this canvas. */
+interface CanvasPerson extends Person {
+  id: string;
+  slug?: string;
+  /** how many of the canvas's points they took a position on */
+  count: number;
+}
+function peopleOf(
+  ready: { ownerId: string; owner: Person; positions: Map<string, PointPositionWithUser[]> },
+  ownerSlug?: string,
+): Map<string, CanvasPerson> {
+  // The owner is always someone to compare with, positions or not.
+  const people = new Map<string, CanvasPerson>([[ready.ownerId, { ...ready.owner, id: ready.ownerId, slug: ownerSlug, count: 0 }]]);
+  for (const list of ready.positions.values()) {
+    for (const p of list) {
+      const known = people.get(p.userId);
+      if (known) { known.count += 1; known.slug ??= p.userSlug || undefined; continue; }
+      people.set(p.userId, {
+        id: p.userId,
+        slug: p.userSlug || undefined,
+        name: p.userName,
+        photoUrl: p.userAvatarUrl ?? undefined,
+        avatarColor: p.userAvatarColor,
+        hasPledged: p.userHasPledged ?? false,
+        count: 1,
+      });
+    }
+  }
+  return people;
+}
+
+/** The feed page's tab row (feed-page.tsx): three ways to look at the same canvas. */
+function CanvasViewTabs({ view, onChange }: { view: CanvasView; onChange: (view: CanvasView) => void }) {
+  return (
+    // A row of buttons, not an ARIA tablist: the cards stay one list in every view, so there is no
+    // tab panel to point at, and a tablist would promise arrow-key navigation it does not have.
+    <nav aria-label="View" className="mb-3 flex items-center border-b border-border" data-testid="canvas-view-tabs">
+      {VIEWS.map(v => (
+        <button
+          key={v.view}
+          type="button"
+          aria-current={view === v.view ? 'true' : undefined}
+          onClick={() => onChange(v.view)}
+          data-testid={`canvas-view-${v.view}`}
+          className={`relative min-h-10 whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${view === v.view ? 'text-blue-600' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          {v.label}
+          {view === v.view && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/** Compare: whom the cards set side by side, and the way to the full compare page (P1337). */
+function ComparePicker({ base, others, withPerson, onChange, fullCompareHref }: {
+  base: Person | null;
+  others: CanvasPerson[];
+  withPerson: CanvasPerson | null;
+  onChange: (id: string) => void;
+  fullCompareHref: string | null;
+}) {
+  if (!base || !withPerson) {
+    return <p className="mb-3 text-sm text-foreground/70" data-testid="canvas-compare-empty">Nobody else has taken a position here yet.</p>;
+  }
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-foreground/70" data-testid="canvas-compare-picker">
+      <span>{base.name} and</span>
+      <label className="sr-only" htmlFor="canvas-compare-with">Compare with</label>
+      <select
+        id="canvas-compare-with"
+        value={withPerson.id}
+        onChange={e => onChange(e.target.value)}
+        className="min-h-10 max-w-full rounded-md border border-border bg-background px-2 text-base font-medium md:text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      {fullCompareHref && (
+        <Link to={fullCompareHref} className="inline-flex min-h-10 items-center font-medium text-blue-600 hover:underline" data-testid="canvas-compare-full">
+          Largest gaps first
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** A card's compare column is narrow: first names there; the picker above names people in full. */
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+function stanceLabel(position: PositionType | undefined, firstPerson: boolean): string {
+  if (!position) return 'No position';
+  return (firstPerson ? POSITION_FIRST_PERSON : POSITION_FULL_LABELS)[position];
+}
+
 /**
- * A box card: text to read, no controls inside. The statement (up to five lines), where the
- * owner stands, how everyone stands (owner included), how many stories, and the viewer's own position.
+ * A box card: text to read, no controls inside; the whole card opens the point. Under the
+ * statement, by view: nothing (Read), how everyone stands (Positions), or two people's positions
+ * in the compare page's columns (Compare).
  */
-function CanvasCard({ point, ownerId, ownerName, viewerId, positions, storyCount, selected, onOpen }: {
+function CanvasCard({ point, view, viewerId, positions, storyCount, compare, selected, onOpen }: {
   point: PointWithUserPosition;
-  ownerId: string;
-  ownerName: string;
+  view: CanvasView;
   viewerId?: string;
   positions: PointPositionWithUser[];
   storyCount: number;
+  compare: { base: Person; baseId: string; baseIsViewer: boolean; other: CanvasPerson } | null;
   selected: boolean;
   onOpen: () => void;
 }) {
-  const ownerPosition = positions.find(p => p.userId === ownerId)?.position;
   // Everyone, the owner included: the same numbers the open point's buttons show.
-  const tally = SIDES.map(({ side, label }) => ({ label, n: positions.filter(p => sideOf(p.position) === side).length }))
-    .filter(t => t.n > 0);
+  const tally = SIDES.map(({ side, label }) => ({ side, label, n: positions.filter(p => sideOf(p.position) === side).length }));
+  const count = (side: Side) => tally.find(t => t.side === side)?.n ?? 0;
+  // Split: at least two people on each side — where the room has something to talk about.
+  const split = count('agree') >= 2 && count('disagree') >= 2;
   // The viewer's own position (signed in: the read; signed out: what this browser kept).
+  const positionOf = (userId: string) => positions.find(p => p.userId === userId)?.position;
   const viewerPosition = viewerId
-    ? (viewerId === ownerId ? undefined : point.userPosition?.position)
+    ? point.userPosition?.position ?? positionOf(viewerId)
     : (getAnonPosition(point.id) as PositionType | null) ?? undefined;
-  const meta: string[] = [];
-  if (tally.length > 0) meta.push(tally.map(t => `${t.n} ${t.label.toLowerCase()}`).join(' · '));
+  const meta = tally.filter(t => t.n > 0).map(t => `${t.n} ${t.label.toLowerCase()}`);
   if (storyCount > 0) meta.push(`${storyCount} ${storyCount === 1 ? 'story' : 'stories'}`);
 
   return (
@@ -421,17 +563,23 @@ function CanvasCard({ point, ownerId, ownerName, viewerId, positions, storyCount
         {point.visibility === 'private' && <><InlineVisibilityIcon visibility={point.visibility} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
       </p>
-      {(ownerPosition || meta.length > 0 || viewerPosition) && (
+      {view === 'positions' && (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/70">
-          {ownerPosition && (
-            <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800" data-testid="canvas-owner-position">
-              {firstName(ownerName)}: {POSITION_LABELS[ownerPosition]}
-            </span>
-          )}
-          {meta.length > 0 && <span data-testid="canvas-card-meta">{meta.join(' · ')}</span>}
+          {split && <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800" data-testid="canvas-card-split">Split</span>}
+          <span data-testid="canvas-card-meta">{meta.length > 0 ? meta.join(' · ') : 'No positions yet'}</span>
           {viewerPosition && (
             <span className="font-medium text-foreground" data-testid="canvas-viewer-position">You: {POSITION_LABELS[viewerPosition]}</span>
           )}
+        </div>
+      )}
+      {view === 'compare' && compare && (
+        <div className="mt-3 flex items-start gap-2" data-testid="canvas-card-compare">
+          <StanceColumn
+            person={{ ...compare.base, name: firstName(compare.base.name) }}
+            label={stanceLabel(compare.baseIsViewer ? viewerPosition ?? positionOf(compare.baseId) : positionOf(compare.baseId), compare.baseIsViewer)}
+          />
+          <div className="w-px self-stretch bg-gray-200" />
+          <StanceColumn person={{ ...compare.other, name: firstName(compare.other.name) }} label={stanceLabel(positionOf(compare.other.id), false)} />
         </div>
       )}
     </button>
