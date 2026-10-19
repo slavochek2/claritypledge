@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-19 [product]: Clarity Canvas resumes as an owner's artifact for the sales mastermind (P1508)
+
+**Context:** The canvas was parked on 2026-05-19 pending demand (three [product] entries that day: parked; a canvas is a tag-grouped view; four curation principles). The two-session sales mastermind (`docs/goals.md` 3a) runs on each attendee's lean canvas, which is that demand. Three review rounds (Gemini Argon, Opus, Codex) shaped P1508.
+
+**Decision:** A Clarity Canvas is the nine lean-canvas boxes plus three ikigai boxes (what I love, what I'm good at, what the world needs; the fourth ikigai circle is the revenue box). It is an owner's artifact at `/canvas/<handle>/<projectTag>`, derived from the owner's points that carry one project tag, placed by twelve `canvas:<key>` system tags written only by the service role. Owners do not edit it on screen; their agent does, through Clarity Chat (follow-up). No canvas record until the artifacts + sharing spec, which also owns private-by-default and sharing with an event. Supersedes the 2026-05-19 `/d/<docId>?view=canvas` placement; the tag-grouped-view ruling stands.
+
+**Alternatives rejected:** `/stake/<tag>` with a system tag switching on a canvas layout (a filter over the feed, not an artifact someone owns); box tags as typed hashtags (the hashtag parser cannot carry them and any user could place points); a canvas/letter switcher (no demand).
+
+---
+
 ## 2026-10-19 [process]: A screen with a live equivalent mounts the live screen; a copy needs the founder's OK per page (P1512)
 
 **Context:** P1509 v16 hand-rebuilt Letters, Groups, the group page, Event, Events, Partners, Invite partner, a profile card, Settings and Tools inside the chat prototype (about 1,000 lines), then fed them real data. Every function the copies did not reproduce went missing (new letter, Resend and Revoke, host tools, the full profile) and was found only on the founder's click-through, although the founder had asked for reuse twice (P1495: *"we don't want new build, we want to reuse"*; v16: *"if we are rebuilding then functionality has to stay"*). The copies came from earlier mock-data versions; v16 read "reuse" as reuse of data and services, kept the copied screens, and listed the losses in its build report instead of not rebuilding. All reviewers checked the build against its spec, and none asked whether a screen already existed live.

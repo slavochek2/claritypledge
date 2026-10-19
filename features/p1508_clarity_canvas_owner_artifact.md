@@ -42,8 +42,8 @@ Outcome: the founder's own canvas lives in Clarity Pledge.
 
 Blast radius: one new surface plus the system-tag set, which the feed and `/stake` also read.
 Writes: the seed, and a database rule that only the service role writes box tags.
-Reversibility: medium (system-tag set and a function; plus a record if `/architect` adds one).
-Decision density: a few (marked below).
+Reversibility: medium (system-tag set and a database rule; no canvas record).
+Decision density: none left (founder answers 2026-10-19, below).
 
 ## Solution
 
@@ -83,8 +83,11 @@ Decision density: a few (marked below).
 - **Layout.** Desktop: the twelve titled boxes as a grid within one screen; points stack inside a box
   and the box scrolls vertically. Mobile: boxes stacked with titles; a box with several points
   swipes sideways with snap and an "n / N" counter. No canvas/letter switcher.
-- **Seed:** the founder's canvas from the playground decomposition (`data-v9.js`, an older canvas;
-  freshness does not matter), inserted by a script under the founder's account.
+- **Seed (founder, 2026-10-19):** the founder's canvas from the playground decomposition
+  (`data-v9.js`, an older canvas; freshness does not matter), points **and** stories, inserted by a
+  service-role script under the founder's account. Test database first, with one point private so
+  the owner/private checks can be tested. Production later, all public, only on the founder's
+  explicit go in that session. The three ikigai boxes start empty.
 - **Who edits (founder, 2026-10-17):** owners do not edit the canvas directly; their agent does,
   in Clarity Chat (follow-up spec). In this spec the canvas is read-only on screen and box tags are
   written only by the service-role seed. The author-only definer write path moves to the chat spec.
@@ -94,13 +97,35 @@ Decision density: a few (marked below).
 - **Build order:** one `/dev` run builds the real route on test data and stops at the UAT gate;
   the founder's review there is the prototype review.
 
-[FOUNDER DECISION: the address shape (e.g. `/canvas/<id>`) and the canvas's display name.]
+**Address (founder, 2026-10-19):** `/canvas/<handle>/<projectTag>`. No canvas record: a canvas is
+fully derived from owner + project tag until the artifacts + sharing spec adds one. The page title
+shows the owner's name and the project tag; no other copy is invented.
+**Every canvas has exactly one project tag** (a plain user hashtag on each of its points); it is what
+lets one owner keep separate canvases and keeps their other points out. The founder's canvas uses
+`#claritypledge`.
 **Boxes (founder, 2026-10-17): a Clarity Canvas is the lean canvas's nine boxes plus three ikigai
 boxes: what I love, what I'm good at, what the world needs** (the fourth ikigai circle, what I can
 be paid for, is the lean canvas's revenue box). Twelve boxes in total.
-[FOUNDER DECISION: exact box titles and the twelve-box layout.]
-[FOUNDER DECISION: whether a canvas needs its own record (title, owner, project tag), or is fully
-derived from owner + project tag until the artifacts spec. `/architect` recommends.]
+**Box tags and titles (founder approved 2026-10-19, per the no-agent-authored-tags rule):**
+
+| Box tag | Title |
+|---|---|
+| `canvas:problem` | Problem |
+| `canvas:segments` | Customer Segments |
+| `canvas:uvp` | Unique Value Proposition |
+| `canvas:solution` | Solution |
+| `canvas:channels` | Channels |
+| `canvas:revenue` | Revenue Streams |
+| `canvas:cost` | Cost Structure |
+| `canvas:metrics` | Key Metrics |
+| `canvas:advantage` | Unfair Advantage |
+| `canvas:love` | What I love |
+| `canvas:good-at` | What I'm good at |
+| `canvas:world-needs` | What the world needs |
+
+The nine keys match the seed (`data-v9.js`). **Layout (founder, 2026-10-19):** desktop uses the
+standard lean-canvas shape with the three ikigai boxes as a row underneath; if that cannot fit one
+1440x900 screen, fall back to a plain 4x3 grid in the table's order.
 
 ## UX Notes
 
@@ -145,12 +170,12 @@ derived from owner + project tag until the artifacts spec. `/architect` recommen
 
 ## Related
 
-- P1500 Clarity Canvas from event threads (chat follow-up) · P1332 canvas to letter (backlog) ·
+- P1500 Clarity Canvas from event threads (chat follow-up) · P1512 Clarity Chat v1 release · P1332 canvas to letter (backlog) ·
   P611 renderer (rejected) · P1181 community-scoped visibility (branch, parked) · P1503 Clarity Chat prototype
 - Rulings: `docs/decisions.md` 2026-05-19 [product] x3 (parked pending demand; tag-grouped schema
   view; four curation principles). This spec resumes the parked canvas on the event (closest to
   recovery signals 2 and 4) and makes it an owner artifact rather than `/d/<docId>?view=canvas`;
-  record that in decisions.md when the spec is approved.
+  recorded in `docs/decisions.md` 2026-10-19 [product].
 - Design reference: `~/Projects/public/superdesign-playground/clarity-canvas/` (v9-SPEC.md, v10-SPEC.md, v10-mvp.html)
 
 ## Open Questions
