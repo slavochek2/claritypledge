@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 43
 workstream: clarity-chat
 created_date: '2026-10-19'
 tags: [clarity-chat, navigation, realtime, rls]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -228,3 +228,52 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 - P1509 (prototype v12 to v16, build report on its branch), P1495, P1431, P1458, P1461, P1502, P1457
 - P1048, P1114, P1138 (chat table, Realtime and RLS history); P1392 (`/` → `/feed`); P520 (account erase); P1193 (event group-chat link)
 - Spec review 2026-10-19: Codex, Gemini 4 Argon, Opus — 3 of 3 reported; findings folded in above
+
+## Technical Architecture
+
+**Base commit:** `4021a945f` · **Branch/worktree:** `feature/p1509-clarity-chat-v12` in `w5` (P1512 builds on the P1509 branch).
+
+### Technical Analysis
+
+- Step 0 (2026-10-19): Realtime `postgres_changes` delivers on the test project (`p1114`/`p1057` canaries: 2 passed, 1 passed on retry — the first subscription can miss early events). The chat client therefore never trusts Realtime alone: it refetches on subscribe, on reconnect and on tab focus.
+- Name clash: `clarity_chat_messages` already exists (live-session chat). New tables use the `chat_` prefix: `chat_conversations`, `chat_messages`, `chat_member_state`, `chat_blocks`.
+- `membership` and `event_rsvps` INSERT grants are full-row: a client can supply `accepted_at` / `rsvped_at`. Those timestamps gate chat history (D3, D4), so a BEFORE INSERT trigger stamps `now()` for non-service-role callers.
+- Supabase Realtime applies RLS to INSERT/UPDATE `postgres_changes` (P1057) but not to DELETE (DELETE carries only the primary key under the default replica identity). So: replica identity stays DEFAULT; user deletes are an UPDATE that nulls the body; only cascades (event deleted, conversation removed) hard-delete, leaking at most a row id.
+
+### Architecture Decisions
+
+- **Access is computed, not copied.** `chat_access_since(conversation, uid)` returns the time from which a user may read (NULL = no access): 1:1 → its two people; mirror → owner; group General → `membership.accepted_at`; event channel → host from the start, else `event_rsvps.rsvped_at` if the RSVP was made no later than `events.datetime + 12 h` (`EVENT_GRACE_HOURS`). Leave / cancel removes access the moment the row goes; rejoin restarts history at the new time. No membership table to keep in sync.
+- **All writes through SECURITY DEFINER RPCs** that check `auth.uid()`; the tables grant authenticated SELECT only (RLS: `created_at >= chat_access_since(...)`). No client INSERT/UPDATE/DELETE grants at all, which makes the write canary structural.
+- **Conversations exist ahead of time**: migration backfills one General channel per organization, one channel per event, one mirror per profile; `get_my_chats()` idempotently ensures the caller's mirror, and new orgs/events get theirs on first `get_my_chats()` by any member (ON CONFLICT DO NOTHING).
+- **Forward / Clarify are snapshots** (`forward_snapshot jsonb`: author name, body, time, and for Clarify the thread replies), plus `forwarded_from_message_id` (ON DELETE SET NULL) for the link back, which the client resolves through the reader's own access.
+- **Threads** are channel-only (`thread_root_id`); 1:1s use `reply_to_id` (quote-reply). Both must point into the same conversation (checked in the RPC).
+- **Shared connection (D1)**: same organization membership, both on the same event (RSVP or host), or a `clarity_agreements` row with `status = 'active'` between them. **Block (D2)**: `chat_blocks(blocker, blocked)`; daily limit 20 new 1:1s per user.
+- **Read state (D10)** lives in `chat_member_state` (owner-only RLS): `last_read_at`, `manual_unread`, `archived`. It is in the Realtime publication so a second device of the same user updates.
+- **Shell**: a signed-in mode inside `ClarityLandingLayout` (desktop left sidebar, phone bottom bar), replacing the top nav for signed-in users on product routes; signed-out, compact, logo-only, chrome-free, `/live`, `/transcribe` and immersive routes keep today's chrome.
+- **Home**: `/home` = chat list for signed-in users; `/` sends signed-in users to `/home` once the session has restored and everyone else to `/feed`.
+
+### Security Review
+
+- Invariants from the spec are the test plan: `e2e/integration/p1512-chat-read-canary.spec.ts` (non-member gets nothing via REST, RPC, Realtime, search, forward, attach, Clarify with a real id; control: the member DOES receive, so silence cannot pass) and `p1512-chat-write-canary.spec.ts` (direct table writes, posting as another, editing/deleting another's message, cross-conversation reply/thread, self-insert into a 1:1, blocked sender, no-connection DM start, daily limit).
+- All functions: `SET search_path = ''`, schema-qualified, `REVOKE ALL ... FROM PUBLIC, anon` then `GRANT EXECUTE ... TO authenticated` (P877/P904 grant order).
+- `erase_my_account` gains a call that nulls the user's chat bodies and author, deletes their mirror (and its copies), their member state and blocks, and renames forward snapshots of their messages to "Deleted user".
+
+### Implementation Approach
+
+#### Build Sequence
+
+1. DB migration + service layer + integration canaries (applied on test).
+2. Shell (sidebar / bottom bar / `/home` / Feed rename) — parallel with 1.
+3. Chat UI on the real service (port the v16 visual kit, no mock state).
+4. Remove the v12–v16 prototype, persona plugin, `scripts/p1509-*`.
+5. Two-browser E2E (live delivery), visual QA at 1280 / 375 / 320, reviews (Gemini review model, Opus, Codex).
+
+## Implementation Tasks
+
+- [ ] Complete — T1 DB: `supabase/migrations/<ts>_p1512_clarity_chat.sql`, `src/app/data/chat-service.ts`, integration canaries
+- [ ] Complete — T2 Shell: signed-in sidebar + bottom bar in `ClarityLandingLayout`, `/home`, Feed rename, redirect after session restore
+- [ ] Complete — T3 Chat UI: `src/app/pages/chat/*` on the real service
+- [ ] Complete — T4 Remove prototype code, routes, tests, persona plugin, scripts
+- [ ] Complete — T5 Two-browser E2E + visual QA + reviews
+
+Can parallelize: T1 and T2.
