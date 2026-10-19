@@ -65,9 +65,6 @@ interface FeedPointCardProps {
   linkedStories?: StoryWithAuthor[];
   /** Which list the card sits on — carried on `feed_card_shared`. */
   surface?: 'feed' | 'stake' | 'canvas';
-  /** P1508: start with the linked stories shown (the Clarity Canvas's open point, where the
-   *  stories are the reason to open it). Default false: one expander tap. */
-  storiesOpen?: boolean;
   /** P1508: told after the viewer's position is saved or withdrawn (signed in: the write
    *  confirmed; signed out: kept in this browser), so a page showing everyone's positions can
    *  re-read them. Never called once the card has unmounted. */
@@ -77,7 +74,7 @@ interface FeedPointCardProps {
   hideAnonSignupCta?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, storiesOpen = false, onPositionSaved }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -88,7 +85,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   const statementRef = useRef<HTMLParagraphElement>(null);
   // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
   const [statementExpanded, setStatementExpanded] = useReturnState(`feed-point-text:${point.id}`, false);
-  const [storiesExpanded, setStoriesExpanded] = useReturnState(`feed-point-stories:${point.id}`, storiesOpen);
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`feed-point-stories:${point.id}`, false);
   const statementOverflows = useTextOverflow(statementRef, [point.statement]);
 
   // Optimistic position state

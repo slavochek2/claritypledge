@@ -120,11 +120,6 @@ describe('FeedPointCard on the canvas panel', () => {
     visibility: 'public', createdAt: '2026-10-01T00:00:00Z', understoodCount: 0,
   } as unknown as StoryWithAuthor;
 
-  it('storiesOpen shows the linked stories without a tap', () => {
-    render(<MemoryRouter><FeedPointCard point={point} surface="canvas" storiesOpen linkedStories={[story]} /></MemoryRouter>);
-    expect(screen.getByText('The story behind the point.')).toBeInTheDocument();
-  });
-
   it('by default the stories stay behind the expander', () => {
     render(<MemoryRouter><FeedPointCard point={point} surface="canvas" linkedStories={[story]} /></MemoryRouter>);
     expect(screen.queryByText('The story behind the point.')).toBeNull();
