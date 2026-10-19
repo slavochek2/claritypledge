@@ -64,13 +64,25 @@ interface FeedPointCardProps {
    */
   linkedStories?: StoryWithAuthor[];
   /** Which list the card sits on — carried on `feed_card_shared`. */
-  surface?: 'feed' | 'stake';
+  surface?: 'feed' | 'stake' | 'canvas';
+  /**
+   * P1508: the compact form a Clarity Canvas box shows — the statement clamped to two lines and
+   * the position buttons, nothing else (no tags, menu or footer). Position behaviour is the same
+   * card's. Default false.
+   */
+  compact?: boolean;
+  /**
+   * P1508: the open-panel override. With it, the compact card's statement is a button that calls
+   * this instead of navigating; the canvas opens the full card in its side panel. Read only when
+   * `compact` is set.
+   */
+  onOpen?: () => void;
   /** P1336: hide the anonymous "Sign up or log in to save your position" nudge — for embeds
    *  where the visitor already has an identity (a registrant in onboarding). Default false. */
   hideAnonSignupCta?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, compact = false, onOpen }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -276,6 +288,57 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     }
   };
 
+  const positionButtons = (
+    <PositionButtons
+      userPosition={effectivePosition}
+      counts={counts}
+      onPositionClick={handlePositionClick}
+      compact={compact}
+      narrow={compact}
+      onClear={async () => {
+        if (!session?.user) {
+          setAnonPositionState(null);
+          setAnonPosition(point.id, null);
+          return;
+        }
+        if (!(await canSendWrite())) return;
+        await guardedRemovePosition(point.id);
+      }}
+    />
+  );
+
+  /* P1508 — the canvas box form. Same frame, same position logic; the statement is the one
+     control that opens the point (in the canvas's side panel, via `onOpen`). */
+  if (compact) {
+    return (
+      <>
+      <RemovePositionDialog {...dialogProps} />
+      <PointCardShell
+        aria-label={`Point: ${point.statement}`}
+        compact
+        data-testid={`canvas-point-card-${point.id}`}
+        data-card="point"
+        data-point-id={point.id}
+        statement={
+          <button
+            type="button"
+            onClick={onOpen}
+            className="min-w-0 flex-1 text-left text-sm font-medium text-foreground break-words line-clamp-2 rounded-sm hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <InlineVisibilityIcon visibility={point.visibility} />{' '}
+            {stripHashtags(point.statement, point.tags)}
+          </button>
+        }
+      >
+        <div role="presentation" className="mt-2">{positionButtons}</div>
+        {!hideAnonSignupCta && !session?.user && anonPosition && (
+          <AnonPositionCTA pointId={point.id} position={anonPosition} />
+        )}
+      </PointCardShell>
+      </>
+    );
+  }
+
   return (
     <>
     <RemovePositionDialog {...dialogProps} />
@@ -450,20 +513,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 tabbing through it no longer lands on an unrelated control between the last
                 position and the story list. */}
             <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
-              <PositionButtons
-                userPosition={effectivePosition}
-                counts={counts}
-                onPositionClick={handlePositionClick}
-                onClear={async () => {
-                  if (!session?.user) {
-                    setAnonPositionState(null);
-                    setAnonPosition(point.id, null);
-                    return;
-                  }
-                  if (!(await canSendWrite())) return;
-                  await guardedRemovePosition(point.id);
-                }}
-              />
+              {positionButtons}
             </div>
             {/* P502: Anonymous position CTA */}
             {!hideAnonSignupCta && !session?.user && anonPosition && (

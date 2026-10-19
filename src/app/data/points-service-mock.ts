@@ -15,6 +15,7 @@ import type {
   PositionType,
   ContentVisibility,
 } from '@/app/types';
+import { isCanvasBoxTag } from '@/lib/canvas-boxes';
 
 // All position types for counting
 const ALL_POSITIONS: PositionType[] = [
@@ -386,6 +387,23 @@ export const mockPointsService: PointsService = {
       ...point,
       userPosition: positionsMap.get(point.id),
     }));
+  },
+
+  async getCanvasPoints(
+    ownerId: string,
+    projectTag: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]> {
+    const matching = [...mockPoints]
+      .filter(p => p.firstValidatorId === ownerId && !p.supersededBy)
+      .filter(p => p.tags.includes(projectTag) && p.systemTags.some(isCanvasBoxTag))
+      .filter(p => viewerUserId === ownerId || p.visibility !== 'private')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const withCounts = (await Promise.all(matching.map(p => this.getPointWithCounts(p.id))))
+      .filter((r): r is PointWithCounts => r !== null);
+    if (!viewerUserId) return withCounts.map(point => ({ ...point, userPosition: undefined }));
+    const positionsMap = await this.getMyPositionsForPoints(withCounts.map(p => p.id), viewerUserId);
+    return withCounts.map(point => ({ ...point, userPosition: positionsMap.get(point.id) }));
   },
 
   async setPosition(

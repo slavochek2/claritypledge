@@ -102,7 +102,8 @@ export function isSafeTag(tag: unknown): tag is string {
  * `aisafety1` was added 2026-09-16 (P1323) as the sixth. Verified on prod before
  * adding, to the bar this comment set: 4 points and 8 stories, and it lives in the
  * user `tags` column, NOT `system_tags` — `isSystemTag` (feed-utils.ts) matches only
- * `^st\d+$`, `^v\d+$`, `understanding` and `misunderstanding` — so the stake surface's
+ * `^st\d+$`, `^v\d+$`, `understanding`, `misunderstanding` and the twelve `canvas:<box>`
+ * tags (P1508) — so the stake surface's
  * existing branch already queries the right column and no third code path is needed.
  *
  * `ikigai1` was added 2026-09-29 as the seventh (founder request). Prod carries 6 points and

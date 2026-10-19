@@ -209,6 +209,18 @@ export interface PointsService {
     headsOnly?: boolean
   ): Promise<PointWithUserPosition[]>;
 
+  /**
+   * P1508: one owner's Clarity Canvas — the owner's current-version points that carry
+   * `projectTag` (a user tag) and a canvas box tag (a system tag), oldest first, with counts and
+   * the viewer's positions. Private points are included only when the viewer is the owner.
+   * Throws on a read failure.
+   */
+  getCanvasPoints(
+    ownerId: string,
+    projectTag: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]>;
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================

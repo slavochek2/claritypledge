@@ -738,7 +738,7 @@ the story page, point page and profile header do not fire it.
 |----------|------|-------------|
 | `type` | string | Card type: `story` or `point` |
 | `id` | string | ID of the shared item |
-| `surface` | string | Where the card sits: `feed`, `stake` (`/stake/:tag`) or `profile`. Added in P1296; earlier events carry no `surface` and all came from `/feed` |
+| `surface` | string | Where the card sits: `feed`, `stake` (`/stake/:tag`), `profile` or `canvas` (the open point on `/canvas/:handle/:projectTag`, P1508). Added in P1296; earlier events carry no `surface` and all came from `/feed` |
 
 ---
 

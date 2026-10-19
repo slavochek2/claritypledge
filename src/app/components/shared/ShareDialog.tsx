@@ -250,7 +250,7 @@ export function ShareDialog({
 }
 
 /** P1296 — the list surfaces a story or point card can be shared from. */
-export type ShareSurface = 'feed' | 'stake' | 'profile';
+export type ShareSurface = 'feed' | 'stake' | 'profile' | 'canvas';
 
 interface ShareButtonProps {
   /**

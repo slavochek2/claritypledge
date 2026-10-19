@@ -14,6 +14,7 @@
 
 import { Link } from 'react-router-dom';
 import { useLinksInNewTab } from './links-in-new-tab';
+import { isCanvasBoxTag } from '@/lib/canvas-boxes';
 
 export type TagPillsContext = 'feed' | 'live' | 'profile' | 'detail';
 
@@ -45,7 +46,9 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
   const newTab = useLinksInNewTab();
   // Version tags (v1, v2…) are hidden: readers only ever see the current wording, so the label
   // says nothing, and /feed?tag=v2 is a meaningless cross-set list (founder, 2026-10-02).
-  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])].filter(t => !/^v\d+$/i.test(t));
+  // P1508: canvas box tags are hidden the same way — the box a point sits in is the canvas's
+  // layout, not a label, and the feed has no box filter.
+  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])].filter(t => !/^v\d+$/i.test(t) && !isCanvasBoxTag(t));
   if (allTags.length === 0) return null;
 
   const isInteractive = context !== 'live';

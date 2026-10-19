@@ -55,6 +55,7 @@ const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default
 // P1179: the locked stake surface. GLOBAL route — the content is the same at every
 // event; the Links button carries ?event=<slug> so it persists without nesting.
 const StakePage = lazy(() => import("@/app/pages/stake-page").then(m => ({ default: m.StakePage })));
+const CanvasPage = lazy(() => import("@/app/pages/canvas-page").then(m => ({ default: m.CanvasPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
 const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
@@ -983,6 +984,8 @@ export default function ClarityPledgeApp() {
         {/* P1349: one summary page per source video */}
         <Route path="/video/:videoId" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1508: an owner's Clarity Canvas — owner + project tag, no canvas record. */}
+        <Route path="/canvas/:handle/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 

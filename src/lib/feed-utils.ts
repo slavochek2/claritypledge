@@ -2,8 +2,11 @@
  * @file feed-utils.ts
  * P602: Utility functions for feed multi-tag and version filtering.
  * P630: System tag separation — feed logic reads from systemTags field.
+ * P1508: Clarity Canvas box tags (canvas:<box>) join the system-tag set.
  * Pure functions — no side effects, no React dependencies.
  */
+
+import { isCanvasBoxTag } from './canvas-boxes';
 
 /** Parse comma-separated tag param into array. Empty/null → empty array. */
 export function parseTags(tagParam: string | null): string[] {
@@ -25,10 +28,11 @@ const V_TAG_PATTERN = /^v\d+$/i;
 const SYSTEM_TAG_PATTERNS = [ST_TAG_PATTERN, V_TAG_PATTERN];
 const SYSTEM_TAG_VALUES = new Set(['understanding', 'misunderstanding']);
 
-/** P630: Check if a tag is a system tag (st-tags, v-tags, understanding, misunderstanding). */
+/** P630: Check if a tag is a system tag (st-tags, v-tags, understanding, misunderstanding,
+ *  and the P1508 canvas box tags). */
 export function isSystemTag(tag: string): boolean {
   const lower = tag.toLowerCase();
-  return SYSTEM_TAG_PATTERNS.some(p => p.test(lower)) || SYSTEM_TAG_VALUES.has(lower);
+  return SYSTEM_TAG_PATTERNS.some(p => p.test(lower)) || SYSTEM_TAG_VALUES.has(lower) || isCanvasBoxTag(lower);
 }
 
 /** @deprecated Use isSystemTag(). Backwards-compatible alias. */

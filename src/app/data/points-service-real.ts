@@ -17,7 +17,9 @@ import type {
 } from '@/app/types';
 import { currentVersionsOnly } from './point-versions';
 import { supabase } from '@/lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { isSystemTag } from '@/lib/feed-utils';
+import { CANVAS_BOX_TAGS } from '@/lib/canvas-boxes';
 import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 
@@ -182,6 +184,28 @@ function emptyPositionCounts(): Record<PositionType, number> {
     },
     {} as Record<PositionType, number>
   );
+}
+
+/**
+ * Position counts for a page of points, in one query. `error` is returned rather than thrown so
+ * each caller keeps its own failure rule (the feed swallows it under P543; /stake and the canvas
+ * fail loudly, since zero-position points stay listed there and would read as "0").
+ */
+async function fetchPositionCounts(
+  pointIds: string[],
+): Promise<{ counts: Map<string, Record<PositionType, number>>; error: PostgrestError | null }> {
+  const counts = new Map<string, Record<PositionType, number>>();
+  const { data: positions, error } = await supabase
+    .from('point_positions')
+    .select('point_id, position')
+    .in('point_id', pointIds);
+  if (error || !positions) return { counts, error: error ?? null };
+  pointIds.forEach(id => counts.set(id, emptyPositionCounts()));
+  positions.forEach(pos => {
+    const bucket = counts.get(pos.point_id);
+    if (bucket && pos.position) bucket[pos.position as PositionType]++;
+  });
+  return { counts, error: null };
 }
 
 export const realPointsService: PointsService = {
@@ -828,27 +852,13 @@ export const realPointsService: PointsService = {
 
     // Batch fetch position counts
     const pointIds = points.map(p => p.id);
-    const countsMap = new Map<string, Record<PositionType, number>>();
-
-    const { data: positions, error: posError } = await supabase
-      .from('point_positions')
-      .select('point_id, position')
-      .in('point_id', pointIds);
+    const { counts: countsMap, error: posError } = await fetchPositionCounts(pointIds);
 
     // With zero-position points KEPT, a failed count read would paint every point at "0" —
     // wrong numbers on a projected screen. Fail loudly instead; the caller shows its error.
     // (With the P543 filter on, the same failure empties the list, as it always has.)
     if (posError && includeUnstaked) {
       throwDbError('getPublicPointsFeed positions', posError, 'Could not load position counts');
-    }
-    if (!posError && positions) {
-      pointIds.forEach(id => countsMap.set(id, emptyPositionCounts()));
-      positions.forEach(pos => {
-        const counts = countsMap.get(pos.point_id);
-        if (counts && pos.position) {
-          counts[pos.position as PositionType]++;
-        }
-      });
     }
 
     // Optionally fetch viewer positions
@@ -869,6 +879,66 @@ export const realPointsService: PointsService = {
         };
       })
       .filter(point => includeUnstaked || point.totalPositions > 0);  // P543: exclude zero-position points
+  },
+
+  /**
+   * P1508: one owner's Clarity Canvas — their current-version points carrying the project tag
+   * and a box tag, with counts and the viewer's positions. Oldest first, so a box keeps the order
+   * its points were placed in.
+   *
+   * Visibility: the owner reads their private points through the owner SELECT policy; anyone else
+   * is limited to public points HERE as well as by RLS (defense in depth, as every other list).
+   * Zero-position points stay listed (a box is not a feed of engagement). Throws on any read
+   * failure: the page shows one error, never a partial grid.
+   */
+  async getCanvasPoints(
+    ownerId: string,
+    projectTag: string,
+    viewerUserId?: string,
+  ): Promise<PointWithUserPosition[]> {
+    log('⚡ getCanvasPoints:', { ownerId, projectTag, viewerUserId });
+
+    let query = currentVersionsOnly(
+      supabase
+        .from('points')
+        .select(`
+          *,
+          creator:profiles!points_first_validator_id_fkey (
+            id,
+            name,
+            slug,
+            avatar_color,
+            avatar_url
+          )
+        `),
+    )
+      .eq('first_validator_id', ownerId)
+      .contains('tags', [projectTag])
+      .overlaps('system_tags', [...CANVAS_BOX_TAGS]);
+
+    if (viewerUserId !== ownerId) query = query.eq('visibility', 'public');
+
+    const { data, error } = await query.order('created_at', { ascending: true });
+    if (error || !data) {
+      throwDbError('getCanvasPoints', error, 'Could not load this canvas');
+    }
+
+    const points = (data as DbPointWithCreator[]).map(mapPointFromDb);
+    if (points.length === 0) return [];
+
+    const pointIds = points.map(p => p.id);
+    const { counts: countsMap, error: posError } = await fetchPositionCounts(pointIds);
+    if (posError) throwDbError('getCanvasPoints positions', posError, 'Could not load position counts');
+
+    const viewerPositionsMap = viewerUserId
+      ? await this.getMyPositionsForPoints(pointIds, viewerUserId)
+      : new Map<string, PointPosition>();
+
+    return points.map(point => {
+      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
+      return { ...point, positionCounts, totalPositions, userPosition: viewerPositionsMap.get(point.id) };
+    });
   },
 
   // ============================================================================
