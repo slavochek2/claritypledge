@@ -421,6 +421,8 @@ test.describe('P520: erase_my_account', () => {
   // ---------------------------------------------------------------------------
 
   test('census: no column in public that references an identity still holds the erased id', async () => {
+    // One sequential count per referencing column (58 and growing); the default 30s no longer fits.
+    test.setTimeout(180_000);
     const uid = leaver.user.id;
     const cols = await catalogQuery<{ tbl: string; col: string }>(`
       SELECT con.conrelid::regclass::text AS tbl, a.attname AS col
