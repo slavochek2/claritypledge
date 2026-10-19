@@ -18,6 +18,7 @@
  * re-read through the service role after every attack to prove nothing moved.
  */
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 import { createTestOrganization, createTestMembership, deleteTestOrganization, deleteTestMembership, type TestOrganization } from '../helpers/test-organization';
@@ -150,6 +151,62 @@ test('the author is always the caller: send has no author parameter, and the sto
   const fwd = await ok<Row>(sB.client.rpc('forward_chat_message', { p_source: gMsg.id, p_target_conversation: gconv, p_note: 'fyi' }), 'B forwards A\'s message');
   expect(fwd.author_id).toBe(B.user.id);
   expect(fwd.forward_snapshot?.author_name).toBe(A.name);
+});
+
+test('idempotent send: the same client id twice is one message, independent per author, and never crosses conversations', async () => {
+  test.setTimeout(120_000);
+  const k = randomUUID();
+  const first = await send(sA, gconv, `idem-${RUN}`, { p_client_id: k });
+  expect(first.client_id, 'the sender gets the key back (to match the Realtime echo)').toBe(k);
+
+  // A retry (the response of the first call was "lost") returns the SAME row and writes nothing new.
+  const again = await send(sA, gconv, `idem-${RUN}`, { p_client_id: k });
+  expect(again.id, 'the retry returns the original message').toBe(first.id);
+  const edited = await send(sA, gconv, `a different body ${RUN}`, { p_client_id: k });
+  expect(edited.id, 'a replay never posts again, whatever the body').toBe(first.id);
+  expect(edited.body, 'and never overwrites the stored message').toBe(`idem-${RUN}`);
+  const { data: rows1 } = await supabaseAdmin.from('chat_messages').select('id').eq('author_id', A.user.id).eq('client_id', k);
+  expect(rows1?.length, 'exactly one row exists for the key').toBe(1);
+
+  // CONTROL: without a client id two identical sends are two messages (the key is what dedupes).
+  const n1 = await send(sA, gconv, `no-key-${RUN}`);
+  const n2 = await send(sA, gconv, `no-key-${RUN}`);
+  expect(n2.id).not.toBe(n1.id);
+
+  // The key is per AUTHOR: B using the same value posts an independent message.
+  const bSame = await send(sB, gconv, `idem-b-${RUN}`, { p_client_id: k });
+  expect(bSame.id).not.toBe(first.id);
+  expect(bSame.author_id).toBe(B.user.id);
+  expect(bSame.body).toBe(`idem-b-${RUN}`);
+  const { data: rows2 } = await supabaseAdmin.from('chat_messages').select('id').eq('client_id', k);
+  expect(rows2?.length, 'one row per author for the same key').toBe(2);
+
+  // Never a cross-post: the same key aimed at ANOTHER conversation is refused and writes nothing.
+  const dmBefore = (await adminMessages(dm)).length;
+  const err = await refused(sA.client.rpc('send_chat_message', { p_conversation: dm, p_body: 'elsewhere', p_client_id: k }), 'reuse a client id in another conversation');
+  expect(err.message).toContain('client id already used');
+  expect((await adminMessages(dm)).length, 'nothing was posted into the other conversation').toBe(dmBefore);
+  // ...and the retry still returns the original in its own conversation afterwards.
+  expect((await send(sA, gconv, `idem-${RUN}`, { p_client_id: k })).id).toBe(first.id);
+
+  // A burst of identical retries (a flaky phone firing twice at once) still yields one row.
+  const burstKey = randomUUID();
+  const burst = await Promise.all(Array.from({ length: 6 }, () =>
+    sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: `burst-${RUN}`, p_client_id: burstKey })));
+  expect(burst.every((r) => !r.error), `no burst call may fail: ${JSON.stringify(burst.map((r) => r.error?.message))}`).toBe(true);
+  expect(new Set(burst.map((r) => (r.data as Row).id)).size, 'all burst calls return the same message').toBe(1);
+  const { data: rows3 } = await supabaseAdmin.from('chat_messages').select('id').eq('author_id', A.user.id).eq('client_id', burstKey);
+  expect(rows3?.length, 'the burst produced exactly one row').toBe(1);
+
+  // Forwards are idempotent the same way, and the key space is shared (no cross-post through a forward).
+  const fk = randomUUID();
+  const f1 = await ok<Row>(sB.client.rpc('forward_chat_message', { p_source: gMsg.id, p_target_conversation: gconv, p_client_id: fk }), 'forward');
+  const f2 = await ok<Row>(sB.client.rpc('forward_chat_message', { p_source: gMsg.id, p_target_conversation: gconv, p_client_id: fk }), 'forward retry');
+  expect(f2.id).toBe(f1.id);
+  const { data: rows4 } = await supabaseAdmin.from('chat_messages').select('id').eq('author_id', B.user.id).eq('client_id', fk);
+  expect(rows4?.length).toBe(1);
+  const errFwd = await refused(sB.client.rpc('forward_chat_message', { p_source: gMsg.id, p_target_conversation: dm, p_client_id: fk }), 'forward with a key already used for another conversation');
+  expect(errFwd.message).toContain('client id already used');
 });
 
 test('edit and delete: only the author can; other people get an error and nothing changes', async () => {

@@ -50,38 +50,6 @@ export async function getChatAuthors(ids: string[]): Promise<ChatAuthor[]> {
   }));
 }
 
-/** At most this many reply rows are read for the counts of one page of roots. */
-const THREAD_STATS_ROW_CAP = 500;
-
-export interface ThreadStat {
-  count: number;
-  /** Distinct repliers, in first-seen order, for the little faces next to "N replies". */
-  authorIds: string[];
-}
-
-/** Reply counts for the given root messages (channels only). RLS limits it to what the reader can see. */
-export async function getThreadStats(conversationId: string, rootIds: string[]): Promise<Map<string, ThreadStat>> {
-  const out = new Map<string, ThreadStat>();
-  if (rootIds.length === 0) return out;
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .select('thread_root_id, author_id')
-    .eq('conversation_id', conversationId)
-    .in('thread_root_id', rootIds)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(THREAD_STATS_ROW_CAP);
-  if (error) throw new Error(`chat thread stats failed: ${error.message}`);
-  for (const row of (data ?? []) as Array<{ thread_root_id: string | null; author_id: string | null }>) {
-    if (!row.thread_root_id) continue;
-    const stat = out.get(row.thread_root_id) ?? { count: 0, authorIds: [] };
-    stat.count += 1;
-    if (row.author_id && !stat.authorIds.includes(row.author_id)) stat.authorIds.push(row.author_id);
-    out.set(row.thread_root_id, stat);
-  }
-  return out;
-}
-
 // ---------------------------------------------------------------------------
 // Attachments: a point or story, rendered through the reader's own access
 // ---------------------------------------------------------------------------
@@ -145,11 +113,24 @@ export function filterShareables(items: Shareable[], query: string, kind: ChatAt
 export async function loadAttachment(kind: ChatAttachmentKind, id: string, viewerId: string): Promise<Shareable | null> {
   if (kind === 'point') {
     const point = await pointsService.getPointWithUserPosition(id, viewerId);
-    if (!point) return null;
+    if (!point) return confirmHidden('points', id);
     return { kind, id, title: point.statement, tags: point.tags ?? [], point };
   }
   const story = await storiesService.getStory(id);
-  if (!story) return null;
+  if (!story) return confirmHidden('stories', id);
   const linked = await storiesService.getPointsForStories([id], viewerId).catch(() => new Map<string, PointSummary[]>());
   return { kind, id, title: storyTitle(story), tags: story.tags ?? [], story, linkedPoints: linked.get(id) };
+}
+
+/**
+ * The services answer "nothing" for a failed read as well as for a row the reader may not see. Telling
+ * someone "Not available to you" because their connection dropped is wrong, so before accepting null ask
+ * once more, plainly: an error (or a row that is visible after all) is a failure to retry; only a clean
+ * "no such row for you" is access.
+ */
+async function confirmHidden(table: 'points' | 'stories', id: string): Promise<null> {
+  const { data, error } = await supabase.from(table).select('id').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (data) throw new Error(`Could not read ${table} ${id}`);
+  return null;
 }

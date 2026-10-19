@@ -41,8 +41,11 @@ export function parseChatRoute(pathname: string): ChatRoute {
 // ---------------------------------------------------------------------------
 
 /** "Ada's mirror" for a mirror that has not been renamed; "<title> · Ada's mirror" once it has. */
+export function mirrorRole(chat: Pick<ChatSummary, 'ownerFirstName'>): string {
+  return chat.ownerFirstName ? `${chat.ownerFirstName}'s mirror` : 'Your mirror';
+}
 export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>): string {
-  const role = chat.ownerFirstName ? `${chat.ownerFirstName}'s mirror` : 'Your mirror';
+  const role = mirrorRole(chat);
   return chat.title ? `${chat.title} · ${role}` : role;
 }
 
@@ -211,10 +214,39 @@ export function describeGrouping(messages: ChatMessage[]): MessageGroupInfo[] {
   });
 }
 
-/** Orders two messages the way the server pages them: by created_at, then id. */
+const ISO_PARTS = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}(?::?\d{2})?)?$/;
+
+/**
+ * A timestamp as [whole milliseconds since the epoch, extra microseconds 0-999]. Postgres writes
+ * microseconds and Date.parse keeps only milliseconds, so two messages a few microseconds apart
+ * would compare equal; the fraction is read from the string instead, and the offset is applied, so
+ * "…:00.1234+07:00" and "…:00.1235Z" compare as the instants they are.
+ */
+export function timestampParts(iso: string): [number, number] | null {
+  const m = ISO_PARTS.exec(iso);
+  if (!m) {
+    const t = Date.parse(iso);
+    return Number.isNaN(t) ? null : [t, 0];
+  }
+  const base = m[1] as string;
+  const fraction = (m[2] ?? '').padEnd(6, '0').slice(0, 6);
+  const zone = m[3] ?? 'Z';
+  const offset = zone === 'Z' ? 'Z' : zone.length === 3 ? `${zone}:00` : zone.includes(':') ? zone : `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  const ms = Date.parse(`${base}.${fraction.slice(0, 3)}${offset}`);
+  return Number.isNaN(ms) ? null : [ms, Number(fraction.slice(3))];
+}
+
+/** Full-precision order of two ISO timestamps (negative: a is earlier). */
+export function compareTimestamps(a: string, b: string): number {
+  const pa = timestampParts(a);
+  const pb = timestampParts(b);
+  if (!pa || !pb) return a.localeCompare(b);
+  return pa[0] - pb[0] || pa[1] - pb[1];
+}
+
+/** Orders two messages the way the server pages them: by created_at (to the microsecond), then id. */
 export function compareMessages(a: Pick<ChatMessage, 'createdAt' | 'id'>, b: Pick<ChatMessage, 'createdAt' | 'id'>): number {
-  const t = Date.parse(a.createdAt) - Date.parse(b.createdAt);
-  return t !== 0 && !Number.isNaN(t) ? t : a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+  return compareTimestamps(a.createdAt, b.createdAt) || a.id.localeCompare(b.id);
 }
 
 /**
@@ -224,8 +256,9 @@ export function compareMessages(a: Pick<ChatMessage, 'createdAt' | 'id'>, b: Pic
 export function newerVersion<T extends ChatMessage>(have: T, incoming: T): T {
   if (have.isDeleted && !incoming.isDeleted) return have;
   if (incoming.isDeleted) return incoming;
-  const edited = (m: ChatMessage) => (m.editedAt ? Date.parse(m.editedAt) : -Infinity);
-  return edited(have) > edited(incoming) ? have : incoming;
+  if (!have.editedAt) return incoming;
+  if (!incoming.editedAt) return have;
+  return compareTimestamps(have.editedAt, incoming.editedAt) > 0 ? have : incoming;
 }
 
 /** Inserts or merges by id (newer version wins), keeping the server's order. */
@@ -258,22 +291,43 @@ export function appendIfNewer<T extends ChatMessage>(list: T[], next: T): T[] {
 
 /**
  * The loaded window after a re-read of everything from `fetched[0]` up to now: rows older than the
- * re-read are kept (earlier pages), rows newer than it are kept (they arrived while it ran), and
- * everything in between is exactly what the server returned, merged by version. A row the server no
- * longer returns inside that range is dropped.
+ * re-read are kept (earlier pages), and everything in between is exactly what the server returned,
+ * merged by version. A row the server no longer returns inside that range is dropped, and so is a
+ * row NEWER than everything it returned if it was already loaded when the read began (`startIds`);
+ * only rows that arrived after the read started are kept on top. When the read reached the start of
+ * the conversation (`reachedStart`), loaded rows older than its first row are dropped as well.
  */
-export function reconcileWindow<T extends ChatMessage>(loaded: T[], fetched: T[]): T[] {
+export function reconcileWindow<T extends ChatMessage>(loaded: T[], fetched: T[], startIds: ReadonlySet<string>, reachedStart = false): T[] {
   const lo = fetched[0];
   const hi = fetched[fetched.length - 1];
-  if (!lo || !hi) return loaded;
+  // Nothing came back: the conversation is empty now, so everything that was loaded when the read began goes.
+  if (!lo || !hi) return loaded.filter((m) => !startIds.has(m.id));
   const byId = new Map(loaded.map((m) => [m.id, m]));
   const middle = fetched.map((m) => {
     const have = byId.get(m.id);
     return have ? newerVersion(have, m) : m;
   });
-  const older = loaded.filter((m) => compareMessages(m, lo) < 0);
-  const newer = loaded.filter((m) => compareMessages(m, hi) > 0);
-  return [...older, ...middle, ...newer];
+  // Reaching the start of the conversation means nothing older exists: loaded rows older than it are gone.
+  const older = reachedStart ? [] : loaded.filter((m) => compareMessages(m, lo) < 0);
+  const arrived = loaded.filter((m) => compareMessages(m, hi) > 0 && !startIds.has(m.id));
+  return [...older, ...middle, ...arrived];
+}
+
+/**
+ * The window after a re-read that could not reach back to what was loaded: the pages just read ARE the
+ * window (gluing them to older rows would hide the gap), plus rows that arrived after the read began.
+ */
+export function replaceWindow<T extends ChatMessage>(loaded: T[], fetched: T[], startIds: ReadonlySet<string>): T[] {
+  const byId = new Map(loaded.map((m) => [m.id, m]));
+  const middle = fetched.map((m) => {
+    const have = byId.get(m.id);
+    return have ? newerVersion(have, m) : m;
+  });
+  const fetchedIds = new Set(fetched.map((m) => m.id));
+  const arrived = loaded.filter((m) => !startIds.has(m.id) && !fetchedIds.has(m.id));
+  const out = [...middle, ...arrived];
+  out.sort(compareMessages);
+  return out;
 }
 
 /** One line for a quote bar or a forward preview. */

@@ -37,7 +37,7 @@ import {
 import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { clearDraftsExcept } from './chat-hooks';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
-import { chatErrorText, compareMessages, unreadChatCount } from './chat-view-model';
+import { chatErrorText, compareMessages, compareTimestamps, unreadChatCount } from './chat-view-model';
 
 /** After a Realtime event: a full list read waits for this much quiet. */
 export const REFRESH_DEBOUNCE_MS = 2000;
@@ -48,6 +48,8 @@ export const REFRESH_DEBOUNCE_MS = 2000;
  * message can stay invisible.
  */
 export const SAFETY_POLL_MS = 60_000;
+/** The list on screen with no conversation open: a quiet re-read this often while the tab is in front. */
+export const LIST_POLL_MS = 120_000;
 /** A list read that has not answered by now is called failed: an error with Retry, never an endless skeleton. */
 export const LIST_READ_TIMEOUT_MS = 25_000;
 /** A failed author read is retried this many times, waiting a little longer each time. */
@@ -115,7 +117,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // A different person (or none) is a different provider: nothing carries over.
   return (
-    <ChatProviderInner key={userId ?? 'none'} userId={userId} enabled={!embedded}>
+    <ChatProviderInner key={userId ?? 'none'} userId={userId} enabled={!embedded} listShown={pathname === '/home'}>
       {children}
     </ChatProviderInner>
   );
@@ -123,7 +125,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 let localCounter = 0;
 
-function ChatProviderInner({ userId, enabled, children }: { userId: string | null; enabled: boolean; children: ReactNode }) {
+function ChatProviderInner({ userId, enabled, listShown, children }: { userId: string | null; enabled: boolean; listShown: boolean; children: ReactNode }) {
   const { user } = useAuth();
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
@@ -157,6 +159,8 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
   const loaded = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewing = useRef<string | null>(null);
+  const listShownRef = useRef(listShown);
+  listShownRef.current = listShown;
   const authorsRef = useRef(authors);
   authorsRef.current = authors;
   const authorsPending = useRef(new Set<string>());
@@ -164,6 +168,9 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
   const authorsAttempts = useRef(new Map<string, number>());
   const outboxRef = useRef(outbox);
   outboxRef.current = outbox;
+  // clientIds of my own messages the server has confirmed over Realtime: an entry whose reply was lost
+  // (the RPC rejected after the row was stored) is delivered, not failed.
+  const delivered = useRef(new Set<string>());
 
   const emit = useCallback((event: ChatEvent) => {
     listeners.current.forEach((l) => l(event));
@@ -239,6 +246,12 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
       (event) => {
         emit({ type: 'message', event });
         const m = event.message;
+        if (event.type === 'INSERT' && m.clientId && m.authorId === userId) {
+          const key = m.clientId;
+          delivered.current.add(key);
+          // A failed entry (its reply was lost) that turns out to be stored needs no Retry any more.
+          setOutbox((prev) => prev.filter((l) => !(l.clientId === key && !l.pending)));
+        }
         if (event.type === 'UPDATE') setRevision((r) => r + 1);
         // A thread reply changes nothing the list shows: no list work at all.
         if (m.threadRootId) return;
@@ -262,7 +275,7 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
           prev.map((c) => {
             if (c.conversationId !== state.conversationId) return c;
             const readAll =
-              !!state.lastReadAt && (!c.lastMessage || Date.parse(state.lastReadAt) >= Date.parse(c.lastMessage.createdAt));
+              !!state.lastReadAt && (!c.lastMessage || compareTimestamps(state.lastReadAt, c.lastMessage.createdAt) >= 0);
             return {
               ...c,
               archived: state.archived,
@@ -282,8 +295,13 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
     const poll = setInterval(() => {
       if (viewing.current && document.visibilityState === 'visible') resync();
     }, SAFETY_POLL_MS);
+    // The list alone (no conversation open): a slower, list-only re-read, so a missed first event cannot leave it stale for long.
+    const listPoll = setInterval(() => {
+      if (listShownRef.current && !viewing.current && document.visibilityState === 'visible') void refresh();
+    }, LIST_POLL_MS);
     return () => {
       clearInterval(poll);
+      clearInterval(listPoll);
       unsubscribe();
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
@@ -348,6 +366,8 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
           conversationId: local.conversationId,
           threadRootId: local.threadRootId ?? undefined,
           ...local.input,
+          // The same key on every attempt of this entry: a reply that was lost cannot make a second message.
+          clientId: local.clientId ?? undefined,
         });
         setOutbox((prev) => prev.filter((l) => l.localId !== local.localId));
         emit({ type: 'sent', message: row });
@@ -356,6 +376,10 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
           scheduleRefresh();
         }
       } catch (e) {
+        if (local.clientId && delivered.current.has(local.clientId)) {
+          setOutbox((prev) => prev.filter((l) => l.localId !== local.localId));
+          return;
+        }
         setOutbox((prev) =>
           prev.map((l) => (l.localId === local.localId ? { ...l, pending: false, failed: true, error: chatErrorText(e, 'Not sent.') } : l)),
         );
@@ -386,6 +410,7 @@ function ChatProviderInner({ userId, enabled, children }: { userId: string | nul
         kind: 'message',
         attachmentKind: input.attachment?.kind ?? null,
         attachmentId: input.attachment?.id ?? null,
+        clientId: crypto.randomUUID(),
         input,
       };
       setOutbox((prev) => [...prev, local]);

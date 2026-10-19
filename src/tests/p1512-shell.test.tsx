@@ -468,6 +468,18 @@ describe('P1512 review round 2 — the phone Me sheet and the Tools sheet', () =
     await waitFor(() => expect(meTab).toHaveFocus());
   });
 
+  it('focus returns to the Me tab even when nothing had focus as the sheet opened', async () => {
+    const user = userEvent.setup();
+    renderLayout('/feed');
+    const meTab = screen.getByTestId('bottom-nav-me');
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.click(meTab); // a click that leaves focus on the body, as a synthetic or assistive-tech press can
+    await screen.findByRole('dialog', { name: 'Menu' });
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull());
+    await waitFor(() => expect(meTab).toHaveFocus());
+  });
+
   it('the Close control closes the Me sheet', async () => {
     const user = userEvent.setup();
     renderLayout('/feed');

@@ -59,6 +59,7 @@ export interface Row {
   forwarded_from_message_id: string | null;
   thread_root_id: string | null;
   reply_to_id: string | null;
+  client_id: string | null;
 }
 
 /** RPC that must succeed; returns data. */

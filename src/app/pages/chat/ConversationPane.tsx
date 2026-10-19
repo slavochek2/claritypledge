@@ -19,7 +19,7 @@ import { MessageList } from './MessageList';
 import { QuoteBar, InlineError, MessagesSkeleton } from './chat-kit';
 import { usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, HOME, isChannel, messageSummary } from './chat-view-model';
+import { chatErrorText, chatPath, compareMessages, HOME, isChannel, messageSummary } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 
@@ -119,7 +119,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const shownNewest = [...conv.server].reverse().find((m) => !m.threadRootId);
   const listed = summary.lastMessage;
   const through =
-    listed && (!shownNewest || Date.parse(listed.createdAt) >= Date.parse(shownNewest.createdAt)) ? listed.id : shownNewest?.id;
+    listed && (!shownNewest || compareMessages(listed, shownNewest) >= 0) ? listed.id : shownNewest?.id;
   const { markRead, setViewing } = chat;
   const unread = summary.unreadCount > 0 || summary.manualUnread;
   const seen = visible && paneVisible;

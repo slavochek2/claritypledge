@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
-import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark, type PersonLike } from './chat-kit';
+import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, MirrorTitle, PersonMark, type PersonLike } from './chat-kit';
 import { useChat } from './chat-state';
 import {
   CHAT_TABS,
@@ -35,10 +35,13 @@ export const INVITE_PARTNER_PATH = '/agreements/new/create';
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_CHARS = 2;
 
+/** The open chat: a light tint and a blue edge (never a blue fill, which hid the avatar and hurt contrast). */
+const SELECTED_ROW = 'bg-blue-50 shadow-[inset_3px_0_0_0_#2563eb]';
+
 function ChatMark({ chat, owner, active }: { chat: ChatSummary; owner: PersonLike; active: boolean }) {
   if (chat.kind === 'mirror') return <MirrorMark owner={owner} size="list" />;
   if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user' }} size="list" />;
-  return <ChannelMark kind={chat.kind} size="list" onBlue={active} />;
+  return <ChannelMark kind={chat.kind} size="list" selected={active} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,27 +70,28 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
           setMenu(true);
         }}
         aria-current={active ? 'true' : undefined}
-        className={cn('flex min-h-[68px] w-full items-center gap-3 px-3 py-2 text-left', active ? 'bg-blue-600 text-white' : HOVER, FOCUS_RING, 'focus-visible:ring-inset')}
+        className={cn('flex min-h-[68px] w-full items-center gap-3 px-3 py-2 text-left', active ? SELECTED_ROW : HOVER, FOCUS_RING, 'focus-visible:ring-inset')}
       >
         <ChatMark chat={chat} owner={owner} active={active} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className={cn('min-w-0 flex-1 truncate text-[15px]', unread ? 'font-bold' : 'font-semibold', active ? 'text-white' : 'text-foreground')} data-testid="row-title">
-              {title}
+            <span className={cn('min-w-0 flex-1 truncate text-[15px] text-foreground', unread ? 'font-bold' : 'font-semibold')} data-testid="row-title">
+              {chat.kind === 'mirror' && chat.title ? <MirrorTitle chat={chat} /> : title}
             </span>
-            <span className={cn('shrink-0 text-xs', active ? 'text-blue-100' : 'text-muted-foreground')}>{when}</span>
+            <span className={cn('shrink-0 text-xs', active ? 'text-gray-700' : 'text-muted-foreground')}>{when}</span>
             {/* The row menu button sits over this slot, so the time never moves when it appears. */}
             <span className="w-8 shrink-0" aria-hidden="true" />
           </span>
           <span className="mt-0.5 flex items-center gap-2">
-            <span className={cn('min-w-0 flex-1 truncate text-sm', active ? 'text-blue-50' : unread ? 'text-foreground' : 'text-muted-foreground', chat.lastMessage?.isDeleted && 'italic')}>
-              {preview.prefix && <span className={active ? 'text-white' : 'text-blue-700'}>{preview.prefix}</span>}
+            <span className={cn('min-w-0 flex-1 truncate text-sm', unread ? 'text-foreground' : active ? 'text-gray-700' : 'text-muted-foreground', chat.lastMessage?.isDeleted && 'italic')}>
+              {/* Gray like the rest of a read row; only an unread row emphasises the name, in bold (never blue). */}
+              {preview.prefix && <span className={unread ? 'font-semibold text-foreground' : undefined}>{preview.prefix}</span>}
               {preview.text || (chat.lastMessage ? '' : 'No messages yet')}
             </span>
             {chat.unreadCount > 0 ? (
-              <CountBadge n={chat.unreadCount} className={active ? 'bg-white text-blue-700' : undefined} />
+              <CountBadge n={chat.unreadCount} />
             ) : chat.manualUnread ? (
-              <span role="img" aria-label="Marked unread" className={cn('h-2.5 w-2.5 shrink-0 rounded-full', active ? 'bg-white' : 'bg-blue-600')} />
+              <span role="img" aria-label="Marked unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />
             ) : null}
           </span>
         </span>
@@ -100,7 +104,7 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
             className={cn(
               'absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full opacity-0 transition-opacity',
               'focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100',
-              active ? 'text-white hover:bg-blue-700' : 'text-muted-foreground hover:bg-accent',
+              active ? 'text-gray-700 hover:bg-blue-100' : 'text-muted-foreground hover:bg-accent',
               FOCUS_RING,
             )}
           >

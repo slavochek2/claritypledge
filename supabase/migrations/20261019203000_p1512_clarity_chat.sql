@@ -54,6 +54,10 @@
 --   * A Realtime DELETE (cascade when an event or conversation is removed) is not RLS-filtered; its
 --     payload carries only the row's primary key, which is why chat_member_state has a surrogate id
 --     (its natural key would have leaked who is in which conversation).
+--   * Sends are idempotent per (author, client_id): a retry whose first response was lost returns the
+--     stored row. client_id stays SELECT-able (random, unique per author, not secret); the sender uses
+--     it to match the Realtime echo to its pending message. Its uniqueness is per author, so another
+--     person's message can never be returned or blocked by a key you choose.
 --   * Attachment visibility mirrors the points / stories SELECT policies by hand (see
 --     _chat_can_attach); if those policies change, change the helper with them.
 --
@@ -114,6 +118,10 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   kind                        text NOT NULL DEFAULT 'message' CHECK (kind IN ('message', 'forward', 'clarify')),
   attachment_kind             text CHECK (attachment_kind IS NULL OR attachment_kind IN ('point', 'story')),
   attachment_id               uuid,
+  -- Idempotency key chosen by the sending client: a retry of a send whose response was lost returns
+  -- the original row instead of posting twice. Random and unique per author, so it is not secret and
+  -- stays SELECT-able (the sender also needs it to match the Realtime echo to its pending message).
+  client_id                   uuid,
   CONSTRAINT chat_messages_attachment_pair CHECK ((attachment_kind IS NULL) = (attachment_id IS NULL)),
   -- a deleted message carries no content at all: the body is removed on the server, not flagged
   CONSTRAINT chat_messages_deleted_is_empty CHECK (
@@ -128,6 +136,10 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   )
 );
 
+-- Re-run safety for a database that already holds the table without the column.
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS client_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_author_client ON public.chat_messages (author_id, client_id)
+  WHERE client_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS chat_messages_conversation_created ON public.chat_messages (conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS chat_messages_thread_root          ON public.chat_messages (thread_root_id) WHERE thread_root_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS chat_messages_author               ON public.chat_messages (author_id) WHERE author_id IS NOT NULL;
@@ -787,6 +799,70 @@ $$;
 REVOKE ALL ON FUNCTION public.search_my_messages(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.search_my_messages(text) TO authenticated;
 
+DROP FUNCTION IF EXISTS public.get_thread_stats(uuid, uuid[]);
+-- Reply counts and the most recent repliers for a page of thread roots, aggregated in one pass on
+-- the server (a client-side select of the replies would be cut by row limits across roots). Only
+-- roots of THIS conversation that the caller can read are answered, so an id from another chat is
+-- simply absent from the result. Channels only; at most 100 roots per call.
+CREATE FUNCTION public.get_thread_stats(p_conversation uuid, p_roots uuid[])
+RETURNS TABLE (root_id uuid, reply_count integer, recent_author_ids uuid[])
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+#variable_conflict use_column
+DECLARE
+  v_uid   uuid := auth.uid();
+  v_since timestamptz;
+  v_kind  text;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'chat: not authenticated' USING ERRCODE = '42501';
+  END IF;
+  v_since := public._chat_access_since(p_conversation, v_uid);
+  IF v_since IS NULL THEN
+    RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
+  END IF;
+  IF COALESCE(cardinality(p_roots), 0) > 100 THEN
+    RAISE EXCEPTION 'chat: at most 100 threads per call' USING ERRCODE = '22023';
+  END IF;
+  SELECT c.kind INTO v_kind FROM public.chat_conversations c WHERE c.id = p_conversation;
+  IF v_kind NOT IN ('group', 'event') OR COALESCE(cardinality(p_roots), 0) = 0 THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  WITH roots AS (
+    SELECT m.id AS rid FROM public.chat_messages m
+     WHERE m.id = ANY(p_roots) AND m.conversation_id = p_conversation
+       AND m.thread_root_id IS NULL AND m.created_at >= v_since
+  ), replies AS (
+    SELECT m.thread_root_id AS rid, m.author_id, m.created_at
+      FROM public.chat_messages m
+     WHERE m.conversation_id = p_conversation
+       AND m.thread_root_id IN (SELECT r.rid FROM roots r)
+       AND m.deleted_at IS NULL AND m.created_at >= v_since
+  ), counts AS (
+    SELECT x.rid, count(*)::integer AS n FROM replies x GROUP BY x.rid
+  ), recent AS (
+    SELECT x.rid, x.author_id, max(x.created_at) AS last_at
+      FROM replies x WHERE x.author_id IS NOT NULL GROUP BY x.rid, x.author_id
+  ), ranked AS (
+    SELECT y.rid, y.author_id, row_number() OVER (PARTITION BY y.rid ORDER BY y.last_at DESC, y.author_id) AS rn
+      FROM recent y
+  )
+  SELECT r.rid,
+         COALESCE(c.n, 0),
+         COALESCE((SELECT array_agg(k.author_id ORDER BY k.rn) FROM ranked k WHERE k.rid = r.rid AND k.rn <= 3),
+                  '{}'::uuid[])
+    FROM roots r
+    LEFT JOIN counts c ON c.rid = r.rid;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_thread_stats(uuid, uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_thread_stats(uuid, uuid[]) TO authenticated;
+
 DROP FUNCTION IF EXISTS public.get_my_blocks();
 CREATE FUNCTION public.get_my_blocks()
 RETURNS TABLE (
@@ -886,13 +962,16 @@ $$;
 REVOKE ALL ON FUNCTION public.start_dm(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.start_dm(uuid) TO authenticated;
 
+-- The argument list gained p_client_id, so the old form is dropped first (created only by this file).
+DROP FUNCTION IF EXISTS public.send_chat_message(uuid, text, uuid, uuid, text, uuid);
 CREATE OR REPLACE FUNCTION public.send_chat_message(
   p_conversation    uuid,
   p_body            text,
   p_reply_to        uuid DEFAULT NULL,
   p_thread_root     uuid DEFAULT NULL,
   p_attachment_kind text DEFAULT NULL,
-  p_attachment_id   uuid DEFAULT NULL
+  p_attachment_id   uuid DEFAULT NULL,
+  p_client_id       uuid DEFAULT NULL
 )
 RETURNS public.chat_messages
 LANGUAGE plpgsql
@@ -908,6 +987,18 @@ DECLARE
 BEGIN
   v_conv  := public._chat_assert_can_post(p_conversation, v_uid);
   v_since := public._chat_access_since(p_conversation, v_uid);
+
+  -- Idempotent retry: this author already sent with this client id, so return THAT row. Reusing the
+  -- id for a different conversation is an error, never a cross-post.
+  IF p_client_id IS NOT NULL THEN
+    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
+    IF FOUND THEN
+      IF v_row.conversation_id <> p_conversation THEN
+        RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+      END IF;
+      RETURN v_row;
+    END IF;
+  END IF;
 
   v_body := NULLIF(btrim(COALESCE(p_body, '')), '');
   IF (p_attachment_kind IS NULL) <> (p_attachment_id IS NULL) THEN
@@ -948,11 +1039,21 @@ BEGIN
   -- clock_timestamp(), not now(): now() is the START of this transaction, which can be earlier than
   -- another device's read marker written while this call was running (unread would miscount).
   INSERT INTO public.chat_messages
-    (conversation_id, author_id, body, reply_to_id, thread_root_id, kind, attachment_kind, attachment_id, created_at)
+    (conversation_id, author_id, body, reply_to_id, thread_root_id, kind, attachment_kind, attachment_id,
+     client_id, created_at)
   VALUES
     (p_conversation, v_uid, v_body, p_reply_to, p_thread_root, 'message', p_attachment_kind, p_attachment_id,
-     clock_timestamp())
+     p_client_id, clock_timestamp())
+  ON CONFLICT (author_id, client_id) WHERE client_id IS NOT NULL DO NOTHING
   RETURNING * INTO v_row;
+  IF NOT FOUND THEN
+    -- a concurrent call with the same client id committed first: return its row
+    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
+    IF v_row.conversation_id <> p_conversation THEN
+      RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+    END IF;
+    RETURN v_row;
+  END IF;
 
   IF p_thread_root IS NULL THEN
     UPDATE public.chat_conversations c SET last_message_at = v_row.created_at WHERE c.id = p_conversation;
@@ -968,8 +1069,8 @@ BEGIN
   RETURN v_row;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.send_chat_message(uuid, text, uuid, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.send_chat_message(uuid, text, uuid, uuid, text, uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.send_chat_message(uuid, text, uuid, uuid, text, uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.send_chat_message(uuid, text, uuid, uuid, text, uuid, uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.edit_chat_message(p_message uuid, p_body text)
 RETURNS public.chat_messages
@@ -1047,10 +1148,12 @@ $$;
 REVOKE ALL ON FUNCTION public.delete_chat_message(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_chat_message(uuid) TO authenticated;
 
+DROP FUNCTION IF EXISTS public.forward_chat_message(uuid, uuid, text);
 CREATE OR REPLACE FUNCTION public.forward_chat_message(
   p_source              uuid,
   p_target_conversation uuid,
-  p_note                text DEFAULT NULL
+  p_note                text DEFAULT NULL,
+  p_client_id           uuid DEFAULT NULL
 )
 RETURNS public.chat_messages
 LANGUAGE plpgsql
@@ -1082,6 +1185,17 @@ BEGIN
   END IF;
   PERFORM public._chat_assert_can_post(p_target_conversation, v_uid);
 
+  -- Idempotent retry (see send_chat_message): same author + client id returns the earlier forward.
+  IF p_client_id IS NOT NULL THEN
+    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
+    IF FOUND THEN
+      IF v_row.conversation_id <> p_target_conversation THEN
+        RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+      END IF;
+      RETURN v_row;
+    END IF;
+  END IF;
+
   v_note := NULLIF(btrim(COALESCE(p_note, '')), '');
   IF char_length(v_note) > 4000 THEN
     RAISE EXCEPTION 'chat: message too long' USING ERRCODE = '22023';
@@ -1106,18 +1220,26 @@ BEGIN
 
   INSERT INTO public.chat_messages
     (conversation_id, author_id, body, kind, forward_snapshot, forward_author_id,
-     forwarded_from_message_id, attachment_kind, attachment_id, created_at)
+     forwarded_from_message_id, attachment_kind, attachment_id, client_id, created_at)
   VALUES
     (p_target_conversation, v_uid, v_note, 'forward', v_snapshot, v_orig_id,
-     v_src.id, v_src.attachment_kind, v_src.attachment_id, clock_timestamp())
+     v_src.id, v_src.attachment_kind, v_src.attachment_id, p_client_id, clock_timestamp())
+  ON CONFLICT (author_id, client_id) WHERE client_id IS NOT NULL DO NOTHING
   RETURNING * INTO v_row;
+  IF NOT FOUND THEN
+    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
+    IF v_row.conversation_id <> p_target_conversation THEN
+      RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+    END IF;
+    RETURN v_row;
+  END IF;
 
   UPDATE public.chat_conversations c SET last_message_at = v_row.created_at WHERE c.id = p_target_conversation;
   RETURN v_row;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.forward_chat_message(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.forward_chat_message(uuid, uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.forward_chat_message(uuid, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.forward_chat_message(uuid, uuid, text, uuid) TO authenticated;
 
 -- Clarify: copy a message (and the thread it sits in) into the CALLER'S OWN mirror chat.
 -- Nothing is written to the source conversation.
@@ -1781,7 +1903,7 @@ BEGIN
                          'get_my_blocks', 'start_dm', 'send_chat_message', 'edit_chat_message',
                          'delete_chat_message', 'forward_chat_message', 'clarify_chat_message',
                          'mark_chat_read', 'set_chat_state', 'rename_mirror', 'block_user', 'unblock_user',
-                         'chat_my_access')
+                         'chat_my_access', 'get_thread_stats')
   LOOP
     IF has_function_privilege('anon', f.oid, 'EXECUTE') OR f.public_exec THEN
       RAISE EXCEPTION 'P1512: anon or PUBLIC can execute public.%', f.proname;

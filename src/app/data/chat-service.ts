@@ -37,7 +37,7 @@ export * from './chat-mappers';
 
 const MESSAGE_COLUMNS =
   'id, conversation_id, author_id, body, created_at, edited_at, deleted_at, reply_to_id, thread_root_id, ' +
-  'forwarded_from_message_id, forward_snapshot, kind, attachment_kind, attachment_id';
+  'forwarded_from_message_id, forward_snapshot, kind, attachment_kind, attachment_id, client_id';
 
 const CONVERSATION_COLUMNS =
   'id, kind, org_id, event_id, owner_id, dm_user_a, dm_user_b, title, created_at, last_message_at';
@@ -139,6 +139,35 @@ export async function getMessage(messageId: string): Promise<ChatMessage | null>
   return data ? mapMessageRow(data as unknown as ChatMessageRow) : null;
 }
 
+export interface ThreadStats {
+  /** Replies that are not deleted and that the caller can read. */
+  count: number;
+  /** Up to 3 distinct most-recent repliers, newest first (erased accounts are left out). */
+  authorIds: string[];
+}
+
+const THREAD_STATS_PAGE = 100;
+
+/**
+ * Reply counts and recent repliers for thread roots of one channel, computed on the server. Roots
+ * that are not readable roots of this conversation are absent from the map. Accepts any number of
+ * ids; the server takes at most 100 per call, so this pages.
+ */
+export async function getThreadStats(conversationId: string, rootIds: string[]): Promise<Map<string, ThreadStats>> {
+  const out = new Map<string, ThreadStats>();
+  const unique = [...new Set(rootIds)];
+  for (let i = 0; i < unique.length; i += THREAD_STATS_PAGE) {
+    const rows = await rpc<Array<{ root_id: string; reply_count: number; recent_author_ids: string[] | null }> | null>(
+      'get_thread_stats',
+      { p_conversation: conversationId, p_roots: unique.slice(i, i + THREAD_STATS_PAGE) },
+    );
+    for (const r of rows ?? []) {
+      out.set(r.root_id, { count: r.reply_count, authorIds: r.recent_author_ids ?? [] });
+    }
+  }
+  return out;
+}
+
 /** The signed-in user's own read / archive markers. RLS returns nobody else's. */
 export async function listMyMemberState(): Promise<ChatMemberState[]> {
   const { data, error } = await supabase
@@ -232,6 +261,12 @@ export interface SendMessageInput {
   /** Reply inside a thread (channels only); must be a root message. */
   threadRootId?: string;
   attachment?: { kind: ChatAttachmentKind; id: string };
+  /**
+   * Idempotency key (a fresh uuid per send, reused unchanged when the SAME send is retried). If the
+   * server already stored a message from this user with this id it returns that message instead of
+   * posting a second one; using it for a different conversation is an error.
+   */
+  clientId?: string;
 }
 
 export async function sendMessage(input: SendMessageInput): Promise<ChatMessage> {
@@ -242,6 +277,7 @@ export async function sendMessage(input: SendMessageInput): Promise<ChatMessage>
     p_thread_root: input.threadRootId ?? null,
     p_attachment_kind: input.attachment?.kind ?? null,
     p_attachment_id: input.attachment?.id ?? null,
+    ...(input.clientId ? { p_client_id: input.clientId } : {}),
   });
   return mapMessageRow(row);
 }
@@ -260,12 +296,15 @@ export async function forwardMessage(
   sourceMessageId: string,
   targetConversationId: string,
   note?: string,
+  /** Idempotency key, see SendMessageInput.clientId. */
+  clientId?: string,
 ): Promise<ChatMessage> {
   return mapMessageRow(
     await rpc<ChatMessageRow>('forward_chat_message', {
       p_source: sourceMessageId,
       p_target_conversation: targetConversationId,
       p_note: note ?? null,
+      ...(clientId ? { p_client_id: clientId } : {}),
     }),
   );
 }

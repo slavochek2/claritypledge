@@ -49,6 +49,8 @@ export interface ChatMessage {
   kind: ChatMessageKind;
   attachmentKind: ChatAttachmentKind | null;
   attachmentId: string | null;
+  /** The sender's idempotency key; lets the sender match the Realtime echo to its pending message. */
+  clientId?: string | null;
 }
 
 export interface ChatSummary {
@@ -154,6 +156,7 @@ export interface ChatMessageRow {
   kind: ChatMessageKind;
   attachment_kind: ChatAttachmentKind | null;
   attachment_id: string | null;
+  client_id?: string | null;
 }
 
 export interface ChatSummaryRow {
@@ -261,6 +264,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     kind: row.kind,
     attachmentKind: row.attachment_kind,
     attachmentId: row.attachment_id,
+    clientId: row.client_id ?? null,
   };
 }
 

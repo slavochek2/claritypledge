@@ -10,7 +10,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, MoreH
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { cn } from '@/lib/utils';
-import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, PersonMark, type PersonLike } from './chat-kit';
+import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark, type PersonLike } from './chat-kit';
 import { mirrorLabel } from './chat-view-model';
 
 export interface HeaderActions {
@@ -23,6 +23,8 @@ export interface HeaderActions {
 }
 
 const NAME = 'block break-words text-[15px] font-semibold leading-tight text-foreground line-clamp-2 sm:text-base sm:leading-normal sm:line-clamp-1';
+/** The mirror's name keeps its role as its own segment, so it is one line and the title truncates. */
+const NAME_ONE_LINE = 'block min-w-0 text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
 const SUB = 'block truncate text-xs text-muted-foreground';
 const TITLE_BOX = 'flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg';
 
@@ -93,7 +95,10 @@ function Title({ chat, owner }: { chat: ChatSummary; owner: PersonLike }) {
         <div className={TITLE_BOX}>
           <MirrorMark owner={owner} size="sm" className="hidden sm:inline-flex" />
           {/* The role is part of the name and is never the part that gets cut. */}
-          <h1 className={NAME}>{mirrorLabel(chat)}</h1>
+          {/* Two segments for layout; one name for everything that reads it. */}
+          <h1 className={NAME_ONE_LINE} aria-label={mirrorLabel(chat)}>
+            <MirrorTitle chat={chat} />
+          </h1>
         </div>
       );
   }

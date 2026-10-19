@@ -39,10 +39,10 @@ const svc = vi.hoisted(() => ({
   searchMessages: vi.fn(),
   startDm: vi.fn(),
   subscribeToChat: vi.fn(),
+  getThreadStats: vi.fn(),
 }));
 const helpers = vi.hoisted(() => ({
   getChatAuthors: vi.fn(),
-  getThreadStats: vi.fn(),
   loadMyShareables: vi.fn(),
   loadAttachment: vi.fn(),
 }));
@@ -62,10 +62,13 @@ vi.mock('@/app/data/chat-ui-helpers', () => ({
 vi.mock('@/app/components/feed/feed-point-card', () => ({ FeedPointCard: ({ point }: { point: { statement: string } }) => <div data-testid="point-card">{point.statement}</div> }));
 vi.mock('@/app/components/feed/feed-story-card', () => ({ FeedStoryCard: ({ story }: { story: { content: string } }) => <div data-testid="story-card">{story.content}</div> }));
 
-import { ChatProvider, LIST_READ_TIMEOUT_MS, SAFETY_POLL_MS } from '@/app/pages/chat/chat-provider';
+import { ChatProvider, LIST_POLL_MS, LIST_READ_TIMEOUT_MS, SAFETY_POLL_MS } from '@/app/pages/chat/chat-provider';
+import { SYNC_LIMITS } from '@/app/pages/chat/use-conversation';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
+import { AttachmentCard, ATTACHMENT_TIMEOUT_MS } from '@/app/pages/chat/AttachmentCard';
 import {
   chatErrorText,
+  compareMessages,
   isChatVisibleInList,
   mirrorLabel,
   parseChatRoute,
@@ -215,7 +218,7 @@ beforeEach(() => {
     return () => undefined;
   });
   helpers.getChatAuthors.mockImplementation(async (ids: string[]) => authors.filter((a) => ids.includes(a.id)));
-  helpers.getThreadStats.mockResolvedValue(new Map());
+  svc.getThreadStats.mockResolvedValue(new Map());
   helpers.loadMyShareables.mockResolvedValue([]);
   helpers.loadAttachment.mockResolvedValue(null);
 });
@@ -471,7 +474,7 @@ describe('conversation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('Sending…')).toBeInTheDocument();
     expect(screen.getByText('hello Ada')).toBeInTheDocument();
-    expect(svc.sendMessage).toHaveBeenCalledWith({ conversationId: 'dm1', threadRootId: undefined, body: 'hello Ada', replyToId: undefined, attachment: undefined });
+    expect(svc.sendMessage).toHaveBeenCalledWith({ conversationId: 'dm1', threadRootId: undefined, body: 'hello Ada', replyToId: undefined, attachment: undefined, clientId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) });
     await act(async () => resolve(msg('dm1', ME.id, 'hello Ada', { id: 'server-1' })));
     await waitFor(() => expect(screen.queryByText('Sending…')).not.toBeInTheDocument());
     expect(logOf().getAllByText('hello Ada')).toHaveLength(1);
@@ -541,7 +544,7 @@ describe('conversation', () => {
   it('offers a thread only in channels, with the reply count, and opens the panel from the route', async () => {
     const root = msg('g1', 'p-grace', 'start a thread here', { id: 'root' });
     const reply = msg('g1', ME.id, 'a reply in the thread', { id: 'rep', threadRootId: 'root' });
-    helpers.getThreadStats.mockResolvedValue(new Map([['root', { count: 1, authorIds: [ME.id] }]]));
+    svc.getThreadStats.mockResolvedValue(new Map([['root', { count: 1, authorIds: [ME.id] }]]));
     const { unmount } = renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     await screen.findByText('start a thread here');
     expect(await screen.findByTestId('replies-link')).toHaveTextContent('1 reply');
@@ -566,7 +569,7 @@ describe('conversation', () => {
   it('keeps the conversation loaded and in place when its thread opens', async () => {
     const root = msg('g1', 'p-grace', 'main pane message', { id: 'root2' });
     const reply = msg('g1', ME.id, 'thread pane reply', { id: 'rep2', threadRootId: 'root2' });
-    helpers.getThreadStats.mockResolvedValue(new Map([['root2', { count: 1, authorIds: [ME.id] }]]));
+    svc.getThreadStats.mockResolvedValue(new Map([['root2', { count: 1, authorIds: [ME.id] }]]));
     renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     await screen.findByText('main pane message');
     const mainLoads = svc.listMessages.mock.calls.length;
@@ -595,9 +598,9 @@ describe('conversation', () => {
     const toolbar = () => within(text.closest('li') as HTMLElement).getByRole('toolbar', { name: 'Message actions' });
     expect(toolbar()).toHaveClass('absolute'); // not selected: the hover variant, invisible until hover or focus
     fireEvent.pointerUp(text);
-    expect(toolbar()).toHaveClass('inline-flex', 'flex-wrap');
+    expect(toolbar()).toHaveClass('inline-flex', 'flex-nowrap');
     expect(toolbar()).not.toHaveClass('absolute');
-    expect(within(toolbar()).getByText('Forward')).toBeInTheDocument(); // touch has no hover tip: the words show
+    expect(within(toolbar()).getByRole('button', { name: 'Forward' })).toBeInTheDocument(); // icon-only, so the row can never wrap
     fireEvent.scroll(screen.getByTestId('message-scroller'));
     expect(toolbar()).toHaveClass('absolute');
     fireEvent.pointerUp(text);
@@ -649,7 +652,7 @@ describe('conversation', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /Builders/ }));
     fireEvent.change(within(dialog).getByLabelText(/Add a note/), { target: { value: 'see this' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(svc.forwardMessage).toHaveBeenCalledWith('fw1', 'g1', 'see this'));
+    await waitFor(() => expect(svc.forwardMessage).toHaveBeenCalledWith('fw1', 'g1', 'see this', expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)));
     expect(toastFn).toHaveBeenCalledWith('Forwarded', expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }));
   });
 
@@ -818,7 +821,8 @@ describe('realtime', () => {
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'race me');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Sending…');
-    const confirmed = msg('dm1', ME.id, 'race me', { id: 'rt-3', createdAt: new Date().toISOString() });
+    const sentWith = (svc.sendMessage.mock.calls[0]![0] as { clientId: string }).clientId;
+    const confirmed = msg('dm1', ME.id, 'race me', { id: 'rt-3', createdAt: new Date().toISOString(), clientId: sentWith });
     act(() => handlers?.onMessage({ type: 'INSERT', message: confirmed }));
     await waitFor(() => expect(screen.queryByText('Sending…')).not.toBeInTheDocument());
     expect(logOf().getAllByText('race me')).toHaveLength(1);
@@ -1136,10 +1140,10 @@ describe('review round 2 (continued)', () => {
 
   it('a deleted thread reply lowers the reply count', async () => {
     const root = msg('g1', 'p-grace', 'counted root', { id: 'root20' });
-    helpers.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 2, authorIds: [ME.id] }]]));
+    svc.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 2, authorIds: [ME.id] }]]));
     renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root] });
     expect(await screen.findByTestId('replies-link')).toHaveTextContent('2 replies');
-    helpers.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 1, authorIds: [ME.id] }]]));
+    svc.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 1, authorIds: [ME.id] }]]));
     act(() => handlers?.onMessage({ type: 'UPDATE', message: msg('g1', ME.id, null, { id: 'gone-reply', threadRootId: 'root20', isDeleted: true, deletedAt: iso(0) }) }));
     await waitFor(() => expect(screen.getByTestId('replies-link')).toHaveTextContent('1 reply'));
   });
@@ -1191,8 +1195,8 @@ describe('review round 2 (continued)', () => {
       const list = renderChat('/home', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       let base = svc.getMyChats.mock.calls.length;
-      await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS * 2 + 100); });
-      expect(svc.getMyChats.mock.calls.length).toBe(base); // nothing open: no timer reads
+      await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS + 5_000); });
+      expect(svc.getMyChats.mock.calls.length).toBe(base); // nothing open: the 60s conversation timer does not run (the 2-minute list refresh is tested separately)
       list.unmount();
       renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
       await screen.findByText('one');
@@ -1226,6 +1230,522 @@ describe('review round 2 (continued)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Final batch
+// ---------------------------------------------------------------------------
+describe('final batch', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const cursorTime = (before: unknown) =>
+    typeof before === 'string' ? Date.parse(before) : before && typeof before === 'object' ? Date.parse((before as { createdAt: string }).createdAt) : Infinity;
+  const mk = (n: number, prefix: string, ageSec: number) => msg('dm1', 'p-dm1', `${prefix} ${String(n).padStart(3, '0')}`, { id: `${prefix}${n}`, createdAt: new Date(NOW - ageSec * 1000).toISOString() });
+  const treeAt = (path: string) => (
+    <MemoryRouter initialEntries={[path]}>
+      <ChatProvider>
+        <Routes>
+          <Route path="/home/*" element={<ChatHomePage />} />
+        </Routes>
+        <Probe />
+      </ChatProvider>
+    </MemoryRouter>
+  );
+  afterEach(() => {
+    SYNC_LIMITS.maxPages = 20;
+  });
+
+  // ---- E: full-precision timestamps ----
+  it('E: messages are ordered by their full microsecond timestamps, whatever offset the string is written in', () => {
+    const a = { id: 'a', createdAt: '2026-10-19T10:00:00.123500+00:00' };
+    const b = { id: 'b', createdAt: '2026-10-19T17:00:00.123400+07:00' }; // the same second, 100 microseconds EARLIER
+    expect(compareMessages(a, b)).toBeGreaterThan(0);
+    expect(compareMessages(b, a)).toBeLessThan(0);
+    expect(compareMessages({ id: 'x', createdAt: '2026-10-19T10:00:00.1235Z' }, { id: 'x', createdAt: '2026-10-19T10:00:00.123500+00:00' })).toBe(0);
+    expect(compareMessages({ id: 'x', createdAt: '2026-10-19T10:00:00Z' }, { id: 'y', createdAt: '2026-10-19T10:00:00.000001Z' })).toBeLessThan(0);
+  });
+
+  it('E: "read through" is the message that is really newest, even when two differ by microseconds inside one millisecond', async () => {
+    const base = new Date(NOW - 60_000).toISOString().replace('Z', ''); // ...:00.mmm
+    const shownNewest = msg('dm1', 'p-dm1', 'the newest', { id: 'S', createdAt: `${base}789+00:00` });
+    const staleListed = { ...last('older', 1, 'p-dm1', 'Ada'), id: 'L', createdAt: `${base}456+00:00` }; // the list lags by 333 microseconds
+    renderChat('/home/c/dm1', async () => [mirror(), dm('dm1', 'Ada Lovelace', { unreadCount: 1, lastMessage: staleListed })], { dm1: [shownNewest] });
+    await screen.findByText('the newest');
+    await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'S' }));
+    expect(svc.markRead).not.toHaveBeenCalledWith('dm1', { throughMessageId: 'L' });
+  });
+
+  // ---- A: a resync that cannot overlap must not merge across a gap ----
+  it('A: a resync that never reaches what was loaded replaces the window (no gap), and "Load earlier" then pages back cleanly', async () => {
+    SYNC_LIMITS.maxPages = 2;
+    let pool: ChatMessage[] = Array.from({ length: 60 }, (_, i) => mk(i + 1, 'old', 9000 - i));
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
+      pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
+    );
+    render(treeAt('/home/c/dm1'));
+    await screen.findByText('old 060');
+    pool = [...pool, ...Array.from({ length: 130 }, (_, i) => mk(i + 1, 'new', 4000 - i))]; // more than two pages while away
+    act(() => handlers?.onSubscribed?.());
+    await logOf().findByText('new 130');
+    expect(logOf().getByText('new 031')).toBeInTheDocument(); // the two pages that were read
+    expect(logOf().queryByText('old 060')).not.toBeInTheDocument(); // NOT glued across the unread gap
+    fireEvent.click(await screen.findByRole('button', { name: 'Load earlier messages' }));
+    expect(await logOf().findByText('new 001')).toBeInTheDocument(); // the gap fills in order
+    expect(logOf().getByText('old 060')).toBeInTheDocument();
+  });
+
+  it('A: when the resync reaches the start of the conversation without overlap, "Load earlier" is not offered', async () => {
+    let pool: ChatMessage[] = Array.from({ length: 60 }, (_, i) => mk(i + 1, 'old', 9000 - i));
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
+      pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
+    );
+    render(treeAt('/home/c/dm1'));
+    await screen.findByText('old 060');
+    expect(screen.getByRole('button', { name: 'Load earlier messages' })).toBeInTheDocument();
+    pool = Array.from({ length: 12 }, (_, i) => mk(i + 1, 'only', 100 - i)); // everything older is gone
+    act(() => handlers?.onSubscribed?.());
+    await logOf().findByText('only 012');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Load earlier messages' })).not.toBeInTheDocument());
+  });
+
+  // ---- B: an authoritative resync drops what the server no longer returns ----
+  it('B: a resync that returns nothing empties the window it captured', async () => {
+    let pool: ChatMessage[] = [mk(1, 'gone', 300), mk(2, 'gone', 200)];
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async () => pool);
+    render(treeAt('/home/c/dm1'));
+    await screen.findByText('gone 002');
+    pool = [];
+    act(() => handlers?.onSubscribed?.());
+    await waitFor(() => expect(screen.queryByText('gone 002')).not.toBeInTheDocument());
+    expect(screen.queryByText('gone 001')).not.toBeInTheDocument();
+  });
+
+  it('B: a message newer than everything the server returned is dropped too, unless it arrived after the read began', async () => {
+    const m1 = mk(1, 'keep', 300);
+    const m2 = mk(2, 'keep', 200);
+    const m3 = mk(3, 'removed', 100); // deleted at the database level while the socket was down
+    let pool: ChatMessage[] = [m1, m2, m3];
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    svc.listMessages.mockImplementation(async () => pool);
+    render(treeAt('/home/c/dm1'));
+    await screen.findByText('removed 003');
+    pool = [m1, m2];
+    let release!: () => void;
+    svc.listMessages.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve([m1, m2]); }));
+    act(() => handlers?.onSubscribed?.());
+    await waitFor(() => expect(release).toBeDefined());
+    // an ordinary message arrives by Realtime while that read is in flight: it must survive
+    act(() => handlers?.onMessage({ type: 'INSERT', message: mk(4, 'arrived', 0) }));
+    await act(async () => release());
+    await waitFor(() => expect(screen.queryByText('removed 003')).not.toBeInTheDocument());
+    expect(logOf().getByText('arrived 004')).toBeInTheDocument();
+    expect(logOf().getByText('keep 002')).toBeInTheDocument();
+  });
+
+  // ---- C: an own thread reply is counted once ----
+  it('C: my own thread reply is counted once, not once by the send and once by Realtime', async () => {
+    await asDesktopAsync(async () => {
+      const root = msg('g1', 'p-grace', 'counted once root', { id: 'rootC' });
+      svc.getThreadStats.mockResolvedValue(new Map([['rootC', { count: 1, authorIds: ['p-grace'] }]]));
+      const reply = msg('g1', ME.id, 'my reply', { id: 'replyC', threadRootId: 'rootC', createdAt: new Date().toISOString() });
+      svc.sendMessage.mockResolvedValue(reply);
+      renderChat('/home/c/g1/t/rootC', [mirror(), group('g1', 'Builders')], { g1: [root] });
+      const panel = await screen.findByTestId('thread-panel');
+      const main = within(screen.getByTestId('conversation'));
+      expect(await main.findByTestId('replies-link')).toHaveTextContent('1 reply');
+      await userEvent.type(within(panel).getByRole('textbox', { name: 'Reply in thread' }), 'my reply');
+      fireEvent.click(within(panel).getByRole('button', { name: 'Send' }));
+      await waitFor(() => expect(main.getByTestId('replies-link')).toHaveTextContent('2 replies'));
+      act(() => handlers?.onMessage({ type: 'INSERT', message: reply })); // the same message again, by Realtime
+      await sleep(100);
+      expect(main.getByTestId('replies-link')).toHaveTextContent('2 replies');
+    });
+  });
+
+  // ---- G: a slow list-only refresh ----
+  it('G: the list refreshes every 2 minutes while it is shown and the tab is visible; no conversation read, nothing before then', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderChat('/home', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+    const base = svc.getMyChats.mock.calls.length;
+    const msgBase = svc.listMessages.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(LIST_POLL_MS - 1000); });
+    expect(svc.getMyChats.mock.calls.length).toBe(base);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(svc.getMyChats.mock.calls.length).toBe(base + 1);
+    expect(svc.listMessages.mock.calls.length).toBe(msgBase);
+  });
+
+  it('G: no list timer on other pages, and none while the tab is hidden', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = render(
+      <MemoryRouter initialEntries={['/feed']}>
+        <ChatProvider>
+          <Routes>
+            <Route path="/feed" element={<div>the feed</div>} />
+          </Routes>
+        </ChatProvider>
+      </MemoryRouter>,
+    );
+    svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+    await screen.findByText('the feed');
+    const base = svc.getMyChats.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(LIST_POLL_MS * 2 + 100); });
+    expect(svc.getMyChats.mock.calls.length).toBe(base);
+    view.unmount();
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    try {
+      renderChat('/home', [mirror(), dmChat]);
+      await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+      const b2 = svc.getMyChats.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(LIST_POLL_MS * 2 + 100); });
+      expect(svc.getMyChats.mock.calls.length).toBe(b2);
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 3: H to M (visual QA)
+// ---------------------------------------------------------------------------
+describe('review round 3', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const mirrorChat = mirror('c-mirror', { ownerFirstName: 'Mia' });
+  const classesOf = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
+
+  // ---- H: an attachment card is never an empty box ----
+  describe('H: attachment card states', () => {
+    const readyItem = { kind: 'point', id: 'pt', title: 'T', tags: [], point: { id: 'pt', statement: 'a point everyone may read' } };
+    let onLine = true;
+    beforeEach(() => {
+      onLine = true;
+      vi.spyOn(window.navigator, 'onLine', 'get').mockImplementation(() => onLine);
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it('while loading it is a labelled skeleton row that says what is coming, not an empty box', () => {
+      helpers.loadAttachment.mockReturnValue(new Promise(() => undefined));
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      const status = screen.getByRole('status', { name: 'Loading attachment' });
+      expect(status).toHaveTextContent('Loading point');
+      expect(status.className).toContain('animate-pulse');
+    });
+
+    it('a failed read is a compact "Couldn\'t load this point" row with Retry, and Retry loads it', async () => {
+      helpers.loadAttachment.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(readyItem);
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      const row = await screen.findByTestId('attachment-error');
+      expect(row).toHaveTextContent("Couldn't load this point");
+      expect(screen.queryByRole('status', { name: 'Loading attachment' })).not.toBeInTheDocument();
+      fireEvent.click(within(row).getByRole('button', { name: 'Retry' }));
+      expect(await screen.findByTestId('point-card')).toHaveTextContent('a point everyone may read');
+      expect(helpers.loadAttachment).toHaveBeenCalledTimes(2);
+    });
+
+    it('a read that never answers becomes the error row instead of a skeleton for ever', async () => {
+      vi.useFakeTimers();
+      helpers.loadAttachment.mockReturnValue(new Promise(() => undefined));
+      render(<AttachmentCard kind="story" id="st" viewerId={ME.id} />);
+      expect(screen.getByRole('status', { name: 'Loading attachment' })).toBeInTheDocument();
+      await act(async () => { await vi.advanceTimersByTimeAsync(ATTACHMENT_TIMEOUT_MS + 100); });
+      expect(screen.getByTestId('attachment-error')).toHaveTextContent("Couldn't load this story");
+    });
+
+    it('offline it says "Available when you\'re back online" (never a skeleton) and loads by itself when the connection returns', async () => {
+      onLine = false;
+      helpers.loadAttachment.mockReturnValueOnce(new Promise(() => undefined)).mockResolvedValueOnce(readyItem);
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      expect(screen.getByTestId('attachment-offline')).toHaveTextContent("Available when you're back online");
+      expect(screen.queryByRole('status', { name: 'Loading attachment' })).not.toBeInTheDocument();
+      onLine = true;
+      act(() => { window.dispatchEvent(new Event('online')); });
+      expect(await screen.findByTestId('point-card')).toBeInTheDocument();
+      expect(screen.queryByTestId('attachment-offline')).not.toBeInTheDocument();
+    });
+
+    it('an item that came back with nothing to draw reads "Not available to you", never an empty card', async () => {
+      helpers.loadAttachment.mockResolvedValue({ kind: 'point', id: 'pt', title: 'T', tags: [] });
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      expect(await screen.findByText('Not available to you')).toBeInTheDocument();
+      expect(screen.queryByTestId('attachment-point')).not.toBeInTheDocument();
+    });
+  });
+
+  // ---- I: no "Open original" on a copy whose source is erased ----
+  it('I: a forward or clarify whose snapshot is erased or removed has no "Open original"; a normal one keeps it', async () => {
+    const snap = (authorName: string, body: string | null) => ({ authorName, body, createdAt: iso(30), conversationKind: 'group' as const, conversationTitle: null, thread: [] });
+    const erasedAuthor = msg('dm1', 'p-dm1', null, { id: 'e1', kind: 'forward', forwardSnapshot: snap('Deleted user', 'words from an erased person'), forwardedFromMessageId: 's1' });
+    const nullBody = msg('dm1', 'p-dm1', null, { id: 'e2', kind: 'forward', forwardSnapshot: snap('Grace Hopper', null), forwardedFromMessageId: 's2' });
+    const clarifyGone = msg('dm1', ME.id, null, { id: 'e3', kind: 'clarify', forwardSnapshot: snap('Deleted user', null), forwardedFromMessageId: 's3' });
+    const fine = msg('dm1', 'p-dm1', null, { id: 'e4', kind: 'forward', forwardSnapshot: snap('Grace Hopper', 'still here'), forwardedFromMessageId: 's4' });
+    renderChat('/home/c/dm1', [mirrorChat, dmChat], { dm1: [erasedAuthor, nullBody, clarifyGone, fine] });
+    await screen.findByText('still here');
+    const cards = [...screen.getAllByTestId('forwarded-card'), ...screen.getAllByTestId('clarified-card')];
+    expect(cards).toHaveLength(4);
+    const withButton = cards.filter((c) => within(c).queryByRole('button', { name: 'Open original' }));
+    expect(withButton).toHaveLength(1);
+    expect(withButton[0]).toHaveTextContent('still here');
+  });
+
+  // ---- J: the mirror keeps its role as its own segment ----
+  describe('J: the mirror role is never cut', () => {
+    const long = 'A very long mirror name that will certainly not fit on one line of a phone';
+    const named = mirror('c-mirror', { ownerFirstName: 'Mia', title: long });
+
+    it('in the list the title is the part that truncates and "· Mia\'s mirror" is its own segment that does not shrink', async () => {
+      renderChat('/home', [named, dmChat]);
+      await screen.findAllByTestId('row-title');
+      const title = document.querySelector('[data-chat="c-mirror"] [data-testid="row-title"]') as HTMLElement;
+      const [name, role] = Array.from(title.querySelectorAll(':scope > span > span'));
+      expect(name).toHaveTextContent(long);
+      expect(classesOf(name!)).toContain('truncate');
+      expect(role).toHaveTextContent("· Mia's mirror");
+      expect(classesOf(role!)).toContain('shrink-0');
+      expect(classesOf(role!)).not.toContain('truncate');
+    });
+
+    it('in the header the same two segments, under one heading that still reads as the full label', async () => {
+      renderChat('/home/c/c-mirror', [named, dmChat]);
+      const h1 = await screen.findByRole('heading', { name: `${long} · Mia's mirror` });
+      const [name, role] = Array.from(h1.querySelectorAll(':scope > span > span'));
+      expect(classesOf(name!)).toContain('truncate');
+      expect(classesOf(role!)).toContain('shrink-0');
+    });
+
+    it('with no custom name the role alone is the title', async () => {
+      renderChat('/home', [mirrorChat, dmChat]);
+      expect(await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
+    });
+  });
+
+  // ---- K and L: the selected row and the preview prefixes ----
+  describe('K and L: list row styling', () => {
+    // Tailwind palette values for the few classes a row may use, to check contrast without a browser.
+    const HEX: Record<string, string> = {
+      'blue-50': '#eff6ff', 'gray-600': '#4b5563', 'gray-700': '#374151', 'gray-900': '#111827', 'blue-700': '#1d4ed8', white: '#ffffff',
+    };
+    const lum = (hex: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+    };
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x) as [number, number];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const colorOf = (el: Element) => {
+      const m = classesOf(el).find((c) => /^text-(gray|blue)-\d+$/.test(c) || c === 'text-white');
+      return m ? HEX[m.slice(5)] : undefined;
+    };
+
+    it('K: the selected row is a light blue tint with a blue accent, not a blue fill; avatars stay visible and text is at least 4.5:1', async () => {
+      const grp = group('g1', 'Builders', { lastMessage: last('hello all', 5, 'p-grace', 'Grace Hopper') });
+      renderChat('/home/c/g1', [mirrorChat, dmChat, grp]);
+      const row = (await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' })).closest('li')!;
+      const btn = within(row).getAllByRole('button')[0]!;
+      const cls = classesOf(btn);
+      expect(btn).toHaveAttribute('aria-current', 'true');
+      expect(cls).toContain('bg-blue-50');
+      expect(cls).not.toContain('bg-blue-600');
+      expect(cls).not.toContain('text-white');
+      expect(cls.join(' ')).toMatch(/shadow-\[inset_3px_0_0_0_#2563eb\]/);
+      // The channel avatar keeps its own light disc (it used to turn white-on-blue).
+      expect(row.querySelector('.bg-white.text-blue-600')).toBeNull();
+      // Every coloured text inside the selected row reads against the tint at 4.5:1.
+      const texts = [...row.querySelectorAll('span')].map(colorOf).filter(Boolean) as string[];
+      expect(texts.length).toBeGreaterThan(0);
+      for (const t of texts) expect(ratio(t, HEX['blue-50']!)).toBeGreaterThanOrEqual(4.5);
+      expect(classesOf(within(row).getByTestId('row-title')).some((c) => c === 'text-white' || c === 'text-blue-50' || c === 'text-blue-100')).toBe(false);
+    });
+
+    it('L: "You:" and sender names are gray on a read row and emphasised, not blue, only on an unread one', async () => {
+      const readRow = group('g1', 'Builders', { lastMessage: last('hello all', 5, 'p-grace', 'Grace Hopper') });
+      const unreadRow = group('g2', 'Readers', { unreadCount: 2, lastMessage: last('news', 4, 'p-grace', 'Grace Hopper') });
+      const mine = dm('dm1', 'Ada Lovelace', { lastMessage: last('see you', 3, ME.id, ME.name) });
+      renderChat('/home', [mirrorChat, readRow, unreadRow, mine]);
+      await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
+      const prefixOf = (title: string) => within(rowFor(title)).getByText(/^(Grace|You):$/);
+      for (const t of ['Builders · General', 'Ada Lovelace']) {
+        const p = prefixOf(t);
+        expect(classesOf(p).some((c) => /^text-blue/.test(c))).toBe(false);
+        expect(classesOf(p)).not.toContain('font-semibold');
+        expect(classesOf(p)).not.toContain('font-bold');
+      }
+      const u = prefixOf('Readers · General');
+      expect(classesOf(u)).toContain('font-semibold');
+      expect(classesOf(u).some((c) => /^text-blue/.test(c))).toBe(false);
+    });
+  });
+
+  // ---- M: the phone action bar and phone dialogs ----
+  describe('M: phone action bar and dialogs', () => {
+    it('the tapped message toolbar is one non-wrapping row of icon buttons with labels, with More as the overflow', async () => {
+      const grp = group('g1', 'Builders');
+      renderChat('/home/c/g1', [mirrorChat, grp], { g1: [msg('g1', 'p-grace', 'a message to tap', { id: 'tap1' })] });
+      const text = await screen.findByText('a message to tap');
+      fireEvent.pointerUp(text);
+      const bar = within(text.closest('li') as HTMLElement).getByRole('toolbar', { name: 'Message actions' });
+      expect(classesOf(bar)).toContain('inline-flex');
+      expect(classesOf(bar)).not.toContain('flex-wrap');
+      expect(classesOf(bar)).toContain('flex-nowrap');
+      const buttons = within(bar).getAllByRole('button');
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify', 'More actions']);
+      // Icons only: no word inside a button can push the row onto a second line at 320.
+      for (const b of buttons) expect(b.textContent).toBe('');
+      for (const b of buttons) expect(classesOf(b)).toContain('shrink-0');
+    });
+
+    it('the block, rename, forward and attach dialogs have rounded corners on a phone, a side margin, and a left-aligned title', async () => {
+      const check = (dialog: HTMLElement) => {
+        const cls = classesOf(dialog);
+        expect(cls).toContain('rounded-lg'); // not only sm:rounded-lg
+        expect(cls).toContain('w-[calc(100vw-2rem)]');
+        const head = within(dialog).getAllByRole('heading')[0]!;
+        expect(classesOf(head.parentElement!)).toContain('text-left');
+      };
+      // Block (the confirmation) and Forward (a sheet) on a 1:1.
+      const view = renderChat('/home/c/dm1', [mirrorChat, dmChat], { dm1: [msg('dm1', 'p-dm1', 'something')] });
+      await screen.findByText('something');
+      await userEvent.click(screen.getByRole('button', { name: 'More' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Block' }));
+      check(await screen.findByRole('dialog'));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      menuOn('something');
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
+      check(await screen.findByRole('dialog'));
+      view.unmount();
+      // Attach (a sheet) and Rename on the mirror.
+      renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
+      fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
+      check(await screen.findByRole('dialog'));
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: 'More' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+      check(await screen.findByRole('dialog'));
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 4: N (send idempotency) and O (one-line composer hint)
+// ---------------------------------------------------------------------------
+describe('review round 4', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const sentWith = (n: number) => (svc.sendMessage.mock.calls[n]![0] as { clientId?: string }).clientId;
+  const typeAndSend = async (text: string) => {
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), text);
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+  };
+
+  it('N: every send mints its own uuid, and a Retry of the same send reuses it', async () => {
+    svc.sendMessage.mockRejectedValueOnce(new Error('chat send_chat_message failed: chat: cannot message this person'));
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    await typeAndSend('first');
+    const failed = await screen.findByTestId('send-failed');
+    svc.sendMessage.mockImplementation(async (input: { body: string; clientId: string }) => msg('dm1', ME.id, input.body, { id: `srv-${input.body}`, clientId: input.clientId }));
+    fireEvent.click(within(failed).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument());
+    await typeAndSend('second');
+    await waitFor(() => expect(svc.sendMessage).toHaveBeenCalledTimes(3));
+    expect(sentWith(0)).toMatch(UUID);
+    expect(sentWith(1)).toBe(sentWith(0));
+    expect(sentWith(2)).toMatch(UUID);
+    expect(sentWith(2)).not.toBe(sentWith(0));
+  });
+
+  it('N: a reply that is lost (the call rejects after the server stored the message), then Retry: the service sees the same clientId and the UI shows one message', async () => {
+    const stored = new Map<string, ChatMessage>();
+    let lose = true;
+    svc.sendMessage.mockImplementation(async (input: { body: string; clientId: string }) => {
+      // The server is idempotent: a replay of the same clientId returns the stored row, never a second one.
+      const row = stored.get(input.clientId) ?? msg('dm1', ME.id, input.body, { id: `srv-${stored.size + 1}`, clientId: input.clientId });
+      stored.set(input.clientId, row);
+      if (lose) {
+        lose = false;
+        throw new Error('TypeError: Failed to fetch');
+      }
+      return row;
+    });
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    await typeAndSend('lost reply');
+    const failed = await screen.findByTestId('send-failed');
+    expect(logOf().getAllByText('lost reply')).toHaveLength(1);
+    fireEvent.click(within(failed).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument());
+    expect(svc.sendMessage).toHaveBeenCalledTimes(2);
+    expect(sentWith(0)).toMatch(UUID);
+    expect(sentWith(1)).toBe(sentWith(0));
+    expect(stored.size).toBe(1);
+    expect(logOf().getAllByText('lost reply')).toHaveLength(1);
+  });
+
+  it('N: the Realtime copy of a send whose reply was lost settles it: no failed row, no Retry, one message', async () => {
+    svc.sendMessage.mockImplementation(async () => {
+      throw new Error('TypeError: Failed to fetch');
+    });
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    await typeAndSend('stored anyway');
+    await screen.findByTestId('send-failed');
+    act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', ME.id, 'stored anyway', { id: 'rt-9', createdAt: new Date().toISOString(), clientId: sentWith(0)! }) }));
+    await waitFor(() => expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument());
+    expect(logOf().getAllByText('stored anyway')).toHaveLength(1);
+  });
+
+  it('N: the pending row is matched by clientId, not words: the same words from another device are a second message', async () => {
+    svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>(() => undefined));
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    await typeAndSend('same words');
+    await screen.findByText('Sending…');
+    act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', ME.id, 'same words', { id: 'other-dev', createdAt: new Date().toISOString(), clientId: 'some-other-uuid' }) }));
+    // (The pending row now follows my other message, so it is drawn compact, without its "Sending…" stamp.)
+    await waitFor(() => expect(logOf().getAllByText('same words')).toHaveLength(2));
+  });
+
+  it('N: a forward carries one clientId per target, so pressing Send again after a lost reply replays it', async () => {
+    const theirs = msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' });
+    svc.forwardMessage.mockRejectedValueOnce(new Error('TypeError: Failed to fetch')).mockResolvedValue(msg('g1', ME.id, null, { id: 'f2', kind: 'forward' }));
+    renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
+    await screen.findByText('worth forwarding');
+    menuOn('worth forwarding');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Builders/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    await screen.findByRole('alert');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(svc.forwardMessage).toHaveBeenCalledTimes(2));
+    const ids = svc.forwardMessage.mock.calls.map((c) => c[3]);
+    expect(ids[0]).toMatch(UUID);
+    expect(ids[1]).toBe(ids[0]);
+  });
+
+  it('O: the composer hint is one truncating line, drawn by hand, and the field keeps its accessible name', async () => {
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    const box = await screen.findByRole('textbox', { name: 'Message Ada' });
+    expect(box).not.toHaveAttribute('placeholder');
+    const hint = screen.getByTestId('composer-hint');
+    expect(hint).toHaveTextContent('Message Ada');
+    expect(hint.className).toContain('truncate');
+    expect(hint.className).toContain('pointer-events-none');
+    await userEvent.type(box, 'x');
+    expect(screen.queryByTestId('composer-hint')).not.toBeInTheDocument();
+  });
+});
+
+async function asDesktopAsync<T>(fn: () => Promise<T>): Promise<T> {
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn().mockImplementation((q: string) => ({ matches: q.includes('min-width: 1024px'), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
+  try {
+    return await fn();
+  } finally {
+    window.matchMedia = original;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Nothing fake

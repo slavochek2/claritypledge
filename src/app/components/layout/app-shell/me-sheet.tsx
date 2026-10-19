@@ -67,8 +67,11 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
         }}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          // What had focus when it opened; if that was nothing (the page body), the Me tab itself.
           const back = opener.current;
-          if (back && back.isConnected) back.focus();
+          const target =
+            back && back !== document.body && back.isConnected ? back : document.querySelector<HTMLElement>('[data-testid="bottom-nav-me"]');
+          target?.focus();
         }}
         className={cn(
           'shell-me-sheet fixed inset-x-0 bottom-0 left-0 top-auto flex w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-b-none rounded-t-[10px] border-x-0 border-b-0 p-0 pb-[env(safe-area-inset-bottom)] sm:rounded-t-[10px]',

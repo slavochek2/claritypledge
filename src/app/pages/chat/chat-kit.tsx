@@ -10,6 +10,8 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDismiss } from './chat-hooks';
+import { mirrorRole } from './chat-view-model';
+import type { ChatSummary } from '@/app/data/chat-mappers';
 
 /** Hover tint only where a real pointer exists (a tap must not leave a row stuck lit). */
 export const HOVER = '[@media(hover:hover)]:hover:bg-accent';
@@ -48,14 +50,15 @@ export function PersonMark({ person, size = 'md', className }: { person: PersonL
 }
 
 /** A group's General channel (lock: members only) or an event's channel (calendar). */
-export function ChannelMark({ kind, size = 'list', onBlue = false, className }: { kind: 'group' | 'event'; size?: 'list' | 'sm'; onBlue?: boolean; className?: string }) {
+export function ChannelMark({ kind, size = 'list', selected = false, className }: { kind: 'group' | 'event'; size?: 'list' | 'sm'; selected?: boolean; className?: string }) {
   const Icon = kind === 'event' ? CalendarDays : Lock;
   return (
     <span
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center rounded-full',
-        onBlue ? 'bg-white text-blue-600' : 'bg-gray-100 text-gray-700',
+        // On the selected row's light tint a white disc with a hairline keeps the avatar visible.
+        selected ? 'bg-white text-gray-700 ring-1 ring-blue-200' : 'bg-gray-100 text-gray-700',
         size === 'list' ? 'h-12 w-12' : 'h-8 w-8',
         className,
       )}
@@ -78,6 +81,21 @@ export function MirrorMark({ owner, size = 'list', className }: { owner: PersonL
       >
         <FlipHorizontal2 className="h-[70%] w-[70%]" />
       </span>
+    </span>
+  );
+}
+
+/**
+ * The mirror's name: the custom title (if any) is the part that truncates; "<First>'s mirror" is its own
+ * segment that never shrinks, so the role is always readable (also on a phone).
+ */
+export function MirrorTitle({ chat, className }: { chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>; className?: string }) {
+  const role = mirrorRole(chat);
+  if (!chat.title) return <span className={cn('block min-w-0 truncate', className)}>{role}</span>;
+  return (
+    <span className={cn('flex min-w-0', className)}>
+      <span className="min-w-0 truncate">{chat.title}</span>
+      <span className="shrink-0 whitespace-pre"> · {role}</span>
     </span>
   );
 }

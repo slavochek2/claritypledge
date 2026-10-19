@@ -3,7 +3,7 @@
  * @description P1512: the chat's dialogs — confirm, forward, attach and rename the mirror. All are
  * shadcn Dialogs: focus is trapped, Escape closes, and focus returns to the control that opened them.
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Forward, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +13,9 @@ import { filterShareables, loadMyShareables, type Shareable } from '@/app/data/c
 import { ChannelMark, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
 import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
 
-const SHEET = '[&>button.absolute]:top-2 flex max-h-[85dvh] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-md';
+/** Phone dialogs float with a side margin and rounded corners all round (the base only rounds from sm up). */
+const DIALOG = 'w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm';
+const SHEET = '[&>button.absolute]:top-2 flex max-h-[85dvh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-lg p-0 sm:w-full sm:max-w-md';
 const SHEET_HEAD = 'flex min-h-14 shrink-0 justify-center border-b px-4 py-2 pr-14 text-left';
 
 // ---------------------------------------------------------------------------
@@ -47,8 +49,8 @@ export function ConfirmDialog({
   };
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className={DIALOG}>
+        <DialogHeader className="text-left">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
@@ -99,6 +101,8 @@ export function ForwardDialog({
   onForwarded: (target: ChatSummary) => void;
 }) {
   const [target, setTarget] = useState<ChatSummary | null>(null);
+  // One key per (dialog, target): pressing Send again after a lost reply replays the same forward.
+  const attempt = useRef<{ conversationId: string; clientId: string } | null>(null);
   const [query, setQuery] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -119,7 +123,10 @@ export function ForwardDialog({
         setBusy(false);
         return;
       }
-      await forwardMessage(source.id, target.conversationId, note.trim() || undefined);
+      if (attempt.current?.conversationId !== target.conversationId) {
+        attempt.current = { conversationId: target.conversationId, clientId: crypto.randomUUID() };
+      }
+      await forwardMessage(source.id, target.conversationId, note.trim() || undefined, attempt.current.clientId);
       onForwarded(target);
       onClose();
     } catch (e) {
@@ -321,7 +328,7 @@ export function RenameMirrorDialog({ initial, onClose, onSaved }: { initial: str
   };
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-sm">
+      <DialogContent className={DIALOG}>
         <form
           className="grid gap-4"
           onSubmit={(e) => {
@@ -329,7 +336,7 @@ export function RenameMirrorDialog({ initial, onClose, onSaved }: { initial: str
             void save();
           }}
         >
-          <DialogHeader>
+          <DialogHeader className="text-left">
             <DialogTitle>Rename your mirror</DialogTitle>
             <DialogDescription>Its role, “your mirror”, always stays next to the name.</DialogDescription>
           </DialogHeader>

@@ -24,7 +24,7 @@ import { createTestOrganization, createTestMembership, deleteTestOrganization, t
 import { createTestEvent, deleteTestEvent, type TestEvent } from '../helpers/test-event';
 import {
   RUN, signIn, ok, refused, sleep, adminMessages, adminConversation, mirrorOf, myChatIds, collect, fireUntil,
-  closeAll, purgeChatFor, type SignedIn, type Row,
+  closeAll, purgeChatFor, anonClient, type SignedIn, type Row,
 } from '../helpers/test-chat';
 import { keysetBeforeFilter, messageCursor } from '../../src/app/data/chat-mappers';
 
@@ -532,6 +532,79 @@ test('mark read through a message id lands exactly on that message (a client clo
   await refused(sB.client.rpc('mark_chat_read', { p_conversation: gconv, p_through_message: newest.id }), 'through a message of another conversation');
   await refused(sB.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: '00000000-0000-4000-8000-000000000000' }), 'through a message that does not exist');
   await refused(sC.client.rpc('mark_chat_read', { p_conversation: dm, p_through_message: newest.id }), 'outsider through a real message id');
+});
+
+test('thread stats: server-side counts are exact (600 vs 1 replies), exclude deleted replies, name the 3 most recent repliers, and are closed to outsiders', async () => {
+  test.setTimeout(120_000);
+  const E = await mk('SE');
+  const stamp = Date.now() + 2_000; // after every member's join time, even when this test runs alone
+  const at = (i: number) => new Date(stamp + i * 7).toISOString();
+  type Stat = { root_id: string; reply_count: number; recent_author_ids: string[] };
+  const seededIds: string[] = [];
+  try {
+    const roots = await supabaseAdmin.from('chat_messages').insert([
+      { conversation_id: gconv, author_id: A.user.id, body: `stats-root-big-${RUN}`, created_at: at(0) },
+      { conversation_id: gconv, author_id: A.user.id, body: `stats-root-one-${RUN}`, created_at: at(1) },
+      { conversation_id: gconv, author_id: A.user.id, body: `stats-root-none-${RUN}`, created_at: at(2) },
+    ]).select('id,body');
+    expect(roots.error).toBeNull();
+    const idOf = (tag: string) => roots.data!.find((r) => String(r.body).includes(tag))!.id as string;
+    const [big, one, none] = [idOf('root-big'), idOf('root-one'), idOf('root-none')];
+    seededIds.push(big, one, none);
+
+    // 600 replies on the big root; the last four authors are A, B, C, E, so the 3 most recent are [E, C, B].
+    const total = 600;
+    const authorFor = (i: number) => (i === total - 1 ? E : i === total - 2 ? C : i === total - 3 ? B : A);
+    const bigRows = Array.from({ length: total }, (_, i) => ({
+      conversation_id: gconv, author_id: authorFor(i).user.id, body: `stats-reply-${i}-${RUN}`,
+      thread_root_id: big, created_at: at(10 + i),
+    }));
+    for (let i = 0; i < bigRows.length; i += 200) {
+      const r = await supabaseAdmin.from('chat_messages').insert(bigRows.slice(i, i + 200)).select('id');
+      expect(r.error).toBeNull();
+      seededIds.push(...(r.data ?? []).map((x) => x.id as string));
+    }
+    // one live reply and one DELETED reply on the small root
+    const small = await supabaseAdmin.from('chat_messages').insert([
+      { conversation_id: gconv, author_id: A.user.id, body: `stats-one-live-${RUN}`, thread_root_id: one, created_at: at(900) },
+      { conversation_id: gconv, author_id: B.user.id, body: null, deleted_at: at(901), thread_root_id: one, created_at: at(901) },
+    ]).select('id');
+    expect(small.error).toBeNull();
+    seededIds.push(...(small.data ?? []).map((x) => x.id as string));
+
+    const ask = (c: SignedIn, roots: string[]) =>
+      ok<Stat[]>(c.client.rpc('get_thread_stats', { p_conversation: gconv, p_roots: roots }), 'get_thread_stats');
+
+    // A MEMBER (B) sees exact counts. 600 and 1 differ, so a per-page or truncated count would show.
+    const stats = await ask(sB, [big, one, none]);
+    const by = new Map(stats.map((r) => [r.root_id, r]));
+    expect(by.get(big)?.reply_count, 'all 600 replies are counted, not a truncated page').toBe(600);
+    expect(by.get(big)?.recent_author_ids, 'the 3 most recent distinct repliers, newest first').toEqual([E.user.id, C.user.id, B.user.id]);
+    expect(by.get(one)?.reply_count, 'a deleted reply is not counted').toBe(1);
+    expect(by.get(one)?.recent_author_ids).toEqual([A.user.id]);
+    expect(by.get(none)?.reply_count, 'a root without replies answers 0').toBe(0);
+    expect(by.get(none)?.recent_author_ids).toEqual([]);
+
+    // Only readable roots of THIS conversation are answered: a dm message id and a reply id are absent.
+    const reply0 = seededIds[3]!;
+    const mixed = await ask(sB, [big, m1.id, reply0]);
+    expect(mixed.map((r) => r.root_id), 'ids from another chat or non-roots are not answered').toEqual([big]);
+
+    // A page of exactly 100 is fine; 101 is refused.
+    const hundred = Array.from({ length: 100 }, () => big);
+    expect((await ask(sB, hundred)).length).toBe(1);
+    await refused(sB.client.rpc('get_thread_stats', { p_conversation: gconv, p_roots: Array.from({ length: 101 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`) }), '101 roots');
+
+    // THE OUTSIDER (C is a repliers' author here but NOT a member): refused, with the same roots.
+    await refused(sC.client.rpc('get_thread_stats', { p_conversation: gconv, p_roots: [big, one] }), 'outsider asks for thread stats');
+    await refused(sC.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [m1.id] }), 'outsider asks via a dm conversation');
+    await refused(anonClient().rpc('get_thread_stats', { p_conversation: gconv, p_roots: [big] }), 'anon asks for thread stats');
+    // A member of one chat cannot read another chat's threads by passing its roots here.
+    const dmStats = await ok<Stat[]>(sB.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [m1.id] }), 'dm stats');
+    expect(dmStats, 'a 1:1 has no threads').toEqual([]);
+  } finally {
+    if (seededIds.length) await supabaseAdmin.from('chat_messages').delete().in('id', seededIds);
+  }
 });
 
 test('Realtime DELETE: a cascade delete leaks no conversation id, profile id or body to other subscribers', async () => {

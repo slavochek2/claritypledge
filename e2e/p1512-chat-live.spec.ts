@@ -11,7 +11,7 @@
  * The last test takes the QA screenshots (list, 1:1, channel with thread, forward dialog, mirror)
  * at 1280, 375 and 320 and checks there is no horizontal scroll.
  */
-import { test, expect as baseExpect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect as baseExpect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestMembership, createTestOrganization, deleteTestOrganization, type TestOrganization } from './helpers/test-organization';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -101,6 +101,34 @@ const noHScroll = async (page: Page, label: string) => {
   const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(over, `horizontal overflow at ${label}`).toBeLessThanOrEqual(0);
 };
+
+/** A shot must show the screen, not its leftovers: no toast still fading out and no hover left under the pointer. */
+async function settle(page: Page) {
+  await page.mouse.move(0, 0);
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 20_000 });
+  await page.waitForTimeout(150);
+}
+/**
+ * A dialog on a phone floats with a side margin and rounded corners all round. `margin` is 15 on a real
+ * touch screen; a desktop Chromium window at a phone width centres the dialog inside a reserved scrollbar
+ * gutter (index.css, an app-wide choice), so there it only has to keep clear of the edges.
+ */
+async function dialogShape(page: Page, w: number, margin = 8) {
+  const dialog = page.getByRole('dialog');
+  const box = (await dialog.boundingBox())!;
+  const radius = await dialog.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+  expect(radius, `dialog corner radius at ${w}`).toBeGreaterThanOrEqual(8);
+  if (w < 640) {
+    expect(box.x, `dialog left margin at ${w}`).toBeGreaterThanOrEqual(margin);
+    expect(w - (box.x + box.width), `dialog right margin at ${w}`).toBeGreaterThanOrEqual(margin);
+  }
+}
+/** Every button in the row sits on one line. */
+async function oneRow(bar: Locator, label: string) {
+  const tops = await bar.getByRole('button').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(tops.length, `${label}: buttons`).toBeGreaterThanOrEqual(4);
+  expect(new Set(tops).size, `${label}: one row, got tops ${tops.join(',')}`).toBe(1);
+}
 
 const row = (page: Page, text: string) => page.locator('[data-testid="chat-list"] li[data-chat]').filter({ hasText: text });
 const conversation = (page: Page) => page.getByTestId('conversation');
@@ -242,6 +270,11 @@ test('General channel: A posts, B replies in a thread, A sees the reply count li
 
   await sendText(pageA, 'channel post from A');
   await live(pageB, () => baseExpect(messageWith(pageB, 'channel post from A')).toBeVisible({ timeout: 6_000 }));
+  // One send is one message: not two rows on the sender's screen and not two rows in the table.
+  await pageA.waitForTimeout(2000);
+  await expect(conversation(pageA).getByText('channel post from A')).toHaveCount(1);
+  const posted = await supabaseAdmin.from('chat_messages').select('id').eq('body', 'channel post from A').eq('author_id', a.user.id);
+  expect(posted.data ?? [], 'the table holds exactly one row for the post').toHaveLength(1);
 
   // B opens the thread from the message menu (channels only).
   await menuOn(pageB, 'channel post from A', 'Reply in thread');
@@ -318,6 +351,41 @@ test('Clarify copies the message into A mirror only', async () => {
   expect(conv).toEqual({ kind: 'mirror', owner_id: a.user.id });
   // Nothing was written to B's side: no clarify row belongs to B or sits in a chat B is in.
   expect((data ?? []).filter((r) => r.author_id === b.user.id)).toHaveLength(0);
+});
+
+test('a send whose reply is lost stores exactly one message: the retry replays the same clientId', async () => {
+  test.setTimeout(120_000);
+  const convId = await dmConversationId();
+  await pageA.setViewportSize({ width: 1280, height: 800 });
+  await pageA.goto(`/home/c/${convId}`);
+  await expect(composer(pageA)).toBeVisible();
+  const keys: Array<string | null> = [];
+  let lost = true;
+  await pageA.route('**/rest/v1/rpc/send_chat_message', async (route) => {
+    keys.push((route.request().postDataJSON() as { p_client_id?: string }).p_client_id ?? null);
+    if (lost) {
+      lost = false;
+      await route.fetch(); // the server stores the message...
+      await route.abort('failed'); // ...and the reply never reaches the page
+    } else await route.continue();
+  });
+  try {
+    await sendText(pageA, 'lost reply probe');
+    // Either the Realtime copy settles it by itself, or Retry is offered: both end with one message.
+    const retry = pageA.getByTestId('send-failed').getByRole('button', { name: 'Retry' });
+    await Promise.race([retry.waitFor({ timeout: 8_000 }).catch(() => undefined), pageA.waitForTimeout(8_000)]);
+    if (await retry.isVisible()) await retry.click();
+    await expect(pageA.getByTestId('send-failed')).toHaveCount(0, { timeout: 15_000 });
+    await pageA.waitForTimeout(1500);
+    await expect(conversation(pageA).getByText('lost reply probe')).toHaveCount(1);
+    const rows = await supabaseAdmin.from('chat_messages').select('id, client_id').eq('conversation_id', convId).eq('body', 'lost reply probe');
+    expect(rows.data ?? [], 'the table holds one row').toHaveLength(1);
+    expect(keys[0], 'the first attempt carried a uuid').toMatch(/^[0-9a-f-]{36}$/);
+    expect(new Set(keys).size, 'every attempt of the send used the same clientId').toBe(1);
+    expect(rows.data![0]!.client_id).toBe(keys[0]);
+  } finally {
+    await pageA.unroute('**/rest/v1/rpc/send_chat_message');
+  }
 });
 
 test('A attaches a point and a story; B sees both cards; a private attachment shows "Not available to you"', async () => {
@@ -404,11 +472,15 @@ test('a forward of a message whose author was erased reads "Forwarded from Delet
 
 test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, attach, erased forward at 1280 / 375 / 320; a tap on a phone', async ({ browser }) => {
   test.skip(!SHOT_DIR, 'set P1512_SHOT_DIR to take screenshots');
-  test.setTimeout(360_000); // three widths of dialogs and reloads over a slow link
+  test.setTimeout(600_000); // three widths of dialogs, a long-name pass, a phone and reloads over a slow link
   const general = `${ORG_NAME} · General`;
   const mirrorId = (await supabaseAdmin.from('chat_conversations').select('id').eq('kind', 'mirror').eq('owner_id', a.user.id).single()).data!.id as string;
   const convId = await dmConversationId();
-  const shot = (name: string, w: number) => pageA.screenshot({ path: `${SHOT_DIR}/${name}-${w}.png` });
+  let channelComposerH = 0;
+  const shot = async (name: string, w: number) => {
+    await settle(pageA);
+    await pageA.screenshot({ path: `${SHOT_DIR}/${name}-${w}.png` });
+  };
 
   for (const { w, h } of SIZES) {
     await pageA.setViewportSize({ width: w, height: h });
@@ -423,6 +495,12 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await expect(messageWith(pageA, 'reply from B')).toBeVisible();
     await expect(pageA.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
     await expect(pageA.getByRole('status', { name: 'Loading attachment' })).toHaveCount(0);
+    if (w >= 1280) {
+      // The open chat in the list: a light tint with a blue edge, not a blue fill.
+      const selected = row(pageA, B_NAME).getByRole('button').first();
+      await expect(selected).toHaveCSS('background-color', 'rgb(239, 246, 255)');
+      await shot('list-selected', w);
+    }
     await noHScroll(pageA, `dm ${w}`);
     await shot('dm', w);
 
@@ -431,6 +509,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await pageA.getByRole('menuitem', { name: 'Forward', exact: true }).click();
     await expect(pageA.getByRole('dialog')).toBeVisible();
     await pageA.waitForTimeout(500); // let the dialog finish fading in
+    await dialogShape(pageA, w);
     await noHScroll(pageA, `forward ${w}`);
     await shot('forward', w);
     await pageA.keyboard.press('Escape');
@@ -440,6 +519,10 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await listReady(pageA);
     await row(pageA, general).getByRole('button').first().click();
     await expect(messageWith(pageA, 'channel post from A')).toBeVisible();
+    // The hint is one line at every width: the composer is as tall at 320 as at 1280.
+    const composerH = (await conversation(pageA).getByTestId('composer').boundingBox())!.height;
+    if (w >= 1280) channelComposerH = composerH;
+    else expect(composerH, `the channel composer does not grow at ${w}`).toBeLessThanOrEqual(channelComposerH + 2);
     await messageWith(pageA, 'channel post from A').getByTestId('replies-link').click();
     const panel = pageA.getByTestId('thread-panel');
     await expect(panel.getByText('thread reply from B')).toBeVisible();
@@ -460,6 +543,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       const rename = pageA.getByRole('dialog');
       await rename.getByLabel(/^Name/).fill(w === 1280 ? 'Scratchpad' : 'Thinking out loud');
       await pageA.waitForTimeout(500);
+      await dialogShape(pageA, w);
       await shot('rename-dialog', w);
       await rename.getByRole('button', { name: 'Save' }).click();
       await expect(conversation(pageA).getByRole('heading', { name: new RegExp(`^${w === 1280 ? 'Scratchpad' : 'Thinking out loud'} · Alicetest's mirror$`) })).toBeVisible();
@@ -473,6 +557,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await pageA.getByRole('menuitem', { name: 'Block' }).click();
       await expect(pageA.getByRole('dialog')).toContainText(`Block ${B_NAME}?`);
       await pageA.waitForTimeout(500);
+      await dialogShape(pageA, w);
       await shot('block-confirm', w);
       await pageA.getByRole('dialog').getByRole('button', { name: 'Block' }).click();
       await expect(pageA.getByTestId('composer-blocked')).toContainText(`You blocked ${B_NAME}. Unblock to send messages.`);
@@ -486,6 +571,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await pageA.getByRole('button', { name: 'Attach a point or story' }).click();
       await expect(pageA.getByRole('dialog').getByRole('button', { name: new RegExp(`Attach Attach point ${RUN}`) })).toBeVisible();
       await pageA.waitForTimeout(500);
+      await dialogShape(pageA, w);
       await noHScroll(pageA, `attach ${w}`);
       await shot('attach-picker', w);
       await pageA.keyboard.press('Escape');
@@ -494,6 +580,40 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await messageWith(pageA, 'Message removed').scrollIntoViewIfNeeded();
       await shot('erased-forward', w);
     }
+  }
+
+  // The mirror keeps its role when the name is long: the title is what gets cut, in the list and the header.
+  const LONG = 'Thinking out loud about everything that matters to me today';
+  for (const { w, h } of SIZES.slice(1)) {
+    await pageA.setViewportSize({ width: w, height: h });
+    await pageA.goto(`/home/c/${mirrorId}`);
+    await expect(pageA.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
+    await pageA.getByRole('button', { name: 'More', exact: true }).click();
+    await pageA.getByRole('menuitem', { name: 'Rename' }).click();
+    await pageA.getByRole('dialog').getByLabel(/^Name/).fill(LONG);
+    await pageA.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    const h1 = conversation(pageA).getByRole('heading', { name: `${LONG} · Alicetest's mirror` });
+    await expect(h1).toBeVisible();
+    const parts = await h1.evaluate((el) => {
+      const [name, role] = Array.from(el.querySelectorAll(':scope > span > span')) as HTMLElement[];
+      const r = role!.getBoundingClientRect();
+      return { nameCut: name!.scrollWidth > name!.clientWidth, roleCut: role!.scrollWidth > role!.clientWidth, roleRight: r.right, roleLeft: r.left };
+    });
+    expect(parts.nameCut, `the title is the part that is cut in the header at ${w}`).toBe(true);
+    expect(parts.roleCut, `the role is not cut in the header at ${w}`).toBe(false);
+    expect(parts.roleRight, `the role is inside the screen at ${w}`).toBeLessThanOrEqual(w);
+    await shot('mirror-long-name-header', w);
+    await pageA.goto('/home');
+    await listReady(pageA);
+    const mirrorTitle = row(pageA, "Alicetest's mirror").locator('[data-testid="row-title"]');
+    const inList = await mirrorTitle.evaluate((el) => {
+      const [name, role] = Array.from(el.querySelectorAll(':scope > span > span')) as HTMLElement[];
+      return { nameCut: name!.scrollWidth > name!.clientWidth, roleCut: role!.scrollWidth > role!.clientWidth, roleText: role!.textContent };
+    });
+    expect(inList.nameCut, `the title is the part that is cut in the list at ${w}`).toBe(true);
+    expect(inList.roleCut, `the role is not cut in the list at ${w}`).toBe(false);
+    expect(inList.roleText).toBe(" · Alicetest's mirror");
+    await shot('list-mirror-long-name', w);
   }
 
   // A phone for real: tap a message and the actions open in line, covering nothing; scrolling dismisses them.
@@ -512,7 +632,20 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     expect(box.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(375);
+    await oneRow(bar, 'DM action bar at 375');
+    await settle(page);
     await page.screenshot({ path: `${SHOT_DIR}/dm-tap-375.png` });
+    // The phone dialog from the same bar: rounded, with 16px a side.
+    await bar.getByRole('button', { name: 'Forward' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.waitForTimeout(500);
+    await dialogShape(page, 375, 15);
+    await settle(page);
+    await page.screenshot({ path: `${SHOT_DIR}/forward-phone-375.png` });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await messageWith(page, 'reply from B').getByText('reply from B').tap();
+    await expect(bar).toBeVisible();
     // Dismissed by a scroll (when the conversation is long enough to scroll) and by a tap elsewhere.
     const scrolled = await page.getByTestId('message-scroller').evaluate((el) => {
       const before = el.scrollTop;
@@ -529,6 +662,48 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await messageWith(page, 'see this').getByText('see this', { exact: true }).tap();
       await dismissed();
     }
+
+    // The worst case at the narrowest width: a channel post has Reply, Thread, Forward, Clarify and More.
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/home');
+    await expect(page.getByTestId('chat-list')).toBeVisible();
+    await page.getByTestId('chat-list').locator('li[data-chat]').filter({ hasText: general }).getByRole('button').first().click();
+    await expect(messageWith(page, 'channel post from A')).toBeVisible();
+    await messageWith(page, 'channel post from A').getByText('channel post from A').tap();
+    const channelBar = messageWith(page, 'channel post from A').getByRole('toolbar', { name: 'Message actions' });
+    await expect(channelBar.getByRole('button')).toHaveCount(5);
+    await oneRow(channelBar, 'channel action bar at 320');
+    const cb = (await channelBar.boundingBox())!;
+    expect(cb.x + cb.width, 'the action bar stays inside a 320 screen').toBeLessThanOrEqual(320);
+    await settle(page);
+    await page.screenshot({ path: `${SHOT_DIR}/channel-tap-320.png` });
+    await channelBar.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Forward', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.waitForTimeout(500);
+    await dialogShape(page, 320, 15);
+    await settle(page);
+    await page.screenshot({ path: `${SHOT_DIR}/forward-phone-320.png` });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    // Attachment cards that cannot load: a compact error row with Retry, never an empty grey box.
+    await page.setViewportSize({ width: 375, height: 760 });
+    await page.route(/\/rest\/v1\/(points|stories)\?/, (route) => route.abort('failed'));
+    await page.goto(`/home/c/${convId}`);
+    await expect(messageWith(page, 'reply from B')).toBeVisible();
+    const errors = page.getByTestId('attachment-error');
+    await expect(errors.first()).toBeVisible({ timeout: 30_000 });
+    await expect(errors.first()).toContainText(/Couldn't load this (point|story)/);
+    await expect(errors.first().getByRole('button', { name: 'Retry' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading attachment' })).toHaveCount(0);
+    await errors.first().scrollIntoViewIfNeeded();
+    await settle(page);
+    await page.screenshot({ path: `${SHOT_DIR}/attachment-error-375.png` });
+    // Retry with the route open again loads the card.
+    await page.unroute(/\/rest\/v1\/(points|stories)\?/);
+    await errors.first().getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByTestId('attachment-point').or(page.getByTestId('attachment-story')).first()).toBeVisible({ timeout: 30_000 });
   } finally {
     await ctx.close();
   }
@@ -557,6 +732,9 @@ test('the offline strip and the active-session banner shrink the chat: the compo
       await expect(page.getByTestId('message').first()).toBeVisible(); // messages loaded before the connection drops
       await ctx.setOffline(true);
       await expect(page.getByTestId('offline-strip')).toBeVisible();
+      // A card that was still loading when the connection dropped says so; it is never an empty grey box.
+      await expect(page.getByRole('status', { name: 'Loading attachment' })).toHaveCount(0);
+      await settle(page);
       const composerBox = (await conversation(page).getByTestId('composer').boundingBox())!;
       const inside = await page.evaluate(() => ({ h: window.innerHeight, scroll: document.documentElement.scrollHeight, bodyScroll: document.body.scrollHeight }));
       expect(composerBox.y + composerBox.height, `composer bottom inside the ${h}px screen at ${w}`).toBeLessThanOrEqual(inside.h + 0.5);

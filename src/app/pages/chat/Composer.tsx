@@ -84,22 +84,30 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
               <Paperclip className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
-          <textarea
-            ref={field}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            rows={1}
-            placeholder={placeholder}
-            aria-label={placeholder}
-            maxLength={4000}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && hasFinePointer()) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            className="block max-h-[136px] min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-base leading-6 outline-none placeholder:text-gray-500 md:text-[15px]"
-          />
+          {/* The hint is drawn by hand, not as a placeholder: a placeholder wraps (and grows the composer) at a narrow
+              width, this one is a single line that ends in an ellipsis. */}
+          <div className="relative min-w-0 flex-1">
+            {value === '' && (
+              <span aria-hidden="true" data-testid="composer-hint" className="pointer-events-none absolute inset-x-0 top-0 block truncate px-2 py-2 text-base leading-6 text-gray-500 md:text-[15px]">
+                {placeholder}
+              </span>
+            )}
+            <textarea
+              ref={field}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              rows={1}
+              aria-label={placeholder}
+              maxLength={4000}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && hasFinePointer()) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              className="block max-h-[136px] min-h-10 w-full min-w-0 resize-none bg-transparent px-2 py-2 text-base leading-6 outline-none md:text-[15px]"
+            />
+          </div>
           {sendable && (
             <button type="submit" aria-label="Send" title="Send" className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700', FOCUS_RING)}>
               <ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" />

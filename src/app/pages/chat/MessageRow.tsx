@@ -13,7 +13,8 @@ import { CornerUpRight, Forward, MessageSquareText, MessagesSquare, MoreHorizont
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getMessage, type ChatMessage } from '@/app/data/chat-service';
-import type { ChatAuthor, ThreadStat } from '@/app/data/chat-ui-helpers';
+import type { ThreadStats } from '@/app/data/chat-service';
+import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
 import { FOCUS_RING, HOVER, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
 import { DESKTOP_HOVER_QUERY, hasFinePointer, useDismiss, useMediaQuery } from './chat-hooks';
@@ -54,7 +55,7 @@ interface Props {
   authors: Record<string, ChatAuthor>;
   compact: boolean;
   highlight: boolean;
-  stat?: ThreadStat;
+  stat?: ThreadStats;
   actions: MessageActions;
   /** The mirror shows clarified copies without a Clarify action of their own. */
   inThread?: boolean;
@@ -155,6 +156,8 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
   const clarify = msg.kind === 'clarify';
   // An erased author's text is gone from the copy too: say so instead of showing an empty card.
   const removed = snap.body === null && !msg.attachmentKind;
+  // ...and there is nowhere to go from a copy whose author was erased or whose text was removed.
+  const hasOriginal = !!msg.forwardedFromMessageId && !removed && snap.authorName !== 'Deleted user';
   return (
     <div className="mt-1 max-w-md rounded-xl border bg-muted/40 p-3" data-testid={clarify ? 'clarified-card' : 'forwarded-card'}>
       <p className="text-xs font-medium text-muted-foreground" data-testid="forwarded-label">
@@ -187,26 +190,23 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
           ))}
         </ul>
       )}
-      {msg.forwardedFromMessageId && <OpenOriginal sourceId={msg.forwardedFromMessageId} />}
+      {hasOriginal && msg.forwardedFromMessageId && <OpenOriginal sourceId={msg.forwardedFromMessageId} />}
     </div>
   );
 }
 
-function ToolButton({ label, text, showText, onClick, children }: { label: string; /** The short word beside the icon when shown (touch has no hover tip). */ text: string; showText: boolean; onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void; children: React.ReactNode }) {
+function ToolButton({ label, onClick, children }: { label: string; onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void; children: React.ReactNode }) {
+  // Icons only, on purpose: five labelled buttons cannot share one row at 320, and an action bar that wraps
+  // looks broken. The name is on the button for assistive tech and the hover tip; the long-press menu has the words.
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={cn('flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground lg:h-9 lg:min-w-9', showText ? 'px-2.5' : 'px-0', FOCUS_RING)}
+      className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground lg:h-9 lg:w-9', FOCUS_RING)}
     >
       {children}
-      {showText && (
-        <span aria-hidden="true" className="text-sm font-medium">
-          {text}
-        </span>
-      )}
     </button>
   );
 }
@@ -293,30 +293,28 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         className={cn(
           'flex items-center gap-0.5 rounded-2xl border bg-background p-0.5 shadow',
           selected
-            ? 'mt-1.5 inline-flex max-w-full flex-wrap'
+            ? 'mt-1.5 inline-flex max-w-full flex-nowrap'
             : 'pointer-events-none absolute -top-5 right-3 z-10 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:pointer-events-auto lg:[@media(hover:hover)]:group-hover:opacity-100',
         )}
       >
-        <ToolButton label="Reply" text="Reply" showText={selected} onClick={() => { setSelected(false); actions.onReply(server); }}>
+        <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
           <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
         {actions.onThread && !server.threadRootId && (
-          <ToolButton label="Reply in thread" text="Thread" showText={selected} onClick={() => { setSelected(false); actions.onThread?.(server); }}>
+          <ToolButton label="Reply in thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
             <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        <ToolButton label="Forward" text="Forward" showText={selected} onClick={() => { setSelected(false); actions.onForward(server); }}>
+        <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
           <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
         {actions.onClarify && (
-          <ToolButton label="Clarify" text="Clarify" showText={selected} onClick={() => { setSelected(false); actions.onClarify?.(server); }}>
+          <ToolButton label="Clarify" onClick={() => { setSelected(false); actions.onClarify?.(server); }}>
             <MessagesSquare className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
         <ToolButton
           label="More actions"
-          text="More"
-          showText={selected}
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             setSelected(false);
