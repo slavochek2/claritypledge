@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-19 [process]: A screen with a live equivalent mounts the live screen; a copy needs the founder's OK per page (P1512)
+
+**Context:** P1509 v16 hand-rebuilt Letters, Groups, the group page, Event, Events, Partners, Invite partner, a profile card, Settings and Tools inside the chat prototype (about 1,000 lines), then fed them real data. Every function the copies did not reproduce went missing (new letter, Resend and Revoke, host tools, the full profile) and was found only on the founder's click-through, although the founder had asked for reuse twice (P1495: *"we don't want new build, we want to reuse"*; v16: *"if we are rebuilding then functionality has to stay"*). The copies came from earlier mock-data versions; v16 read "reuse" as reuse of data and services, kept the copied screens, and listed the losses in its build report instead of not rebuilding. All reviewers checked the build against its spec, and none asked whether a screen already existed live.
+
+**Decision:** When a prototype or product screen has a live equivalent, it mounts the live screen. A copy is allowed only with the founder's explicit OK for that one page, written into the spec. Reviewers check every screen against "does a live version exist?". A reported loss is not a substitute for not rebuilding. Recorded as an Invariant in P1512, which deletes the copies.
+
+**Alternatives rejected:** keeping the copies and restoring missing functions one by one (each restore is another copy to keep in step with the live page); improving the live pages in the same pass (mixes "does the new navigation work" with "do I like these changes" in one review).
+
+---
+
 ## 2026-10-17 [product]: Hospitals become a fifth use case; no microcopy under a CTA whose label already discloses the call (P1506)
 
 **Context:** P1506 built /hospitals as a use-case landing on the /builders pattern. Two choices reach beyond the page. (1) Whether a hospital audience belongs in the shared "Use cases" menu or stays a direct-link page. (2) /hiring still carried "Starts with a 15-min call." under its CTA, although the CTA itself reads "Book a 15-min discovery call". The 2026-07 entry that introduced `AUDIT_MICROCOPY` did so because the CTA then sold an "audit" and hid the call. That reason no longer holds.

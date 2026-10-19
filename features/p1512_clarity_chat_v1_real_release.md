@@ -1,0 +1,234 @@
+---
+status: week
+type: story
+rank: 43
+workstream: clarity-chat
+created_date: '2026-10-19'
+tags: [clarity-chat, navigation, realtime, rls]
+disclosure: public
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: opus
+exec_effort: high
+driver: anomaly
+---
+
+# P1512: Clarity Chat v1, real and released: chats become Home, live pages reused, real messages
+
+## Problem
+
+**Situation:** P1509 v16 (branch `feature/p1509-clarity-chat-v12`, unshipped, route `/tree/clarity-chat-v16`,
+dev-only) shows the chat home on real test-project data. Its chat itself is mock: no chat tables exist, so
+every message, 1:1, channel post, thread, unread count and mirror reply is scripted. Around the chat it
+hand-rebuilt pages the live app already has (Letters, Groups, group page, Join, Event, Events, Partners,
+Invite partner, a profile card, Settings, Tools: about 1,000 lines in `ClarityChatV16.tsx`) and fed them real
+data. Every function the copies did not reproduce went missing: new letter, Resend and Revoke on a partner
+invite, host tools, the full profile (P1509 `build-report-v16.md` §E3 lists 11 losses).
+
+**Complication:** The founder had asked for reuse twice before: P1495 (*"we don't want new build, we want to
+reuse"*) and the v16 framing (*"if we are rebuilding then functionality has to stay ... or at least I need to
+know about that"*). The rebuild still happened and was found only on click-through. Founder, 2026-10-19:
+
+> "why are we building, rebuilding things that are already working? ... just replace with normal version that works"
+> "the coming soon things just delete them!? why we need them?"
+> "make the full version that we discussed, like working, remove the unworking stuff"
+
+**Question:** Turn the prototype into the released product: the chat home on real tables with
+database-enforced access, every other screen the live page itself, nothing fake and nothing "Coming soon".
+
+## Appetite
+
+Blast radius: high. The signed-in home changes for every user, and private messages are the first
+person-to-person private data the product stores. Reversibility: medium (new tables plus a route change;
+the old redirect can be restored, a leaked message cannot be recalled). Decision density: decided on
+2026-10-19 except the calls marked `[FOUNDER DECISION]`, each with a recommended default.
+
+## Founder decisions already made (2026-10-19)
+
+1. Delete every prototype screen that copies a live page; the live page shows **unchanged** in the new shell.
+   Ideas from the copies become separate proposals for the live pages, one at a time.
+2. Delete every "Coming soon" item: Transcribe in chat headers, Invite to Clarity Live, topic vote, New Draft
+   placeholder, voice-note placeholder.
+3. Navigation: **Home** = the chat list; today's Home is renamed **Feed**. Menu: Home, Feed, Groups, Letters,
+   Events, plus My Profile on desktop (on phone behind the avatar).
+4. Remove the sidebar Search (the chat-list search covers it). Invite partner becomes a **+** next to the
+   chat-list search and opens the live invite flow unchanged.
+5. Collapsed sidebar works like ChatGPT: only the logo shows; hovering the logo turns it into the expand icon.
+6. Groups opens on Browse when the user has no groups; otherwise their groups, with Browse right below.
+7. Starting a 1:1 needs a shared connection (below); a conversation that exists stays open after that ends.
+8. No notifications or email about messages in v1; unread counts in the app only.
+9. The mirror agent is real, answered by Gemini 3.8 (`gemini-3.8-flash`, already used in `_shared/artist-banner-run.ts`).
+10. Rollout: everyone at once.
+
+## Open decisions (recommended default in bold; the build uses the default unless the founder changes it)
+
+- [FOUNDER DECISION: D1 — what counts as a shared connection for starting a 1:1. **Same group, same event
+  RSVP, or an accepted Clarity Partner.** Partners are added because otherwise a user cannot message their own
+  partner (review finding).]
+- [FOUNDER DECISION: D2 — protection from unwanted 1:1s. Joining a public group or RSVPing is self-service,
+  so "shared group" does not stop a stranger. **Block ships in v1**: a blocked person cannot send, cannot
+  start a new 1:1, and does not see the blocker in search; plus a per-user limit on new 1:1s per day.
+  Report and message requests stay out.]
+- [FOUNDER DECISION: D3 — channel history for new members. **A member sees General messages from the
+  moment they joined**, not earlier history; event channels likewise from their RSVP.]
+- [FOUNDER DECISION: D4 — event channel window. **RSVPs made after the event ended do not get the channel.**]
+- [FOUNDER DECISION: D5 — forwarding. **A forward is a copy (snapshot) of text the forwarder can read,
+  shown as "Forwarded from <author>"**; it does not reveal anything else from the source chat, and the
+  link back only works for people who can read the source.]
+- [FOUNDER DECISION: D6 — decision 6 (Groups opens on Browse) changes the live Groups page, which today is
+  one flat directory. **It is the one allowed live-page change in this spec**, made in the live page so
+  production gets it too.]
+- [FOUNDER DECISION: D7 — events already have an external group-chat link for RSVPs. **Keep it unchanged**;
+  the event channel is added alongside.]
+- [FOUNDER DECISION: D8 — the mirror's job on Clarify. **In the owner's mirror chat only: what the sender
+  most likely meant and the one question that would check it, in two or three sentences.**]
+- [FOUNDER DECISION: D9 — home URL. **`/home` for signed-in users**; signed-out visitors keep `/` → `/feed`
+  (P1392). `/chat` is taken (redirects to `/create`, used by the auth callback).]
+- [FOUNDER DECISION: D10 — read state. **Own devices only**; the other person never sees "read".]
+- [FOUNDER DECISION: D11 — Home for a user with no chats. **Shows their mirror and their groups' General
+  channels (backfilled), plus a one-line hint "Message someone from your groups or events"** — no placeholder.]
+
+## Solution
+
+### A. The shell: a signed-in mode of the existing layout, live pages inside
+
+Every product route is wrapped in `ClarityLandingLayout` (top nav, bottom nav, active-session banner,
+room-capture bar). The shell is a **signed-in mode of that layout**, not a second layout around it, so a
+page never shows two navigations. Signed-out chrome, and the compact / chrome-free / `/live` / `/transcribe`
+routes, keep today's chrome.
+
+Every function today's navigation carries moves into the shell, none is dropped:
+
+| Today (top nav / bottom nav) | In the shell |
+|---|---|
+| Home → `/feed` | Feed |
+| Today's event (when there is one) | Kept, above the menu (desktop) and in the bottom bar (phone) |
+| Groups, Letters (+ unread badge) | Menu entries with their badges |
+| Partners (+ pending-invite badge) | Menu entry with badge |
+| Links / Tools menu (Transcribe and others) | Tools entry opening the same menu |
+| Avatar menu, My Profile | Avatar (phone sheet); My Profile also in the desktop menu |
+| Events | `/events/list` (the bare `/events` redirects to a group) |
+
+Menu entries open the live routes (`/feed`, `/groups`, `/letters`, `/events/list`, `/p/:id`,
+`/p/:id/partners`, `/settings`). Profile and member rows open the live profile; the v16 profile card goes.
+The page content and behaviour of every live page stay unchanged, except D6.
+
+### B. Remove the prototype
+
+Built on the P1509 branch (or after P1509 is closed): delete the v12 to v16 prototype code and routes, its
+tests, the persona sign-in plugin in `vite.config.ts`, `scripts/p1509-*`, the mock data and
+`?real=` / `?state=` overrides. The seeded test personas may be kept as the canary's accounts; otherwise the
+seed reset removes them and the password file outside the repo is deleted.
+
+### C. Real chat
+
+Keeps from the prototype: chat list with tabs (All, Unread, Partners, Channels), 1:1s, group General
+channels, event channels, threads (channels only; 1:1s have quote-reply), forward (D5), attach a point or
+story, edit and delete own messages, mark as unread, archive, search over own chats and over people with a
+shared connection (D1).
+
+Tables for conversations, members and messages and a per-member read marker; shape is `/architect`'s call.
+
+**Access lifecycle** (enforced in the database on REST and Realtime):
+
+| Event | Effect |
+|---|---|
+| Join group | General channel from join time (D3) |
+| Leave group | General access ends; existing 1:1s stay |
+| RSVP (before the event ends) | Event channel from RSVP time (D3, D4) |
+| Cancel RSVP | Event channel access ends |
+| Host | Has the event channel (one host per event; group organizers who are not the host do not) |
+| Event deleted | Its channel and messages are deleted with it (must not add a second event-delete blocker like INBOX-189) |
+| Block (D2) | Blocked person cannot send to or start a 1:1 with the blocker, nor find them |
+| Message deleted | Body removed on the server (not just flagged); forwards keep their copy (D5) |
+| Account erased | Their messages show as "Deleted user" with the body removed; 1:1s stay for the other side; their mirror and its copies are erased; chat tables added to `erase_my_account` and its test |
+| Existing groups and events at release | General and event channels and one mirror per user backfilled by migration |
+
+Attachments store only the point or story id and render through the reader's own access; an item the reader
+cannot see shows "Not available to you". Read state goes to the owner's own devices only (D10).
+
+### D. Mirror agent on Gemini 3.8
+
+- One mirror per user; Rename kept; its role always shows ("<Name> · <First>'s mirror").
+- Clarify sends a copy of the message (text and author name only, nothing else from the conversation) to the
+  owner's mirror chat; the mirror answers there (D8). It never posts into the source chat.
+- Server-side edge function; key in the request header (as `transcribe-slice` and `artist-banner-run`), never
+  in the URL. Uses the interactive Gemini key, not the batch key. No tools; the clarified text is untrusted input.
+- Its own daily cap per user, not shared with the banner cap (`ai_rate_limits` has no kind column today).
+
+## Invariants
+
+- **A screen with a live equivalent mounts the live screen.** A copy needs the founder's explicit OK for that
+  one page, written in the spec. Reviewers check every screen against "does a live version exist?" (P1495,
+  P1509 v16).
+- **No chat content is readable by a non-member through any path**: REST, RPC, Realtime `postgres_changes`,
+  broadcast, views, search, forward, attach or the mirror function. Every server path that takes a message,
+  conversation or thread id checks membership as the caller (a service-role function does its own check).
+- **No one can write what they do not own**: insert themselves into a conversation, post as someone else,
+  edit or delete another's message, or point a reply or thread at a message in another conversation.
+- Chat uses no public broadcast channel; any Realtime topic is private with policies. Deletes are modelled so
+  Realtime cannot deliver a removed body to anyone.
+- No "Coming soon", placeholder or mock surface ships. A control that does nothing is deleted.
+- Existing live flows (RSVP, partner invite, letters, profile) are reused unchanged.
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| Realtime leaks a message | MITIGATE | Invariants plus the canary below |
+| Realtime on the test project has an open problem (`.private/docs/decisions.md` 2026-10-16) | MITIGATE | Step 0: confirm Realtime works on test; fix first if not |
+| Unwanted contact via self-service group join or RSVP | MITIGATE | D2 Block + daily limit, D3, D4 |
+| Messages sent to Google undisclosed | MITIGATE | Privacy policy section before deploy (checklist) |
+| Prompt injection through a clarified message | MITIGATE | No tools; reply goes only to the owner |
+| Mirror cost | MITIGATE | Own daily cap |
+| Signed-in users land on Feed before session restores | MITIGATE | Home redirect waits for the session; tested |
+| Users lose the old home without warning | ACCEPT | Founder chose everyone-at-once; Feed is one tap away |
+| Transcribe leaves chat headers | ACCEPT | Stays in Tools |
+| Event delete fails with a linked transcription room (INBOX-189) | ACCEPT | Separate bug |
+
+**Non-Goals**
+- Do NOT change any live page's content or behaviour, except D6. Moving its navigation into the shell is not a content change.
+- Do NOT build Transcribe from chat, Clarity Live invites, topic vote, voice notes, notifications, email,
+  report, message requests, typing indicators or read receipts to others.
+- Do NOT build the letter loop, mental models or agents on other people (P1431, P1458).
+- Do NOT import WhatsApp/Telegram/LinkedIn chats (P1457), emoji reactions, channel settings (P1461).
+
+## Acceptance Criteria
+
+- [ ] Signed in, opening the app (and the installed app) lands on Home, the chat list; Feed shows today's feed unchanged
+- [ ] Each of the 11 losses in P1509 `build-report-v16.md` §E3 is restored by the live page, or listed as a founder-approved loss
+- [ ] Per route: exactly one navigation; Today's event, Tools, Partners and the letter/partner badges are present as before
+- [ ] No "Coming soon", placeholder or mock text anywhere in the shell or chat
+- [ ] Two accounts with a shared connection (D1) start a 1:1 and see each other's messages live without reload
+- [ ] An account with no shared connection cannot start a 1:1 or find the other in search
+- [ ] A blocked account cannot send, start a 1:1 or find the blocker
+- [ ] After the shared group ends, the existing 1:1 still works
+- [ ] General and event channels follow the access lifecycle table, including history from join time
+- [ ] Two-user canary per path: a non-member gets nothing via REST, Realtime, search, forward, attach or the mirror function using a real id
+- [ ] Write canary: self-insert into a conversation, posting as another user, editing or deleting another's message, and a cross-conversation reply all fail
+- [ ] A deleted message's body is gone over REST and Realtime; an erased account's messages show "Deleted user"; account erase still succeeds
+- [ ] Deleting an event with a channel succeeds
+- [ ] Unread is correct across two devices of one user; mark-as-unread and archive persist
+- [ ] Threads, quote-reply, forward (D5), attach, edit and delete work and persist
+- [ ] Clarify produces a Gemini 3.8 reply in the owner's mirror only; Rename persists; role always shows; the cap stops calls past the limit
+- [ ] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite
+- [ ] Groups opens on Browse for a user with no groups (D6)
+- [ ] Existing users see their groups' General channels and their mirror on first open
+- [ ] Phone (375, 320) and desktop pass the visual QA checklist
+- [ ] No prototype route, persona plugin or mock code remains in the build
+
+## Pre-deploy Checklist
+
+- [ ] Realtime confirmed working on test (step 0)
+- [ ] Chat migrations (tables, policies, backfill, `erase_my_account` update) applied on test, both canaries green, then prod via `/push`
+- [ ] Chat tables in the Realtime publication only with canary-passing policies
+- [ ] Interactive Gemini key available to the mirror function on prod (name in `.private/`)
+- [ ] Mirror function deployed to prod and smoke-tested
+- [ ] Privacy policy section on chat messages and the mirror's use of Gemini published
+
+## Related
+
+- P1509 (prototype v12 to v16, build report on its branch), P1495, P1431, P1458, P1461, P1502, P1457
+- P1048, P1114, P1138 (chat table, Realtime and RLS history); P1392 (`/` → `/feed`); P520 (account erase); P1193 (event group-chat link)
+- Spec review 2026-10-19: Codex, Gemini 4 Argon, Opus — 3 of 3 reported; findings folded in above
