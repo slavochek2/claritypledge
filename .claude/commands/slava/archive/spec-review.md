@@ -1,8 +1,9 @@
 ---
-description: 'Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts'
-when_to_use: "Before /dev. When a spec exists but has not been reviewed for quality."
+description: "ARCHIVED 2026-10-19 (P1514) — do not use. Was: pre-dev spec quality audit (redundancy, consistency gaps, blindspots, under-specification)."
+when_to_use: "Never — archived. Use /create-spec, then a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]), then /dev with its end-of-build /finish review (P1505)."
 name: spec-review
 version: 1.0.0
+archived_reason: "retired 2026-10-19 (P1514, founder) with the long spec pipeline — replaced by a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) after /create-spec, then /dev with its /finish review (P1505)"
 ---
 
 # /spec-review

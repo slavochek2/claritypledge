@@ -8,22 +8,24 @@ We start with full quality gates and tell you what's safe to skip. Opt-in to qua
 
 ## Why a Pipeline
 
-Most dev processes are checklists you run in your head. Ours is a sequence of AI agents, each guarding against a specific failure mode:
+Most dev processes are checklists you run in your head. Ours is a short route of AI agents, each guarding against a specific failure mode:
 
 | Phase | Key Skill | What It Prevents |
 |-------|-----------|-----------------|
-| **Route** | [`/pick-flow`](../.claude/commands/slava/build/pick-flow/SKILL.md) | Wasting a full pipeline on a typo fix, or skipping gates on a risky change |
 | **Define** | [`/create-spec`](../.claude/commands/slava/build/create-spec.md) | Building the wrong thing — forces "why does this matter?" before code |
-| | [`/challenge-prd`](../.claude/commands/slava/build/challenge-prd.md) | Untested assumptions surviving into implementation |
-| **Design** | [`/ux`](../.claude/commands/slava/build/ux.md) | Skipping user experience for the happy path only |
-| | [`/architect`](../.claude/commands/slava/build/architect.md) | Schema and API decisions you'll regret in 6 months |
-| | [`/ui`](../.claude/commands/slava/build/ui.md) | Reinventing components that already exist in the design system |
-| **Test** | [`/generate-tests`](../.claude/commands/slava/build/generate-tests/SKILL.md) | Writing tests after code, where they confirm bugs instead of catching them |
+| **Review the spec** | Multi-model spec review: the Gemini review model, Opus and Codex | Untested assumptions, missing edge cases, and schema or API decisions you'll regret in 6 months. Each model catches blockers the others miss, and every load-bearing claim is checked by command before it is folded in ([decisions.md](decisions.md) 2026-10-16 [process]) |
 | **Build** | [`/dev`](../.claude/commands/slava/build/dev.md) | The actual implementation — iterates until tests pass, stops at UAT |
+| **Review the build** | [`/finish`](../.claude/commands/slava/build/finish/SKILL.md) | Correctness bugs, code-quality and design-system misses. Runs at the end of every `/dev` and `/fix`, and the Stop hook asks for it after any ad-hoc build (P1505) |
 | **Verify** | [`/verify`](../.claude/commands/slava/build/verify/SKILL.md) | "Tests pass" is not the same as "works in a browser" |
-| **Ship** | [`/ship`](../.claude/commands/slava/build/ship.md) | Merge without review — runs [`/finish`](../.claude/commands/slava/build/finish/SKILL.md) criteria automatically |
+| **Ship** | [`/ship`](../.claude/commands/slava/build/ship.md) | Merging unreviewed code — its gates refuse a branch without a `/finish` review receipt |
 
-Not every task runs every step. `/pick-flow` reads your task and recommends which steps apply, which are safe to skip, and what risk you accept by skipping.
+Bugs take a shorter route: [`/reproduce`](../.claude/commands/slava/build/reproduce/SKILL.md) → [`/fix`](../.claude/commands/slava/build/fix.md) → `/ship`.
+
+Not every task runs every step. A typo fix goes straight to `/dev`; the spec review is for specs that carry real stakes (reversed rulings, privacy, auth, data). The agent chooses the steps itself; there is no separate routing skill.
+
+**Optional tools**, run when a spec needs them rather than as fixed stages: [`/ux`](../.claude/commands/slava/build/ux.md) (user flows for UI work), [`/ui`](../.claude/commands/slava/build/ui.md) (reuse existing components before inventing new ones), [`/generate-tests`](../.claude/commands/slava/build/generate-tests/SKILL.md) (tests written before code) and [`/decompose`](../.claude/commands/slava/build/decompose.md) (task manifest for very large builds).
+
+**History:** until 2026-10-19 the route was a long pipeline (`/create-spec` → `/challenge-prd` → `/ux` → `/architect` → `/ui` → `/generate-tests` → `/decompose` → `/spec-review` → `/dev`), picked per task by `/pick-flow`. `/pick-flow` was retired on 2026-10-07; `/architect`, `/spec-review` and `/challenge-prd` on 2026-10-19 (P1514). Their files stay in [`archive/`](../.claude/commands/slava/archive/) because old specs still carry the sections they wrote.
 
 ## Post-Ship Visual QA Loop
 
@@ -36,7 +38,7 @@ After a feature ships, a separate loop handles visual polish without reopening t
 
 Routing from the punch list:
 - Visual fix on shipped UI → `/polish`
-- Redesign touching shared components or page structure → `/change-request` (re-enters full pipeline)
+- Redesign touching shared components or page structure → `/change-request` (files a new spec, then the same route)
 - Net-new capability → `/create-spec`
 - Broken code (not design) → `/fix`
 
@@ -87,13 +89,13 @@ Then open Claude Code and ask:
 - **"How did your delivery process evolve?"** — reads `docs/decisions.md` and git history
 - **"Compare my delivery process to yours"** — describe how you build and Claude maps similarities and gaps
 - **"Which of your skills would work for my project?"** — recommends what's portable vs ClarityPledge-specific
-- **"Show me how /architect works"** — reads the skill file and explains the logic
+- **"Show me how /finish works"** — reads the skill file and explains the logic
 
 **Adapt for your project:**
 
-Copy skills from `.claude/commands/` into your repo. The principles and pipeline structure (pick-flow, create-spec, dev) are stack-agnostic. What you'll customize: file paths, test commands, linting rules, deployment targets, and any project-specific review criteria in `/finish`.
+Copy skills from `.claude/commands/` into your repo. The principles and route structure (create-spec, dev, finish) are stack-agnostic. What you'll customize: file paths, test commands, linting rules, deployment targets, and any project-specific review criteria in `/finish`.
 
-Start with `/pick-flow` + `/create-spec` + `/dev` — that's the minimum viable pipeline. Add gates as you feel the pain of not having them.
+Start with `/create-spec` + `/dev` + `/finish` — that's the minimum viable pipeline. Add gates as you feel the pain of not having them.
 
 ---
 

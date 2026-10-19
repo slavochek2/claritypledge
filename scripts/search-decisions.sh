@@ -5,7 +5,8 @@
 #
 # Why one helper: a privately recorded ruling (a rejected idea whose reasons name people) is
 # invisible to a grep of docs/decisions.md alone, and nothing reports the miss. Every consumer that
-# looks for prior rulings (/create-spec duplicate gate, /spec-review, /challenge-prd) calls this.
+# looks for prior rulings (/create-spec duplicate gate, /kdd) calls this. /spec-review and /challenge-prd
+# also called it until they were archived 2026-10-19 (P1514).
 #
 # The private log lives in the MAIN checkout's .private/ (its own gitignored repo), resolved through
 # git-common-dir so the search works from any worktree. When it cannot be reached (a clone, CI), the

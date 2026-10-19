@@ -315,7 +315,6 @@ If none of the above:
 | `/prepare-blog` | Blog posts | `content/blog/{slug}.md` |
 | `/generate-uat` | UAT docs | `features/uat/p{N}.md` |
 | `/ship` | Moves completed features | `features/` → `features/done/{sprint}/` |
-| `/architect` | Appends to feature | Existing `features/p{N}_{slug}.md` |
 | `/ux` | Appends to feature | Existing `features/p{N}_{slug}.md` |
 | `/dev` | Appends to feature + creates E2E | Existing spec + `e2e/p{N}-*.spec.ts` |
 

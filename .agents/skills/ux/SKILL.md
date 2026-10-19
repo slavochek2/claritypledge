@@ -1,7 +1,7 @@
 ---
 name: ux
 description: Design user experience layer after business requirements are approved
-when_to_use: After /create-spec, before /architect - only for UI features
+when_to_use: Optional tool — after /create-spec, before /dev, only for UI features whose flows are unclear
 version: 2.1.0
 ---
 
@@ -33,7 +33,7 @@ Adds UX layer to feature spec:
 ✅ **Use /ux for:**
 - Features with user-facing UI
 - After /create-spec (business requirements approved)
-- Before /architect (UX informs technical design)
+- Before /dev (UX informs the build; P1514 retired the /architect step that used to follow)
 
 ❌ **Skip /ux for:**
 - Backend-only features (API, data migrations)
@@ -110,7 +110,7 @@ Adds UX layer to feature spec:
 ❌ **If this is a backend feature:**
 ```
 ERROR: Skip /ux for backend features
-- Pure backend (API, migration, cron) → Skip /ux, run /architect directly
+- Pure backend (API, migration, cron) → Skip /ux, run /dev directly
 - Infrastructure (deployment, monitoring) → Skip /ux
 - Mark frontmatter as: feature_type: backend
 ```
@@ -201,18 +201,16 @@ The UX agent:
 
 **Next steps:**
 1. **Review UX** — User confirms flows, screens, edge cases
-2. **Run /architect** — Technical design informed by UX
-3. **Run /ui** — Component strategy maps UX to concrete components (after /architect)
-4. **Run /generate-tests** — Tests generated from full spec
-5. **Implement** — Run `/dev` with full spec
+2. **Optional: /ui** — Component strategy maps UX to concrete components
+3. **Optional: /generate-tests** — Tests generated from the spec
+4. **Implement** — Run `/dev` (a multi-model spec review first when the stakes call for one)
 
 ---
 
 ## Related Skills
 
 - `/create-spec` — Business requirements (run before /ux)
-- `/architect` — Technical design (run after /ux)
-- `/ui` — Component strategy (run after /architect)
+- `/ui` — Component strategy (optional, after /ux)
 - `/generate-tests` — Test generation (run after /ui)
 - `/dev` — Implementation (run after /generate-tests)
 
@@ -335,7 +333,7 @@ Write a Challenge Note:
 
 If no upstream concerns: omit Section 7 entirely.
 
-**Note:** Component-level decisions (which components to reuse, extend, or create) are handled by `/ui`, which runs after `/architect`. Do NOT include component analysis here — focus on UX flows, screens, and interactions.
+**Note:** Component-level decisions (which components to reuse, extend, or create) are handled by `/ui`, which runs after `/ux`. Do NOT include component analysis here — focus on UX flows, screens, and interactions.
 
 ---
 
@@ -375,6 +373,6 @@ Before any other work in this skill:
 AFTER appending UX section, the delivery_stage is already set — no further change needed.
 
 CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and output exactly:
-   "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /architect."
+   "UX section written to {spec_file} — [first 5 words of the last ## heading]. Ready for /dev (or optional /ui)."
    This is the final step. If the read-back shows no UX section, re-append and confirm again.
 ```

@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-19 [process]: The long spec pipeline is retired; specs go create-spec → multi-model review → /dev (P1514)
+
+**Context:** `/architect`, `/spec-review` and `/challenge-prd` and the long route through `/ux`, `/ui`, `/generate-tests` and `/decompose` were still described as the process, while specs were in practice reviewed by Gemini, Opus and Codex (2026-10-16 [process]) and built with `/dev` + `/finish` (P1505). Agents kept recommending the old route (P1508 carried "`/architect` recommends" until today). Founder: "retire for now architect and big flow and spec review and challenge PRD."
+
+**Decision:** Archive the three skills. The route is `/create-spec` → multi-model spec review when stakes call for it → `/dev` (with `/finish`) → `/verify` → `/ship`. `/ux`, `/ui`, `/generate-tests` and `/decompose` stay as optional tools, not pipeline steps (last runs: 2026-06-18, 2026-04-13, 2026-09-15, 2026-06-27). Legacy spec section names stay readable; nothing is batch-migrated.
+
+**Alternatives rejected:** deleting the skills (history and old specs still reference them); keeping them as optional (agents kept routing through them).
+
+---
+
 ## 2026-10-19 [product]: Clarity Canvas resumes as an owner's artifact for the sales mastermind (P1508)
 
 **Context:** The canvas was parked on 2026-05-19 pending demand (three [product] entries that day: parked; a canvas is a tag-grouped view; four curation principles). The two-session sales mastermind (`docs/goals.md` 3a) runs on each attendee's lean canvas, which is that demand. Three review rounds (Gemini Argon, Opus, Codex) shaped P1508.

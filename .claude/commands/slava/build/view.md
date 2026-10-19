@@ -56,14 +56,10 @@ Writes `view_locked: [path/to/view.tsx, path/to/view.demo.tsx]` to spec frontmat
 
 ## Position in Pipeline
 
-```
-/create-spec → /challenge-prd → /ux → /architect → /ui → [/view] → /generate-tests → /spec-review → /dev
-```
-
-**ui-heavy flow (add /view):**
-```
-/create-spec → /challenge-prd → /ux → /architect → /ui → /view → /generate-tests → /spec-review → /dev
-```
+`/view` is an optional tool, not a pipeline stage. The route is `/create-spec` → multi-model spec
+review (Gemini review model, Opus, Codex) → `/dev` (P1514 retired the long pipeline and its
+`/challenge-prd`, `/architect`, `/spec-review` stages). Run `/view` after `/ui` and before `/dev`
+when a UI-heavy spec benefits from a rendered preview.
 
 `/view` requires `/ui` (Component Strategy + Visual Specification) before it can run.
 

@@ -1,7 +1,7 @@
 ---
 name: dev
 description: Execute a development task with TDD discipline and production thinking
-when_to_use: "After spec exists (/create-spec, /architect done). Triggered by /dev."
+when_to_use: "After a spec exists (/create-spec, plus a multi-model spec review when the stakes call for one). Triggered by /dev."
 version: 2.0.0
 ---
 

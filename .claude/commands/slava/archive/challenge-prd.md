@@ -1,15 +1,9 @@
 ---
 name: challenge-prd
-description: >
-  Adversarial stress-test of a spec immediately after /create-spec. Surfaces flawed assumptions,
-  missing edge cases, strategic misalignment, and logic gaps — before any design or architecture
-  work begins. Eight challenge dimensions plus command-backed verification of the spec's own
-  claims about existing code. BLOCK/WARN/NOTE severity output.
-when_to_use: >
-  Right after /create-spec produces the skeleton, before /ux or /architect.
-  Also useful when revisiting an existing spec that feels incomplete or when starting
-  implementation on an older spec whose assumptions may have shifted.
+description: "ARCHIVED 2026-10-19 (P1514) — do not use. Was: adversarial stress-test of a spec right after /create-spec (BLOCK/WARN/NOTE)."
+when_to_use: "Never — archived. Use /create-spec, then a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]), then /dev with its end-of-build /finish review (P1505)."
 version: 2.1.0
+archived_reason: "retired 2026-10-19 (P1514, founder) with the long spec pipeline — replaced by a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) that verifies load-bearing claims by command, then /dev with its /finish review (P1505)"
 ---
 
 # /challenge-prd

@@ -116,6 +116,11 @@ KNOWN_RETIRED = {
     "CLAUDE.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
     ".claude/rules/features.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
     ".claude/rules/model-effort.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
+    ".claude/rules/features.md:/architect": "P1514 (2026-10-19) — /architect archived; the lines record a 2026-09-08 incident and quote a decisions.md ruling, they do not route to it.",
+    ".claude/rules/features.md:/challenge-prd": "P1514 (2026-10-19) — /challenge-prd archived; the drafted_by line names the control it used to be, then its successor.",
+    ".claude/rules/spec-sections.md:/architect": "P1514 (2026-10-19) — /architect archived; legacy section names older specs still carry, kept so readers find them.",
+    ".claude/rules/spec-sections.md:/spec-review": "P1514 (2026-10-19) — /spec-review archived; the Challenge Notes row says what it used to do, it does not route to it.",
+    ".claude/rules/spec-sections.md:/challenge-prd": "P1514 (2026-10-19) — /challenge-prd archived; the Resolved Decisions row names it as the writer on older specs.",
 }
 
 

@@ -1,7 +1,7 @@
 ---
 name: ui
 description: Map UX designs and architecture decisions to concrete component choices, maximizing reuse of the existing design system
-when_to_use: After /architect, before /generate-tests — for all UI features
+when_to_use: Optional tool — after /create-spec (and /ux if it ran), before /dev — for UI features with real component decisions
 version: 2.0.0
 ---
 
@@ -32,8 +32,8 @@ Adds Component Strategy layer to feature spec:
 ## When to Use
 
 ✅ **Use /ui for:**
-- All features with user-facing UI (after architecture is approved)
-- Medium pipeline features with UI changes
+- UI features with real component decisions (after the spec is approved)
+- Smaller UI changes (lightweight mode, see Pre-Flight Check)
 - Design corrections that touch components
 
 ❌ **Skip /ui for:**
@@ -45,21 +45,18 @@ Adds Component Strategy layer to feature spec:
 
 ## Position in Pipeline
 
-```
-/create-spec → /challenge-prd → /ux → /architect → /ui → /generate-tests → /spec-review → /dev
-```
+`/ui` is an optional tool, not a pipeline stage. The route is `/create-spec` → multi-model spec
+review (Gemini review model, Opus, Codex) → `/dev`; P1514 (2026-10-19) retired the long pipeline
+and its `/challenge-prd`, `/architect` and `/spec-review` stages.
 
-**Why after both /ux AND /architect:**
-- From `/ux`: knows what screens, interactions, states, and edge cases to render
-- From `/architect`: knows what data shapes, file boundaries, server/client splits exist
-- Both inputs are needed to make correct component choices
+**Inputs it uses when present:**
+- From `/ux` (`## UX Design`): what screens, interactions, states, and edge cases to render
+- From the spec's Solution, or a legacy `## Technical Architecture` section on older specs: data
+  shapes, file boundaries, server/client splits
 
-**Medium pipeline:**
-```
-/create-spec → /challenge-prd → /ui → /dev
-```
-
-**Note:** In the medium pipeline, /ux and /architect are skipped. /ui's pre-flight relaxes for medium work: it requires only business requirements (from /create-spec) and scans the codebase directly for component decisions — no UX or Architecture section needed. The Component Inventory + Map still provides value by preventing duplicate components.
+With neither present, /ui needs only the business requirements (from /create-spec) and scans the
+codebase directly for component decisions. The Component Inventory + Map still provides value by
+preventing duplicate components.
 
 ---
 
@@ -192,13 +189,13 @@ When `/ui` discovers a problem with an upstream decision:
 
 ✅ **Business requirements exist** in spec (from /create-spec) — always required
 
-✅ **UX section exists** (from /ux) — required for full pipeline, optional for medium pipeline
+✅ **UX section exists** (from /ux) — optional; use it when present
 
-✅ **Technical Architecture exists** (from /architect) — required for full pipeline, optional for medium pipeline
+✅ **Technical design** — the spec's Solution, or a legacy `## Technical Architecture` section (written by the archived `/architect`) on older specs — optional; use it when present
 
 ❌ **If backend feature** (`feature_type: backend` in frontmatter) → Skip /ui entirely
 
-**Medium pipeline behavior:** When UX and/or Architecture sections are absent, /ui operates in lightweight mode — scans the codebase directly to produce Component Inventory + Map, skips Composition Tree and Visual Refinements (no UX wireframes to refine). Still prevents component duplication.
+**Lightweight mode:** When UX and/or Architecture sections are absent, /ui operates in lightweight mode — scans the codebase directly to produce Component Inventory + Map, skips Composition Tree and Visual Refinements (no UX wireframes to refine). Still prevents component duplication.
 
 ---
 
@@ -230,7 +227,7 @@ The /ui agent:
 - **Defaults to Reuse** — only classify as New when existing patterns genuinely don't apply
 - **Documents "why New"** — every New classification must explain why existing patterns don't work
 - **Proposes file locations** — `src/components/ui/` (design system), `src/app/components/shared/` (cross-feature), `src/app/components/{feature}/` (feature-specific)
-- **Respects upstream decisions** — never silently overrides /ux or /architect
+- **Respects upstream decisions** — never silently overrides /ux or the spec's technical decisions
 - **Flags concerns via Challenge Notes** — with evidence, options, and recommendation
 - **Can spawn fact-checking agents** for: accessibility validation, codebase state queries, Tailwind compatibility checks
 - **Cannot spawn opinion agents** about upstream design choices
@@ -347,19 +344,16 @@ CONFIRM the write succeeded — read back the last 10 lines of {spec_file} and o
 
 **Next steps:**
 1. **Review Component Strategy** — User confirms component choices, extraction plan
-2. **Run /generate-tests** — Tests reference Component Map for scope
-3. **Run /spec-review** — Audits Component Strategy consistency
-4. **Implement** — Run `/dev` with full spec
+2. **Optional: /generate-tests** — Tests reference Component Map for scope
+3. **Implement** — Run `/dev` (a multi-model spec review first when the stakes call for one)
 
 ---
 
 ## Related Skills
 
-- `/ux` — UX design (run before /architect, before /ui)
-- `/architect` — Technical architecture (run before /ui)
-- `/generate-tests` — Test generation (run after /ui)
-- `/spec-review` — Spec quality audit (run after /generate-tests)
-- `/dev` — Implementation (run after /spec-review)
+- `/ux` — UX design (optional, before /ui)
+- `/generate-tests` — Test generation (optional, after /ui)
+- `/dev` — Implementation
 
 ---
 

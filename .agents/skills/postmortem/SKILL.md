@@ -116,7 +116,7 @@ Fix commits in this category:
 
 ## Your task
 Read these files to find where in the pipeline this should have been caught:
-- Skills in .claude/commands/slava/build/ — especially /ui, /dev, /spec-review, /ux, /challenge-prd, /verify, /generate-tests
+- Skills in .claude/commands/slava/build/ — especially /ui, /dev, /finish, /ux, /verify, /generate-tests (for work specced before 2026-10-19, also the archived /spec-review and /challenge-prd in .claude/commands/slava/archive/)
 - Rules in .claude/rules/ — especially src.md, visual-qa.md, tests.md
 - Process docs in docs/technical/
 

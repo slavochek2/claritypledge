@@ -5,14 +5,17 @@ when_to_use: before implementing any feature spec, when prepped_date is not set
 version: 4.0.0
 deprecated: true
 deprecated_date: '2026-02-13'
-replacement: [create-spec, ux, architect, generate-tests, dev]
+replacement: [create-spec, dev]
 ---
 
 # Prep Spec
 
 > **⚠️ DEPRECATED:** This skill is being replaced by the new sequential skill flow.
 >
-> **New flow:** `/create-spec` → `/ux` → `/architect` → `/generate-tests` → `/dev`
+> **Current route:** `/create-spec` → multi-model spec review (Gemini review model, Opus, Codex) → `/dev`.
+> The 2026-02-13 "new flow" this banner first pointed at (`/create-spec` → `/ux` → `/architect` →
+> `/generate-tests` → `/dev`) was itself retired 2026-10-19 (P1514); `/architect` mentions below
+> are history, kept so this deprecated skill still reads coherently.
 >
 > **Why deprecated:**
 > - Runs agents in parallel (can't approve UX before architecture)
@@ -37,10 +40,9 @@ Three-perspective spec review for final polish. Each agent thinks differently �
 
 ⚠️ **This skill is deprecated. For new features, use:**
 1. `/create-spec` - Business requirements
-2. `/ux` - UX design (if UI feature)
-3. `/architect` - Technical architecture + security
-4. `/generate-tests` - Test generation
-5. `/dev` - Implementation
+2. Multi-model spec review (Gemini review model, Opus, Codex) when the stakes call for one
+3. `/dev` - Implementation (ends in the `/finish` review, P1505)
+4. Optional tools: `/ux`, `/ui`, `/generate-tests`, `/decompose`
 
 **Still OK to use /prep-spec for:**
 - Features started before 2026-02-13 (backward compatibility)
@@ -208,7 +210,7 @@ Honor user's choice but note the spec remains unprepped.
 **Deprecated - use these instead:**
 - `/create-spec` - Business requirements (replaces business analysis in prep-spec)
 - `/ux` - UX design (replaces UX agent in prep-spec)
-- `/architect` - Technical architecture + security (replaces Architect + Security agents in prep-spec)
+- Multi-model spec review - replaces Architect + Security agents in prep-spec (`/architect` filled that role until it was archived 2026-10-19, P1514)
 - `/generate-tests` - Test generation (replaces generate-uat offer in prep-spec)
 - `/dev` - Implementation with test-driven workflow
 
@@ -253,7 +255,7 @@ Prep-spec is convergent thinking — "is this spec ready to implement?" Scope ch
 /dev features/pN_feature.md
 ```
 
-**New flow (recommended):**
+**Former flow (retired 2026-10-19, P1514; kept as history):**
 ```
 /create-spec "Feature idea"          # Business layer only
 # [Review business requirements, approve]

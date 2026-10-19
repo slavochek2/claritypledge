@@ -11,7 +11,7 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 
 **For skills that WRITE:** Always use canonical names below. No exceptions.
 
-**For skills that READ (especially /spec-review):** Search for canonical names first. If not found and the spec's `created_date` predates 2026-03-24, check common legacy aliases before issuing a BLOCK:
+**For skills and reviewers that READ (spec reviewers, `/dev`, `/decompose`, `/ui`):** Search for canonical names first. If not found and the spec's `created_date` predates 2026-03-24, check common legacy aliases before issuing a BLOCK:
 - UX layer: also check `## UX Requirements`, `## UX Flow`, `## Screen Designs`
 - Technical layer: also check `## Technical Analysis` (as level-2), `## Technical Requirements`, `## Technical Specification`
 - Test layer: also check `## Testing`, `## Test Automation Strategy`, `## Testing Strategy`
@@ -58,7 +58,10 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 |--------|-------|-------|
 | `## UX Design` | 2 | Not "UX Requirements", not "Screen Designs" |
 
-## Technical Layer (from /architect)
+## Technical Layer (legacy — from /architect)
+
+Written by `/architect` until it was archived on 2026-10-19 (P1514). New specs carry their technical
+design in `## Solution`; these names stay canonical so readers find the layer on older specs.
 
 | Header | Level | Notes |
 |--------|-------|-------|
@@ -89,7 +92,7 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 |--------|-------|-------|
 | `## Implementation Tasks` | 2 | |
 
-## Deploy (from /architect or manual)
+## Deploy (manual; older specs: from /architect)
 
 | Header | Level | Notes |
 |--------|-------|-------|
@@ -103,7 +106,7 @@ These sections are generated during the pipeline but have a finite lifespan. Eac
 |--------|-------|-----------|-----------|------|
 | `## Next Steps` | 2 | /create-spec | Next skill that runs | Remove when the listed steps are no longer actionable (check `delivery_stage`) |
 | `## Open Questions for /X` | 2 | /create-spec or founder | Skill /X when it runs | Skill /X reads the questions, incorporates answers into its section, then deletes the Open Questions block |
-| `## Challenge Notes` | 3 (subsection) | /ux, /architect, /ui | /spec-review | /spec-review consolidates all Challenge Notes into its findings. Non-blocking notes that were addressed by later sections should be removed by the skill that addressed them |
-| `## Resolved Decisions` | 2 | /challenge-prd | Never (permanent) | Persists resolved BLOCK/WARN decisions for downstream reference |
+| `## Challenge Notes` | 3 (subsection) | /ux, /ui (older specs: /architect) | The skill that addressed them, or the spec reviewer | The spec reviewer folds open notes into its findings (the archived /spec-review did this before 2026-10-19). Non-blocking notes that were addressed by later sections should be removed by the skill that addressed them |
+| `## Resolved Decisions` | 2 | /goalify, founder answers (older specs: /challenge-prd) | Never (permanent) | Persists resolved decisions for downstream reference |
 
 **Rule for all write-skills:** After appending your section, check for ephemeral sections you own (per table above) and remove them. This is part of your write contract — not a separate cleanup step.

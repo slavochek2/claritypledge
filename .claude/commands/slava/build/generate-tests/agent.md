@@ -48,7 +48,7 @@ features/p142_dark_mode.md
 The spec will have these sections (created by previous skills):
 - **Business Requirements** (from `/create-spec`)
 - **UX Design** (from `/ux`, if UI feature)
-- **Technical Architecture** (from `/architect`)
+- **Technical design** — the spec's Solution, or a legacy `## Technical Architecture` section on older specs (the archived `/architect` wrote it)
 
 ---
 

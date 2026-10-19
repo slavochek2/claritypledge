@@ -137,8 +137,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
 
    **Tag is required.** Pick exactly one:
-   - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-spec`, `/ux`, `/spec-review`
-   - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/finish`, `/spec-review`
+   - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-spec`, `/ux`, spec reviewers
+   - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/finish` (extracted for its code reviewer), spec reviewers
    - `[process]` — workflows, skills, dev tooling, testing, agent setup → no active skill filters this tag; serves as human-readable context in `/day` and `/weekly` when they scan decisions.md
 
    **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.

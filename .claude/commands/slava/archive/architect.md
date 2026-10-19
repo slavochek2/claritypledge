@@ -1,8 +1,9 @@
 ---
 name: architect
-description: Design technical architecture and security after business/UX requirements are approved
-when_to_use: After /create-spec (and /ux if UI feature), before /generate-tests
+description: "ARCHIVED 2026-10-19 (P1514) — do not use. Was: design technical architecture and security after business/UX requirements are approved."
+when_to_use: "Never — archived. Use /create-spec, then a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]), then /dev with its end-of-build /finish review (P1505)."
 version: 1.0.0
+archived_reason: "retired 2026-10-19 (P1514, founder) with the long spec pipeline — technical design now lives in the /create-spec Solution and is checked by a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]), then built by /dev with its /finish review (P1505)"
 ---
 
 # Technical Architecture

@@ -1,6 +1,6 @@
 ---
 description: 'Generate comprehensive test strategy and runnable test files from a spec'
-when_to_use: "After /architect, before /dev. When a spec needs comprehensive test strategy."
+when_to_use: "Optional tool — after /create-spec (and its spec review), before /dev, when a spec needs a comprehensive test strategy up front."
 name: generate-tests
 version: 1.1.0
 ---
@@ -124,18 +124,15 @@ Example: `/generate-tests features/p142.md lean`
 
 ## When to Use
 
-**In the sequential flow:**
-```
-/create-spec → /ux (if UI) → /architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
-```
+`/generate-tests` is an optional tool, not a pipeline stage. The route is `/create-spec` →
+multi-model spec review (Gemini review model, Opus, Codex) → `/dev`; P1514 (2026-10-19) retired the
+long pipeline and its `/challenge-prd`, `/architect` and `/spec-review` stages.
 
 **Run this after:**
 - ✅ Business requirements approved (`/create-spec` complete)
-- ✅ UX design approved (`/ux` complete, if UI feature)
-- ✅ Architecture approved (`/architect` complete)
+- ✅ UX design approved (`/ux` complete, if it ran)
 
 **Before:**
-- ❌ `/spec-review` (spec-review needs all layers present — run after this skill)
 - ❌ `/dev` (implementation needs tests to drive development)
 
 ---
@@ -510,23 +507,19 @@ test.describe('Boundary: 0-story draft', () => {
 ## Integration with Sequential Flow
 
 ```
-/architect → /ui (if UI) → /generate-tests → /spec-review → /decompose* → /dev
+/create-spec → [/ux] → [/ui] → /generate-tests → [/decompose] → /dev      ([ ] = optional)
 ```
-
-* /decompose optional — run AFTER /spec-review (not before). /decompose reads the
-  `## Test Coverage Strategy` section written here to add `Tests:` lines to each task entry.
 
 **Before `/generate-tests`:**
 - `/create-spec` → Business requirements approved ✅
-- `/ux` → UX design approved ✅ (if UI)
-- `/architect` → Architecture approved ✅
+- `/ux` → UX design approved ✅ (if it ran)
 
 **After `/generate-tests`:**
-- `/spec-review` → Pre-dev audit (always run after `/generate-tests`, before `/decompose` or `/dev`)
 - `/decompose` → (complex features only) reads Test Coverage Strategy to annotate tasks with test refs
 - `/dev` → Reads tests, implements feature, fills in TODOs, runs tests, iterates until all pass
 
-**Auto-chain.** After all test files are generated and the coverage report is appended to the spec, spawn `/spec-review` as Phase 2 on the same spec file — do not return to the user between phases. The combined output is: test files created + spec-review findings. Return to the user only after both phases complete.
+**No auto-chain.** This skill used to spawn `/spec-review` as Phase 2; that skill is archived
+(P1514, 2026-10-19). Return to the user after the test files and coverage report are written.
 
 ---
 
@@ -598,7 +591,6 @@ test.describe('Boundary: 0-story draft', () => {
 
 - `/create-spec` → Business requirements (layer 1)
 - `/ux` → UX design (layer 2, if UI)
-- `/architect` → Technical architecture (layer 3)
 - `/ui` → Component strategy (layer 3.5, if UI)
 - `/generate-tests` → Test strategy (layer 4) ← **YOU ARE HERE**
 - `/dev` → Implementation + testing (layer 5)

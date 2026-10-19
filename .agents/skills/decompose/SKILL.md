@@ -14,7 +14,7 @@ Report subagent output verbatim.
 
 # /decompose
 
-Convert the architect's build sequence into a structured task manifest so /dev can dispatch one subagent per task instead of loading the full spec.
+Convert the spec's build sequence into a structured task manifest so /dev can dispatch one subagent per task instead of loading the full spec.
 
 **Announce at start:** "I'm using the decompose skill to break the build sequence into atomic tasks."
 
@@ -43,15 +43,15 @@ Before any other work in this skill:
 
 **Required before generating the task manifest:**
 
-1. `## Technical Architecture` section must exist (architect ran and was approved).
-2. `/spec-review` must have run and returned `READY` (zero BLOCK findings). Check the spec for a `## Spec Review` section with verdict `READY`.
+1. A `#### Build Sequence` under `### Implementation Approach` must exist. The archived `/architect` used to write it (old specs carry it under `## Technical Architecture`); for new specs it is written by hand or by the agent planning the build — no live skill generates it (P1514).
+2. The spec's review must have no open blockers: the multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) when one ran, or a legacy `## Spec Review` section with verdict `READY` on old specs.
 3. If `delivery_stage: decompose` was already set (from a prior run) → decompose already ran, check with user before re-running. If `status: in-progress` → implementation already started, run `/dev` instead.
 
 If any check fails:
 ```
 ERROR: Cannot run /decompose
-- Missing Technical Architecture section → Run /architect first
-- No spec-review section or verdict is NEEDS FIXES → Run /spec-review and fix all BLOCK findings first
+- No Build Sequence → write one under ### Implementation Approach first, or skip /decompose and run /dev
+- Spec review left open blockers (or a legacy Spec Review verdict is NEEDS FIXES) → resolve them first
 - delivery_stage is decompose (already ran) → confirm before re-running
 - status is in-progress → implementation started; run /dev instead
 ```
@@ -247,6 +247,6 @@ Next steps:
 
 ## Related Skills
 
-- `/architect` — generates the Build Sequence that /decompose reads
+- `/architect` (archived 2026-10-19, P1514) — used to generate the Build Sequence that /decompose reads; kept here because old specs still carry its sections
 - `/generate-tests` — run BEFORE /decompose; /decompose reads its Test Coverage Strategy to add test refs to tasks
 - `/dev` — detects `## Implementation Tasks` and switches to orchestrator mode

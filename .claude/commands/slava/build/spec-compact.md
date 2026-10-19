@@ -2,8 +2,8 @@
 name: spec-compact
 description: >
   Strip agent conversation residue, resolved decision analyses, and cross-layer restatements
-  from a spec without changing semantics. Run after /spec-review, before /decompose or /dev.
-when_to_use: After /spec-review resolves BLOCKs, before /decompose or /dev. Skip for specs under 100 lines.
+  from a spec without changing semantics. Run after the spec review, before /decompose or /dev.
+when_to_use: After the multi-model spec review's blockers are resolved, before /decompose or /dev. Skip for specs under 100 lines.
 version: 1.0.0
 ---
 
@@ -35,7 +35,7 @@ restatements, and authoring-time notes — without changing any requirement or d
 /spec-compact features/pN_feature.md
 ```
 
-**Run after:** `/spec-review` (spec is audited, BLOCKs resolved)
+**Run after:** the spec review (multi-model: Gemini review model, Opus, Codex) — its blockers resolved
 **Run before:** `/decompose` (if complex) or `/dev`
 
 ---
@@ -44,7 +44,7 @@ restatements, and authoring-time notes — without changing any requirement or d
 
 | Category | Example | Action |
 |----------|---------|--------|
-| **Agent Q&A threads** | "Q from /architect: does the UX assume X? A: yes, confirmed" | Delete — the answer is already in the spec as a requirement |
+| **Agent Q&A threads** | "Q from the architecture pass: does the UX assume X? A: yes, confirmed" | Delete — the answer is already in the spec as a requirement |
 | **Resolved decision analyses** | "Option A vs B vs C. We chose A because..." (3 paragraphs) | Collapse to: "**Decision:** A. **Why:** [1 sentence]" |
 | **Authoring-time notes** | "Note to architect:", "TODO: confirm with user", "See conversation above" | Delete — these are process artifacts, not requirements |
 | **Cross-layer restatements** | Same requirement in Business, UX, and Architecture sections verbatim | Keep the most specific version, delete copies. Add a one-line cross-reference if helpful: "See AC-3 in Business Requirements." |
@@ -66,7 +66,7 @@ restatements, and authoring-time notes — without changing any requirement or d
 - Build sequence / implementation approach
 - Component strategy classifications
 - Security review findings
-- Any content that `/spec-review` specifically referenced (it's load-bearing)
+- Any content the spec review specifically referenced (it's load-bearing)
 
 ---
 
@@ -84,7 +84,7 @@ For each section, scan for the six categories above. Build a removal manifest:
 
 ```
 Removal manifest:
-- Lines 45-52: Agent Q&A thread (/ux asked /architect about tooltip placement — resolved in UX flows section)
+- Lines 45-52: Agent Q&A thread (/ux asked the architecture pass about tooltip placement — resolved in UX flows section)
 - Lines 110-135: Decision analysis for caching strategy (collapsed to 2-line decision + rationale)
 - Lines 200-205: Preamble paragraph restating business requirements in architecture section
 - ...
@@ -116,7 +116,7 @@ Commit the change: `chore(pN): compact spec — remove {percent}% agent residue`
 
 - **Spec under 100 lines:** Skip — not worth compacting. Report: "Spec is {N} lines — compact not needed."
 - **Nothing to remove:** Report: "Spec is clean — no agent residue found." Don't force removals.
-- **`/spec-review` not run yet:** Warn: "/spec-review should run first — compacting before audit risks removing content that /spec-review would have flagged as load-bearing." Proceed if user confirms.
+- **Spec not reviewed yet:** Warn: "The spec review should run first — compacting before review risks removing content a reviewer would have flagged as load-bearing." Proceed if user confirms.
 
 ---
 
@@ -124,14 +124,13 @@ Commit the change: `chore(pN): compact spec — remove {percent}% agent residue`
 
 - Does not change requirements (if a line is an AC, it stays)
 - Does not restructure sections (section order is set by prior skills)
-- Does not evaluate product decisions (that's `/challenge-prd`)
-- Does not fix spec quality issues (that's `/spec-review`)
+- Does not evaluate product decisions or fix spec quality issues (that's the multi-model spec review, which replaced the archived `/challenge-prd` and `/spec-review` in P1514)
 - Does not auto-apply without approval (user sees the manifest first)
 
 ---
 
 ## Related Skills
 
-- `/spec-review` — audit spec quality (run before /spec-compact)
+- Multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) — run before /spec-compact
 - `/decompose` — task decomposition (run after /spec-compact, complex features only)
 - `/dev` — implementation (run after /spec-compact)

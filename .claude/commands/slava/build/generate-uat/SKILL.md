@@ -572,7 +572,7 @@ test.describe('P142 Smoke Tests', () => {
 
 ## Related Skills
 
-- `/create-spec` → `/ux` → `/architect` → `/generate-tests` → `/dev` — New sequential flow (P143)
+- `/create-spec` → multi-model spec review → `/dev` — current route (P1514 retired the P143 sequential flow and its `/architect` step)
 - `/prep-spec` — Legacy skill (deprecated, but still calls `/generate-tests`)
 - `/dev` — Reads UAT + E2E stubs, implements tests, runs them, iterates until pass
 

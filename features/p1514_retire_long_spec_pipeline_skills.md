@@ -65,10 +65,10 @@ Decision density: low; one founder call on the skills listed under Open Question
 
 ## Done-When
 
-- [ ] The three skills are in `archive/` with `archived_reason`.
-- [ ] `grep -rE "(/|:)architect\b|spec-review|challenge-prd"` over `.claude/`, `scripts/`, `docs/software-delivery-process.md` and CLAUDE.md returns only archive files, history, or lines carrying a kept-on-purpose note.
-- [ ] The delivery-process doc describes the current route and no longer names `/pick-flow` as live.
-- [ ] `./scripts/pre-commit-checks.sh` passes.
+- [x] The three skills are in `archive/` with `archived_reason`.
+- [x] `grep -rE "(/|:)architect\b|spec-review|challenge-prd"` over `.claude/`, `scripts/`, `docs/software-delivery-process.md` and CLAUDE.md returns only archive files, history, or lines carrying a kept-on-purpose note.
+- [x] The delivery-process doc describes the current route and no longer names `/pick-flow` as live.
+- [x] `./scripts/pre-commit-checks.sh` passes.
 
 ## Open Questions
 

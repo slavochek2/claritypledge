@@ -145,7 +145,7 @@ Not a time estimate. Three dimensions:
 
 What we intend to build or investigate, at appropriate abstraction. **Implementation work:** "Solution" — concrete enough to evaluate, abstract enough to leave room for the implementing agent's judgment. **Research:** "Approach" — what to investigate and how; the solution is the deliverable, not the input.
 
-**Don't prescribe implementation details** unless they are architectural decisions. File paths, function names and build sequences belong in `/architect`.
+**Don't prescribe implementation details** unless they are architectural decisions. File paths, function names and build sequences are the implementing agent's call in `/dev`.
 
 ### 4. Risks / Non-Goals
 
@@ -485,7 +485,7 @@ silent refresh, 24h, 7d unchanged.]
 Created: features/p{N}_{slug}.md
 Type: {work type}
 Execution: {exec_model}, {exec_effort} — {one clause of why}
-Next step: /challenge-prd (if feature) or proceed to /architect or /dev
+Next step: /dev — first a multi-model spec review (Gemini review model, Opus, Codex) when the spec reverses rulings, carries privacy seals or other real stakes
 ```
 
 The execution line belongs in the report, not only in the frontmatter — it is the answer to the question that otherwise gets asked by hand on the next turn. Then: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
@@ -495,6 +495,6 @@ The execution line belongs in the report, not only in the frontmatter — it is 
 ## Related Skills
 
 - `/slava:think:problemify` — reframe a Problem that named a fix. **Offered, never called** (above).
-- `/challenge-prd` — adversarial review (includes lean check for features)
+- Multi-model spec review — Gemini review model, Opus and Codex, each load-bearing claim verified by command before it is folded in (decisions.md 2026-10-16 [process]); replaces the archived `/challenge-prd` and `/spec-review` (P1514)
 - `/create-bug` — symptom-first bug spec · `/change-request` — predecessor-linked redesign spec
-- `/architect` → `/generate-tests` → `/dev` — downstream implementation pipeline
+- `/dev` — implementation, ending in the `/finish` review (P1505); `/ux`, `/ui`, `/generate-tests`, `/decompose` are optional tools, not a required pipeline

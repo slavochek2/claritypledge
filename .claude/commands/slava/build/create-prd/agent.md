@@ -913,11 +913,10 @@ created: 2026-02-12
 ## Next Steps
 
 1. Review this PRD - confirm scope and approach
-2. Run `/ux` (if UI feature) - Design user flows and interactions
-3. Run `/architect` - Design technical architecture and security
-4. Run `/generate-tests` - Generate UAT scenarios and E2E test stubs
-5. Implement - Run `/dev features/p{N}_{slug}.md`
-6. Verify - Tests run automatically during `/dev`
+2. Multi-model spec review (Gemini review model, Opus, Codex) when the stakes call for one
+3. Optional: `/ux` (if UI feature) or `/generate-tests`
+4. Implement - Run `/dev features/p{N}_{slug}.md`
+5. Verify - Tests run automatically during `/dev`
 7. Ship - Run `/done` to mark complete
 ```
 
