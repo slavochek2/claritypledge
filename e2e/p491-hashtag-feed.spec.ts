@@ -232,11 +232,19 @@ test.describe('P491: Authenticated User Flows', () => {
     if (author?.user?.id) await deleteTestUser(author.user.id);
   });
 
-  test('authenticated user visiting / is redirected to /feed (UAT-7)', async ({ page }) => {
+  // P1512 (founder decision D9): a signed-in "/" now lands on /home (the chat list). The feed this
+  // test was written for is still one navigation away — the second half asserts it is reachable
+  // and still renders its page, so the feed's own landing is not left unprotected.
+  test('authenticated user visiting / is redirected to /home, and the feed stays reachable at /feed (UAT-7)', async ({ page }) => {
     await setTestSession(page, author.email);
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
+    await expect(page).toHaveURL(/\/home/);
+    await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
+
+    await page.goto('/feed');
+    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/feed/);
     await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
   });
@@ -247,14 +255,11 @@ test.describe('P491: Authenticated User Flows', () => {
     await page.goto('/feed');
     await page.waitForLoadState('networkidle');
 
-    // The feed entry is labelled "Home", not "Feed" — bottom-nav.tsx:86-88 is
-    // `{ label: "Home", to: "/feed" }`. Same rename as the page's own <h1>Home</h1>
-    // (feed-page.tsx:323), which this file already corrects one test above; the
-    // nav assertion was missed. UAT-9's subject is the DESTINATION — that the
-    // feed replaced History in the bottom nav — so the link target is asserted
-    // too, and it is what would actually regress if the entry were repointed.
+    // P1512: the bar is Home (the chat list, /home), Feed, Groups, Letters, Me. What UAT-9 protects
+    // is the DESTINATION — that the feed replaced History in the bottom nav — so the entry that
+    // points at /feed is now labelled "Feed" and its target is what is asserted.
     const bottomNav = page.locator('nav[aria-label="Mobile navigation"]');
-    await expect(bottomNav.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/feed');
+    await expect(bottomNav.getByRole('link', { name: 'Feed', exact: true })).toHaveAttribute('href', '/feed');
 
     // History should NOT be in bottom nav
     await expect(bottomNav.getByText('History')).not.toBeVisible();
@@ -266,12 +271,12 @@ test.describe('P491: Authenticated User Flows', () => {
     await page.goto('/feed');
     await page.waitForLoadState('networkidle');
 
-    // Open the mobile hamburger/avatar menu
-    const menuTrigger = page.getByRole('button', { name: /open menu/i });
+    // P1512: the phone's avatar menu is the "Me" tab, which opens the Me sheet.
+    const menuTrigger = page.getByTestId('bottom-nav-me');
     await menuTrigger.click();
 
     // Session History should be in the menu
-    await expect(page.getByText('Session History')).toBeVisible();
+    await expect(page.getByTestId('me-sheet').getByText('Session History')).toBeVisible();
   });
 });
 

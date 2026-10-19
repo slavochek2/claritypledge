@@ -121,12 +121,22 @@ test.describe('P1204: directory card polish + card-as-link', () => {
   test('UAT-7: nav icon for Groups is not a calendar and does not collide with Partners/My Profile (source check)', async () => {
     const fs = await import('fs');
     const navLinks = fs.readFileSync('src/app/components/layout/nav-links.ts', 'utf-8');
-    const bottomNav = fs.readFileSync('src/app/components/layout/bottom-nav.tsx', 'utf-8');
+    // P1512: the bottom bar and the sidebar read ONE entry model, shell-nav.ts; the per-tab icon
+    // table that used to live in bottom-nav.tsx is gone, so the source check reads the model.
+    const shellNav = fs.readFileSync('src/app/components/layout/app-shell/shell-nav.ts', 'utf-8');
     expect(navLinks).toMatch(/Groups.*LandmarkIcon|LandmarkIcon.*Groups/s);
-    // bottom-nav: Groups = LandmarkIcon, Partners = UsersIcon, My Profile = UserIcon — no collision
-    const groupsIconMatch = bottomNav.match(/icon:\s*(\w+),\s*\n\s*label:\s*"Groups"/);
-    expect(groupsIconMatch?.[1]).toBe('LandmarkIcon');
-    expect(bottomNav).not.toMatch(/icon:\s*CalendarIcon,\s*\n\s*label:\s*"Groups"/);
+    // shell-nav: Groups = LandmarkIcon, Partners = UsersIcon, My Profile = UserIcon — no collision
+    const iconOf = (id: string) => shellNav.match(new RegExp(`make\\(\\s*'${id}',\\s*'[^']*',[^;]*?,\\s*(\\w+Icon)`, 's'))?.[1];
+    expect(iconOf('groups')).toBe('LandmarkIcon');
+    expect(iconOf('partners')).toBe('UsersIcon');
+    expect(iconOf('profile')).toBe('UserIcon');
+    expect(shellNav).not.toMatch(/make\(\s*'groups',[^)]*Calendar\w*Icon/);
+    // Every entry carries its own icon (no two tabs share one).
+    // (Partners is built twice — pending and settled — with the same icon, so collapse by entry id.)
+    const iconById = new Map([...shellNav.matchAll(/make\(\s*'(\w+)',\s*'[^']*',[^;]*?,\s*(\w+Icon)/gs)].map((m) => [m[1], m[2]] as const));
+    const icons = [...iconById.values()];
+    expect(icons.length).toBeGreaterThanOrEqual(7);
+    expect(new Set(icons).size, `icons per entry: ${icons.join(', ')}`).toBe(icons.length);
   });
 
   test('UAT-8: members render as a count, not avatars; "Browse all events" stays at the bottom', async ({ page }) => {

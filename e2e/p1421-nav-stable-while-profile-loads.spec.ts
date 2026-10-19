@@ -1,6 +1,6 @@
 /**
  * @file p1421-nav-stable-while-profile-loads.spec.ts
- * @description P1421 — the signed-in header must not reflow under the cursor when the
+ * @description P1421 — the signed-in navigation must not reflow under the cursor when the
  * profile finishes loading, and the mobile bottom nav must appear as soon as a session
  * is known.
  *
@@ -8,6 +8,11 @@
  * the way a slow connection holds it. Before the fix, Home/Letters/Groups rendered during
  * the wait and then jumped ~212px left when Partners, My Profile, Tools and the avatar
  * arrived — a click aimed during the wait landed on the neighbouring item.
+ *
+ * P1512: the signed-in navigation is now the desktop SIDEBAR (data-nav="sidebar", replacing the
+ * top nav) and the phone bottom bar whose last slot is the "Me" tab (replacing the My Profile
+ * link). The invariant is unchanged — the slots that exist before the profile resolves keep their
+ * boxes after it — and is measured on the sidebar rows and the bottom-bar tabs.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
@@ -26,7 +31,7 @@ async function holdProfileFetch(page: Page) {
 }
 
 async function boxesOf(page: Page, labels: string[]) {
-  const nav = page.locator('[data-nav="main"]');
+  const nav = page.locator('[data-nav="sidebar"]');
   const out: Record<string, { x: number; y: number }> = {};
   for (const label of labels) {
     const box = await nav.getByRole('link', { name: label, exact: true }).boundingBox();
@@ -55,21 +60,24 @@ test.describe('P1421 — nav does not shift when the profile resolves', () => {
 
   // P1421 review: the early layout needs this device to have seen the user verified once,
   // so each test first loads normally (writing the hint), then reloads with the profile held.
-  async function primeVerifiedHint(page: Page) {
+  async function primeVerifiedHint(page: Page, surface: 'sidebar' | 'bottom') {
     await page.goto('/feed');
-    await expect(page.locator('[data-nav="main"], [data-nav="bottom"]').getByRole('link', { name: 'My Profile' }).first())
-      .toBeAttached({ timeout: 20000 });
+    // The profile-dependent slot: My Profile in the sidebar, the Me tab in the bottom bar.
+    const settled = surface === 'sidebar'
+      ? page.locator('[data-nav="sidebar"]').getByRole('link', { name: 'My Profile', exact: true })
+      : page.getByTestId('bottom-nav-me');
+    await expect(settled.first()).toBeAttached({ timeout: 20000 });
   }
 
   for (const width of [1024, 1279, 1280]) {
     test(`desktop ${width}: Home/Letters/Groups keep their position across profile load`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await setTestSession(page, member.email);
-      await primeVerifiedHint(page);
+      await primeVerifiedHint(page, 'sidebar');
       const isReleased = await holdProfileFetch(page);
       await page.reload();
 
-      const nav = page.locator('[data-nav="main"]');
+      const nav = page.locator('[data-nav="sidebar"]');
       await expect(nav.getByRole('link', { name: 'Letters', exact: true })).toBeVisible({ timeout: 5000 });
       expect(isReleased(), 'measurement must happen while the profile is still held').toBe(false);
       const before = await boxesOf(page, ['Home', 'Letters', 'Groups']);
@@ -78,7 +86,7 @@ test.describe('P1421 — nav does not shift when the profile resolves', () => {
       const partnersSlot = await nav.locator('[data-nav-slot-placeholder="Partners"]').boundingBox();
       const hit = await page.evaluate(([x, y]) => {
         const el = document.elementFromPoint(x, y);
-        return !!el?.closest('[data-nav="main"]');
+        return !!el?.closest('[data-nav="sidebar"]');
       }, [partnersSlot!.x + partnersSlot!.width / 2, partnersSlot!.y + partnersSlot!.height / 2]);
       expect(hit, 'click on the Partners slot must hit the nav').toBe(true);
       const urlBefore = page.url();
@@ -110,7 +118,7 @@ test.describe('P1421 — nav does not shift when the profile resolves', () => {
   test('mobile 375: bottom nav is visible while the profile is still loading', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await setTestSession(page, member.email);
-    await primeVerifiedHint(page);
+    await primeVerifiedHint(page, 'bottom');
     const isReleased = await holdProfileFetch(page);
     await page.reload();
 
@@ -118,12 +126,19 @@ test.describe('P1421 — nav does not shift when the profile resolves', () => {
     await expect(bottom).toBeVisible({ timeout: 4000 });
     expect(isReleased(), 'bottom nav must appear before the profile resolves').toBe(false);
     const homeBefore = await bottom.getByRole('link', { name: 'Home' }).boundingBox();
+    // The Me slot holds its place (P1421) while the profile loads: an inert placeholder, not a button.
+    const meSlot = await bottom.locator('[data-nav-slot-placeholder="Me"]').boundingBox();
+    expect(meSlot, 'the Me slot is held while the profile loads').not.toBeNull();
 
-    await expect(bottom.getByRole('link', { name: 'My Profile' })).toBeVisible({
+    await expect(bottom.getByTestId('bottom-nav-me')).toBeVisible({
       timeout: PROFILE_DELAY_MS + 15000,
     });
     const homeAfter = await bottom.getByRole('link', { name: 'Home' }).boundingBox();
     expect(Math.abs(homeAfter!.x - homeBefore!.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(homeAfter!.width - homeBefore!.width)).toBeLessThanOrEqual(1);
+    // The real Me tab lands in the slot the placeholder held.
+    const meAfter = await bottom.getByTestId('bottom-nav-me').boundingBox();
+    expect(Math.abs(meAfter!.x - meSlot!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(meAfter!.width - meSlot!.width)).toBeLessThanOrEqual(1);
   });
 });

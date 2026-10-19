@@ -35,11 +35,13 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await page.goto('/letters');
     await page.waitForLoadState('networkidle');
 
-    // P893: scope to the main (desktop) nav — both the desktop nav and the
+    // P893: scope to the desktop nav — both the desktop nav and the
     // mobile bottom nav render "Letters", so an unscoped locator('nav')
     // violates strict mode once both are hydrated.
-    const mainNav = page.locator('nav[data-nav="main"]');
-    await expect(mainNav.getByText(/Letters/)).toBeVisible();
+    // P1512: for a signed-in person the desktop navigation is the sidebar (data-nav="sidebar"),
+    // which replaced the top nav; it lists Letters as a link to /letters.
+    const mainNav = page.locator('nav[data-nav="sidebar"]');
+    await expect(mainNav.getByRole('link', { name: /Letters/ })).toBeVisible();
 
     // "Docs" should not appear in either nav
     const docsLink = page.locator('nav').getByText('Docs', { exact: true });

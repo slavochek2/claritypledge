@@ -344,9 +344,10 @@ test.describe('P699: Sender Results — Story Walk', () => {
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
 
-    // ClarityLandingLayout shows the top nav/header
-    // chromeFree layout hides it — this page should NOT be chromeFree
-    const topNav = page.locator('nav[data-nav="main"]').first();
+    // ClarityLandingLayout shows the navigation chrome; chromeFree layout hides it — this page
+    // should NOT be chromeFree. P1512: signed in on desktop that chrome is the sidebar (the top
+    // nav only remains below lg on focus pages like this one — see p888 for the phone case).
+    const topNav = page.locator('nav[data-nav="sidebar"]').first();
     await expect(topNav).toBeVisible({ timeout: 10000 });
   });
 

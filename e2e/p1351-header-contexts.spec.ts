@@ -11,6 +11,12 @@
  *   - at most one blue primary button in the header;
  *   - every header control on screen, and the Tools trigger unwrapped and >= 44px tall.
  * Set P1351_SHOTS=<dir> to also save a screenshot per context and width (for visual review).
+ *
+ * P1512: signed in, the header is no longer the top nav. A signed-in person gets the desktop
+ * SIDEBAR (data-nav="sidebar") and, on a phone, the BOTTOM bar (data-nav="bottom") whose Me tab
+ * opens a sheet carrying Tools; focus pages (room flow) keep the slim top nav below lg. The same
+ * invariants are asserted on whichever of those is on screen — see checkSignedInChrome. Signed-out
+ * chrome is unchanged and keeps its original checks.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
@@ -49,19 +55,106 @@ async function setViewport(page: Page, width: number, height: number) {
   expect(await page.evaluate(() => window.innerWidth), `resize to ${width} did not take`).toBe(width);
 }
 
+/**
+ * The avatar renders only once the profile resolves (the logged-out hamburger shares its name).
+ * P1512: signed in it lives in whichever navigation is on screen — the sidebar's account row, the
+ * bottom bar's Me tab, or the slim top nav on a phone focus page.
+ */
+async function expectSignedInAvatar(page: Page) {
+  await expect(page.locator('nav[data-nav] [data-testid="gravatar-avatar-wrapper"]').filter({ visible: true }).first())
+    .toBeVisible({ timeout: 20_000 });
+}
+
 /** Wait out the app splash and data loads so checks and screenshots see the settled page. */
 async function settle(page: Page, signedIn: boolean) {
   await page.waitForLoadState('networkidle');
-  if (signedIn) {
-    // The avatar renders only once the profile resolves (the logged-out hamburger shares its name).
-    await expect(page.locator('nav[data-nav="main"] [data-testid="gravatar-avatar-wrapper"]').filter({ visible: true }).first())
-      .toBeVisible({ timeout: 20_000 });
-  }
+  if (signedIn) await expectSignedInAvatar(page);
   await page.waitForTimeout(400);
 }
 
+const SHELL_NAVS = 'nav[data-nav="sidebar"], nav[data-nav="bottom"], nav[data-nav="main"]';
+
+/**
+ * P1512: the signed-in counterpart of checkHeader — same invariants, measured on the navigation a
+ * signed-in person actually has at this width (sidebar / bottom bar / slim top nav).
+ *
+ * Two deliberate differences from the header: Tools is a sidebar ROW on desktop (>= 40px tall, the
+ * row height the shell uses) and a sheet ROW behind the Me tab on a phone bar (>= 44px); and the
+ * bottom bar's tabs are flush by design, so the 4px-gap collision rule is not applied between them
+ * (they still may not intersect).
+ */
+async function checkSignedInChrome(page: Page, ctx: string, w: (typeof WIDTHS)[number], expectTonight: boolean) {
+  await settle(page, true);
+  const label = `${ctx} @ ${w.name}`;
+  const chrome = page.locator(SHELL_NAVS).filter({ visible: true });
+  await expect(chrome.first(), `${label}: a signed-in navigation is on screen`).toBeVisible();
+  await expect(chrome.getByText('Start a Clarity Session'), `${label}: no session button`).toHaveCount(0);
+  await expect(chrome.getByText('Start a Session'), `${label}: no short session button`).toHaveCount(0);
+
+  const desktop = w.width >= 1024;
+  const onBottomBar = await page.locator('nav[data-nav="bottom"]').isVisible();
+  const tools = page.getByTestId('event-links-button').filter({ visible: true });
+  if (onBottomBar) {
+    // Phone browse page: Tools is one tap behind Me, not loose on the bar.
+    await expect(tools, `${label}: Tools is behind the Me tab, not on the bar`).toHaveCount(0);
+    await page.getByTestId('bottom-nav-me').click();
+    await expect(tools, `${label}: one visible Tools trigger in the Me sheet`).toHaveCount(1, { timeout: 20_000 });
+    await expect(tools).toHaveText(/Tools/);
+    const b = (await tools.boundingBox())!;
+    expect(b.height, `${label}: Tools >= 44px`).toBeGreaterThanOrEqual(44);
+    expect(b.height, `${label}: Tools not wrapped`).toBeLessThanOrEqual(48);
+    // The Me sheet is the portal sheet (Drawer forceSheet): its dismissal is a tap on the overlay —
+    // that branch has no Escape handler — so close it the way a person does and check it went.
+    await page.mouse.click(5, 5);
+    await expect(page.getByTestId('me-sheet'), `${label}: Me sheet closed`).toHaveCount(0);
+  } else {
+    await expect(tools, `${label}: one visible Tools trigger`).toHaveCount(1, { timeout: 20_000 });
+    await expect(tools).toHaveText(/Tools/);
+    const b = (await tools.boundingBox())!;
+    expect(b.height, `${label}: Tools >= ${desktop ? 40 : 44}px`).toBeGreaterThanOrEqual(desktop ? 40 : 44);
+    expect(b.height, `${label}: Tools not wrapped`).toBeLessThanOrEqual(48);
+  }
+
+  const tonight = chrome.getByTestId('tonights-event-cta').filter({ visible: true });
+  await expect(tonight, `${label}: Today's event`).toHaveCount(expectTonight ? 1 : 0, { timeout: 20_000 });
+
+  // At most one blue primary in the navigation.
+  const blue = await page.evaluate(sel => [...document.querySelectorAll(sel)]
+    .flatMap(nav => [...nav.querySelectorAll('a, button')])
+    .filter(n => {
+      const r = n.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && /bg-blue-500/.test(n.className.toString());
+    }).length, SHELL_NAVS);
+  expect(blue, `${label}: blue primaries in the navigation`).toBeLessThanOrEqual(1);
+
+  // Every visible control is on screen and none overlap.
+  const boxes = await page.evaluate(sel => [...document.querySelectorAll(sel)].flatMap(nav =>
+    [...nav.querySelectorAll('a, button')].map(n => {
+      const r = n.getBoundingClientRect();
+      return { nav: nav.getAttribute('data-nav') ?? '', t: (n.getAttribute('aria-label') || n.textContent || '').trim().slice(0, 24), x: r.x, w: r.width, h: r.height, y: r.y };
+    })).filter(b => b.w > 0 && b.h > 0), SHELL_NAVS);
+  expect(boxes.length, `${label}: found navigation controls`).toBeGreaterThanOrEqual(2);
+  for (const b of boxes) {
+    expect(b.x, `${label}: "${b.t}" starts on screen`).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.w, `${label}: "${b.t}" ends on screen`).toBeLessThanOrEqual(w.width + 0.5);
+  }
+  const inside = (p: typeof boxes[number], q: typeof boxes[number]) =>
+    p.x <= q.x && p.y <= q.y && p.x + p.w >= q.x + q.w && p.y + p.h >= q.y + q.h;
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i]!; const b = boxes[j]!;
+    if (inside(a, b) || inside(b, a)) continue;
+    const GAP = a.nav === 'bottom' && b.nav === 'bottom' ? 0 : 4;
+    const sameRow = a.y < b.y + b.h && b.y < a.y + a.h;
+    const collide = sameRow && a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP;
+    expect(collide, `${label}: "${a.t}" collides with "${b.t}" (under ${GAP}px apart)`).toBe(false);
+  }
+
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${ctx}-${w.name}.png` });
+}
+
 async function checkHeader(page: Page, ctx: string, w: (typeof WIDTHS)[number], expectTools: boolean, expectTonight: boolean) {
-  await settle(page, ctx.startsWith('loggedin'));
+  if (ctx.startsWith('loggedin')) return checkSignedInChrome(page, ctx, w, expectTonight);
+  await settle(page, false);
   const nav = page.locator('nav[data-nav="main"]');
   const label = `${ctx} @ ${w.name}`;
   await expect(nav.getByText('Start a Clarity Session'), `${label}: no session button`).toHaveCount(0);
@@ -156,7 +249,7 @@ test.describe('P1351 — header primary action across contexts', () => {
     for (const w of WIDTHS) {
       await setViewport(page, w.width, w.height);
       await page.goto('/feed');
-      await expect(page.getByRole('button', { name: /open menu|menu/i }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
+      await expectSignedInAvatar(page);
       await checkHeader(page, 'loggedin-event-feed', w, true, true);
       await page.goto('/pricing');
       // Not on pricing: the page's own paid offer is the only blue primary there (P1087).
@@ -170,9 +263,10 @@ test.describe('P1351 — header primary action across contexts', () => {
     }
     await setViewport(page, 375, 667);
     await page.goto('/feed');
-    // Wait for the SIGNED-IN header (Tonight's event renders only then — the logged-out
-    // hamburger is also named "Open menu") and for the sheet's slide-up to finish.
+    // Wait for the SIGNED-IN chrome (Today's event renders only then — on a phone it is the strip on
+    // the bottom bar) and for the sheet's slide-up to finish. P1512: Tools is behind the Me tab.
     await expect(page.getByTestId('tonights-event-cta').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('bottom-nav-me').click();
     await page.getByTestId('event-links-button').filter({ visible: true }).click();
     await expect(page.getByTestId('event-links-entry').first()).toHaveText('Learn the Clarity process'); // P1402: first Tools entry
     await page.waitForTimeout(600); // drawer animation — screenshot only, no assertion depends on it

@@ -4,12 +4,14 @@
  *
  * Coverage:
  * - smoke: browse page loads for a logged-in user with the bottom nav visible
- * - Mobile bottom nav shows 5 items in order: Home, Letters, Partners, Events, My Profile
- * - Tapping Partners opens /p/{slug}/partners with active state
- * - Badge shows seeded incoming-invitation count; partners page section matches (parity)
+ * - Mobile bottom nav shows 5 items in order: Home, Feed, Groups, Letters, Me (P1512; was Home,
+ *   Letters, Partners, Events, My Profile — Partners now lives in the Me sheet)
+ * - Opening Me and tapping Partners opens /p/{slug}/partners with active state
+ * - Badge shows seeded incoming-invitation count (on the Me tab and the sheet's Partners row);
+ *   partners page section matches (parity)
  * - Badge hidden when count is 0
  * - 320px: all 5 tabs fit without horizontal overflow, touch targets >= 40px
- * - Desktop nav shows a Partners entry for logged-in users
+ * - Desktop sidebar (P1512; was the top nav) shows a Partners entry for logged-in users
  *
  * Rules:
  * - Smoke check is the FIRST test in this file (tests.md convention)
@@ -70,36 +72,45 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
       expect(consoleErrors).toEqual([]);
     });
 
-    test('shows 5 items in order: Home, Letters, Partners, Events, My Profile', async ({ page }) => {
+    test('shows 5 items in order: Home, Feed, Groups, Letters, Me', async ({ page }) => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
       const nav = page.locator('[data-nav="bottom"]');
       await expect(nav).toBeVisible({ timeout: 10000 });
-      const labels = await nav.locator('a > span:last-of-type, a span.text-xs').allTextContents();
+      // The Me tab holds its slot while the profile loads (P1421); wait for the real one.
+      await expect(page.getByTestId('bottom-nav-me')).toBeVisible({ timeout: 10000 });
+      const labels = await nav.locator('a span.text-xs, button[data-testid="bottom-nav-me"] span.text-xs').allTextContents();
       // span.text-xs is the label element on each tab
       expect(labels.filter((l) => l.trim().length > 0)).toEqual([
         'Home',
+        'Feed',
+        'Groups',
         'Letters',
-        'Partners',
-        'Events',
-        'My Profile',
+        'Me',
       ]);
     });
 
-    test('tapping Partners opens /p/{slug}/partners with active state; badge hidden at 0', async ({ page }) => {
+    test('tapping Me then Partners opens /p/{slug}/partners with active state; badge hidden at 0', async ({ page }) => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
-      const partnersTab = page.locator('[data-nav="bottom"] a', { hasText: 'Partners' });
-      await expect(partnersTab).toBeVisible({ timeout: 10000 });
+      const meTab = page.getByTestId('bottom-nav-me');
+      await expect(meTab).toBeVisible({ timeout: 10000 });
+      await meTab.click();
+      const partnersRow = page.getByTestId('me-sheet').getByRole('link', { name: 'Partners' });
+      await expect(partnersRow).toBeVisible({ timeout: 10000 });
 
-      // No pending invitations yet → no badge
-      await expect(partnersTab.locator('[data-badge]')).toHaveCount(0);
+      // No pending invitations yet → no badge, on the sheet row or the Me tab
+      await expect(partnersRow.locator('[data-badge]')).toHaveCount(0);
+      await expect(meTab.locator('[data-badge]')).toHaveCount(0);
 
-      await partnersTab.click();
+      await partnersRow.click();
       await expect(page).toHaveURL(`/p/${invitee.slug}/partners`);
-      await expect(partnersTab).toHaveAttribute('aria-current', 'page');
+
+      // Active state: the sheet closed on arrival; reopening it shows Partners as the current page
+      await page.getByTestId('bottom-nav-me').click();
+      await expect(page.getByTestId('me-sheet').getByRole('link', { name: 'Partners' })).toHaveAttribute('aria-current', 'page');
     });
 
     test('badge shows incoming invitation count and matches the partners page section', async ({ page }) => {
@@ -110,13 +121,22 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
-      const partnersTab = page.locator('[data-nav="bottom"] a', { hasText: 'Partners' });
-      const badge = partnersTab.locator('[data-badge]');
+      // Partners lives behind Me, so its pending-invite count rides on the Me tab
+      const meTab = page.getByTestId('bottom-nav-me');
+      const tabBadge = meTab.locator('[data-badge]');
+      await expect(tabBadge).toBeVisible({ timeout: 10000 });
+      await expect(tabBadge).toHaveText('1');
+      await expect(meTab).toHaveAttribute('aria-label', 'Me, 1 pending invitation');
+
+      // …and on the Partners row inside the sheet
+      await meTab.click();
+      const partnersRow = page.getByTestId('me-sheet').getByRole('link', { name: /Partners/ });
+      const badge = partnersRow.locator('[data-badge]');
       await expect(badge).toBeVisible({ timeout: 10000 });
       await expect(badge).toHaveText('1');
 
       // Parity: the page's "Invited to sign" section shows the same count
-      await partnersTab.click();
+      await partnersRow.click();
       await expect(page).toHaveURL(`/p/${invitee.slug}/partners`);
       await expect(page.getByText('Invited to sign (1)')).toBeVisible({ timeout: 10000 });
     });
@@ -132,7 +152,8 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
       const nav = page.locator('[data-nav="bottom"]');
       await expect(nav).toBeVisible({ timeout: 10000 });
 
-      const tabs = nav.locator('a');
+      // Four tab links plus the Me button (P1512)
+      const tabs = nav.locator('a, button[data-testid="bottom-nav-me"]');
       await expect(tabs).toHaveCount(5);
 
       // No horizontal overflow: every tab's box stays inside the viewport
@@ -154,11 +175,12 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
   test.describe('desktop nav', () => {
     test.use({ viewport: DESKTOP_VIEWPORT });
 
-    test('logged-in desktop nav shows a Partners entry linking to the partners page', async ({ page }) => {
+    test('logged-in desktop sidebar shows a Partners entry linking to the partners page', async ({ page }) => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
-      const desktopPartners = page.locator('[data-nav="main"]').getByRole('link', { name: 'Partners' });
+      // P1512: the signed-in desktop navigation is the sidebar; the top nav is gone for signed-in people.
+      const desktopPartners = page.locator('[data-nav="sidebar"]').getByRole('link', { name: 'Partners' });
       await expect(desktopPartners).toBeVisible({ timeout: 10000 });
       await expect(desktopPartners).toHaveAttribute('href', `/p/${invitee.slug}/partners`);
     });

@@ -9,9 +9,9 @@
  * top menu visible. Mid-walk on multi-story results there is NO exit affordance at all.
  *
  * Canary tests (FAIL before fix, PASS after):
- *   p888-1: results page shows top nav
+ *   p888-1: results page shows its navigation (P1512: the sidebar on desktop)
  *   p888-2: results page has a Back exit on every story (incl. mid-walk) — P1364: label is "Back"
- *   p888-3: overview page shows top nav (existing FocusHeader retained)
+ *   p888-3: overview page shows its navigation (P1512: the sidebar on desktop; FocusHeader retained)
  *
  * Regression guards (PASS before AND after fix — protect intended immersive routes):
  *   p888-4: mobile bottom nav stays hidden on results (focus-page pattern)
@@ -34,7 +34,11 @@ import {
 } from './helpers/test-letter';
 import { createTestSessionInDB } from './helpers/test-session';
 
+// P1512: a signed-in person's navigation is the sidebar on desktop (the top nav is gone there) and
+// the slim top bar below lg on focus pages like these (the bottom bar is hidden on them). TOP_NAV is
+// the top bar; SIDEBAR is the desktop chrome the P888 canaries now assert on desktop.
 const TOP_NAV = 'nav[data-nav="main"]';
+const SIDEBAR = 'nav[data-nav="sidebar"]';
 const BOTTOM_NAV = 'nav[data-nav="bottom"]';
 
 test.describe('P888: Letter results/overview navigation chrome', () => {
@@ -133,8 +137,9 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     // Page content rendered (proves we're past loading, on the real results walk)
     await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
 
-    // Symptom: SimpleNavigation suppressed by the isLetterPage prefix sweep
-    await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+    // Symptom: navigation suppressed by the isLetterPage prefix sweep. P1512: at desktop width
+    // the signed-in navigation is the sidebar, not the top nav.
+    await expect(page.locator(SIDEBAR)).toBeVisible({ timeout: 10000 });
 
     const appErrors = consoleErrors.filter(
       (e) => !/favicon|net::ERR|Failed to load resource/i.test(e)
@@ -177,8 +182,8 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
       page.getByRole('button', { name: /back to sent tab|back/i }).first()
     ).toBeVisible({ timeout: 10000 });
 
-    // Symptom: top nav suppressed by the same prefix sweep
-    await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+    // Symptom: navigation suppressed by the same prefix sweep (P1512: the desktop sidebar)
+    await expect(page.locator(SIDEBAR)).toBeVisible({ timeout: 10000 });
   });
 
   // ── Regression guards: PASS before AND after fix ──────────────────────────
@@ -217,6 +222,7 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     await page.goto(`/letter/${letterId}?token=${deliveryToken}`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator(TOP_NAV)).not.toBeAttached();
+    await expect(page.locator(SIDEBAR)).not.toBeAttached(); // P1512: no shell around an immersive letter
 
     // Shortcode pathname form (P772): unknown shortcode keeps the pathname and
     // renders the layout — the chrome decision is observable without a real shortcode
@@ -224,6 +230,7 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe('/letter/zz9');
     await expect(page.locator(TOP_NAV)).not.toBeAttached();
+    await expect(page.locator(SIDEBAR)).not.toBeAttached();
   });
 
   test('p888-6: compose stays chrome-free (relies on layout predicate)', async ({ page }) => {
@@ -232,50 +239,66 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     await page.waitForLoadState('networkidle');
     expect(new URL(page.url()).pathname).toBe(`/letter/${docId}/compose`);
     await expect(page.locator(TOP_NAV)).not.toBeAttached();
+    await expect(page.locator(SIDEBAR)).not.toBeAttached();
   });
 
-  test('p888-7: ActiveSessionBanner renders on results below the top nav (no collision)', async ({ page }) => {
-    // AC: "ActiveSessionBanner renders on results/overview when a live session is
-    // active, without layout collision" — P852 excluded the banner from letter
-    // routes because the reading flow's progress bar is fixed at top-0; results
-    // has no such bar, so the banner must come back with the nav.
-    const session = await createTestSessionInDB(sender.user.id, 'P888 Partner', {
-      hostName: 'P888 Sender',
+  // P1512: the banner's collision partner depends on the chrome. Below lg a focus page keeps the
+  // slim fixed TOP bar, so the original invariant (banner at/below the nav's bottom edge) is kept
+  // verbatim at phone width. On desktop the nav is the fixed left SIDEBAR, so the same "no
+  // collision" invariant reads: the banner sits fully to the right of the sidebar.
+  for (const surface of ['desktop', 'phone'] as const) {
+    test(`p888-7 (${surface}): ActiveSessionBanner renders on results without colliding with the navigation`, async ({ page }) => {
+      // AC: "ActiveSessionBanner renders on results/overview when a live session is
+      // active, without layout collision" — P852 excluded the banner from letter
+      // routes because the reading flow's progress bar is fixed at top-0; results
+      // has no such bar, so the banner must come back with the nav.
+      if (surface === 'phone') await page.setViewportSize({ width: 375, height: 812 });
+      const session = await createTestSessionInDB(sender.user.id, 'P888 Partner', {
+        hostName: 'P888 Sender',
+      });
+      try {
+        await setTestSession(page, sender.email);
+        // Seed the restored-session pointer the way the app persists it (P511);
+        // useActiveSession validates the code against the DB row created above.
+        await page.context().addInitScript(
+          ({ code }) => {
+            localStorage.setItem(
+              'cp_active_session',
+              JSON.stringify({
+                code,
+                partnerName: 'P888 Partner',
+                role: 'creator',
+                timestamp: new Date().toISOString(),
+              })
+            );
+          },
+          { code: session.sessionCode }
+        );
+        await page.goto(`/letter/${letterId}/results`);
+        await page.waitForLoadState('networkidle');
+        await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
+
+        const banner = page.getByRole('status', { name: 'Active session notification' });
+        await expect(banner).toBeVisible({ timeout: 10000 });
+        const bannerBox = await banner.boundingBox();
+        expect(bannerBox).not.toBeNull();
+
+        if (surface === 'phone') {
+          await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+          // No collision: banner's top edge sits at/below the fixed nav's bottom edge
+          const navBox = await page.locator(TOP_NAV).boundingBox();
+          expect(navBox).not.toBeNull();
+          expect(bannerBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+        } else {
+          await expect(page.locator(SIDEBAR)).toBeVisible({ timeout: 10000 });
+          // No collision: banner's left edge sits at/right of the fixed sidebar's right edge
+          const sidebarBox = await page.locator(SIDEBAR).boundingBox();
+          expect(sidebarBox).not.toBeNull();
+          expect(bannerBox!.x).toBeGreaterThanOrEqual(sidebarBox!.x + sidebarBox!.width);
+        }
+      } finally {
+        await session.cleanup();
+      }
     });
-    try {
-      await setTestSession(page, sender.email);
-      // Seed the restored-session pointer the way the app persists it (P511);
-      // useActiveSession validates the code against the DB row created above.
-      await page.context().addInitScript(
-        ({ code }) => {
-          localStorage.setItem(
-            'cp_active_session',
-            JSON.stringify({
-              code,
-              partnerName: 'P888 Partner',
-              role: 'creator',
-              timestamp: new Date().toISOString(),
-            })
-          );
-        },
-        { code: session.sessionCode }
-      );
-      await page.goto(`/letter/${letterId}/results`);
-      await page.waitForLoadState('networkidle');
-      await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
-
-      const banner = page.getByRole('status', { name: 'Active session notification' });
-      await expect(banner).toBeVisible({ timeout: 10000 });
-      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
-
-      // No collision: banner's top edge sits at/below the fixed nav's bottom edge
-      const navBox = await page.locator(TOP_NAV).boundingBox();
-      const bannerBox = await banner.boundingBox();
-      expect(navBox).not.toBeNull();
-      expect(bannerBox).not.toBeNull();
-      expect(bannerBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
-    } finally {
-      await session.cleanup();
-    }
-  });
+  }
 });

@@ -8,6 +8,12 @@
  * Behavioural: scroll the panel to its end and assert the last entry is fully above the
  * bottom nav's top edge — the thing jsdom cannot see (see p1310-mobile-nav.test.tsx).
  * Viewport is confirmed via window.innerWidth before measuring (.claude/rules/browser.md).
+ *
+ * P1512: signed in on a phone there is no hamburger panel any more — the bottom bar's Me tab opens
+ * the Me sheet, a fixed bottom sheet that is drawn over the bar. The invariant is the same one
+ * (the menu's last entry is reachable and not painted over by the fixed bar) and is
+ * measured on that sheet: scrolled to its end, its last entry is fully on screen and the topmost
+ * element at its centre belongs to the sheet, not to the bar.
  */
 
 import { test, expect } from '@playwright/test';
@@ -43,12 +49,21 @@ test.describe('P1329 — open mobile menu clears the bottom nav when signed in',
       const bottomNav = page.locator('[data-nav="bottom"]');
       await expect(bottomNav).toBeVisible({ timeout: 15000 });
 
-      await page.getByRole('button', { name: /open menu/i }).click();
-      const panel = page.locator('#mobile-navigation-menu');
+      await page.getByTestId('bottom-nav-me').click();
+      const panel = page.getByTestId('me-sheet');
       await expect(panel).toBeVisible();
+      // The sheet slides up (300ms): measure only once it has stopped moving.
+      let prevY = Number.NaN;
+      await expect.poll(async () => {
+        const y = (await panel.boundingBox())?.y ?? Number.NaN;
+        const settled = y === prevY;
+        prevY = y;
+        return settled;
+      }, { message: `${vp.name}: sheet settled`, intervals: [150] }).toBe(true);
 
-      await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-      // Last interactive entry in the panel (Sign out for a signed-in user).
+      // The sheet's own scroller is its <nav>; scroll it to the end.
+      await panel.locator('nav').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      // Last interactive entry in the sheet (the avatar menu's own last item for a signed-in user).
       const last = panel.locator('a, button').last();
       await expect(last).toBeVisible();
 
@@ -56,16 +71,20 @@ test.describe('P1329 — open mobile menu clears the bottom nav when signed in',
       const panelBox = await panel.boundingBox();
       const navBox = await bottomNav.boundingBox();
       expect(lastBox && panelBox && navBox).toBeTruthy();
-      expect(
-        panelBox!.y + panelBox!.height,
-        `${vp.name}: panel bottom must not extend under the bottom nav`,
-      ).toBeLessThanOrEqual(navBox!.y + 0.5);
+      // Fully on screen, below the top edge and above the bottom edge.
+      expect(panelBox!.y, `${vp.name}: sheet top must stay on screen`).toBeGreaterThanOrEqual(0);
       expect(
         lastBox!.y + lastBox!.height,
-        `${vp.name}: last entry must end above the bottom nav`,
-      ).toBeLessThanOrEqual(navBox!.y + 0.5);
-      // Not over-corrected: the panel still reaches down to the bar, no dead gap.
-      expect(navBox!.y - (panelBox!.y + panelBox!.height), `${vp.name}: no gap above the bottom nav`).toBeLessThanOrEqual(2);
+        `${vp.name}: last entry must end inside the viewport`,
+      ).toBeLessThanOrEqual(vp.height + 0.5);
+      // Not painted over by the fixed bar: the topmost element at the entry's centre is the sheet's.
+      const owner = await page.evaluate(([x, y]) => {
+        const el = document.elementFromPoint(x!, y!);
+        return el?.closest('[data-testid="me-sheet"]') ? 'sheet' : el?.closest('[data-nav="bottom"]') ? 'bottom-bar' : (el?.tagName ?? 'none');
+      }, [lastBox!.x + lastBox!.width / 2, lastBox!.y + lastBox!.height / 2]);
+      expect(owner, `${vp.name}: the last entry must not be covered by the bottom bar`).toBe('sheet');
+      // Not over-corrected: the sheet reaches the bottom of the screen, no dead gap (it covers the bar's slot).
+      expect(vp.height - (panelBox!.y + panelBox!.height), `${vp.name}: no gap under the sheet`).toBeLessThanOrEqual(2);
       await page.screenshot({ path: test.info().outputPath(`signed-in-${vp.name}.png`) });
     });
   }

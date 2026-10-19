@@ -245,46 +245,79 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
    * a "Start a Session" button and the avatar. Before P1323 the trigger only ever appeared on
    * compact room pages, where "Start a Session" is not shown — so no test had ever measured this
    * row with all three controls in it.
+   *
+   * P1512: a signed-in phone has no top header on browse pages any more — /feed and /p/:slug get
+   * the bottom bar, and Tools sits one tap behind its Me tab. The same invariant is measured there
+   * (every control on screen, nothing overlapping, nothing sideways, Tools a >= 44px unwrapped
+   * touch target — now a row in the Me sheet). /stake/:tag is a compact room page: it keeps the
+   * old top header and the original assertions.
    */
   test('I-1 + I-3: a signed-in phone header fits the Links trigger with every other control', async ({ page }) => {
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
     for (const path of ['/feed', '/stake/understanding', `/p/${attendee.slug}`]) {
+      const compactHeader = path.startsWith('/stake/');
       // 360 included deliberately: a first fix was verified at 320 and 375 only and still wrapped
       // at 360, the most common Android width, which neither end of the range could see.
       for (const w of [{ name: '320', width: 320, height: 568 }, { name: '360', width: 360, height: 640 }, { name: '375', width: 375, height: 667 }]) {
         await setViewport(page, w.width, w.height);
         await page.goto(path);
-        const nav = page.locator('nav[data-nav="main"]');
-        await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: one visible trigger`).toHaveCount(1, { timeout: 20_000 });
-        // Measure the FINAL signed-in header: wait for the avatar (rendered only once the profile
-        // has loaded). P1351: the "Start a Session" button is gone; the widest control is now the
-        // LABELED Tools trigger, so it is the one that must not wrap and must stay a touch target.
-        await expect(nav.getByRole('button', { name: 'Open menu' }), `${path} @ ${w.name}: full signed-in header loaded`).toBeVisible({ timeout: 20_000 });
-        const trig = visibleLinksTriggers(page).first();
-        await expect(trig).toHaveText(/Tools/);
-        const tBox = await trig.boundingBox();
-        expect(tBox!.height, `${path} @ ${w.name}: Tools trigger is ${tBox!.height}px tall`).toBeGreaterThanOrEqual(44);
-        expect(tBox!.height, `${path} @ ${w.name}: Tools trigger wrapped`).toBeLessThanOrEqual(48);
-        const boxes = await nav.evaluate((el) => {
-          return [...el.querySelectorAll('a, button')]
-            .map(n => { const r = n.getBoundingClientRect(); return { label: (n.getAttribute('aria-label') || n.textContent || '').trim().slice(0, 30), x: r.x, y: r.y, width: r.width, height: r.height }; })
-            .filter(b => b.width > 0 && b.height > 0 && b.y < 90);
-        });
-        expect(boxes.length, `${path} @ ${w.name}: found header controls`).toBeGreaterThanOrEqual(2);
-        for (const b of boxes) {
-          expect(b.x, `${path} @ ${w.name}: "${b.label}" starts on screen`).toBeGreaterThanOrEqual(0);
-          expect(b.x + b.width, `${path} @ ${w.name}: "${b.label}" ends on screen`).toBeLessThanOrEqual(w.width);
-        }
         const contains = (p: { x: number; y: number; width: number; height: number }, q: { x: number; y: number; width: number; height: number }) =>
           p.x <= q.x && p.y <= q.y && p.x + p.width >= q.x + q.width && p.y + p.height >= q.y + q.height;
-        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
-          const a = boxes[i]!; const b = boxes[j]!;
-          if (contains(a, b) || contains(b, a)) continue; // nested controls share a box
-          expect(overlaps(a, b), `${path} @ ${w.name}: "${a.label}" overlaps "${b.label}"`).toBe(false);
+        const boxesOf = (nav: Locator, onlyTop: boolean) => nav.evaluate((el, top) => {
+          return [...el.querySelectorAll('a, button')]
+            .map(n => { const r = n.getBoundingClientRect(); return { label: (n.getAttribute('aria-label') || n.textContent || '').trim().slice(0, 30), x: r.x, y: r.y, width: r.width, height: r.height }; })
+            .filter(b => b.width > 0 && b.height > 0 && (!top || b.y < 90));
+        }, onlyTop);
+        const expectClean = async (boxes: Awaited<ReturnType<typeof boxesOf>>) => {
+          expect(boxes.length, `${path} @ ${w.name}: found header controls`).toBeGreaterThanOrEqual(2);
+          for (const b of boxes) {
+            expect(b.x, `${path} @ ${w.name}: "${b.label}" starts on screen`).toBeGreaterThanOrEqual(0);
+            expect(b.x + b.width, `${path} @ ${w.name}: "${b.label}" ends on screen`).toBeLessThanOrEqual(w.width);
+          }
+          for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i]!; const b = boxes[j]!;
+            if (contains(a, b) || contains(b, a)) continue; // nested controls share a box
+            expect(overlaps(a, b), `${path} @ ${w.name}: "${a.label}" overlaps "${b.label}"`).toBe(false);
+          }
+          const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          expect(overflow, `${path} @ ${w.name}: page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
+        };
+
+        if (compactHeader) {
+          const nav = page.locator('nav[data-nav="main"]');
+          await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: one visible trigger`).toHaveCount(1, { timeout: 20000 });
+          // Measure the FINAL signed-in header: wait for the avatar (rendered only once the profile
+          // has loaded). P1351: the "Start a Session" button is gone; the widest control is now the
+          // LABELED Tools trigger, so it is the one that must not wrap and must stay a touch target.
+          await expect(nav.getByRole('button', { name: 'Open menu' }), `${path} @ ${w.name}: full signed-in header loaded`).toBeVisible({ timeout: 20000 });
+          const trig = visibleLinksTriggers(page).first();
+          await expect(trig).toHaveText(/Tools/);
+          const tBox = await trig.boundingBox();
+          expect(tBox!.height, `${path} @ ${w.name}: Tools trigger is ${tBox!.height}px tall`).toBeGreaterThanOrEqual(44);
+          expect(tBox!.height, `${path} @ ${w.name}: Tools trigger wrapped`).toBeLessThanOrEqual(48);
+          await expectClean(await boxesOf(nav, true));
+        } else {
+          const bar = page.locator('nav[data-nav="bottom"]');
+          // The full signed-in bar: the Me tab is the profile-dependent slot (a placeholder until it loads).
+          await expect(bar.getByTestId('bottom-nav-me'), `${path} @ ${w.name}: full signed-in bar loaded`).toBeVisible({ timeout: 20000 });
+          await expect(page.locator('nav[data-nav="main"]').filter({ visible: true }), `${path} @ ${w.name}: no second (top) navigation`).toHaveCount(0);
+          await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: Tools is behind Me, not on the bar`).toHaveCount(0);
+          await expectClean(await boxesOf(bar, false));
+          // One tap on Me: exactly one Tools trigger, a 44px row that does not wrap, inside the sheet.
+          await bar.getByTestId('bottom-nav-me').click();
+          await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: one visible trigger in the Me sheet`).toHaveCount(1, { timeout: 20000 });
+          const trig = visibleLinksTriggers(page).first();
+          await expect(trig).toHaveText(/Tools/);
+          const tBox = await trig.boundingBox();
+          expect(tBox!.height, `${path} @ ${w.name}: Tools row is ${tBox!.height}px tall`).toBeGreaterThanOrEqual(44);
+          expect(tBox!.height, `${path} @ ${w.name}: Tools row wrapped`).toBeLessThanOrEqual(48);
+          const sheet = page.getByTestId('me-sheet');
+          await expectClean(await boxesOf(sheet, false));
+          // Dismissed the way the portal sheet allows (overlay tap; it has no Escape handler).
+          await page.mouse.click(5, 5);
+          await expect(sheet, `${path} @ ${w.name}: Me sheet closed`).toHaveCount(0);
         }
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-        expect(overflow, `${path} @ ${w.name}: page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
       }
     }
   });
@@ -314,14 +347,18 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
    * (phone showed Home/Letters/Partners/Groups/My Profile; desktop hid them). Measured signed in,
    * that was the only room-flow page that disagreed. /stake is now focused on both; /feed is the
    * control that must still show both, or "hidden" would prove nothing.
+   *
+   * P1512: "browse nav" is now the desktop sidebar and the phone bottom bar (the old desktop tab row
+   * is the signed-out top nav's, which a signed-in /feed no longer draws). The count adds all three,
+   * so the invariant — present on /feed, absent on /stake, at both widths — is unchanged.
    */
   test('nav consistency: /stake hides browse nav on phone AND desktop; /feed shows it on both', async ({ browser }) => {
     const count = async (page: Page) => page.evaluate(() => {
       const vis = (el: Element) => (el as HTMLElement).getBoundingClientRect().height > 0 && getComputedStyle(el).visibility !== 'hidden';
-      const main = document.querySelector('nav[data-nav="main"]');
+      const sidebar = [...document.querySelectorAll('nav[data-nav="sidebar"]')].filter(vis).length;
+      const bottom = [...document.querySelectorAll('nav[data-nav="bottom"]')].filter(vis).length;
       const tabs = [...document.querySelectorAll('nav[data-nav="main"] a')].filter(a => /^(Home|Letters|Partners|Groups|My Profile)$/.test((a.textContent || '').trim()) && vis(a)).length;
-      const bottom = [...document.querySelectorAll('nav')].filter(nv => nv !== main && /Home/.test(nv.textContent || '') && /My Profile/.test(nv.textContent || '') && vis(nv)).length;
-      return tabs + bottom;
+      return sidebar + bottom + tabs;
     });
     for (const [name, w, h, mobile] of [['phone', 375, 667, true], ['desktop', 1280, 800, false]] as const) {
       const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile, hasTouch: mobile });
