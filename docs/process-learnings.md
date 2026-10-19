@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 190
+**Next ID:** 193
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2454,5 +2454,38 @@ vite's `cacheDir` is `node_modules/.vite-<port>` (tools/kanban/vite.config.ts). 
 **due:** week
 
 Found in the P1509 v16 seed review, outside its scope. transcribe_rooms.event_id is REFERENCES events ON DELETE SET NULL (migration 20260823190000_p1149_transcribe_room_tables.sql, line 35), but the BEFORE UPDATE trigger transcribe_rooms_guard_immutable_columns (20260824000000_p1149_room_end_policy_column_guard.sql) raises on any event_id change, so the FK's SET NULL action errors and the event delete fails, on every delete path including prod. Fix options: let the trigger accept NEW.event_id IS NULL when pg_trigger_depth() > 1 (a cascade), or choose CASCADE or RESTRICT deliberately. Route: /create-bug then /fix. Droppable if events are never deleted by design (then make the FK RESTRICT and say so).
+
+---
+
+## read-ops-email.mjs marks mail read even without --mark-read
+
+**ID:** INBOX-190
+**Date:** 2026-10-19
+**Status:** proposed
+**due:** week
+
+2026-10-19 (/day follow-up). Every FETCH in `scripts/read-ops-email.mjs` uses `BODY[...]`, not `BODY.PEEK[...]` (lines 86, 90, 108-110). Under IMAP that sets the Seen flag, so a plain `--unread` listing clears the unread state it reports, and `--mark-read` is a no-op distinction. Likely why the 2026-10-19 weekly saw 5 unread and an hour later there were 0. Fix: switch the three fetches to BODY.PEEK and let only `--mark-read` set the flag; add a test that `--unread` twice returns the same count. Done when listing twice in a row shows the same unread set.
+
+---
+
+## Efficiency scanner counts parallel tool calls as sequential, and compares unequal windows
+
+**ID:** INBOX-191
+**Date:** 2026-10-19
+**Status:** proposed
+**due:** month
+
+2026-10-19 (/day follow-up). `scripts/scan-transcript-efficiency.py` builds one event per transcript record (lines 182-197). Claude Code writes each parallel tool_use of a single turn as its own record, so P3 flags already-parallel calls: in 3 hotlist sessions, 54/139, 60/311 and 28/153 consecutive read-only record pairs shared one API message id. Its spot-check sample is dominated by sub-second Read->Read pairs, the same shape. Separately the week-over-week table compared a 7-day/89-session baseline to a 12-day/144-session run; per session P3 was flat (2.94 -> 2.89). Fix: merge records by message.id before P3/P1, and print per-session rates or refuse unequal windows. Done when a re-run shows the merged count and per-session columns.
+
+---
+
+## P1509/P1512 persona test password trips the history secret scan
+
+**ID:** INBOX-192
+**Date:** 2026-10-19
+**Status:** proposed
+**due:** week
+
+2026-10-19 (/day follow-up). `audit-secrets-history.sh` reports 1 leak: hardcoded-password-assignment in `src/app/prototypes/clarity-chat-v16/personas.ts` (commit 4c708057, branch feature/p1509-clarity-chat-v12, not pushed). Classified: deliberate test-only password for `.invalid` persona accounts on the TEST project, same model as the e2e test password; no rotation needed. Fix belongs on that branch before it ships: path-scoped `.gitleaks.toml` allowlist for the personas file (or commit-scoped, as for e8f3e391), so the weekly scan reads clean. Done when the history scan exits 0 or this commit is allowlisted.
 
 ---
