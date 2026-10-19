@@ -19,7 +19,7 @@ import { MessageList } from './MessageList';
 import { QuoteBar, InlineError, MessagesSkeleton } from './chat-kit';
 import { usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, compareMessages, HOME, isChannel, messageSummary } from './chat-view-model';
+import { chatErrorText, chatPath, compareMessages, HOME, isChannel, messageSummary, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 
@@ -143,7 +143,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         ? 'Use Clarify on any message to send it here, or write a note to yourself.'
         : 'No messages yet.';
 
-  const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown' : 'Deleted user') : '';
+  const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
 
   const headerActions = {
     onBack: () => navigate(HOME),
@@ -229,6 +229,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
       {renaming && (
         <RenameMirrorDialog
           initial={summary.title ?? 'Mirror'}
+          role={mirrorRole(summary)}
           onClose={() => setRenaming(false)}
           onSaved={() => void chat.refresh()}
         />

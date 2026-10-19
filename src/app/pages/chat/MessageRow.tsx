@@ -65,7 +65,7 @@ function AuthorName({ author, authorId, pending, className }: { author: ChatAuth
   if (!authorId) return <span className={cn('font-semibold text-muted-foreground', className)}>Deleted user</span>;
   // The profile is still on its way: a quiet bar, never a flash of "Unknown".
   if (pending) return <span role="status" aria-label="Loading name" className="inline-block h-3.5 w-24 animate-pulse rounded bg-muted align-middle" />;
-  const name = author?.name ?? 'Unknown';
+  const name = author?.name ?? 'Unknown member';
   if (!author?.slug) return <span className={cn('font-semibold', className)}>{name}</span>;
   return (
     <Link to={`/p/${author.slug}`} className={cn('font-semibold hover:underline hover:underline-offset-2', FOCUS_RING, className)}>
@@ -97,7 +97,7 @@ function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; action
   }, [replyToId, lookup, loaded, version]);
   const quoted = loaded ?? fetched;
   if (quoted === undefined) return <div className="my-1 h-9 max-w-md animate-pulse rounded-lg bg-muted/50" aria-hidden="true" />;
-  const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown' : '') : 'Deleted user';
+  const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown member' : '') : 'Deleted user';
   const text = quoted === null ? 'Original message not available' : quoted.isDeleted ? 'Original message deleted' : messageSummary(quoted);
   const jumpable = !!quoted && !quoted.isDeleted;
   const inner = (
@@ -396,7 +396,10 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
               authorPending ? (
                 <span aria-hidden="true" className="block h-9 w-9 animate-pulse rounded-full bg-muted" />
               ) : (
-                <PersonMark person={{ name: author?.name ?? (authorId ? 'Unknown' : 'Deleted user'), avatarColor: author?.avatarColor, avatarUrl: author?.avatarUrl }} size="md" />
+                <PersonMark
+                  person={author ? { name: author.name, avatarColor: author.avatarColor, avatarUrl: author.avatarUrl } : authorId ? { name: 'Unknown member', unknown: true } : { name: 'Deleted user', deleted: true }}
+                  size="md"
+                />
               )
             ))}
         </div>

@@ -55,6 +55,8 @@ export const LIST_READ_TIMEOUT_MS = 25_000;
 /** A failed author read is retried this many times, waiting a little longer each time. */
 const AUTHOR_RETRIES = 4;
 const AUTHOR_RETRY_MS = 2000;
+/** A name that has not loaded by now is shown from what the list already knows, else as "Unknown member". */
+export const AUTHOR_SOFT_MS = 3000;
 
 interface Override {
   archived?: boolean;
@@ -129,6 +131,8 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
   const { user } = useAuth();
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
+  const chatsRef = useRef(chats);
+  chatsRef.current = chats;
   const [status, setStatus] = useState<ChatContextValue['status']>('loading');
   const [error, setError] = useState<string | null>(null);
   const [fetchedAuthors, setAuthors] = useState<Record<string, ChatAuthor>>({});
@@ -166,6 +170,9 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
   const authorsPending = useRef(new Set<string>());
   const authorsMissing = useRef(new Set<string>());
   const authorsAttempts = useRef(new Map<string, number>());
+  // Authors shown from the chat list (no profile read yet) and authors whose read failed: both are tried again.
+  const authorsSeeded = useRef(new Set<string>());
+  const authorsFailed = useRef(new Set<string>());
   const outboxRef = useRef(outbox);
   outboxRef.current = outbox;
   // clientIds of my own messages the server has confirmed over Realtime: an entry whose reply was lost
@@ -249,8 +256,9 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
         if (event.type === 'INSERT' && m.clientId && m.authorId === userId) {
           const key = m.clientId;
           delivered.current.add(key);
-          // A failed entry (its reply was lost) that turns out to be stored needs no Retry any more.
-          setOutbox((prev) => prev.filter((l) => !(l.clientId === key && !l.pending)));
+          // My own message is stored: its outbox entry is done, pending or failed, and the RPC's later
+          // answer (reply or error) is ignored.
+          setOutbox((prev) => prev.filter((l) => l.clientId !== key));
         }
         if (event.type === 'UPDATE') setRevision((r) => r + 1);
         // A thread reply changes nothing the list shows: no list work at all.
@@ -369,6 +377,8 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
           // The same key on every attempt of this entry: a reply that was lost cannot make a second message.
           clientId: local.clientId ?? undefined,
         });
+        // The Realtime copy already settled this send: nothing left to do.
+        if (local.clientId && delivered.current.has(local.clientId)) return;
         setOutbox((prev) => prev.filter((l) => l.localId !== local.localId));
         emit({ type: 'sent', message: row });
         if (!row.threadRootId && userId) {
@@ -437,11 +447,43 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
   const ensureAuthors = useCallback((ids: string[]) => {
     const need = [
       ...new Set(
-        ids.filter((id) => id && !authorsRef.current[id] && !authorsPending.current.has(id) && !authorsMissing.current.has(id)),
+        ids.filter(
+          (id) =>
+            id &&
+            (!authorsRef.current[id] || authorsSeeded.current.has(id)) &&
+            !authorsPending.current.has(id) &&
+            !authorsMissing.current.has(id),
+        ),
       ),
     ];
     if (need.length === 0) return;
     need.forEach((id) => authorsPending.current.add(id));
+    // Whatever the chat list already says about a person (a 1:1's other side, a last message's sender).
+    const cached = (id: string): ChatAuthor | null => {
+      for (const c of chatsRef.current) {
+        if (c.other?.id === id) return { id, name: c.other.name, slug: c.other.slug, avatarUrl: c.other.avatarUrl, avatarColor: c.other.avatarColor, hasPledged: false };
+        if (c.lastMessage?.authorId === id && c.lastMessage.authorName) {
+          return { id, name: c.lastMessage.authorName, slug: null, avatarUrl: null, avatarColor: null, hasPledged: false };
+        }
+      }
+      return null;
+    };
+    // No profile (yet): the cached name if there is one, else "Unknown member". A real profile that arrives later wins.
+    const fallBack = (some: string[]) => {
+      const open = some.filter((id) => !authorsRef.current[id] || authorsSeeded.current.has(id));
+      const seeds: Record<string, ChatAuthor> = {};
+      const none: string[] = [];
+      for (const id of open) {
+        authorsFailed.current.add(id);
+        const c = authorsRef.current[id] ? null : cached(id);
+        if (c) {
+          seeds[id] = c;
+          authorsSeeded.current.add(id);
+        } else if (!authorsRef.current[id]) none.push(id);
+      }
+      if (Object.keys(seeds).length) setAuthors((prev) => ({ ...Object.fromEntries(Object.entries(seeds).filter(([id]) => !prev[id])), ...prev }));
+      if (none.length) setMissingAuthors((prev) => new Set([...prev, ...none]));
+    };
     getChatAuthors(need)
       .then((rows) => {
         const found = new Set(rows.map((r) => r.id));
@@ -449,14 +491,20 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
         gone.forEach((id) => authorsMissing.current.add(id));
         if (gone.length) setMissingAuthors((prev) => new Set([...prev, ...gone]));
         if (rows.length) setAuthors((prev) => ({ ...prev, ...Object.fromEntries(rows.map((r) => [r.id, r])) }));
+        rows.forEach((r) => {
+          authorsSeeded.current.delete(r.id);
+          authorsFailed.current.delete(r.id);
+        });
         need.forEach((id) => authorsAttempts.current.delete(id));
       })
       .catch(() => {
         // A dropped connection must not leave "Unknown" on screen for the rest of the visit: ask
-        // again a few times, a little later each time.
+        // again a few times, a little later each time, and meanwhile fall back (at once when offline).
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) fallBack(need);
+        else setTimeout(() => fallBack(need), AUTHOR_SOFT_MS);
         const again = need.filter((id) => (authorsAttempts.current.get(id) ?? 0) < AUTHOR_RETRIES);
         const gaveUp = need.filter((id) => !again.includes(id));
-        if (gaveUp.length) setMissingAuthors((prev) => new Set([...prev, ...gaveUp]));
+        if (gaveUp.length) fallBack(gaveUp);
         again.forEach((id) => authorsAttempts.current.set(id, (authorsAttempts.current.get(id) ?? 0) + 1));
         if (again.length) {
           const wait = AUTHOR_RETRY_MS * (authorsAttempts.current.get(again[0] as string) ?? 1);
@@ -464,6 +512,16 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
         }
       })
       .finally(() => need.forEach((id) => authorsPending.current.delete(id)));
+  }, []);
+  // Back online: names that fell back are read again.
+  useEffect(() => {
+    const onOnline = () => {
+      const ids = [...authorsFailed.current];
+      ids.forEach((id) => authorsAttempts.current.delete(id));
+      ensureAuthorsRef.current(ids);
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, []);
   ensureAuthorsRef.current = ensureAuthors;
 

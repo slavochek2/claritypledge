@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from '@/lib/utils';
 import { forwardMessage, renameMirror, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import { filterShareables, loadMyShareables, type Shareable } from '@/app/data/chat-ui-helpers';
-import { ChannelMark, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
+import { ChannelMark, ChatRowTitle, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
 import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
 
 /** Phone dialogs float with a side margin and rounded corners all round (the base only rounds from sm up). */
@@ -77,7 +77,7 @@ export function ConfirmDialog({
 // ---------------------------------------------------------------------------
 function ChatMark({ chat, viewerName }: { chat: ChatSummary; viewerName: { name: string; avatarUrl?: string | null; avatarColor?: string | null } }) {
   if (chat.kind === 'mirror') return <MirrorMark owner={viewerName} size="sm" />;
-  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user' }} size="sm" />;
+  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="sm" />;
   return <ChannelMark kind={chat.kind} size="sm" />;
 }
 
@@ -101,8 +101,9 @@ export function ForwardDialog({
   onForwarded: (target: ChatSummary) => void;
 }) {
   const [target, setTarget] = useState<ChatSummary | null>(null);
-  // One key per (dialog, target): pressing Send again after a lost reply replays the same forward.
-  const attempt = useRef<{ conversationId: string; clientId: string } | null>(null);
+  // One key per target for the life of the dialog: pressing Send again after a lost reply replays the same
+  // forward, also after going to another chat and back.
+  const attemptKeys = useRef(new Map<string, string>());
   const [query, setQuery] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -123,10 +124,12 @@ export function ForwardDialog({
         setBusy(false);
         return;
       }
-      if (attempt.current?.conversationId !== target.conversationId) {
-        attempt.current = { conversationId: target.conversationId, clientId: crypto.randomUUID() };
+      let clientId = attemptKeys.current.get(target.conversationId);
+      if (!clientId) {
+        clientId = crypto.randomUUID();
+        attemptKeys.current.set(target.conversationId, clientId);
       }
-      await forwardMessage(source.id, target.conversationId, note.trim() || undefined, attempt.current.clientId);
+      await forwardMessage(source.id, target.conversationId, note.trim() || undefined, clientId);
       onForwarded(target);
       onClose();
     } catch (e) {
@@ -145,7 +148,14 @@ export function ForwardDialog({
                 <ArrowLeft className="h-5 w-5" aria-hidden="true" />
               </button>
             )}
-            <span className="min-w-0 truncate">{target ? `Forward to ${chatTitle(target)}` : 'Forward to'}</span>
+            {target ? (
+              <span className="flex min-w-0 flex-1">
+                <span className="shrink-0 whitespace-pre">Forward to </span>
+                <ChatRowTitle chat={target} />
+              </span>
+            ) : (
+              <span className="min-w-0 truncate">Forward to</span>
+            )}
           </DialogTitle>
           <DialogDescription className="sr-only">Choose a chat to forward this message to.</DialogDescription>
         </DialogHeader>
@@ -198,7 +208,7 @@ export function ForwardDialog({
                 <li key={c.conversationId}>
                   <button type="button" onClick={() => setTarget(c)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER, FOCUS_RING)}>
                     <ChatMark chat={c} viewerName={owner} />
-                    <span className="min-w-0 truncate text-[15px] text-foreground">{chatTitle(c)}</span>
+                    <ChatRowTitle chat={c} className="flex-1 text-[15px] text-foreground" />
                   </button>
                 </li>
               ))}
@@ -307,7 +317,7 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
 // ---------------------------------------------------------------------------
 // Rename the mirror
 // ---------------------------------------------------------------------------
-export function RenameMirrorDialog({ initial, onClose, onSaved }: { initial: string; onClose: () => void; onSaved: () => void }) {
+export function RenameMirrorDialog({ initial, role, onClose, onSaved }: { initial: string; /** The role as it is shown next to the name, e.g. "Mia's mirror". */ role: string; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -338,7 +348,7 @@ export function RenameMirrorDialog({ initial, onClose, onSaved }: { initial: str
         >
           <DialogHeader className="text-left">
             <DialogTitle>Rename your mirror</DialogTitle>
-            <DialogDescription>Its role, “your mirror”, always stays next to the name.</DialogDescription>
+            <DialogDescription>Its role, “{role}”, always stays next to the name.</DialogDescription>
           </DialogHeader>
           <label className="block text-sm text-foreground">
             Name

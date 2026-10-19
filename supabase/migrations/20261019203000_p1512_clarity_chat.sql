@@ -996,6 +996,11 @@ BEGIN
       IF v_row.conversation_id <> p_conversation THEN
         RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
       END IF;
+      -- A replay is a READ of the stored row, so it follows today's visibility: a message from a
+      -- membership that has since ended (left and rejoined) is not handed back.
+      IF v_row.created_at < v_since THEN
+        RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
+      END IF;
       RETURN v_row;
     END IF;
   END IF;
@@ -1051,6 +1056,9 @@ BEGIN
     SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
     IF v_row.conversation_id <> p_conversation THEN
       RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+    END IF;
+    IF v_row.created_at < v_since THEN
+      RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
     END IF;
     RETURN v_row;
   END IF;
@@ -1167,11 +1175,32 @@ DECLARE
   v_note      text;
   v_snapshot  jsonb;
   v_orig_id   uuid;
+  v_since     timestamptz;
   v_row       public.chat_messages;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'chat: not authenticated' USING ERRCODE = '42501';
   END IF;
+  PERFORM public._chat_assert_can_post(p_target_conversation, v_uid);
+  v_since := public._chat_access_since(p_target_conversation, v_uid);
+
+  -- Idempotent retry (see send_chat_message): same author + client id returns the earlier forward.
+  -- This runs BEFORE the source checks on purpose: a retry whose source was deleted (or erased) in
+  -- the meantime must hand back the forward that was already stored, not "message not available".
+  -- Permission to post in the target was just checked, and the stored row must still be visible.
+  IF p_client_id IS NOT NULL THEN
+    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
+    IF FOUND THEN
+      IF v_row.conversation_id <> p_target_conversation THEN
+        RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+      END IF;
+      IF v_row.created_at < v_since THEN
+        RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
+      END IF;
+      RETURN v_row;
+    END IF;
+  END IF;
+
   -- The forwarder must be able to READ the source right now. FOR SHARE takes a row lock that
   -- conflicts with erase_chat_data_for's UPDATE of the same row: an in-flight erase finishes first
   -- (and the deleted_at test below then refuses), or this transaction commits first and the erase
@@ -1182,18 +1211,6 @@ BEGIN
      FOR SHARE;
   IF NOT FOUND OR v_src.deleted_at IS NOT NULL THEN
     RAISE EXCEPTION 'chat: message not available' USING ERRCODE = '42501';
-  END IF;
-  PERFORM public._chat_assert_can_post(p_target_conversation, v_uid);
-
-  -- Idempotent retry (see send_chat_message): same author + client id returns the earlier forward.
-  IF p_client_id IS NOT NULL THEN
-    SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
-    IF FOUND THEN
-      IF v_row.conversation_id <> p_target_conversation THEN
-        RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
-      END IF;
-      RETURN v_row;
-    END IF;
   END IF;
 
   v_note := NULLIF(btrim(COALESCE(p_note, '')), '');
@@ -1230,6 +1247,9 @@ BEGIN
     SELECT * INTO v_row FROM public.chat_messages m WHERE m.author_id = v_uid AND m.client_id = p_client_id;
     IF v_row.conversation_id <> p_target_conversation THEN
       RAISE EXCEPTION 'chat: client id already used' USING ERRCODE = '22023';
+    END IF;
+    IF v_row.created_at < v_since THEN
+      RAISE EXCEPTION 'chat: conversation not available' USING ERRCODE = '42501';
     END IF;
     RETURN v_row;
   END IF;

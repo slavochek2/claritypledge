@@ -69,7 +69,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
       {forwardSource && (
         <ForwardDialog
           source={forwardSource}
-          authorName={(forwardSource.authorId && authors[forwardSource.authorId]?.name) || 'Deleted user'}
+          authorName={(forwardSource.authorId ? authors[forwardSource.authorId]?.name ?? 'Unknown member' : 'Deleted user')}
           chats={forwardTargets}
           revalidate={refresh}
           owner={{ name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor }}

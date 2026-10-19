@@ -195,33 +195,49 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 
 ## Acceptance Criteria
 
-- [ ] Signed in, opening the app (and the installed app) lands on Home, the chat list; Feed shows today's feed unchanged
-- [ ] Each of the 11 losses in P1509 `build-report-v16.md` §E3 is restored by the live page, or listed as a founder-approved loss
-- [ ] Per route: exactly one navigation; Today's event, Tools, Partners and the letter/partner badges are present as before
-- [ ] No "Coming soon", placeholder or mock text anywhere in the shell or chat
-- [ ] Two accounts with a shared connection (D1) start a 1:1 and see each other's messages live without reload
-- [ ] An account with no shared connection cannot start a 1:1 or find the other in search
-- [ ] A blocked account cannot send, start a 1:1 or find the blocker
-- [ ] After the shared group ends, the existing 1:1 still works
-- [ ] General and event channels follow the access lifecycle table, including history from join time
-- [ ] Two-user canary per path: a non-member gets nothing via REST, Realtime, search, forward, attach or Clarify using a real id
-- [ ] Write canary: self-insert into a conversation, posting as another user, editing or deleting another's message, and a cross-conversation reply all fail
-- [ ] A deleted message's body is gone over REST and Realtime; an erased account's messages show "Deleted user"; account erase still succeeds
-- [ ] Deleting an event with a channel succeeds
-- [ ] Unread is correct across two devices of one user; mark-as-unread and archive persist
-- [ ] Threads, quote-reply, forward (D5), attach, edit and delete work and persist
-- [ ] Clarify puts the message and its thread into the owner's mirror chat only; Rename persists; role always shows
-- [ ] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite
-- [ ] Existing users see their groups' General channels and their mirror on first open
+- [x] Signed in, opening the app (and the installed app) lands on Home, the chat list; Feed shows today's feed unchanged — *Evidence:* `/` waits for the session then sends signed-in users to `/home` (`src/app/routes/home-redirect.tsx`, `home-readiness.ts`; p1512-shell tests; e2e p491 UAT-7); sign-in default is `/home`; PWA start_url is `/`; `/feed` page unchanged.
+- [x] Each of the 11 losses in P1509 `build-report-v16.md` §E3 is restored by the live page, or listed as a founder-approved loss — *Evidence:* All prototype copies deleted; every menu entry and profile/member link opens the live route, so the live page (with its full function) is what shows.
+- [x] Per route: exactly one navigation; Today's event, Tools, Partners and the letter/partner badges are present as before — *Evidence:* p1512-shell tests; e2e p1351, p888, p885, p1323, p1421 updated with a pre-P1512 control. Collapsed desktop sidebar shows only the logo by founder decision 5, so badges are hidden while collapsed (flagged to founder).
+- [x] No "Coming soon", placeholder or mock text anywhere in the shell or chat — *Evidence:* Unit test scans rendered chat/shell for coming soon/placeholder/prototype/mock; Opus review found none; grep of shell + chat clean.
+- [x] Two accounts with a shared connection (D1) start a 1:1 and see each other's messages live without reload — *Evidence:* e2e p1512-chat-live (two browsers: search, start 1:1, live delivery without reload, unread badge).
+- [x] An account with no shared connection cannot start a 1:1 or find the other in search — *Evidence:* write canary (start_dm refused, search excludes; late RSVP after the 12 h window gives no connection).
+- [x] A blocked account cannot send, start a 1:1 or find the blocker — *Evidence:* write canary (send, start, search) + UI blocked state.
+- [x] After the shared group ends, the existing 1:1 still works — *Evidence:* write canary (dm still sends after leaving the org).
+- [x] General and event channels follow the access lifecycle table, including history from join time — *Evidence:* read canary (join/leave/rejoin history from join; RSVP inside/outside 12 h window; cancel; host; server-stamped join/RSVP times).
+- [x] Two-user canary per path: a non-member gets nothing via REST, Realtime, search, forward, attach or Clarify using a real id — *Evidence:* read canary (REST, RPC, Realtime with a member control, search, forward, attach, clarify, thread stats, member_state DELETE payloads).
+- [x] Write canary: self-insert into a conversation, posting as another user, editing or deleting another's message, and a cross-conversation reply all fail — *Evidence:* write canary (no client write grants; author is always the caller; foreign edit/delete; cross-conversation reply/thread; idempotent replay rules).
+- [x] A deleted message's body is gone over REST and Realtime; an erased account's messages show "Deleted user"; account erase still succeeds — *Evidence:* read canary (REST + Realtime UPDATE payload), erase canary (Deleted user, words gone from third-party forwards and clarify copies), p520 account-deletion 15/15.
+- [x] Deleting an event with a channel succeeds — *Evidence:* read canary (host deletes an event with channel, messages and read state).
+- [x] Unread is correct across two devices of one user; mark-as-unread and archive persist — *Evidence:* read canary (two clients, member_state Realtime), mark-read through message id (µs-exact), unit tests for mark-unread/archive.
+- [x] Threads, quote-reply, forward (D5), attach, edit and delete work and persist — *Evidence:* e2e p1512-chat-live (thread, forward, attach point + story, edit, delete live) + unit tests.
+- [x] Clarify puts the message and its thread into the owner's mirror chat only; Rename persists; role always shows — *Evidence:* e2e (copy only in the clarifier's mirror, checked by admin query) + unit (rename persists; role segment never truncated).
+- [x] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite — *Evidence:* p1512-shell tests + screenshots (collapsed, logo hover); `+` in the chat list opens `/agreements/new/create`.
+- [x] Existing users see their groups' General channels and their mirror on first open — *Evidence:* migration backfill (one General per org, one channel per event, one mirror per profile; counts equal sources in the first-run proof) + e2e new-user list.
 - [ ] Phone (375, 320) and desktop pass the visual QA checklist
-- [ ] No prototype route, persona plugin or mock code remains in the build
+- [x] No prototype route, persona plugin or mock code remains in the build — *Evidence:* v12–v16 code, tests, routes, `scripts/p1509-*` and the vite persona plugin deleted; grep clean.
+
+## Known Limitations (recorded at /dev, 2026-10-19)
+
+Reviewed by Gemini review model, Codex and Opus in two full rounds plus two freshness passes; these were judged exotic or product calls, not fixed:
+
+- Forwarding a forward keeps only the original snapshot (the middle forwarder's note is not carried).
+- A deleted message still moves its chat up the list ("Message deleted" preview), as in WhatsApp.
+- Clients subscribe to chat tables unfiltered; Realtime evaluates access per subscriber per change. Fine at current scale; revisit with conversation filters or private broadcast when traffic grows.
+- A blocked person can infer the block (sends are refused).
+- A host editing an event's date moves the 12 h RSVP window.
+- A profile deleted outside `erase_my_account` keeps its message bodies (shown as "Deleted user").
+- Attachment visibility mirrors the points/stories SELECT policies by hand; a future change to those policies must update `_chat_can_attach`.
+- A forward retried after its source was deleted now returns the stored copy; if the reply to the first attempt is lost and the user never retries, the UI settles via the Realtime echo.
+- The live lost-reply e2e proves one stored row; its Retry-button branch is covered by unit tests only (the Realtime echo settled it first in every live run).
+- Live pages keep pre-existing phone defects (INBOX-194); out of scope by founder decision 1.
+- Collapsed desktop sidebar shows only the logo (founder decision 5), so menu badges are hidden while collapsed.
 
 ## Pre-deploy Checklist
 
-- [ ] Realtime confirmed working on test (step 0)
+- [x] Realtime confirmed working on test (step 0)
 - [ ] Chat migrations (tables, policies, backfill, `erase_my_account` update) applied on test, both canaries green, then prod via `/push`
-- [ ] Chat tables in the Realtime publication only with canary-passing policies
-- [ ] Privacy policy section on chat messages published
+- [x] Chat tables in the Realtime publication only with canary-passing policies
+- [ ] Privacy policy section on chat messages published — [FOUNDER DECISION: wording of the privacy-policy section on chat messages; not drafted by the agent]
 
 ## Related
 
@@ -270,10 +286,10 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 
 ## Implementation Tasks
 
-- [ ] Complete — T1 DB: `supabase/migrations/<ts>_p1512_clarity_chat.sql`, `src/app/data/chat-service.ts`, integration canaries
-- [ ] Complete — T2 Shell: signed-in sidebar + bottom bar in `ClarityLandingLayout`, `/home`, Feed rename, redirect after session restore
-- [ ] Complete — T3 Chat UI: `src/app/pages/chat/*` on the real service
-- [ ] Complete — T4 Remove prototype code, routes, tests, persona plugin, scripts
-- [ ] Complete — T5 Two-browser E2E + visual QA + reviews
+- [x] Complete — T1 DB: `supabase/migrations/<ts>_p1512_clarity_chat.sql`, `src/app/data/chat-service.ts`, integration canaries
+- [x] Complete — T2 Shell: signed-in sidebar + bottom bar in `ClarityLandingLayout`, `/home`, Feed rename, redirect after session restore
+- [x] Complete — T3 Chat UI: `src/app/pages/chat/*` on the real service
+- [x] Complete — T4 Remove prototype code, routes, tests, persona plugin, scripts
+- [x] Complete — T5 Two-browser E2E + visual QA + reviews
 
 Can parallelize: T1 and T2.

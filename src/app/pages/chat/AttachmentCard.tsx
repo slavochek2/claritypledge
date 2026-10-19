@@ -45,26 +45,42 @@ const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/4
 export function AttachmentCard({ kind, id, viewerId }: { kind: ChatAttachmentKind; id: string; viewerId: string }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
+  // One generation per card: every read takes the next number, and only the read holding the current
+  // number may touch the state. A timeout, a Retry, a reconnect and an unmount each move it on, so a
+  // request that answers late (after its own timeout or after a successful Retry) is ignored.
+  const generation = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const invalidate = useCallback(() => {
+    generation.current += 1;
+    clearTimeout(timer.current);
+  }, []);
   const load = useCallback(() => {
-    let live = true;
+    invalidate();
+    const mine = generation.current;
+    const current = () => generation.current === mine;
     setState({ status: 'loading' });
-    const timer = setTimeout(() => live && setState({ status: 'error' }), ATTACHMENT_TIMEOUT_MS);
+    timer.current = setTimeout(() => {
+      if (!current()) return;
+      invalidate();
+      setState({ status: 'error' });
+    }, ATTACHMENT_TIMEOUT_MS);
     loadAttachment(kind, id, viewerId).then(
       (item) => {
-        clearTimeout(timer);
-        if (live) setState(item ? { status: 'ready', item } : { status: 'missing' });
+        if (!current()) return;
+        clearTimeout(timer.current);
+        setState(item ? { status: 'ready', item } : { status: 'missing' });
       },
       () => {
-        clearTimeout(timer);
-        if (live) setState({ status: 'error' });
+        if (!current()) return;
+        clearTimeout(timer.current);
+        setState({ status: 'error' });
       },
     );
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [kind, id, viewerId]);
-  useEffect(() => load(), [load]);
+  }, [kind, id, viewerId, invalidate]);
+  useEffect(() => {
+    load();
+    return invalidate;
+  }, [load, invalidate]);
   // Back online: a card that never loaded tries again by itself.
   const wasOffline = useRef(false);
   const settled = useRef(false);
@@ -73,7 +89,7 @@ export function AttachmentCard({ kind, id, viewerId }: { kind: ChatAttachmentKin
     if (!online) wasOffline.current = true;
     else if (wasOffline.current) {
       wasOffline.current = false;
-      if (!settled.current) return load();
+      if (!settled.current) load();
     }
   }, [online, load]);
 

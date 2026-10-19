@@ -40,7 +40,7 @@ const SELECTED_ROW = 'bg-blue-50 shadow-[inset_3px_0_0_0_#2563eb]';
 
 function ChatMark({ chat, owner, active }: { chat: ChatSummary; owner: PersonLike; active: boolean }) {
   if (chat.kind === 'mirror') return <MirrorMark owner={owner} size="list" />;
-  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user' }} size="list" />;
+  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="list" />;
   return <ChannelMark kind={chat.kind} size="list" selected={active} />;
 }
 
@@ -305,7 +305,7 @@ function MiniMark({ chat }: { chat: ChatSummary }) {
   const { user } = useAuth();
   const owner: PersonLike = { name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor };
   if (chat.kind === 'mirror') return <MirrorMark owner={owner} size="sm" />;
-  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user' }} size="sm" />;
+  if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="sm" />;
   return <ChannelMark kind={chat.kind} size="sm" />;
 }
 

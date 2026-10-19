@@ -5,12 +5,12 @@
  * unread badge, selection and the one primary action per view.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { CalendarDays, FlipHorizontal2, Lock, Reply, X, type LucideIcon } from 'lucide-react';
+import { CalendarDays, FlipHorizontal2, Lock, Reply, User, X, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { useDismiss } from './chat-hooks';
-import { mirrorRole } from './chat-view-model';
+import { chatTitle, mirrorRole } from './chat-view-model';
 import type { ChatSummary } from '@/app/data/chat-mappers';
 
 /** Hover tint only where a real pointer exists (a tap must not leave a row stuck lit). */
@@ -32,9 +32,29 @@ export interface PersonLike {
   avatarUrl?: string | null;
   avatarColor?: string | null;
   hasPledged?: boolean;
+  /** An erased account: a neutral gray avatar with no initials. */
+  deleted?: boolean;
+  /** A person whose profile could not be read: a neutral gray avatar with initials. */
+  unknown?: boolean;
 }
 
+const GRAY_DISC = 'inline-flex shrink-0 items-center justify-center rounded-full bg-gray-200 font-semibold text-gray-600';
+
 export function PersonMark({ person, size = 'md', className }: { person: PersonLike; size?: MarkSize; className?: string }) {
+  if (person.deleted) {
+    return (
+      <span aria-hidden="true" className={cn(GRAY_DISC, SIZE[size], className)}>
+        <User className="h-1/2 w-1/2" />
+      </span>
+    );
+  }
+  if (person.unknown) {
+    return (
+      <span aria-hidden="true" className={cn(GRAY_DISC, SIZE[size], className)}>
+        {getInitials(person.name)}
+      </span>
+    );
+  }
   const pledger = person.hasPledged ?? false;
   return (
     <GravatarAvatar
@@ -96,6 +116,28 @@ export function MirrorTitle({ chat, className }: { chat: Pick<ChatSummary, 'titl
     <span className={cn('flex min-w-0', className)}>
       <span className="min-w-0 truncate">{chat.title}</span>
       <span className="shrink-0 whitespace-pre"> · {role}</span>
+    </span>
+  );
+}
+
+/**
+ * A chat's name on one line with its role kept: the mirror's role, a channel's "· General" and an event's
+ * date are their own segments that never shrink; the name in front of them is what gets the ellipsis.
+ */
+export function ChatRowTitle({ chat, className }: { chat: ChatSummary; className?: string }) {
+  if (chat.kind === 'mirror') return <MirrorTitle chat={chat} className={className} />;
+  const tail =
+    chat.kind === 'group'
+      ? ' · General'
+      : chat.kind === 'event' && chat.event
+        ? ` · ${new Date(chat.event.datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        : null;
+  if (!tail) return <span className={cn('block min-w-0 truncate', className)}>{chatTitle(chat)}</span>;
+  const head = chat.kind === 'group' ? chat.org?.name ?? 'Group' : chat.event?.title ?? 'Event';
+  return (
+    <span className={cn('flex min-w-0', className)}>
+      <span className="min-w-0 truncate">{head}</span>
+      <span className="shrink-0 whitespace-pre">{tail}</span>
     </span>
   );
 }

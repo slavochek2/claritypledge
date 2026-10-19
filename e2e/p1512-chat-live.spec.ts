@@ -123,6 +123,20 @@ async function dialogShape(page: Page, w: number, margin = 8) {
     expect(w - (box.x + box.width), `dialog right margin at ${w}`).toBeGreaterThanOrEqual(margin);
   }
 }
+/** In the open forward dialog the mirror row's role is its own segment and is not cut, while the title is. */
+async function mirrorRowKeepsRole(page: Page, w: number) {
+  const parts = await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /Alicetest's mirror/ })
+    .evaluate((btn) => {
+      const wrapper = btn.querySelector('span.flex.min-w-0') as HTMLElement;
+      const [name, role] = Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
+      return { nameCut: name!.scrollWidth > name!.clientWidth, roleCut: role!.scrollWidth > role!.clientWidth, roleText: role!.textContent };
+    });
+  expect(parts.nameCut, `the mirror title is the part that is cut in the forward list at ${w}`).toBe(true);
+  expect(parts.roleCut, `the mirror role is not cut in the forward list at ${w}`).toBe(false);
+  expect(parts.roleText).toBe(" · Alicetest's mirror");
+}
 /** Every button in the row sits on one line. */
 async function oneRow(bar: Locator, label: string) {
   const tops = await bar.getByRole('button').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
@@ -640,6 +654,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.waitForTimeout(500);
     await dialogShape(page, 375, 15);
+    await mirrorRowKeepsRole(page, 375);
     await settle(page);
     await page.screenshot({ path: `${SHOT_DIR}/forward-phone-375.png` });
     await page.keyboard.press('Escape');
@@ -671,6 +686,14 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await expect(messageWith(page, 'channel post from A')).toBeVisible();
     await messageWith(page, 'channel post from A').getByText('channel post from A').tap();
     const channelBar = messageWith(page, 'channel post from A').getByRole('toolbar', { name: 'Message actions' });
+    // The header is one line for the title and one for the subtitle at 320.
+    const header = page.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) }).first();
+    const titleBox = (await header.getByRole('heading', { level: 1 }).boundingBox())!;
+    const subBox = (await header.getByText('General', { exact: true }).boundingBox())!;
+    expect(titleBox.height, 'the channel title is one line at 320').toBeLessThanOrEqual(24);
+    expect(subBox.height, 'the channel subtitle is one line at 320').toBeLessThanOrEqual(18);
+    await settle(page);
+    await header.screenshot({ path: `${SHOT_DIR}/channel-header-320.png` });
     await expect(channelBar.getByRole('button')).toHaveCount(5);
     await oneRow(channelBar, 'channel action bar at 320');
     const cb = (await channelBar.boundingBox())!;
@@ -682,6 +705,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.waitForTimeout(500);
     await dialogShape(page, 320, 15);
+    await mirrorRowKeepsRole(page, 320);
     await settle(page);
     await page.screenshot({ path: `${SHOT_DIR}/forward-phone-320.png` });
     await page.keyboard.press('Escape');
@@ -704,6 +728,16 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await page.unroute(/\/rest\/v1\/(points|stories)\?/);
     await errors.first().getByRole('button', { name: 'Retry' }).click();
     await expect(page.getByTestId('attachment-point').or(page.getByTestId('attachment-story')).first()).toBeVisible({ timeout: 30_000 });
+
+    // Names that cannot be read: after a short wait no grey skeleton bar or disc is left, only text and initials.
+    const blockAuthors = (route: import('@playwright/test').Route) =>
+      route.request().url().includes('id=in.') ? route.abort('failed') : route.continue();
+    await page.route(/\/rest\/v1\/profiles\?/, blockAuthors);
+    await page.goto(`/home/c/${convId}`);
+    await expect(messageWith(page, 'reply from B')).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading name' })).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.locator('[data-testid="message"] .animate-pulse')).toHaveCount(0);
+    await page.unroute(/\/rest\/v1\/profiles\?/, blockAuthors);
   } finally {
     await ctx.close();
   }

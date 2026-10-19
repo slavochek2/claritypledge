@@ -209,6 +209,59 @@ test('idempotent send: the same client id twice is one message, independent per 
   expect(errFwd.message).toContain('client id already used');
 });
 
+test('idempotent replay follows current visibility, and a forward replay survives its source being deleted', async () => {
+  test.setTimeout(120_000);
+
+  // --- replay is a READ of the stored row: it must respect today's access ------------------------
+  const V = await mk('IV');
+  await createTestMembership(org.id, V.user.id);
+  const sV = await signIn(V);
+  const sendKey = randomUUID();
+  const fwdKey = randomUUID();
+  await sleep(300);
+  const vSource = await send(sA, gconv, `visible-to-v-${RUN}`); // after V joined, so V can read and forward it
+  const sent = await send(sV, gconv, `before-leaving-${RUN}`, { p_client_id: sendKey });
+  const fwd = await ok<Row>(sV.client.rpc('forward_chat_message', { p_source: vSource.id, p_target_conversation: gconv, p_client_id: fwdKey }), 'V forwards');
+  // CONTROL: while still a member, both replays return the stored rows.
+  expect((await send(sV, gconv, 'x', { p_client_id: sendKey })).id).toBe(sent.id);
+  expect((await ok<Row>(sV.client.rpc('forward_chat_message', { p_source: vSource.id, p_target_conversation: gconv, p_client_id: fwdKey }), 'forward replay')).id).toBe(fwd.id);
+
+  await ok(sV.client.from('membership').delete().eq('org_id', org.id).eq('user_id', V.user.id), 'V leaves');
+  await sleep(400);
+  await ok(sV.client.from('membership').insert({ org_id: org.id, user_id: V.user.id }), 'V rejoins');
+  await sleep(300);
+
+  // V can post again (new membership), but history before the rejoin is gone, and so is its replay.
+  const rowsBefore = (await adminMessages(gconv)).length;
+  const e1 = await refused(sV.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'replay', p_client_id: sendKey }), 'replay a send from the ended membership');
+  expect(e1.message).toContain('conversation not available');
+  const e2 = await refused(sV.client.rpc('forward_chat_message', { p_source: vSource.id, p_target_conversation: gconv, p_client_id: fwdKey }), 'replay a forward from the ended membership');
+  expect(e2.message).toContain('conversation not available');
+  expect((await adminMessages(gconv)).length, 'a refused replay inserts nothing').toBe(rowsBefore);
+  const { data: keyed } = await supabaseAdmin.from('chat_messages').select('id').eq('author_id', V.user.id).eq('client_id', sendKey);
+  expect(keyed?.length, 'still exactly one stored row for the old key').toBe(1);
+  // CONTROL: a fresh key works after the rejoin, and ITS replay returns the same row.
+  const freshKey = randomUUID();
+  const fresh = await send(sV, gconv, `after-rejoin-${RUN}`, { p_client_id: freshKey });
+  expect((await send(sV, gconv, 'x', { p_client_id: freshKey })).id).toBe(fresh.id);
+
+  // --- a forward replay is answered before the source is looked at ---------------------------------
+  const source = await send(sA, gconv, `forward-source-${RUN}`);
+  const k = randomUUID();
+  const f1 = await ok<Row>(sB.client.rpc('forward_chat_message', { p_source: source.id, p_target_conversation: gconv, p_client_id: k }), 'B forwards the source');
+  await ok(sA.client.rpc('delete_chat_message', { p_message: source.id }), 'the author deletes the source');
+  const f2 = await ok<Row>(sB.client.rpc('forward_chat_message', { p_source: source.id, p_target_conversation: gconv, p_client_id: k }), 'replay after the source was deleted');
+  expect(f2.id, 'the retry returns the stored forward, not "message not available"').toBe(f1.id);
+  expect(f2.forward_snapshot?.body, 'the stored forward keeps its own copy (D5)').toBe(`forward-source-${RUN}`);
+  // CONTROL: a NEW forward of the deleted source is still refused.
+  await refused(sB.client.rpc('forward_chat_message', { p_source: source.id, p_target_conversation: gconv, p_client_id: randomUUID() }), 'a new forward of a deleted source');
+  await refused(sB.client.rpc('forward_chat_message', { p_source: source.id, p_target_conversation: gconv }), 'a keyless forward of a deleted source');
+  const { data: copies } = await supabaseAdmin.from('chat_messages').select('id').eq('author_id', B.user.id).eq('client_id', k);
+  expect(copies?.length, 'one stored forward for the key').toBe(1);
+  // The target permission is still checked before the replay: someone who cannot post there gets nothing.
+  await refused(sC.client.rpc('forward_chat_message', { p_source: source.id, p_target_conversation: gconv, p_client_id: k }), 'outsider replays B\'s key');
+});
+
 test('edit and delete: only the author can; other people get an error and nothing changes', async () => {
   const msg = await send(sA, gconv, `mine-${RUN}`);
   await refused(sB.client.rpc('edit_chat_message', { p_message: msg.id, p_body: 'B edits A' }), 'B edits A\'s message');

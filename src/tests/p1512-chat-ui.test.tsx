@@ -65,6 +65,7 @@ vi.mock('@/app/components/feed/feed-story-card', () => ({ FeedStoryCard: ({ stor
 import { ChatProvider, LIST_POLL_MS, LIST_READ_TIMEOUT_MS, SAFETY_POLL_MS } from '@/app/pages/chat/chat-provider';
 import { SYNC_LIMITS } from '@/app/pages/chat/use-conversation';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
+import { useChat } from '@/app/pages/chat/chat-state';
 import { AttachmentCard, ATTACHMENT_TIMEOUT_MS } from '@/app/pages/chat/AttachmentCard';
 import {
   chatErrorText,
@@ -439,11 +440,11 @@ describe('conversation', () => {
     expect(helpers.getChatAuthors).toHaveBeenCalledTimes(2);
   }, 10_000);
 
-  it('says "Unknown" once the lookup finds no profile for an author', async () => {
+  it('says "Unknown member" once the lookup finds no profile for an author', async () => {
     helpers.getChatAuthors.mockResolvedValue([]);
     renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-ghost', 'from someone unreadable')] });
     expect(await screen.findByText('from someone unreadable')).toBeInTheDocument();
-    expect(await screen.findByText('Unknown', { selector: 'span' })).toBeInTheDocument();
+    expect(await screen.findByText('Unknown member', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('links the header to the live profile, group page and event page', async () => {
@@ -1734,6 +1735,242 @@ describe('review round 4', () => {
     expect(hint.className).toContain('pointer-events-none');
     await userEvent.type(box, 'x');
     expect(screen.queryByTestId('composer-hint')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 5: P (card generations), Q (forward keys), R (echo settles a send)
+// ---------------------------------------------------------------------------
+describe('review round 5', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const readyItem = { kind: 'point', id: 'pt', title: 'T', tags: [], point: { id: 'pt', statement: 'a point everyone may read' } };
+
+  describe('P: an attachment card only listens to its current read', () => {
+    it('a request that rejects late, after its timeout and a successful Retry, does not overwrite the loaded card', async () => {
+      vi.useFakeTimers();
+      let rejectFirst!: (e: Error) => void;
+      helpers.loadAttachment
+        .mockImplementationOnce(() => new Promise((_r, rej) => { rejectFirst = rej; }))
+        .mockResolvedValueOnce(readyItem);
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(ATTACHMENT_TIMEOUT_MS + 100); });
+      const row = screen.getByTestId('attachment-error');
+      fireEvent.click(within(row).getByRole('button', { name: 'Retry' }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByTestId('point-card')).toHaveTextContent('a point everyone may read');
+      await act(async () => { rejectFirst(new Error('timed out request finally fails')); await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByTestId('point-card')).toBeInTheDocument();
+      expect(screen.queryByTestId('attachment-error')).not.toBeInTheDocument();
+    });
+
+    it('a late success from a request that already timed out does not replace what the Retry is showing', async () => {
+      vi.useFakeTimers();
+      let resolveFirst!: (v: unknown) => void;
+      let resolveSecond!: (v: unknown) => void;
+      helpers.loadAttachment
+        .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
+        .mockImplementationOnce(() => new Promise((r) => { resolveSecond = r; }));
+      render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(ATTACHMENT_TIMEOUT_MS + 100); });
+      fireEvent.click(within(screen.getByTestId('attachment-error')).getByRole('button', { name: 'Retry' }));
+      await act(async () => { resolveFirst(null); await vi.advanceTimersByTimeAsync(0); });
+      // the first read said "not available" long after it was given up on: the Retry is still loading
+      expect(screen.queryByText('Not available to you')).not.toBeInTheDocument();
+      expect(screen.getByRole('status', { name: 'Loading attachment' })).toBeInTheDocument();
+      await act(async () => { resolveSecond(readyItem); await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByTestId('point-card')).toBeInTheDocument();
+    });
+
+    it('an unmounted card ignores its answer', async () => {
+      let resolve!: (v: unknown) => void;
+      helpers.loadAttachment.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const view = render(<AttachmentCard kind="point" id="pt" viewerId={ME.id} />);
+      view.unmount();
+      await act(async () => { resolve(readyItem); });
+      expect(errors).not.toHaveBeenCalled();
+      errors.mockRestore();
+    });
+  });
+
+  it('Q: going A, B, back to A reuses A\'s original forward key; B gets its own', async () => {
+    const theirs = msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' });
+    svc.forwardMessage.mockRejectedValue(new Error('TypeError: Failed to fetch'));
+    renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders'), group('g2', 'Readers')], { dm1: [theirs] });
+    await screen.findByText('worth forwarding');
+    menuOn('worth forwarding');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
+    const dialog = await screen.findByRole('dialog');
+    const pickAndSend = async (name: RegExp) => {
+      fireEvent.click(within(dialog).getByRole('button', { name }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+      await screen.findByRole('alert');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back to chats' }));
+    };
+    await pickAndSend(/Builders/);
+    await pickAndSend(/Readers/);
+    await pickAndSend(/Builders/);
+    const calls = svc.forwardMessage.mock.calls as Array<[string, string, string | undefined, string]>;
+    expect(calls.map((c) => c[1])).toEqual(['g1', 'g2', 'g1']);
+    expect(calls[0]![3]).toMatch(UUID);
+    expect(calls[2]![3]).toBe(calls[0]![3]);
+    expect(calls[1]![3]).not.toBe(calls[0]![3]);
+  });
+
+  describe('R: the Realtime copy of my send settles its outbox entry at once', () => {
+    function OutboxSize() {
+      return <div data-testid="outbox-size">{useChat().outbox.length}</div>;
+    }
+    const renderWithProbe = () => {
+      svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
+      svc.listMessages.mockResolvedValue([]);
+      return render(
+        <MemoryRouter initialEntries={['/home/c/dm1']}>
+          <ChatProvider>
+            <Routes>
+              <Route path="/home/*" element={<ChatHomePage />} />
+            </Routes>
+            <OutboxSize />
+          </ChatProvider>
+        </MemoryRouter>,
+      );
+    };
+    const echo = (clientId: string) => msg('dm1', ME.id, 'settle me', { id: 'rt-echo', createdAt: new Date().toISOString(), clientId });
+
+    it('the entry leaves the outbox when the echo arrives, even while pending, and the RPC resolving later changes nothing', async () => {
+      let resolve!: (m: ChatMessage) => void;
+      svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { resolve = r; }));
+      renderWithProbe();
+      await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'settle me');
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await screen.findByText('Sending…');
+      expect(screen.getByTestId('outbox-size')).toHaveTextContent('1');
+      const clientId = (svc.sendMessage.mock.calls[0]![0] as { clientId: string }).clientId;
+      act(() => handlers?.onMessage({ type: 'INSERT', message: echo(clientId) }));
+      expect(screen.getByTestId('outbox-size')).toHaveTextContent('0');
+      expect(logOf().getAllByText('settle me')).toHaveLength(1);
+      await act(async () => resolve(echo(clientId)));
+      expect(screen.getByTestId('outbox-size')).toHaveTextContent('0');
+      expect(logOf().getAllByText('settle me')).toHaveLength(1);
+    });
+
+    it('the RPC failing after the echo does not bring the entry back as a failed send', async () => {
+      let reject!: (e: Error) => void;
+      svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((_r, rej) => { reject = rej; }));
+      renderWithProbe();
+      await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'settle me');
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await screen.findByText('Sending…');
+      const clientId = (svc.sendMessage.mock.calls[0]![0] as { clientId: string }).clientId;
+      act(() => handlers?.onMessage({ type: 'INSERT', message: echo(clientId) }));
+      await act(async () => reject(new Error('TypeError: Failed to fetch')));
+      expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument();
+      expect(screen.getByTestId('outbox-size')).toHaveTextContent('0');
+      expect(logOf().getAllByText('settle me')).toHaveLength(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 6: B1, S1 to S4, N1
+// ---------------------------------------------------------------------------
+describe('review round 6', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const classesOf = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
+  const LONG = 'A very long mirror name that will certainly not fit on one line of a phone';
+  const openForward = async (chats: ChatSummary[]) => {
+    renderChat('/home/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' })] });
+    await screen.findByText('worth forwarding');
+    menuOn('worth forwarding');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
+    return screen.findByRole('dialog');
+  };
+
+  it('B1 and S1: the forward list keeps the mirror role, "· General" and the event date as segments that do not shrink', async () => {
+    const dialog = await openForward([
+      mirror('c-mirror', { ownerFirstName: 'Mia', title: LONG }),
+      dmChat,
+      group('g1', 'A group with a really quite long organisation name'),
+      eventChat('ev1', 'An event with a really quite long title', 40),
+    ]);
+    const segments = (name: RegExp) => {
+      const btn = within(dialog).getByRole('button', { name });
+      const wrapper = btn.querySelector('span.flex.min-w-0') as HTMLElement;
+      return Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
+    };
+    const [mName, mRole] = segments(/Mia's mirror/);
+    expect(classesOf(mName!)).toContain('truncate');
+    expect(mRole).toHaveTextContent("· Mia's mirror");
+    expect(classesOf(mRole!)).toContain('shrink-0');
+    const [gName, gTail] = segments(/organisation/);
+    expect(classesOf(gName!)).toContain('truncate');
+    expect(gTail).toHaveTextContent('· General');
+    expect(classesOf(gTail!)).toContain('shrink-0');
+    const [eName, eTail] = segments(/An event with/);
+    expect(classesOf(eName!)).toContain('truncate');
+    expect(eTail!.textContent).toMatch(/^ · [A-Z][a-z]{2} \d{1,2}$/);
+    expect(classesOf(eTail!)).toContain('shrink-0');
+    // and in the dialog's own title once a target is chosen
+    fireEvent.click(within(dialog).getByRole('button', { name: /Mia's mirror/ }));
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(`Forward to ${LONG} · Mia's mirror`);
+  });
+
+  it('S2: offline, an author whose profile cannot load is "Unknown member" with a gray initials avatar at once, never a permanent skeleton', async () => {
+    const online = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    helpers.getChatAuthors.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-stranger', 'from a stranger')] });
+    await screen.findByText('from a stranger');
+    expect(await screen.findByText('Unknown member', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading name' })).not.toBeInTheDocument();
+    const row = screen.getByText('from a stranger').closest('li') as HTMLElement;
+    expect(row.querySelector('.animate-pulse')).toBeNull();
+    const avatar = row.querySelector('.bg-gray-200') as HTMLElement;
+    expect(avatar).toHaveTextContent('UM');
+    online.mockRestore();
+  });
+
+  it('S2: a name that has not loaded after a short wait is taken from the chat list (the 1:1 partner), and the real profile replaces it when it loads', async () => {
+    helpers.getChatAuthors.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'who wrote this')] });
+    await screen.findByText('who wrote this');
+    expect(screen.getByRole('status', { name: 'Loading name' })).toBeInTheDocument();
+    const row = screen.getByText('who wrote this').closest('li') as HTMLElement;
+    await waitFor(() => expect(within(row).getByText('Ada Lovelace')).toBeInTheDocument(), { timeout: 6000 });
+    expect(screen.queryByRole('status', { name: 'Loading name' })).not.toBeInTheDocument();
+    // the connection returns: the profile is read again
+    helpers.getChatAuthors.mockImplementation(async (ids: string[]) => authors.filter((a) => ids.includes(a.id)));
+    act(() => { window.dispatchEvent(new Event('online')); });
+    expect(await within(row).findByRole('link', { name: 'Ada Lovelace' })).toHaveAttribute('href', '/p/ada');
+  }, 20_000);
+
+  it('S3: the rename dialog names the role exactly as it is shown', async () => {
+    renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
+    const shown = (await screen.findByRole('heading', { name: "Mia's mirror" })).textContent;
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(shown).toBe("Mia's mirror");
+    expect(dialog).toHaveTextContent("Its role, “Mia's mirror”, always stays next to the name.");
+    expect(dialog).not.toHaveTextContent('“your mirror”');
+  });
+
+  it('S4: an erased account has a neutral gray avatar, not a coloured initials disc', async () => {
+    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', null, 'words of an erased person', { id: 'gone1' })] });
+    const row = (await screen.findByText('words of an erased person')).closest('li') as HTMLElement;
+    const avatar = row.querySelector('.bg-gray-200') as HTMLElement;
+    expect(avatar).not.toBeNull();
+    expect(avatar.textContent).toBe('');
+    expect(within(row).queryByText('DU')).not.toBeInTheDocument();
+    expect(within(row).getByText('Deleted user')).toBeInTheDocument();
+  });
+
+  it('N1: the conversation header title is one line with an ellipsis, on the title and the subtitle', async () => {
+    renderChat('/home/c/g1', [mirror(), group('g1', 'An organisation with a very long name indeed')], { g1: [] });
+    const h1 = await screen.findByRole('heading', { name: 'An organisation with a very long name indeed' });
+    expect(classesOf(h1)).toContain('truncate');
+    expect(classesOf(h1).some((c) => c.startsWith('line-clamp'))).toBe(false);
+    expect(classesOf(screen.getByText('General', { selector: 'header span' }))).toContain('truncate');
   });
 });
 

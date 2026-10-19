@@ -22,7 +22,7 @@ export interface HeaderActions {
   onRename: () => void;
 }
 
-const NAME = 'block break-words text-[15px] font-semibold leading-tight text-foreground line-clamp-2 sm:text-base sm:leading-normal sm:line-clamp-1';
+const NAME = 'block truncate text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
 /** The mirror's name keeps its role as its own segment, so it is one line and the title truncates. */
 const NAME_ONE_LINE = 'block min-w-0 text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
 const SUB = 'block truncate text-xs text-muted-foreground';
@@ -39,7 +39,7 @@ function Title({ chat, owner }: { chat: ChatSummary; owner: PersonLike }) {
       const other = chat.other;
       const body = (
         <>
-          <PersonMark person={other ?? { name: 'Deleted user' }} size="sm" className="hidden sm:inline-flex" />
+          <PersonMark person={other ?? { name: 'Deleted user', deleted: true }} size="sm" className="hidden sm:inline-flex" />
           <span className="min-w-0">
             <h1 className={NAME}>{other?.name ?? 'Deleted user'}</h1>
             {chat.isPartner && <span className={SUB}>Clarity Partner</span>}
