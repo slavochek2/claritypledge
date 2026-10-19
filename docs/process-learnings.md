@@ -702,6 +702,8 @@ required checks (founder-only, ALWAYS-ASK).
 Done when a red gate demonstrably blocks a merge. Droppable if `/goalify` is abandoned — the
 gate protects nothing until a spec is goalified, and no spec is today.
 
+Reviewed 2026-10-19 (weekly): keep — goal-gate.yml exists but is not among the required checks in ruleset 17729463 (audit-privacy, disclosure, schema-ready)
+
 ---
 
 ## Check whether the P1087 analytics tier rename broke live Mixpanel funnels
@@ -720,6 +722,8 @@ and a silently broken funnel reads as "nobody clicked" rather than as an error.
 Open Mixpanel (or use the Mixpanel MCP in a `c`/`ce`/`cf` session), find reports filtering
 `offers_cta_clicked` on the old tier values, and either repoint them or note that none
 exist. Done when the answer is written down either way. Droppable if no such report exists.
+
+Reviewed 2026-10-19 (weekly): keep — not checkable from the repo; needs a Mixpanel look at saved reports
 
 ---
 
@@ -814,6 +818,8 @@ OUTCOME (movable to a repo-level check that works from any harness) or a bad MOV
 (assistant-only by nature). Drop the audit half if the hooks get reviewed by other means;
 the block-banned-git question should be answered either way.
 
+Reviewed 2026-10-19 (weekly): keep — block-banned-git is still referenced by neither settings.json nor settings.local.json (grep count 0)
+
 ---
 
 ## Check architecture docs against the projected-skills tree (P1151)
@@ -828,6 +834,8 @@ validators both pass, so nothing is mechanically broken — but prose docs that 
 skills live and what reads them were not reviewed and may now describe a structure that no
 longer matches. Scope: docs that name `.claude/commands/` as the only skill location, or
 `CLAUDE.md` as the only instruction entry point. Drop if P1151 is reverted or never shipped.
+
+Reviewed 2026-10-19 (weekly): keep — docs/decisions.md and process-learnings.md name .agents/skills; prose docs not yet reviewed
 
 ---
 
@@ -957,6 +965,8 @@ are manual-only gates by deliberate decision — run both by hand before any cha
 something that is not agent-read markdown — at which point the scanners have no surface to guard.
 Sources: `docs/decisions.md` 2026-09-03 [process] ×2 + [technical]; `features/uat/p1210.md`.
 
+Reviewed 2026-10-19 (weekly): keep — scanner redesign not checked this run
+
 ---
 
 ## Produce hand-labelled audio for a well-separated session, then re-run P1237's three-way comparison
@@ -1036,6 +1046,8 @@ exists to remove.
 agent relays its output; keep the manual invocation only as a pre-flight
 convenience; document `--override` as founder-only (it prompts on `/dev/tty`,
 which an agent session does not have). Land it on `main` as its own commit.
+Reviewed 2026-10-19 (weekly): keep — ship.md line 51 still tells the agent to run ship-gates.sh by hand
+
 
 ## 2026-09-08 — the skill-eval merge check is authored but inert (P1246 retired criterion)
 
@@ -1118,6 +1130,8 @@ gh api repos/slavochek2/claritypledge/rulesets/17729463 > /tmp/ruleset.json   # 
 Never replace the array — `audit-privacy` is the privacy boundary (P919) and dropping
 it would be a worse regression than the one being fixed.
 
+Reviewed 2026-10-19 (weekly): keep — ruleset still lists no closure-gate check
+
 ---
 
 ## Agent accounts render as HUMANS while the agent registry is loading
@@ -1164,6 +1178,8 @@ unrequested scope on a spec already covering six sections.
 is the actual deliverable, since without it any fix is unverifiable by the same blindness that hid
 the defect.
 Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the loading-state fixture arm is still missing from src/tests.
+Reviewed 2026-10-19 (weekly): keep — useAgentAccountIds still in src/app/contexts/agent-accounts-context.tsx; fix not checked
+
 
 
 
@@ -1176,18 +1192,11 @@ Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the l
 
 `e2e/integration/p1275-create-transcribe-room-rpc.spec.ts` cannot run green on the shared test DB while unshipped P1236 has changed `create_transcribe_room`'s signature there (PGRST202 on every create), so P1303's re-pointed control in that spec was proven only through the P1303 test's own control assertion. Once P1236 ships, re-run it. Separately, confirm a signed-in user can join an existing room at `/transcribe/:code` on prod — P1303's one post-ship check not yet done. The re-run half is droppable if P1236 is abandoned and its migrations are reverted from test.
 
----
-
-## Close three terminal-status specs still sitting in features/ root
-
-**ID:** INBOX-56
-**Date:** 2026-09-11
-**Status:** proposed
-**due:** week
-
-`p1248` and `p1261` (status: rejected) and `p1274` (status: all-done) are in `features/` root rather than `features/archive/` or `features/done/`. Found by `/ship`'s fix-kanban step and deliberately not moved there, because a hand move bypasses the closure gate (P1246). Close each through its own gated path after checking its gate. Done when none of the three is in root; droppable per spec if its owning session is already closing it.
+Reviewed 2026-10-19 (weekly): keep — P1236 is now all-done, so the P1275 spec re-run is due; not yet run
 
 ---
+
+<!-- Resolved 2026-10-19: all three already closed (p1248, p1261 in features/archive; p1274 in features/done); none left in features/ root — founder decision from /day -->
 
 <!-- Resolved 2026-09-22: fixed and shipped as P1342 (features/done). -->
 
@@ -1202,6 +1211,8 @@ Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the l
 
 `story_verifications_speaker_id_fkey` has no ON DELETE action, so deleting any user who has story verifications fails with 23503 — the dashboard's user delete included; only `erase_my_account` and `deleteTestUser` pre-clean them (measured on test while probing P1292). Decide between cascade, SET NULL (now representable on live rows since P1278 D) and a documented refusal. Droppable once the choice is written down.
 
+Reviewed 2026-10-19 (weekly): keep — no decision recorded in a migration or decisions.md found
+
 ---
 
 ## Fix the calibration breakdown page's older display issues
@@ -1212,6 +1223,8 @@ Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the l
 **due:** week
 
 Two independent visual-QA passes during P1278 D found issues older than it: the verdict ("Well calibrated") reads a signed average in which over- and under-estimates cancel, so rounds off by 2–4 read as calibrated; the name column is 70–100 px, so names wrap; tap targets are under 40 px (info icons ~17 px, "Start a Session" 36 px); the result bar looks draggable but is read-only; gap values wrap and render their signs inconsistently. Droppable if the page is taken out of scope.
+
+Reviewed 2026-10-19 (weekly): keep — display issues not rechecked
 
 ---
 
@@ -1239,6 +1252,8 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 
 (1) Confirm the next real Sentry error from /live shows `/live/[code]` and no `session_code` — the Mixpanel half was verified on prod, the Sentry half has had no error event yet. (2) `features/uat/p1304.md` stayed behind because `block-manual-spec-close.py` refuses any move into `features/done/`, even a UAT companion of an already-closed spec. (3) `features/` root still holds rejected P1248 and P1261 and all-done P1274. (4) P1060, P1141 and P1155 lack `disclosure:` — grandfathered, but `fix-frontmatter.sh` exits 1 on them. Done when each is resolved or explicitly left; drop (1) after one clean Sentry event.
 
+Reviewed 2026-10-19 (weekly): keep — item 3 is done (specs moved), items 1,2,4 not checked; features/uat/p1304.md still exists
+
 ---
 
 ## The room's Links bottom sheet is announced as a dialog but is not one
@@ -1249,6 +1264,8 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 **due:** week
 
 The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet branch in `drawer.tsx` renders a plain fixed `<div>` — no dialog role, no focus trap, no focus transfer on open, no Escape handler, no close control. A keyboard or screen-reader user who opens Links stays focused behind the visual modal and can only dismiss it by tapping the overlay. Pre-existing since P1179 and shared by every consumer of that branch, so it is wider than any one menu. Found by adversarial review during P1310, filed rather than fixed there because a nav-reachability fix is the wrong blast radius for changing a shared primitive. Done when the forced sheet is a real dialog (role, focus trap, Escape, close control) or the trigger stops claiming to be one; droppable if the forced-sheet branch is replaced by the library's own dialog primitive for other reasons.
+
+Reviewed 2026-10-19 (weekly): keep — drawer.tsx has no role=dialog or Escape handler (grep 0)
 
 ---
 
@@ -1271,6 +1288,8 @@ The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet bran
 **due:** week
 
 P1310 raised 16 sub-16px text controls to 16px on the reading that iOS Safari's focus auto-zoom was what the founder hit ("sometimes accidentally there is a zoom in and there is a part of this of the page that is cut off"). That diagnosis was read from the code and never reproduced — Chrome's device emulation cannot perform a pinch. A rival explanation was raised in review and not ruled out: `position: fixed` chrome clipping under pinch-zoom (this app stacks a fixed top nav and a fixed bottom nav) and `/live`'s `h-screen overflow-hidden` scaffold clipping at the viewport edge. Neither is addressed by a font-size change. Done when the founder confirms on an iPhone that tapping the join fields no longer rescales the page — and if it still happens, the next step is the fixed-position hypothesis, not more font sizes; droppable if the founder stops seeing the symptom for other reasons.
+
+Reviewed 2026-10-19 (weekly): keep — needs the founder on a real iPhone
 
 ---
 
