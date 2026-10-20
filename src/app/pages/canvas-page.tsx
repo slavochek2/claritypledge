@@ -106,6 +106,15 @@ interface Loaded {
   data: CanvasData;
 }
 
+/** Canvases read earlier in this tab, by viewer + address (memory only, gone on reload). */
+const canvasSeen = new Map<string, CanvasData>();
+const CANVAS_SEEN_MAX = 10;
+function rememberCanvas(key: string, data: CanvasData) {
+  canvasSeen.delete(key);
+  canvasSeen.set(key, data);
+  if (canvasSeen.size > CANVAS_SEEN_MAX) canvasSeen.delete(canvasSeen.keys().next().value as string);
+}
+
 export function CanvasPage() {
   const { handle, projectTag: rawTag } = useParams<{ handle: string; projectTag: string }>();
   const projectTag = normalizeProjectTag(rawTag);
@@ -113,7 +122,10 @@ export function CanvasPage() {
   const viewerId = session?.user?.id;
   const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}`;
 
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(() => {
+    const seen = canvasSeen.get(key);
+    return seen ? { key, data: seen } : null;
+  });
   // The viewer + address on screen NOW. A callback from a card that outlived its viewer (a vote
   // settling after sign-out) must not start a read for the old key: it would supersede the
   // current read and leave the page loading.
@@ -136,19 +148,23 @@ export function CanvasPage() {
     const settle = (data: CanvasData) => {
       if (rid !== requestRef.current) return;
       if (refresh && data.status !== 'ready') return;
+      if (data.status === 'ready') rememberCanvas(forKey, data);
       setLoaded({ key: forKey, data });
     };
     if (!handle || !projectTag) return settle({ status: 'not-found' });
     try {
-      const owner = await getProfileBySlugResult(handle);
+      const owner = await getProfileBySlugResult(handle, { withRelations: false });
       if (!owner.success) return settle({ status: owner.error === 'not_found' ? 'not-found' : 'error' });
+      // Load time: the picker's tags need only the owner, so they are read alongside the points.
+      const tagsRead = pointsService.getCanvasProjectTags(owner.data.id, viewerId);
+      tagsRead.catch(() => {}); // awaited below; this only stops an unhandled rejection meanwhile
       const points = await pointsService.getCanvasPoints(owner.data.id, projectTag, viewerId);
       if (points.length === 0) return settle({ status: 'not-found' });
       const ids = points.map(p => p.id);
       const [stories, positions, projectTags] = await Promise.all([
         storiesService.getStoriesForPoints(ids, undefined, { strict: true }),
         pointsService.getCanvasPositions(ids),
-        pointsService.getCanvasProjectTags(owner.data.id, viewerId),
+        tagsRead,
       ]);
       settle({
         status: 'ready',
@@ -171,9 +187,12 @@ export function CanvasPage() {
   }, [handle, projectTag, viewerId]);
 
   // Wait for the session check: reading before it would show the owner the public canvas first.
+  // A canvas seen earlier in this tab shows at once and is re-read behind it.
   useEffect(() => {
     if (!sessionChecked) return;
-    void read(key);
+    const seen = canvasSeen.get(key);
+    if (seen) setLoaded(prev => (prev?.key === key ? prev : { key, data: seen }));
+    void read(key, Boolean(seen));
   }, [sessionChecked, key, read]);
 
   // Anything read for another viewer or address is not shown — not even for one render.

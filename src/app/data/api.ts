@@ -881,7 +881,10 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
  * @param slug - The slug of the user profile to fetch.
  * @returns Success with profile data, or failure with error type.
  */
-export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Profile>> {
+export async function getProfileBySlugResult(
+  slug: string,
+  { withRelations = true }: { withRelations?: boolean } = {},
+): Promise<ApiResult<Profile>> {
   try {
     // P877: read via the SECURITY DEFINER accessor (column REVOKE on profiles).
     // Returns NULL (not an error) when no row matches the slug.
@@ -896,6 +899,9 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
     if (!profile) {
       return { success: false, error: 'not_found' };
     }
+
+    // P1508: a page that shows only the name and photo (the canvas) skips the two extra reads.
+    if (!withRelations) return { success: true, data: mapProfileFromDb(profile as DbProfile) };
 
     const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile as DbProfile);
 

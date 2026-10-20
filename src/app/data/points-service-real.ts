@@ -928,21 +928,19 @@ export const realPointsService: PointsService = {
     if (points.length === 0) return [];
 
     const pointIds = points.map(p => p.id);
-    const { counts: countsMap, error: posError } = await fetchPositionCounts(pointIds);
-    if (posError) throwDbError('getCanvasPoints positions', posError, 'Could not load position counts');
-
-    // The viewer's own positions, read strictly: the shared getMyPositionsForPoints returns an
+    // The counts and the viewer's own positions are independent: read them together (load time).
+    // The viewer's own positions are read strictly: the shared getMyPositionsForPoints returns an
     // empty map on failure, which would show every box as not-yet-voted instead of the error.
+    const [{ counts: countsMap, error: posError }, own] = await Promise.all([
+      fetchPositionCounts(pointIds),
+      viewerUserId
+        ? supabase.from('point_positions').select('*').in('point_id', pointIds).eq('user_id', viewerUserId)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (posError) throwDbError('getCanvasPoints positions', posError, 'Could not load position counts');
+    if (own.error) throwDbError('getCanvasPoints own positions', own.error, 'Could not load your positions');
     const viewerPositionsMap = new Map<string, PointPosition>();
-    if (viewerUserId) {
-      const { data: own, error: ownError } = await supabase
-        .from('point_positions')
-        .select('*')
-        .in('point_id', pointIds)
-        .eq('user_id', viewerUserId);
-      if (ownError) throwDbError('getCanvasPoints own positions', ownError, 'Could not load your positions');
-      (own ?? []).forEach(row => viewerPositionsMap.set(row.point_id, mapPositionFromDb(row)));
-    }
+    (own.data ?? []).forEach(row => viewerPositionsMap.set(row.point_id, mapPositionFromDb(row)));
 
     return points.map(point => {
       const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
