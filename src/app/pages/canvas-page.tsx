@@ -47,7 +47,7 @@ import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { StanceColumn, type Person } from '@/app/components/compare/statement-row';
 import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS } from '@/lib/compare-positions';
-import { levelCounts } from '@/lib/position-spread';
+import { contestScore, levelCounts } from '@/lib/position-spread';
 import { SEO } from '@/app/components/seo';
 import { NotFoundPage } from '@/app/pages/not-found-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
@@ -179,7 +179,9 @@ export function CanvasPage() {
   const current = loaded && loaded.key === key ? loaded.data : null;
   const ready = current?.status === 'ready' ? current : null;
 
-  const boxes = ready ? groupPointsByBox(ready.points) : null;
+  // Founder, sixth round: disagreement found fast — in every box the most contested card comes
+  // first (the smaller side biggest), then the rest in canvas order. Previous / Next follow it too.
+  const boxes = ready ? sortBoxesByContest(groupPointsByBox(ready.points), ready.positions) : null;
   const ordered = boxes ? ORDERED_BOXES.flatMap(b => boxes.get(b.tag) ?? []) : [];
 
   // Compare lives in the address too (`?with=`), so a shared link opens the same view.
@@ -376,7 +378,7 @@ export function CanvasPage() {
                     className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     data-testid="canvas-owner-name"
                   >
-                    {ready.ownerName}
+                    {firstName(ready.ownerName)}
                   </Link>
                 </span>
               </span>
@@ -499,9 +501,11 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6" data-testid="canvas-grid" aria-busy={boxes === null}>
-      {CANVAS_LAYERS.map(layer => (
+      {CANVAS_LAYERS.map((layer, i) => (
         <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
-          <h2 className="col-span-full mt-2 text-xs font-semibold uppercase tracking-wide text-foreground/70 first:mt-0" data-testid="canvas-layer-title">
+          {/* Founder, sixth round: the layers did not read as groups — a rule above, a bigger title,
+              and more room between layers than between boxes. */}
+          <h2 className={`col-span-full text-base font-semibold text-foreground md:text-lg ${i === 0 ? '' : 'mt-6 border-t border-border pt-4'}`} data-testid="canvas-layer-title">
             {layer.title}
           </h2>
           {layer.boxes.map(tag => (
@@ -522,6 +526,14 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
   );
 }
 
+function sortBoxesByContest(
+  boxes: Map<CanvasBoxTag, PointWithUserPosition[]>,
+  positions: Map<string, PointPositionWithUser[]>,
+): Map<CanvasBoxTag, PointWithUserPosition[]> {
+  const score = (p: PointWithUserPosition) => contestScore(levelCounts(positions.get(p.id) ?? []));
+  return new Map([...boxes].map(([tag, points]) => [tag, [...points].sort((a, b) => score(b) - score(a))]));
+}
+
 /**
  * D3, R2: a sentence-case title with its outline icon, no count; at most two cards and "N more",
  * which opens the whole box in the panel. An empty box reads "Empty" to everyone: owners change the
@@ -538,6 +550,8 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
 }) {
   const headingId = `canvas-box-${tag.replace(':', '-')}`;
   const empty = points !== null && points.length === 0;
+  // Founder, sixth round: "1 more" promised one card and opened all of them — the label now says
+  // what opens.
   const hidden = points ? Math.max(0, points.length - BOX_LIMIT) : 0;
   const Icon = BOX_ICONS[tag];
   const titleColour = empty ? 'text-foreground/60' : 'text-foreground';
@@ -573,7 +587,7 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
               data-testid="canvas-box-more"
               className="min-h-10 self-start rounded-sm text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              {hidden} more
+              See all {points.length}
             </button>
           )}
         </div>
@@ -894,12 +908,12 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
           {/* At either end the step is absent, not disabled (no dead controls, P955). Outline: a
               real alternative to reading on (R6). */}
           {step.onPrevious ? (
-            <Button variant="outline" onClick={step.onPrevious} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-previous">
+            <Button variant="outline" onClick={step.onPrevious} className="min-h-11 gap-1 border-blue-600 px-3 text-blue-600 hover:bg-blue-50 hover:text-blue-700" data-testid="canvas-panel-previous">
               <ChevronLeft className="h-4 w-4" aria-hidden /> Previous
             </Button>
           ) : <span />}
           {step.onNext && (
-            <Button variant="outline" onClick={step.onNext} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-next">
+            <Button variant="outline" onClick={step.onNext} className="min-h-11 gap-1 border-blue-600 px-3 text-blue-600 hover:bg-blue-50 hover:text-blue-700" data-testid="canvas-panel-next">
               Next <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
           )}

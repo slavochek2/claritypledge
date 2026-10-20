@@ -131,3 +131,15 @@ describe('R9: canvas tags are never pills', () => {
     expect(screen.queryByText(/canvas/)).toBeNull();
   });
 });
+
+describe('Founder follow-up: the most contested card first', () => {
+  it('scores by the smaller side, so an even split beats a lopsided one', async () => {
+    const { contestScore } = await import('@/lib/position-spread');
+    const zero = { strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0 };
+    const even = { ...zero, agree: 3, disagree: 3 };
+    const lopsided = { ...zero, agree: 9, disagree: 1 };
+    expect(contestScore(even)).toBe(3);
+    expect(contestScore(lopsided)).toBe(1);
+    expect(contestScore({ ...zero, unsure: 5 })).toBe(0);
+  });
+});

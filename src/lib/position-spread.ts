@@ -16,8 +16,7 @@ export function levelCounts(positions: readonly { position: PositionType }[]): L
   return counts;
 }
 
-/** Contested: at least two people agree and at least two disagree (any strength). */
-export function isContested(counts: LevelCounts): boolean {
+function sides(counts: LevelCounts): { agree: number; disagree: number } {
   let agree = 0;
   let disagree = 0;
   for (const level of POSITION_ORDER) {
@@ -25,7 +24,22 @@ export function isContested(counts: LevelCounts): boolean {
     if (group === 'agree') agree += counts[level] ?? 0;
     else if (group === 'disagree') disagree += counts[level] ?? 0;
   }
+  return { agree, disagree };
+}
+
+/** Contested: at least two people agree and at least two disagree (any strength). */
+export function isContested(counts: LevelCounts): boolean {
+  const { agree, disagree } = sides(counts);
   return agree >= 2 && disagree >= 2;
+}
+
+/**
+ * How contested a point is: the size of the smaller side. 3 agree and 3 disagree is more contested
+ * than 9 agree and 1 disagree. Used to put the most contested card first (P1508 sixth round).
+ */
+export function contestScore(counts: LevelCounts): number {
+  const { agree, disagree } = sides(counts);
+  return Math.min(agree, disagree);
 }
 
 export function totalPositions(counts: LevelCounts): number {

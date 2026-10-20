@@ -139,7 +139,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clarity Canvas');
-    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
+    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name.split(' ')[0]);
     await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag); // the picker: the owner has more than one canvas
     for (const title of ['What I love', "What I'm good at", 'What the world needs',
       'Customer Segments', 'Problem', 'Solution', 'Unfair Advantage', 'Distribution', 'Key Metrics',
@@ -154,7 +154,7 @@ test.describe('P1508: Clarity Canvas', () => {
     // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
     await expect(problem.locator(CARD)).toHaveCount(2);
-    await expect(problem.getByTestId('canvas-box-more')).toHaveText('5 more');
+    await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 7');
     await problem.getByTestId('canvas-box-more').click();
     const list = page.getByTestId('canvas-panel-box-list');
     await expect(list.locator(CARD)).toHaveCount(7);
@@ -177,10 +177,10 @@ test.describe('P1508: Clarity Canvas', () => {
   test('signed out, the same address shows only the public points', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
+    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name.split(' ')[0]);
     const problem = page.getByTestId('canvas-box-canvas:problem');
     await expect(problem.locator(CARD)).toHaveCount(2);
-    await expect(problem.getByTestId('canvas-box-more')).toHaveText('4 more');
+    await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 6');
     await problem.getByTestId('canvas-box-more').click();
     await expect(page.getByTestId('canvas-panel-box-list').locator(CARD)).toHaveCount(6);
     await expect(page.getByText(PRIVATE_TEXT)).toHaveCount(0);
@@ -489,7 +489,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     const problem = page.getByTestId('canvas-box-canvas:problem');
     const more = problem.getByTestId('canvas-box-more');
-    await expect(more).toHaveText('5 more');
+    await expect(more).toHaveText('See all 7');
     const gridBefore = await page.getByTestId('canvas-grid').boundingBox();
     await more.click();
     const panel = page.getByTestId('canvas-point-panel');
@@ -527,7 +527,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await name.hover();
     expect(await name.evaluate(el => getComputedStyle(el).textDecorationLine)).toBe('underline');
     const byline = page.getByTestId('canvas-byline');
-    await expect(byline).toContainText(`by ${fx.owner.name}`);
+    await expect(byline).toContainText(`by ${fx.owner.name.split(' ')[0]}`);
     await expect(byline).toContainText('·');
     await expect(byline).not.toContainText('/');
     const [title, owner, picker, controls] = await Promise.all([
@@ -824,5 +824,20 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page).not.toHaveURL(/point=/);
     // focus returns to the same point's card in its box
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.solutionPointId}`);
+  });
+  test('layers read as bands; Previous / Next carry a blue edge', async ({ page }) => {
+    await page.goto(fx.url);
+    await waitForCanvas(page);
+    const titles = page.getByTestId('canvas-layer-title');
+    await expect(titles).toHaveCount(4);
+    // The first layer has no rule above it; the others do.
+    expect(await titles.nth(0).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
+    expect(await titles.nth(1).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('1px');
+    const box = page.getByTestId('canvas-box-canvas:problem');
+    await box.getByTestId('canvas-box-more').click();
+    await page.getByTestId('canvas-panel-box-list').locator('[role="button"], button').first().click();
+    const next = page.getByTestId('canvas-panel-next');
+    await expect(next).toBeVisible();
+    expect(await next.evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgb(37, 99, 235)');
   });
 });
