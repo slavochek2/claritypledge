@@ -67,12 +67,31 @@ migration with a default, then a code revert). Decision density: low, two founde
    video `object-contain` (letterboxed on black) while playing.] Video tiles do not open the image
    lightbox. A tile whose video or poster URL fails the public-media check is dropped, as photos
    are today.
-4. **Media prep (documented, run by hand):** strip metadata (`ffmpeg -map_metadata -1`), transcode
-   to H.264/AAC mp4 with `-movflags +faststart`, extract a first-frame jpg poster (also stripped),
-   and upload both under `hikes/social-hike/` with versioned filenames.
+4. **Media storage and upload: reuse the existing public-media video path, nothing new.**
+   The repo already serves video this way, and this spec follows it exactly:
+   - Bucket `gs://claritypledge-story-images`, the single public-media bucket per
+     `docs/technical/infrastructure.md:12`. URLs come only from `publicMediaUrl()`
+     (`src/lib/public-media.ts`).
+   - Precedent 1, the landing founder clip: `founder/founder-credibility-clip-v1.mp4` +
+     `founder-credibility-poster-v1.jpg`, played by `Mp4VideoFacade`
+     (`src/app/components/landing/founder-credibility.tsx:31-33`).
+   - Precedent 2, the P1336 event-prep clips: `event-prep/<name>-v1.mp4` + `<name>-v1-poster.jpg`,
+     built by `clipUrl()` (`src/app/prototypes/events/prep/prep-content.tsx:44-46`). Upload
+     convention (`features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md:217,307`): faststart (`ffmpeg -movflags +faststart`), versioned `-vN`
+     filenames, one-year `cache-control: public, max-age=31536000`, and each object confirmed
+     served (HTTP 206 on a range request).
+   - Hike media already lives in the same bucket under `hikes/` (seed
+     `scripts/archive/migrations/20261004-p1403-seed-oct11-hike.sql:51`; route map per
+     `scripts/hike-route-map.mjs:8`). Hike clips go to `hikes/social-hike/<name>-vN.mp4` +
+     `<name>-vN-poster.jpg`.
+   - No upload *script* exists for this bucket. P1336 and the founder clip were uploaded by hand
+     with `gcloud storage cp`, and this spec keeps it that way (see Non-Goals).
+     `scripts/event-photo-prep.sh` is NOT a precedent: it writes event banners to Supabase Storage.
+   Per clip, before upload: strip metadata (`ffmpeg -map_metadata -1`), make sure it is H.264/AAC,
+   apply faststart, and extract a first-frame jpg poster (also stripped).
    [FOUNDER DECISION: size cap per clip. Proposed: ≤ 8 MB, ≤ 30 s, ≤ 720p.]
 5. **Docs:** extend the "Series content" paragraph of `docs/events/series/social-hike.md` with the
-   step-4 recipe, the poster requirement and the existing face/consent rules.
+   step-4 recipe (pointing at the P1336 convention rather than restating it), the poster requirement and the existing face/consent rules.
 
 [FOUNDER DECISION: sound. Proposed: native controls with sound on after the tap, since the tap is
 the visitor's consent. The alternative is to start muted.]
@@ -89,7 +108,7 @@ the visitor's consent. The alternative is to start muted.]
 **Non-Goals**
 - Do NOT rename `series_photos` or add a new table.
 - Do NOT add autoplay, looping background video or a video lightbox.
-- Do NOT add an upload UI. Content goes in by hand (`gcloud storage cp` plus an SQL row).
+- Do NOT add an upload UI, a new bucket or an upload script. Content goes in by hand (`gcloud storage cp` plus an SQL row), as P1336 did.
 - Do NOT upload the WhatsApp clips as part of this spec.
 
 ## Acceptance Criteria
