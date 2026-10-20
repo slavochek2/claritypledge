@@ -17,8 +17,36 @@ export interface Person {
   hasPledged: boolean;
 }
 
-/** letter-reveal-ordinal.tsx StanceColumn — avatar + name above, blue stance pill as the hero. */
-export function StanceColumn({ person, label }: { person: Person; label: string }) {
+/**
+ * letter-reveal-ordinal.tsx StanceColumn — avatar + name above, blue stance pill as the hero.
+ * P1508 D8 `compact`: the canvas's box cards — `text-xs`, so a narrow box keeps the label on one
+ * line; `muted` (no position) is plain muted text, not a pill. The compare page passes neither.
+ */
+export function StanceColumn({ person, label, compact = false, muted = false }: { person: Person; label: string; compact?: boolean; muted?: boolean }) {
+  if (compact) {
+    return (
+      <div className="flex-1 min-w-0 flex flex-col items-center gap-1" data-testid="stance-column">
+        <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+          <GravatarAvatar
+            name={person.name}
+            photoUrl={person.photoUrl}
+            avatarColor={person.avatarColor}
+            isPledger={person.hasPledged}
+            size="sm"
+            className="!w-5 !h-5 !text-[10px]"
+          />
+          <span className="text-xs text-foreground/60 truncate">{person.name}</span>
+        </div>
+        {muted ? (
+          <span className="max-w-full text-center text-xs text-foreground/60" data-testid="stance-none">{label}</span>
+        ) : (
+          <span className="inline-block max-w-full text-xs font-semibold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5 text-center leading-snug" data-testid="stance-label">
+            {label}
+          </span>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="flex-1 min-w-0 flex flex-col items-center gap-3">
       <div className="flex items-center gap-1.5 min-w-0 max-w-full">

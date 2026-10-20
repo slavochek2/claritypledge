@@ -7,36 +7,29 @@
  * the view, or show a generic view if no referrer.
  */
 
-import { AgentByline } from '@/app/components/shared/agent-byline';
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Pin, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
+import { Pin, Loader2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { resolvePointSlug } from '@/app/data/points-service-real';
 import { storiesService } from '@/app/data/stories-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, PositionButtonGroup, StoryWithAuthor, Story as AppStory } from '@/app/types';
-import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpers';
-import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor, Story as AppStory } from '@/app/types';
+import { toSevenPointCounts } from '@/app/utils/position-helpers';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton, CLEAR_BOTTOM_NAV } from '@/app/components/layout/bottom-back-button';
 import { PointSupersedeBanner } from '@/app/components/social/point-supersede-banner';
 import { PointVersionHistory } from '@/app/components/social/point-version-history';
 import { SEO } from '@/app/components/seo';
 import {
-  PositionBadge,
   PositionButtons,
-  FilterTabs,
   ShareButton,
-  ThreadLineGroup,
-  ThreadLineItem,
   type PositionFilter,
 } from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
-import { EarBadge } from '@/components/ui/ear-badge';
-import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
+import { PointPositionsBlock } from '@/app/components/social/point-positions-block';
+import { PointSpreadRow } from '@/app/components/shared/position-spread';
 import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { linkifyText } from '@/app/utils/linkify';
 import { InlineVisibilityIcon } from '@/app/components/shared';
@@ -247,60 +240,6 @@ export function PointDetailPage() {
       if (stored) setAnonPositionState(stored);
     }
   }, [user, id]);
-
-  // Derive Map<userId, StoryWithAuthor> from the batch-fetched stories for this point.
-  // RLS enforces visibility — trust what the query returns.
-  const storyByAuthorId = useMemo(() => {
-    const stories = linkedStories.get(id ?? '') ?? [];
-    const map = new Map<string, StoryWithAuthor>();
-    for (const story of stories) {
-      // Take only the first story per author (array is ordered desc by created_at)
-      if (!map.has(story.authorId)) {
-        map.set(story.authorId, story);
-      }
-    }
-    return map;
-  }, [linkedStories, id]);
-
-  // P574: Stories whose authors have no position on this point
-  const positionlessStories = useMemo(() => {
-    const positionUserIds = new Set(positions.map(p => p.userId));
-    const stories: StoryWithAuthor[] = [];
-    for (const [authorId, story] of storyByAuthorId) {
-      if (!positionUserIds.has(authorId)) {
-        stories.push(story);
-      }
-    }
-    return stories;
-  }, [storyByAuthorId, positions]);
-
-  // Group positions by stance
-  const positionGroups = useMemo(() => {
-    const groups: Record<PositionButtonGroup, PointPositionWithUser[]> = {
-      agree: [],
-      disagree: [],
-      unsure: [],
-    };
-
-    for (const pos of positions) {
-      const group = getPositionGroup(pos.position as PositionType);
-      groups[group].push(pos);
-    }
-
-    return groups;
-  }, [positions]);
-
-  // Position counts for filter tabs
-  const positionCounts = useMemo(() => {
-    if (!point) return { all: 0, agree: 0, disagree: 0, unsure: 0 };
-    const counts = toSevenPointCounts(point.positionCounts);
-    return {
-      all: point.totalPositions,
-      agree: counts.agree + counts.strongly_agree + counts.somewhat_agree,
-      disagree: counts.disagree + counts.strongly_disagree + counts.somewhat_disagree,
-      unsure: counts.unsure,
-    };
-  }, [point]);
 
   // Counts for position buttons
   const buttonCounts = useMemo(() => {
@@ -619,10 +558,6 @@ export function PointDetailPage() {
     );
   }
 
-  // Which position groups to show based on filter
-  const positionsToShow: PositionButtonGroup[] =
-    positionFilter === 'all' ? ['agree', 'disagree', 'unsure'] : [positionFilter as PositionButtonGroup];
-
   return (
     <div className="max-w-2xl mx-auto">
       {/* P504: SEO meta tags */}
@@ -684,6 +619,8 @@ export function PointDetailPage() {
                   await guardedRemovePosition(id);
                 }}
               />
+              {/* P1508: how everyone spreads, on the card (founder: "it must live on the point card"). */}
+              <PointSpreadRow counts={buttonCounts} withInfo className="mt-2" />
               {/* P502: Anonymous position CTA */}
               {!user && anonPosition && (
                 <AnonPositionCTA pointId={id ?? ''} position={anonPosition} isEmbed={isEmbed} />
@@ -710,117 +647,19 @@ export function PointDetailPage() {
       </div>
 
 
-      {/* Positions section */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        {/* Filter tabs */}
-        <FilterTabs
-          activeFilter={positionFilter}
-          onFilterChange={(filter) => { setPositionFilter(filter); setExpandedHolderId(null); }}
-          counts={positionCounts}
-        />
-
-        {/* Position holders by stance */}
-        <div className="p-4 space-y-4">
-          {positionsToShow.map(positionGroup => {
-            const holdersInGroup = positionGroups[positionGroup];
-
-            if (holdersInGroup.length === 0 && positionFilter === 'all') {
-              return null; // Hide empty sections when showing all
-            }
-
-            if (holdersInGroup.length === 0) {
-              return (
-                <p key={positionGroup} className="text-center text-muted-foreground text-sm py-3">
-                  (no positions yet)
-                </p>
-              );
-            }
-
-            return (
-              <div key={positionGroup} className="space-y-3">
-                {holdersInGroup.map(holder => {
-                  const isViewer = user?.id === holder.userId;
-
-                  // P542: Determine story data — viewer's story takes priority
-                  const holderStory = isViewer && viewerStory
-                    ? viewerStory
-                    : storyByAuthorId.get(holder.userId) ?? null;
-                  const hasStory = holderStory !== null;
-                  const isExpanded = expandedHolderId === holder.userId;
-
-                  return (
-                    <div key={holder.id}>
-                      <PositionHolderCard
-                        holder={holder}
-                        onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
-                        hasStory={hasStory}
-                        isExpanded={isExpanded}
-                        onToggle={() => {
-                          setExpandedHolderId(prev =>
-                            prev === holder.userId ? null : holder.userId
-                          );
-                        }}
-                      />
-                      {/* P542: Expandable story region */}
-                      {holderStory && isExpanded && (
-                        <ExpandableStoryRegion
-                          holder={holder}
-                          story={holderStory}
-                          isViewer={isViewer}
-                          onCollapse={() => setExpandedHolderId(null)}
-                          onUnlinkPoint={isViewer ? handleUnlinkClick : undefined}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-
-          {positions.length === 0 && (
-            <p className="text-center text-muted-foreground text-sm py-6">
-              No one has taken a position yet
-            </p>
-          )}
-        </div>
-
-      </div>
-
-      {/* P574: Positionless stories section */}
-      {positionlessStories.length > 0 && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden mt-4">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-sm font-medium text-muted-foreground">Perspectives without position</h3>
-          </div>
-          <div className="p-4 space-y-3">
-            {positionlessStories.map(story => {
-              const isExpanded = expandedHolderId === story.authorId;
-
-              return (
-                <div key={story.id}>
-                  <PositionlessStoryRow
-                    story={story}
-                    isExpanded={isExpanded}
-                    onToggle={() => {
-                      setExpandedHolderId(prev =>
-                        prev === story.authorId ? null : story.authorId
-                      );
-                    }}
-                    onProfileClick={() => navigate(`/p/${story.authorSlug}`)}
-                  />
-                  {isExpanded && (
-                    <PositionlessStoryRegion
-                      story={story}
-                      onCollapse={() => setExpandedHolderId(null)}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* P1508 D6: the "Filter by position" block, shared with the canvas's open point. */}
+      <PointPositionsBlock
+        positions={positions}
+        counts={buttonCounts}
+        stories={linkedStories.get(id ?? '') ?? []}
+        viewerId={user?.id}
+        viewerStory={viewerStory}
+        filter={positionFilter}
+        onFilterChange={setPositionFilter}
+        expandedId={expandedHolderId}
+        onExpandedChange={setExpandedHolderId}
+        onUnlinkStory={handleUnlinkClick}
+      />
 
       {/* P1364 §3 — the same way out at the end of the page. /point keeps the mobile bottom
           nav, so the pill carries extra bottom padding to stay clear of it. */}
@@ -854,352 +693,6 @@ export function PointDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-/**
- * Compact row for a position holder. Shows chevron + "story" when hasStory is true.
- * P542: All holders render as uniform compact rows.
- */
-function PositionHolderCard({
-  holder,
-  onProfileClick,
-  hasStory = false,
-  isExpanded = false,
-  onToggle,
-}: {
-  holder: PointPositionWithUser;
-  onProfileClick: () => void;
-  hasStory?: boolean;
-  isExpanded?: boolean;
-  onToggle?: () => void;
-}) {
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
-  const isAgent = isAgentAccountId(holder.userId);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${holder.userName}'s profile`}
-      onClick={onProfileClick}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          // If this row has a story, Enter/Space toggles expand instead of navigating
-          if (hasStory && onToggle) {
-            onToggle();
-          } else {
-            onProfileClick();
-          }
-        }
-      }}
-      className={`group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none transition-colors${isAgent ? ' agent-card-drained' : ''}`}
-      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-      {...(hasStory ? {
-        'aria-expanded': isExpanded,
-        'aria-controls': `story-${holder.userId}`,
-      } : {})}
-    >
-      {/* P852 Round-E: pledger ring restored at compact size — semantic correctness over clip aesthetics */}
-      <GravatarAvatar
-        name={holder.userName}
-        photoUrl={holder.userAvatarUrl}
-        avatarColor={holder.userAvatarColor}
-        size="sm"
-        isPledger={holder.userHasPledged}
-        isAgent={isAgent}
-        identityPending={identityPending}
-        className="!w-5 !h-5 !text-[10px]"
-      />
-
-      {/* P1141 amendment: the drain covers the identity cluster (name, ear, stance) and
-          STOPS before the story toggle — a blue control the reader can act on. It used to
-          wrap the whole row, greying that button. The inner span keeps `flex-wrap` so
-          name+badges still wrap at 320px, and the toggle stays a direct child of the outer
-          flex row so its `ml-auto` still right-aligns against it. */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-        <span className={"flex min-w-0 flex-wrap items-center gap-1.5"}>
-          {/* P1141 amendment: an agent account is named the same way on every surface;
-              the raw stored `Agent · {Name}` used to leak through here. */}
-          {isAgent ? (
-            <AgentByline name={holder.userName} />
-          ) : (
-            <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
-          )}
-          {/* P1104: an agent account holds no reputation. EarBadge is "never conditionally
-              hide — 0 is meaningful" for people, so the suppression lives here at the call
-              site, not in the component. */}
-          {!isAgent && !identityPending && <EarBadge count={holder.earCount} name={holder.userName} />}
-          <PositionBadge position={holder.position} />
-        </span>
-
-        {/* Chevron + "story" toggle — or "Add a story" CTA */}
-        {hasStory && onToggle && (
-          <button
-            ref={toggleRef}
-            data-testid="story-toggle"
-            onClick={e => { e.stopPropagation(); onToggle(); }}
-            className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
-            aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
-          >
-            {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
-            <span>1 story</span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * P542: Expanded story region with ThreadLine connecting line.
- * Shows story card below the position row with vertical connector.
- */
-function ExpandableStoryRegion({
-  holder,
-  story,
-  isViewer,
-  onCollapse,
-  onUnlinkPoint,
-}: {
-  holder: PointPositionWithUser;
-  story: StoryWithAuthor | AppStory;
-  isViewer: boolean;
-  onCollapse: () => void;
-  onUnlinkPoint?: (storyId: string) => void;
-}) {
-  const regionRef = useRef<HTMLDivElement>(null);
-
-  // Build proto story and author for StoryCardWithLinks
-  const protoStory: ProtoStory = {
-    id: story.id,
-    authorId: 'authorId' in story ? story.authorId : (story as AppStory).authorId,
-    text: 'content' in story ? story.content : (story as StoryWithAuthor).content,
-    createdAt: story.createdAt,
-    visibility: story.visibility,
-    linkedPointIds: [],
-    understoodCount: story.understoodCount,
-    // P1349: this copy predates P1141 and dropped the story's media, so point pages showed no video.
-    imageUrl: 'imageUrl' in story ? story.imageUrl : undefined,
-    videoUrl: 'videoUrl' in story ? story.videoUrl : undefined,
-    videoQuotes: 'videoQuotes' in story ? story.videoQuotes : undefined,
-  };
-
-  // Author info — differs for viewer (uses holder data) vs others (uses StoryWithAuthor)
-  const storyAuthor: StoryAuthor = isViewer || !('authorName' in story)
-    ? {
-        id: holder.userId,
-        name: holder.userName,
-        hasPledged: holder.userHasPledged,
-        ear: holder.earCount,
-        avatarUrl: holder.userAvatarUrl,
-        avatarColor: holder.userAvatarColor,
-      }
-    : {
-        id: (story as StoryWithAuthor).authorId,
-        name: (story as StoryWithAuthor).authorName,
-        role: (story as StoryWithAuthor).authorRole,
-        hasPledged: (story as StoryWithAuthor).authorHasPledged,
-        ear: (story as StoryWithAuthor).authorEarsCount ?? 0,
-        avatarUrl: (story as StoryWithAuthor).authorAvatarUrl,
-        avatarColor: (story as StoryWithAuthor).authorAvatarColor,
-      };
-
-  const storyTags = 'tags' in story ? story.tags : undefined;
-
-  // Handle Escape key to collapse and return focus
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCollapse();
-        // Return focus to the toggle button in the row
-        const toggle = document.querySelector(`[aria-controls="story-${holder.userId}"]`);
-        if (toggle instanceof HTMLElement) toggle.focus();
-      }
-    };
-
-    const region = regionRef.current;
-    if (region) {
-      region.addEventListener('keydown', handleKeyDown);
-      return () => region.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [holder.userId, onCollapse]);
-
-  return (
-    <div
-      id={`story-${holder.userId}`}
-      role="region"
-      aria-label={`${holder.userName}'s story`}
-      ref={regionRef}
-    >
-      <ThreadLineGroup>
-        <ThreadLineItem isLast>
-          <StoryCardWithLinks
-            story={protoStory}
-            author={storyAuthor}
-            context="point-detail"
-            compact
-            tags={storyTags}
-            onUnlinkPoint={onUnlinkPoint}
-          />
-        </ThreadLineItem>
-      </ThreadLineGroup>
-    </div>
-  );
-}
-
-/**
- * P574: Compact row for a positionless story author.
- * Similar to PositionHolderCard but without a position badge.
- */
-function PositionlessStoryRow({
-  story,
-  isExpanded,
-  onToggle,
-  onProfileClick,
-}: {
-  story: StoryWithAuthor;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onProfileClick: () => void;
-}) {
-  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
-  const isAgent = isAgentAccountId(story.authorId);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${story.authorName}'s profile`}
-      aria-expanded={isExpanded}
-      aria-controls={`story-${story.authorId}`}
-      onClick={onProfileClick}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
-      className={`group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none transition-colors${isAgent ? ' agent-card-drained' : ''}`}
-      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-    >
-      <GravatarAvatar
-        name={story.authorName}
-        photoUrl={story.authorAvatarUrl}
-        avatarColor={story.authorAvatarColor}
-        size="sm"
-        isPledger={story.authorHasPledged ?? false}
-        isAgent={isAgent}
-        identityPending={identityPending}
-        className="!w-5 !h-5 !text-[10px]"
-      />
-      {/* P1141 amendment: the drain covers the identity cluster (name, ear, stance) and
-          STOPS before the story toggle — a blue control the reader can act on. It used to
-          wrap the whole row, greying that button. The inner span keeps `flex-wrap` so
-          name+badges still wrap at 320px, and the toggle stays a direct child of the outer
-          flex row so its `ml-auto` still right-aligns against it. */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-        <span className={"flex min-w-0 flex-wrap items-center gap-1.5"}>
-          {/* P1141 amendment: an agent account is named the same way on every surface;
-              the raw stored `Agent · {Name}` used to leak through here. */}
-          {isAgent ? (
-            <AgentByline name={story.authorName} />
-          ) : (
-            <span className="font-medium text-foreground text-sm truncate">{story.authorName}</span>
-          )}
-          {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
-        </span>
-
-        <button
-          data-testid="story-toggle"
-          onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
-          aria-label={isExpanded ? `Collapse story by ${story.authorName}` : `Expand story by ${story.authorName}`}
-        >
-          {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
-          <span>1 story</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * P574: Expanded story region for a positionless story.
- * Mirrors ExpandableStoryRegion but derives author from StoryWithAuthor.
- */
-function PositionlessStoryRegion({
-  story,
-  onCollapse,
-}: {
-  story: StoryWithAuthor;
-  onCollapse: () => void;
-}) {
-  const regionRef = useRef<HTMLDivElement>(null);
-
-  const protoStory: ProtoStory = {
-    id: story.id,
-    authorId: story.authorId,
-    text: story.content,
-    createdAt: story.createdAt,
-    visibility: story.visibility,
-    linkedPointIds: [],
-    understoodCount: story.understoodCount,
-    // P1349: same media omission as above.
-    imageUrl: story.imageUrl,
-    videoUrl: story.videoUrl,
-    videoQuotes: story.videoQuotes,
-  };
-
-  const storyAuthor: StoryAuthor = {
-    id: story.authorId,
-    name: story.authorName,
-    role: story.authorRole,
-    hasPledged: story.authorHasPledged ?? false,
-    ear: story.authorEarsCount ?? 0,
-    avatarUrl: story.authorAvatarUrl,
-    avatarColor: story.authorAvatarColor,
-  };
-
-  const storyTags = story.tags;
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCollapse();
-        const toggle = document.querySelector(`[aria-controls="story-${story.authorId}"]`);
-        if (toggle instanceof HTMLElement) toggle.focus();
-      }
-    };
-
-    const region = regionRef.current;
-    if (region) {
-      region.addEventListener('keydown', handleKeyDown);
-      return () => region.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [story.authorId, onCollapse]);
-
-  return (
-    <div
-      id={`story-${story.authorId}`}
-      role="region"
-      aria-label={`${story.authorName}'s story`}
-      ref={regionRef}
-    >
-      <ThreadLineGroup>
-        <ThreadLineItem isLast>
-          <StoryCardWithLinks
-            story={protoStory}
-            author={storyAuthor}
-            context="point-detail"
-            compact
-            tags={storyTags}
-          />
-        </ThreadLineItem>
-      </ThreadLineGroup>
     </div>
   );
 }

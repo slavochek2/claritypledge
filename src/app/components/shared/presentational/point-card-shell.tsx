@@ -6,6 +6,7 @@
  */
 import type { HTMLAttributes, ReactNode } from 'react';
 import { Pin } from 'lucide-react';
+import { QuotedPointBox } from './quoted-point-card';
 
 interface PointCardShellProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   /** the statement row's text node (the caller owns linkify, clamping, icons) */
@@ -16,9 +17,36 @@ interface PointCardShellProps extends Omit<HTMLAttributes<HTMLElement>, 'childre
   children?: ReactNode;
   /** the full-width row under the card body */
   footer?: ReactNode;
+  /**
+   * P1508 D5: a row above the statement — whose point it is (point-owner-header.tsx). In the
+   * statement column; with `quoted`, above a quoted box that holds the pin and the statement,
+   * exactly as the profile shows someone else's point.
+   */
+  header?: ReactNode;
+  quoted?: boolean;
 }
 
-export function PointCardShell({ statement, corner, children, footer, className = '', ...rest }: PointCardShellProps) {
+export function PointCardShell({ statement, corner, children, footer, header, quoted = false, className = '', ...rest }: PointCardShellProps) {
+  if (quoted) {
+    return (
+      <article className={`bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border ${className}`.trim()} {...rest}>
+        <div className="p-4">
+          {header}
+          <QuotedPointBox
+            statement={
+              <div className="flex items-start justify-between gap-2">
+                {statement}
+                {corner}
+              </div>
+            }
+          >
+            {children}
+          </QuotedPointBox>
+        </div>
+        {footer}
+      </article>
+    );
+  }
   return (
     <article className={`bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border ${className}`.trim()} {...rest}>
       <div className="p-4">
@@ -29,6 +57,7 @@ export function PointCardShell({ statement, corner, children, footer, className 
           </div>
 
           <div className="flex-1 min-w-0">
+            {header}
             <div className="flex items-start justify-between gap-2">
               {statement}
               {corner}

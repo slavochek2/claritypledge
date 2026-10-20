@@ -37,6 +37,10 @@ const ALLOWLIST: Record<string, { kinds: Kind[]; why: string }> = {
     kinds: ['focus-header-onback'],
     why: 'The /meet flow steps back to /ready — an in-flow step, out of P1364 scope.',
   },
+  'src/app/pages/canvas-page.tsx': {
+    kinds: ['focus-header-onback'],
+    why: "The canvas's open point (P1508 D7): below 1024px the sheet's back arrow closes the panel, which steps Back only off the entry the panel pushed — it never leaves a page.",
+  },
   'src/app/pages/letter-preview-page.tsx': {
     kinds: ['bare-history-pop'],
     why: '"Close preview" in a tab opened with _blank: window.close() or pop — out of P1364 scope.',

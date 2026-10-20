@@ -27,7 +27,8 @@ export function PointOwnerRow({
   inList: boolean;
   isAgent: boolean;
   name: string;
-  position: PositionType;
+  /** P1508: absent only where the caller shows the row anyway (the canvas): a muted "No position". */
+  position?: PositionType | null;
   /** CP: GravatarAvatar at 20px */
   avatar: ReactNode;
   /** CP: EarBadge (people only) */
@@ -51,7 +52,9 @@ export function PointOwnerRow({
             <span className={inList ? 'min-w-0 truncate font-medium' : 'font-medium'}>{name}</span>
           )}
           {badges}
-          <PositionBadge position={position} />
+          {position
+            ? <PositionBadge position={position} />
+            : <span className="shrink-0 text-foreground/60" data-testid="point-owner-no-position">No position</span>}
         </span>
       </div>
       {menu}

@@ -15,7 +15,6 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
-  PointHeader,
   PositionButtons,
   ShareButton,
   InlineVisibilityIcon,
@@ -31,7 +30,9 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
-import { PointOwnerRow, QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card';
+import { QuotedPointBox } from '@/app/components/shared/presentational/quoted-point-card';
+import { PointOwnHeader, PointOwnerQuoteRow } from '@/app/components/shared/point-owner-header';
+import { pointOwnerLayout } from '@/lib/point-owner-layout';
 import { listPointCardClass } from '@/app/components/shared/card-action-classes';
 import { QuotedStoryShell } from '@/app/components/shared/presentational/quoted-story-shell';
 import {
@@ -271,8 +272,9 @@ export function PointCardWithLinks({
 
   // Quote pattern: reserved for the other person's position. Hidden when viewer === profile owner
   // (the viewer's own stance is already expressed by the highlighted position button inside the point).
+  // P1508 D5: the rule lives in point-owner-header.tsx, shared with the canvas's open point card.
   const showQuotePattern =
-    profileOwner && profileOwner.position && !isOwnProfile;
+    !!profileOwner && pointOwnerLayout({ isOwnView: isOwnProfile, position: profileOwner.position }) === 'quote';
 
   // P822: viewer-story gate for the list footer's "+ Add a story" link.
   const effectiveViewerStoryCount =
@@ -367,24 +369,11 @@ export function PointCardWithLinks({
             {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped.
                 P1366 — in a list this is the card's top row, so the `⋯` joins it on the right; the
                 name truncates and the menu never shrinks, so nothing overlaps at 320px. */}
-            <PointOwnerRow
+            <PointOwnerQuoteRow
+              owner={profileOwner}
               inList={!!inListFooter}
               isAgent={isOwnerAgent}
-              name={profileOwner.name}
-              position={profileOwner.position}
-              avatar={
-                <GravatarAvatar
-                  name={profileOwner.name}
-                  photoUrl={profileOwner.avatarUrl}
-                  avatarColor={profileOwner.avatarColor}
-                  size="sm"
-                  isPledger={profileOwner.hasPledged ?? false}
-                  isAgent={isOwnerAgent}
-                  identityPending={identityPending}
-                  className="!w-5 !h-5 !text-[10px]"
-                />
-              }
-              badges={!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
+              identityPending={identityPending}
               menu={listMenu}
             />
 
@@ -519,27 +508,7 @@ export function PointCardWithLinks({
               {/* Header row - matches StoryCard's author info structure.
                   P1366 — in a list (one's own profile: no quote row) this is the card's top row,
                   so the `⋯` joins it on the right; the header wraps rather than run under it. */}
-              {inListFooter ? (
-                <div className="mb-2 flex items-center justify-between gap-2" data-testid="point-owner-row">
-                  <div className="min-w-0">
-                    <PointHeader
-                      authorPosition={profileOwner?.position}
-                      authorName={profileOwner?.name}
-                      authorEarCount={profileOwner?.ear}
-                      className="flex-wrap"
-                    />
-                  </div>
-                  {listMenu}
-                </div>
-              ) : (
-              <div className="mb-2">
-                <PointHeader
-                  authorPosition={profileOwner?.position}
-                  authorName={profileOwner?.name}
-                  authorEarCount={profileOwner?.ear}
-                />
-              </div>
-              )}
+              <PointOwnHeader owner={profileOwner} inList={!!inListFooter} menu={listMenu} />
 
               {/* Point text with inline visibility icon */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>

@@ -74,7 +74,7 @@ describe('feed and /stake card (FeedPointCard, no owner) — unchanged', () => {
 
   it('signed out', () => {
     auth.viewerId = null;
-    const { container } = render(<MemoryRouter><FeedPointCard point={{ ...feedPoint, userPosition: null } as PointWithUserPosition} linkedStories={[story('s1', 'owner-1', 'Owner One')]} /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><FeedPointCard point={{ ...feedPoint, userPosition: null } as unknown as PointWithUserPosition} linkedStories={[story('s1', 'owner-1', 'Owner One')]} /></MemoryRouter>);
     expect(html(container)).toMatchSnapshot('feed signed out');
   });
 });

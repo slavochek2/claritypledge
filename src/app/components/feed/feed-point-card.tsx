@@ -5,7 +5,7 @@
  * Slate left border. Opens /point/:id through its `Details →` button only (P1415).
  */
 
-import { useState, useMemo, useEffect, useRef, useId } from 'react';
+import { useState, useMemo, useEffect, useRef, useId, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useOpenPath } from '@/app/components/shared/links-in-new-tab';
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { toast } from 'sonner';
@@ -43,6 +43,15 @@ import {
   settlePositionWrite,
 } from '@/app/data/position-write-outcome';
 import { networkMark } from '@/lib/network-outcome';
+import { PointOwnHeader, PointOwnerQuoteRow, type PointOwner } from '@/app/components/shared/point-owner-header';
+import { pointOwnerLayout } from '@/lib/point-owner-layout';
+
+/** P1508 D5: the canvas owner, filled once by the canvas page. */
+export interface FeedPointCardOwner extends PointOwner {
+  isAgent: boolean;
+  /** the agent-account list is still loading (no avatar shape, no ear badge yet) */
+  identityPending?: boolean;
+}
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -72,9 +81,20 @@ interface FeedPointCardProps {
   /** P1336: hide the anonymous "Sign up or log in to save your position" nudge — for embeds
    *  where the visitor already has an identity (a registrant in onboarding). Default false. */
   hideAnonSignupCta?: boolean;
+  /**
+   * P1508 D5 — the canvas: whose point this is, shown as the owner's profile shows it (anyone else:
+   * the owner row above a quoted box, "No position" when they hold none; the owner: the own-card
+   * header). The card's stories are then the owner's only, labelled "Your story" / "Their story"
+   * by the profile's rule. Unset everywhere else: the feed and /stake card is unchanged.
+   */
+  owner?: FeedPointCardOwner;
+  /** P1508: the spread row under the position buttons (the canvas). Unset on /feed and /stake (D11). */
+  spread?: ReactNode;
+  /** P1508: inside a dialog (the canvas panel), Escape with the stories open closes them, not the dialog. */
+  collapseStoriesOnEscape?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -210,6 +230,27 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     ? getPositionCTACopy(getPositionGroup(authedEffective))
     : null;
 
+  /* P1508 D5 — with an owner, the profile's rules (point-card-with-links.tsx): the stories are the
+     owner's only (a person has at most one story per point), the expander says whose; the viewer's
+     own story is a separate link only when the viewer is not the owner — never two "Your story". */
+  const isOwnView = !!owner && viewerId === owner.id;
+  const ownerLayout = owner ? pointOwnerLayout({ isOwnView, position: owner.position, rowWithoutPosition: true }) : null;
+  const shownStories = owner ? linkedStories?.filter(linked => linked.authorId === owner.id) : linkedStories;
+  const storyLabel = owner
+    ? (isOwnView ? 'Your story' : 'Their story')
+    : `${shownStories?.length ?? 0} ${shownStories?.length === 1 ? 'story' : 'stories'}`;
+  const showViewerStory = !!viewerStory && !isOwnView;
+  const menu = (
+    <CardMenu
+      type="point"
+      id={point.id}
+      surface={surface}
+      description={point.statement.slice(0, 100)}
+      fromUserId={owner?.id}
+      className={owner ? '-my-3 -mr-2' : '-mt-2 -mr-2'}
+    />
+  );
+
   /* A confirmed vote is the viewer's position again: it also ends a withdrawal (P1420 round 3).
      Without this, re-voting after a removal kept `withdrawn` set — the stale fetched position was
      hidden while still counted, so the count went up twice. */
@@ -297,6 +338,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     {/* P1445: the frame (card, pin, statement row) is the shared PointCardShell — the Day board renders
        its reflection statements in the same one. Everything product-side stays here. */}
     <PointCardShell
+      header={owner && (ownerLayout === 'quote'
+        ? <PointOwnerQuoteRow owner={owner} inList isAgent={owner.isAgent} identityPending={owner.identityPending ?? false} showEar={owner.ear !== undefined} menu={menu} />
+        // The owner reading their own: their header follows their vote at once, as the buttons do.
+        : <PointOwnHeader owner={{ ...owner, position: authedEffective }} inList menu={menu} showNoPosition />)}
+      quoted={ownerLayout === 'quote'}
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
@@ -320,15 +366,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
               </p>
         </>
       }
-      corner={
-              <CardMenu
-                type="point"
-                id={point.id}
-                surface={surface}
-                description={point.statement.slice(0, 100)}
-                className="-mt-2 -mr-2"
-              />
-      }
+      corner={owner ? undefined : menu}
       footer={
         <>
       {/* P1296 item 1, laid out by P1366 — the footer every story and point card carries, on
@@ -341,12 +379,20 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
            expanded story list below keeps that indent (16 + 44 = the old 60px). */
         className="flex flex-col gap-2 px-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
+        {...(collapseStoriesOnEscape ? {
+          onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+            if (e.key !== 'Escape' || e.defaultPrevented || !storiesExpanded) return;
+            e.preventDefault();
+            setStoriesExpanded(false);
+            e.currentTarget.querySelector<HTMLElement>('[data-testid="feed-point-story-expander"]')?.focus();
+          },
+        } : {})}
         data-testid="point-card-footer"
       >
         <CardFooterActions type="point" onDetails={openDetails} describedBy={cardId} loading={linkedStories === undefined}>
-          {linkedStories && linkedStories.length > 0 && (
+          {shownStories && shownStories.length > 0 && (
             <CardExpander
-              label={`${linkedStories.length} ${linkedStories.length === 1 ? 'story' : 'stories'}`}
+              label={storyLabel}
               expanded={storiesExpanded}
               onToggle={() => setStoriesExpanded(!storiesExpanded)}
               testId="feed-point-story-expander"
@@ -354,27 +400,28 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           )}
           {/* The viewer's slot: their story on this point, or the invitation to write one. It
               opens the story to READ — the old `?edit=true` link dropped readers into an editor. */}
-          {viewerStory && (
+          {showViewerStory && viewerStory && (
             <CardSlotLink kind="your-story" onClick={() => openPath(`/story/${viewerStory.id}`)} />
           )}
           {addStoryCopy && (
             <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={() => openPath(`/create?pointId=${point.id}`)} />
           )}
-          {linkedStories?.length === 0 && !viewerStory && !addStoryCopy && <CardCountText>0 stories</CardCountText>}
+          {/* With an owner the count is theirs, so zero shows nothing (the profile's rule). */}
+          {!owner && linkedStories?.length === 0 && !viewerStory && !addStoryCopy && <CardCountText>0 stories</CardCountText>}
         </CardFooterActions>
 
         {/* The SAME QuotedStory the profile point card and live sessions render, not a local
             text preview. A second excerpt renderer here would be a ninth surface with its own
             label handling, its own agent treatment and its own truncation rule. */}
-        {storiesExpanded && linkedStories && linkedStories.length > 0 && (
+        {storiesExpanded && shownStories && shownStories.length > 0 && (
           /* P1270 §2 — the thread line the other surfaces already had. `ThreadLine` is the
              universal "belongs to" pattern (decisions.md 2026-03-17): "All stories get
              ThreadLine — even single items need the connecting line to visually anchor them
              to the parent card." */
           <div className="sm:pl-[44px]">
           <ThreadLineGroup>
-            {linkedStories.map((linked, index) => (
-              <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
+            {shownStories.map((linked, index) => (
+              <ThreadLineItem key={linked.id} isLast={index === shownStories.length - 1}>
                 <QuotedStory
                   scopeId={point.id}
                   // Production -> prototype shape, the same conversion
@@ -418,7 +465,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                      (founder: "profile stay same"). `authorPositionOnPoint` is attached per
                      (point, author) by getStoriesForPoints, so `linked` is already scoped to
                      THIS point. */
-                  authorPosition={linked.authorPositionOnPoint}
+                  authorPosition={owner ? undefined : linked.authorPositionOnPoint}
                   /* P1424: on this list card the story opens only via its own `Details →`. */
                   openViaDetails
                 />
@@ -477,6 +524,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 }}
               />
             </div>
+            {spread}
             {/* P502: Anonymous position CTA */}
             {!hideAnonSignupCta && !session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />
