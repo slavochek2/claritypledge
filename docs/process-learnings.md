@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 196
+**Next ID:** 197
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2520,5 +2520,16 @@ Found by the P1512 screenshot review; not caused by P1512 (its diff touches none
 **due:** week
 
 The script's fallback for a missing .env.prod is dirname of its own scripts directory, but scripts/ is a native checkout in every worktree, so the fallback resolves to the worktree and fails. Seen 2026-10-20 deploying a new function to prod; worked around with a temporary symlink. Done when the fallback resolves the main checkout from git's common dir; droppable if prod deploys move off this script.
+
+---
+
+## Live pages: more pre-existing visual defects found by P1512 round-2 visual QA
+
+**ID:** INBOX-196
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+Found by a screenshot-only visual QA pass on P1512 round 2; each predates P1512 (round 2 changed only the title row of these pages) and adds to INBOX-194: (1) /groups at 375 and 320: the "You're a member" pill overlaps the group card title, which breaks one word per line with an orphaned dot at 320; (2) /letters on phone: the letter title, the only unique text in a row, is truncated, and the date reads "Oct 6 ago"; "0 of 1 steps" is not singular; three filled blue buttons per view; (3) /events/list: cancelled events are listed under Upcoming, dimmed to about 3:1 contrast; (4) the "You're Hosting" badge is green but is a status, not a success state; (5) three different tab styles across Feed, Events and Letters; (6) feed card overflow button about 20px, under the 40px target; (7) overlapping avatar stacks clip their initials, and white initials on light-blue avatars are about 3:1. Each fix is a separate small proposal; droppable once each is fixed or rejected.
 
 ---
