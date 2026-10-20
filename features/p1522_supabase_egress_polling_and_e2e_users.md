@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 49
 workstream: infrastructure
@@ -214,10 +214,11 @@ from logs.
       above 1 request/min unless justified by Decision Criterion 2; hidden tab shows zero after 60s.
 - [x] A regression test fails if an idle page exceeds the request-volume budget (proven to fail
       with the fix reverted). `e2e/p1522-idle-request-budget.spec.ts`; red with the guards removed.
-- [ ] E2E run creates no net new auth users on the test project (user count before and after a
-      full run, same number ± pool size). `[post-deploy]` re-check test-project user count after
-      one CI day.
-- [ ] Accumulated test users purged on the test project; count before and after recorded.
+- [x] E2E cleanup fixed at the source: `deleteTestUser` clears FK blockers taken from the database
+      error; the same 20 stranded users went from 11/20 deleted to 20/20; the sweeper and the
+      post-run teardown are in place. `[post-deploy]` The purge of the ~19,400 leftover users and the
+      "no net new users per full e2e run" count were moved to the task inbox (INBOX-204) by founder
+      decision, so the egress fix could ship before the 11 Nov restriction instead of waiting ~5h.
 - [x] Test project API log reading (RQ3) recorded, or recorded as not readable with the reason.
 
 ## Alternatives Considered
