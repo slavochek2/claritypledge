@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 199
+**Next ID:** 201
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2553,5 +2553,29 @@ A requires-frontend sha marker points at the branch commit, but /ship cherry-pic
 **due:** month
 
 P1508 round 5 (D11) kept the seven-bar neutral spread and the "Contested" mark to the canvas cards and the point page's position block, because feed cards already show counts on their position buttons. After the canvas event, check whether people used the spread on the canvas and on /point/:id; add it to feed cards only if they did. Drop this if the spread goes unused or the canvas is retired.
+
+---
+
+## Infra changes since the last run have no KDD capture [day:bb605dec]
+
+**ID:** INBOX-199
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-20 (check: cp.reflect, severity: low).
+
+79d82b41f (feat login account check via check-login-email) touched docs/technical, scripts/ and supabase/functions. git log --since SINCE -- docs/decisions.md is empty.
+
+---
+
+## Every page polls letter shortcodes and events every few seconds
+
+**ID:** INBOX-200
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+Measured on the live site and on localhost (signed out, /feed, 20s after the page settled): resolve_letter_shortcode is called about every 2.5s, events about every 5s, and on the live site get_letter_for_public_reading about every 2.5s too; signed in, the feed also refetches stories, points and point_positions about every 4s. The page therefore never goes network-idle, which costs phone battery and database load and makes every e2e that waits for networkidle time out (found while triaging P1512 e2e). Find the pollers (likely a letter-shortcode resolver and the events widget), switch them to on-focus or Realtime, and drop this once a 20s idle window shows no repeating requests.
 
 ---
