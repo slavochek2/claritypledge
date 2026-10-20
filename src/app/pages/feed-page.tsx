@@ -541,7 +541,7 @@ export function FeedPage() {
           )}
         />
         {/* P1392: desktop adds a right rail (next events, groups); the feed column is unchanged. */}
-        <div className="lg:flex lg:items-start lg:justify-between lg:gap-8">
+        <div className="lg:flex lg:items-start lg:gap-8">
         <div className="w-full min-w-0 max-w-2xl lg:flex-1">
         {/* P1401: phones get the next events and groups at the very top; desktop has the rail. */}
         <HomeTopBlock />
