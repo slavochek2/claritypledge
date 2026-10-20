@@ -37,7 +37,7 @@ export const CANVAS_LAYERS: readonly { title: string; boxes: readonly CanvasBoxT
   { title: 'Why I do this', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
   { title: 'The core bet', boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
   { title: 'How we win', boxes: ['canvas:advantage', 'canvas:channels', 'canvas:metrics'] },
-  { title: 'Money in, money out', boxes: ['canvas:revenue', 'canvas:cost'] },
+  { title: 'How it pays', boxes: ['canvas:revenue', 'canvas:cost'] },
 ];
 
 const BOX_TAG_SET: ReadonlySet<string> = new Set(CANVAS_BOX_TAGS);

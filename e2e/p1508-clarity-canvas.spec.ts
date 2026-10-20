@@ -149,7 +149,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(11);
     await expect(page.getByText('Unique Value Proposition')).toHaveCount(0);
     // R1: the four layers, named, in order; no other frames.
-    await expect(page.getByTestId('canvas-layer-title')).toHaveText(['Why I do this', 'The core bet', 'How we win', 'Money in, money out']);
+    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['Why I do this', 'The core bet', 'How we win', 'How it pays']);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
     // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
@@ -825,14 +825,13 @@ test.describe('P1508: Clarity Canvas', () => {
     // focus returns to the same point's card in its box
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.solutionPointId}`);
   });
-  test('layers read as bands; Previous / Next carry a blue edge', async ({ page }) => {
+  test('layers are numbered and spaced, with no rules; cards show an open chevron; Previous / Next carry a blue edge', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
+    await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03', '04']);
     const titles = page.getByTestId('canvas-layer-title');
-    await expect(titles).toHaveCount(4);
-    // The first layer has no rule above it; the others do.
-    expect(await titles.nth(0).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
-    expect(await titles.nth(1).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('1px');
+    for (const i of [0, 1, 2, 3]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
+    await expect(page.locator('[data-testid^="canvas-point-card-"]').first().getByTestId('canvas-card-open')).toBeVisible();
     const box = page.getByTestId('canvas-box-canvas:problem');
     await box.getByTestId('canvas-box-more').click();
     await page.getByTestId('canvas-panel-box-list').locator('[role="button"], button').first().click();

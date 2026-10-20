@@ -5,7 +5,7 @@
  * There is no canvas record: a canvas is derived from owner + project tag. Its contents are the
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
  * tag), placed into eleven boxes in four named layers (sixth round R1): Why I do this, The core bet,
- * How we win, Money in, money out.
+ * How we win, How it pays.
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
  * 1024px, two from 640px, one below, each layer under its label. A box shows two cards, then
@@ -435,10 +435,11 @@ export function CanvasPage() {
           step={openPoint
             ? {
               box: BOX_TITLES.get(canvasBoxOf(openPoint.systemTags) as CanvasBoxTag),
+              boxTag: canvasBoxOf(openPoint.systemTags) as CanvasBoxTag,
               onPrevious: previousPoint ? () => openPanel(previousPoint.id) : undefined,
               onNext: nextPoint ? () => openPanel(nextPoint.id) : undefined,
             }
-            : { box: openBoxTitle }}
+            : { box: openBoxTitle, boxTag: openBox ?? undefined }}
         >
           {!openPoint && openBox ? (
             // R2: the whole box, as the same cards; one opens on top of this list.
@@ -507,8 +508,11 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
         <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
           {/* Founder, sixth round: the layers did not read as groups — a rule above, a bigger title,
               and more room between layers than between boxes. */}
-          <h2 className={`col-span-full text-base font-semibold text-foreground md:text-lg ${i === 0 ? '' : 'mt-6 border-t border-border pt-4'}`} data-testid="canvas-layer-title">
-            {layer.title}
+          <h2 className={`col-span-full flex items-baseline gap-2.5 text-base font-semibold tracking-tight text-foreground md:text-lg ${i === 0 ? '' : 'mt-10'}`} data-testid="canvas-layer-title">
+            {/* Founder, sixth round: the rules between layers read oddly — whitespace groups them,
+                and a number says they are read in order. */}
+            <span aria-hidden className="rounded bg-blue-600/10 px-2 py-0.5 font-mono text-xs font-semibold text-blue-700" data-testid="canvas-layer-number">{String(i + 1).padStart(2, '0')}</span>
+            <span data-testid="canvas-layer-name">{layer.title}</span>
           </h2>
           {layer.boxes.map(tag => (
             <CanvasBox
@@ -525,6 +529,16 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
         </section>
       ))}
     </div>
+  );
+}
+
+/** The box's icon in a small tinted circle, like the pin on every point card. */
+function BoxIcon({ tag, className = '' }: { tag: CanvasBoxTag; className?: string }) {
+  const Icon = BOX_ICONS[tag];
+  return (
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 ${className}`.trim()} data-testid="canvas-box-icon">
+      <Icon aria-hidden className="h-4 w-4" />
+    </span>
   );
 }
 
@@ -555,7 +569,6 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
   // Founder, sixth round: "1 more" promised one card and opened all of them — the label now says
   // what opens.
   const hidden = points ? Math.max(0, points.length - BOX_LIMIT) : 0;
-  const Icon = BOX_ICONS[tag];
   const titleColour = empty ? 'text-foreground/60' : 'text-foreground';
 
   return (
@@ -568,9 +581,7 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
     >
       <div className="mb-2 flex min-w-0 items-center gap-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 ${empty ? 'opacity-60' : ''}`} data-testid="canvas-box-icon">
-          <Icon aria-hidden className="h-4 w-4" />
-        </span>
+        <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
         <h3 id={headingId} className={`text-sm font-semibold ${titleColour}`}>{title}</h3>
       </div>
       {points === null ? (
@@ -679,17 +690,19 @@ function ComparePicker({ base, others, withPerson, onCompare, fullCompareHref }:
   return (
     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-testid="canvas-controls">
       <label
-        className={`${PILL} pl-3 ${withPerson ? 'border border-blue-300 bg-blue-50 text-blue-800' : 'bg-muted text-foreground hover:bg-muted/70'}`}
+        // Founder, sixth round: Compare is a main action but read as a grey filter — a blue
+        // outline until someone is picked.
+        className={`${PILL} pl-3 ${withPerson ? 'border border-blue-300 bg-blue-50 text-blue-800' : 'border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
         data-testid="canvas-compare-picker"
       >
-        <span aria-hidden className="mr-1 shrink-0 text-foreground/70">Compare:</span>
+        <span aria-hidden className={`mr-1 shrink-0 ${withPerson ? 'text-foreground/70' : 'font-medium'}`}>{withPerson ? 'Compare:' : 'Compare with'}</span>
         <select
           aria-label="Compare with"
           value={withPerson?.id ?? ''}
           onChange={e => onCompare(e.target.value || null)}
           className={SELECT}
         >
-          <option value="">No one</option>
+          <option value="">{withPerson ? 'No one' : 'someone…'}</option>
           {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
@@ -745,14 +758,18 @@ function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
       onClick={onOpen}
       data-testid={`canvas-point-card-${point.id}`}
       data-selected={selected || undefined}
-      className={`w-full rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
+      className={`group w-full rounded-lg border bg-card p-3 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
     >
       <p className="line-clamp-5 break-words text-sm font-medium text-foreground">
         {point.visibility === 'private' && <><InlineVisibilityIcon visibility={point.visibility} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
       </p>
-      {/* The card's spread row (no info button: the card is itself one button). */}
-      <PointSpreadRow counts={counts} testId="canvas-card-spread-row" className="mt-2" />
+      {/* The card's spread row (no info button: the card is itself one button). Founder, sixth
+          round: nothing invited a click — a quiet chevron, always visible (phones have no hover). */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <PointSpreadRow counts={counts} testId="canvas-card-spread-row" />
+        <ChevronRight aria-hidden data-testid="canvas-card-open" className="h-4 w-4 shrink-0 text-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+      </div>
       {compare && (
         <div className="mt-2 flex items-start gap-2" data-testid="canvas-card-compare">
           <StanceColumn
@@ -789,7 +806,7 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
   /** what the panel shows: a point's id, or `box:<tag>` for a box's list */
   viewKey: string;
   closeLabel?: string;
-  step: { box?: string; onPrevious?: () => void; onNext?: () => void };
+  step: { box?: string; boxTag?: CanvasBoxTag; onPrevious?: () => void; onNext?: () => void };
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -882,14 +899,19 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
         data-testid="canvas-point-panel"
         className="fixed inset-0 z-50 flex flex-col bg-background outline-none lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[480px] lg:border-l lg:border-border lg:shadow-xl"
       >
-        <div className="flex shrink-0 items-center gap-1 px-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+        {/* Founder, sixth round: the box name read smaller than the card under it. It is the
+            breadcrumb: the box's own icon (as on the canvas), one size up, in a header bar. */}
+        <div className="flex shrink-0 items-center gap-1 border-b border-border/60 bg-muted/20 px-2 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
           {/* Below 1024px the sheet fills the screen: the focus pages' back arrow, closing the
               panel (never leaving the canvas — P1364 drift-guard allowlist). */}
           <span className="pl-2 lg:hidden" data-testid="canvas-panel-back">
             <FocusHeader compact onBack={onClose} aria-label={closeLabel} />
           </span>
           {/* Which box this point sits in: Previous / Next cross from box to box. */}
-          <span className="min-w-0 flex-1 truncate px-2 text-sm font-semibold text-foreground" data-testid="canvas-panel-box">{step.box}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2" data-testid="canvas-panel-box">
+            {step.boxTag && <BoxIcon tag={step.boxTag} />}
+            <span className="truncate text-base font-semibold tracking-tight text-foreground">{step.box}</span>
+          </span>
           <button
             type="button"
             onClick={onClose}
