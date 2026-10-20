@@ -104,9 +104,16 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
     [setStatus, resync],
   );
 
+  /** Own mirror messages that arrived before the server said whether the mirror is on. */
+  const waitingForAvailability = useRef(new Set<string>());
   const run = useCallback(
     (id: string) => {
-      if (!enabledRef.current || answered.current.has(id)) return;
+      if (answered.current.has(id)) return;
+      if (enabledRef.current === null) {
+        waitingForAvailability.current.add(id);
+        return;
+      }
+      if (!enabledRef.current) return;
       setStatus(id, 'thinking');
       requestMirrorReply(id).then(
         (state) => {
@@ -138,6 +145,14 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
     },
     [setStatus, resync, recheck],
   );
+
+  // Availability arrived: ask for the messages that came in before it (or forget them when the mirror is off).
+  useEffect(() => {
+    if (enabled === null) return;
+    const ids = [...waitingForAvailability.current];
+    waitingForAvailability.current.clear();
+    if (enabled) ids.forEach((id) => run(id));
+  }, [enabled, run]);
 
   /** Explicit (Try again) or automatic (a new own message in the mirror). Automatic asks once per message. */
   const requestReply = useCallback(

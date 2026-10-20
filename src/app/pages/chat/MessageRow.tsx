@@ -292,6 +292,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
   const server: ChatMessage | null = local ? null : msg;
   const live = !!server && !server.isDeleted;
   const agent = server?.kind === 'agent';
+  /** A reply, or a private @mirror ask: never copied anywhere (the server refuses it too). */
+  const ownerOnly = agent || !!server?.contextConversationId;
   const [selected, setSelected] = useState(false);
   // `more` is the ⋯ menu (what the toolbar lacks); otherwise the full list at the pointer.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; more?: boolean } | null>(null);
@@ -341,12 +343,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
     items.push({ key: 'reply', label: 'Reply', Icon: Reply, onSelect: () => actions.onReply(server) });
   }
   if (server && live && !privateHere && !agent) {
-    if (actions.onThread && !server.threadRootId) {
+    if (actions.onThread && !server.threadRootId && !ownerOnly) {
       const open = actions.onThread;
       items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
     }
-    items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
-    if (actions.onClarify) {
+    if (!ownerOnly) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
+    if (actions.onClarify && !ownerOnly) {
       const clarify = actions.onClarify;
       items.push({ key: 'clarify', label: 'Clarify', Icon: MessagesSquare, onSelect: () => clarify(server) });
     }
@@ -392,7 +394,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
           <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
-        {!agent && (
+        {!ownerOnly && (
           <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
             <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
@@ -402,7 +404,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
             <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        {!agent && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
+        {!ownerOnly && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
         {moreItems.length > 0 && (
           <ToolButton
             label="More actions"

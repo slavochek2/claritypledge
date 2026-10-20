@@ -269,7 +269,8 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         </div>
       ) : (
         <Composer
-          draftKey={`${chat.userId}:${conversationId}`}
+          // A private ask has its own draft: text typed for the mirror can never reappear in the channel's composer.
+          draftKey={`${chat.userId}:${conversationId}${privateTo ? ':private' : ''}`}
           placeholder={placeholder}
           focusToken={focusToken}
           autoFocus

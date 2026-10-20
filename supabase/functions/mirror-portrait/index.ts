@@ -18,7 +18,7 @@ import { ownedBannerPath } from '../_shared/banner-path.ts';
 import { base64ToBytes, BANNER_BUCKET, creditFor, runArtistBanner } from '../_shared/artist-banner-run.ts';
 import { cryptoRng } from '../_shared/artist-banner.ts';
 import {
-  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, portraitCostUsd, resolveGender,
+  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, reservePortraitUsd, resolveGender,
 } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
     console.error('mirror-portrait: begin failed', { code: beginError?.code });
     return json({ error: 'Service temporarily unavailable' }, 503, cors);
   }
-  const b = begun as { status: string; job_id?: string; gender?: string | null; exclude_artist?: string | null };
+  const b = begun as { status: string; job_id?: string; gender?: string | null; exclude_artist?: string | null; reserved_usd?: number };
   if (b.status === 'busy') return json({ state: 'running' }, 202, cors);
   if (b.status === 'capped') return json({ state: 'capped', code: 'CAPPED' }, 429, cors);
   const jobId = b.job_id;
@@ -82,12 +82,12 @@ Deno.serve(async (req: Request) => {
     onKeyBlocked: () => { keyBlocked = true; },
     logTag: 'Mirror portrait',
   });
-  // An upper estimate (each generation at the fallback model's price): the image calls do not report
-  // which model answered, and over-charging the ledger is the safe side.
-  const cost = portraitCostUsd(generations, generations);
+  // The image loop may call the fallback model inside one attempt and does not report which calls were
+  // billed, so a run that called the provider at all is charged its whole reservation (the safe side).
+  const cost = generations > 0 ? (b.reserved_usd ?? reservePortraitUsd()) : null;
 
   if (!result) {
-    await service.rpc('_mirror_fail_job', { p_job: jobId, p_code: keyBlocked ? 'cap' : 'generation', p_actual_usd: cost || null });
+    await service.rpc('_mirror_fail_job', { p_job: jobId, p_code: keyBlocked ? 'cap' : 'generation', p_actual_usd: cost });
     return json({ state: keyBlocked ? 'capped' : 'failed', code: keyBlocked ? 'CAPPED' : 'GENERATION_FAILED' }, keyBlocked ? 429 : 502, cors);
   }
 

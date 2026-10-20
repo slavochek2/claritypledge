@@ -132,9 +132,12 @@ describe('P1520 mirror reply rows', () => {
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
-  it('in the mirror itself, an ask says which channel it was asked in', () => {
+  it('in the mirror itself, an ask says which channel it was asked in, and offers no Forward or Clarify', () => {
     wrap(row(msg({ id: 'ask-2', contextConversationId: CHANNEL_ID })));
     expect(screen.getByTestId('mirror-private')).toHaveTextContent('Asked privately in Test Org · General');
+    const bar = screen.getByRole('toolbar', { name: 'Message actions' });
+    expect(within(bar).queryByRole('button', { name: 'Forward' })).not.toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: /Clarify/ })).not.toBeInTheDocument();
   });
 
   it('shows thinking, capped, and failed with a Try again that asks again', () => {
@@ -214,6 +217,15 @@ describe('P1520 @ picker and private mode', () => {
     expect(screen.getByRole('textbox', { name: 'Ask Mira privately' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Attach a point or story' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Stop asking privately' }));
+    expect(onPrivateChange).toHaveBeenCalledWith(null);
+  });
+
+  it('Backspace on an empty field does not leave private mode; Escape does (review fix)', () => {
+    const onPrivateChange = vi.fn();
+    wrap(<Composer draftKey="t:4" placeholder="Message Test Org" onSend={vi.fn()} mentions={[entry]} privateTo={entry} onPrivateChange={onPrivateChange} />);
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Backspace' });
+    expect(onPrivateChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
     expect(onPrivateChange).toHaveBeenCalledWith(null);
   });
 
@@ -304,6 +316,24 @@ describe('P1520 MirrorProvider', () => {
     // CONTROL: the same harness does ask for an own mirror message
     fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'x6', kind: 'clarify' }) } });
     await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('x6'));
+  });
+
+  it('a message that arrives before availability is known is asked once the mirror turns out to be on (review fix)', async () => {
+    let answer: (v: boolean) => void = () => undefined;
+    const listeners = new Set<(e: ChatEvent) => void>();
+    mirrorSvc.getMirrorAvailability.mockReturnValue(new Promise((r) => { answer = r; }));
+    mirrorSvc.getMirrorProfile.mockResolvedValue(null);
+    mirrorSvc.requestMirrorReply.mockResolvedValue('done');
+    render(
+      <ChatContext.Provider value={chatValue({ subscribe: (l) => { listeners.add(l); return () => listeners.delete(l); } })}>
+        <MirrorProvider enabled><span /></MirrorProvider>
+      </ChatContext.Provider>,
+    );
+    await act(async () => undefined);
+    act(() => listeners.forEach((l) => l({ type: 'sent', message: msg({ id: 'early-1' }) })));
+    expect(mirrorSvc.requestMirrorReply).not.toHaveBeenCalled();
+    await act(async () => answer(true));
+    await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('early-1'));
   });
 
   it('asks nothing when the server says the mirror is off', async () => {

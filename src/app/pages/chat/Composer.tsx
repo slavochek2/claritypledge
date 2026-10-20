@@ -221,7 +221,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
                     return;
                   }
                 }
-                if (privateTo && (e.key === 'Escape' || (e.key === 'Backspace' && value === ''))) {
+                if (privateTo && e.key === 'Escape') {
                   e.preventDefault();
                   onPrivateChange?.(null);
                   return;

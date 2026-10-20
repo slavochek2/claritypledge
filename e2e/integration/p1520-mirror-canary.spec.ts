@@ -258,6 +258,33 @@ test('a mirror reply can never be forwarded or clarified; an ordinary message st
   expect(fwd.kind).toBe('forward');
 });
 
+test('a private @mirror ask can never be forwarded or clarified into a channel (review fix); a plain mirror note can (control)', async () => {
+  const ask = await ok<Row>(sA.client.rpc('mirror_ask', { p_channel: gconv, p_body: `secret ask ${RUN}` }), 'ask');
+  await refused(sA.client.rpc('forward_chat_message', { p_source: ask.id, p_target_conversation: gconv }), 'forward an ask into the channel');
+  await refused(sA.client.rpc('clarify_chat_message', { p_source: ask.id }), 'clarify an ask');
+  expect((await adminMessages(gconv)).some((m) => (m.forward_snapshot as { body?: string } | null)?.body === `secret ask ${RUN}`)).toBe(false);
+  const note = await send(sA, mirA, `plain note ${RUN}`);
+  const fwd = await ok<Row>(sA.client.rpc('forward_chat_message', { p_source: note.id, p_target_conversation: gconv }), 'control: forward a plain note');
+  expect(fwd.conversation_id).toBe(gconv);
+});
+
+test('a restarted dead job charges the abandoned attempt in full, never releases it (review fix)', async () => {
+  const m = await send(sA, mirA, `restart ${RUN}`);
+  const job = await requestReply(sA, m.id);
+  expect((await begin(job.job_id)).status).toBe('run');
+  const first = (await adminJob(job.job_id)).spend_id!;
+  await supabaseAdmin.from('mirror_jobs').update({ started_at: new Date(Date.now() - 10 * 60_000).toISOString() }).eq('id', job.job_id);
+  expect((await begin(job.job_id)).status, 'a dead running job may restart').toBe('run');
+  const second = (await adminJob(job.job_id)).spend_id!;
+  expect(second).not.toBe(first);
+  const { data: s1 } = await supabaseAdmin.from('mirror_ai_spend').select('state, actual_usd, reserved_usd').eq('id', first).single();
+  expect(s1!.state).toBe('settled');
+  expect(Number(s1!.actual_usd)).toBe(Number(s1!.reserved_usd));
+  await complete(job.job_id, 'restart reply');
+  // keep the shared test project's global ceiling clean
+  await supabaseAdmin.from('mirror_ai_spend').update({ actual_usd: 0 }).in('id', [first, second]);
+});
+
 test('spend: reservations are atomic — 40 parallel reservations for one person admit exactly the daily count', async () => {
   const D = await mk('D');
   const { data: lim } = await supabaseAdmin.rpc('_mirror_limits');

@@ -63,17 +63,20 @@ export async function askMirror(channelId: string, body: string, clientId: strin
   return mapMessageRow(data as ChatMessageRow);
 }
 
-/** The caller's own asks and answers that belong to this channel, oldest first. */
+/**
+ * The caller's newest 200 asks and answers that belong to this channel, oldest first. Older ones stay in the
+ * mirror itself, where its own paging reaches them; the channel shows the recent exchange.
+ */
 export async function listMirrorAsks(channelId: string): Promise<ChatMessage[]> {
   const { data, error } = await supabase
     .from('chat_messages')
     .select(MESSAGE_COLUMNS)
     .eq('context_conversation_id', channelId)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(200);
   if (error) throw new Error(`mirror asks failed: ${error.message}`);
-  return ((data ?? []) as unknown as ChatMessageRow[]).map(mapMessageRow);
+  return ((data ?? []) as unknown as ChatMessageRow[]).map(mapMessageRow).reverse();
 }
 
 export interface MirrorJob {

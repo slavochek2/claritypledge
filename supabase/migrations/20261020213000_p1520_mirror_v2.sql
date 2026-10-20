@@ -356,7 +356,8 @@ $$;
 REVOKE ALL ON FUNCTION public.set_mirror_gender(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_mirror_gender(text) TO authenticated;
 
--- A mirror reply is the owner's alone: it can never be forwarded or clarified anywhere (P1520 invariant).
+-- A mirror reply, and an @mirror ask with its answer, are the owner's alone: none can ever be forwarded or
+-- clarified anywhere (P1520 invariant; a forwarded ask would publish a private question to a channel).
 -- forward_chat_message and clarify_chat_message both record the source in forwarded_from_message_id.
 CREATE OR REPLACE FUNCTION public._mirror_refuse_agent_copy()
 RETURNS trigger
@@ -365,7 +366,9 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.chat_messages s WHERE s.id = NEW.forwarded_from_message_id AND s.kind = 'agent') THEN
+  IF EXISTS (SELECT 1 FROM public.chat_messages s
+              WHERE s.id = NEW.forwarded_from_message_id
+                AND (s.kind = 'agent' OR s.context_conversation_id IS NOT NULL)) THEN
     RAISE EXCEPTION 'chat: mirror replies stay private' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
@@ -400,6 +403,9 @@ DECLARE
   v_channel  text;
   v_question jsonb;
 BEGIN
+  -- Erasure takes this lock exclusively before it cancels derived jobs (erase_chat_data_for step 6): a job
+  -- reading its context finishes recording its refs first, or starts only after the erase committed.
+  PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
   SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job AND j.kind IN ('reply', 'ask') FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('status', 'gone');
@@ -523,6 +529,14 @@ BEGIN
                ORDER BY x.created_at DESC, x.id DESC LIMIT 30) t,
              jsonb_array_elements(COALESCE(t.forward_snapshot -> 'thread', '[]'::jsonb)) e
       UNION
+      -- a 1:1 clarify carries the other person's name as its title
+      SELECT t.forward_snapshot ->> 'conversation_title_ref'
+        FROM (SELECT x.* FROM public.chat_messages x
+               WHERE x.conversation_id = v_mirror.id AND x.context_conversation_id IS NULL
+                 AND x.deleted_at IS NULL AND x.created_at <= v_msg.created_at
+               ORDER BY x.created_at DESC, x.id DESC LIMIT 30) t
+       WHERE t.forward_snapshot ? 'conversation_title_ref'
+      UNION
       SELECT unnest(t.derived_refs)
         FROM (SELECT x.* FROM public.chat_messages x
                WHERE x.conversation_id = v_mirror.id AND x.context_conversation_id IS NULL
@@ -533,6 +547,11 @@ BEGIN
     v_question := NULL;  -- the trigger is the last item of the context
   END IF;
 
+  -- A restarted dead attempt may still have been billed: its reservation is charged in full, never released.
+  IF v_job.state = 'running' AND v_job.spend_id IS NOT NULL THEN
+    UPDATE public.mirror_ai_spend s SET actual_usd = s.reserved_usd, state = 'settled', settled_at = now()
+     WHERE s.id = v_job.spend_id AND s.state = 'reserved';
+  END IF;
   v_spend := public._mirror_reserve(v_job.owner_id, 'reply', (public._mirror_limits() ->> 'reply_max_usd')::numeric);
   IF v_spend IS NULL THEN
     UPDATE public.mirror_jobs j SET state = 'capped', error_code = 'cap', finished_at = now() WHERE j.id = p_job;
@@ -817,9 +836,11 @@ BEGIN
      AND ((c.dm_user_a = p_uid AND c.dm_user_b IS NULL) OR (c.dm_user_b = p_uid AND c.dm_user_a IS NULL));
   UPDATE public.chat_conversations c SET created_by = NULL WHERE c.created_by = p_uid;
 
-  -- 6. (P1520) AI work derived from their words. Runs last, as its own statements, so each sees every
-  -- job that committed while the steps above waited on the rows it had locked. Jobs first: a completion
-  -- that commits while this waits leaves a reply the next statement then scrubs.
+  -- 6. (P1520) AI work derived from their words. The exclusive lock waits for every job still reading its
+  -- context (_mirror_begin_job holds it shared) and keeps new ones out until this commits, so no job can
+  -- record refs this step does not see. Jobs first: a completion that commits while this waits leaves a
+  -- reply the next statement then scrubs.
+  PERFORM pg_advisory_xact_lock(hashtext('p1520_mirror_context'));
   UPDATE public.mirror_jobs j
      SET state = 'cancelled', error_code = 'erased', finished_at = now()
    WHERE j.state IN ('queued', 'running') AND j.derived_refs @> ARRAY[v_ref];

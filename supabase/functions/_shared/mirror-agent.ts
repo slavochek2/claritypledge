@@ -122,22 +122,38 @@ function clean(item: ContextItem): Record<string, unknown> {
   return out;
 }
 
+/** Every string in `value`, at any depth, cut to `max` characters. */
+function capStrings(value: unknown, max: number): unknown {
+  if (typeof value === 'string') return value.slice(0, max);
+  if (Array.isArray(value)) return value.map((v) => capStrings(v, max));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, capStrings(v, max)]));
+  }
+  return value;
+}
+
 /**
- * Drop the OLDEST items until the quoted data fits DATA_CHAR_BUDGET. The newest item (the request in a
- * mirror chat) is never dropped; if it alone is too long, its text is cut.
+ * Drop the OLDEST items until the quoted data fits `budget` (its serialized, escaped size). The newest item
+ * (the request in a mirror chat) is never dropped; if it alone is too big, every string in it, nested copies and
+ * thread entries included, is cut shorter until it fits.
  */
 export function fitContext(items: Record<string, unknown>[], budget = DATA_CHAR_BUDGET): Record<string, unknown>[] {
   const kept = items.slice();
   const size = () => kept.reduce((n, it) => n + quoteData(it).length + 1, 0);
   while (kept.length > 1 && size() > budget) kept.shift();
-  if (kept.length === 1 && size() > budget) {
-    const only = { ...kept[0] };
-    const text = typeof only.text === 'string' ? only.text : '';
-    only.text = text.slice(0, Math.max(0, budget - 200));
-    kept[0] = only;
+  const only = kept[0];
+  if (kept.length === 1 && only && size() > budget) {
+    for (let max = 1_000; max >= 0; max = max > 50 ? Math.floor(max / 2) : max - 10) {
+      const cut = capStrings(only, Math.max(0, max)) as Record<string, unknown>;
+      kept[0] = cut;
+      if (size() <= budget) break;
+    }
   }
   return kept;
 }
+
+/** The whole user turn may never exceed this; past it the request is refused, not sent (MAX_IN_TOKENS). */
+export const REQUEST_CHAR_LIMIT = DATA_CHAR_BUDGET + 2_500;
 
 export interface GeminiRequest {
   systemInstruction: { parts: Array<{ text: string }> };
@@ -174,9 +190,12 @@ export function buildMirrorRequest(run: BeginRun): GeminiRequest {
     instruction = `${owner} ${name} Above is your private chat with your owner, oldest first. Reply to their last message. If it is a message copied for clarify, help them understand the person who wrote it.`;
   }
   const block = `<<DATA>>\n${data.map(quoteData).join('\n')}\n<</DATA>>`;
+  const userTurn = `${block}\n\n<<INSTRUCTION>>\n${instruction.trim()}`;
+  // The reservation assumes MAX_IN_TOKENS; a request that could exceed it is never sent.
+  if (userTurn.length > REQUEST_CHAR_LIMIT) throw new Error('mirror request over its input bound');
   return {
     systemInstruction: { parts: [{ text: MIRROR_RULES }] },
-    contents: [{ role: 'user', parts: [{ text: `${block}\n\n<<INSTRUCTION>>\n${instruction.trim()}` }] }],
+    contents: [{ role: 'user', parts: [{ text: userTurn }] }],
     generationConfig: {
       maxOutputTokens: MAX_OUT_TOKENS,
       temperature: 0.7,

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DATA_CHAR_BUDGET, MAX_IN_TOKENS, MAX_OUT_TOKENS, MIRROR_MODEL, MIRROR_RULES,
-  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, fitContext, parseReply, quoteData, quoteField,
+  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, fitContext, parseReply, quoteData, quoteField, REQUEST_CHAR_LIMIT,
   reservePortraitUsd, reserveReplyUsd, resolveGender, type BeginRun,
 } from '../../supabase/functions/_shared/mirror-agent';
 import { ARTIST_POOL } from '../../supabase/functions/_shared/artist-pool';
@@ -76,6 +76,16 @@ describe('P1520 mirror: what it sees', () => {
     const kept = fitContext([{ from: 'owner', text: 'z'.repeat(50_000) }]);
     expect(kept).toHaveLength(1);
     expect(quoteData(kept[0]).length).toBeLessThanOrEqual(DATA_CHAR_BUDGET);
+  });
+  it('the WHOLE request stays in bound even when one item carries a long copy and a long thread (Codex #3)', () => {
+    const big = 'z'.repeat(1_000);
+    const clarify = { from: 'B', in: 'Test Org · General', body: big, thread: Array.from({ length: 10 }, () => ({ name: 'B', body: big.slice(0, 500) })) };
+    const many = Array.from({ length: 30 }, (_, i) => ({ who: 'owner' as const, body: `${i} ${big}`, clarify }));
+    const text = buildMirrorRequest(run({ context: many })).contents[0]!.parts[0]!.text;
+    expect(text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+    const one = buildMirrorRequest(run({ context: [{ who: 'owner', body: big, clarify }] })).contents[0]!.parts[0]!.text;
+    expect(one.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+    expect(one).toContain('zzz'); // cut, not dropped
   });
   it('an ask names the channel and keeps the question after the data', () => {
     const body = buildMirrorRequest(run({
