@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 44
 workstream: process
 created_date: '2026-10-19'
 tags: [skills, process, archive]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-20
 ---
 
 # P1514: Retire /architect, /spec-review, /challenge-prd and the long spec pipeline
