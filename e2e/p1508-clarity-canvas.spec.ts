@@ -829,12 +829,17 @@ test.describe('P1508: Clarity Canvas', () => {
     await page.goto(fx.url);
     await waitForCanvas(page);
     await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03', '04']);
+    // Compare reads as an action until someone is picked; the list holds only people.
+    await expect(page.getByTestId('canvas-compare-picker')).toContainText('Compare with');
+    await expect(page.getByLabel('Compare with').locator('option:not([hidden])').first()).not.toHaveText('someone…');
     const titles = page.getByTestId('canvas-layer-title');
     for (const i of [0, 1, 2, 3]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
     await expect(page.locator('[data-testid^="canvas-point-card-"]').first().getByTestId('canvas-card-open')).toBeVisible();
     const box = page.getByTestId('canvas-box-canvas:problem');
     await box.getByTestId('canvas-box-more').click();
     await page.getByTestId('canvas-panel-box-list').locator('[role="button"], button').first().click();
+    // The panel header names the box with its icon, as on the canvas.
+    await expect(page.getByTestId('canvas-panel-box').getByTestId('canvas-box-icon')).toBeVisible();
     const next = page.getByTestId('canvas-panel-next');
     await expect(next).toBeVisible();
     expect(await next.evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgb(37, 99, 235)');

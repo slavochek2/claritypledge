@@ -702,7 +702,9 @@ function ComparePicker({ base, others, withPerson, onCompare, fullCompareHref }:
           onChange={e => onCompare(e.target.value || null)}
           className={SELECT}
         >
-          <option value="">{withPerson ? 'No one' : 'someone…'}</option>
+          {/* Nobody picked: the closed pill reads "Compare with someone…", and the list holds only
+              people (the placeholder is hidden from it). */}
+          {withPerson ? <option value="">No one</option> : <option value="" disabled hidden>someone…</option>}
           {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
