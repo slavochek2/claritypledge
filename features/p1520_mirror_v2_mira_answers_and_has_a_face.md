@@ -103,3 +103,17 @@ Decision density: a few. The model, the reply voice, and @Mira privacy are confi
 - [P1453](done/2026-06-10/p1453_artist_style_profile_banners.md): the artist-style generation pipeline.
 - [P1431](p1431_mirror_agent_letter_chat.md): the earlier avatar plan (own photo with a robot badge), superseded here.
 - [P1467](p1467_clarity_chat_letter_loop_v5.md): the mirror agent's role.
+
+## Review findings — resolve before /dev (Gemini Argon 4 + Codex, 2026-10-20)
+
+Adversarial review of P1520 and P1521 together; both verdicts: revise before implementation. Not yet verified against code by command.
+- **high** @Mira's prompt must never travel the normal channel message path (and channel triggers such as last-message time must skip it): a private ask needs its own row visibility, enforced server-side and in Realtime.
+- **high** Bound the mirror's context: at most the last N messages of that one channel, channel text treated as untrusted (prompt injection), never the user's private mirror history in a channel ask.
+- **high** Account erasure must also remove AI replies derived from the erased person's messages, and cancel pending work.
+- **high** Sending other people's messages to an AI provider needs a stated data contract (what is sent, retention, no training use) and a privacy-policy update. [FOUNDER DECISION]
+- **high** A per-user daily cap is not a spend bound: add token limits, portrait limits, atomic reservation and a global ceiling; separate buckets for replies and portraits.
+- **med** Durable generation states (queued, running, done, failed, capped) with one request id, so retries never double-charge or double-reply; no reply-to-own-reply loops.
+- **med** The existing artist-banner prompt forbids portraits and outputs 21:9 banners; a portrait mode needs its own prompt, square output and storage visibility.
+- **med** Define "agent treatment" for a full-color artist portrait (navy duotone vs. a navy frame plus badge); the P1483 invariant and "artist style" collide as written. [FOUNDER DECISION]
+- **med** A renamed mirror can share a name with a person; the picker must show the mirror as "Your mirror (private)" and the composer must switch to a visible private mode.
+- **low** Loading, cap-reached and failed states for replies and portraits; fall back to MirrorMark.
