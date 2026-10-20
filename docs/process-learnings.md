@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 195
+**Next ID:** 196
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2509,5 +2509,16 @@ e2e/verify-prod-p886-auth.spec.ts test A fails against prod: getByRole('navigati
 **due:** week
 
 Found by the P1512 screenshot review; not caused by P1512 (its diff touches none of these pages, and its spec forbids changing live pages). (1) /letters at 320px: the New Draft button is cut off at the right edge (the page lays out about 362px wide from a no-wrap button), flush at 375. (2) /story/:id at 320: the footer action row overflows the card (share icon over the border, external-link action missing, "0 points" wraps); author name centered against left-aligned meta. (3) /feed at 320: an orphaned middle dot in the story header, "Points (1)" touching "Newest", search placeholder cut; the Next event widget takes about 300px above the feed on phones. (4) Phone touch targets under 40px: Add a story / Add a point pills, edit/trash/share icons, Back link, topic stars, Details buttons. (5) /agreements/new/create: low-contrast placeholder and blue headings that are not actions. (6) Desktop page titles shift position and width between Events, Groups, Letters and Partners; Partners shows a Back link on a top-level page. (7) /live at 320: End Session overflows by about 5px (p1323 AC-9 fails the same before P1512). Each is its own small proposal per P1512 founder decision 1. Droppable per item once a 320/375 screenshot shows it fixed or the page is redesigned.
+
+---
+
+## deploy-functions.sh --env prod cannot find .env.prod from a worktree
+
+**ID:** INBOX-195
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+The script's fallback for a missing .env.prod is dirname of its own scripts directory, but scripts/ is a native checkout in every worktree, so the fallback resolves to the worktree and fails. Seen 2026-10-20 deploying a new function to prod; worked around with a temporary symlink. Done when the fallback resolves the main checkout from git's common dir; droppable if prod deploys move off this script.
 
 ---
