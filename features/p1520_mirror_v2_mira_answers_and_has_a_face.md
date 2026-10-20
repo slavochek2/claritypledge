@@ -104,6 +104,26 @@ Decision density: a few. The model, the reply voice, and @Mira privacy are confi
 - [P1431](p1431_mirror_agent_letter_chat.md): the earlier avatar plan (own photo with a robot badge), superseded here.
 - [P1467](p1467_clarity_chat_letter_loop_v5.md): the mirror agent's role.
 
+## Founder decisions, 2026-10-20 (second round)
+
+- **Replies use Gemini 3.8 Flash.**
+- **The in-app mirror runs on its own Gemini key with its own hard spend cap**, separate from the keys the
+  server functions use today (normal and batch). A runaway mirror must never stop banners or transcription,
+  as a shared cap did on 2026-10-13. The founder creates the key; its value never goes into files or commands.
+- **Reuse the learnings of the existing Mira assistant** (ClarityPledge's WhatsApp/Telegram assistant; its build
+  and operation are documented privately). Copy the patterns, not the code or the server:
+  - the personality rules: mirror, not fixer; name a pattern once, then wait; separate fact, inference and
+    speculation; the user's agency is absolute; no sycophancy; no sides on contested politics;
+  - spend control: a per-person daily allowance reserved before each model call, plus a global ceiling,
+    plus the provider's hard cap on the key;
+  - a red-team suite run with the real model before opening, and tests built from real message shapes;
+  - chats sealed from each other: a mirror run sees only what its owner may read in that one chat.
+- **The in-app mirror is not the Mira assistant and is not connected to it.** Mira is a public assistant that
+  speaks for the founder; an in-app mirror is each user's private agent. The default name stays "Your
+  mirror"; users may name theirs (the founder names his "Mira").
+- **No mirror learns from other users.** A mirror's context comes only from its owner's own reachable chats.
+  Sharing across users would need an explicit opt-in and its own spec.
+
 ## Review findings — resolve before /dev (Gemini Argon 4 + Codex, 2026-10-20)
 
 Adversarial review of P1520 and P1521 together; both verdicts: revise before implementation. Not yet verified against code by command.
