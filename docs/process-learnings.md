@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 197
+**Next ID:** 198
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2531,5 +2531,16 @@ The script's fallback for a missing .env.prod is dirname of its own scripts dire
 **due:** week
 
 Found by a screenshot-only visual QA pass on P1512 round 2; each predates P1512 (round 2 changed only the title row of these pages) and adds to INBOX-194: (1) /groups at 375 and 320: the "You're a member" pill overlaps the group card title, which breaks one word per line with an orphaned dot at 320; (2) /letters on phone: the letter title, the only unique text in a row, is truncated, and the date reads "Oct 6 ago"; "0 of 1 steps" is not singular; three filled blue buttons per view; (3) /events/list: cancelled events are listed under Upcoming, dimmed to about 3:1 contrast; (4) the "You're Hosting" badge is green but is a status, not a success state; (5) three different tab styles across Feed, Events and Letters; (6) feed card overflow button about 20px, under the 40px target; (7) overlapping avatar stacks clip their initials, and white initials on light-blue avatars are about 3:1. Each fix is a separate small proposal; droppable once each is fixed or rejected.
+
+---
+
+## Give frontend-coupled migrations a marker that survives /ship
+
+**ID:** INBOX-197
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** month
+
+A requires-frontend sha marker points at the branch commit, but /ship cherry-picks onto main, so the commit gets a new sha and the marker can never become an ancestor of origin/main; authors fall back to client-safe plus a checklist (decisions.md 2026 entry on the trust-column accessor, and again 2026-10-20). Done when a coupling marker names something stable across the cherry-pick (a P-number, or a file the frontend must contain) and migrate.sh checks it; droppable if frontend-coupled migrations stay rare.
 
 ---
