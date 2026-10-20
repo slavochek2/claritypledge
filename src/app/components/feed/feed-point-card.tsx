@@ -115,7 +115,7 @@ function CompactPointCard({ point }: { point: PointWithUserPosition }) {
       }
       className="[&>div]:p-3"
     >
-      {point.tags.length > 0 && <TagPills tags={point.tags} systemTags={[]} context="live" className="mt-1" />}
+      {(point.tags.length > 0 || (point.systemTags?.length ?? 0) > 0) && <TagPills tags={point.tags} systemTags={point.systemTags ?? []} context="live" className="mt-1" />}
     </PointCardShell>
   );
 }

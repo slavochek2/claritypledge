@@ -102,7 +102,7 @@ function CompactStoryCard({ story }: { story: StoryWithAuthor }) {
             <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
           </div>
           <p className="mt-0.5 break-words text-sm text-foreground line-clamp-2">{stripHashtags(story.content, story.tags)}</p>
-          {story.tags.length > 0 && <TagPills tags={story.tags} systemTags={[]} context="live" className="mt-1" />}
+          {(story.tags.length > 0 || (story.systemTags?.length ?? 0) > 0) && <TagPills tags={story.tags} systemTags={story.systemTags ?? []} context="live" className="mt-1" />}
         </div>
       </div>
     </article>

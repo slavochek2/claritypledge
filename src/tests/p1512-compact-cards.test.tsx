@@ -24,7 +24,13 @@ describe('compact cards', () => {
     const { container } = render(<MemoryRouter>{ui}</MemoryRouter>);
     expect(container.querySelectorAll('a, button, [role="button"], [role="link"]')).toHaveLength(0);
     expect(container).toHaveTextContent(words as string);
-    expect(container.textContent).not.toMatch(/#(clarity|trail)\s*#/);
+    // The words carry no hashtag; the tag shows once, as a pill.
+    const words_el = [...container.querySelectorAll('p')].find((el) => el.textContent?.includes(words as string));
+    expect(words_el?.textContent).not.toMatch(/#(clarity|trail)/);
     expect(container.querySelectorAll('span')).not.toHaveLength(0);
+  });
+  it('a point card shows its system tags too (the picker searches them)', () => {
+    const { container } = render(<MemoryRouter><FeedPointCard point={point} compact /></MemoryRouter>);
+    expect(container).toHaveTextContent('st1');
   });
 });
