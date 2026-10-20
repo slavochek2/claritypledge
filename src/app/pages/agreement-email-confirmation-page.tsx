@@ -13,8 +13,8 @@
 
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useGoBack } from '@/app/hooks/use-go-back';
-import { MailIcon, RefreshCwIcon, CheckCircle2Icon, ArrowLeft } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { MailIcon, RefreshCwIcon, CheckCircle2Icon } from 'lucide-react';
 import { requestAgreementSignIn } from '@/lib/agreement-signin';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 
@@ -32,7 +32,6 @@ export function AgreementEmailConfirmationPage() {
   const navigate = useNavigate();
   const state = location.state as ConfirmationState | null;
   // P1364: back to where the reader came from; a cold arrival goes to the agreement.
-  const goBack = useGoBack(state?.agreementId ? `/agreements/${state.agreementId}` : '/');
 
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -85,14 +84,8 @@ export function AgreementEmailConfirmationPage() {
 
   return (
     <main className="container mx-auto px-4 py-8 max-w-2xl">
-      <button
-        onClick={goBack}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-11 px-1"
-        aria-label="Go back"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+      {/* P1512: Back renders in the shell's top bar; P1364: it returns to where the person came from. */}
+      <FocusHeader fallback={state?.agreementId ? `/agreements/${state.agreementId}` : '/'} />
 
       <div className="text-center">
         <div className="mb-8 flex justify-center">

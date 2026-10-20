@@ -43,10 +43,13 @@ vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
 }));
 
 import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';
+import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
+import { EventLinksMenu } from '@/app/components/layout/event-links-menu';
 import { HomeRedirect, HomeRoute } from '@/app/routes/home-redirect';
 import { PENDING_TIMEOUT_MS } from '@/app/routes/home-readiness';
+import { setNavVerifiedHint } from '@/lib/nav-verified-hint';
 import { isShellEntryActive } from '@/app/components/layout/app-shell/shell-nav';
-import { PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
+import { AUDIENCE_LINKS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 
 const signedIn = {
   session: { user: { id: 'u1' } },
@@ -84,13 +87,13 @@ beforeEach(() => {
 });
 
 describe('P1512 shell — signed-in desktop sidebar', () => {
-  it('lists exactly Home, Feed, Groups, Letters, Events, Partners, Tools, My Profile and no Search', () => {
+  it('lists exactly Home, Feed, Groups, Letters, Events, Partners, My Profile and no Search (Tools is an icon at the bottom)', () => {
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
     expect(bar).not.toBeNull();
     const menu = within(bar).getByRole('list', { name: 'Menu' });
     const labels = Array.from(menu.querySelectorAll('li')).map(li => li.textContent?.trim());
-    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'Tools', 'My Profile']);
+    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile']);
     expect(within(bar).queryByText(/search/i)).toBeNull();
   });
 
@@ -122,11 +125,20 @@ describe('P1512 shell — signed-in desktop sidebar', () => {
     expect(bar.getByRole('link', { name: 'Partners, 2 pending invitations' }).querySelector('[data-badge]')!.textContent).toBe('2');
   });
 
-  it('opens the same Tools menu the top nav opened (one event-links trigger on desktop)', () => {
+  it('opens the same Tools menu the top nav opened: one grid icon button (tooltip "Tools", 40px) beside the account row, not in the list', () => {
     const { container } = renderLayout('/feed');
-    const tools = within(sidebar(container)!).getByTestId('event-links-button');
-    expect(tools).toHaveTextContent('Tools');
+    const bar = within(sidebar(container)!);
+    const tools = bar.getByTestId('event-links-button');
     expect(screen.getAllByTestId('event-links-button')).toHaveLength(1);
+    // Icon button: its name is "Tools", the tooltip is the native title, and it is a 40px target.
+    expect(tools).toHaveTextContent('Tools');
+    expect(tools).toHaveAttribute('title', 'Tools');
+    expect(tools.className).toContain('h-10');
+    expect(tools.className).toContain('w-10');
+    // Not a row in the menu list; it sits in the bottom block, in the same row as the account button.
+    expect(bar.getByRole('list', { name: 'Menu' })).not.toContainElement(tools);
+    const account = bar.getByRole('button', { name: 'Menu' });
+    expect(tools.parentElement).toBe(account.closest('div')?.parentElement);
   });
 
   it('keeps the avatar menu at the bottom', () => {
@@ -159,8 +171,8 @@ describe('P1512 shell — one navigation per route', () => {
     expect(topNav(container)).toBeNull();
   });
 
-  it('signed in on a public-surface route: the same shell, no top nav', () => {
-    const { container } = renderLayout('/about', { surface: 'public' });
+  it('signed in on a public-surface route that is not the marketing site (terms): the same shell, no top nav', () => {
+    const { container } = renderLayout('/terms-of-service', { surface: 'public' });
     expect(sidebar(container)).not.toBeNull();
     expect(topNav(container)).toBeNull();
   });
@@ -204,12 +216,25 @@ describe('P1512 shell — one navigation per route', () => {
     expect(container.querySelector('.lg\\:hidden > [data-nav="main"]')).toBeNull();
   });
 
-  it('phone: a focus page that hides the bottom bar keeps the slim top bar below lg, sidebar above', () => {
+  it('phone: a focus page that hides the bottom bar gets the shell top bar and NO logo top nav (one bar, not two)', () => {
     const { container } = renderLayout('/create');
     expect(container.querySelector('[data-nav="bottom"]')).toBeNull();
-    expect(container.querySelector('.lg\\:hidden > [data-nav="main"]')).not.toBeNull();
+    // The shell top bar (in <main>) is the only top chrome: no fixed logo nav, on any width.
+    expect(container.querySelector('[data-nav="main"]')).toBeNull();
+    expect(container.querySelector('.lg\\:hidden > [data-nav="main"]')).toBeNull();
+    expect(container.querySelector('main [data-shell-top-bar]')).not.toBeNull();
     expect(sidebar(container)).not.toBeNull();
-    expect(container.querySelector('[data-shell-top-nav]')?.getAttribute('data-shell-top-nav')).toBe('phone');
+    // Nothing sits under a fixed nav, so offsets that hard-code the old nav height drop to the edge.
+    expect(container.querySelector('[data-shell-top-nav]')?.getAttribute('data-shell-top-nav')).toBe('none');
+    // <main> only clears the status-bar inset: no 4rem for a nav that is not there.
+    expect(container.querySelector('main')!.className).toContain('pt-[env(safe-area-inset-top)]');
+    expect(container.querySelector('main')!.className).not.toContain('4rem');
+  });
+
+  it('the shell top bar is on a browse page too, and not on Home (chat draws its own header)', () => {
+    expect(renderLayout('/feed').container.querySelector('main [data-shell-top-bar]')).not.toBeNull();
+    const home = renderLayout('/home').container;
+    expect(home.querySelector('[data-shell-top-bar]')).toBeNull();
   });
 
   it('tells the page how much nav chrome the phone has (for offset overrides)', () => {
@@ -219,7 +244,7 @@ describe('P1512 shell — one navigation per route', () => {
 });
 
 describe('P1512 shell — collapse', () => {
-  it('collapsed shows only the logo-as-expand control, no entries', () => {
+  it('collapsed shows the logo-as-expand control and the Tools icon, no entries', () => {
     localStorage.setItem(SIDEBAR_KEY, '1');
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
@@ -229,7 +254,11 @@ describe('P1512 shell — collapse', () => {
     expect(expand).toHaveAttribute('aria-expanded', 'false');
     // The logo is what shows; hover swaps it for the expand icon (both live in the one button).
     expect(expand.querySelector('svg.hidden')).not.toBeNull();
-    expect(bar.querySelectorAll('button')).toHaveLength(1);
+    // Tools still works collapsed: the only other control, at the bottom.
+    const buttons = Array.from(bar.querySelectorAll('button'));
+    expect(buttons).toHaveLength(2);
+    expect(buttons[1]).toBe(within(bar).getByTestId('event-links-button'));
+    expect(buttons[1]).toHaveAttribute('title', 'Tools');
   });
 
   it('expanded shows a collapse control; collapsing then expanding persists on this device', () => {
@@ -262,11 +291,11 @@ describe('P1512 shell — collapse', () => {
 });
 
 describe('P1512 shell — phone bottom bar', () => {
-  it('has Home, Feed, Groups, Letters and Me', () => {
+  it('has Home, Feed, Groups, Letters and You', () => {
     const { container } = renderLayout('/feed');
     const bar = container.querySelector('[data-nav="bottom"]') as HTMLElement;
     const labels = Array.from(bar.querySelectorAll('a, button')).map(el => el.querySelector('span.text-xs')?.textContent);
-    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Me']);
+    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'You']);
   });
 
   it('shows the Letters badge on the tab', () => {
@@ -276,12 +305,47 @@ describe('P1512 shell — phone bottom bar', () => {
     expect(bar.getByRole('link', { name: 'Letters, 7 unread' }).querySelector('[data-badge]')!.textContent).toBe('7');
   });
 
-  it('Me opens a sheet with My Profile, Partners (badge), Tools, Settings, Log Out and Events', () => {
+  it('the last tab is labelled You (aria "You", plus the Partners badge text), keeps its test id, and is a button that opens the sheet', () => {
+    mockPartnerCount.mockReturnValue({ count: 3, loading: false });
+    const { container } = renderLayout('/feed');
+    const tab = screen.getByTestId('bottom-nav-me');
+    expect(tab.querySelector('span.text-xs')?.textContent).toBe('You');
+    expect(tab).toHaveAttribute('aria-label', 'You, 3 pending invitations');
+    expect(tab.querySelector('[data-badge]')?.textContent).toBe('3');
+    expect(container.querySelector('[data-nav="bottom"]')!.textContent).not.toMatch(/\bMe\b/);
+  });
+
+  it('the You tab draws the avatar at the same box as the other tabs\' icons, with a thin ring for a pledger and the same active treatment', () => {
+    mockUseAuth.mockReturnValue({ ...signedIn, user: { ...signedIn.user, hasPledged: true } });
+    const { container } = renderLayout('/feed');
+    const bar = container.querySelector('[data-nav="bottom"]') as HTMLElement;
+    const otherIcon = bar.querySelector('a svg') as SVGElement;
+    const avatar = screen.getByTestId('bottom-nav-me').querySelector('[data-testid="gravatar-avatar"]') as HTMLElement;
+    // One box: the icons are w-5 h-5; the avatar is forced to the very same box.
+    expect(otherIcon.getAttribute('class')).toMatch(/\bw-5\b/);
+    expect(avatar.className).toContain('!w-5');
+    expect(avatar.className).toContain('!h-5');
+    // A pledger keeps a ring, but a thin one drawn flush (no offset gap that makes the tab look oversized).
+    expect(avatar.getAttribute('data-pledger')).toBe('true');
+    expect(avatar.className).toContain('!ring-1');
+    expect(avatar.className).toContain('!ring-offset-0');
+    // Same inactive treatment as the other tabs.
+    const feedTab = bar.querySelector('a[href="/feed"]') as HTMLElement;
+    expect(feedTab.className).toContain('text-blue-600');
+    expect(screen.getByTestId('bottom-nav-me').className).toContain('text-muted-foreground');
+  });
+
+  it('the You tab is lit on the profile page, like the other tabs when active', () => {
+    renderLayout('/p/ada');
+    expect(screen.getByTestId('bottom-nav-me').className).toContain('text-blue-600');
+  });
+
+  it('You opens a sheet with My Profile, Partners (badge), Tools, Settings, Log Out and Events', () => {
     mockPartnerCount.mockReturnValue({ count: 1, loading: false });
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = within(screen.getByTestId('me-sheet'));
-    expect(sheet.getByRole('link', { name: /^my profile$/i })).toHaveAttribute('href', '/p/ada');
+    expect(sheet.getByRole('link', { name: 'My Profile' })).toHaveAttribute('href', '/p/ada');
     expect(sheet.getByRole('link', { name: 'Partners, 1 pending invitation' })).toHaveAttribute('href', '/p/ada/partners');
     expect(sheet.getByTestId('event-links-button')).toHaveTextContent('Tools');
     expect(sheet.getByRole('link', { name: /^events$/i })).toHaveAttribute('href', '/events/list');
@@ -306,6 +370,274 @@ describe('P1512 shell — phone bottom bar', () => {
   it('keeps focus-route hiding: no bottom bar on /create', () => {
     const { container } = renderLayout('/create');
     expect(container.querySelector('[data-nav="bottom"]')).toBeNull();
+  });
+});
+
+describe('P1512 shell — menus do not repeat the nav beside them', () => {
+  const hrefs = (el: HTMLElement) => Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href'));
+
+  it('the phone Me sheet leaves out Feed and Groups (in the bottom bar) and keeps Events, which the bar lacks', () => {
+    renderLayout('/feed');
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const sheet = within(screen.getByTestId('me-sheet'));
+    expect(sheet.queryByRole('link', { name: /^feed$/i })).toBeNull();
+    expect(sheet.queryByRole('link', { name: /^groups$/i })).toBeNull();
+    expect(sheet.getByRole('link', { name: /^events$/i })).toHaveAttribute('href', '/events/list');
+  });
+
+  it('the Me sheet has no Use cases or Learn group and no Pledgers; one "ClarityPledge website" row stands for them', () => {
+    renderLayout('/feed');
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const sheet = within(screen.getByTestId('me-sheet'));
+    expect(sheet.queryByText('Use cases')).toBeNull();
+    expect(sheet.queryByText('Learn')).toBeNull();
+    for (const link of AUDIENCE_LINKS) expect(sheet.queryByRole('link', { name: link.label })).toBeNull();
+    for (const name of [/^manifesto$/i, /^about$/i, /^pledgers$/i, /^blog$/i]) expect(sheet.queryByRole('link', { name })).toBeNull();
+    const website = sheet.getAllByRole('link', { name: 'ClarityPledge website' });
+    expect(website).toHaveLength(1);
+    expect(website[0]).toHaveAttribute('href', '/builders');
+    expect(website[0]!.querySelector('svg')!.getAttribute('class')).toContain('h-5');
+  });
+
+  it('the Me sheet draws no public group headings: Events is a plain row after Tools, the website row sits directly above the account block', async () => {
+    renderLayout('/feed');
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const sheet = screen.getByTestId('me-sheet');
+    for (const heading of ['Product', 'Use cases', 'Learn', 'Your account']) expect(within(sheet).queryByText(heading)).toBeNull();
+    const rows = Array.from(sheet.querySelectorAll('nav[aria-label="Account"] a, nav[aria-label="Account"] button')).filter(el => !el.hasAttribute('data-badge'));
+    const names = rows.map(el => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim());
+    expect(names).toEqual(['My Profile', 'Partners', 'Tools', 'Events', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
+  });
+
+  it('the Me sheet derives what it omits from the bottom bar: no destination appears in both', () => {
+    const { container } = renderLayout('/feed');
+    const bar = container.querySelector('[data-nav="bottom"]') as HTMLElement;
+    const inBar = hrefs(bar).filter((h): h is string => !!h);
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const inSheet = hrefs(screen.getByTestId('me-sheet'));
+    expect(inBar.length).toBeGreaterThan(3);
+    for (const h of inBar) expect(inSheet, `${h} is in the bar and the sheet`).not.toContain(h);
+  });
+
+  it('the sheet has no name/avatar row: My Profile is a normal first row with the same person icon as the sidebar', () => {
+    const { container } = renderLayout('/feed');
+    const sidebarIcon = within(sidebar(container) as HTMLElement).getByRole('link', { name: 'My Profile' }).querySelector('svg')!;
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const sheetEl = screen.getByTestId('me-sheet');
+    const sheet = within(sheetEl);
+    const links = sheet.getAllByRole('link').filter(a => a.getAttribute('href') === '/p/ada');
+    expect(links).toHaveLength(1);
+    const row = links[0] as HTMLElement;
+    expect(row).toHaveTextContent(/^My Profile$/);
+    expect(row).toHaveAccessibleName('My Profile');
+    // The person's name and avatar are not drawn in the sheet at all.
+    expect(sheet.queryByText('Ada')).toBeNull();
+    expect(sheetEl.querySelector('[data-testid="gravatar-avatar"]')).toBeNull();
+    // Same icon as the desktop sidebar (UserIcon), at the sheet's one icon size.
+    const icon = row.querySelector('svg')!;
+    expect(icon.getAttribute('class')).toContain('lucide-user');
+    expect(sidebarIcon.getAttribute('class')).toContain('lucide-user');
+    expect(icon.getAttribute('class')).toContain('h-5');
+    // And it is the FIRST row.
+    const first = sheetEl.querySelector('nav[aria-label="Account"] a, nav[aria-label="Account"] button');
+    expect(first).toBe(row);
+  });
+
+  it('the My Profile row keeps the active styling and aria-current on the profile page', () => {
+    renderLayout('/p/ada');
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    const row = within(screen.getByTestId('me-sheet')).getByRole('link', { name: 'My Profile' });
+    expect(row).toHaveAttribute('aria-current', 'page');
+    expect(row.className).toContain('bg-blue-50');
+    expect(row.className).toContain('text-blue-700');
+  });
+
+  it('closing the sheet happens when the My Profile row is followed', () => {
+    renderLayout('/feed');
+    fireEvent.click(screen.getByTestId('bottom-nav-me'));
+    fireEvent.click(within(screen.getByTestId('me-sheet')).getByRole('link', { name: 'My Profile' }));
+    expect(screen.queryByTestId('me-sheet')).toBeNull();
+  });
+
+  it('the desktop avatar menu leaves out Feed, Groups and Events (all in the sidebar) and keeps the rest', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
+    const menu = within(await screen.findByRole('menu'));
+    expect(menu.queryByRole('menuitem', { name: /^feed$/i })).toBeNull();
+    expect(menu.queryByRole('menuitem', { name: /^groups$/i })).toBeNull();
+    expect(menu.queryByRole('menuitem', { name: /^events$/i })).toBeNull();
+    expect(menu.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+    expect(menu.getByRole('menuitem', { name: /log out/i })).toBeInTheDocument();
+    // No public group heading survives on desktop.
+    for (const group of PUBLIC_NAV_GROUPS) expect(menu.queryByText(group.label)).toBeNull();
+  });
+
+  it('the desktop avatar menu lists the website row first, directly above the "Your account" group', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
+    const menu = await screen.findByRole('menu');
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"]')).map(el => el.textContent?.trim());
+    expect(items).toEqual(['ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
+    const website = within(menu).getByRole('menuitem', { name: 'ClarityPledge website' });
+    const account = within(menu).getByText('Your account');
+    expect(website.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('the desktop avatar menu has no Use cases or Learn group and no Pledgers; one "ClarityPledge website" row stands for them', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
+    const menu = within(await screen.findByRole('menu'));
+    expect(menu.queryByText('Use cases')).toBeNull();
+    expect(menu.queryByText('Learn')).toBeNull();
+    for (const link of AUDIENCE_LINKS) expect(menu.queryByRole('menuitem', { name: link.label })).toBeNull();
+    for (const name of [/^manifesto$/i, /^about$/i, /^pledgers$/i, /^blog$/i]) expect(menu.queryByRole('menuitem', { name })).toBeNull();
+    const website = menu.getAllByRole('menuitem', { name: 'ClarityPledge website' });
+    expect(website).toHaveLength(1);
+    expect(website[0]).toHaveAttribute('href', '/builders');
+  });
+
+  it('every destination the sidebar lists is missing from its avatar menu', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    const inSidebar = hrefs(sidebar(container) as HTMLElement).filter((h): h is string => !!h);
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
+    const inMenu = hrefs(await screen.findByRole('menu'));
+    for (const h of inSidebar) expect(inMenu, `${h} is in the sidebar and the avatar menu`).not.toContain(h);
+  });
+
+  it('signed out, the public menu is exactly as before: Use cases and every other group, headings included', async () => {
+    mockUseAuth.mockReturnValue(signedOut);
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    const nav = container.querySelector('[data-nav="main"]') as HTMLElement;
+    await user.click(within(nav).getAllByRole('button', { name: /menu/i })[0] as HTMLElement);
+    const menu = within(await screen.findByRole('menu'));
+    for (const group of PUBLIC_NAV_GROUPS) {
+      expect(menu.getByText(group.label)).toBeInTheDocument();
+      for (const item of group.items) expect(menu.getByRole('menuitem', { name: item.label }), `${item.label}`).toBeInTheDocument();
+    }
+  });
+});
+
+describe('P1512 — the public website, signed in', () => {
+  const SITE = ['/builders', '/hiring', '/coach', '/hospitals', '/founder', '/manifesto', '/about', '/pledgers'];
+
+  it.each(SITE)('%s signed in: the public top nav with Open app and Log out, no sidebar, no bottom bar', (path) => {
+    const { container } = renderLayout(path, { surface: 'public' });
+    expect(topNav(container)).not.toBeNull();
+    expect(sidebar(container)).toBeNull();
+    expect(container.querySelector('[data-nav="bottom"]')).toBeNull();
+    const nav = within(topNav(container) as HTMLElement);
+    // One per breakpoint group (desktop row, phone bar); CSS shows exactly one.
+    const openApp = nav.getAllByRole('link', { name: 'Open app' });
+    expect(openApp).toHaveLength(2);
+    for (const link of openApp) expect(link).toHaveAttribute('href', '/home');
+    expect(nav.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: /^log in$/i })).toBeNull();
+    expect(nav.queryByRole('link', { name: /create account/i })).toBeNull();
+    expect(nav.queryByRole('link', { name: /discovery call/i })).toBeNull();
+    // The app nav is not drawn on the website.
+    expect(nav.queryByRole('link', { name: /^letters$/i })).toBeNull();
+    expect(nav.queryByRole('link', { name: /my profile/i })).toBeNull();
+    // Content is not pushed right by a sidebar column.
+    expect(container.firstElementChild!.className).not.toContain('lg:pl-');
+  });
+
+  it('Open app is the only primary (blue) action in the signed-in public nav', () => {
+    const { container } = renderLayout('/about', { surface: 'public' });
+    const blue = Array.from((topNav(container) as HTMLElement).querySelectorAll('a, button')).filter(el => el.className.includes('bg-blue'));
+    expect(blue.map(el => el.textContent?.trim())).toEqual(['Open app', 'Open app']);
+  });
+
+  it('Log out signs out and goes to the site root', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/about', { surface: 'public' });
+    await user.click(within(topNav(container) as HTMLElement).getByRole('button', { name: 'Log out' }));
+    expect(signedIn.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('the public footer returns on the website while signed in (the shell has none)', () => {
+    renderLayout('/about', { surface: 'public' });
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('the phone menu has the public sections and a Log out, and no app account block', async () => {
+    const user = userEvent.setup();
+    const { container } = renderLayout('/about', { surface: 'public' });
+    const nav = within(topNav(container) as HTMLElement);
+    await user.click(nav.getAllByRole('button', { name: 'Open menu' })[0] as HTMLElement);
+    const panel = within(document.getElementById('mobile-navigation-menu') as HTMLElement);
+    expect(panel.getByText('Use cases')).toBeInTheDocument();
+    expect(panel.getByText('Learn')).toBeInTheDocument();
+    expect(panel.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+    expect(panel.queryByRole('link', { name: /session history/i })).toBeNull();
+    expect(panel.queryByText('Your account')).toBeNull();
+  });
+
+  it('the phone menu Log out closes the menu (like every other row) and signs out once', async () => {
+    const user = userEvent.setup();
+    // A sign-out that has not resolved yet: the menu must already be closed.
+    signedIn.signOut.mockReturnValueOnce(new Promise(() => {}));
+    const { container } = renderLayout('/about', { surface: 'public' });
+    const nav = within(topNav(container) as HTMLElement);
+    await user.click(nav.getAllByRole('button', { name: 'Open menu' })[0] as HTMLElement);
+    const panel = within(document.getElementById('mobile-navigation-menu') as HTMLElement);
+    await user.click(panel.getByRole('button', { name: 'Log out' }));
+    expect(signedIn.signOut).toHaveBeenCalledTimes(1);
+    expect(document.getElementById('mobile-navigation-menu')).toBeNull();
+  });
+
+  it('if the profile goes pending while the phone menu is open, Log out is disabled there as on desktop', async () => {
+    const user = userEvent.setup();
+    // The nav alone (the layout remounts it on an auth reload, which would close the menu anyway).
+    const tree = () => (
+      <MemoryRouter initialEntries={['/about']}>
+        <EventLinksMenu enabled>
+          <SimpleNavigation publicSite />
+        </EventLinksMenu>
+      </MemoryRouter>
+    );
+    const { container, rerender } = render(tree());
+    const nav = within(topNav(container) as HTMLElement);
+    await user.click(nav.getAllByRole('button', { name: 'Open menu' })[0] as HTMLElement);
+    expect(within(document.getElementById('mobile-navigation-menu') as HTMLElement).getByRole('button', { name: 'Log out' })).toBeEnabled();
+    // Token refresh: a session, its profile in flight, and this device saw it verified before.
+    setNavVerifiedHint('u1', true);
+    mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: true });
+    rerender(tree());
+    const phoneLogOut = within(document.getElementById('mobile-navigation-menu') as HTMLElement).getByRole('button', { name: 'Log out' });
+    expect(phoneLogOut).toBeDisabled();
+    expect(nav.getAllByRole('button', { name: 'Log out' })[0]).toBeDisabled(); // desktop row agrees
+    await user.click(phoneLogOut);
+    expect(signedIn.signOut).not.toHaveBeenCalled();
+  });
+
+  it('product routes keep the shell (Feed, Groups, Events, Letters, chat)', () => {
+    for (const path of ['/feed', '/groups', '/events/list', '/letters', '/home']) {
+      const { container, unmount } = renderLayout(path);
+      expect(sidebar(container), path).not.toBeNull();
+      expect(topNav(container), path).toBeNull();
+      unmount();
+    }
+  });
+
+  it('signed out: the public pages are unchanged (Log in, the discovery call, no Open app or Log out)', () => {
+    mockUseAuth.mockReturnValue(signedOut);
+    const { container } = renderLayout('/about', { surface: 'public' });
+    const nav = within(topNav(container) as HTMLElement);
+    expect(nav.getByRole('link', { name: /^log in$/i })).toHaveAttribute('href', '/login');
+    expect(nav.getByRole('link', { name: /discovery call/i })).toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: 'Open app' })).toBeNull();
+    expect(nav.queryByRole('button', { name: 'Log out' })).toBeNull();
+    expect(sidebar(container)).toBeNull();
+  });
+
+  it('the sidebar logo still goes to Home', () => {
+    const { container } = renderLayout('/feed');
+    expect(sidebar(container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
   });
 });
 
@@ -400,9 +732,9 @@ describe('P1512 — "/" and "/home" redirects', () => {
 });
 
 describe('P1512 review round 2 — logo and readiness', () => {
-  it('the phone top bar logo goes to Home when signed in (like the sidebar logo), and to "/" when signed out', () => {
+  it('the sidebar logo goes to Home when signed in (the phone focus page has no logo nav any more), and the logo goes to "/" when signed out', () => {
     const inShell = renderLayout('/create');
-    expect(inShell.container.querySelector('.lg\\:hidden > [data-nav="main"] a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
+    expect(inShell.container.querySelector('.lg\\:hidden > [data-nav="main"] a[aria-label="ClarityPledge"]')).toBeNull();
     expect(sidebar(inShell.container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
     inShell.unmount();
     mockUseAuth.mockReturnValue(signedOut);
@@ -495,15 +827,14 @@ describe('P1512 review round 2 — the phone Me sheet and the Tools sheet', () =
     const dialog = await screen.findByRole('dialog', { name: 'Menu' });
     const nav = within(dialog).getByRole('navigation', { name: 'Account' });
     const rows = Array.from(nav.querySelectorAll('a, button')).filter(el => !el.hasAttribute('data-badge'));
-    expect(rows.length).toBeGreaterThan(10);
+    expect(rows.length).toBeGreaterThan(6);
     for (const row of rows) {
       expect(row.className, `${row.textContent} starts at px-2`).toContain('px-2');
       const icon = row.querySelector('svg');
       if (icon) expect(icon.getAttribute('class'), `${row.textContent} icon`).toContain('h-5');
     }
-    const labels = Array.from(nav.querySelectorAll('[id^="nav-group-"], [role="group"] > div')).filter(el => /uppercase/.test(el.className));
-    expect(labels.length).toBeGreaterThan(0);
-    for (const label of labels) expect(label.className).toContain('px-2');
+    // No public group headings are left in the sheet.
+    expect(Array.from(nav.querySelectorAll('[id^="nav-group-"], [role="group"]'))).toHaveLength(0);
   });
 
   it('no two entries in the public nav groups share an icon (for hiring and for coaches differ)', () => {
@@ -529,7 +860,7 @@ describe('P1512 review round 2 — the phone Me sheet and the Tools sheet', () =
     }
   });
 
-  it('the sidebar Tools row shows an open state while its popover is open', async () => {
+  it('the sidebar Tools button shows an open state while its popover is open', async () => {
     const user = userEvent.setup();
     const { container } = renderLayout('/feed');
     const tools = within(sidebar(container) as HTMLElement).getByTestId('event-links-button');

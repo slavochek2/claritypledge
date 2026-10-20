@@ -15,8 +15,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useGoBack } from '@/app/hooks/use-go-back';
-import { ArrowLeft, ChevronDown, Plus, Star } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { ChevronDown, Plus, Star } from 'lucide-react';
 import { SEO } from '@/app/components/seo';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -93,7 +93,6 @@ type TopicsPageProps = {
 
 export function TopicsPage({ embedded = false, returnTo = '/topics', className, id, onVisibleChange }: TopicsPageProps = {}) {
   const { user, isLoading: authLoading } = useAuth();
-  const goBack = useGoBack('/');
   const [showPhoto, setShowPhoto] = useState(true);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   // Taps not yet confirmed by the server, laid OVER fetched data: a refetch that left
@@ -231,6 +230,9 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
         url="/topics"
       />}
 
+      {/* P1512: the same Back as every other focus page, in the shell's top bar. */}
+      {!embedded && <FocusHeader fallback="/" />}
+
       {embedded ? (
         <header className="mb-3">
           <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">Vote for this night's topic</h2>
@@ -329,16 +331,12 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
             ))}
           </ul>
           {!embedded && (<>
-          {/* Pinned bar (no bottom menu on this page): the count, and a way back. */}
+          {/* Pinned bar (no bottom menu on this page): the count. Back is the shell top bar's (FocusHeader below). */}
           <div className="h-40" aria-hidden />
           <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-sheet">
             <p className="text-sm text-muted-foreground" data-testid="topic-count">
               {topics.length} {topics.length === 1 ? 'topic' : 'topics'}
             </p>
-            {/* Same Back as every other focus page. */}
-            <button type="button" onClick={goBack} className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700">
-              <ArrowLeft className="h-4 w-4" aria-hidden /> Back
-            </button>
           </div>
           </>)}
         </>

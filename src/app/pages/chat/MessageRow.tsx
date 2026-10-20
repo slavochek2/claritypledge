@@ -2,25 +2,28 @@
  * @file MessageRow.tsx
  * @description P1512: one message — avatar, name, time, body — with its actions.
  *
- * Actions are reachable four ways, all offering the same list: a hover toolbar (desktop pointers),
- * a tap that shows the toolbar under the message (touch), the ⋯ button on that toolbar, and a
- * right-click or long press that opens the full menu at the pointer.
+ * Actions are reachable four ways: a hover toolbar (desktop pointers), a tap that shows the toolbar
+ * under the message (touch), the ⋯ button on that toolbar, and a right-click or long press that opens
+ * the full list at the pointer. The toolbar carries Reply, Forward, Thread and Clarify; ⋯ holds only
+ * what the toolbar does not (Edit, Delete: your own messages), so nothing is offered twice. Mark as
+ * unread is not here: it marks the whole chat, so it lives on the chat (list row, header menu).
  */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CornerUpRight, Forward, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
+import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
-import { FOCUS_RING, HOVER, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
-import { DESKTOP_HOVER_QUERY, hasFinePointer, useDismiss, useMediaQuery } from './chat-hooks';
+import { FOCUS_RING, HOVER, MirrorMark, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
+import { DESKTOP_HOVER_QUERY, hasFinePointer, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
-import { chatPath, messageSummary, messageTime, sourceLabel } from './chat-view-model';
+import { chatPath, messageSummary, messageTime, mirrorName, sourceLabel } from './chat-view-model';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
 export const LONG_PRESS_MS = 500;
@@ -120,14 +123,15 @@ function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; action
 
 /** "Open original": the source is read when pressed (through the reader's own access), not on every render. */
 function OpenOriginal({ sourceId }: { sourceId: string }) {
-  const navigate = useNavigate();
+  const go = useChatNavigate();
   const [busy, setBusy] = useState(false);
   const open = async () => {
     setBusy(true);
     try {
       const target = await getMessage(sourceId);
       if (target && !target.isDeleted) {
-        navigate(chatPath(target.conversationId, { rootId: target.threadRootId ?? undefined, messageId: target.id }));
+        // On top of where they are, so Back returns here.
+        go(chatPath(target.conversationId, { rootId: target.threadRootId ?? undefined, messageId: target.id }), 'follow');
       } else {
         toast("The original isn't available to you any more.");
       }
@@ -151,9 +155,16 @@ function OpenOriginal({ sourceId }: { sourceId: string }) {
 }
 
 function ForwardedBody({ msg }: { msg: ChatMessage }) {
+  const { chats } = useChat();
+  const { user } = useAuth();
   const snap = msg.forwardSnapshot;
   if (!snap) return null;
   const clarify = msg.kind === 'clarify';
+  const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
+  // The clarifier owns the mirror: their own words read "You". Decided by the original author's id, never by a name
+  // (two people can share one). No id (erased account, or a row without it) means the snapshot's name, which erasure
+  // sets to "Deleted user".
+  const clarifiedAuthor = user?.id && msg.forwardAuthorId === user.id ? 'You' : snap.authorName;
   // An erased author's text is gone from the copy too: say so instead of showing an empty card.
   const removed = snap.body === null && !msg.attachmentKind;
   // ...and there is nowhere to go from a copy whose author was erased or whose text was removed.
@@ -163,7 +174,7 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
       <p className="text-xs font-medium text-muted-foreground" data-testid="forwarded-label">
         {clarify ? (
           <>
-            Clarified from <span className="font-semibold text-foreground">{snap.authorName}</span> in {sourceLabel(snap.conversationKind, snap.conversationTitle)}
+            Sent to {mirror} to clarify · from {sourceLabel(snap.conversationKind, snap.conversationTitle)}
           </>
         ) : (
           <>
@@ -172,6 +183,11 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
         )}
         {removed && <span data-testid="snapshot-removed"> · Message removed</span>}
       </p>
+      {clarify && (
+        <p className="mt-1 text-sm font-semibold text-foreground" data-testid="clarified-author">
+          {clarifiedAuthor}
+        </p>
+      )}
       {snap.body && <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">{snap.body}</p>}
       {snap.thread.length > 0 && (
         <ul aria-label="Thread" className="mt-2 space-y-1.5 border-t pt-2">
@@ -198,6 +214,7 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
 function ToolButton({ label, onClick, children }: { label: string; onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void; children: React.ReactNode }) {
   // Icons only, on purpose: five labelled buttons cannot share one row at 320, and an action bar that wraps
   // looks broken. The name is on the button for assistive tech and the hover tip; the long-press menu has the words.
+  // Clarify is the one labelled button (ClarifyButton): it wears the mirror's face and the word.
   return (
     <button
       type="button"
@@ -211,12 +228,34 @@ function ToolButton({ label, onClick, children }: { label: string; onClick: (e: 
   );
 }
 
+/**
+ * Clarify: the mirror's face and the word. The name and tip say whose mirror ("Clarify with Ada's mirror").
+ * Below 360px the word drops out (face only, still 40px) so the five buttons keep one row at 320.
+ */
+function ClarifyButton({ mirror, onClick }: { mirror: string; onClick: () => void }) {
+  const label = `Clarify with ${mirror}`;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      data-testid="clarify-button"
+      className={cn('flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground hover:bg-accent hover:text-foreground min-[360px]:px-2.5 lg:h-9 lg:px-2', FOCUS_RING)}
+    >
+      <MirrorMark size="xs" />
+      <span className="hidden text-sm font-medium min-[360px]:inline">Clarify</span>
+    </button>
+  );
+}
+
 export function MessageRow({ msg, mine, viewerId, author, authors, compact, highlight, stat, actions, inThread = false }: Props) {
   const local = isLocal(msg) ? msg : null;
   const server: ChatMessage | null = local ? null : msg;
   const live = !!server && !server.isDeleted;
   const [selected, setSelected] = useState(false);
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  // `more` is the ⋯ menu (what the toolbar lacks); otherwise the full list at the pointer.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; more?: boolean } | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -225,6 +264,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
   const pressed = useRef(false);
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
+  const { chats } = useChat();
+  const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
 
   useDismiss(() => setSelected(false), selected, [row]);
   // The inline toolbar goes away when the reader scrolls on (any scroll container, hence capture).
@@ -246,7 +287,10 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
     press.current = null;
   };
 
+  // Every action once. `items` is the full list (right-click, long press); `moreItems` is what the toolbar
+  // does not carry, so the ⋯ menu never repeats a toolbar button.
   const items: MenuItem[] = [];
+  const moreItems: MenuItem[] = [];
   if (server && live) {
     items.push({ key: 'reply', label: 'Reply', Icon: Reply, onSelect: () => actions.onReply(server) });
     if (actions.onThread && !server.threadRootId) {
@@ -258,11 +302,11 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
       const clarify = actions.onClarify;
       items.push({ key: 'clarify', label: 'Clarify', Icon: MessagesSquare, onSelect: () => clarify(server) });
     }
-    items.push({ key: 'unread', label: 'Mark as unread', Icon: MessagesSquare, onSelect: actions.onMarkUnread });
     if (mine) {
-      items.push({ key: 'edit', label: 'Edit', Icon: Pencil, onSelect: () => { setEditError(null); setDraft(server.body ?? ''); } });
-      items.push({ key: 'delete', label: 'Delete', Icon: Trash2, onSelect: () => actions.onDelete(server), danger: true });
+      moreItems.push({ key: 'edit', label: 'Edit', Icon: Pencil, onSelect: () => { setEditError(null); setDraft(server.body ?? ''); } });
+      moreItems.push({ key: 'delete', label: 'Delete', Icon: Trash2, onSelect: () => actions.onDelete(server), danger: true });
     }
+    items.push(...moreItems);
   }
 
   const save = async () => {
@@ -300,29 +344,27 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
           <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
-        {actions.onThread && !server.threadRootId && (
-          <ToolButton label="Reply in thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
-            <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
-          </ToolButton>
-        )}
         <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
           <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
-        {actions.onClarify && (
-          <ToolButton label="Clarify" onClick={() => { setSelected(false); actions.onClarify?.(server); }}>
-            <MessagesSquare className="h-[18px] w-[18px]" aria-hidden="true" />
+        {actions.onThread && !server.threadRootId && (
+          <ToolButton label="Thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
+            <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        <ToolButton
-          label="More actions"
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect();
-            setSelected(false);
-            setMenuAt({ x: r.right - 208, y: r.bottom + 4 });
-          }}
-        >
-          <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
-        </ToolButton>
+        {actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
+        {moreItems.length > 0 && (
+          <ToolButton
+            label="More actions"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setSelected(false);
+              setMenuAt({ x: r.right - 208, y: r.bottom + 4, more: true });
+            }}
+          >
+            <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
+          </ToolButton>
+        )}
       </div>
     ) : null;
 
@@ -333,7 +375,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
 
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
-      {/* Right-click and long press are pointer shortcuts only: every item they offer is also on the keyboard-reachable toolbar. */}
+      {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         data-selected={selected || undefined}
@@ -495,7 +537,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         </div>
         {!selected && toolbar}
       </div>
-      {menuAt && <PopMenu at={menuAt} items={items} label="Message menu" onClose={() => setMenuAt(null)} />}
+      {menuAt && <PopMenu at={menuAt} items={menuAt.more ? moreItems : items} label="Message menu" onClose={() => setMenuAt(null)} />}
     </li>
   );
 }

@@ -4,9 +4,16 @@
  * Route: /agreements/:id/declined
  */
 
+import { FocusHeader } from '@/app/components/layout/focus-header';
+
 export function DeclinedAgreementPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col px-4">
+      {/* P1512: this page hides the phone bottom bar, so it keeps a Back (the shell top bar when signed in). */}
+      <div className="pt-4 empty:hidden">
+        <FocusHeader fallback="/feed" />
+      </div>
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-6">
           <span className="text-2xl text-muted-foreground" aria-hidden="true">—</span>
@@ -28,6 +35,7 @@ export function DeclinedAgreementPage() {
         >
           What is ClarityPledge?
         </a>
+      </div>
       </div>
     </div>
   );

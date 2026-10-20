@@ -13,10 +13,10 @@
  * 254) — so a second seeded org needs no routing change. `champions` was seeded here
  * originally and cut before it reached prod (founder decision, 2026-07-29).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeftIcon, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
@@ -30,6 +30,10 @@ import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization, OrgMember, OrgParticipation, OrgRole } from "@/app/data/organizations-service.interface";
 import { safeLinkHref } from "@/app/prototypes/events/location-utils";
 import { URL_RUN, splitTrailingPunctuation } from "@/lib/linkify";
+import { ChatContext } from "@/app/pages/chat/chat-state";
+import { groupChatPath } from "@/app/pages/chat/chat-view-model";
+import { PageFrame } from "@/app/components/layout/page-header";
+import { FocusHeader } from "@/app/components/layout/focus-header";
 
 type OrgTab = "about" | "members" | "events";
 
@@ -235,6 +239,41 @@ export function OrgPage() {
     navigate(from ? `${joinPath}?from=${encodeURIComponent(from)}` : joinPath);
   }, [navigate, location.pathname, location.search]);
 
+  // P1512: the group's General chat, from the chat list the shell already holds (no extra request).
+  // Not in the list yet (still loading): Home, where it will appear.
+  // Right after joining, the channel is not in the in-memory list yet: read the list again before giving up.
+  const chatContext = useContext(ChatContext);
+  const chats = chatContext?.chats;
+  const refreshChats = chatContext?.refresh;
+  const [openingChat, setOpeningChat] = useState(false);
+  // The refresh can resolve after the person has moved on (another page, or another group on this same
+  // component). Redirect only if this page is still mounted AND still on the location the tap started from.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+  const locationKeyRef = useRef(location.key);
+  locationKeyRef.current = location.key;
+  const handleOpenChat = useCallback(async () => {
+    if (!org || openingChat) return;
+    const known = groupChatPath(chats ?? [], org.id);
+    if (known !== "/home" || !refreshChats) {
+      navigate(known);
+      return;
+    }
+    const startedAt = locationKeyRef.current;
+    setOpeningChat(true);
+    try {
+      const refreshed = (await refreshChats()) ?? [];
+      if (mountedRef.current && locationKeyRef.current === startedAt) {
+        navigate(groupChatPath(refreshed, org.id));
+      }
+    } finally {
+      if (mountedRef.current) setOpeningChat(false);
+    }
+  }, [navigate, org, chats, refreshChats, openingChat]);
+
   const handleLeave = useCallback(async () => {
     if (!org) return;
     try {
@@ -320,23 +359,14 @@ export function OrgPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8">
+    <div className="min-h-screen">
       <SEO title={org.name} description={org.blurb ?? `The ${org.name} community on Clarity Pledge.`} url={`/groups/${org.slug}`} />
-      <div className="container mx-auto max-w-5xl space-y-8">
-        {/* P1204: P1193's own rename scope named this and never built it. Small
-            inline link, not FocusHeader — this stays a Browse page (BottomNav
-            visible, like /p/:slug), not a Focus page (docs/ux-patterns.md).
-            Grey, not blue: matches the dominant back-link idiom elsewhere in
-            the app (FocusHeader, agreement/badge/story back links all use
-            text-muted-foreground) — blue is reserved for "you can click
-            this to act", and a back link is navigation, not an action. */}
-        <Link
-          to="/groups"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-          Back to groups
-        </Link>
+      {/* P1512: same content edge as every framed page (shell and public nav alike). */}
+      <PageFrame className="space-y-8">
+        {/* P1204 / P1512: Back to the parent. FocusHeader, not a fixed link to /groups: it returns to where
+            the reader came from (chat -> group -> Back is chat) and only a cold arrival goes to /groups. Inside
+            the shell it renders in the top bar, so it sits where every other page's Back sits. */}
+        <FocusHeader fallback="/groups" parentName="Groups" />
 
         {showJustJoinedBanner && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -360,6 +390,7 @@ export function OrgPage() {
           organizerCount={organizerCount}
           onJoin={handleJoin}
           onLeave={handleLeave}
+          onOpenChat={chatContext ? handleOpenChat : undefined}
           onShowMembers={() => setActiveTab("members")}
           participation={participation}
           currentUserId={userId}
@@ -419,7 +450,7 @@ export function OrgPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </PageFrame>
     </div>
   );
 }

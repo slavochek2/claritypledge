@@ -8,6 +8,7 @@
  * Access: Public (all users with confirmed emails)
  */
 import { useEffect, useState, useRef, useMemo, useCallback, useId } from "react";
+import { FocusHeader } from "@/app/components/layout/focus-header";
 import { useParams, Link, useNavigate, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
 import {
   listReturnCacheGeneration,
@@ -28,7 +29,6 @@ import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
 import {
   MailIcon,
-  ArrowLeft,
   Ear,
   Globe,
   ExternalLink,
@@ -956,15 +956,11 @@ export function ProfilePageV2() {
       />
       <div className="relative max-w-4xl mx-auto pb-20">
         {/* Main profile content - centered */}
-        <div className="max-w-2xl mx-auto px-4 mt-3">
-          {/* Back button - P114: uses history if from same site, fallback to /events */}
-          <button
-            onClick={() => navigate('/events')}
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </button>
+        <div className="max-w-2xl mx-auto px-4 mt-4 lg:mt-8">
+          {/* P1512: Back sits in the shell's top bar (FocusHeader portals there). Your own profile is a
+              top-level destination (sidebar: My Profile), so it has none. P1364: it returns to where the
+              reader came from; only a cold arrival goes to the fallback. */}
+          {!isOwner && <FocusHeader fallback="/events" />}
 
           {/* P510: Profile header card — banner + avatar overlap + name beside avatar */}
           <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">

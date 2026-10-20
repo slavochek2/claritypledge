@@ -21,10 +21,112 @@ export const isChannel = (c: Pick<ChatSummary, 'kind'>) => c.kind === 'group' ||
 // Routes: /home, /home/c/:conversationId, /home/c/:conversationId/t/:rootId
 // ---------------------------------------------------------------------------
 export const HOME = '/home';
+/** Where "Invite a Clarity Partner" goes (the new-message picker, the list's empty hint). */
+export const INVITE_PARTNER_PATH = '/agreements/new/create';
 export const chatPath = (conversationId: string, opts: { rootId?: string; messageId?: string } = {}) => {
   const base = `${HOME}/c/${conversationId}${opts.rootId ? `/t/${opts.rootId}` : ''}`;
   return opts.messageId ? `${base}?m=${opts.messageId}` : base;
 };
+
+// ---------------------------------------------------------------------------
+// History: what each entry knows about the entries below it
+// ---------------------------------------------------------------------------
+//
+// Every chat-area entry carries `below`: what the entries directly under it are, nearest first.
+//   'list' the chat list;  'conv' a chat or thread that is a real way back (a thread's own chat, the chat a
+//   Clarify came from);  'from' where a link took the person into ANOTHER chat's thread: a way back for the chat
+//   that thread's Back lands on, never for the thread itself;  'skip' an entry left behind by a swap, never a way back.
+// It is derived from the ACTUAL predecessor when an entry is created (chatNav), never inherited blindly, so:
+//   Back (backPlan)   pops to the nearest real way back, else replaces with the parent;
+//   Leave (leavePlan) pops to the list, else clears the conversation entries it can see, so no chat is left behind.
+// react-router cannot read the entries below, so this is the only place the answer can live.
+
+export type NavLevel = 'list' | 'conv' | 'from' | 'skip';
+export interface ChatNavState {
+  below: NavLevel[];
+}
+type RouteLevel = 'list' | 'chat' | 'thread';
+
+/** What a chat-area path is: the list, a chat (the mirror included), a thread; null anywhere else. */
+export function routeLevel(pathname: string): RouteLevel | null {
+  if (pathname === HOME || pathname === `${HOME}/`) return 'list';
+  const r = parseChatRoute(pathname);
+  if (!r.conversationId) return null;
+  return r.rootId ? 'thread' : 'chat';
+}
+
+const belowOf = (state: unknown): NavLevel[] => {
+  const below = (state as ChatNavState | null)?.below;
+  return Array.isArray(below) ? below : [];
+};
+/** Entries that were ways back for what sat on top of them are not for what replaces it. */
+const stale = (below: NavLevel[]): NavLevel[] => below.map((l) => (l === 'conv' || l === 'from' ? 'skip' : l));
+
+/** 'open' a list or switch move; 'redirect' swaps a chat for its own thread (a search hit); 'follow' goes from here to somewhere else and wants Back to return (Clarify, a link to an original). */
+export type NavIntent = 'open' | 'redirect' | 'follow';
+export interface NavPlan {
+  mode: 'push' | 'replace' | 'none';
+  state: ChatNavState | undefined;
+}
+
+/**
+ * The one rule for moving inside Home. `from` is the entry the person is on; `to` the path they go to (a search
+ * string is ignored). A list pick pushes. Opening a thread on its chat pushes. Everything else inside Home swaps the
+ * entry in place, keeping the slot's own predecessors, so history never piles up chats nobody can go back to.
+ */
+export function chatNav(from: { pathname: string; state: unknown }, to: string, intent: NavIntent = 'open'): NavPlan {
+  const toPath = to.split('?')[0] ?? to;
+  const below = belowOf(from.state);
+  // Already there: nothing to do, unless the address adds a message to scroll to (?m=): same entry, new address.
+  if (from.pathname === toPath) return to.includes('?') ? { mode: 'replace', state: { below } } : { mode: 'none', state: undefined };
+  const fl = routeLevel(from.pathname);
+  const tl = routeLevel(toPath);
+  const sameConv = !!parseChatRoute(from.pathname).conversationId && parseChatRoute(from.pathname).conversationId === parseChatRoute(toPath).conversationId;
+  if (intent === 'follow') {
+    if (fl === 'chat' || fl === 'thread') return { mode: 'push', state: { below: [tl === 'thread' && !(fl === 'chat' && sameConv) ? 'from' : 'conv', ...below] } };
+    return { mode: 'push', state: { below: fl === 'list' ? ['list'] : [] } };
+  }
+  if (intent === 'redirect') return { mode: 'replace', state: { below: stale(below) } };
+  if (fl === 'list') return { mode: 'push', state: { below: ['list'] } };
+  if (fl === 'chat' && tl === 'thread' && sameConv) return { mode: 'push', state: { below: ['conv', ...below] } };
+  if (fl === 'thread' && tl === 'thread' && sameConv) return { mode: 'replace', state: { below } };
+  if (fl === null) return { mode: 'push', state: { below: [] } };
+  return { mode: 'replace', state: { below: stale(below) } };
+}
+
+export type BackStep = { kind: 'pop'; steps: number } | { kind: 'replace'; to: string; state: ChatNavState | undefined };
+
+/**
+ * Back: a thread pops only when ITS OWN chat is directly below it; otherwise (whatever else is below) it replaces
+ * itself with that chat. A chat pops to the nearest real way back, else replaces with the list.
+ */
+export function backPlan(pathname: string, state: unknown): BackStep {
+  const below = belowOf(state);
+  const j = below.findIndex((l) => l !== 'skip');
+  if (routeLevel(pathname) === 'thread') {
+    if (below[0] === 'conv') return { kind: 'pop', steps: 1 };
+    return { kind: 'replace', to: chatPath(parseChatRoute(pathname).conversationId ?? ''), state: { below } };
+  }
+  if (j >= 0) return { kind: 'pop', steps: j + 1 };
+  return { kind: 'replace', to: HOME, state: undefined };
+}
+
+export type LeaveStep = { kind: 'pop'; steps: number } | { kind: 'replace'; to: string } | { kind: 'pop-replace'; steps: number; to: string };
+
+/** Leave for good (archive, mark unread): pop to the list; without one in sight, pop what is known of the conversation and replace what is left. */
+export function leavePlan(_pathname: string, state: unknown): LeaveStep {
+  const below = belowOf(state);
+  const list = below.indexOf('list');
+  if (list >= 0) return { kind: 'pop', steps: list + 1 };
+  if (below.length === 0) return { kind: 'replace', to: HOME };
+  return { kind: 'pop-replace', steps: below.length, to: HOME };
+}
+
+/** A group's General channel in Home, from the chat list; /home while the channel is not in the list (yet). */
+export function groupChatPath(chats: ChatSummary[], orgId: string): string {
+  const channel = chats.find((c) => c.kind === 'group' && c.org?.id === orgId);
+  return channel ? chatPath(channel.conversationId) : HOME;
+}
 
 export interface ChatRoute {
   conversationId: string | null;
@@ -49,6 +151,15 @@ export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>)
   return chat.title ? `${chat.title} · ${role}` : role;
 }
 
+/**
+ * The mirror's own name, for a sentence: the custom title once renamed, else "<First>'s mirror"
+ * ("your mirror" when the first name is unknown). "Clarify with Ada's mirror", "Sent to Ada's mirror to clarify".
+ */
+export function mirrorName(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'> | null | undefined): string {
+  if (chat?.title) return chat.title;
+  return chat?.ownerFirstName ? `${chat.ownerFirstName}'s mirror` : 'your mirror';
+}
+
 /** The one-line name of a chat in the list, forward picker and search. */
 export function chatTitle(chat: ChatSummary): string {
   switch (chat.kind) {
@@ -63,18 +174,20 @@ export function chatTitle(chat: ChatSummary): string {
   }
 }
 
-/** Where a clarified copy came from, as the clarifier saw it: "Builders · General", "a chat with Ada", or just the kind. */
+/**
+ * Where a clarified copy came from, as the clarifier saw it, to follow "from ": "your chat with Ada" for a 1:1,
+ * the channel or event title for a channel.
+ */
 export function sourceLabel(kind: string | null, title: string | null): string {
-  if (title) return kind === 'dm' ? `a chat with ${title}` : title;
+  if (kind === 'dm') return title ? `your chat with ${title}` : 'your chat';
+  if (title) return title;
   switch (kind) {
-    case 'dm':
-      return 'a direct message';
     case 'group':
       return 'a group chat';
     case 'event':
       return 'an event chat';
     case 'mirror':
-      return 'a mirror chat';
+      return 'your mirror';
     default:
       return 'a chat';
   }
@@ -141,13 +254,16 @@ export function searchChats(chats: ChatSummary[], query: string): ChatSummary[] 
   return sortByActivity(chats).filter((c) => chatTitle(c).toLowerCase().includes(q));
 }
 
-/** The last-message line: "You: …", the author's first name in channels, "Message deleted". */
+/** The last-message line: "You: …", the author's first name in channels, "Clarify: …", "Message deleted". */
 export function previewLine(chat: ChatSummary, viewerId: string | null): { prefix: string; text: string } {
   const last = chat.lastMessage;
   if (!last) return { prefix: '', text: '' };
-  const text = last.isDeleted
-    ? 'Message deleted'
-    : last.body || (last.kind === 'forward' ? 'Forwarded message' : last.kind === 'clarify' ? 'Clarified message' : 'Attachment');
+  // A clarified message reads "Clarify: <its first words>" (just "Clarify" when there are none), whoever sent it.
+  if (last.kind === 'clarify' && !last.isDeleted) {
+    const words = (last.body ?? '').replace(/\s+/g, ' ').trim();
+    return words ? { prefix: 'Clarify: ', text: words } : { prefix: '', text: 'Clarify' };
+  }
+  const text = last.isDeleted ? 'Message deleted' : last.body || (last.kind === 'forward' ? 'Forwarded message' : 'Attachment');
   if (last.isDeleted) return { prefix: '', text };
   if (viewerId && last.authorId === viewerId) return { prefix: 'You: ', text };
   if (isChannel(chat) && last.authorName) return { prefix: `${last.authorName.split(' ')[0]}: `, text };

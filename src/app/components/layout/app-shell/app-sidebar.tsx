@@ -4,13 +4,15 @@
  * signed-in person, so a page shows exactly one navigation.
  *
  * Expanded (248px): logo and collapse control; Today's event when there is one; Home, Feed,
- * Groups, Letters, Events, Partners, Tools, My Profile; the avatar menu at the bottom.
- * Collapsed (64px): ONLY the logo, which turns into the expand icon on hover or keyboard focus
- * (founder decision 5). Nothing else is rendered while collapsed, so nothing hidden stays tabbable.
+ * Groups, Letters, Events, Partners, My Profile; at the bottom, the avatar menu with a small Tools
+ * icon button beside it.
+ * Collapsed (64px): the logo, which turns into the expand icon on hover or keyboard focus
+ * (founder decision 5), and the Tools icon button at the bottom. Nothing else is rendered while
+ * collapsed, so nothing hidden stays tabbable.
  *
- * Tools opens the same Links menu the top nav opens (EventLinksButton); the avatar opens the same
- * menu items the top nav's avatar opened (NavigationMenuItems). Entries are the shared model in
- * shell-nav.ts, which the phone bottom bar reads too.
+ * Tools (a grid icon, tooltip "Tools") opens the same Links menu the top nav opens (EventLinksButton); the avatar opens the top nav's
+ * menu items (NavigationMenuItems) minus whatever the sidebar itself lists. Entries are the shared model
+ * in shell-nav.ts, which the phone bottom bar reads too.
  */
 import { Link } from 'react-router-dom';
 import { CalendarCheckIcon, ChevronsUpDownIcon, LayoutGridIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from 'lucide-react';
@@ -29,6 +31,7 @@ import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import {
   HOME_PATH,
   useShellEntries,
+  shellMenuOmissions,
   useShellSignOut,
   useShellTodaysEvent,
   type ShellEntry,
@@ -85,18 +88,20 @@ function SidebarRow({ entry }: { entry: ShellEntry }) {
   );
 }
 
-/** Tools wears the sidebar-row skin; the menu behind it is the top nav's own Links menu. */
+/** Tools is a 40px grid icon at the bottom of the sidebar; the menu behind it is the top nav's own Links menu. */
 const TOOLS_APPEARANCE = {
-  // data-state=open: while its popover is open the row shows it, like a selected entry.
-  className: cn(ROW_BASE, ROW_IDLE, 'text-left data-[state=open]:bg-accent data-[state=open]:text-foreground'),
+  // data-state=open: while its popover is open the button shows it, like a selected entry.
+  className:
+    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground',
+  // Icon only: the sr-only text is its accessible name, and EventLinksButton sets title="Tools" for the tooltip.
   content: (
     <>
-      <LayoutGridIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">Tools</span>
+      <LayoutGridIcon className="h-5 w-5" aria-hidden="true" />
+      <span className="sr-only">Tools</span>
     </>
   ),
   side: 'right' as const,
-  align: 'start' as const,
+  align: 'end' as const,
 };
 
 interface AppSidebarProps {
@@ -136,6 +141,9 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             aria-hidden="true"
           />
         </button>
+        <div className="mt-auto">
+          <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
+        </div>
       </nav>
     );
   }
@@ -184,9 +192,6 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             .map(entry => (
               <SidebarRow key={entry.id} entry={entry} />
             ))}
-          <li>
-            <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
-          </li>
           {entries
             .filter(e => e.id === 'profile')
             .map(entry => (
@@ -195,7 +200,8 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         </ul>
       </div>
 
-      <div className="mt-2 border-t border-border pt-2">
+      <div className="mt-2 flex items-center gap-1 border-t border-border pt-2">
+        <div className="min-w-0 flex-1">
         {isProfilePending || !user ? (
           <div aria-hidden="true" data-nav-slot-placeholder="avatar" className="flex min-h-12 items-center gap-3 px-1.5">
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
@@ -228,13 +234,16 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
               side="top"
               align="start"
               sideOffset={8}
-              // The popover is as wide as the account row it opens from (the sidebar), and scrolls inside the room it has.
-              className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+              // The popover is at least as wide as the sidebar's content (the account row shares its row with the Tools icon, so the trigger alone is narrower and wrapped "ClarityPledge website"), and scrolls inside the room it has.
+              className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[var(--radix-dropdown-menu-trigger-width)] min-w-[14.5rem] overflow-y-auto"
             >
-              <NavigationMenuItems onSignOut={handleSignOut} />
+              {/* The sidebar already lists Feed, Groups, Events ...: the avatar menu does not repeat them, nor the public-site sections (one website row stands for them). */}
+              <NavigationMenuItems onSignOut={handleSignOut} omitDestinations={shellMenuOmissions(entries)} websiteLink flat />
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        </div>
+        <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
       </div>
     </nav>
   );

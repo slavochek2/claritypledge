@@ -520,7 +520,9 @@ describe("SettingsPage", () => {
   });
 
   describe("Navigation", () => {
-    it("should have back to dashboard link", async () => {
+    // P1512: Settings wears the shared page frame — the title row sits at the top, so there is no
+    // Back above it (the shell's sidebar / bottom bar is the way out).
+    it("should render the shared page header with no Back link above the title", async () => {
       vi.spyOn(auth, "useAuth").mockReturnValue(
         createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
       );
@@ -528,9 +530,12 @@ describe("SettingsPage", () => {
       renderSettingsPage();
 
       await waitFor(() => {
-        const backLink = screen.getByRole("link", { name: /back/i });
-        expect(backLink).toHaveAttribute("href", "/events");
+        expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
       });
+      expect(screen.queryByRole("link", { name: /back/i })).not.toBeInTheDocument();
+      // One h1, and it is inside the frame's header, not a page-local heading.
+      expect(document.querySelectorAll("h1")).toHaveLength(1);
+      expect(screen.getByRole("heading", { level: 1 }).closest("[data-page-frame] [data-page-header]")).not.toBeNull();
     });
   });
 

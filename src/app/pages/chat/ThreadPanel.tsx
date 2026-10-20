@@ -5,32 +5,31 @@
  * channels only; a 1:1 or the mirror uses quote-reply.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, PanelRight, X } from 'lucide-react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { FOCUS_RING, HOVER } from './chat-kit';
+import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatPath, chatTitle } from './chat-view-model';
+import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { cn } from '@/lib/utils';
 
 export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSummary; rootId: string; highlightId: string | null }) {
   const chat = useChat();
-  const navigate = useNavigate();
   const conversationId = summary.conversationId;
   const conv = useConversationMessages({ conversationId, threadRootId: rootId });
   const [focusToken, setFocusToken] = useState(0);
   // Every Reply inside a thread is a reply to the thread: it just moves focus to the field.
   const onReply = useCallback((_m: ChatMessage) => setFocusToken((t) => t + 1), []);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply });
-  const close = () => navigate(chatPath(conversationId));
-  // A thread that does not exist for this person (a reply, a 1:1, another chat's message) closes itself.
+  const close = useBack();
+  // A thread that does not exist for this person (a reply, a 1:1, another chat's message) closes itself, the way Back does.
   useEffect(() => {
-    if (conv.status === 'unavailable') navigate(chatPath(conversationId), { replace: true });
-  }, [conv.status, conversationId, navigate]);
+    if (conv.status === 'unavailable') close();
+  }, [conv.status, close]);
   const root = conv.server.find((m) => m.id === rootId);
   const rootDeleted = !!root?.isDeleted;
   const blockedReason = !summary.canSend

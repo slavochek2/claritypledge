@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { useGoBack } from '@/app/hooks/use-go-back';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { storiesService } from '@/app/data/stories-service';
@@ -15,7 +15,7 @@ import { extractHashtags } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { useDocContext } from '@/app/hooks/use-doc-context';
-import { Loader2Icon, ArrowLeft, Lock, Globe } from 'lucide-react';
+import { Loader2Icon, Lock, Globe } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { Button } from '@/components/ui/button';
@@ -35,9 +35,6 @@ const CHAR_MAX = 10000;
 
 export function CreateStoryPage() {
   const navigate = useNavigate();
-  // P1364: outside a doc, Back returns to where the author came from; a cold arrival goes to
-  // the feed, never off-site. (The doc branch keeps its explicit doc target.)
-  const goBack = useGoBack('/feed');
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, session, isLoading: authLoading } = useAuth();
@@ -294,15 +291,9 @@ export function CreateStoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
-      <Button
-        variant="ghost"
-        onClick={() => isDocContext ? navigate(backPath) : goBack()}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
-        aria-label={isDocContext ? `Back to ${docTitle}` : 'Go back'}
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {isDocContext ? docTitle || 'Back' : 'Back'}
-      </Button>
+      {/* P1364 / P1512: Back returns to where the author came from (the doc's page when they came from it);
+          a cold arrival goes to the doc, or the feed. FocusHeader renders it in the shell's top bar. */}
+      <FocusHeader fallback={isDocContext ? backPath : '/feed'} parentName={isDocContext ? docTitle || undefined : undefined} />
 
       {/* Point context banner (P486) — only render region when loading or point found */}
       {pointId && (pointLoading || (pointText && pointLoadedId)) && (

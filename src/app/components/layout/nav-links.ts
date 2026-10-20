@@ -93,6 +93,26 @@ export function isEventsNavActive(pathname: string): boolean {
   );
 }
 
+/** The public website's front door: the builders landing (the feed took "/"). */
+export const PUBLIC_SITE_HOME = "/builders";
+
+/**
+ * The marketing site a signed-in member can still read: the landing, the audience pages, the
+ * manifesto, About and Pledgers. Signed in, these draw the PUBLIC top nav (with "Open app"), not
+ * the app shell — like notion.com when you are logged in. Legal, pricing and auth pages are not
+ * here: they stay in whatever chrome they had.
+ */
+const PUBLIC_SITE_PATHS: readonly string[] = [
+  PUBLIC_SITE_HOME,
+  ...AUDIENCE_LINKS.map((l) => l.to),
+  "/manifesto",
+  "/about",
+  "/pledgers",
+];
+export function isPublicSitePath(pathname: string): boolean {
+  return PUBLIC_SITE_PATHS.includes(pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname);
+}
+
 /**
  * The public menu, as GROUPS (P1087). Both the mobile sandwich and the desktop hamburger
  * render this one structure, in this one order.

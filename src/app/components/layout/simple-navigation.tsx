@@ -237,7 +237,32 @@ function UseCasesMenu({ pathname }: { pathname: string }) {
  */
 export const NAV_CENTER_SLOT_ID = "nav-center-slot";
 
-export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; logoOnly?: boolean }) {
+/**
+ * P1512: the primary action of the public website for a signed-in member: back into the app.
+ * One blue per view (P955), so it stands where the logged-out CTA, Tools and Log in stand.
+ */
+function OpenAppCta({ className, onNavigate }: { className: string; onNavigate?: () => void }) {
+  return (
+    <Link
+      to={HOME_PATH}
+      data-testid="open-app"
+      className={`inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold ${className}`}
+      onClick={() => {
+        analytics.track("nav_cta_clicked", { cta: "open_app", device: "public_site" });
+        onNavigate?.();
+      }}
+    >
+      Open app
+    </Link>
+  );
+}
+
+/**
+ * `publicSite`: a signed-in member reading the public website (the layout decides, see isPublicSitePath).
+ * The nav is the visitor's nav, except that the right side offers "Log out" and "Open app" instead of
+ * the discovery-call CTA, Tools and "Log in", and the menu carries no app account block.
+ */
+export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { compact?: boolean; logoOnly?: boolean; publicSite?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -356,6 +381,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   };
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  // P1512: signed in on the public website. While the profile is still loading the slot holds its place.
+  const publicSiteSignedIn = publicSite && (showUserMenu || isProfilePending);
 
   // Static routes — no profile data needed, safe to render during profile loading phase.
   // P885: Partners needs the resolved slug, so it only renders when `partnersSlug`
@@ -566,6 +594,33 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </div>
               )
+            ) : publicSiteSignedIn ? (
+              /* P1512: the public website, signed in: the visitor's nav with Log out + Open app. */
+              <div className="flex items-center gap-3 transition-opacity duration-150" data-testid="public-site-actions">
+                <UseCasesMenu pathname={location.pathname} />
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  disabled={isProfilePending}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Log out
+                </button>
+                <OpenAppCta className="h-10 px-8" />
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex items-center justify-center hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md p-2"
+                      aria-label="Menu"
+                    >
+                      <MenuIcon className="w-5 h-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+                    <NavigationMenuItems onSignOut={handleSignOut} omitAccountGroup />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : showUserMenu || isProfilePending ? (
               /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style).
                  P1421: also while a verified user's profile is still loading (isProfilePending) —
@@ -711,7 +766,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               {/* P1433: everyone it is decided for, compact pages included. */}
               {showTodaysEvent && <TonightsEventCta device="mobile" event={todaysEvent} />}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}
-              <EventLinksButton />
+              {!publicSiteSignedIn && <EventLinksButton />}
+              {/* P1512: the public website, signed in: Open app beside the hamburger (Log out is in the menu). */}
+              {publicSiteSignedIn && <OpenAppCta className="h-10 px-4" />}
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
               {(showUserMenu || isProfilePending || !compact) && (
                 <button
@@ -725,7 +782,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     // Track opening (not closing)
                     if (!wasOpen) {
                       analytics.track('nav_menu_opened', {
-                        trigger: showUserMenu && user ? 'avatar' : 'hamburger',
+                        trigger: showUserMenu && user && !publicSite ? 'avatar' : 'hamburger',
                         device: 'mobile',
                       });
                     }
@@ -741,7 +798,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     /* P1421: the avatar's 40px box, not the 24px hamburger — Tools beside it
                        stays put when the profile lands. */
                     <div className="w-10 h-10 bg-muted rounded-full animate-pulse" aria-hidden="true" />
-                  ) : showUserMenu && user ? (
+                  ) : showUserMenu && user && !publicSite ? (
                     <GravatarAvatar
                       name={user.name}
                       avatarColor={user.avatarColor}
@@ -801,7 +858,22 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 variant="mobile"
                 onSignOut={handleSignOut}
                 onItemClick={closeMobileMenu}
+                omitAccountGroup={publicSite}
               />
+              {publicSiteSignedIn && (
+                <div className="border-t border-border pt-3">
+                  <button
+                    type="button"
+                    // Same as desktop: not while the profile is in flight. And like every other menu row it
+                    // closes the menu at once, not only after the sign-out resolves.
+                    onClick={() => { closeMobileMenu(); void handleSignOut(); }}
+                    disabled={isProfilePending}
+                    className="text-left text-base font-medium hover:text-primary transition-colors py-2 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

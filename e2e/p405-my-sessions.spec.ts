@@ -232,7 +232,9 @@ test.describe('P405: My Sessions — /sessions page', () => {
 test.describe('P405: Navigation — My Sessions tab and links', () => {
   test.describe.configure({ timeout: 30000 });
 
-  // ── 6. Mobile bottom nav has Sessions tab ─────────────────────────────────
+  // ── 6. Mobile: Session History is reached from the bar's last tab ("You") ───────────────────────────
+  // P1512 decisions 3, 14, 25: the phone bar is Home, Feed, Groups, Letters, You; Session History is a row in
+  // the You sheet (and in the desktop account menu), not a tab.
   test('mobile bottom nav includes Sessions tab (not in active session)', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -242,13 +244,12 @@ test.describe('P405: Navigation — My Sessions tab and links', () => {
 
       // Use mobile viewport
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto('/');
+      await page.goto('/feed');
       await page.waitForLoadState('networkidle');
 
-      // Sessions tab should be in the bottom nav
-      const sessionsTab = page.getByRole('link', { name: /sessions/i })
-        .or(page.getByRole('tab', { name: /sessions/i }))
-        .first();
+      // Session History is in the You sheet.
+      await page.getByTestId('bottom-nav-me').click();
+      const sessionsTab = page.getByTestId('me-sheet').getByRole('link', { name: /session history/i });
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
     } finally {
       if (testUser) await deleteTestUser(testUser.user.id);
@@ -265,27 +266,12 @@ test.describe('P405: Navigation — My Sessions tab and links', () => {
 
       // Use desktop viewport
       await page.setViewportSize({ width: 1280, height: 800 });
-      await page.goto('/');
+      await page.goto('/feed');
       await page.waitForLoadState('networkidle');
 
-      // My Sessions should be in top nav or accessible from avatar dropdown
-      const mySessionsLink = page.getByRole('link', { name: /my sessions/i });
-      const isInNav = await mySessionsLink.isVisible().catch(() => false);
-
-      if (!isInNav) {
-        // Check in avatar dropdown
-        const avatarButton = page.getByRole('button', { name: /avatar|account|menu/i })
-          .or(page.locator('[data-testid="avatar-button"], [aria-label*="avatar"]'))
-          .first();
-        if (await avatarButton.isVisible()) {
-          await avatarButton.click();
-          await expect(page.getByRole('menuitem', { name: /my sessions/i })
-            .or(page.getByRole('link', { name: /my sessions/i }))
-          ).toBeVisible({ timeout: 5000 });
-        }
-      } else {
-        await expect(mySessionsLink).toBeVisible();
-      }
+      // P1512 decisions 3/14: the sidebar lists destinations only; Session History is in the account menu.
+      await page.locator('[data-nav="sidebar"]').getByRole('button', { name: 'Menu' }).click();
+      await expect(page.getByRole('menuitem', { name: /session history/i })).toBeVisible({ timeout: 5000 });
     } finally {
       if (testUser) await deleteTestUser(testUser.user.id);
     }
@@ -300,10 +286,12 @@ test.describe('P405: Navigation — My Sessions tab and links', () => {
       await setTestSession(page, testUser.email);
 
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto('/');
+      await page.goto('/feed');
       await page.waitForLoadState('networkidle');
 
-      const sessionsTab = page.getByRole('link', { name: /sessions/i }).first();
+      // P1512: the You sheet's Session History row.
+      await page.getByTestId('bottom-nav-me').click();
+      const sessionsTab = page.getByTestId('me-sheet').getByRole('link', { name: /session history/i });
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
       await sessionsTab.click();
 
@@ -359,11 +347,13 @@ test.describe('P405: Sessions tab suppressed during active live session', () => 
 
       await creatorPage.setViewportSize({ width: 390, height: 844 });
 
-      // Verify Sessions tab is visible before entering active session
-      await creatorPage.goto('/');
+      // Verify the bar (and, behind its last tab, Session History) is there before entering an active session
+      await creatorPage.goto('/feed');
       await creatorPage.waitForLoadState('networkidle');
-      const sessionsTab = creatorPage.getByRole('link', { name: /session history/i }).first();
+      await creatorPage.getByTestId('bottom-nav-me').click();
+      const sessionsTab = creatorPage.getByTestId('me-sheet').getByRole('link', { name: /session history/i });
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
+      await creatorPage.keyboard.press('Escape');
 
       // Start a live session to enter active state
       await creatorPage.goto('/live');
@@ -371,9 +361,10 @@ test.describe('P405: Sessions tab suppressed during active live session', () => 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
-      // Now in active session (waiting state) — Sessions tab should be hidden
-      const hiddenTab = creatorPage.getByRole('link', { name: /session history/i });
-      await expect(hiddenTab).not.toBeVisible({ timeout: 5000 });
+      // Now in an active session (waiting state): /live keeps its own chrome, so the phone bar — and with it the
+      // You sheet's Session History row — is not offered.
+      await expect(creatorPage.getByTestId('bottom-nav-me')).not.toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByRole('link', { name: /session history/i })).not.toBeVisible({ timeout: 5000 });
     } finally {
       await creatorContext.close();
       if (testUser) await deleteTestUser(testUser.user.id);

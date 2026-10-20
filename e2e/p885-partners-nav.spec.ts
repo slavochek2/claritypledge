@@ -87,7 +87,7 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
         'Feed',
         'Groups',
         'Letters',
-        'Me',
+        'You',
       ]);
     });
 

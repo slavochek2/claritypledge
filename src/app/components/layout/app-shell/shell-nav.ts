@@ -23,7 +23,7 @@ import { useUnreadLetterCount } from '@/app/hooks/useUnreadLetterCount';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { usePendingPartnerInvitationCount } from '@/app/hooks/usePendingPartnerInvitationCount';
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from '@/app/hooks/useTonightsEvent';
-import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS } from '@/app/components/layout/nav-links';
+import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { useChatUnreadCount } from '@/app/pages/chat/chat-state';
 
 /** Where the signed-in home lives (D9). `/` forwards here once the session has restored. */
@@ -121,6 +121,34 @@ export function useShellEntries(): ShellEntry[] {
   }
   entries.push(make('profile', 'My Profile', isProfilePending ? null : slug ? `/p/${slug}` : '/me', UserIcon));
   return entries;
+}
+
+/** The phone bottom bar's tabs, in order. "Me" is the bar's own last tab, not an entry. */
+export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'feed', 'groups', 'letters'];
+
+/**
+ * The destinations a surface's own nav already links to. The menus behind it (the phone Me sheet, the
+ * desktop avatar menu) leave these out instead of listing them a second time; deriving the set from
+ * the entries means a menu can never drift from the nav it sits beside. `ids` narrows to a surface
+ * that lists only some entries (the phone bar); omitted, every entry counts (the desktop sidebar).
+ */
+export function shellNavDestinations(entries: readonly ShellEntry[], ids?: readonly ShellEntryId[]): string[] {
+  return entries.filter(e => e.to !== null && (!ids || ids.includes(e.id))).map(e => e.to as string);
+}
+
+/** The public-site groups a member reaches through the "ClarityPledge website" row, not through the shell's menus. */
+const WEBSITE_GROUPS: readonly string[] = ['Use cases', 'Learn'];
+/** ...and Pledgers, which the website's own menu lists. */
+const WEBSITE_PATHS: readonly string[] = ['/pledgers'];
+
+/**
+ * What the shell's menus (the phone Me sheet, the desktop avatar menu) leave out of the public sections:
+ * everything the surface's own nav lists, plus what lives on the public website (Use cases, Learn,
+ * Pledgers), which one "ClarityPledge website" row now opens.
+ */
+export function shellMenuOmissions(entries: readonly ShellEntry[], ids?: readonly ShellEntryId[]): string[] {
+  const website = PUBLIC_NAV_GROUPS.filter(g => WEBSITE_GROUPS.includes(g.label)).flatMap(g => g.items.map(i => i.to as string));
+  return [...shellNavDestinations(entries, ids), ...website, ...WEBSITE_PATHS];
 }
 
 /**

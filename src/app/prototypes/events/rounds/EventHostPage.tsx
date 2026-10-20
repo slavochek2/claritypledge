@@ -36,7 +36,7 @@
  * which trades S and L when the speakers swap.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Minus, Monitor, Plus, Shuffle, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -1008,7 +1008,6 @@ function useMatchTagOptions(eventTag: string | null | undefined): string[] {
 export function EventHostPage() {
   const { slug, event, loading } = useEventRoomAccess();
   const { user, session, sessionChecked } = useAuth();
-  const navigate = useNavigate();
   const [params] = useSearchParams();
   // /presi4 slide 17: `view=compare` projects one table's comparison; it skips the host polling
   // like the screen view does.
@@ -1540,7 +1539,9 @@ export function EventHostPage() {
   return (
     <div className="mx-auto w-full max-w-lg lg:max-w-6xl px-4 pt-4 pb-16" data-testid="host-panel">
       <div className="flex items-start justify-between gap-3">
-        <FocusHeader onBack={() => navigate(`/events/${slug}`)} label="Back" aria-label="Back to the event" />
+        {/* Back returns the way the host came (the event page opened this): a POP, so the event's own Back does
+            not land here again; a cold arrival (a bookmark, the screen link) goes to the event, replaced. */}
+        <FocusHeader fallback={`/events/${slug}`} />
         {/* Outline, not filled: the one filled button on this page is Next round (founder asked). */}
         <Button asChild variant="outline" size="sm" className="min-h-11 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800">
           <a href={`/events/${slug}/host?view=screen`} target="_blank" rel="noopener noreferrer" data-testid="host-screen-link">

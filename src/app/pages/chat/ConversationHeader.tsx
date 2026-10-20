@@ -10,7 +10,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, MoreH
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { cn } from '@/lib/utils';
-import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark, type PersonLike } from './chat-kit';
+import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark } from './chat-kit';
 import { mirrorLabel } from './chat-view-model';
 
 export interface HeaderActions {
@@ -33,7 +33,7 @@ function eventWhen(iso: string): string {
   return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
-function Title({ chat, owner }: { chat: ChatSummary; owner: PersonLike }) {
+function Title({ chat }: { chat: ChatSummary }) {
   switch (chat.kind) {
     case 'dm': {
       const other = chat.other;
@@ -93,7 +93,7 @@ function Title({ chat, owner }: { chat: ChatSummary; owner: PersonLike }) {
     case 'mirror':
       return (
         <div className={TITLE_BOX}>
-          <MirrorMark owner={owner} size="sm" className="hidden sm:inline-flex" />
+          <MirrorMark size="sm" className="hidden sm:inline-flex" />
           {/* The role is part of the name and is never the part that gets cut. */}
           {/* Two segments for layout; one name for everything that reads it. */}
           <h1 className={NAME_ONE_LINE} aria-label={mirrorLabel(chat)}>
@@ -104,7 +104,7 @@ function Title({ chat, owner }: { chat: ChatSummary; owner: PersonLike }) {
   }
 }
 
-export function ConversationHeader({ chat, owner, blocked, actions }: { chat: ChatSummary; owner: PersonLike; blocked: boolean; actions: HeaderActions }) {
+export function ConversationHeader({ chat, blocked, actions }: { chat: ChatSummary; blocked: boolean; actions: HeaderActions }) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
@@ -118,7 +118,7 @@ export function ConversationHeader({ chat, owner, blocked, actions }: { chat: Ch
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </button>
       <div className="min-w-0 flex-1">
-        <Title chat={chat} owner={owner} />
+        <Title chat={chat} />
       </div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>

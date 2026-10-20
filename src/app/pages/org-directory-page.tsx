@@ -28,6 +28,7 @@ import { useOfflineReadState } from "@/app/hooks/use-offline-read-state";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { DETAILS_BUTTON_CLASS } from "@/app/components/shared/card-action-classes";
 import { OrgInitials } from "@/app/components/organizations/org-initials";
+import { PageFrame, PageHeader } from "@/app/components/layout/page-header";
 import type {
   Organization,
   OrgEventSummary,
@@ -104,21 +105,18 @@ export function OrgDirectoryPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8">
+    <div className="min-h-screen">
       <SEO
         title="Clarity Groups"
         description="Communities practising calibrated communication together."
         url="/groups"
       />
-      <div className="container mx-auto max-w-5xl space-y-8">
-        <header className="min-w-0">
-          <h1 className="text-2xl font-bold sm:text-3xl">Clarity Groups</h1>
-          <p className="mt-2 max-w-prose text-base text-muted-foreground">
-            Communities practising calibrated communication together. Go into one to see
-            its events and members.
-          </p>
-        </header>
-
+      <PageFrame>
+        <PageHeader
+          title="Clarity Groups"
+          description="Communities practising calibrated communication together. Go into one to see its events and members."
+        />
+        <div className="space-y-8">
         {loadError ? (
           <p className="text-base text-muted-foreground">
             We couldn't load the groups. Please try again.
@@ -151,7 +149,8 @@ export function OrgDirectoryPage() {
           </Link>
           .
         </p>
-      </div>
+        </div>
+      </PageFrame>
     </div>
   );
 }

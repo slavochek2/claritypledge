@@ -182,11 +182,34 @@ export function watchForDeadBack(onDead: () => void): () => void {
 }
 
 /**
+ * The one decision, pure over the current history state: will Back pop, or take the fallback?
+ * The click handler and the label both read it, so what a Back control SAYS can never differ from
+ * what it DOES. `arrivedCold` is the in-memory router's "first entry" signal (ignored when the
+ * router is backed by window.history).
+ */
+export function decideGoBack(routerLocation: { key: string; pathname: string }, arrivedCold: boolean): BackDecision {
+  if (isBrowserBacked(routerLocation)) return decideBrowserBackDetailed();
+  return arrivedCold && window.history.length <= 1 ? 'fallback' : 'pop';
+}
+
+/**
  * P1433 D3: while an event night is on (useTonightsEvent's window), a Back with nowhere in-app to
  * go lands in the event room instead of the page's own fallback (usually /feed). Popping is
  * untouched — "back to where you came from" still wins whenever there is somewhere to go.
+ *
+ * `willPop` is the same decision as the click will make, for a control that names its
+ * destination: true means Back returns to wherever the reader came from (say just "Back"); false
+ * means a cold arrival, where it takes the page's fallback (the parent can be named). A watched
+ * pop is still a pop. Read at render; history state does not change while this page is shown.
+ * `fallbackPath` is where the non-popping Back really goes — during an event night that is the room, not
+ * the page's own fallback, and a label naming the parent must not claim otherwise.
  */
-export function useGoBack(pageFallback: string): () => void {
+export function useGoBackControl(pageFallback: string): {
+  goBack: () => void;
+  willPop: boolean;
+  /** Where a non-popping Back actually goes: the page's fallback, or the event room during an event night. */
+  fallbackPath: string;
+} {
   const navigate = useNavigate();
   const location = useLocation();
   const todaysEvent = useTonightsEvent();
@@ -196,11 +219,8 @@ export function useGoBack(pageFallback: string): () => void {
   const locationRef = useRef(location);
   locationRef.current = location;
 
-  return useCallback(() => {
-    const browserBacked = isBrowserBacked(locationRef.current);
-    let decision: BackDecision;
-    if (browserBacked) decision = decideBrowserBackDetailed();
-    else decision = arrivedColdRef.current === true && window.history.length <= 1 ? 'fallback' : 'pop';
+  const goBack = useCallback(() => {
+    const decision = decideGoBack(locationRef.current, arrivedColdRef.current === true);
     if (decision === 'fallback') {
       navigate(fallbackPath, { replace: true });
       return;
@@ -208,4 +228,30 @@ export function useGoBack(pageFallback: string): () => void {
     if (decision === 'pop-watched') watchForDeadBack(() => navigate(fallbackPath, { replace: true }));
     navigate(-1);
   }, [navigate, fallbackPath]);
+
+  return { goBack, willPop: decideGoBack(location, arrivedColdRef.current === true) !== 'fallback', fallbackPath };
+}
+
+export function useGoBack(pageFallback: string): () => void {
+  return useGoBackControl(pageFallback).goBack;
+}
+
+/**
+ * Return to `parent` from a child the parent OPENED.
+ *
+ * `openedByParent` is the parent's own mark (route state it set when it navigated here). With the mark the
+ * previous history entry IS the parent, so this POPS (the parent's own Back then lands on ITS parent, not back
+ * here). Without it the previous entry is unknown — a sign-in or sign-up screen, a drafts list, another site —
+ * and popping there would leave the app or land somewhere the label does not say, so this REPLACES the child
+ * with the parent. A cold arrival with nothing to pop takes the same replace.
+ */
+export function useReturnToParent(parent: string, openedByParent: boolean): () => void {
+  const navigate = useNavigate();
+  const { goBack, willPop } = useGoBackControl(parent);
+  // Pop only when the entry below really is the parent; never take the event-night room fallback,
+  // because this control names its parent.
+  return useCallback(() => {
+    if (openedByParent && willPop) goBack();
+    else navigate(parent, { replace: true });
+  }, [openedByParent, willPop, goBack, navigate, parent]);
 }

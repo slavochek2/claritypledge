@@ -176,7 +176,7 @@ export function HomeSideRail() {
 function RailContent() {
   const { events, groups } = useHomeHighlights();
   return (
-    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.6875rem]" aria-label="Events and groups" data-testid="home-side-rail">
+    <aside className="w-72 shrink-0 space-y-4" aria-label="Events and groups" data-testid="home-side-rail">
       <section className="space-y-3">
         <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
         <EventsList events={events} />

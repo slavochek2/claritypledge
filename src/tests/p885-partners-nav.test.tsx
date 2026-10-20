@@ -158,7 +158,7 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
   it('shows 5 tabs in order: Home, Feed, Groups, Letters, Me', () => {
     mockLoggedIn();
     renderBottomNav();
-    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Me']);
+    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'You']);
   });
 
   it('Partners is no longer a tab of its own', () => {
@@ -199,7 +199,7 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
     renderBottomNav();
     // The Me tab carries the count so a pending invite is visible without opening the sheet.
     expect(screen.getByTestId('bottom-nav-me').querySelector('[data-badge]')!.textContent).toBe('3');
-    expect(screen.getByTestId('bottom-nav-me')).toHaveAttribute('aria-label', 'Me, 3 pending invitations');
+    expect(screen.getByTestId('bottom-nav-me')).toHaveAttribute('aria-label', 'You, 3 pending invitations');
     const badge = partnersLink().querySelector('[data-badge]');
     expect(badge).not.toBeNull();
     expect(badge!.textContent).toBe('3');

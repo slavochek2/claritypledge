@@ -16,6 +16,7 @@ import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { FocusHeader } from "@/app/components/layout/focus-header";
+import { useGoBack } from "@/app/hooks/use-go-back";
 import { CertificateFrame, CertificateOathBody } from "@/app/components/agreements/certificate-frame";
 import { COA_VERSIONS, CURRENT_COA_VERSION, type CoaVersion } from "@/app/content/coa-versions";
 import { organizationsService } from "@/app/data/organizations-service";
@@ -60,6 +61,10 @@ export function OrgJoinPage() {
   const rawReturn = searchParams.get("return");
   const returnPath = rawReturn && /^\/[^/\\]/.test(rawReturn) ? rawReturn : undefined;
   const afterPath = returnPath ?? orgPath;
+  // Back (and the member's "Back to <group>") returns the way the person came: a POP when the group (or the
+  // flow named by ?return=) opened this page, so that page's own Back does not land here again; only a cold
+  // arrival takes the group page, with replace.
+  const goBack = useGoBack(afterPath);
 
   // Unauthenticated visitors can READ the terms; only the accept action requires
   // an account, so the login redirect happens on click, not on mount.
@@ -182,6 +187,9 @@ export function OrgJoinPage() {
     return (
       <div className="min-h-screen px-4 py-20 text-center">
         <SEO title="Group not found" description="This Clarity Group does not exist." />
+        {/* The join page hides the phone bottom bar, so even the dead end keeps a way out (the flow that sent
+            the person here, else the groups list: there is no group page to go back to). */}
+        <div className="text-left"><FocusHeader fallback={returnPath ?? "/groups"} /></div>
         <h1 className="text-2xl font-bold">Group not found</h1>
         <p className="mt-3 text-muted-foreground">Check the link and try again.</p>
       </div>
@@ -207,7 +215,7 @@ export function OrgJoinPage() {
         url={`/groups/${org.slug}/join`}
       />
       <div className="mx-auto max-w-2xl space-y-6">
-        <FocusHeader onBack={() => navigate(afterPath)} />
+        <FocusHeader fallback={afterPath} />
         <div>
           <h1 className="text-center text-2xl font-bold md:text-3xl">
             {myTerms ? `${org.name} — terms` : `Join ${org.name}`}
@@ -273,7 +281,7 @@ export function OrgJoinPage() {
                 <Button
                   variant="outline"
                   className="min-h-11 w-full"
-                  onClick={() => navigate(afterPath)}
+                  onClick={goBack}
                 >
                   Back to {org.name}
                 </Button>

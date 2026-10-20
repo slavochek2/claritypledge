@@ -5,8 +5,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { toast } from 'sonner';
 import { docsService } from '@/app/data/docs-service';
 import type { ClarityDoc } from '@/app/types';
@@ -22,7 +21,6 @@ interface DocHeaderProps {
 }
 
 export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderProps) {
-  const navigate = useNavigate();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(doc.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,14 +64,9 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
 
   return (
     <div className="space-y-3">
-      {/* Back link */}
-      <button
-        onClick={() => navigate('/letters?tab=drafts')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Letters</span>
-      </button>
+      {/* Back link. P1512: FocusHeader renders it in the shell's top bar; it returns to where the author came
+          from (usually the Letters list) and only a cold arrival goes to the Drafts tab. */}
+      <FocusHeader fallback="/letters?tab=drafts" parentName="Letters" />
 
       {/* Title + action buttons row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">

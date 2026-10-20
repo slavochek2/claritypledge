@@ -75,8 +75,8 @@ export function ConfirmDialog({
 // ---------------------------------------------------------------------------
 // Forward
 // ---------------------------------------------------------------------------
-function ChatMark({ chat, viewerName }: { chat: ChatSummary; viewerName: { name: string; avatarUrl?: string | null; avatarColor?: string | null } }) {
-  if (chat.kind === 'mirror') return <MirrorMark owner={viewerName} size="sm" />;
+function ChatMark({ chat }: { chat: ChatSummary }) {
+  if (chat.kind === 'mirror') return <MirrorMark size="sm" />;
   if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="sm" />;
   return <ChannelMark kind={chat.kind} size="sm" />;
 }
@@ -85,7 +85,6 @@ export function ForwardDialog({
   source,
   authorName,
   chats,
-  owner,
   revalidate,
   onClose,
   onForwarded,
@@ -94,7 +93,6 @@ export function ForwardDialog({
   authorName: string;
   /** The chats the person can forward into (already filtered to those they can post to). */
   chats: ChatSummary[];
-  owner: { name: string; avatarUrl?: string | null; avatarColor?: string | null };
   /** Reads the chat list again, so a chat that closed to new messages since the picker opened is caught. */
   revalidate: () => Promise<ChatSummary[] | null>;
   onClose: () => void;
@@ -207,7 +205,7 @@ export function ForwardDialog({
               {shown.map((c) => (
                 <li key={c.conversationId}>
                   <button type="button" onClick={() => setTarget(c)} className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-left', HOVER, FOCUS_RING)}>
-                    <ChatMark chat={c} viewerName={owner} />
+                    <ChatMark chat={c} />
                     <ChatRowTitle chat={c} stacked className="flex-1 text-[15px] text-foreground" />
                   </button>
                 </li>

@@ -18,6 +18,15 @@ vi.mock('@/hooks/use-nav-auth-state', () => ({
   useNavAuthState: () => ({ showUserMenu: false }),
 }));
 
+// ── Today's event ─────────────────────────────────────────────────────────────
+// P1512: EventDetail's Back is a FocusHeader, whose useGoBack reads today's event (a real supabase query).
+// In jsdom that query fails, which flips the app's offline detector and makes canWrite() false for the
+// cancel under test — so stub it, as p818 does.
+vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/hooks/useTonightsEvent')>()),
+  useTonightsEvent: () => null,
+}));
+
 // ── Events service ────────────────────────────────────────────────────────────
 const mockGetEventBySlug = vi.fn();
 const mockIsUserRsvpd = vi.fn();

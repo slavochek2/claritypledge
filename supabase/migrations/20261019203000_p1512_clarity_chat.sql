@@ -626,7 +626,11 @@ BEGIN
     lm.id,
     lm.author_id,
     lm.author_name,
-    CASE WHEN lm.deleted_at IS NOT NULL THEN 'Message deleted' ELSE lm.body END,
+    -- A clarify copy keeps its words in the snapshot (body is NULL), so the mirror's row shows them;
+    -- delete and erase clear the snapshot too.
+    CASE WHEN lm.deleted_at IS NOT NULL THEN 'Message deleted'
+         WHEN lm.kind = 'clarify' THEN lm.forward_snapshot ->> 'body'
+         ELSE lm.body END,
     lm.kind,
     (lm.deleted_at IS NOT NULL),
     lm.created_at,
@@ -651,7 +655,7 @@ BEGIN
   LEFT JOIN public.organization org ON org.id = COALESCE(c.org_id, ev.org_id)
   LEFT JOIN public.profiles ow ON ow.id = c.owner_id
   LEFT JOIN LATERAL (
-    SELECT m.id, m.author_id, ap.name AS author_name, m.body, m.kind, m.deleted_at, m.created_at
+    SELECT m.id, m.author_id, ap.name AS author_name, m.body, m.kind, m.forward_snapshot, m.deleted_at, m.created_at
       FROM public.chat_messages m
       LEFT JOIN public.profiles ap ON ap.id = m.author_id
      WHERE m.conversation_id = c.id

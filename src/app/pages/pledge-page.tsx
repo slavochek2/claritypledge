@@ -9,13 +9,14 @@
  * and have the option to "witness" the pledge themselves.
  */
 import { useEffect, useState, useRef } from "react";
-import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
+import { FocusHeader } from "@/app/components/layout/focus-header";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/pledge-certificate-view";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircleIcon, ArrowLeft } from "lucide-react";
+import { CheckCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
@@ -23,7 +24,6 @@ import { analytics } from "@/lib/mixpanel";
 export function PledgePage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const firstTime = searchParams.get("firstTime") === "true";
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -189,15 +189,10 @@ export function PledgePage() {
         }}
       />
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto max-w-5xl py-12 px-4">
-          {/* P114: Back button to profile */}
-          <button
-            onClick={() => navigate(`/p/${profile.slug}`)}
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </button>
+        <div className="container mx-auto max-w-5xl px-4 pb-12 pt-4 lg:pt-8">
+          {/* P1512: Back sits in the shell's top bar (FocusHeader portals there); P1364: it returns to where
+              the reader came from, and only a cold arrival goes to the profile. */}
+          <FocusHeader fallback={`/p/${profile.slug}`} />
           {profile && (
             <>
               <ProfileVisitorView

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
+import { useReturnToParent } from '@/app/hooks/use-go-back';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { CheckCircle2, Calendar, MapPin, Video, ArrowRight } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -17,7 +19,13 @@ const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
 export function RsvpConfirm() {
   const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
+  // The event page opens this screen and marks the route state. Only then is the entry below the event, so
+  // going back to it (after the 10 seconds, or from the link below) POPS and the event's own Back does not land
+  // here again. After an auth callback the entry below can be a sign-up screen or another site: popping would
+  // leave the app, so without the mark this REPLACES with the event.
+  const location = useLocation();
+  const openedByEvent = (location.state as { fromEvent?: boolean } | null)?.fromEvent === true;
+  const backToEvent = useReturnToParent(`/events/${slug}`, openedByEvent);
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
@@ -57,11 +65,11 @@ export function RsvpConfirm() {
     if (groupChatUrl) return;
 
     const timer = setTimeout(() => {
-      navigate(`/events/${slug}`);
+      backToEvent();
     }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [navigate, slug, event, groupChatUrl]);
+  }, [backToEvent, event, groupChatUrl]);
 
   // Loading state
   if (loading) {
@@ -84,7 +92,13 @@ export function RsvpConfirm() {
 
   // P1336: preparation on → screen 0 of the preparation (the registered box + the prep block).
   if (event.preparationEnabled) {
-    return <PrepConfirm event={event} groupChatUrl={groupChatUrl} />;
+    return (
+      <>
+        {/* This screen hides the phone bottom bar: it keeps a Back (the shell top bar). */}
+        <FocusHeader onBack={backToEvent} />
+        <PrepConfirm event={event} groupChatUrl={groupChatUrl} />
+      </>
+    );
   }
 
   const eventDate = new Date(event.datetime);
@@ -111,6 +125,8 @@ export function RsvpConfirm() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full">
+        {/* This screen hides the phone bottom bar: it keeps a Back (the shell top bar). */}
+        <FocusHeader onBack={backToEvent} />
         {/* Success Card */}
         <div className="bg-card rounded-xl border border-border shadow-lg p-8 text-center">
           {/* Success Icon */}
@@ -174,7 +190,16 @@ export function RsvpConfirm() {
               className="pt-1"
             />
 
-            <Link to={`/events/${slug}`} className="block">
+            <Link
+              to={`/events/${slug}`}
+              className="block"
+              // Keeps its href (open in a new tab, copy link); a plain click goes back the way it came.
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                backToEvent();
+              }}
+            >
               <Button variant="ghost" className="w-full gap-2">
                 View Event Details
                 <ArrowRight className="w-4 h-4" />

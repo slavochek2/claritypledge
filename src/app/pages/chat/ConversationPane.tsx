@@ -5,10 +5,8 @@
  * The URL owns which conversation (and thread) is open, so Back works. Opening a conversation marks
  * it read (while the tab is visible) and keeps marking it read as messages arrive.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { getMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
@@ -17,9 +15,9 @@ import { Composer } from './Composer';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
 import { QuoteBar, InlineError, MessagesSkeleton } from './chat-kit';
-import { usePageVisible } from './chat-hooks';
+import { isLeavingChat, takeComposerFocus, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, compareMessages, HOME, isChannel, messageSummary, mirrorRole } from './chat-view-model';
+import { chatErrorText, chatPath, compareMessages, isChannel, messageSummary, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 
@@ -33,11 +31,11 @@ interface Props {
 
 /** A link to a chat the person cannot open (never existed, or access ended). */
 function Unavailable() {
-  const navigate = useNavigate();
+  const back = useBack();
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-testid="chat-unavailable">
       <p className="text-sm text-muted-foreground">This chat isn&apos;t available. It may not exist, or you may no longer have access to it.</p>
-      <Button variant="outline" className="min-h-10" onClick={() => navigate(HOME)}>
+      <Button variant="outline" className="min-h-10" onClick={back}>
         Back to chats
       </Button>
     </div>
@@ -63,8 +61,7 @@ export function ConversationPane({ conversationId, highlightId, paneVisible }: P
 
 function ConversationBody({ summary, highlightId, paneVisible }: { summary: ChatSummary; highlightId: string | null; paneVisible: boolean }) {
   const chat = useChat();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const go = useChatNavigate();
   const conversationId = summary.conversationId;
   const channel = isChannel(summary);
   const conv = useConversationMessages({ conversationId, withThreads: channel });
@@ -72,16 +69,16 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [focusToken, setFocusToken] = useState(0);
+  // Opened by Clarify or the New message picker: the cursor goes straight into the composer (asked for once, see chat-hooks).
+  useEffect(() => {
+    if (takeComposerFocus(conversationId)) setFocusToken((t) => t + 1);
+  }, [conversationId]);
   const [attaching, setAttaching] = useState(false);
   const [staged, setStaged] = useState<Shareable | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
 
-  const owner = useMemo(
-    () => ({ name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor }),
-    [user?.name, user?.avatarUrl, user?.avatarColor],
-  );
   const other = summary.other;
   // The list says who may send: canSend is false once either side blocked the other (never which),
   // blockedByMe says it was this person (offer Unblock), and an erased account has no id.
@@ -90,27 +87,29 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const cannotSend = summary.kind === 'dm' && !summary.canSend && !blocked && !unavailable;
   const blockId = other?.id ?? null;
 
-  // A search hit that is a thread reply opens its thread instead.
+  // A search hit that is a thread reply opens its thread instead, in the chat's place.
   useEffect(() => {
     if (!highlightId) return;
     let live = true;
     getMessage(highlightId).then(
       (m) => {
-        if (live && m?.threadRootId) navigate(chatPath(conversationId, { rootId: m.threadRootId, messageId: m.id }), { replace: true });
+        if (live && m?.threadRootId) go(chatPath(conversationId, { rootId: m.threadRootId, messageId: m.id }), 'redirect');
       },
       () => undefined,
     );
     return () => {
       live = false;
     };
-  }, [highlightId, conversationId, navigate]);
+  }, [highlightId, conversationId, go]);
   useEffect(() => setTarget(highlightId), [highlightId]);
 
   const onReply = useCallback((m: ChatMessage) => {
     setReplyTo(m);
     setFocusToken((t) => t + 1);
   }, []);
-  const onThread = useCallback((m: ChatMessage) => navigate(chatPath(conversationId, { rootId: m.id })), [navigate, conversationId]);
+  // The thread opens on top of this chat; with one already open (desktop, side by side) the same one is left alone
+  // and another replaces it (chatNav), so closing never reopens the first.
+  const onThread = useCallback((m: ChatMessage) => go(chatPath(conversationId, { rootId: m.id })), [go, conversationId]);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread: channel ? onThread : undefined });
 
   // Read state: while this chat is open, in front AND on screen, everything up to the newest message is
@@ -124,12 +123,13 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const unread = summary.unreadCount > 0 || summary.manualUnread;
   const seen = visible && paneVisible;
   useEffect(() => {
-    if (!seen) return;
+    if (!seen || isLeavingChat()) return;
     setViewing(conversationId);
     return () => setViewing(null);
   }, [seen, conversationId, setViewing]);
   useEffect(() => {
-    if (conv.status !== 'ready' || !seen || !unread) return;
+    // Not while it is being left for good: that is exactly when it was just marked unread.
+    if (conv.status !== 'ready' || !seen || !unread || isLeavingChat()) return;
     void markRead(conversationId, through);
   }, [conv.status, seen, unread, markRead, conversationId, through]);
 
@@ -145,11 +145,14 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
 
+  const back = useBack();
+  const leave = useLeaveChat();
   const headerActions = {
-    onBack: () => navigate(HOME),
+    onBack: back,
     onArchive: () => {
       const next = !summary.archived;
-      if (next) navigate(HOME);
+      // The chat leaves the list: step back to the list (or replace with it), so Back never returns to it.
+      if (next) leave();
       void chat.setArchived(conversationId, next);
     },
     onMarkUnread: actions.onMarkUnread,
@@ -166,7 +169,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="conversation" data-chat-open={conversationId}>
-      <ConversationHeader chat={summary} owner={owner} blocked={blocked} actions={headerActions} />
+      <ConversationHeader chat={summary} blocked={blocked} actions={headerActions} />
       <MessageList
         conv={conv}
         actions={actions}

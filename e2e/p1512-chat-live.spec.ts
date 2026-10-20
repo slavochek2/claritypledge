@@ -353,11 +353,13 @@ test('1:1s have no threads; A forwards the channel post into the 1:1 and B sees 
 test('Clarify copies the message into A mirror only', async () => {
   await row(pageA, B_NAME).getByRole('button').first().click();
   await menuOn(pageA, 'reply from B', 'Clarify');
-  await expect(pageA.getByText('Sent to your mirror')).toBeVisible();
-  await pageA.locator('[data-sonner-toast]').filter({ hasText: 'Sent to your mirror' }).getByRole('button', { name: 'Open' }).click();
+  // Clarify opens the mirror itself (no toast), with the cursor in the composer for a note.
+  await expect(pageA.getByRole('textbox', { name: 'Write to your mirror' })).toBeFocused();
   await expect(conversation(pageA).getByRole('heading', { name: /Alicetest.*'s mirror|Your mirror/ })).toBeVisible();
   await expect(pageA.getByTestId('clarified-card')).toContainText('reply from B');
-  await expect(pageA.getByTestId('clarified-card')).toContainText('Clarified from');
+  await expect(pageA.getByTestId('clarified-card')).toContainText(/Sent to .+ to clarify/);
+  await expect(pageA.getByTestId('clarified-card')).toContainText(`to clarify · from your chat with ${B_NAME}`);
+  await expect(pageA.getByTestId('clarified-author')).toHaveText(B_NAME);
 
   const { data } = await supabaseAdmin.from('chat_messages').select('conversation_id, author_id, kind').eq('kind', 'clarify');
   const mine = (data ?? []).filter((r) => r.author_id === a.user.id);
@@ -697,7 +699,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await dismissed();
     }
 
-    // The worst case at the narrowest width: a channel post has Reply, Thread, Forward, Clarify and More.
+    // The worst case at the narrowest width: my own channel post has Reply, Forward, Thread, Clarify and More (Edit, Delete).
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/home');
     await expect(page.getByTestId('chat-list')).toBeVisible();
@@ -719,8 +721,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     expect(cb.x + cb.width, 'the action bar stays inside a 320 screen').toBeLessThanOrEqual(320);
     await settle(page);
     await page.screenshot({ path: `${SHOT_DIR}/channel-tap-320.png` });
-    await channelBar.getByRole('button', { name: 'More actions' }).click();
-    await page.getByRole('menuitem', { name: 'Forward', exact: true }).click();
+    await channelBar.getByRole('button', { name: 'Forward', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.waitForTimeout(500);
     await dialogShape(page, 320, 15);
@@ -833,12 +834,13 @@ test('a long history opens at the bottom, pages back in place, and offers "New m
   // Paging back keeps the reader's place: the message that was at the top stays where it was.
   await scroller.evaluate((el) => { el.scrollTop = 120; });
   const anchor = pageA.getByTestId('message').first();
-  const anchorText = (await anchor.innerText()).split('\n').pop() ?? '';
+  // Found again by its id, not by its last line of text: the toolbar's labelled Clarify button is part of the row's text now.
+  const anchorId = (await anchor.getAttribute('data-msg'))!;
   const before = (await anchor.boundingBox())!.y;
   // A DOM click: Playwright's own click would first scroll the button into view and move the reader.
   await pageA.getByRole('button', { name: 'Load earlier messages' }).evaluate((n) => (n as HTMLElement).click());
   await expect(pageA.getByText('history 00')).toBeVisible({ timeout: 20_000 });
-  const after = (await pageA.getByTestId('message').filter({ hasText: anchorText }).first().boundingBox())!.y;
+  const after = (await pageA.locator(`[data-testid="message"][data-msg="${anchorId}"]`).boundingBox())!.y;
   expect(Math.abs(after - before), 'the message under the reader stayed put').toBeLessThan(4);
 
   // Scrolled up: a new message does not yank the view, it offers the pill.

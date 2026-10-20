@@ -536,7 +536,7 @@ export function DocDetailPage() {
                     // Public docs need no recipient — compose auto-skips to the seal-confirm card (P1379: no prediction walk).
                     // Private docs pick recipients here, in a dialog over this draft.
                     if (doc.visibility === 'public') {
-                      navigate(`/letter/${doc.id}/compose`);
+                      navigate(`/letter/${doc.id}/compose`, { state: { fromDoc: true } });
                     } else {
                       setReceiverModalOpen(true);
                     }
@@ -614,6 +614,7 @@ export function DocDetailPage() {
             const derivedName = result.recipients.length === 1 ? result.recipients[0].name : '';
             navigate(`/letter/${doc.id}/compose`, {
               state: {
+                fromDoc: true,
                 mode: result.mode,
                 emails: result.emails,
                 receiverName: derivedName,

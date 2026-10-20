@@ -127,7 +127,7 @@ test.describe('P1421 — nav does not shift when the profile resolves', () => {
     expect(isReleased(), 'bottom nav must appear before the profile resolves').toBe(false);
     const homeBefore = await bottom.getByRole('link', { name: 'Home' }).boundingBox();
     // The Me slot holds its place (P1421) while the profile loads: an inert placeholder, not a button.
-    const meSlot = await bottom.locator('[data-nav-slot-placeholder="Me"]').boundingBox();
+    const meSlot = await bottom.locator('[data-nav-slot-placeholder="You"]').boundingBox();
     expect(meSlot, 'the Me slot is held while the profile loads').not.toBeNull();
 
     await expect(bottom.getByTestId('bottom-nav-me')).toBeVisible({

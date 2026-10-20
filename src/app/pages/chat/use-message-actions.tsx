@@ -1,16 +1,16 @@
 /**
- * P1512: what pressing Forward, Clarify, Delete or Mark as unread does — shared by the
+ * P1512: what pressing Forward, Clarify, Delete or the chat's Mark as unread does — shared by the
  * conversation and its thread panel so the two can never disagree.
  */
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '@/auth';
 import { clarifyMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import { ConfirmDialog, ForwardDialog } from './ChatDialogs';
 import type { ListActions } from './MessageList';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, HOME, isChatVisibleInList } from './chat-view-model';
+import { requestComposerFocus, useLeaveChat } from './chat-hooks';
+import { chatErrorText, chatPath, isChatVisibleInList, mirrorName } from './chat-view-model';
 import type { ConversationApi } from './MessageList';
 
 interface Options {
@@ -23,13 +23,24 @@ interface Options {
 
 export function useMessageActions({ summary, conv, onReply, onThread }: Options): { actions: ListActions; dialogs: ReactNode } {
   const chat = useChat();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const leave = useLeaveChat();
+  const location = useLocation();
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  // Gone once the pane that pressed Clarify is (another chat was opened): then there is nothing to come back to.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [forwardSource, setForwardSource] = useState<ChatMessage | null>(null);
   const [deleteSource, setDeleteSource] = useState<ChatMessage | null>(null);
-  const { chats, authors, setManualUnread, refresh } = chat;
+  const { chats, authors, setManualUnread, refresh, goToChat } = chat;
   const { remove } = conv;
   const conversationId = summary.conversationId;
+  const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
 
   const actions = useMemo<ListActions>(
     () => ({
@@ -38,25 +49,35 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
       onForward: setForwardSource,
       onDelete: setDeleteSource,
       onMarkUnread: () => {
-        // Leave first: an open chat marks itself read again the moment it sees the flag.
-        navigate(HOME);
+        // Leave first: an open chat marks itself read again the moment it sees the flag. Step back over the
+        // chat's entries (replace when there is nothing to step back to), so Back does not return and read it.
+        leave();
         void setManualUnread(conversationId, true);
       },
       onClarify:
         summary.kind === 'mirror'
           ? undefined
           : async (m: ChatMessage) => {
+              const from = locationRef.current;
               try {
                 const row = await clarifyMessage(m.id);
-                toast('Sent to your mirror', {
-                  action: { label: 'Open', onClick: () => navigate(chatPath(row.conversationId)) },
-                });
+                if (!mounted.current || locationRef.current.key !== from.key) {
+                  // They moved on while it sent: do not drag them away, just say it landed.
+                  toast(`Sent to ${mirror} to clarify`, {
+                    // goToChat reads where the person is when it is PRESSED: this screen may be long gone by then.
+                    action: { label: 'Open', onClick: () => goToChat(chatPath(row.conversationId), 'follow') },
+                  });
+                  return;
+                }
+                // To the mirror, on top of where they were (its Back returns here), cursor in the composer for a note.
+                requestComposerFocus(row.conversationId);
+                goToChat(chatPath(row.conversationId), 'follow');
               } catch (e) {
                 toast.error(chatErrorText(e, 'Could not send this to your mirror.'));
               }
             },
     }),
-    [onReply, onThread, navigate, setManualUnread, conversationId, summary.kind],
+    [onReply, onThread, leave, goToChat, setManualUnread, conversationId, summary.kind, mirror],
   );
 
   const forwardTargets = useMemo(
@@ -72,10 +93,9 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
           authorName={(forwardSource.authorId ? authors[forwardSource.authorId]?.name ?? 'Unknown member' : 'Deleted user')}
           chats={forwardTargets}
           revalidate={refresh}
-          owner={{ name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor }}
           onClose={() => setForwardSource(null)}
           onForwarded={(target) =>
-            toast('Forwarded', { action: { label: 'Open', onClick: () => navigate(chatPath(target.conversationId)) } })
+            toast('Forwarded', { action: { label: 'Open', onClick: () => goToChat(chatPath(target.conversationId), 'follow') } })
           }
         />
       )}

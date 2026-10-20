@@ -8,10 +8,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
 import { updateProfile, setMyPledge, eraseMyAccount } from "@/app/data/api";
 import { toast } from "sonner";
-import { ArrowLeftIcon, Loader2Icon, CheckIcon, ShieldOffIcon, Trash2Icon } from "lucide-react";
+import { Loader2Icon, CheckIcon, ShieldOffIcon, Trash2Icon } from "lucide-react";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
+import { PageFrame, PageHeader } from "@/app/components/layout/page-header";
 import { InstallCard } from "@/app/components/pwa/install-card";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { ProfilePhotoField } from "@/app/components/profile/profile-photo-field";
@@ -209,21 +210,9 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          to="/events"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back
-        </Link>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Update your public profile information
-        </p>
-      </div>
+    <PageFrame size="reading">
+      {/* P1512: Settings is a menu destination with the shell beside it, so no Back above the title. */}
+      <PageHeader title="Settings" description="Update your public profile information" />
 
       {/* P493: PWA install card — mobile only */}
       {!isDesktop && (
@@ -559,6 +548,6 @@ export function SettingsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageFrame>
   );
 }

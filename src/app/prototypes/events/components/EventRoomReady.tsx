@@ -134,12 +134,9 @@ export function EventRoomReady() {
           Back line (UAT 2026-10-01). */}
       {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on /prepare). */}
       <div className="mx-auto flex w-full max-w-2xl items-end gap-1">
-        <FocusHeader
-          compact
-          // After the event /ready forwards straight back here, so a history pop would loop.
-          onBack={() => navigate(`/events/${slug}`)}
-          aria-label={'Back to event'}
-        />
+        {/* Back returns the way the person came: the event page opened this room (the gate replaces itself with
+            /ready), so it POPS and the event's own Back does not land here again; cold arrival: the event, replaced. */}
+        <FocusHeader compact fallback={`/events/${slug}`} />
         <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />
       </div>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}

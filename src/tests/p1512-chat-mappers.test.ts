@@ -75,6 +75,12 @@ describe('P1512 chat mappers', () => {
     expect(mapMessageRow({ ...baseMessage, author_id: null }).authorId).toBeNull();
   });
 
+  it('exposes who wrote the original of a forward or clarify (forward_author_id); null once erased, and absent means null', () => {
+    expect(mapMessageRow({ ...baseMessage, forward_author_id: 'u7' }).forwardAuthorId).toBe('u7');
+    expect(mapMessageRow({ ...baseMessage, forward_author_id: null }).forwardAuthorId).toBeNull();
+    expect(mapMessageRow(baseMessage).forwardAuthorId).toBeNull();
+  });
+
   it('maps a clarify snapshot with its thread and tombstones missing author names', () => {
     const snap = mapForwardSnapshot({
       author_name: 'Ada',

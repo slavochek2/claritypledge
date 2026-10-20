@@ -122,8 +122,9 @@ test.describe('P459 — Owner viewing own profile', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    // Find the link in the metadata line pointing to the partners page
-    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    // Find the link in the metadata line pointing to the partners page. Scoped to the page body: since P1512 the
+    // sidebar has a Partners entry with the same href, and its menu items are list items too (decision 3).
+    const partnersLink = page.locator('main').locator(`a[href="/p/${owner.slug}/partners"]`);
     await expect(partnersLink).toBeVisible({ timeout: 10000 });
   });
 
@@ -141,7 +142,7 @@ test.describe('P459 — Owner viewing own profile', () => {
     const _agreementItems = page.locator('[aria-label*="agreement"], [data-testid*="agreement"]');
     // Fallback: count list items under agreements section
     // The exact selector depends on implementation — use a flexible approach
-    const listItems = page.locator('ul li, [role="list"] [role="listitem"]');
+    const listItems = page.locator('main ul li, main [role="list"] [role="listitem"]');
     const count = await listItems.count();
     expect(count).toBeGreaterThanOrEqual(3);
   });
@@ -192,7 +193,7 @@ test.describe('P459 — Visitor who is party to an agreement', () => {
 
     // Visitor should see 2 agreements (the public one + the private one they are party to)
     // They should NOT see the private agreement between owner and stranger
-    const listItems = page.locator('ul li, [role="list"] [role="listitem"]');
+    const listItems = page.locator('main ul li, main [role="list"] [role="listitem"]');
     const count = await listItems.count();
     expect(count).toBe(2);
   });
@@ -243,7 +244,7 @@ test.describe('P459 — Visitor with public agreements visible (not a party)', (
     await expect(page).not.toHaveURL(/404/);
 
     // Only 1 public active agreement should be visible
-    const listItems = page.locator('ul li, [role="list"] [role="listitem"]');
+    const listItems = page.locator('main ul li, main [role="list"] [role="listitem"]');
     const count = await listItems.count();
     expect(count).toBe(1);
   });
@@ -335,7 +336,7 @@ test.describe('P459 — Anonymous visitor', () => {
     await expect(page).not.toHaveURL(/404/);
 
     // Only 1 public active agreement visible to anonymous
-    const listItems = page.locator('ul li, [role="list"] [role="listitem"]');
+    const listItems = page.locator('main ul li, main [role="list"] [role="listitem"]');
     const count = await listItems.count();
     expect(count).toBe(1);
   });

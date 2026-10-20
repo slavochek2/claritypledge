@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useReturnToParent } from '@/app/hooks/use-go-back';
 import { Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ interface LetterSealConfirmationProps {
   storyCount: number;
   letterId?: string;
   isPublicDoc?: boolean;
+  /** The doc page opened compose (it marks the route state). Only then is the entry below the doc. */
+  openedFromDoc?: boolean;
 }
 
 export function LetterSealConfirmation({
@@ -32,8 +34,12 @@ export function LetterSealConfirmation({
   storyCount,
   letterId,
   isPublicDoc,
+  openedFromDoc = false,
 }: LetterSealConfirmationProps) {
-  const navigate = useNavigate();
+  // "Back to Doc" goes to the doc. When the doc page opened compose (it marks the route state) that is a POP, so
+  // the doc's own Back does not land on compose again. Opened from the Drafts list (drafts-tab goes straight
+  // to compose) the entry below is the LIST: a pop would not match the label, so it replaces with the doc.
+  const backToDoc = useReturnToParent(`/letters/drafts/${docId}`, openedFromDoc);
   const [copied, setCopied] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
@@ -93,7 +99,7 @@ export function LetterSealConfirmation({
             {/* Primary CTA */}
             <Button
               className="w-full bg-blue-500 hover:bg-blue-700 text-white"
-              onClick={() => navigate(`/d/${docId}`)}
+              onClick={backToDoc}
             >
               Back to Doc
             </Button>
@@ -119,7 +125,7 @@ export function LetterSealConfirmation({
         {!isPublicDoc && (
           <Button
             variant="outline"
-            onClick={() => navigate(`/d/${docId}`)}
+            onClick={backToDoc}
           >
             Back to Doc
           </Button>

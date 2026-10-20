@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -300,6 +301,9 @@ function PrepareFlow({
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
+      {/* P1512: the end screen is a destination with the menus back: its Back is the shell top bar's. The step
+          screens keep their own pinned step-back header (a wizard step, not a page Back). */}
+      {screen === 'end' && <FocusHeader fallback={EVENTS_LIST_TO} />}
       {screen !== 'end' && (
       <div ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="step-header">

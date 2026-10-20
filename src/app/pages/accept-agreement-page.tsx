@@ -25,6 +25,7 @@ import { analytics } from '@/lib/mixpanel';
 import { triggerConfetti } from '@/lib/confetti';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { Button } from '@/components/ui/button';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -400,9 +401,12 @@ export function AcceptAgreementPage() {
     return <ClarityPageLoader />;
   }
 
+  // P1512: this page hides the phone bottom bar, so every state keeps a Back (in the shell's top bar when
+  // signed in, in place otherwise) — an invitee must never be left on a dead end.
   if (pageState === 'invalid') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <FocusHeader fallback="/feed" />
         <h1 className="text-xl font-semibold text-[#1A1A1A]">
           This invitation has expired or is invalid
         </h1>
@@ -422,6 +426,7 @@ export function AcceptAgreementPage() {
   if (pageState === 'wrong-user') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
+        <FocusHeader fallback="/feed" />
         <h1 className="text-xl font-semibold text-[#1A1A1A]">
           This agreement has already been signed or is not addressed to you
         </h1>
@@ -446,6 +451,7 @@ export function AcceptAgreementPage() {
 
   return (
     <CertificatePageShell parchment className="py-10 space-y-6">
+      <FocusHeader fallback="/feed" />
       {/* P488: Prevent invitation token leakage in Referer headers */}
       <Helmet>
         <meta name="referrer" content="same-origin" />

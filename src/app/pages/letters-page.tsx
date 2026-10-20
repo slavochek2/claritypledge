@@ -20,6 +20,7 @@ import { useUnreadLetterCount } from '@/app/hooks/useUnreadLetterCount';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { docsService } from '@/app/data/docs-service';
 import type { ContentVisibility } from '@/app/types';
+import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 
 const VALID_TABS = ['drafts', 'sent', 'inbox'] as const;
 type TabValue = (typeof VALID_TABS)[number];
@@ -87,42 +88,17 @@ export function LettersPage() {
 
   return (
     <main aria-label="Clarity Letters" className="min-h-screen">
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        {/* Desktop title */}
-        <h1 className="hidden lg:block text-xl font-semibold text-foreground mb-4">
-          Clarity Letters
-        </h1>
-
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <div className="flex items-end justify-between sticky top-0 z-10 bg-background">
-            {/* P770: tab order Inbox → Drafts → Published. */}
-            <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">
-              <TabsTrigger
-                value="inbox"
-                aria-label={inboxAriaLabel}
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
-              >
-                {inboxLabel}
-              </TabsTrigger>
-              <TabsTrigger
-                value="drafts"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
-              >
-                Drafts
-              </TabsTrigger>
-              <TabsTrigger
-                value="sent"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
-              >
-                Published
-              </TabsTrigger>
-            </TabsList>
-            {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
+      <PageFrame size="reading">
+        {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
+        <PageHeader
+          title="Clarity Letters"
+          actions={
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" className="bg-blue-500 hover:bg-blue-700 text-white mb-1">
+                <Button aria-label="New Draft" className="h-10 bg-blue-500 hover:bg-blue-700 text-white">
                   <Plus className="w-4 h-4" />
-                  New Draft
+                  <span className="hidden sm:inline">New Draft</span>
+                  <span className="sm:hidden">New</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-64 p-2">
@@ -150,6 +126,33 @@ export function LettersPage() {
                 </button>
               </PopoverContent>
             </Popover>
+          }
+        />
+
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <div className="sticky top-0 z-10 bg-background">
+            {/* P770: tab order Inbox → Drafts → Published. */}
+            <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">
+              <TabsTrigger
+                value="inbox"
+                aria-label={inboxAriaLabel}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
+              >
+                {inboxLabel}
+              </TabsTrigger>
+              <TabsTrigger
+                value="drafts"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
+              >
+                Drafts
+              </TabsTrigger>
+              <TabsTrigger
+                value="sent"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none px-4 py-3"
+              >
+                Published
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           <TabsContent value="inbox" className="mt-4">
@@ -164,7 +167,7 @@ export function LettersPage() {
             <DraftsTab userId={user.id} />
           </TabsContent>
         </Tabs>
-      </div>
+      </PageFrame>
     </main>
   );
 }

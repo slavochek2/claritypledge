@@ -5,8 +5,8 @@
  * P113 Phase 2: Shows fixed bottom nav on mobile for verified users.
  * Uses design system tokens only.
  *
- * P1512: Home, Feed, Groups, Letters and Me. Home is the chat list, Feed is what Home used to be.
- * "Me" opens a sheet (profile, Partners with its badge, Tools, Events, Settings, Log Out), and on an
+ * P1512: Home, Feed, Groups, Letters and You. Home is the chat list, Feed is what Home used to be.
+ * "You" opens a sheet (profile, Partners with its badge, Tools, Events, Settings, Log Out), and on an
  * event day a slim "Today's event" strip sits on top of the tabs — the top bar that used to carry
  * both is not rendered in the signed-in shell.
  */
@@ -20,10 +20,8 @@ import { useLiveSession } from "@/app/contexts/live-session-context";
 import { EVENTS_NAV_TO } from "./nav-links";
 import { isBottomNavHiddenRoute } from "./bottom-nav-routes";
 import { MeSheet } from "./app-shell/me-sheet";
-import { useShellEntries, useShellTodaysEvent, type ShellEntry, type ShellEntryId } from "./app-shell/shell-nav";
+import { PHONE_TAB_IDS, useShellEntries, useShellTodaysEvent, type ShellEntry, type ShellEntryId } from "./app-shell/shell-nav";
 
-/** The tab row, in order. Everything else lives behind Me. */
-const TAB_IDS: ShellEntryId[] = ["home", "feed", "groups", "letters"];
 
 function tabClass(active: boolean) {
   return `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
@@ -78,13 +76,13 @@ export function BottomNav() {
   }
 
   const byId = (id: ShellEntryId) => entries.find(e => e.id === id);
-  const tabs = TAB_IDS.map(byId).filter((e): e is ShellEntry => !!e);
-  // The Me tab is lit on the pages it opens onto: the profile and Partners.
+  const tabs = PHONE_TAB_IDS.map(byId).filter((e): e is ShellEntry => !!e);
+  // The You tab is lit on the pages it opens onto: the profile and Partners.
   const meActive = !!(byId("profile")?.active || byId("partners")?.active);
   const meEntry = byId("profile");
   // Partners lives behind Me, so its pending-invite count rides on this tab.
   const meBadge = byId("partners")?.badge ?? 0;
-  const meLabel = meBadge > 0 ? `Me, ${meBadge} pending ${meBadge === 1 ? "invitation" : "invitations"}` : "Me";
+  const meLabel = meBadge > 0 ? `You, ${meBadge} pending ${meBadge === 1 ? "invitation" : "invitations"}` : "You";
 
   return (
     <nav
@@ -132,13 +130,13 @@ export function BottomNav() {
         {isProfilePending || !user || !meEntry ? (
           <div
             aria-hidden="true"
-            data-nav-slot-placeholder="Me"
+            data-nav-slot-placeholder="You"
             className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-muted-foreground opacity-50 animate-pulse pointer-events-none select-none"
           >
             <span className="relative">
               <UserIcon className="w-5 h-5 stroke-[1.5px]" />
             </span>
-            <span className="text-xs leading-none font-normal">Me</span>
+            <span className="text-xs leading-none font-normal">You</span>
             <div className="w-1 h-1 rounded-full mt-0.5 bg-transparent" />
           </div>
         ) : (
@@ -154,14 +152,15 @@ export function BottomNav() {
               analytics.track("nav_menu_opened", { trigger: "avatar", device: "mobile" });
             }}
           >
-            <TabBody entry={{ ...meEntry, label: "Me", badge: meBadge }} active={meActive}>
+            <TabBody entry={{ ...meEntry, label: "You", badge: meBadge }} active={meActive}>
               <GravatarAvatar
                 name={user.name}
                 avatarColor={user.avatarColor}
                 photoUrl={user.avatarUrl}
                 size="sm"
-                className="!h-5 !w-5 !text-[9px]"
-                showRing={false}
+                // The same box as the other tabs' icons (w-5 h-5). A pledger keeps the ring, thin and flush: the
+                // default ring has a 2px offset gap that made this one tab look oversized.
+                className="!h-5 !w-5 !text-[9px] !ring-1 !ring-offset-0"
                 isPledger={hasPledged}
               />
             </TabBody>

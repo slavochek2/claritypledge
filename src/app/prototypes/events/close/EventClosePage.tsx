@@ -14,11 +14,13 @@
  * "people who came" line is the prep screen's SocialProof; the reserved-place block is EventBox.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Linkedin } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { toast } from 'sonner';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useSignInAgain } from '@/app/hooks/useSignInAgain';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
@@ -150,7 +152,9 @@ export function EventClosePage() {
 // ─── flow ──────────────────────────────────────────────────────────────────────────────
 
 function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial: CloseState; viewerId: string }) {
-  const navigate = useNavigate();
+  // The intro's Back: a POP when the event page (or the room) opened this, so the event's own Back does not land
+  // here again; a cold arrival (the QR code: /close is the only entry) goes to the event, replaced.
+  const backToEvent = useGoBack(`/events/${event.slug}`);
   const signInAgain = useSignInAgain();
   const [headerRef, headerHeight] = useMeasuredHeight();
   const [barRef, barHeight] = useMeasuredHeight();
@@ -392,7 +396,7 @@ function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial
   const askBack = useRef<(() => boolean) | null>(null);
   const back = () => {
     if (saving || busy.current) return;
-    if (step === 'intro') return navigate(`/events/${event.slug}`);
+    if (step === 'intro') return backToEvent();
     if (step === 'community' && askBack.current?.()) return;
     go(prev(step));
   };
@@ -486,6 +490,9 @@ function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1389-close">
+      {/* P1512: the end screen is a destination with the menus back: its Back is the shell top bar's. The step
+          screens keep their own pinned step-back header (a wizard step, not a page Back). */}
+      {step === 'end' && <FocusHeader fallback={`/events/${event.slug}`} />}
       {step !== 'end' && (
         <>
           <div ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background pt-[env(safe-area-inset-top)]">

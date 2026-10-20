@@ -35,7 +35,7 @@ import {
   type ChatSummary,
 } from '@/app/data/chat-service';
 import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
-import { clearDraftsExcept } from './chat-hooks';
+import { clearDraftsExcept, useChatNavigate } from './chat-hooks';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
 import { chatErrorText, compareMessages, compareTimestamps, unreadChatCount } from './chat-view-model';
 
@@ -129,6 +129,8 @@ let localCounter = 0;
 
 function ChatProviderInner({ userId, enabled, listShown, children }: { userId: string | null; enabled: boolean; listShown: boolean; children: ReactNode }) {
   const { user } = useAuth();
+  // The provider outlives every screen, so this one always knows where the person is now.
+  const goToChat = useChatNavigate();
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const chatsRef = useRef(chats);
@@ -416,6 +418,7 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
         replyToId: input.replyToId ?? null,
         threadRootId: threadRootId ?? null,
         forwardedFromMessageId: null,
+        forwardAuthorId: null,
         forwardSnapshot: null,
         kind: 'message',
         attachmentKind: input.attachment?.kind ?? null,
@@ -568,9 +571,10 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
             discardSend,
             block,
             unblock,
+            goToChat,
           }
         : null,
-    [userId, status, error, chats, unreadCount, refresh, setArchived, setManualUnread, markRead, subscribe, setViewing, revision, authors, missingAuthors, ensureAuthors, outbox, sendMessage, retrySend, discardSend, block, unblock],
+    [userId, status, error, chats, unreadCount, refresh, setArchived, setManualUnread, markRead, subscribe, setViewing, revision, authors, missingAuthors, ensureAuthors, outbox, sendMessage, retrySend, discardSend, block, unblock, goToChat],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

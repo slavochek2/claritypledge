@@ -25,13 +25,13 @@ const ALLOWLIST: Record<string, { kinds: Kind[]; why: string }> = {
     kinds: ['bare-history-pop'],
     why: 'The one implementation of Back: pops only when there is somewhere in the tab to pop to.',
   },
+  'src/app/pages/chat/chat-hooks.ts': {
+    kinds: ['bare-history-pop'],
+    why: 'In-chat Back and Leave pop by a count read from history state (chatNav / backPlan / leavePlan), else replace — useGoBack cannot know that (P1512).',
+  },
   'src/app/pages/story-detail-page.tsx': {
     kinds: ['focus-header-onback'],
     why: 'Back is wrapped in the unsaved-edits guard (P427, decisions.md 2026-02-25); the guard calls useGoBack.',
-  },
-  'src/app/pages/org-join-page.tsx': {
-    kinds: ['focus-header-onback'],
-    why: 'The /groups/:slug/join terms gate is a flow with its own exit — out of P1364 scope.',
   },
   'src/app/pages/meeting-terms-page.tsx': {
     kinds: ['focus-header-onback'],
@@ -53,14 +53,9 @@ interface Finding {
   text: string;
 }
 
+/** `-1`, but also `-steps` or `-(n + 1)`: a pop by a computed count leaves the app just as a bare `-1` does. */
 function isMinusOne(node: ts.Expression | undefined): boolean {
-  return (
-    !!node &&
-    ts.isPrefixUnaryExpression(node) &&
-    node.operator === ts.SyntaxKind.MinusToken &&
-    ts.isNumericLiteral(node.operand) &&
-    node.operand.text === '1'
-  );
+  return !!node && ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken;
 }
 
 /** `history.back()` / `window.history.back()` / `history.go(-1)` — the receiver must be `history`. */
@@ -126,6 +121,11 @@ describe('P1364 drift guard — the detector itself (controls)', () => {
     expect(findBackDrift('x.ts', src).map(f => f.kind)).toEqual([
       'bare-history-pop', 'bare-history-pop', 'bare-history-pop',
     ]);
+  });
+
+  it('flags a pop by a computed count: navigate(-steps) (known bad)', () => {
+    const src = `function a(navigate: (n: number) => void, steps: number) { navigate(-steps); navigate(-(steps + 1)); }`;
+    expect(findBackDrift('x.ts', src).map(f => f.kind)).toEqual(['bare-history-pop', 'bare-history-pop']);
   });
 
   it('passes the declared form, comments and non-pop calls (known good)', () => {

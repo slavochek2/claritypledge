@@ -66,7 +66,7 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.waitForLoadState('networkidle');
 
     // Tab through the page and check that the partners link can receive focus
-    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    const partnersLink = page.locator('main').locator(`a[href="/p/${owner.slug}/partners"]`);
     await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
     // Focus the link via keyboard navigation
@@ -79,7 +79,7 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    const partnersLink = page.locator('main').locator(`a[href="/p/${owner.slug}/partners"]`);
     await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
     await partnersLink.focus();
@@ -94,7 +94,7 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    const partnersLink = page.locator('main').locator(`a[href="/p/${owner.slug}/partners"]`);
     await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
     // The link must have accessible text beyond a bare symbol

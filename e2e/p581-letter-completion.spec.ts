@@ -300,8 +300,10 @@ test.describe('P581: Letter Completion — summary + sender results', () => {
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Letters tab navigates to /letters/ page — check it shows the doc's letter
-    const lettersTab = page.getByRole('button', { name: /letters/i }).first();
+    // The doc page's "← Letters" button is now the shell top bar's Back (P1512 decision 19), which on a cold
+    // arrival returns to where the person came from rather than always to Letters. The Letters destination is
+    // the sidebar's entry: go there and check it shows the doc's letter.
+    const lettersTab = page.locator('[data-nav="sidebar"]').getByRole('link', { name: 'Letters' });
     await expect(lettersTab).toBeVisible({ timeout: 10000 });
     await lettersTab.click();
 

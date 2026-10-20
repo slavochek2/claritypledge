@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: story
 rank: 43
 workstream: clarity-chat
@@ -7,7 +7,7 @@ created_date: '2026-10-19'
 tags: [clarity-chat, navigation, realtime, rls]
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-spec, architect, dev]
+pipeline_ran: [create-spec, architect, dev, dev.2]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -62,6 +62,43 @@ the old redirect can be restored, a leaked message cannot be recalled). Decision
 9. ~~The mirror is answered by Gemini 3.8~~ — revised 2026-10-19: **no AI in v1.** Clarify forwards the message (with
    its thread) into the owner's mirror chat; helping turn it into a point or story is the next spec.
 10. Rollout: everyone at once.
+11. (Founder hands-on test, 2026-10-19.) **Back returns to the previous screen.** A chat's Back and a thread's close
+    go back one step when that step is the list or the chat; otherwise they open the parent in place. They never
+    add a step, so the phone's back gesture cannot walk into a screen just closed.
+12. **Message actions without repeats.** The toolbar shows Reply, Forward, Thread (where threads exist) and
+    Clarify; the ⋯ menu holds only the rest (Mark as unread, Edit, Delete). Clarify keeps the approved look from the
+    prototype: the mirror's face and the word, named "Clarify with <mirror name>". Clarified copies in the mirror
+    read "Sent to <mirror name> to clarify".
+13. **The + next to the chat search starts a new message**: a picker of the people the user may message (D1) with
+    search, and "Invite a Clarity Partner" as its last row (replaces decision 4's "+ opens the invite").
+14. **Menus do not repeat the nav.** The phone Me sheet and the desktop account menu leave out every destination the
+    bar or sidebar already shows, and members no longer see "Use cases" there (signed-out visitors keep them).
+15. **One page frame for signed-in pages** (a layout-only exception to decision 1): Feed, Groups, Events,
+    Letters, Partners, Settings and Session History start with the same title row, level with the sidebar logo, at
+    the same left edge, main action on the right. Content below the title row is unchanged.
+16. **Mark as unread is a chat action, not a message action**: it stays in the chat-list row and chat header menus
+    and is removed from message menus (on a message it suggested "unread from here").
+17. **A group's page leads to its chat**: members see "Open chat" next to Join/Manage, opening the group's General
+    channel in Home (a layout-only exception to D6; the page's tabs are unchanged).
+18. **The public site, Notion-style**: member menus carry one "ClarityPledge website" row instead of Use cases and
+    Learn; public pages viewed signed in show the public top bar with "Log out" and "Open app". The sidebar logo
+    stays Home.
+19. (Second hands-on test.) **A Notion-style top bar replaces decision 15's "level with the logo" title row.** Every
+    page in the shell has one slim bar level with the logo: "← <parent>" on sub-pages (back to where the user came
+    from, else the parent), nothing on top-level pages, page actions on the right. The title sits below with room to
+    breathe, its main action at the right edge of the page's own content. One back position everywhere.
+20. **Tools is a small icon next to the account row** at the bottom of the desktop sidebar; the sidebar list holds
+    destinations only. On phone it stays in the Me sheet.
+21. **Clarify jumps to the mirror** with the composer ready for a note (no toast, as in the approved prototype).
+22. **The mirror never shows the owner's photo**: it has its own neutral mark until portraits exist. A generated
+    portrait in an artist's style (reusing the P1453 artist-banner generator), renewable by the user rather than
+    guessed from the name, is the next spec, together with the mirror's AI replies (decision 9 keeps AI out of v1).
+23. **The + shows "New message" on hover**; it stays outlined (one filled primary per view). When two people in the
+    picker share a name, a second clue tells them apart.
+24. **A chat's header title opens the person's profile or the group/event page**; no separate info panel or in-chat
+    search in v1 (the list search already finds messages; jump-to-latest already exists).
+25. **The phone bar's last tab is "You"** (as WhatsApp), with the avatar at the same size as the other tab icons. The
+    Me sheet's first row is a plain "My Profile" with the person icon, as on desktop (no separate name row).
 
 ## Open decisions (recommended default in bold; the build uses the default unless the founder changes it)
 

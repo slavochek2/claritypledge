@@ -45,6 +45,8 @@ export interface ChatMessage {
   replyToId: string | null;
   threadRootId: string | null;
   forwardedFromMessageId: string | null;
+  /** Who wrote the original of a forward or clarify; NULL once that account is erased (and for a plain message). */
+  forwardAuthorId: string | null;
   forwardSnapshot: ForwardSnapshot | null;
   kind: ChatMessageKind;
   attachmentKind: ChatAttachmentKind | null;
@@ -152,6 +154,7 @@ export interface ChatMessageRow {
   reply_to_id: string | null;
   thread_root_id: string | null;
   forwarded_from_message_id: string | null;
+  forward_author_id?: string | null;
   forward_snapshot: Record<string, unknown> | null;
   kind: ChatMessageKind;
   attachment_kind: ChatAttachmentKind | null;
@@ -260,6 +263,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     replyToId: row.reply_to_id,
     threadRootId: row.thread_root_id,
     forwardedFromMessageId: row.forwarded_from_message_id,
+    forwardAuthorId: row.forward_author_id ?? null,
     forwardSnapshot: mapForwardSnapshot(row.forward_snapshot),
     kind: row.kind,
     attachmentKind: row.attachment_kind,

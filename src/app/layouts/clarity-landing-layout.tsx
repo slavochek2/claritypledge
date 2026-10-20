@@ -5,9 +5,11 @@ import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { AppSidebar } from "@/app/components/layout/app-shell/app-sidebar";
 import { useSidebarCollapsed } from "@/app/components/layout/app-shell/sidebar-collapse";
 import { useShellTodaysEvent } from "@/app/components/layout/app-shell/shell-nav";
+import { ShellTopBar, ShellTopBarProvider } from "@/app/components/layout/app-shell/shell-top-bar";
 import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
+import { isPublicSitePath } from "@/app/components/layout/nav-links";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
-import { CHAT_CONVERSATION_PREFIX, isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
+import { isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineStrip } from "@/app/components/offline/offline-strip";
@@ -173,27 +175,30 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   // P1387: and only where the BottomNav actually shows — same rule, one source.
-  const needsBottomPadding = showSignedInChrome && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
+  // P1512: the public website (landing, audience pages, manifesto, About, Pledgers) read while signed in keeps
+  // the PUBLIC top nav, with "Open app" and "Log out" on its right (like notion.com signed in): no sidebar,
+  // no bottom bar. Product routes (Feed, Groups, Events, Letters, profile, chat) keep the shell.
+  const publicSiteView = surface === 'public' && showSignedInChrome && !compact && !logoOnly && isPublicSitePath(location.pathname);
+  const needsBottomPadding = showSignedInChrome && !publicSiteView && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
   // P1512: the signed-in shell. A signed-in person on a normal product/public route gets the
   // sidebar (desktop) and bottom bar (phone) INSTEAD of the top nav, so each route shows exactly
   // one navigation. Everything that keeps its own chrome is excluded: the compact room pages, the
   // logo-only intro, /live and /transcribe, immersive letters, and pages with their own navigation.
   // A completed letter (?done=1) leaves compact mode and so enters the shell, as it re-enters the menus.
-  const signedInShell = showSignedInChrome && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
+  const signedInShell = showSignedInChrome && !publicSiteView && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
     && !(compact && !letterDone) && !logoOnly;
-  // Focus pages hide the phone bottom bar, which would leave the phone with no navigation at all
-  // (and no Tools or Today's event). Those keep the slim top nav below lg only; desktop keeps the sidebar.
-  // P1512: an open chat conversation draws its own header and Back, so the phone gets no top nav there either.
-  const phoneTopNav = signedInShell && !needsBottomPadding && !location.pathname.startsWith(CHAT_CONVERSATION_PREFIX);
-  // Sticky/fixed page elements hard-code the top nav's height as their offset (see index.css).
-  const shellTopNav = phoneTopNav ? "phone" : "none";
-  const shellTopPadding = phoneTopNav
-    ? (offlineStripShown ? "pt-16 lg:pt-0" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-0")
-    : (offlineStripShown ? "" : "pt-[env(safe-area-inset-top)]");
+  // P1512: inside the shell the top bar (shell-top-bar.tsx, in <main>) is the ONLY top chrome on every device —
+  // focus pages that hide the phone bottom bar no longer add the logo top nav above it (one bar, not two). So
+  // no page sits under a fixed nav: sticky/fixed offsets that hard-code the old nav height (see index.css) drop to
+  // the safe-area edge, and <main> only clears the status-bar inset.
+  const shellTopNav = "none";
+  const shellTopPadding = offlineStripShown ? "" : "pt-[env(safe-area-inset-top)]";
   const topPadding = signedInShell
     ? shellTopPadding
     : needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : "";
   const bottomPadding = needsBottomPadding ? (todaysEvent ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
+  // P1512: the top bar belongs to every shell page except Home, whose chat screens draw their own header.
+  const showShellTopBar = signedInShell && !isChatHome;
   const shellColumnPadding = signedInShell ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
@@ -235,6 +240,8 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
      * 2026-08-21). Logged-out public pages are unchanged: no menu.
      */
     <EventLinksMenu enabled={surface === 'product' || showUserMenu}>
+    {/* P1512: the shell's top bar (Back on the left, page actions on the right). Home draws its own header. */}
+    <ShellTopBarProvider enabled={showShellTopBar}>
     {/* P1388: h-dvh, not h-screen. On a phone 100vh includes the browser's address bar, so the
         "fixed-height" /live and /transcribe screens were taller than the visible area: the page
         scrolled a little, the page's own sticky header slid off the nav it covers (two menus
@@ -245,18 +252,14 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
     >
       <OfflineStrip />
       {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />}
-      {signedInShell && phoneTopNav && (
-        <div className="lg:hidden">
-          <SimpleNavigation />
-        </div>
-      )}
       {!signedInShell && !hasOwnNavigation && !isImmersiveLetterRoute && (
-        <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />
+        <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} publicSite={publicSiteView} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
           on Android/desktop where the inset is 0. */}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${isChatHome ? "flex flex-col overflow-hidden" : ""} ${topPadding} ${bottomPadding}`}>
+        {showShellTopBar && <ShellTopBar />}
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe
@@ -270,12 +273,13 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && !isCanvasPage && (
         showSiteFooter
           ? <ClarityFooter />
-          : !showUserMenu && <LegalFooter />
+          : (!showUserMenu || publicSiteView) && <LegalFooter />
       )}
       {/* P113: Mobile bottom nav for logged-in users */}
-      {!logoOnly && <BottomNav />}
+      {!logoOnly && !publicSiteView && <BottomNav />}
       <Toaster />
     </div>
+    </ShellTopBarProvider>
     </EventLinksMenu>
   );
 }

@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDownIcon, PlusIcon, Share2Icon, UsersIcon } from "lucide-react";
+import { ChevronDownIcon, MessagesSquareIcon, PlusIcon, Share2Icon, UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,6 +42,8 @@ interface OrgHeaderProps {
   /** Routes to the terms page (/groups/:slug/join) — never joins in place. */
   onJoin: () => void;
   onLeave: () => void | Promise<void>;
+  /** P1512: opens the group's General chat in Home. Members only; omit to show no button. */
+  onOpenChat?: () => void;
   /** Switches the page to the Members tab. Omit to render the count as plain text. */
   onShowMembers?: () => void;
   /** P1060 D9: distinct RSVP'd profiles across this org's events. Absent/zero → no row. */
@@ -59,6 +61,7 @@ export function OrgHeader({
   organizerCount = null,
   onJoin,
   onLeave,
+  onOpenChat,
   onShowMembers,
   participation,
   currentUserId,
@@ -233,6 +236,13 @@ export function OrgHeader({
             <Share2Icon className="h-4 w-4" aria-hidden="true" />
             Invite
           </Button>
+          {/* P1512: secondary (outline) beside Invite and Manage membership — the one primary stays Host event / Invite. */}
+          {onOpenChat && (
+            <Button variant="outline" onClick={onOpenChat} className="min-h-11 w-full gap-2 sm:w-auto" data-testid="org-open-chat">
+              <MessagesSquareIcon className="h-4 w-4" aria-hidden="true" />
+              Open chat
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="min-h-11 w-full gap-2 sm:w-auto">

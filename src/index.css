@@ -213,8 +213,8 @@ body:has([data-nav="bottom"]) .mobile-nav-panel {
   }
 }
 
-/* P1512: the signed-in shell has no fixed top nav on desktop (a sidebar replaces it), and none on
- * the phone either unless the page hides the bottom bar (data-shell-top-nav="phone"). Several page
+/* P1512: the signed-in shell has no fixed top nav on any device (the sidebar replaces it on desktop, the
+ * bottom bar on the phone, and the in-flow top bar sits in <main> everywhere). Several page
  * elements stick or fix themselves at the old nav's height (4rem phone, 5rem desktop); left alone
  * they would hang 64-80px below the top edge. This lowers exactly those offsets to the screen edge
  * where the nav is gone, instead of editing each page. The match is on the offset class itself, so
@@ -222,13 +222,6 @@ body:has([data-nav="bottom"]) .mobile-nav-panel {
 [data-shell-top-nav="none"] [class*="top-[calc(4rem+env(safe-area-inset-top))]"],
 [data-shell-top-nav="none"] [class*="top-[calc(5rem+env(safe-area-inset-top))]"] {
   top: env(safe-area-inset-top) !important;
-}
-
-@media (min-width: 1024px) {
-  [data-shell-top-nav="phone"] [class*="top-[calc(4rem+env(safe-area-inset-top))]"],
-  [data-shell-top-nav="phone"] [class*="top-[calc(5rem+env(safe-area-inset-top))]"] {
-    top: env(safe-area-inset-top) !important;
-  }
 }
 
 /* P1512: the offline strip (1.75rem) stays in flow above content, so the offline variants of the old
@@ -243,16 +236,9 @@ body:has([data-nav="bottom"]) .mobile-nav-panel {
 }
 
 @media (min-width: 1024px) {
-  [data-shell-top-nav="phone"] [class*="top-[calc(5.75rem+env(safe-area-inset-top))]"],
-  [data-shell-top-nav="phone"] [class*="top-[calc(6.75rem+env(safe-area-inset-top))]"],
   [data-shell-top-nav="none"] [class*="top-[calc(6.75rem+env(safe-area-inset-top))]"] {
     top: calc(1.75rem + env(safe-area-inset-top)) !important;
   }
-  [data-shell-top-nav="phone"] [class*="top-[calc(4rem+var(--room-head-offset)+env(safe-area-inset-top))]"],
-  [data-shell-top-nav="phone"] [class*="top-[calc(5rem+var(--room-head-offset)+env(safe-area-inset-top))]"] {
-    top: calc(var(--room-head-offset) + env(safe-area-inset-top)) !important;
-  }
-
   /* Full-width fixed bars (terms notice, letter and explain-back action bars) would sit over the
    * sidebar: from lg up they start where the sidebar ends. Collapsed, the sidebar is 4rem wide. */
   body:has([data-nav="sidebar"]:not([data-collapsed])) [data-shell-bar] {

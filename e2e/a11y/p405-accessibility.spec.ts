@@ -324,11 +324,12 @@ test.describe('P405 Accessibility — Bottom Nav Tab', () => {
       await setTestSession(page, testUser.email);
 
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto('/');
+      await page.goto('/feed');
       await page.waitForLoadState('networkidle');
 
-      // Sessions tab should be accessible by role + name
-      const sessionsTab = page.getByRole('link', { name: /sessions/i }).first();
+      // P1512 decisions 3/14/25: Session History is behind the bar's last tab ("You"), as a row in its sheet.
+      await page.getByTestId('bottom-nav-me').click();
+      const sessionsTab = page.getByTestId('me-sheet').getByRole('link', { name: /session history/i });
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
 
       // Must have a visible text label or aria-label

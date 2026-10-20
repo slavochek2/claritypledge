@@ -14,7 +14,7 @@
  * pane and, below 2xl, takes the list's place so the conversation never gets narrower than a phone.
  */
 import { useContext, useEffect } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { MessagesSquare } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
@@ -22,35 +22,36 @@ import { ChatList } from './ChatList';
 import { ConversationPane } from './ConversationPane';
 import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
-import { DESKTOP_QUERY, useMediaQuery } from './chat-hooks';
-import { chatPath, isChannel, parseChatRoute } from './chat-view-model';
+import { DESKTOP_QUERY, useBack, useFinishLeave, useMediaQuery } from './chat-hooks';
+import { chatNav, chatPath, isChannel, parseChatRoute } from './chat-view-model';
 
 export default function ChatHomePage() {
   const ctx = useContext(ChatContext);
-  const { pathname, search } = useLocation();
-  const navigate = useNavigate();
+  const { pathname, search, state } = useLocation();
   const route = parseChatRoute(pathname);
   const highlightId = new URLSearchParams(search).get('m');
   const summary = ctx?.chats.find((c) => c.conversationId === route.conversationId);
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
-  // Escape closes the thread panel (a dialog or menu that handled Escape marked it as taken).
+  // Escape closes the thread panel the way its Back does (a dialog or menu that handled Escape marked it as taken).
   const threadOpen = !!route.rootId;
+  const closeThread = useBack();
+  useFinishLeave();
   useEffect(() => {
-    if (!threadOpen || !route.conversationId) return;
-    const conversationId = route.conversationId;
+    if (!threadOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) navigate(chatPath(conversationId));
+      if (e.key === 'Escape' && !e.defaultPrevented) closeThread();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [threadOpen, route.conversationId, navigate]);
+  }, [threadOpen, closeThread]);
 
   if (!ctx) return <ClarityPageLoader />;
 
   // Threads exist in channels only: a thread URL on a 1:1 or the mirror falls back to the chat.
   if (route.rootId && route.conversationId && summary && !isChannel(summary)) {
-    return <Navigate to={chatPath(route.conversationId)} replace />;
+    // The chat takes the thread URL's place and keeps what was below it.
+    return <Navigate to={chatPath(route.conversationId)} replace state={chatNav({ pathname, state }, chatPath(route.conversationId), 'redirect').state} />;
   }
 
   const conversationOpen = !!route.conversationId;

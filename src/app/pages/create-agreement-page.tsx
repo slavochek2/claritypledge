@@ -8,14 +8,14 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGoBack } from '@/app/hooks/use-go-back';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility, ProfileSearchResult } from '@/app/data/agreements-service';
 import { ProfilePickerInput } from '@/app/components/shared/profile-picker-input';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
-import { Loader2Icon, GlobeIcon, LockIcon, ArrowLeft } from 'lucide-react';
+import { Loader2Icon, GlobeIcon, LockIcon } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -81,7 +81,6 @@ function AvatarBadge({ party }: { party: AgreementParty }) {
 export function CreateAgreementPage() {
   const navigate = useNavigate();
   // P1364: back to where the reader came from; a cold arrival goes to /me, never off-site.
-  const goBack = useGoBack('/me');
   const { user, session, isLoading: authLoading } = useAuth();
 
   // Form state
@@ -312,15 +311,8 @@ export function CreateAgreementPage() {
 
   return (
     <CertificatePageShell className="py-8 pb-24 md:py-12 md:pb-12">
-      <Button
-        variant="ghost"
-        onClick={goBack}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
-        aria-label="Go back"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </Button>
+      {/* P1512: Back renders in the shell's top bar; P1364: it returns to where the person came from. */}
+      <FocusHeader fallback="/me" />
 
       {/* Nameless creator error */}
       {creatorHasNoName && (

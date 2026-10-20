@@ -18,6 +18,7 @@ import { docsService } from '@/app/data/docs-service';
 import * as lettersService from '@/app/data/letters-service';
 import { invokeLetterEmails } from '@/lib/letter-emails';
 import { analytics } from '@/lib/mixpanel';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { LetterReceiverModal, type ReceiverSetupResult } from '@/app/components/letters/letter-receiver-modal';
 import { LetterPredictionWalk } from '@/app/components/letters/letter-prediction-walk';
 import { LetterReviewScreen } from '@/app/components/letters/letter-review-screen';
@@ -40,6 +41,9 @@ export function LetterComposePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  // Closing the receiver modal or the prediction walk returns the way the author came (a POP when the draft
+  // opened compose), so the draft's own Back does not land on compose again. Cold arrival: the draft, replaced.
+  const backToDoc = useGoBack(`/letters/drafts/${docId ?? ''}`);
 
   // Check if receiver setup was passed via route state (from modal on doc page)
   const routeState = location.state as {
@@ -47,6 +51,8 @@ export function LetterComposePage() {
     emails?: string[];
     receiverName?: string;
     recipients?: Array<{ email: string; name: string; profileId?: string }>;
+    /** Set by the doc page when it opens compose: the entry below is then the doc. */
+    fromDoc?: boolean;
   } | null;
 
   // Data loading
@@ -297,7 +303,7 @@ export function LetterComposePage() {
         <LetterReceiverModal
           open={true}
           onOpenChange={(open) => {
-            if (!open) navigate(`/d/${docId}`);
+            if (!open) backToDoc();
           }}
           isPrivateDoc={isPrivateDoc}
           docId={docId ?? ''}
@@ -318,7 +324,7 @@ export function LetterComposePage() {
         predictions={predictions}
         onPredict={handlePredict}
         onComplete={handlePredictionComplete}
-        onClose={() => navigate(`/d/${docId}`)}
+        onClose={backToDoc}
         isPublicDoc={doc.visibility === 'public'}
       />
     );
@@ -381,6 +387,7 @@ export function LetterComposePage() {
         storyCount={stories.length}
         letterId={sealedLetterId ?? undefined}
         isPublicDoc={doc.visibility === 'public'}
+        openedFromDoc={routeState?.fromDoc === true}
       />
     );
   }

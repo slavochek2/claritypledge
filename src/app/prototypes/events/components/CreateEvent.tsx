@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Calendar, Clock, MapPin,
+import { Calendar, Clock, MapPin,
   MessagesSquare, FileText, Globe } from 'lucide-react';
 import { LocationHint } from './LocationHint';
 import { validateGroupChatUrl } from '../group-chat-utils';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { organizationsService } from '@/app/data/organizations-service';
@@ -205,13 +206,8 @@ export function CreateEvent() {
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6" data-testid="create-event-form">
         {/* Back link and title */}
         <div className="mb-6">
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Events
-          </Link>
+          {/* P1512: Back renders in the shell's top bar; it returns to where the host came from. */}
+          <FocusHeader fallback="/events" parentName="Events" />
           <h1 className="text-2xl font-bold">Host an Event</h1>
           {/* P1060: hosting into a group is invisible otherwise — the only signal was a
               query parameter. A host who cannot see the destination cannot notice it is

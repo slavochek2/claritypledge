@@ -1,28 +1,30 @@
 /**
  * @file ChatList.tsx
- * @description P1512: the Home chat list — search with a "+" to invite a Clarity Partner, the
+ * @description P1512: the Home chat list — search with a "+" for a new message, the
  * All / Unread / Partners / Channels tabs, the rows, and the collapsed Archived section.
  *
  * Search looks in three places at once: your own chats by title (here, no request), people you
  * share a group, event or partnership with (searchPeople), and message text (searchMessages).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Archive, ArchiveRestore, ChevronRight, MoreHorizontal, Plus, Search, X, CircleDot, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/auth';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
-import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark, type PersonLike } from './chat-kit';
+import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark } from './chat-kit';
+import { useChatNavigate, useLeaveChat } from './chat-hooks';
+import { NewMessageDialog } from './NewMessageDialog';
 import { useChat } from './chat-state';
 import {
   CHAT_TABS,
   chatErrorText,
   chatPath,
   chatTitle,
-  HOME,
+  INVITE_PARTNER_PATH,
   listTime,
   mirrorRole,
   previewLine,
@@ -32,15 +34,14 @@ import {
   type ChatTab,
 } from './chat-view-model';
 
-export const INVITE_PARTNER_PATH = '/agreements/new/create';
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_CHARS = 2;
 
 /** The open chat: a light tint and a blue edge (never a blue fill, which hid the avatar and hurt contrast). */
 const SELECTED_ROW = 'bg-blue-50 shadow-[inset_3px_0_0_0_#2563eb]';
 
-function ChatMark({ chat, owner, active }: { chat: ChatSummary; owner: PersonLike; active: boolean }) {
-  if (chat.kind === 'mirror') return <MirrorMark owner={owner} size="list" />;
+function ChatMark({ chat, active }: { chat: ChatSummary; active: boolean }) {
+  if (chat.kind === 'mirror') return <MirrorMark size="list" />;
   if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="list" />;
   return <ChannelMark kind={chat.kind} size="list" selected={active} />;
 }
@@ -48,9 +49,9 @@ function ChatMark({ chat, owner, active }: { chat: ChatSummary; owner: PersonLik
 // ---------------------------------------------------------------------------
 // One row
 // ---------------------------------------------------------------------------
-function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary; active: boolean; viewerId: string; owner: PersonLike; onOpen: (c: ChatSummary) => void }) {
+function ChatRow({ chat, active, viewerId, onOpen }: { chat: ChatSummary; active: boolean; viewerId: string; onOpen: (c: ChatSummary) => void }) {
   const { setArchived, setManualUnread, markRead } = useChat();
-  const navigate = useNavigate();
+  const leave = useLeaveChat();
   const [menu, setMenu] = useState(false);
   const title = chatTitle(chat);
   const unread = isChatUnread(chat);
@@ -58,7 +59,7 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
   const when = listTime(chat.lastMessage?.createdAt);
 
   const leaveIfOpen = () => {
-    if (active) navigate(HOME);
+    if (active) leave();
   };
 
   return (
@@ -73,7 +74,7 @@ function ChatRow({ chat, active, viewerId, owner, onOpen }: { chat: ChatSummary;
         aria-current={active ? 'true' : undefined}
         className={cn('flex min-h-[68px] w-full items-center gap-3 px-3 py-2 text-left', active ? SELECTED_ROW : HOVER, FOCUS_RING, 'focus-visible:ring-inset')}
       >
-        <ChatMark chat={chat} owner={owner} active={active} />
+        <ChatMark chat={chat} active={active} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className={cn('min-w-0 flex-1 truncate text-[15px] text-foreground', unread ? 'font-bold' : 'font-semibold')} data-testid="row-title">
@@ -204,7 +205,7 @@ function useRemoteSearch(query: string, revision: number): RemoteResults {
 }
 
 function SearchResults({ query, chats, onOpen }: { query: string; chats: ChatSummary[]; onOpen: (c: ChatSummary, messageId?: string) => void }) {
-  const navigate = useNavigate();
+  const go = useChatNavigate();
   const { refresh, revision } = useChat();
   const remote = useRemoteSearch(query, revision);
   const [starting, setStarting] = useState<string | null>(null);
@@ -216,7 +217,7 @@ function SearchResults({ query, chats, onOpen }: { query: string; chats: ChatSum
     try {
       const id = await startDm(person.id);
       await refresh();
-      navigate(chatPath(id));
+      go(chatPath(id));
     } catch (e) {
       toast.error(chatErrorText(e, 'Could not start this chat.'));
     } finally {
@@ -311,9 +312,7 @@ function SearchResults({ query, chats, onOpen }: { query: string; chats: ChatSum
 }
 
 function MiniMark({ chat }: { chat: ChatSummary }) {
-  const { user } = useAuth();
-  const owner: PersonLike = { name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor };
-  if (chat.kind === 'mirror') return <MirrorMark owner={owner} size="sm" />;
+  if (chat.kind === 'mirror') return <MirrorMark size="sm" />;
   if (chat.kind === 'dm') return <PersonMark person={chat.other ?? { name: 'Deleted user', deleted: true }} size="sm" />;
   return <ChannelMark kind={chat.kind} size="sm" />;
 }
@@ -323,15 +322,12 @@ function MiniMark({ chat }: { chat: ChatSummary }) {
 // ---------------------------------------------------------------------------
 export function ChatList({ activeId }: { activeId: string | null }) {
   const chat = useChat();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const go = useChatNavigate();
   const [tab, setTab] = useState<ChatTab>('all');
   const [query, setQuery] = useState('');
   const [archivedOpen, setArchivedOpen] = useState(false);
-  const owner: PersonLike = useMemo(
-    () => ({ name: user?.name ?? 'You', avatarUrl: user?.avatarUrl, avatarColor: user?.avatarColor }),
-    [user?.name, user?.avatarUrl, user?.avatarColor],
-  );
+  const [composing, setComposing] = useState(false);
+  const newMessageButton = useRef<HTMLButtonElement>(null);
 
   const { chats } = chat;
   const split = useMemo(() => splitChats(chats, tab), [chats, tab]);
@@ -339,9 +335,10 @@ export function ChatList({ activeId }: { activeId: string | null }) {
   const hasDm = chats.some((c) => c.kind === 'dm');
   const q = query.trim();
 
+  // From the list a chat is pushed; with a chat already open beside it (desktop) the new one swaps in its place (chatNav).
   const open = (c: ChatSummary, messageId?: string) => {
     setQuery('');
-    navigate(chatPath(c.conversationId, { messageId }));
+    go(chatPath(c.conversationId, { messageId }));
   };
 
   return (
@@ -365,14 +362,22 @@ export function ChatList({ activeId }: { activeId: string | null }) {
               </button>
             )}
           </label>
-          <Link
-            to={INVITE_PARTNER_PATH}
-            aria-label="Invite a Clarity Partner"
-            title="Invite a Clarity Partner"
-            className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-foreground', HOVER, FOCUS_RING)}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </Link>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  ref={newMessageButton}
+                  type="button"
+                  aria-label="New message"
+                  onClick={() => setComposing(true)}
+                  className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-foreground', HOVER, FOCUS_RING)}
+                >
+                  <Plus className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>New message</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {!q && (
           <div role="tablist" aria-label="Folders" className="flex min-w-0 gap-0.5 overflow-x-auto border-b px-2 [scrollbar-width:none]">
@@ -408,7 +413,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
           <>
             <ul aria-label="Chats">
               {split.active.map((c) => (
-                <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} owner={owner} onOpen={(x) => open(x)} />
+                <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} />
               ))}
             </ul>
             {split.active.length === 0 && (
@@ -435,7 +440,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
                 {archivedOpen && (
                   <ul aria-label="Archived chats">
                     {split.archived.map((c) => (
-                      <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} owner={owner} onOpen={(x) => open(x)} />
+                      <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} />
                     ))}
                   </ul>
                 )}
@@ -444,6 +449,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
           </>
         )}
       </div>
+      {composing && <NewMessageDialog returnFocus={newMessageButton} onClose={() => setComposing(false)} />}
     </section>
   );
 }

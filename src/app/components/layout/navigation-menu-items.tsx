@@ -35,9 +35,10 @@ import {
   FileTextIcon,
   UserPlusIcon,
   HistoryIcon,
+  GlobeIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, isEventsNavActive } from './nav-links';
+import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, PUBLIC_SITE_HOME, isEventsNavActive } from './nav-links';
 
 /** The signed-in account block. Not part of PUBLIC_NAV_GROUPS: these three carry test
  *  ids, a sign-out handler and no icon-from-data, so they stay hand-written — the same
@@ -63,6 +64,19 @@ function groupHeadingId(label: string): string {
   return `nav-group-${label.replace(/\s+/g, '-').toLowerCase()}`;
 }
 
+/**
+ * PUBLIC_NAV_GROUPS without the destinations `omit` lists, and without a group left empty (its
+ * heading goes with its last item). Nothing omitted: the structure itself, so the public menus are untouched.
+ */
+function visibleGroups(omit: readonly string[], flat: boolean) {
+  const kept = omit.length === 0 ? PUBLIC_NAV_GROUPS : PUBLIC_NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => !omit.includes(item.to)) })).filter(
+    (group) => group.items.length > 0,
+  );
+  // Flat: what is left as plain rows under no heading (a lone heading over one row is noise).
+  const items = kept.flatMap((group) => group.items);
+  return flat ? (items.length > 0 ? [{ label: '', items }] : []) : kept;
+}
+
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
   includeTestIds?: boolean;
@@ -84,6 +98,15 @@ interface NavigationMenuItemsProps {
       Log Out) itself, right under the person's own entries, so it is not repeated at the end of
       a long list. Public sections and the signed-out actions are unaffected. */
   omitAccountGroup?: boolean;
+  /** P1512: destinations the signed-in shell's own nav already lists (Feed, Groups, Events ...). The menu
+      leaves them out rather than repeat the nav beside it. Callers derive the list from the shell entries
+      (shellNavDestinations); the public top nav passes nothing and keeps every item. */
+  omitDestinations?: readonly string[];
+  /** P1512: one "ClarityPledge website" row (the public landing) after the sections. The signed-in shell's
+      menus pass it in place of the public sections they leave out. */
+  websiteLink?: boolean;
+  /** P1512: the signed-in shell's menus draw no public group headings: what survives the omissions is plain rows. */
+  flat?: boolean;
 }
 
 export function NavigationMenuItems({
@@ -93,12 +116,16 @@ export function NavigationMenuItems({
   onItemClick,
   hideLoginItem = false,
   omitAccountGroup = false,
+  omitDestinations = [],
+  websiteLink = false,
+  flat = false,
 }: NavigationMenuItemsProps) {
   // Exactly one of these is true at any time (`showPublicCTAs = !showUserMenu`,
   // use-nav-auth-state.ts) — so the public sections below render unconditionally
   // and only the account block branches.
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
   const { pathname } = useLocation();
+  const groups = visibleGroups(omitDestinations, flat);
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -125,7 +152,7 @@ export function NavigationMenuItems({
         {/* P1087: ONE grouped structure, shared with the dropdown below. Every group
             carries a label — labelling only "Use cases" made the rest read as
             leftovers, which is the "bit of chaos" the founder named. */}
-        {PUBLIC_NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           // role="group" + aria-labelledby, not a bare styled div: the desktop
           // dropdown gets real grouping semantics from Radix's DropdownMenuGroup /
           // DropdownMenuLabel, and without this the mobile menu announced one flat
@@ -133,13 +160,15 @@ export function NavigationMenuItems({
           // users (adversarial review, P1087).
           <div
             key={group.label}
-            role="group"
-            aria-labelledby={groupHeadingId(group.label)}
+            role={flat ? undefined : 'group'}
+            aria-labelledby={flat ? undefined : groupHeadingId(group.label)}
             className="flex flex-col"
           >
-            <div id={groupHeadingId(group.label)} className={groupLabelClass}>
-              {group.label}
-            </div>
+            {!flat && (
+              <div id={groupHeadingId(group.label)} className={groupLabelClass}>
+                {group.label}
+              </div>
+            )}
             {group.items.map((item) =>
               'external' in item && item.external ? (
                 <a
@@ -173,6 +202,13 @@ export function NavigationMenuItems({
             )}
           </div>
         ))}
+
+        {websiteLink && (
+          <Link to={PUBLIC_SITE_HOME} className={mobileLinkClass} onClick={handleItemClick}>
+            <GlobeIcon className={iconClass} />
+            ClarityPledge website
+          </Link>
+        )}
 
         {/* Signed-out account actions */}
         {showPublicCTAs && (
@@ -256,11 +292,13 @@ export function NavigationMenuItems({
       {/* P1087: same PUBLIC_NAV_GROUPS as the mobile menu, so the two can no longer
           drift in ORDER — before this they listed identical items in two different
           sequences, which no test would have caught. */}
-      {PUBLIC_NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <DropdownMenuGroup key={group.label}>
-          <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {group.label}
-          </DropdownMenuLabel>
+          {!flat && (
+            <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.label}
+            </DropdownMenuLabel>
+          )}
           {group.items.map((item) => (
             <DropdownMenuItem key={item.to} asChild>
               {'external' in item && item.external ? (
@@ -292,6 +330,15 @@ export function NavigationMenuItems({
           ))}
         </DropdownMenuGroup>
       ))}
+
+      {websiteLink && (
+        <DropdownMenuItem asChild>
+          <Link to={PUBLIC_SITE_HOME} className="cursor-pointer">
+            <GlobeIcon className="w-4 h-4 mr-2" />
+            ClarityPledge website
+          </Link>
+        </DropdownMenuItem>
+      )}
 
       {/* Signed-out account actions */}
       {showPublicCTAs && (

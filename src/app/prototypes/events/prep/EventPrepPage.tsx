@@ -11,11 +11,12 @@
  * once-per-person parts in person_prep_parts.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, stripAgentPrefix } from '@/lib/utils';
 import { useAuth } from '@/auth';
+import { useReturnToParent } from '@/app/hooks/use-go-back';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -184,6 +185,12 @@ function PrepFlow({
   viewerId: string;
 }) {
   const navigate = useNavigate();
+  // The end screen's "Back to the event" must LAND on the event. When the event page opened this (its banner marks
+  // the route state) the entry below is the event, so it POPS and the event's own Back does not land here again.
+  // Opened from the RSVP confirm screen, the room or an email link the entry below is something else, so it
+  // REPLACES with the event instead — the label is true, and the prepare page leaves the stack.
+  const location = useLocation();
+  const backToEvent = useReturnToParent(`/events/${event.slug}`, (location.state as { fromEvent?: boolean } | null)?.fromEvent === true);
   const [searchParams, setSearchParams] = useSearchParams();
   const fromRoom = searchParams.get('from') === 'room';
   const { prep, plan } = state;
@@ -206,8 +213,9 @@ function PrepFlow({
     const params = new URLSearchParams(searchParams);
     if (screen === 'end') params.set('done', '1');
     else params.delete('done');
-    setSearchParams(params, { replace: true });
-  }, [screen, searchParams, setSearchParams]);
+    // Keep the route state: it carries the "opened by the event page" marker that Back to the event reads.
+    setSearchParams(params, { replace: true, state: location.state });
+  }, [screen, searchParams, setSearchParams, location.state]);
   const [stepsDone, setStepsDone] = useState<PrepStepKey[]>(prep?.stepsDone ?? []);
   const [playRequest, setPlayRequest] = useState(0);
   const [clipPlayed, setClipPlayed] = useState<Record<VideoKey, boolean>>({ welcome: false, story: false, principle: false });
@@ -864,7 +872,7 @@ function PrepFlow({
             // Until the experts are read, the next action is not known: render no button rather than
             // one that changes under the person's finger.
             const actionsReady = fromRoom || experts !== null;
-            const toEvent = () => navigate(`/events/${event.slug}`);
+            const toEvent = backToEvent;
             return (
               // UAT 2026-10-01: what is new here leads — the thanks, then the next thing to do (the
               // stories, or the room), then the event box the person already saw on screen 0. P1387: the

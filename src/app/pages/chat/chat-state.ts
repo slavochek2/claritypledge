@@ -6,6 +6,7 @@
 import { createContext, useContext } from 'react';
 import type { ChatAttachmentKind, ChatMessage, ChatMessageEvent, ChatSummary } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
+import type { NavIntent, NavPlan } from './chat-view-model';
 
 /** What the provider tells a listening conversation. `resync` means "refetch, you may have missed events". */
 export type ChatEvent =
@@ -59,6 +60,8 @@ export interface ChatContextValue {
   discardSend: (localId: string) => void;
   block: (profileId: string) => Promise<void>;
   unblock: (profileId: string) => Promise<void>;
+  /** Opens a chat by the history rule (chatNav), from wherever the person is when it is called: for things that outlive a screen (a toast's Open). */
+  goToChat: (to: string, intent?: NavIntent) => NavPlan['mode'];
 }
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

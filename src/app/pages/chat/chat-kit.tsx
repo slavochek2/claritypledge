@@ -5,7 +5,7 @@
  * unread badge, selection and the one primary action per view.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { CalendarDays, FlipHorizontal2, Lock, Reply, User, X, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Lock, Reply, User, X, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, getInitials } from '@/lib/utils';
@@ -88,18 +88,32 @@ export function ChannelMark({ kind, size = 'list', selected = false, className }
   );
 }
 
-/** The mirror wears its owner's face with a dashed ring and a mirror badge, so it never reads as the owner talking. */
-export function MirrorMark({ owner, size = 'list', className }: { owner: PersonLike; size?: 'list' | 'sm'; className?: string }) {
+const MIRROR_SIZE = { xs: 'h-5 w-5', sm: 'h-8 w-8', list: 'h-12 w-12' } as const;
+
+/**
+ * Two facing halves with a dashed axis between them: a reflection. Stroke only, so it reads at 20px and
+ * takes the colour of its container.
+ */
+export function MirrorGlyph({ className }: { className?: string }) {
   return (
-    <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-full outline-dashed outline-2 outline-offset-1 outline-gray-400', className)}>
-      <PersonMark person={{ ...owner, hasPledged: false }} size={size} />
-      <span
-        className={cn(
-          'absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-background text-gray-700 ring-1 ring-gray-300',
-          size === 'list' ? 'h-5 w-5' : 'h-3.5 w-3.5',
-        )}
-      >
-        <FlipHorizontal2 className="h-[70%] w-[70%]" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" data-testid="mirror-glyph" className={className}>
+      <path d="M10 5a7 7 0 0 0 0 14" />
+      <path d="M14 5a7 7 0 0 1 0 14" />
+      <path d="M12 3.5v17" strokeWidth="1.5" strokeDasharray="1.5 3" />
+    </svg>
+  );
+}
+
+/**
+ * The mirror is not its owner: it wears its own mark, a soft blue disc with a reflection glyph, and a dashed ring
+ * that says "agent". Never the owner's photo or initials. `imageUrl` is the slot for a generated portrait (a later
+ * spec supplies one); when given it replaces the glyph.
+ */
+export function MirrorMark({ size = 'list', className, imageUrl }: { size?: keyof typeof MIRROR_SIZE; className?: string; imageUrl?: string | null }) {
+  return (
+    <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-full outline-dashed outline-2 outline-offset-1 outline-blue-300', className)}>
+      <span data-testid="mirror-disc" className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
+        {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover" /> : <MirrorGlyph className="h-[62%] w-[62%]" />}
       </span>
     </span>
   );

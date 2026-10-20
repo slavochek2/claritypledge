@@ -13,6 +13,7 @@ import { getUserSessions, type SessionSummary } from '@/app/data/sessions-servic
 import { fetchRoomTranscript, fetchSessionTranscript, retryTranscription, type RoomTranscript } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import { SessionList } from '@/app/components/sessions/session-list';
+import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { RoundSummaryScreen } from '@/app/components/partners/round-summary-screen';
 import type { SessionHistoryItem, SessionTranscript } from '@/app/types';
 
@@ -514,32 +515,22 @@ export function MySessionsPage() {
     : roundItem?.title || `Round ${view.roundIndex + 1}`;
 
   return (
-    <main
-      aria-label="Session History"
-      className="container mx-auto px-4 lg:px-8 pt-24 pb-24 max-w-2xl"
-    >
-      <div className="flex items-center gap-2 mb-6">
-        {view.type === 'list' ? (
-          <button
-            onClick={() => navigate('/events')}
-            className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Back to Events"
-          >
-            <ChevronLeft className="w-5 h-5 text-foreground" />
-          </button>
-        ) : (
+    <main aria-label="Session History">
+    <PageFrame size="reading" className="pb-24">
+      {/* P1512: the list is a menu destination (no Back above the title); the detail views step
+          back inside the page, so their in-flow Back leads the title row. */}
+      <PageHeader
+        title={headerTitle}
+        leading={view.type === 'list' ? undefined : (
           <button
             onClick={goBack}
-            className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Back"
           >
             <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>
         )}
-        <h1 className={`font-bold text-foreground ${view.type === 'list' ? 'text-2xl' : 'text-lg truncate'}`}>
-          {headerTitle}
-        </h1>
-      </div>
+      />
 
       {view.type === 'list' && (
         <SessionList
@@ -595,6 +586,7 @@ export function MySessionsPage() {
           onBack={goBack}
         />
       )}
+    </PageFrame>
     </main>
   );
 }

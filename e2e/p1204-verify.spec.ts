@@ -111,11 +111,16 @@ test.describe('P1204: directory card polish + card-as-link', () => {
   });
 
   test('UAT-6: the group page offers a way back to the directory', async ({ page }) => {
-    await page.goto(`/groups/${org.slug}`);
+    // P1512 decision 19: Back is a control in the top bar that returns to where the person came from (else the
+    // parent), no longer a fixed link to /groups. Arrive the way a person does: from the directory.
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
-    const back = page.getByRole('link', { name: /back to groups/i });
+    await page.getByRole('link', { name: org.name }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`));
+    const back = page.getByRole('button', { name: /^(go back|back to groups)$/i });
     await expect(back).toBeVisible({ timeout: 10000 });
-    await expect(back).toHaveAttribute('href', '/groups');
+    await back.click();
+    await expect(page).toHaveURL(/\/groups$/);
   });
 
   test('UAT-7: nav icon for Groups is not a calendar and does not collide with Partners/My Profile (source check)', async () => {

@@ -8,9 +8,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useGoBack } from '@/app/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { getProfileBySlug, getProfile } from '@/app/data/api';
 import type { Profile } from '@/app/types';
 import { useAuth } from '@/auth';
@@ -24,17 +24,19 @@ import { analytics } from '@/lib/mixpanel';
 
 function PageSkeleton() {
   return (
-    <div className="max-w-2xl mx-auto px-4 mt-3 animate-pulse">
-      <div className="flex items-center justify-between mb-4">
-        <div className="h-8 bg-muted rounded w-32" />
-        <div className="h-11 bg-muted rounded-md w-32" />
+    <PageFrame size="reading">
+      <div className="animate-pulse">
+        <div className="mb-4 flex min-h-14 items-center justify-between">
+          <div className="h-8 bg-muted rounded w-32" />
+          <div className="h-10 bg-muted rounded-md w-32" />
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 bg-muted rounded-lg" />
+          ))}
+        </div>
       </div>
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 bg-muted rounded-lg" />
-        ))}
-      </div>
-    </div>
+    </PageFrame>
   );
 }
 
@@ -63,9 +65,6 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
 
 export function ProfileConnectionsPage() {
   const { id } = useParams<{ id: string }>();
-  // P1364: both Back buttons return to where the reader came from; a cold arrival goes to
-  // the profile these connections belong to.
-  const goBack = useGoBack(`/p/${id ?? ''}`);
   const { user: currentUser, isLoading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -130,16 +129,11 @@ export function ProfileConnectionsPage() {
 
   if (error || !profile) {
     return (
-      <div className="max-w-2xl mx-auto px-4 mt-3">
-        <button
-          onClick={goBack}
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back
-        </button>
+      <PageFrame size="reading">
+        {/* P1364: Back returns to where the reader came from; a cold arrival goes to the profile. */}
+        <FocusHeader fallback={`/p/${id ?? ''}`} />
         <p className="text-sm text-muted-foreground">{error ?? 'Profile not found.'}</p>
-      </div>
+      </PageFrame>
     );
   }
 
@@ -156,27 +150,22 @@ export function ProfileConnectionsPage() {
   const hasAny = activeAgreements.length > 0 || pendingAgreements.length > 0 || incomingInvitations.length > 0;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 mt-3 pb-20">
-      {/* Back navigation */}
-      <button
-        onClick={goBack}
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="w-4 h-4 mr-1" />
-        Back
-      </button>
-
-      {/* Page heading */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-foreground">
-          {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
-        </h1>
-        {isOwner && hasAny && (
-          <Button asChild className="min-h-11 bg-blue-600 hover:bg-blue-700/90 text-white">
-            <Link to="/agreements/new">Invite a new partner</Link>
+    <PageFrame size="reading">
+      {/* P1512: Partners is a top-level destination, so the owner's own page has no Back. Someone
+          else's Partners is reached from their profile (agreements-metadata-line) and has no other
+          way out, so it keeps Back — declared, returning to where the reader came from (P1364). */}
+      {!isOwner && <FocusHeader fallback={`/p/${id ?? ''}`} />}
+      <PageHeader
+        title={isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
+        actions={isOwner && hasAny ? (
+          <Button asChild className="h-10 bg-blue-600 hover:bg-blue-700/90 text-white">
+            <Link to="/agreements/new" aria-label="Invite a new partner">
+              <span className="hidden sm:inline">Invite a new partner</span>
+              <span className="sm:hidden">Invite</span>
+            </Link>
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <section aria-label="Partner Agreements">
         {!hasAny ? (
@@ -251,6 +240,6 @@ export function ProfileConnectionsPage() {
           </div>
         )}
       </section>
-    </div>
+    </PageFrame>
   );
 }

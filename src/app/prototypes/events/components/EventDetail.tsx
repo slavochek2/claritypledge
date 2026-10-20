@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { renderEventDescription } from '@/lib/markdown';
 import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
@@ -7,7 +8,6 @@ import { toast } from 'sonner';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 import {
-  ArrowLeft,
   MapPin,
   Video,
   CheckCircle2,
@@ -481,7 +481,7 @@ export function EventDetail() {
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(true);
-      navigate(`/events/${slug}/confirm`);
+      navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } });
     } else {
       // P1369: the service returns false for "full" AND for a request that never got through.
       toast.error(writeFailureMessage(null, 'Couldn\'t sign you up. The event may be full or no longer available.', sentAt));
@@ -714,16 +714,12 @@ export function EventDetail() {
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* P76: Back link - conditional based on auth state */}
-        <Link
-          to="/events"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Events
-        </Link>
+        {/* P76 / P1512: Back to the parent. FocusHeader renders it in the shell's top bar (signed in) and in
+            place for signed-out visitors; it returns to where the reader came from, and only a cold arrival
+            goes to /events. */}
+        <FocusHeader fallback="/events" parentName="Events" />
 
-        {/* P1114 REVISED 2026-08-21: the row sits directly under "← Back to Events",
+        {/* P1114 REVISED 2026-08-21: the row sits directly under the Back control,
             above the event card — the founder annotated "the menu should be here!"
             pointing here. Not a Radix Tabs component: "Details" is the only page
             state this component ever renders now, and "Join now" (round 4 second pass;

@@ -114,7 +114,11 @@ export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHos
   if (!applies || !event || state.loading || state.error) return null;
   const { progress } = state;
   const started = !!state.prep?.startedAt;
-  const open = () => navigate(`/events/${event.slug}/prepare${source === 'room' ? '?from=room' : ''}`);
+  // From the event page the entry below prepare IS the event: mark it, so prepare's "Back to the event" can pop.
+  const open = () => navigate(
+    `/events/${event.slug}/prepare${source === 'room' ? '?from=room' : ''}`,
+    source === 'event' ? { state: { fromEvent: true } } : undefined,
+  );
   const status = progress.done === 0 ? 'Preparation not started' : `${progress.done} of ${progress.total} steps`;
   const cta = progress.done === 0 ? 'Start your preparation' : 'Finish your preparation';
 

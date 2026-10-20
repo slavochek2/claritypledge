@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin,
+import { useParams, Link } from 'react-router-dom';
+import { Calendar, Clock, MapPin,
   MessagesSquare, FileText, Globe } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LocationHint } from './LocationHint';
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/auth';
+import { useGoBack } from '@/app/hooks/use-go-back';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
@@ -18,7 +20,9 @@ import { PrepSettingsFields, normalizeStatementTag, validateStatementTag } from 
 
 export function EditEvent() {
   const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
+  // Cancel, Save and Back return the way the host came: a POP when the event page opened this form, so the
+  // event page's own Back does not land on the form again. A cold arrival goes to the event, replaced.
+  const backToEvent = useGoBack(`/events/${slug}`);
   const { user, session, isLoading: authLoading } = useAuth();
   const isAuthenticated = !!session;
   const [event, setEvent] = useState<EventWithHost | null>(null);
@@ -91,7 +95,7 @@ export function EditEvent() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
           <p className="text-muted-foreground mb-4">This event doesn't exist or has been removed.</p>
-          <Link to="/events">
+          <Link to="/events" replace>
             <Button variant="outline">Back to Events</Button>
           </Link>
         </div>
@@ -106,9 +110,7 @@ export function EditEvent() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
           <p className="text-muted-foreground mb-4">Only the event host can edit this event.</p>
-          <Link to={`/events/${slug}`}>
-            <Button variant="outline">Back to Event</Button>
-          </Link>
+          <Button variant="outline" onClick={backToEvent}>Back to Event</Button>
         </div>
       </div>
     );
@@ -200,7 +202,7 @@ export function EditEvent() {
 
     if (success) {
       toast.success('Event updated successfully');
-      navigate(`/events/${slug}`);
+      backToEvent();
     } else {
       setErrors({ submit: 'Failed to update event. Please try again.' });
     }
@@ -208,16 +210,13 @@ export function EditEvent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6">
-        {/* Back link and title */}
+      <div className="max-w-2xl mx-auto px-4 pt-6">
+        {/* P1512: Back renders in the shell's top bar. Outside the <form>: a button in it would submit. */}
+        <FocusHeader fallback={`/events/${slug}`} parentName="Event" />
+      </div>
+      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 pb-6">
+        {/* Title */}
         <div className="mb-6">
-          <Link
-            to={`/events/${slug}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Event
-          </Link>
           <h1 className="text-2xl font-bold">Edit Event</h1>
           <p className="text-muted-foreground mt-1">Update your event details below.</p>
         </div>
@@ -398,7 +397,7 @@ export function EditEvent() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate(`/events/${slug}`)}
+              onClick={backToEvent}
               className="flex-1"
             >
               Cancel

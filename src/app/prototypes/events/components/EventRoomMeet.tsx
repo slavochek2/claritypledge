@@ -69,7 +69,8 @@
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useGoBack, useReturnToParent } from '@/app/hooks/use-go-back';
 import { ChevronDown } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
@@ -251,10 +252,14 @@ export function EventRoomMeet() {
   const offlineStrip = useOfflineStripShown();
   const captureBarPx = useMeasuredHeight('[data-testid="room-capture-slot"]', captureBarVisible);
   const headOffset = roomHeadOffset(offlineStrip, captureBarPx);
-  const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
   const location = useLocation();
+  // Back from the table: to readiness. Ready marks the route state when it opens the table, so then this POPS
+  // (no Ready -> Meet -> Ready growth, and Ready's own Back reaches the event). A return visit enters the table
+  // directly, with no Ready below it: that replaces with Ready. Frozen (the evening is over), Back is the event.
+  const backToReady = useReturnToParent(`/events/${slug}/ready`, (location.state as { fromReady?: boolean } | null)?.fromReady === true);
+  const backToEventFrozen = useGoBack(`/events/${slug}`);
   const [startFailed, setStartFailed] = useState(false);
   const transcriptionFailed =
     startFailed || (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
@@ -469,7 +474,7 @@ export function EventRoomMeet() {
   const viewing: RoomStep = viewingBack ?? currentStep;
   const onStep = (next: RoomStep) => {
     if (next === 'ready') {
-      navigate(`/events/${slug}/ready`);
+      backToReady();
       return;
     }
     setViewingBack(next === currentStep ? null : next);
@@ -521,8 +526,7 @@ export function EventRoomMeet() {
         <div className="flex items-end gap-1">
           <FocusHeader
             compact
-            // After the event /ready forwards straight back here, so a history pop would loop.
-            onBack={() => navigate(isFrozen ? `/events/${slug}` : `/events/${slug}/ready`)}
+            onBack={isFrozen ? backToEventFrozen : backToReady}
             aria-label={isFrozen ? 'Back to the event' : 'Back to readiness'}
           />
           <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="min-w-0 flex-1" />

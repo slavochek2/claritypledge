@@ -2,6 +2,8 @@
  * P1512: small hooks shared by the chat components.
  */
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { backPlan, chatNav, HOME, leavePlan, routeLevel, type NavIntent, type NavPlan } from './chat-view-model';
 
 /**
  * While `on`, a press outside every given ref and the Escape key both call `onClose`.
@@ -102,3 +104,137 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /** A wide screen with a real hover: the only place the message toolbar floats over the text. */
 export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';
+
+/**
+ * Runs a navigation at most once per history entry: a double tap lands twice before the screen has
+ * changed, and two pops would leave the app. Re-armed whenever the location changes.
+ */
+function useOncePerLocation(): (go: () => void) => void {
+  const { key } = useLocation();
+  const fired = useRef(false);
+  useEffect(() => {
+    fired.current = false;
+  }, [key]);
+  return useCallback((go: () => void) => {
+    if (fired.current) return;
+    fired.current = true;
+    go();
+  }, []);
+}
+
+/** Move inside Home by the history rule (chatNav): push, or swap the entry in place, or nothing when already there. Says which. */
+export function useChatNavigate(): (to: string, intent?: NavIntent) => NavPlan['mode'] {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const here = useRef(location);
+  here.current = location;
+  return useCallback(
+    (to, intent = 'open') => {
+      const plan = chatNav({ pathname: here.current.pathname, state: here.current.state }, to, intent);
+      if (plan.mode !== 'none') navigate(to, { replace: plan.mode === 'replace', state: plan.state });
+      return plan.mode;
+    },
+    [navigate],
+  );
+}
+
+/**
+ * Back / close inside the chat: pops to the nearest real way back (the list for a chat, the chat for a thread, the chat
+ * a Clarify came from); with none in the history it replaces with the parent, so a cold arrival or a link never loops.
+ */
+export function useBack(): () => void {
+  const navigate = useNavigate();
+  const { pathname, state } = useLocation();
+  const once = useOncePerLocation();
+  return useCallback(() => {
+    once(() => {
+      const step = backPlan(pathname, state);
+      if (step.kind === 'pop') navigate(-step.steps);
+      else navigate(step.to, { replace: true, state: step.state });
+    });
+  }, [once, navigate, pathname, state]);
+}
+
+// A leave that has to step back first and replace what it lands on (a chat reached from outside, then a thread over it).
+// react-router moves asynchronously, so the second half waits for the location to change: ChatHomePage finishes it.
+let replaceHomeAfterPop = false;
+let replaceHomeTimer: ReturnType<typeof setTimeout> | undefined;
+function armReplaceHome() {
+  replaceHomeAfterPop = true;
+  clearTimeout(replaceHomeTimer);
+  replaceHomeTimer = setTimeout(() => {
+    replaceHomeAfterPop = false;
+  }, 2000);
+}
+
+// From the moment a leave starts until it has landed on the list, nothing may read the chat being left: its pane is
+// still mounted for a render or two (a pop is not instant), and a read then would undo "mark as unread".
+let leaving = false;
+let leavingTimer: ReturnType<typeof setTimeout> | undefined;
+function beginLeave() {
+  leaving = true;
+  clearTimeout(leavingTimer);
+  leavingTimer = setTimeout(() => {
+    leaving = false;
+  }, 3000);
+}
+/** True while a leave is under way: the read effects of the chat being left stand down. */
+export const isLeavingChat = () => leaving;
+
+/** Mounted once in Home: after a stepped-back leave lands, replaces what it landed on with the list; ends the leave on the list. */
+export function useFinishLeave() {
+  const navigate = useNavigate();
+  const { key, pathname } = useLocation();
+  useEffect(() => {
+    if (replaceHomeAfterPop) {
+      replaceHomeAfterPop = false;
+      clearTimeout(replaceHomeTimer);
+      navigate(HOME, { replace: true });
+      return;
+    }
+    if (leaving && routeLevel(pathname) === 'list') {
+      leaving = false;
+      clearTimeout(leavingTimer);
+    }
+  }, [key, pathname, navigate]);
+}
+
+/**
+ * Leaving the open chat for good (archive, mark as unread): to the list, stepping back over what belongs to the chat,
+ * and never leaving a chat entry behind in the history.
+ */
+export function useLeaveChat(): () => void {
+  const navigate = useNavigate();
+  const { pathname, state } = useLocation();
+  const once = useOncePerLocation();
+  return useCallback(() => {
+    once(() => {
+      const step = leavePlan(pathname, state);
+      beginLeave();
+      if (step.kind === 'replace') navigate(step.to, { replace: true });
+      else {
+        if (step.kind === 'pop-replace') armReplaceHome();
+        navigate(-step.steps);
+      }
+    });
+  }, [once, navigate, pathname, state]);
+}
+
+// One-shot: "put the cursor in this conversation's composer". Kept out of the history on purpose, so going back and
+// forward never refocuses (and never opens a phone's keyboard). Expires, so one never fired cannot surprise a later visit.
+let composerFocusFor: { id: string; at: number } | null = null;
+const COMPOSER_FOCUS_TTL_MS = 5000;
+export function requestComposerFocus(conversationId: string) {
+  composerFocusFor = { id: conversationId, at: Date.now() };
+}
+/** True once, for the conversation that was asked for. */
+export function takeComposerFocus(conversationId: string): boolean {
+  const want = composerFocusFor;
+  if (!want || want.id !== conversationId) return false;
+  composerFocusFor = null;
+  return Date.now() - want.at < COMPOSER_FOCUS_TTL_MS;
+}
+/** The composer of the conversation that is open right now, if any. */
+export function focusOpenComposer() {
+  document.querySelector<HTMLTextAreaElement>('[data-testid="composer"] textarea')?.focus();
+}

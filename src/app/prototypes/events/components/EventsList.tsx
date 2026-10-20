@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
@@ -6,6 +6,7 @@ import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
+import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 
 type Tab = 'upcoming' | 'past';
@@ -30,6 +31,11 @@ interface EventsListProps {
   canHost?: boolean;
   /** P1383: the caller already belongs to this group — never tell them to join it. */
   isMember?: boolean;
+}
+
+/** Standalone lists wear the shared page frame; the group page's embedded list sits inside its own. */
+function FrameOrPlain({ embedded, children }: { embedded: boolean; children: ReactNode }) {
+  return embedded ? <>{children}</> : <PageFrame>{children}</PageFrame>;
 }
 
 export function EventsList({
@@ -152,16 +158,16 @@ export function EventsList({
     <div className="flex gap-2">
       {!isOrgScoped && (
       <Link to="/co-create">
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" aria-label="Co-create" className="h-10 gap-2 px-3 sm:px-4">
           <Users className="w-4 h-4" />
-          Co-create
+          <span className="hidden sm:inline">Co-create</span>
         </Button>
       </Link>
       )}
       {/* Org context carries the org forward so the created event can be assigned
           org_id; the standalone link is untouched. */}
       <Link to={orgSlug ? `/events/new?org=${encodeURIComponent(orgSlug)}` : '/events/new'}>
-        <Button className="gap-2 bg-blue-500 hover:bg-blue-700 text-white">
+        <Button className="h-10 gap-2 bg-blue-500 hover:bg-blue-700 text-white">
           <Plus className="w-4 h-4" />
           Host Event
         </Button>
@@ -169,52 +175,59 @@ export function EventsList({
     </div>
   );
 
+  // Tabs — hidden when series-filtered (only upcoming sessions matter in that context).
+  const filterTabs = !isSeriesFiltered && (
+        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
+          <button
+            role="tab"
+            aria-selected={activeTab === 'upcoming'}
+            onClick={() => setActiveTab('upcoming')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'upcoming'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Upcoming{!loading && ` (${upcomingEvents.length})`}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'past'}
+            onClick={() => setActiveTab('past')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'past'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Past{!loading && ` (${pastEvents.length})`}
+          </button>
+        </div>
+  );
+
   return (
     <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      {/* P1512: standalone, the page wears the shared frame — title row carries the actions, the
+          filters sit on the next row, and the grid and CTA below share its left edge. Embedded
+          (group page) the filters keep their own row and the group header owns the actions. */}
+      <FrameOrPlain embedded={embedded}>
       {/* Header */}
-      <div className={embedded ? 'max-w-5xl mx-auto pb-4' : 'max-w-5xl mx-auto px-4 pt-6 pb-4'}>
-        {!embedded && <h1 className="text-2xl font-bold mb-4">Events</h1>}
-
-        {/* Tabs and Action Buttons Row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Tabs — hidden when series-filtered (only upcoming sessions matter in that context) */}
-          {!isSeriesFiltered && (
-            <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
-              <button
-                role="tab"
-                aria-selected={activeTab === 'upcoming'}
-                onClick={() => setActiveTab('upcoming')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'upcoming'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Upcoming{!loading && ` (${upcomingEvents.length})`}
-              </button>
-              <button
-                role="tab"
-                aria-selected={activeTab === 'past'}
-                onClick={() => setActiveTab('past')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'past'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Past{!loading && ` (${pastEvents.length})`}
-              </button>
-            </div>
-          )}
-
-          {/* Actions — hidden when series-filtered (funnel landing context) and when
-              the list is empty (they render inside the empty block instead). */}
-          {showActions && !listIsEmpty && actionButtons}
+      {embedded ? (
+        <div className="max-w-5xl mx-auto pb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {filterTabs}
+            {showActions && !listIsEmpty && actionButtons}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <PageHeader title="Events" actions={showActions && !listIsEmpty ? actionButtons : undefined} />
+          {filterTabs && <div className="mb-4">{filterTabs}</div>}
+        </>
+      )}
 
       {/* Events Grid */}
-      <div className={embedded ? 'max-w-5xl mx-auto pb-6' : 'max-w-5xl mx-auto px-4 pb-6'}>
+      <div className={embedded ? 'max-w-5xl mx-auto pb-6' : undefined}>
         {loading ? (
           <div className="text-center py-16">
             <div className="text-muted-foreground">Loading events...</div>
@@ -342,7 +355,7 @@ export function EventsList({
       {/* Never in org context: this block invites a signed-out visitor to host,
           which is exactly what D4 removes from the org page. */}
       {!isOrgScoped && !isSeriesFiltered && events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
-        <div className="max-w-5xl mx-auto px-4 pb-12">
+        <div className={embedded ? 'max-w-5xl mx-auto px-4 pb-12' : 'pb-12'}>
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Want to host an event?</h2>
             <p className="text-muted-foreground mb-4">
@@ -354,6 +367,7 @@ export function EventsList({
           </div>
         </div>
       )}
+      </FrameOrPlain>
     </div>
   );
 }
