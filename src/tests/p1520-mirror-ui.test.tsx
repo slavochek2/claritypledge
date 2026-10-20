@@ -12,7 +12,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
 
 const mirrorSvc = vi.hoisted(() => ({
@@ -227,6 +227,21 @@ describe('P1520 @ picker and private mode', () => {
     expect(onPrivateChange).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
     expect(onPrivateChange).toHaveBeenCalledWith(null);
+  });
+
+  it('a private send that fails after leaving private mode never shows its text in the public composer (review round 2)', async () => {
+    let reject: () => void = () => undefined;
+    const onSend = vi.fn(() => new Promise<boolean>((_, r) => { reject = () => r(new Error('down')); }));
+    function Harness() {
+      const [p, setP] = useState<MentionEntry | null>(entry);
+      return <Composer draftKey={`t:5${p ? ':private' : ''}`} placeholder="Message Test Org" onSend={onSend} mentions={[entry]} privateTo={p} onPrivateChange={setP} />;
+    }
+    wrap(<Harness />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'is B passive-aggressive?' } });
+    fireEvent.submit(screen.getByTestId('composer').querySelector('form') as HTMLFormElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop asking privately' }));
+    await act(async () => reject());
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value, 'nothing private in the public field').toBe('');
   });
 
   it('CONTROL: without mentions, typing @ opens nothing', () => {

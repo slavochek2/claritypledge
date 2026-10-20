@@ -32,6 +32,9 @@
 --     separately for replies and portraits, plus one global total. Settled to the reported usage after
 --     the call; released only when the call never started. The provider's hard cap on the mirror's own
 --     key is the last line. Numbers live in _mirror_limits() (founder: change them there).
+--   * LOCK ORDER (everywhere): message rows, then the 'p1520_mirror_context' advisory lock (erasure
+--     exclusive, a starting job shared), then job rows. No function waits for an earlier item while holding
+--     a later one, so erasure and a starting job cannot deadlock.
 --   * ERASURE. A job and every agent row record derived_refs: the _chat_author_ref of every author
 --     whose words were in the model's context. _mirror_begin_job locks its context rows FOR SHARE (the
 --     clarify pattern), so an erase that scrubs those rows waits for a starting job to commit and then
@@ -149,14 +152,14 @@ SET search_path = ''
 AS $$
   SELECT jsonb_build_object(
     'reply_max_usd',             0.03,    -- (10000 in x $1.50 + 1200 out x $7.50) / 1e6 x 1.25; mirror-agent.ts MAX_IN/OUT_TOKENS
-    'portrait_max_usd',          0.40,    -- up to 2 image generations + 2 vision checks, x 1.25
+    'portrait_max_usd',          0.70,    -- 2 generations x (primary + fallback image) + 2 vision checks, x 1.25
     'person_reply_daily_usd',    0.60,
     'person_reply_daily_count',  30,
-    'person_portrait_daily_usd', 1.20,
+    'person_portrait_daily_usd', 2.10,
     'person_portrait_daily_count', 3,
     'global_reply_daily_usd',    5.00,
-    'global_portrait_daily_usd', 3.00,
-    'global_total_daily_usd',    6.00
+    'global_portrait_daily_usd', 6.00,
+    'global_total_daily_usd',    10.00
   );
 $$;
 REVOKE ALL ON FUNCTION public._mirror_limits() FROM PUBLIC, anon, authenticated;
@@ -403,10 +406,10 @@ DECLARE
   v_channel  text;
   v_question jsonb;
 BEGIN
-  -- Erasure takes this lock exclusively before it cancels derived jobs (erase_chat_data_for step 6): a job
-  -- reading its context finishes recording its refs first, or starts only after the erase committed.
-  PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
-  SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job AND j.kind IN ('reply', 'ask') FOR UPDATE;
+  -- LOCK ORDER (no cycle with erase_chat_data_for, which takes message rows, then the context lock
+  -- exclusively, then jobs): this function takes context rows FOR SHARE, then the context lock SHARED, then
+  -- the job row. The first read of the job is unlocked; its state is checked again under the lock below.
+  SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job AND j.kind IN ('reply', 'ask');
   IF NOT FOUND THEN
     RETURN jsonb_build_object('status', 'gone');
   END IF;
@@ -457,6 +460,10 @@ BEGIN
      ORDER BY m.created_at, m.id
        FOR SHARE OF m;
 
+    -- Erasure takes this lock exclusively before it cancels derived jobs: refs recorded below are
+    -- either seen by it, or recorded after it committed (and then read from scrubbed rows).
+    PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
+
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
              'who',  CASE WHEN t.author_id = v_job.owner_id THEN 'owner' ELSE 'other' END,
              'name', COALESCE(tp.name, 'Deleted user'),
@@ -487,6 +494,10 @@ BEGIN
       JOIN public.chat_messages m ON m.id = ids.id
      ORDER BY m.created_at, m.id
        FOR SHARE OF m;
+
+    -- Erasure takes this lock exclusively before it cancels derived jobs: refs recorded below are
+    -- either seen by it, or recorded after it committed (and then read from scrubbed rows).
+    PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
 
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
              'who',  CASE WHEN t.kind = 'agent' THEN 'mirror' ELSE 'owner' END,
@@ -547,6 +558,18 @@ BEGIN
     v_question := NULL;  -- the trigger is the last item of the context
   END IF;
 
+  -- Now the job row, and its state again: another start may have run while this one waited.
+  SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job FOR UPDATE;
+  IF v_job.state = 'done' THEN
+    RETURN jsonb_build_object('status', 'done', 'reply_message_id', v_job.reply_message_id);
+  END IF;
+  IF v_job.state = 'cancelled' THEN
+    RETURN jsonb_build_object('status', 'cancelled');
+  END IF;
+  IF (v_job.state = 'running' AND v_job.started_at > now() - interval '3 minutes') OR v_job.attempts >= 3 THEN
+    RETURN jsonb_build_object('status', 'busy');
+  END IF;
+
   -- A restarted dead attempt may still have been billed: its reservation is charged in full, never released.
   IF v_job.state = 'running' AND v_job.spend_id IS NOT NULL THEN
     UPDATE public.mirror_ai_spend s SET actual_usd = s.reserved_usd, state = 'settled', settled_at = now()
@@ -572,7 +595,8 @@ BEGIN
     'channel_title', v_channel,
     'question', v_question,
     'context', v_ctx,
-    'reserved_usd', (public._mirror_limits() ->> 'reply_max_usd')::numeric);
+    'reserved_usd', (public._mirror_limits() ->> 'reply_max_usd')::numeric,
+    'attempt', v_job.attempts + 1);
 END;
 $$;
 REVOKE ALL ON FUNCTION public._mirror_begin_job(uuid) FROM PUBLIC, anon, authenticated;
@@ -582,7 +606,8 @@ REVOKE ALL ON FUNCTION public._mirror_begin_job(uuid) FROM PUBLIC, anon, authent
 -- nulls, which PostgREST would hand back for a NULL composite. Settles the spend either way.
 -- p_actual_usd: the reported cost.
 DROP FUNCTION IF EXISTS public._mirror_complete_job(uuid, text, numeric);
-CREATE FUNCTION public._mirror_complete_job(p_job uuid, p_body text, p_actual_usd numeric)
+DROP FUNCTION IF EXISTS public._mirror_complete_job(uuid, text, numeric, integer);
+CREATE FUNCTION public._mirror_complete_job(p_job uuid, p_body text, p_actual_usd numeric, p_attempt integer DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -594,8 +619,18 @@ DECLARE
   v_body text;
   v_row  public.chat_messages;
 BEGIN
+  -- Lock order as in _mirror_begin_job: the message row before the job row.
+  SELECT m.* INTO v_msg FROM public.chat_messages m
+    JOIN public.mirror_jobs j ON j.trigger_message_id = m.id
+   WHERE j.id = p_job AND j.kind IN ('reply', 'ask')
+     FOR SHARE OF m;
   SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job AND j.kind IN ('reply', 'ask') FOR UPDATE;
   IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+  -- A late answer from an abandoned attempt touches nothing: its reservation was charged in full when the
+  -- job restarted, and the current attempt's reservation belongs to the current attempt.
+  IF p_attempt IS NOT NULL AND p_attempt <> v_job.attempts THEN
     RETURN NULL;
   END IF;
   IF v_job.spend_id IS NOT NULL THEN
@@ -605,8 +640,7 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT * INTO v_msg FROM public.chat_messages m WHERE m.id = v_job.trigger_message_id FOR SHARE;
-  IF NOT FOUND OR v_msg.deleted_at IS NOT NULL
+  IF v_msg.id IS NULL OR v_msg.deleted_at IS NOT NULL
      OR (v_job.kind = 'ask' AND public._chat_access_since(v_job.context_conversation_id, v_job.owner_id) IS NULL) THEN
     UPDATE public.mirror_jobs j SET state = 'cancelled', finished_at = now() WHERE j.id = p_job;
     RETURN NULL;
@@ -640,11 +674,12 @@ BEGIN
   RETURN to_jsonb(v_row);
 END;
 $$;
-REVOKE ALL ON FUNCTION public._mirror_complete_job(uuid, text, numeric) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._mirror_complete_job(uuid, text, numeric, integer) FROM PUBLIC, anon, authenticated;
 
 -- A running job (reply, ask or portrait) failed. p_actual_usd NULL = the call never started (released);
 -- a call that started without reported usage is charged its full reservation by the caller.
-CREATE OR REPLACE FUNCTION public._mirror_fail_job(p_job uuid, p_code text, p_actual_usd numeric)
+DROP FUNCTION IF EXISTS public._mirror_fail_job(uuid, text, numeric);
+CREATE OR REPLACE FUNCTION public._mirror_fail_job(p_job uuid, p_code text, p_actual_usd numeric, p_attempt integer DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -654,7 +689,7 @@ DECLARE
   v_job public.mirror_jobs;
 BEGIN
   SELECT * INTO v_job FROM public.mirror_jobs j WHERE j.id = p_job FOR UPDATE;
-  IF NOT FOUND THEN
+  IF NOT FOUND OR (p_attempt IS NOT NULL AND p_attempt <> v_job.attempts) THEN
     RETURN;
   END IF;
   IF v_job.spend_id IS NOT NULL THEN
@@ -668,7 +703,7 @@ BEGIN
   END IF;
 END;
 $$;
-REVOKE ALL ON FUNCTION public._mirror_fail_job(uuid, text, numeric) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._mirror_fail_job(uuid, text, numeric, integer) FROM PUBLIC, anon, authenticated;
 
 -- Start a portrait for this owner's mirror. Refuses while one is running (a double tap never pays twice).
 -- Returns jsonb "status": run (with job_id, gender, exclude_artist) | busy | capped.
@@ -749,8 +784,8 @@ $$;
 REVOKE ALL ON FUNCTION public._mirror_finish_portrait(uuid, text, jsonb, numeric) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public._mirror_begin_job(uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public._mirror_complete_job(uuid, text, numeric) TO service_role;
-GRANT EXECUTE ON FUNCTION public._mirror_fail_job(uuid, text, numeric) TO service_role;
+GRANT EXECUTE ON FUNCTION public._mirror_complete_job(uuid, text, numeric, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public._mirror_fail_job(uuid, text, numeric, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public._mirror_begin_portrait(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public._mirror_finish_portrait(uuid, text, jsonb, numeric) TO service_role;
 

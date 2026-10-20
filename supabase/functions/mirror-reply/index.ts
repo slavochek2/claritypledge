@@ -21,7 +21,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
-import { MIRROR_MODEL, buildMirrorRequest, parseReply, type BeginRun } from '../_shared/mirror-agent.ts';
+import { MIRROR_MODEL, MirrorRequestTooLarge, buildMirrorRequest, parseReply, type BeginRun } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -91,13 +91,21 @@ Deno.serve(async (req: Request) => {
   const run = begun as BeginRun;
 
   // ── One model call ────────────────────────────────────────────────────────
+  let request: ReturnType<typeof buildMirrorRequest>;
+  try {
+    request = buildMirrorRequest(run);
+  } catch (e) {
+    // Refused before any call: released, never charged (P1520 review).
+    await service.rpc('_mirror_fail_job', { p_job: job.job_id, p_code: e instanceof MirrorRequestTooLarge ? 'too_large' : 'build', p_actual_usd: null, p_attempt: run.attempt });
+    return json({ state: 'failed', job_id: job.job_id, code: 'TOO_LARGE' }, 422, cors);
+  }
   let response: unknown = null;
   let httpStatus = 0;
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MIRROR_MODEL}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': MIRROR_GEMINI_API_KEY },
-      body: JSON.stringify(buildMirrorRequest(run)),
+      body: JSON.stringify(request),
       signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     });
     httpStatus = res.status;
@@ -121,13 +129,14 @@ Deno.serve(async (req: Request) => {
       p_job: job.job_id,
       p_code: capped ? 'cap' : httpStatus ? `http_${httpStatus}` : 'network',
       p_actual_usd: refusedUpfront ? 0 : run.reserved_usd,
+      p_attempt: run.attempt,
     });
     return json({ state: capped ? 'capped' : 'failed', job_id: job.job_id, code: capped ? 'CAPPED' : 'MODEL_ERROR' }, capped ? 429 : 502, cors);
   }
 
   const outcome = parseReply(response);
   if (!outcome.ok) {
-    await service.rpc('_mirror_fail_job', { p_job: job.job_id, p_code: outcome.code, p_actual_usd: outcome.costUsd ?? run.reserved_usd });
+    await service.rpc('_mirror_fail_job', { p_job: job.job_id, p_code: outcome.code, p_actual_usd: outcome.costUsd ?? run.reserved_usd, p_attempt: run.attempt });
     return json({ state: 'failed', job_id: job.job_id, code: outcome.code === 'blocked' ? 'BLOCKED' : 'EMPTY' }, 502, cors);
   }
 
@@ -135,6 +144,7 @@ Deno.serve(async (req: Request) => {
     p_job: job.job_id,
     p_body: outcome.text,
     p_actual_usd: outcome.costUsd ?? run.reserved_usd,
+    p_attempt: run.attempt,
   });
   if (completeError) {
     console.error('mirror-reply: complete failed', { code: completeError.code });

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DATA_CHAR_BUDGET, MAX_IN_TOKENS, MAX_OUT_TOKENS, MIRROR_MODEL, MIRROR_RULES,
-  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, fitContext, parseReply, quoteData, quoteField, REQUEST_CHAR_LIMIT,
+  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, fitContext, parseReply, quoteData, quoteField, REQUEST_CHAR_LIMIT, MirrorRequestTooLarge,
   reservePortraitUsd, reserveReplyUsd, resolveGender, type BeginRun,
 } from '../../supabase/functions/_shared/mirror-agent';
 import { ARTIST_POOL } from '../../supabase/functions/_shared/artist-pool';
@@ -86,6 +86,18 @@ describe('P1520 mirror: what it sees', () => {
     const one = buildMirrorRequest(run({ context: [{ who: 'owner', body: big, clarify }] })).contents[0]!.parts[0]!.text;
     expect(one.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
     expect(one).toContain('zzz'); // cut, not dropped
+  });
+  it('rules + user turn never exceed the request bound, even when every character escapes to six (review round 2)', () => {
+    const angles = '<'.repeat(1_000);
+    const ctx = Array.from({ length: 30 }, () => ({ who: 'other' as const, name: 'B', body: angles, quoted: { name: 'C', body: angles } }));
+    const body = buildMirrorRequest(run({ kind: 'ask', channel_title: 'Test Org · General', question: { body: 'what does B mean?' }, context: ctx }));
+    expect(MIRROR_RULES.length + body.contents[0]!.parts[0]!.text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+    expect(REQUEST_CHAR_LIMIT).toBeLessThan(MAX_IN_TOKENS); // one token per character still fits the reservation
+  });
+  it('the worst-case question (cut to 1,000 characters, all escaping to six) still fits; the typed refusal is only a backstop', () => {
+    const text = buildMirrorRequest(run({ kind: 'ask', question: { body: '<'.repeat(5_000) }, context: [] })).contents[0]!.parts[0]!.text;
+    expect(MIRROR_RULES.length + text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+    expect(new MirrorRequestTooLarge()).toBeInstanceOf(Error);
   });
   it('an ask names the channel and keeps the question after the data', () => {
     const body = buildMirrorRequest(run({

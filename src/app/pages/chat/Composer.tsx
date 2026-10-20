@@ -11,7 +11,7 @@ import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { ShareableCard } from './ShareableCard';
-import { hasFinePointer, useDraft } from './chat-hooks';
+import { hasFinePointer, stashDraft, useDraft } from './chat-hooks';
 import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker';
 
 export type { MentionEntry };
@@ -51,6 +51,8 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
   latest.current = value;
+  const keyNow = useRef(draftKey);
+  keyNow.current = draftKey;
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [pickerClosed, setPickerClosed] = useState(false);
@@ -91,7 +93,14 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     const text = value.trim();
     if ((!text && !staged && !quoteSendable) || sendDisabled) return;
     const before = value;
-    const restore = (text: string) => latest.current === '' && setValue(text);
+    const sentFrom = draftKey;
+    // A failed send's text goes back to the slot it was written in. If the composer has since switched slot (left
+    // private mode), it is stashed there, never shown in the slot now on screen: a private question must not
+    // reappear in a channel's composer (P1520 review).
+    const restore = (text: string) => {
+      if (keyNow.current !== sentFrom) stashDraft(sentFrom, text);
+      else if (latest.current === '') setValue(text);
+    };
     setValue('');
     const result = onSend(text || null, staged);
     // A refusal that comes back at once (nothing was sent) gives the draft back before anything else.

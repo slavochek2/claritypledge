@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { listMirrorAsks } from '@/app/data/mirror-service';
 import { useChat } from './chat-state';
-import { upsertMessage } from './chat-view-model';
+import { compareMessages, upsertMessage } from './chat-view-model';
 
 export function useMirrorAsks(channelId: string, enabled: boolean): ChatMessage[] {
   const { subscribe } = useChat();
@@ -20,7 +20,14 @@ export function useMirrorAsks(channelId: string, enabled: boolean): ChatMessage[
     const g = ++generation.current;
     try {
       const next = await listMirrorAsks(channelId);
-      if (g === generation.current) setRows(next);
+      // Rows that arrived live while this read ran, and are newer than what it returned, are kept.
+      if (g === generation.current) {
+        setRows((prev) => {
+          const newest = next[next.length - 1];
+          const late = prev.filter((p) => !next.some((n) => n.id === p.id) && (!newest || compareMessages(p, newest) > 0));
+          return late.reduce((acc, m) => upsertMessage(acc, m), next);
+        });
+      }
     } catch {
       /* keep what is shown; the next resync retries */
     }

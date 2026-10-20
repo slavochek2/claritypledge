@@ -20,7 +20,7 @@ export const MAX_OUT_TOKENS = 1_200; // thinking included (billed as output)
  * The quoted data is cut to this many characters, so even at one token per character (scripts with no
  * spaces) data plus the fixed rules stay under MAX_IN_TOKENS.
  */
-export const DATA_CHAR_BUDGET = 8_000;
+export const DATA_CHAR_BUDGET = 6_000;
 export const MAX_REPLY_CHARS = 4_000;
 
 /** USD per 1M tokens: Gemini's paid-tier rates from 1 Jan 2027, the higher of its two schedules. */
@@ -99,6 +99,8 @@ export interface BeginRun {
   question: { body: string } | null;
   context: ContextItem[];
   reserved_usd: number;
+  /** Which attempt this is; completion and failure act only on their own attempt. */
+  attempt: number;
 }
 
 /** JSON with every angle bracket escaped, so no quoted text can open or close a DATA block. */
@@ -152,8 +154,18 @@ export function fitContext(items: Record<string, unknown>[], budget = DATA_CHAR_
   return kept;
 }
 
-/** The whole user turn may never exceed this; past it the request is refused, not sent (MAX_IN_TOKENS). */
-export const REQUEST_CHAR_LIMIT = DATA_CHAR_BUDGET + 2_500;
+/**
+ * The whole request — fixed rules plus user turn — may never exceed this many characters. At the conservative
+ * one token per character it stays inside MAX_IN_TOKENS; past it the request is refused and never sent.
+ */
+export const REQUEST_CHAR_LIMIT = MAX_IN_TOKENS - 500;
+
+/** The request could not be fitted inside its bound; nothing was sent, so nothing is charged. */
+export class MirrorRequestTooLarge extends Error {
+  constructor() {
+    super('mirror request over its input bound');
+  }
+}
 
 export interface GeminiRequest {
   systemInstruction: { parts: Array<{ text: string }> };
@@ -182,8 +194,8 @@ export function buildMirrorRequest(run: BeginRun): GeminiRequest {
   let data: Record<string, unknown>[];
   let instruction: string;
   if (run.kind === 'ask') {
-    const question = (run.question?.body ?? '').slice(0, 2_000);
-    data = fitContext(run.context.map(clean), DATA_CHAR_BUDGET - question.length);
+    const question = (run.question?.body ?? '').slice(0, 1_000);
+    data = fitContext(run.context.map(clean), DATA_CHAR_BUDGET - quoteData(question).length);
     instruction = `${owner} ${name} Your owner is in the channel ${quoteField(run.channel_title ?? 'a channel', 80)} and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
   } else {
     data = fitContext(run.context.map(clean));
@@ -192,7 +204,7 @@ export function buildMirrorRequest(run: BeginRun): GeminiRequest {
   const block = `<<DATA>>\n${data.map(quoteData).join('\n')}\n<</DATA>>`;
   const userTurn = `${block}\n\n<<INSTRUCTION>>\n${instruction.trim()}`;
   // The reservation assumes MAX_IN_TOKENS; a request that could exceed it is never sent.
-  if (userTurn.length > REQUEST_CHAR_LIMIT) throw new Error('mirror request over its input bound');
+  if (MIRROR_RULES.length + userTurn.length > REQUEST_CHAR_LIMIT) throw new MirrorRequestTooLarge();
   return {
     systemInstruction: { parts: [{ text: MIRROR_RULES }] },
     contents: [{ role: 'user', parts: [{ text: userTurn }] }],
@@ -266,9 +278,12 @@ Hard constraints: the face must not resemble any real person, celebrity or histo
 export const IMAGE_PRICE_MAX_USD = 0.134;
 export const VISION_CHECK_MAX_USD = 0.002;
 export const MAX_PORTRAIT_GENERATIONS = 2;
-export function portraitCostUsd(generations: number, visionChecks: number): number {
-  return Math.round((generations * IMAGE_PRICE_MAX_USD + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
+/** Each generation can call the primary image model and then the fallback: two billable image calls. */
+export const IMAGE_CALLS_PER_GENERATION = 2;
+export function portraitCostUsd(imageCalls: number, visionChecks: number): number {
+  return Math.round((imageCalls * IMAGE_PRICE_MAX_USD + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
 }
 export function reservePortraitUsd(): number {
-  return Math.round(portraitCostUsd(MAX_PORTRAIT_GENERATIONS, MAX_PORTRAIT_GENERATIONS) * RESERVE_MARGIN * 1e6) / 1e6;
+  const calls = MAX_PORTRAIT_GENERATIONS * IMAGE_CALLS_PER_GENERATION;
+  return Math.round(portraitCostUsd(calls, MAX_PORTRAIT_GENERATIONS) * RESERVE_MARGIN * 1e6) / 1e6;
 }

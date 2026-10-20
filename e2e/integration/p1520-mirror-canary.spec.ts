@@ -280,7 +280,15 @@ test('a restarted dead job charges the abandoned attempt in full, never releases
   const { data: s1 } = await supabaseAdmin.from('mirror_ai_spend').select('state, actual_usd, reserved_usd').eq('id', first).single();
   expect(s1!.state).toBe('settled');
   expect(Number(s1!.actual_usd)).toBe(Number(s1!.reserved_usd));
-  await complete(job.job_id, 'restart reply');
+  // the abandoned attempt (1) answers late: nothing is written, and the current reservation is untouched
+  const late = await supabaseAdmin.rpc('_mirror_complete_job', { p_job: job.job_id, p_body: 'late first attempt', p_actual_usd: 0, p_attempt: 1 });
+  expect(late.error).toBeNull();
+  expect(late.data, 'a late answer from an abandoned attempt writes nothing').toBeNull();
+  const { data: s2 } = await supabaseAdmin.from('mirror_ai_spend').select('state').eq('id', second).single();
+  expect(s2!.state, 'the current attempt keeps its own reservation').toBe('reserved');
+  // CONTROL: the current attempt (2) completes
+  const cur = await supabaseAdmin.rpc('_mirror_complete_job', { p_job: job.job_id, p_body: 'restart reply', p_actual_usd: 0, p_attempt: 2 });
+  expect((cur.data as Row | null)?.kind).toBe('agent');
   // keep the shared test project's global ceiling clean
   await supabaseAdmin.from('mirror_ai_spend').update({ actual_usd: 0 }).in('id', [first, second]);
 });
