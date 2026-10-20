@@ -134,15 +134,22 @@ export function CanvasPage() {
   const [panelCloses, setPanelCloses] = useState(0);
   const requestRef = useRef(0);
 
+  // What is on screen, for `read`: a refresh with nothing ready on screen is a first load.
+  const loadedRef = useRef<Loaded | null>(null);
+  loadedRef.current = loaded;
+
   /** `refresh`: a re-read of what is already on screen (panel open/close, a withdrawn
-   *  position). Its failure keeps the rows already shown instead of replacing the grid. */
+   *  position). Its failure keeps the rows already shown instead of replacing the grid; a
+   *  canvas that no longer exists (not-found) is shown as such. */
   const read = useCallback(async (forKey: string, refresh = false) => {
     if (forKey !== keyRef.current) return;
+    const onScreen = loadedRef.current;
+    const keepOnError = refresh && onScreen?.key === forKey && onScreen.data.status === 'ready';
     const rid = ++requestRef.current;
     const generation = listReturnCacheGeneration();
     const settle = (data: CanvasData) => {
-      if (rid !== requestRef.current) return;
-      if (refresh && data.status !== 'ready') return;
+      if (rid !== requestRef.current || forKey !== keyRef.current) return;
+      if (keepOnError && data.status === 'error') return;
       if (data.status === 'ready' && generation === listReturnCacheGeneration()) {
         writeListReturnCache(cacheKey, 'canvas', data);
       }
@@ -187,7 +194,10 @@ export function CanvasPage() {
   useEffect(() => {
     if (!sessionChecked) return;
     const back = navigationType === 'POP' ? readListReturnCache<CanvasData>(cacheKey, 'canvas') : undefined;
-    if (back) return setLoaded({ key, data: back });
+    if (back) {
+      requestRef.current++; // a read still in flight for an earlier address must not land now
+      return setLoaded({ key, data: back });
+    }
     void read(key);
     // navigationType is read once per address: a panel opening or closing must not re-serve the cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
