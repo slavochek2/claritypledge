@@ -249,11 +249,21 @@ test.describe("P1510: password sign-in refused, link sign-in works", () => {
     expect(error?.message).toMatch(/needs password_signin=forbidden/);
   });
 
-  test("clear: client roles cannot run it", async () => {
+  test("clear and status: client roles cannot run them", async () => {
     const { error } = await anon().rpc("p1510_clear_passwords", {
       p_user_ids: null,
     });
     expect(error, "anon must not reach the clear function").not.toBeNull();
+    const { error: stErr } = await anon().rpc("p1510_status");
+    expect(stErr, "anon must not reach the status function").not.toBeNull();
+  });
+
+  test("status: TEST reads as allowed, and counts stored passwords", async () => {
+    const { data, error } = await supabaseAdmin.rpc("p1510_status");
+    expect(error, `status: ${error?.message}`).toBeNull();
+    expect(data![0].mode).toBe("allowed");
+    // TEST keeps its suites' passwords
+    expect(Number(data![0].password_hashes)).toBeGreaterThan(0);
   });
 
   // ── Link sign-in keeps working ───────────────────────────────────────────────

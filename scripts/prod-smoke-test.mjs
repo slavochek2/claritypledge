@@ -191,6 +191,24 @@ if (PRE_ENFORCEMENT) {
   }
 }
 
+// ── 7. Prod is enforcing (P1510) ────────────────────────────────────────────
+// Step 6 proves NEW passwords are stripped. This proves the rest: the marker
+// says prod, and no account still holds a stored password (catches a migration
+// that landed before the marker, a flipped marker, or a restore).
+console.log('\n7. Password enforcement state');
+if (PRE_ENFORCEMENT) {
+  console.log('  ⚠ skipped (--pre-enforcement)');
+} else {
+  const stRes = await fetch(`${PROD_URL}/rest/v1/rpc/p1510_status`, {
+    method: 'POST',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  const st = (await stRes.json().catch(() => []))?.[0] ?? {};
+  ok("marker password_signin = 'forbidden'", st.mode === 'forbidden', `HTTP ${stRes.status} mode=${st.mode ?? 'absent'}`);
+  ok('no account holds a stored password', Number(st.password_hashes) === 0, `password_hashes=${st.password_hashes ?? 'unknown'}`);
+}
+
 // ── Result ────────────────────────────────────────────────────────────────────
 console.log(`\n${pass} passed, ${fail} failed\n`);
 if (fail > 0) process.exit(1);

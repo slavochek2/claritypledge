@@ -1,5 +1,5 @@
 -- P1510: sign-in is by emailed link only — a password can never produce a session.
--- client-safe: the revokes are on a trigger function no client calls (PostgREST never exposes trigger-returning functions) and on a clear function only service_role may run; link sign-in, the only product sign-in, never reads encrypted_password.
+-- client-safe: the revokes are on a trigger function no client calls (PostgREST never exposes trigger-returning functions) and on clear/status functions only service_role may run; link sign-in, the only product sign-in, never reads encrypted_password.
 -- new function
 --
 -- No product path signs up or signs in with a password, but the auth server
@@ -62,9 +62,8 @@ create trigger p1510_strip_password
   before insert or update of encrypted_password on auth.users
   for each row execute function public.p1510_strip_password();
 
--- The clear: blank stored hashes and revoke the sessions of cleared accounts
--- that have ever signed in (one of those sessions may have come from the
--- password). Accounts sign in again by link. Issued access tokens stay valid
+-- The clear: blank stored hashes and revoke every session of each cleared
+-- account (any of them may have come from the password). Accounts sign in again by link. Issued access tokens stay valid
 -- until they expire (JWT TTL); sessions and refresh tokens end now.
 --   p_user_ids NULL  = every account. Only where the marker is 'forbidden'.
 --   p_user_ids given = those accounts only (the TEST proof uses this).
@@ -93,11 +92,11 @@ begin
        set encrypted_password = ''
      where coalesce(u.encrypted_password, '') <> ''
        and (p_user_ids is null or u.id = any (p_user_ids))
-    returning u.id, u.last_sign_in_at
+    returning u.id
   ), r as (
     delete from auth.sessions s
      using c
-     where s.user_id = c.id and c.last_sign_in_at is not null
+     where s.user_id = c.id
     returning s.id
   )
   select (select count(*) from c), (select count(*) from r);
@@ -106,6 +105,24 @@ $$;
 
 revoke all on function public.p1510_clear_passwords(uuid[]) from public, anon, authenticated;
 grant execute on function public.p1510_clear_passwords(uuid[]) to service_role;
+
+-- Status, for the prod smoke test (service_role only): the marker value and how
+-- many accounts still hold a password. On prod both must read
+-- ('forbidden', 0); anything else means the migration landed before the marker,
+-- or the marker was changed, or a restore brought hashes back.
+create or replace function public.p1510_status()
+returns table (mode text, password_hashes bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select decrypted_secret from vault.decrypted_secrets where name = 'password_signin'),
+         (select count(*) from auth.users where coalesce(encrypted_password, '') <> '');
+$$;
+
+revoke all on function public.p1510_status() from public, anon, authenticated;
+grant execute on function public.p1510_status() to service_role;
 
 -- One-time clear, in the same transaction as the trigger, so no window exists
 -- in which a stored password still works — on prod only ('forbidden').
