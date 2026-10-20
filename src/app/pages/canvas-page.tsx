@@ -53,6 +53,7 @@ import { NotFoundPage } from '@/app/pages/not-found-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { stripHashtags } from '@/lib/utils';
+import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasTagFor, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
@@ -310,6 +311,12 @@ export function CanvasPage() {
   // resets when the point changes, and an expanded story is remembered per point.
   const [positionsFilter, setPositionsFilter] = useState<{ pointId: string; filter: PositionFilter } | null>(null);
   const [expandedStories, setExpandedStories] = useState<Record<string, string | null>>({});
+  // Founder, sixth round: "+ Add a story" stays on the canvas — the letters' in-place composer.
+  const [storyDialog, setStoryDialog] = useState<PositionStoryDialogState | null>(null);
+  const closeStoryDialog = useCallback(() => {
+    setStoryDialog(null);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="canvas-point-panel"]')?.focus());
+  }, []);
 
   // The filter resets when the point changes — also on the way back to a point filtered earlier.
   if (positionsFilter && positionsFilter.pointId !== (openPoint?.id ?? null)) setPositionsFilter(null);
@@ -434,6 +441,7 @@ export function CanvasPage() {
           label={openPoint ? `Point: ${openPoint.statement}` : `${openBoxTitle}`}
           viewKey={openPoint?.id ?? `box:${openBox}`}
           closeLabel={openPoint ? 'Close point' : 'Close box'}
+          covered={storyDialog !== null}
           step={openPoint
             ? {
               box: BOX_TITLES.get(canvasBoxOf(openPoint.systemTags) as CanvasBoxTag),
@@ -466,6 +474,13 @@ export function CanvasPage() {
             activeTag={projectTag ?? undefined}
             onPointRemoved={refresh}
             onPositionSaved={refresh}
+            onAddStory={() => setStoryDialog({
+              mode: 'add',
+              pointId: openPoint.id,
+              position: openPositions.find(p => p.userId === viewerId)?.position ?? openPoint.userPosition?.position ?? undefined,
+              // As /create does (P607): the story inherits the point's visibility.
+              visibility: openPoint.visibility === 'private' ? 'private' : 'public',
+            })}
           />
           {/* D6: the point page's "Filter by position" block, counting from the canvas's one
               positions read; every author's linked stories come from the canvas's batch read. */}
@@ -489,6 +504,13 @@ export function CanvasPage() {
           </>)}
         </PointPanel>
       )}
+      {/* After the panel, so it portals above it. Saved: re-read, so the card shows "Your story".
+          Closed either way: focus back into the panel (no trigger for Radix to return it to). */}
+      <LetterPositionStoryDialog
+        state={storyDialog}
+        onClose={closeStoryDialog}
+        onSaved={() => { closeStoryDialog(); refresh(); }}
+      />
     </div>
   );
 }
@@ -807,7 +829,7 @@ function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
  * FocusHeader's back arrow); focus moves in and back. Previous / Next walk the canvas without
  * closing it.
  */
-function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close point', step }: {
+function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close point', step, covered = false }: {
   children: ReactNode;
   onClose: () => void;
   label: string;
@@ -815,11 +837,17 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
   viewKey: string;
   closeLabel?: string;
   step: { box?: string; boxTag?: CanvasBoxTag; onPrevious?: () => void; onNext?: () => void };
+  /** A dialog the page opened over the panel (the story composer): its keys are its own. */
+  covered?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Read at keydown: the composer's Escape closes it first, and focus falls to <body> before
+  // this listener runs — without this, the same Escape would close the panel too (review).
+  const coveredRef = useRef(covered);
+  coveredRef.current = covered;
   // What is on screen when the panel closes (Previous / Next change it), for returning focus.
   const viewKeyRef = useRef(viewKey);
   viewKeyRef.current = viewKey;
@@ -836,7 +864,7 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
     // sheet, a confirmation), which handles its own Escape.
     const onKey = (e: KeyboardEvent) => {
       const panel = panelRef.current;
-      if (!panel) return;
+      if (!panel || coveredRef.current) return;
       // Something inside handled this Escape already (the spread's info popover, an expanded
       // story): it closes only that.
       // Focus on <body> is still "in" the panel: it is modal and #root is inert, so focus can only

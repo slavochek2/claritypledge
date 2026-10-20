@@ -94,9 +94,12 @@ interface FeedPointCardProps {
   spread?: ReactNode;
   /** P1508: inside a dialog (the canvas panel), Escape with the stories open closes them, not the dialog. */
   collapseStoriesOnEscape?: boolean;
+  /** P1508: "+ Add a story" opens the page's own in-place composer instead of /create (the
+   *  canvas keeps the reader on the canvas). Unset: /create, as before. */
+  onAddStory?: () => void;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -406,7 +409,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
             <CardSlotLink kind="your-story" onClick={() => openPath(`/story/${viewerStory.id}`)} />
           )}
           {addStoryCopy && (
-            <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={() => openPath(`/create?pointId=${point.id}`)} />
+            <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={onAddStory ?? (() => openPath(`/create?pointId=${point.id}`))} />
           )}
           {/* With an owner the count is theirs, so zero shows nothing (the profile's rule). */}
           {!owner && linkedStories?.length === 0 && !viewerStory && !addStoryCopy && <CardCountText>0 stories</CardCountText>}

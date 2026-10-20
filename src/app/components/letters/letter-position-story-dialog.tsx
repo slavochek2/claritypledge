@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { stripHashtags } from '@/lib/utils';
 import { createLetterPositionStory, updateLetterPositionStory } from '@/app/data/letters-service';
@@ -39,6 +40,8 @@ interface AddMode {
   pointId: string;
   pointTitle?: string;
   position?: PositionType;
+  /** The new story's visibility. Unset: private (letters). P1508's canvas passes the point's. */
+  visibility?: 'public' | 'private';
 }
 
 interface EditMode {
@@ -99,7 +102,7 @@ export function LetterPositionStoryDialog({
         }
         toast.success('Story updated');
       } else {
-        const result = await createLetterPositionStory(state.pointId, trimmed);
+        const result = await createLetterPositionStory(state.pointId, trimmed, state.visibility);
         if (!result) {
           toast.error('Failed to save story. Please try again.');
           return;
@@ -130,6 +133,10 @@ export function LetterPositionStoryDialog({
                 {state.position ? explainWhyLabel(state.position) : (state.mode === 'edit' ? 'Update your story' : 'Add a story')}
               </DialogTitle>
             </DialogHeader>
+            {/* P1508: a story that will be public says so before Save, as /create does (P610). */}
+            {state.mode === 'add' && state.visibility && (
+              <VisibilityLine visibility={state.visibility} source="Matches point visibility" />
+            )}
             <Textarea
               placeholder={state.position ? explainPlaceholder(state.position) : 'Share your position or reasoning…'}
               value={content}

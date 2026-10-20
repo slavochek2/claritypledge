@@ -2063,7 +2063,10 @@ export async function getLetterPositionStories(
  */
 export async function createLetterPositionStory(
   pointId: string,
-  content: string
+  content: string,
+  // Letters keep position-stories private; P1508's canvas passes the point's own visibility,
+  // as /create does (P607).
+  visibility: 'public' | 'private' = 'private',
 ): Promise<{ storyId: string } | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return null;
@@ -2076,7 +2079,7 @@ export async function createLetterPositionStory(
       content,
       tags: extractHashtags(content),
       system_tags: [],
-      visibility: 'private',
+      visibility,
     })
     .select('id')
     .single();
@@ -2093,8 +2096,13 @@ export async function createLetterPositionStory(
   clearListReturnCache(); // P1364: the link changes the card's linked-content footer
 
   if (linkError && linkError.code !== '23505') {
-    // 23505 = already linked (idempotent); other errors are real
+    // 23505 = already linked (idempotent); other errors are real. A story not on its point is
+    // not what the writer asked for, and a retry would make a second one: remove it and report
+    // the failure (P1508 review).
     logDbError('createLetterPositionStory:link', linkError);
+    await supabase.from('stories').delete().eq('id', storyData.id);
+    clearListReturnCache();
+    return null;
   }
 
   return { storyId: (storyData as { id: string }).id };

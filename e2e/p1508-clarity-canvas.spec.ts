@@ -849,4 +849,36 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(next).toBeVisible();
     expect(await next.evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgb(37, 99, 235)');
   });
+
+  test('founder follow-up: "+ Add a story" writes the story in place, on the canvas, public like its point', async ({ page }) => {
+    await setTestSession(page, fx.owner.email);
+    await page.goto(`${fx.url}?point=${fx.revenuePointId}`);
+    await waitForCanvas(page);
+    const panel = page.getByTestId('canvas-point-panel');
+    // The invitation follows a position (P1296): take one first.
+    await panel.getByTestId('agree-group').click();
+    await panel.getByRole('button', { name: /add a story|why you/i }).first().click();
+    const dialog = page.getByRole('dialog').filter({ has: page.locator('textarea') });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/canvas\//); // never left for /create
+    // It says where the story will show, as /create does (P610).
+    await expect(dialog.getByRole('status')).toContainText(/public|everyone|profile/i);
+    // Escape closes only the composer; the panel stays, and focus stays in it.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(panel).toBeVisible();
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-testid="canvas-point-panel"]'))).toBe(true);
+    await panel.getByRole('button', { name: /add a story|why you/i }).first().click();
+    await expect(dialog).toBeVisible();
+    const text = `P1508 in-place story ${Date.now()}`;
+    await dialog.locator('textarea').fill(text);
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`point=${fx.revenuePointId}`));
+    // Stories start folded on the card: the invitation becomes the viewer's own "Your story".
+    await expect(panel.getByRole('button', { name: 'Your story' }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(panel.getByRole('button', { name: /add a story|why you/i })).toHaveCount(0);
+    const { data } = await supabaseAdmin.from('stories').select('visibility').eq('content', text).single();
+    expect(data?.visibility).toBe('public');
+  });
 });
