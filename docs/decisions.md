@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-20 [process]: A session closes, parks or holds its own slot before it ends — block once (P1519)
+
+**Context:** One cleanup pass on 2026-10-20 found two specs whose code was live on `origin/main` but still open, two slots holding only a spec, a closed spec still checked out under a dead lock, and an unmanaged worktree with a merged fix. Every owning session had answered "anything else?" with "no". The stranding report exists but runs only at the next session's start, where nobody has the context to decide.
+**Decision:** At session end the Stop hook checks the slots this session's own transcript claimed or wrote in. Each open one must be closed, parked, or held by a command-written reason with an owner from a closed set (founder, a date, another spec); finished work cannot be held. Founder call: **block once**, not warn, and when the session cannot close the slot itself the blocked turn is a `/slava:build:simplify`-order brief (why, cost, options, recommendation).
+**Alternatives rejected:** Warn only (it prints after "nothing else" was already said — prevents none of the cases). Free-text "stays open" reason (an agent under a block types it to pass). Folding into P1450 (that cleans up after the fact; this acts while the owner still knows). Ownership from the lock's session id, cwd or `.activity` (an agent-run claim records no session id; reads refresh activity).
+**Consequences:** Spec filed and reviewed (Gemini review model + Opus, 2 of 2); not yet built. Shares `park` and the action set with P1450, defined once. Until it ships, the founder's "anything else?" is not a cleanup check.
+**References:** [p1519](../features/p1519_session_end_slot_closure.md) · P1450 · P1246
+
 ## 2026-10-19 [process]: The long spec pipeline is retired; specs go create-spec → multi-model review → /dev (P1514)
 
 **Context:** `/architect`, `/spec-review` and `/challenge-prd` and the long route through `/ux`, `/ui`, `/generate-tests` and `/decompose` were still described as the process, while specs were in practice reviewed by Gemini, Opus and Codex (2026-10-16 [process]) and built with `/dev` + `/finish` (P1505). Agents kept recommending the old route (P1508 carried "`/architect` recommends" until today). Founder: "retire for now architect and big flow and spec review and challenge PRD."
