@@ -194,3 +194,46 @@ and the chat client). CONFIRMED means the code has the gap as described.
 **Open questions 2 and 3, answered.** Q2: the second-round decision (the default name stays "Your mirror").
 Q3: the portrait is generated the first time the owner opens the mirror chat, so nobody who never opens it costs
 anything.
+
+## Build status (/dev, 2026-10-21)
+
+Built on `feature/p1520-mirror-v2`, which starts at P1512's tip: **P1512 must ship first.** Migration and both
+functions are on the test project only. Every AI path is off until the mirror's own key exists (see the checklist).
+
+Verified without the model: DB canary `e2e/integration/p1520-mirror-canary.spec.ts` 12/12 (owner-only reads over
+REST and Realtime with a second account, no channel side effects, no client writes, one job per message, atomic and
+capped spend, restart accounting, erasure of derived replies, asks never copied); unit tests 47; browser smoke 1/1.
+Not yet verified: every acceptance criterion below needs the real model, so none is ticked. The three AI tests in
+`e2e/p1520-mirror.spec.ts` skip with that reason until the key is set, and run from a worktree on ports 5001-5899
+(INBOX-205: w9/w10 dev ports fail edge-function CORS).
+
+**Known limitations (accepted by the review rounds):** a channel shows the newest 200 private asks (older ones stay in
+the mirror chat); image and vision calls carry no explicit output-token cap (fixed-size output, reserved at the
+fallback price for every call); the erase/start lock protocol is proven by reasoning and the serial canary, not by a
+concurrency test; a profile deleted outside erase_my_account() keeps derived replies (as P1512 keeps bodies); an
+erased owner's portrait file stays in the bucket, unlinked.
+
+**Spend numbers to confirm** [FOUNDER DECISION]: per person per day $0.60 and 30 replies, $2.10 and 3 portraits;
+global per day $5 replies, $6 portraits, $10 total (`_mirror_limits()` in the migration). Prices assume Gemini's
+2027 rates.
+
+**Copy to confirm** [FOUNDER DECISION]: "<name>'s reading. You decide what fits.", "<name> is thinking…",
+"<name> could not answer.", "<name> has answered as much as it can today. Try again tomorrow.",
+"Private: only you see this", "Asked privately in <channel>", "Ask <name> privately", the panel's
+"Only you can see and talk to it.", "Painted in the style of <artist>", "Random / Female / Male / Neutral".
+
+## Pre-deploy Checklist
+
+### Secrets to provision (test first; prod only after the privacy policy covers the data contract)
+- [ ] Founder creates the mirror's own Gemini key with its own hard spend cap (never reuse the banner or batch keys).
+- [ ] `MIRROR_GEMINI_API_KEY` set on the test project by the founder (value never in files or commands).
+- [ ] `MIRROR_AI_ENABLED=true` on the test project.
+- [ ] Prod: neither is set until the privacy policy covers sending other people's messages to the model.
+
+### Deploy commands
+- [ ] Migration `20261020213000_p1520_mirror_v2.sql` to prod, after P1512's.
+- [ ] `mirror-reply` and `mirror-portrait` deploy to prod (they stay off there without the two secrets above).
+
+### Post-deploy verification
+- [ ] On test with the key: run `e2e/p1520-mirror.spec.ts` (all 4) and the red-team suite with the real model.
+- [ ] Edge smoke `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait`.
