@@ -7,8 +7,8 @@ created_date: '2026-10-20'
 tags: [events, hike, video, gallery]
 disclosure: public
 intent: cold-start
-delivery_stage: dev
-pipeline_ran: [create-spec, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, spec-review, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -117,19 +117,19 @@ the visitor's consent. The alternative is to start muted.)
 
 ## Acceptance Criteria
 
-- [ ] On a series with one video row, the "From past hikes" strip shows a tile with the poster
+- [x] On a series with one video row, the "From past hikes" strip shows a tile with the poster (verified :5611 2026-10-20: poster+play tile, no <video> before tap)
       and a play button, and the network panel shows no request for the mp4 before the tap.
-- [ ] Tapping the tile opens the clip enlarged in a full-viewport overlay (same pattern as the photo lightbox) and plays it there with sound, native controls and `playsInline` (iOS Safari included). The overlay closes on the X, Escape or a backdrop tap, and the `<video>` unmounts on close. The clip never plays inside the small tile. (Founder 2026-10-20: "by clicking on play it should enlarge and play on full screen and not in small window there - it makes no sense to play it there".)
+- [x] Tapping the tile opens the clip enlarged in a full-viewport overlay (same pattern as the photo lightbox) and plays it there with sound, native controls and `playsInline` (iOS Safari included). The overlay closes on the X, Escape or a backdrop tap, and the `<video>` unmounts on close. The clip never plays inside the small tile. (Founder 2026-10-20: "by clicking on play it should enlarge and play on full screen and not in small window there - it makes no sense to play it there".) (verified desktop Chrome :5611: plays unmuted full-viewport, X/Esc/backdrop close, video unmounts; iOS Safari = founder post-deploy tap test)
 - [x] Photo tiles and the route-map tile look and behave as before, and the lightbox still opens.
 - [x] The DB rejects a video row without a poster and one whose URL is outside the bucket.
-- [ ] The strip is verified at 320px, 375px and desktop with photos and a video mixed.
+- [x] The strip is verified at 320px, 375px and desktop with photos and a video mixed. (verified 320/375 via devtools emulate, innerWidth confirmed; desktop in Chrome; no page overflow)
 - [x] The "Series content" paragraph in `docs/events/series/social-hike.md` describes the video
       recipe.
 - [x] A hike video URL built with `publicMediaUrl('hikes/social-hike/…mp4')` passes
       `isPublicMediaVideo()`, and the existing `src/tests/p1385-public-media.test.ts` (origin in
       `media-src`/`img-src`) stays green. `[post-deploy]` re-check that one clip plays on
       claritypledge.com.
-- [ ] A portrait clip and a landscape clip both show their poster in the tile without layout shift next to
+- [x] A portrait clip and a landscape clip both show their poster in the tile without layout shift next to (verified: landscape clip 1 + portrait clips 2,3 all render 148x111 @320 / 182x136 @375, same as photos)
       photo tiles, and both play without cropping in the overlay (`object-contain`).
 
 ## Follow-up data (not in scope)
