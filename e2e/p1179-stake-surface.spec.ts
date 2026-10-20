@@ -100,7 +100,7 @@ test.describe('P1179 AC-9 / AC-10 — staking on the locked surface', () => {
       // The count appears in the card's spread (P1508 R5: the buttons carry none) — the
       // optimistic update landed.
       const firstCard = page.locator('[data-testid="stake-list"] > *').first();
-      await expect(firstCard.getByTestId('position-spread')).toHaveAttribute('title', /agree/, { timeout: 10000 });
+      await expect(firstCard.getByTestId('position-spread')).toHaveAttribute('title', /\b\d+ agree\b/, { timeout: 10000 });
 
       // ...and the list was never refetched.
       expect(feed.n, `the list was refetched ${feed.n}x across the stake — that is the loading flash`).toBe(0);
@@ -126,7 +126,7 @@ test.describe('P1179 AC-9 / AC-10 — staking on the locked surface', () => {
       const agree = page.getByTestId('agree-group').first();
       await expect(agree).toBeVisible();
       await agree.click();
-      await expect(page.locator('[data-testid="stake-list"] > *').first().getByTestId('position-spread')).toHaveAttribute('title', /agree/, { timeout: 10000 });
+      await expect(page.locator('[data-testid="stake-list"] > *').first().getByTestId('position-spread')).toHaveAttribute('title', /\b\d+ agree\b/, { timeout: 10000 });
 
       // Ground truth: the position is actually PERSISTED for this user, not just
       // painted optimistically. RLS is bypassed here on purpose so the assertion

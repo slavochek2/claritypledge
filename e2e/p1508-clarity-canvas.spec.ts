@@ -238,7 +238,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await page.goto(`${fx.url}?with=${fx.other.user.id}`);
     await waitForCanvas(page);
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toContainText('You');
-    await expect(page.getByTestId('canvas-compare-full')).toHaveAttribute('href', `/compare/${fx.other.slug}?tag=${fx.tag}`);
+    await expect(page.getByTestId('canvas-compare-full')).toHaveAttribute('href', `/compare/${fx.other.slug}?tag=canvas_${fx.tag}`);
     // The spread and Compare show together.
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('position-spread')).toBeVisible();
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toBeVisible();

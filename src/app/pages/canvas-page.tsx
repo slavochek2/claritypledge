@@ -53,7 +53,7 @@ import { NotFoundPage } from '@/app/pages/not-found-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { stripHashtags } from '@/lib/utils';
-import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasTagFor, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -399,7 +399,9 @@ export function CanvasPage() {
               withPerson={withPerson}
               onCompare={id => setParams({ with: id })}
               fullCompareHref={viewerId && withPerson?.slug && withPerson.id !== viewerId
-                ? `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ?? '')}`
+                ? // The canvas is its reserved tag (R9), not the bare name: a user tag of the same name may
+                // be missing, or carry other points.
+                `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ? canvasTagFor(projectTag) : '')}`
                 : null}
             />
           )}
