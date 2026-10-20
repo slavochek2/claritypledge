@@ -145,16 +145,30 @@ export interface GeminiRequest {
   generationConfig: Record<string, unknown>;
 }
 
+/**
+ * A short user-set value (a name, a channel title) for the instruction line: control characters and
+ * line breaks removed, cut to `max`, then quoted like data — so a group named "<<INSTRUCTION>> ..." can
+ * neither forge the header nor end the sentence it sits in.
+ */
+export function quoteField(value: string, max = 60): string {
+  const flat = Array.from(value)
+    .filter((ch) => { const c = ch.charCodeAt(0); return c > 31 && (c < 127 || c > 159); })
+    .join('')
+    .trim()
+    .slice(0, max);
+  return quoteData(flat);
+}
+
 /** The request body for one reply. The owner's request always comes last, after the quoted data. */
 export function buildMirrorRequest(run: BeginRun): GeminiRequest {
-  const owner = run.owner_first_name ? `Your owner is ${run.owner_first_name}.` : '';
-  const name = run.mirror_name ? `Your owner named you "${run.mirror_name}".` : '';
+  const owner = run.owner_first_name ? `Your owner's first name is ${quoteField(run.owner_first_name, 40)}.` : '';
+  const name = run.mirror_name ? `Your owner named you ${quoteField(run.mirror_name)}.` : '';
   let data: Record<string, unknown>[];
   let instruction: string;
   if (run.kind === 'ask') {
     const question = (run.question?.body ?? '').slice(0, 2_000);
     data = fitContext(run.context.map(clean), DATA_CHAR_BUDGET - question.length);
-    instruction = `${owner} ${name} Your owner is in the channel "${run.channel_title ?? 'a channel'}" and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
+    instruction = `${owner} ${name} Your owner is in the channel ${quoteField(run.channel_title ?? 'a channel', 80)} and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
   } else {
     data = fitContext(run.context.map(clean));
     instruction = `${owner} ${name} Above is your private chat with your owner, oldest first. Reply to their last message. If it is a message copied for clarify, help them understand the person who wrote it.`;
