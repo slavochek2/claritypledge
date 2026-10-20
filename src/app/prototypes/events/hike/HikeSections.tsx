@@ -60,29 +60,20 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
 }
 
 // ---------------------------------------------------------------------------
-// Organizer line — "Moderate · Organized by <group> · Learn more"
+// Organizer line — "Organized by <group>"
 // ---------------------------------------------------------------------------
 
-/** P1517 amendment 4 (founder 2026-10-20): the group name links to its /groups/<slug> page. */
-export function HikeOrganizerLine({ organizer, difficulty, learnMorePath }: {
+/** P1517 amendment 4: the group name links to its /groups/<slug> page. P1518: nothing else on the line. */
+export function HikeOrganizerLine({ organizer }: {
   organizer: { name: string; slug?: string | null };
-  difficulty?: string | null;
-  learnMorePath?: string;
 }) {
   const groupPath = organizer.slug ? safeInternalPath(`/groups/${encodeURIComponent(organizer.slug)}`) : undefined;
   return (
     <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="hike-organizer">
-      {difficulty && <><span className="font-medium text-foreground">{difficulty}</span>{' · '}</>}
       {HIKE_LABELS.organizedBy}{' '}
       {groupPath
         ? <Link to={groupPath} className="font-medium text-foreground underline underline-offset-2">{organizer.name}</Link>
         : <span className="font-medium text-foreground">{organizer.name}</span>}
-      {learnMorePath && (
-        <>
-          {' · '}
-          <Link to={learnMorePath} className="font-medium text-foreground underline underline-offset-2">{HIKE_LABELS.learnMore}</Link>
-        </>
-      )}
     </p>
   );
 }

@@ -37,7 +37,7 @@ import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
-import { isHikeLayout, HIKE_LABELS, ORG_LEARN_MORE_PATH, parseHikeDetails, splitAfterRouteSection } from '../hike/hike-utils';
+import { isHikeLayout, parseHikeDetails, splitAfterRouteSection } from '../hike/hike-utils';
 import { HikeOrganizerLine, HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
@@ -382,8 +382,6 @@ export function EventDetail() {
   }, [descriptionEl, descriptionHtml]);
   const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
-  const hikeDifficulty = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.difficulty : undefined;
-  const organizerLearnMore = organizer ? ORG_LEARN_MORE_PATH[organizer.slug] : undefined;
   const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
 
   // Loading state
@@ -810,7 +808,7 @@ export function EventDetail() {
               {/* P1403 (founder 2026-10-04, AllTrails order): who organises it, then photos from
                   past hikes, then the stats row just below the photos. Each hides without data. */}
               {hikeSeriesSlug && organizer && (
-                <HikeOrganizerLine organizer={organizer} difficulty={hikeDifficulty} learnMorePath={organizerLearnMore} />
+                <HikeOrganizerLine organizer={organizer} />
               )}
               {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={parseHikeDetails(event.hikeDetails)?.routeMapUrl} onOpenImage={openImage} />}
               {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}

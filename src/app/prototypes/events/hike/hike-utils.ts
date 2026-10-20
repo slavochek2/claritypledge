@@ -21,7 +21,6 @@ export const HIKE_LABELS = {
   route: 'Route',
   openMap: 'Open map',
   organizedBy: 'Organized by',
-  learnMore: 'Learn more',
   osmAttribution: '© OpenStreetMap contributors',
   mapStart: 'Start',
   mapMeet: 'Cafe',
@@ -33,9 +32,6 @@ export const HIKE_LABELS = {
     difficulty: 'Level',
   },
 } as const;
-
-/** Founder 2026-10-04: "learn more" about the organiser. Only orgs with a public page get the link. */
-export const ORG_LEARN_MORE_PATH: Record<string, string> = { cm: '/cm' };
 
 export function isHikeLayout(event: Pick<Event, 'seriesSlug'> | null | undefined): boolean {
   return event?.seriesSlug === SOCIAL_HIKE_SERIES;

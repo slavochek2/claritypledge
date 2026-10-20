@@ -493,7 +493,10 @@ body {
 
 /* P1352: an explainer image in an event description (own storage only, enforced by the
  * renderer). Full description width, never wider, and never a stretched aspect ratio. */
-.event-description img {
+/* P1518: widgets inside the description (reviews strip, route map) opt out with .not-prose and
+ * must not inherit these image rules — the 1rem margin pushed review avatar photos down and
+ * clipped them in their 40px circle. */
+.event-description img:not(.not-prose img) {
   display: block;
   max-width: 100%;
   height: auto;
@@ -502,6 +505,6 @@ body {
 }
 
 /* Founder 2026-10-04: images in an event description open full size on tap (EventDetail lightbox). */
-.event-description img {
+.event-description img:not(.not-prose img) {
   cursor: zoom-in;
 }

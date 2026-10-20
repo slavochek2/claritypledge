@@ -171,7 +171,7 @@ Every Social Hike publishes in this skin; `publish-run` step 8d sets it. The fou
 AllTrails trail page but stays a community event: who organises it, real photos from our hikes,
 then the trail facts.
 
-**Top to bottom:** banner → title → `Moderate · Organized by <org> · Learn more` → swipeable
+**Top to bottom:** banner → title → `Organized by <org>` → swipeable
 photos from past hikes (the route map is the second tile) → stats row (big number, small unit:
 distance, climb, time, loop/out-and-back icon) → date, `Meet at <cafe>` → description, with the
 route map and the **Reviews** row inside its "The route" section, before "Where we meet".

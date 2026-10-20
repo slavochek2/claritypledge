@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 /**
  * @file p1517-hike-gallery-videos.test.tsx
  * @description P1517 — the series gallery shows short videos as click-to-play tiles. Poster only
@@ -172,14 +173,15 @@ describe('P1517 amendment 4: organizer name links to the group page', () => {
   const renderLine = (props: Parameters<typeof HikeOrganizerLine>[0]) =>
     render(<MemoryRouter><HikeOrganizerLine {...props} /></MemoryRouter>);
 
-  it('links the name to /groups/<slug> and keeps Learn more on its own path', () => {
-    renderLine({ organizer: { name: 'Clarity Munich', slug: 'clarity-munich' }, difficulty: 'Moderate', learnMorePath: '/cm' });
+  it('links the name to /groups/<slug> with no difficulty and no Learn more (P1518)', () => {
+    renderLine({ organizer: { name: 'Clarity Munich', slug: 'clarity-munich' } });
     expect(screen.getByRole('link', { name: 'Clarity Munich' }).getAttribute('href')).toBe('/groups/clarity-munich');
-    expect(screen.getByRole('link', { name: 'Learn more' }).getAttribute('href')).toBe('/cm');
-    expect(screen.getByTestId('hike-organizer').textContent).toContain('Moderate');
+    const line = screen.getByTestId('hike-organizer');
+    expect(line.textContent).toBe('Organized by Clarity Munich');
+    expect(line.querySelectorAll('a')).toHaveLength(1);
   });
 
-  it('renders plain text for an org without a slug, with no Learn more when none is mapped', () => {
+  it('renders plain text for an org without a slug', () => {
     renderLine({ organizer: { name: 'No Slug Org', slug: null } });
     expect(screen.getByTestId('hike-organizer').querySelector('a')).toBeNull();
     expect(screen.getByTestId('hike-organizer').textContent).toContain('No Slug Org');
@@ -187,5 +189,19 @@ describe('P1517 amendment 4: organizer name links to the group page', () => {
 
   it('the reviews heading is "What hikers say"', () => {
     expect(HIKE_LABELS.reviews).toBe('What hikers say');
+  });
+});
+
+describe('P1518: review avatar photos are not hit by the description image rules', () => {
+  it('the reviews section is .not-prose and the .event-description img rules exclude .not-prose', () => {
+    const { container } = render(<MemoryRouter><SeriesReviews reviews={[{
+      id: 'r1', quote: 'Great hike', authorName: 'Peter', authorProfilePath: null,
+      author: { name: 'Peter', slug: 'peter', avatarUrl: 'https://example.com/a.png' },
+    } as never]} /></MemoryRouter>);
+    expect(container.querySelector('[data-testid="hike-reviews"]')?.classList.contains('not-prose')).toBe(true);
+    const css = readFileSync(resolve(__dirname, '../index.css'), 'utf8');
+    const rules = css.match(/\.event-description img[^{]*\{/g) ?? [];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const r of rules) expect(r).toContain(':not(.not-prose img)');
   });
 });
