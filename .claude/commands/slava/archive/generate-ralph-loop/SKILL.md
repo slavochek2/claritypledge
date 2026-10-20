@@ -1,8 +1,9 @@
 ---
 name: generate-ralph-loop
-description: Generate commands for Ralph Orchestrator (external tool) or Claude Code's internal /ralph-loop. Reads a spec or UAT file, analyzes complexity, and outputs ready-to-run commands. Primary output is Ralph Orchestrator (solves context compaction). Internal /ralph-loop is deprecated fallback for simple tasks.
-when_to_use: "When setting up iterative AI dev loops for complex features."
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: /goalify writes the loop-ready contract and the /goal line; /dev runs the build."
 version: 1.0.0
+archived_reason: "retired 2026-10-20 (P1514, founder review decision; it consumed the archived /prep-spec UAT output and the external Ralph Orchestrator flow is unused) with the long spec pipeline — /goalify writes the loop-ready contract and /goal line; /dev runs the build"
 ---
 
 # Generate Ralph Loop

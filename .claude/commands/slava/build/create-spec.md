@@ -485,7 +485,7 @@ silent refresh, 24h, 7d unchanged.]
 Created: features/p{N}_{slug}.md
 Type: {work type}
 Execution: {exec_model}, {exec_effort} — {one clause of why}
-Next step: /dev — first a multi-model spec review (Gemini review model, Opus, Codex) when the spec reverses rulings, carries privacy seals or other real stakes
+Next step: /dev — first a multi-model spec review when the stakes call for one
 ```
 
 The execution line belongs in the report, not only in the frontmatter — it is the answer to the question that otherwise gets asked by hand on the next turn. Then: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."

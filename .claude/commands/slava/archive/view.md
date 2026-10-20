@@ -1,11 +1,9 @@
 ---
 name: view
-description: Produce a polished view component + demo wrapper for UI-heavy features, catching visual polish issues before /dev
-when_to_use: >
-  RETIRED FROM ROUTING 2026-08-20 — /pick-flow no longer recommends this skill and must not put it
-  in a recommended flow. Still runnable on request. Originally: after /ui, before /generate-tests (both archived 2026-10-20, P1514),
-  for ui-heavy features needing visual polish within the existing design system.
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: build the view directly from the /create-spec Solution (optionally /ascii-flows first), then /verify and /critique-ux and /polish on the result."
 version: 1.1.0
+archived_reason: "retired 2026-10-20 (P1514, founder review decision; zero runs since creation 2026-04-14, direct build judged equal or better in the P1336 head-to-head) with the long spec pipeline — its /ui and /ux prerequisites are archived; build the view directly from the /create-spec Solution (optionally /ascii-flows first), then /verify"
 ---
 
 > **Retired from routing, not deleted (2026-08-20).** Created 2026-04-14, recommended in flows, and

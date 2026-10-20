@@ -1,9 +1,9 @@
 ---
 name: ux
 description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
-when_to_use: "Never — archived. Replacement: technical flows now live in the /create-spec Solution and are checked by the multi-model spec review (decisions.md 2026-10-16 [process]), then built by /dev with its /finish review (P1505); /ascii-flows stays for layout exploration."
+when_to_use: "Never — archived. Replacement: UX flows and screens now live in the /create-spec Solution (optionally /ascii-flows first)."
 version: 2.1.0
-archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — technical flows now live in the /create-spec Solution and are checked by the multi-model spec review (decisions.md 2026-10-16 [process]), then built by /dev with its /finish review (P1505); /ascii-flows stays for layout exploration"
+archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — UX flows and screens now live in the /create-spec Solution (optionally /ascii-flows first)"
 ---
 
 # UX Design

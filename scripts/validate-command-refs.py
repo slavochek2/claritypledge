@@ -125,6 +125,7 @@ KNOWN_RETIRED = {
     ".claude/rules/spec-sections.md:/ui": "P1514 (2026-10-20) — /ui archived; legacy section names older specs still carry, kept so readers find them, not a route.",
     ".claude/rules/spec-sections.md:/generate-tests": "P1514 (2026-10-20) — /generate-tests archived; legacy section names older specs still carry, kept so readers find them, not a route.",
     ".claude/rules/spec-sections.md:/decompose": "P1514 (2026-10-20) — /decompose archived; legacy section names older specs still carry, kept so readers find them, not a route.",
+    ".claude/rules/src.md:/view": "P1514 (2026-10-20) — /view archived; the line documents cleanup of /_proto demo routes and static imports that older specs' view_locked work left behind, it does not route to it.",
 }
 
 

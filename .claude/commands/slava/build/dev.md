@@ -13,7 +13,7 @@ Execute a development task with TDD discipline and production thinking.
 
 ## Orchestrator Mode (when task manifest exists)
 
-If the spec contains `## Implementation Tasks`, /dev operates as an orchestrator:
+If the spec contains `## Implementation Tasks`, /dev operates as an orchestrator (legacy: `## Implementation Tasks` is written only by the archived `/decompose`, so only older specs carry it):
 
 1. Read ONLY the `## Implementation Tasks` section (not the full spec)
 2. Find all unchecked tasks: `- [ ] Complete`
@@ -170,8 +170,8 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `dev` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
    5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
-1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first.
-1.6. **Read view_locked** — If spec frontmatter has `view_locked: [path1, path2, ...]`, treat each path as read-only for the remainder of this run. Paths are literal strings resolved relative to the repo root — do NOT interpret them as globs or regex. Reject any entry containing `..`, starting with `/`, or otherwise escaping the repo root (mistyped entries must fail loudly, not silently disable the guard). Before any Write or Edit call, normalize the target file path (repo-root-relative) and check literal equality against every view_locked entry. If a write to a locked path is attempted, STOP and report: "Attempted to edit locked view file {path}. /view owns this file. Options: (A) re-run /view to update the view, (B) remove path from view_locked if ownership has changed, (C) edit a different file." Continue only after founder confirms. If view_locked is absent, proceed with current behavior (backward-compatible).
+1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first. (legacy: `## Component Strategy` is written only by the archived `/ui`.)
+1.6. **Read view_locked** — If spec frontmatter has `view_locked: [path1, path2, ...]`, treat each path as read-only for the remainder of this run. Paths are literal strings resolved relative to the repo root — do NOT interpret them as globs or regex. Reject any entry containing `..`, starting with `/`, or otherwise escaping the repo root (mistyped entries must fail loudly, not silently disable the guard). Before any Write or Edit call, normalize the target file path (repo-root-relative) and check literal equality against every view_locked entry. If a write to a locked path is attempted, STOP and report: "Attempted to edit locked view file {path}. /view owns this file. Options: (A) re-run /view to update the view, (B) remove path from view_locked if ownership has changed, (C) edit a different file." Continue only after founder confirms. If view_locked is absent, proceed with current behavior (backward-compatible). (Legacy: `view_locked` is written only by the archived `/view`; the guard stays for older specs that carry it, and the options above mean re-running it only if it is restored from `archive/`.)
 2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
 3. **Implement** — Feature code + fill in test stubs. **For UI features (.tsx changes):** get tests passing before applying visual refinement (spacing, shadows, animation). Don't polish a broken feature.
 3.5. **Adjacent bug rule** — If you discover a bug OUTSIDE this feature's acceptance criteria (e.g., a pre-existing bug in a shared function), do NOT fix it inline. Call `/fix "description"` — it will auto-file a `/create-bug` spec and proceed with TDD (canary test → fix → verify). Bugs INSIDE this feature's acceptance criteria are covered by this feature's own tests.
@@ -215,7 +215,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    entry now carries **`pn`** (the spec reviewed, or `-` when there is none) and **`sha`** (HEAD at
    review time). Write both; the gate's no-branch arm requires `pn`.
    The stamp resolves to the same file whether written from a worktree or the main repo, so it can never disagree with what `/ship` gate 2.7 reads. The `branch` field lets the gate distinguish this branch's review from a concurrent worktree's review of an unrelated feature (P1002).
-9.6. **Proto route cleanup** — If spec frontmatter has `view_locked`, the `/view` skill added a preview route and a static import to `src/App.tsx`. After integration (when the view component is wired into real containers), remove: (1) the `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'` line, (2) the `{import.meta.env.DEV && <Route path="/tree/{feature}" .../>}` route entry. Also remove `view_locked` from spec frontmatter — it served its purpose. Skip if `view_locked` is absent.
+9.6. **Proto route cleanup** — If spec frontmatter has `view_locked`, the archived `/view` skill (legacy: written only by it) added a preview route and a static import to `src/App.tsx`. After integration (when the view component is wired into real containers), remove: (1) the `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'` line, (2) the `{import.meta.env.DEV && <Route path="/tree/{feature}" .../>}` route entry. Also remove `view_locked` from spec frontmatter — it served its purpose. Skip if `view_locked` is absent.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `source scripts/keyring.sh && KEYRING_REASON="verify-prod <feature>" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY && VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="$PROD_SUPABASE_SERVICE_ROLE_KEY" npx playwright test e2e/verify-prod-<feature>.spec.ts` — the key comes from the per-access lock (one dialog, **Allow** never "Always Allow"), never a pasted or plaintext copy (P1316)
 9.9. **Untracked test file check** — Run `git status --short | grep "^?? e2e/p${N}"` (substituting the actual P-number). If any `e2e/pN-*.spec.ts` files appear as untracked (`??`), inspect them: if they test a rejected design or have broken setup, fix or delete before declaring done. An untracked test file is invisible to CI and strands work that looks complete but isn't.
@@ -514,7 +514,7 @@ Which approach?
 Before marking a feature complete, `/dev` verifies:
 
 **Required checks:**
-- [ ] All new E2E tests pass (written first per the spec's Done-When)
+- [ ] All new E2E tests pass
 - [ ] All new unit tests pass (if any were created)
 - [ ] All smoke tests pass (fast regression detection)
 - [ ] All existing tests still pass (no regressions introduced)
@@ -745,7 +745,7 @@ After successful commit, mark the feature ready for QA — do NOT move to `featu
    - **Pre-check:** Run `mcp__claude-in-chrome__tabs_context_mcp` to verify Chrome MCP is available. If it errors → skip to fallback immediately (don't spawn).
    - Take screenshots at 3 viewports: desktop (1280px), tablet (768px), mobile (390px)
    - Read the visual QA checklist from `.claude/rules/visual-qa.md`
-   - **Check for Visual Specification:** If spec has `## Component Strategy` with a Visual Specification subsection, read it. This provides design intent (hierarchy, register, spacing, animation) that the QA subagent should evaluate against.
+   - **Check for Visual Specification:** If spec has `## Component Strategy` with a Visual Specification subsection, read it. This provides design intent (hierarchy, register, spacing, animation) that the QA subagent should evaluate against. (legacy: written only by the archived `/ui`.)
    - **Spawn a SEPARATE visual QA subagent (`model: "sonnet"`)** (anti-confirmation-bias: it must NOT see the code diff):
      ```
      You are a visual QA reviewer. You succeed by FINDING problems, not confirming quality.

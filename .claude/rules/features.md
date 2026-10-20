@@ -186,15 +186,15 @@ Set by skills automatically, not manually. All use inline YAML list format `[a, 
 
 ```yaml
 delivery_stage: dev             # last skill that started on this spec
-pipeline_plan: [create-spec, ux, dev, verify]
-pipeline_ran: [create-spec, ux, dev]
-pipeline_skipped: [research-arch -- no novel tech, decompose -- under 5 files]
+pipeline_plan: [create-spec, dev, verify]
+pipeline_ran: [create-spec, dev]
+pipeline_skipped: [research-arch -- no novel tech]
 drafted_by: opus                # model that wrote the FIRST draft; never updated
 exec_model: sonnet              # recommended model to EXECUTE the work; snapshot, never enforced
 exec_effort: medium             # recommended reasoning effort
 ```
 
-- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `ux`, `research-arch`, `ui`, `view`, `generate-tests`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. `challenge-prd`, `architect` and `spec-review` stay valid as legacy values on older specs (and in the kanban's value list); their skills were archived 2026-10-19 (P1514), so nothing writes them any more; the same holds for `ux`, `ui`, `generate-tests`, `decompose` (archived 2026-10-20, P1514). Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
+- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `research-arch`, `dev`, `fix`, `verify`, `park`, `ship`. **Legacy read-only values** (older specs carry them, and the kanban's value list keeps them; nothing writes them any more): `challenge-prd`, `architect`, `spec-review` (skills archived 2026-10-19, P1514) and `ux`, `ui`, `view`, `generate-tests`, `decompose` (skills archived 2026-10-20, P1514). Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
 - **`pipeline_plan:`** — ordered skill list for this spec's flow. Legacy/optional now (`/pick-flow` deprecated 2026-10-07); set by the agent/human if used. Never deleted.
 - **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
 - **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Legacy/optional; set by the agent/human if used. Never deleted.

@@ -44,8 +44,8 @@ tags: []                        # Searchable keywords (REQUIRED, can be empty)
 ---
 workstream: C2                   # Product track (optional but recommended)
 created_date: '2026-02-18'      # Creation date — set by skill at creation, or auto-added by fix-frontmatter from git history
-prepped_date: null              # Set by /prep-spec (null = draft)
-reviews:                        # Set during /prep-spec
+prepped_date: null              # Set by /prep-spec (archived) (null = draft)
+reviews:                        # Set during /prep-spec (archived)
   ux: null
   architect: null
   alignment: null
@@ -169,7 +169,7 @@ tags: [dark-mode, ui, settings]
 
 ---
 
-#### `prepped_date` (OPTIONAL, set by /prep-spec)
+#### `prepped_date` (OPTIONAL, set by /prep-spec (archived))
 
 **Purpose:** Tracks spec review completion
 
@@ -183,7 +183,7 @@ tags: [dark-mode, ui, settings]
 
 ---
 
-#### `reviews` (OPTIONAL, set by /prep-spec)
+#### `reviews` (OPTIONAL, set by /prep-spec (archived))
 
 **Purpose:** Tracks individual agent review results
 
@@ -298,7 +298,7 @@ Spec readiness is tracked via `prepped_date`, not `status`:
 | `prepped_date` | Meaning | Kanban badge |
 |----------------|---------|--------------|
 | `null` | Spec is a draft, not reviewed | "draft" (gray) |
-| Set (e.g. `'2026-02-05'`) | Passed /prep-spec reviews | "prepped" (green) |
+| Set (e.g. `'2026-02-05'`) | Passed /prep-spec (archived) reviews | "prepped" (green) |
 
 Legacy: the archived `/prep-spec` set `prepped_date` without changing `status`. Only humans move cards between kanban columns.
 

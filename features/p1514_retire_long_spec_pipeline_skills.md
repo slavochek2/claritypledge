@@ -48,6 +48,10 @@ Decision density: low; one founder call on the skills listed under Open Question
 - `.claude/rules/features.md` and `.claude/rules/spec-sections.md` change only through the
   `/slava:maintain:claude-md` gate; keep section names that existing specs still use (mark them
   legacy, do not delete readers' aliases).
+- Retired by founder 2026-10-20 (review fixes): `/view` and `/generate-ralph-loop` are archived too
+  (`/view`: zero runs since 2026-04-14 and its `/ui` and `/ux` prerequisites are gone; `/generate-ralph-loop`:
+  consumed the archived `/prep-spec` UAT output). Replacements: build the view directly from the Solution
+  (optionally `/ascii-flows`), and `/goalify` for loop-ready contracts.
 - One decisions.md entry.
 
 ## Risks / Non-Goals
@@ -65,7 +69,7 @@ Decision density: low; one founder call on the skills listed under Open Question
 
 ## Done-When
 
-- [x] The three named skills, plus `/ux`, `/ui`, `/generate-tests`, `/decompose`, `/prep-spec` (Open Question 1), are in `archive/` with `archived_reason`.
+- [x] The three named skills, plus `/ux`, `/ui`, `/generate-tests`, `/decompose`, `/prep-spec` (Open Question 1), plus `/view` and `/generate-ralph-loop` (founder 2026-10-20), are in `archive/` with `archived_reason`.
 - [x] `grep -rE "(/|:)architect\b|spec-review|challenge-prd"` over `.claude/`, `scripts/`, `docs/software-delivery-process.md` and CLAUDE.md returns only archive files, history, or lines carrying a kept-on-purpose note.
 - [x] The delivery-process doc describes the current route and no longer names `/pick-flow` as live.
 - [x] `./scripts/pre-commit-checks.sh` passes.
@@ -78,3 +82,9 @@ Decision density: low; one founder call on the skills listed under Open Question
    Evidence: no spec created since 2026-09-20 lists any of the five in `pipeline_ran`; newest `skill-costs.log`
    lines are generate-tests 2026-09-14 and ui 2026-04-13 (ux, decompose, prep-spec: none); no commit message
    since 2026-09-20 invokes them (two grep hits were `fix(ux):` prefixes and a UX-copy line). None kept; all five archived.
+   Last recorded runs (reconciled 2026-10-20; sources: `.private/logs/skill-costs.log` for ui and generate-tests,
+   `pipeline_ran` plus `created_date` of the newest spec naming the skill for ux and decompose, none found for
+   prep-spec): ux 2026-06-18, ui 2026-04-13, generate-tests 2026-09-14, decompose 2026-06-22, prep-spec no record.
+2. `/view` and `/generate-ralph-loop` (raised in review): **Answered 2026-10-20 (founder): retire both.** `/view` has
+   zero logged runs since 2026-04-14 and its `/ui` and `/ux` prerequisites are archived; `/generate-ralph-loop` has
+   zero logged runs and consumed `/prep-spec` output. Both archived with `archived_reason`.
