@@ -27,7 +27,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
+import { listReturnCacheGeneration, listReturnCacheKey, readListReturnCache, writeListReturnCache } from '@/lib/list-return-cache';
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Globe, Heart, Lightbulb,
   Megaphone, Receipt, ShieldCheck, Star, Users, X, type LucideIcon,
@@ -106,15 +107,6 @@ interface Loaded {
   data: CanvasData;
 }
 
-/** Canvases read earlier in this tab, by viewer + address (memory only, gone on reload). */
-const canvasSeen = new Map<string, CanvasData>();
-const CANVAS_SEEN_MAX = 10;
-function rememberCanvas(key: string, data: CanvasData) {
-  canvasSeen.delete(key);
-  canvasSeen.set(key, data);
-  if (canvasSeen.size > CANVAS_SEEN_MAX) canvasSeen.delete(canvasSeen.keys().next().value as string);
-}
-
 export function CanvasPage() {
   const { handle, projectTag: rawTag } = useParams<{ handle: string; projectTag: string }>();
   const projectTag = normalizeProjectTag(rawTag);
@@ -122,10 +114,12 @@ export function CanvasPage() {
   const viewerId = session?.user?.id;
   const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}`;
 
-  const [loaded, setLoaded] = useState<Loaded | null>(() => {
-    const seen = canvasSeen.get(key);
-    return seen ? { key, data: seen } : null;
-  });
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // Back to a canvas shows it as it was left, from the shared return cache (P1364 rules: POP only,
+  // cleared on any auth change and after every own write; a read from an older generation is
+  // never written back).
+  const navigationType = useNavigationType();
+  const cacheKey = listReturnCacheKey(viewerId, `/canvas/${handle ?? ''}/${projectTag ?? ''}`);
   // The viewer + address on screen NOW. A callback from a card that outlived its viewer (a vote
   // settling after sign-out) must not start a read for the old key: it would supersede the
   // current read and leave the page loading.
@@ -145,10 +139,13 @@ export function CanvasPage() {
   const read = useCallback(async (forKey: string, refresh = false) => {
     if (forKey !== keyRef.current) return;
     const rid = ++requestRef.current;
+    const generation = listReturnCacheGeneration();
     const settle = (data: CanvasData) => {
       if (rid !== requestRef.current) return;
       if (refresh && data.status !== 'ready') return;
-      if (data.status === 'ready') rememberCanvas(forKey, data);
+      if (data.status === 'ready' && generation === listReturnCacheGeneration()) {
+        writeListReturnCache(cacheKey, 'canvas', data);
+      }
       setLoaded({ key: forKey, data });
     };
     if (!handle || !projectTag) return settle({ status: 'not-found' });
@@ -184,19 +181,20 @@ export function CanvasPage() {
     } catch {
       settle({ status: 'error' });
     }
-  }, [handle, projectTag, viewerId]);
+  }, [handle, projectTag, viewerId, cacheKey]);
 
   // Wait for the session check: reading before it would show the owner the public canvas first.
-  // A canvas seen earlier in this tab shows at once and is re-read behind it.
   useEffect(() => {
     if (!sessionChecked) return;
-    const seen = canvasSeen.get(key);
-    if (seen) setLoaded(prev => (prev?.key === key ? prev : { key, data: seen }));
-    void read(key, Boolean(seen));
-  }, [sessionChecked, key, read]);
+    const back = navigationType === 'POP' ? readListReturnCache<CanvasData>(cacheKey, 'canvas') : undefined;
+    if (back) return setLoaded({ key, data: back });
+    void read(key);
+    // navigationType is read once per address: a panel opening or closing must not re-serve the cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionChecked, key, read, cacheKey]);
 
   // Anything read for another viewer or address is not shown — not even for one render.
-  const current = loaded && loaded.key === key ? loaded.data : null;
+  const current = sessionChecked && loaded && loaded.key === key ? loaded.data : null;
   const ready = current?.status === 'ready' ? current : null;
 
   // Founder, sixth round: disagreement found fast — in every box the most contested card comes
@@ -415,7 +413,7 @@ export function CanvasPage() {
             )}
             {ready && (
               <span className="flex min-w-0 max-w-full items-center gap-2">
-                <span aria-hidden className="shrink-0 text-foreground/40">·</span>
+                <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
                 <ProjectPicker handle={handle ?? ''} projectTag={projectTag ?? ''} projectTags={ready.projectTags} withPerson={withPerson} />
               </span>
             )}
@@ -516,6 +514,7 @@ export function CanvasPage() {
                 ...prev,
                 [openPoint.id]: typeof next === 'function' ? next(prev[openPoint.id] ?? null) : next,
               }))}
+              storyShownAbove={ready.ownerId}
               collapseOnEscape
             />
           </div>

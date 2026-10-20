@@ -44,6 +44,9 @@ interface PointPositionsBlockProps {
   /** whose story is open (a user id), or null */
   expandedId: string | null;
   onExpandedChange: (next: string | null | ((prev: string | null) => string | null)) => void;
+  /** a person whose story the card above already shows (the canvas owner): left out of the
+   *  stories-without-position list; their position row keeps its story button (R13) */
+  storyShownAbove?: string;
   /** P621: the viewer unlinks this point from their story */
   onUnlinkStory?: (storyId: string) => void;
   /**
@@ -64,6 +67,7 @@ export function PointPositionsBlock({
   expandedId: expandedHolderId,
   onExpandedChange: setExpandedHolderId,
   onUnlinkStory,
+  storyShownAbove,
   collapseOnEscape = false,
 }: PointPositionsBlockProps) {
   const navigate = useNavigate();
@@ -86,12 +90,12 @@ export function PointPositionsBlock({
     const positionUserIds = new Set(positions.map(p => p.userId));
     const result: StoryWithAuthor[] = [];
     for (const [authorId, story] of storyByAuthorId) {
-      if (!positionUserIds.has(authorId)) {
+      if (!positionUserIds.has(authorId) && authorId !== storyShownAbove) {
         result.push(story);
       }
     }
     return result;
-  }, [storyByAuthorId, positions]);
+  }, [storyByAuthorId, positions, storyShownAbove]);
 
   // Group positions by stance
   const positionGroups = useMemo(() => {

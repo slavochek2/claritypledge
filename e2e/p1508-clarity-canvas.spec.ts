@@ -850,6 +850,50 @@ test.describe('P1508: Clarity Canvas', () => {
     expect(await next.evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgb(37, 99, 235)');
   });
 
+  test('load time: Back to the canvas shows it as left without re-reading it; after a vote elsewhere it reads fresh', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setTestSession(page, fx.owner.email);
+    let canvasReads = 0;
+    page.on('request', r => {
+      const url = decodeURIComponent(r.url());
+      if (/\/rest\/v1\/points\?/.test(url) && url.includes(`canvas_${fx.tag.toLowerCase()}`)) canvasReads++;
+    });
+    const original = (await supabaseAdmin.from('point_positions').select('position')
+      .eq('point_id', fx.solutionPointId).eq('user_id', fx.owner.user.id).maybeSingle()).data?.position ?? null;
+    await page.goto(fx.url);
+    await waitForCanvas(page);
+    const openDetails = async () => {
+      await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
+      await page.getByTestId('canvas-point-panel').getByRole('button', { name: /^Details/ }).click();
+      await expect(page).toHaveURL(new RegExp(`/point/${fx.solutionPointId}`));
+    };
+    // No write: Back serves the canvas from the return cache.
+    await openDetails();
+    const before = canvasReads;
+    await page.goBack();
+    await waitForCanvas(page);
+    await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`)).toBeVisible();
+    expect(canvasReads).toBe(before);
+    // A position taken on the point page clears the cache: Back reads the canvas again.
+    await page.keyboard.press('Escape');
+    await openDetails();
+    await page.getByRole('button', { name: /^Unsure$/ }).first().click();
+    await expect.poll(async () => {
+      const { data } = await supabaseAdmin.from('point_positions').select('position')
+        .eq('point_id', fx.solutionPointId).eq('user_id', fx.owner.user.id).maybeSingle();
+      return data?.position ?? null;
+    }, { timeout: 10_000 }).toBe('unsure');
+    const beforeVote = canvasReads;
+    await page.goBack();
+    await waitForCanvas(page);
+    await expect.poll(() => canvasReads).toBeGreaterThan(beforeVote);
+    if (original) {
+      const { error } = await supabaseAdmin.from('point_positions').update({ position: original })
+        .eq('point_id', fx.solutionPointId).eq('user_id', fx.owner.user.id);
+      if (error) throw new Error(`[P1508] restore position: ${error.message}`);
+    }
+  });
+
   test('founder follow-up: "+ Add a story" writes the story in place, on the canvas, public like its point', async ({ page }) => {
     await setTestSession(page, fx.owner.email);
     await page.goto(`${fx.url}?point=${fx.revenuePointId}`);

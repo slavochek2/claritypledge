@@ -180,6 +180,19 @@ describe('D6: the shared "Filter by position" block on the canvas', () => {
     expect(screen.queryByText('Perspectives without position')).toBeNull();
   });
 
+  it('R13: an owner story without an owner position is not listed again under "without position"', () => {
+    render(
+      <MemoryRouter>
+        <PointPositionsBlock
+          positions={positions.filter(p => p.userId !== 'owner-1')} counts={levelCounts([])} stories={stories}
+          viewerId="viewer-1" filter="all" onFilterChange={vi.fn()} expandedId={null} onExpandedChange={vi.fn()}
+          storyShownAbove="owner-1"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('Perspectives without position')).toBeNull();
+  });
+
   it('the card\'s spread row: spread, "Contested" as a label, the info button', () => {
     render(<PointSpreadRow counts={levelCounts(positions)} withInfo />);
     const row = screen.getByTestId('point-spread-row');

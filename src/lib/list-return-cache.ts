@@ -37,7 +37,7 @@
  */
 import { useEffect, useRef } from 'react';
 
-export type ListSurface = 'feed' | 'stake' | 'profile';
+export type ListSurface = 'feed' | 'stake' | 'profile' | 'canvas';
 
 interface Entry<T> {
   surface: ListSurface;
