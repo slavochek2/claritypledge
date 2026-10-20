@@ -168,14 +168,32 @@ test.describe('P877: profiles PII accessor RPCs', () => {
     expect('email' in data, 'party lookup must not carry email').toBe(false);
   });
 
-  test('email_exists: true for known email, false for unknown (anon)', async () => {
-    const anon = makeAnonClient();
-    const { data: yes, error: e1 } = await anon.rpc('email_exists', { p_email: pledgedEmail });
+  // P1511: email_exists is service-role only; the login form asks the per-IP-limited
+  // check-login-email edge function instead. The revoke is applied on TEST (where this suite
+  // runs); its migration ships in the P1511 follow-up, 24h after the frontend is live on prod.
+  test('email_exists: true for known email, false for unknown (service role)', async () => {
+    const { data: yes, error: e1 } = await supabaseAdmin.rpc('email_exists', { p_email: pledgedEmail });
     expect(e1, `rpc error: ${e1?.message}`).toBeNull();
     expect(yes).toBe(true);
 
-    const { data: no } = await anon.rpc('email_exists', { p_email: 'p877-nobody@example.invalid' });
+    const { data: no } = await supabaseAdmin.rpc('email_exists', { p_email: 'p877-nobody@example.invalid' });
     expect(no).toBe(false);
+  });
+
+  test('email_exists is NOT callable by anon or authenticated (P1511)', async () => {
+    const anon = makeAnonClient();
+    const { data: a, error: anonErr } = await anon.rpc('email_exists', { p_email: pledgedEmail });
+    expect(anonErr, 'anon must be denied execute on email_exists').not.toBeNull();
+    expect(anonErr?.code).toMatch(/42501|PGRST202|PGRST301/);
+    expect(a).toBeNull();
+
+    const tmp = makeAnonClient();
+    const { data: signIn } = await tmp.auth.signInWithPassword({ email: guestEmail, password: TEST_PASSWORD });
+    const me = makeUserClient(signIn!.session!.access_token);
+    const { data: u, error: userErr } = await me.rpc('email_exists', { p_email: pledgedEmail });
+    expect(userErr, 'authenticated must be denied execute on email_exists').not.toBeNull();
+    expect(userErr?.code).toMatch(/42501|PGRST202|PGRST301/);
+    expect(u).toBeNull();
   });
 
   test('lookup_party_by_email is NOT callable by anon (authenticated-only grant)', async () => {

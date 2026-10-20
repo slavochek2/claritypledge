@@ -426,7 +426,14 @@ export async function addWitness(
 export async function signInWithEmail(
   email: string,
   source?: 'signup' | 'pledge' | 'login',
-  options?: { redirect?: string; action?: string; name?: string; extraParams?: Record<string, string> }
+  options?: {
+    redirect?: string;
+    action?: string;
+    name?: string;
+    extraParams?: Record<string, string>;
+    /** P1511: false when the account check was refused — a link must never create an account. */
+    shouldCreateUser?: boolean;
+  }
 ): Promise<{ error: AuthError | null }> {
   const params = new URLSearchParams();
   if (source) params.set('source', source);
@@ -450,24 +457,27 @@ export async function signInWithEmail(
       emailRedirectTo: redirectUrl,
       // Pass user metadata for signup flow (name for profile creation)
       data: options?.name ? { name: options.name, avatar_color: getRandomColor() } : undefined,
+      ...(options?.shouldCreateUser === false ? { shouldCreateUser: false } : {}),
     },
   });
   return { error };
 }
 
+export type LoginEmailCheck = 'found' | 'absent' | 'limited' | 'unavailable';
+
 /**
- * P64: Check if an email already exists in the profiles table.
- * Used by login form to validate before sending magic link.
- * @param email - The email address to check
- * @returns True if a profile with this email exists, false otherwise
+ * P64 → P1511: does a profile with this email exist? Asked through the check-login-email edge
+ * function, which bounds checks per IP; email_exists itself is no longer callable by clients.
+ * Anything other than a clean found/absent — a refusal, an error, an unexpected body — is
+ * `unavailable`, never `absent`: the caller must not show "No account found" on a failure.
  */
-export async function checkEmailExists(email: string): Promise<boolean> {
-  // P877: filtering on profiles.email requires column SELECT priv, which is revoked
-  // from anon (this runs pre-auth on the login form). email_exists (SECURITY DEFINER)
-  // returns only a boolean — the same existence signal, no PII.
-  const { data } = await supabase
-    .rpc('email_exists', { p_email: email.toLowerCase().trim() });
-  return data === true;
+export async function checkLoginEmail(email: string): Promise<LoginEmailCheck> {
+  const { data, error } = await supabase.functions.invoke('check-login-email', {
+    body: { email: email.toLowerCase().trim() },
+  });
+  if (error) return 'unavailable';
+  const result = (data as { result?: unknown } | null)?.result;
+  return result === 'found' || result === 'absent' || result === 'limited' ? result : 'unavailable';
 }
 
 /**

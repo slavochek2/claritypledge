@@ -640,7 +640,7 @@ Public bucket, 2 MB, webp/jpeg/png. The first bucket the browser writes to: `aut
   unbounded fetch P1229 removed.
 - `get_my_profile_by_email(text)` — own row by email (`/live` migration); rejects other emails
 - `lookup_party_by_email(text)` — resolve an invitee to a party (no email out); authenticated only
-- `email_exists(text)` — login email check (boolean only)
+- `email_exists(text)` — login email check (boolean only). The login form goes through the per-IP-limited `check-login-email` edge function (P1511); the direct anon/authenticated grant is revoked in a follow-up migration, after the frontend has been live 24 hours (already revoked on TEST)
 - `upsert_my_profile(jsonb)` — own-row write (forces `id = auth.uid()`); needed because `.upsert()` reads `EXCLUDED.email` which requires the revoked SELECT privilege
 - `migrate_live_profile(jsonb)` — the `/live` migration's write (P1137): in one transaction, removes the caller's legacy row (a profile owned by an anonymous auth user whose email matches the caller's confirmed email case-insensitively; refused if ambiguous or if the owner is a regular account), creates the caller's row insert-only and fills it via `upsert_my_profile`, and carries `is_test_account`. Takes no flag argument; authenticated only
 - `admin_list_users()` — every non-test profile with `email`, `linkedin_url` and `auth.users.last_sign_in_at`, for `/admin/users` (P1381). Admin-only via `assert_admin()`.

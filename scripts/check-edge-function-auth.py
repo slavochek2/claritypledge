@@ -50,8 +50,15 @@ GATE_PATTERNS = {
 # reason it is safe. Adding an entry here is a security decision — it must name
 # what stands in for the identity check.
 EXEMPT = {
-    # (none today — create-and-sign and create-and-open-letter validate a
-    #  capability token, so they are gated by the rules above, not exempted)
+    # (create-and-sign and create-and-open-letter validate a capability token,
+    #  so they are gated by the rules above, not exempted)
+    #
+    # P1511: the logged-out login form asks whether a typed address has an
+    # account; the visitor has no identity yet. Stands in for the check: the
+    # P1225 per-IP limiter (10 per 10 minutes, fails closed) is reserved before
+    # the lookup, and the only output is found/absent/limited/unavailable — no
+    # mail, no write besides the limiter row.
+    "check-login-email",
 }
 
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2Icon, AlertCircleIcon } from "lucide-react";
-import { signInWithEmail, checkEmailExists } from "@/app/data/api";
+import { signInWithEmail, checkLoginEmail, type LoginEmailCheck } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
@@ -53,12 +53,30 @@ export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: Log
     setError("");
 
     try {
-      // P64: Check if email exists before sending magic link
-      const emailExists = await checkEmailExists(email);
-      if (!emailExists) {
+      // P64: Check if email exists before sending magic link. P1511: the check is limited per IP;
+      // a call that throws counts as unavailable, never as "no account".
+      const check: LoginEmailCheck = await checkLoginEmail(email).catch(() => 'unavailable' as const);
+      if (check === 'absent') {
         analytics.track('login_no_account', { attempted_email: email.toLowerCase().trim() });
         setError("No account found with this email. Sign up instead.");
         setIsSubmitting(false);
+        return;
+      }
+
+      if (check !== 'found') {
+        // P1511: refused or failed check. Send the link without creating an account and show the
+        // normal screen whatever the auth server answers — its refusal for an unknown address (and
+        // its rate limit, which only known addresses reach) would say what the check refused to
+        // say. Only a request that never reached the server (auth-js status 0) reveals nothing and
+        // is shown; its 502/503/504 share the error class but come from the server, which may time
+        // out sending mail to a known address only.
+        const { error: sendError } = await signInWithEmail(email, 'login', {
+          redirect, action, extraParams, shouldCreateUser: false,
+        });
+        if (sendError?.name === 'AuthRetryableFetchError' && sendError.status === 0) throw sendError;
+        analytics.track('login_magic_link_sent', { account_check: check });
+        setIsSubmitting(false);
+        setIsSubmitted(true);
         return;
       }
 

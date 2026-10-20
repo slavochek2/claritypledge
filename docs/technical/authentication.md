@@ -75,7 +75,7 @@ This is the **critical transaction handler** that runs after both magic link ver
 2. Wait for `sessionChecked && !isLoading`. If there is still no session, the page discriminates the failure (P1011): a bare `access_denied` / `otp_expired` is the expected expired-link case; anything else is reported to Sentry (`Auth callback: no session, unexplained`) with the callback URL. Either way `auth_callback_failed` is tracked and the error UI is shown.
 3. Read `source` param from URL to determine context
 4. Fetch existing profile by auth user ID via `getProfile()` (the context `user` may still be null on a transient failure — P895)
-5. **Magic link login (`source=login`) + no profile:** pre-guarded in `LoginForm` via `checkEmailExists`, so it does not reach here
+5. **Magic link login (`source=login`) + no profile:** pre-guarded in `LoginForm` via `checkLoginEmail` (P1511); when that check is limited or unavailable the link is sent with `shouldCreateUser: false`, so no account is created and it does not reach here
 6. **Google OAuth (`source=login`) + no profile:** create account (Option B — Google = sign in or sign up)
 7. **New user:** generate a romanized slug (P985), then upsert the profile through the `upsert_my_profile` RPC
 8. **Existing user:** same RPC; preserves existing slug, `pledge_version` and `accepted_terms_version` (P832)
@@ -148,9 +148,12 @@ Google avatar (`user_metadata.picture`) is captured as `avatar_url` with `avatar
 
 ### Magic link login guard (login page only)
 ```
-LoginForm: checkEmailExists(email)          ← email_exists() RPC (boolean only, P877)
-   ├── EXISTS → signInWithEmail(email, 'login', { redirect, action, extraParams })
-   └── NOT FOUND → "No account found with this email. Sign up instead." (never reaches /auth/callback)
+LoginForm: checkLoginEmail(email)           ← check-login-email edge function (P1511: 10 per 10 min per IP,
+   │                                            then email_exists() with the service role; boolean only, P877)
+   ├── found       → signInWithEmail(email, 'login', { redirect, action, extraParams })
+   ├── absent      → "No account found with this email. Sign up instead." (never reaches /auth/callback)
+   └── limited / unavailable → signInWithEmail(..., { shouldCreateUser: false }) and the normal
+                               "Check your email" screen whatever it answers — no message, no new account
 ```
 
 ---
