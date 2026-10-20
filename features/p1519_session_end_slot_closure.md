@@ -55,7 +55,9 @@ Blast radius: medium — every session that holds a slot, through the Stop hook 
    - **No hold for finished work.** Shipped-but-unclosed and closed-but-checked-out may only be closed or parked; there is no legitimate reason to keep them.
 5. **The startup report prints the hold** beside the slot, and marks an expired one.
 
-[FOUNDER DECISION: block or warn? Both reviewers recommend **block, once per slot state** (per-session counter, limit 1; the check disables itself if the counter cannot be written). A warning prints after the session has already told the founder "nothing else", so it changes nothing. The hold command is always available, so a session can never be trapped.]
+**Founder decision 2026-10-20: block**, once per slot state (per-session counter, limit 1; the check disables itself if the counter cannot be written). A warning prints after the session has already said "nothing else", so it would have prevented none of the 2026-10-20 strandings. The hold command is always available, so a session is never trapped.
+
+6. **The blocked message is a decision brief, not a status line** (founder, 2026-10-20: *"block and build:simplify or suggest options and explain how and why"*). When the session cannot close or park the slot by itself, it presents the open item in the `/slava:build:simplify` order: why it is still open, with the concrete example (what is live, what is unclosed); what leaving it costs the founder; the options that apply (close / park / hold, each with one line of consequence); a recommendation and why. The founder answers, and only then does the session act or write the hold.
 
 ## Risks / Non-Goals
 
@@ -81,6 +83,7 @@ Each is a named canary in `scripts/test-p1519-*.sh`, built from real transcript 
 - [ ] A valid hold lets the session end and the next startup report shows it; a hold with owner `me` or `wip` is rejected; a hold older than the session's last write is ignored
 - [ ] A session with no slot or a clean one ends with no output and no measurable added latency
 - [ ] The literal reply "No, nothing else." triggers the check for a session that owns a slot
+- [ ] When the session cannot close the slot itself, the blocked turn shows why it is open, the cost, the options and a recommendation, in that order, before any hold is written (canary on the P1494 state)
 - [ ] Claim, KDD and review gates each still block in their own canary while a slot is open
 - [ ] `git-ops.sh park` frees the worktree, keeps the branch and commits the spec via `commit-to-main`; the session then passes
 
