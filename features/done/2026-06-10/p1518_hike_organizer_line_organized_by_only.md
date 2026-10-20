@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 drafted_by: sonnet
 exec_model: sonnet
@@ -15,14 +15,14 @@ tags:
   - hike
 created_date: '2026-10-20'
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [change-request, dev]
+completed_at: 2026-10-20
 ---
 
 # P1518: Hike organizer line reads only "Organized by <group>"
 
-> **Redesign of:** [P1517: Social Hike series gallery shows short videos as well as photos](done/2026-06-10/p1517_social_hike_gallery_videos.md)
-> (amendment 4 there; the line itself was introduced by [P1403](done/2026-06-10/p1403_social_hike_event_layout.md)).
+> **Redesign of:** [P1517: Social Hike series gallery shows short videos as well as photos](p1517_social_hike_gallery_videos.md)
+> (amendment 4 there; the line itself was introduced by [P1403](p1403_social_hike_event_layout.md)).
 > **What was wrong:** The line under the title read `Moderate · Organized by <group> · Learn more`.
 > The difficulty prefix repeated a value the stats strip already carries and read as part of the
 > organizer attribution. The "Learn more" link pointed at `/cm` (the Clarity Munich landing page),
