@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
+import { filterByTags } from '@/lib/feed-utils';
 import type { ChatAttachmentKind } from './chat-mappers';
 import type { PointSummary, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 
@@ -60,6 +61,8 @@ export interface Shareable {
   /** One line for search and aria labels. */
   title: string;
   tags: string[];
+  /** System tags (st-group, version): searchable like the feed's tag filter, never shown. */
+  systemTags?: string[];
   point?: PointWithUserPosition;
   story?: StoryWithAuthor;
   linkedPoints?: PointSummary[];
@@ -86,23 +89,30 @@ export async function loadMyShareables(profileId: string): Promise<Shareable[]> 
         .catch(() => new Map<string, PointSummary[]>())
     : new Map<string, PointSummary[]>();
   return [
-    ...sharablePoints.map((p): Shareable => ({ kind: 'point', id: p.id, title: p.statement, tags: p.tags ?? [], point: p })),
+    ...sharablePoints.map((p): Shareable => ({ kind: 'point', id: p.id, title: p.statement, tags: p.tags ?? [], systemTags: p.systemTags ?? [], point: p })),
     ...sharableStories.map(
-      (s): Shareable => ({ kind: 'story', id: s.id, title: storyTitle(s), tags: s.tags ?? [], story: s, linkedPoints: linked.get(s.id) }),
+      (s): Shareable => ({ kind: 'story', id: s.id, title: storyTitle(s), tags: s.tags ?? [], systemTags: s.systemTags ?? [], story: s, linkedPoints: linked.get(s.id) }),
     ),
   ];
 }
 
-/** Filters the picker by words or #tags. */
+/**
+ * Filters the picker by words or #tags. Tags match the way the feed's tag filter does
+ * (`filterByTags`: user and system tags, any of several), so "#st1 #st2" finds both groups;
+ * a bare word narrows by text, or by a tag it equals ("st1").
+ */
 export function filterShareables(items: Shareable[], query: string, kind: ChatAttachmentKind): Shareable[] {
-  const q = query.trim().toLowerCase();
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const tagWords = words.filter((w) => w.startsWith('#')).map((w) => w.slice(1)).filter(Boolean);
+  const textWords = words.filter((w) => !w.startsWith('#'));
+  const hasTag = (s: Shareable, w: string) => [...s.tags, ...(s.systemTags ?? [])].some((t) => t.toLowerCase() === w);
   return items.filter((s) => {
     if (s.kind !== kind) return false;
-    if (!q) return true;
-    return q.split(/\s+/).every((word) => {
-      const w = word.replace(/^#/, '');
-      return s.title.toLowerCase().includes(w) || s.tags.some((t) => t.toLowerCase().includes(w));
-    });
+    if (tagWords.length) {
+      const lowered = { tags: s.tags.map((t) => t.toLowerCase()), systemTags: (s.systemTags ?? []).map((t) => t.toLowerCase()) };
+      if (filterByTags([lowered], tagWords).length === 0) return false;
+    }
+    return textWords.every((w) => s.title.toLowerCase().includes(w) || hasTag(s, w));
   });
 }
 

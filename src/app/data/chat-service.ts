@@ -309,9 +309,12 @@ export async function forwardMessage(
   );
 }
 
-/** Copies a message and its thread into the user's own mirror chat. Posts nothing to the source. */
-export async function clarifyMessage(sourceMessageId: string): Promise<ChatMessage> {
-  return mapMessageRow(await rpc<ChatMessageRow>('clarify_chat_message', { p_source: sourceMessageId }));
+/**
+ * Copies a message and its thread into the user's own mirror chat, with the clarifier's own note on top as the
+ * same message's body. Posts nothing to the source.
+ */
+export async function clarifyMessage(sourceMessageId: string, note?: string | null): Promise<ChatMessage> {
+  return mapMessageRow(await rpc<ChatMessageRow>('clarify_chat_message', { p_source: sourceMessageId, ...(note ? { p_note: note } : {}) }));
 }
 
 export interface MarkReadOptions {

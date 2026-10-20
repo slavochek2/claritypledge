@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CornerUpRight, Forward, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
+import { Forward, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
+import { Quote } from './Quote';
 import { FOCUS_RING, HOVER, MirrorMark, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
 import { DESKTOP_HOVER_QUERY, hasFinePointer, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
@@ -103,29 +104,25 @@ function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; action
   const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown member' : '') : 'Deleted user';
   const text = quoted === null ? 'Original message not available' : quoted.isDeleted ? 'Original message deleted' : messageSummary(quoted);
   const jumpable = !!quoted && !quoted.isDeleted;
-  const inner = (
-    <>
-      {quoted && !quoted.isDeleted && <span className="block text-xs font-semibold text-foreground">{name}</span>}
-      <span className={cn('block truncate text-sm text-muted-foreground', (quoted === null || quoted.isDeleted) && 'italic')}>{text}</span>
-    </>
-  );
-  const shell = 'my-1 block w-full max-w-md rounded-lg border-l-2 border-blue-600 bg-muted/50 py-1 pl-2 pr-2 text-left';
-  return jumpable ? (
-    <button type="button" data-testid="reply-quote" onClick={() => actions.onJumpTo(quoted.id)} className={cn(shell, 'min-h-10', HOVER, FOCUS_RING)} aria-label={`Go to the quoted message: ${text}`}>
-      {inner}
-    </button>
-  ) : (
-    <div data-testid="reply-quote" className={shell}>
-      {inner}
-    </div>
+  const unavailable = quoted === null || quoted.isDeleted;
+  return (
+    <Quote
+      testId="reply-quote"
+      label={unavailable ? 'Reply' : `Reply to ${name}`}
+      summary={unavailable ? text : `Reply to ${name}: ${text}`}
+      body={<span className={cn('mt-0.5 block line-clamp-2 break-words text-sm text-muted-foreground', unavailable && 'italic')}>{text}</span>}
+      onJump={jumpable ? () => actions.onJumpTo(quoted.id) : undefined}
+      className="my-1"
+    />
   );
 }
 
-/** "Open original": the source is read when pressed (through the reader's own access), not on every render. */
-function OpenOriginal({ sourceId }: { sourceId: string }) {
+/** Tap-to-jump: the source is read when pressed (through the reader's own access), not on every render. */
+function useJumpToOriginal(sourceId: string | null) {
   const go = useChatNavigate();
   const [busy, setBusy] = useState(false);
-  const open = async () => {
+  return async () => {
+    if (!sourceId || busy) return;
     setBusy(true);
     try {
       const target = await getMessage(sourceId);
@@ -141,23 +138,16 @@ function OpenOriginal({ sourceId }: { sourceId: string }) {
       setBusy(false);
     }
   };
-  return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => void open()}
-      className={cn('mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-blue-700 hover:underline', FOCUS_RING)}
-    >
-      <CornerUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-      Open original
-    </button>
-  );
 }
 
-function ForwardedBody({ msg }: { msg: ChatMessage }) {
+function ForwardedBody({ msg, viewerId }: { msg: ChatMessage; viewerId: string }) {
   const { chats } = useChat();
   const { user } = useAuth();
   const snap = msg.forwardSnapshot;
+  // Hooks run before the early return: the jump target is null whenever there is no original to reach.
+  const removed = !!snap && snap.body === null && !msg.attachmentKind;
+  const hasOriginal = !!snap && !!msg.forwardedFromMessageId && !removed && snap.authorName !== 'Deleted user';
+  const jump = useJumpToOriginal(hasOriginal ? msg.forwardedFromMessageId : null);
   if (!snap) return null;
   const clarify = msg.kind === 'clarify';
   const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
@@ -165,34 +155,44 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
   // (two people can share one). No id (erased account, or a row without it) means the snapshot's name, which erasure
   // sets to "Deleted user".
   const clarifiedAuthor = user?.id && msg.forwardAuthorId === user.id ? 'You' : snap.authorName;
-  // An erased author's text is gone from the copy too: say so instead of showing an empty card.
-  const removed = snap.body === null && !msg.attachmentKind;
-  // ...and there is nowhere to go from a copy whose author was erased or whose text was removed.
-  const hasOriginal = !!msg.forwardedFromMessageId && !removed && snap.authorName !== 'Deleted user';
+  // An erased author's text is gone from the copy too (removed, above): say so instead of showing an empty card;
+  // and there is nowhere to go from a copy whose author was erased or whose text was removed (hasOriginal).
+  const label = clarify ? (
+    <>
+      <MirrorMark size="xs" className="mr-1 align-text-bottom" />Sent to {mirror} to clarify · from {sourceLabel(snap.conversationKind, snap.conversationTitle)}
+    </>
+  ) : (
+    <>
+      Forwarded from <span className="font-semibold text-foreground">{snap.authorName}</span>
+    </>
+  );
   return (
-    <div className="mt-1 max-w-md rounded-xl border bg-muted/40 p-3" data-testid={clarify ? 'clarified-card' : 'forwarded-card'}>
-      <p className="text-xs font-medium text-muted-foreground" data-testid="forwarded-label">
-        {clarify ? (
-          <>
-            Sent to {mirror} to clarify · from {sourceLabel(snap.conversationKind, snap.conversationTitle)}
-          </>
-        ) : (
-          <>
-            Forwarded from <span className="font-semibold text-foreground">{snap.authorName}</span>
-          </>
-        )}
-        {removed && <span data-testid="snapshot-removed"> · Message removed</span>}
-      </p>
-      {clarify && (
-        <p className="mt-1 text-sm font-semibold text-foreground" data-testid="clarified-author">
-          {clarifiedAuthor}
-        </p>
-      )}
-      {snap.body && <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">{snap.body}</p>}
+    <Quote
+      testId={clarify ? 'clarified-card' : 'forwarded-card'}
+      summary={`${clarify ? `Clarify, ${clarifiedAuthor}` : `Forwarded from ${snap.authorName}`}: ${snap.body ?? 'message removed'}`}
+      label={
+        <>
+          {label}
+          {removed && <span data-testid="snapshot-removed"> · Message removed</span>}
+        </>
+      }
+      onJump={hasOriginal ? () => void jump() : undefined}
+      body={
+        <>
+          {clarify && (
+            <span className="mt-1 block text-sm font-semibold text-foreground" data-testid="clarified-author">
+              {clarifiedAuthor}
+            </span>
+          )}
+          {snap.body && <span className="mt-1 block whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">{snap.body}</span>}
+        </>
+      }
+    >
+      {msg.attachmentKind && msg.attachmentId && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} compact />}
       {snap.thread.length > 0 && (
-        <ul aria-label="Thread" className="mt-2 space-y-1.5 border-t pt-2">
+        <span className="mt-2 block space-y-1.5 border-t pt-2" data-testid="forwarded-thread">
           {snap.thread.map((t, i) => (
-            <li key={`${t.createdAt}-${i}`} className="text-sm">
+            <span key={`${t.createdAt}-${i}`} className="block text-sm">
               <span className="font-semibold text-foreground">{t.authorName}</span>
               {t.body === null ? (
                 <span className="text-muted-foreground"> · Message removed</span>
@@ -202,12 +202,11 @@ function ForwardedBody({ msg }: { msg: ChatMessage }) {
                   <span className="whitespace-pre-wrap break-words text-foreground">{t.body}</span>
                 </>
               )}
-            </li>
+            </span>
           ))}
-        </ul>
+        </span>
       )}
-      {hasOriginal && msg.forwardedFromMessageId && <OpenOriginal sourceId={msg.forwardedFromMessageId} />}
-    </div>
+    </Quote>
   );
 }
 
@@ -373,6 +372,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
   const time = local ? (local.failed ? '' : 'Sending…') : messageTime(msg.createdAt);
 
+  const noteEl = msg.body && (
+    <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">
+      {msg.body}
+      {server?.editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
+    </p>
+  );
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
       {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}
@@ -491,15 +496,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
                   </div>
                 </div>
               ) : (
-                msg.body && (
-                  <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">
-                    {msg.body}
-                    {server?.editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
-                  </p>
-                )
+                server?.kind !== 'clarify' && noteEl
               )}
-              {server && server.kind !== 'message' && <ForwardedBody msg={server} />}
-              {msg.attachmentKind && msg.attachmentId && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} />}
+              {server && server.kind !== 'message' && <ForwardedBody msg={server} viewerId={viewerId} />}
+              {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
+              {draft === null && server?.kind === 'clarify' && noteEl}
+              {msg.attachmentKind && msg.attachmentId && !(server && server.kind !== 'message') && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} />}
             </>
           )}
 

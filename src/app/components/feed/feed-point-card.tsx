@@ -97,9 +97,34 @@ interface FeedPointCardProps {
   /** P1508: "+ Add a story" opens the page's own in-place composer instead of /create (the
    *  canvas keeps the reader on the canvas). Unset: /create, as before. */
   onAddStory?: () => void;
+  /** A preview: the statement clamped to two lines and its tags, with no votes, footer or menu. For pickers and drafts. */
+  compact?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory }: FeedPointCardProps) {
+/** The compact form shares the card's frame (PointCardShell) and drops everything that acts. */
+function CompactPointCard({ point }: { point: PointWithUserPosition }) {
+  return (
+    <PointCardShell
+      aria-label={`Point: ${point.statement}`}
+      data-testid={`feed-point-card-${point.id}`}
+      data-card="point"
+      statement={
+        <p className="min-w-0 flex-1 break-words text-sm font-medium text-foreground line-clamp-2">
+          <InlineVisibilityIcon visibility={point.visibility} /> {stripHashtags(point.statement, point.tags)}
+        </p>
+      }
+      className="[&>div]:p-3"
+    >
+      {point.tags.length > 0 && <TagPills tags={point.tags} systemTags={[]} context="live" className="mt-1" />}
+    </PointCardShell>
+  );
+}
+
+export function FeedPointCard(props: FeedPointCardProps) {
+  return props.compact ? <CompactPointCard point={props.point} /> : <FullFeedPointCard {...props} />;
+}
+
+function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();

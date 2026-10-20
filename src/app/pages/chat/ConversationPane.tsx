@@ -5,19 +5,21 @@
  * The URL owns which conversation (and thread) is open, so Back works. Opening a conversation marks
  * it read (while the tab is visible) and keeps marking it read as messages arrive.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { getMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
+import { clarifyMessage, getMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
 import { Composer } from './Composer';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
-import { QuoteBar, InlineError, MessagesSkeleton } from './chat-kit';
-import { isLeavingChat, takeComposerFocus, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
+import { Quote } from './Quote';
+import { InlineError, MessagesSkeleton } from './chat-kit';
+import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, compareMessages, isChannel, messageSummary, mirrorRole } from './chat-view-model';
+import { chatErrorText, chatPath, compareMessages, hasWayBackElsewhere, isChannel, messageSummary, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 
@@ -75,6 +77,29 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   }, [conversationId]);
   const [attaching, setAttaching] = useState(false);
   const [staged, setStaged] = useState<Shareable | null>(null);
+  // A Clarify waiting for its note (the mirror only): nothing has been sent until Send.
+  const [clarify, setClarify] = useState<StagedClarify | null>(null);
+  const [clarifyBusy, setClarifyBusy] = useState(false);
+  const clarifying = useRef(false);
+  const location = useLocation();
+  // Take a staged Clarify when it is there: on arrival, when the address changes, and when one is staged for a mirror pane
+  // that is already open. Only ever sets (never clears) so a StrictMode replay, which finds nothing left, cannot wipe it.
+  const readStaged = useCallback(() => {
+    if (summary.kind !== 'mirror') return;
+    const waiting = takeStagedClarify(summary.conversationId);
+    if (!waiting) return;
+    setClarify(waiting);
+    setReplyTo(null); // a reply and a Clarify are never pending together
+  }, [summary.kind, summary.conversationId]);
+  const shownFor = useRef(summary.conversationId);
+  useEffect(() => {
+    if (shownFor.current !== summary.conversationId) {
+      shownFor.current = summary.conversationId;
+      setClarify(null); // the pane was reused for another conversation
+    }
+    readStaged();
+  }, [summary.conversationId, location.key, readStaged]);
+  useEffect(() => onClarifyStaged(readStaged), [readStaged]);
   const [renaming, setRenaming] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
@@ -104,6 +129,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   useEffect(() => setTarget(highlightId), [highlightId]);
 
   const onReply = useCallback((m: ChatMessage) => {
+    setClarify(null); // a reply and a Clarify are never pending together
     setReplyTo(m);
     setFocusToken((t) => t + 1);
   }, []);
@@ -146,6 +172,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
 
   const back = useBack();
+  const cameFromElsewhere = hasWayBackElsewhere(useLocation().state);
   const leave = useLeaveChat();
   const headerActions = {
     onBack: back,
@@ -169,7 +196,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="conversation" data-chat-open={conversationId}>
-      <ConversationHeader chat={summary} blocked={blocked} actions={headerActions} />
+      <ConversationHeader chat={summary} blocked={blocked} actions={headerActions} cameFromElsewhere={cameFromElsewhere} />
       <MessageList
         conv={conv}
         actions={actions}
@@ -205,8 +232,65 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           onAttach={() => setAttaching(true)}
           staged={staged}
           onUnstage={() => setStaged(null)}
-          quote={replyTo && <QuoteBar author={quoteName} text={messageSummary(replyTo)} onRemove={() => setReplyTo(null)} />}
+          quote={
+            clarify ? (
+              <div className="px-2 pb-1 pt-1" data-testid="clarify-bar">
+                <Quote
+                  testId="clarify-pending"
+                  label="Clarify"
+                  body={
+                    <>
+                      <span className="mt-0.5 block text-sm font-semibold text-foreground">{clarify.authorName}</span>
+                      <span className="block line-clamp-2 break-words text-sm text-muted-foreground">{messageSummary(clarify.message)}</span>
+                    </>
+                  }
+                  onRemove={() => setClarify(null)}
+                  removeLabel="Cancel clarify"
+                />
+              </div>
+            ) : replyTo && (
+              <div className="px-2 pb-1 pt-1" data-testid="reply-bar">
+                <Quote
+                  testId="reply-pending"
+                  label={`Reply to ${quoteName}`}
+                  body={<span className="mt-0.5 block line-clamp-2 break-words text-sm text-muted-foreground">{messageSummary(replyTo)}</span>}
+                  onRemove={() => setReplyTo(null)}
+                  removeLabel="Cancel reply"
+                />
+              </div>
+            )
+          }
+          quoteSendable={!!clarify}
+          sendDisabled={clarifyBusy}
           onSend={(body, attachment) => {
+            if (clarify) {
+              // ONE message in the mirror: the copy with the note as its body. Nothing is cleared until it landed,
+              // so a failure leaves the quote staged and (through the Composer) the typed note back in the field.
+              if (clarifying.current) return false;
+              clarifying.current = true;
+              setClarifyBusy(true);
+              const submitted = attachment;
+              return clarifyMessage(clarify.message.id, body).then(
+                async () => {
+                  setClarify(null);
+                  await conv.reload();
+                  // An attached point or story cannot ride on the copy: it follows as its own message.
+                  if (attachment) {
+                    void conv.send({ body: null, attachment: { kind: attachment.kind, id: attachment.id } });
+                    // Only the attachment that was submitted: one picked while the send was out stays.
+                    setStaged((now) => (now === submitted ? null : now));
+                  }
+                  return true;
+                },
+                (e) => {
+                  toast.error(chatErrorText(e, 'Could not send this to your mirror.'));
+                  return false;
+                },
+              ).finally(() => {
+                clarifying.current = false;
+                setClarifyBusy(false);
+              });
+            }
             void conv.send({
               body,
               replyToId: replyTo?.id,

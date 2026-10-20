@@ -626,10 +626,10 @@ BEGIN
     lm.id,
     lm.author_id,
     lm.author_name,
-    -- A clarify copy keeps its words in the snapshot (body is NULL), so the mirror's row shows them;
-    -- delete and erase clear the snapshot too.
+    -- A clarify shows the clarifier's note when there is one, else the copied words from the snapshot;
+    -- delete and erase clear both.
     CASE WHEN lm.deleted_at IS NOT NULL THEN 'Message deleted'
-         WHEN lm.kind = 'clarify' THEN lm.forward_snapshot ->> 'body'
+         WHEN lm.kind = 'clarify' THEN COALESCE(lm.body, lm.forward_snapshot ->> 'body')
          ELSE lm.body END,
     lm.kind,
     (lm.deleted_at IS NOT NULL),
@@ -1267,7 +1267,10 @@ GRANT EXECUTE ON FUNCTION public.forward_chat_message(uuid, uuid, text, uuid) TO
 
 -- Clarify: copy a message (and the thread it sits in) into the CALLER'S OWN mirror chat.
 -- Nothing is written to the source conversation.
-CREATE OR REPLACE FUNCTION public.clarify_chat_message(p_source uuid)
+-- The one-argument form (an earlier draft of this file) is dropped first: a CREATE OR REPLACE with a new
+-- signature would leave it behind as an overload.
+DROP FUNCTION IF EXISTS public.clarify_chat_message(uuid);
+CREATE OR REPLACE FUNCTION public.clarify_chat_message(p_source uuid, p_note text DEFAULT NULL)
 RETURNS public.chat_messages
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -1288,9 +1291,15 @@ DECLARE
   v_title_ref text;
   v_src_conv  public.chat_conversations;
   v_row       public.chat_messages;
+  v_note      text;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'chat: not authenticated' USING ERRCODE = '42501';
+  END IF;
+  -- The clarifier's own words on top of the copy: ONE message (quote + note), like a forward's note.
+  v_note := NULLIF(btrim(COALESCE(p_note, '')), '');
+  IF v_note IS NOT NULL AND char_length(v_note) > 4000 THEN
+    RAISE EXCEPTION 'chat: message too long' USING ERRCODE = '22023';
   END IF;
   -- FOR SHARE: see forward_chat_message (serialises with an in-flight erase).
   SELECT m.* INTO v_src FROM public.chat_messages m
@@ -1368,7 +1377,7 @@ BEGIN
     (conversation_id, author_id, body, kind, forward_snapshot, forward_author_id,
      forwarded_from_message_id, attachment_kind, attachment_id, created_at)
   VALUES
-    (v_mirror, v_uid, NULL, 'clarify', v_base || jsonb_build_object('thread', v_thread), v_orig_id,
+    (v_mirror, v_uid, v_note, 'clarify', v_base || jsonb_build_object('thread', v_thread), v_orig_id,
      v_src.id, v_src.attachment_kind, v_src.attachment_id, clock_timestamp())
   RETURNING * INTO v_row;
 
@@ -1376,8 +1385,8 @@ BEGIN
   RETURN v_row;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.clarify_chat_message(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.clarify_chat_message(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.clarify_chat_message(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.clarify_chat_message(uuid, text) TO authenticated;
 
 -- The signature gained p_through_message, so the old two-argument form is dropped first (it is only
 -- ever created by this file; a CREATE OR REPLACE would leave it behind as an overload).

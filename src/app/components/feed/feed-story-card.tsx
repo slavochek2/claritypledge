@@ -9,6 +9,7 @@ import { useEffect, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { stripHashtags } from '@/lib/utils';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
@@ -80,6 +81,32 @@ interface FeedStoryCardProps {
   groupPlayer?: GroupPlayer;
   /** Which list the card sits on — carried on `feed_card_shared`. */
   surface?: 'feed' | 'stake';
+  /** A preview: author, two lines of the story and its tags, with no media, points or menu. For pickers and drafts. */
+  compact?: boolean;
+}
+
+/** The compact form keeps the card's frame and author row and drops everything that acts. */
+function CompactStoryCard({ story }: { story: StoryWithAuthor }) {
+  return (
+    <article
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border p-3"
+      aria-label={`Story by ${story.authorName}`}
+      data-testid={`feed-story-card-${story.id}`}
+    >
+      <div className="flex items-start gap-3">
+        <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5 text-sm">
+            <span className="min-w-0 truncate font-semibold text-foreground">{story.authorName}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{formatTimeAgo(story.createdAt)}</span>
+            <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
+          </div>
+          <p className="mt-0.5 break-words text-sm text-foreground line-clamp-2">{stripHashtags(story.content, story.tags)}</p>
+          {story.tags.length > 0 && <TagPills tags={story.tags} systemTags={[]} context="live" className="mt-1" />}
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -94,7 +121,11 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-export function FeedStoryCard({
+export function FeedStoryCard(props: FeedStoryCardProps) {
+  return props.compact ? <CompactStoryCard story={props.story} /> : <FullFeedStoryCard {...props} />;
+}
+
+function FullFeedStoryCard({
   story,
   activeTag,
   linkedPoints,

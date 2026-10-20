@@ -43,7 +43,7 @@ export function PageFrame({ size = 'wide', className, children }: PageFrameProps
     'container mx-auto px-4 pb-8 pt-6 lg:px-8',
     // In the shell the top bar sits above; this is the gap under it (32px desktop, 16px phone).
     '[[data-shell-top-nav]_&]:mx-0 [[data-shell-top-nav]_&]:pt-4 lg:[[data-shell-top-nav]_&]:pt-8',
-    size === 'reading' ? '[[data-shell-top-nav]_&]:max-w-3xl' : '[[data-shell-top-nav]_&]:max-w-6xl',
+    '[[data-shell-top-nav]_&]:max-w-6xl',
     className,
   );
   return (

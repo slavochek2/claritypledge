@@ -55,7 +55,7 @@ describe('P1512 PageHeader / PageFrame', () => {
     for (const cls of ['container', 'mx-auto', 'px-4', 'lg:px-8']) expect(frame.className).toContain(cls);
     // Inside the shell (ancestor carries data-shell-top-nav) it is never centred.
     expect(frame.className).toContain('[[data-shell-top-nav]_&]:mx-0');
-    expect(frame.className).toContain('[[data-shell-top-nav]_&]:max-w-3xl');
+    expect(frame.className).toContain('[[data-shell-top-nav]_&]:max-w-6xl');
     expect(frame.dataset.pageFrame).toBe('reading');
   });
 });

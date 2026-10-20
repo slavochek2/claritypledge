@@ -208,15 +208,15 @@ export function OrgCard({
             status, not a success — green is reserved for success states only
             (design-system.md), so this uses the neutral/muted token instead.
             Carries its own text, never color alone (WCAG 1.4.1). */}
-        {isMine && (
-          <span
-            data-testid="org-membership-badge"
-            className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-          >
-            You're a member
-          </span>
-        )}
       </div>
+      {isMine && (
+        <span
+          data-testid="org-membership-badge"
+          className="w-fit rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+        >
+          You're a member
+        </span>
+      )}
 
       {/* D7: a NULL blurb renders as ABSENCE — no placeholder string, no
           "A Clarity Group." filler. The line is simply not there. */}

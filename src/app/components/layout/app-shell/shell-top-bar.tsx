@@ -39,7 +39,7 @@ export function ShellTopBar() {
   return (
     <div
       data-shell-top-bar
-      className="flex h-14 items-center justify-between gap-3 px-4 lg:px-8"
+      className="flex h-14 items-center justify-between gap-3 px-4 lg:px-8 [&:not(:has(>div>*))]:hidden"
     >
       <div ref={leftRef} className="flex min-w-0 items-center" />
       <div ref={rightRef} className="flex shrink-0 items-center gap-2" />

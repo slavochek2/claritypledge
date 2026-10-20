@@ -37,12 +37,16 @@ function useOnline(): boolean {
  * The cards carry authoring chrome (their ⋯ menu, a story's "+ Add a point") that has no place on
  * a card sitting in a conversation: Delete from inside a chat is not what anyone expects there.
  */
-const HIDE_CARD_CHROME = "[&_[aria-label^='More_actions_for_this']]:hidden [&_[aria-label='Add_a_point_to_this_story']]:hidden";
+export const HIDE_CARD_CHROME = "[&_[aria-label^='More_actions_for_this']]:hidden [&_[aria-label='Add_a_point_to_this_story']]:hidden";
 
 /** A small, honest placeholder row: what it is, never an empty box. */
 const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/40 px-3 text-sm text-muted-foreground';
 
-export function AttachmentCard({ kind, id, viewerId }: { kind: ChatAttachmentKind; id: string; viewerId: string }) {
+/**
+ * `compact`: drawn inside a quote block (a forwarded or clarified message): the compact standard card, no vote buttons
+ * and no Retry button (a quote can itself be a button, and buttons do not nest).
+ */
+export function AttachmentCard({ kind, id, viewerId, compact = false }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
   // One generation per card: every read takes the next number, and only the read holding the current
@@ -99,8 +103,8 @@ export function AttachmentCard({ kind, id, viewerId }: { kind: ChatAttachmentKin
     if (!drawable) return <p className={`${NOTE} min-h-10 italic`}>Not available to you</p>;
     return (
       <div className={`mt-1 w-full max-w-md ${HIDE_CARD_CHROME}`} data-testid={`attachment-${kind}`}>
-        {item.kind === 'point' && item.point && <FeedPointCard point={item.point} />}
-        {item.kind === 'story' && item.story && <FeedStoryCard story={item.story} linkedPoints={item.linkedPoints} currentUserId={viewerId} />}
+        {item.kind === 'point' && item.point && <FeedPointCard point={item.point} compact={compact} />}
+        {item.kind === 'story' && item.story && <FeedStoryCard story={item.story} linkedPoints={item.linkedPoints} currentUserId={viewerId} compact={compact} />}
       </div>
     );
   }
@@ -119,9 +123,11 @@ export function AttachmentCard({ kind, id, viewerId }: { kind: ChatAttachmentKin
     return (
       <div className={`${NOTE} py-1`} data-testid="attachment-error">
         <span className="min-w-0 flex-1">Couldn&apos;t load this {kind}</span>
-        <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => void load()}>
-          Retry
-        </Button>
+        {!compact && (
+          <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => void load()}>
+            Retry
+          </Button>
+        )}
       </div>
     );
   }

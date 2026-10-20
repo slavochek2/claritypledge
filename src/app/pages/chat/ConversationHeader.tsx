@@ -104,16 +104,16 @@ function Title({ chat }: { chat: ChatSummary }) {
   }
 }
 
-export function ConversationHeader({ chat, blocked, actions }: { chat: ChatSummary; blocked: boolean; actions: HeaderActions }) {
+export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false }: { chat: ChatSummary; blocked: boolean; actions: HeaderActions; /** Reached from another place (Clarify, a link to an original): the arrow shows at every width. */ cameFromElsewhere?: boolean }) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
-    <header className="flex min-h-14 shrink-0 items-center gap-1 border-b px-2 lg:px-4">
+    <header className="relative z-10 flex min-h-14 shrink-0 items-center gap-1 border-b bg-background px-2 lg:px-4">
       <button
         type="button"
-        aria-label="Back to chats"
+        aria-label={cameFromElsewhere ? 'Back' : 'Back to chats'}
         onClick={actions.onBack}
-        className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full lg:hidden', HOVER, FOCUS_RING)}
+        className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', !cameFromElsewhere && 'lg:hidden', HOVER, FOCUS_RING)}
       >
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </button>

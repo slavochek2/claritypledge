@@ -3,6 +3,7 @@
  * @description P1512: the chat's dialogs — confirm, forward, attach and rename the mirror. All are
  * shadcn Dialogs: focus is trapped, Escape closes, and focus returns to the control that opened them.
  */
+import { ShareableCard } from './ShareableCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Forward, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -287,16 +288,16 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
           {state.status === 'ready' && (
             <ul className="space-y-2 p-3" data-testid="attach-results">
               {items.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="relative">
+                  {/* The feed's own card, read-only: inert keeps its links, buttons and menu out of reach,
+                      and one overlay button makes the whole card the single selectable control. */}
+                  <ShareableCard item={s} />
                   <button
                     type="button"
                     onClick={() => onPick(s)}
                     aria-label={`Attach ${s.title}`}
-                    className={cn('block w-full rounded-xl border p-3 text-left', HOVER, FOCUS_RING)}
-                  >
-                    <span className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground">{s.title}</span>
-                    {s.tags.length > 0 && <span className="mt-1 block truncate text-xs text-blue-700">{s.tags.map((t) => `#${t}`).join(' ')}</span>}
-                  </button>
+                    className={cn('absolute inset-0 rounded-xl [@media(hover:hover)]:hover:bg-accent/30', FOCUS_RING)}
+                  />
                 </li>
               ))}
               {items.length === 0 && (

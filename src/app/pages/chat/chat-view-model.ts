@@ -6,10 +6,10 @@
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { isChatUnread, type ChatMessage, type ChatSummary } from '@/app/data/chat-mappers';
 
-export type ChatTab = 'all' | 'unread' | 'partners' | 'channels';
+export type ChatTab = 'inbox' | 'unread' | 'partners' | 'channels';
 
 export const CHAT_TABS: Array<{ id: ChatTab; label: string }> = [
-  { id: 'all', label: 'All' },
+  { id: 'inbox', label: 'Inbox' },
   { id: 'unread', label: 'Unread' },
   { id: 'partners', label: 'Partners' },
   { id: 'channels', label: 'Channels' },
@@ -84,7 +84,8 @@ export function chatNav(from: { pathname: string; state: unknown }, to: string, 
   const sameConv = !!parseChatRoute(from.pathname).conversationId && parseChatRoute(from.pathname).conversationId === parseChatRoute(toPath).conversationId;
   if (intent === 'follow') {
     if (fl === 'chat' || fl === 'thread') return { mode: 'push', state: { below: [tl === 'thread' && !(fl === 'chat' && sameConv) ? 'from' : 'conv', ...below] } };
-    return { mode: 'push', state: { below: fl === 'list' ? ['list'] : [] } };
+    // From outside Home (an event page's Open chat) the page is where Back returns to.
+    return { mode: 'push', state: { below: fl === 'list' ? ['list'] : ['from'] } };
   }
   if (intent === 'redirect') return { mode: 'replace', state: { below: stale(below) } };
   if (fl === 'list') return { mode: 'push', state: { below: ['list'] } };
@@ -111,6 +112,11 @@ export function backPlan(pathname: string, state: unknown): BackStep {
   return { kind: 'replace', to: HOME, state: undefined };
 }
 
+/** Whether this entry sits on top of another place (a Clarify, a link to an original): Back goes there, not to the list. */
+export function hasWayBackElsewhere(state: unknown): boolean {
+  return belowOf(state).some((l) => l === 'conv' || l === 'from');
+}
+
 export type LeaveStep = { kind: 'pop'; steps: number } | { kind: 'replace'; to: string } | { kind: 'pop-replace'; steps: number; to: string };
 
 /** Leave for good (archive, mark unread): pop to the list; without one in sight, pop what is known of the conversation and replace what is left. */
@@ -128,6 +134,12 @@ export function groupChatPath(chats: ChatSummary[], orgId: string): string {
   return channel ? chatPath(channel.conversationId) : HOME;
 }
 
+/** An event's channel in Home, from the chat list; /home while the channel is not in the list (yet). */
+export function eventChatPath(chats: ChatSummary[], eventId: string): string {
+  const channel = chats.find((c) => c.kind === 'event' && c.event?.id === eventId);
+  return channel ? chatPath(channel.conversationId) : HOME;
+}
+
 export interface ChatRoute {
   conversationId: string | null;
   rootId: string | null;
@@ -142,9 +154,9 @@ export function parseChatRoute(pathname: string): ChatRoute {
 // Titles
 // ---------------------------------------------------------------------------
 
-/** "Ada's mirror" for a mirror that has not been renamed; "<title> · Ada's mirror" once it has. */
-export function mirrorRole(chat: Pick<ChatSummary, 'ownerFirstName'>): string {
-  return chat.ownerFirstName ? `${chat.ownerFirstName}'s mirror` : 'Your mirror';
+/** The mirror's subtitle everywhere: "Your mirror" (its title is the mirror's own name, e.g. "Mira"). */
+export function mirrorRole(_chat?: unknown): string {
+  return 'Your mirror';
 }
 export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>): string {
   const role = mirrorRole(chat);
@@ -152,12 +164,12 @@ export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>)
 }
 
 /**
- * The mirror's own name, for a sentence: the custom title once renamed, else "<First>'s mirror"
- * ("your mirror" when the first name is unknown). "Clarify with Ada's mirror", "Sent to Ada's mirror to clarify".
+ * The mirror's own name, for a sentence: the custom title once renamed, else "your mirror".
+ * "Clarify with Mira", "Sent to Mira to clarify".
  */
 export function mirrorName(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'> | null | undefined): string {
   if (chat?.title) return chat.title;
-  return chat?.ownerFirstName ? `${chat.ownerFirstName}'s mirror` : 'your mirror';
+  return 'your mirror';
 }
 
 /** The one-line name of a chat in the list, forward picker and search. */
@@ -215,10 +227,25 @@ export function sortByActivity(chats: ChatSummary[]): ChatSummary[] {
   return [...chats].sort((a, b) => at(b) - at(a) || chatTitle(a).localeCompare(chatTitle(b)));
 }
 
-export function matchesTab(chat: ChatSummary, tab: ChatTab): boolean {
+/** An empty event channel joins the Inbox this long before the event starts. */
+export const EVENT_INBOX_LEAD_HOURS = 24;
+
+/**
+ * The Inbox: people (1:1s and the mirror) plus the channels that are alive: a channel with at least one message, or an
+ * event from 24h before it starts. Channels lists every channel, empty ones too. (Whether an empty past event shows at
+ * all is isChatVisibleInList.)
+ */
+export function isInInbox(chat: ChatSummary, now: Date = new Date()): boolean {
+  if (!isChannel(chat)) return true;
+  if (chat.lastMessage) return true;
+  if (chat.kind !== 'event' || !chat.event) return false;
+  return now.getTime() >= new Date(chat.event.datetime).getTime() - EVENT_INBOX_LEAD_HOURS * 60 * 60 * 1000;
+}
+
+export function matchesTab(chat: ChatSummary, tab: ChatTab, now: Date = new Date()): boolean {
   switch (tab) {
-    case 'all':
-      return true;
+    case 'inbox':
+      return isInInbox(chat, now);
     case 'unread':
       return isChatUnread(chat);
     case 'partners':
@@ -237,8 +264,8 @@ export interface ListSplit {
 export function splitChats(chats: ChatSummary[], tab: ChatTab, now: Date = new Date()): ListSplit {
   const shown = sortByActivity(chats.filter((c) => isChatVisibleInList(c, now)));
   return {
-    active: shown.filter((c) => !c.archived && matchesTab(c, tab)),
-    archived: shown.filter((c) => c.archived && matchesTab(c, tab)),
+    active: shown.filter((c) => !c.archived && matchesTab(c, tab, now)),
+    archived: shown.filter((c) => c.archived && matchesTab(c, tab, now)),
   };
 }
 

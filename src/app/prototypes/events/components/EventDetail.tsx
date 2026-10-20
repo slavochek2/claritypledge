@@ -1,4 +1,7 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useContext } from 'react';
+import { MessagesSquare } from 'lucide-react';
+import { ChatContext } from '@/app/pages/chat/chat-state';
+import { eventChatPath } from '@/app/pages/chat/chat-view-model';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { renderEventDescription } from '@/lib/markdown';
@@ -83,6 +86,9 @@ export function EventDetail() {
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRsvpd, setIsRsvpd] = useState(false);
+  // Open chat (host / RSVP'd): hooks stay with the others, above every early return.
+  const chatContext = useContext(ChatContext);
+  const [openingChat, setOpeningChat] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [shareOpen, setShareOpen] = useState(false);
   // P1194: fetched separately from the event — the service returns null for anyone
@@ -585,6 +591,25 @@ export function EventDetail() {
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
+  // The event's channel, for the host and anyone who RSVP'd (the same pattern as a group page's Open chat). Right after
+  // an RSVP the channel may not be in the list yet: read the list again before giving up.
+  const canOpenChat = !!chatContext && !!event && (!!isHost || isRsvpd);
+  const handleOpenChat = async () => {
+    if (!chatContext || !event || openingChat) return;
+    const known = eventChatPath(chatContext.chats, event.id);
+    // 'follow': on top of this page, so Back returns to the event.
+    if (known !== '/home') {
+      chatContext.goToChat(known, 'follow');
+      return;
+    }
+    setOpeningChat(true);
+    try {
+      chatContext.goToChat(eventChatPath((await chatContext.refresh()) ?? [], event.id), 'follow');
+    } finally {
+      setOpeningChat(false);
+    }
+  };
+
   // P844: Renders the RSVP action button — desktop above the description ('card') and the
   // mobile sticky bar. P1365: 'card_bottom' is the desktop repeat after a long description;
   // it only renders when shouldShowRsvpRepeat() holds (never past/full), and carries its own
@@ -800,6 +825,13 @@ export function EventDetail() {
                   <span className="text-sm">{copyState === 'copied' ? 'Copied!' : 'Share'}</span>
                 </button>
               </div>
+
+              {canOpenChat && (
+                <Button variant="outline" onClick={() => void handleOpenChat()} disabled={openingChat} className="-mt-2 mb-4 min-h-11 gap-2" data-testid="event-open-chat">
+                  <MessagesSquare className="h-4 w-4" aria-hidden="true" />
+                  Open chat
+                </Button>
+              )}
 
               {/* P1403 (founder 2026-10-04, AllTrails order): who organises it, then photos from
                   past hikes, then the stats row just below the photos. Each hides without data. */}

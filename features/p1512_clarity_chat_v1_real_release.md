@@ -99,6 +99,18 @@ the old redirect can be restored, a leaked message cannot be recalled). Decision
     search in v1 (the list search already finds messages; jump-to-latest already exists).
 25. **The phone bar's last tab is "You"** (as WhatsApp), with the avatar at the same size as the other tab icons. The
     Me sheet's first row is a plain "My Profile" with the person icon, as on desktop (no separate name row).
+26. **Attachments use the standard feed cards**: the picker and the composer preview use a compact form (two lines
+    and tags, no positions or footer); a sent message keeps the full card (2026-10-20).
+27. **Reply, forward and Clarify share one quote block**; only the label differs. Tapping the quote jumps to the
+    original (no "Open original" button).
+28. **Clarify does not post at once**: it opens the mirror with a back arrow, the message waits above the composer,
+    and Send creates ONE message (quote plus the user's note).
+29. **The mirror's subtitle is "Your mirror"**; its title is the name the user gave it.
+30. **"All" becomes "Inbox"**: direct messages, the mirror, channels with messages, and an event channel from 24h
+    before it starts. Channels lists every channel; an empty event channel disappears 12h after start.
+31. **The event page has "Open chat"** for the host and people who RSVPed.
+32. **The empty-list hint shows only when there is no chat besides the mirror.**
+33. **One content width on every shell page**; the top bar takes no space when empty.
 
 ## Open decisions (recommended default in bold; the build uses the default unless the founder changes it)
 
@@ -278,6 +290,13 @@ Recorded after the founder hands-on round (2026-10-20), by the review stopping r
 - Room and wizard pages (event room ready/meet/host, meeting terms step-back, prep and close wizards' in-flow steps) keep their own flow logic; only their exits to the event were made non-looping.
 - P405's "Session History hidden during an active live session" is no longer enforced in the waiting state: since round 1 Session History lives in the You sheet, which the bar (kept there by P588) still opens; the e2e only proves it is not on the page itself (gap flagged by the final review, not a new regression).
 - E2E after the round: every failure was classified. Assertions encoding the old layout were updated to decisions 11-25; the rest fail identically on main (old copy/defaults, test-DB data, constant polling INBOX-200, the /live round sync in p674 measured on main). Unverified because test-project user creation hangs (private inbox): the letters suites (p660 a11y/drafts/inbox, p725, p581 ×4, p699 ×3), p879, the p1366/p1441 tails, five integration specs, and re-runs of p405 ×2, p885, p491 and p1441 after their last edits.
+
+Recorded after the second hands-on round (2026-10-20), by the review stopping rule (three rounds, Gemini Argon 4 + Codex):
+- A failed send can restore its text over a newer draft typed after leaving and returning to the chat (narrow timing).
+- A Clarify whose message reload stalls after a successful write keeps Send disabled until reload; a second Clarify staged while the first is sending is cleared when the first lands.
+- Switching chats while a Clarify is in flight can apply its follow-up (attachment send, reload) to the newly opened chat. Follow-up fix filed.
+- Compact story cards do not apply the full card's quote-heading formatting.
+- "Reply in thread not working" (founder report) was not reproduced on desktop or 375px; on phone the Thread action needs a long-press. Awaiting the founder's steps.
 
 ## Pre-deploy Checklist
 

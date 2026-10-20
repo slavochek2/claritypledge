@@ -68,6 +68,8 @@ import { PICKER_TIMEOUT_MS } from '@/app/pages/chat/NewMessageDialog';
 import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
 import { useChat } from '@/app/pages/chat/chat-state';
+import { stageClarify } from '@/app/pages/chat/chat-hooks';
+import { Composer } from '@/app/pages/chat/Composer';
 import { AttachmentCard, ATTACHMENT_TIMEOUT_MS } from '@/app/pages/chat/AttachmentCard';
 import {
   chatErrorText,
@@ -126,6 +128,8 @@ const group = (id: string, orgName: string, extra: Partial<ChatSummary> = {}): C
   kind: 'group',
   org: { id: `o-${id}`, slug: orgName.toLowerCase().replace(/\s+/g, '-'), name: orgName },
   membersSince: iso(1000),
+  // A channel with a message is in the Inbox (an empty one is under Channels only).
+  lastMessage: last('hello', 900, 'p-grace', 'Grace Hopper'),
   ...extra,
 });
 const eventChat = (id: string, title: string, startsInHours: number, extra: Partial<ChatSummary> = {}): ChatSummary => ({
@@ -273,8 +277,8 @@ describe('chat view model', () => {
     expect(parseChatRoute('/home')).toEqual({ conversationId: null, rootId: null });
     expect(parseChatRoute('/home/c/abc')).toEqual({ conversationId: 'abc', rootId: null });
     expect(parseChatRoute('/home/c/abc/t/xyz')).toEqual({ conversationId: 'abc', rootId: 'xyz' });
-    expect(mirrorLabel({ title: null, ownerFirstName: 'Mia' })).toBe("Mia's mirror");
-    expect(mirrorLabel({ title: 'Scratchpad', ownerFirstName: 'Mia' })).toBe("Scratchpad · Mia's mirror");
+    expect(mirrorLabel({ title: null, ownerFirstName: 'Mia' })).toBe("Your mirror");
+    expect(mirrorLabel({ title: 'Scratchpad', ownerFirstName: 'Mia' })).toBe("Scratchpad · Your mirror");
   });
 
   it('turns RPC errors into sentences', () => {
@@ -310,14 +314,14 @@ describe('chat list', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
     expect(titles().sort()).toEqual(['Builders · General', 'Friday Night']);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inbox' }));
     expect(titles()).toHaveLength(5);
   });
 
   it('the folder tabs are at least 40px tall touch targets', async () => {
     renderChat('/home', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
-    for (const name of ['All', /^Unread/, 'Partners', 'Channels']) {
+    for (const name of ['Inbox', /^Unread/, 'Partners', 'Channels']) {
       expect(screen.getByRole('tab', { name }).className).toContain('min-h-11'); // 44px
     }
   });
@@ -331,7 +335,7 @@ describe('chat list', () => {
   });
 
   it('hides a past event channel with no messages', async () => {
-    renderChat('/home', [mirror(), eventChat('old', 'Old Night', -48), eventChat('new', 'Next Night', 30)]);
+    renderChat('/home', [mirror(), eventChat('old', 'Old Night', -48), eventChat('new', 'Next Night', 20)]);
     await screen.findByText('Next Night', { selector: '[data-testid="row-title"]' });
     expect(screen.queryByText('Old Night')).not.toBeInTheDocument();
   });
@@ -369,10 +373,14 @@ describe('chat list', () => {
     await waitFor(() => expect(within(rowFor('Ada Lovelace')).queryByLabelText('2 unread')).not.toBeInTheDocument());
   });
 
-  it('says "Message someone from your groups or events" only when there are no 1:1s', async () => {
-    const { unmount } = renderChat('/home', [mirror(), group('g1', 'Builders')]);
+  it('says "Message someone from your groups or events" only when there are no chats besides the mirror', async () => {
+    const first = renderChat('/home', [mirror()]);
     expect(await screen.findByTestId('no-dm-hint')).toHaveTextContent('Message someone from your groups or events');
-    unmount();
+    first.unmount();
+    const second = renderChat('/home', [mirror(), group('g1', 'Builders')]);
+    await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
+    expect(screen.queryByTestId('no-dm-hint')).not.toBeInTheDocument();
+    second.unmount();
     renderChat('/home', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     expect(screen.queryByTestId('no-dm-hint')).not.toBeInTheDocument();
@@ -1033,18 +1041,43 @@ describe('conversation', () => {
     expect(toastFn).toHaveBeenCalledWith('Forwarded', expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }));
   });
 
-  it('clarify: calls clarifyMessage and opens the mirror with the composer focused (no toast); the mirror itself has no Clarify', async () => {
+  it('clarify: opens the mirror with the message staged and the composer focused, sending nothing until Send; the mirror itself has no Clarify', async () => {
     const theirs = msg('dm1', 'p-dm1', 'clarify this', { id: 'cl1' });
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl2', kind: 'clarify' }));
-    const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
+    svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, 'because it is vague', { id: 'cl3' }));
+    const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
     menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledWith('cl1'));
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
+    const pending = await screen.findByTestId('clarify-pending');
+    expect(pending).toHaveTextContent('Clarify');
+    expect(pending).toHaveTextContent('clarify this');
+    expect(svc.clarifyMessage).not.toHaveBeenCalled();
     expect(toastFn).not.toHaveBeenCalled();
     expect(await screen.findByRole('textbox', { name: 'Write to your mirror' })).toHaveFocus();
+    // Cancel (x): nothing is posted, and the staged message is gone.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel clarify' }));
+    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+    expect(svc.clarifyMessage).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
     unmount();
+
+    // Stage again, add a note, send: ONE clarify message carrying the note.
+    const again = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
+    await screen.findByText('clarify this');
+    menuOn('clarify this');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
+    await screen.findByTestId('clarify-pending');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Write to your mirror' }), { target: { value: 'because it is vague' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledTimes(1));
+    // ONE message: the copy carries the note; no second message is sent.
+    expect(svc.clarifyMessage).toHaveBeenCalledWith('cl1', 'because it is vague');
+    await waitFor(() => expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument());
+    expect(svc.sendMessage).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+    again.unmount();
 
     const own = msg('c-mirror', ME.id, 'a note to self', { id: 'n1' });
     renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [own] });
@@ -1054,7 +1087,7 @@ describe('conversation', () => {
     expect(screen.queryByRole('menuitem', { name: 'Clarify' })).not.toBeInTheDocument();
   });
 
-  it('renders forwarded and clarified cards with their snapshot, the thread, and an "Open original" that checks access when pressed', async () => {
+  it('renders forwarded and clarified cards with their snapshot, the thread, and a tap-to-jump block that checks access when pressed', async () => {
     const snap = (body: string, thread: Array<{ authorName: string; body: string | null; createdAt: string }> = []) => ({ authorName: 'Grace Hopper', body, createdAt: iso(30), conversationKind: 'group' as const, conversationTitle: null, thread });
     const fwd = msg('dm1', 'p-dm1', 'note on top', { id: 'f1', kind: 'forward', forwardSnapshot: snap('forwarded words'), forwardedFromMessageId: 'src-ok' });
     const cla = msg('dm1', ME.id, null, { id: 'f2', kind: 'clarify', forwardSnapshot: snap('clarified words', [{ authorName: 'Linus', body: 'a thread entry', createdAt: iso(20) }]), forwardedFromMessageId: 'src-gone' });
@@ -1065,7 +1098,7 @@ describe('conversation', () => {
     expect(forwarded).toHaveTextContent('forwarded words');
     expect(screen.getByText('note on top')).toBeInTheDocument();
     const clarified = screen.getByTestId('clarified-card');
-    expect(within(clarified).getByTestId('forwarded-label')).toHaveTextContent("Sent to Mia's mirror to clarify · from a group chat");
+    expect(within(clarified).getByTestId('forwarded-label')).toHaveTextContent("Sent to your mirror to clarify · from a group chat");
     expect(within(clarified).getByTestId('clarified-author')).toHaveTextContent('Grace Hopper');
     expect(clarified).not.toHaveTextContent('Clarified from');
     expect(clarified).toHaveTextContent('a thread entry');
@@ -1073,10 +1106,10 @@ describe('conversation', () => {
     expect(svc.getMessage).not.toHaveBeenCalledWith('src-ok');
     expect(svc.getMessage).not.toHaveBeenCalledWith('src-gone');
     // A source this reader can no longer read: a quiet note, and nowhere to go.
-    fireEvent.click(within(clarified).getByRole('button', { name: 'Open original' }));
+    fireEvent.click(clarified);
     await waitFor(() => expect(toastFn).toHaveBeenCalledWith("The original isn't available to you any more."));
     expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
-    fireEvent.click(within(forwarded).getByRole('button', { name: 'Open original' }));
+    fireEvent.click(forwarded);
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1?m=src-ok'));
   });
 
@@ -1093,12 +1126,15 @@ describe('conversation', () => {
   });
 
   it('attaches one of my points: the picker stages it and the send carries the attachment', async () => {
-    helpers.loadMyShareables.mockResolvedValue([{ kind: 'point', id: 'pt-1', title: 'Clarity beats cleverness', tags: ['clarity'] }]);
+    helpers.loadMyShareables.mockResolvedValue([{ kind: 'point', id: 'pt-1', title: 'Clarity beats cleverness', tags: ['clarity'], point: { id: 'pt-1', statement: 'Clarity beats cleverness' } }]);
     svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, null, { id: 'sent-at', attachmentKind: 'point', attachmentId: 'pt-1' }));
     renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
     fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Clarity beats cleverness/ }));
-    expect(await screen.findByTestId('staged-attachment')).toHaveTextContent('Clarity beats cleverness');
+    expect(await within(await screen.findByTestId('staged-attachment')).findByTestId('point-card')).toHaveTextContent('Clarity beats cleverness');
+    // The card is inert, so the attachment is named outside it for screen readers, and in the Remove button.
+    expect(within(screen.getByTestId('staged-attachment')).getByText('Attached point: Clarity beats cleverness')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove attachment: Clarity beats cleverness' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(svc.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ body: null, attachment: { kind: 'point', id: 'pt-1' } })));
   });
@@ -1138,10 +1174,10 @@ describe('conversation', () => {
   it('names the mirror "<title> · <First>\'s mirror" in the header and the list, and Rename persists', async () => {
     svc.renameMirror.mockResolvedValue('Scratchpad');
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
-    expect(await screen.findByRole('heading', { name: "Scratchpad · Mia's mirror" })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: "Scratchpad · Your mirror" })).toBeInTheDocument();
     // in the list the name has the first line and the role leads the second
     expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain('Scratchpad');
-    expect(screen.getByTestId('row-role')).toHaveTextContent("Mia's mirror ·");
+    expect(screen.getByTestId('row-role')).toHaveTextContent("Your mirror ·");
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
@@ -1858,7 +1894,7 @@ describe('review round 3', () => {
   });
 
   // ---- I: no "Open original" on a copy whose source is erased ----
-  it('I: a forward or clarify whose snapshot is erased or removed has no "Open original"; a normal one keeps it', async () => {
+  it('I: a forward or clarify whose snapshot is erased or removed is not a tap-to-jump button; a normal one is', async () => {
     const snap = (authorName: string, body: string | null) => ({ authorName, body, createdAt: iso(30), conversationKind: 'group' as const, conversationTitle: null, thread: [] });
     const erasedAuthor = msg('dm1', 'p-dm1', null, { id: 'e1', kind: 'forward', forwardSnapshot: snap('Deleted user', 'words from an erased person'), forwardedFromMessageId: 's1' });
     const nullBody = msg('dm1', 'p-dm1', null, { id: 'e2', kind: 'forward', forwardSnapshot: snap('Grace Hopper', null), forwardedFromMessageId: 's2' });
@@ -1868,7 +1904,7 @@ describe('review round 3', () => {
     await screen.findByText('still here');
     const cards = [...screen.getAllByTestId('forwarded-card'), ...screen.getAllByTestId('clarified-card')];
     expect(cards).toHaveLength(4);
-    const withButton = cards.filter((c) => within(c).queryByRole('button', { name: 'Open original' }));
+    const withButton = cards.filter((c) => c.tagName === 'BUTTON' && c.getAttribute('aria-label')?.startsWith('Go to original message') === true);
     expect(withButton).toHaveLength(1);
     expect(withButton[0]).toHaveTextContent('still here');
   });
@@ -1884,23 +1920,23 @@ describe('review round 3', () => {
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       const title = within(li).getByTestId('row-title');
       expect(title).toHaveTextContent(long);
-      expect(title.textContent).not.toContain("Mia's mirror"); // the role is not on this line
+      expect(title.textContent).not.toContain("Your mirror"); // the role is not on this line
       expect(title.children).toHaveLength(0); // one plain, truncating line
       expect(classesOf(title)).toContain('truncate');
       const role = within(li).getByTestId('row-role');
-      expect(role.textContent).toBe("Mia's mirror · ");
+      expect(role.textContent).toBe("Your mirror · ");
       expect(classesOf(role)).toContain('shrink-0');
       expect(classesOf(role)).toContain('text-muted-foreground');
       expect(classesOf(role)).not.toContain('truncate');
       // the preview follows on the same line and is what truncates there
       const line2 = role.parentElement as HTMLElement;
-      expect(line2).toHaveTextContent("Mia's mirror · You: a note");
+      expect(line2).toHaveTextContent("Your mirror · You: a note");
       expect(classesOf(line2.querySelector(':scope > span.min-w-0') as HTMLElement)).toContain('truncate');
     });
 
     it('in the header the same two segments, under one heading that still reads as the full label', async () => {
       renderChat('/home/c/c-mirror', [named, dmChat]);
-      const h1 = await screen.findByRole('heading', { name: `${long} · Mia's mirror` });
+      const h1 = await screen.findByRole('heading', { name: `${long} · Your mirror` });
       const [name, role] = Array.from(h1.querySelectorAll(':scope > span > span'));
       expect(classesOf(name!)).toContain('truncate');
       expect(classesOf(role!)).toContain('shrink-0');
@@ -1908,7 +1944,7 @@ describe('review round 3', () => {
 
     it('with no custom name the role alone is the first line and the preview is the second', async () => {
       renderChat('/home', [mirrorChat, dmChat]);
-      expect(await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
+      expect(await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       expect(within(li).queryByTestId('row-role')).not.toBeInTheDocument();
       expect(li).toHaveTextContent('No messages yet');
@@ -1985,7 +2021,7 @@ describe('review round 3', () => {
       expect(classesOf(bar)).not.toContain('flex-wrap');
       expect(classesOf(bar)).toContain('flex-nowrap');
       const buttons = within(bar).getAllByRole('button');
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with Mia's mirror"]);
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror"]);
       // Icons only, except Clarify (the mirror's face and the word, which drops out below 360px so the row keeps one line at 320).
       for (const b of buttons.filter((x) => x.getAttribute('data-testid') !== 'clarify-button')) expect(b.textContent).toBe('');
       for (const b of buttons) expect(classesOf(b)).toContain('shrink-0');
@@ -2293,12 +2329,12 @@ describe('review round 6', () => {
       return Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
     };
     // A renamed mirror: its name has the whole first line, its role is the second line.
-    const mirrorBtn = within(dialog).getByRole('button', { name: /Mia's mirror/ });
+    const mirrorBtn = within(dialog).getByRole('button', { name: /Your mirror/ });
     const lines = Array.from((mirrorBtn.querySelector('span.block.min-w-0') as HTMLElement).querySelectorAll(':scope > span')) as HTMLElement[];
     expect(lines[0]).toHaveTextContent(LONG);
     expect(classesOf(lines[0]!)).toContain('truncate');
-    expect(lines[0]!.textContent).not.toContain("Mia's mirror");
-    expect(lines[1]).toHaveTextContent("Mia's mirror");
+    expect(lines[0]!.textContent).not.toContain("Your mirror");
+    expect(lines[1]).toHaveTextContent("Your mirror");
     expect(classesOf(lines[1]!)).toContain('shrink-0');
     expect(classesOf(lines[1]!)).toContain('text-muted-foreground');
     const [gName, gTail] = segments(/organisation/);
@@ -2310,8 +2346,8 @@ describe('review round 6', () => {
     expect(eTail!.textContent).toMatch(/^ · [A-Z][a-z]{2} \d{1,2}$/);
     expect(classesOf(eTail!)).toContain('shrink-0');
     // and in the dialog's own title once a target is chosen
-    fireEvent.click(within(dialog).getByRole('button', { name: /Mia's mirror/ }));
-    expect(within(dialog).getByRole('heading')).toHaveTextContent(`Forward to ${LONG} · Mia's mirror`);
+    fireEvent.click(within(dialog).getByRole('button', { name: /Your mirror/ }));
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(`Forward to ${LONG} · Your mirror`);
   });
 
   it('S2: offline, an author whose profile cannot load is "Unknown member" with a gray initials avatar at once, never a permanent skeleton', async () => {
@@ -2344,12 +2380,12 @@ describe('review round 6', () => {
 
   it('S3: the rename dialog names the role exactly as it is shown', async () => {
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
-    const shown = (await screen.findByRole('heading', { name: "Mia's mirror" })).textContent;
+    const shown = (await screen.findByRole('heading', { name: "Your mirror" })).textContent;
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
-    expect(shown).toBe("Mia's mirror");
-    expect(dialog).toHaveTextContent("Its role, “Mia's mirror”, always stays next to the name.");
+    expect(shown).toBe("Your mirror");
+    expect(dialog).toHaveTextContent("Its role, “Your mirror”, always stays next to the name.");
     expect(dialog).not.toHaveTextContent('“your mirror”');
   });
 
@@ -2759,21 +2795,21 @@ describe('message actions: toolbar and More', () => {
     renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'a channel post', { id: 'cp' })] });
     await screen.findByText('a channel post');
     fireEvent.pointerUp(screen.getByText('a channel post'));
-    expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with Mia's mirror"]);
+    expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror"]);
   });
 
   it('on my own channel post More joins the toolbar (Edit and Delete live there)', async () => {
     renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my own post', { id: 'op' })] });
     await screen.findByText('my own post');
     fireEvent.pointerUp(screen.getByText('my own post'));
-    expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with Mia's mirror", 'More actions']);
+    expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror", 'More actions']);
   });
 
   it('in a 1:1 there is no Thread, and in the mirror no Clarify', async () => {
     const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
-    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', "Clarify with Mia's mirror"]);
+    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', "Clarify with your mirror"]);
     unmount();
 
     renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
@@ -2815,9 +2851,9 @@ describe('message actions: toolbar and More', () => {
     renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify me')] });
     await screen.findByText('clarify me');
     fireEvent.pointerUp(screen.getByText('clarify me'));
-    const button = within(toolbarOf('clarify me')).getByRole('button', { name: "Clarify with Mia's mirror" });
+    const button = within(toolbarOf('clarify me')).getByRole('button', { name: "Clarify with your mirror" });
     expect(button).toHaveTextContent('Clarify');
-    expect(button).toHaveAttribute('title', "Clarify with Mia's mirror");
+    expect(button).toHaveAttribute('title', "Clarify with your mirror");
     // The mirror's own mark (a glyph, never the owner's photo) on a dashed ring.
     expect(button.querySelector('span[aria-hidden="true"][class*="outline-dashed"]')).not.toBeNull();
     expect(button.querySelector('[data-testid="mirror-glyph"]')).not.toBeNull();
@@ -2858,7 +2894,7 @@ describe('message actions: toolbar and More', () => {
       await screen.findByText('clarify back');
       await clarifyIt('clarify back');
       expect(nav()).toBe('PUSH');
-      fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
       expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
       expect(nav()).toBe('POP');
     });
@@ -2875,30 +2911,19 @@ describe('message actions: toolbar and More', () => {
       expect(nav()).toBe('POP');
     });
 
-    it('a failed clarify stays where it is and shows an error toast', async () => {
+    it('a failed clarify shows an error toast, keeps the quote staged and puts the typed note back', async () => {
       svc.clarifyMessage.mockRejectedValue(new Error('chat clarify failed: chat: not available'));
-      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')] });
+      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')], 'c-mirror': [] });
       await screen.findByText('clarify fail');
       menuOn('clarify fail');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
+      await screen.findByTestId('clarify-pending');
+      const field = screen.getByRole('textbox', { name: 'Write to your mirror' });
+      fireEvent.change(field, { target: { value: 'my reason' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
       await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
-    });
-
-    it('if the person moved on while it was sending, it does not drag them to the mirror', async () => {
-      let resolve!: (v: ChatMessage) => void;
-      svc.clarifyMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { resolve = r; }));
-      renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat, group('g1', 'Builders')], { dm1: [msg('dm1', 'p-dm1', 'clarify slow')], g1: [] });
-      await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
-      fireEvent.click(rowButton('Ada Lovelace'));
-      await screen.findByText('clarify slow');
-      menuOn('clarify slow');
-      fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-      await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalled());
-      fireEvent.click(rowButton('Builders · General'));
-      await act(async () => { resolve(msg('c-mirror', ME.id, null, { id: 'cl8', kind: 'clarify' })); await new Promise((r) => setTimeout(r, 30)); });
-      expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1');
-      expect(toastFn).toHaveBeenCalledWith("Sent to Mia's mirror to clarify", expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }));
+      expect(screen.getByTestId('clarify-pending')).toBeInTheDocument();
+      await waitFor(() => expect(field).toHaveValue('my reason'));
     });
   });
 });
@@ -2916,7 +2941,7 @@ describe('the clarified card and the mirror preview', () => {
 
   it('a 1:1 from the other person: line 1 says where, line 2 names them once', async () => {
     const card = await cardFor(clarified('Alice Moreau', 'dm', 'Alice Moreau'));
-    expect(label(card).textContent).toBe("Sent to Mia's mirror to clarify · from your chat with Alice Moreau");
+    expect(label(card).textContent).toBe("Sent to your mirror to clarify · from your chat with Alice Moreau");
     expect(author(card).textContent).toBe('Alice Moreau');
     // Never the same name twice on one line.
     expect(label(card).textContent!.match(/Alice Moreau/g)).toHaveLength(1);
@@ -2926,7 +2951,7 @@ describe('the clarified card and the mirror preview', () => {
   it('my own message in a 1:1 reads "You", decided by the author\'s id, not by their name', async () => {
     // A different display name than the account's (renamed since): the id still says it is mine.
     const card = await cardFor(clarified('Mia M.', 'dm', 'Alice Moreau', ME.id));
-    expect(label(card).textContent).toBe("Sent to Mia's mirror to clarify · from your chat with Alice Moreau");
+    expect(label(card).textContent).toBe("Sent to your mirror to clarify · from your chat with Alice Moreau");
     expect(author(card).textContent).toBe('You');
     expect(card.textContent).not.toContain('Mia M.');
   });
@@ -2949,20 +2974,20 @@ describe('the clarified card and the mirror preview', () => {
   it('a channel names the channel or event chat on line 1 and the author on line 2', async () => {
     const { unmount } = renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', 'Builders · General')] });
     let card = await screen.findByTestId('clarified-card');
-    expect(label(card).textContent).toBe("Sent to Mia's mirror to clarify · from Builders · General");
+    expect(label(card).textContent).toBe("Sent to your mirror to clarify · from Builders · General");
     expect(author(card).textContent).toBe('Grace Hopper');
     unmount();
     renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'event', 'Friday Night')] });
     card = await screen.findByTestId('clarified-card');
-    expect(label(card).textContent).toBe("Sent to Mia's mirror to clarify · from Friday Night");
+    expect(label(card).textContent).toBe("Sent to your mirror to clarify · from Friday Night");
   });
 
   it('with no title the kind speaks: "your chat", "a group chat"', async () => {
     const { unmount } = renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Alice Moreau', 'dm', null)] });
-    expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to Mia's mirror to clarify · from your chat");
+    expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to your mirror to clarify · from your chat");
     unmount();
     renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', null)] });
-    expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to Mia's mirror to clarify · from a group chat");
+    expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to your mirror to clarify · from a group chat");
   });
 
   it('the mirror row previews "Clarify: <first words>", and just "Clarify" when there are none; others are untouched', () => {
@@ -2976,7 +3001,7 @@ describe('the clarified card and the mirror preview', () => {
 
   it('the mirror list row reads "Clarify: <words>" when the list carries the clarified body', async () => {
     renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: 'what I said to Alice' } }), dm('dm1', 'Alice Moreau')]);
-    const row = await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' });
+    const row = await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify: what I said to Alice');
     expect(li.textContent).not.toContain('You:');
@@ -2984,7 +3009,7 @@ describe('the clarified card and the mirror preview', () => {
 
   it('the mirror list row reads "Clarify" with no "You: Clarified message"', async () => {
     renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: null } }), dm('dm1', 'Alice Moreau')]);
-    const row = await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' });
+    const row = await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify');
     expect(li.textContent).not.toContain('Clarified message');
@@ -3030,7 +3055,7 @@ describe('the mirror mark', () => {
   it('the list row, the header and the forward picker show it, and never the owner\'s photo or initials', async () => {
     const theirs = msg('c-mirror', ME.id, 'a note to self', { id: 'nn1' });
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { lastMessage: { ...last('preview words', 1, ME.id, ME.name) } }), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [theirs] });
-    const row = (await screen.findByText("Mia's mirror", { selector: '[data-testid="row-title"]' })).closest('li') as HTMLElement;
+    const row = (await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' })).closest('li') as HTMLElement;
     expect(row.querySelector('[data-testid="mirror-glyph"]')).not.toBeNull();
     expect(row.querySelector('img')).toBeNull();
     expect(row.textContent).not.toContain('MM');
@@ -3132,7 +3157,7 @@ describe('freshness fixes', () => {
       expect(where()).toBe('/home/c/g1');
       expect(nav()).toBe('PUSH');
       expect(stateOf()).toEqual({ below: ['conv', 'list'] });
-      fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
       expect(where()).toBe('/home/c/dm1');
       expect(nav()).toBe('POP');
     });
@@ -3145,24 +3170,6 @@ describe('freshness fixes', () => {
       expect(where()).toBe('/home/c/g1');
       expect(stateOf()).toEqual({ below: ['list'] });
     });
-  });
-
-  it('Clarify\'s "moved on" toast Open goes by where they are then, too', async () => {
-    let resolve!: (v: ChatMessage) => void;
-    svc.clarifyMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { resolve = r; }));
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'clarify slow two')], g1: [] });
-    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
-    fireEvent.click(rowButton('Ada Lovelace'));
-    await screen.findByText('clarify slow two');
-    menuOn('clarify slow two');
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalled());
-    fireEvent.click(rowButton('Builders · General'));
-    await act(async () => { resolve(msg('c-mirror', ME.id, null, { id: 'cl30', kind: 'clarify' })); await sleep(30); });
-    const [, options] = toastFn.mock.calls.find((c) => String(c[0]).startsWith('Sent to'))!;
-    act(() => (options as { action: { onClick: () => void } }).action.onClick());
-    expect(where()).toBe('/home/c/c-mirror');
-    expect(stateOf()).toEqual({ below: ['conv', 'list'] });
   });
 
   describe('a thread URL that cannot be a thread keeps its Back state', () => {
@@ -3192,5 +3199,80 @@ describe('freshness fixes', () => {
       await waitFor(() => expect(where()).toBe('/home/c/g1'));
       expect(nav()).toBe('POP');
     });
+  });
+});
+
+describe('a pending Clarify (review fixes)', () => {
+  const dmChat = dm('dm1', 'Ada Lovelace');
+  const src = (text = 'to clarify') => msg('dm1', 'p-dm1', text, { id: 'src1' });
+
+  it('F6: one staged for a mirror pane that is already open appears without a navigation', async () => {
+    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    await screen.findByRole('textbox', { name: 'Write to your mirror' });
+    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+    act(() => stageClarify('c-mirror', { message: src('late clarify'), authorName: 'Ada Lovelace' }));
+    expect(await screen.findByTestId('clarify-pending')).toHaveTextContent('late clarify');
+  });
+
+  it('F5: it is taken once: after the pane is closed and opened again it does not come back', async () => {
+    stageClarify('c-mirror', { message: src('only once'), authorName: 'Ada Lovelace' });
+    const first = renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    expect(await screen.findByTestId('clarify-pending')).toBeInTheDocument();
+    first.unmount();
+    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    await screen.findByRole('textbox', { name: 'Write to your mirror' });
+    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+  });
+
+  it('F7: Reply and Clarify are never pending together', async () => {
+    stageClarify('c-mirror', { message: src('stage first'), authorName: 'Ada Lovelace' });
+    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self', { id: 'n9' })] });
+    await screen.findByTestId('clarify-pending');
+    menuOn('a note to self');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
+    expect(await screen.findByTestId('reply-pending')).toBeInTheDocument();
+    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+    // ...and a Clarify staged later replaces the reply.
+    act(() => stageClarify('c-mirror', { message: src('stage second'), authorName: 'Ada Lovelace' }));
+    expect(await screen.findByTestId('clarify-pending')).toHaveTextContent('stage second');
+    expect(screen.queryByTestId('reply-pending')).not.toBeInTheDocument();
+  });
+
+  it('F3: a send that is refused at once gives the typed note back, and Send waits while one is in flight', async () => {
+    const onSend = vi.fn().mockReturnValue(false);
+    const { rerender } = render(<MemoryRouter><Composer draftKey="k-f3" placeholder="Write" onSend={onSend} /></MemoryRouter>);
+    const field = screen.getByRole('textbox', { name: 'Write' });
+    fireEvent.change(field, { target: { value: 'keep me' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(field).toHaveValue('keep me');
+    rerender(<MemoryRouter><Composer draftKey="k-f3" placeholder="Write" onSend={onSend} sendDisabled /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    fireEvent.submit(field.closest('form')!);
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('F4: only the attachment that was submitted is cleared when the clarify lands', async () => {
+    helpers.loadMyShareables.mockResolvedValue([
+      { kind: 'point', id: 'pt-a', title: 'Alpha', tags: [], point: { id: 'pt-a', statement: 'Alpha' } },
+      { kind: 'point', id: 'pt-b', title: 'Beta', tags: [], point: { id: 'pt-b', statement: 'Beta' } },
+    ]);
+    let land!: (m: ChatMessage) => void;
+    svc.clarifyMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { land = r; }));
+    svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'x1' }));
+    stageClarify('c-mirror', { message: src('with attachment'), authorName: 'Ada Lovelace' });
+    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    await screen.findByTestId('clarify-pending');
+    fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Attach Alpha/ }));
+    await screen.findByText('Attached point: Alpha');
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalled());
+    // While the send is out, another attachment is picked.
+    fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Attach Beta/ }));
+    await screen.findByText('Attached point: Beta');
+    await act(async () => { land(msg('c-mirror', ME.id, null, { id: 'cl-f4', kind: 'clarify' })); await new Promise((r) => setTimeout(r, 30)); });
+    expect(screen.getByText('Attached point: Beta')).toBeInTheDocument();
   });
 });

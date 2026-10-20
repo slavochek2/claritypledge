@@ -234,7 +234,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
             }`}
             data-unread={isUnread ? 'true' : undefined} /* stable e2e selector — do not remove */
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 max-[399px]:flex-wrap">
               {isUnread && <span className="sr-only">Unread. </span>}
               <div className="flex-shrink-0 w-2 flex items-center justify-center">
                 <span
@@ -272,7 +272,8 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
                   </p>
                 )}
               </div>
-              <div className="flex-shrink-0">
+              {/* Narrow phones: the action drops under the text instead of squeezing the title. */}
+              <div className="flex-shrink-0 max-[399px]:basis-full max-[399px]:pl-5">
                 <Button
                   size="sm"
                   className="bg-blue-500 hover:bg-blue-700 text-white min-h-11"

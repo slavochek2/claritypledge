@@ -323,7 +323,7 @@ function MiniMark({ chat }: { chat: ChatSummary }) {
 export function ChatList({ activeId }: { activeId: string | null }) {
   const chat = useChat();
   const go = useChatNavigate();
-  const [tab, setTab] = useState<ChatTab>('all');
+  const [tab, setTab] = useState<ChatTab>('inbox');
   const [query, setQuery] = useState('');
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -332,7 +332,8 @@ export function ChatList({ activeId }: { activeId: string | null }) {
   const { chats } = chat;
   const split = useMemo(() => splitChats(chats, tab), [chats, tab]);
   const unreadTotal = useMemo(() => unreadChatCount(chats), [chats]);
-  const hasDm = chats.some((c) => c.kind === 'dm');
+  // The mirror is always there, so "no chats" means no chat besides it.
+  const hasOtherChat = chats.some((c) => c.kind !== 'mirror');
   const q = query.trim();
 
   // From the list a chat is pushed; with a chat already open beside it (desktop) the new one swaps in its place (chatNav).
@@ -421,7 +422,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
                 {tab === 'unread' ? 'You are all caught up.' : tab === 'partners' ? 'No chats with Clarity Partners yet.' : tab === 'channels' ? 'No channels yet.' : 'No chats yet.'}
               </p>
             )}
-            {tab === 'all' && !hasDm && (
+            {tab === 'inbox' && !hasOtherChat && (
               <p className="px-6 py-4 text-center text-sm text-muted-foreground" data-testid="no-dm-hint">
                 Message someone from your groups or events
               </p>

@@ -10,6 +10,7 @@ import { ArrowUp, Paperclip, X } from 'lucide-react';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
+import { ShareableCard } from './ShareableCard';
 import { hasFinePointer, useDraft } from './chat-hooks';
 
 /** Five 24px lines plus the field's 16px vertical padding. */
@@ -20,20 +21,27 @@ const ROUND = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full'
 interface Props {
   draftKey: string;
   placeholder: string;
-  onSend: (body: string | null, attachment: Shareable | null) => void;
+  /** May return a promise: resolving false (or rejecting) means nothing was sent, and the draft comes back. */
+  onSend: (body: string | null, attachment: Shareable | null) => unknown;
   onAttach?: () => void;
   staged?: Shareable | null;
   onUnstage?: () => void;
   /** The reply quote bar, shown inside the field's frame. */
   quote?: ReactNode;
+  /** The pending quote is itself something to send (a Clarify), so Send shows with no text. */
+  quoteSendable?: boolean;
+  /** A send is under way that must not be doubled: Send and Enter wait. */
+  sendDisabled?: boolean;
   /** Changing this value moves focus into the field (a Reply was pressed). */
   focusToken?: number;
   autoFocus?: boolean;
 }
 
-export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, focusToken = 0, autoFocus = false }: Props) {
+export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
+  const latest = useRef(value);
+  latest.current = value;
 
   // Grow with the text up to ~5 lines, then scroll inside the field.
   useLayoutEffect(() => {
@@ -49,12 +57,25 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     if (focusToken > 0 || (autoFocus && hasFinePointer())) field.current?.focus();
   }, [focusToken, autoFocus, draftKey]);
 
-  const sendable = value.trim() !== '' || !!staged;
+  const sendable = value.trim() !== '' || !!staged || quoteSendable;
   const send = () => {
     const text = value.trim();
-    if (!text && !staged) return;
+    if ((!text && !staged && !quoteSendable) || sendDisabled) return;
+    const before = value;
+    const restore = (text: string) => latest.current === '' && setValue(text);
     setValue('');
-    onSend(text || null, staged);
+    const result = onSend(text || null, staged);
+    // A refusal that comes back at once (nothing was sent) gives the draft back before anything else.
+    if (result === false) {
+      setValue(before);
+      return;
+    }
+    if (result && typeof (result as Promise<unknown>).then === 'function') {
+      (result as Promise<unknown>).then(
+        (ok) => ok === false && restore(before),
+        () => restore(before),
+      );
+    }
   };
 
   return (
@@ -68,12 +89,11 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
       >
         {quote}
         {staged && (
-          <div className="flex items-center gap-2 px-2 pt-1" data-testid="staged-attachment">
-            <p className="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
-              <span className="font-semibold">{staged.kind === 'point' ? 'Point' : 'Story'}: </span>
-              {staged.title}
-            </p>
-            <button type="button" aria-label="Remove attachment" onClick={onUnstage} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
+          <div className="relative px-2 pt-1" data-testid="staged-attachment">
+            <div className="max-h-24 overflow-hidden rounded-xl pr-10">
+              <ShareableCard item={staged} announce />
+            </div>
+            <button type="button" aria-label={`Remove attachment: ${staged.title}`} onClick={onUnstage} className={cn(ROUND, 'absolute right-3 top-2 bg-background/90 text-muted-foreground shadow-sm', HOVER, FOCUS_RING)}>
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -109,7 +129,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
             />
           </div>
           {sendable && (
-            <button type="submit" aria-label="Send" title="Send" className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700', FOCUS_RING)}>
+            <button type="submit" aria-label="Send" title="Send" disabled={sendDisabled} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}>
               <ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           )}

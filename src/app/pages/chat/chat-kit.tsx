@@ -5,7 +5,7 @@
  * unread badge, selection and the one primary action per view.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { CalendarDays, Lock, Reply, User, X, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Lock, User, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, getInitials } from '@/lib/utils';
@@ -187,22 +187,6 @@ export function Divider({ children }: { children: ReactNode }) {
     <div className="relative my-2 flex justify-center px-4" role="separator">
       <span className="absolute inset-x-0 top-1/2 h-px bg-border" aria-hidden="true" />
       <span className="relative inline-flex max-w-full items-center rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">{children}</span>
-    </div>
-  );
-}
-
-/** The quoted message above the composer, with its remove control. */
-export function QuoteBar({ author, text, onRemove }: { author: string; text: string; onRemove: () => void }) {
-  return (
-    <div className="flex items-start gap-2 px-2 pb-1 pt-1" data-testid="reply-bar">
-      <Reply className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0 flex-1 border-l-2 border-blue-600 pl-2">
-        <p className="truncate text-xs font-semibold text-foreground">{author}</p>
-        <p className="truncate text-sm text-muted-foreground">{text}</p>
-      </div>
-      <button type="button" aria-label="Cancel reply" onClick={onRemove} className={cn('flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground', HOVER, FOCUS_RING)}>
-        <X className="h-4 w-4" aria-hidden="true" />
-      </button>
     </div>
   );
 }
