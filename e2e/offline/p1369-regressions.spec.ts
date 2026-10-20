@@ -90,6 +90,10 @@ test.beforeEach(() => {
 
 async function freshPage(browser: import('@playwright/test').Browser): Promise<{ context: BrowserContext; page: Page }> {
   const context = await newAppContext(browser);
+  // P1522: the pack is off under automation unless a test opts in; these regressions exercise it.
+  await context.addInitScript(() => {
+    try { localStorage.setItem('clarity-offline-pack-allow-automation', '1'); } catch { /* ignore */ }
+  });
   const page = await context.newPage();
   await warmServiceWorker(page);
   return { context, page };

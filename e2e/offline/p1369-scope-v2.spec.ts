@@ -126,6 +126,8 @@ async function allowPack(page: Page) {
   await page.evaluate((prefix) => {
     sessionStorage.setItem('__p1369_allow_pack', '1');
     for (const k of Object.keys(localStorage)) if (k.startsWith(prefix)) localStorage.removeItem(k);
+    // P1522: the pack is off under automation unless a test opts in.
+    localStorage.setItem('clarity-offline-pack-allow-automation', '1');
   }, PACK_KEY_PREFIX);
 }
 

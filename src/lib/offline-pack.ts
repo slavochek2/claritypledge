@@ -34,6 +34,26 @@ export const OFFLINE_PACK_REFRESH_MS = 6 * 60 * 60 * 1000;
 /** Test/ops switch: set this localStorage key to turn the pack off on a device. */
 export const OFFLINE_PACK_DISABLED_KEY = `${OFFLINE_PACK_STAMP_PREFIX}disabled`;
 
+/**
+ * P1522: the pack does not run under browser automation (navigator.webdriver): every e2e context
+ * and headless crawler is a fresh browser, and the pack was most of their Supabase requests. A
+ * test that exercises the pack sets this localStorage key to opt back in.
+ */
+// Deliberately outside OFFLINE_PACK_STAMP_PREFIX: sign-out clears every key under that prefix, and
+// readers of the prefix treat its keys as stamps.
+export const OFFLINE_PACK_ALLOW_AUTOMATION_KEY = 'clarity-offline-pack-allow-automation';
+
+function underAutomation(): boolean {
+  if (typeof navigator === 'undefined' || !navigator.webdriver) return false;
+  try {
+    return !localStorage.getItem(OFFLINE_PACK_ALLOW_AUTOMATION_KEY);
+  } catch {
+    return true;
+  }
+}
+
+const tabHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 function saveData(): boolean {
   const c = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
   return !!c?.saveData;
@@ -86,6 +106,8 @@ export async function offlinePackDue(
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { due: false, owner: null, reason: 'offline' };
   if (isSupabaseUnreachable()) return { due: false, owner: null, reason: 'unreachable' };
   if (saveData()) return { due: false, owner: null, reason: 'save-data' };
+  if (tabHidden()) return { due: false, owner: null, reason: 'hidden' };
+  if (underAutomation()) return { due: false, owner: null, reason: 'automation' };
   try {
     if (localStorage.getItem(OFFLINE_PACK_DISABLED_KEY)) return { due: false, owner: null, reason: 'disabled' };
   } catch {
@@ -131,6 +153,7 @@ export interface OfflinePackResult {
 export async function runOfflinePack(viewerUserId: string | undefined): Promise<OfflinePackResult> {
   const due = await offlinePackDue();
   if (!due.due || !due.owner) return { ran: false, reason: due.reason, attempted: 0, stored: 0, files: 0 };
+  const owner = due.owner;
   try {
     writeStamp(due.owner, { at: due.chunksOnly && due.stamp ? due.stamp.at : Date.now(), build: currentBuildId() });
   } catch {
@@ -144,27 +167,45 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
     if (out.stored) result.stored += 1;
     return out.data;
   };
-  // Stop early if the connection goes while the pack runs — never keep firing into the void.
-  const stillOnline = () => navigator.onLine !== false && !isSupabaseUnreachable();
+  // Stop early if the connection goes while the pack runs — never keep firing into the void —
+  // or if the tab is hidden (P1522: a hidden tab issues no repeating requests).
+  const stillOnline = () => navigator.onLine !== false && !isSupabaseUnreachable() && !tabHidden();
+  // A run cut short by hiding the tab puts the previous stamp back, so the pack is due again the
+  // next time the tab is visible rather than six hours later with half its entries missing.
+  const stop = (): OfflinePackResult => {
+    if (tabHidden()) {
+      try {
+        if (due.stamp && due.stamp.at > 0) writeStamp(owner, due.stamp);
+        else localStorage.removeItem(stampKey(owner));
+      } catch {
+        /* the stamp stays; the pack is merely late */
+      }
+    }
+    return finish(result);
+  };
 
   for (const load of ROUTE_CHUNKS) {
-    if (!stillOnline()) return finish(result);
+    if (!stillOnline()) return stop();
     await load().catch(() => undefined);
   }
   if (due.chunksOnly) return finish(result);
 
   // Exactly the links-menu entries, in menu order.
   for (const entry of buildLinksMenu(null)) {
-    if (!stillOnline()) return finish(result);
+    if (!stillOnline()) return stop();
     if (entry.group === 'points') {
       const tag = decodeURIComponent(entry.to.replace(/^\/stake\//, '').split('?')[0] ?? '');
       await prefetch(stakeRead(tag, viewerUserId));
     } else if (entry.group === 'letters') {
       const code = decodeURIComponent(entry.to.replace(/^\/letter\//, ''));
       const letterId = await prefetch(letterCodeRead(code));
-      if (letterId) await prefetch(publicLetterRead(letterId));
+      if (letterId) {
+        if (!stillOnline()) return stop();
+        await prefetch(publicLetterRead(letterId));
+      }
     } else {
       for (const file of staticFilesFor(entry.to)) {
+        if (!stillOnline()) return stop();
         try {
           const res = await fetch(file, { credentials: 'same-origin' });
           if (res.ok) result.files += 1;
@@ -175,10 +216,13 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
     }
   }
 
-  if (stillOnline()) await prefetch(feedRead(viewerUserId, false, undefined));
-  if (stillOnline()) await prefetch(groupsRead());
-  if (stillOnline()) await prefetch(homeRead()); // P1408: home's groups + next events
-  return finish(result);
+  if (!stillOnline()) return stop();
+  await prefetch(feedRead(viewerUserId, false, undefined));
+  if (!stillOnline()) return stop();
+  await prefetch(groupsRead());
+  if (!stillOnline()) return stop();
+  await prefetch(homeRead()); // P1408: home's groups + next events
+  return finish(result); // complete: keep the stamp even if the tab hid during the last read
 }
 
 function finish(result: OfflinePackResult): OfflinePackResult {

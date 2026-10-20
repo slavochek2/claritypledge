@@ -92,6 +92,9 @@ export default defineConfig({
   // Test directory
   testDir: './e2e',
 
+  // P1522: sweep e2e users that outlived their test (test project only, bounded batch).
+  globalTeardown: './e2e/global-teardown.ts',
+
   // Run tests in parallel; serial describe blocks (e.g. pledgers-page) are exempt
   fullyParallel: true,
   workers: process.env.PLAYWRIGHT_WORKERS
