@@ -6,25 +6,26 @@
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
  * tag), placed into twelve boxes — the lean canvas's nine and three ikigai boxes.
  *
- * READ FIRST, ACT ON OPEN (founder, event use): a box card is text to read, with no buttons; the
- * whole card opens the point. Reading is the default; two controls in the feed's own shapes add to
- * it: a Positions switch (each card's spread, strongly disagree to strongly agree) and a Compare
- * picker (two people in the compare page's columns). The open point (a side panel on desktop, a
- * full-screen sheet on mobile) holds the production point card, everyone's positions with names
- * (positions on public points are public), and Previous / Next through the canvas. Opening a point
- * adds a history entry, so Back closes it.
+ * READ FIRST, ACT ON OPEN (founder, event use): two frames, Ikigai above the Lean Canvas (the
+ * classic grid on desktop, stacked on a phone). A box card is text to read plus its spread, with
+ * no buttons; the whole card opens the point. Above the canvas: a canvas picker (the owner's
+ * project tags) and a Compare picker (two people in the compare page's columns). The open point
+ * (a side panel on desktop, a full-screen sheet on mobile) holds the owner's position, the
+ * production point card, everyone's positions with names (positions on public points are
+ * public), and Previous / Next through the canvas. Opening a point adds a history entry, so Back
+ * closes it.
  *
  * VISIBILITY: the owner sees their private points; anyone else, public ones only (enforced in the
  * read and by RLS). Everything on screen is keyed by the viewer, so signing out or switching
  * account drops private points, stories and the open panel in the same render. A box with no
- * points is shown to the owner only.
+ * points is shown to everyone (the grid keeps its shape).
  *
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Gem, Globe, Heart, Lightbulb,
   Megaphone, Receipt, ShieldCheck, Star, Users, X, type LucideIcon,
@@ -35,6 +36,7 @@ import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { InlineVisibilityIcon } from '@/app/components/shared';
+import { PositionBadge } from '@/app/components/shared/PositionBadge';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { StanceColumn, type Person } from '@/app/components/compare/statement-row';
 import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS, POSITION_ORDER } from '@/lib/compare-positions';
@@ -53,15 +55,28 @@ import {
   type StoryWithAuthor,
 } from '@/app/types';
 
-/** Reading order (founder): who it is for, their problem, the solution, why the owner cares and
- *  why it matters, then the rest. The grid fills left to right in this order, and Previous /
- *  Next walk it. */
-const READING_ORDER: readonly CanvasBoxTag[] = [
-  'canvas:segments', 'canvas:problem', 'canvas:solution',
-  'canvas:love', 'canvas:world-needs', 'canvas:uvp',
-  'canvas:advantage', 'canvas:good-at', 'canvas:channels',
-  'canvas:metrics', 'canvas:revenue', 'canvas:cost',
+/** Reading order (founder): Ikigai first (the three boxes about the owner), then the Lean
+ *  Canvas in its classic grid, column by column. A phone stacks the boxes in this order, and
+ *  Previous / Next walk it. */
+const IKIGAI_ORDER: readonly CanvasBoxTag[] = ['canvas:love', 'canvas:good-at', 'canvas:world-needs'];
+const LEAN_ORDER: readonly CanvasBoxTag[] = [
+  'canvas:problem', 'canvas:solution', 'canvas:metrics', 'canvas:uvp',
+  'canvas:advantage', 'canvas:channels', 'canvas:segments', 'canvas:cost', 'canvas:revenue',
 ];
+const READING_ORDER: readonly CanvasBoxTag[] = [...IKIGAI_ORDER, ...LEAN_ORDER];
+/** The classic Lean Canvas grid on desktop: ten columns, three rows. Problem, UVP and Customer
+ *  Segments run two rows tall; Cost and Revenue share the bottom row. */
+const LEAN_GRID_CELL: Partial<Record<CanvasBoxTag, string>> = {
+  'canvas:problem': 'lg:col-start-1 lg:col-span-2 lg:row-start-1 lg:row-span-2',
+  'canvas:solution': 'lg:col-start-3 lg:col-span-2 lg:row-start-1',
+  'canvas:metrics': 'lg:col-start-3 lg:col-span-2 lg:row-start-2',
+  'canvas:uvp': 'lg:col-start-5 lg:col-span-2 lg:row-start-1 lg:row-span-2',
+  'canvas:advantage': 'lg:col-start-7 lg:col-span-2 lg:row-start-1',
+  'canvas:channels': 'lg:col-start-7 lg:col-span-2 lg:row-start-2',
+  'canvas:segments': 'lg:col-start-9 lg:col-span-2 lg:row-start-1 lg:row-span-2',
+  'canvas:cost': 'lg:col-start-1 lg:col-span-5 lg:row-start-3',
+  'canvas:revenue': 'lg:col-start-6 lg:col-span-5 lg:row-start-3',
+};
 const ORDERED_BOXES = [...CANVAS_BOXES].sort((a, b) => READING_ORDER.indexOf(a.tag) - READING_ORDER.indexOf(b.tag));
 
 /** A small icon per box, so the canvas can be scanned by shape as well as by title. */
@@ -79,9 +94,6 @@ const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
   'canvas:revenue': Coins,
   'canvas:cost': Receipt,
 };
-/** The owner's own boxes (ikigai), set apart from the business boxes in the same grid. Blue tint:
- *  the design system's colour for a person's own content. */
-const IKIGAI_BOXES: ReadonlySet<CanvasBoxTag> = new Set(['canvas:love', 'canvas:world-needs', 'canvas:good-at']);
 /** The canvas stays small: a box shows this many cards, and says how many more it holds. */
 const BOX_LIMIT = 3;
 
@@ -105,6 +117,8 @@ type CanvasData =
     points: PointWithUserPosition[];
     stories: Map<string, StoryWithAuthor[]>;
     positions: Map<string, PointPositionWithUser[]>;
+    /** every project tag the owner has a canvas for (this viewer's view), for the picker */
+    projectTags: string[];
   }
   | { status: 'not-found' }
   | { status: 'error' };
@@ -154,9 +168,10 @@ export function CanvasPage() {
       const points = await pointsService.getCanvasPoints(owner.data.id, projectTag, viewerId);
       if (points.length === 0) return settle({ status: 'not-found' });
       const ids = points.map(p => p.id);
-      const [stories, positions] = await Promise.all([
+      const [stories, positions, projectTags] = await Promise.all([
         storiesService.getStoriesForPoints(ids, undefined, { strict: true }),
         pointsService.getCanvasPositions(ids),
+        pointsService.getCanvasProjectTags(owner.data.id, viewerId),
       ]);
       settle({
         status: 'ready',
@@ -171,6 +186,7 @@ export function CanvasPage() {
         points,
         stories,
         positions,
+        projectTags,
       });
     } catch {
       settle({ status: 'error' });
@@ -191,9 +207,7 @@ export function CanvasPage() {
   const boxes = ready ? groupPointsByBox(ready.points) : null;
   const ordered = boxes ? ORDERED_BOXES.flatMap(b => boxes.get(b.tag) ?? []) : [];
 
-  // The controls live in the address too (`?positions=1`, `?with=`), so a shared link opens the
-  // same view. Neither set: reading.
-  const showPositions = searchParams.get('positions') === '1';
+  // Compare lives in the address too (`?with=`), so a shared link opens the same view.
   const people = ready ? peopleOf(ready, handle) : new Map<string, CanvasPerson>();
   // Compare: the viewer against someone (signed out: the owner against someone). The owner is
   // listed first, then whoever took the most positions.
@@ -294,8 +308,6 @@ export function CanvasPage() {
               <h1 className="truncate text-base font-semibold leading-tight text-foreground sm:text-lg">{ready.ownerName}</h1>
               <span className="truncate text-sm text-foreground/60">
                 <span className="font-medium text-foreground/80" data-testid="canvas-kind">Clarity Canvas</span>
-                {' · '}
-                <span data-testid="canvas-project-tag">#{projectTag}</span>
               </span>
             </span>
           </Link>
@@ -306,8 +318,9 @@ export function CanvasPage() {
 
       {ready && (
         <CanvasControls
-          showPositions={showPositions}
-          onShowPositions={on => setParams({ positions: on ? '1' : null })}
+          handle={handle ?? ''}
+          projectTag={projectTag ?? ''}
+          projectTags={ready.projectTags}
           base={basePerson}
           others={others}
           withPerson={withPerson}
@@ -316,13 +329,6 @@ export function CanvasPage() {
             ? `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ?? '')}`
             : null}
         />
-      )}
-      {ready && showPositions && (
-        // Said once, not on every card: what the bars are.
-        <p className="-mt-1 mb-3 text-xs text-foreground/70" data-testid="canvas-spread-legend">
-          Bars run from strongly disagree (left) to strongly agree (right), as tall as the number of people:
-          grey disagrees, blue agrees.
-        </p>
       )}
 
       {current?.status === 'error' ? (
@@ -344,10 +350,8 @@ export function CanvasPage() {
             <CanvasCard
               key={`${point.id}:${panelCloses}`}
               point={point}
-              showPositions={showPositions}
               viewerId={viewerId}
               positions={ready.positions.get(point.id) ?? []}
-              storyCount={ready.stories.get(point.id)?.length ?? 0}
               compare={basePerson && withPerson
                 ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
                 : null}
@@ -355,7 +359,7 @@ export function CanvasPage() {
               onOpen={() => openPanel(point.id, true)}
             />
           )}
-          showEmpty={isOwner}
+          isOwner={isOwner}
           openPointId={openPoint?.id ?? null}
         />
       )}
@@ -373,6 +377,11 @@ export function CanvasPage() {
             onNext: openIndex < ordered.length - 1 ? () => openPanel(ordered[openIndex + 1].id) : undefined,
           }}
         >
+          {/* Whose canvas it is: the owner's position first, as on someone's profile. The owner
+              reading their own canvas sees it on the card's buttons instead. */}
+          {!isOwner && (
+            <OwnerStance owner={ready.owner} position={(ready.positions.get(openPoint.id) ?? []).find(p => p.userId === ready.ownerId)?.position} />
+          )}
           {/* Keyed by the point only: a re-read after a vote must not remount the card under the
               viewer's hand (a second tap adjusts the level of the position just taken). Stories
               start folded behind "N stories", as in the feed: a point with many stays short. */}
@@ -393,38 +402,67 @@ export function CanvasPage() {
   );
 }
 
-function CanvasGrid({ boxes, renderCard, showEmpty, openPointId }: {
+/**
+ * Two frames: Ikigai (the three boxes about the owner) above the Lean Canvas (what they can be
+ * paid for), the classic grid on desktop. Every box is shown, filled or not, so the grid keeps
+ * its shape; an empty box invites the owner and reads "Empty" to anyone else.
+ */
+function CanvasGrid({ boxes, renderCard, isOwner, openPointId }: {
   /** null while loading (skeletons) */
   boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
-  /** The owner sees empty boxes (what is left to fill); anyone else does not. */
-  showEmpty: boolean;
+  isOwner: boolean;
   openPointId: string | null;
 }) {
-  const shows = (tag: CanvasBoxTag) => !boxes || showEmpty || (boxes.get(tag)?.length ?? 0) > 0;
+  const box = (tag: CanvasBoxTag, cell = '') => (
+    <CanvasBox
+      key={tag}
+      tag={tag}
+      title={CANVAS_BOXES.find(b => b.tag === tag)?.title ?? tag}
+      points={boxes ? boxes.get(tag) ?? [] : null}
+      renderCard={renderCard}
+      openPointId={openPointId}
+      isOwner={isOwner}
+      className={cell}
+    />
+  );
   return (
-    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="canvas-grid" aria-busy={boxes === null}>
-      {ORDERED_BOXES.filter(box => shows(box.tag)).map(box => (
-        <CanvasBox
-          key={box.tag}
-          tag={box.tag}
-          title={box.title}
-          points={boxes ? boxes.get(box.tag) ?? [] : null}
-          renderCard={renderCard}
-          openPointId={openPointId}
-        />
-      ))}
+    <div className="flex flex-col gap-4" data-testid="canvas-grid" aria-busy={boxes === null}>
+      <CanvasFrame title="Ikigai" testId="canvas-frame-ikigai">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {IKIGAI_ORDER.map(tag => box(tag))}
+        </div>
+      </CanvasFrame>
+      <CanvasFrame title="Lean Canvas" subtitle="What I can be paid for" testId="canvas-frame-lean">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-10">
+          {LEAN_ORDER.map(tag => box(tag, LEAN_GRID_CELL[tag]))}
+        </div>
+      </CanvasFrame>
     </div>
   );
 }
 
-function CanvasBox({ tag, title, points, renderCard, openPointId }: {
+function CanvasFrame({ title, subtitle, testId, children }: { title: string; subtitle?: string; testId: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border-2 border-foreground/15 bg-muted/40 p-2 sm:p-3" data-testid={testId} aria-label={title}>
+      <h2 className="mb-2 px-1 text-base font-semibold text-foreground">
+        {title}
+        {subtitle && <span className="block text-sm font-normal text-foreground/60 sm:ml-2 sm:inline">{subtitle}</span>}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function CanvasBox({ tag, title, points, renderCard, openPointId, isOwner, className }: {
   tag: CanvasBoxTag;
   title: string;
   /** null while loading (skeleton) */
   points: PointWithUserPosition[] | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
   openPointId: string | null;
+  isOwner: boolean;
+  className: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   // The open point (Next, or an address with `?point=`) may sit past the first three: open the
@@ -436,26 +474,18 @@ function CanvasBox({ tag, title, points, renderCard, openPointId }: {
   const shown = points && !showAll ? points.slice(0, BOX_LIMIT) : points;
   const hidden = points ? points.length - (shown?.length ?? 0) : 0;
   const Icon = BOX_ICONS[tag];
-  const ikigai = IKIGAI_BOXES.has(tag);
-  const surface = empty
-    ? 'border-dashed border-border bg-muted/30'
-    : ikigai ? 'border-blue-200 bg-blue-50/70' : 'border-border bg-muted/60';
 
   return (
     <section
       aria-labelledby={headingId}
       data-testid={`canvas-box-${tag}`}
       data-empty={empty || undefined}
-      data-ikigai={ikigai || undefined}
-      className={`flex min-w-0 flex-col rounded-lg border p-3 ${surface}`}
+      className={`flex min-w-0 flex-col rounded-lg border border-border bg-background p-2 sm:p-3 ${className}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Icon aria-hidden className={`h-4 w-4 shrink-0 ${ikigai ? 'text-blue-600' : 'text-foreground/50'}`} />
-          <h2 id={headingId} className={`text-sm font-semibold ${empty ? 'text-foreground/60' : 'text-foreground'}`}>{title}</h2>
-          {ikigai && (
-            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800" data-testid="canvas-box-ikigai">Ikigai</span>
-          )}
+          <Icon aria-hidden className="h-4 w-4 shrink-0 text-foreground/50" />
+          <h3 id={headingId} className={`text-sm font-semibold uppercase tracking-wide ${empty ? 'text-foreground/50' : 'text-foreground'}`}>{title}</h3>
         </div>
         {points && points.length > 1 && (
           <span className="text-sm tabular-nums text-foreground/60" data-testid="canvas-box-count">{points.length}</span>
@@ -464,7 +494,7 @@ function CanvasBox({ tag, title, points, renderCard, openPointId }: {
       {points === null ? (
         <div className="h-24 animate-pulse rounded-md bg-muted" aria-hidden />
       ) : empty ? (
-        <p className="text-sm text-foreground/50">Empty</p>
+        <p className="text-sm text-foreground/50">{isOwner ? 'Empty — add a point with this box' : 'Empty'}</p>
       ) : (
         <div className="flex flex-col gap-2" data-testid="canvas-box-list">
           {(shown ?? []).map(point => renderCard(point))}
@@ -517,49 +547,58 @@ function peopleOf(
 }
 
 /**
- * What to show under the statements, in the feed's own control shapes (feed-page.tsx): an on/off
- * pill for Positions, and a pill select for Compare whose first choice is nobody. Both off is
- * reading. They combine: the spread and the two columns can show together.
+ * Above the canvas, in the feed's pill shapes: which of the owner's canvases (one per project
+ * tag), and who to compare with — the compare page's tag picker and person picker in small.
  */
-function CanvasControls({ showPositions, onShowPositions, base, others, withPerson, onCompare, fullCompareHref }: {
-  showPositions: boolean;
-  onShowPositions: (on: boolean) => void;
+function CanvasControls({ handle, projectTag, projectTags, base, others, withPerson, onCompare, fullCompareHref }: {
+  handle: string;
+  projectTag: string;
+  projectTags: string[];
   base: Person | null;
   others: CanvasPerson[];
   withPerson: CanvasPerson | null;
   onCompare: (id: string | null) => void;
   fullCompareHref: string | null;
 }) {
-  const pill = 'relative inline-flex h-10 shrink-0 items-center rounded-full border text-sm font-medium transition-colors';
+  const navigate = useNavigate();
+  const pill = 'relative inline-flex h-10 shrink-0 items-center rounded-full border text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-500';
+  const select = 'h-full max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-transparent pr-8 text-base font-medium focus:outline-none md:text-sm';
+  const tags = projectTags.includes(projectTag) ? projectTags : [projectTag, ...projectTags];
+  const withQuery = withPerson ? `?with=${encodeURIComponent(withPerson.id)}` : '';
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="canvas-controls">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={showPositions}
-        onClick={() => onShowPositions(!showPositions)}
-        data-testid="canvas-positions-switch"
-        className={`${pill} gap-2 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${showPositions ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-border text-foreground hover:bg-muted/60'}`}
-      >
-        Positions
-        <span aria-hidden className={`inline-block h-3 w-3 rounded-full border ${showPositions ? 'border-blue-500 bg-blue-500' : 'border-muted-foreground'}`} />
-      </button>
+      {/* One canvas only: the tag is a label, not a menu with one choice. */}
+      {tags.length > 1 ? (
+        <label className={`${pill} border-border text-foreground hover:bg-muted/60`} data-testid="canvas-project-picker">
+          <select
+            aria-label="Canvas"
+            value={projectTag}
+            // Compare (`?with=`) carries over; the open point belongs to this canvas and does not.
+            onChange={e => navigate(`/canvas/${handle}/${encodeURIComponent(e.target.value)}${withQuery}`)}
+            className={`${select} pl-3`}
+            data-testid="canvas-project-tag"
+          >
+            {tags.map(t => <option key={t} value={t}>#{t}</option>)}
+          </select>
+          <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-60" />
+        </label>
+      ) : (
+        <span className={`${pill} border-border px-3 text-foreground`} data-testid="canvas-project-tag">#{projectTag}</span>
+      )}
       {/* Nobody else to compare with: the pill is absent, not disabled (P955). */}
       {base && others.length > 0 && (
         <label
-          className={`${pill} focus-within:ring-2 focus-within:ring-blue-500 ${withPerson ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-border text-foreground hover:bg-muted/60'}`}
+          className={`${pill} pl-3 ${withPerson ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-border text-foreground hover:bg-muted/60'}`}
           data-testid="canvas-compare-picker"
         >
-          {/* No "Compare:" prefix: the first choice says it, and a chosen name shows on a blue
-              pill — so both pills fit one row at 320px. The select carries the padding, so a
-              click anywhere on the pill (the chevron included) opens its menu. */}
+          <span aria-hidden className="mr-1 text-foreground/60">Compare:</span>
           <select
             aria-label="Compare with"
             value={withPerson?.id ?? ''}
             onChange={e => onCompare(e.target.value || null)}
-            className="h-full max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-transparent pl-3 pr-8 text-base font-medium focus:outline-none md:text-sm"
+            className={select}
           >
-            <option value="">Compare with…</option>
+            <option value="">No one</option>
             {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-60" />
@@ -570,6 +609,19 @@ function CanvasControls({ showPositions, onShowPositions, base, others, withPers
           Full comparison <ChevronRight className="ml-0.5 h-4 w-4" aria-hidden />
         </Link>
       )}
+    </div>
+  );
+}
+
+/** The owner's position on the open point, above the point — as on someone's profile. */
+function OwnerStance({ owner, position }: { owner: Person; position: PositionType | undefined }) {
+  return (
+    <div className="mb-3 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm" data-testid="canvas-owner-stance">
+      <GravatarAvatar name={owner.name} photoUrl={owner.photoUrl} avatarColor={owner.avatarColor} isPledger={owner.hasPledged} size="sm" showRing={false} />
+      <span className="min-w-0 truncate font-medium text-foreground">{owner.name}</span>
+      {position
+        ? <PositionBadge position={position} />
+        : <span className="shrink-0 text-foreground/70">No position yet</span>}
     </div>
   );
 }
@@ -618,15 +670,13 @@ function PositionSpread({ positions }: { positions: PointPositionWithUser[] }) {
 
 /**
  * A box card: text to read, no controls inside; the whole card opens the point. Under the
- * statement, when switched on: how everyone spreads (Positions), and two people's positions in
- * the compare page's columns (Compare).
+ * statement: how everyone spreads, and, when Compare is set, two people's positions in the
+ * compare page's columns.
  */
-function CanvasCard({ point, showPositions, viewerId, positions, storyCount, compare, selected, onOpen }: {
+function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
   point: PointWithUserPosition;
-  showPositions: boolean;
   viewerId?: string;
   positions: PointPositionWithUser[];
-  storyCount: number;
   compare: { base: Person; baseId: string; baseIsViewer: boolean; other: CanvasPerson } | null;
   selected: boolean;
   onOpen: () => void;
@@ -634,8 +684,8 @@ function CanvasCard({ point, showPositions, viewerId, positions, storyCount, com
   // Everyone, the owner included: the same numbers the open point's buttons show.
   const tally = SIDES.map(({ side, label }) => ({ side, label, n: positions.filter(p => sideOf(p.position) === side).length }));
   const count = (side: Side) => tally.find(t => t.side === side)?.n ?? 0;
-  // Split: at least two people on each side — where the room has something to talk about.
-  const split = count('agree') >= 2 && count('disagree') >= 2;
+  // Spread: at least two people on each side — where the room has something to talk about.
+  const spread = count('agree') >= 2 && count('disagree') >= 2;
   // The viewer's own position (signed in: the read; signed out: what this browser kept).
   const positionOf = (userId: string) => positions.find(p => p.userId === userId)?.position;
   const viewerPosition = viewerId
@@ -654,20 +704,13 @@ function CanvasCard({ point, showPositions, viewerId, positions, storyCount, com
         {point.visibility === 'private' && <><InlineVisibilityIcon visibility={point.visibility} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
       </p>
-      {showPositions && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/70">
-          {positions.length > 0
-            ? <PositionSpread positions={positions} />
-            : <span data-testid="canvas-card-no-positions">No positions yet</span>}
-          {split && <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800" data-testid="canvas-card-split">Split</span>}
-          {storyCount > 0 && (
-            <span data-testid="canvas-card-stories">{storyCount} {storyCount === 1 ? 'story' : 'stories'}</span>
-          )}
-          {viewerPosition && (
-            <span className="font-medium text-foreground" data-testid="canvas-viewer-position">You: {POSITION_LABELS[viewerPosition]}</span>
-          )}
-        </div>
-      )}
+      {/* Always on: how everyone spreads. The viewer's own position is in the open point. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/70">
+        {positions.length > 0
+          ? <PositionSpread positions={positions} />
+          : <span data-testid="canvas-card-no-positions">No positions yet</span>}
+        {spread && <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800" data-testid="canvas-card-spread-badge">Spread</span>}
+      </div>
       {compare && (
         <div className="mt-3 flex items-start gap-2" data-testid="canvas-card-compare">
           <StanceColumn

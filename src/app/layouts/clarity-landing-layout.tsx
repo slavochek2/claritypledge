@@ -177,6 +177,8 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // the footer's site links would compete with that. P1114 rev2: also matches the room's
   // own `/events/:slug/ready`, and the gate itself (`/events/:slug/room`) — same reasoning.
   const isReadyPage = /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
+  // P1508: the canvas is a full-width working surface; the legal links add nothing under it.
+  const isCanvasPage = location.pathname.startsWith('/canvas/');
   return (
     /**
      * P1323: the Links provider wraps the WHOLE layout — nav and page children alike.
@@ -222,7 +224,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a
           fixed bottom action bar. The footer's site links compete with the single
           action and sat underneath that bar; dropping it removes both problems. */}
-      {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && (
+      {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && !isCanvasPage && (
         showSiteFooter
           ? <ClarityFooter />
           : !showUserMenu && <LegalFooter />

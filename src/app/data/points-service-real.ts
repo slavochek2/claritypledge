@@ -950,6 +950,19 @@ export const realPointsService: PointsService = {
     });
   },
 
+  async getCanvasProjectTags(ownerId: string, viewerUserId?: string): Promise<string[]> {
+    log('⚡ getCanvasProjectTags:', { ownerId, viewerUserId });
+    let query = currentVersionsOnly(supabase.from('points').select('tags'))
+      .eq('first_validator_id', ownerId)
+      .overlaps('system_tags', [...CANVAS_BOX_TAGS]);
+    if (viewerUserId !== ownerId) query = query.eq('visibility', 'public');
+    const { data, error } = await query;
+    if (error || !data) throwDbError('getCanvasProjectTags', error, 'Could not load canvases');
+    const tags = new Set<string>();
+    for (const row of data as { tags: string[] | null }[]) (row.tags ?? []).forEach(t => tags.add(t.toLowerCase()));
+    return [...tags].sort();
+  },
+
   async getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>> {
     log('⚡ getCanvasPositions:', { count: pointIds.length });
     const byPoint = new Map<string, PointPositionWithUser[]>(pointIds.map(id => [id, []]));

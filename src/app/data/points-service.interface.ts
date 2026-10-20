@@ -228,6 +228,13 @@ export interface PointsService {
    */
   getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>>;
 
+  /**
+   * P1508: the project tags an owner has a canvas for — the user tags on their current-version
+   * points that carry a canvas box tag, sorted. Private points count only for the owner.
+   * Throws on a read failure.
+   */
+  getCanvasProjectTags(ownerId: string, viewerUserId?: string): Promise<string[]>;
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================

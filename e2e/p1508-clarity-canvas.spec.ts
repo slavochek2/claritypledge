@@ -31,6 +31,9 @@ interface Fixture {
   uvpPointId: string;
   revenuePointId: string;
   privatePointId: string;
+  /** a second canvas of the owner's (public), and one made only of private points */
+  secondTag: string;
+  privateTag: string;
   url: string;
 }
 
@@ -58,6 +61,10 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   const revenuePointId = await insertPoint(owner.user.id, REVENUE_TEXT, [tag], ['canvas:revenue']);
   await insertPoint(other.user.id, FOREIGN_TEXT, [tag], ['canvas:problem']);
   await insertPoint(owner.user.id, UNBOXED_TEXT, [tag], []);
+  const secondTag = `${tag}b`;
+  const privateTag = `${tag}p`;
+  await insertPoint(owner.user.id, 'P1508 second canvas point', [secondTag], ['canvas:problem']);
+  await insertPoint(owner.user.id, 'P1508 private-only canvas point', [privateTag], ['canvas:problem'], 'private');
 
   const { data: story, error } = await supabaseAdmin.from('stories').insert({
     content: STORY_TEXT, author_id: owner.user.id, visibility: 'public',
@@ -71,7 +78,7 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   ]);
   if (pos.error) throw new Error(`[P1508 fixture] positions: ${pos.error.message}`);
 
-  return { owner, other, tag, uvpPointId, revenuePointId, privatePointId, url: `/canvas/${owner.slug}/${tag}` };
+  return { owner, other, tag, uvpPointId, revenuePointId, privatePointId, secondTag, privateTag, url: `/canvas/${owner.slug}/${tag}` };
 }
 
 const CARD = '[data-testid^="canvas-point-card-"]';
@@ -119,12 +126,14 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(fx.owner.name);
-    await expect(page.getByText(`#${fx.tag}`)).toBeVisible();
+    await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag); // the picker: the owner has more than one canvas
     for (const title of ['Problem', 'Customer Segments', 'Unique Value Proposition', 'Solution', 'Channels',
       'Revenue Streams', 'Cost Structure', 'Key Metrics', 'Unfair Advantage',
       'What I love', "What I'm good at", 'What the world needs']) {
-      await expect(page.getByRole('heading', { level: 2, name: title, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 3, name: title, exact: true })).toBeVisible();
     }
+    // The two frames are the h2s; the twelve boxes sit under them.
+    for (const frame of ['Ikigai', 'Lean Canvas']) await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${frame}`) })).toBeVisible();
     const problem = page.getByTestId('canvas-box-canvas:problem');
     await expect(problem.getByTestId('canvas-box-count')).toHaveText('7');
     await problem.getByTestId('canvas-box-more').click();
@@ -154,24 +163,17 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByText(UVP_TEXT)).toBeVisible();
   });
 
-  test('reading is the default; the Positions switch adds each card\'s spread and story count; no buttons inside a card', async ({ page }) => {
+  test('every card shows its spread, always; no switch, no legend, no story count; no buttons inside a card', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
     const card = page.getByTestId(`canvas-point-card-${fx.uvpPointId}`);
-    const toggle = page.getByTestId('canvas-positions-switch');
-    await expect(toggle).toHaveAttribute('role', 'switch');
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await expect(card).toHaveText(UVP_TEXT);
-    await expect(card.getByTestId('canvas-card-spread')).toHaveCount(0);
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await expect(page).toHaveURL(/positions=1/);
+    await expect(page.getByTestId('canvas-positions-switch')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-spread-legend')).toHaveCount(0);
+    await expect(card.getByTestId('canvas-card-stories')).toHaveCount(0);
     // Seven bars, strongly disagree to strongly agree; the numbers are in the label.
     const spread = card.getByTestId('canvas-card-spread');
     await expect(spread).toHaveAttribute('aria-label', '1 disagree, 1 agree');
     await expect(spread.locator('[data-count]')).toHaveCount(7);
-    await expect(page.getByTestId('canvas-spread-legend')).toBeVisible();
-    await expect(card.getByTestId('canvas-card-stories')).toHaveText('1 story');
     await expect(page.getByTestId(`canvas-point-card-${fx.revenuePointId}`).getByTestId('canvas-card-no-positions')).toHaveText('No positions yet');
     await expect(card.locator('button')).toHaveCount(0);
     expect(await card.evaluate(el => el.tagName)).toBe('BUTTON'); // the whole card opens the point
@@ -196,11 +198,11 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-card-compare')).toContainText('You');
     await expect(page.getByTestId('canvas-compare-full')).toHaveAttribute('href', `/compare/${fx.other.slug}?tag=${fx.tag}`);
-    // Positions and Compare combine; the owner sees their own position too (review fix).
-    await page.getByTestId('canvas-positions-switch').click();
-    await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-viewer-position')).toHaveText('You: Agree');
+    // The spread and Compare show together.
+    await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-card-spread')).toBeVisible();
     await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-card-compare')).toBeVisible();
-    // Back to Nobody: the columns go.
+    // Back to "No one" (a real choice, not the picker's own title): the columns go.
+    await expect(page.getByLabel('Compare with').locator('option').first()).toHaveText('No one');
     await page.getByLabel('Compare with').selectOption('');
     await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-card-compare')).toHaveCount(0);
     await expect(page.getByTestId('canvas-compare-full')).toHaveCount(0);
@@ -309,20 +311,20 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page).not.toHaveURL(/point=/);
   });
 
-  test('every box has an icon; the three ikigai boxes are marked apart from the business boxes', async ({ page }) => {
+  test('every box has an icon; the three ikigai boxes sit in an Ikigai frame above the Lean Canvas frame', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await setTestSession(page, fx.owner.email); // the owner sees the empty ikigai boxes
     await page.goto(fx.url);
     await waitForCanvas(page);
+    const ikigai = page.getByTestId('canvas-frame-ikigai');
+    const lean = page.getByTestId('canvas-frame-lean');
     for (const tag of ['canvas:love', 'canvas:world-needs', 'canvas:good-at']) {
-      const box = page.getByTestId(`canvas-box-${tag}`);
-      await expect(box).toHaveAttribute('data-ikigai', 'true');
-      await expect(box.getByTestId('canvas-box-ikigai')).toHaveText('Ikigai');
+      await expect(ikigai.getByTestId(`canvas-box-${tag}`)).toHaveCount(1);
     }
     for (const tag of ['canvas:segments', 'canvas:uvp', 'canvas:revenue']) {
-      await expect(page.getByTestId(`canvas-box-${tag}`)).not.toHaveAttribute('data-ikigai', 'true');
-      await expect(page.getByTestId(`canvas-box-${tag}`).getByTestId('canvas-box-ikigai')).toHaveCount(0);
+      await expect(lean.getByTestId(`canvas-box-${tag}`)).toHaveCount(1);
     }
+    const [i, l] = [await ikigai.boundingBox(), await lean.boundingBox()];
+    expect(i && l && l.y > i.y).toBe(true);
     expect(await page.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll(boxes => boxes.every(b => !!b.querySelector('svg')))).toBe(true);
   });
 
@@ -336,19 +338,27 @@ test.describe('P1508: Clarity Canvas', () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.uvpPointId}`);
   });
 
-  test('boxes follow the reading order: segments, problem, solution, love, world needs, then the rest', async ({ page }) => {
+  test('boxes follow the reading order: Ikigai, then the classic Lean Canvas grid', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
     await waitForCanvas(page);
     const order = await page.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll(els => els.map(e => e.getAttribute('data-testid')?.replace('canvas-box-', '')));
     expect(order).toEqual([
-      'canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:love', 'canvas:world-needs', 'canvas:uvp',
-      'canvas:advantage', 'canvas:good-at', 'canvas:channels', 'canvas:metrics', 'canvas:revenue', 'canvas:cost',
+      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
+      'canvas:problem', 'canvas:solution', 'canvas:metrics', 'canvas:uvp',
+      'canvas:advantage', 'canvas:channels', 'canvas:segments', 'canvas:cost', 'canvas:revenue',
     ]);
-    // Three to a row at desktop, left to right.
-    const [a, b] = [await page.getByTestId('canvas-box-canvas:segments').boundingBox(), await page.getByTestId('canvas-box-canvas:problem').boundingBox()];
-    expect(a && b && Math.abs(a.y - b.y) < 2 && b.x > a.x).toBe(true);
+    // The classic grid: Problem | Solution | UVP | Advantage | Segments across the top, Key Metrics
+    // under Solution, Cost and Revenue sharing the bottom row.
+    const box = async (tag: string) => page.getByTestId(`canvas-box-canvas:${tag}`).boundingBox();
+    const [problem, solution, uvp, advantage, segments, metrics, cost, revenue] = await Promise.all(
+      ['problem', 'solution', 'uvp', 'advantage', 'segments', 'metrics', 'cost', 'revenue'].map(box));
+    const top = [problem, solution, uvp, advantage, segments];
+    expect(top.every(b => b && problem && Math.abs(b.y - problem.y) < 2)).toBe(true);
+    expect(top.every((b, n) => n === 0 || (b && top[n - 1] && b.x > top[n - 1]!.x))).toBe(true);
+    expect(metrics && solution && Math.abs(metrics.x - solution.x) < 2 && metrics.y > solution.y).toBe(true);
+    expect(problem && metrics && uvp && Math.abs(problem.height - uvp.height) < 2 && problem.height > metrics.height).toBe(true);
+    expect(cost && revenue && Math.abs(cost.y - revenue.y) < 2 && revenue.x > cost.x).toBe(true);
   });
 
   test('review fix: an open point past a box\'s first three opens the box, so its card is on screen', async ({ page }) => {
@@ -386,7 +396,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('P1508 Canvas Owner');
     await expect(page.getByTestId('canvas-kind')).toHaveText('Clarity Canvas');
-    await expect(page.getByTestId('canvas-project-tag')).toHaveText(`#${fx.tag}`);
+    await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag);
     await expect(page.getByTestId('canvas-intro')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /discovery call/i })).toHaveCount(0);
     // Inside the canvas the project tag is where the reader already is: not a link to the feed.
@@ -415,10 +425,10 @@ test.describe('P1508: Clarity Canvas', () => {
     });
   }
 
-  test('an empty box shows to the owner only; an unknown canvas address shows not-found', async ({ page }) => {
+  test('an empty box shows to everyone (the grid keeps its shape); an unknown canvas address shows not-found', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-box-canvas:love')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-box-canvas:love')).toHaveAttribute('data-empty', 'true');
 
     await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
@@ -455,16 +465,50 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByText(UVP_TEXT)).toBeVisible();
   });
 
-  test('review fix: a signed-out vote in the panel shows on the box card after closing', async ({ page }) => {
+  test('review fix: a signed-out vote in the panel is still there when the point is opened again', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${fx.url}?positions=1`);
+    await page.goto(fx.url);
     await waitForCanvas(page);
     await page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).click();
     const panel = page.getByTestId('canvas-point-panel');
     await panel.getByRole('button', { name: /^disagree/i }).first().click();
     await panel.getByRole('button', { name: 'Close' }).click();
     await expect(panel).toHaveCount(0);
-    await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-viewer-position')).toHaveText('You: Disagree');
+    // The card shows the room's spread, not the viewer's own position (founder: open it to see yours).
+    await expect(page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).getByTestId('canvas-viewer-position')).toHaveCount(0);
+    await page.getByTestId(`canvas-point-card-${fx.uvpPointId}`).click();
+    await expect(panel.getByRole('button', { name: /^disagree/i }).first()).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('the canvas picker lists the owner\'s canvases and switches between them; a private-only canvas is listed for the owner only', async ({ page }) => {
+    await page.goto(fx.url);
+    await waitForCanvas(page);
+    const picker = page.getByTestId('canvas-project-tag');
+    await expect(picker).toHaveValue(fx.tag);
+    await expect(picker.locator('option')).toHaveText([`#${fx.tag}`, `#${fx.secondTag}`]);
+    await picker.selectOption(fx.secondTag);
+    await expect(page).toHaveURL(new RegExp(`/canvas/${fx.owner.slug}/${fx.secondTag}$`));
+    await waitForCanvas(page);
+    await expect(page.getByText('P1508 second canvas point')).toBeVisible();
+
+    await setTestSession(page, fx.owner.email);
+    await page.goto(fx.url);
+    await waitForCanvas(page);
+    await expect(page.getByTestId('canvas-project-tag').locator('option')).toHaveText([`#${fx.tag}`, `#${fx.secondTag}`, `#${fx.privateTag}`]);
+  });
+
+  test('a visitor opening a point sees the owner\'s position above it; the owner does not see it repeated', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${fx.url}?point=${fx.uvpPointId}`);
+    await waitForCanvas(page);
+    const stance = page.getByTestId('canvas-point-panel').getByTestId('canvas-owner-stance');
+    await expect(stance).toContainText('P1508 Canvas Owner');
+    await expect(stance).toContainText(/agree/i); // another test moves it between agree and disagree
+    await setTestSession(page, fx.owner.email);
+    await page.goto(`${fx.url}?point=${fx.uvpPointId}`);
+    await waitForCanvas(page);
+    await expect(page.getByTestId('canvas-point-panel')).toBeVisible();
+    await expect(page.getByTestId('canvas-owner-stance')).toHaveCount(0);
   });
 
   test('review fix: the open point is in the address — reload reopens it; a private id does not open signed out', async ({ page }) => {

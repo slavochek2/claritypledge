@@ -406,6 +406,15 @@ export const mockPointsService: PointsService = {
     return withCounts.map(point => ({ ...point, userPosition: positionsMap.get(point.id) }));
   },
 
+  async getCanvasProjectTags(ownerId: string, viewerUserId?: string): Promise<string[]> {
+    const tags = new Set<string>();
+    mockPoints
+      .filter(p => p.firstValidatorId === ownerId && !p.supersededBy && p.systemTags.some(isCanvasBoxTag))
+      .filter(p => viewerUserId === ownerId || p.visibility !== 'private')
+      .forEach(p => p.tags.forEach(t => tags.add(t.toLowerCase())));
+    return [...tags].sort();
+  },
+
   async getCanvasPositions(pointIds: string[]): Promise<Map<string, PointPositionWithUser[]>> {
     return new Map(pointIds.map(id => [id, mockPositions.filter(p => p.pointId === id)]));
   },
