@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 201
+**Next ID:** 203
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2577,5 +2577,27 @@ Found by /day on 2026-10-20 (check: cp.reflect, severity: low).
 **due:** week
 
 Measured on the live site and on localhost (signed out, /feed, 20s after the page settled): resolve_letter_shortcode is called about every 2.5s, events about every 5s, and on the live site get_letter_for_public_reading about every 2.5s too; signed in, the feed also refetches stories, points and point_positions about every 4s. The page therefore never goes network-idle, which costs phone battery and database load and makes every e2e that waits for networkidle time out (found while triaging P1512 e2e). Find the pollers (likely a letter-shortcode resolver and the events widget), switch them to on-focus or Realtime, and drop this once a 20s idle window shows no repeating requests.
+
+---
+
+## Check Supabase org quota before 11 Nov restriction
+
+**ID:** INBOX-201
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+Around 5 Nov open the Supabase usage page for the production organisation. If it still shows over quota (grace period from the Sep-Oct cycle), upgrade to Pro (about 35 USD/month with two projects, 25 with one) before 11 Nov, or production requests start returning 402. Droppable once the usage page shows the organisation within its limits.
+
+---
+
+## P1512 follow-up: Clarify in flight while switching chats
+
+**ID:** INBOX-202
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+From the third P1512 review round: switching chats while a Clarify is still sending can apply its follow-up (attachment send, reload) to the newly opened chat; a stalled reload keeps Send disabled; a Clarify staged during another's send is cleared when the first lands; a failed send can overwrite a newer draft. Fix with a test per case, guarded by the submitting conversation id. Droppable if P1512 is reworked so ConversationPane remounts per conversation.
 
 ---
