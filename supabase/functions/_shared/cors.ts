@@ -1,8 +1,10 @@
 // Shared CORS helper for all edge functions.
 // See docs/technical/edge-functions.md for usage.
 
-// Dev ports: w0=5001; w1..w7 base ports 5100..5700 (5100–5799 accepted to cover Vite HMR offsets); named=5800..5899
-const DEV_ORIGIN_RE = /^http:\/\/localhost:(5001|5[1-7]\d{2}|58\d{2})$/;
+// Dev ports come from scripts/lib/worktree-port.mjs: w0=5001; wN=5000+N*100 (w1..w9 = 5100..5900, whole
+// hundreds accepted for Vite HMR offsets); named=5800..5899; w10's 6000 is browser-restricted, so 6050.
+// src/tests/inbox205-cors-dev-ports.test.ts fails if a slot's port is not accepted here.
+const DEV_ORIGIN_RE = /^http:\/\/localhost:(5001|5[1-9]\d{2}|6050)$/;
 // Project-prefixed: claritypledge-<hash>, claritypledge-git-<branch>-<team>-<id>, claritypledge-git-staging.
 // Narrows, does not close: Vercel subdomains are first-come, so another account's
 // "claritypledge-x" project would still match. No Allow-Credentials is sent, so
