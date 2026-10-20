@@ -10,14 +10,10 @@
  *  - 'story': StoryVideoPlayer's facade look — rounded-lg black frame, undimmed poster and its
  *    own PosterPlayButton — for a surface where a native clip sits in the same flow as a story
  *    video (P1336 onboarding) and a second play-button language would read as a different thing.
- *  - 'tile' (P1517): a gallery tile — the frame fills its parent's 4:3 box like a photo tile, so
- *    portrait and landscape clips both reserve the same height. The poster covers the box at
- *    rest; the playing <video> is letterboxed (object-contain on black) so a portrait clip is
- *    never cropped. Uses the story look's play button.
  *
  * `pulse` and `durationSeconds` are opt-in; without them either look renders what it did before.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { PlayIcon } from 'lucide-react';
 import { formatTimecode } from '@/lib/video';
 import { PosterPlayButton } from './story-video-player';
@@ -33,7 +29,7 @@ export interface Mp4VideoFacadeProps {
   captions?: string;
   /** Called once, on the first play. */
   onPlay?: () => void;
-  look?: 'landing' | 'story' | 'tile';
+  look?: 'landing' | 'story';
   /** A pulsing ring behind the play button while the poster shows. Default false. */
   pulse?: boolean;
   /** Shown as a badge on the poster (m:ss) when set. */
@@ -45,7 +41,6 @@ export interface Mp4VideoFacadeProps {
 const FRAME = {
   landing: 'relative aspect-video w-full overflow-hidden rounded-2xl shadow-md ring-1 ring-border bg-black',
   story: 'relative aspect-video w-full overflow-hidden rounded-lg bg-black',
-  tile: 'relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black',
 } as const;
 
 export function Mp4VideoFacade({
@@ -62,12 +57,6 @@ export function Mp4VideoFacade({
 }: Mp4VideoFacadeProps) {
   const [playing, setPlaying] = useState(false);
   const firedRef = useRef(false);
-  const frameRef = useRef<HTMLDivElement>(null);
-
-  // The poster button unmounts on tap, dropping focus to <body>; hand it to the player (once).
-  useEffect(() => {
-    if (playing) frameRef.current?.querySelector('video')?.focus();
-  }, [playing]);
 
   const handlePlay = () => {
     if (!firedRef.current) {
@@ -78,7 +67,7 @@ export function Mp4VideoFacade({
   };
 
   return (
-    <div ref={frameRef} className={FRAME[look]}>
+    <div className={FRAME[look]}>
       {playing ? (
         // Captions are optional: the rule cannot see the conditional <track> below. A clip
         // without captions (the P1336 prototype's local drafts) plays without them.
@@ -86,9 +75,6 @@ export function Mp4VideoFacade({
         <video
           src={src}
           poster={poster}
-          aria-label={posterAlt}
-          // Already tabbable in browsers (native controls); explicit so focus() also works in jsdom.
-          tabIndex={0}
           ref={(el) => {
             if (el && playbackRate) {
               el.defaultPlaybackRate = playbackRate;
@@ -98,7 +84,7 @@ export function Mp4VideoFacade({
           controls
           autoPlay
           playsInline
-          className={`absolute inset-0 h-full w-full ${look === 'tile' ? 'object-contain' : 'object-cover'}`}
+          className="absolute inset-0 h-full w-full object-cover"
         >
           {captions && <track kind="captions" src={captions} srcLang="en" label="English" default />}
         </video>
@@ -110,7 +96,7 @@ export function Mp4VideoFacade({
           className="group absolute inset-0 h-full w-full cursor-pointer"
         >
           <img src={poster} alt={posterAlt} className="absolute inset-0 h-full w-full object-cover" />
-          {look === 'story' || look === 'tile' ? (
+          {look === 'story' ? (
             <span className="absolute inset-0 flex items-center justify-center">
               <PosterPlayButton pulse={pulse} />
             </span>

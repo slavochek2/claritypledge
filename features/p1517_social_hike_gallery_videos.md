@@ -119,7 +119,7 @@ the visitor's consent. The alternative is to start muted.)
 
 - [ ] On a series with one video row, the "From past hikes" strip shows a tile with the poster
       and a play button, and the network panel shows no request for the mp4 before the tap.
-- [ ] Tapping the tile plays the video inline (iOS Safari included) with native controls.
+- [ ] Tapping the tile opens the clip enlarged in a full-viewport overlay (same pattern as the photo lightbox) and plays it there with sound, native controls and `playsInline` (iOS Safari included). The overlay closes on the X, Escape or a backdrop tap, and the `<video>` unmounts on close. The clip never plays inside the small tile. (Founder 2026-10-20: "by clicking on play it should enlarge and play on full screen and not in small window there - it makes no sense to play it there".)
 - [x] Photo tiles and the route-map tile look and behave as before, and the lightbox still opens.
 - [x] The DB rejects a video row without a poster and one whose URL is outside the bucket.
 - [ ] The strip is verified at 320px, 375px and desktop with photos and a video mixed.
@@ -129,8 +129,8 @@ the visitor's consent. The alternative is to start muted.)
       `isPublicMediaVideo()`, and the existing `src/tests/p1385-public-media.test.ts` (origin in
       `media-src`/`img-src`) stays green. `[post-deploy]` re-check that one clip plays on
       claritypledge.com.
-- [ ] A portrait clip and a landscape clip both fill the tile without layout shift next to
-      photo tiles.
+- [ ] A portrait clip and a landscape clip both show their poster in the tile without layout shift next to
+      photo tiles, and both play without cropping in the overlay (`object-contain`).
 
 ## Follow-up data (not in scope)
 
@@ -147,3 +147,19 @@ Once this ships, add three clips through the step-4 recipe after the founder cle
 
 Pipeline layers not written yet: `/ux` (tile states, portrait handling), `/architect` (migration,
 facade extension), `/generate-tests`. Re-run `/spec-review` after them.
+
+## Amendment 2026-10-20 (founder, after seeing it locally)
+
+1. **Playback is full-screen, not in the tile.** The tile is poster + play button only. A new
+   `VideoLightbox` (`src/app/components/shared/video-lightbox.tsx`, Radix Dialog like `ImageLightbox`)
+   plays the clip. This supersedes the `Mp4VideoFacade` tile look in Solution step 3: the facade is
+   unchanged from main.
+2. **Series reviews as a swipe strip.** Founder: "should references be swipe to the right instead of
+   being one after another ... over time you might have more references". `SeriesReviews`
+   (P1403) already renders a scroll-snap row (`overflow-x-auto snap-x`, cards `w-[85%] sm:w-80`, avatar +
+   profile link per card); a single review is full width, which is what the test DB shows today (one
+   review), so it reads as stacked. Test added for 3 reviews. No layout change needed.
+3. **Order: photos first.** Founder: "better start with photos and mix videos after". A video never
+   takes the first slot: content sets `sort_order` so videos come after the first photos, and
+   `PastHikePhotos` moves the first photo ahead of any leading video as a backstop (route-map tile
+   position unchanged). Covered by `p1517-hike-gallery-videos.test.tsx`.

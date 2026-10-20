@@ -4,14 +4,14 @@
  * Each renders null when its data is absent, so every section hides independently
  * and an old hike with none of them renders today's page.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Repeat, MoveHorizontal, Map as MapIcon } from 'lucide-react';
+import { Repeat, MoveHorizontal, Map as MapIcon, PlayIcon } from 'lucide-react';
 import type { SeriesPhoto, SeriesReview } from '@/app/types';
 import { safeLinkHref } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PUBLIC_MEDIA_ORIGIN, isPublicMediaVideo, isPublicMediaImage } from '@/lib/public-media';
-import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
+import { VideoLightbox } from '@/app/components/shared/video-lightbox';
 import {
   HIKE_LABELS,
   extractRouteGeometry,
@@ -70,9 +70,13 @@ function isAllowedPhotoUrl(url: string): boolean {
 
 export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: SeriesPhoto[]; mapUrl?: string; onOpenImage?: (src: string, alt: string) => void }) {
   // P1517: a video row needs a bucket mp4 AND a bucket poster; anything else is dropped like a bad photo.
+  const [playing, setPlaying] = useState<SeriesPhoto | null>(null);
   const shown = photos.filter(p => p.mediaType === 'video'
     ? isPublicMediaVideo(p.storageUrl) && isPublicMediaImage(p.posterUrl)
     : isAllowedPhotoUrl(p.storageUrl));
+  // Founder 2026-10-20: the strip starts with a photo; videos mix in after it, never first.
+  const firstPhoto = shown.findIndex(p => p.mediaType !== 'video');
+  if (firstPhoto > 0) shown.unshift(...shown.splice(firstPhoto, 1));
   const mapTile = mapUrl && isAllowedPhotoUrl(mapUrl) ? mapUrl : undefined;
   if (shown.length === 0 && !mapTile) return null;
 
@@ -100,13 +104,21 @@ export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: Series
         ) : tile.photo.mediaType === 'video' ? (
           <li key={tile.photo.id} data-testid="hike-video-tile" className="snap-start flex-shrink-0 w-[62%] sm:w-56">
             <figure>
-              <Mp4VideoFacade
-                look="tile"
-                src={tile.photo.storageUrl}
-                poster={tile.photo.posterUrl!}
-                posterAlt={tile.photo.alt}
-                playLabel={`Play video: ${tile.photo.alt}`}
-              />
+              {/* Founder 2026-10-20: a clip plays enlarged, never inside the small tile. The tile is
+                  poster + play button; the 4:3 box reserves the same height as a photo tile. */}
+              <button
+                type="button"
+                onClick={() => setPlaying(tile.photo)}
+                aria-label={`Play video: ${tile.photo.alt}`}
+                className="group relative block aspect-[4/3] w-full overflow-hidden rounded-lg bg-black cursor-pointer"
+              >
+                <img src={tile.photo.posterUrl} alt={tile.photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/75 text-white ring-2 ring-white/80 shadow-lg shadow-black/40 transition group-hover:bg-black">
+                    <PlayIcon className="h-6 w-6 translate-x-0.5 fill-white" aria-hidden="true" />
+                  </span>
+                </span>
+              </button>
               {tile.photo.credit && (
                 <figcaption className="mt-1 text-[11px] text-muted-foreground truncate">{tile.photo.credit}</figcaption>
               )}
@@ -131,6 +143,15 @@ export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: Series
           </li>
         ))}
       </ul>
+      {playing && (
+        <VideoLightbox
+          src={playing.storageUrl}
+          poster={playing.posterUrl!}
+          alt={playing.alt}
+          open
+          onOpenChange={open => { if (!open) setPlaying(null); }}
+        />
+      )}
     </section>
   );
 }

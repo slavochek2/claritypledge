@@ -4,10 +4,11 @@
  * until the tap, bucket-only URLs, photos and the route-map tile unchanged, DB constraint shape.
  */
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PastHikePhotos } from '@/app/prototypes/events/hike/HikeSections';
+import { MemoryRouter } from 'react-router-dom';
+import { PastHikePhotos, SeriesReviews } from '@/app/prototypes/events/hike/HikeSections';
 import { publicMediaUrl, isPublicMediaVideo, isPublicMediaImage } from '@/lib/public-media';
 import type { SeriesPhoto } from '@/app/types';
 
@@ -36,33 +37,52 @@ describe('P1517: video tiles in the past-hike strip', () => {
     expect(container.innerHTML).not.toContain('.mp4');
   });
 
-  it('plays inline with native controls on tap; sound not forced off; letterboxed', () => {
+  it('tap opens a full-screen player (sound on, controls, inline), never a video inside the tile', () => {
     const { container } = render(<PastHikePhotos photos={[video('c')]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play video: Clip c' }));
-    const v = container.querySelector('video')!;
+    const v = document.body.querySelector('video')!;
     expect(v.getAttribute('src')).toContain('c-v1.mp4');
     expect(v.hasAttribute('controls')).toBe(true);
     expect(v.hasAttribute('playsinline')).toBe(true);
     expect(v.muted).toBe(false);
-    expect(v.className).toMatch(/object-contain/);
     expect(v.getAttribute('aria-label')).toBe('Clip c');
-    expect(document.activeElement).toBe(v);
+    // the video lives in the overlay, not in the strip
+    expect(container.querySelector('video')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    expect(document.activeElement).toBe(v); // focus lands on the player, not the X
+    // Radix's modal layer forces inline pointer-events:auto; the full-viewport content must stay
+    // click-through or it swallows backdrop taps (verified in a real browser, jsdom cannot hit-test).
+    expect(screen.getByRole('dialog').style.pointerEvents).toBe('none');
+    expect(v.parentElement!.className).toMatch(/pointer-events-auto/);
+    expect(screen.getByRole('button', { name: 'Close' }).className).toMatch(/pointer-events-auto/);
   });
 
-  it('reserves the same 4:3 box as photo tiles', () => {
-    const { container } = render(<PastHikePhotos photos={[photo('a'), video('c')]} />);
-    const tile = screen.getByTestId('hike-video-tile');
-    expect(tile.className).toBe(container.querySelector('li:not([data-testid])')!.className);
-    expect(tile.querySelector('.aspect-\\[4\\/3\\]')).not.toBeNull();
-    // the poster covers the box at rest
-    expect(tile.querySelector('img')!.className).toMatch(/object-cover/);
+  it('closes on X, Escape and backdrop tap, unmounting the video', async () => {
+    render(<PastHikePhotos photos={[video('c')]} />);
+    const open = () => fireEvent.click(screen.getByRole('button', { name: 'Play video: Clip c' }));
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(document.body.querySelector('video')).toBeNull();
+    open();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(document.body.querySelector('video')).toBeNull();
+    open();
+    await new Promise(r => setTimeout(r, 20)); // Radix registers its outside-press listener on a 0ms timer
+    fireEvent.pointerDown(document.body.querySelector('video')!); // a tap on the video must NOT close
+    fireEvent.click(document.body.querySelector('video')!);
+    await new Promise(r => setTimeout(r, 20));
+    expect(document.body.querySelector('video')).not.toBeNull();
+    fireEvent.pointerDown(screen.getByTestId('video-lightbox-overlay')); // the backdrop does
+    await waitFor(() => expect(document.body.querySelector('video')).toBeNull());
   });
 
   it('video tiles do not open the lightbox; photo tiles still do', () => {
     const opened: string[] = [];
     render(<PastHikePhotos photos={[photo('a'), video('c')]} onOpenImage={(src) => opened.push(src)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play video: Clip c' }));
-    expect(opened).toEqual([]);
+    expect(opened).toEqual([]); // the image lightbox stays out of it
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     fireEvent.click(screen.getByRole('button', { name: 'View photo: Photo a' }));
     expect(opened).toHaveLength(1);
   });
@@ -79,6 +99,23 @@ describe('P1517: video tiles in the past-hike strip', () => {
     ];
     const { container } = render(<PastHikePhotos photos={bad} />);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('never starts with a video: the first photo is moved ahead of leading videos', () => {
+    render(<PastHikePhotos photos={[video('v1'), video('v2'), photo('a'), photo('b')]} />);
+    const items = Array.from(screen.getByTestId('hike-photos').querySelectorAll('li'));
+    expect(items[0].querySelector('button')!.getAttribute('aria-label')).toBe('View photo: Photo a');
+    expect(items[1].getAttribute('data-testid')).toBe('hike-video-tile');
+    expect(items).toHaveLength(4);
+  });
+
+  it('leaves the order alone when a photo already leads, and when there are only videos', () => {
+    const { unmount } = render(<PastHikePhotos photos={[photo('a'), video('v1'), photo('b')]} />);
+    const lis = Array.from(screen.getByTestId('hike-photos').querySelectorAll('li'));
+    expect(lis.map(l => l.getAttribute('data-testid'))).toEqual([null, 'hike-video-tile', null]);
+    unmount();
+    render(<PastHikePhotos photos={[video('v1'), video('v2')]} />);
+    expect(screen.getAllByTestId('hike-video-tile')).toHaveLength(2);
   });
 
   it('keeps photo rows and the route-map tile as before', () => {
@@ -107,5 +144,25 @@ describe('P1517: URL helper + migration shape', () => {
     expect(MIGRATION).toContain('claritypledge-story-images');
     expect(MIGRATION).toContain('(jpe?g|png|webp)$');
     expect(MIGRATION).not.toMatch(/DROP (TABLE|COLUMN)|RENAME/i);
+  });
+});
+
+describe('P1517 amendment: reviews are a swipe strip', () => {
+  it('many reviews render in one scroll-snap row with avatar slot and profile link per card', () => {
+    const reviews = ['a', 'b', 'c'].map(id => ({
+      id, quote: `Quote ${id}`, authorName: `Person ${id}`, authorProfilePath: `/p/${id}`,
+    }));
+    render(<MemoryRouter><SeriesReviews reviews={reviews} /></MemoryRouter>);
+    const ul = screen.getByTestId('hike-reviews').querySelector('ul')!;
+    expect(ul.className).toMatch(/\bflex\b/);
+    expect(ul.className).toMatch(/overflow-x-auto/);
+    expect(ul.className).toMatch(/snap-x/);
+    expect(screen.getAllByTestId('hike-review')).toHaveLength(3);
+    for (const li of screen.getAllByTestId('hike-review')) {
+      expect(li.className).toMatch(/snap-start/);
+      expect(li.className).toMatch(/w-\[85%\]/); // peeks the next card on mobile
+      expect(li.className).toMatch(/sm:w-80/);
+    }
+    expect(screen.getByRole('link', { name: 'Person a' }).getAttribute('href')).toBe('/p/a');
   });
 });
