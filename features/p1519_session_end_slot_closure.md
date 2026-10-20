@@ -45,46 +45,58 @@ Blast radius: medium — every session that holds a slot, through the Stop hook 
 
 ## Solution
 
-1. **Scope the existing detector to one slot.** `pipeline-strandings.sh` gains a mode that reports only the slot the current session claimed or wrote in, reusing today's classification (shipped-but-unclosed, closed-but-checked-out, spec-only, idle). No second detector.
-2. **Check at session end.** When a turn announces it is finished, the Stop hook runs that scoped check. A clean slot passes silently.
-3. **One of three outcomes per open slot, shown to the founder:**
-   - **Close** — run the step that is missing (`/ship` closure for shipped work, `git-ops.sh release` + worktree remove for closed work), or
-   - **Park** — commit the spec to main, free the slot, keep the branch, or
-   - **Stays open: <reason> — owner: <who/what>** — one line, e.g. "waiting on founder: mechanism A/B/C" or "deploy due 2026-10-21 09:00 UTC".
-4. **The reason line is recorded** where the next session's startup report shows it next to the slot, so a stated "stays open" stops reading as abandoned.
+1. **Ownership comes from the session's own transcript.** The Stop hook already reads `transcript_path`. A slot is *mine* when this transcript holds a `git-ops.sh claim` result naming it, or an Edit/Write, `git add` or `git commit` whose path or cwd is inside it. Reads never count. Not the lock's `SESSION_ID` (an agent-run claim records a PID-based fallback, `git-ops.sh:487`), not cwd, not `.activity`. This removes the dependency on P1450 item 1.
+2. **A per-slot classifier.** `pipeline-strandings.sh` gains a mode for given slots. It skips the liveness test for the owner's own slot (otherwise this session's activity reads LIVE and hides it) and adds the missing state **code on `origin/main`, spec not in `done/`** (P1510/P1511), next to closed-but-checked-out, spec-only and idle.
+3. **Check inside the existing hook flow.** Computed next to `unreviewed`, joined into the one final `if not problems and …` condition and the shared message assembly of `verify-before-stop.py`. Never on the `stop_hook_active` follow-up path. Same completion trigger as gate 3, with its own time budget inside the hook timeout.
+4. **Three outcomes, each a command, never free text:**
+   - **Close** — offered only when this session can run it: ship closure when the code is already on `origin/main` or a journal exists; release when the nonce is readable.
+   - **Park** — a new shared `git-ops.sh park <slot>`: spec committed via `commit-to-main`, worktree removed, branch kept. Shared with P1450 item 4, defined once.
+   - **Hold** — `git-ops.sh hold <slot> --reason "…" --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>`, written to `<slot>/.hold`. Owner from a closed set; `me`, `wip`, `later` rejected. Accepted only if newer than this session's last write to the slot. A past date expires the hold.
+   - **No hold for finished work.** Shipped-but-unclosed and closed-but-checked-out may only be closed or parked; there is no legitimate reason to keep them.
+5. **The startup report prints the hold** beside the slot, and marks an expired one.
 
-[FOUNDER DECISION: block or warn? Blocking makes the rule hold; warning keeps sessions from being stuck in a loop. Proposed: block once, then accept any stated reason.]
+[FOUNDER DECISION: block or warn? Both reviewers recommend **block, once per slot state** (per-session counter, limit 1; the check disables itself if the counter cannot be written). A warning prints after the session has already told the founder "nothing else", so it changes nothing. The hold command is always available, so a session can never be trapped.]
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A read-only probe refreshes a slot's activity, so the check misjudges ownership | DEFER | P1450 item 1 fixes what counts as activity; observed again 2026-10-20 (a `git status` of w4 moved its stamp). Until then, ownership = slots this session claimed or committed in. |
-| Session end is not one event — sessions are cleared, closed or just abandoned | ACCEPT | The Stop hook covers sessions that announce completion; P1450's /day proposals catch the rest. |
-| The check nags on every turn of a long session | MITIGATE | Fire only on a completion announcement, the existing gate-3 trigger. |
+| Sessions that never reach a Stop check: `/clear`, closed terminal, crash, a last turn that is not a completion announcement | MITIGATE | Canary on the literal "no, nothing else" reply; widen the trigger only for sessions that own a slot. The rest fall to P1450's /day proposals. |
+| Subagents fire `SubagentStop`, not `Stop`; none is registered | ACCEPT | Subagents do not claim slots in the build skills; out of scope, named here. |
+| A new check falls behind an early exit and silently disables an existing gate (2026-08-19) | MITIGATE | Solution 3 placement + a canary per existing gate with a slot open at the same time. |
+| The scan adds latency to every Stop | MITIGATE | Only owned slots are classified; budgeted inside the hook timeout. |
 
 **Non-Goals**
-- Do NOT duplicate P1450 (ship's own cleanup, /day proposals, activity semantics). This spec is only the owning session's end-of-work check.
+- Do NOT duplicate P1450 (ship's own cleanup, /day proposals, activity semantics). Shared: `park` and the action set, defined once.
 - Do NOT auto-ship, push or deploy anything.
 - Do NOT touch slots held by other sessions.
+- Unmanaged worktrees outside `w1..wN` (e.g. `day-cp-cancelled`) are out of scope; /day handles them.
 
 ## Done-When
 
-- [ ] A session that ends with its slot shipped-but-unclosed is stopped and shown the close step (canary reproducing P1511's state)
-- [ ] A stated "stays open: <reason> — owner: <x>" lets the session end, and the next startup report shows that reason beside the slot (canary)
-- [ ] A session with no slot, or a clean one, ends with no extra output (canary)
-- [ ] Every existing Stop-hook gate still blocks in its own canary after the change (epistemic gate 7c)
-- [ ] The documented claim, ship, abandon and park workflows each run through the check and still end cleanly
+Each is a named canary in `scripts/test-p1519-*.sh`, built from real transcript JSONL and a real `.lock` without `CP_SESSION_ID`, with the failure path shown failing (epistemic gate 7, exit code pasted).
+
+- [ ] A slot claimed from main (no session id on the lock) is detected as owned
+- [ ] A session ending with its slot in the P1511 state (code on `origin/main`, spec open) is blocked and shown the close step; a hold is refused for it
+- [ ] A valid hold lets the session end and the next startup report shows it; a hold with owner `me` or `wip` is rejected; a hold older than the session's last write is ignored
+- [ ] A session with no slot or a clean one ends with no output and no measurable added latency
+- [ ] The literal reply "No, nothing else." triggers the check for a session that owns a slot
+- [ ] Claim, KDD and review gates each still block in their own canary while a slot is open
+- [ ] `git-ops.sh park` frees the worktree, keeps the branch and commits the spec via `commit-to-main`; the session then passes
 
 ## Alternatives Considered
 
 - **Rely on the startup report (today).** Rejected: it reaches a session without the context to decide — the 2026-10-20 incident.
-- **Fold into P1450.** Rejected for now: P1450 cleans up after the fact; this is a prevention at the moment the owner knows the answer. Merge if review finds the work overlaps.
+- **Fold into P1450.** Rejected by both reviewers (Gemini review model, Opus, 2026-10-20): P1450 cleans up after the fact, this acts while the owner still knows the answer. They share `park` and the action set only.
 - **A rule in CLAUDE.md only.** Rejected: the founder's ask has been "anything else?" for weeks and the prose path already failed.
 
 ## Rollback Strategy
 
 Revert the hook change; the startup report keeps working as today.
+
+## Review
+
+2026-10-20: Gemini review model (served `gemini-4-argon`, verified) and Opus. 2 of 2 reported. Folded: transcript ownership, hook placement, command-written hold with closed owner set, no hold for finished work, shared `park`, canary-based Done-When, the missing origin/main classifier. Claims checked by command before folding: no `CP_SESSION_ID` on agent claims (`git-ops.sh:487`), early exits in the hook, no `park` subcommand, no `SessionEnd`/`SubagentStop` hook registered.
 
 ## Related
 
