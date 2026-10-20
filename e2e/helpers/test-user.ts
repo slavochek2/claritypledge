@@ -424,6 +424,44 @@ export async function setTestSession(page: Page, email: string) {
 }
 
 /**
+ * P1522: delete `table` rows where `column` = `value`, first clearing any rows that block it
+ * through a foreign key. The pre-cleans in deleteTestUser are a hand-kept list, and every table
+ * added after it (agreements, witnesses, ...) made cleanup fail and strand the user: 9 of a 20-user
+ * sample on the test project, ~19k stranded in all. Postgres names the blocking table and
+ * constraint in the error, so the blockers are derived from the database instead of a list.
+ * Only default-named constraints (`<table>_<column>_fkey[N]`) are resolved; anything else is
+ * returned as the original error, never guessed at. Bounded: each step removes one blocker.
+ * Limits (each fails closed, as before this existed): a blocker that is itself blocked by a
+ * further table is not resolved (only rows pointing straight at the profile are), and a name
+ * Postgres truncated at 63 bytes no longer parses.
+ */
+async function deleteClearingReferences(
+  table: string,
+  column: string,
+  value: string,
+  depth = 0,
+): Promise<{ message?: string; code?: string } | null> {
+  for (let step = 0; step < 12; step++) {
+    const { error } = await profileWriter.from(table).delete().eq(column, value);
+    if (!error) return null;
+    const m = /violates foreign key constraint "([^"]+)" on table "([^"]+)"/.exec(error.message ?? '');
+    if (error.code !== '23503' || !m || depth >= 4) return error;
+    const [, constraint = '', blocker = ''] = m;
+    const prefix = `${blocker}_`;
+    // Default names, including the numbered `_fkey1` Postgres gives a second FK on one column.
+    const named = /_fkey\d*$/.exec(constraint);
+    if (!constraint.startsWith(prefix) || !named) return error;
+    const blockerColumn = constraint.slice(prefix.length, named.index);
+    // Rows in `blocker` point at the row we are deleting by its `column` value only when that is
+    // the referenced key (profiles.id here); a different key would need its own lookup.
+    if (column !== 'id') return error;
+    const nested = await deleteClearingReferences(blocker, blockerColumn, value, depth + 1);
+    if (nested) return nested;
+  }
+  return { message: `deleteClearingReferences(${table}): gave up after 12 blockers` };
+}
+
+/**
  * Deletes a test user and their profile
  * Call this in afterEach to clean up test data
  */
@@ -474,10 +512,7 @@ export async function deleteTestUser(userId: string) {
   // Delete profile (cascades remaining FK-linked records).
   // P1137: via profileWriter, not supabaseAdmin. Clients have no DELETE on profiles, and many specs
   // sign in ON supabaseAdmin (see profileWriter above), after which its requests carry a user JWT.
-  const { error: profileError } = await profileWriter
-    .from('profiles')
-    .delete()
-    .eq('id', userId);
+  const profileError = await deleteClearingReferences('profiles', 'id', userId);
 
   if (profileError) fail('profile delete', profileError);
 
