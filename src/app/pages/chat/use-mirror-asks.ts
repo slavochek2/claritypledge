@@ -15,9 +15,12 @@ export function useMirrorAsks(channelId: string, enabled: boolean): ChatMessage[
   const { subscribe } = useChat();
   const [rows, setRows] = useState<ChatMessage[]>([]);
   const generation = useRef(0);
+  /** Rows changed live while a read was in flight: their live version wins over the read's. */
+  const touched = useRef(new Map<string, ChatMessage>());
 
   const load = useCallback(async () => {
     const g = ++generation.current;
+    touched.current = new Map();
     try {
       const next = await listMirrorAsks(channelId);
       // Rows that arrived live while this read ran, and are newer than what it returned, are kept.
@@ -25,7 +28,9 @@ export function useMirrorAsks(channelId: string, enabled: boolean): ChatMessage[
         setRows((prev) => {
           const newest = next[next.length - 1];
           const late = prev.filter((p) => !next.some((n) => n.id === p.id) && (!newest || compareMessages(p, newest) > 0));
-          return late.reduce((acc, m) => upsertMessage(acc, m), next);
+          // live edits / deletes of rows the read also returned (upsertMessage keeps the newer version)
+          const merged = [...touched.current.values()].reduce((acc, m) => upsertMessage(acc, m), next);
+          return late.reduce((acc, m) => upsertMessage(acc, m), merged);
         });
       }
     } catch {
@@ -51,6 +56,7 @@ export function useMirrorAsks(channelId: string, enabled: boolean): ChatMessage[
       }
       const m = e.type === 'sent' ? e.message : e.event.message;
       if (m.contextConversationId !== channelId) return;
+      touched.current.set(m.id, m);
       setRows((prev) => upsertMessage(prev, m));
     });
   }, [enabled, subscribe, channelId, load]);

@@ -32,9 +32,10 @@
 --     separately for replies and portraits, plus one global total. Settled to the reported usage after
 --     the call; released only when the call never started. The provider's hard cap on the mirror's own
 --     key is the last line. Numbers live in _mirror_limits() (founder: change them there).
---   * LOCK ORDER (everywhere): message rows, then the 'p1520_mirror_context' advisory lock (erasure
---     exclusive, a starting job shared), then job rows. No function waits for an earlier item while holding
---     a later one, so erasure and a starting job cannot deadlock.
+--   * LOCK ORDER: erasure takes message rows, then the 'p1520_mirror_context' advisory lock exclusively,
+--     then job and agent rows. A starting job takes context rows FOR SHARE, then only TRIES the advisory
+--     lock shared (an erase under way answers "busy"), then its job row. A starting job never waits while
+--     holding rows an erase may want, so the two cannot deadlock.
 --   * ERASURE. A job and every agent row record derived_refs: the _chat_author_ref of every author
 --     whose words were in the model's context. _mirror_begin_job locks its context rows FOR SHARE (the
 --     clarify pattern), so an erase that scrubs those rows waits for a starting job to commit and then
@@ -460,9 +461,12 @@ BEGIN
      ORDER BY m.created_at, m.id
        FOR SHARE OF m;
 
-    -- Erasure takes this lock exclusively before it cancels derived jobs: refs recorded below are
-    -- either seen by it, or recorded after it committed (and then read from scrubbed rows).
-    PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
+    -- Erasure takes this lock exclusively before it cancels derived jobs, so refs recorded below are seen
+    -- by it. TRY, never wait: waiting here while holding the rows above could close a cycle with an erase
+    -- that holds the lock and wants one of those rows. An erase under way means "busy"; the client retries.
+    IF NOT pg_try_advisory_xact_lock_shared(hashtext('p1520_mirror_context')) THEN
+      RETURN jsonb_build_object('status', 'busy');
+    END IF;
 
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
              'who',  CASE WHEN t.author_id = v_job.owner_id THEN 'owner' ELSE 'other' END,
@@ -495,9 +499,12 @@ BEGIN
      ORDER BY m.created_at, m.id
        FOR SHARE OF m;
 
-    -- Erasure takes this lock exclusively before it cancels derived jobs: refs recorded below are
-    -- either seen by it, or recorded after it committed (and then read from scrubbed rows).
-    PERFORM pg_advisory_xact_lock_shared(hashtext('p1520_mirror_context'));
+    -- Erasure takes this lock exclusively before it cancels derived jobs, so refs recorded below are seen
+    -- by it. TRY, never wait: waiting here while holding the rows above could close a cycle with an erase
+    -- that holds the lock and wants one of those rows. An erase under way means "busy"; the client retries.
+    IF NOT pg_try_advisory_xact_lock_shared(hashtext('p1520_mirror_context')) THEN
+      RETURN jsonb_build_object('status', 'busy');
+    END IF;
 
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
              'who',  CASE WHEN t.kind = 'agent' THEN 'mirror' ELSE 'owner' END,

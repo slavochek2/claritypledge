@@ -66,7 +66,8 @@ export function clearDraftsExcept(userId: string | null): void {
 
 /** P1520: give a draft back to ITS slot without showing it anywhere (the composer has moved to another slot). */
 export function stashDraft(key: string, value: string): void {
-  if (value) drafts.set(key, value);
+  // Never over a newer draft written in that slot meanwhile.
+  if (value && !drafts.get(key)) drafts.set(key, value);
 }
 
 export function useDraft(key: string): [string, (value: string) => void] {
