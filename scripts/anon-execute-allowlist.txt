@@ -43,7 +43,6 @@ patch_live_state(uuid,jsonb)                  # a guest joiner advances shared s
 touch_joiner_seat(uuid,uuid)                  # P1269 — a seated anonymous guest refreshes their own seat presence so the 15-minute abandonment timer does not expire under a live guest; authorized by the seat secret alone, returns only a boolean — src/app/data/api.ts:1335
 
 # --- Sign-in / sign-up, before any session exists ---
-email_exists(text)                            # TRANSITIONAL (P1511): no client calls it any more — the login form asks the check-login-email edge function. Grant kept for open tabs on the old bundle; the follow-up migration revokes it and removes this line
 
 # --- Public pages, logged-out visitors ---
 get_featured_profiles(integer)                # the landing page and /pledgers list verified pledgers to logged-out visitors — src/app/components/landing/social-proof.tsx:28
