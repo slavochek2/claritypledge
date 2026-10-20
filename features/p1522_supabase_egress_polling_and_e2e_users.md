@@ -50,9 +50,18 @@ order (measure, then decide); only Decision Criteria outcomes below may need a c
 
 1. Idle-tab baseline: requests/min and bytes/min per endpoint, for `/feed` signed out, `/feed`
    signed in, a letter page, an event page — tab visible, and tab hidden 60s. Source: browser
-   network log on localhost against the test project.
+   network log on localhost against the test project. **Window: at least 5 minutes idle, minute by
+   minute** — a 20s window cannot tell a periodic poller from a one-off sequential burst.
 2. What is the source of each repeating request (timer, effect re-run, preload loop, Realtime
    reconnect)? Name file and line.
+   **Lead hypothesis (from the Gemini review, UNVERIFIED):** the "every 2.5s"
+   `resolve_letter_shortcode` / `get_letter_for_public_reading` calls are the P1369 offline pack
+   (`src/app/components/offline/offline-pack-preloader.tsx` → `src/lib/offline-pack.ts`), which
+   walks every links-menu letter one after another, once per 6h per owner, not a timer.
+   **Cheapest disproof:** set the pack's disable key in localStorage, reload, and re-measure. If the
+   calls persist, the hypothesis is false. If it holds, the cost is per page load in a fresh
+   storage partition (every e2e browser context, every new visitor), not per idle minute, so the
+   fix is the pack's scope, not a poll interval.
 3. Test project API logs (if readable with existing access): which endpoints and which callers
    (browser vs e2e) dominate request count and response bytes over a recent window. If not
    readable, say so — do not estimate.
