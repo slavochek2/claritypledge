@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 203
+**Next ID:** 206
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2599,5 +2599,38 @@ Around 5 Nov open the Supabase usage page for the production organisation. If it
 **due:** week
 
 From the third P1512 review round: switching chats while a Clarify is still sending can apply its follow-up (attachment send, reload) to the newly opened chat; a stalled reload keeps Send disabled; a Clarify staged during another's send is cleared when the first lands; a failed send can overwrite a newer draft. Fix with a test per case, guarded by the submitting conversation id. Droppable if P1512 is reworked so ConversationPane remounts per conversation.
+
+---
+
+## Feed page fetches the same data several times per load
+
+**ID:** INBOX-203
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+Measured during P1522 with scripts/measure-idle-requests.mjs: one fresh /feed load requests stories 6 times and events 8 times (27 requests in total). Collapsing duplicate fetches would cut every page load's database egress further. Done when one /feed load requests each table at most once or twice; droppable if the Supabase plan is upgraded and egress stops mattering.
+
+---
+
+## Finish and verify the P1522 test-user purge
+
+**ID:** INBOX-204
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+P1522 shipped before its test-user purge finished (founder call, so the egress fix reached production sooner). The purge of ~19,400 leftover e2e users on the test project runs in batches. Done when the e2e-namespace user count older than 24h is near zero (dry run of scripts/sweep-e2e-test-users.ts) and one full e2e run leaves the count unchanged within the teardown batch; record both counts in the P1522 spec. Droppable never: without the check, a regression in cleanup goes unseen.
+
+---
+
+## Edge function CORS rejects the w9 and w10 dev servers (ports 5900, 6050)
+
+**ID:** INBOX-205
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** week
+
+supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts 5001, 5100-5799 and 5800-5899, but scripts/lib/worktree-port.mjs gives w9 port 5900 and w10 port 6050, so every edge function call from those worktrees' dev servers fails its CORS preflight (found by P1520's e2e from w9: the mirror reads as off locally). Fix: accept every port the worktree scheme can produce, with a test that derives the ports from worktree-port.mjs (gate 7e). Droppable if worktrees stop going past w8.
 
 ---
