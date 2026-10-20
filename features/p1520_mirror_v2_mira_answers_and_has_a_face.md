@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 47
 workstream: clarity-chat
 created_date: '2026-10-20'
 tags: [mirror-agent, chat, portraits, clarity-chat]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -137,3 +137,60 @@ Adversarial review of P1520 and P1521 together; both verdicts: revise before imp
 - **med** Define "agent treatment" for a full-color artist portrait (navy duotone vs. a navy frame plus badge); the P1483 invariant and "artist style" collide as written. [FOUNDER DECISION]
 - **med** A renamed mirror can share a name with a person; the picker must show the mirror as "Your mirror (private)" and the composer must switch to a visible private mode.
 - **low** Loading, cap-reached and failed states for replies and portraits; fall back to MirrorMark.
+
+### Resolution, checked against the code (/dev, 2026-10-20)
+
+Each finding was checked against the P1512 branch this spec is built on (`20261019203000_p1512_clarity_chat.sql`
+and the chat client). CONFIRMED means the code has the gap as described.
+
+1. **@Mira private path: CONFIRMED.** `send_chat_message` writes into the channel itself, `chat_messages_select`
+   lets every member read it, and the send moves the channel's `last_message_at`. **Resolution:** an ask and its
+   answer are rows in the asker's **own mirror conversation**, tagged with the channel they were asked in
+   (`context_conversation_id`). The mirror's existing owner-only RLS and Realtime's RLS on INSERT/UPDATE cover
+   them. The channel row, its last-message time and everyone else's unread counts are never touched. The asker
+   sees the exchange inline in the channel; nobody else's client ever receives it.
+2. **Bounded context: resolved by design.** A channel ask sees at most the last 30 messages of that one channel
+   that the asker may read (from their access time on), deleted ones excluded, each cut to 1,000 characters.
+   Everything quoted is sent as data (JSON, angle brackets escaped), and the fixed rules say quoted text never
+   instructs. A channel ask never includes the mirror's own history, and a mirror-chat reply never includes
+   channel asks.
+3. **Erasure: CONFIRMED gap.** `erase_chat_data_for` scrubs copies by `forward_author_id` and thread `author_ref`,
+   but an AI reply is new text that carries neither. **Resolution:** every reply and every job records
+   `derived_refs`, the `_chat_author_ref` of each author whose words were in its context. Erasure scrubs replies
+   that carry the erased ref and cancels jobs that carry it. A job locks its context rows `FOR SHARE` when it
+   starts (the clarify pattern), so an erase waits for a starting job and then sees its refs. Completion refuses
+   a cancelled job.
+4. **Data contract and privacy policy: CONFIRMED, open.** `privacy.md` § AI features covers the old `/chat` guide,
+   banners and transcription, not chat messages. [FOUNDER DECISION: the contract below and the policy text.]
+   Until then **no AI call can run on prod**: the functions refuse unless `MIRROR_AI_ENABLED=true` is set, and it
+   and the mirror key are set on the test project only. Draft contract: what is sent is the asker's message, the
+   bounded context in 2, and the mirror's name; it goes to Google's Gemini API under the paid-tier terms (no
+   training on the data); replies are stored in the asker's mirror and erased with the account or with the
+   person they quote.
+5. **Spend: CONFIRMED.** `reserveGeneration` (generate-banner) counts calls per user in `ai_rate_limits`; there is
+   no global ceiling and no token bound. **Resolution:** one reservation function, run in a single transaction
+   under an advisory lock, reserves each call's worst-case cost before the call, using the Mira assistant's
+   formula `(max_in × price_in + max_out × price_out) × 1.25`. It checks a per-person daily allowance and a
+   global daily ceiling, separately for replies and portraits, plus count caps. The reservation is settled to the
+   reported usage afterwards and released only if the call never started. `maxOutputTokens` is set on every call
+   and input is bounded by 2. The key's own hard cap stays the last line.
+6. **Durable states: resolved by design.** `mirror_jobs` holds queued, running, done, failed, capped and
+   cancelled, with one job per triggering message (unique), so a retry returns the same job and never pays or
+   replies twice. The mirror answers only rows its owner wrote, never its own.
+7. **Portrait prompt: CONFIRMED.** `buildArtistProfilePrompt` says "No portraits and no close-up faces", and
+   `runArtistBanner` forces 21:9. **Resolution:** a separate portrait prompt (a fictional person painted in the
+   artist's style, the chosen gender, never a real person's or the artist's likeness), 1:1, stored in the existing
+   `banners` bucket under `mirror/<random id>` with no owner id in the path.
+8. **Agent treatment: decided (founder, 2026-10-20): navy tint.** The portrait gets the P1483 agent layer
+   (`#1e3a8a`, `mix-blend-mode: color`, 0.75) at display time, and keeps the mirror's dashed agent ring and its
+   role label. Rejected: full color inside a navy frame plus a badge, because P1483 already rejected a badge and a
+   navy ring reads like a person's blue pledger ring at small sizes.
+9. **Name collision: resolved by design.** The `@` picker lists the mirror as "<name> · Your mirror (private)" with
+   its portrait. Private mode starts only when that entry is picked, never by matching typed text, and the
+   composer then shows "Private: only you see this". P1521 adds people to the same picker.
+10. **States: resolved in the UI.** Thinking, cap reached, failed with Try again, and the portrait falling back to
+   MirrorMark.
+
+**Open questions 2 and 3, answered.** Q2: the second-round decision (the default name stays "Your mirror").
+Q3: the portrait is generated the first time the owner opens the mirror chat, so nobody who never opens it costs
+anything.
