@@ -60,11 +60,18 @@ function watchForPermissionDenied(page: Page) {
   return hits;
 }
 
-/** Sign in the prod test agent by link and return a context with the session injected. */
+// One account, one link: minting a second link invalidates the first, so the tests
+// run in one worker and share a single session (parallel mints failed with "Email link
+// is invalid or has expired").
+test.describe.configure({ mode: 'default' }); // in order, one worker; a failure does not skip the rest
+let sessionPromise: ReturnType<typeof linkSession> | undefined;
+
+/** Sign in the prod test agent by link (once per file) and return a context with the session injected. */
 async function makeAuthedContext(browser: import('@playwright/test').Browser) {
-  const session = await linkSession({
+  sessionPromise ??= linkSession({
     url: PROD_URL, anonKey: PROD_ANON_KEY, serviceKey: PROD_SRK!, email: TEST_EMAIL,
   });
+  const session = await sessionPromise;
   expect(session.access_token, 'link sign-in returned no session').toBeTruthy();
 
   const projectRef = PROD_URL.split('//')[1].split('.')[0];

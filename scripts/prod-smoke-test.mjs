@@ -169,12 +169,26 @@ if (PRE_ENFORCEMENT) {
     body: JSON.stringify({ password: probePw }),
   });
   ok('admin password write accepted by the API', setRes.ok, `HTTP ${setRes.status}`);
-  const pwAttempt = await fetch(`${PROD_URL}/auth/v1/token?grant_type=password`, {
+  // Pass ONLY on the auth server's own credential rejection (HTTP 400,
+  // invalid_credentials). A network error, 429 or 5xx is "could not test",
+  // which is a failure, never a vacuous pass.
+  const pwRes = await fetch(`${PROD_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: ANON, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: TEST_EMAIL, password: probePw }),
-  }).then(r => r.json()).catch(() => ({}));
-  ok('password sign-in is refused', !pwAttempt.access_token, 'a password produced a session — the P1510 trigger is gone');
+  }).catch((e) => ({ status: 0, json: async () => ({ error_code: `network: ${e.message}` }) }));
+  const pwBody = await pwRes.json().catch(() => ({}));
+  ok('password sign-in is refused as invalid credentials',
+    pwRes.status === 400 && pwBody.error_code === 'invalid_credentials' && !pwBody.access_token,
+    `status=${pwRes.status} code=${pwBody.error_code ?? pwBody.error ?? 'none'}${pwBody.access_token ? ' — A PASSWORD PRODUCED A SESSION: the P1510 trigger is gone' : ''}`);
+  if (pwBody.access_token) {
+    // Do not leave a working password behind: overwrite it with one nobody holds.
+    await fetch(`${PROD_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: randomBytes(32).toString('base64url') }),
+    }).catch(() => {});
+  }
 }
 
 // ── Result ────────────────────────────────────────────────────────────────────
