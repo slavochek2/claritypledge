@@ -1,0 +1,126 @@
+---
+status: week
+type: story
+rank: 46
+workstream: events
+created_date: '2026-10-20'
+tags: [events, hike, video, gallery]
+disclosure: public
+intent: cold-start
+delivery_stage: spec-review
+pipeline_ran: [create-spec, spec-review]
+drafted_by: opus
+exec_model: sonnet
+exec_effort: medium
+driver: heuristic
+---
+
+# P1517: Social Hike series gallery shows short videos as well as photos
+
+## Problem
+
+**Situation:** The Social Hike page's "From past hikes" strip (`PastHikePhotos` in
+`src/app/prototypes/events/hike/HikeSections.tsx`) renders rows of `public.series_photos`
+(P1403): `id, series_slug, storage_url, alt, credit, sort_order`. It holds images only and has no
+media type.
+**Complication:** The founder has short clips from past hikes (15–28 s WhatsApp videos) and no way
+to put them in the gallery.
+**Question:** Can a series gallery tile be a click-to-play video, served from the same GCS bucket
+as the photos, without slowing the page or tripping prod CSP?
+
+Intent source: relayed by the lead agent, no founder sentence available verbatim. The requirements
+it relayed: videos in the GCS bucket under `hikes/social-hike/` and NOT Supabase Storage, a poster
+image per video, metadata stripped.
+
+## Appetite
+
+Blast radius: one component on the hike page plus additive columns. Reversibility: high (additive
+migration with a default, then a code revert). Decision density: low, two founder calls below.
+
+## Invariants
+
+- Video and poster files live on GCS under `hikes/social-hike/` in the public-media bucket, with
+  URLs built only through `publicMediaUrl()` (P1385, decisions.md). Never Supabase Storage. P1336
+  showed that prod `media-src` blocks it.
+- Only the poster loads until the visitor taps play. No autoplay and no mp4 preload.
+- Existing photo rows render exactly as they do today.
+
+## Solution
+
+1. **Schema:** additive columns on `series_photos`. One marks the row as photo or video and
+   defaults to photo. The other is a poster URL, required for video rows by a DB check
+   constraint. Video URLs are constrained to the public-media bucket path, mirroring the
+   P1402 story-video CHECK (`^https://storage\.googleapis\.com/claritypledge-story-images/[A-Za-z0-9_./-]+\.mp4$`,
+   no `..`) and `isPublicMediaVideo()` in `src/lib/public-media.ts`. The client checks both with
+   `isPublicMediaVideo()` (video) and the existing `isAllowedPhotoUrl()` (poster). The table keeps
+   its name.
+2. **Data/types:** `getSeriesContent` (`src/app/data/events-service-real.ts`) selects the new
+   fields, and `SeriesPhoto` (`src/app/types/index.ts`) gains a media kind and an optional poster.
+3. **UI:** a video row renders as a gallery tile through the existing `Mp4VideoFacade`
+   (`src/app/components/shared/mp4-video-facade.tsx`), with `posterAlt` = the row's `alt` and
+   `playLabel` = `Play video: {alt}` (mirrors the photo tile's `View photo: {alt}`). It shows the
+   poster at rest and plays inline on tap. **Extend, not reuse as-is:** the facade's frames are
+   fixed `aspect-video` (16:9), while photo tiles are `aspect-[4/3]` in a `w-[62%] sm:w-56` slot,
+   and two of the three first clips are portrait (478×850). The facade needs a tile look (or a
+   frame-class prop) that fills the photo tile's 4:3 box.
+   [FOUNDER DECISION: portrait clips in a 4:3 tile. Proposed: poster `object-cover` at rest,
+   video `object-contain` (letterboxed on black) while playing.] Video tiles do not open the image
+   lightbox. A tile whose video or poster URL fails the public-media check is dropped, as photos
+   are today.
+4. **Media prep (documented, run by hand):** strip metadata (`ffmpeg -map_metadata -1`), transcode
+   to H.264/AAC mp4 with `-movflags +faststart`, extract a first-frame jpg poster (also stripped),
+   and upload both under `hikes/social-hike/` with versioned filenames.
+   [FOUNDER DECISION: size cap per clip. Proposed: ≤ 8 MB, ≤ 30 s, ≤ 720p.]
+5. **Docs:** extend the "Series content" paragraph of `docs/events/series/social-hike.md` with the
+   step-4 recipe, the poster requirement and the existing face/consent rules.
+
+[FOUNDER DECISION: sound. Proposed: native controls with sound on after the tap, since the tap is
+the visitor's consent. The alternative is to start muted.]
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| Prod CSP blocks the video | MITIGATE | Verified 2026-10-20: the `vercel.json` CSP has `media-src 'self' https://storage.googleapis.com`, and `img-src` includes the same host for posters. `src/tests/p1385-public-media.test.ts` already asserts that the helper origin stays in both. |
+| Heavy clips cost mobile data | MITIGATE | The facade fetches nothing until the tap; size cap above. |
+| WhatsApp clips use codecs or profiles some browsers will not play | MITIGATE | Transcode to H.264 in step 4. |
+| Faces of people who have not agreed | ACCEPT | The founder decides, per the existing doc rule. The agent never does. |
+
+**Non-Goals**
+- Do NOT rename `series_photos` or add a new table.
+- Do NOT add autoplay, looping background video or a video lightbox.
+- Do NOT add an upload UI. Content goes in by hand (`gcloud storage cp` plus an SQL row).
+- Do NOT upload the WhatsApp clips as part of this spec.
+
+## Acceptance Criteria
+
+- [ ] On a series with one video row, the "From past hikes" strip shows a tile with the poster
+      and a play button, and the network panel shows no request for the mp4 before the tap.
+- [ ] Tapping the tile plays the video inline (iOS Safari included) with native controls.
+- [ ] Photo tiles and the route-map tile look and behave as before, and the lightbox still opens.
+- [ ] The DB rejects a video row without a poster and one whose URL is outside the bucket.
+- [ ] The strip is verified at 320px, 375px and desktop with photos and a video mixed.
+- [ ] The "Series content" paragraph in `docs/events/series/social-hike.md` describes the video
+      recipe.
+- [ ] A hike video URL built with `publicMediaUrl('hikes/social-hike/…mp4')` passes
+      `isPublicMediaVideo()`, and the existing `src/tests/p1385-public-media.test.ts` (origin in
+      `media-src`/`img-src`) stays green. `[post-deploy]` re-check that one clip plays on
+      claritypledge.com.
+- [ ] A portrait clip and a landscape clip both fill the tile without layout shift next to
+      photo tiles.
+
+## Follow-up data (not in scope)
+
+Once this ships, add three clips through the step-4 recipe after the founder clears faces:
+`~/Downloads/WhatsApp Video 2026-10-11 at 17.18.08.mp4`, `… at 19.25.16.mp4` and
+`… at 19.25.19.mp4` (1.9 to 7.1 MB). Probed 2026-10-20: all already H.264; the first is
+1024×576 (15.5 s), the other two are portrait 478×850 (28.2 s, 23.1 s).
+
+## Related
+
+- P1403 (series content), P1402 (story mp4 constraint), P1385 (public media helper), P1336 (CSP lesson), P1005 (video facade).
+
+## Next Steps
+
+Pipeline layers not written yet: `/ux` (tile states, portrait handling), `/architect` (migration,
+facade extension), `/generate-tests`. Re-run `/spec-review` after them.
