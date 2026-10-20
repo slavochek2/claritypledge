@@ -265,6 +265,12 @@ removed person R, group member G, non-member N, signed-out visitor V.
    reaches pairing even when public. Either a follow-up spec lets the room pair on points from
    canvases shared with the event, or the first event pairs by hand. Founder decision before the
    event.
+2. **The owner's "view as" preview (moved here from P1508 fifth round, D9).** The founder wants to
+   see the canvas as someone else sees it. A preview built on P1508's page could not match a real
+   signed-out view (the card reads the session itself, and a click would write the owner's real
+   position). With this spec's server function, the preview can be served by that same function
+   for a chosen reader kind: a stranger, or an admitted attendee. Decide whether it ships with this
+   spec.
 
 ## Related
 
