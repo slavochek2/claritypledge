@@ -3,7 +3,7 @@ name: view
 description: Produce a polished view component + demo wrapper for UI-heavy features, catching visual polish issues before /dev
 when_to_use: >
   RETIRED FROM ROUTING 2026-08-20 — /pick-flow no longer recommends this skill and must not put it
-  in a recommended flow. Still runnable on request. Originally: after /ui, before /generate-tests,
+  in a recommended flow. Still runnable on request. Originally: after /ui, before /generate-tests (both archived 2026-10-20, P1514),
   for ui-heavy features needing visual polish within the existing design system.
 version: 1.1.0
 ---
@@ -58,10 +58,12 @@ Writes `view_locked: [path/to/view.tsx, path/to/view.demo.tsx]` to spec frontmat
 
 `/view` is an optional tool, not a pipeline stage. The route is `/create-spec` → multi-model spec
 review (Gemini review model, Opus, Codex) → `/dev` (P1514 retired the long pipeline and its
-`/challenge-prd`, `/architect`, `/spec-review` stages). Run `/view` after `/ui` and before `/dev`
-when a UI-heavy spec benefits from a rendered preview.
+`/challenge-prd`, `/architect`, `/spec-review` stages).
 
-`/view` requires `/ui` (Component Strategy + Visual Specification) before it can run.
+**Kept on purpose, with dead prerequisites (P1514, 2026-10-20):** `/view` was written to run after `/ui` and
+`/ux`, which are archived. The sections below that cite them (`## Component Strategy`, `## Visual Context`)
+are produced only by those archived skills; on a new spec the preconditions fail and the skill stops to ask
+the founder for the missing input, as written. It stays runnable on request, on older specs that carry the sections.
 
 ---
 
@@ -112,7 +114,7 @@ Before writing either output file, `/view` must verify every prop it uses actual
 3. Read the source and grep for `interface {Name}Props`, `type {Name}Props`, or the inline props destructure
 4. Verify each prop used in the draft exists in the source
 5. If ANY prop is missing: **STOP** — report to founder with three options:
-   - **(A) Extend the component** — route back to `/ui` to add the prop
+   - **(A) Extend the component** — extend the component (the archived `/ui` used to own this step)
    - **(B) Use an existing prop / workaround** — describe the workaround
    - **(C) Skip** — remove the component from the draft and use something simpler
 
@@ -254,7 +256,7 @@ If ANY prop is MISSING from the interface:
 STOP. Report to founder:
   "Prop `{propName}` does not exist on `{ComponentName}` (source: {file}).
    Options:
-   (A) Extend the component — route back to /ui to add `{propName}` to the interface
+   (A) Extend the component — extend the component to add `{propName}` to the interface
    (B) Use existing prop `{existingProp}` instead — describe the workaround
    (C) Remove `{ComponentName}` from the draft and use a simpler alternative
    Which do you prefer?"
@@ -302,7 +304,7 @@ Read the last 10 lines of {spec_file} (to confirm view_locked was written correc
 Output:
 "View component written to src/app/components/_proto/{feature}-view.tsx.
 Preview at http://localhost:{port}/tree/{feature}.
-view_locked written to spec. Ready for /generate-tests."
+view_locked written to spec. Ready for /dev."
 
 **Self-review before returning:**
 - [ ] view.tsx is props-only (no fetching, no routing, no persistence)
@@ -321,8 +323,7 @@ view_locked written to spec. Ready for /generate-tests."
 
 **Next steps:**
 1. **Preview at `/tree/{feature}`** — founder reviews visual output in browser
-2. **Run /generate-tests** — tests reference the view component for assertions
-3. **Run /dev** — integrates the view into real containers. view.tsx is read-only during integration.
+2. **Run /dev** — integrates the view into real containers. view.tsx is read-only during integration.
 
 **To update the view after seeing it in browser:**
 Re-run `/view` — it will overwrite the output files and re-run the build gate.
@@ -332,7 +333,6 @@ Do NOT edit `view.tsx` directly if `view_locked` is set — that's `/dev`'s cons
 
 ## Related Skills
 
-- `/ui` — Component Strategy (must run before /view)
-- `/generate-tests` — Test generation (run after /view)
-- `/dev` — Implementation (run after /generate-tests; respects view_locked)
-- `/ux` — UX Design (must run before /ui; its Visual Context feeds /view)
+- `/ui` — archived 2026-10-20; older specs carry its Component Strategy section
+- `/dev` — Implementation (respects view_locked)
+- `/ux` — archived 2026-10-20; older specs carry its Visual Context section

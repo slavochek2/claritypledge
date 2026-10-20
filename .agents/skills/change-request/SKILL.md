@@ -297,7 +297,7 @@ This prevents over-scope during implementation.}
 ## Next Steps
 
 {Pick the right entry point:}
-- Has layout / visual hierarchy changes → run `/ux features/p{N}_{slug}.md`
+- Has layout / visual hierarchy changes → work the corrected layout out in the spec's Solution (optionally `/ascii-flows` first), then the spec review
 - Has structural component changes → multi-model spec review (Gemini review model, Opus, Codex), then `/dev`
 - Scope is clear, changes are targeted → run `/dev` directly
 ```
@@ -368,7 +368,7 @@ Predecessor sections superseded: {count or "none"}
 Surfaces in scope: {list}
 Execution: {exec_model}, {exec_effort} — {one clause of why}
 
-Next: {/ux | spec review then /dev | /dev} — {one sentence why}
+Next: {spec review then /dev | /dev} — {one sentence why}
 
 Hit Refresh in kanban to see the new card (http://localhost:9050).
 ```
@@ -380,6 +380,5 @@ Hit Refresh in kanban to see the new card (http://localhost:9050).
 - `/slava:think:problemify` — reframe a complaint that named a fix. **Offered, never called** (Step 3).
 - `/slava:build:fix` — for broken code (not design corrections)
 - `/slava:build:create-spec` — for new capabilities
-- `/slava:build:ux` — design the corrected layout after filing
 - Multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) — replaces the archived `/architect` for structural changes (P1514)
 - `/slava:build:dev` — implement after spec is ready

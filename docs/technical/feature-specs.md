@@ -179,7 +179,7 @@ tags: [dark-mode, ui, settings]
 - `null` - Spec is draft, not reviewed
 - `'2026-02-05'` - Spec passed `/prep-spec` reviews on this date
 
-**Set by:** `/prep-spec` skill automatically (don't set manually)
+**Set by:** the archived `/prep-spec` (retired 2026-10-20, P1514); legacy field, nothing sets it now, readers keep it for old specs
 
 ---
 
@@ -195,7 +195,7 @@ reviews:
   alignment: passed | passed-with-notes | needs-work | null
 ```
 
-**Set by:** `/prep-spec` skill automatically (don't set manually)
+**Set by:** the archived `/prep-spec` (retired 2026-10-20, P1514); legacy field, nothing sets it now, readers keep it for old specs
 
 ---
 
@@ -300,7 +300,7 @@ Spec readiness is tracked via `prepped_date`, not `status`:
 | `null` | Spec is a draft, not reviewed | "draft" (gray) |
 | Set (e.g. `'2026-02-05'`) | Passed /prep-spec reviews | "prepped" (green) |
 
-Agents (like /prep-spec) set `prepped_date` without changing `status`. Only humans move cards between kanban columns.
+Legacy: the archived `/prep-spec` set `prepped_date` without changing `status`. Only humans move cards between kanban columns.
 
 ## Folder Structure
 
@@ -315,7 +315,7 @@ Agents (like /prep-spec) set `prepped_date` without changing `status`. Only huma
 ## Lifecycle
 
 1. **Create:** `features/p{N}_{name}.md` with `status: week`
-2. **Prep:** Run `/prep-spec`, update frontmatter with review results
+2. **Review:** multi-model spec review when the stakes call for one (`/prep-spec` archived 2026-10-20, P1514)
 3. **Build:** Change status to `in-progress`
 4. **Complete:** Change status to `done`, add `completed_at`, move to `features/done/`
 

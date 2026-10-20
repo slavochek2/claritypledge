@@ -2,8 +2,8 @@
 name: spec-compact
 description: >
   Strip agent conversation residue, resolved decision analyses, and cross-layer restatements
-  from a spec without changing semantics. Run after the spec review, before /decompose or /dev.
-when_to_use: After the multi-model spec review's blockers are resolved, before /decompose or /dev. Skip for specs under 100 lines.
+  from a spec without changing semantics. Run after the spec review, before /dev.
+when_to_use: After the multi-model spec review's blockers are resolved, before /dev. Skip for specs under 100 lines.
 version: 1.0.0
 ---
 
@@ -36,7 +36,7 @@ restatements, and authoring-time notes — without changing any requirement or d
 ```
 
 **Run after:** the spec review (multi-model: Gemini review model, Opus, Codex) — its blockers resolved
-**Run before:** `/decompose` (if complex) or `/dev`
+**Run before:** `/dev`
 
 ---
 
@@ -84,7 +84,7 @@ For each section, scan for the six categories above. Build a removal manifest:
 
 ```
 Removal manifest:
-- Lines 45-52: Agent Q&A thread (/ux asked the architecture pass about tooltip placement — resolved in UX flows section)
+- Lines 45-52: Agent Q&A thread (a reviewer's Q&A about tooltip placement — resolved in the Solution)
 - Lines 110-135: Decision analysis for caching strategy (collapsed to 2-line decision + rationale)
 - Lines 200-205: Preamble paragraph restating business requirements in architecture section
 - ...
@@ -132,5 +132,4 @@ Commit the change: `chore(pN): compact spec — remove {percent}% agent residue`
 ## Related Skills
 
 - Multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) — run before /spec-compact
-- `/decompose` — task decomposition (run after /spec-compact, complex features only)
 - `/dev` — implementation (run after /spec-compact)

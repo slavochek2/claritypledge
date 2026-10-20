@@ -23,9 +23,9 @@ Bugs take a shorter route: [`/reproduce`](../.claude/commands/slava/build/reprod
 
 Not every task runs every step. A typo fix goes straight to `/dev`; the spec review is for specs that carry real stakes (reversed rulings, privacy, auth, data). The agent chooses the steps itself; there is no separate routing skill.
 
-**Optional tools**, run when a spec needs them rather than as fixed stages: [`/ux`](../.claude/commands/slava/build/ux.md) (user flows for UI work), [`/ui`](../.claude/commands/slava/build/ui.md) (reuse existing components before inventing new ones), [`/generate-tests`](../.claude/commands/slava/build/generate-tests/SKILL.md) (tests written before code) and [`/decompose`](../.claude/commands/slava/build/decompose.md) (task manifest for very large builds).
+**Design and test work happens inside the spec and `/dev`:** user flows, component choices and the test plan live in the `/create-spec` Solution and Done-When, and `/dev` writes tests first. Optional helpers that remain: [`/ascii-flows`](../.claude/commands/slava/build/ascii-flows.md) (layout exploration for multi-flow features) and [`/critique-ux`](../.claude/commands/slava/build/critique-ux.md) (UX critique of a built surface).
 
-**History:** until 2026-10-19 the route was a long pipeline (`/create-spec` → `/challenge-prd` → `/ux` → `/architect` → `/ui` → `/generate-tests` → `/decompose` → `/spec-review` → `/dev`), picked per task by `/pick-flow`. `/pick-flow` was retired on 2026-10-07; `/architect`, `/spec-review` and `/challenge-prd` on 2026-10-19 (P1514). Their files stay in [`archive/`](../.claude/commands/slava/archive/) because old specs still carry the sections they wrote.
+**History:** until 2026-10-19 the route was a long pipeline (`/create-spec` → `/challenge-prd` → `/ux` → `/architect` → `/ui` → `/generate-tests` → `/decompose` → `/spec-review` → `/dev`), picked per task by `/pick-flow`. `/pick-flow` was retired on 2026-10-07; `/architect`, `/spec-review` and `/challenge-prd` on 2026-10-19 (P1514); `/ux`, `/ui`, `/generate-tests`, `/decompose` and `/prep-spec` on 2026-10-20 (P1514, no use in the prior 30 days). Their files stay in [`archive/`](../.claude/commands/slava/archive/) because old specs still carry the sections they wrote.
 
 ## Post-Ship Visual QA Loop
 

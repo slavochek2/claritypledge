@@ -1,8 +1,9 @@
 ---
 name: ui
-description: Map UX designs and architecture decisions to concrete component choices, maximizing reuse of the existing design system
-when_to_use: Optional tool — after /create-spec (and /ux if it ran), before /dev — for UI features with real component decisions
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: component choices are made in the /create-spec Solution and checked by /dev and /finish; /critique-ux and /polish cover visual review."
 version: 2.0.0
+archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — component choices are made in the /create-spec Solution and checked by /dev and /finish; /critique-ux and /polish cover visual review"
 ---
 
 # UI Component Strategy

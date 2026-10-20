@@ -121,6 +121,10 @@ KNOWN_RETIRED = {
     ".claude/rules/spec-sections.md:/architect": "P1514 (2026-10-19) — /architect archived; legacy section names older specs still carry, kept so readers find them.",
     ".claude/rules/spec-sections.md:/spec-review": "P1514 (2026-10-19) — /spec-review archived; the Challenge Notes row says what it used to do, it does not route to it.",
     ".claude/rules/spec-sections.md:/challenge-prd": "P1514 (2026-10-19) — /challenge-prd archived; the Resolved Decisions row names it as the writer on older specs.",
+    ".claude/rules/spec-sections.md:/ux": "P1514 (2026-10-20) — /ux archived; legacy section names older specs still carry, kept so readers find them, not a route.",
+    ".claude/rules/spec-sections.md:/ui": "P1514 (2026-10-20) — /ui archived; legacy section names older specs still carry, kept so readers find them, not a route.",
+    ".claude/rules/spec-sections.md:/generate-tests": "P1514 (2026-10-20) — /generate-tests archived; legacy section names older specs still carry, kept so readers find them, not a route.",
+    ".claude/rules/spec-sections.md:/decompose": "P1514 (2026-10-20) — /decompose archived; legacy section names older specs still carry, kept so readers find them, not a route.",
 }
 
 

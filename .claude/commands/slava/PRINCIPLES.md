@@ -19,9 +19,9 @@ These agents carry feature development (the route: `/create-spec` → multi-mode
 | Agent | Command | Key Question | Principle |
 |-------|---------|--------------|-----------|
 | **Business** | `/create-spec` | "Why does this matter? What's the user value?" | Start with the problem, not the solution |
-| **UX** | `/ux` (optional) | "How does this affect real users?" | Protect the user |
+| **UX** | `/ascii-flows`, `/critique-ux` (optional) | "How does this affect real users?" | Protect the user |
 | **Spec review** | Gemini review model, Opus, Codex | "Will we regret this? Is it secure?" | Think long-term; verify each load-bearing claim by command |
-| **Tests** | `/generate-tests` (optional) | "How do we verify this works?" | Define success before building |
+| **Tests** | `/dev` (tests first) | "How do we verify this works?" | Define success before building |
 | **Dev** | `/dev` | "Why will this fail?" | Find weaknesses early, iterate until tests pass |
 
 ### Two Pairs, Two Modes
@@ -45,12 +45,12 @@ These agents carry feature development (the route: `/create-spec` → multi-mode
 /create-spec → multi-model spec review (when the stakes call for one) → /dev (ends in /finish)
 ```
 
-`/ux`, `/ui`, `/generate-tests`, `/decompose` are optional tools. The P143 sequential flow
-(`/create-spec → /ux → /architect → /generate-tests → /dev`) and its `/architect`, `/spec-review`,
-`/challenge-prd` stages were retired; the skills are in `archive/`.
+The P143 sequential flow (`/create-spec → /ux → /architect → /generate-tests → /dev`) and its
+stages (`/architect`, `/spec-review`, `/challenge-prd`; on 2026-10-20 also `/ux`, `/ui`,
+`/generate-tests`, `/decompose`) were retired; the skills are in `archive/`.
 
 **Old features (before 2026-02-13):**
-- Can still use `/prep-spec` (deprecated, backward compatibility only)
+- `/prep-spec` was deprecated 2026-02-13 and archived 2026-10-20 (P1514); the file stays in `archive/` for reference only
 
 ### When to Use Strategic Thinking Agents
 

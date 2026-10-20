@@ -535,7 +535,7 @@ The `e2e/p{N}-verify.spec.ts` file generated in Step 3c:
 
 ## Related Skills
 
-- `/generate-tests` — Generates the UAT file + E2E stubs this skill can use
+- `/generate-uat` — Generates the UAT file + E2E stubs this skill can use
 - `/dev` — Runs automated tests, stops at QA gate on success
 - `/ship` — Merges to prod after verification passes
 - `/finish` — Consolidated static review (code, design, UX, skills, rules, docs — no browser)

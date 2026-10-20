@@ -1,8 +1,9 @@
 ---
-description: 'Generate comprehensive test strategy and runnable test files from a spec'
-when_to_use: "Optional tool — after /create-spec (and its spec review), before /dev, when a spec needs a comprehensive test strategy up front."
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: /dev writes tests first (TDD) from the spec's Done-When; /generate-uat remains for UAT checklists."
 name: generate-tests
 version: 1.1.0
+archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — /dev writes tests first (TDD) from the spec's Done-When; /generate-uat remains for UAT checklists"
 ---
 
 ## Dispatch

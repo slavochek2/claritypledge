@@ -11,7 +11,7 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 
 **For skills that WRITE:** Always use canonical names below. No exceptions.
 
-**For skills and reviewers that READ (spec reviewers, `/dev`, `/decompose`, `/ui`):** Search for canonical names first. If not found and the spec's `created_date` predates 2026-03-24, check common legacy aliases before issuing a BLOCK:
+**For skills and reviewers that READ (spec reviewers, `/dev`):** Search for canonical names first. If not found and the spec's `created_date` predates 2026-03-24, check common legacy aliases before issuing a BLOCK:
 - UX layer: also check `## UX Requirements`, `## UX Flow`, `## Screen Designs`
 - Technical layer: also check `## Technical Analysis` (as level-2), `## Technical Requirements`, `## Technical Specification`
 - Test layer: also check `## Testing`, `## Test Automation Strategy`, `## Testing Strategy`
@@ -52,7 +52,7 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 | `## Jobs to Be Done` | 2 | Product-owner enrichment (skill not yet built) — not at spec creation |
 | `## Out of Scope` | 2 | Legacy alias for Non-Goals section in `## Risks / Non-Goals` |
 
-## UX Layer (from /ux)
+## UX Layer (legacy; /ux archived 2026-10-20, P1514)
 
 | Header | Level | Notes |
 |--------|-------|-------|
@@ -74,19 +74,19 @@ design in `## Solution`; these names stay canonical so readers find the layer on
 | `#### Files to Create` | 4 | Under Implementation Approach |
 | `#### Files to Modify` | 4 | Under Implementation Approach |
 
-## UI Layer (from /ui)
+## UI Layer (legacy; /ui archived 2026-10-20, P1514)
 
 | Header | Level | Notes |
 |--------|-------|-------|
 | `## Component Strategy` | 2 | |
 
-## Test Layer (from /generate-tests)
+## Test Layer (legacy; /generate-tests archived 2026-10-20, P1514)
 
 | Header | Level | Notes |
 |--------|-------|-------|
 | `## Test Coverage Strategy` | 2 | Not "Test Automation Strategy", not "Testing" |
 
-## Task Layer (from /decompose)
+## Task Layer (legacy; /decompose archived 2026-10-20, P1514)
 
 | Header | Level | Notes |
 |--------|-------|-------|

@@ -1,11 +1,12 @@
 ---
 name: prep-spec
-description: Prepare a spec for implementation with 3-agent review. Each agent brings a different perspective.
-when_to_use: before implementing any feature spec, when prepped_date is not set
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: /create-spec, a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) and /dev."
 version: 4.0.0
 deprecated: true
 deprecated_date: '2026-02-13'
 replacement: [create-spec, dev]
+archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — /create-spec, a multi-model spec review (Gemini review model, Opus, Codex; decisions.md 2026-10-16 [process]) and /dev"
 ---
 
 # Prep Spec
@@ -28,7 +29,7 @@ replacement: [create-spec, dev]
 >
 > **Will be removed:** TBD (future milestone)
 >
-> See [docs/development-process.md](../../../../docs/development-process.md) for new process.
+> See `docs/software-delivery-process.md` for the current process (the old development-process doc no longer exists).
 
 Three-perspective spec review for final polish. Each agent thinks differently — no checklists, just perspectives.
 
@@ -280,4 +281,4 @@ Prep-spec is convergent thinking — "is this spec ready to implement?" Scope ch
 - Sequential: UX approved before architecture designed
 - Clear separation: Business → UX → Technical → Tests → Implementation
 
-**Questions?** See [docs/development-process.md](../../../../docs/development-process.md)
+**Questions?** See `docs/software-delivery-process.md`

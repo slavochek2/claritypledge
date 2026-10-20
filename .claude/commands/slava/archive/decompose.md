@@ -1,8 +1,9 @@
 ---
 name: decompose
-description: Convert a large feature's build sequence into a task manifest. Run after /generate-tests for complex features (5+ files OR 3+ concerns OR 6+ build steps). Reads the Test Coverage Strategy section to add test refs to each task.
-when_to_use: After /generate-tests, before /dev, only for complex features
+description: "ARCHIVED 2026-10-20 (P1514) — do not use. See archived_reason."
+when_to_use: "Never — archived. Replacement: /dev orchestrates its own per-task steps from the spec; /goalify covers loop-ready contracts."
 version: 1.0.0
+archived_reason: "retired 2026-10-20 (P1514, founder answer to Open Question 1; no invocation in the last 30 days) with the long spec pipeline — /dev orchestrates its own per-task steps from the spec; /goalify covers loop-ready contracts"
 ---
 
 ## Dispatch

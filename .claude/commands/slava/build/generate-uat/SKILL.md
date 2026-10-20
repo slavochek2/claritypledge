@@ -1,6 +1,6 @@
 ---
 description: 'Generate UAT checklist and runnable E2E test stubs from a spec'
-when_to_use: "After /generate-tests, when UAT checklist and E2E stubs are needed from a spec."
+when_to_use: "When a UAT checklist and E2E stubs are needed from a spec."
 name: generate-uat
 version: 1.0.0
 ---
@@ -18,21 +18,21 @@ Spawn a second Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`
 Prompt: Step 8 (save) from the skill below + the exact file content from Phase A output. Write all 3 files.
 Report subagent output verbatim.
 
-# /generate-tests
+# /generate-uat
 
 Generate User Acceptance Test checklist and runnable E2E test files from a feature specification.
 
-**Announce at start:** "I'm using the /generate-tests skill to extract testable criteria from the spec and create test files."
+**Announce at start:** "I'm using the /generate-uat skill to extract testable criteria from the spec and create test files."
 
 ## Usage
 
 ```
-/generate-tests <path-to-spec> [--format full|minimal] [--output <path>]
+/generate-uat <path-to-spec> [--format full|minimal] [--output <path>]
 ```
 
 **Examples:**
-- `/generate-tests features/p61_events_complete_tech_spec.md`
-- `/generate-tests features/p142_export_csv.md --format minimal`
+- `/generate-uat features/p61_events_complete_tech_spec.md`
+- `/generate-uat features/p142_export_csv.md --format minimal`
 
 ## What This Skill Does
 
@@ -573,15 +573,13 @@ test.describe('P142 Smoke Tests', () => {
 ## Related Skills
 
 - `/create-spec` → multi-model spec review → `/dev` — current route (P1514 retired the P143 sequential flow and its `/architect` step)
-- `/prep-spec` — Legacy skill (deprecated, but still calls `/generate-tests`)
 - `/dev` — Reads UAT + E2E stubs, implements tests, runs them, iterates until pass
 
 ---
 
 ## Backward Compatibility
 
-**Skill name change:** `/generate-uat` → `/generate-tests`
-- `/generate-uat` still works (alias to `/generate-tests`)
+**Skill name history:** this skill was also invoked as `/generate-tests` (archived 2026-10-20, P1514); `/generate-uat` is the live name
 - Old behavior preserved: still generates `features/uat/p{N}.md`
 - New behavior added: also generates E2E stubs + smoke tests
 

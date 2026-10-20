@@ -914,8 +914,7 @@ created: 2026-02-12
 
 1. Review this PRD - confirm scope and approach
 2. Multi-model spec review (Gemini review model, Opus, Codex) when the stakes call for one
-3. Optional: `/ux` (if UI feature) or `/generate-tests`
-4. Implement - Run `/dev features/p{N}_{slug}.md`
+3. Implement - Run `/dev features/p{N}_{slug}.md`
 5. Verify - Tests run automatically during `/dev`
 7. Ship - Run `/done` to mark complete
 ```

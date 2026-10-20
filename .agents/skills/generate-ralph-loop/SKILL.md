@@ -1,7 +1,7 @@
 ---
 name: generate-ralph-loop
 description: Generate commands for Ralph Orchestrator (external tool) or Claude Code's internal /ralph-loop. Reads a spec or UAT file, analyzes complexity, and outputs ready-to-run commands. Primary output is Ralph Orchestrator (solves context compaction). Internal /ralph-loop is deprecated fallback for simple tasks.
-when_to_use: "After /generate-tests, when setting up iterative AI dev loops for complex features."
+when_to_use: "When setting up iterative AI dev loops for complex features."
 version: 1.0.0
 ---
 
@@ -32,7 +32,7 @@ Before generating commands, assess feature complexity from the `### Implementati
 **If 5+ files OR 3+ concerns OR 6+ steps:**
 
 > "This feature exceeds ralph-loop's effective range (5+ files or 6+ steps).
-> Recommend: run /decompose first to create a task manifest, then /dev will orchestrate per-task subagents — each with fresh context, no compaction risk.
+> Recommend: split the spec into smaller specs (or let /dev work it task by task) — fresh context per piece, no compaction risk.
 > Ralph-loop works best for medium features (3–5 files, 3–5 steps)."
 
 Stop and output the recommendation above. Do not generate a ralph command.

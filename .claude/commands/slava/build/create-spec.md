@@ -497,4 +497,4 @@ The execution line belongs in the report, not only in the frontmatter — it is 
 - `/slava:think:problemify` — reframe a Problem that named a fix. **Offered, never called** (above).
 - Multi-model spec review — Gemini review model, Opus and Codex, each load-bearing claim verified by command before it is folded in (decisions.md 2026-10-16 [process]); replaces the archived `/challenge-prd` and `/spec-review` (P1514)
 - `/create-bug` — symptom-first bug spec · `/change-request` — predecessor-linked redesign spec
-- `/dev` — implementation, ending in the `/finish` review (P1505); `/ux`, `/ui`, `/generate-tests`, `/decompose` are optional tools, not a required pipeline
+- `/dev` — implementation, ending in the `/finish` review (P1505); there is no separate design, test-generation or decomposition pipeline (`/ux`, `/ui`, `/generate-tests`, `/decompose` archived 2026-10-20, P1514)

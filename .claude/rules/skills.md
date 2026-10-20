@@ -47,7 +47,7 @@ archived_reason: "one sentence — why archived and what to use instead (or 'no 
 
 **Examples:**
 - `"replaced by /slava:build:dev auto-close on success"`
-- `"prep-spec sub-agent — /prep-spec superseded by sequential flow"`
+- `"prep-spec sub-agent — superseded by sequential flow"`
 - `"merged into archive/prep-spec-agents/alignment.md"`
 - `"Notion no longer used — retired with no replacement"`
 

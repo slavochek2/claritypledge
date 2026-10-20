@@ -58,14 +58,14 @@ Decision density: low; one founder call on the skills listed under Open Question
 | Old specs carry `## Technical Architecture` etc. | ACCEPT | Readers keep the legacy aliases; nothing is batch-migrated. |
 
 **Non-Goals**
-- Do NOT archive `/ux`, `/ui`, `/generate-tests`, `/decompose` or `/prep-spec` in this task; list them
-  with evidence for the founder (Open Questions).
+- ~~Do NOT archive `/ux`, `/ui`, `/generate-tests`, `/decompose` or `/prep-spec`~~ superseded by the founder's
+  2026-10-20 answer (Open Questions 1): they are archived too.
 - Do NOT change `/dev`, `/finish` or `/ship` behaviour beyond removing references.
 - Do NOT edit CLAUDE.md beyond reference fixes, and only through the gate.
 
 ## Done-When
 
-- [x] The three skills are in `archive/` with `archived_reason`.
+- [x] The three named skills, plus `/ux`, `/ui`, `/generate-tests`, `/decompose`, `/prep-spec` (Open Question 1), are in `archive/` with `archived_reason`.
 - [x] `grep -rE "(/|:)architect\b|spec-review|challenge-prd"` over `.claude/`, `scripts/`, `docs/software-delivery-process.md` and CLAUDE.md returns only archive files, history, or lines carrying a kept-on-purpose note.
 - [x] The delivery-process doc describes the current route and no longer names `/pick-flow` as live.
 - [x] `./scripts/pre-commit-checks.sh` passes.
@@ -74,3 +74,7 @@ Decision density: low; one founder call on the skills listed under Open Question
 
 1. `/ux`, `/ui`, `/generate-tests`, `/decompose`, `/prep-spec` (already deprecated): retire too, or keep
    as optional tools? The build reports their last real use.
+   **Answered 2026-10-20 (founder): retire them too, except any with real use in the last 30 days.**
+   Evidence: no spec created since 2026-09-20 lists any of the five in `pipeline_ran`; newest `skill-costs.log`
+   lines are generate-tests 2026-09-14 and ui 2026-04-13 (ux, decompose, prep-spec: none); no commit message
+   since 2026-09-20 invokes them (two grep hits were `fix(ux):` prefixes and a UX-copy line). None kept; all five archived.

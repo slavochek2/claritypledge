@@ -91,7 +91,7 @@ Specs are created on main but evolve on feature branches. The feature branch cop
 
 **Read rule (all skills):**
 When resolving a spec by P-number — **for any purpose, not only implementation**. Design and review
-work (`/ux`, `/ui`, `/generate-tests`, a multi-model spec review) briefs subagents off whatever copy
+work (a multi-model spec review, `/finish` reviewers) briefs subagents off whatever copy
 it resolves, so a stale read there costs a whole pass:
 1. Check whether any existing worktree is **on this feature's branch** — `git worktree list` and match
    `feature/p{N}-*` or `fix/p{N}-*`.
@@ -194,7 +194,7 @@ exec_model: sonnet              # recommended model to EXECUTE the work; snapsho
 exec_effort: medium             # recommended reasoning effort
 ```
 
-- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `ux`, `research-arch`, `ui`, `view`, `generate-tests`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. `challenge-prd`, `architect` and `spec-review` stay valid as legacy values on older specs (and in the kanban's value list); their skills were archived 2026-10-19 (P1514), so nothing writes them any more. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
+- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `ux`, `research-arch`, `ui`, `view`, `generate-tests`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. `challenge-prd`, `architect` and `spec-review` stay valid as legacy values on older specs (and in the kanban's value list); their skills were archived 2026-10-19 (P1514), so nothing writes them any more; the same holds for `ux`, `ui`, `generate-tests`, `decompose` (archived 2026-10-20, P1514). Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
 - **`pipeline_plan:`** — ordered skill list for this spec's flow. Legacy/optional now (`/pick-flow` deprecated 2026-10-07); set by the agent/human if used. Never deleted.
 - **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
 - **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Legacy/optional; set by the agent/human if used. Never deleted.
@@ -281,7 +281,7 @@ When a change-request targets another change-request (not the original spec):
 3. **Implement the delta** — this spec describes what to change relative to codebase state. Do not re-examine or re-propose settled decisions from any ancestor.
 4. **Never edit ancestors** — all specs in the chain are shipped or abandoned records. Do not recommend changes to them, rewrite their sections, or suggest "going back to fix an earlier spec."
 
-This contract applies to every skill and reviewer that works on the spec (`/ux`, `/ui`, `/dev`, `/fix`, `/generate-tests`, the multi-model spec review, etc.) — not just `/dev`.
+This contract applies to every skill and reviewer that works on the spec (`/dev`, `/fix`, `/finish`, the multi-model spec review, etc.) — not just `/dev`.
 
 ## Risks ≠ Requirements for Instrumentation
 

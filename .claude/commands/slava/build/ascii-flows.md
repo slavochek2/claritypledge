@@ -1,13 +1,13 @@
 ---
 name: ascii-flows
-description: Pre-UX exploration tool for layout and navigation structure of complex multi-flow features. Generates 30 ASCII wireframe flow variants, scores them against weighted criteria, identifies the top 5, then iterates to produce one recommended hybrid flow for user approval. Run before /ux when a feature has multiple distinct user flows, bilateral interactions, or unclear navigation structure. NOT for interaction design (how a component behaves, what feedback it gives) — that's /ux territory. Usage: /ascii-flows features/p422_foo.md
-when_to_use: Optional step before /ux for complex multi-flow features with unclear layout/navigation. Skip for simple single-flow features and for interaction design questions (use /ux instead).
+description: Pre-UX exploration tool for layout and navigation structure of complex multi-flow features. Generates 30 ASCII wireframe flow variants, scores them against weighted criteria, identifies the top 5, then iterates to produce one recommended hybrid flow for user approval. Run before writing the spec Solution when a feature has multiple distinct user flows, bilateral interactions, or unclear navigation structure. NOT for interaction design (how a component behaves, what feedback it gives) — that belongs in the spec Solution. Usage: /ascii-flows features/p422_foo.md
+when_to_use: Optional step before the spec Solution for complex multi-flow features with unclear layout/navigation. Skip for simple single-flow features and for interaction design questions (work it out in the spec Solution instead).
 version: 1.0.0
 ---
 
 # ASCII Flows — Pre-UX Exploration
 
-**Generate 30 flow variants, score them, pick a winner. Run before /ux.**
+**Generate 30 flow variants, score them, pick a winner. Run before the spec Solution.**
 
 **Announce at start:** "I'm using the ascii-flows skill to explore UX flows."
 
@@ -27,13 +27,13 @@ version: 1.0.0
 - Features with multiple distinct user flows (creation, acceptance, compliance, etc.)
 - Bilateral or multi-party interactions
 - Features where the right navigation structure is unclear
-- Any feature where you want to explore the design space before committing to /ux
+- Any feature where you want to explore the design space before committing to a Solution
 
 ❌ **Skip for:**
-- Simple single-flow features (go straight to /ux)
+- Simple single-flow features (go straight to the spec Solution)
 - Features with obvious, well-understood UX patterns
 
-**Next step after ascii-flows:** Run `/ux features/pN_name.md` with the winning flow as input context.
+**Next step after ascii-flows:** Put the winning flow into the spec's Solution (`/create-spec` or an edit of the existing spec).
 
 ---
 
