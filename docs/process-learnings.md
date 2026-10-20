@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 198
+**Next ID:** 199
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2542,5 +2542,16 @@ Found by a screenshot-only visual QA pass on P1512 round 2; each predates P1512 
 **due:** month
 
 A requires-frontend sha marker points at the branch commit, but /ship cherry-picks onto main, so the commit gets a new sha and the marker can never become an ancestor of origin/main; authors fall back to client-safe plus a checklist (decisions.md 2026 entry on the trust-column accessor, and again 2026-10-20). Done when a coupling marker names something stable across the cherry-pick (a P-number, or a file the frontend must contain) and migrate.sh checks it; droppable if frontend-coupled migrations stay rare.
+
+---
+
+## Decide whether the canvas position spread belongs on /feed and /stake cards
+
+**ID:** INBOX-198
+**Date:** 2026-10-20
+**Status:** proposed
+**due:** month
+
+P1508 round 5 (D11) kept the seven-bar neutral spread and the "Contested" mark to the canvas cards and the point page's position block, because feed cards already show counts on their position buttons. After the canvas event, check whether people used the spread on the canvas and on /point/:id; add it to feed cards only if they did. Drop this if the spread goes unused or the canvas is retired.
 
 ---
