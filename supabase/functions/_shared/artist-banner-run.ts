@@ -193,6 +193,12 @@ export async function runArtistBanner(opts: {
   onGenerate?: (attempt: number) => Promise<boolean | undefined> | boolean | undefined;
   onKeyBlocked?: () => void;
   logTag: string;
+  /** P1520 portrait: its own prompt for the picked artist (default: the profile banner prompt). */
+  buildPrompt?: (entry: ArtistEntry) => string;
+  /** Default '21:9' (a banner). */
+  aspectRatio?: string;
+  /** P1520 portrait: no darkness check (it exists for the banner's signature ink). */
+  skipDarkness?: boolean;
 }): Promise<ArtistBannerResult | null> {
   const deadline = Date.now() + BUDGET_MS;
   const onHttpStatus = (status: number) => {
@@ -206,11 +212,11 @@ export async function runArtistBanner(opts: {
       if (go !== false) generations++;
       return go;
     },
-    generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: '21:9', deadline, onHttpStatus }),
-    measure: measureImage,
+    generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: opts.aspectRatio ?? '21:9', deadline, onHttpStatus }),
+    measure: opts.skipDarkness ? async () => ({ luma: null, ink: 'cream' as const }) : measureImage,
     vision: (image, q) => visionCheck(opts.apiKey, image, q, deadline),
     log: (line) => console.log(`${opts.logTag} attempt`, line),
-  });
+  }, opts.buildPrompt?.(entry));
   if (!result) return null;
   return { entry, best: result.best, generations };
 }

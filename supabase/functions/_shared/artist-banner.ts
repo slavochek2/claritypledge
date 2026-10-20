@@ -171,8 +171,9 @@ export async function generateArtistBanner(
   keywords: string | null | undefined,
   rng: Rng,
   deps: AttemptDeps,
+  /** P1520: another image in the same style loop (the mirror portrait). Default: the profile banner. */
+  prompt: string = buildArtistProfilePrompt(entry, keywords),
 ): Promise<{ best: Candidate; attempts: Candidate[] } | null> {
-  const prompt = buildArtistProfilePrompt(entry, keywords);
   const attempts: Candidate[] = [];
   let darkRetry = 1;
   let visionRetry = 1;

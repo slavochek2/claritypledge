@@ -149,6 +149,16 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1520. OPTIONS answers before the MIRROR_AI_ENABLED gate, so it is a boot proof on a project where
+  // the mirror is off (prod) as well; the POST is refused by the gateway before any handler code.
+  'mirror-portrait': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
+  'mirror-reply': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'request-letter-response-signin': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
