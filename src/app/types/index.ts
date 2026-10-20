@@ -967,6 +967,10 @@ export interface SeriesPhoto {
   storageUrl: string;
   alt: string;
   credit?: string;
+  /** P1517: 'video' rows are mp4s on the public media bucket; absent means photo. */
+  mediaType?: 'photo' | 'video';
+  /** P1517: poster image for a video row (required by the DB for videos). */
+  posterUrl?: string;
 }
 
 export interface SeriesContent {

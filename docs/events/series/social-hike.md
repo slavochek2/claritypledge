@@ -205,6 +205,14 @@ children. Pick what makes a stranger want to come: groups, smiles, views, friend
 (the elephants stayed). Nothing that could put someone off: the founder removed a snake photo
 on 2026-10-04.
 
+**Videos (P1517):** a `series_photos` row with `media_type = 'video'` shows as a tap-to-play tile
+(`storage_url` = the mp4, `poster_url` = a jpg poster, both required and both on the bucket). Per clip:
+at most 8 MB, 30 s, 720p; `ffmpeg -map_metadata -1`, H.264/AAC, `-movflags +faststart`; extract a
+stripped first-frame jpg poster. Upload by hand to `hikes/social-hike/<name>-vN.mp4` and
+`<name>-vN-poster.jpg` with the P1336 convention (versioned names, one-year `cache-control`, confirm an
+HTTP 206 on a range request; see `features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md`),
+then insert the row with an `alt`. Sound is on after the tap. The same face and consent rules apply.
+
 ## Banner from a group photo — the recipe, so it is not re-derived
 
 The event page renders the banner at about **5.85:1** on desktop (1497x256) and **1.95:1** on

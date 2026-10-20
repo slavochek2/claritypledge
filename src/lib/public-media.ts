@@ -40,5 +40,13 @@ export function isPublicMediaVideo(url: string | null | undefined): boolean {
   }
 }
 
+/** P1517 — a poster image served from the media bucket (jpg/jpeg/png/webp). Same rule as the series_photos CHECK. */
+export function isPublicMediaImage(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const u = url.trim();
+  if (!/^https:\/\/storage\.googleapis\.com\/claritypledge-story-images\/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)$/.test(u)) return false;
+  return !u.includes('..');
+}
+
 /** The poster stored next to a bucket mp4 (`name.mp4` → `name-poster.jpg`, the event-prep convention). */
 export const publicMediaPosterFor = (videoUrl: string) => videoUrl.trim().replace(/\.mp4$/, '-poster.jpg');

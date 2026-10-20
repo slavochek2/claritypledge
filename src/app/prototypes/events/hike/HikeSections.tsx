@@ -10,7 +10,8 @@ import { Repeat, MoveHorizontal, Map as MapIcon } from 'lucide-react';
 import type { SeriesPhoto, SeriesReview } from '@/app/types';
 import { safeLinkHref } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
-import { PUBLIC_MEDIA_ORIGIN } from '@/lib/public-media';
+import { PUBLIC_MEDIA_ORIGIN, isPublicMediaVideo, isPublicMediaImage } from '@/lib/public-media';
+import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
 import {
   HIKE_LABELS,
   extractRouteGeometry,
@@ -68,7 +69,10 @@ function isAllowedPhotoUrl(url: string): boolean {
 }
 
 export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: SeriesPhoto[]; mapUrl?: string; onOpenImage?: (src: string, alt: string) => void }) {
-  const shown = photos.filter(p => isAllowedPhotoUrl(p.storageUrl));
+  // P1517: a video row needs a bucket mp4 AND a bucket poster; anything else is dropped like a bad photo.
+  const shown = photos.filter(p => p.mediaType === 'video'
+    ? isPublicMediaVideo(p.storageUrl) && isPublicMediaImage(p.posterUrl)
+    : isAllowedPhotoUrl(p.storageUrl));
   const mapTile = mapUrl && isAllowedPhotoUrl(mapUrl) ? mapUrl : undefined;
   if (shown.length === 0 && !mapTile) return null;
 
@@ -92,6 +96,21 @@ export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: Series
                 <MapIcon className="h-3.5 w-3.5" aria-hidden="true" /> {HIKE_LABELS.route}
               </span>
             </a>
+          </li>
+        ) : tile.photo.mediaType === 'video' ? (
+          <li key={tile.photo.id} data-testid="hike-video-tile" className="snap-start flex-shrink-0 w-[62%] sm:w-56">
+            <figure>
+              <Mp4VideoFacade
+                look="tile"
+                src={tile.photo.storageUrl}
+                poster={tile.photo.posterUrl!}
+                posterAlt={tile.photo.alt}
+                playLabel={`Play video: ${tile.photo.alt}`}
+              />
+              {tile.photo.credit && (
+                <figcaption className="mt-1 text-[11px] text-muted-foreground truncate">{tile.photo.credit}</figcaption>
+              )}
+            </figure>
           </li>
         ) : (
           <li key={tile.photo.id} className="snap-start flex-shrink-0 w-[62%] sm:w-56">

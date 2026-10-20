@@ -546,7 +546,7 @@ export const realEventsService: EventsService = {
         .order('created_at', { ascending: true }),
       supabase
         .from('series_photos')
-        .select('id, storage_url, alt, credit, sort_order')
+        .select('id, storage_url, alt, credit, media_type, poster_url, sort_order')
         .eq('series_slug', seriesSlug)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
@@ -563,7 +563,10 @@ export const realEventsService: EventsService = {
       id: string; quote: string; author_name: string; author_profile_path: string | null;
       author: AuthorRow | AuthorRow[] | null;
     };
-    type PhotoRow = { id: string; storage_url: string; alt: string; credit: string | null };
+    type PhotoRow = {
+      id: string; storage_url: string; alt: string; credit: string | null;
+      media_type: 'photo' | 'video'; poster_url: string | null;
+    };
 
     return {
       reviews: ((reviewsRes.data ?? []) as ReviewRow[]).map(r => ({
@@ -578,6 +581,8 @@ export const realEventsService: EventsService = {
         storageUrl: p.storage_url,
         alt: p.alt,
         credit: p.credit ?? undefined,
+        mediaType: p.media_type,
+        posterUrl: p.poster_url ?? undefined,
       })),
     };
   },

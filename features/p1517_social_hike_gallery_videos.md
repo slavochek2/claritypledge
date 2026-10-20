@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 46
 workstream: events
@@ -7,8 +7,8 @@ created_date: '2026-10-20'
 tags: [events, hike, video, gallery]
 disclosure: public
 intent: cold-start
-delivery_stage: spec-review
-pipeline_ran: [create-spec, spec-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, spec-review, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -28,9 +28,13 @@ to put them in the gallery.
 **Question:** Can a series gallery tile be a click-to-play video, served from the same GCS bucket
 as the photos, without slowing the page or tripping prod CSP?
 
-Intent source: relayed by the lead agent, no founder sentence available verbatim. The requirements
-it relayed: videos in the GCS bucket under `hikes/social-hike/` and NOT Supabase Storage, a poster
-image per video, metadata stripped.
+Founder, 2026-10-20: "Can we support also videos and hikes?" and "vidoes make small feature ...
+videos in bucket (not supabase)" and "we already use storiyng of videos somwhere so we can support it".
+
+**Founder decisions, PROPOSED defaults accepted by the orchestrator pending founder veto
+(2026-10-20):** size cap ≤ 8 MB / ≤ 30 s / ≤ 720p; sound on after the tap (native controls, not
+muted); portrait clips in the 4:3 tile: poster `object-cover` at rest, letterboxed
+(`object-contain` on black) while playing.
 
 ## Appetite
 
@@ -63,8 +67,8 @@ migration with a default, then a code revert). Decision density: low, two founde
    fixed `aspect-video` (16:9), while photo tiles are `aspect-[4/3]` in a `w-[62%] sm:w-56` slot,
    and two of the three first clips are portrait (478×850). The facade needs a tile look (or a
    frame-class prop) that fills the photo tile's 4:3 box.
-   [FOUNDER DECISION: portrait clips in a 4:3 tile. Proposed: poster `object-cover` at rest,
-   video `object-contain` (letterboxed on black) while playing.] Video tiles do not open the image
+   (Decided, proposed default: poster `object-cover` at rest,
+   video `object-contain` (letterboxed on black) while playing.) Video tiles do not open the image
    lightbox. A tile whose video or poster URL fails the public-media check is dropped, as photos
    are today.
 4. **Media storage and upload: reuse the existing public-media video path, nothing new.**
@@ -89,12 +93,12 @@ migration with a default, then a code revert). Decision density: low, two founde
      `scripts/event-photo-prep.sh` is NOT a precedent: it writes event banners to Supabase Storage.
    Per clip, before upload: strip metadata (`ffmpeg -map_metadata -1`), make sure it is H.264/AAC,
    apply faststart, and extract a first-frame jpg poster (also stripped).
-   [FOUNDER DECISION: size cap per clip. Proposed: ≤ 8 MB, ≤ 30 s, ≤ 720p.]
+   (Decided, proposed default: ≤ 8 MB, ≤ 30 s, ≤ 720p.)
 5. **Docs:** extend the "Series content" paragraph of `docs/events/series/social-hike.md` with the
    step-4 recipe (pointing at the P1336 convention rather than restating it), the poster requirement and the existing face/consent rules.
 
-[FOUNDER DECISION: sound. Proposed: native controls with sound on after the tap, since the tap is
-the visitor's consent. The alternative is to start muted.]
+(Decided, proposed default: native controls with sound on after the tap, since the tap is
+the visitor's consent. The alternative is to start muted.)
 
 ## Risks / Non-Goals
 
@@ -116,12 +120,12 @@ the visitor's consent. The alternative is to start muted.]
 - [ ] On a series with one video row, the "From past hikes" strip shows a tile with the poster
       and a play button, and the network panel shows no request for the mp4 before the tap.
 - [ ] Tapping the tile plays the video inline (iOS Safari included) with native controls.
-- [ ] Photo tiles and the route-map tile look and behave as before, and the lightbox still opens.
-- [ ] The DB rejects a video row without a poster and one whose URL is outside the bucket.
+- [x] Photo tiles and the route-map tile look and behave as before, and the lightbox still opens.
+- [x] The DB rejects a video row without a poster and one whose URL is outside the bucket.
 - [ ] The strip is verified at 320px, 375px and desktop with photos and a video mixed.
-- [ ] The "Series content" paragraph in `docs/events/series/social-hike.md` describes the video
+- [x] The "Series content" paragraph in `docs/events/series/social-hike.md` describes the video
       recipe.
-- [ ] A hike video URL built with `publicMediaUrl('hikes/social-hike/…mp4')` passes
+- [x] A hike video URL built with `publicMediaUrl('hikes/social-hike/…mp4')` passes
       `isPublicMediaVideo()`, and the existing `src/tests/p1385-public-media.test.ts` (origin in
       `media-src`/`img-src`) stays green. `[post-deploy]` re-check that one clip plays on
       claritypledge.com.
