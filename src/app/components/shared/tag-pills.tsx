@@ -14,7 +14,7 @@
 
 import { Link } from 'react-router-dom';
 import { useLinksInNewTab } from './links-in-new-tab';
-import { isCanvasBoxTag } from '@/lib/canvas-boxes';
+import { isCanvasTag } from '@/lib/canvas-boxes';
 
 export type TagPillsContext = 'feed' | 'live' | 'profile' | 'detail';
 
@@ -48,7 +48,7 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
   // says nothing, and /feed?tag=v2 is a meaningless cross-set list (founder, 2026-10-02).
   // P1508: canvas box tags are hidden the same way — the box a point sits in is the canvas's
   // layout, not a label, and the feed has no box filter.
-  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])].filter(t => !/^v\d+$/i.test(t) && !isCanvasBoxTag(t));
+  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])].filter(t => !/^v\d+$/i.test(t) && !isCanvasTag(t));
   if (allTags.length === 0) return null;
 
   const isInteractive = context !== 'live';

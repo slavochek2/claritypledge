@@ -6,7 +6,7 @@
  * Pure functions — no side effects, no React dependencies.
  */
 
-import { isCanvasBoxTag } from './canvas-boxes';
+import { isCanvasTag } from './canvas-boxes';
 
 /** Parse comma-separated tag param into array. Empty/null → empty array. */
 export function parseTags(tagParam: string | null): string[] {
@@ -29,10 +29,10 @@ const SYSTEM_TAG_PATTERNS = [ST_TAG_PATTERN, V_TAG_PATTERN];
 const SYSTEM_TAG_VALUES = new Set(['understanding', 'misunderstanding']);
 
 /** P630: Check if a tag is a system tag (st-tags, v-tags, understanding, misunderstanding,
- *  and the P1508 canvas box tags). */
+ *  and the P1508 canvas tags: box tags and `canvas_<name>`, a reserved namespace). */
 export function isSystemTag(tag: string): boolean {
   const lower = tag.toLowerCase();
-  return SYSTEM_TAG_PATTERNS.some(p => p.test(lower)) || SYSTEM_TAG_VALUES.has(lower) || isCanvasBoxTag(lower);
+  return SYSTEM_TAG_PATTERNS.some(p => p.test(lower)) || SYSTEM_TAG_VALUES.has(lower) || isCanvasTag(lower);
 }
 
 /** @deprecated Use isSystemTag(). Backwards-compatible alias. */

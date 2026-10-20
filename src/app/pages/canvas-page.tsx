@@ -4,16 +4,18 @@
  *
  * There is no canvas record: a canvas is derived from owner + project tag. Its contents are the
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
- * tag), placed into twelve boxes — the lean canvas's nine and three ikigai boxes.
+ * tag), placed into eleven boxes in four named layers (sixth round R1): Who I am, The core bet,
+ * How we win, Money in, money out.
  *
- * READ FIRST, ACT ON OPEN (founder, event use): one grid of twelve equal boxes in reading order
- * (four columns from 1280px, two from 640px, one below). A box card is text to read plus its
- * spread, with no buttons; the whole card opens the point. Above the grid: "Clarity Canvas", then
- * the owner on the left and the canvas picker (the owner's project tags) and Compare on the right.
- * The open point (a side panel on desktop, a full-screen sheet below 1024px) holds the production
- * point card showing the owner as their profile does, the point page's "Filter by position"
- * block, and Previous / Next through the canvas. Opening a point adds a history entry, so Back
- * closes it.
+ * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
+ * 1024px, two from 640px, one below, each layer under its label. A box shows two cards, then
+ * "N more", which opens the whole box in the panel (R2) — the grid never moves. A box card is text
+ * to read plus its spread, with no buttons; the whole card opens the point. Above the grid:
+ * "Clarity Canvas", then "by <owner>" and the canvas's name (a menu when the owner has several)
+ * on the left, Compare on the right (R10). The panel (a side panel on desktop, a full-screen sheet
+ * below 1024px) holds either a box's list or the production point card showing the owner as their
+ * profile does, the point page's "Filter by position" block, and Previous / Next through the
+ * canvas. Opening a box or a point adds a history entry, so Back steps out one level.
  *
  * VISIBILITY: the owner sees their private points; anyone else, public ones only (enforced in the
  * read and by RLS). Everything on screen is keyed by the viewer, so signing out or switching
@@ -27,7 +29,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Gem, Globe, Heart, Lightbulb,
+  BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Globe, Heart, Lightbulb,
   Megaphone, Receipt, ShieldCheck, Star, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/auth';
@@ -51,7 +53,7 @@ import { NotFoundPage } from '@/app/pages/not-found-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { stripHashtags } from '@/lib/utils';
-import { CANVAS_BOXES, canvasBoxOf, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -59,17 +61,11 @@ import type {
   StoryWithAuthor,
 } from '@/app/types';
 
-/** Reading order (fifth round, D1 — founder chose the recommended default): row by
- *  row, Customer Segments, Problem, Solution, Unique Value Proposition; then the boxes about the
- *  owner, What I love, What the world needs, What I'm good at, Unfair Advantage; then Channels,
- *  Key Metrics, Cost Structure, Revenue Streams. The same order at every width (a phone stacks it),
- *  and Previous / Next walk it. */
-const READING_ORDER: readonly CanvasBoxTag[] = [
-  'canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:uvp',
-  'canvas:love', 'canvas:world-needs', 'canvas:good-at', 'canvas:advantage',
-  'canvas:channels', 'canvas:metrics', 'canvas:cost', 'canvas:revenue',
-];
+/** Reading order: layer by layer, box by box (sixth round R1). The same order at every width (a
+ *  phone stacks it), and Previous / Next walk it. */
+const READING_ORDER: readonly CanvasBoxTag[] = CANVAS_LAYERS.flatMap(l => l.boxes);
 const ORDERED_BOXES = [...CANVAS_BOXES].sort((a, b) => READING_ORDER.indexOf(a.tag) - READING_ORDER.indexOf(b.tag));
+const BOX_TITLES = new Map<CanvasBoxTag, string>(CANVAS_BOXES.map(b => [b.tag, b.title]));
 
 /** A small icon per box, so the canvas can be scanned by shape as well as by title. */
 const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
@@ -78,7 +74,6 @@ const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
   'canvas:solution': Lightbulb,
   'canvas:love': Heart,
   'canvas:world-needs': Globe,
-  'canvas:uvp': Gem,
   'canvas:advantage': ShieldCheck,
   'canvas:good-at': Star,
   'canvas:channels': Megaphone,
@@ -86,8 +81,8 @@ const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
   'canvas:revenue': Coins,
   'canvas:cost': Receipt,
 };
-/** The canvas stays small: a box shows this many cards, and says how many more it holds. */
-const BOX_LIMIT = 3;
+/** The canvas stays small: a box shows this many cards, and says how many more it holds (R2). */
+const BOX_LIMIT = 2;
 
 type CanvasData =
   | {
@@ -219,18 +214,24 @@ export function CanvasPage() {
   }, [setSearchParams]);
   const openIndex = requestedPointId ? ordered.findIndex(p => p.id === requestedPointId) : -1;
   const openPoint = openIndex >= 0 ? ordered[openIndex] : null;
+  // R2: a box's "N more" opens the whole box in the panel (`?box=`); a point opened from that list
+  // sits on top of it, so Back returns to the list.
+  const requestedBox = searchParams.get('box') as CanvasBoxTag | null;
+  const openBox = !openPoint && requestedBox && boxes?.has(requestedBox) ? requestedBox : null;
 
-  // The close button and Escape: step Back off the entry the card pushed — through useGoBack, the
-  // one place that may pop (P1364); its fallback is this canvas without the point. A point opened
-  // from the address (no entry of ours behind it) just drops `?point=`.
-  const withoutPoint = new URLSearchParams(searchParams);
-  withoutPoint.delete('point');
-  const restQuery = withoutPoint.toString();
+  // The close button and Escape: step Back off the entry the card or "N more" pushed — through
+  // useGoBack, the one place that may pop (P1364) — one level: a point opened from a box's list
+  // returns to the list. Its fallback, and the close of a panel opened from the address (no entry
+  // of ours behind it), drop that one level from the address.
+  const topLevel = requestedPointId ? 'point' : 'box';
+  const withoutTop = new URLSearchParams(searchParams);
+  withoutTop.delete(topLevel);
+  const restQuery = withoutTop.toString();
   const goBack = useGoBack(`${location.pathname}${restQuery ? `?${restQuery}` : ''}`);
   const closePanel = useCallback(() => {
     if ((locationStateRef.current as { canvasPanel?: boolean } | null)?.canvasPanel) goBack();
-    else setParams({ point: null });
-  }, [goBack, setParams]);
+    else setParams({ [topLevel]: null });
+  }, [goBack, setParams, topLevel]);
 
   // However the point closed (the button, Escape, the backdrop, Back): re-read, so a position
   // taken in the panel shows on the box card. The cards' remount is set during this render, not
@@ -257,6 +258,11 @@ export function CanvasPage() {
     setParams({ point: pointId }, push && !requestedPointRef.current);
     void read(key, true);
   }, [key, read, setParams]);
+  const requestedBoxRef = useRef(requestedBox);
+  requestedBoxRef.current = requestedBox;
+  const openBoxPanel = useCallback((box: CanvasBoxTag) => {
+    setParams({ box }, !requestedPointRef.current && !requestedBoxRef.current);
+  }, [setParams]);
 
   // A point opened from the address (a shared link, a reload of an old tab): put the canvas itself
   // behind it and mark the point's entry, as a card click does — so Back (the browser's, a phone's
@@ -325,60 +331,77 @@ export function CanvasPage() {
     }
     : undefined;
 
+  const compare = basePerson && withPerson
+    ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
+    : null;
+  const renderCard = (point: PointWithUserPosition) => ready && (
+    <CanvasCard
+      key={`${point.id}:${panelCloses}`}
+      point={point}
+      viewerId={viewerId}
+      positions={ready.positions.get(point.id) ?? []}
+      compare={compare}
+      selected={point.id === openPoint?.id}
+      onOpen={() => openPanel(point.id, true)}
+    />
+  );
+  const openBoxTitle = openBox ? BOX_TITLES.get(openBox) : undefined;
+
   return (
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
       {ready && <SEO title={`${ready.ownerName} · #${projectTag} — Clarity Pledge`} noIndex />}
-      {/* Founder (fifth round): one breadcrumb row — whose canvas, "Clarity Canvas", which project
-          (a menu when the owner has more than one) — and Compare on the right, wrapping under it
-          when the row is too narrow. */}
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3" data-testid="canvas-header-row">
-        {/* Each separator travels with the step after it, so a wrapped line never ends on "/". */}
-        <nav aria-label="Canvas" className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-lg md:text-xl" data-testid="canvas-breadcrumb">
-          {ready ? (
-            // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
-            <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5" data-testid="canvas-owner">
-              <GravatarAvatar
-                name={ready.owner.name}
-                photoUrl={ready.owner.photoUrl}
-                avatarColor={ready.owner.avatarColor}
-                isPledger={ready.owner.hasPledged}
-                isAgent={ownerIsAgent}
-                identityPending={identityPending}
-                size="sm"
-              />
-              <Link
-                to={`/p/${handle}`}
-                className="min-w-0 truncate rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                data-testid="canvas-owner-name"
-              >
-                {ready.ownerName}
-              </Link>
-            </span>
-          ) : (
-            current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
-          )}
-          <span className="flex shrink-0 items-center gap-2">
-            {ready && <BreadcrumbSeparator />}
-            <h1 className="font-bold text-foreground">Clarity Canvas</h1>
-          </span>
+      {/* R10: the name of the thing first, then whose it is and which one: "Clarity Canvas" on its
+          own line; under it "by <owner>" and the canvas's name (the menu, when the owner has more
+          than one), Compare on the right, wrapping under them when the row is too narrow. */}
+      <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
+        <h1 className="text-3xl font-bold text-foreground md:text-4xl">Clarity Canvas</h1>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base md:text-lg" data-testid="canvas-byline">
+            {ready ? (
+              // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
+              <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5" data-testid="canvas-owner">
+                <GravatarAvatar
+                  name={ready.owner.name}
+                  photoUrl={ready.owner.photoUrl}
+                  avatarColor={ready.owner.avatarColor}
+                  isPledger={ready.owner.hasPledged}
+                  isAgent={ownerIsAgent}
+                  identityPending={identityPending}
+                  size="sm"
+                />
+                <span className="min-w-0 truncate text-foreground">
+                  by{' '}
+                  <Link
+                    to={`/p/${handle}`}
+                    className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-testid="canvas-owner-name"
+                  >
+                    {ready.ownerName}
+                  </Link>
+                </span>
+              </span>
+            ) : (
+              current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
+            )}
+            {ready && (
+              <span className="flex min-w-0 max-w-full items-center gap-2">
+                <span aria-hidden className="shrink-0 text-foreground/40">·</span>
+                <ProjectPicker handle={handle ?? ''} projectTag={projectTag ?? ''} projectTags={ready.projectTags} withPerson={withPerson} />
+              </span>
+            )}
+          </div>
           {ready && (
-            <span className="flex min-w-0 max-w-full items-center gap-2">
-              <BreadcrumbSeparator />
-              <ProjectPicker handle={handle ?? ''} projectTag={projectTag ?? ''} projectTags={ready.projectTags} withPerson={withPerson} />
-            </span>
+            <ComparePicker
+              base={basePerson}
+              others={others}
+              withPerson={withPerson}
+              onCompare={id => setParams({ with: id })}
+              fullCompareHref={viewerId && withPerson?.slug && withPerson.id !== viewerId
+                ? `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ?? '')}`
+                : null}
+            />
           )}
-        </nav>
-        {ready && (
-          <ComparePicker
-            base={basePerson}
-            others={others}
-            withPerson={withPerson}
-            onCompare={id => setParams({ with: id })}
-            fullCompareHref={viewerId && withPerson?.slug && withPerson.id !== viewerId
-              ? `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ?? '')}`
-              : null}
-          />
-        )}
+        </div>
       </header>
 
       {current?.status === 'error' ? (
@@ -394,36 +417,31 @@ export function CanvasPage() {
           </button>
         </div>
       ) : (
-        <CanvasGrid
-          boxes={boxes}
-          renderCard={point => ready && (
-            <CanvasCard
-              key={`${point.id}:${panelCloses}`}
-              point={point}
-              viewerId={viewerId}
-              positions={ready.positions.get(point.id) ?? []}
-              compare={basePerson && withPerson
-                ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
-                : null}
-              selected={point.id === openPoint?.id}
-              onOpen={() => openPanel(point.id, true)}
-            />
-          )}
-          openPointId={openPoint?.id ?? null}
-        />
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} />
       )}
 
-      {openPoint && ready && (
+      {/* One panel for both levels (R2), so stepping from a box's list into a point and back
+          keeps it open, with focus inside. */}
+      {(openPoint || openBox) && ready && (
         <PointPanel
           onClose={closePanel}
-          label={openPoint.statement}
-          pointId={openPoint.id}
-          step={{
-            box: CANVAS_BOXES.find(b => b.tag === canvasBoxOf(openPoint.systemTags))?.title,
-            onPrevious: previousPoint ? () => openPanel(previousPoint.id) : undefined,
-            onNext: nextPoint ? () => openPanel(nextPoint.id) : undefined,
-          }}
+          label={openPoint ? `Point: ${openPoint.statement}` : `${openBoxTitle}`}
+          viewKey={openPoint?.id ?? `box:${openBox}`}
+          closeLabel={openPoint ? 'Close point' : 'Close box'}
+          step={openPoint
+            ? {
+              box: BOX_TITLES.get(canvasBoxOf(openPoint.systemTags) as CanvasBoxTag),
+              onPrevious: previousPoint ? () => openPanel(previousPoint.id) : undefined,
+              onNext: nextPoint ? () => openPanel(nextPoint.id) : undefined,
+            }
+            : { box: openBoxTitle }}
         >
+          {!openPoint && openBox ? (
+            // R2: the whole box, as the same cards; one opens on top of this list.
+            <div className="flex flex-col gap-2 pt-2" data-testid="canvas-panel-box-list">
+              {(boxes?.get(openBox) ?? []).map(point => renderCard(point))}
+            </div>
+          ) : openPoint && (<>
           {/* Keyed by the point only: a re-read after a vote must not remount the card under the
               viewer's hand (a second tap adjusts the level of the position just taken). Stories
               start folded, as in the feed; the card shows the owner's story only (D5). */}
@@ -461,6 +479,7 @@ export function CanvasPage() {
               collapseOnEscape
             />
           </div>
+          </>)}
         </PointPanel>
       )}
     </div>
@@ -468,54 +487,58 @@ export function CanvasPage() {
 }
 
 /**
- * D1: one grid of twelve equal boxes in reading order — four columns from 1280px, two from 640px,
- * one below. Every box is shown, filled or not, so the grid keeps its shape. A row is as tall as
- * its tallest box.
+ * R1: the four layers, each under its label, in one grid — three columns from 1024px (the money
+ * layer's two boxes take half the row each), two from 640px, one below. Every box is shown, filled
+ * or not, so the grid keeps its shape. A row is as tall as its tallest box.
  */
-function CanvasGrid({ boxes, renderCard, openPointId }: {
+function CanvasGrid({ boxes, renderCard, onMore }: {
   /** null while loading (skeletons) */
   boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
-  openPointId: string | null;
+  onMore: (box: CanvasBoxTag) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" data-testid="canvas-grid" aria-busy={boxes === null}>
-      {ORDERED_BOXES.map(({ tag, title }) => (
-        <CanvasBox
-          key={tag}
-          tag={tag}
-          title={title}
-          points={boxes ? boxes.get(tag) ?? [] : null}
-          renderCard={renderCard}
-          openPointId={openPointId}
-        />
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6" data-testid="canvas-grid" aria-busy={boxes === null}>
+      {CANVAS_LAYERS.map(layer => (
+        <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
+          <h2 className="col-span-full mt-2 text-xs font-semibold uppercase tracking-wide text-foreground/70 first:mt-0" data-testid="canvas-layer-title">
+            {layer.title}
+          </h2>
+          {layer.boxes.map(tag => (
+            <CanvasBox
+              key={tag}
+              tag={tag}
+              title={BOX_TITLES.get(tag) ?? tag}
+              // Three boxes a row take a third each; the money layer's two take half each.
+              wide={layer.boxes.length === 2}
+              points={boxes ? boxes.get(tag) ?? [] : null}
+              renderCard={renderCard}
+              onMore={() => onMore(tag)}
+            />
+          ))}
+        </section>
       ))}
     </div>
   );
 }
 
 /**
- * D3: a sentence-case title with its outline icon in the title's colour, no count; at most three
- * cards and "N more", which opens the rest in the box. An empty box reads "Empty" to everyone:
- * owners change the canvas through their agent, so there is nothing to offer here.
+ * D3, R2: a sentence-case title with its outline icon, no count; at most two cards and "N more",
+ * which opens the whole box in the panel. An empty box reads "Empty" to everyone: owners change the
+ * canvas through their agent, so there is nothing to offer here.
  */
-function CanvasBox({ tag, title, points, renderCard, openPointId }: {
+function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
   tag: CanvasBoxTag;
   title: string;
+  wide: boolean;
   /** null while loading (skeleton) */
   points: PointWithUserPosition[] | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
-  openPointId: string | null;
+  onMore: () => void;
 }) {
-  const [showAll, setShowAll] = useState(false);
-  // The open point (Next, or an address with `?point=`) may sit past the first three: open the
-  // box so its card is on screen behind the panel, and stays there for focus when it closes.
-  const openIsHidden = !!openPointId && !!points && points.findIndex(p => p.id === openPointId) >= BOX_LIMIT;
-  useEffect(() => { if (openIsHidden) setShowAll(true); }, [openIsHidden]);
   const headingId = `canvas-box-${tag.replace(':', '-')}`;
   const empty = points !== null && points.length === 0;
-  const shown = points && !showAll ? points.slice(0, BOX_LIMIT) : points;
-  const hidden = points ? points.length - (shown?.length ?? 0) : 0;
+  const hidden = points ? Math.max(0, points.length - BOX_LIMIT) : 0;
   const Icon = BOX_ICONS[tag];
   const titleColour = empty ? 'text-foreground/60' : 'text-foreground';
 
@@ -525,7 +548,7 @@ function CanvasBox({ tag, title, points, renderCard, openPointId }: {
       data-testid={`canvas-box-${tag}`}
       data-empty={empty || undefined}
       // Founder (fifth round): white on white hid everything — a grey box holds white cards.
-      className="flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-3"
+      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-3 ${wide ? 'lg:col-span-3' : 'lg:col-span-2'}`}
     >
       <div className="mb-2 flex min-w-0 items-center gap-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
@@ -540,16 +563,17 @@ function CanvasBox({ tag, title, points, renderCard, openPointId }: {
         <p className="text-sm text-foreground/60">Empty</p>
       ) : (
         <div className="flex flex-col gap-2" data-testid="canvas-box-list">
-          {(shown ?? []).map(point => renderCard(point))}
-          {(hidden > 0 || showAll) && points.length > BOX_LIMIT && (
+          {points.slice(0, BOX_LIMIT).map(point => renderCard(point))}
+          {hidden > 0 && (
             <button
               type="button"
-              onClick={() => setShowAll(v => !v)}
-              aria-expanded={showAll}
+              id={`canvas-more-${tag.replace(':', '-')}`}
+              onClick={onMore}
+              aria-haspopup="dialog"
               data-testid="canvas-box-more"
               className="min-h-10 self-start rounded-sm text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              {showAll ? 'Show fewer' : `${hidden} more`}
+              {hidden} more
             </button>
           )}
         </div>
@@ -589,17 +613,13 @@ function peopleOf(
   return people;
 }
 
-function BreadcrumbSeparator() {
-  return <span aria-hidden className="shrink-0 font-normal text-foreground/30">/</span>;
-}
-
 /** Filled grey pills with a chevron, so a menu never looks like one of the white canvas cards. */
 const PILL = 'relative inline-flex h-10 min-w-0 max-w-full items-center rounded-full text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-500';
 const SELECT = 'h-full min-w-0 max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-transparent pr-8 text-base font-medium focus:outline-none md:text-sm';
 
 /**
- * Which of the owner's canvases (one per project tag): the breadcrumb's last step. With one
- * canvas it is the tag itself, not a menu with one choice.
+ * Which of the owner's canvases (one per `canvas_<name>` tag; R9): the byline's last step, by
+ * name. With one canvas it is the name itself, not a menu with one choice (R10).
  */
 function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
   handle: string;
@@ -611,7 +631,7 @@ function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
   const tags = projectTags.includes(projectTag) ? projectTags : [projectTag, ...projectTags];
   const withQuery = withPerson ? `?with=${encodeURIComponent(withPerson.id)}` : '';
   if (tags.length <= 1) {
-    return <span className="min-w-0 truncate font-medium text-foreground" data-testid="canvas-project-tag">#{projectTag}</span>;
+    return <span className="min-w-0 truncate font-medium text-foreground" data-testid="canvas-project-tag">{projectTag}</span>;
   }
   return (
     <label className={`${PILL} bg-muted text-foreground hover:bg-muted/70`} data-testid="canvas-project-picker">
@@ -623,7 +643,7 @@ function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
         className={`${SELECT} pl-3`}
         data-testid="canvas-project-tag"
       >
-        {tags.map(t => <option key={t} value={t}>#{t}</option>)}
+        {tags.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
       <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
     </label>
@@ -746,22 +766,30 @@ function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
  * FocusHeader's back arrow); focus moves in and back. Previous / Next walk the canvas without
  * closing it.
  */
-function PointPanel({ children, onClose, label, pointId, step }: {
+function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close point', step }: {
   children: ReactNode;
   onClose: () => void;
   label: string;
-  pointId: string;
+  /** what the panel shows: a point's id, or `box:<tag>` for a box's list */
+  viewKey: string;
+  closeLabel?: string;
   step: { box?: string; onPrevious?: () => void; onNext?: () => void };
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  // The point on screen when the panel closes (Previous / Next change it), for returning focus.
-  const pointIdRef = useRef(pointId);
-  pointIdRef.current = pointId;
+  // What is on screen when the panel closes (Previous / Next change it), for returning focus.
+  const viewKeyRef = useRef(viewKey);
+  viewKeyRef.current = viewKey;
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
+    // The box cards remount when the panel closes (a re-read), so the opener is found again by
+    // its id ("N more") or its test id (a card, unique per point) rather than kept as an element.
+    const openerTestId = opener?.getAttribute('data-testid');
+    const openerSelector = opener?.id
+      ? `#${CSS.escape(opener.id)}`
+      : openerTestId ? `#root [data-testid="${CSS.escape(openerTestId)}"]` : null;
     panelRef.current?.focus();
     // Escape closes the panel — unless focus is in something the card opened above it (the share
     // sheet, a confirmation), which handles its own Escape.
@@ -804,23 +832,24 @@ function PointPanel({ children, onClose, label, pointId, step }: {
       document.removeEventListener('keydown', onKey);
       root?.removeAttribute('inert');
       document.body.style.overflow = previousOverflow;
-      // The card of the point on screen at close; else whatever opened the panel (never <body>,
-      // which is what a panel opened from the address starts with).
-      const card = document.querySelector<HTMLElement>(`[data-testid="canvas-point-card-${pointIdRef.current}"]`);
-      const target = card ?? (opener?.isConnected && opener !== document.body ? opener : null);
+      // The card of the point on screen at close (a box's list: none); else whatever opened the
+      // panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
+      const card = document.querySelector<HTMLElement>(`[data-testid="canvas-point-card-${viewKeyRef.current}"]`);
+      const reopened = openerSelector ? document.querySelector<HTMLElement>(openerSelector) : null;
+      const target = card ?? (opener?.isConnected && opener !== document.body ? opener : reopened);
       target?.focus?.();
     };
     // Opened once per panel; stepping to another point keeps it open (and keeps the opener).
   }, []);
 
-  // A new point starts at its top. Stepping to the first or last point removes the button just
+  // A new point (or a box's list) starts at its top. Stepping to the first or last point removes the button just
   // pressed, which drops focus to <body> (outside the panel, where Escape and Tab no longer
   // reach it): take focus back into the panel.
   useEffect(() => {
     bodyRef.current?.scrollTo?.({ top: 0 });
     const panel = panelRef.current;
     if (panel && !panel.contains(document.activeElement)) panel.focus();
-  }, [pointId]);
+  }, [viewKey]);
 
   /* Portalled to the end of <body>, outside the inert #root: above the fixed top nav and
      BottomNav (also z-50, but earlier in the document), and still below the menus and dialogs
@@ -832,7 +861,7 @@ function PointPanel({ children, onClose, label, pointId, step }: {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Point: ${label}`}
+        aria-label={label}
         tabIndex={-1}
         data-testid="canvas-point-panel"
         className="fixed inset-0 z-50 flex flex-col bg-background outline-none lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[480px] lg:border-l lg:border-border lg:shadow-xl"
@@ -841,7 +870,7 @@ function PointPanel({ children, onClose, label, pointId, step }: {
           {/* Below 1024px the sheet fills the screen: the focus pages' back arrow, closing the
               panel (never leaving the canvas — P1364 drift-guard allowlist). */}
           <span className="pl-2 lg:hidden" data-testid="canvas-panel-back">
-            <FocusHeader compact onBack={onClose} aria-label="Close point" />
+            <FocusHeader compact onBack={onClose} aria-label={closeLabel} />
           </span>
           {/* Which box this point sits in: Previous / Next cross from box to box. */}
           <span className="min-w-0 flex-1 truncate px-2 text-sm font-semibold text-foreground" data-testid="canvas-panel-box">{step.box}</span>
@@ -858,22 +887,23 @@ function PointPanel({ children, onClose, label, pointId, step }: {
         {/* px-2 on phones: the position buttons drop their labels below a 270px row, and the
             card's own padding and pin column leave about that much at 375px. */}
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 sm:px-4">{children}</div>
-        <nav
+        {(step.onPrevious || step.onNext) && <nav
           aria-label="Points on this canvas"
           className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]"
         >
-          {/* At either end the step is absent, not disabled (no dead controls, P955). */}
+          {/* At either end the step is absent, not disabled (no dead controls, P955). Outline: a
+              real alternative to reading on (R6). */}
           {step.onPrevious ? (
-            <Button variant="ghost" onClick={step.onPrevious} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-previous">
+            <Button variant="outline" onClick={step.onPrevious} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-previous">
               <ChevronLeft className="h-4 w-4" aria-hidden /> Previous
             </Button>
           ) : <span />}
           {step.onNext && (
-            <Button variant="ghost" onClick={step.onNext} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-next">
+            <Button variant="outline" onClick={step.onNext} className="min-h-11 gap-1 px-3" data-testid="canvas-panel-next">
               Next <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
           )}
-        </nav>
+        </nav>}
       </div>
     </>,
     document.body,

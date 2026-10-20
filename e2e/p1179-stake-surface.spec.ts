@@ -97,8 +97,10 @@ test.describe('P1179 AC-9 / AC-10 — staking on the locked surface', () => {
       await expect(agree).toBeVisible();
       await agree.click();
 
-      // The count badge appears — the optimistic update landed.
-      await expect(page.getByTestId('agree-count-badge').first()).toBeVisible({ timeout: 10000 });
+      // The count appears in the card's spread (P1508 R5: the buttons carry none) — the
+      // optimistic update landed.
+      const firstCard = page.locator('[data-testid="stake-list"] > *').first();
+      await expect(firstCard.getByTestId('position-spread')).toHaveAttribute('title', /agree/, { timeout: 10000 });
 
       // ...and the list was never refetched.
       expect(feed.n, `the list was refetched ${feed.n}x across the stake — that is the loading flash`).toBe(0);
@@ -124,7 +126,7 @@ test.describe('P1179 AC-9 / AC-10 — staking on the locked surface', () => {
       const agree = page.getByTestId('agree-group').first();
       await expect(agree).toBeVisible();
       await agree.click();
-      await expect(page.getByTestId('agree-count-badge').first()).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid="stake-list"] > *').first().getByTestId('position-spread')).toHaveAttribute('title', /agree/, { timeout: 10000 });
 
       // Ground truth: the position is actually PERSISTED for this user, not just
       // painted optimistically. RLS is bypassed here on purpose so the assertion
@@ -193,7 +195,7 @@ test.describe('/stake keeps zero-position points on the standing instruments', (
       await expect(page.getByText(never)).toBeVisible();
 
       const card = page.locator('[data-testid="stake-list"] > *').filter({ hasText: statement });
-      await expect(card.getByTestId('agree-count-badge')).toHaveText('1');
+      await expect(card.getByTestId('position-spread')).toHaveAttribute('title', /^1 /);
       await card.getByTestId('agree-group').click(); // selected group -> its menu
       await page.getByRole('option', { name: /clear position/i }).click();
       // The app's own confirm (useRemovePositionGuard) — the founder's flow went through it too.
@@ -206,7 +208,7 @@ test.describe('/stake keeps zero-position points on the standing instruments', (
       }, { timeout: 15000 }).toBe(0);
       // ...and the card is still there, at zero.
       await expect(card).toHaveCount(1);
-      await expect(card.getByTestId('agree-count-badge')).toHaveCount(0);
+      await expect(card.getByTestId('spread-no-positions')).toBeVisible();
 
       await page.reload();
       await expect(page.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });

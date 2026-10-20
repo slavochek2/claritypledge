@@ -5,6 +5,10 @@
  * else must render exactly as before: the snapshots below were recorded BEFORE that change, on the
  * branch's previous commit, and the refactor has to reproduce them byte for byte.
  *
+ * Re-baselined once, for the sixth round (R3–R5): the feed, /stake and profile cards gain the
+ * spread row between the tags and the position buttons, and the buttons lose their count badges.
+ * The snapshot diff was checked to contain only those (badges out; spread, info button in).
+ *
  * Covered: the feed / stake card (FeedPointCard without `owner`), the profile card on one's own
  * and on someone else's profile (PointCardWithLinks, list surface), and the presentational pieces
  * the Day board renders (QuotedPointBox, PointOwnerRow, PointCardShell).

@@ -8,7 +8,9 @@
  * only writer of box tags in P1508.
  *
  * What it writes, under the owner's account:
- *   - every point, with the project tag (user tag) and its box tag (system tag);
+ *   - every point, with the project tag (user tag), its box tag and the canvas's reserved
+ *     `canvas_<tag>` tag (system tags; sixth round R9: the canvas reads the reserved tag). A point
+ *     seeded before R9 gets the reserved tag added; nothing else about it changes;
  *     exactly ONE point private (`--private`, default the cost-structure point), the rest public
  *   - the owner's own position on each point
  *   - the owner's stories, linked to their points. story_points is UNIQUE(author_id, point_id),
@@ -74,8 +76,11 @@ if (!POINTS || !STORIES) { console.error(`No POINTS/STORIES in ${DATA}`); proces
 const points = Object.values(POINTS);
 if (!points.some(p => p.id === PRIVATE_POINT)) { console.error(`--private ${PRIVATE_POINT} is not a point in the data`); process.exit(1); }
 
-const BOX_TAGS = new Set(['canvas:problem', 'canvas:segments', 'canvas:uvp', 'canvas:solution', 'canvas:channels',
+// src/lib/canvas-boxes.ts is the source of truth (this script cannot import TypeScript). Sixth round
+// R1 dropped `canvas:uvp`: a data point still in it is skipped, and moves box only on founder approval.
+const BOX_TAGS = new Set(['canvas:problem', 'canvas:segments', 'canvas:solution', 'canvas:channels',
   'canvas:revenue', 'canvas:cost', 'canvas:metrics', 'canvas:advantage', 'canvas:love', 'canvas:good-at', 'canvas:world-needs']);
+const CANVAS_TAG = `canvas_${TAG.toLowerCase()}`;
 
 const admin = createClient(URL_, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -99,10 +104,14 @@ async function seed() {
       .eq('first_validator_id', owner.id).eq('statement', p.text).contains('tags', [TAG]).maybeSingle());
     if (existing) {
       pointIdOf.set(p.id, existing.id);
+      const tags = existing.system_tags ?? [];
+      if (!tags.includes(CANVAS_TAG)) {
+        await must(`canvas tag ${p.id}`, admin.from('points').update({ system_tags: [...tags, CANVAS_TAG] }).eq('id', existing.id));
+      }
       continue;
     }
     const row = await must(`insert ${p.id}`, admin.from('points').insert({
-      statement: p.text, first_validator_id: owner.id, visibility, tags: [TAG], system_tags: [box],
+      statement: p.text, first_validator_id: owner.id, visibility, tags: [TAG], system_tags: [box, CANVAS_TAG],
     }).select('id').single());
     pointIdOf.set(p.id, row.id);
   }

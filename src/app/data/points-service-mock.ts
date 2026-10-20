@@ -15,7 +15,7 @@ import type {
   PositionType,
   ContentVisibility,
 } from '@/app/types';
-import { isCanvasBoxTag } from '@/lib/canvas-boxes';
+import { canvasNameOf, canvasTagFor, isCanvasBoxTag } from '@/lib/canvas-boxes';
 
 // All position types for counting
 const ALL_POSITIONS: PositionType[] = [
@@ -396,7 +396,7 @@ export const mockPointsService: PointsService = {
   ): Promise<PointWithUserPosition[]> {
     const matching = [...mockPoints]
       .filter(p => p.firstValidatorId === ownerId && !p.supersededBy)
-      .filter(p => p.tags.includes(projectTag) && p.systemTags.some(isCanvasBoxTag))
+      .filter(p => p.systemTags.includes(canvasTagFor(projectTag)) && p.systemTags.some(isCanvasBoxTag))
       .filter(p => viewerUserId === ownerId || p.visibility !== 'private')
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const withCounts = (await Promise.all(matching.map(p => this.getPointWithCounts(p.id))))
@@ -411,7 +411,7 @@ export const mockPointsService: PointsService = {
     mockPoints
       .filter(p => p.firstValidatorId === ownerId && !p.supersededBy && p.systemTags.some(isCanvasBoxTag))
       .filter(p => viewerUserId === ownerId || p.visibility !== 'private')
-      .forEach(p => p.tags.forEach(t => tags.add(t.toLowerCase())));
+      .forEach(p => p.systemTags.forEach(t => { const name = canvasNameOf(t); if (name) tags.add(name); }));
     return [...tags].sort();
   },
 

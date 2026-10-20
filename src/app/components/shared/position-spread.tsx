@@ -2,16 +2,17 @@
  * @file position-spread.tsx
  * @description P1508 (D4, D6): how people spread on one point — seven grey bars, strongly disagree
  * on the left to strongly agree on the right, each as tall as the number of people at that level,
- * on a baseline with a taller tick at the centre level (Unsure). It lives on the point card: the
- * canvas's box cards, the canvas's open card and the /point page's card (founder, fifth round:
- * "it must live somehow on the point card").
+ * on a baseline with a taller tick at the centre level (Unsure). It lives on every point card —
+ * the feed, /stake, profile, the /point page and the canvas — between the tags and the position
+ * buttons (sixth round R3, R4: read how people stand, then take your own), never on /live, the
+ * letter flow or story cards quoting a point. Where it shows, the buttons carry no counts (R5).
  *
  * One colour for every level: positions are styled uniformly — "Disagree isn't negative, Agree
  * isn't positive" (docs/design-system.md §Position Badges). The counts per level are in the
  * `title` and the accessible label.
  */
 import { useState } from 'react';
-import { Info, Split } from 'lucide-react';
+import { ArrowLeftRight, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { POSITION_FIRST_PERSON, POSITION_ORDER } from '@/lib/compare-positions';
 import { isContested, totalPositions, type LevelCounts } from '@/lib/position-spread';
@@ -77,12 +78,13 @@ export function SpreadInfo() {
 /**
  * "Contested" (founder's word): at least two people on each side. Founder, fifth round: it is
  * important, so it reads as a label — full-strength text with an icon — not muted text. Neutral
- * colour, like every position (design-system.md §Position Badges).
+ * colour, like every position (design-system.md §Position Badges). The two-way arrow: people
+ * pulling in opposite directions (sixth round R3; the fork read as "branching").
  */
 export function ContestedLabel({ testId = 'contested' }: { testId?: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-foreground" data-testid={testId}>
-      <Split className="h-3.5 w-3.5" aria-hidden />
+      <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
       Contested
     </span>
   );

@@ -83,7 +83,8 @@ test.describe('P1508: system tags are written only by privileged roles', () => {
     if (userId) await deleteTestUser(userId);
   });
 
-  for (const forged of [['canvas:problem'], ['understanding'], ['st3', 'v2'], ['misunderstanding']]) {
+  // R9: a canvas's reserved `canvas_<name>` tag is a system tag too.
+  for (const forged of [['canvas:problem'], ['canvas_claritypledge'], ['understanding'], ['st3', 'v2'], ['misunderstanding']]) {
     test(`signed-in point INSERT with system_tags ${JSON.stringify(forged)} is refused`, async () => {
       const statement = `${TAG} forged insert ${forged.join(',')} ${Date.now()}`;
       const { data, error } = await userClient.from('points').insert({
@@ -113,7 +114,7 @@ test.describe('P1508: system tags are written only by privileged roles', () => {
       tags: [TAG],
     }).select('id').single();
     expect(error).toBeNull();
-    await userClient.from('points').update({ system_tags: ['canvas:uvp'] }).eq('id', pt!.id);
+    await userClient.from('points').update({ system_tags: ['canvas:problem', 'canvas_claritypledge'] }).eq('id', pt!.id);
     expect(await storedPointTags(pt!.id)).toEqual([]);
   });
 

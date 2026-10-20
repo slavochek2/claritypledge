@@ -1,6 +1,6 @@
 /**
  * @file p1508-clarity-canvas.test.tsx
- * @description P1508 — Clarity Canvas: box tags as system tags, grouping into twelve boxes,
+ * @description P1508 — Clarity Canvas: box tags as system tags, grouping into eleven boxes,
  * box-tag pills hidden, and the canvas panel's card with its stories open.
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -13,7 +13,10 @@ import { extractHashtags } from '@/lib/utils';
 import {
   CANVAS_BOXES,
   CANVAS_BOX_TAGS,
+  CANVAS_LAYERS,
   canvasBoxOf,
+  canvasNameOf,
+  canvasTagFor,
   groupPointsByBox,
   isCanvasBoxTag,
   normalizeProjectTag,
@@ -46,25 +49,46 @@ const point = {
 } as unknown as PointWithUserPosition;
 
 describe('box tags', () => {
-  it('has exactly the twelve founder-approved boxes, in table order', () => {
+  // Sixth round R1 (founder): Unique Value Proposition dropped; Channels → "Distribution",
+  // Revenue Streams → "Offers & Pricing" (titles only, keys unchanged); four named layers.
+  it('has exactly the eleven founder-approved boxes in four layers, in reading order', () => {
     expect(CANVAS_BOX_TAGS).toEqual([
-      'canvas:problem', 'canvas:segments', 'canvas:uvp', 'canvas:solution', 'canvas:channels',
-      'canvas:revenue', 'canvas:cost', 'canvas:metrics', 'canvas:advantage',
       'canvas:love', 'canvas:good-at', 'canvas:world-needs',
+      'canvas:segments', 'canvas:problem', 'canvas:solution',
+      'canvas:advantage', 'canvas:channels', 'canvas:metrics',
+      'canvas:revenue', 'canvas:cost',
     ]);
     expect(CANVAS_BOXES.map(b => b.title)).toEqual([
-      'Problem', 'Customer Segments', 'Unique Value Proposition', 'Solution', 'Channels',
-      'Revenue Streams', 'Cost Structure', 'Key Metrics', 'Unfair Advantage',
       'What I love', "What I'm good at", 'What the world needs',
+      'Customer Segments', 'Problem', 'Solution',
+      'Unfair Advantage', 'Distribution', 'Key Metrics',
+      'Offers & Pricing', 'Cost Structure',
     ]);
+    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Who I am', 'The core bet', 'How we win', 'Money in, money out']);
+    expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
   });
 
   it('every box tag is a system tag; near misses and plain tags are not', () => {
     for (const tag of CANVAS_BOX_TAGS) expect(isSystemTag(tag)).toBe(true);
     expect(isSystemTag('CANVAS:Problem')).toBe(true);
-    for (const tag of ['canvas', 'canvas:', 'canvas:foo', 'claritypledge', 'ikigai1']) {
+    for (const tag of ['canvas', 'canvas:', 'canvas_', 'claritypledge', 'ikigai1', 'mycanvas_x']) {
       expect(isSystemTag(tag)).toBe(false);
     }
+  });
+
+  it('a retired or unknown box tag stays a hidden system tag, never a pill (R1: canvas:uvp)', () => {
+    expect(isCanvasBoxTag('canvas:uvp')).toBe(false);
+    for (const tag of ['canvas:uvp', 'canvas:foo']) expect(isSystemTag(tag)).toBe(true);
+  });
+
+  it('R9: canvas_<name> is a reserved system tag; a typed #canvas_… never becomes a tag', () => {
+    expect(isSystemTag('canvas_claritypledge')).toBe(true);
+    expect(isSystemTag('Canvas_Hospital')).toBe(true);
+    expect(extractHashtags('Bet #canvas_claritypledge and #claritypledge')).toEqual(['claritypledge']);
+    expect(canvasTagFor('ClarityPledge')).toBe('canvas_claritypledge');
+    expect(canvasNameOf('canvas_Sales_Mastermind')).toBe('sales_mastermind');
+    expect(canvasNameOf('claritypledge')).toBeNull();
+    expect(canvasNameOf('canvas:problem')).toBeNull();
   });
 
   it('the existing system tags are unchanged', () => {
@@ -76,12 +100,15 @@ describe('box tags', () => {
   });
 
   it('one box per point: the first box tag wins; no box tag means no box', () => {
-    expect(canvasBoxOf(['st1', 'canvas:uvp', 'canvas:cost'])).toBe('canvas:uvp');
+    expect(canvasBoxOf(['st1', 'canvas:solution', 'canvas:cost'])).toBe('canvas:solution');
+    // A point still tagged with the dropped box falls through to its next box tag, or none.
+    expect(canvasBoxOf(['canvas:uvp', 'canvas:cost'])).toBe('canvas:cost');
+    expect(canvasBoxOf(['canvas:uvp'])).toBeNull();
     expect(canvasBoxOf(['st1'])).toBeNull();
     expect(isCanvasBoxTag('canvas:good-at')).toBe(true);
   });
 
-  it('groups points into all twelve boxes, dropping points with no box tag', () => {
+  it('groups points into all eleven boxes, dropping points with no box tag', () => {
     const pts = [
       { id: 'a', systemTags: ['canvas:problem'] },
       { id: 'b', systemTags: [] },

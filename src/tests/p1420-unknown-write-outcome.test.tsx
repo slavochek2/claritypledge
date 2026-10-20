@@ -458,8 +458,8 @@ describe('round 3 item 4: re-voting after a withdrawal', () => {
     expect(pressed('agree')).toHaveAttribute('aria-pressed', 'false');
     await act(async () => { fireEvent.click(pressed('agree')); });
     expect(pressed('agree')).toHaveAttribute('aria-pressed', 'true');
-    expect(pressed('agree')).toHaveTextContent('2');
-    expect(pressed('agree')).not.toHaveTextContent('3');
+    // P1508 R5: the card's counts are in its spread, not on the buttons.
+    expect(screen.getByTestId('position-spread')).toHaveAttribute('title', '2 agree');
   });
 });
 

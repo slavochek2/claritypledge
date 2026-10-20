@@ -120,6 +120,10 @@ beforeEach(() => {
   session.current = { user: { id: 'viewer-1' } };
 });
 
+
+/** P1508 R5: the card's counts, as its spread reads them out (the buttons carry none). */
+const spreadLabel = () => screen.getByTestId('position-spread').getAttribute('title');
+
 describe('P1296 — the story card footer', () => {
   const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =>
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
@@ -269,7 +273,8 @@ describe('P1296 — the point card footer', () => {
     }
     render(<MemoryRouter><Page /></MemoryRouter>);
     expect(screen.getByRole('button', { name: 'Add a story for this point' })).toBeTruthy();
-    expect(screen.getByTestId('agree-count-badge').textContent).toBe('2');
+    // P1508 R5: the card's counts show in its spread, not on the buttons.
+    expect(spreadLabel()).toBe('2 agree');
 
     fireEvent.click(screen.getByTestId('agree-group')); // the selected group opens its menu
     fireEvent.click(await screen.findByRole('option', { name: /clear position/i }));
@@ -277,7 +282,7 @@ describe('P1296 — the point card footer', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull(),
     );
-    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
+    expect(spreadLabel()).toBe('1 agree');
   });
 
   /**
@@ -310,11 +315,10 @@ describe('P1296 — the point card footer', () => {
       userPosition: { position: 'agree' }, positionCounts: { ...zero, agree: 2 }, totalPositions: 2,
     } as Partial<PointWithUserPosition>)} /></MemoryRouter>);
     fireEvent.click(screen.getByTestId('disagree-group')); // unselected group → picks disagree
-    await waitFor(() => expect(screen.getByTestId('agree-count-badge').textContent).toBe('1'));
+    await waitFor(() => expect(spreadLabel()).toBe('1 disagree, 1 agree'));
     await withdrawFrom('disagree');
     await waitFor(() => expect(screen.queryByRole('option', { name: /clear position/i })).toBeNull());
-    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
-    expect(screen.queryByTestId('disagree-count-badge')).toBeNull();
+    expect(spreadLabel()).toBe('1 agree');
   });
 
   it('nothing fetched, added "agree", then withdrew: nothing the page counted is lowered, and the point stays', async () => {
@@ -322,11 +326,11 @@ describe('P1296 — the point card footer', () => {
       userPosition: null, positionCounts: { ...zero, agree: 1 }, totalPositions: 1,
     } as unknown as Partial<PointWithUserPosition>)} /></MemoryRouter>);
     fireEvent.click(screen.getByTestId('agree-group'));
-    await waitFor(() => expect(screen.getByTestId('agree-count-badge').textContent).toBe('2'));
+    await waitFor(() => expect(spreadLabel()).toBe('2 agree'));
     await withdrawFrom('agree');
     await waitFor(() => expect(screen.queryByRole('option', { name: /clear position/i })).toBeNull());
     expect(screen.queryByTestId('point-removed'), 'another person still holds a position on this point').toBeNull();
-    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
+    expect(spreadLabel()).toBe('1 agree');
   });
 
   it('a viewer who HOLDS a position and has no story here sees + Add a story', () => {

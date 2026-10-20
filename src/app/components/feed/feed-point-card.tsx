@@ -45,6 +45,7 @@ import {
 import { networkMark } from '@/lib/network-outcome';
 import { PointOwnHeader, PointOwnerQuoteRow, type PointOwner } from '@/app/components/shared/point-owner-header';
 import { pointOwnerLayout } from '@/lib/point-owner-layout';
+import { PointSpreadRow } from '@/app/components/shared/position-spread';
 
 /** P1508 D5: the canvas owner, filled once by the canvas page. */
 export interface FeedPointCardOwner extends PointOwner {
@@ -88,7 +89,8 @@ interface FeedPointCardProps {
    * by the profile's rule. Unset everywhere else: the feed and /stake card is unchanged.
    */
   owner?: FeedPointCardOwner;
-  /** P1508: the spread row under the position buttons (the canvas). Unset on /feed and /stake (D11). */
+  /** P1508: the spread row, when the page reads everyone's positions itself (the canvas). Unset:
+   *  the row is built from the card's own counts (/feed, /stake). */
   spread?: ReactNode;
   /** P1508: inside a dialog (the canvas panel), Escape with the stories open closes them, not the dialog. */
   collapseStoriesOnEscape?: boolean;
@@ -503,6 +505,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
               <p className="mt-1 text-sm text-muted-foreground" data-testid="earlier-wording">Earlier wording</p>
             )}
 
+            {/* P1508 R3–R5: how everyone stands, then the reader's own position — the spread row
+                between the tags and the buttons, and no counts on the buttons (they primed the
+                reader, and phones never showed them). */}
+            {spread ?? <PointSpreadRow counts={counts} withInfo className="mt-2" />}
+
             {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
                 (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
                 tabbing through it no longer lands on an unrelated control between the last
@@ -511,6 +518,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
               <PositionButtons
                 userPosition={effectivePosition}
                 counts={counts}
+                compact
                 onPositionClick={handlePositionClick}
                 onClear={async () => {
                   if (!session?.user) {
@@ -524,7 +532,6 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                 }}
               />
             </div>
-            {spread}
             {/* P502: Anonymous position CTA */}
             {!hideAnonSignupCta && !session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />

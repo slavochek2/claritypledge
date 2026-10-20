@@ -603,10 +603,15 @@ export function PointDetailPage() {
                 <TagPills tags={point.tags ?? []} systemTags={point.systemTags ?? []} context="detail" className="mb-3" />
               )}
 
+              {/* P1508 R3–R5: how everyone stands, then the reader's own position; the buttons carry
+                  no counts (the "Filter by position" tabs below keep them). */}
+              <PointSpreadRow counts={buttonCounts} withInfo className="mb-2" />
+
               {/* Position buttons (interactive) */}
               <PositionButtons
                 userPosition={user ? userPosition : anonPosition}
                 counts={buttonCounts}
+                compact
                 onPositionClick={handlePositionClick}
                 onClear={async () => {
                   if (!id) return;
@@ -619,8 +624,6 @@ export function PointDetailPage() {
                   await guardedRemovePosition(id);
                 }}
               />
-              {/* P1508: how everyone spreads, on the card (founder: "it must live on the point card"). */}
-              <PointSpreadRow counts={buttonCounts} withInfo className="mt-2" />
               {/* P502: Anonymous position CTA */}
               {!user && anonPosition && (
                 <AnonPositionCTA pointId={id ?? ''} position={anonPosition} isEmbed={isEmbed} />

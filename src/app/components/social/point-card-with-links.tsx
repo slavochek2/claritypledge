@@ -50,6 +50,7 @@ import { parseVideoUrl } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { PointSpreadRow } from '@/app/components/shared/position-spread';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -476,12 +477,16 @@ export function PointCardWithLinks({
                     <TagPills tags={tags} context="detail" className="mt-2" />
                   )}
 
+                  {/* P1508 R3–R5: how everyone stands, before the reader's own position. */}
+                  {!hideActions && <PointSpreadRow counts={counts} withInfo className="mt-2" />}
+
                   {/* Position buttons */}
                   {!hideActions && (
                     <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <PositionButtons
                         userPosition={currentUserId ? userPosition : anonPosition}
                         counts={counts}
+                        compact
                         onPositionClick={handlePositionClick}
                         narrow
                         disabled={disablePositionButtons}
@@ -529,12 +534,16 @@ export function PointCardWithLinks({
                 <TagPills tags={tags} context="detail" className="mt-2" />
               )}
 
+              {/* P1508 R3–R5: how everyone stands, before the reader's own position. */}
+              {!hideActions && <PointSpreadRow counts={counts} withInfo className="mt-2" />}
+
               {/* Position buttons */}
               {!hideActions && (
                 <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                   <PositionButtons
                     userPosition={currentUserId ? userPosition : anonPosition}
                     counts={counts}
+                    compact
                     onPositionClick={handlePositionClick}
                     narrow
                     disabled={disablePositionButtons}

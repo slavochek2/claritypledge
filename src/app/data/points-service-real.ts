@@ -19,7 +19,7 @@ import { currentVersionsOnly } from './point-versions';
 import { supabase } from '@/lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { isSystemTag } from '@/lib/feed-utils';
-import { CANVAS_BOX_TAGS } from '@/lib/canvas-boxes';
+import { CANVAS_BOX_TAGS, canvasNameOf, canvasTagFor } from '@/lib/canvas-boxes';
 import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 
@@ -913,7 +913,8 @@ export const realPointsService: PointsService = {
         `),
     )
       .eq('first_validator_id', ownerId)
-      .contains('tags', [projectTag])
+      // R9: the canvas is its reserved `canvas_<name>` system tag, which only the service role writes.
+      .contains('system_tags', [canvasTagFor(projectTag)])
       .overlaps('system_tags', [...CANVAS_BOX_TAGS]);
 
     if (viewerUserId !== ownerId) query = query.eq('visibility', 'public');
@@ -952,14 +953,21 @@ export const realPointsService: PointsService = {
 
   async getCanvasProjectTags(ownerId: string, viewerUserId?: string): Promise<string[]> {
     log('⚡ getCanvasProjectTags:', { ownerId, viewerUserId });
-    let query = currentVersionsOnly(supabase.from('points').select('tags'))
+    let query = currentVersionsOnly(supabase.from('points').select('system_tags'))
       .eq('first_validator_id', ownerId)
       .overlaps('system_tags', [...CANVAS_BOX_TAGS]);
     if (viewerUserId !== ownerId) query = query.eq('visibility', 'public');
     const { data, error } = await query;
     if (error || !data) throwDbError('getCanvasProjectTags', error, 'Could not load canvases');
     const tags = new Set<string>();
-    for (const row of data as { tags: string[] | null }[]) (row.tags ?? []).forEach(t => tags.add(t.toLowerCase()));
+    // R9: only reserved `canvas_<name>` tags name a canvas, so a second user tag on a point never
+    // shows as a canvas of its own.
+    for (const row of data as { system_tags: string[] | null }[]) {
+      for (const t of row.system_tags ?? []) {
+        const name = canvasNameOf(t);
+        if (name) tags.add(name);
+      }
+    }
     return [...tags].sort();
   },
 
