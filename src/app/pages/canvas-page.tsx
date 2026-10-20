@@ -354,10 +354,12 @@ export function CanvasPage() {
       {ready && <SEO title={`${ready.ownerName} · #${projectTag} — Clarity Pledge`} noIndex />}
       {/* R10: the name of the thing first, then whose it is and which one: "Clarity Canvas" on its
           own line; under it "by <owner>" and the canvas's name (the menu, when the owner has more
-          than one), Compare on the right, wrapping under them when the row is too narrow. */}
+          than one), then Compare, wrapping under them when the row is too narrow. */}
       <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
         <h1 className="text-3xl font-bold text-foreground md:text-4xl">Clarity Canvas</h1>
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
+            "by <owner> · <canvas> · Compare with someone…", not across the page. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base md:text-lg" data-testid="canvas-byline">
             {ready ? (
               // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
@@ -510,8 +512,8 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
               and more room between layers than between boxes. */}
           <h2 className={`col-span-full flex items-baseline gap-2.5 text-base font-semibold tracking-tight text-foreground md:text-lg ${i === 0 ? '' : 'mt-10'}`} data-testid="canvas-layer-title">
             {/* Founder, sixth round: the rules between layers read oddly — whitespace groups them,
-                and a number says they are read in order. */}
-            <span aria-hidden className="rounded bg-blue-600/10 px-2 py-0.5 font-mono text-xs font-semibold text-blue-700" data-testid="canvas-layer-number">{String(i + 1).padStart(2, '0')}</span>
+                and a number says they are read in order (founder: plain grey, the blue pill distracted). */}
+            <span aria-hidden className="font-mono text-sm font-medium text-foreground/40" data-testid="canvas-layer-number">{String(i + 1).padStart(2, '0')}</span>
             <span data-testid="canvas-layer-name">{layer.title}</span>
           </h2>
           {layer.boxes.map(tag => (
@@ -598,7 +600,7 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
               onClick={onMore}
               aria-haspopup="dialog"
               data-testid="canvas-box-more"
-              className="min-h-10 self-start rounded-sm text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="min-h-10 self-end rounded-sm text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               See all {points.length}
             </button>
@@ -695,16 +697,20 @@ function ComparePicker({ base, others, withPerson, onCompare, fullCompareHref }:
         className={`${PILL} pl-3 ${withPerson ? 'border border-blue-300 bg-blue-50 text-blue-800' : 'border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
         data-testid="canvas-compare-picker"
       >
-        <span aria-hidden className={`mr-1 shrink-0 ${withPerson ? 'text-foreground/70' : 'font-medium'}`}>{withPerson ? 'Compare:' : 'Compare with'}</span>
+        {/* Founder, sixth round: only the arrow opened the menu — the words sat beside it. The
+            words are now what shows, and the menu lies invisibly over the whole pill, so any tap
+            on it opens the list. */}
+        <span aria-hidden className="truncate pr-8">
+          {withPerson ? <><span className="text-foreground/70">Comparing with </span>{withPerson.name}</> : 'Compare positions'}
+        </span>
         <select
-          aria-label="Compare with"
+          aria-label="Compare positions with"
           value={withPerson?.id ?? ''}
           onChange={e => onCompare(e.target.value || null)}
-          className={SELECT}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full opacity-0"
         >
-          {/* Nobody picked: the closed pill reads "Compare with someone…", and the list holds only
-              people (the placeholder is hidden from it). */}
-          {withPerson ? <option value="">No one</option> : <option value="" disabled hidden>someone…</option>}
+          {/* Nobody picked: the list holds only people (the placeholder is hidden from it). */}
+          {withPerson ? <option value="">No one</option> : <option value="" disabled hidden>Compare positions</option>}
           {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />

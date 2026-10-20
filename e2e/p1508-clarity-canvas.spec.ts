@@ -220,9 +220,10 @@ test.describe('P1508: Clarity Canvas', () => {
     await page.goto(fx.url);
     await waitForCanvas(page);
     const card = page.getByTestId(`canvas-point-card-${fx.solutionPointId}`);
-    await expect(page.getByLabel('Compare with')).toHaveValue('');
+    await expect(page.getByLabel('Compare positions with')).toHaveValue('');
     await expect(card.getByTestId('canvas-card-compare')).toHaveCount(0);
-    await page.getByLabel('Compare with').selectOption(fx.other.user.id);
+    await page.getByLabel('Compare positions with').selectOption(fx.other.user.id);
+    await expect(page.getByTestId('canvas-compare-picker')).toContainText("Comparing with P1508 Other User");
     await expect(page).toHaveURL(new RegExp(`with=${fx.other.user.id}`));
     await expect(card.getByTestId('canvas-card-compare')).toContainText('P1508'); // first names in the narrow columns
     await expect(card.getByTestId('canvas-card-compare')).toContainText('Agrees');
@@ -243,15 +244,15 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('position-spread')).toBeVisible();
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toBeVisible();
     // Back to "No one" (a real choice, not the picker's own title): the columns go.
-    await expect(page.getByLabel('Compare with').locator('option').first()).toHaveText('No one');
-    await page.getByLabel('Compare with').selectOption('');
+    await expect(page.getByLabel('Compare positions with').locator('option').first()).toHaveText('No one');
+    await page.getByLabel('Compare positions with').selectOption('');
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toHaveCount(0);
     await expect(page.getByTestId('canvas-compare-full')).toHaveCount(0);
     // Another signed-in person finds the owner first in the list (review fix: the owner is always listed).
     await setTestSession(page, fx.other.email);
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByLabel('Compare with').locator('option').nth(1)).toHaveAttribute('value', fx.owner.user.id);
+    await expect(page.getByLabel('Compare positions with').locator('option').nth(1)).toHaveAttribute('value', fx.owner.user.id);
   });
 
   test('opening a point shows its stories behind one tap and everyone by name; a position taken there persists', async ({ page }) => {
@@ -830,8 +831,12 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03', '04']);
     // Compare reads as an action until someone is picked; the list holds only people.
-    await expect(page.getByTestId('canvas-compare-picker')).toContainText('Compare with');
-    await expect(page.getByLabel('Compare with').locator('option:not([hidden])').first()).not.toHaveText('someone…');
+    await expect(page.getByTestId('canvas-compare-picker')).toContainText('Compare positions');
+    await expect(page.getByLabel('Compare positions with').locator('option:not([hidden])').first()).not.toHaveText('Compare positions');
+    // The menu covers the whole pill, so a tap on the words opens it, not only the arrow.
+    const pill = await page.getByTestId('canvas-compare-picker').boundingBox();
+    const menu = await page.getByLabel('Compare positions with').boundingBox();
+    expect(Math.abs(pill!.x - menu!.x) <= 1 && Math.abs(pill!.width - menu!.width) <= 2).toBe(true);
     const titles = page.getByTestId('canvas-layer-title');
     for (const i of [0, 1, 2, 3]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
     await expect(page.locator('[data-testid^="canvas-point-card-"]').first().getByTestId('canvas-card-open')).toBeVisible();
