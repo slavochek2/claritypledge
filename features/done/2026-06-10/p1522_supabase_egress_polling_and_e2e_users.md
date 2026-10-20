@@ -18,10 +18,9 @@ completed_at: 2026-10-20
 
 ## Problem
 
-**Situation:** The organisation's Supabase free plan is over quota for the cycle 21 Sep–21 Oct:
-cached egress 7.55 / 5 GB, egress 5.87 / 5 GB, logs 8.5 / 1 GB. Production alone accounts for
-3.9 GB cached egress, 0.97 GB egress and 1.04 GB logs; the rest is the test project (end-to-end
-runs, about 12,000 test users).
+**Situation:** The organisation's Supabase free plan is over quota for the cycle 21 Sep–21 Oct
+on cached egress, egress and logs (exact figures kept private). Production accounts for roughly
+half of the cached egress; the rest is the test project (end-to-end runs, about 12,000 test users).
 
 **Complication:** From 11 Nov production gets restricted. On 2026-10-20 the test database stopped
 responding entirely (statement timeouts, connection timeout) and needed a restart. A signed-out
@@ -104,7 +103,7 @@ order (measure, then decide); only Decision Criteria outcomes below may need a c
 | Realtime on the test project is broken (private ruling 2026-10-16) | ACCEPT | No new Realtime is added; existing subscriptions unchanged |
 | A fix trades a timer for a retry storm (P1369 precedent, decisions 2026-09-30) | MITIGATE | Request-volume assertion in a regression test, not only behaviour assertions |
 | Bulk delete of test users locks the test DB again | MITIGATE | Batched deletes, test project only, outside e2e runs; the DELETE is shown and confirmed by the founder before it runs (db-access.md) |
-| Measurement on localhost misses prod-only traffic (bots, crawlers) | ACCEPT | Prod share is 3.9 GB of cached egress; RQ5 + usage breakdown cover the gap, any residue becomes a follow-up |
+| Measurement on localhost misses prod-only traffic (bots, crawlers) | ACCEPT | Prod share is about half of the cached egress; RQ5 + usage breakdown cover the gap, any residue becomes a follow-up |
 
 **Non-Goals**
 - Do NOT write to the prod database — no deletes, no migrations, no test-user purge on prod.
@@ -198,8 +197,7 @@ then Gemini on rounds 2–5 over each fix snapshot, round 5 CLEAN). Set aside, n
 - Known limitation: browsers that set `navigator.webdriver` (Lighthouse, remote-debugging Chrome)
   never get the offline pack; storage-denied contexts cannot opt in.
 
-**RQ3 (test project API logs): not readable.** The keychain-locked management token (`sbp_`,
-44 chars) was read after the founder allowed it, and the Management API answered **401 on both the
+**RQ3 (test project API logs): not readable.** The keychain-locked management token was read after the founder allowed it, and the Management API answered **401 on both the
 logs endpoint and the plain project list**, so the token itself is revoked or expired, not
 scoped wrong. Rotation is P1148's job, not this spec's. The test-project share of egress is
 therefore attributed from the census (19,477 e2e users) and the per-context measurement above, not
