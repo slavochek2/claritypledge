@@ -5,18 +5,21 @@
  * The URL owns which conversation (and thread) is open, so Back works. Opening a conversation marks
  * it read (while the tab is visible) and keeps marking it read as messages arrive.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { clarifyMessage, getMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
-import { Composer } from './Composer';
+import { Composer, type MentionEntry } from './Composer';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
 import { Quote } from './Quote';
-import { InlineError, MessagesSkeleton } from './chat-kit';
+import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
+import { MirrorInfoDialog } from './MirrorInfoDialog';
+import { useMirror } from './mirror-state';
+import { useMirrorAsks } from './use-mirror-asks';
 import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatErrorText, chatPath, compareMessages, hasWayBackElsewhere, isChannel, messageSummary, mirrorRole } from './chat-view-model';
@@ -68,6 +71,45 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const channel = isChannel(summary);
   const conv = useConversationMessages({ conversationId, withThreads: channel });
   const visible = usePageVisible();
+  const mirror = useMirror();
+  const mirrorOn = mirror?.enabled === true;
+  // P1520: the viewer's own private asks in this channel (rows of their mirror), and the @ picker's one entry.
+  const privateRows = useMirrorAsks(conversationId, channel && mirrorOn);
+  const mirrorChat = chat.chats.find((c) => c.kind === 'mirror');
+  const [privateTo, setPrivateTo] = useState<MentionEntry | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const mentions = useMemo<MentionEntry[] | undefined>(
+    () =>
+      channel && mirrorOn
+        ? [{
+            id: 'mirror',
+            label: mirrorChat?.title ?? mirrorRole(),
+            detail: mirrorChat?.title ? `${mirrorRole()} (private)` : 'private',
+            mark: <MirrorMark size="sm" />,
+            keywords: ['mirror', 'your mirror'],
+          }]
+        : undefined,
+    [channel, mirrorOn, mirrorChat?.title],
+  );
+
+  // The mirror gets its face the first time its owner opens it.
+  const ensurePortrait = mirror?.ensurePortrait;
+  useEffect(() => {
+    if (summary.kind === 'mirror') ensurePortrait?.();
+  }, [summary.kind, ensurePortrait]);
+
+  // After a reload, the owner's latest unanswered messages say whether the mirror is still on them, or failed.
+  const loadStatuses = mirror?.loadStatuses;
+  const ownRows = summary.kind === 'mirror' ? conv.server : channel ? privateRows : null;
+  useEffect(() => {
+    if (!ownRows || !loadStatuses) return;
+    const answered = new Set(ownRows.filter((m) => m.kind === 'agent' && m.replyToId).map((m) => m.replyToId));
+    const waiting = ownRows
+      .filter((m) => m.authorId === chat.userId && (m.kind === 'message' || m.kind === 'clarify') && !m.isDeleted && !answered.has(m.id))
+      .slice(-20)
+      .map((m) => m.id);
+    loadStatuses(waiting);
+  }, [ownRows, loadStatuses, chat.userId]);
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [focusToken, setFocusToken] = useState(0);
@@ -192,6 +234,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
       );
     },
     onRename: () => setRenaming(true),
+    onMirrorInfo: summary.kind === 'mirror' ? () => setInfoOpen(true) : undefined,
   };
 
   return (
@@ -205,6 +248,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         label="Messages"
         targetId={target}
         empty={empty}
+        privateRows={channel && mirrorOn ? privateRows : undefined}
       />
       {blocked || unavailable || cannotSend ? (
         <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="composer-blocked">
@@ -229,7 +273,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           placeholder={placeholder}
           focusToken={focusToken}
           autoFocus
-          onAttach={() => setAttaching(true)}
+          onAttach={privateTo ? undefined : () => setAttaching(true)}
           staged={staged}
           onUnstage={() => setStaged(null)}
           quote={
@@ -262,6 +306,15 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           }
           quoteSendable={!!clarify}
           sendDisabled={clarifyBusy}
+          mentions={mentions}
+          privateTo={privateTo}
+          onPrivateChange={(entry) => {
+            setPrivateTo(entry);
+            if (entry) {
+              setReplyTo(null); // a private ask is never a reply in the channel
+              setStaged(null);
+            }
+          }}
           onSend={(body, attachment) => {
             if (clarify) {
               // ONE message in the mirror: the copy with the note as its body. Nothing is cleared until it landed,
@@ -271,7 +324,8 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
               setClarifyBusy(true);
               const submitted = attachment;
               return clarifyMessage(clarify.message.id, body).then(
-                async () => {
+                async (row) => {
+                  mirror?.requestReply(row.id); // the mirror answers a Clarify (P1520)
                   setClarify(null);
                   await conv.reload();
                   // An attached point or story cannot ride on the copy: it follows as its own message.
@@ -290,6 +344,16 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
                 clarifying.current = false;
                 setClarifyBusy(false);
               });
+            }
+            if (privateTo && mirror && body) {
+              // P1520: a private question to the viewer's own mirror. Nothing is written to this channel.
+              return mirror.ask(conversationId, body).then(
+                () => true,
+                (e) => {
+                  toast.error(chatErrorText(e, 'Could not ask your mirror. Try again.'));
+                  return false;
+                },
+              );
             }
             void conv.send({
               body,
@@ -313,6 +377,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           }}
         />
       )}
+      {infoOpen && <MirrorInfoDialog chat={summary} onRename={() => setRenaming(true)} onClose={() => setInfoOpen(false)} />}
       {renaming && (
         <RenameMirrorDialog
           initial={summary.title ?? 'Mirror'}

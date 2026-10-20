@@ -62,6 +62,8 @@ export interface ChatContextValue {
   unblock: (profileId: string) => Promise<void>;
   /** Opens a chat by the history rule (chatNav), from wherever the person is when it is called: for things that outlive a screen (a toast's Open). */
   goToChat: (to: string, intent?: NavIntent) => NavPlan['mode'];
+  /** P1520: open conversations re-read now (used when a confirmed mirror reply has not arrived live). */
+  resync: () => void;
 }
 
 export const ChatContext = createContext<ChatContextValue | null>(null);

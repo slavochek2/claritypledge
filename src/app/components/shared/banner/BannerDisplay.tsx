@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { BannerImage, BANNER_WIDE_QUERY } from './BannerImage';
 import { BannerCredit } from './BannerCredit';
 import type { BannerCredit as Credit } from '@/lib/banner-credit';
+import { AGENT_TINT_STYLE } from './agent-tint';
 
 // Mounting only the matching <img> means the browser fetches exactly one banner instead of both
 // (P1354 code review finding #2). P1417: the md breakpoint plus a minimum height, the same rule
@@ -11,8 +12,6 @@ const DESKTOP_QUERY = BANNER_WIDE_QUERY;
 // P1417: bg-muted shows behind the image while it loads. BannerImage serves event banners' small
 // copy on phones and only reports onFail once every source has failed.
 const IMG_CLASS = 'w-full h-full object-cover rounded-t-xl bg-muted';
-// P1483: founder-chosen agent treatment — strong navy (blue-900) in `color` blend mode.
-const AGENT_TINT_STYLE = { backgroundColor: '#1e3a8a', mixBlendMode: 'color', opacity: 0.75 } as const;
 
 interface BannerDisplayProps {
   bannerUrl?: string | null;

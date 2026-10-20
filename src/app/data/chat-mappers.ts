@@ -6,7 +6,8 @@
  */
 
 export type ChatKind = 'dm' | 'group' | 'event' | 'mirror';
-export type ChatMessageKind = 'message' | 'forward' | 'clarify';
+/** 'agent': the mirror's own reply (P1520), always in its owner's mirror, with no human author. */
+export type ChatMessageKind = 'message' | 'forward' | 'clarify' | 'agent';
 export type ChatAttachmentKind = 'point' | 'story';
 
 /** Shown for an author that no longer exists (account erased). */
@@ -53,6 +54,11 @@ export interface ChatMessage {
   attachmentId: string | null;
   /** The sender's idempotency key; lets the sender match the Realtime echo to its pending message. */
   clientId?: string | null;
+  /**
+   * P1520: set on a row in the owner's mirror that belongs to a channel — a private @mirror ask made
+   * there, or the mirror's answer to it. Only the owner can ever read such a row.
+   */
+  contextConversationId?: string | null;
 }
 
 export interface ChatSummary {
@@ -160,6 +166,7 @@ export interface ChatMessageRow {
   attachment_kind: ChatAttachmentKind | null;
   attachment_id: string | null;
   client_id?: string | null;
+  context_conversation_id?: string | null;
 }
 
 export interface ChatSummaryRow {
@@ -269,6 +276,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     attachmentKind: row.attachment_kind,
     attachmentId: row.attachment_id,
     clientId: row.client_id ?? null,
+    contextConversationId: row.context_conversation_id ?? null,
   };
 }
 

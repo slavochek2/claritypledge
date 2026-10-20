@@ -42,13 +42,10 @@ Deno.serve(async (req: Request) => {
   const cors = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, cors);
-
-  if (!MIRROR_AI_ENABLED || MIRROR_GEMINI_API_KEY === MIRROR_KEY_OFF) {
-    return json({ error: 'The mirror cannot answer yet', code: 'DISABLED' }, 503, cors);
-  }
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return json({ error: 'Service temporarily unavailable' }, 500, cors);
   }
+  const enabled = MIRROR_AI_ENABLED && MIRROR_GEMINI_API_KEY !== MIRROR_KEY_OFF;
 
   // ── Caller identity ───────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization');
@@ -58,12 +55,16 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authError } = await anon.auth.getUser(token);
   if (authError || !user) return json({ error: 'Unauthorized' }, 401, cors);
 
-  let body: { message_id?: unknown };
+  let body: { message_id?: unknown; availability?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'Invalid request body' }, 400, cors);
   }
+  // The app asks once per session whether the mirror can answer here, so a project where it is off
+  // (prod, until the privacy policy covers it) shows no AI controls and sends no further requests.
+  if (body.availability === true) return json({ enabled }, 200, cors);
+  if (!enabled) return json({ error: 'The mirror cannot answer yet', code: 'DISABLED' }, 503, cors);
   const messageId = typeof body.message_id === 'string' && UUID_RE.test(body.message_id) ? body.message_id : null;
   if (!messageId) return json({ error: 'message_id is required' }, 400, cors);
 

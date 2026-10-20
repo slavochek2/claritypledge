@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Forward, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
+import { Forward, Lock, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,8 @@ import { FOCUS_RING, HOVER, MirrorMark, PRIMARY_CLASS, PersonMark, PopMenu, type
 import { DESKTOP_HOVER_QUERY, hasFinePointer, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
-import { chatPath, messageSummary, messageTime, mirrorName, sourceLabel } from './chat-view-model';
+import { chatPath, chatTitle, messageSummary, messageTime, mirrorName, mirrorRole, sourceLabel } from './chat-view-model';
+import { useMirror } from './mirror-state';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
 export const LONG_PRESS_MS = 500;
@@ -63,6 +64,11 @@ interface Props {
   actions: MessageActions;
   /** The mirror shows clarified copies without a Clarify action of their own. */
   inThread?: boolean;
+  /**
+   * P1520: a row of the viewer's own mirror shown inside a channel (a private @mirror ask, or the answer
+   * to it). Only the viewer can see it; it takes no actions there, since it is not a message of the channel.
+   */
+  privateHere?: boolean;
 }
 
 function AuthorName({ author, authorId, pending, className }: { author: ChatAuthor | undefined; authorId: string | null; pending: boolean; className?: string }) {
@@ -248,10 +254,44 @@ function ClarifyButton({ mirror, onClick }: { mirror: string; onClick: () => voi
   );
 }
 
-export function MessageRow({ msg, mine, viewerId, author, authors, compact, highlight, stat, actions, inThread = false }: Props) {
+/**
+ * P1520: what the mirror is doing about this message of its owner: thinking, could not answer (Try again), or out of
+ * today's allowance. Nothing once it has answered.
+ */
+function MirrorReplyState({ messageId, name }: { messageId: string; name: string }) {
+  const mirror = useMirror();
+  const status = mirror?.statusFor(messageId);
+  if (!mirror || !status) return null;
+  if (status === 'thinking') {
+    return (
+      <p role="status" data-testid="mirror-thinking" className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+        <MirrorMark size="xs" />
+        <span className="animate-pulse">{name} is thinking…</span>
+      </p>
+    );
+  }
+  if (status === 'capped') {
+    return (
+      <p role="status" data-testid="mirror-capped" className="mt-1 text-sm text-muted-foreground">
+        {name} has answered as much as it can today. Try again tomorrow.
+      </p>
+    );
+  }
+  return (
+    <div role="alert" data-testid="mirror-failed" className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+      <span>{name} could not answer.</span>
+      <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => mirror.requestReply(messageId)}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+
+export function MessageRow({ msg, mine, viewerId, author, authors, compact, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
   const local = isLocal(msg) ? msg : null;
   const server: ChatMessage | null = local ? null : msg;
   const live = !!server && !server.isDeleted;
+  const agent = server?.kind === 'agent';
   const [selected, setSelected] = useState(false);
   // `more` is the ⋯ menu (what the toolbar lacks); otherwise the full list at the pointer.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; more?: boolean } | null>(null);
@@ -264,7 +304,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
   const { chats } = useChat();
-  const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
+  const mirrorChat = chats.find((c) => c.kind === 'mirror');
+  const mirror = mirrorName(mirrorChat);
+  /** The mirror as the author of its own replies: its name, else "Your mirror". */
+  const mirrorDisplay = mirrorChat?.title ?? mirrorRole();
+  // In the mirror itself, an ask made in a channel says where it was asked.
+  const askedIn = !privateHere && server?.contextConversationId ? chats.find((c) => c.conversationId === server.contextConversationId) : undefined;
 
   useDismiss(() => setSelected(false), selected, [row]);
   // The inline toolbar goes away when the reader scrolls on (any scroll container, hence capture).
@@ -290,8 +335,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
   // does not carry, so the ⋯ menu never repeats a toolbar button.
   const items: MenuItem[] = [];
   const moreItems: MenuItem[] = [];
-  if (server && live) {
+  // A private row shown in a channel takes no actions there; a mirror reply can only be quoted (never forwarded,
+  // clarified, edited or deleted: it is its owner's alone, and the server refuses any copy of it).
+  if (server && live && !privateHere) {
     items.push({ key: 'reply', label: 'Reply', Icon: Reply, onSelect: () => actions.onReply(server) });
+  }
+  if (server && live && !privateHere && !agent) {
     if (actions.onThread && !server.threadRootId) {
       const open = actions.onThread;
       items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
@@ -329,7 +378,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
 
   const showHeader = !compact;
   const toolbar =
-    server && live && draft === null ? (
+    server && live && draft === null && !privateHere ? (
       <div
         role="toolbar"
         aria-label="Message actions"
@@ -343,15 +392,17 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
           <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
-        <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
-          <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
-        </ToolButton>
-        {actions.onThread && !server.threadRootId && (
+        {!agent && (
+          <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
+            <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
+          </ToolButton>
+        )}
+        {!agent && actions.onThread && !server.threadRootId && (
           <ToolButton label="Thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
             <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        {actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
+        {!agent && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
         {moreItems.length > 0 && (
           <ToolButton
             label="More actions"
@@ -434,7 +485,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         }}
       >
         <div className="w-9 shrink-0">
-          {showHeader &&
+          {showHeader && agent && <MirrorMark size="md" />}
+          {showHeader && !agent &&
             (authorId && author?.slug ? (
               <Link to={`/p/${author.slug}`} aria-label={`Open ${author.name}'s profile`} className={cn('relative block rounded-full after:absolute after:-inset-1 after:content-[""]', FOCUS_RING)}>
                 <PersonMark person={author} size="md" />
@@ -453,9 +505,22 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
         <div className="min-w-0 flex-1">
           {showHeader && (
             <div className="flex flex-wrap items-baseline gap-x-1.5 leading-6">
-              <AuthorName author={author} authorId={authorId} pending={authorPending} className="min-w-0 max-w-full truncate text-[15px] text-foreground" />
+              {agent ? (
+                <span className="flex min-w-0 max-w-full items-baseline text-[15px]" data-testid="mirror-author">
+                  <span className="min-w-0 truncate font-semibold text-foreground">{mirrorDisplay}</span>
+                  {mirrorChat?.title && <span className="shrink-0 whitespace-pre text-xs text-muted-foreground"> · {mirrorRole()}</span>}
+                </span>
+              ) : (
+                <AuthorName author={author} authorId={authorId} pending={authorPending} className="min-w-0 max-w-full truncate text-[15px] text-foreground" />
+              )}
               {time && <span className="text-xs text-muted-foreground">{time}</span>}
             </div>
+          )}
+          {(privateHere || askedIn) && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="mirror-private">
+              <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+              {privateHere ? 'Private: only you see this' : `Asked privately in ${chatTitle(askedIn as NonNullable<typeof askedIn>)}`}
+            </p>
           )}
           {compact && local && !local.failed && <span className="sr-only">Sending</span>}
 
@@ -498,12 +563,15 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
               ) : (
                 server?.kind !== 'clarify' && noteEl
               )}
-              {server && server.kind !== 'message' && <ForwardedBody msg={server} viewerId={viewerId} />}
+              {server && (server.kind === 'forward' || server.kind === 'clarify') && <ForwardedBody msg={server} viewerId={viewerId} />}
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
               {msg.attachmentKind && msg.attachmentId && !(server && server.kind !== 'message') && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} />}
+              {/* The mirror's answer is a reading of other people, never a fact about them (P1520 risk table). */}
+              {agent && <p className="mt-0.5 text-xs text-muted-foreground" data-testid="mirror-reading">{mirrorDisplay}&apos;s reading. You decide what fits.</p>}
             </>
           )}
+          {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}
 
           {local?.failed && (
             <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-red-700" data-testid="send-failed" role="alert">

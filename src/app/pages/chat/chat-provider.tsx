@@ -38,6 +38,7 @@ import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { clearDraftsExcept, useChatNavigate } from './chat-hooks';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
 import { chatErrorText, compareMessages, compareTimestamps, unreadChatCount } from './chat-view-model';
+import { MirrorProvider } from './mirror-provider';
 
 /** After a Realtime event: a full list read waits for this much quiet. */
 export const REFRESH_DEBOUNCE_MS = 2000;
@@ -120,7 +121,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // A different person (or none) is a different provider: nothing carries over.
   return (
     <ChatProviderInner key={userId ?? 'none'} userId={userId} enabled={!embedded} listShown={pathname === '/home'}>
-      {children}
+      {/* P1520: the mirror's replies and face, for the same signed-in user */}
+      <MirrorProvider enabled={!!userId && !embedded}>{children}</MirrorProvider>
     </ChatProviderInner>
   );
 }
@@ -357,6 +359,12 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
     [runOp],
   );
 
+  /** P1520: an open conversation re-reads (a mirror reply was confirmed, but its Realtime event may be missed). */
+  const resync = useCallback(() => {
+    setRevision((r) => r + 1);
+    emit({ type: 'resync' });
+  }, [emit]);
+
   const subscribe = useCallback((listener: (e: ChatEvent) => void) => {
     listeners.current.add(listener);
     return () => {
@@ -572,9 +580,10 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
             block,
             unblock,
             goToChat,
+            resync,
           }
         : null,
-    [userId, status, error, chats, unreadCount, refresh, setArchived, setManualUnread, markRead, subscribe, setViewing, revision, authors, missingAuthors, ensureAuthors, outbox, sendMessage, retrySend, discardSend, block, unblock, goToChat],
+    [userId, status, error, chats, unreadCount, refresh, setArchived, setManualUnread, markRead, subscribe, setViewing, revision, authors, missingAuthors, ensureAuthors, outbox, sendMessage, retrySend, discardSend, block, unblock, goToChat, resync],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

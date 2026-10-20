@@ -20,6 +20,8 @@ export interface HeaderActions {
   onBlock: () => void;
   onUnblock: () => void;
   onRename: () => void;
+  /** P1520: the mirror's name opens its info panel (face, name, Rename, New face). */
+  onMirrorInfo?: () => void;
 }
 
 const NAME = 'block truncate text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
@@ -33,7 +35,7 @@ function eventWhen(iso: string): string {
   return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
-function Title({ chat }: { chat: ChatSummary }) {
+function Title({ chat, onMirrorInfo }: { chat: ChatSummary; onMirrorInfo?: () => void }) {
   switch (chat.kind) {
     case 'dm': {
       const other = chat.other;
@@ -90,17 +92,25 @@ function Title({ chat }: { chat: ChatSummary }) {
         <div className={TITLE_BOX}>{body}</div>
       );
     }
-    case 'mirror':
-      return (
-        <div className={TITLE_BOX}>
+    case 'mirror': {
+      const body = (
+        <>
           <MirrorMark size="sm" className="hidden sm:inline-flex" />
           {/* The role is part of the name and is never the part that gets cut. */}
           {/* Two segments for layout; one name for everything that reads it. */}
           <h1 className={NAME_ONE_LINE} aria-label={mirrorLabel(chat)}>
             <MirrorTitle chat={chat} />
           </h1>
-        </div>
+        </>
       );
+      return onMirrorInfo ? (
+        <button type="button" onClick={onMirrorInfo} aria-label={`About ${mirrorLabel(chat)}`} data-testid="mirror-info-open" className={cn(TITLE_BOX, 'w-full text-left', HOVER, FOCUS_RING)}>
+          {body}
+        </button>
+      ) : (
+        <div className={TITLE_BOX}>{body}</div>
+      );
+    }
   }
 }
 
@@ -118,7 +128,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </button>
       <div className="min-w-0 flex-1">
-        <Title chat={chat} />
+        <Title chat={chat} onMirrorInfo={actions.onMirrorInfo} />
       </div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>

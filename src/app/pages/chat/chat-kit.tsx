@@ -4,13 +4,15 @@
  * the positioned message menu and the loading / error blocks. Gray chrome; blue-600 only for the
  * unread badge, selection and the one primary action per view.
  */
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, Lock, User, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, getInitials } from '@/lib/utils';
 import { useDismiss } from './chat-hooks';
 import { chatTitle, mirrorRole } from './chat-view-model';
+import { useMirror } from './mirror-state';
+import { AGENT_TINT_STYLE } from '@/app/components/shared/banner/agent-tint';
 import type { ChatSummary } from '@/app/data/chat-mappers';
 
 /** Hover tint only where a real pointer exists (a tap must not leave a row stuck lit). */
@@ -88,7 +90,7 @@ export function ChannelMark({ kind, size = 'list', selected = false, className }
   );
 }
 
-const MIRROR_SIZE = { xs: 'h-5 w-5', sm: 'h-8 w-8', list: 'h-12 w-12' } as const;
+const MIRROR_SIZE = { xs: 'h-5 w-5', sm: 'h-8 w-8', md: 'h-9 w-9', list: 'h-12 w-12', xl: 'h-28 w-28' } as const;
 
 /**
  * Two facing halves with a dashed axis between them: a reflection. Stroke only, so it reads at 20px and
@@ -105,15 +107,28 @@ export function MirrorGlyph({ className }: { className?: string }) {
 }
 
 /**
- * The mirror is not its owner: it wears its own mark, a soft blue disc with a reflection glyph, and a dashed ring
- * that says "agent". Never the owner's photo or initials. `imageUrl` is the slot for a generated portrait (a later
- * spec supplies one); when given it replaces the glyph.
+ * The mirror is not its owner: it wears its own mark, and a dashed ring that says "agent". Never the owner's photo or
+ * initials. With a generated portrait (P1520) the painting replaces the glyph, under the navy agent tint; until then,
+ * or when the portrait fails to load, the soft blue disc with a reflection glyph. The portrait is the signed-in
+ * owner's own mirror's (the only mirror anyone ever sees); `imageUrl` overrides it, `null` forces the glyph.
  */
 export function MirrorMark({ size = 'list', className, imageUrl }: { size?: keyof typeof MIRROR_SIZE; className?: string; imageUrl?: string | null }) {
+  const own = useMirror()?.profile?.portraitUrl ?? null;
+  const src = imageUrl === undefined ? own : imageUrl;
+  const [broken, setBroken] = useState<string | null>(null);
+  const show = !!src && broken !== src;
   return (
     <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-full outline-dashed outline-2 outline-offset-1 outline-blue-300', className)}>
-      <span data-testid="mirror-disc" className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
-        {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover" /> : <MirrorGlyph className="h-[62%] w-[62%]" />}
+      <span data-testid="mirror-disc" className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
+        {show ? (
+          <>
+            <img src={src} alt="" data-testid="mirror-portrait" className="h-full w-full object-cover" onError={() => setBroken(src)} />
+            {/* P1483's agent layer (founder, P1520: a navy tint, not a frame): the painting keeps its light and shade. */}
+            <span data-testid="agent-tint" className="pointer-events-none absolute inset-0" style={AGENT_TINT_STYLE} />
+          </>
+        ) : (
+          <MirrorGlyph className="h-[62%] w-[62%]" />
+        )}
       </span>
     </span>
   );

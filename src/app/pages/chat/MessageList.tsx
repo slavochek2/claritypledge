@@ -11,10 +11,11 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import type { ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { Divider, InlineError, MessagesSkeleton } from './chat-kit';
 import { MessageRow, type MessageActions } from './MessageRow';
-import { describeGrouping, dayLabel } from './chat-view-model';
+import { compareMessages, describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
 
 export type ConversationApi = ReturnType<typeof useConversationMessages>;
@@ -37,9 +38,14 @@ interface Props {
   inThread?: boolean;
   /** "Load earlier messages" in a conversation, "Load earlier replies" in a thread. */
   earlierLabel?: string;
+  /**
+   * P1520: the viewer's own private @mirror asks and answers for this channel (rows of their mirror), shown in
+   * time order among the channel's messages, marked private and without actions.
+   */
+  privateRows?: ChatMessage[];
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages' }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -49,7 +55,18 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const jumpedTo = useRef<string | null>(null);
   /** The message under the reader's eye and where it sits, noted when an earlier page is requested. */
   const keepPlace = useRef<{ id: string; offset: number } | null>(null);
-  const { status, messages, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, getLoaded, syncVersion, retrySend, discard, edit, reload } = conv;
+  const { status, messages: listed, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, getLoaded, syncVersion, retrySend, discard, edit, reload } = conv;
+  // Private rows join in time order. While earlier channel history is not loaded, private rows older than it wait,
+  // so they never pile up above a gap; unconfirmed sends stay last.
+  const messages = useMemo(() => {
+    if (!privateRows?.length) return listed;
+    const locals = listed.filter(isLocal);
+    const loaded = listed.filter((m) => !isLocal(m));
+    const oldest = loaded[0];
+    const extra = privateRows.filter((p) => !hasMore || !oldest || compareMessages(p, oldest) >= 0);
+    return [...[...loaded, ...extra].sort(compareMessages), ...locals];
+  }, [listed, privateRows, hasMore]);
+  const privateIds = useMemo(() => new Set((privateRows ?? []).map((m) => m.id)), [privateRows]);
 
   const pageBack = useCallback(() => {
     const el = scroller.current;
@@ -202,6 +219,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
                     stat={stats.get(m.id)}
                     actions={fullActions}
                     inThread={inThread}
+                    privateHere={privateIds.has(m.id)}
                   />
                 </Fragment>
               );

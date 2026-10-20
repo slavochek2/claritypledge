@@ -5,18 +5,22 @@
  * keyboard keeps Enter for the new line); the Send button appears once there is something to send,
  * so there is never a dead control. The draft survives switching to another chat.
  */
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { ArrowUp, Paperclip, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowUp, Lock, Paperclip, X } from 'lucide-react';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { ShareableCard } from './ShareableCard';
 import { hasFinePointer, useDraft } from './chat-hooks';
+import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker';
+
+export type { MentionEntry };
 
 /** Five 24px lines plus the field's 16px vertical padding. */
 export const COMPOSER_MAX = 136;
 
 const ROUND = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full';
+
 
 interface Props {
   draftKey: string;
@@ -35,13 +39,38 @@ interface Props {
   /** Changing this value moves focus into the field (a Reply was pressed). */
   focusToken?: number;
   autoFocus?: boolean;
+  /** P1520: what typing @ offers. Absent or empty: no picker. */
+  mentions?: MentionEntry[];
+  /** P1520: the private mode the composer is in (picked from the @ picker), or null. */
+  privateTo?: MentionEntry | null;
+  onPrivateChange?: (entry: MentionEntry | null) => void;
 }
 
-export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false }: Props) {
+export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
   latest.current = value;
+  const [caret, setCaret] = useState(0);
+  const [active, setActive] = useState(0);
+  const [pickerClosed, setPickerClosed] = useState(false);
+  const query = mentions?.length && !privateTo ? mentionQuery(value, caret) : null;
+  const options = query === null ? [] : matchMentions(mentions ?? [], query);
+  const pickerOpen = options.length > 0 && !pickerClosed;
+  useEffect(() => {
+    setActive(0);
+    setPickerClosed(false);
+  }, [query]);
+  const listId = `${draftKey}-mentions`;
+
+  const pick = (entry: MentionEntry) => {
+    const el = field.current;
+    const at = el?.selectionStart ?? value.length;
+    const before = value.slice(0, at).replace(/@[^\s@]{0,30}$/, '');
+    setValue((before + value.slice(at)).replace(/^\s+$/, ''));
+    onPrivateChange?.(entry);
+    requestAnimationFrame(() => field.current?.focus());
+  };
 
   // Grow with the text up to ~5 lines, then scroll inside the field.
   useLayoutEffect(() => {
@@ -78,15 +107,62 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     }
   };
 
+  const hint = privateTo ? `Ask ${privateTo.label} privately` : placeholder;
+
   return (
     <footer className="relative shrink-0 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 lg:px-3 lg:pb-3" data-testid="composer">
+      {pickerOpen && (
+        <div className="absolute inset-x-2 bottom-full z-20 mx-auto max-w-3xl lg:inset-x-3">
+          <ul id={listId} role="listbox" aria-label="Mention" className="mb-1 overflow-hidden rounded-xl border bg-background py-1 shadow-lg" data-testid="mention-picker">
+            {options.map((o, i) => (
+              <li
+                key={o.id}
+                id={`${listId}-${o.id}`}
+                role="option"
+                aria-selected={i === active}
+                tabIndex={-1}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => pick(o)}
+                onKeyDown={(e) => e.key === 'Enter' && pick(o)}
+                className={cn('flex min-h-11 cursor-pointer items-center gap-2.5 px-3 py-1.5', i === active ? 'bg-accent' : HOVER)}
+              >
+                {o.mark}
+                <span className="min-w-0 truncate text-sm">
+                  <span className="font-semibold text-foreground">{o.label}</span>
+                  <span className="text-muted-foreground"> · {o.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <form
-        className="relative mx-auto w-full max-w-3xl rounded-3xl border border-gray-300 bg-background px-1.5 py-1 focus-within:border-gray-400"
+        className={cn(
+          'relative mx-auto w-full max-w-3xl rounded-3xl border bg-background px-1.5 py-1',
+          privateTo ? 'border-dashed border-blue-300 focus-within:border-blue-400' : 'border-gray-300 focus-within:border-gray-400',
+        )}
+        data-private={privateTo ? 'true' : undefined}
         onSubmit={(e) => {
           e.preventDefault();
           send();
         }}
       >
+        {privateTo && (
+          <div className="flex min-h-10 items-center gap-2 px-2 pt-0.5" data-testid="private-mode">
+            {privateTo.mark}
+            <span className="min-w-0 flex-1 truncate text-sm">
+              <span className="font-semibold text-foreground">{privateTo.label}</span>
+              <span className="text-muted-foreground"> · </span>
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                Private: only you see this
+              </span>
+            </span>
+            <button type="button" aria-label="Stop asking privately" title="Stop asking privately" onClick={() => onPrivateChange?.(null)} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {quote}
         {staged && (
           <div className="relative px-2 pt-1" data-testid="staged-attachment">
@@ -99,7 +175,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           </div>
         )}
         <div className="flex items-end gap-0.5">
-          {onAttach && (
+          {onAttach && !privateTo && (
             <button type="button" aria-label="Attach a point or story" title="Attach a point or story" onClick={onAttach} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
               <Paperclip className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -109,17 +185,47 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           <div className="relative min-w-0 flex-1">
             {value === '' && (
               <span aria-hidden="true" data-testid="composer-hint" className="pointer-events-none absolute inset-x-0 top-0 block truncate px-2 py-2 text-base leading-6 text-gray-500 md:text-[15px]">
-                {placeholder}
+                {hint}
               </span>
             )}
             <textarea
               ref={field}
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setCaret(e.target.selectionStart ?? e.target.value.length);
+              }}
+              onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
               rows={1}
-              aria-label={placeholder}
+              aria-label={hint}
+              aria-autocomplete={mentions?.length ? 'list' : undefined}
+              aria-controls={pickerOpen ? listId : undefined}
+              aria-activedescendant={pickerOpen && options[active] ? `${listId}-${options[active].id}` : undefined}
               maxLength={4000}
               onKeyDown={(e) => {
+                if (pickerOpen) {
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActive((i) => (i + (e.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length);
+                    return;
+                  }
+                  if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    const o = options[active];
+                    if (o) pick(o);
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setPickerClosed(true);
+                    return;
+                  }
+                }
+                if (privateTo && (e.key === 'Escape' || (e.key === 'Backspace' && value === ''))) {
+                  e.preventDefault();
+                  onPrivateChange?.(null);
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && hasFinePointer()) {
                   e.preventDefault();
                   send();
