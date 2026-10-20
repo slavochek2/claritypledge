@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 49
 workstream: infrastructure
 created_date: '2026-10-20'
 tags: [supabase, egress, polling, e2e]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-20
 ---
 
 # P1522: Cut Supabase egress — idle tabs stop polling, e2e stops minting users
