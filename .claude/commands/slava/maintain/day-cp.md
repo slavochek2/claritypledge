@@ -623,7 +623,7 @@ echo "$CRON_OUT"
 
 EMAIL_FLOOR="2026-09-07T00:00:00Z"
 EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-OVERDUE_FB=$(ro "SELECT id FROM public.event_rsvps WHERE feedback_scheduled_at < '${EMAIL_OVERDUE}' AND feedback_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'feedback') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
+OVERDUE_FB=$(ro "SELECT r.id FROM public.event_rsvps r JOIN public.events e ON e.id = r.event_id AND e.status <> 'cancelled' WHERE r.feedback_scheduled_at < '${EMAIL_OVERDUE}' AND r.feedback_scheduled_at > '${EMAIL_FLOOR}' AND (r.mailgun_message_ids->>'feedback') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
 echo "overdue_unsent_feedback(since ${EMAIL_FLOOR}): $OVERDUE_FB"
 # LOWER BOUND, not decoration. Every row from the 2026-06→09 outage has a past
 # reminder_scheduled_at and an empty mailgun_message_ids, and those rows are
@@ -633,7 +633,8 @@ echo "overdue_unsent_feedback(since ${EMAIL_FLOOR}): $OVERDUE_FB"
 # future outage would add +1 to a number already being ignored. That is the alert-fatigue
 # failure, in a check written because the last outage hid for three months. The floor is
 # the P1256 deploy date: only rows scheduled AFTER the cron was fixed can indict it.
-OVERDUE_RM=$(ro "SELECT id FROM public.event_rsvps WHERE reminder_scheduled_at < '${EMAIL_OVERDUE}' AND reminder_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'reminder') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
+# Cancelled events are excluded: the dispatcher skips them by design (2026-10-20 false alarm).
+OVERDUE_RM=$(ro "SELECT r.id FROM public.event_rsvps r JOIN public.events e ON e.id = r.event_id AND e.status <> 'cancelled' WHERE r.reminder_scheduled_at < '${EMAIL_OVERDUE}' AND r.reminder_scheduled_at > '${EMAIL_FLOOR}' AND (r.mailgun_message_ids->>'reminder') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
 echo "overdue_unsent_reminder(since ${EMAIL_FLOOR}): $OVERDUE_RM"
 # Stuck PENDING = the dispatcher claimed a row and then died before writing the Mailgun id
 # back. Distinct from the above: the cron IS running, but a send is failing mid-flight.
