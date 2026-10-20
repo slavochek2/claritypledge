@@ -198,8 +198,12 @@ then Gemini on rounds 2–5 over each fix snapshot, round 5 CLEAN). Set aside, n
 - Known limitation: browsers that set `navigator.webdriver` (Lighthouse, remote-debugging Chrome)
   never get the offline pack; storage-denied contexts cannot opt in.
 
-**RQ3 (test project API logs): not read yet.** The query needs the keychain-locked management
-token; the per-access dialog is waiting for the founder.
+**RQ3 (test project API logs): not readable.** The keychain-locked management token (`sbp_`,
+44 chars) was read after the founder allowed it, and the Management API answered **401 on both the
+logs endpoint and the plain project list**, so the token itself is revoked or expired, not
+scoped wrong. Rotation is P1148's job, not this spec's. The test-project share of egress is
+therefore attributed from the census (19,477 e2e users) and the per-context measurement above, not
+from logs.
 
 ## Done-When
 
@@ -214,7 +218,7 @@ token; the per-access dialog is waiting for the founder.
       full run, same number ± pool size). `[post-deploy]` re-check test-project user count after
       one CI day.
 - [ ] Accumulated test users purged on the test project; count before and after recorded.
-- [ ] Test project API log reading (RQ3) recorded, or recorded as not readable with the reason.
+- [x] Test project API log reading (RQ3) recorded, or recorded as not readable with the reason.
 
 ## Alternatives Considered
 
