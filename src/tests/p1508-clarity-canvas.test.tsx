@@ -64,7 +64,7 @@ describe('box tags', () => {
       'Unfair Advantage', 'Distribution', 'Key Metrics',
       'Offers & Pricing', 'Cost Structure',
     ]);
-    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Who I am', 'The core bet', 'How we win', 'Money in, money out']);
+    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Why I do this', 'The core bet', 'How we win', 'Money in, money out']);
     expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
   });
 

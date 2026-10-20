@@ -4,7 +4,7 @@
  *
  * There is no canvas record: a canvas is derived from owner + project tag. Its contents are the
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
- * tag), placed into eleven boxes in four named layers (sixth round R1): Who I am, The core bet,
+ * tag), placed into eleven boxes in four named layers (sixth round R1): Why I do this, The core bet,
  * How we win, Money in, money out.
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
@@ -378,7 +378,7 @@ export function CanvasPage() {
                     className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     data-testid="canvas-owner-name"
                   >
-                    {firstName(ready.ownerName)}
+                    {ready.ownerName}
                   </Link>
                 </span>
               </span>

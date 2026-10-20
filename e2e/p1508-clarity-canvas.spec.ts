@@ -11,7 +11,7 @@
  *   - a point by ANOTHER user with the same canvas tag and a box tag    (must not appear)
  *   - an owner point with the canvas tag and NO box tag                 (must not appear)
  *   - Offers & Pricing: one public point; Cost Structure stays empty
- *   - the "Who I am" boxes stay empty
+ *   - the "Why I do this" boxes stay empty
  */
 import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -139,7 +139,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clarity Canvas');
-    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name.split(' ')[0]);
+    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
     await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag); // the picker: the owner has more than one canvas
     for (const title of ['What I love', "What I'm good at", 'What the world needs',
       'Customer Segments', 'Problem', 'Solution', 'Unfair Advantage', 'Distribution', 'Key Metrics',
@@ -149,7 +149,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(11);
     await expect(page.getByText('Unique Value Proposition')).toHaveCount(0);
     // R1: the four layers, named, in order; no other frames.
-    await expect(page.getByTestId('canvas-layer-title')).toHaveText(['Who I am', 'The core bet', 'How we win', 'Money in, money out']);
+    await expect(page.getByTestId('canvas-layer-title')).toHaveText(['Why I do this', 'The core bet', 'How we win', 'Money in, money out']);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
     // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
@@ -177,7 +177,7 @@ test.describe('P1508: Clarity Canvas', () => {
   test('signed out, the same address shows only the public points', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name.split(' ')[0]);
+    await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
     const problem = page.getByTestId('canvas-box-canvas:problem');
     await expect(problem.locator(CARD)).toHaveCount(2);
     await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 6');
@@ -527,7 +527,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await name.hover();
     expect(await name.evaluate(el => getComputedStyle(el).textDecorationLine)).toBe('underline');
     const byline = page.getByTestId('canvas-byline');
-    await expect(byline).toContainText(`by ${fx.owner.name.split(' ')[0]}`);
+    await expect(byline).toContainText(`by ${fx.owner.name}`);
     await expect(byline).toContainText('·');
     await expect(byline).not.toContainText('/');
     const [title, owner, picker, controls] = await Promise.all([

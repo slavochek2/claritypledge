@@ -34,7 +34,7 @@ export const CANVAS_BOX_TAGS: readonly CanvasBoxTag[] = CANVAS_BOXES.map(b => b.
 /** The four layers, top to bottom, in the founder's words (sixth round R1). Reading order is
  *  layer by layer, box by box; Previous / Next walk it. */
 export const CANVAS_LAYERS: readonly { title: string; boxes: readonly CanvasBoxTag[] }[] = [
-  { title: 'Who I am', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
+  { title: 'Why I do this', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
   { title: 'The core bet', boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
   { title: 'How we win', boxes: ['canvas:advantage', 'canvas:channels', 'canvas:metrics'] },
   { title: 'Money in, money out', boxes: ['canvas:revenue', 'canvas:cost'] },
