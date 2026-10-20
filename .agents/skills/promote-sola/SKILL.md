@@ -145,4 +145,5 @@ Screenshot the form. Quote back the date/time read from the screen vs expected (
 - Description is a contenteditable editor (click + type, not `form_input`).
 - Date/time pickers are click-driven, not programmable.
 - Cover upload via `file_upload` is blocked (host-path deprecated) — rely on link auto-unfurl or manual drag.
+- **Gallery after the cover: unsupported as far as this skill knows.** *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20. Sola's form has a single Cover field (auto-unfurled) and `file_upload` is blocked, so recent hike photos cannot be added by the agent. Report "Sola: cover only" in the Phase B sweep; if the founder wants extra images, it is a manual drag — and if a gallery control is ever seen on the form, record it here.
 - claude-in-chrome screenshot/`read_page` can enter a broken-viewport state — bring Chrome to the foreground to recover.

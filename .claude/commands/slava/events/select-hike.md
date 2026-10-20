@@ -294,6 +294,25 @@ Faces near the top of a wide crop get cut. When a photo is supplied, check the r
 banner at both widths and adjust the crop offset before promotion — not after the event is
 already on five platforms.
 
+### 6b. New media from the last hike? — ask once
+
+> *"yes improve .. yes on sharing images on the events we upload ... yes to rest"* — founder, 2026-10-20
+
+The series gallery (`series_photos`) is what every hike page shows and what the promote skills now
+upload after each platform cover, so fresh media from the last hike pays off five times. Ask once,
+in the same turn as step 6:
+
+> "New photos or videos from the last hike? Drop them in ~/Downloads and give the names, or say skip."
+
+- **Skipped:** not raised again this run.
+- **Given:** follow `docs/events/series/social-hike.md` § "Series content, not per event" and
+  § "Videos (P1517)" — the recipe (metadata strip, `hikes/social-hike/` upload, versioned names,
+  `alt`, consent and no-children rules, video limits and poster) lives there; do not restate it here.
+  Ordering for this skill: **new photos go to the front, newest first** (lowest `sort_order`); videos
+  are mixed in **after the first few photos, never first**. Read back the inserted rows ordered by
+  `sort_order` and confirm the first row is a photo before handing off. The founder's face and
+  consent calls stay his.
+
 ### 7. Hand off
 
 Print the resolved selection and pass it straight into `/slava:events:publish-run`:
@@ -305,6 +324,7 @@ Meet:    <cafe name in Latin script, Thai original in brackets if any> — <maps
          (cafe-name rule: docs/events/series/social-hike.md § Social Hike skin)
 Date:    <date, time, Asia/Bangkok>
 Photo:   <local path | skipped>
+Gallery: <N photos, M videos added to series_photos | skipped>
 Status:  <trail-status verdict, checked_on, and any finding publish-run must disclose>
 Walk:    <measured minutes cafe → access point, and which coordinate was used>
 Hours:   <the cafe's hours on the event's weekday, as Google states them>

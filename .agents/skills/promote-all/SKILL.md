@@ -146,6 +146,30 @@ set before promotion; check both are non-null on the event row and render at des
 If the banner is auto-generated (no source photo), the downloaded banner above is the only image
 and this table does not apply.
 
+### 3a. Gallery media — recent event photos after the cover
+
+> *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20
+
+When the event has a `series_slug`, download the series gallery once, next to the cover, and record
+`gallery_paths` in the cache. Every platform sub-skill adds these **after** the cover, where the
+platform supports extra event images (each sub-skill's step says whether it does):
+
+```bash
+SLUG="<events.slug>"
+SERIES="<events.series_slug>"   # e.g. social-hike
+ANON_KEY=$(grep -E '^VITE_SUPABASE_ANON_KEY=' .env.prod | cut -d= -f2- | tr -d "\"'")  # public anon key; series_photos is public-read
+GAL="$HOME/Downloads/${SLUG}-gallery" && mkdir -p "$GAL"
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/series_photos?series_slug=eq.${SERIES}&select=storage_url,media_type,poster_url,sort_order&order=sort_order.asc,created_at.desc" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+  | python3 -c 'import json,sys; r=json.load(sys.stdin); r=r if isinstance(r,list) else sys.exit("series_photos query failed: "+str(r)); [print(x["storage_url"]) for x in r if x["media_type"]=="photo"]; [print(x["storage_url"]) for x in r if x["media_type"]=="video"]' \
+  | nl -nrz -w2 | while read n u; do curl -s -o "$GAL/$n-$(basename "$u")" "$u"; done
+```
+
+Order is fixed: **the gallery's own `sort_order` (the founder curates it on the site; videos mix in there), but platform uploads take photos first in that order, then videos** — never a video first. Cap per platform at what
+the platform allows (stated in each sub-skill); videos only where the platform accepts video.
+No `series_slug`, or zero rows → `gallery_paths: []`, skip silently. The files are already
+metadata-stripped at upload (`docs/events/series/social-hike.md` § Series content).
+
 ### 3b. Resolve the promo blurb (single source of truth)
 
 This is what makes every platform's description consistent — no per-platform drift.
@@ -345,6 +369,17 @@ stronger review than a paragraph of chat text describing them.
 After `done`, verify each platform actually posted (read the live listing back — a click that
 produced no visible change is unproven, per `.claude/rules/browser.md`) and write the state
 cache. Report anything that did not land.
+
+**Facebook groups = share the personal event, right after the founder creates it — same sweep.**
+Founder, 2026-10-20: *"yes to rest"*. A group share needs the personal Facebook event to exist, so
+Phase A cannot pre-fill it. As soon as the founder reports the personal event created (or at
+`done`), read its URL back from the profile, write it to `status.facebook_personal`, and open one
+share dialog per group with `eligible: true` whose `fits` contains this event's type in
+`.private/event-operator.json` (for hikes this now includes **Chiang Mai Sunday Walks**), using the
+verified share path in `promote-facebook.md` § "Share vs create" — one new tab per group, blurb typed,
+**the founder clicks Post** in each. List them in the same reply as one numbered block; no second
+round-trip. Create-in-group (`promote-facebook` step 4) remains the fallback only when no personal
+event exists.
 
 <details>
 <summary>Superseded: the old per-platform stop-and-wait (kept for context)</summary>

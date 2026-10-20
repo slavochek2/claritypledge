@@ -145,9 +145,19 @@ Invoke the chosen creation skill (`slava:events:publish-event`, `slava:events:pu
 
 On completion, extract the resulting `slug` (if not already known) and update the run record's `updated_at`.
 
-### 4. Stage: Assets (if in scope)
+### 4. Stage: Assets — mandatory before any promote stage
 
-Invoke `slava:content:gen-poster` with the slug. This runs autonomously (self-review loop is internal to that skill) — no additional gate here.
+Invoke `slava:content:gen-poster` with the slug **and the banner source photo collected at Gate 1 /
+`select-hike` step 6** (gen-poster's default hero is that real photo, never AI). This runs
+autonomously (self-review loop is internal to that skill) — no additional gate here.
+
+**Not optional when stage 6 or 7 is in scope.** The 2026-10-20 run skipped it and the founder had
+to ask for posters after promotion had started. Founder, 2026-10-20: *"yes improve .. yes to rest"*.
+Do not invoke `promote-all` or `promote-groups` until this stage is `done`, or the founder has
+explicitly said to skip posters this run.
+
+Record the returned WhatsApp JPEG path (`~/Downloads/<slug>-posters/poster-whatsapp.jpg`) in the
+run record and **pass it to `promote-groups` in stage 7** — it is the image attached to every group post.
 
 ### 5. Resolve all copy — silently, no approval turn
 
@@ -189,7 +199,7 @@ Founder, 2026-08-31: *"i see the confirmation to promote simultaneously on faceb
 beeper and i confirm both and its done."* So this stage covers both surfaces and asks **once**.
 
 1. Resolve the Facebook group targets (`slava:events:promote-facebook`) and the chat-group
-   targets (`slava:events:promote-groups`) — including the `do_not_post` enforcement, which
+   targets (`slava:events:promote-groups`, given the stage-4 WhatsApp JPEG as its post image) — including the `do_not_post` enforcement, which
    refuses the run if a blocked chat ID is also listed as a target.
 2. Run `promote-groups`'s transport probe and link-liveness check. A dead bridge or a dead
    link stops here; do not ask for confirmation on a send that cannot succeed.

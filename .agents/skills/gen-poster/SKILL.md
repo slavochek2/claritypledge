@@ -1,26 +1,29 @@
 ---
 name: gen-poster
-description: Generate event promotion posters in 5 formats (A5 print, Facebook, WhatsApp, LinkedIn, Square), upload to ladischenski.com/temp/{slug}/ with zip bundle.
+description: Generate event promotion posters in 5 formats (A5 print, Facebook, WhatsApp, LinkedIn, Square) from a real photo of the last event, saved to ~/Downloads/{slug}-posters/ plus a WhatsApp-ready JPEG; upload to ladischenski.com is opt-in.
 when_to_use: When promoting an event and need visual assets for print + social media distribution.
 version: 1.0.0
 ---
 
 # Generate Event Posters
 
-Generate high-quality promotional posters for a ClarityPledge event in 5 platform-optimized formats, with self-review loop, and upload to public hosting.
+Generate high-quality promotional posters for a ClarityPledge event in 5 platform-optimized formats, with self-review loop, saved locally. Upload to public hosting is opt-in (Step 7).
+
+> *"yes improve .. yes on sharing images on the events we upload"* — founder, 2026-10-20. Defaults changed that day: real-photo hero, local output + WhatsApp JPEG, series short link with `?d=`, upload asked once.
 
 ## Usage
 
 ```
 /slava:content:gen-poster                                    # Uses event from context
 /slava:content:gen-poster clarity-lab-koh-phangan-2026-03-12  # By slug
-/slava:content:gen-poster "abstract AI, tropical"             # With vibe keywords
+/slava:content:gen-poster "abstract AI, tropical"             # AI hero with vibe keywords (only when the founder asks for AI)
 ```
 
 ## Input
 
 - **Required**: Event slug or URL (to fetch title, date, location, audience, duration, price)
-- **Optional**: Vibe/tone keywords for hero image generation (default: derive from event title)
+- **Optional**: Hero photo path. Default: the real photo the run already collected — the banner source photo (`select-hike` step 6 / `run` Gate 1), else the newest photo row in `series_photos` for the event's series (`media_type` photo, never a video).
+- **Optional**: Vibe/tone keywords — only when the founder explicitly asks for an AI-generated hero.
 
 ## Pipeline
 
@@ -38,7 +41,13 @@ Extract: `title`, `datetime`, `location`, `duration_minutes`, `price` (free if 0
 
 ### Step 2 — Shortlink + QR Code
 
-**Check for existing shortlink** in `src/app/data/short-links.ts`. If none exists:
+**Series events (hikes, runs, any event with a series short link): use the series short link with the
+`?d=<YYMMDD event date>` cache-buster** — e.g. `claritypledge.com/events/hike?d=260913`. Same link
+the platform blurbs carry; the canonical rule (why `?d=` is never dropped, two-digit year) lives in
+`events/promote-all.md` § "Short-link cache-buster" — do not restate it. This URL is both the QR
+payload and the printed link text. Founder, 2026-10-20.
+
+**One-off events only** — check for an existing shortlink in `src/app/data/short-links.ts`. If none exists:
 1. Pick a short code (e.g., event type abbreviation)
 2. **Collision check**: verify the code doesn't already exist in `shortLinks` object
 3. Add to `short-links.ts` AND `vercel.json` redirects
@@ -47,12 +56,30 @@ Extract: `title`, `datetime`, `location`, `duration_minutes`, `price` (free if 0
 **Generate QR code:**
 ```bash
 curl -s -o /tmp/qr-{code}.png \
-  "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://claritypledge.com/s/{CODE}"
+  --data-urlencode "size=400x400" --data-urlencode "data={LINK}" -G \
+  "https://api.qrserver.com/v1/create-qr-code/"
 ```
+`{LINK}` = the full `https://` URL chosen above (series short link with `?d=`, or `https://claritypledge.com/s/{CODE}`).
+`--data-urlencode` keeps the `?d=` from being parsed as a parameter of the QR API itself.
 
-### Step 3 — Generate Hero Images
+**Self-check — decode the QR before using it** (no local decoder is installed; the same free API reads it):
+```bash
+curl -s -F "file=@/tmp/qr-{code}.png" "https://api.qrserver.com/v1/read-qr-code/" \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["symbol"][0]["data"])'
+```
+The decoded string must equal `{LINK}` byte for byte, `?d=` included. Mismatch or empty = stop and fix; a poster with a wrong QR is worse than no poster. Repeat the decode on the final WhatsApp JPEG (Step 7) — it proves the QR survived the downscale.
 
-Use `/slava:content:gen-image` approach — Nano Banana Pro with 3 separate calls for 3 aspect ratios:
+### Step 3 — Hero Images
+
+**Default: a REAL photo from the last event — never AI-generated unless the founder asks** (founder, 2026-10-20).
+Source, in order: the hero path passed in → the banner source photo the run collected → the newest
+photo in `series_photos` for the series (download its `storage_url`). Strip metadata
+(`ffmpeg -i in.jpg -map_metadata -1 out.jpg`) and produce the three crops from it with ffmpeg/sips:
+`hero-3x4.jpg`, `hero-16x9.jpg`, `hero-1x1.jpg`. A portrait group photo for the 16:9 crop: use the
+blurred-pad recipe in `docs/events/series/social-hike.md` § "Banner from a group photo" so no face
+is cut. If no real photo exists at all, say so and ask — do not silently fall back to AI.
+
+**AI hero — only when the founder asks for it.** Use `/slava:content:gen-image` approach — Nano Banana Pro with 3 separate calls for 3 aspect ratios:
 
 ```bash
 source .env.local
@@ -84,7 +111,7 @@ curl -s -X POST \
 - "Professional, high quality, photorealistic or abstract digital art"
 - Vibe keywords from user or derived from event topic
 
-Save heroes to `.private/posters/work/` (never the `.private/` root) as base64-decoded JPGs.
+Save heroes (real or AI) to `.private/posters/work/` (never the `.private/` root) as base64-decoded JPGs.
 
 **Fallback chain**: Nano Banana Pro → Nano Banana 2 (`gemini-3.1-flash-image-preview`) → Imagen 4
 
@@ -186,22 +213,30 @@ EOF
 
 **If any check fails**: fix the HTML template, re-screenshot, re-review. Max 3 iterations — if still failing after 3, show user and ask.
 
-### Step 7 — Zip + Upload
+### Step 7 — Local output (default) + optional upload
 
-**Create zip bundle:**
+**Default output is local** (founder, 2026-10-20): copy the PNGs to `~/Downloads/{slug}-posters/` and
+make a WhatsApp-ready JPEG next to them — long edge 1600 px, under 1 MB:
 ```bash
-cd .private/posters
-zip {slug}-posters.zip poster-*.png
+OUT=~/Downloads/{slug}-posters && mkdir -p "$OUT"
+cp .private/posters/poster-*.png "$OUT/"
+sips -s format jpeg -s formatOptions 80 -Z 1600 "$OUT/poster-whatsapp.png" --out "$OUT/poster-whatsapp.jpg"
+stat -f%z "$OUT/poster-whatsapp.jpg"   # must be < 1048576; if not, re-run with formatOptions 70, then 60
 ```
+Decode the QR on `poster-whatsapp.jpg` (Step 2 self-check). This JPEG is the image
+`/slava:events:promote-groups` step 3c attaches to every group post — return its path to the caller
+(`/slava:events:run` passes it on).
 
-**Copy to ladischenski.com hosting:**
+**Upload to ladischenski.com — opt-in, ask once:** *"Also upload the posters to ladischenski.com/temp/{slug}/? (y/N)"*.
+No / no answer = done; never raise it again this run. Yes:
 ```bash
+cd .private/posters && zip {slug}-posters.zip poster-*.png
 mkdir -p ~/Projects/public/ladischenski-com/public/temp/{slug}/
 rsync -av .private/posters/poster-*.png .private/posters/{slug}-posters.zip \
   ~/Projects/public/ladischenski-com/public/temp/{slug}/
 ```
 
-**Deploy** (requires explicit user approval):
+**Deploy** (requires explicit user approval — a "yes" to upload is not a "push it"):
 ```bash
 cd ~/Projects/public/ladischenski-com && git add public/temp/{slug}/ && git commit -m "deploy: {slug} posters" && git push origin main
 ```
@@ -217,27 +252,29 @@ done
 ## Output
 
 ```
-Posters generated and uploaded:
+Posters generated:
 
-📁 https://ladischenski.com/temp/{slug}/
+📁 ~/Downloads/{slug}-posters/
   poster-a5-print.png    (3496×4960, ~7MB)
   poster-facebook.png    (3840×2010, ~4MB)
   poster-whatsapp.png    (2160×2700, ~3MB)
+  poster-whatsapp.jpg    (1280×1600, <1MB — WhatsApp / group posts)
   poster-linkedin.png    (2400×1256, ~2MB)
   poster-square.png      (2160×2160, ~2MB)
-  {slug}-posters.zip     (~18MB, all formats)
+QR decodes to: {LINK}
+Uploaded: no | https://ladischenski.com/temp/{slug}/
 ```
 
 ## Dependencies
 
-- **Gemini API key**: `GEMINI_API_KEY` in `.env.local`
+- **Gemini API key** (AI hero only): `GEMINI_API_KEY` in `.env.local`
 - **Playwright**: `npx playwright` (from cp's dev dependencies)
-- **ladischenski-com repo**: `~/Projects/public/ladischenski-com` with `/temp/[...path]` catch-all route
+- **ladischenski-com repo** (opt-in upload only): `~/Projects/public/ladischenski-com` with `/temp/[...path]` catch-all route
 - **QR API**: `api.qrserver.com` (free, no auth)
 
 ## Notes
 
-- Hero images are generated per-aspect-ratio — never crop a portrait hero for landscape (quality loss)
+- AI heroes are generated per-aspect-ratio — never crop a portrait AI hero for landscape (quality loss). Real-photo heroes are cropped/padded per Step 3.
 - `imageConfig.imageSize: "4K"` is critical — without it Gemini defaults to ~1K
 - Auth header is `x-goog-api-key` (not `?key=` query param) for generateContent endpoint
 - PNGs are already compressed — zip adds ~0% compression but bundles for easy sharing

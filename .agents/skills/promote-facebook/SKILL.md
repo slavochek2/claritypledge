@@ -79,6 +79,11 @@ native event, not an external link (link posts are what moderation bots remove).
 inside a group (step 4) only when there is no personal Facebook event, or the group allows events
 only via its own Events tab.
 
+**When run inside `promote-all`, the share happens in its Phase B sweep, right after the founder
+creates the personal event** (`promote-all.md` § Phase B, "Facebook groups = share the personal
+event") — not as a separate errand later. Founder, 2026-10-20: *"yes to rest"*. The `hike` group
+list is read from config and now includes **Chiang Mai Sunday Walks** (added 2026-10-20).
+
 **The share path that works (verified 2026-10-04, three groups):** event page → share arrow
 (`Share this event`, next to Edit) or the `Share in a group` card → **Share to a group** → type ONE
 distinctive word in "Search for groups" (`Vibes`, `Farang`, `What` — full names and apostrophes

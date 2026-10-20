@@ -204,9 +204,15 @@ Before the probe, extract every URL from every resolved blurb (pattern `https?:/
 
 If any URL fails: **STOP.** Report: "Link check failed: {url} → {reason}. Fix the link before posting." Do not probe or send. Runs once per distinct URL, not per group.
 
-### 3c. Messenger card (offer before the probe)
+### 3c. Post image — gen-poster JPEG first, messenger card as fallback
 
-If `.private/campaigns/<campaign>/invite-card.jpg` does not exist for this event, offer
+**Use the gen-poster WhatsApp JPEG when it exists** — `~/Downloads/<slug>-posters/poster-whatsapp.jpg`
+(passed in by `/slava:events:run` stage 4, or found at that path). It is the image attached to every
+group post, sent the same way as the card below (asset upload + `attachment`), and included in the
+self-chat probe. Founder, 2026-10-20: *"yes improve .. yes to rest"* — the poster carries a real hike
+photo and a QR to the series link.
+
+**Fallback only when no poster JPEG exists:** if `.private/campaigns/<campaign>/invite-card.jpg` does not exist for this event, offer
 `/slava:events:messenger-card` now and build it before the probe — the founder wants it shown at the
 start of every group/DM promotion (2026-10-02). Once approved, **every group post carries it**:
 upload via the Beeper local API (`POST /v1/assets/upload`) and send text + `attachment` (the MCP

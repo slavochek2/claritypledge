@@ -89,6 +89,18 @@ Do NOT attempt remote fetch from inside the FB page — Facebook's CSP blocks it
 
 After the upload (or the manual-drag fallback confirms `done`), wait briefly, then re-read the page and confirm the cover-photo thumbnail is present before continuing — the same write→wait→re-read discipline as the date/time fields above.
 
+#### Gallery — recent event photos after the cover
+
+> *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20
+
+Facebook events take extra media through **Add Photos/Video** on the event (reported 2026-10-20; the
+exact control position on the create form vs the created event page has not been verified by a run —
+read the page, don't assume). Use `gallery_paths` from `promote-all` step 3a (photos in the gallery order,
+then videos — Facebook accepts video), uploaded via `file_upload`, same drag-drop fallback and
+write→wait→re-read as the cover. If the control only exists after creation, do it in the Phase B
+sweep right after the founder creates the event and say so in the sweep list. Stage the upload only; any Save or Post that publishes it is the founder's click, listed in the sweep. Standalone run with no
+`gallery_paths`: run `promote-all` step 3a's snippet first.
+
 ### 5. Description
 
 **Primary source: the canonical promo blurb passed from `promote-all` (step 3b).** Paste it

@@ -78,6 +78,12 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 
 **Write→wait→re-read after the cover-photo upload.** Luma's UI can show a write as applied for one frame and then silently revert it (this is the exact failure mode that hit the date field — see step 5). After `file_upload`, wait briefly for the thumbnail to render, then re-read the page (`read_page` or a screenshot) and confirm the cover-photo thumbnail is still present before moving to the next field. Do not trust the immediate post-call state as final.
 
+**Gallery after the cover — not supported as far as this skill knows.** *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20. This
+skill's form notes list one cover file input and no extra-image control, and no run has verified a
+Luma event gallery. Read the page for one after the cover; if a multi-image control exists, upload
+`gallery_paths` (`promote-all` step 3a, photos in the gallery order) and record the verified path here. If not,
+report "Luma: cover only, no gallery control" in the Phase B sweep — never invent a path.
+
 **Date/time fields are NOT programmable.** Luma uses a custom React date/time picker that ignores both `form_input` and `triple_click + type`. **Do not waste tool calls trying.** After filling everything else, tell the user:
 
 > Date/time picker requires manual entry. Click each Start/End date and time field in the Luma UI and pick from the calendar:
@@ -134,7 +140,7 @@ Wait briefly after the last manual date/time entry before capturing anything —
 
 ## Known limitations (as of 2026-05-17)
 
-- Date/time picker requires manual entry (see step 4)
+- Date/time picker requires manual entry (see step 4). **This stays manual** — the founder accepts setting Luma's date by hand (2026-10-20, *"yes to rest"*); do not spend a run trying to automate it.
 - **A field that looks correct in an immediate screenshot can silently revert** — the date field has done this. Always wait, then re-read, before trusting any write (cover photo, date/time) as final.
 - Description field is contenteditable DIV (see step 4)
 - `lu.ma` redirects to `luma.com` — use the redirected host

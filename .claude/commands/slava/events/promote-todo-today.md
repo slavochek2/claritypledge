@@ -76,6 +76,14 @@ Click the Upload area (triggers hidden file input). Use the Claude-in-Chrome `fi
 
 When the media library opens, select the just-uploaded image and click **Add**.
 
+**Gallery after the cover.** *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20
+
+The Upload area accepts multiple images: after the
+cover is attached, upload `gallery_paths` from `promote-all` step 3a (photos only, in gallery order — a
+video is never uploaded here) with one more `file_upload` call (same tool as the cover), select them in the media library
+after the cover, and re-read the form to confirm the cover is still the first image. Standalone
+run: run step 3a's snippet first.
+
 **Write→wait→re-read.** After clicking **Add**, wait briefly, then re-read the form (screenshot or `read_page`) and confirm the photo thumbnail is actually attached to the event before moving to step 5 — do not trust the immediate post-click state as final (the same class of silent-revert failure seen on Luma's date field and Facebook's start time).
 
 ### 5. Fill the form
