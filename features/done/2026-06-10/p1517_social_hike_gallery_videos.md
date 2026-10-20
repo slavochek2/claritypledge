@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 46
 workstream: events
@@ -7,12 +7,12 @@ created_date: '2026-10-20'
 tags: [events, hike, video, gallery]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, spec-review, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-20
 ---
 
 # P1517: Social Hike series gallery shows short videos as well as photos
