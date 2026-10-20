@@ -163,3 +163,8 @@ facade extension), `/generate-tests`. Re-run `/spec-review` after them.
    takes the first slot: content sets `sort_order` so videos come after the first photos, and
    `PastHikePhotos` moves the first photo ahead of any leading video as a backstop (route-map tile
    position unchanged). Covered by `p1517-hike-gallery-videos.test.tsx`.
+4. **Organizer name links to the group page; reviews heading renamed (founder 2026-10-20, "ok yes").**
+   On the hike page's organizer line the group name is a link to `/groups/<organizer.slug>` (the
+   existing route) when the org has a slug; "Learn more" still goes to `ORG_LEARN_MORE_PATH`
+   (`/cm`). The line is now the `HikeOrganizerLine` component in `HikeSections.tsx`. The reviews
+   section heading (`HIKE_LABELS.reviews`) reads "What hikers say".

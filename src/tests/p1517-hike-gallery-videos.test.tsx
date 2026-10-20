@@ -8,7 +8,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MemoryRouter } from 'react-router-dom';
-import { PastHikePhotos, SeriesReviews } from '@/app/prototypes/events/hike/HikeSections';
+import { HikeOrganizerLine, PastHikePhotos, SeriesReviews } from '@/app/prototypes/events/hike/HikeSections';
+import { HIKE_LABELS } from '@/app/prototypes/events/hike/hike-utils';
 import { publicMediaUrl, isPublicMediaVideo, isPublicMediaImage } from '@/lib/public-media';
 import type { SeriesPhoto } from '@/app/types';
 
@@ -164,5 +165,27 @@ describe('P1517 amendment: reviews are a swipe strip', () => {
       expect(li.className).toMatch(/sm:w-80/);
     }
     expect(screen.getByRole('link', { name: 'Person a' }).getAttribute('href')).toBe('/p/a');
+  });
+});
+
+describe('P1517 amendment 4: organizer name links to the group page', () => {
+  const renderLine = (props: Parameters<typeof HikeOrganizerLine>[0]) =>
+    render(<MemoryRouter><HikeOrganizerLine {...props} /></MemoryRouter>);
+
+  it('links the name to /groups/<slug> and keeps Learn more on its own path', () => {
+    renderLine({ organizer: { name: 'Clarity Munich', slug: 'clarity-munich' }, difficulty: 'Moderate', learnMorePath: '/cm' });
+    expect(screen.getByRole('link', { name: 'Clarity Munich' }).getAttribute('href')).toBe('/groups/clarity-munich');
+    expect(screen.getByRole('link', { name: 'Learn more' }).getAttribute('href')).toBe('/cm');
+    expect(screen.getByTestId('hike-organizer').textContent).toContain('Moderate');
+  });
+
+  it('renders plain text for an org without a slug, with no Learn more when none is mapped', () => {
+    renderLine({ organizer: { name: 'No Slug Org', slug: null } });
+    expect(screen.getByTestId('hike-organizer').querySelector('a')).toBeNull();
+    expect(screen.getByTestId('hike-organizer').textContent).toContain('No Slug Org');
+  });
+
+  it('the reviews heading is "What hikers say"', () => {
+    expect(HIKE_LABELS.reviews).toBe('What hikers say');
   });
 });

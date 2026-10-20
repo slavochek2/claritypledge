@@ -17,7 +17,7 @@ export const SOCIAL_HIKE_SERIES = 'social-hike';
  */
 export const HIKE_LABELS = {
   photos: 'Photos from past hikes',
-  reviews: 'Reviews',
+  reviews: 'What hikers say',
   route: 'Route',
   openMap: 'Open map',
   organizedBy: 'Organized by',

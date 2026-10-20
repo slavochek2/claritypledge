@@ -38,7 +38,7 @@ import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOf
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
 import { isHikeLayout, HIKE_LABELS, ORG_LEARN_MORE_PATH, parseHikeDetails, splitAfterRouteSection } from '../hike/hike-utils';
-import { HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
+import { HikeOrganizerLine, HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { showsTopicVote } from '../topic-vote';
@@ -810,16 +810,7 @@ export function EventDetail() {
               {/* P1403 (founder 2026-10-04, AllTrails order): who organises it, then photos from
                   past hikes, then the stats row just below the photos. Each hides without data. */}
               {hikeSeriesSlug && organizer && (
-                <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="hike-organizer">
-                  {hikeDifficulty && <><span className="font-medium text-foreground">{hikeDifficulty}</span>{' · '}</>}
-                  {HIKE_LABELS.organizedBy} <span className="font-medium text-foreground">{organizer.name}</span>
-                  {organizerLearnMore && (
-                    <>
-                      {' · '}
-                      <Link to={organizerLearnMore} className="font-medium text-foreground underline underline-offset-2">{HIKE_LABELS.learnMore}</Link>
-                    </>
-                  )}
-                </p>
+                <HikeOrganizerLine organizer={organizer} difficulty={hikeDifficulty} learnMorePath={organizerLearnMore} />
               )}
               {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={parseHikeDetails(event.hikeDetails)?.routeMapUrl} onOpenImage={openImage} />}
               {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
