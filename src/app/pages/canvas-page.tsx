@@ -497,7 +497,6 @@ export function CanvasPage() {
                 ...prev,
                 [openPoint.id]: typeof next === 'function' ? next(prev[openPoint.id] ?? null) : next,
               }))}
-              storyShownAbove={ready.ownerId}
               collapseOnEscape
             />
           </div>

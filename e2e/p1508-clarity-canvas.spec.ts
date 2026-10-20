@@ -275,14 +275,14 @@ test.describe('P1508: Clarity Canvas', () => {
     await cardInPanel.getByTestId('feed-point-story-expander').click();
     await expect(cardInPanel.getByText(STORY_TEXT)).toBeVisible();
     await expect(cardInPanel.getByText(OTHER_STORY_TEXT)).toHaveCount(0);
-    // D6: the point page's block under the card; the owner's row has no story toggle, the other
-    // person's opens their story.
+    // D6: the point page's block under the card; the owner's row has a story toggle too (R13),
+    // the other person's opens their story.
     const block = panel.getByTestId('point-positions-block');
     await expect(block.getByText('Filter by position:')).toBeVisible();
     const ownerRow = block.getByRole('button', { name: `${fx.owner.name}'s profile` });
     const otherRow = block.getByRole('button', { name: "P1508 Other User's profile" });
     await expect(ownerRow).toContainText(/Agrees/);
-    await expect(ownerRow.getByTestId('story-toggle')).toHaveCount(0);
+    await expect(ownerRow.getByTestId('story-toggle')).toHaveCount(1);
     await otherRow.getByTestId('story-toggle').click();
     await expect(panel.getByText(OTHER_STORY_TEXT)).toBeVisible();
     // Escape inside the expanded story closes only the story.

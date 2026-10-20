@@ -46,8 +46,6 @@ interface PointPositionsBlockProps {
   onExpandedChange: (next: string | null | ((prev: string | null) => string | null)) => void;
   /** P621: the viewer unlinks this point from their story */
   onUnlinkStory?: (storyId: string) => void;
-  /** a person whose story the page already shows above (the canvas card's owner): no toggle here */
-  storyShownAbove?: string;
   /**
    * The canvas: Escape anywhere in the block closes the open story and only that — the panel
    * around it must not close (the toggle keeps focus after opening, outside the story region).
@@ -66,7 +64,6 @@ export function PointPositionsBlock({
   expandedId: expandedHolderId,
   onExpandedChange: setExpandedHolderId,
   onUnlinkStory,
-  storyShownAbove,
   collapseOnEscape = false,
 }: PointPositionsBlockProps) {
   const navigate = useNavigate();
@@ -76,14 +73,13 @@ export function PointPositionsBlock({
   const storyByAuthorId = useMemo(() => {
     const map = new Map<string, StoryWithAuthor>();
     for (const story of stories) {
-      if (story.authorId === storyShownAbove) continue;
       // Take only the first story per author (array is ordered desc by created_at)
       if (!map.has(story.authorId)) {
         map.set(story.authorId, story);
       }
     }
     return map;
-  }, [stories, storyShownAbove]);
+  }, [stories]);
 
   // P574: Stories whose authors have no position on this point
   const positionlessStories = useMemo(() => {
@@ -168,9 +164,7 @@ export function PointPositionsBlock({
                   const isViewer = viewerId === holder.userId;
 
                   // P542: Determine story data — viewer's story takes priority
-                  const holderStory = holder.userId === storyShownAbove
-                    ? null
-                    : isViewer && viewerStory
+                  const holderStory = isViewer && viewerStory
                       ? viewerStory
                       : storyByAuthorId.get(holder.userId) ?? null;
                   const hasStory = holderStory !== null;

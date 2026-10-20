@@ -158,7 +158,6 @@ describe('D6: the shared "Filter by position" block on the canvas', () => {
           onFilterChange={onFilter}
           expandedId="b"
           onExpandedChange={vi.fn()}
-          storyShownAbove="owner-1"
         />
       </MemoryRouter>
     );
@@ -172,10 +171,10 @@ describe('D6: the shared "Filter by position" block on the canvas', () => {
     expect(screen.getByRole('button', { name: /^Disagree \(2\)/ })).toBeInTheDocument();
   });
 
-  it('the owner\'s row has no story toggle (their story is in the card above); others keep theirs', () => {
+  it('R13: the owner\'s row keeps its story toggle too (the card above shows the same story); others keep theirs', () => {
     render(<Harness />);
     const ownerRow = screen.getByRole('button', { name: "Owner One's profile" });
-    expect(within(ownerRow).queryByTestId('story-toggle')).toBeNull();
+    expect(within(ownerRow).getByTestId('story-toggle')).toBeInTheDocument();
     const boRow = screen.getByRole('button', { name: "Bo's profile" });
     expect(within(boRow).getByTestId('story-toggle')).toBeInTheDocument();
     expect(screen.queryByText('Perspectives without position')).toBeNull();
@@ -207,7 +206,7 @@ describe('D6: the shared "Filter by position" block on the canvas', () => {
         <PointPositionsBlock
           positions={positions} counts={levelCounts(positions)} stories={stories} viewerId="viewer-1"
           filter="all" onFilterChange={vi.fn()} expandedId="b" onExpandedChange={onExpandedChange}
-          storyShownAbove="owner-1" collapseOnEscape
+          collapseOnEscape
         />
       </MemoryRouter>,
     );
