@@ -361,9 +361,10 @@ test.describe('P405: Sessions tab suppressed during active live session', () => 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
-      // Now in an active session (waiting state): /live keeps its own chrome, so the phone bar — and with it the
-      // You sheet's Session History row — is not offered.
-      await expect(creatorPage.getByTestId('bottom-nav-me')).not.toBeVisible({ timeout: 5000 });
+      // Now in an active session (waiting state): no Session History link on screen. KNOWN GAP (P1512 spec, Known
+      // Limitations): since Session History moved into the You sheet this only proves it is not on the page itself;
+      // the sheet still offers it in the waiting state (P588 keeps the bar there and hides it only in the live view),
+      // and the live view needs a two-party fixture this test does not build.
       await expect(creatorPage.getByRole('link', { name: /session history/i })).not.toBeVisible({ timeout: 5000 });
     } finally {
       await creatorContext.close();

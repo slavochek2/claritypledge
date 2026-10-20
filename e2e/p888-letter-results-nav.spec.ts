@@ -38,6 +38,8 @@ import { createTestSessionInDB } from './helpers/test-session';
 // the slim top bar below lg on focus pages like these (the bottom bar is hidden on them). TOP_NAV is
 // the top bar; SIDEBAR is the desktop chrome the P888 canaries now assert on desktop.
 const TOP_NAV = 'nav[data-nav="main"]';
+// P1512 (decision 19): a signed-in phone page inside the shell has the in-flow top bar, not the logo nav.
+const SHELL_BAR = '[data-shell-top-bar]';
 const SIDEBAR = 'nav[data-nav="sidebar"]';
 const BOTTOM_NAV = 'nav[data-nav="bottom"]';
 
@@ -204,14 +206,14 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
       await page.goto(`/letter/${letterId}/results`);
       await page.waitForLoadState('networkidle');
       await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
-      // AC: top nav present on results at mobile viewport too (compact form)
-      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+      // AC: the top chrome is present on results at mobile viewport too — the shell's top bar (P1512 decision 19)
+      await expect(page.locator(SHELL_BAR)).toBeVisible({ timeout: 10000 });
       await expect(page.locator(BOTTOM_NAV)).not.toBeAttached();
 
       // Same focus-page treatment on overview (AC: both pages)
       await page.goto(`/letter/${letterId}/overview`);
       await page.waitForLoadState('networkidle');
-      await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(SHELL_BAR)).toBeVisible({ timeout: 10000 });
       await expect(page.locator(BOTTOM_NAV)).not.toBeAttached();
     });
   });
@@ -284,9 +286,9 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
         expect(bannerBox).not.toBeNull();
 
         if (surface === 'phone') {
-          await expect(page.locator(TOP_NAV)).toBeVisible({ timeout: 10000 });
-          // No collision: banner's top edge sits at/below the fixed nav's bottom edge
-          const navBox = await page.locator(TOP_NAV).boundingBox();
+          await expect(page.locator(SHELL_BAR)).toBeVisible({ timeout: 10000 });
+          // No collision: banner's top edge sits at/below the top bar's bottom edge (P1512: the bar is in flow)
+          const navBox = await page.locator(SHELL_BAR).boundingBox();
           expect(navBox).not.toBeNull();
           expect(bannerBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
         } else {

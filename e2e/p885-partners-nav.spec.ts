@@ -4,7 +4,7 @@
  *
  * Coverage:
  * - smoke: browse page loads for a logged-in user with the bottom nav visible
- * - Mobile bottom nav shows 5 items in order: Home, Feed, Groups, Letters, Me (P1512; was Home,
+ * - Mobile bottom nav shows 5 items in order: Home, Feed, Groups, Letters, You (P1512; was Home,
  *   Letters, Partners, Events, My Profile — Partners now lives in the Me sheet)
  * - Opening Me and tapping Partners opens /p/{slug}/partners with active state
  * - Badge shows seeded incoming-invitation count (on the Me tab and the sheet's Partners row);
@@ -72,7 +72,7 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
       expect(consoleErrors).toEqual([]);
     });
 
-    test('shows 5 items in order: Home, Feed, Groups, Letters, Me', async ({ page }) => {
+    test('shows 5 items in order: Home, Feed, Groups, Letters, You', async ({ page }) => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
@@ -121,12 +121,12 @@ test.describe('P885 — Partners nav item with invitation badge', () => {
       await setTestSession(page, invitee.email);
       await page.goto('/feed');
 
-      // Partners lives behind Me, so its pending-invite count rides on the Me tab
+      // Partners lives behind You, so its pending-invite count rides on the You tab
       const meTab = page.getByTestId('bottom-nav-me');
       const tabBadge = meTab.locator('[data-badge]');
       await expect(tabBadge).toBeVisible({ timeout: 10000 });
       await expect(tabBadge).toHaveText('1');
-      await expect(meTab).toHaveAttribute('aria-label', 'Me, 1 pending invitation');
+      await expect(meTab).toHaveAttribute('aria-label', 'You, 1 pending invitation');
 
       // …and on the Partners row inside the sheet
       await meTab.click();

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 43
 workstream: clarity-chat
@@ -248,7 +248,8 @@ cannot see shows "Not available to you". Read state goes to the owner's own devi
 - [x] Unread is correct across two devices of one user; mark-as-unread and archive persist — *Evidence:* read canary (two clients, member_state Realtime), mark-read through message id (µs-exact), unit tests for mark-unread/archive.
 - [x] Threads, quote-reply, forward (D5), attach, edit and delete work and persist — *Evidence:* e2e p1512-chat-live (thread, forward, attach point + story, edit, delete live) + unit tests.
 - [x] Clarify puts the message and its thread into the owner's mirror chat only; Rename persists; role always shows — *Evidence:* e2e (copy only in the clarifier's mirror, checked by admin query) + unit (rename persists; role segment never truncated).
-- [x] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens the live invite — *Evidence:* p1512-shell tests + screenshots (collapsed, logo hover); `+` in the chat list opens `/agreements/new/create`.
+- [x] Desktop sidebar collapses to the logo with hover-to-expand; no sidebar Search; + opens New message with "Invite a Clarity Partner" as its last row (decision 13) — *Evidence:* p1512-shell tests + screenshots (collapsed, logo hover); New message picker tests in p1512-chat-ui (list, search, existing/new 1:1, same-name handle, focus, liveness, timeout) + screenshots desktop/375/320.
+- [x] Founder hands-on decisions 11-25 hold (Back, top bar, actions, Clarify, menus, page frame, public site, "You") — *Evidence:* unit 594 files green incl. p1512-chat-nav (table-driven history + stack simulator), p1512-back-loops (22), p1512-focus-routes-have-back (76, derived from the route rules, per-branch renders), p1512-shell, p1512-shell-topbar, p1512-page-frame, p1512-org-open-chat; real-browser Back check 16/16 on a phone context (no closed chat ever re-opens on the back gesture); p1512-chat-live 13/13 and both security canaries 29/29 after the round; reviews Opus, Gemini review model and Codex each round with receipts.
 - [x] Existing users see their groups' General channels and their mirror on first open — *Evidence:* migration backfill (one General per org, one channel per event, one mirror per profile; counts equal sources in the first-run proof) + e2e new-user list.
 - [x] Phone (375, 320) and desktop pass the visual QA checklist — *Evidence:* four screenshot-only visual QA rounds (separate reviewer, no code); final round no blocking issues, its should-fix fixed (two-line mirror rows) and the other is a live story card (INBOX-194); live e2e asserts no horizontal scroll and the composer on screen at 1280/375/320, with banners.
 - [x] No prototype route, persona plugin or mock code remains in the build — *Evidence:* v12–v16 code, tests, routes, `scripts/p1509-*` and the vite persona plugin deleted; grep clean.
@@ -269,6 +270,14 @@ Reviewed by Gemini review model, Codex and Opus in two full rounds plus two fres
 - Live pages keep pre-existing phone defects (INBOX-194); out of scope by founder decision 1.
 - Collapsed desktop sidebar shows only the logo (founder decision 5), so menu badges are hidden while collapsed.
 - After a slow author-name lookup falls back to a cached name or "Unknown member", a later successful lookup shows the real name, but the internal "missing" set is not cleared and a failed retry can schedule another fallback timer (final Gemini pass, MEDIUM; no visible effect found).
+
+Recorded after the founder hands-on round (2026-10-20), by the review stopping rule:
+- Desktop only: switching chats while a thread is open beside the list leaves a stale entry that the browser's own Back can reopen (the in-app Back skips it).
+- A search hit landing on the thread that is already open keeps that entry's history markers unstaled (narrow; same-path redirect).
+- "Return to parent" controls (Back to the event / Back to Doc / View Event Details) take the event-night room fallback only if a pop turns out dead on a restored tab during an event night.
+- Room and wizard pages (event room ready/meet/host, meeting terms step-back, prep and close wizards' in-flow steps) keep their own flow logic; only their exits to the event were made non-looping.
+- P405's "Session History hidden during an active live session" is no longer enforced in the waiting state: since round 1 Session History lives in the You sheet, which the bar (kept there by P588) still opens; the e2e only proves it is not on the page itself (gap flagged by the final review, not a new regression).
+- E2E after the round: every failure was classified. Assertions encoding the old layout were updated to decisions 11-25; the rest fail identically on main (old copy/defaults, test-DB data, constant polling INBOX-200, the /live round sync in p674 measured on main). Unverified because test-project user creation hangs (private inbox): the letters suites (p660 a11y/drafts/inbox, p725, p581 ×4, p699 ×3), p879, the p1366/p1441 tails, five integration specs, and re-runs of p405 ×2, p885, p491 and p1441 after their last edits.
 
 ## Pre-deploy Checklist
 

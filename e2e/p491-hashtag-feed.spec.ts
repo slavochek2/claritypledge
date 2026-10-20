@@ -246,7 +246,8 @@ test.describe('P491: Authenticated User Flows', () => {
     await page.goto('/feed');
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/feed/);
-    await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
+    // P1512 decision 15: the feed's page title is now the visible "Feed" (it was a hidden "Home").
+    await expect(page.getByRole('heading', { name: /^feed$/i, level: 1 })).toBeVisible();
   });
 
   test('bottom nav links to the feed, not History, on mobile (UAT-9)', async ({ page }) => {

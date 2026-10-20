@@ -254,7 +254,8 @@ test.describe('P1441 UAT', () => {
     await expect(page.getByTestId('rsvp-button').first()).toBeVisible({ timeout: 15000 });
     expect(await rsvpRows(event.id, person.user.id)).toBe(0);
     // UAT finding: the canceller must also leave the Participants list without a reload.
-    await expect(page.getByText('UAT Canceller')).toHaveCount(0);
+    // Scoped to the page body: since P1512 the sidebar's account row shows the signed-in person's own name (decision 3).
+    await expect(page.locator('main').getByText('UAT Canceller')).toHaveCount(0);
     await shots(page, 'c-cancel-success');
     await page.context().close();
   });
