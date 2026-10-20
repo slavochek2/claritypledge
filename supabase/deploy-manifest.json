@@ -2,6 +2,7 @@
   "prod": {
     "functions": {
       "_shared": "",
+      "check-login-email": "e86c2c2f73447ea728f336177cc9554fbb0d8b65c5a787b8172a936554da1ae9",
       "confirm-letter-response": "a594c8f32a800c35d30023cc7a7657a4a3d70f52434e0e2669e06a953d7e9fd7",
       "create-and-open-letter": "aa1ba8f29ba1c6e22c6abfba76e2209aff5a57adca7df2647c87a28f10d00d40",
       "create-and-sign": "de9e67bf3e54320d1c998840e49e8a480d595189ccac7dafc16e56f001112b16",
@@ -21,7 +22,7 @@
       "send-letter-emails": "6f58cec055e02c301d239d0eeac57e7ab74618a97a69563c3d74dd16e1693eae",
       "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-10-14T15:14:45Z",
+    "functions_deployed_at": "2026-10-20T06:32:12Z",
     "migrations": [
       "20250101",
       "20250117",
