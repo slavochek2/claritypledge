@@ -14,18 +14,24 @@
  *     reused_story_id: <uuid | ->
  *
  * What it writes, under the owner's account:
- *   - each NEW point, public, with the canvas name as its user tag and its box tag + `canvas_<name>`
- *     as system tags. A point that already exists (same owner, same statement) is reused: it gains
+ *   - each NEW point, PRIVATE (P1515: the canvas's audience decides who reads what is inside, and a
+ *     row's visibility can never change after creation, so canvas points start private and stay out
+ *     of the feed), with the canvas name as its user tag and its box tag + `canvas_<name>`
+ *     as system tags. A PRIVATE point that already exists (same owner, same statement) is reused; a public one never is: it gains
  *     `canvas_<name>`, its box tag is replaced when different (the drafts were reviewed for boxes),
  *     and its user tags stay as they are (a second hashtag pill would show on every canvas)
  *   - the owner's position (agree) on every point, never overwriting one already taken
  *   - the owner's story for each point: an existing story when `reused_story_id` is a uuid, else
- *     a new public story with the draft's text; NO SOURCE FOUND writes nothing. story_points is
+ *     a new PRIVATE story with the draft's text; NO SOURCE FOUND writes nothing. story_points is
  *     UNIQUE(author_id, point_id): a point that already has an owner story keeps it
  *   - never a `source:` line, which is review material only
  *
+ * --replace-public (P1515): first DELETES the owner's PUBLIC points on this canvas (positions and
+ * story links go with them, by cascade), then the owner's stories that were linked only to them.
+ * For drafts seeded public before P1515; visibility cannot be changed in place.
+ *
  * Usage:
- *   node scripts/seed-p1508-canvas-drafts.mjs --file <draft.md> --name <canvas name> [--slug slava] [--dry]
+ *   node scripts/seed-p1508-canvas-drafts.mjs --file <draft.md> --name <canvas name> [--slug slava] [--dry] [--replace-public]
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -122,6 +128,23 @@ async function must(label, promise) {
   return data;
 }
 
+/** P1515: remove what an earlier run seeded public, so the canvas can be re-created private. */
+async function replacePublic(ownerId) {
+  const pts = await must('public canvas points', admin.from('points').select('id')
+    .eq('first_validator_id', ownerId).eq('visibility', 'public').contains('system_tags', [CANVAS_TAG]));
+  if (pts.length === 0) return console.log('  replace-public: nothing public on this canvas');
+  const ids = pts.map(p => p.id);
+  const links = await must('owner links', admin.from('story_points').select('story_id').eq('author_id', ownerId).in('point_id', ids));
+  const sids = [...new Set(links.map(l => l.story_id))];
+  const all = sids.length ? await must('all links', admin.from('story_points').select('story_id, point_id').in('story_id', sids)) : [];
+  const elsewhere = new Set(all.filter(l => !ids.includes(l.point_id)).map(l => l.story_id));
+  const orphans = sids.filter(id => !elsewhere.has(id));
+  // Points first: if this fails nothing is lost; the stories go only once their points are gone.
+  await must('delete points', admin.from('points').delete().in('id', ids));
+  if (orphans.length) await must('delete stories', admin.from('stories').delete().in('id', orphans).eq('author_id', ownerId));
+  console.log(`  replace-public: deleted ${ids.length} public points, ${orphans.length} stories; kept ${elsewhere.size} stories linked elsewhere`);
+}
+
 async function seed() {
   const items = parse(readFileSync(resolve(FILE), 'utf8'));
   const withStory = items.filter(i => i.story && i.story !== 'NO SOURCE FOUND');
@@ -133,11 +156,13 @@ async function seed() {
   const owner = await must('owner', admin.from('profiles').select('id').eq('slug', SLUG).maybeSingle());
   if (!owner) throw new Error(`no profile with slug ${SLUG}`);
 
+  if (process.argv.includes('--replace-public')) await replacePublic(owner.id);
+
   let created = 0, reused = 0, moved = 0, stories = 0, kept = 0;
   for (const it of items) {
     const boxTag = `canvas:${it.box}`;
     const existing = await must('find point', admin.from('points').select('id, system_tags')
-      .eq('first_validator_id', owner.id).eq('statement', it.statement).limit(1).maybeSingle());
+      .eq('first_validator_id', owner.id).eq('statement', it.statement).eq('visibility', 'private').limit(1).maybeSingle());
     let pointId;
     if (existing) {
       pointId = existing.id;
@@ -150,7 +175,7 @@ async function seed() {
       }
     } else {
       pointId = (await must('insert point', admin.from('points').insert({
-        statement: it.statement, first_validator_id: owner.id, visibility: 'public',
+        statement: it.statement, first_validator_id: owner.id, visibility: 'private',
         tags: [NAME], system_tags: [boxTag, CANVAS_TAG],
       }).select('id').single())).id;
       created += 1;
@@ -172,7 +197,7 @@ async function seed() {
       const found = await must('find story', admin.from('stories').select('id')
         .eq('author_id', owner.id).eq('content', it.story).limit(1).maybeSingle());
       storyId = found?.id ?? (await must('insert story', admin.from('stories').insert({
-        content: it.story, author_id: owner.id, visibility: 'public',
+        content: it.story, author_id: owner.id, visibility: 'private',
       }).select('id').single())).id;
     }
     await must('link', admin.from('story_points').insert({ story_id: storyId, point_id: pointId, author_id: owner.id }));
