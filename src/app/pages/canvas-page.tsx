@@ -8,8 +8,8 @@
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
  * 1024px, two from 640px, one below, each layer under its label, compact enough that a canvas with
- * one card per box fits one desktop screen (P1535). A box shows two cards, then
- * "N more", which opens the whole box in the panel (R2) — the grid never moves. A box card is text
+ * one card per box fits one desktop screen (P1535). A box shows one card, then
+ * "See all N", which opens the whole box in the panel (R2) — the grid never moves. A box card is text
  * to read plus its spread, with no buttons; the whole card opens the point. Above the grid:
  * "Clarity Canvas", then "by <owner>" and the canvas's name (a menu when the owner has several)
  * on the left, Compare on the right (R10). The panel (a side panel on desktop, a full-screen sheet
@@ -1202,7 +1202,7 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
           {/* Which box this point sits in: Previous / Next cross from box to box. */}
           <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2" data-testid="canvas-panel-box">
             {step.boxTag && <BoxIcon tag={step.boxTag} />}
-            {/* P1535: box titles run to 35 characters; two lines, never an ellipsis on a phone. */}
+            {/* P1535: box titles run to 35 characters; two lines fit them at 320px. */}
             <span className="line-clamp-2 break-words text-base font-semibold tracking-tight text-foreground">{step.box}</span>
           </span>
           <button
