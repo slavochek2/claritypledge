@@ -35,6 +35,16 @@ describe('P1533 mirror menu', () => {
     expect(onMirrorInfo).toHaveBeenCalled();
   });
 
+  it('falls back to "About your mirror" when the mirror has no name', () => {
+    render(<MemoryRouter><ConversationHeader chat={{ ...mirrorChat, title: '  ' }} blocked={false} actions={actions({ onMirrorInfo: vi.fn() })} /></MemoryRouter>);
+    expect(within(openMenu()).getByRole('menuitem', { name: 'About your mirror' })).toBeInTheDocument();
+  });
+
+  it('has no About item where the panel is not offered', () => {
+    render(<MemoryRouter><ConversationHeader chat={mirrorChat} blocked={false} actions={actions()} /></MemoryRouter>);
+    expect(within(openMenu()).queryByRole('menuitem', { name: /About/ })).not.toBeInTheDocument();
+  });
+
   it('control: a channel menu has no About item', () => {
     render(<MemoryRouter><ConversationHeader chat={{ ...mirrorChat, kind: 'group', title: 'Team' }} blocked={false} actions={actions({ onMirrorInfo: vi.fn() })} /></MemoryRouter>);
     expect(within(openMenu()).queryByRole('menuitem', { name: /About/ })).not.toBeInTheDocument();

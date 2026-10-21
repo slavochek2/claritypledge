@@ -165,7 +165,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
             // P1533: the panel (face, New face) is also reachable from the menu, not only by tapping the name.
             <DropdownMenuItem className="min-h-10" onSelect={actions.onMirrorInfo}>
               <Info className="mr-2 h-4 w-4" aria-hidden="true" />
-              About {chat.title ?? 'your mirror'}
+              <span className="min-w-0 truncate">About {chat.title?.trim() || 'your mirror'}</span>
             </DropdownMenuItem>
           )}
           {chat.kind === 'mirror' && (
