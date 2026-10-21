@@ -579,6 +579,7 @@ Last updated: 2026-10-21
 
 - **P1445** (Oct 26) /day grounded reflection, Agent on Slava, CP cards on the board — share UI via presentational extraction + scoped Tailwind + derived import-boundary test
 
+- **P1528** (Oct 26) Agent avatars to media host as 256px immutable WebP — measure script counts only supabase.co; a broken move "passes"; check both hosts.
 ## Product & Docs
 
 - **P855** (Jun 26) Pledge v4 (number-first) — single-source necessary but NOT sufficient (prose paraphrases drift past exact-string discovery); /upgrade-oath = discovery + 3 gates; dispatched(stored)-vs-default(current) classification prevents grandfather false-flags

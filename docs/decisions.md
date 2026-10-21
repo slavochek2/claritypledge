@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: Agent avatars are 256px WebP on the public media host, immutable-cached (P1528)
+
+**Context:** A fresh production `/feed` load pulled 957.9 KiB of agent-avatar PNGs (up to 227 KiB each, rendered at most 96 CSS px, `cache-control: no-cache`) from the `agent-avatars` Supabase Storage bucket (P1135). Storage through Supabase's CDN bills as cached egress, the line most over the free-plan quota, with production restricted from 2026-11-11. P1135 predates the P1385 "Public Media Host" rule, which puts curated public images on `gs://claritypledge-story-images`.
+**Decision:** Agent avatars are 256x256 metadata-stripped WebP (2.7x the largest render), uploaded create-only to the media bucket at `[test/]agent-avatars/<slug>/<uuid>.webp` with `Cache-Control: public, max-age=31536000, immutable`; a new uuid per generation makes the URL the version. The 9 production rows were repointed by a guarded, manifest-bound script (`scripts/p1528-agent-avatars-to-media-host.mjs`) after a snapshot; `provision-agent` and `gen-agent-avatar` now produce this shape. Measured: Supabase storage on fresh `/feed` 957.9 KiB to 0; total Supabase 1030 to 73 KiB; avatars 4-11 KB each, served from browser cache on reload.
+**Alternatives rejected:** Resize in place in Supabase Storage (no DB write, but keeps curated images on the over-quota host against the P1385 rule). Moving every Supabase bucket off Supabase (the user-upload buckets rely on Supabase auth-scoped upload policies; separate decision if ever wanted).
+**Consequences:** Old PNGs stay in the `agent-avatars` bucket as the rollback target until a clean week (inbox note); once deleted, the script's `--rollback` refuses by design because it checks the old URL still serves an image. Any future one-off prod repoint script should carry the same three recovery properties found missing in review: resume after a partial run, refuse to restore a dead URL, treat already-restored rows as done.
+**References:** [p1528](../features/done/2026-06-10/p1528_agent_avatars_small_cached_media_host.md) · [P1135](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md) · `.claude/rules/src.md` "Public Media Host"
+
 ## 2026-10-21 [product]: Artifacts are shared with events and groups through checked functions; no public switch (P1515)
 
 **Context:** The sales mastermind needs attendees to read each other's Clarity Canvases, and owners will not publish them. The 2026-03-24 ruling cut a story-level "shared" tier ("all event co-participants") as unenumerable. Three reviewers (Gemini Argon, Codex, Opus) found the first draft, which widened read policies, would have leaked shared private content onto the feed, point and story pages, profiles and realtime, because those read by policy alone.
