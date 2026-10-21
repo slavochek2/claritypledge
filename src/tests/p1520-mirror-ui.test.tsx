@@ -254,16 +254,14 @@ describe('P1520 @ picker and private mode', () => {
 describe('P1520 mirror info panel', () => {
   it('shows the face, the name and role, Rename and New face, and no face (gender) choice (P1537)', () => {
     const newFace = vi.fn();
-    const setGender = vi.fn(async () => undefined);
     const onRename = vi.fn();
     wrap(<MirrorInfoDialog chat={mirrorChat} onRename={onRename} onClose={vi.fn()} />, chatValue(),
-      mirrorValue({ newFace, setGender, profile: { conversationId: MIRROR_ID, portraitUrl: null, credit: { artist: 'Test Artist', movement: null }, gender: 'male' } }));
+      mirrorValue({ newFace, profile: { conversationId: MIRROR_ID, portraitUrl: null, credit: { artist: 'Test Artist', movement: null }, gender: 'male' } }));
     const panel = screen.getByTestId('mirror-info');
     expect(within(panel).getByRole('heading', { name: 'Mira' })).toBeInTheDocument();
     expect(panel).toHaveTextContent('Your mirror');
     expect(screen.getByTestId('mirror-credit')).toHaveTextContent('Test Artist');
     expect(within(panel).queryByRole('radiogroup')).not.toBeInTheDocument();
-    expect(setGender).not.toHaveBeenCalled();
     fireEvent.click(within(panel).getByRole('button', { name: 'New face' }));
     expect(newFace).toHaveBeenCalled();
     fireEvent.click(within(panel).getByRole('button', { name: 'Rename' }));

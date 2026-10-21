@@ -21,7 +21,7 @@ export function MirrorInfoDialog({ chat, onRename, onClose }: { chat: ChatSummar
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm" data-testid="mirror-info">
+      <DialogContent className="w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm" data-testid="mirror-info" {...(chat.title ? {} : { 'aria-describedby': undefined })}>
         <DialogHeader className="items-center text-center">
           <div className="relative mb-2">
             <MirrorMark size="xl" />
@@ -32,7 +32,7 @@ export function MirrorInfoDialog({ chat, onRename, onClose }: { chat: ChatSummar
             )}
           </div>
           <DialogTitle className="max-w-full break-words">{name}</DialogTitle>
-          <DialogDescription className={chat.title ? undefined : 'sr-only'}>{mirrorRole(chat)}</DialogDescription>
+          {chat.title && <DialogDescription>{mirrorRole(chat)}</DialogDescription>}
           {credit && <p className="text-xs text-muted-foreground" data-testid="mirror-credit">Painted in the style of {credit.artist}</p>}
         </DialogHeader>
 
