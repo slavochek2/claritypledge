@@ -42,8 +42,6 @@ check_session_requires_auth(text)             # join-by-link must know whether a
 patch_live_state(uuid,jsonb)                  # a guest joiner advances shared session state; deliberate, docs/decisions.md 2026-04-09 [technical] (P671) — src/app/pages/clarity-live-page.tsx:1588
 touch_joiner_seat(uuid,uuid)                  # P1269 — a seated anonymous guest refreshes their own seat presence so the 15-minute abandonment timer does not expire under a live guest; authorized by the seat secret alone, returns only a boolean — src/app/data/api.ts:1335
 
-# --- Sign-in / sign-up, before any session exists ---
-
 # --- Public pages, logged-out visitors ---
 get_featured_profiles(integer)                # the landing page and /pledgers list verified pledgers to logged-out visitors — src/app/components/landing/social-proof.tsx:28
 get_organization_members(text)                # a public organization page renders its roster without an account — src/app/pages/org-page.tsx:68
