@@ -1,0 +1,46 @@
+/**
+ * @file loader-chain.ts
+ * @description P1539: continuity between page loaders that replace each other. A .ts file so the
+ * component file keeps exporting only components (Fast Refresh).
+ */
+import { useLayoutEffect, useState } from 'react';
+
+/**
+ * P1539: one continuous loading state across loaders that replace each other (route guard loader,
+ * LazyRoute fallback, the page's own loader). Each is a different element in the tree, so each remounts
+ * and its CSS fade would restart from opacity 0: a visible pulse. A module-level chain remembers when the
+ * first loader of the run appeared; a loader that mounts while another is mounted, or within a few ms of
+ * one unmounting, starts its animations that far in (negative animation-delay) instead of from zero.
+ * The 300ms anti-flash still applies to the first loader of a run.
+ */
+const CHAIN_GAP_MS = 150;
+const loaderChain = { mounted: 0, start: 0, lastUnmount: -Infinity };
+
+/** Milliseconds the current loader run has already been going (0 when this loader starts a new run). */
+function chainElapsed(): number {
+  const now = performance.now();
+  const continuing = loaderChain.mounted > 0 || now - loaderChain.lastUnmount < CHAIN_GAP_MS;
+  return continuing ? Math.max(0, now - loaderChain.start) : 0;
+}
+
+export function useLoaderChain(): number {
+  const [elapsed] = useState(chainElapsed);
+  useLayoutEffect(() => {
+    const now = performance.now();
+    if (loaderChain.mounted === 0 && now - loaderChain.lastUnmount >= CHAIN_GAP_MS) loaderChain.start = now;
+    loaderChain.mounted += 1;
+    return () => {
+      loaderChain.mounted -= 1;
+      loaderChain.lastUnmount = performance.now();
+    };
+  }, []);
+  return elapsed;
+}
+
+/** Test seam: forget any run in progress. */
+export function resetLoaderChainForTests() {
+  loaderChain.mounted = 0;
+  loaderChain.start = 0;
+  loaderChain.lastUnmount = -Infinity;
+}
+

@@ -70,6 +70,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutGrid as ToolsIcon } from 'lucide-react';
 import { ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
@@ -181,6 +182,7 @@ export function EventLinksButton({
       triggerContent={triggerContent}
       side={appearance?.side}
       align={appearance?.align}
+      tooltip={appearance?.tooltip}
     />
   );
 }
@@ -193,6 +195,8 @@ export interface EventLinksTriggerAppearance {
   side?: 'top' | 'right' | 'bottom' | 'left';
   /** Dropdown only: alignment along that side (default end). */
   align?: 'start' | 'center' | 'end';
+  /** Dropdown only: show this as a Radix tooltip instead of the native title (needs a TooltipProvider above). */
+  tooltip?: string;
 }
 
 /** The three tabs, in render order. Values are the `group` field on every entry. */
@@ -417,12 +421,14 @@ function EventLinksDropdown({
   triggerContent,
   side,
   align = 'end',
+  tooltip,
 }: {
   ctx: NonNullable<React.ContextType<typeof EventLinksContext>>;
   triggerClass: string;
   triggerContent: React.ReactNode;
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
+  tooltip?: string;
 }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -431,9 +437,20 @@ function EventLinksDropdown({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger data-testid="event-links-button" title="Tools" className={triggerClass}>
-        {triggerContent}
-      </DropdownMenuTrigger>
+      {tooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger data-testid="event-links-button" className={triggerClass}>
+              {triggerContent}
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="right">{tooltip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DropdownMenuTrigger data-testid="event-links-button" title="Tools" className={triggerClass}>
+          {triggerContent}
+        </DropdownMenuTrigger>
+      )}
       {/* `align="end"`: the trigger sits in the nav's RIGHT-hand group, so an
           "end"-aligned panel stays inside the viewport. The nav's own left-hand
           "Use cases" group uses align="start" for the mirrored reason. */}

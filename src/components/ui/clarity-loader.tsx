@@ -8,16 +8,24 @@
  * invisible on fast loads. Pure CSS — no JS timers, no re-renders.
  */
 
+import type { CSSProperties } from "react";
 import { useInShellContent } from "./loader-context";
+import { useLoaderChain } from "./loader-chain";
+
+/** CSS variable the animations read as their time offset; the unset value is 0ms. */
+function chainStyle(elapsed: number): CSSProperties | undefined {
+  return elapsed > 0 ? ({ "--loader-elapsed": `${Math.round(elapsed)}ms` } as CSSProperties) : undefined;
+}
 
 interface ClarityLoaderProps {
   size?: "sm" | "md" | "lg";
   className?: string;
+  style?: CSSProperties;
 }
 
 const SIZE_MAP = { sm: 32, md: 48, lg: 64 } as const;
 
-export function ClarityLoader({ size = "md", className }: ClarityLoaderProps) {
+export function ClarityLoader({ size = "md", className, style }: ClarityLoaderProps) {
   const px = SIZE_MAP[size];
 
   return (
@@ -28,6 +36,7 @@ export function ClarityLoader({ size = "md", className }: ClarityLoaderProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={style}
       role="img"
       aria-label="Loading"
     >
@@ -51,8 +60,9 @@ export function ClarityLoader({ size = "md", className }: ClarityLoaderProps) {
  * (animation-delay), then fades in. Fast loads never show a flash.
  */
 export function ClarityBootLoader() {
+  const style = chainStyle(useLoaderChain());
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 clarity-page-loader">
+    <div className="min-h-screen flex items-center justify-center p-4 clarity-page-loader" style={style}>
       <div className="flex justify-center">
         <ClarityLoader size="lg" />
       </div>
@@ -66,10 +76,12 @@ export function ClarityBootLoader() {
  * Same 300ms CSS anti-flash as the boot splash.
  */
 export function ClarityContentLoader() {
+  const style = chainStyle(useLoaderChain());
   return (
     <div
       data-testid="content-loader"
       className="flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center p-4 clarity-page-loader"
+      style={style}
     >
       <div className="flex justify-center">
         <ClarityLoader size="md" />

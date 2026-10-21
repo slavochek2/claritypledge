@@ -42,6 +42,9 @@ interface NavAuthState {
   // user resolve verified. Signed-in chrome then renders its final layout now (profile-
   // dependent slots as placeholders) so nothing reflows when the profile lands.
   isProfilePending: boolean;
+  // P1539: supabase-js has a stored session on this device (read synchronously, once per mount). Layout
+  // geometry only: it never grants anything.
+  hasStoredSession: boolean;
 
   // Auth actions
   signOut: () => Promise<void>;
@@ -98,6 +101,7 @@ export function useNavAuthState(): NavAuthState {
     isLoading,
     sessionChecked,
     isProfilePending,
+    hasStoredSession: !!storedUserId,
     signOut,
   };
 }

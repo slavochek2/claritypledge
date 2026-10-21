@@ -339,8 +339,11 @@ body {
   50% { opacity: 1; }
 }
 
+/* P1539: --loader-elapsed (set by clarity-loader.tsx when a loader replaces another) starts the animations
+ * that far in, so a hand-off between loaders continues instead of restarting. Unset = 0ms. */
 .clarity-loader-c {
-  animation: clarity-draw 1.2s ease-out forwards, clarity-breathe 2.4s ease-in-out infinite 1.2s;
+  animation: clarity-draw 1.2s ease-out calc(0ms - var(--loader-elapsed, 0ms)) forwards,
+    clarity-breathe 2.4s ease-in-out calc(1.2s - var(--loader-elapsed, 0ms)) infinite;
 }
 
 /* Anti-flash: loader is invisible for 300ms, then fades in.
@@ -352,7 +355,7 @@ body {
 
 .clarity-page-loader {
   opacity: 0;
-  animation: clarity-appear 200ms ease-out 300ms forwards;
+  animation: clarity-appear 200ms ease-out calc(300ms - var(--loader-elapsed, 0ms)) forwards;
 }
 
 /* Design system mode: light */

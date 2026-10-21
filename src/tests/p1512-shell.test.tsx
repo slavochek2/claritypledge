@@ -258,7 +258,8 @@ describe('P1512 shell — collapse', () => {
     const buttons = Array.from(bar.querySelectorAll('button'));
     expect(buttons).toHaveLength(3);
     expect(buttons[1]).toBe(within(bar).getByTestId('event-links-button'));
-    expect(buttons[1]).toHaveAttribute('title', 'Tools');
+    // P1539: the native title was replaced by a real tooltip (asserted in p1539-loading.test.tsx); the name stays "Tools".
+    expect(buttons[1]).toHaveAccessibleName('Tools');
     expect(buttons[2]).toBe(within(bar).getByTestId('rail-avatar'));
   });
 

@@ -14,6 +14,7 @@
  * menu items (NavigationMenuItems) minus whatever the sidebar itself lists. Entries are the shared model
  * in shell-nav.ts, which the phone bottom bar reads too.
  */
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { preloadRouteChunk } from '@/app/routes/route-preload';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -108,8 +109,7 @@ function RailItem({ entry }: { entry: ShellEntry }) {
   }
   return (
     <li>
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <RailTip label={label}>
           <Link
             to={entry.to}
             aria-label={label}
@@ -122,11 +122,44 @@ function RailItem({ entry }: { entry: ShellEntry }) {
             <Icon className="h-5 w-5" aria-hidden="true" />
             {entry.badge > 0 && <span data-badge className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />}
           </Link>
-        </TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
+      </RailTip>
     </li>
   );
+}
+
+/** One tooltip for one rail control. Every tooltip shares the rail's single TooltipProvider. */
+function RailTip({ label, children }: { label: string; children: ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * The rail's destination list scrolls on its own when the window is short. A hairline appears on the
+ * edge that has more behind it, so the cut-off row reads as scrollable rather than missing.
+ */
+function useScrollEdges() {
+  const ref = useRef<HTMLUListElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const top = el.scrollTop > 1;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setEdges(prev => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+  }, []);
+  useEffect(() => {
+    measure();
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
+  return { ref, edges, onScroll: measure };
 }
 
 /** Tools is a 40px grid icon at the bottom of the sidebar; the menu behind it is the top nav's own Links menu. */
@@ -145,6 +178,9 @@ const TOOLS_APPEARANCE = {
   align: 'end' as const,
 };
 
+/** Collapsed rail: the same button, with a real tooltip (a native title is slow and often never shows). */
+const TOOLS_APPEARANCE_RAIL = { ...TOOLS_APPEARANCE, tooltip: 'Tools' };
+
 interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -157,32 +193,38 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
   const todays = useShellTodaysEvent();
   const { user, hasPledged, isProfilePending } = useNavAuthState();
   const handleSignOut = useShellSignOut();
+  const scroll = useScrollEdges();
 
   const shellClass = cn(
     'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-muted/40 p-2 lg:flex',
     belowStrip && 'lg:top-7',
   );
 
-  const avatarMenu = (compact: boolean) =>
-    isProfilePending || !user ? (
-      <div aria-hidden="true" data-nav-slot-placeholder="avatar" className={cn('flex items-center gap-3', compact ? 'h-10 w-10 justify-center' : 'min-h-12 px-1.5')}>
-        <div className="h-10 w-10 rounded-full bg-muted" />
-      </div>
-    ) : (
+  const avatarMenu = (compact: boolean) => {
+    if (isProfilePending || !user) {
+      return (
+        <div aria-hidden="true" data-nav-slot-placeholder="avatar" className={cn('flex items-center gap-3', compact ? 'h-10 w-10 justify-center' : 'min-h-12 px-1.5')}>
+          <div className="h-10 w-10 rounded-full bg-muted" />
+        </div>
+      );
+    }
+    // Collapsed rail: the avatar gets the same tooltip as the other rail controls (its name); expanded shows the name itself.
+    const tip = (trigger: ReactElement) => (compact ? <RailTip label={user.name}>{trigger}</RailTip> : trigger);
+    return (
       <DropdownMenu
         modal={false}
         onOpenChange={open => {
           if (open) analytics.track('nav_menu_opened', { trigger: 'avatar', device: 'desktop' });
         }}
       >
-        <DropdownMenuTrigger asChild>
+        {tip(<DropdownMenuTrigger asChild>
           <button
             type="button"
             aria-label="Menu"
             data-testid={compact ? 'rail-avatar' : undefined}
             className={cn(
-              'flex items-center rounded-lg text-left text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              compact ? 'h-10 w-10 justify-center' : 'min-h-12 w-full gap-3 px-1.5',
+              'flex items-center text-left text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              compact ? 'h-10 w-10 justify-center rounded-full' : 'min-h-12 w-full gap-3 rounded-lg px-1.5',
             )}
           >
             <GravatarAvatar
@@ -199,7 +241,7 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
               </>
             )}
           </button>
-        </DropdownMenuTrigger>
+        </DropdownMenuTrigger>)}
         <DropdownMenuContent
           side={compact ? 'right' : 'top'}
           align={compact ? 'end' : 'start'}
@@ -215,6 +257,7 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
         </DropdownMenuContent>
       </DropdownMenu>
     );
+  };
 
   if (collapsed) {
     return (
@@ -224,6 +267,8 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
         data-collapsed="true"
         className={cn(shellClass, 'w-16 items-center')}
       >
+        <TooltipProvider delayDuration={150} skipDelayDuration={600}>
+        <RailTip label="Expand sidebar">
         <button
           type="button"
           onClick={onToggle}
@@ -239,17 +284,28 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
             aria-hidden="true"
           />
         </button>
-        <TooltipProvider delayDuration={200}>
-          <ul aria-label="Menu" className="mt-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto">
-            {entries.map(entry => (
-              <RailItem key={entry.id} entry={entry} />
-            ))}
-          </ul>
-        </TooltipProvider>
+        </RailTip>
+        <ul
+          ref={scroll.ref}
+          onScroll={scroll.onScroll}
+          aria-label="Menu"
+          data-scroll-top={scroll.edges.top}
+          data-scroll-bottom={scroll.edges.bottom}
+          className={cn(
+            'mt-2 flex min-h-0 w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto border-y border-transparent',
+            scroll.edges.top && 'border-t-border',
+            scroll.edges.bottom && 'border-b-border',
+          )}
+        >
+          {entries.map(entry => (
+            <RailItem key={entry.id} entry={entry} />
+          ))}
+        </ul>
         <div className="flex shrink-0 flex-col items-center gap-1 pt-1">
-          <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
+          <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE_RAIL} />
           {avatarMenu(true)}
         </div>
+        </TooltipProvider>
       </nav>
     );
   }

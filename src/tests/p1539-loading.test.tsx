@@ -4,6 +4,7 @@
  * shows nav icons plus avatar, the in-shell loader is not min-h-screen, the offline strip spans the sidebar.
  */
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -33,6 +34,12 @@ vi.mock('@/app/contexts/offline-status-context', async (importOriginal) => ({
   useOfflineStripShown: () => mockStripShown,
 }));
 
+let mockStoredSession: string | null = null;
+vi.mock('@/lib/offline-read-cache', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/offline-read-cache')>()),
+  storedSessionUserId: () => mockStoredSession,
+}));
+
 const mockUnread = vi.fn();
 vi.mock('@/app/hooks/useUnreadLetterCount', () => ({ useUnreadLetterCount: () => mockUnread() }));
 const mockPartnerCount = vi.fn();
@@ -48,6 +55,8 @@ vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
 }));
 
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { resetLoaderChainForTests } from '@/components/ui/loader-chain';
+import { BottomNav } from '@/app/components/layout/bottom-nav';
 import { InShellContentContext } from '@/components/ui/loader-context';
 import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';
 
@@ -79,6 +88,8 @@ const sidebar = (c: HTMLElement) => c.querySelector('[data-nav="sidebar"]') as H
 beforeEach(() => {
   vi.clearAllMocks();
   mockStripShown = false;
+  mockStoredSession = null;
+  resetLoaderChainForTests();
   localStorage.clear();
   mockUseAuth.mockReturnValue(signedIn);
   mockUnread.mockReturnValue({ count: 0, loading: false });
@@ -161,5 +172,110 @@ describe('P1539 offline strip', () => {
     const { container } = renderLayout('/feed');
     expect(screen.queryByTestId('offline-strip')).toBeNull();
     expect(sidebar(container)!.className).not.toContain('lg:top-7');
+  });
+});
+
+
+describe('P1539 collapsed rail tooltips', () => {
+  const NAV = ['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile'];
+
+  it('hover opens a tooltip with the label on every rail control: each nav icon, the expand toggle, Tools and the avatar', async () => {
+    localStorage.setItem(SIDEBAR_KEY, '1');
+    const targets: Array<[(bar: HTMLElement) => HTMLElement, string]> = [
+      [bar => within(bar).getByTestId('sidebar-toggle'), 'Expand sidebar'],
+      ...NAV.map((label): [(bar: HTMLElement) => HTMLElement, string] => [bar => within(bar).getByRole('link', { name: label }), label]),
+      [bar => within(bar).getByTestId('event-links-button'), 'Tools'],
+      [bar => within(bar).getByTestId('rail-avatar'), 'Ada'],
+    ];
+    // A fresh rail per control: each one must open on its own first hover, not ride on a neighbour's open tooltip.
+    for (const [find, label] of targets) {
+      const user = userEvent.setup();
+      const { container, unmount } = renderLayout('/feed');
+      await user.hover(find(sidebar(container)!));
+      const tip = await screen.findByRole('tooltip', undefined, { timeout: 2000 });
+      expect(tip.textContent).toBe(label);
+      unmount();
+    }
+  });
+
+  it('keyboard focus opens the tooltip too', async () => {
+    localStorage.setItem(SIDEBAR_KEY, '1');
+    const { container } = renderLayout('/feed');
+    const bar = sidebar(container)!;
+    within(bar).getByRole('link', { name: 'Letters' }).focus();
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.textContent).toBe('Letters');
+  });
+
+  it('the avatar focus ring is round (rounded-full), not a rounded square', () => {
+    localStorage.setItem(SIDEBAR_KEY, '1');
+    const { container } = renderLayout('/feed');
+    const avatar = within(sidebar(container)!).getByTestId('rail-avatar');
+    expect(avatar.className).toContain('rounded-full');
+    expect(avatar.className).not.toContain('rounded-lg');
+  });
+});
+
+describe('P1539 phone bottom bar', () => {
+  it('the You tab placeholder is drawn at final weight: no pulse, no fade, avatar-sized disc', () => {
+    mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: true });
+    localStorage.setItem('cp:nav-verified:u1', '1');
+    render(<MemoryRouter initialEntries={['/feed']}><BottomNav /></MemoryRouter>);
+    const slot = document.querySelector('[data-nav-slot-placeholder="You"]') as HTMLElement;
+    expect(slot).toBeTruthy();
+    expect(slot.className).not.toContain('animate-pulse');
+    expect(slot.className).not.toContain('opacity-50');
+    expect(slot.querySelector('.h-5.w-5.rounded-full')).toBeTruthy();
+  });
+});
+
+describe('P1539 loader hand-off', () => {
+  it('a loader that replaces another continues its fade instead of restarting', () => {
+    const now = vi.spyOn(performance, 'now');
+    now.mockReturnValue(1000);
+    const first = render(<ClarityPageLoader />);
+    expect(first.container.firstElementChild!.getAttribute('style')).toBeNull();
+    now.mockReturnValue(1800);
+    // Second loader mounts while the first is still mounted (a Suspense fallback replacing a guard loader).
+    const second = render(<ClarityPageLoader />);
+    expect(second.container.firstElementChild!.getAttribute('style')).toContain('--loader-elapsed: 800ms');
+    // Swap: the first unmounts, a third arrives a frame later: still the same run.
+    first.unmount();
+    second.unmount();
+    now.mockReturnValue(1860);
+    const third = render(<ClarityPageLoader />);
+    expect(third.container.firstElementChild!.getAttribute('style')).toContain('--loader-elapsed: 860ms');
+    third.unmount();
+    // A load that starts well after the previous run ended is a fresh run with the full anti-flash delay.
+    now.mockReturnValue(5000);
+    const fresh = render(<ClarityPageLoader />);
+    expect(fresh.container.firstElementChild!.getAttribute('style')).toBeNull();
+    now.mockRestore();
+  });
+});
+
+describe('P1539 pre-shell loader position', () => {
+  it('a stored session with no verified hint reserves the shell geometry: the loader is the in-content one, in the padded column, no sidebar drawn', () => {
+    mockStoredSession = 'u1';
+    mockUseAuth.mockReturnValue(restoring);
+    const { container } = render(
+      <MemoryRouter initialEntries={['/home']}>
+        <ClarityLandingLayout surface="product"><ClarityPageLoader /></ClarityLandingLayout>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('content-loader')).toBeTruthy();
+    expect(sidebar(container)).toBeNull();
+    expect(container.querySelector('[data-nav="bottom"]')).toBeNull();
+    expect((screen.getByTestId('content-loader').closest('div.flex.flex-col') as HTMLElement).className).toContain('lg:pl-[248px]');
+  });
+
+  it('no stored session: still the full-viewport boot splash (nothing to expect)', () => {
+    mockUseAuth.mockReturnValue(restoring);
+    render(
+      <MemoryRouter initialEntries={['/home']}>
+        <ClarityLandingLayout surface="product"><ClarityPageLoader /></ClarityLandingLayout>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId('content-loader')).toBeNull();
   });
 });

@@ -12,7 +12,7 @@
  */
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarCheckIcon, UserIcon } from "lucide-react";
+import { CalendarCheckIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
@@ -126,15 +126,17 @@ export function BottomNav() {
           );
         })}
 
-        {/* Me: P1421 keeps the slot's box while the profile loads, so the five tabs hold their widths. */}
+        {/* Me: P1421 keeps the slot's box while the profile loads, so the five tabs hold their widths.
+            P1539: drawn at its final weight (an avatar-sized disc, label at the resting colour, no fade or pulse),
+            so the tab does not change from grey to avatar when the profile lands. */}
         {isProfilePending || !user || !meEntry ? (
           <div
             aria-hidden="true"
             data-nav-slot-placeholder="You"
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-muted-foreground opacity-50 animate-pulse pointer-events-none select-none"
+            className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-muted-foreground pointer-events-none select-none"
           >
-            <span className="relative">
-              <UserIcon className="w-5 h-5 stroke-[1.5px]" />
+            <span className="relative flex">
+              <span className="block h-5 w-5 rounded-full bg-muted" />
             </span>
             <span className="text-xs leading-none font-normal">You</span>
             <div className="w-1 h-1 rounded-full mt-0.5 bg-transparent" />

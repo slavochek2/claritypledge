@@ -102,7 +102,7 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
 function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { showUserMenu, isProfilePending, sessionChecked, isLoading: authLoading } = useNavAuthState();
+  const { showUserMenu, isProfilePending, sessionChecked, isLoading: authLoading, hasStoredSession } = useNavAuthState();
   // P1539: while auth is unresolved the footer decision is not made yet. LegalFooter is a signed-out
   // element; showing it during the check flashed it at signed-in people. Signed-out visitors get it
   // once auth settles; product routes (/home*) never get it.
@@ -184,27 +184,36 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // the PUBLIC top nav, with "Open app" and "Log out" on its right (like notion.com signed in): no sidebar,
   // no bottom bar. Product routes (Feed, Groups, Events, Letters, profile, chat) keep the shell.
   const publicSiteView = surface === 'public' && showSignedInChrome && !compact && !logoOnly && isPublicSitePath(location.pathname);
-  const needsBottomPadding = showSignedInChrome && !publicSiteView && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
+  // P1539: a device with a stored session whose chrome is not yet decidable (no verified hint, so no sidebar or bottom
+  // bar is drawn) still reserves the shell's geometry on product routes: the column offset, the top and bottom
+  // padding, and the in-content loader. The loader then sits where it will stay when the shell mounts, instead of
+  // jumping from the viewport centre to the content column centre. Nothing signed-in is DRAWN on this evidence.
+  const shellExpected = surface === 'product' && !showSignedInChrome && hasStoredSession && authPending;
+  const chromeExpected = showSignedInChrome || shellExpected;
+  const needsBottomPadding = chromeExpected && !publicSiteView && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
   // P1512: the signed-in shell. A signed-in person on a normal product/public route gets the
   // sidebar (desktop) and bottom bar (phone) INSTEAD of the top nav, so each route shows exactly
   // one navigation. Everything that keeps its own chrome is excluded: the compact room pages, the
   // logo-only intro, /live and /transcribe, immersive letters, and pages with their own navigation.
   // A completed letter (?done=1) leaves compact mode and so enters the shell, as it re-enters the menus.
-  const signedInShell = showSignedInChrome && !publicSiteView && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
+  const shellEligible = !publicSiteView && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
     && !(compact && !letterDone) && !logoOnly;
+  const signedInShell = showSignedInChrome && shellEligible;
+  // P1539: the shell's box (padding, offset, loader) without its drawn chrome — see shellExpected.
+  const shellFrame = chromeExpected && shellEligible;
   // P1512: inside the shell the top bar (shell-top-bar.tsx, in <main>) is the ONLY top chrome on every device —
   // focus pages that hide the phone bottom bar no longer add the logo top nav above it (one bar, not two). So
   // no page sits under a fixed nav: sticky/fixed offsets that hard-code the old nav height (see index.css) drop to
   // the safe-area edge, and <main> only clears the status-bar inset.
   const shellTopNav = "none";
   const shellTopPadding = offlineStripShown ? "" : "pt-[env(safe-area-inset-top)]";
-  const topPadding = signedInShell
+  const topPadding = shellFrame
     ? shellTopPadding
     : needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : "";
   const bottomPadding = needsBottomPadding ? (todaysEvent ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
   // P1512: the top bar belongs to every shell page except Home, whose chat screens draw their own header.
   const showShellTopBar = signedInShell && !isChatHome;
-  const shellColumnPadding = signedInShell ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
+  const shellColumnPadding = shellFrame ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,
@@ -259,7 +268,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
           column's padding; the sidebar starts below it). */}
       <OfflineStrip className={signedInShell ? (sidebarCollapsed ? "lg:-ml-16" : "lg:-ml-[248px]") : ""} />
       {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} belowStrip={offlineStripShown} />}
-      {!signedInShell && !hasOwnNavigation && !isImmersiveLetterRoute && (
+      {!shellFrame && !hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} publicSite={publicSiteView} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
@@ -272,7 +281,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe
             mounts its own slot, and capture pauses on the other two. */}
         {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot topNav={signedInShell ? shellTopNav : "all"} />}
-        <InShellContentContext.Provider value={signedInShell}>{children}</InShellContentContext.Provider>
+        <InShellContentContext.Provider value={shellFrame}>{children}</InShellContentContext.Provider>
       </main>
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a
           fixed bottom action bar. The footer's site links compete with the single
