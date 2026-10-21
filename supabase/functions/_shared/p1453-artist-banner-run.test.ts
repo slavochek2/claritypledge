@@ -4,7 +4,7 @@
 // P1453: the Gemini calls respect one request-wide time budget (Supabase cuts a request at 150 s),
 // and a capped or refused key is reported so an operator run can stop.
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { geminiGenerateImage, visionCheck } from './artist-banner-run.ts';
+import { geminiGenerateImage, runArtistBanner, visionCheck } from './artist-banner-run.ts';
 
 function stubFetch(responses: Array<() => Response>) {
   const real = globalThis.fetch;
@@ -106,5 +106,22 @@ Deno.test('billable calls: an answered call with an unreadable body is counted',
   try {
     await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000, onBillableCall: (m) => billed.push(m) });
     assertEquals(billed, ['gemini-3.1-flash-image-preview']);
+  } finally { f.restore(); }
+});
+
+Deno.test('runArtistBanner forwards the billing callbacks: one image and one sent check are reported', async () => {
+  const billed: string[] = [];
+  let checks = 0;
+  const VISION = () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"choice":0}' }] } }] }));
+  const f = stubFetch([IMAGE_OK, VISION]);
+  try {
+    await runArtistBanner({
+      apiKey: 'k', logTag: 't', aspectRatio: '1:1', skipDarkness: true,
+      onGenerate: (attempt) => attempt <= 1,
+      onBillableCall: (m) => billed.push(m),
+      onVisionCall: () => { checks++; },
+    });
+    assertEquals(billed, ['gemini-3.1-flash-image-preview']);
+    assertEquals(checks, 1);
   } finally { f.restore(); }
 });
