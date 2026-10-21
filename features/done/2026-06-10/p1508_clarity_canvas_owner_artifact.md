@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 41
 workstream: clarity-canvas
 created_date: '2026-10-16'
 tags: [canvas, lean-canvas, points, stories]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-21
 ---
 
 # P1508: Clarity Canvas, an owner's canvas built from their points
