@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 50
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [day, supabase, quota, monitoring]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-21
 ---
 
 # P1524: /day warns early on Supabase free-plan usage and a slow test database
@@ -94,10 +94,10 @@ and the spec records that the egress figures are not readable.
 - [x] Both checks are in `scripts/day-cp-checks.tsv`, and `day-step.sh check-sync` passes (`SYNC OK`).
 
 Parts 1 and 3 (organisation usage, own-organisation note) moved to
-[P1525](p1525_day_supabase_free_plan_usage_reader.md), blocked on the org-read token.
+[P1525](../../p1525_day_supabase_free_plan_usage_reader.md), blocked on the org-read token.
 
 ## Related
 
-- [P1522](done/2026-06-10/p1522_supabase_egress_polling_and_e2e_users.md): the overrun this watches for.
-- [P1148](p1148_credential_rotation_system.md): owns rotation of the dead management token.
+- [P1522](p1522_supabase_egress_polling_and_e2e_users.md): the overrun this watches for.
+- [P1148](../../p1148_credential_rotation_system.md): owns rotation of the dead management token.
 - Rulings: decisions.md 2026-08-09 (P1031), 2026-08-12 (RLS into `/day`), P1214 (scoped read-only credentials).
