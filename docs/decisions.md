@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [process]: A branch stacked on another feature is rebased onto main after that feature ships, before its own /ship (P1520)
+
+**Context:** P1520 was built on top of P1512's branch. P1512 then got a last fix round and shipped; its commits landed on main with new patch-ids. `git-ops.sh ship p1520` compared by patch-id, saw 60 commits as new, and tried to replay P1512's old history, including a prototype main had since deleted. It stopped on the first pick, so nothing landed.
+**Decision:** Once the base feature is on main, rebase only the dependent feature's own commits onto main (`git rebase --onto main <first own commit>^` in its worktree, with a backup ref first). Drop any of your own copies of base commits that main already holds. Then check, file by file, that every changed path either matches the backup or differs only by main's newer work. Run the tests, then /ship. P1520 went from 60 candidate commits to 17.
+**Alternatives rejected:** resolving conflicts commit by commit during /ship (it replays dead history on the shared checkout); squashing (it loses the review trail the stamps refer to).
+**Consequences:** If a failed ship left a journal listing the old commits, `--resume` would replay them. Move that journal aside only after confirming that main holds no commit of the feature. The ship tool's refusal when a co-tenant has uncommitted edits to a file a pending commit touches (here the deploy manifest, mid-/push) is correct: wait for that session, don't work around it.
+**References:** [p1520 spec](../features/done/2026-06-10/p1520_mirror_v2_mira_answers_and_has_a_face.md)
+
+## 2026-10-21 [technical]: The mirror's AI is switched on per project by the server, and stays off in prod until the privacy policy covers it (P1520)
+
+**Context:** Mirror v2 sends the owner's mirror messages and, for a private ask in a channel, that channel's recent messages and member names to Gemini. P1512's privacy policy says no chat content goes to an AI provider.
+**Decision:** The edge function reports availability (`MIRROR_AI_ENABLED` plus a dedicated, spend-capped key registered in ai-keys monitoring). The client shows no AI controls unless the server says on. A failed check is "unknown" and is retried, never read as off for the session. Prod gets neither secret until the policy names Gemini as a recipient of this data. Prompt-injection resistance is proven by a real-model red-team suite with a control test, not by unit tests.
+**Alternatives rejected:** a build-time flag (it ships the same bundle to test and prod and can't be turned off without a deploy); trusting the system prompt without a live suite (model behaviour is the thing under test).
+**Consequences:** Open founder decisions are the policy wording and the portrait budget. Portraits settle at the fallback price because the image API reports no cost, so the global daily cap allows about 8 portraits.
+**References:** [p1520 spec](../features/done/2026-06-10/p1520_mirror_v2_mira_answers_and_has_a_face.md)
+
 ## 2026-10-21 [process]: Every design that touches a metered service states a Cost Budget, and a missing or over-limit one blocks shipping (P1531)
 
 **Context:** The same mistake happened five times and was found each time on a bill or quota page: a 5-minute scheduler poll that kept the GPU transcription service awake (2026-05-31), a 10-minute ping inside Cloud Run's idle window that billed 24 h a day for two weeks (2026-10-01), a retry fix that made about 250 Supabase requests per second with every behaviour test green (2026-10-01), the Supabase organisation going over its free plan on egress, cached egress and log ingestion (2026-10), and a cleanup script that deleted test users one at a time and wrote error logs for each (2026-10-21). Nothing in the pipeline asked how many requests, bytes or log lines a design creates before it shipped.

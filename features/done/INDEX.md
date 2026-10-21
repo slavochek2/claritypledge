@@ -68,6 +68,10 @@ Last updated: 2026-10-21
 - **P745** (Apr 18) Letter-hosted /live injection — conflict-resolved SELECT helpers may carry null defaults for the chosen query's fields; always audit `mapRecord()` after resolving SELECT conflicts; Sentry over `console.warn` for enrichment failures
 - **P609** (Mar 30) Free Mode Slider Sync — `confirmedLiveStateRef` not updated during in-flight Realtime merges; partner slider values overwrote on next optimistic write. Also shipped: P612 header CTA reload, P613 toast top-center, P614 mode switcher prop forwarding
 
+## Clarity Chat
+
+- **P1520** (Oct 26) Mirror v2: the mirror answers and has a face. Gotcha: rebase a stacked branch onto main once its base ships, or /ship replays the base's dead history.
+
 ## Clarity Docs
 
 - **P551** (Mar 26) Clarity Docs — Curated Story Collections — `renderPointRow` callback incompatible with `useSortable` hooks (use arrow buttons); `--primary` CSS var is near-black not blue (check theme before mapping Button variants); doc visibility must be immutable (mutable dropdown that never fires is worse than no dropdown); point hide/show is owner-only edit + non-owner display filter
