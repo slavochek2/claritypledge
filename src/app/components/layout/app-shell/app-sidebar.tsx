@@ -123,7 +123,7 @@ function RailItem({ entry }: { entry: ShellEntry }) {
             {entry.badge > 0 && <span data-badge className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />}
           </Link>
         </TooltipTrigger>
-        <TooltipContent side="right">{entry.label}</TooltipContent>
+        <TooltipContent side="right">{label}</TooltipContent>
       </Tooltip>
     </li>
   );
@@ -240,13 +240,13 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
           />
         </button>
         <TooltipProvider delayDuration={200}>
-          <ul aria-label="Menu" className="mt-2 flex flex-col items-center gap-0.5">
+          <ul aria-label="Menu" className="mt-2 flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto">
             {entries.map(entry => (
               <RailItem key={entry.id} entry={entry} />
             ))}
           </ul>
         </TooltipProvider>
-        <div className="mt-auto flex flex-col items-center gap-1">
+        <div className="flex shrink-0 flex-col items-center gap-1 pt-1">
           <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
           {avatarMenu(true)}
         </div>

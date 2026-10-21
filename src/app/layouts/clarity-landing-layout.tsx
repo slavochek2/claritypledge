@@ -277,10 +277,10 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a
           fixed bottom action bar. The footer's site links compete with the single
           action and sat underneath that bar; dropping it removes both problems. */}
-      {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && !isCanvasPage && (
+      {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && !isCanvasPage && !authPending && (
         showSiteFooter
           ? <ClarityFooter />
-          : (!showUserMenu || publicSiteView) && !authPending && !isChatHome && <LegalFooter />
+          : (!showUserMenu || publicSiteView) && !isChatHome && <LegalFooter />
       )}
       {/* P113: Mobile bottom nav for logged-in users */}
       {!logoOnly && !publicSiteView && <BottomNav />}

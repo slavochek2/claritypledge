@@ -69,7 +69,7 @@ export function ClarityContentLoader() {
   return (
     <div
       data-testid="content-loader"
-      className="flex min-h-[16rem] w-full flex-1 items-center justify-center p-4 clarity-page-loader"
+      className="flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center p-4 clarity-page-loader"
     >
       <div className="flex justify-center">
         <ClarityLoader size="md" />
