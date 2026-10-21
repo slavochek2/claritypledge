@@ -73,6 +73,15 @@ if (!parsed || !TEST_REFS.includes(REF) || parsed.origin !== `https://${REF}.sup
   console.error(`REFUSING: ${URL_} is not a test project URL (${TEST_REFS.join(', ')}). This script is test-only.`);
   process.exit(1);
 }
+// The key must belong to the same project: a key exported in the shell beats .env.test.local. A
+// legacy JWT key names its project in the `ref` claim; any other key shape is refused.
+const keyRef = (() => {
+  try { return JSON.parse(Buffer.from(SERVICE_KEY.split('.')[1], 'base64url').toString()).ref; } catch { return undefined; }
+})();
+if (keyRef !== REF) {
+  console.error(`REFUSING: the service key is for ${keyRef ?? 'an unknown project'}, not ${REF}.`);
+  process.exit(1);
+}
 
 // The data file assigns to `window.*`; evaluate it in an empty context with only a `window`.
 const sandbox = { window: {} };
@@ -144,8 +153,10 @@ async function seed() {
   const storyIdOf = new Map();
   for (const sid of new Set(links.map(([s]) => s))) {
     const s = STORIES[sid];
+    // Private only: a canvas story is private, and a public one cannot link a private point.
     const existing = await must(`find ${sid}`, admin.from('stories').select('id')
-      .eq('author_id', owner.id).eq('content', s.text).maybeSingle());
+      .eq('author_id', owner.id).eq('content', s.text).eq('visibility', 'private')
+      .order('created_at', { ascending: true }).limit(1).maybeSingle());
     const id = existing?.id ?? (await must(`insert ${sid}`, admin.from('stories').insert({
       content: s.text, author_id: owner.id, visibility: 'private', // every point it links is private
     }).select('id').single())).id;

@@ -41,8 +41,20 @@
 BEGIN;
 
 -- 1. one added story per person per point
-ALTER TABLE public.canvas_added_stories
-  ADD CONSTRAINT canvas_added_stories_one_per_person_per_point UNIQUE (canvas_id, point_id, author_id);
+-- Guarded through the catalog so a re-run is a no-op (review r3). The table ships in this same
+-- release, so prod has no rows that could break it; test had none when this was applied.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'canvas_added_stories_one_per_person_per_point'
+       AND conrelid = 'public.canvas_added_stories'::regclass
+  ) THEN
+    ALTER TABLE public.canvas_added_stories
+      ADD CONSTRAINT canvas_added_stories_one_per_person_per_point UNIQUE (canvas_id, point_id, author_id);
+  END IF;
+END
+$$;
 
 -- 3. points inside a canvas follow the canvas: private only, for every role
 CREATE OR REPLACE FUNCTION public.p1515_canvas_points_are_private()

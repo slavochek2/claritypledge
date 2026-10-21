@@ -33,16 +33,17 @@ export function sharedIconLabel(opts: { isOwner: boolean; entries: AudienceEntry
   return opts.via ? `Shared with you through ${opts.via.name}` : 'Shared with you';
 }
 
-/** The composer's line, so every contributor knows who will read what they write. `entries` is null
- *  when the audience could not be read: a canvas the server calls shared must not then promise "only
- *  you" (that would be a false privacy claim), so the owner's line stays honest without the names. */
+/** The composer's line, so every contributor knows who will read what they write. Private or shared
+ *  is the server's `visibility`, read with the canvas; the audience only supplies names. It may be
+ *  missing (null) or older than the canvas read, so a shared canvas never promises "only you" (a false
+ *  privacy claim): without names its line stays honest and general. */
 export function composerVisibilityCopy(opts: {
   isOwner: boolean; ownerName: string; entries: AudienceEntry[] | null; visibility: 'private' | 'shared';
 }): string {
   if (opts.isOwner) {
-    if (opts.entries === null && opts.visibility === 'shared') return 'Visible to you and the people you shared this canvas with';
+    if (opts.visibility === 'private') return 'Visible only to you';
     const names = activeNames(opts.entries);
-    return names.length > 0 ? `Visible to you and ${joinNames(names)}` : 'Visible only to you';
+    return names.length > 0 ? `Visible to you and ${joinNames(names)}` : 'Visible to you and the people you shared this canvas with';
   }
   return `Visible to you and everyone ${opts.ownerName} shared this canvas with`;
 }

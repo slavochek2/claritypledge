@@ -60,6 +60,41 @@ wins, and this spec is read as follows:
   story except added stories. Private letter replies stay out either way.
 - **D-B, "view as" preview (Open Question 2).** Built default: not in this spec; a follow-up.
 
+## Phase 3: one person, and anyone with the link (founder input, 2026-10-21)
+
+Founder, 2026-10-21, beyond events and groups: (1) share a canvas with one person by their handle or
+nickname, like Notion's "Email or group" invite field; (2) a "make public" switch, like Notion's
+"General access" or a Claude artifact's "Only you / anyone with link", that opens the canvas with all
+its points and stories and can be switched back to private. Reason given: to test the comparison view
+from a second account without creating a group or event that day ("overly complicated"). Reference:
+the share panels of Notion and of a Claude artifact (one invite field, a "people with access" list, a
+"General access" dropdown, "Copy link").
+
+Founder then delegated the remaining calls ("you continue and finalize"). Decided:
+
+- **One invite field** adds a person, an event or a group. People are found through the existing
+  `search_profiles` (P878: signed-in, relationship-scoped, prefix match, rate-limited); nobody can
+  list all users through it.
+- **A person entry** is a new audience kind: that person reads and contributes while the entry exists;
+  the owner removes it with ×. The reader line says `Shared with you by <owner name>`.
+- **General access**: `Only people added` (default) or `Anyone with the link`. With the link: signed-in
+  people read, take positions and add a story; signed-out visitors read only. Switching back ends it on
+  the next request. Rows still never change visibility: content is served by `get_canvas` alone and
+  never appears in the feed, profiles, point or story pages, the event page list or search.
+- `get_canvas` becomes callable by anon again, returning content only while the canvas is open to
+  anyone with the link (not-found otherwise, unchanged shape).
+- Stories added by someone who later loses access stay as built (they leave with their author; the
+  owner still sees them). Self-admission through an open event or public group is allowed; the panel
+  says so next to such an entry ([FOUNDER DECISION] wording at UAT).
+- All new strings are [FOUNDER DECISION] at UAT (UI Contract).
+
+Phase 3 acceptance criteria:
+- [ ] O adds person P by handle: P reads everything, takes a position, adds a story; removing P ends it on P's next request.
+- [ ] The invite field finds only people `search_profiles` returns for O; O's own events and groups are listed as before.
+- [ ] O switches to `Anyone with the link`: a signed-in stranger reads, positions and adds a story; a signed-out visitor reads and cannot write; switching back returns not-found to both on their next request.
+- [ ] While open to anyone, none of the canvas's rows appear in the feed, `/stake`, profiles, point or story pages, or REST for anyone but their authors (curl evidence).
+- [ ] The owner control reads `Private · …` or the link state; the panel shows people, events and groups in one list.
+
 ## User Stories
 
 1. As an owner, my canvas is private until I share it, and I see at a glance whether it is.
@@ -90,7 +125,8 @@ three review rounds' worth of consequences are written below.
 - **Shared is live:** who is in an entry is decided when someone reads (registration, membership),
   never copied onto rows. The owner approves the entry, not each person (founder: "the whole members
   of the group"). The owner can see who is in it at any time.
-- **No public switch.** A point's or story's own public/private setting never changes (2026-03-24
+- **No public switch** *(superseded 2026-10-21 by Phase 3 below: the owner may open the canvas to
+  anyone with the link; rows still never change visibility)*. A point's or story's own public/private setting never changes (2026-03-24
   [product]); public content stays public everywhere, so anyone with a canvas link sees its public
   points (P1508). "Private" on the control means: private content only you can read.
 - **Letters are not moved** (they reach people by sealed copies, personal links and signed-out
@@ -284,8 +320,15 @@ Accepted, recorded so nobody rediscovers them:
   write a position on it over REST: the ordinary position write policy is unchanged by ruling. `get_canvas` hides it from everyone
   (positions show only for the owner and current readers), but the owner's point page shows it.
 - **A host moving `events.datetime` moves the 12-hour window** for everyone registered, because access is computed from it.
-- **Pending founder decision, not changed here:** an added story stops being readable by other readers once its author loses access
-  (the owner still reads it).
+- **Decided 2026-10-21 (founder delegated; kept as built):** an added story stops being readable by
+  other readers once its author loses access (the owner still reads it).
+- A position save that times out and lands late can undo a withdrawal made after it: the shared
+  save queue stops ordering past its bound (`use-online-write-guard`), as on the feed. The page
+  re-reads after a failed save, so the card ends on what the server holds at that moment.
+- The private-canvas-points trigger compares tags case-insensitively while `get_canvas` matches
+  exactly; only a privileged writer can create the mixed-case tag. `share_canvas` checks current
+  versions at share time only, so deleting a private current version can make an older public
+  version current on an already shared canvas (nothing private is exposed).
 
 ## Acceptance Criteria
 

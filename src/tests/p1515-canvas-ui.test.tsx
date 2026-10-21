@@ -73,7 +73,15 @@ describe('the words of the one visibility idea', () => {
     const left = entry({ kind: 'group', id: 'g', name: 'Old circle', ownerAdmitted: false });
     expect(ownerLockLabel([entry(), left], 'shared')).toBe('Private · shared with Sales mastermind');
     expect(sharedIconLabel({ isOwner: true, entries: [entry(), left], via: null })).toBe('Shared with Sales mastermind');
-    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [left], visibility: 'shared' })).toBe('Visible only to you');
+    // Owner left every entry: the server reports the canvas private (20261021170000).
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [left], visibility: 'private' })).toBe('Visible only to you');
+  });
+
+  it('a shared canvas never promises "only you", even when the audience it holds is stale (review: Codex r3 1)', () => {
+    // Shared a moment ago, the audience re-read failed and the page kept the earlier, empty list.
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [], visibility: 'shared' })).toBe('Visible to you and the people you shared this canvas with');
+    // CONTROL, the other way: unshared a moment ago, the stale list still names an entry.
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [entry()], visibility: 'private' })).toBe('Visible only to you');
   });
 
   it('the icon says "Shared with …" to the owner and "Shared with you through …" to a reader', () => {
