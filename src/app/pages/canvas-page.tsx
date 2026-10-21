@@ -1,6 +1,6 @@
 /**
  * @file canvas-page.tsx
- * @description P1508: Clarity Canvas — an owner's canvas at `/canvas/:handle/:projectTag`.
+ * @description P1508: Clarity Canvas — an owner's canvas at `/p/:handle/canvas/:projectTag` (R14).
  *
  * There is no canvas record: a canvas is derived from owner + project tag. Its contents are the
  * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
@@ -55,7 +55,7 @@ import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { stripHashtags } from '@/lib/utils';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
-import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasTagFor, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -119,7 +119,7 @@ export function CanvasPage() {
   // cleared on any auth change and after every own write; a read from an older generation is
   // never written back).
   const navigationType = useNavigationType();
-  const cacheKey = listReturnCacheKey(viewerId, `/canvas/${handle ?? ''}/${projectTag ?? ''}`);
+  const cacheKey = listReturnCacheKey(viewerId, canvasPath(handle ?? '', projectTag ?? ''));
   // The viewer + address on screen NOW. A callback from a card that outlived its viewer (a vote
   // settling after sign-out) must not start a read for the old key: it would supersede the
   // current read and leave the page loading.
@@ -434,11 +434,6 @@ export function CanvasPage() {
               others={others}
               withPerson={withPerson}
               onCompare={id => setParams({ with: id })}
-              fullCompareHref={viewerId && withPerson?.slug && withPerson.id !== viewerId
-                ? // The canvas is its reserved tag (R9), not the bare name: a user tag of the same name may
-                // be missing, or carry other points.
-                `/compare/${withPerson.slug}?tag=${encodeURIComponent(projectTag ? canvasTagFor(projectTag) : '')}`
-                : null}
             />
           )}
         </div>
@@ -717,7 +712,7 @@ function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
         aria-label="Canvas"
         value={projectTag}
         // Compare (`?with=`) carries over; the open point belongs to this canvas and does not.
-        onChange={e => navigate(`/canvas/${handle}/${encodeURIComponent(e.target.value)}${withQuery}`)}
+        onChange={e => navigate(`${canvasPath(handle ?? '', e.target.value)}${withQuery}`)}
         className={`${SELECT} pl-3`}
         data-testid="canvas-project-tag"
       >
@@ -729,12 +724,11 @@ function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
 }
 
 /** Who to compare with — the compare page's person picker in small — and the way to the full page. */
-function ComparePicker({ base, others, withPerson, onCompare, fullCompareHref }: {
+function ComparePicker({ base, others, withPerson, onCompare }: {
   base: Person | null;
   others: CanvasPerson[];
   withPerson: CanvasPerson | null;
   onCompare: (id: string | null) => void;
-  fullCompareHref: string | null;
 }) {
   // Nobody else to compare with: the pill is absent, not disabled (P955).
   if (!base || others.length === 0) return null;
@@ -764,11 +758,6 @@ function ComparePicker({ base, others, withPerson, onCompare, fullCompareHref }:
         </select>
         <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
       </label>
-      {withPerson && fullCompareHref && (
-        <Link to={fullCompareHref} className="inline-flex min-h-10 items-center px-1 text-sm font-medium text-blue-600 hover:underline" data-testid="canvas-compare-full">
-          Full comparison <ChevronRight className="ml-0.5 h-4 w-4" aria-hidden />
-        </Link>
-      )}
     </div>
   );
 }

@@ -125,7 +125,7 @@ async function must(label, promise) {
 async function seed() {
   const items = parse(readFileSync(resolve(FILE), 'utf8'));
   const withStory = items.filter(i => i.story && i.story !== 'NO SOURCE FOUND');
-  console.log(`${DRY ? 'DRY RUN: ' : ''}${REF} (test): /canvas/${SLUG}/${NAME}: ${items.length} points, ${withStory.length} stories`);
+  console.log(`${DRY ? 'DRY RUN: ' : ''}${REF} (test): /p/${SLUG}/canvas/${NAME}: ${items.length} points, ${withStory.length} stories`);
   if (DRY) {
     for (const i of items) console.log(`  [${i.box}] ${i.statement.slice(0, 70)}${i.story === 'NO SOURCE FOUND' ? '  (no story)' : ''}`);
     return;
@@ -179,7 +179,7 @@ async function seed() {
     stories += 1;
   }
   console.log(`  points: ${created} new, ${reused} existing (${moved} retagged); stories linked: ${stories}, already had one: ${kept}`);
-  console.log(`Open: /canvas/${SLUG}/${NAME}`);
+  console.log(`Open: /p/${SLUG}/canvas/${NAME}`);
 }
 
 await seed();

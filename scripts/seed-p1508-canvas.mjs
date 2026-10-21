@@ -156,7 +156,7 @@ async function seed() {
   }
   const skipped = Object.values(STORIES).filter(s => s.authorId !== DATA_OWNER).map(s => s.id);
   console.log(`  ${storyIdOf.size} owner stories, ${links.length} links; not seeded (other authors): ${skipped.join(', ') || 'none'}`);
-  console.log(`\nOpen: /canvas/${SLUG}/${TAG}`);
+  console.log(`\nOpen: /p/${SLUG}/canvas/${TAG}`);
 }
 
 await seed();

@@ -985,7 +985,7 @@ export default function ClarityPledgeApp() {
         <Route path="/video/:videoId" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1508: an owner's Clarity Canvas — owner + project tag, no canvas record. */}
-        <Route path="/canvas/:handle/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/p/:handle/canvas/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 

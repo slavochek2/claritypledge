@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { isCanvasPathname } from '@/lib/canvas-boxes';
 import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
@@ -178,7 +179,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // own `/events/:slug/ready`, and the gate itself (`/events/:slug/room`) — same reasoning.
   const isReadyPage = /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
   // P1508: the canvas is a full-width working surface; the legal links add nothing under it.
-  const isCanvasPage = location.pathname.startsWith('/canvas/');
+  const isCanvasPage = isCanvasPathname(location.pathname);
   return (
     /**
      * P1323: the Links provider wraps the WHOLE layout — nav and page children alike.

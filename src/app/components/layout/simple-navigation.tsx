@@ -7,6 +7,7 @@
  *
  * P115: Logged-in dropdown uses "sandwich" pattern - public links on top, separator, account actions below.
  */
+import { isCanvasPathname } from '@/lib/canvas-boxes';
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -325,7 +326,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   const showTodaysEvent = !!todaysEvent && !isPricingPage;
   // P1508: a Clarity Canvas is shared with an event's attendees; its one action is on the page
   // (open a point, take a position), so no sales offer competes with it.
-  const isCanvasPage = location.pathname.startsWith('/canvas/');
+  const isCanvasPage = isCanvasPathname(location.pathname);
   const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage || showTodaysEvent || isCanvasPage;
   // P1351: `hideSessionCta` is retired with the session button itself. The header's only
   // signed-in primary is now TonightsEventCta, which hides itself on its own event's pages.

@@ -1,6 +1,6 @@
 /**
  * @file p1508-clarity-canvas.spec.ts
- * @description P1508 — Clarity Canvas at /canvas/:handle/:projectTag, against the TEST DB.
+ * @description P1508 — Clarity Canvas at /p/:handle/canvas/:projectTag (R14), against the TEST DB.
  *
  * Every test builds its own canvas under a fresh owner (service role writes the box tags and the
  * canvas's reserved `canvas_<name>` tag, as the seed does), with a unique name, so nothing depends
@@ -90,7 +90,7 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   ]);
   if (pos.error) throw new Error(`[P1508 fixture] positions: ${pos.error.message}`);
 
-  return { owner, other, tag, solutionPointId, revenuePointId, privatePointId, secondTag, privateTag, url: `/canvas/${owner.slug}/${tag}` };
+  return { owner, other, tag, solutionPointId, revenuePointId, privatePointId, secondTag, privateTag, url: `/p/${owner.slug}/canvas/${tag}` };
 }
 
 const CARD = '[data-testid^="canvas-point-card-"]';
@@ -234,12 +234,13 @@ test.describe('P1508: Clarity Canvas', () => {
     // D8: the compact columns are text-xs; the card stays in its box.
     expect(await card.getByTestId('stance-label').first().evaluate(el => getComputedStyle(el).fontSize)).toBe('12px');
     await expect(page.getByTestId('canvas-box-canvas:revenue').locator(CARD)).toHaveCount(1);
-    // Signed in as the owner: "You" against the other person, and the way to the full compare page.
+    // Signed in as the owner: "You" against the other person. No link to the full compare page (R14):
+    // it lists points without their boxes.
     await setTestSession(page, fx.owner.email);
     await page.goto(`${fx.url}?with=${fx.other.user.id}`);
     await waitForCanvas(page);
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toContainText('You');
-    await expect(page.getByTestId('canvas-compare-full')).toHaveAttribute('href', `/compare/${fx.other.slug}?tag=canvas_${fx.tag}`);
+    await expect(page.getByTestId('canvas-compare-full')).toHaveCount(0);
     // The spread and Compare show together.
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('position-spread')).toBeVisible();
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-card-compare')).toBeVisible();
@@ -373,7 +374,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(panel.getByTestId('canvas-panel-box')).toHaveText('Problem');
     await page.goBack();
     await expect(panel).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/canvas/${fx.owner.slug}/${fx.tag}$`));
+    await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.tag}$`));
     await expect(page.getByTestId('canvas-grid')).toBeVisible();
     // The close button takes the same step back: Back afterwards does not reopen the point.
     await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
@@ -606,7 +607,7 @@ test.describe('P1508: Clarity Canvas', () => {
       await expect(panel.getByTestId('canvas-panel-close')).toBeHidden();
       await panel.getByRole('button', { name: 'Close point' }).click();
       await expect(panel).toHaveCount(0);
-      await expect(page).toHaveURL(new RegExp(`/canvas/${fx.owner.slug}/${fx.tag}$`));
+      await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.tag}$`));
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     });
   }
@@ -625,7 +626,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(love.locator(CARD)).toHaveCount(0);
     await expect(love.getByText('Empty', { exact: true })).toBeVisible(); // D3: the owner too, no call to action
 
-    for (const path of [`/canvas/${fx.owner.slug}/nosuchtag${Date.now()}`, `/canvas/no-such-owner-${Date.now()}/${fx.tag}`]) {
+    for (const path of [`/p/${fx.owner.slug}/canvas/nosuchtag${Date.now()}`, `/p/no-such-owner-${Date.now()}/canvas/${fx.tag}`]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 20_000 });
     }
@@ -675,7 +676,7 @@ test.describe('P1508: Clarity Canvas', () => {
     // R9: only reserved canvas tags name a canvas — the user-tag-only point adds none.
     await expect(picker.locator('option')).toHaveText([fx.tag, fx.secondTag]);
     await picker.selectOption(fx.secondTag);
-    await expect(page).toHaveURL(new RegExp(`/canvas/${fx.owner.slug}/${fx.secondTag}$`));
+    await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.secondTag}$`));
     await waitForCanvas(page);
     await expect(page.getByText('P1508 second canvas point')).toBeVisible();
 
@@ -782,7 +783,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-point-panel')).toBeVisible();
     await page.goBack();
     await expect(page.getByTestId('canvas-point-panel')).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`/canvas/${fx.owner.slug}/${fx.tag}$`));
+    await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.tag}$`));
     await expect(page.getByTestId('canvas-grid')).toBeVisible();
   });
 

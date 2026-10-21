@@ -57,6 +57,15 @@ export function isCanvasTag(tag: string): boolean {
   return /^canvas:[\w-]+$/i.test(tag) || CANVAS_TAG_PATTERN.test(tag);
 }
 
+/** R14 (founder): a canvas lives under its owner's profile, `/p/<handle>/canvas/<name>`. */
+export function canvasPath(handle: string, name: string): string {
+  return `/p/${handle}/canvas/${encodeURIComponent(name)}`;
+}
+
+export function isCanvasPathname(pathname: string): boolean {
+  return /^\/p\/[^/]+\/canvas\/[^/]+/.test(pathname);
+}
+
 /** The system tag a canvas named `name` is identified by (its address uses the name alone). */
 export function canvasTagFor(name: string): string {
   return `canvas_${name.toLowerCase()}`;
