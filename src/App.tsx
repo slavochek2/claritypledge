@@ -814,7 +814,8 @@ export default function ClarityPledgeApp() {
         <Route
           path="/auth/callback"
           element={
-            <ClarityLandingLayout surface="public">
+            // P1533: no session exists yet mid-login, so the public menu would flash here; logo only.
+            <ClarityLandingLayout surface="public" logoOnly>
               <AuthCallbackPage />
             </ClarityLandingLayout>
           }
