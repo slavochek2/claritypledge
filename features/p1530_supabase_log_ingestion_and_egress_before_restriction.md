@@ -98,6 +98,10 @@ test project. Reversibility: config or code, git revert. Decision density: likel
 - **Top test log sources, last hour (gateway lines = most of the bytes):** a Playwright-UA browser
   GETting `event_rsvps` about once a second; the P1522 sweeper's DELETEs (one-off backlog purge);
   `node` GETs on `clarity_sessions`.
+- **Why test logs track new users (P1531 cost review, 2026-10-21):** P1522's fixed user pool was
+  never built, so a full e2e run still mints and deletes about 1,500 users. Each deletion costs 6+
+  calls, plus a deliberately failing DELETE (Postgres ERROR plus gateway error line) for every FK
+  blocker. Filed as [P1532](p1532_e2e_cleanup_and_offline_pack_request_amplification.md).
 - **Egress projection is still open:** the new cycle had no days of data. Re-read on 24–26 Oct.
 
 ## Related
