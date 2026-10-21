@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: qa
 type: task
 rank: 50
 workstream: infrastructure
@@ -92,10 +92,9 @@ and the spec records that the egress figures are not readable.
       HTTP 404, 2 with `TESTDB_ENV_FILE=/dev/null`.
 - [x] `cp.quota` records `not-run` naming `organizations_read` while no token exists.
 - [x] Both checks are in `scripts/day-cp-checks.tsv`, and `day-step.sh check-sync` passes (`SYNC OK`).
-- [ ] Part 1: the usage endpoint is established (or recorded as not readable), and `cp.quota`
-      fires `problem` on the real organisation, which is over quota this cycle, or at a
-      deliberately low `QUOTA_WARN_PCT`. Blocked on the founder decision above.
-- [ ] Part 3: the note appears when the test and prod projects sit in different organisations.
+
+Parts 1 and 3 (organisation usage, own-organisation note) moved to
+[P1525](p1525_day_supabase_free_plan_usage_reader.md), blocked on the org-read token.
 
 ## Related
 
