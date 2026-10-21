@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 53
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [auth, navigation, mirror, copy]
 disclosure: public
-delivery_stage: create-bug
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-10-21
 ---
 
 # P1533: Old top menu flashes during login; Mira's panel copy and menu entry
