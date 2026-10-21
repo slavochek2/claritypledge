@@ -63,7 +63,7 @@ export function canvasPath(handle: string, name: string): string {
 }
 
 export function isCanvasPathname(pathname: string): boolean {
-  return /^\/p\/[^/]+\/canvas\/[^/]+/.test(pathname);
+  return /^\/p\/[^/]+\/canvas\/[^/]+\/?$/.test(pathname);
 }
 
 /** The system tag a canvas named `name` is identified by (its address uses the name alone). */

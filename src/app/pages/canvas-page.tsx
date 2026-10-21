@@ -723,7 +723,7 @@ function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
   );
 }
 
-/** Who to compare with — the compare page's person picker in small — and the way to the full page. */
+/** Who to compare with — the compare page's person picker in small (R14: no link to the full page). */
 function ComparePicker({ base, others, withPerson, onCompare }: {
   base: Person | null;
   others: CanvasPerson[];

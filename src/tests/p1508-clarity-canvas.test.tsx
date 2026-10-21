@@ -16,9 +16,11 @@ import {
   CANVAS_LAYERS,
   canvasBoxOf,
   canvasNameOf,
+  canvasPath,
   canvasTagFor,
   groupPointsByBox,
   isCanvasBoxTag,
+  isCanvasPathname,
   normalizeProjectTag,
 } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
@@ -128,6 +130,17 @@ describe('box tags', () => {
     expect(normalizeProjectTag('a,b')).toBeNull();
     expect(normalizeProjectTag('')).toBeNull();
     expect(normalizeProjectTag(undefined)).toBeNull();
+  });
+});
+
+describe('R14: the canvas lives under its owner\'s profile', () => {
+  it('builds /p/<handle>/canvas/<name> and recognises only that shape', () => {
+    expect(canvasPath('slava', 'salesmastermind')).toBe('/p/slava/canvas/salesmastermind');
+    expect(isCanvasPathname('/p/slava/canvas/salesmastermind')).toBe(true);
+    expect(isCanvasPathname('/p/slava/canvas/salesmastermind/')).toBe(true);
+    expect(isCanvasPathname('/p/slava/canvas/salesmastermind/extra')).toBe(false);
+    expect(isCanvasPathname('/canvas/slava/salesmastermind')).toBe(false);
+    expect(isCanvasPathname('/p/slava')).toBe(false);
   });
 });
 

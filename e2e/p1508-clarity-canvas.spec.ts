@@ -15,7 +15,8 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
-import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
+import { createClient } from '@supabase/supabase-js';
+import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD, type TestUser } from './helpers/test-user';
 
 const PRIVATE_TEXT = 'P1508 private bet the owner alone can see';
 const STORY_TEXT = 'P1508 story arguing the solution point.';
@@ -849,6 +850,27 @@ test.describe('P1508: Clarity Canvas', () => {
     const next = page.getByTestId('canvas-panel-next');
     await expect(next).toBeVisible();
     expect(await next.evaluate(el => getComputedStyle(el).borderTopColor)).toBe('rgb(37, 99, 235)');
+  });
+
+  test('R9: a signed-in user cannot give a point a canvas_ tag through the API (insert or update)', async () => {
+    const client = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+    const { error: signInError } = await client.auth.signInWithPassword({ email: fx.owner.email, password: TEST_PASSWORD });
+    expect(signInError).toBeNull();
+    const forged = [`canvas_forged${Date.now()}`, 'canvas:problem'];
+    // Insert: whatever the client sends, the stored row carries no canvas_ or box tag.
+    const { data: inserted } = await client.from('points')
+      .insert({ statement: `P1508 forged canvas tag ${Date.now()}`, first_validator_id: fx.owner.user.id, visibility: 'private', tags: [fx.tag], system_tags: forged })
+      .select('id').maybeSingle();
+    if (inserted) {
+      const { data: row } = await supabaseAdmin.from('points').select('system_tags').eq('id', inserted.id).single();
+      expect((row?.system_tags ?? []).filter((t: string) => t.startsWith('canvas'))).toEqual([]);
+    }
+    // Update: the owner's own point keeps exactly the tags the service role wrote.
+    const before = (await supabaseAdmin.from('points').select('system_tags').eq('id', fx.revenuePointId).single()).data?.system_tags;
+    await client.from('points').update({ system_tags: forged }).eq('id', fx.revenuePointId);
+    const after = (await supabaseAdmin.from('points').select('system_tags').eq('id', fx.revenuePointId).single()).data?.system_tags;
+    expect(after).toEqual(before);
+    await client.auth.signOut();
   });
 
   test('load time: Back to the canvas shows it as left without re-reading it; after a vote elsewhere it reads fresh', async ({ page }) => {
