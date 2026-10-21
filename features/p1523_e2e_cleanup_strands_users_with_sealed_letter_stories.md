@@ -11,11 +11,11 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-users, cleanup, egress]
 disclosure: public
-delivery_stage: fix
+delivery_stage: ship
 date_resolved: '2026-10-21'
 root_cause: stories pre-clean bypassed FK-blocker resolution, which could not clear blockers of rows the user owns; sweeper order let stuck users fill every batch
 resolution: deleteClearingReferences resolves blockers through row ids; stories pre-clean uses it; sweeper shuffles a 3x pool
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, ship]
 reproduce_artifact:
   reproduced_at: '2026-10-21'
   test_file: scripts/sweep-e2e-test-users.ts --apply --limit 5 (command canary against real stranded users on the test project)
