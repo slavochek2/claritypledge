@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: The keychain Supabase management token is now test-only read; logs moved to `/analytics/endpoints/logs`
+
+**Context:** A task-inbox note said the keychain-held Supabase management token was "revoked or expired" (401 on project list and logs, found during P1522). It was neither: the account-wide token behind that keychain item was deliberately deleted on 2026-09-30, when every full-access Supabase token was retired (P1318). P1522 and P1524 inherited the wrong cause.
+**Decision:** Do not restore an account-wide token. The keychain item now holds a scoped token: one project (test), read-only Project Settings, Logs and Usage Analytics, 90-day expiry. Measured 2026-10-21: test project 200, test logs 200, prod 403, a bogus token 401 on the same calls.
+**Findings that change existing callers:** (1) `GET /v1/projects/{ref}/analytics/endpoints/logs.all` now returns 410; the replacement is `/analytics/endpoints/logs`, and the queryable table is `logs` (`edge_logs` and siblings report "does not exist"). Any script or spec query on the old path fails regardless of token. (2) A project-scoped token cannot list projects: `GET /v1/projects` needs `projects_read`, which is org-level, and test and prod share one org, so granting it would reach prod. Callers that need one project use `GET /v1/projects/{ref}`.
+**Alternatives rejected:** a new account-wide token (reverses the 2026-09-30 retirement); an org-scoped token (would include prod).
+**Consequences:** P1148's guided `rotate.sh` was never built; this rotation was done by hand with `keyring.sh enroll-from` from a 600 temp file. The registry row (private) now carries an Expires date.
+**References:** [P1148](../features/p1148_credential_rotation_system.md), [P1522](../features/done/2026-06-10/p1522_supabase_egress_polling_and_e2e_users.md)
+
 ## 2026-10-21 [technical]: Agent avatars are 256px WebP on the public media host, immutable-cached (P1528)
 
 **Context:** A fresh production `/feed` load pulled 957.9 KiB of agent-avatar PNGs (up to 227 KiB each, rendered at most 96 CSS px, `cache-control: no-cache`) from the `agent-avatars` Supabase Storage bucket (P1135). Storage through Supabase's CDN bills as cached egress, the line most over the free-plan quota, with production restricted from 2026-11-11. P1135 predates the P1385 "Public Media Host" rule, which puts curated public images on `gs://claritypledge-story-images`.
