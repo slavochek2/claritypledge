@@ -181,6 +181,8 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
       // Resuming: an entry this cycle already stored is not fetched again. A local read only.
       const cached = await peekOfflineCache<T>(r.type, r.id);
       if (cached && cached.storedAt >= cycleStart) return cached.data;
+      // The lookup yields: the tab may have hidden meanwhile, and a hidden tab starts no request.
+      if (tabHidden()) return null;
     }
     result.attempted += 1;
     const out = await prefetchThrough(r.type, r.id, r.fetch, undefined, r.options);

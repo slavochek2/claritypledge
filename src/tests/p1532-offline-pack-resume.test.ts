@@ -33,7 +33,7 @@ vi.mock('@/app/pages/letter-reading-page', () => ({}));
 vi.mock('@/app/pages/feed-page', () => ({}));
 vi.mock('@/app/pages/org-directory-page', () => ({}));
 
-import { MemoryEntryStore, _setOfflineEntryStoreForTesting } from '@/lib/offline-read-cache';
+import { MemoryEntryStore, _setOfflineEntryStoreForTesting, type OfflineEntryStore } from '@/lib/offline-read-cache';
 import { runOfflinePack } from '@/lib/offline-pack';
 import { _resetNetworkOutcomeForTesting } from '@/lib/network-outcome';
 import { STANDARD_LETTER_ENTRIES, STANDARD_STAKE_TAGS } from '@/app/data/event-links';
@@ -77,6 +77,26 @@ describe('P1532 offline pack resume', () => {
     await runOfflinePack(undefined);
 
     expect(reads, `reads across 5 interruptions + completion (one full pack is ${FULL_PACK_READS})`).toBeLessThanOrEqual(FULL_PACK_READS);
+  });
+
+  it('a resumed run that sees the tab hide during its cache lookup starts no fetch', async () => {
+    hideAtRead = 2;
+    await runOfflinePack(undefined); // cut short: the next run resumes
+    setVisibility('visible');
+    hideAtRead = Number.POSITIVE_INFINITY;
+    const before = reads;
+    // The cache answers a miss, and the tab hides while it is answering (Codex review, P1532 /finish).
+    const inner = new MemoryEntryStore();
+    const hidingStore: OfflineEntryStore = {
+      get: async () => { setVisibility('hidden'); return undefined; },
+      put: (e) => inner.put(e),
+      delete: (k) => inner.delete(k),
+      listType: (t) => inner.listType(t),
+      clear: () => inner.clear(),
+    };
+    _setOfflineEntryStoreForTesting(hidingStore);
+    await runOfflinePack(undefined);
+    expect(reads, 'no read started after the tab hid').toBe(before);
   });
 
   it('after the resumed pack completes, it is not due again (fresh stamp)', async () => {

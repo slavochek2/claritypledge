@@ -230,6 +230,7 @@ carries a request-volume assertion. Closes INBOX-204's "no net new users per ful
    non-email identity), and the cached sign-in is kept only while its session exists. Every user a
    run creates is recorded (`e2e/helpers/run-ledger.ts`), and global teardown deletes the
    survivors, 50 per request, before the bounded 6 h backstop sweep. `P1532_POOL=off` opts out.
+   Off the test project nothing is deleted, except on a local Supabase.
 4. **Sweeper** (`scripts/sweep-e2e-test-users.ts`). The dry run is one counting request
    (`e2e_test_user_counts`), with no listing. `--apply` defaults to 500 users, 50 per request, and a
    120 s budget that starts at the first request. It stops after 3 consecutive 5xx or timeouts
@@ -240,6 +241,44 @@ carries a request-volume assertion. Closes INBOX-204's "no net new users per ful
    read) instead of fetching them again. Hidden tabs still stop the pack.
 6. **Measurement** (`scripts/measure-idle-requests.mjs`). It counts `requestfailed` and reports it
    in a separate column, and `--block <substring>` simulates a failing endpoint.
+
+### Review (/finish, 2026-10-21)
+
+Reviewers: Codex (`gpt-6.1-sol`, BLOCK SHIP, 5 findings), a criteria reviewer (2 HIGH, 10 MEDIUM)
+and an Opus adversary (1 HIGH, 3 MEDIUM, 5 LOW; "no path that modifies a production row"). Gemini
+**refused the payload** (`delegate-gemini` exit 2, the fake test-password fixture), and Codex stood
+in as the evidence reviewer. **3 of 4 lanes reported.** Fixed in `20261021163700` (candidate
+locks), `20261021174500` (the rest of the SQL) and the TS commit that follows:
+
+| Finding | Disposition |
+|---|---|
+| TS per-row fallback ran off the test project and for any refused id (Codex 1, criteria 10) | FIXED: off test nothing is deleted except on a local Supabase (`localhost:54321`); a refused id falls back only if this process created it |
+| Purge deletes a blocking row that also belongs to a non-e2e user (Opus H1) | FIXED: refuses (the user lands in `failed`); test: a non-e2e host's session an e2e user joined survives, and the rest of the batch is deleted |
+| Namespace check raced with deletion (Codex 2) | FIXED: candidates locked `FOR UPDATE` / `FOR UPDATE SKIP LOCKED` |
+| A resumed pack could fetch after the tab hid during the cache read (Codex 3) | FIXED: visibility rechecked after the lookup; test fails without it (mutation run) |
+| One bad user could make a batch hit the 8 s timeout (criteria 1, Opus M3) | FIXED: the per-user retry stops at 5 s and returns `deferred`; callers re-send once; the ledger purge halves its batch after a transient failure |
+| Pool users aged out by another run's 6 h sweep (Opus M1) | FIXED: release and claim stamp `updated_at`, and the sweep ages by last activity |
+| Released users keep rows in id-keyed tables with no FK, and GoTrue's per-user email limit (criteria 5, Opus M2) | FIXED: the claim refuses such users (columns found from the catalog) and users sent an email in the last 60 s |
+| The guard checked ref but not role (Opus L1) | FIXED: requires `role = service_role` too |
+| Entry functions' refusal path untested (criteria 2) | FIXED structurally: a live-catalog test asserts each entry function opens with the guard before any DELETE/UPDATE, with an unguarded helper as the known-bad control. The refusal itself cannot be exercised from here (no prod-ref JWT can be minted) |
+| Ledger purge dropped refused ids silently (Codex 5, criteria 7) | FIXED: counted and logged per id |
+| Pool spec FIFO order-dependence; claim returned a stale email (criteria 3, 4) | FIXED: LIFO pool; the claim returns the server's email |
+| 429/408 treated as refusals; last request cut short by the budget (criteria 14, 16) | FIXED |
+| Measurement missed HTTP 4xx/5xx, and counted its own shutdown aborts (criteria 9) | FIXED: a separate 4xx/5xx column, and the listener is detached before close |
+| Specs erased an operator's `P1532_POOL` (criteria 15) | FIXED |
+| `dependent_rows` counted a rolled-back batch (Opus L3) | FIXED |
+| No database.md entry (criteria 17) | FIXED |
+| A budget stop exits 0 with users left (Codex 4) | Set aside: a limit or budget stop is the designed bound, not a failure; the remaining count is logged |
+| A test that deletes one user mid-test and creates another may get the same id (criteria 6) | Set aside: using a deleted user is already broken; documented in e2e-testing-guide.md |
+| `P1522_SKIP_SWEEP` now skips only the sweep, not the ledger purge (criteria 7) | Set aside: the ledger purge deletes only this run's own users; no lane sets the flag except this session |
+| Depth > 1 walk, cycle RAISE and SET NULL edges untested (criteria 8) | Partly: the H1 test walks a NO ACTION edge with a non-e2e owner, and the sweep branch is now run. Depth > 1 and the cycle RAISE stay untested (Known limitation) |
+| Peek skips `viewerMatchesOwner`; resumed staleness up to 2x the refresh window (criteria 13) | Set aside: the stamp and the cache are both per owner, so a resume never crosses owners; 12 h worst-case staleness for pre-loaded offline copies is acceptable |
+| Prod safety rests on one constant compare (Opus L2), shared `/tmp` ledger (L5) | Set aside: the ref claim is signed with the project's own JWT secret; the ledger only feeds ids to a function that re-checks namespace and project |
+| Cost budget rests on a sampled 34% reuse rate (criteria 11) | Stated as an extrapolation in the Cost Budget; a full-run figure is the open AC |
+
+**Known limitations:** the purge's ownership check covers rows that reference a non-e2e user
+directly. A blocking row owned through a parent (a snapshot inside a non-e2e user's letter) is still
+deleted, as before P1532. Depth > 1 and the cycle RAISE have no test. Both are test-project-only.
 
 ## Cost Budget
 

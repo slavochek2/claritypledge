@@ -507,6 +507,26 @@ atomically.
 
 ---
 
+### e2e test-user functions (P1532, test project only)
+
+Server-side cleanup and reuse of e2e test users, called by `e2e/helpers/test-user.ts`,
+`scripts/sweep-e2e-test-users.ts` and `e2e/global-teardown.ts`. They are deployed to both projects
+by the normal migration path and **refuse anywhere but test**: each entry function checks that the
+caller's JWT carries the test project ref and the service role (`_e2e_purge_allowed`), EXECUTE is
+granted to service_role only, and only e2e-namespace emails (`generateTestEmail()`) are touched.
+
+| Function | Does |
+|---|---|
+| `e2e_purge_test_users(ids \| older_than, limit)` | Deletes up to 200 users and every row that references them, in FK order read from `pg_constraint` per call. Refuses to delete a blocking row that also belongs to a non-e2e user. Returns `deleted`, `refused`, `missing`, `failed`, `deferred` |
+| `e2e_release_test_user(id)` | Deletes every public row that references the user, keeps the auth user (worker pool) |
+| `e2e_claim_test_user(id, profile, metadata, password, session_id)` | Reuses a released user with a fresh profile, or refuses when its auth state differs from a fresh user's |
+| `e2e_test_user_counts(older_than)` | Auth and e2e user counts in one request |
+
+Definitions: `supabase/migrations/*_p1532_*.sql` (the latest one wins:
+`20261021174500_p1532_review_fixes.sql`). Cost rules: [metered-services.md](metered-services.md).
+
+---
+
 ---
 
 ## Row Level Security (RLS)

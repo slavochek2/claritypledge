@@ -13,7 +13,7 @@
  * where the server compressed. Realtime websocket frames are counted separately as frames.
  *
  * P1532: requests that FAIL (network error, abort, timeout, blocked) are counted too, and reported
- * separately. They never reach `requestfinished`, so the P1522 measurements could not see them,
+ * separately, as are requests answered 4xx/5xx. They never reach `requestfinished`, so the P1522 measurements could not see them,
  * yet each still costs gateway log lines: a failure storm read as zero. `--block <substring>` aborts
  * every Supabase request whose URL contains the substring, to simulate a failing endpoint and prove
  * the count.
@@ -80,12 +80,16 @@ async function measure(browser, path) {
     const at = Date.now() - t0;
     let bytes = 0;
     try { bytes = (await req.sizes()).responseBodySize; } catch { /* closed */ }
-    rows.push({ at, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes, failed: false });
+    let status = 0;
+    try { status = (await req.response())?.status() ?? 0; } catch { /* closed */ }
+    // An HTTP 4xx/5xx still "finishes"; it is reported as an error, not as a failure.
+    rows.push({ at, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes, failed: false, error: status >= 400 });
   });
-  page.on('requestfailed', (req) => {
+  const onFailed = (req) => {
     if (!t0 || !/supabase\.co/.test(req.url())) return;
-    rows.push({ at: Date.now() - t0, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes: 0, failed: true });
-  });
+    rows.push({ at: Date.now() - t0, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes: 0, failed: true, error: false });
+  };
+  page.on('requestfailed', onFailed);
   if (FROM_NAV) t0 = Date.now();
   await page.goto(BASE + path, { waitUntil: 'load' });
   await page.waitForTimeout(SETTLE_S * 1000);
@@ -94,6 +98,9 @@ async function measure(browser, path) {
   }
   if (!FROM_NAV) t0 = Date.now();
   await page.waitForTimeout(MINUTES * 60_000);
+  // Closing aborts whatever is in flight; those aborts are the script's, not the app's.
+  page.off('requestfailed', onFailed);
+  t0 = 0;
   await context.close();
   return { path, rows, wsFrames };
 }
@@ -101,25 +108,27 @@ async function measure(browser, path) {
 function report({ path, rows, wsFrames }) {
   const byEp = new Map();
   for (const r of rows) {
-    const e = byEp.get(r.endpoint) ?? { count: 0, failed: 0, bytes: 0, perMin: Array(MINUTES).fill(0) };
+    const e = byEp.get(r.endpoint) ?? { count: 0, failed: 0, errors: 0, bytes: 0, perMin: Array(MINUTES).fill(0) };
     e.count++;
     if (r.failed) e.failed++;
+    if (r.error) e.errors++;
     e.bytes += r.bytes;
     e.perMin[Math.min(MINUTES - 1, Math.floor(r.at / 60_000))]++;
     byEp.set(r.endpoint, e);
   }
   const total = rows.length;
   const failed = rows.filter((r) => r.failed).length;
+  const errors = rows.filter((r) => r.error).length;
   const bytes = rows.reduce((s, r) => s + r.bytes, 0);
   const window = FROM_NAV ? `${MINUTES} min from navigation` : `${MINUTES} min after load + ${SETTLE_S}s settle`;
   console.log(`\n## ${path} — ${HIDDEN ? 'hidden' : 'visible'}, ${window}`);
-  console.log(`total: ${total} requests (${(total / MINUTES).toFixed(1)}/min), of which ${failed} failed, ${(bytes / 1024).toFixed(1)} KiB, ws frames: ${wsFrames}`);
-  console.log('| endpoint | total | failed | req/min | KiB | per minute |');
-  console.log('|---|---|---|---|---|---|');
+  console.log(`total: ${total} requests (${(total / MINUTES).toFixed(1)}/min), of which ${failed} failed and ${errors} answered 4xx/5xx, ${(bytes / 1024).toFixed(1)} KiB, ws frames: ${wsFrames}`);
+  console.log('| endpoint | total | failed | 4xx/5xx | req/min | KiB | per minute |');
+  console.log('|---|---|---|---|---|---|---|');
   for (const [ep, e] of [...byEp].sort((a, b) => b[1].count - a[1].count)) {
-    console.log(`| ${ep} | ${e.count} | ${e.failed} | ${(e.count / MINUTES).toFixed(1)} | ${(e.bytes / 1024).toFixed(1)} | ${e.perMin.join(' ')} |`);
+    console.log(`| ${ep} | ${e.count} | ${e.failed} | ${e.errors} | ${(e.count / MINUTES).toFixed(1)} | ${(e.bytes / 1024).toFixed(1)} | ${e.perMin.join(' ')} |`);
   }
-  return { path, hidden: HIDDEN, minutes: MINUTES, total, failed, bytes, wsFrames, endpoints: Object.fromEntries(byEp) };
+  return { path, hidden: HIDDEN, minutes: MINUTES, total, failed, errors, bytes, wsFrames, endpoints: Object.fromEntries(byEp) };
 }
 
 const browser = await chromium.launch();

@@ -12,14 +12,27 @@
  */
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { createTestUser, deleteTestUser, generateTestEmail, type TestUser } from '../helpers/test-user';
+import { execFileSync } from 'child_process';
+import { createTestUser, deleteTestUser, deleteTestUsers, generateTestEmail, type TestUser } from '../helpers/test-user';
 
 // Module-local service client: specs that sign in on the shared supabaseAdmin swap its JWT.
 const admin = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-type PurgeResult = { deleted: string[]; refused: string[]; missing: string[]; failed: unknown[]; dependent_rows: number };
+type PurgeResult = {
+  deleted: string[];
+  refused: string[];
+  missing: string[];
+  failed: Array<{ id: string; sqlstate: string; message: string }>;
+  deferred: string[];
+  dependent_rows: number;
+};
+
+/** Read-only SQL on the test project (scripts/supabase-readonly-sql.py: a read-only token). */
+function readOnlySql<T>(sql: string): T[] {
+  return JSON.parse(execFileSync('python3', ['scripts/supabase-readonly-sql.py', '--env', 'test', sql], { encoding: 'utf8' })) as T[];
+}
 
 function recordRequests() {
   const calls: Array<{ path: string; status: number }> = [];
@@ -43,8 +56,63 @@ test.describe('P1532 migration: e2e_purge_test_users', () => {
     const ask = async (claims: unknown) => (await admin.rpc('_e2e_purge_allowed', { p_claims: claims })).data;
     expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'service_role' })).toBe(true);
     expect(await ask({ ref: 'besjtuodziykmjidubzw', role: 'service_role' })).toBe(false); // prod
+    expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'anon' })).toBe(false); // the public anon key
     expect(await ask({ role: 'service_role' })).toBe(false);
     expect(await ask(null)).toBe(false);
+  });
+
+  test('every e2e entry function checks the guard before anything else (live catalog)', () => {
+    // A prod-ref JWT cannot be minted here, so the refusal path of each entry function is pinned
+    // structurally: its body must open with the guard. The control is _e2e_purge_dependents, which
+    // has no guard by design: if the check cannot tell it apart, the check is blind.
+    const rows = readOnlySql<{ proname: string; guarded: boolean }>(`
+      SELECT p.proname,
+             position('IF NOT public._e2e_purge_allowed(' IN p.prosrc) > 0
+               AND position('IF NOT public._e2e_purge_allowed(' IN p.prosrc)
+                   < coalesce(nullif(position('DELETE' IN p.prosrc), 0), 1000000)
+               AND position('IF NOT public._e2e_purge_allowed(' IN p.prosrc)
+                   < coalesce(nullif(position('UPDATE' IN p.prosrc), 0), 1000000) AS guarded
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND (p.proname LIKE 'e2e\\_%' OR p.proname = '_e2e_purge_dependents')
+       ORDER BY 1`);
+    const byName = Object.fromEntries(rows.map((r) => [r.proname, r.guarded]));
+    expect(byName).toEqual({
+      _e2e_purge_dependents: false, // control
+      e2e_claim_test_user: true,
+      e2e_purge_test_users: true,
+      e2e_release_test_user: true,
+      e2e_test_user_counts: true,
+    });
+  });
+
+  test('a row that also belongs to a non-e2e user is never deleted; the rest of the batch still is', async () => {
+    const outsider = await createTestUser({ name: 'P1532 Host', email: `p1532-host-${Date.now()}@claritypledge-test.com` });
+    const joiner = await createTestUser({ name: 'P1532 Joiner' });
+    const bystander = await createTestUser({ name: 'P1532 Bystander' });
+    const code = `p1532${Date.now()}`;
+    const { data: session, error: seedError } = await admin.from('clarity_sessions')
+      .insert({ code, creator_name: 'P1532 Host', creator_profile_id: outsider.user.id, joiner_profile_id: joiner.user.id })
+      .select('id').single();
+    expect(seedError).toBeNull();
+    try {
+      const { data, error } = await admin.rpc('e2e_purge_test_users', { p_user_ids: [bystander.user.id, joiner.user.id] });
+      expect(error).toBeNull();
+      const r = data as PurgeResult;
+      expect(r.deleted).toEqual([bystander.user.id]);
+      expect(r.failed.map((f) => f.id)).toEqual([joiner.user.id]);
+      expect(r.failed[0]?.message).toMatch(/outside the e2e namespace/);
+      const { count } = await admin.from('clarity_sessions').select('id', { count: 'exact', head: true }).eq('id', session!.id);
+      expect(count, "the non-e2e host's session survives").toBe(1);
+    } finally {
+      await admin.from('clarity_sessions').delete().eq('id', session!.id);
+      await deleteTestUsers([joiner.user.id, outsider.user.id, bystander.user.id]);
+    }
+  });
+
+  test('the sweep branch (p_older_than) runs and touches nobody newer than the cutoff', async () => {
+    const { data, error } = await admin.rpc('e2e_purge_test_users', { p_older_than: '1000 years', p_limit: 5 });
+    expect(error).toBeNull();
+    expect(data as PurgeResult).toMatchObject({ deleted: [], failed: [], deferred: [] });
   });
 
   test('anon cannot call it', async () => {

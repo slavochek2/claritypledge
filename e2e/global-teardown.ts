@@ -24,7 +24,7 @@ export default async function globalTeardown(): Promise<void> {
     const ids = readLedger(runId);
     try {
       const r = await purgeUserIds(ids, { timeBudgetMs: BUDGET_MS / 2 });
-      console.log(`[P1532 run ledger] this run created ${ids.length} users; deleted ${r.deleted} still alive, failed ${r.failed}, ${r.requests} requests`);
+      console.log(`[P1532 run ledger] this run created ${ids.length} users; deleted ${r.deleted} still alive, failed ${r.failed}, left ${r.refused ?? 0} outside the e2e namespace, ${r.requests} requests`);
       if (r.stopped === 'done' && r.failed === 0) removeLedger(runId);
     } catch (err) {
       console.warn('[P1532 run ledger] skipped:', (err as Error).message);

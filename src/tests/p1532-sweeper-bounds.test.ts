@@ -7,7 +7,7 @@
  * client, with the failure simulated, so the real test project is never touched.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SWEEP_DEFAULTS, exitCodeFor, sweepE2eTestUsers, type SweepClient } from '../../scripts/sweep-e2e-test-users';
+import { SWEEP_DEFAULTS, exitCodeFor, purgeUserIds, sweepE2eTestUsers, type SweepClient } from '../../scripts/sweep-e2e-test-users';
 
 const TEST_URL = 'https://gfjctyxqlwexxwsmkakq.supabase.co';
 type Reply = { data: unknown; error: { message: string } | null; status: number };
@@ -117,5 +117,47 @@ describe('P1532 sweeper bounds', () => {
     const { client, calls } = fakeClient(() => counts(1));
     await expect(sweepE2eTestUsers({ apply: true, olderThanHours: 24, client, log: quiet })).rejects.toThrow(/not the test project/);
     expect(calls).toHaveLength(0);
+  });
+
+  it('a 429 is retried with backoff, not treated as a refusal', async () => {
+    let n = 0;
+    const { client } = fakeClient((fn, args) =>
+      fn === 'e2e_test_user_counts' ? counts(50) : ++n === 1 ? { data: null, error: { message: 'rate limited' }, status: 429 } : purged(args.p_limit as number));
+    const r = await sweepE2eTestUsers({ apply: true, olderThanHours: 24, limit: 50, client, pauseMs: 0, log: quiet });
+    expect(r).toMatchObject({ deleted: 50, requestFailures: 1, stopped: 'limit' });
+  });
+});
+
+describe('P1532 ledger purge (purgeUserIds)', () => {
+  const ids = Array.from({ length: 120 }, (_, i) => `u-${i}`);
+  const answer = (batch: string[], deferred: string[] = []): Reply => ({
+    data: { deleted: batch.filter((id) => !deferred.includes(id)), refused: [], missing: [], failed: [], deferred },
+    error: null,
+    status: 200,
+  });
+
+  it('sends 50 per request', async () => {
+    const { client, calls } = fakeClient((_, args) => answer(args.p_user_ids as string[]));
+    const r = await purgeUserIds(ids, { client, pauseMs: 0, log: quiet });
+    expect(calls.map((c) => (c.args.p_user_ids as string[]).length)).toEqual([50, 50, 20]);
+    expect(r).toMatchObject({ deleted: 120, failed: 0, stopped: 'done' });
+  });
+
+  it('halves the batch after a timeout and re-sends it', async () => {
+    let n = 0;
+    const { client, calls } = fakeClient((_, args) =>
+      ++n === 1 ? { data: null, error: { message: 'canceling statement due to statement timeout' }, status: 500 } : answer(args.p_user_ids as string[]));
+    const r = await purgeUserIds(ids, { client, pauseMs: 0, log: quiet });
+    expect(calls.map((c) => (c.args.p_user_ids as string[]).length)).toEqual([50, 25, 25, 25, 25, 20]);
+    expect(r).toMatchObject({ deleted: 120, requestFailures: 1, stopped: 'done' });
+  });
+
+  it('re-sends deferred ids once, and counts a second deferral as a failure', async () => {
+    const { client } = fakeClient((_, args) => {
+      const batch = args.p_user_ids as string[];
+      return answer(batch, batch.filter((id) => id === 'u-7'));
+    });
+    const r = await purgeUserIds(ids, { client, pauseMs: 0, log: quiet });
+    expect(r).toMatchObject({ deleted: 119, failed: 1, stopped: 'done' });
   });
 });

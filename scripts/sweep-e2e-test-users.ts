@@ -78,11 +78,16 @@ export interface SweepResult {
   deleted: number;
   failed: number;
   requestFailures: number;
+  /** purgeUserIds only: ids the server would not delete because they are not e2e-namespace users. */
+  refused?: number;
   stopped: SweepStop;
 }
 
 interface PurgeResult {
   deleted: string[];
+  refused?: string[];
+  /** Not tried: the server stopped its per-user retry before the statement timeout. */
+  deferred?: string[];
   failed: Array<{ id: string; sqlstate: string; message: string }>;
 }
 
@@ -100,9 +105,12 @@ function backoffMs(pauseMs: number, attempt: number): number {
   return Math.round(pauseMs * 2 ** attempt * (0.75 + Math.random() * 0.5));
 }
 
-/** A 5xx, a timeout or a network failure is worth another try; anything else will fail again. */
+/**
+ * A 5xx, 408, 429, a timeout or a network failure is worth another try (after backoff); anything
+ * else (a refusal, a bad argument) will fail again.
+ */
 function transient(status: number): boolean {
-  return status === 0 || status >= 500;
+  return status === 0 || status === 408 || status === 429 || status >= 500;
 }
 
 export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult> {
@@ -121,11 +129,12 @@ export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult
   const olderThan = `${opts.olderThanHours} hours`;
   const result: SweepResult = { candidates: null, requests: 0, deleted: 0, failed: 0, requestFailures: 0, stopped: 'done' };
 
+  // The budget decides whether a request STARTS; a started request keeps its full timeout, because
+  // cutting it short client-side cannot stop the server finishing it anyway.
   const call = async (fn: string, args: Record<string, unknown>) => {
     result.requests++;
     try {
-      const timeout = Math.max(1, Math.min(requestTimeoutMs, deadline - now()));
-      return await client.rpc(fn, args).abortSignal(AbortSignal.timeout(timeout));
+      return await client.rpc(fn, args).abortSignal(AbortSignal.timeout(requestTimeoutMs));
     } catch (err) {
       return { data: null, error: { message: (err as Error).message }, status: 0 };
     }
@@ -168,7 +177,7 @@ export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult
     result.failed += r.failed.length;
     for (const f of r.failed) log(`sweep: FAILED ${f.id}: ${f.sqlstate} ${f.message}`);
     if (r.deleted.length === 0) {
-      result.stopped = r.failed.length ? 'no-progress' : 'done';
+      result.stopped = r.failed.length || r.deferred?.length ? 'no-progress' : 'done';
       break;
     }
     await new Promise((res) => setTimeout(res, pauseMs));
@@ -190,23 +199,25 @@ export async function purgeUserIds(
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
     throw new Error(`purge refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
   }
-  const batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
   const maxFailures = opts.maxConsecutiveFailures ?? SWEEP_DEFAULTS.maxConsecutiveFailures;
   const pauseMs = opts.pauseMs ?? SWEEP_DEFAULTS.pauseMs;
   const requestTimeoutMs = opts.requestTimeoutMs ?? SWEEP_DEFAULTS.requestTimeoutMs;
   const client = opts.client ?? (await serviceClient());
   const deadline = now() + (opts.timeBudgetMs ?? SWEEP_DEFAULTS.timeBudgetMs);
-  const result: SweepResult = { candidates: ids.length, requests: 0, deleted: 0, failed: 0, requestFailures: 0, stopped: 'done' };
+  const result: SweepResult = { candidates: ids.length, requests: 0, deleted: 0, failed: 0, requestFailures: 0, refused: 0, stopped: 'done' };
+  // A batch that failed transiently (often a timeout) is sent again at half the size.
+  let batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
+  const queue = [...ids];
+  const deferredOnce = new Set<string>();
   let consecutive = 0;
-  for (let i = 0; i < ids.length; ) {
+  while (queue.length) {
     if (now() >= deadline) { result.stopped = 'time-budget'; break; }
     if (consecutive >= maxFailures) { result.stopped = 'request-failures'; break; }
-    const batch = ids.slice(i, i + batchSize);
+    const batch = queue.slice(0, batchSize);
     result.requests++;
     let res: { data: unknown; error: { message: string } | null; status: number };
     try {
-      const timeout = Math.max(1, Math.min(requestTimeoutMs, deadline - now()));
-      res = await client.rpc('e2e_purge_test_users', { p_user_ids: batch }).abortSignal(AbortSignal.timeout(timeout));
+      res = await client.rpc('e2e_purge_test_users', { p_user_ids: batch }).abortSignal(AbortSignal.timeout(requestTimeoutMs));
     } catch (err) {
       res = { data: null, error: { message: (err as Error).message }, status: 0 };
     }
@@ -215,15 +226,23 @@ export async function purgeUserIds(
       log(`purge: request failed (${res.status}): ${res.error.message}`);
       if (!transient(res.status)) { result.stopped = 'refused'; break; }
       consecutive++;
+      batchSize = Math.max(1, Math.floor(batchSize / 2));
       await new Promise((r) => setTimeout(r, backoffMs(pauseMs, consecutive)));
       continue;
     }
     consecutive = 0;
+    queue.splice(0, batch.length);
     const r = res.data as PurgeResult;
     result.deleted += r.deleted.length;
     result.failed += r.failed.length;
     for (const f of r.failed) log(`purge: FAILED ${f.id}: ${f.sqlstate} ${f.message}`);
-    i += batchSize;
+    // Not deleted, and not retried: the server refuses users outside the e2e namespace on purpose.
+    result.refused = (result.refused ?? 0) + (r.refused?.length ?? 0);
+    for (const id of r.refused ?? []) log(`purge: left ${id}: not an e2e-namespace user (delete it by hand if it is a test user)`);
+    for (const id of r.deferred ?? []) {
+      if (deferredOnce.has(id)) { result.failed++; log(`purge: FAILED ${id}: deferred twice`); }
+      else { deferredOnce.add(id); queue.push(id); }
+    }
   }
   return result;
 }

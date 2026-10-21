@@ -16,7 +16,7 @@ import { supabaseAdmin } from './supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 import { Page, test, expect } from '@playwright/test';
 import { User } from '@supabase/supabase-js';
-import { isTestProjectUrl } from './e2e-namespace';
+import { isLocalSupabaseUrl, isTestProjectUrl } from './e2e-namespace';
 import { currentRunId, recordCreatedUser } from './run-ledger';
 
 /** Return type for createTestUser helper */
@@ -221,7 +221,8 @@ function sessionIdOf(accessToken: string): string | null {
 
 async function claimPooledUser(name: string, slug: string, options: CreateTestUserOptions): Promise<TestUser | null> {
   while (releasedPool.length) {
-    const pooled = releasedPool.shift()!;
+    // Most recently released first: its cached sign-in is the likeliest to still be alive.
+    const pooled = releasedPool.pop()!;
     const cached = sessionCache.get(pooled.email);
     const userMetadata = testUserMetadata(name, slug, options);
     const { data, error } = await profileWriter.rpc('e2e_claim_test_user', {
@@ -239,11 +240,13 @@ async function claimPooledUser(name: string, slug: string, options: CreateTestUs
       sessionCache.delete(pooled.email);
       continue;
     }
-    if (!r.session_alive) sessionCache.delete(pooled.email);
+    // The server's email is the truth: a test may have changed it within the e2e namespace.
+    const email = r.user.email ?? pooled.email;
+    if (!r.session_alive || email !== pooled.email) sessionCache.delete(pooled.email);
     else if (cached) cached.user = { ...cached.user, user_metadata: userMetadata };
-    ownUsers.set(pooled.id, pooled.email);
-    console.log(`[TEST HELPER] Claimed pooled user ${pooled.id} (${pooled.email}) as slug: ${slug}`);
-    return { user: r.user, email: pooled.email, slug, name };
+    ownUsers.set(pooled.id, email);
+    console.log(`[TEST HELPER] Claimed pooled user ${pooled.id} (${email}) as slug: ${slug}`);
+    return { user: r.user, email, slug, name };
   }
   return null;
 }
@@ -519,6 +522,8 @@ interface PurgeResult {
   refused: string[];
   missing: string[];
   failed: Array<{ id: string; sqlstate: string; message: string }>;
+  /** Not tried: the server's per-user retry stopped before its statement timeout. Send again. */
+  deferred?: string[];
   dependent_rows: number;
 }
 
@@ -563,13 +568,17 @@ function evictCachedSessions(userIds: Iterable<string>) {
  * blocker by provoking a 23503 delete, which writes a Postgres ERROR and a gateway error line. Test
  * and prod share one free-plan organisation, so those requests and logs spend production's quota.
  *
- * The server only deletes e2e-namespace emails (generateTestEmail). Users created with any other
- * email come back `refused` and go through the per-row path, as does everything when the suite runs
- * against another project (the server refuses anywhere but test).
+ * The server only deletes e2e-namespace emails (generateTestEmail). A refused user goes through the
+ * per-row path only if THIS process created it with createTestUser (a custom-email test user), never
+ * an arbitrary id. Off the test project nothing is deleted at all, except against a local Supabase
+ * (localhost), which is disposable: the per-row path is the only one there, and a remote project
+ * that is not test is treated as production.
  */
 export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: number; failed: number }> {
   const ids = [...new Set(userIds)];
   evictCachedSessions(ids);
+  // Users this process created: the only ones the per-row fallback may touch (see perRow below).
+  const created = new Set(ids.filter((id) => ownUsers.has(id)));
   for (const id of ids) ownUsers.delete(id);
   for (let i = releasedPool.length - 1; i >= 0; i--) if (ids.includes(releasedPool[i]!.id)) releasedPool.splice(i, 1);
   // One id keeps the P1345 message shape: `deleteTestUser(<id>) failed at <step>`.
@@ -581,11 +590,18 @@ export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: num
   };
 
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
-    for (const id of ids) await perRow(id);
+    if (isLocalSupabaseUrl(process.env.VITE_SUPABASE_URL)) {
+      for (const id of ids) await perRow(id);
+    } else {
+      result.failed += ids.length;
+      fail('project check', { message: 'refused: VITE_SUPABASE_URL is neither the test project nor a local Supabase' });
+    }
     return result;
   }
-  for (let i = 0; i < ids.length; i += PURGE_BATCH) {
-    const batch = ids.slice(i, i + PURGE_BATCH);
+  const queue = [...ids];
+  const deferredOnce = new Set<string>();
+  while (queue.length) {
+    const batch = queue.splice(0, PURGE_BATCH);
     const { data, error } = await profileWriter.rpc('e2e_purge_test_users', { p_user_ids: batch });
     if (error || !data) {
       result.failed += batch.length;
@@ -598,7 +614,23 @@ export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: num
       result.failed++;
       fail(`e2e_purge_test_users(${f.id})`, { message: `${f.sqlstate} ${f.message}` });
     }
-    for (const id of r.refused) await perRow(id);
+    for (const id of r.deferred ?? []) {
+      // One more try each, in a later (smaller) request; a second deferral is a failure.
+      if (deferredOnce.has(id)) {
+        result.failed++;
+        fail(`e2e_purge_test_users(${id})`, { message: 'deferred twice: the batch keeps running out of time' });
+      } else {
+        deferredOnce.add(id);
+        queue.push(id);
+      }
+    }
+    for (const id of r.refused) {
+      if (created.has(id)) await perRow(id);
+      else {
+        result.failed++;
+        fail(`e2e_purge_test_users(${id})`, { message: 'refused: not an e2e-namespace user, and not one this process created' });
+      }
+    }
   }
   return result;
 }

@@ -42,7 +42,7 @@ async function profileOf(id: string) {
 test.describe('P1532 worker user pool', () => {
   test.beforeAll(() => {
     expect(process.env.P1532_E2E_RUN_ID, 'playwright.config.ts sets the run id the pool depends on').toBeTruthy();
-    delete process.env.P1532_POOL;
+    test.skip(process.env.P1532_POOL === 'off', 'the pool is switched off for this run');
   });
 
   let first: TestUser;
