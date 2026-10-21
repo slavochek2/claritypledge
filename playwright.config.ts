@@ -3,7 +3,9 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 import { buildE2EStorageState } from './e2e/helpers/storage-state';
+import { RUN_ID_ENV } from './e2e/helpers/run-ledger';
 import { worktreePort } from './scripts/lib/worktree-port.mjs';
 import { guardTestDbRun } from './scripts/lib/e2e-test-db-lock.mjs';
 import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
@@ -12,6 +14,11 @@ import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '.env.test.local') });
+
+// P1532: one id per run. Workers load this file too but inherit the main process's environment,
+// so `??=` keeps the main process's value. The e2e helpers record every user they create under it
+// (e2e/helpers/run-ledger.ts) and global teardown deletes what is still alive.
+process.env[RUN_ID_ENV] ??= randomUUID();
 
 /**
  * Determine the port based on the worktree.

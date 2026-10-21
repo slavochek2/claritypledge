@@ -12,8 +12,9 @@
  * - supabaseAdmin: schema-level checks (bypasses RLS — proves column exists)
  * - user-scoped client: RLS assertions (proves users can actually read/write)
  *
- * Email convention: use e2e-test-{timestamp}@gmail.com prefix (see generateTestEmail)
- * NOT test-@ prefix (that prefix is used by cleanupAllTestUsers broadly)
+ * Email convention: use generateTestEmail() (e2e-test-{timestamp}-{n}@gmail.com). Only that
+ * namespace is deleted by the batch cleanup and the sweeper (P1532); any other email falls back to
+ * the slow per-row delete.
  */
 
 import { test, expect } from '@playwright/test';

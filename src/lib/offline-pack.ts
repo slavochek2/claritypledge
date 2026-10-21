@@ -18,11 +18,14 @@
  *     every deploy). A new build within the refresh window re-runs the route-chunk step only —
  *     the old build's chunks are useless to it, the data is still fresh — once per build.
  *   - Skipped on Save-Data, while offline/unreachable, and in a hidden tab.
+ *   - RESUMES, never restarts (P1532): a run cut short by hiding the tab records when its cycle
+ *     began, and the next run of that cycle takes every entry stored since then from the cache
+ *     instead of fetching it again. Before, each hide/show restarted at the first entry.
  */
 import { buildLinksMenu } from '@/app/data/event-links';
 import { feedRead, groupsRead, homeRead, stakeRead, type OfflineRead } from '@/app/data/offline-reads';
 import { letterCodeRead, publicLetterRead } from '@/app/data/offline-reads-letters';
-import { OFFLINE_PACK_STAMP_PREFIX, offlineCacheOwner, prefetchThrough } from '@/lib/offline-read-cache';
+import { OFFLINE_PACK_STAMP_PREFIX, offlineCacheOwner, peekOfflineCache, prefetchThrough } from '@/lib/offline-read-cache';
 import { isSupabaseUnreachable } from '@/lib/network-outcome';
 
 /** The last run's outcome (counts only), for diagnostics and the browser suite. */
@@ -79,6 +82,11 @@ interface PackStamp {
   at: number;
   /** The build whose route chunks were last warmed. */
   build: string;
+  /**
+   * P1532: set when a run was cut short by hiding the tab — when that cycle began. Entries stored
+   * since then are taken from the cache by the next run instead of being fetched again.
+   */
+  resumeFrom?: number;
 }
 
 function readStamp(owner: string): PackStamp {
@@ -89,7 +97,9 @@ function readStamp(owner: string): PackStamp {
     // A stamp from before builds were recorded is a bare number: its chunks count as unknown.
     if (typeof parsed === 'number') return { at: parsed, build: '' };
     const p = parsed as Partial<PackStamp>;
-    return { at: Number(p.at) || 0, build: typeof p.build === 'string' ? p.build : '' };
+    const stamp: PackStamp = { at: Number(p.at) || 0, build: typeof p.build === 'string' ? p.build : '' };
+    if (Number(p.resumeFrom) > 0) stamp.resumeFrom = Number(p.resumeFrom);
+    return stamp;
   } catch {
     return { at: 0, build: '' };
   }
@@ -154,14 +164,24 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
   const due = await offlinePackDue();
   if (!due.due || !due.owner) return { ran: false, reason: due.reason, attempted: 0, stored: 0, files: 0 };
   const owner = due.owner;
+  const now = Date.now();
+  // P1532: a cycle interrupted by hiding the tab less than a refresh period ago is continued.
+  const resumeFrom = due.stamp?.resumeFrom;
+  const resuming = !!resumeFrom && now - resumeFrom < OFFLINE_PACK_REFRESH_MS;
+  const cycleStart = resuming ? resumeFrom : now;
   try {
-    writeStamp(due.owner, { at: due.chunksOnly && due.stamp ? due.stamp.at : Date.now(), build: currentBuildId() });
+    writeStamp(due.owner, { at: due.chunksOnly && due.stamp ? due.stamp.at : now, build: currentBuildId() });
   } catch {
     return { ran: false, reason: 'no-storage', attempted: 0, stored: 0, files: 0 };
   }
 
   const result: OfflinePackResult = { ran: true, attempted: 0, stored: 0, files: 0 };
   const prefetch = async <T,>(r: OfflineRead<T>): Promise<T | null> => {
+    if (resuming) {
+      // Resuming: an entry this cycle already stored is not fetched again. A local read only.
+      const cached = await peekOfflineCache<T>(r.type, r.id);
+      if (cached && cached.storedAt >= cycleStart) return cached.data;
+    }
     result.attempted += 1;
     const out = await prefetchThrough(r.type, r.id, r.fetch, undefined, r.options);
     if (out.stored) result.stored += 1;
@@ -171,12 +191,13 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
   // or if the tab is hidden (P1522: a hidden tab issues no repeating requests).
   const stillOnline = () => navigator.onLine !== false && !isSupabaseUnreachable() && !tabHidden();
   // A run cut short by hiding the tab puts the previous stamp back, so the pack is due again the
-  // next time the tab is visible rather than six hours later with half its entries missing.
+  // next time the tab is visible rather than six hours later with half its entries missing, and
+  // records when this cycle began so that next run resumes instead of starting over (P1532).
   const stop = (): OfflinePackResult => {
     if (tabHidden()) {
       try {
-        if (due.stamp && due.stamp.at > 0) writeStamp(owner, due.stamp);
-        else localStorage.removeItem(stampKey(owner));
+        const previous = due.stamp && due.stamp.at > 0 ? due.stamp : { at: 0, build: '' };
+        writeStamp(owner, { at: previous.at, build: previous.build, resumeFrom: cycleStart });
       } catch {
         /* the stamp stays; the pack is merely late */
       }

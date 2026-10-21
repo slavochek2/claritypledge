@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [supabase, e2e, cost, egress]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1532-cleanup-request-volume.spec.ts
   test_files_extra: [src/tests/p1532-offline-pack-resume.test.ts]
@@ -173,19 +173,103 @@ carries a request-volume assertion. Closes INBOX-204's "no net new users per ful
 
 - [ ] Deleting a batch of 100 test users on the test project takes at most 5 API calls, and the
       gateway log shows no 23503 errors for it. Counts before and after recorded here.
+      *Evidence so far:* 3 users with FK blockers in 1 request, 0 error responses
+      (`e2e/integration/p1532-e2e-purge-test-users.spec.ts`); 100 users = 2 requests at 50 per
+      batch, by construction. **Open:** a 100-user run on real leftovers (`--apply --limit 100`, 3
+      requests) and the gateway-log read, which needs the founder's go (it deletes test rows).
 - [ ] One full e2e run leaves the e2e-namespace user count unchanged, within the teardown batch.
-      Users created per run recorded before and after.
-- [ ] `sweep-e2e-test-users.ts --apply` with no flags processes a bounded batch, stops within its
+      Users created per run recorded before and after. *Evidence so far:* every run this session
+      ended with the run ledger deleting all users it created (e.g. a 7-file sample: "created 35
+      users; deleted 35 still alive, 1 request"); users created per run, see Cost Budget. **Open:**
+      one full run (hours, and quota), the founder's call.
+- [x] `sweep-e2e-test-users.ts --apply` with no flags processes a bounded batch, stops within its
       time budget including listing, and exits non-zero after repeated 5xx. Each behaviour is shown
-      with a simulated failure.
-- [ ] The batch delete refuses non-e2e users, and is absent from or refuses on prod, as decided.
-      Shown by a test.
-- [ ] Hiding and showing a tab mid-pack 5 times costs no more requests than one full pack, and a
+      with a simulated failure. `src/tests/p1532-sweeper-bounds.test.ts`, 8 tests: default limit
+      500 (11 requests), budget counted from the counting request, 3 consecutive 503s or timeouts
+      give exit 1, a 403 stops at once, no-progress stops. Mutation control: with the failure stop
+      disabled, two of them go red.
+- [x] The batch delete refuses non-e2e users, and is absent from or refuses on prod, as decided.
+      Shown by a test. Decided: **refuses** (Resolution below). `p1532-e2e-purge-test-users.spec.ts`:
+      the guard answers true only for the test ref (false for the prod ref, no ref, no claims),
+      anon is refused, a non-e2e user comes back `refused` and untouched.
+- [x] Hiding and showing a tab mid-pack 5 times costs no more requests than one full pack, and a
       hidden tab still makes zero requests (`e2e/p1522-idle-request-budget.spec.ts` stays green).
-- [ ] `measure-idle-requests.mjs` reports failed requests; proven by a run against a blocked
-      endpoint.
-- [ ] Regression test with a request-volume assertion for the cleanup path
-      (`e2e/p1532-*.spec.ts` or a unit test).
+      `src/tests/p1532-offline-pack-resume.test.ts`: 40 reads before, at most 30 (one full pack)
+      after; `p1522-idle-request-budget.spec.ts` 5/5 passed on this branch.
+- [x] `measure-idle-requests.mjs` reports failed requests; proven by a run against a blocked
+      endpoint. `/feed`, 1 min, `--block /rest/v1/`: new script "17 requests, of which 14 failed";
+      the old script under the same block saw 3.
+- [x] Regression test with a request-volume assertion for the cleanup path
+      (`e2e/p1532-*.spec.ts` or a unit test). `e2e/integration/p1532-cleanup-request-volume.spec.ts`:
+      7 requests with one 409 before, 1 request and 0 errors after.
+
+## Resolution
+
+**Fixed on `feature/p1532-e2e-cleanup-amplification`; migrations applied to the test project only.**
+
+1. **Server-side batch delete** (`20261021120000_p1532_e2e_purge_test_users.sql`).
+   `e2e_purge_test_users(ids | older_than, limit)` walks `pg_constraint` from `auth.users` on every
+   call. NO ACTION/RESTRICT children are deleted first, CASCADE children are walked for their own
+   blockers, and a cycle raises. Then the auth users go, all in one transaction, at most 200 per
+   call (PostgREST's 8 s statement timeout); callers send 50. If the batch fails, each user is
+   retried alone and the failures come back with their SQLSTATE.
+   **Prod exclusion, decided: deployed everywhere, refuses off test.** It refuses unless
+   `request.jwt.claims ->> 'ref'` is the test ref, which a claims-less call also fails. EXECUTE is
+   granted to service_role only, and only e2e-namespace emails are deleted (others are returned
+   `refused`). Not deploying it to prod was rejected: there is no test-only migration lane, and
+   objects on test that no migration defines are treated as drift and dropped (P1095).
+2. **Helpers** (`e2e/helpers/test-user.ts`). `deleteTestUsers(ids)` and `deleteTestUser` make one
+   request per 50 users. The per-row path stays only for refused (non-namespace) users and other
+   projects, and a failed auth delete there now fails the test (C5). `deleteTestUserByEmail` and
+   `cleanupAllTestUsers` are removed (A3: unpaged `listUsers()`, no callers in any checkout).
+3. **Worker user pool + run ledger** (`20261021130000_p1532_e2e_user_pool.sql`, fix
+   `20261021140000`). Inside a Playwright run on test, `deleteTestUser` releases a user this worker
+   created: all its public rows go, so it is invisible while waiting. The next `createTestUser()`
+   without an email claims it in one request. A claim is refused when the auth state differs from
+   a fresh user's (namespace, password, confirmation, pending email change, phone, ban, MFA,
+   non-email identity), and the cached sign-in is kept only while its session exists. Every user a
+   run creates is recorded (`e2e/helpers/run-ledger.ts`), and global teardown deletes the
+   survivors, 50 per request, before the bounded 6 h backstop sweep. `P1532_POOL=off` opts out.
+4. **Sweeper** (`scripts/sweep-e2e-test-users.ts`). The dry run is one counting request
+   (`e2e_test_user_counts`), with no listing. `--apply` defaults to 500 users, 50 per request, and a
+   120 s budget that starts at the first request. It stops after 3 consecutive 5xx or timeouts
+   (backoff with jitter), stops at once on a 4xx, stops when a batch makes no progress, and exits
+   non-zero on any of these.
+5. **Offline pack** (`src/lib/offline-pack.ts`). A hidden-tab cut records when its cycle began
+   (`resumeFrom`). The next run of that cycle takes entries stored since then from the cache (a local
+   read) instead of fetching them again. Hidden tabs still stop the pack.
+6. **Measurement** (`scripts/measure-idle-requests.mjs`). It counts `requestfailed` and reports it
+   in a separate column, and `--block <substring>` simulates a failing endpoint.
+
+## Cost Budget
+
+Arithmetic from measured values unless marked. Request counts include auth admin calls. Each
+request writes at least one gateway log line, and GoTrue writes its own lines for create, delete
+and sign-in calls.
+
+| Measure | Before | After |
+|---|---|---|
+| Requests to delete 1 user with k FK blockers | 5 + 2k in `deleteTestUser` (measured 7 at k = 1), +1 in the sweeper | 1 (measured) |
+| Provoked error responses per deleted user | k (each a 409 plus a Postgres ERROR line) | 0 (measured) |
+| Requests per test user over its life | create 2 + delete 7 = 9 at k = 1, + up to 1 sign-in | fresh: create 2 + release 1 + 1/50 teardown ≈ 3.02; reused: claim 1 + release 1 = 2, sign-in reused while the session lives |
+| Users created per run, 7-file sample | 53 (one per `createTestUser` call) | 35 created, 18 claimed from the pool (measured, run ledger) |
+| Requests per run, 7-file sample (user lifecycle only) | 53 x 9 = 477, + 53 provoked 409s | 35 x 2 + 18 + 53 + 1 = 142, 0 provoked errors |
+| Requests per full run (~1,500 users, sample reuse rate 18/53 = 34% assumed) | 1,500 x 9 = 13,500, + ~1,500 409s | 990 x 2 + 510 + 1,500 + 30 ≈ 4,020, 0 provoked errors |
+| Teardown per run | listing until 900 candidates (≥ 1 page of 1,000 users x 663 B ≈ 663 KB uncompressed) + up to ~600 calls in 60 s | 1 ledger request per 50 survivors + 1 count + ≤ 6 purge requests; no listing |
+| CLI sweeper, dry run | 13 pages x 1,000 users x 663 B ≈ 8.4 MB uncompressed (12,721 users) | 1 request, 3 numbers |
+| CLI sweeper, `--apply`, no flags | unbounded: 17,500 users x (6 + 2k) | ≤ 1 + 10 requests for the default 500 users |
+| Offline pack, 5 hide/show cycles mid-pack | 40 reads (measured, unit test) | ≤ 30 = one full pack (measured) |
+
+1. **Fits the plan limit today?** It cannot be shown from public figures. The Supabase registry row
+   in [metered-services.md](../docs/technical/metered-services.md) has no log-ingestion number, and
+   account usage is private (`.private/docs/usage/`). What is measured is the direction and size:
+   about 70% fewer requests per full run, no provoked error lines, and no listing egress.
+2. **Fits at 10x?** Per-run cost grows linearly with tests, as before, but the per-user constant
+   drops from about 9 requests to 2-3, and deletion is O(1) per 50 users.
+3. **If not:** the Pro plan (from $25/month, registry row) remains a founder call tracked in P1530.
+
+**Not verified here:** gateway and Postgres log line counts (read from the dashboard or logs
+endpoint), and a full-run figure (the per-run row is extrapolated from a 7-file sample).
 
 ## Related
 

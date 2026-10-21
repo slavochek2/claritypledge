@@ -33,6 +33,12 @@ function recordRequests(): { calls: Call[]; restore: () => void } {
 }
 
 test.describe('P1532 cleanup request volume', () => {
+  // This pins the DELETE path. Inside a Playwright run deleteTestUser would otherwise release the
+  // user to the worker pool (one request too, but the auth user stays); e2e/integration/
+  // p1532-user-pool.spec.ts pins that path.
+  test.beforeAll(() => { process.env.P1532_POOL = 'off'; });
+  test.afterAll(() => { delete process.env.P1532_POOL; });
+
   test('deleting one user with an FK blocker costs one request and no error responses', async () => {
     const user = await createTestUser({ name: 'P1532 Volume' });
     const { error: docError } = await supabaseAdmin.from('clarity_docs').insert({ owner_id: user.user.id });

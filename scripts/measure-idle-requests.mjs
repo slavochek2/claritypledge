@@ -12,9 +12,15 @@
  * Bytes are the response body bytes Chromium reports (request.sizes()), compressed on the wire
  * where the server compressed. Realtime websocket frames are counted separately as frames.
  *
+ * P1532: requests that FAIL (network error, abort, timeout, blocked) are counted too, and reported
+ * separately. They never reach `requestfinished`, so the P1522 measurements could not see them,
+ * yet each still costs gateway log lines: a failure storm read as zero. `--block <substring>` aborts
+ * every Supabase request whose URL contains the substring, to simulate a failing endpoint and prove
+ * the count.
+ *
  * Usage: node scripts/measure-idle-requests.mjs --base http://localhost:5400 \
  *          --paths /,/feed,/events --minutes 5 [--hidden] [--settle 10] [--json out.json]
- *          [--local key=value] [--from-navigation]
+ *          [--local key=value] [--from-navigation] [--block <url-substring>]
  */
 import { chromium } from '@playwright/test';
 
@@ -33,6 +39,8 @@ const FROM_NAV = args.includes('--from-navigation');
 const JSON_OUT = opt('json', null);
 /** --local key=value seeds localStorage before the app boots (e.g. to disable a feature). */
 const LOCAL = opt('local', null);
+/** --block substring: abort matching Supabase requests (simulated outage; P1532). */
+const BLOCK = opt('block', null);
 
 /** `/rest/v1/points?select=…` → `rest:points`, `/rest/v1/rpc/foo` → `rpc:foo`. */
 function endpointOf(url) {
@@ -55,6 +63,9 @@ async function measure(browser, path) {
     Object.defineProperty(document, 'visibilityState', { get: () => (window.__p1522Hidden ? 'hidden' : 'visible'), configurable: true });
     Object.defineProperty(document, 'hidden', { get: () => window.__p1522Hidden, configurable: true });
   }, LOCAL);
+  if (BLOCK) {
+    await context.route((url) => /supabase\.co/.test(url.href) && url.href.includes(BLOCK), (route) => route.abort('failed'));
+  }
   const page = await context.newPage();
   const rows = [];
   let wsFrames = 0;
@@ -69,7 +80,11 @@ async function measure(browser, path) {
     const at = Date.now() - t0;
     let bytes = 0;
     try { bytes = (await req.sizes()).responseBodySize; } catch { /* closed */ }
-    rows.push({ at, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes });
+    rows.push({ at, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes, failed: false });
+  });
+  page.on('requestfailed', (req) => {
+    if (!t0 || !/supabase\.co/.test(req.url())) return;
+    rows.push({ at: Date.now() - t0, endpoint: `${req.method()} ${endpointOf(req.url())}`, bytes: 0, failed: true });
   });
   if (FROM_NAV) t0 = Date.now();
   await page.goto(BASE + path, { waitUntil: 'load' });
@@ -86,23 +101,25 @@ async function measure(browser, path) {
 function report({ path, rows, wsFrames }) {
   const byEp = new Map();
   for (const r of rows) {
-    const e = byEp.get(r.endpoint) ?? { count: 0, bytes: 0, perMin: Array(MINUTES).fill(0) };
+    const e = byEp.get(r.endpoint) ?? { count: 0, failed: 0, bytes: 0, perMin: Array(MINUTES).fill(0) };
     e.count++;
+    if (r.failed) e.failed++;
     e.bytes += r.bytes;
     e.perMin[Math.min(MINUTES - 1, Math.floor(r.at / 60_000))]++;
     byEp.set(r.endpoint, e);
   }
   const total = rows.length;
+  const failed = rows.filter((r) => r.failed).length;
   const bytes = rows.reduce((s, r) => s + r.bytes, 0);
   const window = FROM_NAV ? `${MINUTES} min from navigation` : `${MINUTES} min after load + ${SETTLE_S}s settle`;
   console.log(`\n## ${path} — ${HIDDEN ? 'hidden' : 'visible'}, ${window}`);
-  console.log(`total: ${total} requests (${(total / MINUTES).toFixed(1)}/min), ${(bytes / 1024).toFixed(1)} KiB, ws frames: ${wsFrames}`);
-  console.log('| endpoint | total | req/min | KiB | per minute |');
-  console.log('|---|---|---|---|---|');
+  console.log(`total: ${total} requests (${(total / MINUTES).toFixed(1)}/min), of which ${failed} failed, ${(bytes / 1024).toFixed(1)} KiB, ws frames: ${wsFrames}`);
+  console.log('| endpoint | total | failed | req/min | KiB | per minute |');
+  console.log('|---|---|---|---|---|---|');
   for (const [ep, e] of [...byEp].sort((a, b) => b[1].count - a[1].count)) {
-    console.log(`| ${ep} | ${e.count} | ${(e.count / MINUTES).toFixed(1)} | ${(e.bytes / 1024).toFixed(1)} | ${e.perMin.join(' ')} |`);
+    console.log(`| ${ep} | ${e.count} | ${e.failed} | ${(e.count / MINUTES).toFixed(1)} | ${(e.bytes / 1024).toFixed(1)} | ${e.perMin.join(' ')} |`);
   }
-  return { path, hidden: HIDDEN, minutes: MINUTES, total, bytes, wsFrames, endpoints: Object.fromEntries(byEp) };
+  return { path, hidden: HIDDEN, minutes: MINUTES, total, failed, bytes, wsFrames, endpoints: Object.fromEntries(byEp) };
 }
 
 const browser = await chromium.launch();

@@ -161,10 +161,23 @@ await setTestSession(page, testUser.email);
 import { deleteTestUser } from './helpers/test-user';
 
 await deleteTestUser(testUser.user.id);
-// Deletes auth user, profile, and related data
+// Deletes the profile and everything that references the user, in one request (P1532)
 ```
 
 **IMPORTANT:** Always delete test users in `afterEach` to avoid database pollution.
+
+**What cleanup costs, and the user pool (P1532):** on the test project, deletion is one request per
+50 users through the server-side `e2e_purge_test_users`, which reads the FK order from the catalog.
+Never delete a user row by row or learn blockers from failed deletes: test and prod share one
+free-plan organisation, and every request and error line spends production's quota
+([metered-services.md](metered-services.md)). Inside a Playwright run, `deleteTestUser` *releases* a
+user this worker created: its public data is deleted at once, and the next `createTestUser()` with
+no `email` reuses the auth user in one request. A user whose auth state changed (password, email,
+MFA, identities) is never reused. Global teardown deletes every user the run created that is still
+alive (`e2e/helpers/run-ledger.ts`). Consequences for a test: `createTestUser()` may return an
+existing user id with a fresh profile, and the auth user's `created_at` is not "now". A test that
+needs a brand-new auth user passes its own `email: generateTestEmail()`, or sets
+`P1532_POOL=off` for its file. `deleteTestUsers(ids)` always deletes.
 
 ---
 

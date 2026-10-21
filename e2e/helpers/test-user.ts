@@ -16,6 +16,8 @@ import { supabaseAdmin } from './supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 import { Page, test, expect } from '@playwright/test';
 import { User } from '@supabase/supabase-js';
+import { isTestProjectUrl } from './e2e-namespace';
+import { currentRunId, recordCreatedUser } from './run-ledger';
 
 /** Return type for createTestUser helper */
 export interface TestUser {
@@ -141,21 +143,125 @@ const sessionCache = new Map<
   }
 >();
 
-/**
- * Creates a test user with Supabase Admin API
- * This bypasses email verification so we can test immediately
- */
-export async function createTestUser(options: {
+interface CreateTestUserOptions {
   name?: string;
   email?: string;
   role?: string;
   linkedinUrl?: string;
   reason?: string;
-} = {}): Promise<TestUser> {
+}
+
+/** What createUser stores as user_metadata for a test user (a claimed pooled user gets the same). */
+function testUserMetadata(name: string, slug: string, options: CreateTestUserOptions) {
+  return {
+    name,
+    slug,
+    role: options.role || 'Test Engineer',
+    linkedin_url: options.linkedinUrl || '',
+    reason: options.reason || 'Testing the Clarity Pledge',
+    avatar_color: '#4A90E2',
+  };
+}
+
+/** The profile row every test user starts with, fresh or claimed from the pool (id and email aside). */
+function testProfileRow(name: string, slug: string, options: CreateTestUserOptions) {
+  return {
+    name,
+    slug,
+    role: options.role || 'Test Engineer',
+    linkedin_url: options.linkedinUrl || '',
+    reason: options.reason || 'Testing the Clarity Pledge',
+    avatar_color: '#4A90E2',
+    // Defaults that upsert_my_profile applied server-side; set explicitly to keep the
+    // row identical to the pre-P1043 baseline.
+    pledge_version: 2,
+    accepted_terms_version: 'v1.4', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
+    banner_generation_attempted: false,
+    // The verified + pledged baseline createTestUser has always produced. Previously
+    // reached via mark_self_verified() then set_my_pledge(); both required the user's JWT.
+    is_verified: true,
+    has_pledged: true,
+  };
+}
+
+/**
+ * P1532: a worker-scoped pool of test users.
+ *
+ * A full run used to mint ~1,500 users and delete each again: a GoTrue create, a profile insert,
+ * usually a GoTrue sign-in, and the delete, each with its own request and log lines on the free-plan
+ * quota the test project shares with production. Now deleteTestUser RELEASES a user this worker
+ * created (e2e_release_test_user deletes every public row that references it, so it is invisible
+ * while it waits), and the next createTestUser() in the same worker CLAIMS it: one request, and the
+ * cached sign-in is reused while its session exists. The claim refuses any user whose auth state no
+ * longer matches a fresh one (supabase/migrations/20261021130000_p1532_e2e_user_pool.sql lists the
+ * checks); that user is left for the teardown and a fresh one is created.
+ *
+ * Only createTestUser() WITHOUT an email claims: a caller that passes an email keeps that email.
+ * The pool is on only inside a Playwright run on the test project (the run ledger exists, so global
+ * teardown deletes every user the run created, pooled ones included). Set P1532_POOL=off to opt out.
+ */
+const releasedPool: Array<{ id: string; email: string }> = [];
+/** Users this worker created or claimed, by id: only these are released instead of deleted. */
+const ownUsers = new Map<string, string>();
+
+function poolActive(): boolean {
+  return process.env.P1532_POOL !== 'off' && !!currentRunId() && isTestProjectUrl(process.env.VITE_SUPABASE_URL);
+}
+
+/** The session id a cached access token belongs to (the JWT's `session_id` claim). */
+function sessionIdOf(accessToken: string): string | null {
+  try {
+    const payload = accessToken.split('.')[1] ?? '';
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { session_id?: string };
+    return claims.session_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function claimPooledUser(name: string, slug: string, options: CreateTestUserOptions): Promise<TestUser | null> {
+  while (releasedPool.length) {
+    const pooled = releasedPool.shift()!;
+    const cached = sessionCache.get(pooled.email);
+    const userMetadata = testUserMetadata(name, slug, options);
+    const { data, error } = await profileWriter.rpc('e2e_claim_test_user', {
+      p_user_id: pooled.id,
+      p_profile: testProfileRow(name, slug, options),
+      p_user_metadata: userMetadata,
+      p_password: TEST_PASSWORD,
+      p_session_id: cached ? sessionIdOf(cached.access_token) : null,
+    });
+    const r = data as { reusable: boolean; reason?: string; session_alive?: boolean; user?: User } | null;
+    if (error || !r?.reusable || !r.user) {
+      // Not reusable: the run's teardown deletes it with everything else this run created.
+      console.log(`[TEST HELPER] Pooled user ${pooled.id} not reusable (${error?.message ?? r?.reason}); creating a fresh one`);
+      ownUsers.delete(pooled.id);
+      sessionCache.delete(pooled.email);
+      continue;
+    }
+    if (!r.session_alive) sessionCache.delete(pooled.email);
+    else if (cached) cached.user = { ...cached.user, user_metadata: userMetadata };
+    ownUsers.set(pooled.id, pooled.email);
+    console.log(`[TEST HELPER] Claimed pooled user ${pooled.id} (${pooled.email}) as slug: ${slug}`);
+    return { user: r.user, email: pooled.email, slug, name };
+  }
+  return null;
+}
+
+/**
+ * Creates a test user with Supabase Admin API
+ * This bypasses email verification so we can test immediately
+ */
+export async function createTestUser(options: CreateTestUserOptions = {}): Promise<TestUser> {
   const name = options.name || 'Test User';
-  const email = options.email || generateTestEmail();
   const slug = generateTestSlug(name);
 
+  if (!options.email && poolActive()) {
+    const claimed = await claimPooledUser(name, slug, options);
+    if (claimed) return claimed;
+  }
+
+  const email = options.email || generateTestEmail();
   console.log(`[TEST HELPER] Creating test user: ${email}`);
 
   // P893: evict any stale cached session for this email up front — if a prior
@@ -169,14 +275,7 @@ export async function createTestUser(options: {
     email,
     password: TEST_PASSWORD, // Set password for test users
     email_confirm: true, // Skip email verification!
-    user_metadata: {
-      name,
-      slug,
-      role: options.role || 'Test Engineer',
-      linkedin_url: options.linkedinUrl || '',
-      reason: options.reason || 'Testing the Clarity Pledge',
-      avatar_color: '#4A90E2',
-    },
+    user_metadata: testUserMetadata(name, slug, options),
   });
 
   if (authError) {
@@ -189,6 +288,8 @@ export async function createTestUser(options: {
   }
 
   console.log(`[TEST HELPER] Auth user created: ${authData.user.id}`);
+  recordCreatedUser(authData.user.id);
+  ownUsers.set(authData.user.id, email);
 
   // P1043: write the profile as service_role — NO sign-in.
   //
@@ -209,21 +310,7 @@ export async function createTestUser(options: {
   const { error: profileError } = await profileWriter.from('profiles').insert({
     id: authData.user.id,
     email,
-    name,
-    slug,
-    role: options.role || 'Test Engineer',
-    linkedin_url: options.linkedinUrl || '',
-    reason: options.reason || 'Testing the Clarity Pledge',
-    avatar_color: '#4A90E2',
-    // Defaults that upsert_my_profile applied server-side; set explicitly to keep the
-    // row identical to the pre-P1043 baseline.
-    pledge_version: 2,
-    accepted_terms_version: 'v1.4', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
-    banner_generation_attempted: false,
-    // The verified + pledged baseline createTestUser has always produced. Previously
-    // reached via mark_self_verified() then set_my_pledge(); both required the user's JWT.
-    is_verified: true,
-    has_pledged: true,
+    ...testProfileRow(name, slug, options),
   });
 
   if (profileError) {
@@ -424,16 +511,135 @@ export async function setTestSession(page: Page, email: string) {
 }
 
 /**
+ * P1532: the shape `e2e_purge_test_users` returns
+ * (supabase/migrations/20261021120000_p1532_e2e_purge_test_users.sql).
+ */
+interface PurgeResult {
+  deleted: string[];
+  refused: string[];
+  missing: string[];
+  failed: Array<{ id: string; sqlstate: string; message: string }>;
+  dependent_rows: number;
+}
+
+/** Users per purge request. The server takes at most 200 and must finish inside PostgREST's 8 s. */
+export const PURGE_BATCH = 50;
+
+/**
+ * P1345: a failed cleanup step must FAIL THE TEST, not just log. A delete that matches no row is a
+ * no-op and returns no error, so an error here is real, and the user it leaves behind outlives the
+ * test: 38 users stranded by a console.warn went unseen for two days and then broke eight unrelated
+ * tests. It must NOT throw inside a Playwright test, though: callers run several deletes in a row in
+ * `finally`, and a throw on the first would skip the rest and ctx.close(), the very leak this exists
+ * to stop. So expect.soft marks the test failed and cleanup carries on. Outside a Playwright test
+ * (the Vitest integration lane, global teardown) there is no soft channel, so it throws.
+ */
+function cleanupFailure(label: string): (step: string, err: { message?: string }) => void {
+  return (step, err) => {
+    const msg = `[TEST HELPER] ${label} failed at ${step}: ${err.message ?? String(err)}`;
+    let inPlaywrightTest = false;
+    try { test.info(); inPlaywrightTest = true; } catch { /* not inside a Playwright test */ }
+    if (!inPlaywrightTest) throw new Error(msg);
+    console.error(msg);
+    expect.soft(null, msg).toBeTruthy();
+  };
+}
+
+/** P893: a recreated user with the same email must not inherit stale tokens. */
+function evictCachedSessions(userIds: Iterable<string>) {
+  const gone = new Set(userIds);
+  for (const [email, entry] of sessionCache) {
+    if (gone.has(entry.userId)) sessionCache.delete(email);
+  }
+}
+
+/**
+ * P1532: delete test users, one request per PURGE_BATCH users, with no request failing on the
+ * normal path.
+ *
+ * On the test project this calls e2e_purge_test_users, which reads the FK order from the catalog
+ * and deletes everything in one transaction, auth user included. The per-row path it replaces
+ * (deleteTestUserPerRow, below) cost 6 + 2k requests per user (k = FK blockers) and found each
+ * blocker by provoking a 23503 delete, which writes a Postgres ERROR and a gateway error line. Test
+ * and prod share one free-plan organisation, so those requests and logs spend production's quota.
+ *
+ * The server only deletes e2e-namespace emails (generateTestEmail). Users created with any other
+ * email come back `refused` and go through the per-row path, as does everything when the suite runs
+ * against another project (the server refuses anywhere but test).
+ */
+export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: number; failed: number }> {
+  const ids = [...new Set(userIds)];
+  evictCachedSessions(ids);
+  for (const id of ids) ownUsers.delete(id);
+  for (let i = releasedPool.length - 1; i >= 0; i--) if (ids.includes(releasedPool[i]!.id)) releasedPool.splice(i, 1);
+  // One id keeps the P1345 message shape: `deleteTestUser(<id>) failed at <step>`.
+  const fail = cleanupFailure(ids.length === 1 ? `deleteTestUser(${ids[0]})` : `deleteTestUsers(${ids.length} users)`);
+  const result = { deleted: 0, failed: 0 };
+  const perRow = async (id: string) => {
+    if (await deleteTestUserPerRow(id, fail)) result.deleted++;
+    else result.failed++;
+  };
+
+  if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
+    for (const id of ids) await perRow(id);
+    return result;
+  }
+  for (let i = 0; i < ids.length; i += PURGE_BATCH) {
+    const batch = ids.slice(i, i + PURGE_BATCH);
+    const { data, error } = await profileWriter.rpc('e2e_purge_test_users', { p_user_ids: batch });
+    if (error || !data) {
+      result.failed += batch.length;
+      fail('e2e_purge_test_users', error ?? { message: 'no result' });
+      continue;
+    }
+    const r = data as PurgeResult;
+    result.deleted += r.deleted.length + r.missing.length; // missing: already gone, cleanup is idempotent
+    for (const f of r.failed) {
+      result.failed++;
+      fail(`e2e_purge_test_users(${f.id})`, { message: `${f.sqlstate} ${f.message}` });
+    }
+    for (const id of r.refused) await perRow(id);
+  }
+  return result;
+}
+
+/**
+ * Deletes a test user and everything that references them. Call this in afterEach.
+ * P1532: one request on the test project. Inside a Playwright run a user this worker created is
+ * released to the worker pool instead (see releasedPool): its public data is deleted at once, and
+ * the auth user is reused by the next createTestUser() or deleted by the run's global teardown.
+ * deleteTestUsers always deletes.
+ */
+export async function deleteTestUser(userId: string) {
+  const email = ownUsers.get(userId);
+  if (email && poolActive() && !releasedPool.some((p) => p.id === userId)) {
+    const { data, error } = await profileWriter.rpc('e2e_release_test_user', { p_user_id: userId });
+    const r = data as { released: boolean; reason?: string } | null;
+    if (!error && r?.released) {
+      releasedPool.push({ id: userId, email });
+      console.log(`[TEST HELPER] Test user released to the worker pool: ${userId}`);
+      return;
+    }
+    if (error) cleanupFailure(`deleteTestUser(${userId})`)('e2e_release_test_user', error);
+    // Not releasable (missing, or its email left the e2e namespace): delete it outright.
+  }
+  console.log(`[TEST HELPER] Deleting test user: ${userId}`);
+  await deleteTestUsers([userId]);
+  console.log(`[TEST HELPER] Test user deleted: ${userId}`);
+}
+
+/**
  * P1522: delete `table` rows where `column` = `value`, first clearing any rows that block it
- * through a foreign key. The pre-cleans in deleteTestUser are a hand-kept list, and every table
- * added after it (agreements, witnesses, ...) made cleanup fail and strand the user: 9 of a 20-user
- * sample on the test project, ~19k stranded in all. Postgres names the blocking table and
- * constraint in the error, so the blockers are derived from the database instead of a list.
- * Only default-named constraints (`<table>_<column>_fkey[N]`) are resolved; anything else is
- * returned as the original error, never guessed at. Bounded: each step removes one blocker.
- * Rows selected by a non-key column (a user's stories by author_id) are resolved through their
- * ids (P1523: stories in a sealed letter). Limits (each fails closed): blockers that reference a
- * non-`id` key, and names Postgres truncated at 63 bytes, are not resolved.
+ * through a foreign key. Postgres names the blocking table and constraint in the error, so the
+ * blockers are derived from the database instead of a list. Only default-named constraints
+ * (`<table>_<column>_fkey[N]`) are resolved; anything else is returned as the original error, never
+ * guessed at. Bounded: each step removes one blocker. Rows selected by a non-key column (a user's
+ * stories by author_id) are resolved through their ids (P1523: stories in a sealed letter). Limits
+ * (each fails closed): blockers that reference a non-`id` key, and names Postgres truncated at 63
+ * bytes, are not resolved.
+ *
+ * P1532: every blocker costs a request that fails on purpose and writes error log lines. This now
+ * serves only the per-row fallback (users outside the e2e namespace, or a project other than test).
  */
 async function deleteClearingReferences(
   table: string,
@@ -471,44 +677,27 @@ async function deleteClearingReferences(
 }
 
 /**
- * Deletes a test user and their profile
- * Call this in afterEach to clean up test data
+ * The per-row delete for users the server-side purge will not take (see deleteTestUsers).
+ * Returns false when any step failed (each failure is also reported through `fail`).
  */
-export async function deleteTestUser(userId: string) {
-  console.log(`[TEST HELPER] Deleting test user: ${userId}`);
-
-  // P893: evict any cached session for this user — a recreated user with the
-  // same email must not inherit stale tokens.
-  for (const [email, entry] of sessionCache) {
-    if (entry.userId === userId) sessionCache.delete(email);
-  }
-
-  // P1345: a failed step must FAIL THE TEST, not just log. A delete that matches no row is
-  // a no-op and returns no error, so an error here is real (FK violation, RLS, trigger) and
-  // the user it leaves behind outlives the test: 38 users stranded by a console.warn went
-  // unseen for two days and then broke eight unrelated tests.
-  // It must NOT throw inside a Playwright test, though: callers run several deletes in a row
-  // in `finally`, and a throw on the first would skip the rest and ctx.close() -- the very
-  // leak this exists to stop (review finding). So: expect.soft marks the test failed and
-  // cleanup carries on. Outside a Playwright test (the Vitest integration lane) there is no
-  // soft channel, so it throws.
-  const fail = (step: string, err: { message?: string }) => {
-    const msg = `[TEST HELPER] deleteTestUser(${userId}) failed at ${step}: ${err.message ?? String(err)}`;
-    let inPlaywrightTest = false;
-    try { test.info(); inPlaywrightTest = true; } catch { /* not inside a Playwright test */ }
-    if (!inPlaywrightTest) throw new Error(msg);
-    console.error(msg);
-    expect.soft(null, msg).toBeTruthy();
+async function deleteTestUserPerRow(
+  userId: string,
+  fail: (step: string, err: { message?: string }) => void,
+): Promise<boolean> {
+  let ok = true;
+  const report = (step: string, err: { message?: string }) => {
+    ok = false;
+    fail(step, err);
   };
 
   // Pre-clean dependent records that might block cascade deletes or user deletion.
   const { error: verificationsError } = await supabaseAdmin.from('story_verifications').delete()
     .or(`listener_id.eq.${userId},speaker_id.eq.${userId}`);
-  if (verificationsError) fail('story_verifications pre-clean', verificationsError);
+  if (verificationsError) report('story_verifications pre-clean', verificationsError);
   // P1523: through deleteClearingReferences, so a story held by a sealed letter's snapshot does
   // not strand the user.
   const storiesError = await deleteClearingReferences('stories', 'author_id', userId);
-  if (storiesError) fail('stories pre-clean', storiesError);
+  if (storiesError) report('stories pre-clean', storiesError);
   // Sessions this user created (a room capture opens one: P1307/P1388) block the profile delete
   // (clarity_sessions_creator_profile_id_fkey has no cascade). Their story_verifications go first,
   // as deleteClaritySession does; everything else on a session cascades or is set null.
@@ -517,55 +706,20 @@ export async function deleteTestUser(userId: string) {
   if (ownSessionIds.length) {
     await supabaseAdmin.from('story_verifications').delete().in('session_id', ownSessionIds);
     const { error: sessionsError } = await supabaseAdmin.from('clarity_sessions').delete().in('id', ownSessionIds);
-    if (sessionsError) fail('clarity_sessions pre-clean', sessionsError);
+    if (sessionsError) report('clarity_sessions pre-clean', sessionsError);
   }
 
   // Delete profile (cascades remaining FK-linked records).
   // P1137: via profileWriter, not supabaseAdmin. Clients have no DELETE on profiles, and many specs
   // sign in ON supabaseAdmin (see profileWriter above), after which its requests carry a user JWT.
   const profileError = await deleteClearingReferences('profiles', 'id', userId);
+  if (profileError) report('profile delete', profileError);
 
-  if (profileError) fail('profile delete', profileError);
-
-  // Delete auth user
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-  if (authError) {
-    // 404 = already deleted (idempotent cleanup — not an error)
-    if (authError.status === 404) {
-      console.warn(`[TEST HELPER] Auth user already deleted: ${userId}`);
-    } else {
-      // Log but don't throw: auth deletion failures leave orphaned auth rows but
-      // don't affect test correctness. The profile and data are already cleaned up.
-      console.warn('[TEST HELPER] Auth user deletion failed (non-blocking):', authError.message);
-    }
-  }
-
-  console.log(`[TEST HELPER] Test user deleted: ${userId}`);
-}
-
-/**
- * Deletes a test user by email
- */
-export async function deleteTestUserByEmail(email: string) {
-  console.log(`[TEST HELPER] Finding user by email: ${email}`);
-
-  // Get user by email
-  const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
-
-  if (error) {
-    console.error('[TEST HELPER] Failed to list users:', error);
-    throw error;
-  }
-
-  const user = users.find(u => u.email === email);
-
-  if (!user) {
-    console.warn(`[TEST HELPER] No user found with email: ${email}`);
-    return;
-  }
-
-  await deleteTestUser(user.id);
+  // 404 = already deleted (idempotent cleanup). Anything else strands an auth user that a later
+  // sweep pays for again, so it fails the test like every other step (P1532, finding C5).
+  if (authError && authError.status !== 404) report('auth user delete', authError);
+  return ok;
 }
 
 /**
@@ -597,34 +751,4 @@ export async function deleteClaritySession(code: string) {
   } else {
     console.log(`[TEST HELPER] Session deleted: ${code}`);
   }
-}
-
-/**
- * Cleans up all test users (emails starting with "test-")
- * Use with caution!
- */
-export async function cleanupAllTestUsers() {
-  console.log('[TEST HELPER] Cleaning up ALL test users...');
-
-  const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
-
-  if (error) {
-    console.error('[TEST HELPER] Failed to list users:', error);
-    throw error;
-  }
-
-  const testUsers = users.filter(u => u.email?.startsWith('test-'));
-
-  console.log(`[TEST HELPER] Found ${testUsers.length} test users to delete`);
-
-  for (const user of testUsers) {
-    try {
-      await deleteTestUser(user.id);
-    } catch (err) {
-      console.error(`[TEST HELPER] Failed to delete user ${user.id}:`, err);
-      // Continue with next user
-    }
-  }
-
-  console.log('[TEST HELPER] Cleanup complete');
 }

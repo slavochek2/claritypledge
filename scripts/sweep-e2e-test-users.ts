@@ -2,109 +2,237 @@
  * @file sweep-e2e-test-users.ts
  * @description P1522: delete e2e-namespace users that outlived their test on the TEST project.
  *
- * 473 e2e specs create users and nearly all of them delete in afterEach/afterAll, yet 19,477
- * e2e users had piled up on the test project: cleanup does not run when a test times out or a
- * worker dies, and deleteTestUser fails soft. Fixing that per spec is 473 edits; this sweeps the
- * residue instead. It reuses deleteTestUser so the FK order lives in one place.
+ * Cleanup does not run when a test times out or a worker dies, so leftovers pile up (19,477 by
+ * P1522). This sweeps the residue.
  *
- * Safety: refuses to run unless VITE_SUPABASE_URL is the test project; only touches emails that
- * match generateTestEmail() exactly; only users older than --older-than-hours, so a running suite
- * never loses a live user. Dry run unless --apply.
+ * P1532: every batch is ONE request to e2e_purge_test_users
+ * (supabase/migrations/20261021120000_p1532_e2e_purge_test_users.sql), which picks the candidates
+ * and deletes them with their dependent rows on the server. The version it replaces listed every
+ * auth user page by page (13 pages of full user objects at 12,700 users), then spent 6 + 2k
+ * requests per user, many of them deliberately failing deletes that each wrote error log lines, and
+ * had no default limit, no time budget for the listing and no stop on repeated failure. It ran
+ * against 17,500 leftovers and the test project went down.
  *
- *   npx tsx scripts/sweep-e2e-test-users.ts                       # dry run, 24h
+ * Bounds, each with a default so a bare `--apply` is safe:
+ *   --limit N          users per run (default 500)
+ *   --batch N          users per request (default 50; the server allows 200 and has 8 s)
+ *   --time-budget-s N  stop starting requests after N s, counted from the first request (default 120)
+ *   --max-failures N   stop after N consecutive failed requests (default 3), exit 1
+ *
+ * Safety: refuses unless VITE_SUPABASE_URL is the test project, and the server refuses too; only
+ * emails that match generateTestEmail() exactly; only users older than --older-than-hours, so a
+ * running suite never loses a live user. Dry run (one counting request) unless --apply.
+ *
+ *   npx tsx scripts/sweep-e2e-test-users.ts                       # dry run: counts only, 24h
  *   npx tsx scripts/sweep-e2e-test-users.ts --apply --limit 500   # delete up to 500
  */
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { E2E_EMAIL, TEST_PROJECT_REF, isTestProjectUrl } from '../e2e/helpers/e2e-namespace';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.test.local') });
 
-export const TEST_PROJECT_REF = 'ayibkeoyukulbsjpxgaw';
-/** Mirrors generateTestEmail() in e2e/helpers/test-user.ts. */
-export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;
+export { E2E_EMAIL, TEST_PROJECT_REF, isTestProjectUrl };
 
-/** Exact host match, not a substring: a URL that merely contains the ref must not pass. */
-export function isTestProjectUrl(url: string | undefined): boolean {
-  try {
-    return new URL(url ?? '').hostname === `${TEST_PROJECT_REF}.supabase.co`;
-  } catch {
-    return false;
-  }
+export const SWEEP_DEFAULTS = {
+  limit: 500,
+  batchSize: 50,
+  timeBudgetMs: 120_000,
+  maxConsecutiveFailures: 3,
+  pauseMs: 250,
+  /** Per request; the server's own statement timeout is 8 s. */
+  requestTimeoutMs: 20_000,
+};
+
+/** The slice of a Supabase client the sweep uses, so a test can hand it a fake. */
+export interface SweepClient {
+  rpc(
+    fn: string,
+    args: Record<string, unknown>,
+  ): { abortSignal(signal: AbortSignal): PromiseLike<{ data: unknown; error: { message: string } | null; status: number }> };
 }
 
 export interface SweepOptions {
   apply: boolean;
   olderThanHours: number;
-  limit: number;
-  /** Stop starting new deletes after this long (the e2e teardown must not stall a run). */
+  limit?: number;
+  batchSize?: number;
+  /** Stop starting new requests after this long, counted from the first request (counting included). */
   timeBudgetMs?: number;
+  maxConsecutiveFailures?: number;
+  pauseMs?: number;
+  requestTimeoutMs?: number;
+  client?: SweepClient;
   log?: (line: string) => void;
+  /** Injected by tests; defaults to the real clock. */
+  now?: () => number;
 }
 
+export type SweepStop = 'dry-run' | 'done' | 'limit' | 'time-budget' | 'request-failures' | 'refused' | 'no-progress';
+
 export interface SweepResult {
-  scanned: number;
-  candidates: number;
+  /** e2e users older than the cutoff before the sweep (null if the count request failed). */
+  candidates: number | null;
+  requests: number;
   deleted: number;
   failed: number;
+  requestFailures: number;
+  stopped: SweepStop;
+}
+
+interface PurgeResult {
+  deleted: string[];
+  failed: Array<{ id: string; sqlstate: string; message: string }>;
+}
+
+async function serviceClient(): Promise<SweepClient> {
+  const { createClient } = await import('@supabase/supabase-js');
+  // Its own client: the shared e2e supabaseAdmin can carry a signed-in user's JWT.
+  // Both are present: the caller checked VITE_SUPABASE_URL, and the key is in .env.test.local.
+  return createClient(process.env.VITE_SUPABASE_URL ?? '', process.env.SUPABASE_SERVICE_ROLE_KEY ?? '', {
+    auth: { autoRefreshToken: false, persistSession: false },
+  }) as unknown as SweepClient;
+}
+
+/** Exponential backoff with jitter (metered-services.md rule 4). */
+function backoffMs(pauseMs: number, attempt: number): number {
+  return Math.round(pauseMs * 2 ** attempt * (0.75 + Math.random() * 0.5));
+}
+
+/** A 5xx, a timeout or a network failure is worth another try; anything else will fail again. */
+function transient(status: number): boolean {
+  return status === 0 || status >= 500;
 }
 
 export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult> {
   const log = opts.log ?? console.log;
+  const now = opts.now ?? Date.now;
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
     throw new Error(`sweep refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
   }
-  // Imported after the guard: the helper builds an admin client on import.
-  const { supabaseAdmin } = await import('../e2e/helpers/supabase-admin');
-  const { deleteTestUser } = await import('../e2e/helpers/test-user');
+  const limit = opts.limit ?? SWEEP_DEFAULTS.limit;
+  const batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
+  const maxFailures = opts.maxConsecutiveFailures ?? SWEEP_DEFAULTS.maxConsecutiveFailures;
+  const pauseMs = opts.pauseMs ?? SWEEP_DEFAULTS.pauseMs;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? SWEEP_DEFAULTS.requestTimeoutMs;
+  const client = opts.client ?? (await serviceClient());
+  const deadline = now() + (opts.timeBudgetMs ?? SWEEP_DEFAULTS.timeBudgetMs);
+  const olderThan = `${opts.olderThanHours} hours`;
+  const result: SweepResult = { candidates: null, requests: 0, deleted: 0, failed: 0, requestFailures: 0, stopped: 'done' };
 
-  const cutoff = Date.now() - opts.olderThanHours * 3600_000;
-  const ids: string[] = [];
-  let scanned = 0;
-  for (let page = 1; ; page++) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) throw error;
-    for (const u of data.users) {
-      scanned++;
-      if (E2E_EMAIL.test(u.email ?? '') && Date.parse(u.created_at) < cutoff) ids.push(u.id);
+  const call = async (fn: string, args: Record<string, unknown>) => {
+    result.requests++;
+    try {
+      const timeout = Math.max(1, Math.min(requestTimeoutMs, deadline - now()));
+      return await client.rpc(fn, args).abortSignal(AbortSignal.timeout(timeout));
+    } catch (err) {
+      return { data: null, error: { message: (err as Error).message }, status: 0 };
     }
-    // Applying a bounded batch needs no full census: listing every page is itself egress. Gather
-    // three batches' worth so the shuffle below can step past users that always fail (P1523).
-    if (opts.apply && ids.length >= opts.limit * 3) break;
-    if (data.users.length < 1000) break;
-  }
-  // P1523: shuffled, so users whose delete always fails cannot occupy every batch.
-  for (let i = ids.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const swap = ids[i] as string;
-    ids[i] = ids[j] as string;
-    ids[j] = swap;
-  }
-  const batch = ids.slice(0, opts.limit);
-  const counted = opts.apply && ids.length >= opts.limit ? 'at least ' : '';
-  log(`sweep: scanned ${scanned} users, ${counted}${ids.length} e2e users older than ${opts.olderThanHours}h, ${opts.apply ? 'deleting' : 'would delete'} ${batch.length}`);
-  const result: SweepResult = { scanned, candidates: ids.length, deleted: 0, failed: 0 };
-  if (!opts.apply) return result;
+  };
 
-  const deadline = Date.now() + (opts.timeBudgetMs ?? Number.POSITIVE_INFINITY);
-  for (const id of batch) {
-    if (Date.now() > deadline) {
-      log(`sweep: time budget reached, ${batch.length - result.deleted - result.failed} left for the next run`);
+  const counted = await call('e2e_test_user_counts', { p_older_than: olderThan });
+  if (counted.error) {
+    log(`sweep: count failed (${counted.status}): ${counted.error.message}`);
+    if (!transient(counted.status)) return { ...result, requestFailures: 1, stopped: 'refused' };
+    result.requestFailures++;
+  } else {
+    const c = counted.data as { auth_users: number; e2e: number; e2e_older: number };
+    result.candidates = c.e2e_older;
+    log(`sweep: ${c.auth_users} auth users, ${c.e2e} e2e users, ${c.e2e_older} older than ${opts.olderThanHours}h; ${opts.apply ? `deleting up to ${Math.min(limit, c.e2e_older)}` : 'dry run'}`);
+  }
+  if (!opts.apply) return { ...result, stopped: 'dry-run' };
+
+  let consecutive = result.requestFailures;
+  for (;;) {
+    const remaining = limit - result.deleted - result.failed;
+    if (remaining <= 0) { result.stopped = 'limit'; break; }
+    if (now() >= deadline) { result.stopped = 'time-budget'; break; }
+    if (consecutive >= maxFailures) { result.stopped = 'request-failures'; break; }
+
+    const { data, error, status } = await call('e2e_purge_test_users', {
+      p_older_than: olderThan,
+      p_limit: Math.min(batchSize, remaining),
+    });
+    if (error) {
+      result.requestFailures++;
+      log(`sweep: request failed (${status}): ${error.message}`);
+      if (!transient(status)) { result.stopped = 'refused'; break; }
+      consecutive++;
+      await new Promise((r) => setTimeout(r, backoffMs(pauseMs, consecutive)));
+      continue;
+    }
+    consecutive = 0;
+    const r = data as PurgeResult;
+    result.deleted += r.deleted.length;
+    result.failed += r.failed.length;
+    for (const f of r.failed) log(`sweep: FAILED ${f.id}: ${f.sqlstate} ${f.message}`);
+    if (r.deleted.length === 0) {
+      result.stopped = r.failed.length ? 'no-progress' : 'done';
       break;
     }
-    try {
-      await deleteTestUser(id);
-      // deleteTestUser only warns when the auth delete fails; confirm the user is really gone.
-      const { data } = await supabaseAdmin.auth.admin.getUserById(id);
-      if (data?.user) throw new Error('auth user still present after delete');
-      result.deleted++;
-    } catch (err) {
-      result.failed++;
-      log(`sweep: FAILED ${id}: ${(err as Error).message}`);
-    }
+    await new Promise((res) => setTimeout(res, pauseMs));
   }
-  log(`sweep: deleted ${result.deleted}, failed ${result.failed}`);
+  log(`sweep: deleted ${result.deleted}, failed ${result.failed}, ${result.requests} requests (${result.requestFailures} failed), stopped: ${result.stopped}`);
   return result;
+}
+
+/**
+ * P1532: delete these users (the run ledger's ids), PURGE_BATCH per request, same bounds as the
+ * sweep. Ids already gone come back `missing` and cost nothing more.
+ */
+export async function purgeUserIds(
+  ids: string[],
+  opts: Omit<SweepOptions, 'apply' | 'olderThanHours' | 'limit'>,
+): Promise<SweepResult> {
+  const log = opts.log ?? console.log;
+  const now = opts.now ?? Date.now;
+  if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
+    throw new Error(`purge refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
+  }
+  const batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
+  const maxFailures = opts.maxConsecutiveFailures ?? SWEEP_DEFAULTS.maxConsecutiveFailures;
+  const pauseMs = opts.pauseMs ?? SWEEP_DEFAULTS.pauseMs;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? SWEEP_DEFAULTS.requestTimeoutMs;
+  const client = opts.client ?? (await serviceClient());
+  const deadline = now() + (opts.timeBudgetMs ?? SWEEP_DEFAULTS.timeBudgetMs);
+  const result: SweepResult = { candidates: ids.length, requests: 0, deleted: 0, failed: 0, requestFailures: 0, stopped: 'done' };
+  let consecutive = 0;
+  for (let i = 0; i < ids.length; ) {
+    if (now() >= deadline) { result.stopped = 'time-budget'; break; }
+    if (consecutive >= maxFailures) { result.stopped = 'request-failures'; break; }
+    const batch = ids.slice(i, i + batchSize);
+    result.requests++;
+    let res: { data: unknown; error: { message: string } | null; status: number };
+    try {
+      const timeout = Math.max(1, Math.min(requestTimeoutMs, deadline - now()));
+      res = await client.rpc('e2e_purge_test_users', { p_user_ids: batch }).abortSignal(AbortSignal.timeout(timeout));
+    } catch (err) {
+      res = { data: null, error: { message: (err as Error).message }, status: 0 };
+    }
+    if (res.error) {
+      result.requestFailures++;
+      log(`purge: request failed (${res.status}): ${res.error.message}`);
+      if (!transient(res.status)) { result.stopped = 'refused'; break; }
+      consecutive++;
+      await new Promise((r) => setTimeout(r, backoffMs(pauseMs, consecutive)));
+      continue;
+    }
+    consecutive = 0;
+    const r = res.data as PurgeResult;
+    result.deleted += r.deleted.length;
+    result.failed += r.failed.length;
+    for (const f of r.failed) log(`purge: FAILED ${f.id}: ${f.sqlstate} ${f.message}`);
+    i += batchSize;
+  }
+  return result;
+}
+
+/** Exit status for the CLI: 0 only when nothing failed and nothing was cut short by failures. */
+export function exitCodeFor(r: SweepResult): number {
+  if (r.failed > 0 || r.requestFailures > 0) return 1;
+  if (r.stopped === 'request-failures' || r.stopped === 'refused' || r.stopped === 'no-progress') return 1;
+  return 0;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -123,9 +251,12 @@ if (isMain) {
   sweepE2eTestUsers({
     apply: args.includes('--apply'),
     olderThanHours: num('older-than-hours', 24),
-    limit: num('limit', Number.POSITIVE_INFINITY),
+    limit: num('limit', SWEEP_DEFAULTS.limit),
+    batchSize: num('batch', SWEEP_DEFAULTS.batchSize),
+    timeBudgetMs: num('time-budget-s', SWEEP_DEFAULTS.timeBudgetMs / 1000) * 1000,
+    maxConsecutiveFailures: num('max-failures', SWEEP_DEFAULTS.maxConsecutiveFailures),
   })
-    .then((r) => process.exit(r.failed ? 1 : 0))
+    .then((r) => process.exit(exitCodeFor(r)))
     .catch((err) => {
       console.error(err.message ?? err);
       process.exit(2);
