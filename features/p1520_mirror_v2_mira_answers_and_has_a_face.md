@@ -235,6 +235,7 @@ global per day $5 replies, $6 portraits, $10 total (`_mirror_limits()` in the mi
 - [x] `MIRROR_GEMINI_API_KEY` set on the test project (piped from the key tool; value never in files or commands).
 - [x] `MIRROR_AI_ENABLED=true` on the test project.
 - [ ] Prod: neither is set until the privacy policy covers sending other people's messages to the model.
+  P1512's policy (commit 511a1332a, in this branch) now says the mirror is read by no AI and that no chat content goes to an AI provider. Both lines must change before the mirror is switched on in prod: say what goes to Google Gemini (the owner's mirror messages; for a private ask, that channel's recent messages and member names; portraits), and add mirror replies to the Gemini row of the recipients table. [FOUNDER DECISION: wording]
 
 ### Deploy commands
 - [ ] Migration `20261020213000_p1520_mirror_v2.sql` to prod, after P1512's.
