@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: Cut duplicate reads by changing query shape, not by a client request dedupe; count requests with StrictMode off (P1527)
+
+**Context:** One fresh `/feed` load measured 27 Supabase requests (stories 6, events 8). Most of that was React StrictMode, which runs every mount effect twice in dev only. With StrictMode removed (what production does) the same load was 17 (stories 3, events 5). An in-flight request dedupe was built first and cut the dev count, but saved nothing in production. Codex and Gemini review then kept finding write paths that had to invalidate it or it served pre-write data: every story, event and RSVP write, a background banner update, account erasure, and a read that starts between the database commit and the write's response.
+**Decision:** Remove the dedupe. Keep the two query-shape changes that cut production requests. The pinned story loads by slug in one request (was slug lookup, then fetch by id). The side rail reads all its groups' upcoming events in one `.in('org_id')` query plus one RSVP batch (was one pair per group). Production-equivalent `/feed`: 17 → 15 requests, stories 3 → 2, events 5 → 4. The founder accepted 4 events: they are four different queries totalling about 4 KiB, and reaching 2 would need a cross-query cache with the same invalidation problem.
+**Alternatives rejected:** The in-flight dedupe, with invalidation on every write. It made no production saving and every write path had to remember to clear it. A short-lived shared cache across the four events queries: saves about 2 KiB per load, at the same stale-data risk.
+**Consequences:** Request-count measurements must report a StrictMode-off (production-equivalent) number next to the dev number. A dev count overstates real traffic about 1.6× here and points the fix at duplicates that never ship. Rank egress work by KiB per table, not request count. On `/feed`, `stories` and `points` outweigh `events`. Known limit: the combined rail query shares PostgREST's 1000-row response cap across groups.
+**References:** [p1527](../features/p1527_feed_duplicate_table_fetches.md) · `scripts/measure-idle-requests.mjs` · `src/app/data/events-service-real.ts` (`getUpcomingEventsByOrg`) · `src/app/data/stories-service-real.ts` (`getStoryBySlug`) · decisions.md 2026-10-21 (P1522, measurement method)
+
 ## 2026-10-21 [process]: A branch stacked on another feature is rebased onto main after that feature ships, before its own /ship (P1520)
 
 **Context:** P1520 was built on top of P1512's branch. P1512 then got a last fix round and shipped; its commits landed on main with new patch-ids. `git-ops.sh ship p1520` compared by patch-id, saw 60 commits as new, and tried to replay P1512's old history, including a prototype main had since deleted. It stopped on the first pick, so nothing landed.
