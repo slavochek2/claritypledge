@@ -118,8 +118,9 @@ assumptions", so every row reads as unproven ("assuptions for me clearr"). Repla
 rejected as unclear. The metrics title "How I'll know it's working" stays.
 
 Compact layout: tighter spacing between layers, cards clamped to fewer lines, smaller box padding,
-so nine boxes with one card each fit 1440x900 without page scroll. Two cards per box and "See all N"
-stay (more than fits is still reachable).
+so nine boxes with one card each fit 1440x900 without page scroll. Each box shows ONE card, and
+"See all N" opens the rest (founder, 2026-10-21: "strive for only one card per section"; a layout
+nudge, not a hard limit: a second point is still allowed and reachable).
 
 ## Predecessor Sections Superseded
 

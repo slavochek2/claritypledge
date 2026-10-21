@@ -199,15 +199,15 @@ test.describe('P1508: Clarity Canvas', () => {
     // P1535: three layers, named, in order, the core bet first; no other frames.
     await expect(page.getByTestId('canvas-layer-name')).toHaveText(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
-    // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
+    // R2, P1535: one card, then "See all N", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
-    await expect(problem.locator(CARD)).toHaveCount(2);
+    await expect(problem.locator(CARD)).toHaveCount(1);
     await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 7');
     await problem.getByTestId('canvas-box-more').click();
     const list = page.getByTestId('canvas-panel-box-list');
     await expect(list.locator(CARD)).toHaveCount(7);
     await expect(list.getByText(PRIVATE_TEXT)).toBeVisible();
-    await expect(problem.locator(CARD)).toHaveCount(2);
+    await expect(problem.locator(CARD)).toHaveCount(1);
     expect(errors.filter(e => !/favicon|ResizeObserver/i.test(e))).toEqual([]);
   });
 
@@ -231,7 +231,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
     const problem = page.getByTestId('canvas-box-canvas:problem');
-    await expect(problem.locator(CARD)).toHaveCount(2);
+    await expect(problem.locator(CARD)).toHaveCount(1);
     await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 7');
     await problem.getByTestId('canvas-box-more').click();
     await expect(page.getByTestId('canvas-panel-box-list').locator(CARD)).toHaveCount(7);
@@ -540,7 +540,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-panel-box')).toHaveText('Problem');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('canvas-point-panel')).toHaveCount(0);
-    await expect(page.getByTestId('canvas-box-canvas:problem').locator(CARD)).toHaveCount(2);
+    await expect(page.getByTestId('canvas-box-canvas:problem').locator(CARD)).toHaveCount(1);
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.solutionPointId}`);
   });
 
@@ -562,7 +562,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(panel.getByTestId('canvas-panel-next')).toHaveCount(0);
     // The canvas behind did not move or grow.
     expect(await page.getByTestId('canvas-grid').boundingBox()).toEqual(gridBefore);
-    await expect(problem.locator(CARD)).toHaveCount(2);
+    await expect(problem.locator(CARD)).toHaveCount(1);
     // A card in the list opens that point; Back returns to the list.
     await panel.getByTestId(`canvas-point-card-${fx.privatePointId}`).click();
     await expect(panel.getByTestId(`feed-point-card-${fx.privatePointId}`)).toBeVisible();

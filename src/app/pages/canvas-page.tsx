@@ -99,8 +99,9 @@ const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
   'canvas:good-at': Contrast,
   'canvas:world-needs': Handshake,
 };
-/** The canvas stays small: a box shows this many cards, and says how many more it holds (R2). */
-const BOX_LIMIT = 2;
+/** The canvas stays small: a box shows this many cards, and says how many more it holds (R2).
+ * P1535 (founder): one card per box, so the whole canvas fits one screen at the event. */
+const BOX_LIMIT = 1;
 
 type CanvasData =
   | {
@@ -841,7 +842,7 @@ function sortBoxesByContest(
 }
 
 /**
- * D3, R2: a sentence-case title with its outline icon, no count; at most two cards and "N more",
+ * D3, R2: a sentence-case title with its outline icon, no count; one card (P1535) and "See all N",
  * which opens the whole box in the panel. An empty box reads "Empty" to everyone: owners change the
  * canvas through their agent, so there is nothing to offer here.
  */
