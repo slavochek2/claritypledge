@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 54
 workstream: clarity-chat
 created_date: '2026-10-21'
 tags: [mirror, chat, portrait, copy]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-21
 ---
 
 # P1537: Mirror panel without the gender picker or privacy line; portraits are adults aged 25–40
