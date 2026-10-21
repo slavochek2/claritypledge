@@ -38,8 +38,8 @@ describe('P1534 portrait cost', () => {
     expect(portraitSettleUsd(reservePortraitUsd(), false, [], 0)).toBeNull();
   });
 
-  it('settles: a started run whose calls were all refused settles at 0, not released (it still counts as a run)', () => {
-    expect(portraitSettleUsd(reservePortraitUsd(), true, [], 0)).toBe(0);
+  it('settles: a started run whose calls were all refused keeps its whole reservation (bounded by the global cap)', () => {
+    expect(portraitSettleUsd(reservePortraitUsd(), true, [], 0)).toBe(reservePortraitUsd());
   });
 
   it('settles: never above the reservation', () => {

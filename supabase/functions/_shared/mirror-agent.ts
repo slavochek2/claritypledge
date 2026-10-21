@@ -298,11 +298,13 @@ export function portraitRunUsd(billedModels: string[], visionChecks: number): nu
 }
 /**
  * What a portrait run is charged: its calls at list price, never above the reservation. Null (the reservation
- * is released) only when no generation was started; a run whose calls were all refused settles at 0, so it
- * still counts against the daily run limit.
+ * is released) only when no generation was started. A started run in which Google took no call (all refused:
+ * the key is capped or blocked) keeps its whole reservation, as before P1534, so refusals stay bounded by the
+ * global dollar cap and cannot be retried for free.
  */
 export function portraitSettleUsd(reservedUsd: number, started: boolean, billedModels: string[], visionCalls: number): number | null {
   if (!started) return null;
+  if (billedModels.length === 0 && visionCalls === 0) return reservedUsd;
   return Math.min(reservedUsd, portraitRunUsd(billedModels, visionCalls));
 }
 export function reservePortraitUsd(): number {

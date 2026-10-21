@@ -87,3 +87,24 @@ Deno.test('vision calls: a check skipped for time is not counted, a sent one is'
     assertEquals(sent, 1);
   } finally { f.restore(); }
 });
+
+Deno.test('billable calls: a request that throws (timeout) is counted, on the safe side', async () => {
+  const billed: string[] = [];
+  const real = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (() => (calls++ === 0 ? Promise.reject(new DOMException('t', 'TimeoutError')) : Promise.resolve(IMAGE_OK()))) as typeof fetch;
+  try {
+    await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000, onBillableCall: (m) => billed.push(m) });
+    assertEquals(billed, ['gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview']);
+  } finally { globalThis.fetch = real; }
+});
+
+Deno.test('billable calls: an answered call with an unreadable body is counted', async () => {
+  const billed: string[] = [];
+  const broken = () => new Response(new ReadableStream({ start(c) { c.error(new DOMException('aborted', 'TimeoutError')); } }));
+  const f = stubFetch([broken, STATUS(500)]);
+  try {
+    await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000, onBillableCall: (m) => billed.push(m) });
+    assertEquals(billed, ['gemini-3.1-flash-image-preview']);
+  } finally { f.restore(); }
+});
