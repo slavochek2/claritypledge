@@ -24,7 +24,7 @@ A design touches a metered service when it does any of these:
 - calls any other paid or quota-limited API or vendor. The registry gets a row for it in the same
   change (see below).
 
-A copy change, a CSS change or a pure-local refactor does not. When none of the four applies the
+A copy change, a CSS change or a pure-local refactor does not. When none of the bullets above applies the
 Cost Budget section is absent, and its absence is not a finding.
 
 ## Registry
@@ -66,9 +66,10 @@ Log lines count the failures a design provokes (rule 5), not only the successes.
 Then three lines:
 
 1. **Fits the plan limit today?** Quote the registry row and the arithmetic against it. Limits are
-   monthly, budgets are per user, hour and run, so convert: per-user x active users, and per-run x runs
-   per month, using the current figures from the registry row's "Where usage is read" (the figures
-   themselves stay private). For a row that lists a price and no cap (Gemini, Cloud Run), compare the
+   monthly, budgets are per user, hour and run, so convert: per-user x active users, per-hour x 730, and
+   per-run x runs per month. Write the conversion as a formula with named inputs ("active users",
+   "runs per month"); the reviewer reads the current values from the registry row's "Where usage is
+   read", so the values never enter a public file. For a row that lists a price and no cap (Gemini, Cloud Run), compare the
    projected monthly cost with the free tier or the spend the founder has accepted. For a row with no
    figure (log ingestion), take it from the dashboard; a limit that cannot be read makes the budget
    incomplete. A design that adds traffic while the organisation is already over that limit is
@@ -101,6 +102,7 @@ Reviewers apply these. A HIGH finding stops the ship.
 |---|---|
 | A design matching [When this applies](#when-this-applies) has no Cost Budget | HIGH |
 | A budget number has no arithmetic | HIGH |
+| A limit the registry row does not supply and the dashboard cannot be read for, so the budget cannot be checked | HIGH |
 | The budget exceeds a registry limit at today's scale, and no upgrade is named and accepted by the founder | HIGH |
 | The code or script breaks rule 1, 3 or 4. Counting the cost does not excuse these | HIGH |
 | The code or script breaks rule 2, 5 or 6 without the written reason or the count that rule asks for | HIGH |
