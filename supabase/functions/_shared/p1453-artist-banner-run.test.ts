@@ -74,3 +74,16 @@ Deno.test('billable calls: the primary model answering is one call at its price'
     assertEquals(billed, ['gemini-3.1-flash-image-preview']);
   } finally { f.restore(); }
 });
+
+Deno.test('vision calls: a check skipped for time is not counted, a sent one is', async () => {
+  let sent = 0;
+  const q = { text: 'which?', correctIndex: 0 } as Parameters<typeof visionCheck>[2];
+  const img = { mimeType: 'image/png', data: 'AA==' };
+  assertEquals(await visionCheck('k', img, q, Date.now() + 1_000, () => sent++), 'unchecked');
+  assertEquals(sent, 0);
+  const f = stubFetch([STATUS(500)]);
+  try {
+    await visionCheck('k', img, q, Date.now() + 100_000, () => sent++);
+    assertEquals(sent, 1);
+  } finally { f.restore(); }
+});

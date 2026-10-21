@@ -9,7 +9,7 @@
  *
  * Spend: _mirror_begin_portrait reserves the run's worst case (2 generations at the fallback image
  * model's price plus 2 vision checks, x 1.25) under the portrait caps, and refuses a second run while
- * one is going. OFF unless MIRROR_AI_ENABLED is "true" and the mirror's own key is set (test only).
+ * one is going. The run then settles at what its calls cost at list price (P1534), never above that. OFF unless MIRROR_AI_ENABLED is "true" and the mirror's own key is set (test only).
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -18,7 +18,7 @@ import { ownedBannerPath } from '../_shared/banner-path.ts';
 import { base64ToBytes, BANNER_BUCKET, creditFor, runArtistBanner } from '../_shared/artist-banner-run.ts';
 import { cryptoRng } from '../_shared/artist-banner.ts';
 import {
-  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, portraitRunUsd, reservePortraitUsd, resolveGender,
+  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, portraitSettleUsd, reservePortraitUsd, resolveGender,
 } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -69,6 +69,7 @@ Deno.serve(async (req: Request) => {
   let generations = 0;
   let keyBlocked = false;
   const billed: string[] = [];
+  let visionCalls = 0;
   const result = await runArtistBanner({
     apiKey: MIRROR_GEMINI_API_KEY,
     excludeArtist: b.exclude_artist ?? null,
@@ -82,12 +83,12 @@ Deno.serve(async (req: Request) => {
     },
     onKeyBlocked: () => { keyBlocked = true; },
     onBillableCall: (model) => { billed.push(model); },
+    onVisionCall: () => { visionCalls++; },
     logTag: 'Mirror portrait',
   });
-  // P1534: charged what its calls cost at list price (each billable image call by model, one vision check
-  // per generation), never more than the reservation. It used to be the whole reservation every time.
-  const reserved = b.reserved_usd ?? reservePortraitUsd();
-  const cost = generations > 0 ? Math.min(reserved, portraitRunUsd(billed, generations)) : null;
+  // P1534: charged what its calls cost at list price (each billable image call by model, each vision check
+  // sent), never more than the reservation. It used to be the whole reservation every time.
+  const cost = portraitSettleUsd(b.reserved_usd ?? reservePortraitUsd(), billed, visionCalls);
 
   if (!result) {
     await service.rpc('_mirror_fail_job', { p_job: jobId, p_code: keyBlocked ? 'cap' : 'generation', p_actual_usd: cost });

@@ -296,6 +296,11 @@ export function portraitRunUsd(billedModels: string[], visionChecks: number): nu
   const images = billedModels.reduce((sum, m) => sum + (IMAGE_PRICE_USD[m] ?? IMAGE_PRICE_MAX_USD), 0);
   return Math.round((images + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
 }
+/** What a portrait run is charged: its calls at list price, never above the reservation; null if nothing was sent. */
+export function portraitSettleUsd(reservedUsd: number, billedModels: string[], visionCalls: number): number | null {
+  if (billedModels.length === 0 && visionCalls === 0) return null;
+  return Math.min(reservedUsd, portraitRunUsd(billedModels, visionCalls));
+}
 export function reservePortraitUsd(): number {
   const calls = MAX_PORTRAIT_GENERATIONS * IMAGE_CALLS_PER_GENERATION;
   return Math.round(portraitCostUsd(calls, MAX_PORTRAIT_GENERATIONS) * RESERVE_MARGIN * 1e6) / 1e6;

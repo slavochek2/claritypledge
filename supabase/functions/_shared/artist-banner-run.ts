@@ -147,9 +147,12 @@ export async function visionCheck(
   image: GeneratedImage,
   q: VisionQuestion,
   deadline?: number,
+  /** P1534: told when the call is actually sent (a skipped check costs nothing). */
+  onCalled?: () => void,
 ): Promise<VisionVerdict> {
   const left = deadline === undefined ? VISION_TIMEOUT_MS : deadline - Date.now();
   if (left < MIN_VISION_MS) return 'unchecked';
+  onCalled?.();
   try {
     const res = await fetch(geminiUrl(VISION_MODEL), {
       method: 'POST',
@@ -206,6 +209,8 @@ export async function runArtistBanner(opts: {
   skipDarkness?: boolean;
   /** P1534: each image call that may have been billed, with its model. */
   onBillableCall?: (model: string) => void;
+  /** P1534: each vision check actually sent. */
+  onVisionCall?: () => void;
 }): Promise<ArtistBannerResult | null> {
   const deadline = Date.now() + BUDGET_MS;
   const onHttpStatus = (status: number) => {
@@ -221,7 +226,7 @@ export async function runArtistBanner(opts: {
     },
     generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: opts.aspectRatio ?? '21:9', deadline, onHttpStatus, onBillableCall: opts.onBillableCall }),
     measure: opts.skipDarkness ? async () => ({ luma: null, ink: 'cream' as const }) : measureImage,
-    vision: (image, q) => visionCheck(opts.apiKey, image, q, deadline),
+    vision: (image, q) => visionCheck(opts.apiKey, image, q, deadline, opts.onVisionCall),
     log: (line) => console.log(`${opts.logTag} attempt`, line),
   }, opts.buildPrompt?.(entry));
   if (!result) return null;
