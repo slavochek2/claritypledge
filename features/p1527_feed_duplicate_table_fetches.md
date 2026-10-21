@@ -64,11 +64,30 @@ control reads). Reversibility: high (code only, git revert). Decision density: z
 
 ## Done-When
 
-- [ ] Baseline per-table counts for one `/feed` load recorded in this spec, with the command used
-- [ ] After the change, `stories` and `events` are each requested at most twice per `/feed` load, same command
-- [ ] Each remaining duplicate is attributed (StrictMode-only or a named reason)
-- [ ] Feed renders the same content before and after (screenshot comparison, signed-in and signed-out)
-- [ ] Existing unit/e2e tests touching feed pass
+- [x] Baseline per-table counts for one `/feed` load recorded in this spec, with the command used — see Measurements
+- [ ] After the change, `stories` and `events` are each requested at most twice per `/feed` load, same command — stories 2 ✅, events 4 ❌ (prod-equivalent); [FOUNDER DECISION: accept 4 or add a cross-query cache]
+- [x] Each remaining duplicate is attributed (StrictMode-only or a named reason) — see Measurements
+- [ ] Feed renders the same content before and after (screenshot comparison, signed-in and signed-out) — signed-out verified: 0 differing pixels at 1280 and 390 vs merge-base (noise control 0, positive control 11,683 px). Signed-in not yet run (needs the test service-role key to create a test user).
+- [x] Existing unit/e2e tests touching feed pass — `npm test`: 586 files / 6460 tests passed, 0 failed; `tsc --noEmit` clean (e2e lane not run)
+
+## Measurements
+
+Command: `node scripts/measure-idle-requests.mjs --base http://localhost:<port> --paths /feed --minutes 1 --settle 0 --from-navigation`, warm dev server. "Prod-equivalent" = same build with `<React.StrictMode>` removed temporarily (StrictMode doubles every mount effect in dev only).
+
+| | dev before | dev after | prod-equiv before | prod-equiv after |
+|---|---|---|---|---|
+| total | 27 | 23 | 17 | 15 |
+| `events` | 8 | 6 | 5 | 4 |
+| `stories` | 6 | 4 | 3 | 2 |
+| `event_rsvps` | 3 | 3 | 2 | 2 |
+
+Most of the 27 was StrictMode doubling, which production never makes. Real cuts: the pinned story loads by slug in one request (was `resolveStorySlug` + `getStory`); the home side rail reads all groups' upcoming events in one `.in('org_id')` query plus one RSVP batch (was one pair per group). Remaining prod `events` reads are four distinct queries: public-window candidates (`useTonightsEvent`), the nav's unscoped upcoming list (`useNextWebinar`), topic tags, and the side rail.
+
+## Known Limitations
+
+- An in-flight request dedupe was built and then removed: it saved only StrictMode dev doubles, and every write path (including a background banner update and account erasure) had to invalidate it or it served pre-write data (Codex/Gemini review).
+- The combined side-rail query shares PostgREST's 1000-row response cap across groups instead of per group. ACCEPT: far below current volume.
+- No test covers the error path of `getUpcomingEventsByOrg`; behaviour is unchanged from the per-group read (errors yield empty lists).
 
 ## Related
 
