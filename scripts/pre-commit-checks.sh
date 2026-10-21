@@ -2251,6 +2251,36 @@ else
 fi
 echo ""
 
+# 18d. Account figures / token shapes in new spec+doc lines (P1526) — WARN only.
+#
+# Incident 2026-10-20: a spec was committed with an account's usage totals and a token's prefix and
+# length; audit-privacy.sh matches only shaped identifiers, so nothing flagged it until push time.
+# ADDED LINES ONLY and WARN-ONLY by design (epistemic.md gate 7c): a broad figure regex matches
+# hundreds of EXISTING lines (mostly public prices), so a blocking or repo-wide version would be
+# bypassed. The push-time /maintain:privacy review remains the hard gate. The matcher lives in
+# scripts/lib/privacy-figure-scan.sh so scripts/test-p1526-privacy-push-gates.sh can test it alone.
+# It prints file:line only, never the matched text.
+echo ">>> Checking new spec/doc lines for account figures and token shapes..."
+if [ -f scripts/lib/privacy-figure-scan.sh ]; then
+    # shellcheck source=lib/privacy-figure-scan.sh
+    source scripts/lib/privacy-figure-scan.sh
+    FIGURE_HITS=$(privacy_figure_added_lines features/ docs/ | privacy_figure_scan || true)
+    if [ -n "$FIGURE_HITS" ]; then
+        echo -e "${YELLOW}⚠ Possible account usage/billing figures or token shapes in new lines:${NC}"
+        echo "$FIGURE_HITS" | sed 's/^/  /'
+        echo -e "${YELLOW}  Run /maintain:privacy on each file:line above. Account usage, spend, caps,${NC}"
+        echo -e "${YELLOW}  quotas, billing ids and token prefixes or lengths belong in .private/; the${NC}"
+        echo -e "${YELLOW}  public spec says 'kept private'. Ignore if it is a public price.${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ No account figures or token shapes in new spec/doc lines${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ scripts/lib/privacy-figure-scan.sh missing — figure check skipped${NC}"
+    WARNINGS=$((WARNINGS + 1))
+fi
+echo ""
+
 # 19. Zombie Vite server check — detect dev servers from deleted worktrees
 echo ">>> Checking for leaked vite/playwright processes..."
 # P1284: this check used to enumerate LISTENING node sockets and flag only a

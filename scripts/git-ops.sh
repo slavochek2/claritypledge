@@ -96,6 +96,13 @@ fi
 if [[ -f "$REPO_ROOT/scripts/lib/admin-close.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/admin-close.sh"
 fi
+# Write preflight (P1526). Fail closed if missing: a push without the credential
+# check is exactly the 24-minute 403 the helper exists to prevent.
+if [[ -f "$REPO_ROOT/scripts/lib/push-preflight.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib/push-preflight.sh"
+else
+  push_write_preflight() { echo "  scripts/lib/push-preflight.sh missing: cannot verify push credential" >&2; return 1; }
+fi
 # Required-status-check derivation (P1290). The `main` ruleset's required contexts are
 # QUERIED, never hardcoded — a hardcoded list is what let push-docs promote while a
 # newly-added second required check was still queued. See lib-required-checks.sh.
@@ -5644,6 +5651,15 @@ cmd_ship_to_prod() {
   fi
   echo "  ✅ Privacy stamp covers all watched-path commits in push range." >&2
 
+  # ── Step 1b: write preflight (P1526): BEFORE main.lock, runs even under PUSH_DOCS_ASSUME_YES=1 ──
+  # A read-only push credential used to surface only at the staging push (403), after the push
+  # window was already spent. Dry-run only: no remote ref is created.
+  echo "ship-to-prod [1b]: checking the push credential can write (dry-run)..." >&2
+  if ! push_write_preflight "$REPO_ROOT" "$local_sha" origin; then
+    die "ship-to-prod: push preflight failed. Credential cannot write; no lock taken, nothing pushed"
+  fi
+  echo "  ✅ Push preflight passed." >&2
+
   # ── Step 2: Acquire main.lock ────────────────────────────────────────────
   echo "ship-to-prod [2/6]: acquiring main.lock..." >&2
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
@@ -6107,6 +6123,15 @@ cmd_push_docs() {
     fi
   fi
   echo "  ✅ Privacy stamp covers all watched-path commits in push range." >&2
+
+  # ── Step 1b: write preflight (P1526): BEFORE main.lock, runs even under PUSH_DOCS_ASSUME_YES=1 ──
+  # A read-only push credential used to surface only at the staging push (403), after the push
+  # window was already spent. Dry-run only: no remote ref is created.
+  echo "push-docs [1b]: checking the push credential can write (dry-run)..." >&2
+  if ! push_write_preflight "$REPO_ROOT" "$local_sha" origin; then
+    die "push-docs: push preflight failed. Credential cannot write; no lock taken, nothing pushed"
+  fi
+  echo "  ✅ Push preflight passed." >&2
 
   # ── Step 2: Acquire main.lock (serializes against ship-to-prod / commit-to-main) ──
   # Must hold the lock from staging push through main push to prevent another session

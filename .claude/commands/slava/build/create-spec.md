@@ -110,6 +110,8 @@ Fields 1-5 regardless of work type — the minimum viable spec. Field 6, Invaria
 
 What's broken, missing, or needed — and for whom.
 
+**Account figures stay private (P1526).** Account usage, spend, cap and quota figures, billing or account ids, and any token shape (prefix, length) go in `.private/`; the public spec says "kept private". The pre-commit figure check only warns, so this is on the author.
+
 **Complex/ambiguous — use SCQ:**
 ```
 **Situation:** [what IS — grounded facts, ≤3 sentences]
@@ -395,6 +397,7 @@ Before creating the file, verify. **Every gate checks something the sections abo
 - [ ] **Both `decisions.md` verdicts in the output** — `DUPLICATE|RELATED|NONE` *and* `RULINGS:`, each naming its terms, plus the helper's `PRIVATE LOG:` line verbatim.
 - [ ] **Frontmatter carries every field `.claude/rules/features.md` requires** — check against that file, not from memory.
 - [ ] **P-number from the script**, path is `features/p{N}_{slug}.md`.
+- [ ] **No account figures or token shapes in the public text** — usage/spend/cap/quota numbers, billing or account ids, token prefixes or lengths. They live in `.private/`; the spec says "kept private".
 
 **If any gate fails:** fix before writing the file.
 

@@ -166,10 +166,10 @@ A verdict of `UNKNOWN` is not an escalation.
 
 - **Not on `main`** → this skill only pushes main. For `feature/*` or `fix/*`, route to `/ship`.
 - **Behind `origin/main`** (divergence) → could be co-tenant work. Report ahead/behind counts and let the user resolve. Do not blindly proceed or auto-rebase shared main.
-- **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`.
+- **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`. The consent rule for committed-but-unpushed content is under step 3.
 - **Any required check red on staging** (`audit-privacy`, `disclosure`, or whatever the ruleset requires today) → surfaced by `push-docs` naming the context; relay it. Never `--force` or bypass.
 - **Schema gate (P1211)** — any of: `check-schema-ready.sh` exit 2 (cannot determine), an `invalid-marker` line (a `requires-frontend` sha that no longer resolves — P1106; a human repoints it), a non-zero `migrate.sh`, a C1 re-run that is still not 0, or a failed manifest-stamp commit. Relay the lines verbatim. There is no override and no `--force`.
-- **`Authentication failed for 'https://github.com'`** → first run `gh auth status`. The token must be the fine-grained `cp-agent-push` PAT (`github_pat_…`). If it is, run `gh auth setup-git` (wires it into git's credential helper after a rotation), then re-run `push-docs`; no confirmation needed. If the PAT is expired, or the token is an OAuth `gho_…`, **STOP**: ask the founder to renew or restore `cp-agent-push`. **Never run `gh auth login` with the browser flow.** It installs an OAuth token that has Administration rights, so the agent could then edit the ruleset that gates it. See decisions.md 2026-06-27 [technical] "Agent push credential scoped to Contents-only" (P970). This happened on 2026-09-21 and is being undone in P1335.
+- **`Authentication failed for 'https://github.com'`** → first run `gh auth status`. The token must be the fine-grained `cp-agent-push-2026-09` PAT (`github_pat_…`; Contents RW + Workflows RW + Metadata R per P1335). If it is, run `gh auth setup-git` (wires it into git's credential helper after a rotation), then re-run `push-docs`; no confirmation needed. If the PAT is expired, or the token is an OAuth `gho_…`, **STOP**: ask the founder to renew or restore `cp-agent-push`. **Never run `gh auth login` with the browser flow.** It installs an OAuth token that has Administration rights, so the agent could then edit the ruleset that gates it. See decisions.md 2026-06-27 [technical] "Agent push credential scoped to Contents-only" (P970; scope superseded by P1335). This happened on 2026-09-21 and is being undone in P1335.
 
 ---
 
@@ -270,6 +270,7 @@ Check the push range: `git diff --name-only origin/main..HEAD`.
 - **Otherwise** → run the **`/maintain:privacy`** skill. It reviews and, if clean, writes `.privacy-reviewed = HEAD`. This must run **after** the commit so the stamp covers it.
   - Clean → stamp written, continue.
   - **HARD flag found** → STOP. Surface the finding; do not stamp, do not push.
+  - **After a HARD flag on commits that are already committed but unpushed** (P1526): present NUMBERED options and say which one is irreversible (any option that pushes the flagged content to the public repo cannot be undone). Proceed ONLY on a reply that names exactly one option. Any other reply (a question, "ok go", "yes", "or consult another model?", a mixed message) gets a re-ask that restates the numbered options and which one is irreversible; it is never read as permission. The mechanical scans (`audit-privacy.sh`, the pre-commit figure check) catch only shaped identifiers and warn on some figure shapes; never describe them as having caught key shapes or account figures, and never present a clean mechanical scan as the privacy verdict.
 
 ### 4. Check the flag BEFORE running the staging hop — ONE ask, with a number
 

@@ -102,22 +102,29 @@ Reversibility: git revert. Decision density: zero; the five changes were approve
 
 ## Done-When
 
-- [ ] Check 4 control: a fixture added line pairing a usage word with a GB/% figure produces the
+- [x] Check 4 control: a fixture added line pairing a usage word with a GB/% figure produces the
       warning; a fixture line with a latency in ms and a test count produces none; commit exit
       status is 0 in both. Fixtures live outside `features/` and `docs/`.
-- [ ] Check 4 hit rate over the last 200 commits' added lines in `features/` and `docs/` is
+      Evidence: scripts/test-p1526-privacy-push-gates.sh section 1 and 2, 31 passed / 0 failed, exit 0. Known-bad synthetic usage+GB/% line warns (file:line only, no text echoed), latency-in-ms line and 'capture of 30%' stay quiet; the check is warn-only (WARNINGS+1, never ERRORS) so commit status is unchanged. Fixtures are built in a temp dir and a throwaway repo.
+- [x] Check 4 hit rate over the last 200 commits' added lines in `features/` and `docs/` is
       reported in this spec.
+      Evidence: last 200 non-merge commits, added lines under features/ and docs/: 11 hits in 10065 added lines, in 6 commits. Matched content deliberately not recorded here.
 - [ ] Preflight control: with the current credential, `push-docs` passes the preflight; with the
       credential helper blanked for github.com (known-bad), it dies before taking `main.lock`
       with the new message. Exit codes pasted.
+      Partial: stub-git controls pass (good exit 0, bad exit 1, message names cause and registry, URL credential masked). The real-network known-good and known-bad runs are owed from the main session: a subagent is blocked by the push hook from any push command.
 - [ ] Preflight runs under `PUSH_DOCS_ASSUME_YES=1` (shown by test or trace).
+      Partial: test section 4 shows the preflight block sits before main.lock and the staging push in both push-docs and ship-to-prod and never mentions the flag. A live trace is still owed (subagents cannot run push-docs; the hook blocks it).
 - [ ] `push.md` and its mirror contain the exact-option rule; a reviewer replaying the reply
       "or want consult codex/gemini? if not ok go" against the text concludes "re-ask".
-- [ ] `/create-spec` contains the account-figures line in guidance and in the self-review gates.
-- [ ] P970 entry carries a superseded-by-P1335 note; `push.md:172` and mirror no longer name the
+- [x] `/create-spec` contains the account-figures line in guidance and in the self-review gates.
+      Evidence: guidance line under Skeleton 1. Problem and a self-review gate; scripts/sync-agent-skills.sh regenerated .agents/skills/create-spec/SKILL.md.
+- [x] P970 entry carries a superseded-by-P1335 note; `push.md:172` and mirror no longer name the
       retired token.
-- [ ] Existing workflows still pass through the new gates: `./scripts/pre-commit-checks.sh` on a
+      Evidence: superseded note appended to the P970 entry; push.md and .agents/skills/push/SKILL.md now name cp-agent-push-2026-09 (P1335 scope) and are byte-identical.
+- [x] Existing workflows still pass through the new gates: `./scripts/pre-commit-checks.sh` on a
       normal docs commit, and the existing push-docs test scripts.
+      Evidence: pre-commit-checks.sh ran on the staged change set (see session report for final exit); test-p1507-prepush-disclosure.sh, test-pre-push-refclass.sh (12/0) and test-push-snapshot-pinning.sh (34/0) all exit 0. The first pre-commit run caught two real defects in this change (email-shaped fixture literal, agent-skills mirror drift), both fixed.
 
 ## Alternatives Considered
 

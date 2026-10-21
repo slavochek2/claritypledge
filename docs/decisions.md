@@ -23513,6 +23513,7 @@ The twin is a hybrid wrapper: the `/command` stays identical, the model does onl
 **Consequences:** Reusable pattern for any "the enforced party is the agent" control: the agent's credential must be unable to administer the gate it's subject to, and the proof must be non-destructive. **Residual (accepted, not closed):** the old `gho_` OAuth grant still exists in the founder's GitHub account (removed from the machine, but re-authorizable via interactive `gh auth login`) — optional hardening is to revoke the GitHub CLI OAuth app authorization. **Follow-up:** record the `cp-agent-push` credential + expiry + renewal owner in `.private/docs/accounts.md` (P970 "Remaining").
 
 **References:** features/p970_agent_proof_credential_cutover.md, features/done/2026-06-10/p919_server_side_push_deploy_authorization.md (Done-When #2, now closed), decisions.md 2026-06-15 [technical] (P919 server-side boundary)
+**Superseded (2026-10-21, P1526):** scope by P1335 (Contents RW + Workflows RW + Metadata R); for github.com, `~/.gitconfig` resets helpers so git push uses `gh auth git-credential`, not osxkeychain.
 
 ## 2026-06-27 [process]: Unit/component reproduce canaries ride the fix branch, not main
 
