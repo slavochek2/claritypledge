@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 209
+**Next ID:** 215
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2664,5 +2664,62 @@ JAVASCRIPT-REACT-3W, first seen 17h ago, last seen 13h ago, 2 events, 0 users. C
 **due:** week
 
 Founder approved 2026-10-21. /status ends with one line, "safe to close" or "not safe: <reasons>", computed from git status of this session's worktrees, unanswered questions and unmet ACs. The same block recommends continue, compact, or a fresh session, judged on context size and whether the context is still valuable; for a fresh session it prints a paste-ready hand-off prompt (branch, spec, next step, open decisions). No separate /handoff skill. Droppable if /status already does both.
+
+---
+
+## Delete the 9 old agent-avatar PNGs from Supabase Storage after a clean week (P1528)
+
+**ID:** INBOX-209
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** week
+
+P1528 moved prod agent avatars to the public media host on 2026-10-21 and left the originals in the agent-avatars Supabase bucket as the rollback target. After 2026-10-28, if no rollback was needed, delete them (prod storage delete: ask the founder first). Once deleted, the P1528 script's --rollback refuses by design (old URL no longer an image). Also decide whether the agent-avatars bucket and its P1135 upload policies should be dropped.
+
+---
+
+## Revisit: gate prod one-off scripts' recovery paths before the first prod --apply
+
+**ID:** INBOX-210
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** month
+
+UNTESTED, from the P1528 KDD. P1528's backfill wrote 9 prod rows before /finish found its apply was not resumable and its rollback was unsafe (fixed after). The lesson is recorded only as intent in decisions.md 2026-10-21 (P1528). Falsifier/trigger: if a second prod-write script reaches --apply on prod missing resume, idempotent re-run, or safe rollback, add a dev.md pre-apply step requiring those (stubs ok) reviewed before the first prod write.
+
+---
+
+<!-- Dropped 2026-10-21: not needed, the test project is being rebuilt as a new project (P1530) and the old one paused, so its leftover e2e users stop costing anything. -->
+
+## p402 and p407 e2e specs fail on main (7 tests)
+
+**ID:** INBOX-212
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** week
+
+Found by P1532's regression sample (2026-10-21): e2e/p402-points-tab.spec.ts fails 4 tests (three 30 s timeouts, one missing position badge) and e2e/p407-story-detail-points.spec.ts fails 3 (the Add Point button never becomes visible or enabled). Main with unchanged helpers fails the same 7, and the P1532 branch fails the same set with its user pool on and off, so the cause is not cleanup. Done when both files pass on main or their tests are repaired; droppable if either feature is retired. speak-freely-button.spec.ts failed too (7 tests, waitForDBPresence joiner_name timeouts); that is the selector drift already in this inbox.
+
+---
+
+## /reproduce's vitest canary blocks every commit from the main checkout
+
+**ID:** INBOX-213
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** week
+
+/reproduce leaves the deliberately failing src/tests/pN-*.test.ts canary uncommitted in main's working tree for /fix to pick up. But pre-commit-checks runs npm test against the working tree, so the next commit from main fails on that canary, including /reproduce's own spec commit (hit on P1532; worked around by moving the file out until the fix worktree existed). Proposed fix: /reproduce writes the vitest canary to the session scratchpad and /fix copies it into the claimed worktree. Done when the /reproduce and /fix skill text match that handoff; droppable if vitest canaries move into the fix branch some other way.
+
+---
+
+## App retries organization/events reads several times during a Supabase outage
+
+**ID:** INBOX-214
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** month
+
+Under a simulated outage (scripts/measure-idle-requests.mjs --block /rest/v1/, /feed, 1 minute, 2026-10-21) the page sent GET rest:organization 5 times and rest:events 4 times. Check those retry paths against docs/technical/metered-services.md rule 4 (bounded, with backoff and jitter, and carrying a request-volume assertion). Done when each path is shown bounded, or fixed; droppable if the retries turn out to be distinct callers rather than retries.
 
 ---
