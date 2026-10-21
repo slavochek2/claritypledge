@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 54
 severity: medium
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [mirror, cost, ai]
 disclosure: public
-delivery_stage: create-bug
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-10-21
 ---
 
 # P1534: Every mirror portrait is charged its worst case, so "No more new faces today" comes ~10x too early
