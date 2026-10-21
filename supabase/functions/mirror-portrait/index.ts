@@ -18,7 +18,7 @@ import { ownedBannerPath } from '../_shared/banner-path.ts';
 import { base64ToBytes, BANNER_BUCKET, creditFor, runArtistBanner } from '../_shared/artist-banner-run.ts';
 import { cryptoRng } from '../_shared/artist-banner.ts';
 import {
-  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, reservePortraitUsd, resolveGender,
+  MAX_PORTRAIT_GENERATIONS, buildMirrorPortraitPrompt, portraitRunUsd, reservePortraitUsd, resolveGender,
 } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -68,6 +68,7 @@ Deno.serve(async (req: Request) => {
   const gender = resolveGender(b.gender, cryptoRng);
   let generations = 0;
   let keyBlocked = false;
+  const billed: string[] = [];
   const result = await runArtistBanner({
     apiKey: MIRROR_GEMINI_API_KEY,
     excludeArtist: b.exclude_artist ?? null,
@@ -80,11 +81,13 @@ Deno.serve(async (req: Request) => {
       return true;
     },
     onKeyBlocked: () => { keyBlocked = true; },
+    onBillableCall: (model) => { billed.push(model); },
     logTag: 'Mirror portrait',
   });
-  // The image loop may call the fallback model inside one attempt and does not report which calls were
-  // billed, so a run that called the provider at all is charged its whole reservation (the safe side).
-  const cost = generations > 0 ? (b.reserved_usd ?? reservePortraitUsd()) : null;
+  // P1534: charged what its calls cost at list price (each billable image call by model, one vision check
+  // per generation), never more than the reservation. It used to be the whole reservation every time.
+  const reserved = b.reserved_usd ?? reservePortraitUsd();
+  const cost = generations > 0 ? Math.min(reserved, portraitRunUsd(billed, generations)) : null;
 
   if (!result) {
     await service.rpc('_mirror_fail_job', { p_job: jobId, p_code: keyBlocked ? 'cap' : 'generation', p_actual_usd: cost });

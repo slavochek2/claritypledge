@@ -59,6 +59,8 @@ export async function geminiGenerateImage(
     deadline?: number;
     /** Each non-2xx status from Gemini (429 = quota/cap, 403 = key refused). */
     onHttpStatus?: (status: number) => void;
+    /** P1534: each call that may have been billed (sent and not refused), with the model that took it. */
+    onBillableCall?: (model: string) => void;
   } = {},
 ): Promise<GeneratedImage | null> {
   const generationConfig: Record<string, unknown> = { responseModalities: ['IMAGE'] };
@@ -80,9 +82,12 @@ export async function geminiGenerateImage(
         signal: AbortSignal.timeout(Math.min(IMAGE_TIMEOUT_MS, left)),
       });
     } catch (e) {
+      // A timeout may still be billed by Google: count it (the safe side).
+      opts.onBillableCall?.(model);
       console.error('Gemini image request failed', { model, error: (e as Error).name });
       continue;
     }
+    if (res.ok) opts.onBillableCall?.(model);
     if (!res.ok) {
       await res.body?.cancel();
       console.error('Gemini image model error', { model, status: res.status });
@@ -199,6 +204,8 @@ export async function runArtistBanner(opts: {
   aspectRatio?: string;
   /** P1520 portrait: no darkness check (it exists for the banner's signature ink). */
   skipDarkness?: boolean;
+  /** P1534: each image call that may have been billed, with its model. */
+  onBillableCall?: (model: string) => void;
 }): Promise<ArtistBannerResult | null> {
   const deadline = Date.now() + BUDGET_MS;
   const onHttpStatus = (status: number) => {
@@ -212,7 +219,7 @@ export async function runArtistBanner(opts: {
       if (go !== false) generations++;
       return go;
     },
-    generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: opts.aspectRatio ?? '21:9', deadline, onHttpStatus }),
+    generate: (prompt) => geminiGenerateImage(opts.apiKey, prompt, { aspectRatio: opts.aspectRatio ?? '21:9', deadline, onHttpStatus, onBillableCall: opts.onBillableCall }),
     measure: opts.skipDarkness ? async () => ({ luma: null, ink: 'cream' as const }) : measureImage,
     vision: (image, q) => visionCheck(opts.apiKey, image, q, deadline),
     log: (line) => console.log(`${opts.logTag} attempt`, line),

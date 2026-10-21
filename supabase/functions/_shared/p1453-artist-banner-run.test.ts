@@ -55,3 +55,22 @@ Deno.test('the vision check is skipped (unchecked) once the budget is spent', as
     assertEquals(f.calls(), 0);
   } finally { f.restore(); }
 });
+
+// P1534: the caller is told which calls may have been billed, so a portrait is charged what it cost.
+Deno.test('billable calls: a refused call is not billed, an answered one is, with its model', async () => {
+  const billed: string[] = [];
+  const f = stubFetch([STATUS(429), IMAGE_OK]);
+  try {
+    await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000, onBillableCall: (m) => billed.push(m) });
+    assertEquals(billed, ['gemini-3-pro-image-preview']);
+  } finally { f.restore(); }
+});
+
+Deno.test('billable calls: the primary model answering is one call at its price', async () => {
+  const billed: string[] = [];
+  const f = stubFetch([IMAGE_OK]);
+  try {
+    await geminiGenerateImage('k', 'p', { deadline: Date.now() + 100_000, onBillableCall: (m) => billed.push(m) });
+    assertEquals(billed, ['gemini-3.1-flash-image-preview']);
+  } finally { f.restore(); }
+});

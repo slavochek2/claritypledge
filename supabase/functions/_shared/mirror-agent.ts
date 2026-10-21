@@ -283,6 +283,19 @@ export const IMAGE_CALLS_PER_GENERATION = 2;
 export function portraitCostUsd(imageCalls: number, visionChecks: number): number {
   return Math.round((imageCalls * IMAGE_PRICE_MAX_USD + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
 }
+/**
+ * P1534: Google's list price per image at 1K (the portrait is 1:1 at the default size), by model.
+ * The image API reports no usage, so a run is charged what its calls cost at these prices instead of
+ * its whole worst-case reservation. An unknown model is charged at the maximum.
+ */
+export const IMAGE_PRICE_USD: Record<string, number> = {
+  'gemini-3.1-flash-image-preview': 0.067,
+  'gemini-3-pro-image-preview': IMAGE_PRICE_MAX_USD,
+};
+export function portraitRunUsd(billedModels: string[], visionChecks: number): number {
+  const images = billedModels.reduce((sum, m) => sum + (IMAGE_PRICE_USD[m] ?? IMAGE_PRICE_MAX_USD), 0);
+  return Math.round((images + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
+}
 export function reservePortraitUsd(): number {
   const calls = MAX_PORTRAIT_GENERATIONS * IMAGE_CALLS_PER_GENERATION;
   return Math.round(portraitCostUsd(calls, MAX_PORTRAIT_GENERATIONS) * RESERVE_MARGIN * 1e6) / 1e6;
