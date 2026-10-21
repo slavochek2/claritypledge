@@ -17,6 +17,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { PointWithUserPosition, PointPositionWithUser, StoryWithAuthor } from '@/app/types';
 
 const rpc = vi.hoisted(() => vi.fn());
+const saveInOrder = vi.hoisted(() => vi.fn((_key: string, fn: () => Promise<unknown>) => fn()));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc } }));
 vi.mock('@/app/data/db-error-logger', () => ({
   logDbError: vi.fn(), noteNoSessionSuppression: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock('@/app/components/shared/remove-position-dialog', () => ({
 vi.mock('@/app/data/points-service', () => ({ pointsService: { setPosition: vi.fn(async () => undefined), removePosition: vi.fn(async () => undefined) } }));
 vi.mock('@/app/hooks/use-online-write-guard', () => ({
   UNRESOLVED_WRITE_MESSAGE: 'x', canSendWrite: async () => true, isNetworkWriteFailure: () => false,
-  saveInOrder: (_key: string, fn: () => Promise<unknown>) => fn(),
+  saveInOrder,
 }));
 
 import { canvasService } from '@/app/data/canvas-service';
@@ -68,15 +69,29 @@ describe('the words of the one visibility idea', () => {
     expect(ownerLockLabel(null, 'shared')).toBe('Private · shared'); // the audience read failed: still honest
   });
 
+  it('an entry the owner has left is named nowhere: it shows no one the canvas (review: Gemini 2)', () => {
+    const left = entry({ kind: 'group', id: 'g', name: 'Old circle', ownerAdmitted: false });
+    expect(ownerLockLabel([entry(), left], 'shared')).toBe('Private · shared with Sales mastermind');
+    expect(sharedIconLabel({ isOwner: true, entries: [entry(), left], via: null })).toBe('Shared with Sales mastermind');
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [left], visibility: 'shared' })).toBe('Visible only to you');
+  });
+
   it('the icon says "Shared with …" to the owner and "Shared with you through …" to a reader', () => {
     expect(sharedIconLabel({ isOwner: true, entries: [entry()], via: null })).toBe('Shared with Sales mastermind');
     expect(sharedIconLabel({ isOwner: false, entries: null, via: { kind: 'event', id: 'e1', name: 'Sales mastermind', slug: 's' } })).toBe('Shared with you through Sales mastermind');
   });
 
   it('the composer tells every contributor who will read what they write', () => {
-    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [entry()] })).toBe('Visible to you and Sales mastermind');
-    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [] })).toBe('Visible only to you');
-    expect(composerVisibilityCopy({ isOwner: false, ownerName: 'Slava', entries: null })).toBe('Visible to you and everyone Slava shared this canvas with');
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [entry()], visibility: 'shared' })).toBe('Visible to you and Sales mastermind');
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: [], visibility: 'private' })).toBe('Visible only to you');
+    expect(composerVisibilityCopy({ isOwner: false, ownerName: 'Slava', entries: null, visibility: 'shared' })).toBe('Visible to you and everyone Slava shared this canvas with');
+  });
+
+  it('a shared canvas whose audience could not be read never tells its owner "only you" (review)', () => {
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: null, visibility: 'shared' }))
+      .toBe('Visible to you and the people you shared this canvas with');
+    // CONTROL: a private canvas with no audience read still says only you.
+    expect(composerVisibilityCopy({ isOwner: true, ownerName: 'Slava', entries: null, visibility: 'private' })).toBe('Visible only to you');
   });
 });
 
@@ -195,10 +210,80 @@ describe('FeedPointCard inside a canvas', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^disagree/i })[0]!.getAttribute('aria-pressed')).not.toBe('true'));
   });
 
+  it('a failed or timed-out save may still have landed: the card reverts, then the page is told to re-read (review)', async () => {
+    const canvas = bindings({ setPosition: vi.fn(async () => { throw new Error('timed out'); }) });
+    const saved = vi.fn();
+    card(canvas, { onPositionSaved: saved });
+    fireEvent.click(screen.getAllByRole('button', { name: /^disagree/i })[0]!);
+    await waitFor(() => expect(canvas.setPosition).toHaveBeenCalled());
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByRole('button', { name: /^disagree/i })[0]!.getAttribute('aria-pressed')).not.toBe('true');
+  });
+
+  it('a failed withdrawal also asks the page to re-read', async () => {
+    const voted = { ...point, userPosition: { id: 'pp', pointId: 'p1', userId: 'viewer-1', position: 'agree' } } as unknown as PointWithUserPosition;
+    const canvas = bindings({ removePosition: vi.fn(async () => { throw new Error('timed out'); }) });
+    const saved = vi.fn();
+    render(<MemoryRouter><FeedPointCard point={voted} surface="canvas" linkedStories={[ownerStory]} canvas={canvas} onPositionSaved={saved} /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: /^agree/i })[0]!); // the chosen position opens its menu
+    fireEvent.click(await screen.findByRole('option', { name: /Clear position/i }));
+    await waitFor(() => expect(canvas.removePosition).toHaveBeenCalled());
+    await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  });
+
+  it('a withdrawal waits in the same queue as a save still in flight (review: Codex 4)', async () => {
+    // A queueing saveInOrder, like the real one: calls for one key run one after another, in click order.
+    const queues = new Map<string, Promise<unknown>>();
+    saveInOrder.mockImplementation((key: string, fn: () => Promise<unknown>) => {
+      const run = (queues.get(key) ?? Promise.resolve()).catch(() => undefined).then(fn);
+      queues.set(key, run);
+      return run;
+    });
+    try {
+      let release: () => void = () => undefined;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const canvas = bindings({ setPosition: vi.fn(() => held) });
+      card(canvas);
+      fireEvent.click(screen.getAllByRole('button', { name: /^disagree/i })[0]!);
+      await waitFor(() => expect(canvas.setPosition).toHaveBeenCalledWith('disagree'));
+      // The save is still in flight. Withdraw now.
+      fireEvent.click(screen.getAllByRole('button', { name: /^disagree/i })[0]!); // opens its menu
+      fireEvent.click(await screen.findByRole('option', { name: /Clear position/i }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(canvas.removePosition, 'the withdrawal must NOT overtake the save in flight').not.toHaveBeenCalled();
+      // The save lands: only now does the withdrawal go out.
+      release();
+      await waitFor(() => expect(canvas.removePosition).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(canvas.setPosition).mock.invocationCallOrder[0]!).toBeLessThan(vi.mocked(canvas.removePosition).mock.invocationCallOrder[0]!);
+    } finally {
+      saveInOrder.mockImplementation((_key: string, fn: () => Promise<unknown>) => fn());
+    }
+  });
+
+  it('a reader who already added a story here is not offered a second; CONTROL: one who has not is', () => {
+    const voted = { ...point, userPosition: { id: 'pp', pointId: 'p1', userId: 'viewer-1', position: 'agree' } } as unknown as PointWithUserPosition;
+    const offered = (canvas: FeedPointCardCanvas) => {
+      const view = render(<MemoryRouter><FeedPointCard point={voted} surface="canvas" linkedStories={[ownerStory]} canvas={canvas} onAddStory={() => undefined} /></MemoryRouter>);
+      const found = screen.queryByRole('button', { name: 'Add a story for this point' }) !== null;
+      view.unmount();
+      return found;
+    };
+    expect(offered(bindings())).toBe(true);
+    expect(offered(bindings({ ownStoryAdded: true }))).toBe(false);
+  });
+
   it('a reader gets no Details link-out, no card menu, and no story page behind the owner\'s story', () => {
-    card(bindings());
+    const MENU = { name: 'More actions for this point' };
+    const reader = card(bindings());
     expect(screen.queryByText('Details')).toBeNull();
+    expect(screen.queryByRole('button', MENU)).toBeNull();
     expect(screen.queryByRole('button', { name: /more|menu|share/i })).toBeNull();
+    // CONTROL: the same card for the owner does carry the menu, so the query above can find it.
+    reader.unmount();
+    card(bindings({ reader: false }));
+    expect(screen.getByRole('button', MENU)).toBeInTheDocument();
+    cleanup();
+    card(bindings());
     fireEvent.click(screen.getByTestId('feed-point-story-expander'));
     expect(screen.getByText('The owner story.')).toBeInTheDocument();
     expect(screen.queryByTestId('nested-details-story')).toBeNull();
@@ -365,6 +450,21 @@ describe('CanvasShareControl', () => {
     expect(await screen.findByTestId('canvas-share-error')).toHaveTextContent('Nothing changed');
     expect(screen.getAllByTestId('canvas-share-entry')).toHaveLength(1);
   });
+
+  it('a share the server confirmed is never reported as "Nothing changed", even when the re-read fails (review: Codex 3)', async () => {
+    mockPanel([entry()]);
+    const changed = vi.fn();
+    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} onChanged={changed} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findAllByTestId('canvas-share-entry');
+    rpc.mockImplementation(async (fn: string) => (fn === 'unshare_canvas'
+      ? { data: true, error: null }
+      : { data: null, error: { message: 'down' } }));
+    fireEvent.click(screen.getByTestId('canvas-share-remove'));
+    expect(await screen.findByText('Could not load who this canvas is shared with.')).toBeInTheDocument();
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('canvas-share-error')).toBeNull();
+  });
 });
 
 describe('EventSharedCanvases', () => {
@@ -377,6 +477,16 @@ describe('EventSharedCanvases', () => {
     expect(link).toHaveAttribute('href', '/p/slava/canvas/sales');
     expect(link).toHaveTextContent('Slava · sales');
     expect(rpc).toHaveBeenCalledWith('list_canvases_shared_with_event', { p_event: 'e1' });
+  });
+
+  it('another event never shows the previous event\'s list while its own loads (review: Codex 2)', async () => {
+    rpc.mockResolvedValueOnce({ data: list, error: null });
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled /></MemoryRouter>);
+    await screen.findByTestId('event-shared-canvas-link');
+    rpc.mockReturnValueOnce(new Promise(() => undefined)); // e2's list never arrives
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e2" enabled /></MemoryRouter>);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('list_canvases_shared_with_event', { p_event: 'e2' }));
+    expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
   });
 
   it('asks nobody the event does not admit (not enabled: no call, nothing shown)', async () => {

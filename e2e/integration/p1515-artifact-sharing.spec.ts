@@ -17,10 +17,19 @@
  *   G group member who leaves · G2 group member who stays · N outsider · V signed out
  *   Q author of private letter replies · H event host
  *
+ * Review fixes (migration 20261021170000): a point carrying a canvas_ tag is always private, for every
+ * role, so every canvas point here is a private row. A LEGACY public canvas point (what an earlier seed
+ * left behind) cannot be inserted any more; the few tests that need one disable the trigger for the
+ * length of one transaction on the TEST database through the Management API (the way other specs here
+ * run raw SQL), and the trigger is enabled again in the same statement batch and in afterAll.
+ *
  * Runs: npx playwright test --project=integration e2e/integration/p1515-artifact-sharing.spec.ts
  */
 
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
@@ -41,6 +50,66 @@ const NAME = `p1515c${RUN}`.toLowerCase(); // the canvas name (the part after ca
 const CANVAS_TAG = `canvas_${NAME}`;
 const DAY = 86_400_000;
 
+const pointIdsCreated: string[] = [];
+// An allowlist of the test projects (a deny-one guard would pass any project that is not literally
+// prod). TEST moved projects (P1530); the old ref stays listed until it is retired.
+const TEST_PROJECT_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq'];
+const CANVAS_POINTS_TRIGGER = 'trg_p1515_canvas_points_are_private';
+const NAME_LEGACY = `${NAME}legacy`;
+
+function readEnvLocal(name: string): string {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  // Worktrees have no .env.local of their own; fall back to the main checkout's.
+  for (const root of [repoRoot, path.resolve(repoRoot, '../../..')]) {
+    const f = path.join(root, '.env.local');
+    if (!fs.existsSync(f)) continue;
+    const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
+    if (line) return line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  return '';
+}
+
+/** Raw SQL on the TEST database (Management API, the test-scoped write token migrate.sh uses). */
+async function testDbQuery(sql: string): Promise<Array<Record<string, unknown>>> {
+  // `URL` is the file's own const (the project URL string), so the class is reached through globalThis.
+  let url: globalThis.URL | null = null;
+  try { url = new globalThis.URL(process.env.VITE_SUPABASE_URL ?? ''); } catch { /* refused below */ }
+  const ref = url?.hostname.split('.')[0] ?? '';
+  if (!url || !TEST_PROJECT_REFS.includes(ref) || url.origin !== `https://${ref}.supabase.co`) {
+    throw new Error(`refusing to run raw SQL against ${ref || 'an unknown project'}: TEST only (${TEST_PROJECT_REFS.join(', ')})`);
+  }
+  const token = readEnvLocal('SUPABASE_TEST_WRITE_TOKEN');
+  if (!token) throw new Error('SUPABASE_TEST_WRITE_TOKEN missing from .env.local');
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`test DB query failed (${res.status}): ${body}`);
+  return JSON.parse(body);
+}
+
+const sqlText = (v: string) => `'${v.replace(/'/g, "''")}'`;
+
+/**
+ * A LEGACY public point on a canvas, as an earlier seed left them. The trigger that now refuses it is
+ * disabled and enabled again inside the one transaction (an implicit one: a single request), so nothing
+ * else ever sees it off.
+ */
+async function legacyPublicCanvasPoint(ownerId: string, statement: string, name: string, box: string): Promise<string> {
+  const rows = await testDbQuery(`
+    ALTER TABLE public.points DISABLE TRIGGER ${CANVAS_POINTS_TRIGGER};
+    INSERT INTO public.points (statement, first_validator_id, visibility, tags, system_tags)
+    VALUES (${sqlText(statement)}, ${sqlText(ownerId)}, 'public', ARRAY[${sqlText(TAG)}], ARRAY[${sqlText(`canvas_${name}`)}, ${sqlText(box)}])
+    RETURNING id;
+    ALTER TABLE public.points ENABLE TRIGGER ${CANVAS_POINTS_TRIGGER};`);
+  const id = rows[0]?.id as string | undefined;
+  if (!id) throw new Error('legacy public point was not created');
+  pointIdsCreated.push(id);
+  return id;
+}
+
 const bare = () => createClient(URL, ANON, { auth: { autoRefreshToken: false, persistSession: false } });
 async function signIn(u: TestUser): Promise<SupabaseClient> {
   const { data, error } = await bare().auth.signInWithPassword({ email: u.email, password: TEST_PASSWORD });
@@ -56,7 +125,6 @@ const events: TestEvent[] = [];
 const orgs: TestOrganization[] = [];
 const letters: string[] = [];
 const docs: string[] = [];
-const pointIdsCreated: string[] = [];
 const storyIdsCreated: string[] = [];
 
 async function mkUser(label: string): Promise<TestUser> {
@@ -113,7 +181,7 @@ let T0: string;
 
 // points
 let P_pub: string, P_pub2: string, P_priv: string, P_nobox: string, P_foreign: string, P_old: string, P_plain: string;
-// all three canvas points, sorted (two public rows, one private; story_points allows ONE story per author per point, P465)
+// all three canvas points, sorted (every canvas point is private; story_points allows ONE story per author per point, P465)
 let ALL_POINTS: string[] = [];
 // stories
 let S_own_pub: string, S_own_priv: string, S_own_priv_on_pub: string, S_n_pub: string;
@@ -121,8 +189,16 @@ let S_q_on_pub: string, S_q_on_priv: string, S_a_direct: string;
 // A's two stories added through the canvas (set in AC3, read by later tests)
 let addedPriv = '', addedPub = '';
 
-const getCanvas = async (c: SupabaseClient, name = NAME): Promise<Canvas> =>
-  okRpc<Canvas>(c, 'get_canvas', { p_owner: O.user.id, p_name: name }, 'read canvas');
+const NOTHING: Canvas = { points: [], stories: [], positions: [], visibility: null, access: { is_owner: false, admitted: false, via: null } };
+const getCanvas = async (c: SupabaseClient, name = NAME): Promise<Canvas> => {
+  if (c === V) {
+    // Signed out cannot call get_canvas at all (the page shows not-found without asking the server).
+    const { error } = await rpc(c, 'get_canvas', { p_owner: O.user.id, p_name: name });
+    expect(error, 'a signed-out caller is refused').not.toBeNull();
+    return NOTHING;
+  }
+  return okRpc<Canvas>(c, 'get_canvas', { p_owner: O.user.id, p_name: name }, 'read canvas');
+};
 const ptIds = (c: Canvas) => c.points.map((p) => p.id as string);
 const stIds = (c: Canvas) => c.stories.map((s) => s.story_id as string);
 const posOn = (c: Canvas, pointId: string) => c.positions.filter((p) => p.point_id === pointId);
@@ -188,20 +264,21 @@ test.beforeAll(async () => {
   await createTestMembership(Z.id, G2.user.id);
 
   // The canvas: O's current-version points carrying canvas_<name> plus a box tag.
-  P_pub = await mkPoint(O.user.id, 'public bet', 'public', [CANVAS_TAG, 'canvas:problem']);
-  P_pub2 = await mkPoint(O.user.id, 'second public bet', 'public', [CANVAS_TAG, 'canvas:good-at']);
+  // (P_pub / P_pub2 keep their names from before the review: they are PRIVATE rows now, like every canvas point.)
+  P_pub = await mkPoint(O.user.id, 'public bet', 'private', [CANVAS_TAG, 'canvas:problem']);
+  P_pub2 = await mkPoint(O.user.id, 'second public bet', 'private', [CANVAS_TAG, 'canvas:good-at']);
   P_priv = await mkPoint(O.user.id, 'PRIVATE bet', 'private', [CANVAS_TAG, 'canvas:solution']);
-  P_nobox = await mkPoint(O.user.id, 'canvas tag without a box', 'public', [CANVAS_TAG]);
-  P_foreign = await mkPoint(N.user.id, 'someone elses point with the same tags', 'public', [CANVAS_TAG, 'canvas:problem']);
-  P_old = await mkPoint(O.user.id, 'superseded version', 'public', [CANVAS_TAG, 'canvas:love']);
+  P_nobox = await mkPoint(O.user.id, 'canvas tag without a box', 'private', [CANVAS_TAG]);
+  P_foreign = await mkPoint(N.user.id, 'someone elses point with the same tags', 'private', [CANVAS_TAG, 'canvas:problem']);
+  P_old = await mkPoint(O.user.id, 'superseded version', 'private', [CANVAS_TAG, 'canvas:love']);
   P_plain = await mkPoint(O.user.id, 'private point on no canvas', 'private', []);
   const sup = await supabaseAdmin.from('points').update({ superseded_by: P_pub }).eq('id', P_old);
   if (sup.error) throw new Error(`supersede: ${sup.error.message}`);
 
-  S_own_pub = await mkStory(O.user.id, 'owner public story', 'public', [P_pub]);
+  S_own_pub = await mkStory(O.user.id, 'owner story on the first point', 'private', [P_pub]);
   S_own_priv = await mkStory(O.user.id, 'owner PRIVATE story', 'private', [P_priv]);
   S_own_priv_on_pub = await mkStory(O.user.id, 'owner private story on a public point', 'private', [P_pub2]);
-  S_n_pub = await mkStory(N.user.id, 'outsider public story', 'public', [P_pub]);
+  S_n_pub = await mkStory(N.user.id, 'outsider story on the first point', 'private', [P_pub]);
   S_q_on_pub = await mkStory(Q.user.id, 'private letter reply on public point', 'private', [P_pub]);
   S_q_on_priv = await mkStory(Q.user.id, 'private letter reply on private point', 'private', [P_priv]);
   // A links their own story straight to O's private point id with the ORDINARY client write (the
@@ -219,6 +296,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   test.setTimeout(300_000);
+  // Belt and braces: the legacy-row helper enables the trigger again in the same request; make sure.
+  await testDbQuery(`ALTER TABLE public.points ENABLE TRIGGER ${CANVAS_POINTS_TRIGGER};`).catch(() => undefined);
   for (const id of letters) await deleteTestLetter(id);
   for (const id of docs) {
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', id);
@@ -269,19 +348,21 @@ test('AC1: with no entries the canvas is Private: the owner reads all, everyone 
   expect(junk.points).toEqual([]);
 });
 
-test('Founder ruling: a stranger gets nothing from get_canvas even though the canvas\'s points are public rows', async () => {
-  // The rows really are public (a point\'s own flag does not decide who reads it on the canvas).
-  const rows = await supabaseAdmin.from('points').select('id,visibility').in('id', [P_pub, P_pub2]);
+test('Founder ruling: a stranger gets nothing from get_canvas even when a canvas still holds PUBLIC rows (legacy seeds)', async () => {
+  // A legacy canvas: two public points an earlier seed left (the trigger refuses new ones).
+  const legacyA = await legacyPublicCanvasPoint(O.user.id, `${TAG} legacy public one`, NAME_LEGACY, 'canvas:problem');
+  const legacyB = await legacyPublicCanvasPoint(O.user.id, `${TAG} legacy public two`, NAME_LEGACY, 'canvas:solution');
+  const rows = await supabaseAdmin.from('points').select('id,visibility').in('id', [legacyA, legacyB]);
   expect(rows.data!.map((r) => r.visibility)).toEqual(['public', 'public']);
-  // CONTROL, through the same function: the owner reads exactly those public rows plus the private one.
-  const own = await getCanvas(cO);
-  expect(ptIds(own)).toEqual(expect.arrayContaining([P_pub, P_pub2]));
+  // CONTROL, through the same function: the owner reads exactly those rows.
+  const own = await getCanvas(cO, NAME_LEGACY);
+  expect(ptIds(own).sort()).toEqual([legacyA, legacyB].sort());
   // And the very same rows ARE readable by anyone through ordinary access, so the ruling is about the canvas only.
-  const plain = await V.from('points').select('id').in('id', [P_pub, P_pub2]);
+  const plain = await V.from('points').select('id').in('id', [legacyA, legacyB]);
   expect(plain.data).toHaveLength(2);
-  // Strangers: signed in, signed out, a registrant outside the window, a member of nothing relevant.
+  // Strangers: signed in, a registrant outside the window, someone with no relation; signed out is refused outright.
   for (const [who, c] of [['signed-in stranger N', cN], ['signed-out V', V], ['late registrant L', cL], ['attendee-to-be A', cA]] as const) {
-    expectNothing(await getCanvas(c), who);
+    expectNothing(await getCanvas(c, NAME_LEGACY), who);
   }
   // An unknown owner or canvas is indistinguishable from "not for you".
   const missing = await okRpc<Canvas>(cN, 'get_canvas', { p_owner: '00000000-0000-0000-0000-0000000000bb', p_name: NAME }, 'unknown owner');
@@ -398,11 +479,38 @@ test('AC3: A takes a position and adds a story; O and other readers see both wit
   await okRpc(cA, 'canvas_set_position', { p_owner: O.user.id, p_name: NAME, p_point: P_priv, p_position: 'strongly_agree', p_reasoning: null }, 'A retakes');
 });
 
+test('One added story per person per point: a second is refused and leaves nothing behind; another person, or another point, is not', async () => {
+  const second = await rpc(cA, 'canvas_add_story', {
+    p_owner: O.user.id, p_name: NAME, p_point: P_priv, p_content: `${TAG} A second story on the same point`,
+  });
+  expect(second.error, 'a second story by A on the same point is refused').not.toBeNull();
+  expect(second.error?.code).toBe('23505');
+  const stray = await supabaseAdmin.from('stories').select('id').like('content', `${TAG} A second story%`);
+  expect(stray.data, 'no story row was left behind by the refusal').toEqual([]);
+  // The table's own key refuses it too, for any writer (here the service role).
+  const dup = await supabaseAdmin.from('canvas_added_stories').select('canvas_id').eq('story_id', addedPriv).single();
+  const direct = await supabaseAdmin.from('canvas_added_stories').insert({
+    canvas_id: dup.data!.canvas_id, point_id: P_priv, story_id: S_a_direct, author_id: A.user.id,
+  });
+  expect(direct.error?.code, 'the unique key (canvas, point, author) holds').toBe('23505');
+
+  // CONTROLS: A2, who has none on this point, adds one; A2's own second attempt is refused like A's.
+  const a2 = await okRpc<string>(cA2, 'canvas_add_story', {
+    p_owner: O.user.id, p_name: NAME, p_point: P_priv, p_content: `${TAG} A2 story on the private point`,
+  }, 'A2 adds');
+  storyIdsCreated.push(a2);
+  const a2again = await rpc(cA2, 'canvas_add_story', {
+    p_owner: O.user.id, p_name: NAME, p_point: P_priv, p_content: `${TAG} A2 second story on the private point`,
+  });
+  expect(a2again.error?.code).toBe('23505');
+  expect(stIds(await getCanvas(cO))).toContain(a2);
+});
+
 test('AC10: canvas admission grants no base access: REST returns the attendee nothing of the owner\'s private rows', async () => {
   // Every probe is run first by the owner (CONTROL: it returns rows), then by A while admitted, N and V.
   const probes: Array<{ what: string; run: (c: SupabaseClient) => PromiseLike<{ data: Row[] | null; error: any }>; ownerMin: number; forbid: (rows: Row[]) => boolean }> = [ // eslint-disable-line @typescript-eslint/no-explicit-any
     { what: 'points by id', run: (c) => c.from('points').select('id').eq('id', P_priv), ownerMin: 1, forbid: (r) => r.length > 0 },
-    { what: 'points by canvas system tag', run: (c) => c.from('points').select('id').contains('system_tags', [CANVAS_TAG]).eq('visibility', 'private'), ownerMin: 1, forbid: (r) => r.length > 0 },
+    { what: 'points by canvas system tag', run: (c) => c.from('points').select('id, first_validator_id').contains('system_tags', [CANVAS_TAG]).eq('visibility', 'private'), ownerMin: 1, forbid: (r) => r.some((x) => x.first_validator_id === O.user.id) }, // (N's own point on that tag is N's to read)
     { what: 'owner private story by id', run: (c) => c.from('stories').select('id').eq('id', S_own_priv), ownerMin: 1, forbid: (r) => r.length > 0 },
     { what: 'owner private story on the public point', run: (c) => c.from('stories').select('id').eq('id', S_own_priv_on_pub), ownerMin: 1, forbid: (r) => r.length > 0 },
     { what: 'story versions of the private story', run: (c) => c.from('story_versions').select('id').eq('story_id', S_own_priv), ownerMin: 1, forbid: (r) => r.length > 0 },
@@ -599,6 +707,109 @@ test('AC8: the owner can add only events they host or are admitted to and groups
   expect(still.data).toHaveLength(2);
 });
 
+test('Every point on a canvas is private: a public point with a canvas_ tag is refused for EVERY role, the service role included', async () => {
+  const tag = `canvas_${NAME}`;
+  const publicInsert = (tags: string[], who: SupabaseClient) => who.from('points').insert({
+    statement: `${TAG} refused public canvas point ${tags.join(',')} ${Date.now()}`, first_validator_id: O.user.id,
+    visibility: 'public', tags: [TAG], system_tags: tags,
+  }).select('id');
+  for (const tags of [[tag, 'canvas:problem'], [tag], ['CANVAS_Upper']]) {
+    const r = await publicInsert(tags, supabaseAdmin);
+    expect(r.error, `service role, public + ${tags.join(',')}`).not.toBeNull();
+    expect(r.error?.code).toBe('23514');
+  }
+  const none = await supabaseAdmin.from('points').select('id').like('statement', `${TAG} refused public canvas point%`);
+  expect(none.data, 'nothing was stored').toEqual([]);
+
+  // CONTROLS: the same insert PRIVATE works; a public point with only a box tag (no canvas_ tag) works.
+  const priv = await supabaseAdmin.from('points').insert({
+    statement: `${TAG} private canvas point ok`, first_validator_id: O.user.id, visibility: 'private', tags: [TAG], system_tags: [`${tag}ctl`, 'canvas:cost'], // another canvas: this one's points are counted by later tests
+  }).select('id').single();
+  expect(priv.error).toBeNull();
+  pointIdsCreated.push(priv.data!.id);
+  const box = await supabaseAdmin.from('points').insert({
+    statement: `${TAG} public box tag only`, first_validator_id: O.user.id, visibility: 'public', tags: [TAG], system_tags: ['canvas:cost'],
+  }).select('id').single();
+  expect(box.error, 'a box tag alone is not a canvas').toBeNull();
+  pointIdsCreated.push(box.data!.id);
+
+  // Adding a canvas_ tag to a PUBLIC point is refused too (it would make it newly public + canvas-tagged).
+  const retag = await supabaseAdmin.from('points').update({ system_tags: ['canvas:cost', tag] }).eq('id', box.data!.id);
+  expect(retag.error?.code).toBe('23514');
+  // A LEGACY public canvas point stays updatable for everything else (an st tag synced from a story), but its
+  // canvas_ tag cannot be changed: the rule refuses only what newly makes a point public + canvas-tagged.
+  const legacy = await legacyPublicCanvasPoint(O.user.id, `${TAG} legacy public for update`, NAME_LEGACY, 'canvas:cost');
+  const st = await supabaseAdmin.from('points').update({ system_tags: [`canvas_${NAME_LEGACY}`, 'canvas:cost', 'st1'] }).eq('id', legacy);
+  expect(st.error, 'unrelated system tag on a legacy public canvas point').toBeNull();
+  const moved = await supabaseAdmin.from('points').update({ system_tags: [`canvas_${NAME_LEGACY}x`, 'canvas:cost'] }).eq('id', legacy);
+  expect(moved.error?.code, 'moving a public point to another canvas is refused').toBe('23514');
+});
+
+test('Sharing: a canvas that still holds a PUBLIC point cannot be shared, and neither can a cancelled event be a target; each with its control', async () => {
+  const hosted = await createTestEvent(O.user.id, new Date(Date.now() + DAY), { title: `P1515 hosted upcoming ${RUN}` });
+  const cancelled = await createTestEvent(O.user.id, new Date(Date.now() + DAY), { title: `P1515 hosted cancelled ${RUN}`, status: 'cancelled' });
+  events.push(hosted, cancelled);
+
+  // The legacy canvas (public rows, from the founder-ruling test): refused, nothing created.
+  const legacy = await rpc(cO, 'share_canvas', { p_name: NAME_LEGACY, p_kind: 'event', p_target: hosted.id });
+  expect(legacy.error, 'a canvas holding a public point is refused').not.toBeNull();
+  expect(legacy.error?.code).toBe('42501');
+  expect(legacy.error?.message, 'same message as every other refusal').toBe('not authorized for this canvas');
+  const rec = await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', NAME_LEGACY);
+  expect(rec.data, 'no record was created by the refusal').toEqual([]);
+
+  // A cancelled event, hosted by O (so otherwise admitted): refused. CONTROL: the same canvas and an upcoming hosted event work.
+  const toCancelled = await rpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: cancelled.id });
+  expect(toCancelled.error?.code).toBe('42501');
+  expect(toCancelled.error?.message).toBe('not authorized for this canvas');
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: hosted.id }, 'share hosted upcoming')).toBe(true);
+  expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: hosted.id }, 'unshare hosted upcoming')).toBe(true);
+  const left = await supabaseAdmin.from('canvas_audience').select('id').eq('event_id', cancelled.id);
+  expect(left.data).toEqual([]);
+});
+
+test('Visibility reads Private again when no entry admits the owner (the entries stay, admitting no one), Shared again once one does', async () => {
+  const NAME_SOLO = `${NAME}solo`;
+  const Zo = await createTestOrganization({ name: `P1515 solo group ${RUN}`, visibility: 'public' });
+  orgs.push(Zo);
+  await createTestMembership(Zo.id, O.user.id);
+  await createTestMembership(Zo.id, G.user.id);
+  await mkPoint(O.user.id, 'solo canvas point', 'private', [`canvas_${NAME_SOLO}`, 'canvas:problem']);
+
+  const empty = await getCanvas(cO, NAME_SOLO);
+  expect(empty.visibility, 'no entries').toBe('private');
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME_SOLO, p_kind: 'group', p_target: Zo.id }, 'share solo')).toBe(true);
+  expect((await getCanvas(cO, NAME_SOLO)).visibility, 'an entry admits the owner').toBe('shared');
+  const g = await getCanvas(cG, NAME_SOLO);
+  expect(g.visibility).toBe('shared');
+  expect(g.points).toHaveLength(1);
+
+  // The owner leaves the only group: the entry stays but admits no one; the canvas is private again, for the owner and no one else.
+  await supabaseAdmin.from('membership').delete().eq('org_id', Zo.id).eq('user_id', O.user.id);
+  const alone = await getCanvas(cO, NAME_SOLO);
+  expect(alone.visibility, 'the only entry no longer admits the owner').toBe('private');
+  expect(alone.points).toHaveLength(1); // the owner still reads their canvas
+  const aud = await okRpc<{ entries: Row[] }>(cO, 'get_canvas_audience', { p_name: NAME_SOLO }, 'audience');
+  expect(aud.entries).toHaveLength(1);
+  expect(aud.entries[0]).toMatchObject({ owner_admitted: false, count: 0 });
+  expectNothing(await getCanvas(cG, NAME_SOLO), 'G once the owner left the only entry');
+
+  await createTestMembership(Zo.id, O.user.id);
+  expect((await getCanvas(cO, NAME_SOLO)).visibility).toBe('shared');
+  expect((await getCanvas(cG, NAME_SOLO)).points).toHaveLength(1);
+});
+
+test('Signed out cannot execute get_canvas at all; the signed-in callers who could not read it still get the empty answer', async () => {
+  const anon = await rpc(V, 'get_canvas', { p_owner: O.user.id, p_name: NAME });
+  expect(anon.error, 'anon is refused').not.toBeNull();
+  expect(anon.data).toBeNull();
+  // CONTROLS: the owner reads it; a signed-in stranger gets the empty shape (not an error).
+  expect((await okRpc<Canvas>(cO, 'get_canvas', { p_owner: O.user.id, p_name: NAME }, 'owner')).points.length).toBeGreaterThan(0);
+  const stranger = await rpc(cN, 'get_canvas', { p_owner: O.user.id, p_name: NAME_LEGACY });
+  expect(stranger.error).toBeNull();
+  expect(stranger.data.points).toEqual([]);
+});
+
 test('Panel: the audience shows each entry with its count, names for events and public groups, a count only for a private group; only O', async () => {
   expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Yp.id }, 'share Yp')).toBe(true);
   const aud = await okRpc<{ entries: Row[] }>(cO, 'get_canvas_audience', { p_name: NAME }, 'audience');
@@ -713,6 +924,9 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   await createTestMembership(Y.id, G.user.id);
   expectAdmitted(await getCanvas(cG), 'G after rejoining', { kind: 'group', id: Y.id });
 
+  // CONTROL for the visibility checks below: with both entries live the canvas reads as shared.
+  expect((await getCanvas(cO)).visibility).toBe('shared');
+
   // O leaves Y. The Y entry admits no one; G (only in Y) loses it. G2 (also in Yp) and A2 (also at E1) keep theirs.
   const leave = await cO.from('membership').delete().eq('org_id', Y.id).eq('user_id', O.user.id).select('id');
   expect(leave.error).toBeNull();
@@ -724,6 +938,8 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   const y = aud.entries.find((e) => e.id === Y.id)!;
   expect(y.owner_admitted).toBe(false);
   expect(y.count, 'an entry the owner left admits no one').toBe(0);
+  // E1 still admits the owner, so the canvas is still shared.
+  expect((await getCanvas(cO)).visibility).toBe('shared');
 
   // O cancels at E1. Now that entry admits no one either, host included.
   const cancel = await cO.from('event_rsvps').delete().eq('event_id', E1.id).eq('profile_id', O.user.id).select('id');
@@ -733,6 +949,10 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
     expectNothing(await getCanvas(c), `${who} once O cancelled at E1`);
   }
   expect(await okRpc(cH, 'list_canvases_shared_with_event', { p_event: E1.id }, 'host list')).toEqual([]);
+  // Yp still admits the owner (a member), so the canvas still reads as shared (the all-entries-lost case has its own test).
+  const stillShared = await getCanvas(cO);
+  expect(stillShared.visibility).toBe('shared');
+  expect(stillShared.access).toMatchObject({ is_owner: true, admitted: true });
   expectAdmitted(await getCanvas(cG2), 'G2 CONTROL', { kind: 'group', id: Yp.id });
   expectAdmitted(await getCanvas(cN), 'N CONTROL', { kind: 'group', id: Yp.id });
 
@@ -741,16 +961,19 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   expect(re.error).toBeNull();
   expectNothing(await getCanvas(cA), 'A after O re-registered too late');
 
-  // O rejoins Y: G and A2 read through it again on the next request.
+  // O rejoins Y: G and A2 read through it again on the next request, and the canvas is shared again.
   await createTestMembership(Y.id, O.user.id);
+  expect((await getCanvas(cO)).visibility).toBe('shared');
   expectAdmitted(await getCanvas(cG), 'G after O rejoined Y', { kind: 'group', id: Y.id });
   expectAdmitted(await getCanvas(cA2), 'A2 through Y', { kind: 'group', id: Y.id });
 });
 
 test('AC13: a letter sealed by A does not copy the private statement of a point A does not own', async () => {
   const P_a = await mkPoint(A.user.id, 'A own private point', 'private', []);
-  // S_a_direct is already linked to O's private point (fixture); give it A's own private point and the public one too.
-  for (const pt of [P_a, P_pub]) {
+  // A point of O's that is PUBLIC and on no canvas (a canvas point can no longer be public).
+  const P_open = await mkPoint(O.user.id, 'open public point', 'public', []);
+  // S_a_direct is already linked to O's private point (fixture); give it A's own private point and the open one too.
+  for (const pt of [P_a, P_open]) {
     const l = await supabaseAdmin.from('story_points').insert({ story_id: S_a_direct, point_id: pt, author_id: A.user.id });
     expect(l.error).toBeNull();
   }
@@ -776,9 +999,11 @@ test('AC13: a letter sealed by A does not copy the private statement of a point 
   const snap = await supabaseAdmin.from('letter_story_snapshots').select('point_config').eq('letter_id', letter.data!.id).single();
   expect(snap.error).toBeNull();
   const texts = (snap.data!.point_config.points as Row[]).map((p) => p.text as string);
-  // CONTROLS: A's own private point and the public point are in the snapshot.
+  // CONTROLS: A's own private point and O's public point are in the snapshot.
   expect(texts).toContain(`${TAG} A own private point`);
-  expect(texts).toContain(`${TAG} public bet`);
+  expect(texts).toContain(`${TAG} open public point`);
+  // O's canvas points are private rows O owns, not A: they are dropped too (the first point as well).
+  expect(texts).not.toContain(`${TAG} public bet`);
   // The fix: O's private statement is nowhere in the letter.
   expect(texts).not.toContain(`${TAG} PRIVATE bet`);
   expect(JSON.stringify(snap.data)).not.toContain('PRIVATE bet');
@@ -854,8 +1079,10 @@ test('Closed surfaces: the new tables and internal functions are unreachable to 
   expect((await supabaseAdmin.rpc('_canvas_can_read', { p_canvas: canvasId, p_uid: O.user.id })).data).toBe(true);
   expect((await supabaseAdmin.rpc('_canvas_event_admits', { p_event: E1.id, p_uid: A.user.id })).data).toBe(true);
 
-  // Client write/read functions: closed to signed-out callers (get_canvas alone is open, tested everywhere above).
+  // Client write/read functions: closed to signed-out callers (get_canvas too, since the review fixes: the page
+  // shows a signed-out visitor not-found without asking).
   const writes: Array<[string, Record<string, unknown>]> = [
+    ['get_canvas', { p_owner: O.user.id, p_name: NAME }],
     ['canvas_set_position', { p_owner: O.user.id, p_name: NAME, p_point: P_pub, p_position: 'agree', p_reasoning: null }],
     ['canvas_remove_position', { p_owner: O.user.id, p_name: NAME, p_point: P_pub }],
     ['canvas_add_story', { p_owner: O.user.id, p_name: NAME, p_point: P_pub, p_content: 'x' }],

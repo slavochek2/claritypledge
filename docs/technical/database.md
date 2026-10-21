@@ -529,6 +529,31 @@ Definitions: `supabase/migrations/*_p1532_*.sql` (the latest one wins:
 
 ---
 
+### Clarity Canvas sharing (P1515)
+
+A canvas is its owner's current-version points carrying the reserved `canvas_<name>` system tag plus a box tag (P1508). P1515 adds
+who else may read it. **A canvas's audience decides everything inside it**; no existing read policy on `points`, `stories`,
+`story_points`, `point_positions`, versions, histories or verifications is widened, so everything below is reachable only through
+the functions listed.
+
+| Table | Purpose |
+|---|---|
+| `canvases` | One record per `(owner_id, name)`, `name` = the part after `canvas_`, lowercase. No record, or no entries, means Private. |
+| `canvas_audience` | The entries: `kind` `event` or `group` with `event_id` / `org_id` (cascade on delete of the event, organization or canvas). |
+| `canvas_added_stories` | Stories others added through a canvas: a NEW private story of theirs plus this record, never a `story_points` link. Unique `(canvas_id, point_id, author_id)`: one per person per point. |
+| `event_removals` | `(event_id, user_id)`: a host removed this person. Every event admission check consults it, and the registration trigger refuses a removed person. |
+
+All four have RLS on, no policy and no client privilege; `service_role` keeps its default grants.
+
+Functions (all `SECURITY DEFINER`, derive the actor from `auth.uid()`, fail closed):
+- **Internal, no client may execute** (`_canvas_*`): `_canvas_event_admits` (host, or registered no later than `event_grace_interval()` after the event starts, minus removals), `_canvas_group_admits`, `_canvas_target_admits`, `_canvas_entry_admits` (reader AND owner both still admitted), `_canvas_admitted_via` (events before groups), `_canvas_can_read`, `_canvas_point_in`, `_canvas_box_tags` (mirrors `CANVAS_BOX_TAGS`; a test pins it).
+- **Read, authenticated only:** `get_canvas(owner, name)` returns `{points, stories, positions, visibility, access}` for the owner and admitted readers, and the same empty shape for everyone else (the page shows not-found). `visibility` is `'shared'` only while an entry admits the OWNER now, else `'private'`; anon cannot execute it.
+- **Writes / owner tools, authenticated only:** `canvas_set_position`, `canvas_remove_position`, `canvas_add_story`, `canvas_remove_added_story`, `share_canvas`, `unshare_canvas`, `get_canvas_audience`, `get_canvas_share_targets`, `remove_event_attendee`, `list_canvases_shared_with_event`. `share_canvas` refuses a canvas that still holds a public point and a cancelled event.
+- **Triggers:** `p1515_refuse_removed_registration` and `p1515_stamp_rsvp_time` on `event_rsvps` (a removed person cannot register; the server decides `rsvped_at` for client roles, on insert and update); `trg_p1515_canvas_points_are_private` on `points` (a public point carrying a `canvas_` tag is refused for every role; a legacy public row stays updatable for other columns).
+- **Letters:** `seal_and_send_letter` skips a private point the sender does not own.
+
+Migrations: `20261021100000` (tables, access functions, read, writes, triggers), `20261021100100` (seal filter), `20261021110000` (strangers get nothing, `visibility`, rsvp stamp on update), `20261021150000` (share targets), `20261021170000` (review fixes). Tests: `e2e/integration/p1515-artifact-sharing.spec.ts`, `src/tests/p1515-canvas-sharing-migration.test.ts`. Spec and known limitations: `features/p1515_artifact_sharing_events_and_groups.md`.
+
 ## Row Level Security (RLS)
 
 ### Start every RLS audit with the live drift check (P1048)

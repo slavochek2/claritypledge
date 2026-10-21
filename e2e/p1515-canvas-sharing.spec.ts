@@ -8,14 +8,15 @@
  * L registered after the 12-hour window · N a signed-in stranger · G a member of Y only ·
  * V signed out. Every absence has a control (the same read, by someone who must see it).
  *
- *   AC1  Private by default: the owner reads it with "Private · only you"; everyone else, public rows or not, gets not-found
+ *   AC1  Private by default: the owner reads it with "Private · only you"; everyone else gets not-found
  *   AC2  O shares with E in the panel: A reads everything with "Shared with you through E"; L, N, V do not
  *   AC3  A takes a position and adds a story; O sees both with A's name; nowhere else
  *   AC16 nothing A does on the canvas goes to the ordinary point, story or position loaders
  *   AC17 a story A linked straight to O's private point is not on the canvas
  *   AC15 the panel lists entries with counts, names for events and public groups, a count only for a private group; only O has it
  *   AC18 the event page lists the canvas to E's admitted people only
- *   AC14 access removed while A is on the canvas: the next refetch (focus, or opening the side panel) shows not-found
+ *   AC14 access removed while A is on the canvas: the next refetch (focus, or opening the side panel) shows not-found,
+ *        and Back after that does not serve the revoked canvas from the cache (control: before removal it does)
  *   AC6  O stops sharing with E in the panel: A loses it, G (through Y) keeps it
  *
  * Run: npx playwright test e2e/p1515-canvas-sharing.spec.ts --workers=1
@@ -31,7 +32,7 @@ import { createTestOrganization, createTestMembership, deleteTestOrganization, t
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
 const NAME = `p1515ui${RUN}`.toLowerCase();
 const CANVAS_TAG = `canvas_${NAME}`;
-const PUBLIC_TEXT = `P1515 public bet ${RUN}`;
+const PUBLIC_TEXT = `P1515 first bet ${RUN}`; // a point on a canvas is private: the canvas's audience decides
 const PRIVATE_TEXT = `P1515 PRIVATE bet ${RUN}`;
 const OWNER_STORY = `P1515 owner story on the private point ${RUN}`;
 const A_STORY = `P1515 A's added story ${RUN}`;
@@ -81,7 +82,7 @@ async function stopSharingWith(kind: 'event' | 'group', id: string) {
 }
 async function expectNotFound(page: Page, who: string) {
   await expect(page.getByRole('heading', NOT_FOUND), `${who}: not-found`).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(PUBLIC_TEXT), `${who}: not even the public row`).toHaveCount(0);
+  await expect(page.getByText(PUBLIC_TEXT), `${who}: not even the first point`).toHaveCount(0);
   await expect(page.getByText(PRIVATE_TEXT), `${who}: no private point`).toHaveCount(0);
   await expect(page.getByTestId('canvas-grid'), `${who}: no grid`).toHaveCount(0);
 }
@@ -109,8 +110,10 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     for (const u of [O, G]) await createTestMembership(Y.id, u.user.id);
     for (const u of [O, N]) await createTestMembership(Yp.id, u.user.id);
 
-    pubId = await insertPoint(O.user.id, PUBLIC_TEXT, 'public', 'canvas:problem');
+    pubId = await insertPoint(O.user.id, PUBLIC_TEXT, 'private', 'canvas:problem');
     privId = await insertPoint(O.user.id, PRIVATE_TEXT, 'private', 'canvas:solution');
+    // Three more in one other box, so the box shows "See all 4" and its list can be opened (AC16).
+    for (let i = 1; i <= 3; i++) await insertPoint(O.user.id, `P1515 channel bet ${i} ${RUN}`, 'private', 'canvas:channels');
     const story = await supabaseAdmin.from('stories').insert({ content: OWNER_STORY, author_id: O.user.id, visibility: 'private' }).select('id').single();
     if (story.error) throw new Error(`[P1515 fixture] story: ${story.error.message}`);
     const link = await supabaseAdmin.from('story_points').insert({ story_id: story.data.id, point_id: privId, author_id: O.user.id });
@@ -139,10 +142,10 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     for (const o of orgs) await deleteTestOrganization(o.id);
   });
 
-  test('AC1: a new canvas is Private: the owner reads it ("Private · only you"); everyone else gets not-found, public rows or not', async ({ page, browser }) => {
-    // The two points are real rows, one public: the canvas still says nothing to strangers.
+  test('AC1: a new canvas is Private: the owner reads it ("Private · only you"); everyone else gets not-found', async ({ page, browser }) => {
+    // Both points are private rows (the database refuses a public point with a canvas_ tag).
     const rows = await supabaseAdmin.from('points').select('visibility').in('id', [pubId, privId]);
-    expect(rows.data!.map(r => r.visibility).sort()).toEqual(['private', 'public']);
+    expect(rows.data!.map(r => r.visibility)).toEqual(['private', 'private']);
 
     await setTestSession(page, O.email);
     await page.goto(url());
@@ -179,7 +182,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(panel.getByTestId('canvas-share-add')).toHaveCount(0); // nothing chosen: no dead button
     await panel.getByTestId('canvas-share-pick').selectOption(`event:${E.id}`);
     await panel.getByTestId('canvas-share-add').click();
-    await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1);
+    await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1, { timeout: 20_000 }); // a share, then the panel re-reads
     await expect(panel.getByTestId('canvas-share-entry')).toContainText(E.title);
     await page.keyboard.press('Escape');
     // One idea: still Private, now "shared with" the event; the icon marks the header's cards.
@@ -252,6 +255,28 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(panel.getByTestId('canvas-remove-added-story')).toBeVisible();
     await expect(panel.getByTestId('canvas-shared-icon').first()).toBeVisible();
 
+    // AC16, widened: Previous / Next, a box's whole list and Compare read through the same one function.
+    const nextStep = page.getByTestId('canvas-panel-next');
+    const previousStep = page.getByTestId('canvas-panel-previous');
+    if (await nextStep.count() > 0) {
+      await nextStep.click();
+      await expect(previousStep).toBeVisible();
+      await previousStep.click();
+    } else {
+      await previousStep.click();
+      await expect(nextStep).toBeVisible();
+      await nextStep.click();
+    }
+    await expect(page.getByTestId('canvas-point-panel').getByTestId(`feed-point-card-${privId}`)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('canvas-point-panel')).toHaveCount(0);
+    await page.getByTestId('canvas-box-canvas:channels').getByTestId('canvas-box-more').click();
+    await expect(page.getByTestId('canvas-panel-box-list')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('canvas-panel-box-list')).toHaveCount(0);
+    await page.getByLabel('Compare positions with').selectOption({ label: O.name });
+    await expect(page.getByTestId('canvas-card-compare').first()).toBeVisible();
+
     // AC16: nothing of that went to the ordinary point, story or position loaders.
     expect(ordinaryRequests, 'no ordinary point/story/position request from the reader\'s canvas').toEqual([]);
 
@@ -313,7 +338,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(page.getByTestId('canvas-share-label')).toContainText(`${E.title}`);
     await page.getByTestId('canvas-share-control').click();
     const entries = page.getByTestId('canvas-share-panel').getByTestId('canvas-share-entry');
-    await expect(entries).toHaveCount(3);
+    await expect(entries).toHaveCount(3, { timeout: 20_000 });
     // The event: the host (O) is not counted; A is admitted, L (late) is not.
     const event = entries.filter({ hasText: E.title });
     await expect(event.getByTestId('canvas-share-entry-count')).toHaveText('1 person can see it');
@@ -433,6 +458,42 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expectNotFound(page, 'A after opening the side panel');
     await expect(page.getByTestId('canvas-point-panel')).toHaveCount(0);
     await shareWith('event', E.id);
+
+    // (c) the Back cache. Control first: while access holds, Back shows the canvas at once, before
+    // the follow-up read (held back here) comes home. Then access ends, a refetch shows not-found, the
+    // page is left and Back returns: it must not bring the revoked canvas back from the cache.
+    let heldMs = 0;
+    await page.route('**/rest/v1/rpc/get_canvas', async route => {
+      if (heldMs > 0) await new Promise(resolve => setTimeout(resolve, heldMs));
+      await route.continue();
+    });
+    await page.goto(url());
+    await waitForCanvas(page);
+    await expect(page.getByText(PRIVATE_TEXT)).toBeVisible();
+    await page.getByTestId('canvas-owner-name').click(); // an in-app step away (the cache is in memory)
+    await expect(page).toHaveURL(new RegExp(`/p/${O.slug}$`));
+    heldMs = 6_000;
+    await page.goBack();
+    await expect(page.getByText(PRIVATE_TEXT), 'CONTROL: Back serves the cached canvas while access holds').toBeVisible({ timeout: 3_000 });
+    heldMs = 0;
+    await page.waitForTimeout(7_000); // the held follow-up read settles: still admitted, still shown
+    await expect(page.getByText(PRIVATE_TEXT)).toBeVisible();
+
+    await stopSharingWith('event', E.id);
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')); });
+    await expectNotFound(page, 'A after the refetch');
+    await page.getByRole('link', { name: 'Back to home' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    heldMs = 6_000;
+    await page.goBack();
+    await expect(page).toHaveURL(url());
+    await page.waitForTimeout(1_500); // the held read is still out: nothing cached may be on screen
+    await expect(page.getByText(PRIVATE_TEXT), 'Back must not serve the revoked canvas').toHaveCount(0);
+    await expect(page.getByText(PUBLIC_TEXT)).toHaveCount(0);
+    await expect(page.getByRole('heading', NOT_FOUND)).toBeVisible({ timeout: 20_000 });
+    heldMs = 0;
+    await page.unroute('**/rest/v1/rpc/get_canvas');
+    await shareWith('event', E.id);
   });
 
   test('AC6: O stops sharing with the event in the panel: A loses the canvas on the next request, G (through the group) keeps it', async ({ page, browser }) => {
@@ -442,8 +503,8 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await page.getByTestId('canvas-share-control').click();
     const panel = page.getByTestId('canvas-share-panel');
     await panel.getByRole('button', { name: `Stop sharing with ${E.title}` }).click();
-    await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(2);
-    await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: E.title })).toHaveCount(0);
+    await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(2, { timeout: 20_000 });
+    await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: E.title })).toHaveCount(0, { timeout: 20_000 });
     // The event is addable again (a real choice back in the list).
     const options = await panel.getByTestId('canvas-share-pick').locator('option').allTextContents();
     expect(options).toContain(E.title);

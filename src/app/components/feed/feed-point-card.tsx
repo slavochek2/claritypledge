@@ -69,6 +69,8 @@ export interface FeedPointCardCanvas {
   reader: boolean;
   /** what the shared icon says ("Shared with …"); null: the canvas is private to its owner */
   sharedLabel: string | null;
+  /** the viewer already added a story to this point through the canvas (one per person per point, P465) */
+  ownStoryAdded?: boolean;
 }
 
 interface FeedPointCardProps {
@@ -275,7 +277,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
     : undefined;
-  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory
+  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && !canvas?.ownStoryAdded
     ? getPositionCTACopy(getPositionGroup(authedEffective))
     : null;
 
@@ -314,9 +316,12 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   /** P1515: withdraw through the canvas's checked function, then settle the card as a removal does. */
   const removeViaCanvas = async (bindings: FeedPointCardCanvas) => {
     try {
-      await bindings.removePosition();
+      // Same queue as a save: a withdrawal must not overtake a save still in flight.
+      await saveInOrder(`position:${point.id}`, () => bindings.removePosition());
     } catch {
       toast.error('Failed to withdraw position.');
+      // A failed or timed-out write may still have landed: the page re-reads, so the card shows the server's truth.
+      notifySaved();
       return;
     }
     const removedPosition = serverPositionRef.current;
@@ -354,6 +359,9 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
       } catch {
         setLocalPosition(savedLocal.current);
         toast.error('Failed to save position.');
+        // The write may have landed even though the request failed or timed out: the page re-reads,
+        // so the card ends on what the server holds, not on the revert.
+        notifySaved();
       }
       return;
     }

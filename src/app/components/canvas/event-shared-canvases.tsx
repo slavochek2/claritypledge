@@ -20,7 +20,9 @@ export function EventSharedCanvases({ eventId, enabled }: {
   const [canvases, setCanvases] = useState<SharedCanvasRef[]>([]);
 
   useEffect(() => {
-    if (!enabled) { setCanvases([]); return; }
+    // Cleared first: another event's list never shows while this one loads.
+    setCanvases([]);
+    if (!enabled) return;
     let live = true;
     canvasService.listSharedWithEvent(eventId)
       .then(list => { if (live) setCanvases(list); })

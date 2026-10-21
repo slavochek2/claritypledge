@@ -9,13 +9,16 @@
  *
  * What it writes, under the owner's account:
  *   - every point, with the project tag (user tag), its box tag and the canvas's reserved
- *     `canvas_<tag>` tag (system tags; sixth round R9: the canvas reads the reserved tag). A point
- *     seeded before R9 gets the reserved tag added; nothing else about it changes;
- *     exactly ONE point private (`--private`, default the cost-structure point), the rest public
+ *     `canvas_<tag>` tag (system tags; sixth round R9: the canvas reads the reserved tag), ALL PRIVATE
+ *     (P1515: points inside a canvas follow the canvas, and the database refuses a public point
+ *     carrying a `canvas_` tag, for every role). A private point seeded before R9 gets the reserved
+ *     tag added; nothing else about it changes. A point an earlier run seeded PUBLIC stops the run:
+ *     its visibility can never change (p586), so remove it first (seed-p1508-canvas-drafts.mjs
+ *     --replace-public does that for its canvas)
  *   - the owner's own position on each point
- *   - the owner's stories, linked to their points. story_points is UNIQUE(author_id, point_id),
- *     so a point gets the FIRST of the owner's stories it lists; a story whose only point is
- *     private is private too
+ *   - the owner's stories, linked to their points (all private, so the stories are too).
+ *     story_points is UNIQUE(author_id, point_id), so a point gets the FIRST of the owner's stories
+ *     it lists
  *   - nothing for the three ikigai boxes (they start empty)
  *
  * Stories by other people in the data file are NOT seeded: they are not the owner's words,
@@ -50,7 +53,6 @@ function envFrom(file, key) {
 const DATA = arg('data', resolve(homedir(), 'Projects/public/superdesign-playground/clarity-canvas/data-v9.js'));
 const SLUG = arg('slug', 'slava');
 const TAG = arg('tag', 'claritypledge');
-const PRIVATE_POINT = arg('private', 'pt_costs');
 const DATA_OWNER = 'user_slava'; // the data file's id for the canvas owner
 
 const URL_ = process.env.VITE_SUPABASE_URL || envFrom('.env.local', 'VITE_SUPABASE_URL');
@@ -60,11 +62,15 @@ if (!URL_ || !SERVICE_KEY) {
   process.exit(1);
 }
 // An allowlist, not a prod denylist: a worktree has no .env.prod to compare against, and a
-// denylist that cannot read its list would have to fail open or refuse every run.
-const TEST_REF = 'ayibkeoyukulbsjpxgaw'; // the test project (db-access.md)
-const REF = URL_.replace('https://', '').split('.')[0];
-if (REF !== TEST_REF) {
-  console.error(`REFUSING: ${REF} is not the test project (${TEST_REF}). This script is test-only.`);
+// denylist that cannot read its list would have to fail open or refuse every run. The URL is parsed, never split, so
+// `https://<test ref>.@<other host>` cannot pass.
+const TEST_REFS = ['ayibkeoyukulbsjpxgaw']; // the test projects (db-access.md)
+let parsed;
+try { parsed = new URL(URL_); } catch { parsed = null; }
+const REF = parsed?.hostname.split('.')[0] ?? '';
+if (!parsed || !TEST_REFS.includes(REF) || parsed.origin !== `https://${REF}.supabase.co`
+    || parsed.username || parsed.password || parsed.pathname !== '/') {
+  console.error(`REFUSING: ${URL_} is not a test project URL (${TEST_REFS.join(', ')}). This script is test-only.`);
   process.exit(1);
 }
 
@@ -74,7 +80,6 @@ vm.runInNewContext(readFileSync(DATA, 'utf8'), sandbox, { filename: DATA, timeou
 const { POINTS, STORIES } = sandbox.window;
 if (!POINTS || !STORIES) { console.error(`No POINTS/STORIES in ${DATA}`); process.exit(1); }
 const points = Object.values(POINTS);
-if (!points.some(p => p.id === PRIVATE_POINT)) { console.error(`--private ${PRIVATE_POINT} is not a point in the data`); process.exit(1); }
 
 // src/lib/canvas-boxes.ts is the source of truth (this script cannot import TypeScript). Sixth round
 // R1 dropped `canvas:uvp`: a data point still in it is skipped, and moves box only on founder approval.
@@ -91,7 +96,7 @@ async function must(label, promise) {
 }
 
 async function seed() {
-  console.log(`Seeding the P1508 canvas on ${REF} (test): owner /p/${SLUG}, #${TAG}, private: ${PRIVATE_POINT}`);
+  console.log(`Seeding the P1508 canvas on ${REF} (test): owner /p/${SLUG}, #${TAG}, every point private`);
   const owner = await must('owner', admin.from('profiles').select('id, slug').eq('slug', SLUG).maybeSingle());
   if (!owner) throw new Error(`no profile with slug ${SLUG}`);
 
@@ -99,10 +104,12 @@ async function seed() {
   for (const p of points) {
     const box = (p.tags || []).find(t => BOX_TAGS.has(t));
     if (!box) { console.log(`  skip ${p.id}: no box tag`); continue; }
-    const visibility = p.id === PRIVATE_POINT ? 'private' : 'public';
     const existing = await must(`find ${p.id}`, admin.from('points').select('id, visibility, system_tags')
       .eq('first_validator_id', owner.id).eq('statement', p.text).contains('tags', [TAG]).maybeSingle());
     if (existing) {
+      if (existing.visibility === 'public') {
+        throw new Error(`${p.id} was seeded PUBLIC by an earlier run; a point on a canvas must be private and its visibility cannot change. Delete it (and re-run), e.g. with seed-p1508-canvas-drafts.mjs --replace-public.`);
+      }
       pointIdOf.set(p.id, existing.id);
       const tags = existing.system_tags ?? [];
       if (!tags.includes(CANVAS_TAG)) {
@@ -111,7 +118,7 @@ async function seed() {
       continue;
     }
     const row = await must(`insert ${p.id}`, admin.from('points').insert({
-      statement: p.text, first_validator_id: owner.id, visibility, tags: [TAG], system_tags: [box, CANVAS_TAG],
+      statement: p.text, first_validator_id: owner.id, visibility: 'private', tags: [TAG], system_tags: [box, CANVAS_TAG],
     }).select('id').single());
     pointIdOf.set(p.id, row.id);
   }
@@ -137,12 +144,10 @@ async function seed() {
   const storyIdOf = new Map();
   for (const sid of new Set(links.map(([s]) => s))) {
     const s = STORIES[sid];
-    const linkedHere = links.filter(([x]) => x === sid).map(([, pid]) => pid);
-    const visibility = linkedHere.every(pid => pid === PRIVATE_POINT) ? 'private' : 'public';
     const existing = await must(`find ${sid}`, admin.from('stories').select('id')
       .eq('author_id', owner.id).eq('content', s.text).maybeSingle());
     const id = existing?.id ?? (await must(`insert ${sid}`, admin.from('stories').insert({
-      content: s.text, author_id: owner.id, visibility,
+      content: s.text, author_id: owner.id, visibility: 'private', // every point it links is private
     }).select('id').single())).id;
     storyIdOf.set(sid, id);
   }

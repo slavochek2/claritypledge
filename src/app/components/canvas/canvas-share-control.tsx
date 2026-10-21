@@ -12,7 +12,7 @@
  * shows an error and leaves the list as it was: the list only ever changes to what the server
  * confirmed. Copy is [FOUNDER DECISION] (spec UI Contract).
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { CalendarDays, Lock, Users, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,13 +41,17 @@ export function CanvasShareControl({ name, visibility, entries, onChanged }: {
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState('');
 
+  // Each read is numbered; only the newest may set the panel, so a slow earlier read (an open, then
+  // a change) never puts back the list from before the change.
+  const latestRead = useRef(0);
   const load = useCallback(async () => {
+    const read = ++latestRead.current;
     setLoadError(false);
     try {
       const [audience, targets] = await Promise.all([canvasService.getAudience(name), canvasService.getShareTargets()]);
-      setPanel({ entries: audience, targets });
+      if (read === latestRead.current) setPanel({ entries: audience, targets });
     } catch {
-      setLoadError(true);
+      if (read === latestRead.current) setLoadError(true);
     }
   }, [name]);
 
@@ -64,16 +68,18 @@ export function CanvasShareControl({ name, visibility, entries, onChanged }: {
     setError(null);
     try {
       await run();
-      const [audience, targets] = await Promise.all([canvasService.getAudience(name), canvasService.getShareTargets()]);
-      setPanel({ entries: audience, targets });
-      setPick('');
-      onChanged();
     } catch {
       // The list stays as it was: it only ever shows what the server confirmed.
       setError(failure);
-    } finally {
       setBusy(false);
+      return;
     }
+    // The change is confirmed: the page re-reads now, whatever the panel's own re-read does. If that
+    // re-read fails the panel says it could not load the list, never that nothing changed.
+    setPick('');
+    onChanged();
+    await load();
+    setBusy(false);
   };
 
   const addable = panel

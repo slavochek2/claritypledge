@@ -207,16 +207,23 @@ Entries are deleted with their event, group or canvas (cascade), which only ever
 - Access fails closed: an unknown entry kind, a missing event or group, a removed person or a failed
   lookup denies.
 - The list of entries changes only by the owner's own action in the UI.
+- Every point carrying a `canvas_` system tag is private, for every role including the service role (a database
+  trigger refuses public + `canvas_`, migration 20261021170000). Rows seeded public before that stay (visibility is
+  immutable, p586); `share_canvas` refuses a canvas that still holds one.
+- Sharing is refused for a cancelled event. One added story per person per point (unique key), as P465 does for links.
 
 ## UX Notes
 
 - Owner, Private: the panel offers the owner's events and groups.
 - Owner, Shared: entries with counts; readers listed.
 - Admitted reader: everything; the reason line shows.
-- Anyone else, signed in or not: public points only, no hint that private content exists.
+- Anyone else, signed in or not: not-found, nothing at all, no hint that the canvas or its content exists (founder ruling 2026-10-21: the audience decides everything inside a canvas, so even a point that is a public row says nothing here).
 - Access removed: the server refuses from the next request; the canvas page refetches when the tab
   regains focus and when the side panel opens, and shows the reduced view. What was already on screen
-  is not recalled. Signing out clears private content at once (P1508).
+  is not recalled. Signing out clears private content at once (P1508). A read that settles not-found
+  evicts the Back cache entry, so Back after that asks the server and shows not-found. Back to a cached
+  canvas as a READER is followed by a silent fresh read (the owner's Back is unchanged, P1364). A failed
+  or timed-out position save re-reads the canvas, so the card shows what the server holds.
 - An event the owner shares before anyone else registered admits only the host and the owner.
 - A failed share or unshare shows an error and leaves the previous state.
 
@@ -238,7 +245,7 @@ a canvas. Every string below is **[FOUNDER DECISION: approve or change at UAT]**
 | Panel errors | `Could not share. Nothing changed.` · `Could not stop sharing. Nothing changed.` · `Could not load who this canvas is shared with.` (the list never changes unless the server confirmed) |
 | Reader line | `Shared with you through <entry>` (an event links to its page) |
 | Shared icon | owner: `Shared with <entry names>`; reader: `Shared with you through <entry>` |
-| Composer (a private story) | owner: `Visible to you and <entry names>` or `Visible only to you`; reader: `Visible to you and everyone <owner name> shared this canvas with`. An owner's story on a public point keeps the public line (`Matches point visibility`). |
+| Composer (a private story) | owner: `Visible to you and <entry names>` or `Visible only to you`; when the canvas is shared but the audience could not be read, `Visible to you and the people you shared this canvas with` (never `only you`; a refresh whose audience read fails keeps the audience already loaded); reader: `Visible to you and everyone <owner name> shared this canvas with`. An owner's story on a public point keeps the public line (`Matches point visibility`). |
 | An added story | `Added by you` / `Added by <name>`; its author's control `Remove from this canvas` (the story stays in the author's own list) |
 | Event page | section `Canvases shared with this event`; each row `<owner name> · <canvas name>`, linking to the canvas |
 | Failures | `Failed to save position.` · `Failed to withdraw position.` · `Failed to save story. Please try again.` · `Failed to remove your story. Please try again.` |
@@ -265,16 +272,31 @@ the card's `⋯` menu, a story's own page. Signed out, or signed in without acce
   the event-origin default (a canvas made for an event starting shared; it moves to the Clarity Chat
   canvas spec, where canvases are created).
 
+## Known Limitations
+
+Accepted, recorded so nobody rediscovers them:
+
+- **Reply letters drop the point.** The people a letter is sent to write REPLY stories, and a reply story links to the sender's
+  private points. Since letter sealing skips a private point the sender does not own (migration 20261021100100), a reply letter
+  sent back to the point's owner now omits that point from its snapshot. Accepted: the same filter is what closes the leak to third
+  parties, and the owner already has the point. (Recorded in the header of migration 20261021170000; the seal file is unchanged.)
+- **A removed reader keeps a private point id.** Someone who was admitted, kept a private point's id and was then removed can still
+  write a position on it over REST: the ordinary position write policy is unchanged by ruling. `get_canvas` hides it from everyone
+  (positions show only for the owner and current readers), but the owner's point page shows it.
+- **A host moving `events.datetime` moves the 12-hour window** for everyone registered, because access is computed from it.
+- **Pending founder decision, not changed here:** an added story stops being readable by other readers once its author loses access
+  (the owner still reads it).
+
 ## Acceptance Criteria
 
 Actors on test: owner O, attendee A (registered in time), late registrant L (after the window),
 removed person R, group member G, non-member N, signed-out visitor V.
 
-- [ ] O's canvas with no entries shows Private; A, N and V see public points only.
+- [ ] O's canvas with no entries shows Private; A, N and V see not-found (nothing, even where a point is a public row; founder ruling 2026-10-21).
 - [ ] O shares with event E: A reads private points, O's stories, positions and the reason line; L, R, N and V do not.
 - [ ] A takes a position and adds a story; O and other admitted readers see both with A's name; the story appears under that point nowhere else (feed, `/stake`, point page, profile).
-- [ ] O adds group Y: G reads everything; after G leaves Y, G's next request returns public points only.
-- [ ] The host removes R: R's registration is gone, R cannot register again, R's next request returns public points only.
+- [ ] O adds group Y: G reads everything; after G leaves Y, G's next request returns not-found.
+- [ ] The host removes R: R's registration is gone, R cannot register again, R's next request returns not-found.
 - [ ] Removing E removes A's access on A's next request; G keeps access.
 - [ ] O leaves Y (or cancels at E): that entry admits no one.
 - [ ] O can add only events O hosts or is admitted to and groups O belongs to; a direct call with another event or group is refused.
@@ -284,6 +306,7 @@ removed person R, group member G, non-member N, signed-out visitor V.
 - [ ] R, after removal, writes a position on O's private point directly; the canvas does not show it.
 - [ ] A seals a letter containing a story A wrote; no private statement of O's appears in the letter.
 - [ ] Removing access while A has the side panel open: A's next refetch (focus or panel open) shows the reduced view.
+- [ ] After that refetch shows not-found, A leaves the page and presses Back: not-found, not the revoked canvas (control: before the removal, Back shows the cached canvas).
 - [ ] The panel shows each entry with its count, names for events and public groups, a count only for a private group; only O sees the control.
 - [ ] In the side panel A sees the card from the canvas data, takes a position, adds a story with the composer and removes it; no request from the panel goes to the ordinary point or story loaders for O's private content (network log).
 - [ ] A links one of A's own stories directly to O's private point id; the canvas does not show it and nothing of O's becomes readable to A.
@@ -314,7 +337,8 @@ removed person R, group member G, non-member N, signed-out visitor V.
    reaches pairing even when public. Either a follow-up spec lets the room pair on points from
    canvases shared with the event, or the first event pairs by hand. Founder decision before the
    event.
-2. **The owner's "view as" preview (moved here from P1508 fifth round, D9).** The founder wants to
+2. **The owner's "view as" preview (moved here from P1508 fifth round, D9).** Founder, 2026-10-21:
+   left out of this build. Kept here for a follow-up. The founder wants to
    see the canvas as someone else sees it. A preview built on P1508's page could not match a real
    signed-out view (the card reads the session itself, and a click would write the owner's real
    position). With this spec's server function, the preview can be served by that same function

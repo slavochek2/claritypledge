@@ -33,7 +33,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
-import { listReturnCacheGeneration, listReturnCacheKey, readListReturnCache, writeListReturnCache } from '@/lib/list-return-cache';
+import {
+  clearListReturnCache, listReturnCacheGeneration, listReturnCacheKey, readListReturnCache, writeListReturnCache,
+} from '@/lib/list-return-cache';
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Globe, Heart, Lightbulb,
   Megaphone, Receipt, ShieldCheck, Star, Users, X, type LucideIcon,
@@ -172,9 +174,16 @@ export function CanvasPage() {
       if (data.status === 'ready' && generation === listReturnCacheGeneration()) {
         writeListReturnCache(cacheKey, 'canvas', data);
       }
+      // The audience is live: a canvas this viewer can no longer read must not come back from the
+      // Back cache. (The cache has no per-key delete; a clear costs other lists one refetch.)
+      if (data.status === 'not-found') clearListReturnCache();
       setLoaded({ key: forKey, data });
     };
     if (!handle || !projectTag) return settle({ status: 'not-found' });
+    // Signed out: a canvas is only ever for its owner and the people its audience admits, so a
+    // visitor gets the same not-found a stranger gets, without asking the server (get_canvas is not
+    // executable by anon at all).
+    if (!viewerId) return settle({ status: 'not-found' });
     try {
       const owner = await getProfileBySlugResult(handle, { withRelations: false });
       if (!owner.success) return settle({ status: owner.error === 'not_found' ? 'not-found' : 'error' });
@@ -186,12 +195,20 @@ export function CanvasPage() {
         ? pointsService.getCanvasProjectTags(owner.data.id, viewerId)
         : Promise.resolve([projectTag]);
       tagsRead.catch(() => {}); // awaited below; this only stops an unhandled rejection meanwhile
-      const audienceRead = viewerIsOwner ? canvasService.getAudience(projectTag).catch(() => null) : Promise.resolve(null);
+      // undefined = the read failed (null = not the owner, nothing to read)
+      const audienceRead: Promise<AudienceEntry[] | null | undefined> = viewerIsOwner
+        ? canvasService.getAudience(projectTag).catch(() => undefined)
+        : Promise.resolve(null);
       // ONE read for everyone (P1515): the owner and admitted readers get the canvas, anyone else
       // gets nothing, which is shown as not-found exactly as an unknown canvas is.
       const view = await canvasService.getCanvas(owner.data.id, projectTag, viewerId);
       if (view.points.length === 0) return settle({ status: 'not-found' });
-      const [projectTags, audience] = await Promise.all([tagsRead, audienceRead]);
+      const [projectTags, audienceResult] = await Promise.all([tagsRead, audienceRead]);
+      // A refresh whose audience read failed keeps the audience already loaded for this canvas; only
+      // a first load has none to keep (null: shown as the "could not be read" wording).
+      const shown = loadedRef.current;
+      const previous = shown?.key === forKey && shown.data.status === 'ready' ? shown.data.audience : null;
+      const audience = audienceResult === undefined ? previous : audienceResult;
       settle({
         status: 'ready',
         ownerId: owner.data.id,
@@ -223,7 +240,14 @@ export function CanvasPage() {
     const back = navigationType === 'POP' ? readListReturnCache<CanvasData>(cacheKey, 'canvas') : undefined;
     if (back) {
       requestRef.current++; // a read still in flight for an earlier address must not land now
-      return setLoaded({ key, data: back });
+      setLoaded({ key, data: back });
+      // The owner's Back shows the canvas as left (P1364). A reader's access is live, so theirs is
+      // followed by a silent read: still admitted, nothing changes; no longer, it becomes not-found.
+      if (back.status === 'ready' && !back.isOwner) {
+        loadedRef.current = { key, data: back }; // so a failing refresh keeps what the cache served
+        void read(key, true);
+      }
+      return;
     }
     void read(key);
     // navigationType is read once per address: a panel opening or closing must not re-serve the cache.
@@ -435,7 +459,7 @@ export function CanvasPage() {
     : null;
   const addedStoryIds = new Set(ready?.addedStoryIds ?? []);
   const composerNote = ready
-    ? composerVisibilityCopy({ isOwner: viewerIsOwner, ownerName: ready.ownerName, entries: ready.audience })
+    ? composerVisibilityCopy({ isOwner: viewerIsOwner, ownerName: ready.ownerName, entries: ready.audience, visibility: ready.visibility })
     : '';
   // The checked writes for the open point's card (positions), and the one for taking an added story off.
   const canvasBindings = (point: PointWithUserPosition): FeedPointCardCanvas | undefined => ready && projectTag
@@ -444,6 +468,7 @@ export function CanvasPage() {
       removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id),
       reader: !viewerIsOwner,
       sharedLabel,
+      ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
     }
     : undefined;
   const removeAddedStory = async (storyId: string) => {
@@ -597,7 +622,7 @@ export function CanvasPage() {
             key={openPoint.id}
             point={openPoint}
             // The card shows the OWNER's story (D5); stories others added through the canvas are
-            // read in the block below, so "+ Add a story" stays offered after a reader adds one.
+            // read in the block below. A reader who added one is not offered a second (ownStoryAdded).
             linkedStories={(ready.stories.get(openPoint.id) ?? []).filter(st => !addedStoryIds.has(st.id))}
             surface="canvas"
             owner={cardOwner}

@@ -25,6 +25,7 @@ const SHARING = '20261021100000_p1515_artifact_sharing.sql';
 const SEAL = '20261021100100_p1515_seal_letter_skips_foreign_private_points.sql';
 const RULING = '20261021110000_p1515_audience_decides_everything_inside.sql';
 const TARGETS = '20261021150000_p1515_canvas_share_targets.sql';
+const REVIEW = '20261021170000_p1515_review_fixes.sql';
 const SEAL_BASE = '20260904120000_p1212_seal_rpc_story_author_name.sql';
 
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -163,6 +164,86 @@ describe('P1515: the share-targets migration (phase 2)', () => {
   it('offers only events the same admission rule share_canvas checks admits, never every event', () => {
     expect(code).toMatch(/public\._canvas_event_admits\(e\.id, v_uid\)/);
     expect(code).toMatch(/WHERE m\.user_id = v_uid|m\.user_id = v_uid/);
+  });
+});
+
+/** One function's statement, from its CREATE to the closing $$; (comments stripped, whitespace collapsed). */
+function fnBody(sql: string, name: string): string {
+  const code = stripComments(sql);
+  const a = code.indexOf(`CREATE OR REPLACE FUNCTION public.${name}(`);
+  if (a < 0) throw new Error(`${name} not found`);
+  return code.slice(a, code.indexOf('$$;', code.indexOf('AS $$', a)) + 3).replace(/\s+/g, ' ').trim();
+}
+
+describe('P1515: review fixes migration (20261021170000)', () => {
+  const raw = read(REVIEW);
+  const code = stripComments(raw);
+
+  it('carries the usual header: diffed-against and a client-safe annotation', () => {
+    expect(raw).toMatch(/diffed against:/);
+    expect(raw).toMatch(/client-safe:/);
+  });
+
+  it('1. one added story per person per point: a unique key on (canvas, point, author) and a plain refusal first', () => {
+    expect(code).toMatch(/ADD CONSTRAINT canvas_added_stories_one_per_person_per_point UNIQUE \(canvas_id, point_id, author_id\)/);
+    const add = fnBody(raw, 'canvas_add_story');
+    expect(add).toMatch(/cas\.point_id = p_point AND cas\.author_id = v_uid/);
+    expect(add).toMatch(/RAISE EXCEPTION 'you already added a story to this point' USING ERRCODE = '23505'/);
+    // the refusal comes BEFORE the story insert, so a refusal leaves no stray story row
+    expect(add.indexOf('you already added a story')).toBeLessThan(add.indexOf('INSERT INTO public.stories'));
+  });
+
+  it('2. get_canvas differs from its previous body only in the visibility CASE, which now needs an entry admitting the owner', () => {
+    const before = fnBody(read('20261021110000_p1515_audience_decides_everything_inside.sql'), 'get_canvas');
+    const after = fnBody(raw, 'get_canvas');
+    const oldCase = "'visibility', CASE WHEN EXISTS (SELECT 1 FROM public.canvas_audience a WHERE a.canvas_id = v_canvas) THEN 'shared' ELSE 'private' END,";
+    const newCase = "'visibility', CASE WHEN EXISTS ( SELECT 1 FROM public.canvas_audience a WHERE a.canvas_id = v_canvas AND public._canvas_target_admits(a.kind, a.event_id, a.org_id, p_owner) ) THEN 'shared' ELSE 'private' END,";
+    expect(before).toContain(oldCase);
+    expect(after).toContain(newCase);
+    expect(after.replace(newCase, oldCase)).toBe(before);
+  });
+
+  it('3. a public point carrying a canvas_ tag is refused for every role: no role test in the trigger function, INSERT and UPDATE OF both columns', () => {
+    const fn = fnBody(raw, 'p1515_canvas_points_are_private');
+    expect(fn).toMatch(/LIKE 'canvas\\_%'/);
+    expect(fn).toMatch(/ERRCODE = '23514'/);
+    for (const role of ['current_user', 'auth.role', 'session_user', 'service_role', 'authenticated']) expect(fn, role).not.toContain(role);
+    expect(code).toMatch(/BEFORE INSERT OR UPDATE OF system_tags, visibility ON public\.points/);
+  });
+
+  it('4. share_canvas refuses a canvas holding a public point and a cancelled event, with its usual message', () => {
+    const fn = fnBody(raw, 'share_canvas');
+    expect(fn).toMatch(/p\.visibility = 'public'::public\.content_visibility/);
+    expect(fn).toMatch(/e\.status = 'cancelled'/);
+    const refusals = [...fn.matchAll(/RAISE EXCEPTION '([^']*)' USING ERRCODE = '42501'/g)].map((m) => m[1]);
+    expect(refusals.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(refusals), 'one message for every refusal').toEqual(new Set(['not authorized for this canvas', 'sign in required']));
+  });
+
+  it('5. canvas_add_story pins search_path = public, pg_temp', () => {
+    expect(fnBody(raw, 'canvas_add_story')).toMatch(/SET search_path = public, pg_temp AS \$\$/);
+  });
+
+  it('6. get_canvas is revoked from anon and granted to authenticated only, as the last word on its grants', () => {
+    expect(code).toMatch(/REVOKE ALL ON FUNCTION public\.get_canvas\(uuid, text\) FROM PUBLIC, anon;/);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_canvas\(uuid, text\) TO authenticated;/);
+    expect(code).not.toMatch(/GRANT[^;]*\banon\b/i);
+    expect(code.indexOf('REVOKE ALL ON FUNCTION public.get_canvas')).toBeGreaterThan(code.indexOf('CREATE OR REPLACE FUNCTION public.get_canvas('));
+  });
+
+  it('9. the letter correction lives in this header; the seal migration is a separate file this one does not redefine', () => {
+    expect(raw).toMatch(/write REPLY/);
+    expect(raw).toMatch(/ACCEPTED/);
+    expect(code).not.toContain('seal_and_send_letter');
+  });
+
+  it('CONTROL: each check above fails on a mutated copy of the real file', () => {
+    const mutated = (find: RegExp | string, to: string) => raw.replace(find, to);
+    expect(stripComments(mutated('ADD CONSTRAINT canvas_added_stories_one_per_person_per_point UNIQUE (canvas_id, point_id, author_id)', 'ADD CONSTRAINT x UNIQUE (canvas_id, point_id)'))).not.toMatch(/UNIQUE \(canvas_id, point_id, author_id\)/);
+    expect(fnBody(mutated("AND public._canvas_target_admits(a.kind, a.event_id, a.org_id, p_owner)", ''), 'get_canvas')).not.toContain('p_owner) ) THEN');
+    expect(fnBody(mutated("IF NEW.visibility IS DISTINCT FROM 'public'::public.content_visibility THEN", "IF current_user = 'authenticated' THEN"), 'p1515_canvas_points_are_private')).toContain('current_user');
+    expect(fnBody(mutated("e.status = 'cancelled'", "e.status = 'x'"), 'share_canvas')).not.toMatch(/e\.status = 'cancelled'/);
+    expect(stripComments(mutated('TO authenticated;\n\n-- 1 + 5', 'TO anon, authenticated;\n\n-- 1 + 5'))).toMatch(/GRANT[^;]*\banon\b/i);
   });
 });
 

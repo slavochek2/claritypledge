@@ -67,11 +67,24 @@ if (!URL_ || !SERVICE_KEY) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (.env.test.local).');
   process.exit(1);
 }
-// An allowlist, as in seed-p1508-canvas.mjs: anything but the test project is refused.
-const TEST_REF = 'ayibkeoyukulbsjpxgaw';
-const REF = URL_.replace('https://', '').split('.')[0];
-if (REF !== TEST_REF) {
-  console.error(`REFUSING: ${REF} is not the test project (${TEST_REF}). This script is test-only.`);
+// An allowlist: anything but a test project's exact origin is refused (a URL is parsed, never split,
+// so `https://<test ref>.@<other host>` cannot pass).
+const TEST_REFS = ['ayibkeoyukulbsjpxgaw'];
+let parsed;
+try { parsed = new URL(URL_); } catch { parsed = null; }
+const REF = parsed?.hostname.split('.')[0] ?? '';
+if (!parsed || !TEST_REFS.includes(REF) || parsed.origin !== `https://${REF}.supabase.co`
+    || parsed.username || parsed.password || parsed.pathname !== '/') {
+  console.error(`REFUSING: ${URL_} is not a test project URL (${TEST_REFS.join(', ')}). This script is test-only.`);
+  process.exit(1);
+}
+// The key must belong to the same project: a key exported in the shell beats .env.test.local above.
+// A legacy JWT key names its project in the `ref` claim; any other key shape is refused.
+const keyRef = (() => {
+  try { return JSON.parse(Buffer.from(SERVICE_KEY.split('.')[1], 'base64url').toString()).ref; } catch { return undefined; }
+})();
+if (keyRef !== REF) {
+  console.error(`REFUSING: the service key is for ${keyRef ?? 'an unknown project'}, not ${REF}.`);
   process.exit(1);
 }
 
@@ -195,7 +208,8 @@ async function seed() {
       if (!own) throw new Error(`reused_story_id ${storyId} is not the owner's story`);
     } else {
       const found = await must('find story', admin.from('stories').select('id')
-        .eq('author_id', owner.id).eq('content', it.story).limit(1).maybeSingle());
+        .eq('author_id', owner.id).eq('content', it.story).eq('visibility', 'private')
+        .order('created_at', { ascending: true }).limit(1).maybeSingle());
       storyId = found?.id ?? (await must('insert story', admin.from('stories').insert({
         content: it.story, author_id: owner.id, visibility: 'private',
       }).select('id').single())).id;
