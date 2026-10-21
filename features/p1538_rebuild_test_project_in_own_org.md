@@ -67,6 +67,9 @@ switching back is one copy. Prod is untouched.
 | One storage-signing key has no local copy | ACCEPT | Two test-only functions return 500 until it is provided; founder decision |
 | Copied rows keep image URLs on the old project's storage; storage objects were not copied | ACCEPT | Those images break on TEST once the old project is paused; new uploads go to the new storage |
 
+**Non-Goals:** pausing the old project (a paid plan cannot be paused; sequenced after the plan
+downgrade, tracked in P1530) · fixing the pre-existing failing tests found on the way (filed as notes).
+
 ## Cost Budget
 
 This change moves where e2e traffic lands; it does not change what a run does.
@@ -81,8 +84,6 @@ This change moves where e2e traffic lands; it does not change what a run does.
 Consequence: the prod organisation stops paying for e2e traffic. The test organisation's free quota
 now absorbs it alone, so at today's volume TEST itself can run into its limits until P1532 lands.
 
-**Non-Goals:** pausing the old project (a paid plan cannot be paused; sequenced after the plan
-downgrade, tracked in P1530) · fixing the pre-existing failing tests found on the way (filed as notes).
 
 ## Done-When
 
