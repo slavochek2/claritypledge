@@ -71,6 +71,8 @@ export interface FeedPointCardCanvas {
   sharedLabel: string | null;
   /** the viewer already added a story to this point through the canvas (one per person per point, P465) */
   ownStoryAdded?: boolean;
+  /** a signed-out visitor of a canvas open to anyone with the link: reads only, no position buttons, no story */
+  readOnly?: boolean;
 }
 
 interface FeedPointCardProps {
@@ -277,7 +279,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
     : undefined;
-  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && !canvas?.ownStoryAdded
+  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && !canvas?.ownStoryAdded && !canvas?.readOnly
     ? getPositionCTACopy(getPositionGroup(authedEffective))
     : null;
 
@@ -608,7 +610,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                 (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
                 tabbing through it no longer lands on an unrelated control between the last
                 position and the story list. */}
-            <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
+            {!canvas?.readOnly && <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
               <PositionButtons
                 userPosition={effectivePosition}
                 counts={counts}
@@ -626,9 +628,9 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                   await guardedRemovePosition(point.id);
                 }}
               />
-            </div>
+            </div>}
             {/* P502: Anonymous position CTA */}
-            {!hideAnonSignupCta && !session?.user && anonPosition && (
+            {!hideAnonSignupCta && !canvas?.readOnly && !session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />
             )}
     </PointCardShell>

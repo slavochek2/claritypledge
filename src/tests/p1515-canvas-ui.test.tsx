@@ -121,7 +121,7 @@ describe('canvasService', () => {
   it('maps get_canvas to the app\'s types, with counts and the viewer\'s own position', async () => {
     rpc.mockResolvedValue({ data: payload, error: null });
     const view = await canvasService.getCanvas('owner', 'x', 'viewer-1');
-    expect(rpc).toHaveBeenCalledWith('get_canvas', { p_owner: 'owner', p_name: 'x' });
+    expect(rpc).toHaveBeenCalledWith('get_canvas', { p_owner: 'owner', p_name: 'x', p_link_token: null });
     expect(view.points).toHaveLength(1);
     expect(view.points[0]).toMatchObject({ id: 'p1', visibility: 'private', totalPositions: 1, userPosition: { position: 'agree' } });
     expect(view.points[0]!.positionCounts.agree).toBe(1);
@@ -432,15 +432,16 @@ describe('CanvasShareControl', () => {
     expect(within(rows[1]!).queryByTestId('canvas-share-entry-names')).toBeNull();
   });
 
-  it('adds from the owner\'s own events and groups (those not already added)', async () => {
+  it('adds from the owner\'s own events and groups (those not already added): picking one adds it, no separate button', async () => {
     mockPanel([entry()]);
     const changed = vi.fn();
-    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} onChanged={changed} />);
+    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} link="https://example.test/p/x/canvas/x" onChanged={changed} />);
     fireEvent.click(screen.getByTestId('canvas-share-control'));
-    const pick = await screen.findByTestId('canvas-share-pick');
-    expect(screen.queryByTestId('canvas-share-add')).toBeNull(); // nothing chosen: no dead button
-    fireEvent.change(pick, { target: { value: 'group:g1' } });
-    fireEvent.click(screen.getByTestId('canvas-share-add'));
+    await screen.findByTestId('canvas-share-invite');
+    const offered = (await screen.findAllByTestId('canvas-share-option')).map(o => o.textContent);
+    expect(offered).toEqual(['Session twoEvent', 'FoundersGroup']); // the entry already added (Sales mastermind) is not offered
+    expect(screen.queryByTestId('canvas-share-add')).toBeNull();
+    fireEvent.click(screen.getByText('Founders'));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('share_canvas', { p_name: 'x', p_kind: 'group', p_target: 'g1' }));
     await waitFor(() => expect(changed).toHaveBeenCalled());
   });

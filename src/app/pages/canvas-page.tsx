@@ -27,6 +27,11 @@
  * panel opens. Everything on screen is keyed by the viewer, so signing out or switching account
  * drops the canvas and the open panel in the same render.
  *
+ * PHASE 3 (founder, 2026-10-21): the owner can also add ONE PERSON, and switch general access to
+ * "Anyone with the link". Signed-in people then read, take positions and add a story; a signed-out
+ * visitor reads only (the page asks get_canvas signed out too: it answers with content only while the
+ * link is open, and with the empty not-found shape otherwise) and gets no write control.
+ *
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
 
@@ -44,7 +49,7 @@ import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
 import { toast } from 'sonner';
 import { pointsService } from '@/app/data/points-service';
-import { canvasService, type AudienceEntry, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
+import { canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { FeedPointCard, type FeedPointCardCanvas, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
@@ -112,6 +117,8 @@ type CanvasData =
     /** P1515: 'private' (no entries) or 'shared'; never null on a canvas the viewer can read */
     visibility: CanvasVisibility;
     isOwner: boolean;
+    /** 'link': the owner opened the canvas to anyone with the link */
+    generalAccess: CanvasGeneralAccess;
     /** the entry that admits a reader (null for the owner) */
     via: CanvasVia | null;
     /** the owner's audience, for the lock label and the shared icon (null: not read or not the owner) */
@@ -133,23 +140,26 @@ export function CanvasPage() {
   const projectTag = normalizeProjectTag(rawTag);
   const { session, sessionChecked } = useAuth();
   const viewerId = session?.user?.id;
-  const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}`;
+  // The open point lives in the address (`?point=`), so Back from a story or point page reopens
+  // it. It opens only if it is one of the points THIS viewer's read returned.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPointId = searchParams.get('point');
+  // "Anyone with the link" is an unguessable token in the address (`?k=`). It rides every read and write,
+  // stays in the address while the reader moves around the canvas, and is part of the cache key.
+  const linkToken = searchParams.get('k') || undefined;
+  const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}|${linkToken ?? ''}`;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // Back to a canvas shows it as it was left, from the shared return cache (P1364 rules: POP only,
   // cleared on any auth change and after every own write; a read from an older generation is
   // never written back).
   const navigationType = useNavigationType();
-  const cacheKey = listReturnCacheKey(viewerId, canvasPath(handle ?? '', projectTag ?? ''));
+  const cacheKey = listReturnCacheKey(viewerId, canvasPath(handle ?? '', projectTag ?? ''), linkToken ?? '');
   // The viewer + address on screen NOW. A callback from a card that outlived its viewer (a vote
   // settling after sign-out) must not start a read for the old key: it would supersede the
   // current read and leave the page loading.
   const keyRef = useRef(key);
   keyRef.current = key;
-  // The open point lives in the address (`?point=`), so Back from a story or point page reopens
-  // it. It opens only if it is one of the points THIS viewer's read returned.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedPointId = searchParams.get('point');
   // Bumped when the panel closes: a signed-out vote lives only in the browser, so the box cards
   // re-read it then.
   const [panelCloses, setPanelCloses] = useState(0);
@@ -180,10 +190,8 @@ export function CanvasPage() {
       setLoaded({ key: forKey, data });
     };
     if (!handle || !projectTag) return settle({ status: 'not-found' });
-    // Signed out: a canvas is only ever for its owner and the people its audience admits, so a
-    // visitor gets the same not-found a stranger gets, without asking the server (get_canvas is not
-    // executable by anon at all).
-    if (!viewerId) return settle({ status: 'not-found' });
+    // Signed out is asked too: get_canvas gives a visitor content only while the owner has opened the
+    // canvas to anyone with the link, and the same empty answer (shown as not-found) otherwise.
     try {
       const owner = await getProfileBySlugResult(handle, { withRelations: false });
       if (!owner.success) return settle({ status: owner.error === 'not_found' ? 'not-found' : 'error' });
@@ -201,7 +209,7 @@ export function CanvasPage() {
         : Promise.resolve(null);
       // ONE read for everyone (P1515): the owner and admitted readers get the canvas, anyone else
       // gets nothing, which is shown as not-found exactly as an unknown canvas is.
-      const view = await canvasService.getCanvas(owner.data.id, projectTag, viewerId);
+      const view = await canvasService.getCanvas(owner.data.id, projectTag, viewerId, linkToken);
       if (view.points.length === 0) return settle({ status: 'not-found' });
       const [projectTags, audienceResult] = await Promise.all([tagsRead, audienceRead]);
       // A refresh whose audience read failed keeps the audience already loaded for this canvas; only
@@ -225,6 +233,7 @@ export function CanvasPage() {
         projectTags,
         visibility: view.visibility ?? 'private',
         isOwner: view.isOwner,
+        generalAccess: view.generalAccess,
         via: view.via,
         audience,
         addedStoryIds: view.addedStoryIds,
@@ -232,7 +241,7 @@ export function CanvasPage() {
     } catch {
       settle({ status: 'error' });
     }
-  }, [handle, projectTag, viewerId, cacheKey]);
+  }, [handle, projectTag, viewerId, cacheKey, linkToken]);
 
   // Wait for the session check: reading before it would show the owner the public canvas first.
   useEffect(() => {
@@ -455,18 +464,19 @@ export function CanvasPage() {
   // P1515: the one visibility idea. 'shared' marks the header, every point and every story inside.
   const viewerIsOwner = !!ready && ready.isOwner;
   const sharedLabel = ready?.visibility === 'shared'
-    ? sharedIconLabel({ isOwner: viewerIsOwner, entries: ready.audience, via: ready.via })
+    ? sharedIconLabel({ isOwner: viewerIsOwner, entries: ready.audience, via: ready.via, generalAccess: ready.generalAccess })
     : null;
   const addedStoryIds = new Set(ready?.addedStoryIds ?? []);
   const composerNote = ready
-    ? composerVisibilityCopy({ isOwner: viewerIsOwner, ownerName: ready.ownerName, entries: ready.audience, visibility: ready.visibility })
+    ? composerVisibilityCopy({ isOwner: viewerIsOwner, ownerName: ready.ownerName, entries: ready.audience, visibility: ready.visibility, generalAccess: ready.generalAccess })
     : '';
   // The checked writes for the open point's card (positions), and the one for taking an added story off.
   const canvasBindings = (point: PointWithUserPosition): FeedPointCardCanvas | undefined => ready && projectTag
     ? {
-      setPosition: position => canvasService.setPosition(ready.ownerId, projectTag, point.id, position),
-      removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id),
+      setPosition: position => canvasService.setPosition(ready.ownerId, projectTag, point.id, position, linkToken),
+      removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id, linkToken),
       reader: !viewerIsOwner,
+      readOnly: !viewerId,
       sharedLabel,
       ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
     }
@@ -554,21 +564,29 @@ export function CanvasPage() {
             <CanvasShareControl
               name={projectTag}
               visibility={ready.visibility}
+              generalAccess={ready.generalAccess}
+              link={`${window.location.origin}${canvasPath(handle ?? '', projectTag)}`}
               entries={ready.audience}
               onChanged={refresh}
             />
           </div>
-        ) : ready.via && (
+        ) : (ready.via || ready.generalAccess === 'link') && (
           <p className="flex min-w-0 items-center gap-2 text-sm text-foreground/80" data-testid="canvas-shared-with-you">
             <SharedIcon label={sharedLabel ?? 'Shared with you'} />
             <span className="min-w-0">
-              Shared with you through{' '}
-              {ready.via.kind === 'event' && ready.via.slug ? (
-                <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
-                  {ready.via.name}
-                </Link>
+              {ready.via ? (
+                <>
+                  {ready.via.kind === 'person' ? 'Shared with you by' : 'Shared with you through'}{' '}
+                  {ready.via.kind === 'event' && ready.via.slug ? (
+                    <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
+                      {ready.via.name}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-foreground" data-testid="canvas-shared-via">{ready.via.name}</span>
+                  )}
+                </>
               ) : (
-                <span className="font-medium text-foreground" data-testid="canvas-shared-via">{ready.via.name}</span>
+                <span data-testid="canvas-shared-link">Anyone with the link can see this canvas</span>
               )}
             </span>
           </p>
@@ -683,7 +701,7 @@ export function CanvasPage() {
         state={readerStoryDialog}
         audienceNote={composerNote}
         onSave={(pointId, content) => ready && projectTag
-          ? canvasService.addStory(ready.ownerId, projectTag, pointId, content).then(() => undefined)
+          ? canvasService.addStory(ready.ownerId, projectTag, pointId, content, linkToken).then(() => undefined)
           : Promise.reject(new Error('canvas not ready'))}
         onClose={closeStoryDialog}
         onSaved={() => { closeStoryDialog(); refresh(); }}

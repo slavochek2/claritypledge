@@ -189,14 +189,8 @@ let S_q_on_pub: string, S_q_on_priv: string, S_a_direct: string;
 // A's two stories added through the canvas (set in AC3, read by later tests)
 let addedPriv = '', addedPub = '';
 
-const NOTHING: Canvas = { points: [], stories: [], positions: [], visibility: null, access: { is_owner: false, admitted: false, via: null } };
 const getCanvas = async (c: SupabaseClient, name = NAME): Promise<Canvas> => {
-  if (c === V) {
-    // Signed out cannot call get_canvas at all (the page shows not-found without asking the server).
-    const { error } = await rpc(c, 'get_canvas', { p_owner: O.user.id, p_name: name });
-    expect(error, 'a signed-out caller is refused').not.toBeNull();
-    return NOTHING;
-  }
+  // Signed out is answered too (phase 3): with the empty shape here, because no canvas of this suite is open to anyone with the link.
   return okRpc<Canvas>(c, 'get_canvas', { p_owner: O.user.id, p_name: name }, 'read canvas');
 };
 const ptIds = (c: Canvas) => c.points.map((p) => p.id as string);
@@ -799,10 +793,12 @@ test('Visibility reads Private again when no entry admits the owner (the entries
   expect((await getCanvas(cG, NAME_SOLO)).points).toHaveLength(1);
 });
 
-test('Signed out cannot execute get_canvas at all; the signed-in callers who could not read it still get the empty answer', async () => {
+test('Signed out gets the same empty answer as a signed-in stranger (no error, no hint) unless the owner opened the link; CONTROLS: the owner and a stranger', async () => {
   const anon = await rpc(V, 'get_canvas', { p_owner: O.user.id, p_name: NAME });
-  expect(anon.error, 'anon is refused').not.toBeNull();
-  expect(anon.data).toBeNull();
+  expect(anon.error, 'anon is answered').toBeNull();
+  expect(anon.data.points).toEqual([]);
+  expect(anon.data.visibility).toBeNull();
+  expect(anon.data.access.admitted).toBe(false);
   // CONTROLS: the owner reads it; a signed-in stranger gets the empty shape (not an error).
   expect((await okRpc<Canvas>(cO, 'get_canvas', { p_owner: O.user.id, p_name: NAME }, 'owner')).points.length).toBeGreaterThan(0);
   const stranger = await rpc(cN, 'get_canvas', { p_owner: O.user.id, p_name: NAME_LEGACY });
@@ -834,7 +830,7 @@ test('Panel: the audience shows each entry with its count, names for events and 
   expect(JSON.stringify(aud)).not.toContain(N.name); // N is in the private group and is not named anywhere
 
   // Only the owner: another person sees their OWN canvases (none of this name), signed out is refused.
-  expect(await okRpc(cA, 'get_canvas_audience', { p_name: NAME }, 'A audience')).toEqual({ entries: [] });
+  expect(await okRpc(cA, 'get_canvas_audience', { p_name: NAME }, 'A audience')).toEqual({ entries: [], general_access: 'restricted', link_token: null });
   const anon = await rpc(V, 'get_canvas_audience', { p_name: NAME });
   expect(anon.error).not.toBeNull();
   // The private group admits its members too (N and G2 read through it).
@@ -1079,10 +1075,9 @@ test('Closed surfaces: the new tables and internal functions are unreachable to 
   expect((await supabaseAdmin.rpc('_canvas_can_read', { p_canvas: canvasId, p_uid: O.user.id })).data).toBe(true);
   expect((await supabaseAdmin.rpc('_canvas_event_admits', { p_event: E1.id, p_uid: A.user.id })).data).toBe(true);
 
-  // Client write/read functions: closed to signed-out callers (get_canvas too, since the review fixes: the page
-  // shows a signed-out visitor not-found without asking).
+  // Client write/read functions: closed to signed-out callers. get_canvas is the one exception (phase 3: it
+  // answers a signed-out visitor, with content only while the owner has opened the link); it is covered above.
   const writes: Array<[string, Record<string, unknown>]> = [
-    ['get_canvas', { p_owner: O.user.id, p_name: NAME }],
     ['canvas_set_position', { p_owner: O.user.id, p_name: NAME, p_point: P_pub, p_position: 'agree', p_reasoning: null }],
     ['canvas_remove_position', { p_owner: O.user.id, p_name: NAME, p_point: P_pub }],
     ['canvas_add_story', { p_owner: O.user.id, p_name: NAME, p_point: P_pub, p_content: 'x' }],

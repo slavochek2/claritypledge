@@ -947,12 +947,20 @@ test.describe('P1508: Clarity Canvas', () => {
       await page.getByTestId('canvas-point-panel').getByRole('button', { name: /^Details/ }).click();
       await expect(page).toHaveURL(new RegExp(`/point/${fx.solutionPointId}`));
     };
-    // No write: Back serves the canvas from the return cache.
+    // No write: Back serves the canvas from the return cache. Opening the panel re-reads the canvas by
+    // design, and that request leaves only after the owner's profile lookup (a few hundred ms), so it can
+    // land AFTER the Details page is reached. Wait for THAT read's response before counting; the count
+    // taken then must not move on Back (it is observed for a fixed window, never waited to "settle").
+    const panelRead = page.waitForResponse(r => /\/rest\/v1\/rpc\/get_canvas/.test(r.url()) && (r.request().postData() ?? '').includes(fx.tag.toLowerCase()));
     await openDetails();
+    await panelRead;
     const before = canvasReads;
     await page.goBack();
     await waitForCanvas(page);
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`)).toBeVisible();
+    // A read Back started would put its request on the wire only after the owner's profile lookup, so the
+    // count taken the moment the card shows cannot see it. Observe for a fixed window first.
+    await page.waitForTimeout(1_500);
     expect(canvasReads).toBe(before);
     // A position taken on the point page clears the cache: Back reads the canvas again.
     await page.keyboard.press('Escape');

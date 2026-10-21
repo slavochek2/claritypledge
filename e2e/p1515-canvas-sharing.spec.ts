@@ -177,11 +177,12 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     const panel = page.getByTestId('canvas-share-panel');
     await expect(panel.getByTestId('canvas-share-empty')).toHaveText('Only you can see it.');
     // The owner's own events and groups, nothing else (not the groups of others, not other events).
-    const options = await panel.getByTestId('canvas-share-pick').locator('option').allTextContents();
-    expect(options).toEqual(['Choose an event or group', E.title, Yp.name, Y.name]); // events, then groups by name
-    await expect(panel.getByTestId('canvas-share-add')).toHaveCount(0); // nothing chosen: no dead button
-    await panel.getByTestId('canvas-share-pick').selectOption(`event:${E.id}`);
-    await panel.getByTestId('canvas-share-add').click();
+    // One invite field: nothing typed lists the owner's own events, then groups by name (no people until 3 letters).
+    await expect(panel.getByLabel('Add a person, event or group')).toBeVisible();
+    await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
+    const options = await panel.getByTestId('canvas-share-option').allTextContents();
+    expect(options).toEqual([`${E.title}Event`, `${Yp.name}Group`, `${Y.name}Group`]);
+    await panel.getByTestId('canvas-share-option').filter({ hasText: E.title }).click(); // picking adds: no separate Add button
     await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1, { timeout: 20_000 }); // a share, then the panel re-reads
     await expect(panel.getByTestId('canvas-share-entry')).toContainText(E.title);
     await page.keyboard.press('Escape');
@@ -506,8 +507,8 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(2, { timeout: 20_000 });
     await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: E.title })).toHaveCount(0, { timeout: 20_000 });
     // The event is addable again (a real choice back in the list).
-    const options = await panel.getByTestId('canvas-share-pick').locator('option').allTextContents();
-    expect(options).toContain(E.title);
+    const options = await panel.getByTestId('canvas-share-option').allTextContents();
+    expect(options).toContain(`${E.title}Event`);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('canvas-share-label')).not.toContainText(E.title);
 
@@ -524,5 +525,98 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(gPage.getByTestId('canvas-shared-via')).toHaveText(Y.name);
     await expect(gPage.getByTestId('canvas-box-canvas:solution').getByText(PRIVATE_TEXT)).toBeVisible();
     await gPage.close();
+  });
+  test('PHASE 3: O adds one person from the invite field, then opens the canvas to anyone with the link; a signed-out visitor reads only; closing it returns not-found', async ({ page, browser }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // A is a witness of O, so the existing profile search returns A to O (the invite field is scoped to that).
+    const w = await supabaseAdmin.from('witnesses').insert({ profile_id: O.user.id, witness_name: `P1515 witness ${RUN}`, witness_profile_id: A.user.id });
+    if (w.error) throw new Error(`[P1515 fixture] witness: ${w.error.message}`);
+    await setTestSession(page, O.email);
+    await page.goto(url());
+    await waitForCanvas(page);
+    await page.getByTestId('canvas-share-control').click();
+    const panel = page.getByTestId('canvas-share-panel');
+    await panel.getByLabel('Add a person, event or group').fill(A.name.slice(0, 12).toLowerCase());
+    await panel.getByTestId('canvas-share-option').filter({ hasText: A.name }).click();
+    // The person's row is the one that says so (a public group's row lists its members' names too).
+    const personRow = panel.getByTestId('canvas-share-entry').filter({ hasText: 'Can read it and add to it' });
+    await expect(personRow).toHaveCount(1, { timeout: 20_000 });
+    await expect(personRow).toContainText(A.name);
+    await expect(panel.getByTestId('canvas-share-owner')).toHaveText(/You \(owner\)/);
+    // CONTROL: someone the search does not return (N, no relationship) is not offered.
+    await panel.getByLabel('Add a person, event or group').fill(N.name.slice(0, 12).toLowerCase());
+    await expect(panel.getByTestId('canvas-share-nothing-to-add')).toBeVisible({ timeout: 20_000 });
+    await expect(panel.getByTestId('canvas-share-option').filter({ hasText: N.name })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // The person's page: the reader line names the owner.
+    const aPage = await browser.newPage();
+    await setTestSession(aPage, A.email);
+    await aPage.goto(url());
+    await waitForCanvas(aPage);
+    await expect(aPage.getByTestId('canvas-shared-with-you')).toContainText(`Shared with you by ${O.name}`);
+    await aPage.close();
+
+    // General access: Anyone with the link.
+    await page.getByTestId('canvas-share-control').click();
+    await panel.getByTestId('canvas-share-general').selectOption('link');
+    await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Anyone with the link can read it', { timeout: 20_000 });
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('canvas-share-label')).toHaveText('Anyone with the link', { timeout: 20_000 });
+    // The link is a token: read it the way the panel's Copy link does, from the owner's own canvas record.
+    const { data: opened } = await supabaseAdmin.from('canvases').select('link_token').eq('owner_id', O.user.id).eq('name', NAME).single();
+    const token = opened!.link_token as string;
+    expect(token).toMatch(/^[0-9a-f]{32}$/);
+    // Copy link carries the token.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByTestId('canvas-share-control').click();
+    await panel.getByTestId('canvas-share-copy').click();
+    await expect(panel.getByTestId('canvas-share-copied')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(page.url()).origin}${url()}?k=${token}`);
+    await page.keyboard.press('Escape');
+
+    // A signed-out visitor reads with the token, with no way to write; the plain address (no token) is still not-found.
+    const anon = await browser.newContext();
+    const visitor = await anon.newPage();
+    await visitor.setViewportSize({ width: 1440, height: 900 });
+    await visitor.goto(url());
+    await expectNotFound(visitor, 'V without the token while the link is open');
+    await visitor.goto(`${url()}?k=${token}&point=${privId}`);
+    await waitForCanvas(visitor);
+    await expect(visitor.getByTestId('canvas-shared-link')).toContainText('Anyone with the link can see this canvas');
+    await expect(visitor.getByTestId('canvas-point-panel').getByTestId(`feed-point-card-${privId}`)).toBeVisible();
+    // (the "Filter by position" chips below the card are not write controls; the card's own buttons are)
+    const visitorCard = visitor.getByTestId(`feed-point-card-${privId}`);
+    await expect(visitorCard.getByRole('button', { name: /^disagree/i })).toHaveCount(0);
+    await expect(visitor.getByRole('button', { name: /add a story/i })).toHaveCount(0);
+    // A signed-in stranger reads AND can take a position (L registered too late for the event, and is in no group: N is in a shared group by now).
+    const nPage = await browser.newPage();
+    await setTestSession(nPage, L.email);
+    await nPage.goto(`${url()}?k=${token}&point=${privId}`);
+    await waitForCanvas(nPage);
+    await expect(nPage.getByTestId(`feed-point-card-${privId}`).getByRole('button', { name: /^disagree/i }).first()).toBeVisible();
+
+    // Back to "Only people added": both get not-found on their next request.
+    await page.getByTestId('canvas-share-control').click();
+    await panel.getByTestId('canvas-share-general').selectOption('restricted');
+    await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Only the people, events and groups above', { timeout: 20_000 });
+    await page.keyboard.press('Escape');
+    await visitor.goto(`${url()}?k=${token}`);
+    await expectNotFound(visitor, 'V after closing the link');
+    await nPage.goto(`${url()}?k=${token}`);
+    await expectNotFound(nPage, 'L after closing the link');
+    await nPage.close();
+    await anon.close();
+
+    // Remove the person: A's next request is not-found (A has no other way in).
+    await page.getByTestId('canvas-share-control').click();
+    await panel.getByRole('button', { name: `Stop sharing with ${A.name}` }).click();
+    await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: 'Can read it and add to it' })).toHaveCount(0, { timeout: 20_000 });
+    const a2 = await browser.newPage();
+    await setTestSession(a2, A.email);
+    await a2.goto(url());
+    await expectNotFound(a2, 'A after the person entry was removed');
+    await a2.close();
+    await supabaseAdmin.from('witnesses').delete().eq('profile_id', O.user.id);
   });
 });

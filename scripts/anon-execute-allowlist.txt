@@ -135,3 +135,10 @@ get_open_topics()                             # the public /topics page lists to
 # function is write-only (returns nothing about other rows), rate-limited, and the cap is checked before
 # the de-dup so a full cap does not reveal which links were already suggested (20261009160000).
 submit_calendar_source(text,text)             # signed-out visitors suggest an event source on /cm (P1447) — src/app/data/calendar-sources.ts:42
+
+# --- 2026-10-21, P1515 phase 3: a canvas the owner opened to "anyone with the link" ---
+# The canvas page asks get_canvas signed out too. The function decides on every call: content only while
+# the owner's general access is 'link' AND the caller sends the current unguessable link token (`?k=`);
+# the same empty shape (shown as not-found) for every other canvas, with no hint that it is open.
+# Every write function and the owner's tools stay closed to anon.
+get_canvas(uuid,text,text)                    # a signed-out visitor opens a canvas shared with anyone with the link (P1515) — src/app/data/canvas-service.ts:108
