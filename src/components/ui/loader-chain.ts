@@ -24,12 +24,17 @@ const loaderChain = { mounted: 0, start: 0, lastUnmount: -Infinity };
  * already drawn, as it is on the splash.
  */
 const SPLASH_SEED_MS = 1200;
+/** How long after this module loads the first loader may still count as the splash's continuation. */
+const SPLASH_WINDOW_MS = 2000;
 const splashAtLoad = typeof document !== 'undefined' && !!document.getElementById('app-shell-loader');
+const moduleLoadedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+let splashConsumed = false;
 
+// A one-time flag, not "is #root still empty": a layout can commit to #root before the loader nested in it
+// renders, and that loader is still the splash's continuation.
 function splashHandoff(): boolean {
-  if (!splashAtLoad) return false;
-  const root = document.getElementById('root');
-  return !!root && root.childElementCount === 0;
+  if (!splashAtLoad || splashConsumed) return false;
+  return performance.now() - moduleLoadedAt < SPLASH_WINDOW_MS;
 }
 
 /** Milliseconds the current loader run has already been going (0 when this loader starts a new run). */
@@ -46,6 +51,7 @@ export function useLoaderChain(): number {
     const now = performance.now();
     if (loaderChain.mounted === 0 && now - loaderChain.lastUnmount >= CHAIN_GAP_MS) loaderChain.start = now - elapsed;
     loaderChain.mounted += 1;
+    splashConsumed = true;
     return () => {
       loaderChain.mounted -= 1;
       loaderChain.lastUnmount = performance.now();
@@ -59,5 +65,6 @@ export function resetLoaderChainForTests() {
   loaderChain.mounted = 0;
   loaderChain.start = 0;
   loaderChain.lastUnmount = -Infinity;
+  splashConsumed = false;
 }
 

@@ -29,10 +29,30 @@ describe('P1539 splash hand-off', () => {
     expect(result.current).toBe(0);
   });
 
-  it('does not seed once #root already has content', async () => {
-    document.body.innerHTML = '<div id="root"><p>app</p></div><div id="app-shell-loader"></div>';
+  it('still seeds when a layout already committed to #root before the loader renders (Argon review)', async () => {
+    document.body.innerHTML = '<div id="root"><div>layout</div></div><div id="app-shell-loader"></div>';
     const { useLoaderChain } = await loadChain();
     const { result } = renderHook(() => useLoaderChain());
+    expect(result.current).toBeGreaterThanOrEqual(1200);
+  });
+
+  it('seeds only the first loader: a later, separate run starts fresh', async () => {
+    document.body.innerHTML = '<div id="root"></div><div id="app-shell-loader"></div>';
+    const { useLoaderChain } = await loadChain();
+    const first = renderHook(() => useLoaderChain());
+    first.unmount();
+    await new Promise((r) => setTimeout(r, 200));
+    const { result } = renderHook(() => useLoaderChain());
+    expect(result.current).toBe(0);
+  });
+
+  it('does not seed after the boot window', async () => {
+    document.body.innerHTML = '<div id="root"></div><div id="app-shell-loader"></div>';
+    const { useLoaderChain } = await loadChain();
+    const now = performance.now();
+    const spy = vi.spyOn(performance, 'now').mockReturnValue(now + 5000);
+    const { result } = renderHook(() => useLoaderChain());
+    spy.mockRestore();
     expect(result.current).toBe(0);
   });
 });
