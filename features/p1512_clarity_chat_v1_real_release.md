@@ -6,8 +6,8 @@ workstream: clarity-chat
 created_date: '2026-10-19'
 tags: [clarity-chat, navigation, realtime, rls]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, architect, dev, dev.2]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -305,9 +305,9 @@ Recorded after the third round (2026-10-21; Gemini Argon 4 then Codex):
 ## Pre-deploy Checklist
 
 - [x] Realtime confirmed working on test (step 0)
-- [ ] Chat migrations (tables, policies, backfill, `erase_my_account` update) applied on test, both canaries green, then prod via `/push`
+- [x] Chat migrations (tables, policies, backfill, `erase_my_account` update) applied on test, both canaries green (rerun 2026-10-21: read and write canaries passed). `[post-deploy]` prod is applied by `/push` step 2.5 for the pushed SHA
 - [x] Chat tables in the Realtime publication only with canary-passing policies
-- [ ] Privacy policy section on chat messages published — [FOUNDER DECISION: wording of the privacy-policy section on chat messages; not drafted by the agent]
+- [x] Privacy policy section on chat messages written and shipping in this release (founder approved drafting and merge 2026-10-21; Codex and Gemini reviewed). `[post-deploy]` live with the same push
 
 ## Related
 
