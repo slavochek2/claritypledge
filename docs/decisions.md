@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: Supabase free-plan usage is read from the dashboard through Chrome, not the API (P1525)
+
+**Context:** The organisation went over its free plan (P1522) and /day was asked to warn at 70% of each limit (cached egress, egress, logs, MAU). Every Supabase token here was refused for organisation reads, and creating a better one would not have helped: the Management API's published definition has no organisation-usage endpoint, and the scoped-token form offers no usage or billing permission. The only usage endpoints are per-project request counts, which say nothing about egress or logs.
+**Decision:** /day reads the dashboard Usage page as text through Claude in Chrome (`cp.w2q`, an attest step) and parses it with `scripts/supabase-usage-parse.py`. Chrome closed or signed out is `not-run` plus a "Supabase dashboard" connection on the Day board whose Fix says to sign in; it never reads as clean. A grace-period banner is a problem even when current-cycle figures are low, because it is about the previous cycle. Organisation slugs come from link search, since page text carries no links.
+**Alternatives rejected:** Request counts plus MAU as a proxy (blind to egress and logs, the two figures that caused the overrun). A full-account token (P1214 forbids one in a read-only report). A scheduled workflow (the figures sit behind a signed-in browser session that CI cannot hold), so this stays a knowing stopgap against the 2026-08-09 monitoring ruling, like RLS drift.
+**Consequences:** The check runs only when /day runs with Chrome signed in. A dashboard redesign reads as `not-run`, not `ok`. Both projects share one organisation, so test traffic spends production's quota. The log-ingestion overrun itself is not addressed by this and has no owner yet.
+**References:** [p1525](../features/done/2026-06-10/p1525_day_supabase_free_plan_usage_reader.md) · [p1524](../features/done/2026-06-10/p1524_day_supabase_quota_and_test_db_health.md) · `scripts/supabase-usage-parse.py` · decisions.md 2026-08-09 [process] (monitoring is a scheduled workflow)
+
 ## 2026-10-21 [product]: Sales-practice framing registers a novel prediction (L5); target audience frozen until the mastermind ends
 
 **Context:** /day's programme-health check read "degenerating": the sales-practice evenings (2026-10-12) and the sales mastermind (2026-10-19) were adopted without a stated novel prediction.

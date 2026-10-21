@@ -420,6 +420,8 @@ Last updated: 2026-10-21
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1524** (Oct 21) /day test-database response check — curl exits 28 after a 200 header on a stalled body; check the exit code, not only the HTTP status.
+- **P1525** (Oct 21) /day reads Supabase free-plan usage via Chrome — the public API has no org-usage endpoint; a grace banner is a problem even under threshold.
 - **P1514** (Oct 20) Retire the long spec pipeline — ten skills archived on 0-use evidence (90-day transcript search, control-checked); the build agent never stamped `dev` in `pipeline_ran`, so gate 2.5 caught it at ship and it was stamped by hand; review fixes needed the main session for rules files (subagents cannot edit `.claude/rules/`)
 - **P1523** (Oct 21) e2e cleanup stranded users whose stories sit in a sealed letter; a filtered log hid that the purge deleted 0
 - **P1522** (Oct 21) Cut Supabase egress: the 'polling' was the offline pack's burst; e2e cleanup derives FK blockers from the error
