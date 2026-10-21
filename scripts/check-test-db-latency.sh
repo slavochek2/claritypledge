@@ -20,12 +20,15 @@
 # TESTDB_ENV_FILE overrides the env file — set it to /dev/null to watch the not-run path.
 set -uo pipefail
 
-ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-# .env.local lives in the main checkout; worktrees carry a symlink to it.
-ENV_FILE="${TESTDB_ENV_FILE:-$ROOT/.env.local}"
+# .env.local lives in the MAIN checkout (gitignored), so resolve it there, not in a worktree.
+MAIN="$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)")"
+ENV_FILE="${TESTDB_ENV_FILE:-$MAIN/.env.local}"
 WARN_MS="${TESTDB_WARN_MS:-2000}"
+case "$WARN_MS" in
+  ''|*[!0-9]*) echo "TESTDB: not-run TESTDB_WARN_MS is not a whole number of ms"; exit 2 ;;
+esac
 
-envval() { grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"'; }
+envval() { grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d "\"'\r"; }
 URL="${TESTDB_URL:-$(envval VITE_SUPABASE_URL)}"
 KEY="$(envval VITE_SUPABASE_ANON_KEY)"
 if [ -z "$URL" ] || [ -z "$KEY" ]; then
@@ -39,10 +42,14 @@ for _ in 1 2 3; do
   out=$(curl -s -o /dev/null -m 10 -w '%{http_code} %{time_total}' \
     -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$KEY" "$KEY") \
     "$URL/rest/v1/events?select=id&limit=1")
+  rc=$?
   code=${out%% *}
   ms=$(awk -v s="${out##* }" 'BEGIN{printf "%d", s*1000}')
-  if [ "$code" != "200" ]; then
-    [ "$code" = "000" ] && why="did not answer within 10 seconds" || why="answered HTTP $code"
+  # A 200 header followed by a stalled body still exits curl 28: the exit code is checked too.
+  if [ "$rc" -ne 0 ] || [ "$code" != "200" ]; then
+    if [ "$rc" -eq 28 ]; then why="did not answer within 10 seconds"
+    elif [ "$code" = "000" ]; then why="could not be reached (curl exit $rc)"
+    else why="answered HTTP $code"; fi
     echo "TESTDB: problem the test database $why"
     exit 1
   fi

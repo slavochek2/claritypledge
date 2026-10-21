@@ -678,13 +678,15 @@ print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch 
 echo -e "\n=== SUPABASE TEST DB + FREE-PLAN QUOTA ==="
 # P1524. Test database: one anon REST read, median of three samples, warn over 2s (exit 0 ok,
 # 1 finding, 2 could not run; the TESTDB: line carries the status and the plain detail).
-TESTDB_LINE=$("$(git rev-parse --show-toplevel)/scripts/check-test-db-latency.sh" | tee /dev/stderr | grep '^TESTDB: ' | tail -1)
-echo "CHECK cp.testdb ${TESTDB_LINE#TESTDB: }" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+TESTDB_OUT=$("$(git rev-parse --show-toplevel)/scripts/check-test-db-latency.sh" 2>&1); echo "$TESTDB_OUT"
+TESTDB_LINE=$(printf '%s\n' "$TESTDB_OUT" | sed -n 's/^TESTDB: //p' | tail -1)
+echo "CHECK cp.testdb ${TESTDB_LINE:-not-run the test database check printed no result}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 # Organisation usage against the free-plan limits (cached egress, egress, logs, MAU; warn at 70%)
 # and the note when the test project sits in its own organisation both need a token with
 # organizations_read. None of the existing tokens has it (P1524 measured 401/403/403), so until
 # SUPABASE_ORG_READ_TOKEN exists this is not-run, never ok: the quota is unwatched.
-if grep -q '^SUPABASE_ORG_READ_TOKEN=.' "$(git rev-parse --show-toplevel)/.env.local" 2>/dev/null; then
+# .env.local is gitignored, so read it from the MAIN checkout, as the funnel CSV below does.
+if grep -q '^SUPABASE_ORG_READ_TOKEN=.' "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.env.local" 2>/dev/null; then
   echo "CHECK cp.quota not-run the token exists but the usage reader is not built yet (P1524 part 1)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
   echo "CHECK cp.quota not-run no Supabase token with organizations_read (P1524)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
