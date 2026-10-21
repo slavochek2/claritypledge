@@ -31,7 +31,7 @@ import {
 import { createTestDoc, deleteTestLetter } from '../helpers/test-letter';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-type Canvas = { points: Row[]; stories: Row[]; positions: Row[]; access: Row };
+type Canvas = { points: Row[]; stories: Row[]; positions: Row[]; visibility: string | null; access: Row };
 
 const URL = process.env.VITE_SUPABASE_URL!;
 const ANON = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -113,8 +113,8 @@ let T0: string;
 
 // points
 let P_pub: string, P_pub2: string, P_priv: string, P_nobox: string, P_foreign: string, P_old: string, P_plain: string;
-// the two public canvas points / all three canvas points, sorted (story_points allows ONE story per author per point, P465)
-let PUBLIC_POINTS: string[] = [], ALL_POINTS: string[] = [];
+// all three canvas points, sorted (two public rows, one private; story_points allows ONE story per author per point, P465)
+let ALL_POINTS: string[] = [];
 // stories
 let S_own_pub: string, S_own_priv: string, S_own_priv_on_pub: string, S_n_pub: string;
 let S_q_on_pub: string, S_q_on_priv: string, S_a_direct: string;
@@ -128,20 +128,19 @@ const stIds = (c: Canvas) => c.stories.map((s) => s.story_id as string);
 const posOn = (c: Canvas, pointId: string) => c.positions.filter((p) => p.point_id === pointId);
 const addedBy = (c: Canvas, authorId: string) => c.stories.filter((s) => s.added && s.story.author_id === authorId);
 
-/** What a non-admitted reader sees: the public point(s) and nothing private, no hint of more. */
-function expectPublicOnly(c: Canvas, who: string, ownStoryIds: string[] = []) {
-  expect(ptIds(c).sort(), `${who}: only the public canvas points`).toEqual(PUBLIC_POINTS);
-  expect(stIds(c), `${who}: no private story`).not.toContain(S_own_priv);
-  expect(stIds(c), `${who}: no private story of the owner`).not.toContain(S_own_priv_on_pub);
-  expect(posOn(c, P_priv), `${who}: no position on the private point`).toEqual([]);
+/**
+ * Founder ruling 2026-10-21: the audience decides everything inside. Anyone who is not the owner or
+ * currently admitted gets "not found": nothing at all, even when some canvas points are public rows,
+ * and no flag that says anything exists.
+ */
+function expectNothing(c: Canvas, who: string) {
+  expect(c.points, `${who}: no points`).toEqual([]);
+  expect(c.stories, `${who}: no stories`).toEqual([]);
+  expect(c.positions, `${who}: no positions`).toEqual([]);
+  expect(c.visibility, `${who}: no Private/Shared hint`).toBeNull();
   expect(c.access.admitted, `${who}: not admitted`).toBe(false);
   expect(c.access.via, `${who}: no reason line`).toBeNull();
   expect(c.access.is_owner).toBe(false);
-  expect(c.access.shared, `${who}: no Private/Shared hint`).toBeNull();
-  expect(
-    c.stories.every((s) => s.story.visibility === 'public' || ownStoryIds.includes(s.story_id)),
-    `${who}: every returned story is public (or the viewer's own)`,
-  ).toBe(true);
 }
 function expectAdmitted(c: Canvas, who: string, via: { kind: string; id: string }) {
   expect(ptIds(c).sort(), `${who}: every canvas point`).toEqual(ALL_POINTS);
@@ -151,7 +150,7 @@ function expectAdmitted(c: Canvas, who: string, via: { kind: string; id: string 
   expect(c.access.admitted).toBe(true);
   expect(c.access.via).toMatchObject({ kind: via.kind, id: via.id });
   expect(c.access.is_owner).toBe(false);
-  expect(c.access.shared).toBeNull();
+  expect(c.visibility, `${who}: admitted readers see the shared icon`).toBe('shared');
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -210,7 +209,6 @@ test.beforeAll(async () => {
   S_a_direct = await mkStory(A.user.id, 'A story linked straight to the private point', 'private', []);
   const direct = await cA.from('story_points').insert({ story_id: S_a_direct, point_id: P_priv, author_id: A.user.id });
   if (direct.error) throw new Error(`A direct link: ${direct.error.message}`);
-  PUBLIC_POINTS = [P_pub, P_pub2].sort();
   ALL_POINTS = [P_pub, P_pub2, P_priv].sort();
 
   for (const [pt, u, pos] of [[P_pub, O, 'agree'], [P_priv, O, 'agree'], [P_pub, N, 'disagree']] as const) {
@@ -241,38 +239,54 @@ test.afterAll(async () => {
   for (const o of orgs) await deleteTestOrganization(o.id);
 });
 
-test('AC1: with no entries the canvas is Private: the owner reads all, everyone else public points only', async () => {
+test('AC1: with no entries the canvas is Private: the owner reads all, everyone else gets nothing, public rows or not', async () => {
   const cv = await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', NAME);
   expect(cv.data, 'no record yet').toEqual([]);
 
-  // CONTROL: the owner sees the private point, so an empty private view below is not a blind probe.
+  // CONTROL: the owner sees every point, so an empty view below is not a blind probe.
   const own = await getCanvas(cO);
   expect(ptIds(own).sort()).toEqual(ALL_POINTS);
-  expect(stIds(own)).toEqual(expect.arrayContaining([S_own_pub, S_own_priv, S_own_priv_on_pub, S_n_pub]));
+  // The owner's stories only: not the outsider's public story (D-A is dropped), nor any private reply.
+  expect(stIds(own).sort()).toEqual([S_own_pub, S_own_priv, S_own_priv_on_pub].sort());
   expect(posOn(own, P_priv).map((p) => p.user_id)).toContain(O.user.id);
-  expect(own.access).toMatchObject({ is_owner: true, admitted: true, via: null, shared: false });
+  // Positions are the owner's (and admitted readers'): N's position on the public point is not shown.
+  expect(own.positions.map((p) => p.user_id), 'only the owner has a position here').toEqual([O.user.id, O.user.id]);
+  expect(own.visibility).toBe('private');
+  expect(own.access).toMatchObject({ is_owner: true, admitted: true, via: null });
 
   for (const [who, c] of [['A', cA], ['N', cN], ['L', cL], ['V (signed out)', V]] as const) {
-    expectPublicOnly(await getCanvas(c), who);
+    expectNothing(await getCanvas(c), who);
   }
 
-  // Exactly the right points, for everyone: not the point without a box, not another owner's point
-  // with the same tags, not the superseded version, not a private point on no canvas.
-  for (const c of [own, await getCanvas(V)]) {
-    for (const bad of [P_nobox, P_foreign, P_old, P_plain]) expect(ptIds(c)).not.toContain(bad);
-  }
-  // Public stories by other people stay on public points (D-A); nobody's private reply is inside.
-  expect(stIds(await getCanvas(V))).toEqual(expect.arrayContaining([S_own_pub, S_n_pub]));
-  for (const c of [own, await getCanvas(cA)]) {
-    for (const hidden of [S_q_on_pub, S_q_on_priv, S_a_direct]) expect(stIds(c)).not.toContain(hidden);
-  }
-  // The public point's positions are everyone's, as today.
-  expect(posOn(await getCanvas(V), P_pub).map((p) => p.user_id).sort()).toEqual([O.user.id, N.user.id].sort());
+  // Exactly the right points: not the point without a box, not another owner's point with the same
+  // tags, not the superseded version, not a private point on no canvas.
+  for (const bad of [P_nobox, P_foreign, P_old, P_plain]) expect(ptIds(own)).not.toContain(bad);
+  for (const hidden of [S_q_on_pub, S_q_on_priv, S_a_direct, S_n_pub]) expect(stIds(own)).not.toContain(hidden);
 
   // The name is case-insensitive; a malformed name is just an empty canvas.
   expect(ptIds(await getCanvas(cO, NAME.toUpperCase())).sort()).toEqual(ALL_POINTS);
   const junk = await getCanvas(cO, 'not a name!');
   expect(junk.points).toEqual([]);
+});
+
+test('Founder ruling: a stranger gets nothing from get_canvas even though the canvas\'s points are public rows', async () => {
+  // The rows really are public (a point\'s own flag does not decide who reads it on the canvas).
+  const rows = await supabaseAdmin.from('points').select('id,visibility').in('id', [P_pub, P_pub2]);
+  expect(rows.data!.map((r) => r.visibility)).toEqual(['public', 'public']);
+  // CONTROL, through the same function: the owner reads exactly those public rows plus the private one.
+  const own = await getCanvas(cO);
+  expect(ptIds(own)).toEqual(expect.arrayContaining([P_pub, P_pub2]));
+  // And the very same rows ARE readable by anyone through ordinary access, so the ruling is about the canvas only.
+  const plain = await V.from('points').select('id').in('id', [P_pub, P_pub2]);
+  expect(plain.data).toHaveLength(2);
+  // Strangers: signed in, signed out, a registrant outside the window, a member of nothing relevant.
+  for (const [who, c] of [['signed-in stranger N', cN], ['signed-out V', V], ['late registrant L', cL], ['attendee-to-be A', cA]] as const) {
+    expectNothing(await getCanvas(c), who);
+  }
+  // An unknown owner or canvas is indistinguishable from "not for you".
+  const missing = await okRpc<Canvas>(cN, 'get_canvas', { p_owner: '00000000-0000-0000-0000-0000000000bb', p_name: NAME }, 'unknown owner');
+  expect(missing.points).toEqual([]);
+  expect(missing.visibility).toBeNull();
 });
 
 test('AC2: O shares with event E1: A, A2 and the host read everything with the reason line; L, N and V do not', async () => {
@@ -290,14 +304,16 @@ test('AC2: O shares with event E1: A, A2 and the host read everything with the r
 
   // L registered after the window, N never registered, V is signed out.
   for (const [who, c] of [['L (late)', cL], ['N', cN], ['V', V], ['G (group member, no group entry yet)', cG]] as const) {
-    expectPublicOnly(await getCanvas(c), who);
+    expectNothing(await getCanvas(c), who);
   }
-  // Another person's private letter replies are not inside, even for an admitted reader.
+  // Another person's private letter replies and outsider stories are not inside, even for an admitted reader.
   const a = await getCanvas(cA);
-  for (const hidden of [S_q_on_pub, S_q_on_priv, S_a_direct]) expect(stIds(a)).not.toContain(hidden);
-  // The owner's own flag flips to Shared, and only the owner sees it.
-  expect((await getCanvas(cO)).access.shared).toBe(true);
-  expect((await getCanvas(cA)).access.shared).toBeNull();
+  for (const hidden of [S_q_on_pub, S_q_on_priv, S_a_direct, S_n_pub]) expect(stIds(a)).not.toContain(hidden);
+  // N's position on the public point is not shown to an admitted reader either: positions are the owner's and readers'.
+  expect(a.positions.map((p) => p.user_id)).not.toContain(N.user.id);
+  // The icon: Shared for the owner and for admitted readers, no hint for strangers (expectNothing above).
+  expect((await getCanvas(cO)).visibility).toBe('shared');
+  expect((await getCanvas(cA)).visibility).toBe('shared');
 });
 
 test('AC3: A takes a position and adds a story; O and other readers see both with A\'s name; the story is nowhere else', async () => {
@@ -437,7 +453,7 @@ test('AC4: O adds group Y: G reads everything; after G leaves Y the next request
   const leave = await cG.from('membership').delete().eq('org_id', Y.id).eq('user_id', G.user.id).select('id');
   expect(leave.error).toBeNull();
   expect(leave.data).toHaveLength(1);
-  expectPublicOnly(await getCanvas(cG), 'G after leaving');
+  expectNothing(await getCanvas(cG), 'G after leaving');
   expectAdmitted(await getCanvas(cG2), 'G2 still a member', { kind: 'group', id: Y.id });
 });
 
@@ -461,7 +477,7 @@ test('AC5: the host removes R: registration gone, R cannot register again, R see
   const ok = await cN.from('event_rsvps').insert({ event_id: E3.id, profile_id: N.user.id });
   expect(ok.error, 'registration still works for everyone else').toBeNull();
 
-  expectPublicOnly(await getCanvas(cR), 'R after removal');
+  expectNothing(await getCanvas(cR), 'R after removal');
 
   // R writes a position on O's private point DIRECTLY (today's unchanged path): it persists, and
   // the canvas shows it to nobody. CONTROL: A's admitted position is shown.
@@ -482,7 +498,7 @@ test('AC5: the host removes R: registration gone, R cannot register again, R see
   expect(race.error).toBeNull();
   const stillRegistered = await supabaseAdmin.from('event_rsvps').select('id').eq('event_id', E1.id).eq('profile_id', R2.user.id);
   expect(stillRegistered.data, 'the registration is still there').toHaveLength(1);
-  expectPublicOnly(await getCanvas(cR2), 'R2 with a registration but a removal record');
+  expectNothing(await getCanvas(cR2), 'R2 with a registration but a removal record');
   const svcAdmits = await supabaseAdmin.rpc('_canvas_event_admits', { p_event: E1.id, p_uid: R2.user.id });
   expect(svcAdmits.data).toBe(false);
 
@@ -504,7 +520,7 @@ test('AC5: the host removes R: registration gone, R cannot register again, R see
 test('AC6 + AC11: unsharing E1 ends A\'s access, G2 keeps access; O keeps A\'s stories, others lose them while A cannot read', async () => {
   expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 'unshare E1')).toBe(true);
 
-  expectPublicOnly(await getCanvas(cA), 'A after E1 was removed', [addedPub]);
+  expectNothing(await getCanvas(cA), 'A after E1 was removed');
   expectAdmitted(await getCanvas(cG2), 'G2 (group entry remains)', { kind: 'group', id: Y.id });
   // A2 is still a member of Y: admitted, and now through the group.
   expectAdmitted(await getCanvas(cA2), 'A2 through the group', { kind: 'group', id: Y.id });
@@ -514,10 +530,8 @@ test('AC6 + AC11: unsharing E1 ends A\'s access, G2 keeps access; O keeps A\'s s
   expect(stIds(await getCanvas(cA2)), 'A2 does not see A\'s stories while A has no access').not.toContain(addedPriv);
   expect(stIds(await getCanvas(cA2))).not.toContain(addedPub);
   expect(stIds(await getCanvas(cG2))).not.toContain(addedPub);
-  // A keeps their own story where the point is public (the author always), but not on the private point.
-  const a = await getCanvas(cA);
-  expect(stIds(a)).toContain(addedPub);
-  expect(stIds(a)).not.toContain(addedPriv);
+  // A, no longer admitted, gets nothing at all: not even their own stories, on a public point or not.
+  expectNothing(await getCanvas(cA), 'A (no access) sees none of their own stories either');
   // Positions follow the spec's "held by the owner or by people who can currently read the canvas":
   // A's position on the private point is shown to nobody once A cannot read (the owner included),
   // while A's stories stay with the owner above. The row itself is untouched.
@@ -537,7 +551,7 @@ test('Deleting the event cascades its entry: access through it ends at once', as
   expect(del.error).toBeNull();
   const entry = await supabaseAdmin.from('canvas_audience').select('id').eq('event_id', E2.id);
   expect(entry.data, 'entry deleted with the event').toEqual([]);
-  expectPublicOnly(await getCanvas(cA), 'A after E2 was deleted', [addedPub]);
+  expectNothing(await getCanvas(cA), 'A after E2 was deleted');
   expectAdmitted(await getCanvas(cG2), 'G2 unaffected', { kind: 'group', id: Y.id });
   // Re-share E1: access returns on the next request (live, nothing copied), and A's stories come back for other readers.
   expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 're-share E1')).toBe(true);
@@ -648,7 +662,14 @@ test('The server stamps when a client registered: a backdated registration does 
   expect(re.error, 'the insert itself still works').toBeNull();
   const stored = await supabaseAdmin.from('event_rsvps').select('rsvped_at').eq('event_id', E1.id).eq('profile_id', L.user.id).single();
   expect(new Date(stored.data!.rsvped_at).getTime(), 'the server decided the time').toBeGreaterThanOrEqual(new Date(T0).getTime());
-  expectPublicOnly(await getCanvas(cL), 'L who asked for a backdated registration');
+  expectNothing(await getCanvas(cL), 'L who asked for a backdated registration');
+  // Nor by update: a client has no UPDATE policy on event_rsvps, so a backdating update changes no row
+  // (and the migration's BEFORE UPDATE stamp keeps rsvped_at even if such a policy is ever added).
+  const upd = await cL.from('event_rsvps').update({ rsvped_at: backdated }).eq('event_id', E1.id).eq('profile_id', L.user.id).select('id');
+  expect(upd.data ?? [], 'an authenticated client cannot update a registration').toEqual([]);
+  const after = await supabaseAdmin.from('event_rsvps').select('rsvped_at').eq('event_id', E1.id).eq('profile_id', L.user.id).single();
+  expect(after.data!.rsvped_at, 'rsvped_at is unchanged by the attempted update').toBe(stored.data!.rsvped_at);
+  expectNothing(await getCanvas(cL), 'L after a backdating update');
 
   // CONTROL: the very same registration with an in-time timestamp written by the service role admits L,
   // so the stamp (not some other rule) is what kept L out above.
@@ -672,7 +693,7 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   const leave = await cO.from('membership').delete().eq('org_id', Y.id).eq('user_id', O.user.id).select('id');
   expect(leave.error).toBeNull();
   expect(leave.data).toHaveLength(1);
-  expectPublicOnly(await getCanvas(cG), 'G once O left Y');
+  expectNothing(await getCanvas(cG), 'G once O left Y');
   expectAdmitted(await getCanvas(cG2), 'G2 through the private group', { kind: 'group', id: Yp.id });
   expectAdmitted(await getCanvas(cA2), 'A2 through the event', { kind: 'event', id: E1.id });
   const aud = await okRpc<{ entries: Row[] }>(cO, 'get_canvas_audience', { p_name: NAME }, 'audience');
@@ -684,8 +705,8 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   const cancel = await cO.from('event_rsvps').delete().eq('event_id', E1.id).eq('profile_id', O.user.id).select('id');
   expect(cancel.error).toBeNull();
   expect(cancel.data).toHaveLength(1);
-  for (const [who, c, own] of [['A', cA, [addedPub]], ['A2', cA2, []], ['H (host)', cH, []], ['L', cL, []]] as const) {
-    expectPublicOnly(await getCanvas(c), `${who} once O cancelled at E1`, [...own]);
+  for (const [who, c] of [['A', cA], ['A2', cA2], ['H (host)', cH], ['L', cL]] as const) {
+    expectNothing(await getCanvas(c), `${who} once O cancelled at E1`);
   }
   expect(await okRpc(cH, 'list_canvases_shared_with_event', { p_event: E1.id }, 'host list')).toEqual([]);
   expectAdmitted(await getCanvas(cG2), 'G2 CONTROL', { kind: 'group', id: Yp.id });
@@ -694,7 +715,7 @@ test('AC7: when O leaves Y or cancels at E1, that entry admits no one; access is
   // O registers again through the client: stamped now, long after the window, so E1 still admits no one.
   const re = await cO.from('event_rsvps').insert({ event_id: E1.id, profile_id: O.user.id });
   expect(re.error).toBeNull();
-  expectPublicOnly(await getCanvas(cA), 'A after O re-registered too late', [addedPub]);
+  expectNothing(await getCanvas(cA), 'A after O re-registered too late');
 
   // O rejoins Y: G and A2 read through it again on the next request.
   await createTestMembership(Y.id, O.user.id);

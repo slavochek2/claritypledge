@@ -23,6 +23,7 @@ import { CANVAS_BOX_TAGS } from '@/lib/canvas-boxes';
 const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
 const SHARING = '20261021100000_p1515_artifact_sharing.sql';
 const SEAL = '20261021100100_p1515_seal_letter_skips_foreign_private_points.sql';
+const RULING = '20261021110000_p1515_audience_decides_everything_inside.sql';
 const SEAL_BASE = '20260904120000_p1212_seal_rpc_story_author_name.sql';
 
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -110,6 +111,39 @@ describe('P1515: function hygiene', () => {
         expect(grants, `${f.name} is internal: no grant at all`).toEqual([]);
       }
     }
+  });
+});
+
+describe('P1515: founder ruling migration (the audience decides everything inside)', () => {
+  const sql = read(RULING);
+  const code = stripComments(sql);
+  const fns = functions(sql);
+  const getCanvasBody = code.slice(code.indexOf('CREATE OR REPLACE FUNCTION public.get_canvas('), code.indexOf('CREATE OR REPLACE FUNCTION public.p1515_stamp_rsvp_time'));
+
+  it('redefines only get_canvas and the rsvp stamp, each with an empty search_path', () => {
+    expect(fns.map((f) => f.name).sort()).toEqual(['get_canvas', 'p1515_stamp_rsvp_time']);
+    for (const f of fns) expect(f.header, f.name).toMatch(/SET search_path = ''/);
+  });
+
+  it('widens nothing: no grant, no policy, no table change', () => {
+    expect(code).not.toMatch(/\bGRANT\b/i);
+    expect(code).not.toMatch(/\b(CREATE|ALTER|DROP)\s+POLICY\b/i);
+    expect(code).not.toMatch(/ALTER\s+TABLE/i);
+  });
+
+  it('get_canvas has no public-stories-by-others path (D-A dropped) and returns visibility', () => {
+    expect(getCanvasBody).not.toMatch(/d_a_public|c_include_public_by_others/);
+    expect(getCanvasBody).not.toMatch(/visibility\s*=\s*'public'/);
+    expect(getCanvasBody).toMatch(/'visibility',\s*CASE/);
+    expect(getCanvasBody).toMatch(/NOT COALESCE\(v_admitted, false\)/);
+  });
+
+  it('the rsvp stamp fires on UPDATE of the gating columns too', () => {
+    expect(code).toMatch(/BEFORE INSERT OR UPDATE OF rsvped_at, event_id, profile_id ON public\.event_rsvps/);
+  });
+
+  it('CONTROL: the first migration really did have the D-A path (the absence above is not a blind regex)', () => {
+    expect(stripComments(read(SHARING))).toMatch(/d_a_public_stories_by_others/);
   });
 });
 
