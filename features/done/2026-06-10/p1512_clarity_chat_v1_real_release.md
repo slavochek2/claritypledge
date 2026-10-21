@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 43
 workstream: clarity-chat
 created_date: '2026-10-19'
 tags: [clarity-chat, navigation, realtime, rls]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-21
 ---
 
 # P1512: Clarity Chat v1, real and released: chats become Home, live pages reused, real messages
