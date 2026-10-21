@@ -1022,7 +1022,11 @@ export async function getStoryBySlug(slug: string): Promise<StoryWithAuthor | nu
       )
     `)
     .contains('system_tags', [slug]);
-  if (error || !data?.length) return null;
+  if (error) {
+    logDbError('getStoryBySlug', error);
+    return null;
+  }
+  if (!data?.length) return null;
   const versionOf = (s: { system_tags?: string[] | null }) => {
     const vTag = (s.system_tags ?? []).find((t) => /^v\d+$/.test(t));
     return vTag ? parseInt(vTag.slice(1), 10) : 0;
