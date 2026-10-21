@@ -103,6 +103,17 @@ data and no production path is affected.
       INBOX-204; it is started from `main` once this lands.
 - [x] No regression in P1522's `e2e/p1522-idle-request-budget.spec.ts` (uses `deleteTestUser`): 5/5.
 
+## Review
+
+Gemini (2 rounds, final CLEAN) and Codex (3 findings). Fixed: a unit test for FK-blocker
+resolution (`src/tests/p1523-delete-test-user-fk-blockers.test.ts`, red when the P1523 branch is
+removed). Known limits, recorded rather than fixed (simulated shapes this test project does not
+produce; 0 permanently stuck users across 213 real deletes):
+- The sweeper shuffles a pool of three batches from the first pages; over 3x the batch limit of
+  permanently stuck users at the front would still starve later pages.
+- A test user with more than 1,000 stories (the API row limit) would not have every story's
+  blockers cleared.
+
 ## Related
 
 - P1522 (shipped the cleanup this fixes) · INBOX-204 (purge follow-up)
