@@ -58,6 +58,8 @@ test.describe('P1532 migration: e2e_purge_test_users', () => {
     expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'service_role' })).toBe(true); // old test, until paused
     expect(await ask({ ref: 'besjtuodziykmjidubzw', role: 'service_role' })).toBe(false); // prod
     expect(await ask({ ref: 'ayibkeoyukulbsjpxgaw', role: 'anon' })).toBe(false); // the public anon key
+    expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'anon' })).toBe(false);
+    expect(await ask({ ref: 'ayibkeoyukulbsjpxgaw', role: 'authenticated' })).toBe(false);
     expect(await ask({ role: 'service_role' })).toBe(false);
     expect(await ask(null)).toBe(false);
   });

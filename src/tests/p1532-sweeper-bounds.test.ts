@@ -7,9 +7,9 @@
  * client, with the failure simulated, so the real test project is never touched.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SWEEP_DEFAULTS, exitCodeFor, purgeUserIds, sweepE2eTestUsers, type SweepClient } from '../../scripts/sweep-e2e-test-users';
+import { SWEEP_DEFAULTS, TEST_PROJECT_REF, exitCodeFor, isTestProjectUrl, purgeUserIds, sweepE2eTestUsers, type SweepClient } from '../../scripts/sweep-e2e-test-users';
 
-const TEST_URL = 'https://ayibkeoyukulbsjpxgaw.supabase.co';
+const TEST_URL = `https://${TEST_PROJECT_REF}.supabase.co`;
 type Reply = { data: unknown; error: { message: string } | null; status: number };
 
 /** A fake client: `reply(fn, args)` answers each call; every call is recorded. */
@@ -41,6 +41,16 @@ beforeEach(() => {
 });
 afterEach(() => {
   process.env.VITE_SUPABASE_URL = savedUrl;
+});
+
+describe('P1532 test-project check', () => {
+  it('accepts both test refs (P1530 move) and nothing else', () => {
+    expect(isTestProjectUrl('https://ayibkeoyukulbsjpxgaw.supabase.co')).toBe(true);
+    expect(isTestProjectUrl('https://gfjctyxqlwexxwsmkakq.supabase.co')).toBe(true);
+    expect(isTestProjectUrl('https://besjtuodziykmjidubzw.supabase.co')).toBe(false); // prod
+    expect(isTestProjectUrl('https://ayibkeoyukulbsjpxgaw.supabase.co.evil.example')).toBe(false);
+    expect(isTestProjectUrl(undefined)).toBe(false);
+  });
 });
 
 describe('P1532 sweeper bounds', () => {

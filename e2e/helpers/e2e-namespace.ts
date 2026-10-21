@@ -18,7 +18,8 @@ export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;
 /** Exact host match, not a substring: a URL that merely contains the ref must not pass. */
 export function isTestProjectUrl(url: string | undefined): boolean {
   try {
-    return TEST_PROJECT_REFS.some((ref) => new URL(url ?? '').hostname === `${ref}.supabase.co`);
+    const { hostname } = new URL(url ?? '');
+    return TEST_PROJECT_REFS.some((ref) => hostname === `${ref}.supabase.co`);
   } catch {
     return false;
   }
