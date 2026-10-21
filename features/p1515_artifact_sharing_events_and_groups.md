@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 45
 workstream: clarity-canvas
 created_date: '2026-10-19'
 tags: [sharing, privacy, rls, canvas]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh
@@ -37,6 +37,28 @@ artifacts and letters can use?
 > "Shared can be with different entities including events, groups and later who knows what."
 > "What we need to optimize is not speed of execution, but being good. Like if we can reuse
 > something, we reuse."
+
+## Reconciliation with shipped P1508 (2026-10-21, /dev)
+
+P1515 was written before P1508's last rounds (R9 to R14) shipped. Where they differ, what shipped
+wins, and this spec is read as follows:
+
+| P1515 said | Shipped in P1508 | Read as |
+|---|---|---|
+| A canvas is its owner's points carrying the "project tag" (a user hashtag) | R9: a canvas is the reserved **system** tag `canvas_<name>`, written only by the service role; a typed `#canvas_x` never becomes a tag | The canvas record is keyed by (owner, **canvas name**), the part after `canvas_`, stored lowercase. "Project tag" anywhere below means this name. Membership is `system_tags` containing `canvas_<name>` plus a box tag, current versions only (`getCanvasPoints`). |
+| The address keeps resolving the handle | R14: `/p/<handle>/canvas/<name>` (`canvasPath`) | The canvas function takes the owner's id (resolved from the handle, as today) and the name. Event-page links use `canvasPath`. |
+| "The panel gains an add your story composer under the card" | "+ Add a story" already writes a story in place from the panel (`LetterPositionStoryDialog`, `onAddStory`) | No new composer. The existing in-place composer is routed: an admitted reader who is not the owner calls the checked add function (a private added story); the owner keeps the ordinary path. See Decision D-A below for visitors who are not admitted. |
+| Canvas reads replaced by one server function | The canvas page serves Back from the shared return cache (`list-return-cache`, surface `'canvas'`; POP only, cleared on auth change and after every own write, never refilled from an older generation) | The new read goes through the page's existing `read()`, so it keeps writing and serving the `'canvas'` entry under the same rules. The new checked writes (position, add story, remove story, share, unshare, host removal) clear the cache, and the P1364 drift guard covers the new RPC names. The focus and panel-open refetches are fresh reads, never a cache serve. |
+| Others see public points only until this spec | R14(c): canvas code is on prod but dormant; no canvas exists there | The founder's two draft canvases (sales mastermind, organisations) stay on the **test** database. This build seeds nothing to prod; the migrations reach prod only through `/ship`, and a canvas reaches prod only by a later founder-approved seed. |
+| Positions on the canvas: owner and admitted readers | `getCanvasPositions` reads every position the base policy returns | Replaced by the canvas function's positions; compare (`?with=`) builds its people from them. |
+
+**Decisions this raised (founder, pending):**
+- **D-A, stories by others on public points.** P1508 shows every author's visible story linked to a
+  canvas point (D6). This spec's "nothing else is inside" would drop public stories that visitors
+  added from the canvas or the point page. Built default (agent recommendation, reversible in one
+  function): keep public stories by anyone on public canvas points; exclude every other non-owner
+  story except added stories. Private letter replies stay out either way.
+- **D-B, "view as" preview (Open Question 2).** Built default: not in this spec; a follow-up.
 
 ## User Stories
 
