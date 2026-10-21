@@ -20,11 +20,14 @@ privacy_figure_scan() {
     next unless /^([^:]+):(\d+):(.*)$/;
     my ($f, $n, $t) = ($1, $2, $3);
     my $unit = qr/(?:\d[\d.,]*\s*(?:[KMGT]i?B|%)|(?:\$|\xE2\x82\xAC)\s*\d|\d[\d.,]*\s*(?:USD|EUR|\xE2\x82\xAC))/i;
-    my $word = qr/\b(?:egress|bandwidth|usage|quota|spend|spent|bill(?:ing|ed)?|invoice|cap|budget|credits?)\b/i;
+    my $word = qr/\b(?:egress|bandwidth|usage|quota|logs?|storage|volume|database size|disk|spend|spent|bill(?:ing|ed)?|invoice|cap|budget|credits?)\b/i;
     my $hit = 0;
     $hit = 1 if $t =~ /$word.{0,60}$unit/ || $t =~ /$unit.{0,60}$word/;
-    $hit = 1 if $t =~ /(?:sbp_|github_pat_|ghp_|gho_|sk-ant-)[A-Za-z0-9_-]{4,}/;
-    $hit = 1 if $t =~ /(?:sbp_|github_pat_|ghp_|gho_|sk-ant-).{0,60}\b\d+[- ]?(?:char|chars|characters|length|long)\b/i;
+    my $pfx = qr/(?:sbp_|github_pat_|ghp_|gho_|ghs_|sb_secret_|sk-ant-)/;
+    my $lw = qr/(?:chars?|characters|length|long)/i;
+    my $len = qr/(?:\b\d+[- ]?$lw\b|\b$lw\W{0,3}\d+\b)/;
+    $hit = 1 if $t =~ /$pfx[A-Za-z0-9_-]{4,}/;
+    $hit = 1 if $t =~ /$pfx.{0,60}$len/ || $t =~ /$len.{0,60}$pfx/;
     print "$f:$n\n" if $hit;
   '
 }
@@ -32,7 +35,8 @@ privacy_figure_scan() {
 # privacy_figure_added_lines <path-prefix>...   -> `path:lineno:text` for lines ADDED in the index.
 # Added lines only (the P1526 invariant): existing lines never appear.
 privacy_figure_added_lines() {
-  git diff --cached -U0 --no-renames -- "$@" | awk '
+  git -c core.quotePath=false diff --cached -U0 --no-renames -- "$@" | awk '
+    /^\+\+\+ "b\// { file = substr($0, 8); sub(/"$/, "", file); next }
     /^\+\+\+ b\// { file = substr($0, 7); next }
     /^\+\+\+ / { file = ""; next }
     /^@@ / {

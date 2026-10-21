@@ -108,15 +108,21 @@ Reversibility: git revert. Decision density: zero; the five changes were approve
       Evidence: scripts/test-p1526-privacy-push-gates.sh section 1 and 2, 31 passed / 0 failed, exit 0. Known-bad synthetic usage+GB/% line warns (file:line only, no text echoed), latency-in-ms line and 'capture of 30%' stay quiet; the check is warn-only (WARNINGS+1, never ERRORS) so commit status is unchanged. Fixtures are built in a temp dir and a throwaway repo.
 - [x] Check 4 hit rate over the last 200 commits' added lines in `features/` and `docs/` is
       reported in this spec.
-      Evidence: last 200 non-merge commits, added lines under features/ and docs/: 11 hits in 10065 added lines, in 6 commits. Matched content deliberately not recorded here.
-- [ ] Preflight control: with the current credential, `push-docs` passes the preflight; with the
+      Evidence: last 200 non-merge commits, added lines under features/ and docs/: 16 hits in 10393 added lines, in 7 commits. Matched content deliberately not recorded here.
+- [x] Known-bad semantics settled: in the 2026-10-20 incident transcript, a dry run with a Contents
+      read-only fine-grained token returned 403 at 16:10:21Z, so a dry run does distinguish a
+      read-only credential. `git-ops.sh push-preflight` exposes the same check to `/push` before it
+      asks for `push-on`.
+      Evidence: transcript row 812 re-read by the main session 2026-10-21 (both helper variants: 403 "Permission ... denied").
+- [x] Preflight control: with the current credential, `push-docs` passes the preflight; with the
       credential helper blanked for github.com (known-bad), it dies before taking `main.lock`
       with the new message. Exit codes pasted.
-      Partial: stub-git controls pass (good exit 0, bad exit 1, message names cause and registry, URL credential masked). The real-network known-good and known-bad runs are owed from the main session: a subagent is blocked by the push hook from any push command.
-- [ ] Preflight runs under `PUSH_DOCS_ASSUME_YES=1` (shown by test or trace).
-      Partial: test section 4 shows the preflight block sits before main.lock and the staging push in both push-docs and ship-to-prod and never mentions the flag. A live trace is still owed (subagents cannot run push-docs; the hook blocks it).
-- [ ] `push.md` and its mirror contain the exact-option rule; a reviewer replaying the reply
+      Evidence (main session, real network, `push_write_preflight` called directly against origin/main): known-good exit 0 in 1.1s; known-bad (helpers blanked via GIT_CONFIG_*) exit 1 with "push preflight failed (exit 128): the push credential cannot write to origin"; no token text in either stderr; `git ls-remote origin 'refs/heads/staging/preflight-*'` returns 0 refs. Stub-git suite: 49 passed. `[post-deploy]` first real `/push` exercises it end to end.
+- [x] Preflight runs under `PUSH_DOCS_ASSUME_YES=1` (shown by test or trace).
+      Evidence: static, verified by the main session: in `cmd_push_docs`, no line between the function start and Step 1b references `ASSUME_YES`; the only early exit is the nothing-to-push case. The flag is first read at Step 4 (promote confirm), after the preflight. Test section 4 asserts the same ordering.
+- [x] `push.md` and its mirror contain the exact-option rule; a reviewer replaying the reply
       "or want consult codex/gemini? if not ok go" against the text concludes "re-ask".
+      Evidence: Opus adversarial review replayed it and "yes": both force a re-ask (push.md:273); its "push it" loophole was closed by requiring the option number.
 - [x] `/create-spec` contains the account-figures line in guidance and in the self-review gates.
       Evidence: guidance line under Skeleton 1. Problem and a self-review gate; scripts/sync-agent-skills.sh regenerated .agents/skills/create-spec/SKILL.md.
 - [x] P970 entry carries a superseded-by-P1335 note; `push.md:172` and mirror no longer name the
@@ -125,6 +131,16 @@ Reversibility: git revert. Decision density: zero; the five changes were approve
 - [x] Existing workflows still pass through the new gates: `./scripts/pre-commit-checks.sh` on a
       normal docs commit, and the existing push-docs test scripts.
       Evidence: pre-commit-checks.sh ran on the staged change set (see session report for final exit); test-p1507-prepush-disclosure.sh, test-pre-push-refclass.sh (12/0) and test-push-snapshot-pinning.sh (34/0) all exit 0. The first pre-commit run caught two real defects in this change (email-shaped fixture literal, agent-skills mirror drift), both fixed.
+
+## Known limitations
+
+ACCEPTED, not defects to fix in this spec:
+
+- Per-line matching misses a figure whose usage word is on another line.
+- Paths containing `:` or tabs mis-render in the file:line warnings (the format is colon-delimited).
+- Masking covers URL userinfo only, not `GIT_TRACE` output.
+- The dry run sets the git hooks path to an empty location internally: otherwise the dry run would
+  run the minutes-long pre-push hook that the real push runs anyway. The real push is never hook-less.
 
 ## Alternatives Considered
 

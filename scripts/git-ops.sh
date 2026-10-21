@@ -5450,6 +5450,7 @@ SUBCOMMANDS (P788 extension — T06)
                                every archived blob byte for byte. 'archive-spec --finish-pending'
                                runs --finish for every archive still waiting.
 
+  push-preflight               Dry-run check that the push credential can write (before asking for push-on)
   push-docs                    Automate the P919 staging hop for doc/KDD commits
                                that are ahead of origin/main (no P-number needed).
                                6 steps: privacy check -> main.lock -> staging push ->
@@ -5937,6 +5938,21 @@ remote_heads() {
 #   scans a RANGE derived from the event (privacy-scan.yml:47-59), so a green
 #   verdict on this SHA is not a verdict on this content.
 # ─────────────────────────────────────────────────────────────────────────────
+# push-preflight (P1526): the credential check ALONE, run by /push BEFORE it asks for push-on.
+# Same dry-run push-docs performs at its step 1b (kept there too, defense in depth). Exit 0/1.
+cmd_push_preflight() {
+  require_main_repo
+  local current_branch sha
+  current_branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+  [[ "$current_branch" == "main" ]] || die "push-preflight: must be on main (current: $current_branch)"
+  sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  echo "push-preflight: checking the push credential can write (dry-run of ${sha:0:9})..." >&2
+  if ! push_write_preflight "$REPO_ROOT" "$sha" origin; then
+    die "push-preflight: failed. Credential cannot write; nothing pushed"
+  fi
+  echo "  ✅ Push preflight passed." >&2
+}
+
 cmd_push_docs() {
   require_main_repo
   # Refuse BEFORE anything is pushed. Placed at the top rather than beside the poll
@@ -6518,6 +6534,7 @@ main() {
     archive-spec)    cmd_archive_spec "$@" ;;
     ship-to-prod)    cmd_ship_to_prod "$@" ;;
     push-docs)       cmd_push_docs "$@" ;;
+    push-preflight)  cmd_push_preflight "$@" ;;
     help|-h|--help)  print_usage; exit 0 ;;
     *)
       echo "git-ops: unknown subcommand '$sub'" >&2

@@ -15,6 +15,8 @@
 # twice would double the cost and print its refusals twice. Hooks are NOT bypassed for the real
 # push, which this function never performs.
 #
+# Network bound: http.lowSpeedLimit/lowSpeedTime abort a stalled transfer after 20s (a hung dry run
+# must not hold the push window; a black-holed remote used to hang until the OS timeout).
 # Test seam: PUSH_PREFLIGHT_GIT overrides the git executable (scripts/test-p1526-*.sh).
 # Credentials are never printed: URL userinfo is masked in the echoed git error.
 push_write_preflight() {
@@ -23,6 +25,7 @@ push_write_preflight() {
   local ref="staging/preflight-${sha:0:9}-$$"
   local out rc
   out="$(GIT_TERMINAL_PROMPT=0 "$git_bin" -C "$repo_root" -c core.hooksPath=/dev/null \
+          -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 \
           push --dry-run "$remote" "${sha}:refs/heads/${ref}" 2>&1)"
   rc=$?
   if (( rc == 0 )); then

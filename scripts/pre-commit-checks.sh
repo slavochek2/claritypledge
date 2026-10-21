@@ -2261,9 +2261,10 @@ echo ""
 # scripts/lib/privacy-figure-scan.sh so scripts/test-p1526-privacy-push-gates.sh can test it alone.
 # It prints file:line only, never the matched text.
 echo ">>> Checking new spec/doc lines for account figures and token shapes..."
-if [ -f scripts/lib/privacy-figure-scan.sh ]; then
+FIGURE_SCAN_LIB="$(git rev-parse --show-toplevel)/scripts/lib/privacy-figure-scan.sh"
+if [ -f "$FIGURE_SCAN_LIB" ]; then
     # shellcheck source=lib/privacy-figure-scan.sh
-    source scripts/lib/privacy-figure-scan.sh
+    source "$FIGURE_SCAN_LIB"
     FIGURE_HITS=$(privacy_figure_added_lines features/ docs/ | privacy_figure_scan || true)
     if [ -n "$FIGURE_HITS" ]; then
         echo -e "${YELLOW}⚠ Possible account usage/billing figures or token shapes in new lines:${NC}"

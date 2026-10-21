@@ -33,6 +33,16 @@ expect "bad: usage word + GB/% figure warns"       "$(scan 'egress 4.2 GB of 5 G
 expect "bad: spend with currency figure warns"     "$(scan 'monthly spend of $12 on the plan')" "fx.md:1"
 expect "bad: token prefix with body warns"         "$(scan 'the key starts sbp_abcd1234')" "fx.md:1"
 expect "bad: token prefix with length warns"       "$(scan 'a github_pat_ token, 40 chars long')" "fx.md:1"
+expect "bad: 'length 44' after a prefix warns"      "$(scan 'an sbp_ token of length 44')" "fx.md:1"
+expect "bad: 'length: 40' before a prefix warns"   "$(scan 'length: 40 for the ghs_ value')" "fx.md:1"
+expect "bad: '40-char sbp_ token' warns"           "$(scan 'a 40-char sbp_ token')" "fx.md:1"
+expect "bad: ghs_ body warns"                      "$(scan 'starts ghs_abcd1234')" "fx.md:1"
+expect "bad: sb_secret_ body warns"                "$(scan 'starts sb_secret_abcd1234')" "fx.md:1"
+expect "bad: log volume figure warns"              "$(scan 'log volume 8.5 GB this month')" "fx.md:1"
+expect "bad: logs figure warns"                    "$(scan 'logs 3.9 GB')" "fx.md:1"
+expect "bad: storage figure warns"                 "$(scan 'storage 1 GB')" "fx.md:1"
+expect "bad: database size figure warns"           "$(scan 'database size 400 MB')" "fx.md:1"
+expect "good: length word without a prefix quiet"  "$(scan 'the string length 44 is fine')" ""
 expect "good: latency in ms and test count quiet"  "$(scan 'p95 latency 120 ms, 14 tests pass')" ""
 expect "good: 'capture' is not the word cap"       "$(scan 'capture of 30% of rows')" ""
 expect "good: bare prefix mention quiet"           "$(scan 'tokens begin with a vendor prefix')" ""
@@ -54,6 +64,17 @@ got="$(cd "$R" && privacy_figure_added_lines features/ docs/ | privacy_figure_sc
 expect "bad: new figure line in features/ flagged with its line number" "$got" "features/new.md:2"
 case "$got" in *old.md*) bad "existing figure line in docs/old.md must not be flagged";; *) ok "existing lines are never flagged";; esac
 case "$got" in *src/*) bad "src/ is out of scope";; *) ok "paths outside features/ docs/ are ignored";; esac
+
+echo "== 2b. non-ASCII filename (quoted diff header) =="
+R2="$TMP/repo2"; mkdir -p "$R2/features"
+(
+  cd "$R2" && git init -q && git config user.email t@example.invalid && git config user.name t
+  git commit -q --allow-empty -m base
+  printf 'quota 3 GB used\n' > features/$'sp\xc3\xa9c.md'
+  git add features
+)
+got2="$(cd "$R2" && git config core.quotePath true && privacy_figure_added_lines features/ | privacy_figure_scan)"
+expect "bad: non-ASCII filename is parsed and flagged" "$got2" "$(printf 'features/sp\xc3\xa9c.md:1')"
 
 echo "== 3. preflight controls (stub git, no network) =="
 STUB="$TMP/stubgit"
@@ -83,6 +104,8 @@ STUB_MODE=good push_write_preflight "$ROOT" "$SHA" origin 2>/dev/null
 args="$(cat "$STUB_LOG")"
 case "$args" in *--dry-run*) ok "invocation is a dry run";; *) bad "invocation must be a dry run";; esac
 case "$args" in *"refs/heads/staging/preflight-"*) ok "targets a throwaway staging/preflight-* ref";; *) bad "throwaway ref";; esac
+case "$args" in *http.lowSpeedLimit=*) ok "dry run bounds the network (lowSpeedLimit)";; *) bad "lowSpeedLimit flag missing";; esac
+case "$args" in *http.lowSpeedTime=*) ok "dry run bounds the network (lowSpeedTime)";; *) bad "lowSpeedTime flag missing";; esac
 unset PUSH_PREFLIGHT_GIT
 
 echo "== 4. preflight placement in git-ops.sh =="
@@ -97,13 +120,23 @@ done
 blk="$(awk '/\[1b\]/ {f=1} f {print} /Push preflight passed/ {f=0}' scripts/git-ops.sh)"
 case "$blk" in *PUSH_DOCS_ASSUME_YES*) bad "preflight must not be conditional on PUSH_DOCS_ASSUME_YES";; *) ok "preflight block is unconditional (runs under PUSH_DOCS_ASSUME_YES=1)";; esac
 
+grep -q 'push-preflight)' scripts/git-ops.sh && ok "git-ops.sh dispatches push-preflight" || bad "push-preflight subcommand missing"
+for f in .claude/commands/slava/build/push.md; do
+  l_pf="$(awk '/git-ops.sh push-preflight/ {print NR; exit}' "$f")"
+  l_on="$(awk '/Run \*\*`push-on 60`/ {print NR; exit}' "$f")"
+  if [ -n "$l_pf" ] && [ -n "$l_on" ] && [ "$l_pf" -lt "$l_on" ]; then ok "push.md runs push-preflight before asking for push-on"; else bad "push.md preflight must precede the push-on ask ($l_pf / $l_on)"; fi
+done
+
 echo "== 5. doc edits =="
 diff -q .claude/commands/slava/build/push.md .agents/skills/push/SKILL.md >/dev/null && ok "push.md and mirror identical" || bad "push.md and mirror differ"
-grep -q "names exactly one option" .claude/commands/slava/build/push.md && ok "push.md has the exact-option rule" || bad "push.md exact-option rule"
+grep -q "exactly one option" .claude/commands/slava/build/push.md && ok "push.md has the exact-option rule" || bad "push.md exact-option rule"
 grep -q "never read as permission" .claude/commands/slava/build/push.md && ok "push.md says other replies re-ask" || bad "push.md re-ask rule"
 grep -q "Account figures stay private" .claude/commands/slava/build/create-spec.md && ok "create-spec skeleton guidance line" || bad "create-spec guidance"
 grep -q "No account figures or token shapes" .claude/commands/slava/build/create-spec.md && ok "create-spec self-review gate line" || bad "create-spec gate"
 grep -q "Superseded (2026-10-21, P1526)" docs/decisions.md && ok "P970 carries superseded note" || bad "P970 note"
+if grep -nE 'cp-agent-push([^-]|$)' .claude/commands/slava/build/push.md .agents/skills/push/SKILL.md >/dev/null; then bad "bare cp-agent-push (retired token name) still present"; else ok "no bare cp-agent-push token name"; fi
+grep -q "option NUMBER" .claude/commands/slava/build/push.md && ok "push.md requires the option number" || bad "push.md option-number rule"
+grep -q "non-pushing" .claude/commands/slava/build/push.md && ok "push.md requires a non-pushing option" || bad "push.md non-pushing option rule"
 if grep -n 'fine-grained `cp-agent-push` PAT' .claude/commands/slava/build/push.md .agents/skills/push/SKILL.md >/dev/null; then bad "retired token still named"; else ok "push.md and mirror no longer name the retired token"; fi
 
 echo ""
