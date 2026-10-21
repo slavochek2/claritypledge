@@ -34,15 +34,21 @@ One check block in `day-cp.md`, one helper script. Git revert. One founder actio
 
 ## Solution
 
-[FOUNDER DECISION: create a Supabase access token with read-only `organizations_read` and
-`projects_read`, stored as `SUPABASE_ORG_READ_TOKEN` in `.env.local`.]
+**Measured 2026-10-21 — the public Management API cannot read organisation usage.** Its published
+definition (`https://api.supabase.com/api/v1-json`) has no endpoint returning egress, cached
+egress, log volume or MAU against plan limits. The only usage endpoints are per-project request
+counts (`/v1/projects/{ref}/analytics/endpoints/usage.api-counts`, `usage.api-requests-count`).
+The scoped-token form confirms it: its organisation permissions are Organizations, Projects,
+Members, Settings and Webhooks, with no usage or billing scope. A token alone does not unblock
+part 1.
 
-Once it exists: establish against the live API which endpoint returns organisation usage and its
-shape (**UNVERIFIED** that one exists; no documented org-usage endpoint was found). Replace the
-`cp.quota` placeholder with a reader that reports `problem` at 70% of any free-plan limit
-(`QUOTA_WARN_PCT`), and adds the note when the test and prod projects sit in different
-organisations. If usage is not readable, fall back to request counts plus MAU from `auth.users`
-and say which figures are missing.
+**Part 3 is answered by observation:** the test project's organisation is "claritypledge-test",
+separate from the production organisation (dashboard, 2026-10-21). Each organisation therefore
+carries its own free-plan quota.
+
+[FOUNDER DECISION: which signal stands in for the dashboard's usage figures — see the options
+in the 2026-10-21 session: (a) request counts plus MAU as a proxy, (b) Supabase's own
+usage-limit emails, read by /day, (c) accept the dashboard as the only source and drop part 1.]
 
 ## Risks / Non-Goals
 
