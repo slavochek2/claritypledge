@@ -2,7 +2,7 @@
 name: gen-agent-avatar
 description: Generate the avatar for an agent account — a robotified portrait of the subject that is recognizable as them and unmistakably not a photograph, verified at the sizes the product actually renders.
 when_to_use: Whenever an agent account is created or its subject's avatar is regenerated. Every agent account must get its avatar through this skill — consistency across accounts is the reason it exists, and a hand-rolled prompt breaks it.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Generate Agent Avatar
@@ -180,22 +180,24 @@ Note the SSIM output goes to **stderr** and the `All:` token only appears with t
 **Corrected under P1135.** This step previously said to write a static file under `public/` (a per-subject filename beneath an `agents` subfolder) and to register it beside the account id in a source constant that does not exist in `src/` — see `features/p1135_agent_avatars_in_storage.md` for the exact grep that established that. Its stated rationale ("no column that can return `undefined`") was also false: `p_avatar_url` is a free-text RPC parameter landing in `profiles.avatar_url`. This skill does not touch storage or the database — it emits a file and hands it back.
 
 ```bash
-sips -s format png -Z 512 agent-robot.png --out /tmp/agent-avatar-{slug}.png
-file -b /tmp/agent-avatar-{slug}.png | grep -q '^PNG image data' || { echo "STOP: not PNG bytes"; exit 1; }
+# P1528: 256px square WebP, all metadata stripped. cwebp reads the generator's JPEG-or-PNG bytes.
+cwebp -quiet -resize 256 256 -q 80 -metadata none agent-robot.png -o /tmp/agent-avatar-{slug}.webp
+file -b /tmp/agent-avatar-{slug}.webp | grep -q '^RIFF.*Web/P image' || { echo "STOP: not WebP bytes"; exit 1; }
+[ "$(webpinfo /tmp/agent-avatar-{slug}.webp | grep -cE '^ *(Width|Height): 256$')" = 2 ] || { echo "STOP: not 256x256"; exit 1; }
 ```
 
-**`-s format png` is not optional (P1370).** The image model returns **JPEG** bytes, which
-`robotify()` writes to `agent-robot.png` as they come. `sips -Z` keeps the *source* format whatever
-the output suffix says, so the old line produced JPEG bytes named `.png`. provision-agent then
-uploaded them as `image/png`. Measured 2026-09-29 on TEST: 7 of 11 real agent avatars were JPEG
-served as `image/png`, and a scratch JPEG named `.png` reproduced it (without the flag: JPEG; with
-it: PNG). The `file -b` line is the check: it reads the magic bytes, not the name.
+**Why WebP, and why the byte check is not optional (P1370, P1528).** The image model returns
+**JPEG** bytes, which `robotify()` writes to `agent-robot.png` as they come. The old `sips -Z`
+kept the source format whatever the suffix said, so avatars went out as JPEG labelled `image/png`
+(measured 2026-09-29 on TEST: 7 of 11). `cwebp` always emits real WebP, and `file -b` reads the
+magic bytes, not the name. P1528 moved the size from 512px PNG (up to 227 KiB) to 256px WebP
+(about 4 KiB): the largest render is 96 CSS px (`xl`), 256px covers ~2.7x DPR.
 
 - `{slug}` — lowercase, hyphenated subject name (`donald-trump`, `slava-ladischenski`)
-- 512px is enough for every render site (largest current avatar is 96px, `xl`)
-- PNG, square, no transparency
+- 256px is enough for every render site (largest current avatar is 96px, `xl`)
+- WebP, square, metadata stripped
 
-Hand the scratch path back to the caller (`/slava:content:provision-agent` Step 3), which uploads it to the `agent-avatars` storage bucket and sets `p_avatar_url`. This skill sets the display name to the P1104 form for the caller to use:
+Hand the scratch path back to the caller (`/slava:content:provision-agent` Step 3), which uploads it create-only to the public media bucket (`[test/]agent-avatars/<slug>/<uuid>.webp`, `test/` prefix on TEST only, 1-year cache header) and sets `p_avatar_url`. This skill sets the display name to the P1104 form for the caller to use:
 
 ```
 Agent · {Subject Name}
@@ -226,7 +228,7 @@ The first two avatars generated with this prompt (2026-08-19, `gemini-3-pro-imag
 - **Panel seams read as deliberate lines**, not texture noise
 - The subject's **hair silhouette and jaw line survive** — that is what carries recognition
 
-Once the first agent accounts ship, the **`agent-avatars` storage bucket** (P1135) **is** the reference set. Match it.
+Once the first agent accounts ship, the **`agent-avatars/` folder of the media bucket** (P1528; formerly the Supabase `agent-avatars` bucket, P1135) **is** the reference set. Match it.
 
 ---
 

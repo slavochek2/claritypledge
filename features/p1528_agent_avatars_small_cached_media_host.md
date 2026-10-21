@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 52
 workstream: infrastructure
@@ -95,13 +95,22 @@ stay in Supabase Storage untouched, the 9 old URLs can be written back. Decision
 
 ## Done-When
 
-- [ ] Before/after measurements recorded here from the measure script against prod `/feed`.
-- [ ] Fresh prod `/feed` load downloads < 100 KiB of images from the Supabase host.
-- [ ] On the same load, agent-avatar bytes from the media host total < 100 KiB and every agent `<img>` has `naturalWidth > 0`; a warm reload serves them from browser cache.
-- [ ] Every migrated agent avatar on prod (all 9, including agents absent from `/feed`) resolves `200 image/webp`, 256×256, with a 1-year cache header; rows read back with the new URL.
-- [ ] Old `avatar_url` values snapshotted in `.private/` before the prod write.
-- [ ] `provision-agent` + `gen-agent-avatar` produce a ≤192px WebP on the media host with the cache header.
-- [ ] `/feed` agent portraits render (screenshot) — no initials fallback for agents that had a portrait.
+- [x] Before/after measurements recorded here from the measure script against prod `/feed`.
+      Before: 27 requests, 1030.3 KiB, of which `storage:object` 9 req / 957.9 KiB. After: 18 requests, 73.0 KiB, `storage:object` absent.
+- [x] Fresh prod `/feed` load downloads < 100 KiB of images from the Supabase host — 0 KiB (was 957.9 KiB).
+- [x] On the same load, agent-avatar bytes from the media host total < 100 KiB and every agent `<img>` has `naturalWidth > 0`; a warm reload serves them from browser cache.
+      9 avatars, 4.1–11.0 KB each (~62 KB on the wire); 16 agent `<img>` all 256 wide, 0 on Supabase; warm reload: all 9 `requestServedFromCache`, 0 bytes (CDP).
+- [x] Every migrated agent avatar on prod (all 9, including agents absent from `/feed`) resolves `200 image/webp`, 256×256, with a 1-year cache header; rows read back with the new URL.
+      Script asserted HEAD + PATCH-return + anon read-back per row: `done: 9 ok, 0 failed`.
+- [x] Old `avatar_url` values snapshotted in `.private/` before the prod write (`.private/p1528/prod-<timestamp>.json`, rollback via `--rollback`).
+- [x] `provision-agent` + `gen-agent-avatar` produce a 256px WebP on the media host with the cache header —
+      commands verified on a real prod avatar (JPEG-named-.png in, 3.9 KB 256×256 WebP out; assertions pass/fail correctly) and the same upload path exercised by the backfill on TEST + prod. `[post-deploy]` the next real provisioning run is the end-to-end check.
+- [x] `/feed` agent portraits render (screenshot) — no initials fallback for agents that had a portrait. Prod screenshot 2026-10-21 shows agent portraits; TEST `/p/agent-arthur-brooks` renders the migrated image.
+
+## Known limitations
+
+- `/finish` round 1 (Argon, Codex, Sonnet) found the script's recovery paths unsafe; fixed: `--apply` reuses an already-uploaded object that passes the public check, `--rollback` refuses an old URL that no longer serves an image, treats `current == old` as already restored and refuses any third value. Rollback branches proven with a stubbed `fetch` (rolled back / already old / foreign value refused / dead image refused). The `--apply` resume branch is not exercised: TEST storage and REST were returning 544/504 on 2026-10-21.
+- No mocked-I/O test suite for the orchestration (one-off script, already run on TEST + prod); set aside in review round 1.
 
 ## Related
 

@@ -1,8 +1,8 @@
 ---
 name: provision-agent
-description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Files the subject description and the subject's OWN public links (personal presence only — never the organisation they work for), each verified against a source independent of the link. Records the subject_key for the pipeline that will file under it."
+description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the public media bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Files the subject description and the subject's OWN public links (personal presence only — never the organisation they work for), each verified against a source independent of the link. Records the subject_key for the pipeline that will file under it."
 when_to_use: "Before /slava:disagreement:publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:disagreement:publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
-version: 0.2.1
+version: 0.3.0
 ---
 
 # /provision-agent
@@ -110,38 +110,32 @@ On this branch:
 
 ## Step 3 — Upload the asset, before the account exists
 
-`/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`.
+`/slava:content:gen-agent-avatar` Step 4 emits a 256px square **WebP** at a scratch path and hands it to this skill. Upload it **create-only** to the public media bucket (P1528; `.claude/rules/src.md` "Public Media Host"), object path `agent-avatars/<subject-slug>/<uuid>.webp` on **prod** or `test/agent-avatars/<subject-slug>/<uuid>.webp` on **test**, with a one-year immutable cache header. A fresh uuid per generation makes the URL itself the version, which is what makes `immutable` safe. Never re-upload over an existing path.
 
-**Before uploading, assert the bytes are PNG:** `file -b <scratch-path>.png | grep -q '^PNG image data'`. If not, STOP. The upload below declares `Content-Type: image/png`, and storage serves whatever it is told. Until P1370, the generator handed over JPEG bytes named `.png`, and they went out labelled `image/png`.
+**Before uploading, assert the bytes are WebP:** `file -b <scratch-path>.webp | grep -q 'Web/P image'`. If not, STOP. The upload declares `Content-Type: image/webp` and the bucket serves whatever it is told (the P1370 failure was JPEG bytes labelled `image/png`).
 
-**Credential and ref pair, by environment** (same variable-name discipline as `/slava:disagreement:publish`'s environment table — never merge the two files):
-
-| Target | URL from | Service key from |
-|---|---|---|
-| **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` |
-| **prod** | `.env.prod: VITE_SUPABASE_URL` | the per-access lock — `source scripts/keyring.sh; KEYRING_REASON="provision-agent: avatar upload" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY`, then `SERVICE_ROLE_KEY="$PROD_SUPABASE_SERVICE_ROLE_KEY"`. One dialog; tell the founder **Allow**, never "Always Allow". **Never** from `.env.local` (P1239/P1316) |
+**Credentials:** the upload uses the operator's `gcloud` login, not a Supabase key. No service-role key is needed for this step (Step 5's RPC has its own).
 
 ```bash
-# Headers from a process substitution, so the key never appears in curl's argv (ps).
-UPLOAD_STATUS="$(curl -s -o /tmp/agent-avatar-upload.log -w '%{http_code}' -X POST \
-  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SERVICE_ROLE_KEY" "$SERVICE_ROLE_KEY") \
-  -H "Content-Type: image/png" \
-  --data-binary @<scratch-path>.png \
-  "$TARGET_URL/storage/v1/object/agent-avatars/<subject-slug>/<uuid>.png")"
-[ "$UPLOAD_STATUS" = "200" ] || { echo "upload failed: $UPLOAD_STATUS — $(cat /tmp/agent-avatar-upload.log)"; exit 1; }
+OBJ="agent-avatars/<subject-slug>/<uuid>.webp"          # test: prefix with test/
+gcloud storage cp <scratch-path>.webp "gs://claritypledge-story-images/$OBJ" \
+  --if-generation-match=0 \
+  --cache-control="public, max-age=31536000, immutable" \
+  --content-type=image/webp
+AVATAR_URL="https://storage.googleapis.com/claritypledge-story-images/$OBJ"
 ```
 
-Take the returned public URL — `$TARGET_URL/storage/v1/object/public/agent-avatars/<subject-slug>/<uuid>.png` — and pass it as `p_avatar_url` in Step 5.
+`--if-generation-match=0` is the create-only guard: the command fails if the object exists. Pass `$AVATAR_URL` (built exactly like `publicMediaUrl()` in `src/lib/public-media.ts`) as `p_avatar_url` in Step 5.
 
-**This ordering is still the reason provisioning is its own skill**, even though the deploy is gone: the avatar must exist as a real object at a real URL before the account is created, or the portrait channel silently drops to the initials fallback (`gravatar-avatar.tsx:134`) and the account renders with one fewer marker than it is supposed to have. What changed is *what* "live" means — a storage upload, not a commit-and-deploy.
+**This ordering is still the reason provisioning is its own skill**: the avatar must exist as a real object at a real URL before the account is created, or the portrait channel silently drops to the initials fallback (`gravatar-avatar.tsx:134`) and the account renders with one fewer marker than it is supposed to have.
 
-Assert it with the credential a browser uses, and check the **content type**, not only the status:
+Assert it the way a browser sees it, and check the **content type and cache header**, not only the status:
 
 ```bash
-curl -sI "$TARGET_URL/storage/v1/object/public/agent-avatars/<subject-slug>/<uuid>.png" | grep -iE '^(HTTP/|content-type|content-length)'
+curl -sI "$AVATAR_URL" | grep -iE '^(HTTP/|content-type|content-length|cache-control)'
 ```
 
-Must be `200` **and** `content-type: image/*` with a non-trivial length. **Against storage, do not assert "not 404" — assert the positive only** (P1135 decision (d)). Measured 2026-08-21 with a control: a missing object in a public bucket returns `HTTP/2 400`, `content-type: application/json`, body `{"statusCode":"404","error":"not_found",…,"code":"NoSuchKey"}` — the status **line** is 400, only the JSON body says 404. An existing object in the same bucket returns `HTTP/2 200`, `content-type: image/*`. A check written as "assert not 404" passes on every missing avatar on this host.
+Must be `200`, `content-type: image/webp`, and `cache-control` containing `max-age=31536000`, with a non-trivial length. Assert the positive only, never "not 404" (P1135 decision (d)): a missing object fails the 200 + `image/webp` check on any host, and the old Supabase host returned `HTTP/2 400` for a missing object, so a negative check passed on every missing avatar there.
 
 ## Step 4 — The creation gate
 
@@ -154,7 +148,7 @@ CREATE AGENT ACCOUNT — effectively permanent.
   subject_key  : <the canonical reference>
   Display name : Agent · <Subject Name>
   Operator     : <operator name>        (per-SUBJECT invariant — cannot differ later)
-  Avatar       : <url>   200 image/png, <n> bytes
+  Avatar       : <url>   200 image/webp, cache-control max-age=31536000, <n> bytes
   Source photo : <origin> — licence: <licence line>
 Confirm to create.
 ```
@@ -314,7 +308,7 @@ Read back and **paste** the output:
 
 - `agent_accounts` has a row for this `subject_key`, with the operator you confirmed;
 - `profiles` shows the reserved name, `is_verified = false`, `has_pledged = false`, `ears_count = 0`, and the avatar URL;
-- the avatar URL still returns `200 image/*`;
+- the avatar URL still returns `200 image/webp`;
 - `is_reserved_agent_name(<the name>)` returns **true** on the target;
 - **the profile has a `banner_url` and a `banner_credit` whose `url` equals it** (step 5c — the
   script's `OK` line is this read-back; paste it);
@@ -340,7 +334,7 @@ Open the agent's profile page on the target host and confirm by eye: square avat
 
 ## Regenerating an avatar for an EXISTING agent
 
-A separate branch, deliberately: re-run Step 2 and Step 3 (new object, new key — **never** `upsert: true` over the old one, decision (b)), then `UPDATE profiles SET avatar_url = …` for that `profile_id`, then delete the previous object at its old key. **Never** call the creation RPC — the account exists. A new key per generation makes `avatar_url` itself the version pointer; deleting the old object is best-effort cleanup, not a correctness requirement — an orphaned object on a failed delete is inert (P1135 Risks). When `gen-agent-avatar` bumps its frozen prompt, every existing avatar is regenerated, or the accounts stop looking like one system.
+A separate branch, deliberately: re-run Step 2 and Step 3 (a new object in the **media bucket** under a new uuid, create-only per Step 3, never overwriting), then `UPDATE profiles SET avatar_url = …` for that `profile_id`. **Do not delete the previous object**: it stays in place so cached URLs and rollback keep working (P1528). **Never** call the creation RPC — the account exists. A new key per generation makes `avatar_url` itself the version pointer. When `gen-agent-avatar` bumps its frozen prompt, every existing avatar is regenerated, or the accounts stop looking like one system.
 
 ## Regenerating a banner for an EXISTING agent
 
@@ -370,7 +364,7 @@ SELECT count(*) FROM agent_accounts;
 
 - [ ] **Reuse was checked BEFORE any photo or avatar work**, by exact `subject_key`.
 - [ ] **The avatar came from `/slava:content:gen-agent-avatar`**, not a hand-written prompt, and passed its 40px and similarity gates. — **N/A on the Step 2b initials-only branch.**
-- [ ] **The asset was uploaded to `agent-avatars` storage before creation**, asserted `200` + `content-type: image/*` (never "not 404" — see decision (d)). — **N/A on the Step 2b initials-only branch.**
+- [ ] **The asset was uploaded create-only to the media bucket (`[test/]agent-avatars/<slug>/<uuid>.webp`, `test/` prefix on TEST only) before creation**, asserted `200` + `content-type: image/webp` + `cache-control` with `max-age=31536000` (never "not 404" — see decision (d)). — **N/A on the Step 2b initials-only branch.**
 - [ ] **On the Step 2b branch only:** `p_avatar_url` was passed as `NULL` (not `''`, not a placeholder), `avatar_color` is `#39424B`, and `portrait: none (deliberate, founder-approved <date>)` was written to `.private/logs/agent-registry.log` and read back.
 - [ ] **The gate received an explicit affirmative** on the operator's own turn; silence treated as refusal.
 - [ ] **The display name is `Agent · <Subject>`** and `is_reserved_agent_name` returns true on the target.
@@ -405,5 +399,5 @@ Append one line on **every** exit to `.private/logs/points-runs.log`:
 - `/slava:disagreement:prepare` → `disagreement:positions` → `disagreement:story-draft` — the extraction chain that produces the material (contract: `docs/points-process.md`).
 - `supabase/migrations/*p1104*.sql` — **seven** files, read as a set; the RPC lives in `20260819160000`, not the first one.
 - `e2e/helpers/test-agent-account.ts` — the reference implementation for mint-then-register.
-- `supabase/migrations/*p1135*.sql` — the `agent-avatars` bucket this skill uploads to.
+- `supabase/migrations/*p1135*.sql` — the legacy Supabase `agent-avatars` bucket (read-only history; new uploads go to the media bucket, P1528).
 - `features/p1135_agent_avatars_in_storage.md` — why the avatar is a storage object and not a repo file.
