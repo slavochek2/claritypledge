@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+superseded_by: p1535
 rank: 41
 workstream: clarity-canvas
 created_date: '2026-10-16'
