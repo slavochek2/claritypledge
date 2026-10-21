@@ -42,13 +42,17 @@ The scoped-token form confirms it: its organisation permissions are Organization
 Members, Settings and Webhooks, with no usage or billing scope. A token alone does not unblock
 part 1.
 
-**Part 3 is answered by observation:** the test project's organisation is "claritypledge-test",
-separate from the production organisation (dashboard, 2026-10-21). Each organisation therefore
-carries its own free-plan quota.
+**Part 3, observed in the dashboard 2026-10-21:** both projects (prod and test) sit in one
+organisation, so test traffic counts against the same free-plan quota. A second, empty
+organisation exists, apparently intended for the test project. The note fires when the test
+project is found outside the production organisation. (Corrects an earlier commit that read the
+empty organisation's page and inferred the opposite.)
 
-[FOUNDER DECISION: which signal stands in for the dashboard's usage figures — see the options
-in the 2026-10-21 session: (a) request counts plus MAU as a proxy, (b) Supabase's own
-usage-limit emails, read by /day, (c) accept the dashboard as the only source and drop part 1.]
+**The dashboard Usage page is readable as text through Claude in Chrome** (signed-in session):
+every metric renders as `used / limit`, plus a quota-exceeded banner. That is the only source of
+the figures part 1 asks for.
+
+[FOUNDER DECISION: read the Usage page through Chrome during /day, or fall back to a proxy.]
 
 ## Risks / Non-Goals
 
