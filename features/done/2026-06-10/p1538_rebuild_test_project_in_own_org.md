@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [supabase, test-project, quota]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
 parent: p1530
+completed_at: 2026-10-21
 ---
 
 # P1538: Rebuild the TEST Supabase project in its own organisation
@@ -22,7 +22,7 @@ parent: p1530
 > Founder framing, verbatim: *"Rebuild the Supabase TEST project as a new project in the empty
 > free organisation, and retire the old one."*
 
-[P1530](p1530_supabase_log_ingestion_and_egress_before_restriction.md) found that the TEST project
+[P1530](../../p1530_supabase_log_ingestion_and_egress_before_restriction.md) found that the TEST project
 produced most of the organisation's over-quota usage, while production faces restriction after the
 grace period. Supabase refused to transfer the project, so the TEST project is rebuilt as a new
 project (`ayibkeoyukulbsjpxgaw`, Singapore, same region as prod) in a separate free organisation,
@@ -39,7 +39,7 @@ switching back is one copy. Prod is untouched.
 ## Approach (as executed, 2026-10-21)
 
 1. **Schema from a private dump, not a migration replay.** The migration chain does not build a
-   database from empty ([decisions.md](../docs/decisions.md) 2026-08-20, P1132). A schema-only dump
+   database from empty ([decisions.md](../../../docs/decisions.md) 2026-08-20, P1132). A schema-only dump
    of the old project was restored into the new one and never committed; the dump-seed rejection in
    decisions.md is about publishing a dump in this public repo, which a private restore does not do.
 2. **Grants reset, then replayed.** The new project's default privileges granted anon and
@@ -63,7 +63,7 @@ switching back is one copy. Prod is untouched.
 | Risk | Label | Note |
 |---|---|---|
 | The SMTP password is masked by the config API, so a config copy carries the mask | MITIGATE | Found by test (535 on signup); a new SMTP key was generated for the new project |
-| The new free org runs into its own limits at today's e2e volume | DEFER | [P1532](p1532_e2e_cleanup_and_offline_pack_request_amplification.md) |
+| The new free org runs into its own limits at today's e2e volume | DEFER | [P1532](../../p1532_e2e_cleanup_and_offline_pack_request_amplification.md) |
 | One storage-signing key has no local copy | ACCEPT | Two test-only functions return 500 until it is provided; founder decision |
 | Copied rows keep image URLs on the old project's storage; storage objects were not copied | ACCEPT | Those images break on TEST once the old project is paused; new uploads go to the new storage |
 
