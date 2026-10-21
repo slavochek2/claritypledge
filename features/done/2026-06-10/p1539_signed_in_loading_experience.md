@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 55
 workstream: product
 created_date: '2026-10-21'
 tags: [loading, performance, app-shell, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, verify, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-21
 ---
 
 # P1539: Signed-in loading experience — stable shell, in-content loading, one standard
