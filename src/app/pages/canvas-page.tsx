@@ -3,11 +3,12 @@
  * @description P1508: Clarity Canvas — an owner's canvas at `/p/:handle/canvas/:projectTag` (R14).
  *
  * A canvas is its owner's current-version points that carry the reserved `canvas_<name>` system tag
- * and a box tag, placed into eleven boxes in four named layers (sixth round R1): Why I do this, The
- * core bet, How we win, How it pays.
+ * and a box tag, placed into nine boxes in three named layers (P1535): The core bet, Go to market,
+ * Me and the world.
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
- * 1024px, two from 640px, one below, each layer under its label. A box shows two cards, then
+ * 1024px, two from 640px, one below, each layer under its label, compact enough that a canvas with
+ * one card per box fits one desktop screen (P1535). A box shows two cards, then
  * "N more", which opens the whole box in the panel (R2) — the grid never moves. A box card is text
  * to read plus its spread, with no buttons; the whole card opens the point. Above the grid:
  * "Clarity Canvas", then "by <owner>" and the canvas's name (a menu when the owner has several)
@@ -42,8 +43,8 @@ import {
   clearListReturnCache, listReturnCacheGeneration, listReturnCacheKey, readListReturnCache, writeListReturnCache,
 } from '@/lib/list-return-cache';
 import {
-  BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Globe, Heart, Lightbulb,
-  Megaphone, Receipt, ShieldCheck, Star, Users, X, type LucideIcon,
+  BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Contrast, Gem, Handshake,
+  Lightbulb, Megaphone, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
@@ -91,14 +92,12 @@ const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
   'canvas:segments': Users,
   'canvas:problem': CircleAlert,
   'canvas:solution': Lightbulb,
-  'canvas:love': Heart,
-  'canvas:world-needs': Globe,
-  'canvas:advantage': ShieldCheck,
-  'canvas:good-at': Star,
   'canvas:channels': Megaphone,
-  'canvas:metrics': BarChart3,
   'canvas:revenue': Coins,
-  'canvas:cost': Receipt,
+  'canvas:metrics': BarChart3,
+  'canvas:love': Gem,
+  'canvas:good-at': Contrast,
+  'canvas:world-needs': Handshake,
 };
 /** The canvas stays small: a box shows this many cards, and says how many more it holds (R2). */
 const BOX_LIMIT = 2;
@@ -785,9 +784,9 @@ export function CanvasPage() {
 }
 
 /**
- * R1: the four layers, each under its label, in one grid — three columns from 1024px (the money
- * layer's two boxes take half the row each), two from 640px, one below. Every box is shown, filled
- * or not, so the grid keeps its shape. A row is as tall as its tallest box.
+ * P1535: the three layers of three boxes, each under its label, in one grid — three columns from
+ * 1024px, two from 640px, one below. Every box is shown, filled or not, so the grid keeps its
+ * shape. A row is as tall as its tallest box.
  */
 function CanvasGrid({ boxes, renderCard, onMore }: {
   /** null while loading (skeletons) */
@@ -796,12 +795,12 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
   onMore: (box: CanvasBoxTag) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6" data-testid="canvas-grid" aria-busy={boxes === null}>
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="canvas-grid" aria-busy={boxes === null}>
       {CANVAS_LAYERS.map((layer, i) => (
         <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
           {/* Founder, sixth round: the layers did not read as groups — a rule above, a bigger title,
               and more room between layers than between boxes. */}
-          <h2 className={`col-span-full flex items-baseline gap-2.5 text-base font-semibold tracking-tight text-foreground md:text-lg ${i === 0 ? '' : 'mt-10'}`} data-testid="canvas-layer-title">
+          <h2 className={`col-span-full flex items-baseline gap-2.5 text-base font-semibold tracking-tight text-foreground md:text-lg ${i === 0 ? '' : 'mt-6'}`} data-testid="canvas-layer-title">
             {/* Founder, sixth round: the rules between layers read oddly — whitespace groups them,
                 and a number says they are read in order (founder: plain grey, the blue pill distracted). */}
             <span aria-hidden className="font-mono text-sm font-medium text-foreground/40" data-testid="canvas-layer-number">{String(i + 1).padStart(2, '0')}</span>
@@ -812,8 +811,6 @@ function CanvasGrid({ boxes, renderCard, onMore }: {
               key={tag}
               tag={tag}
               title={BOX_TITLES.get(tag) ?? tag}
-              // Three boxes a row take a third each; the money layer's two take half each.
-              wide={layer.boxes.length === 2}
               points={boxes ? boxes.get(tag) ?? [] : null}
               renderCard={renderCard}
               onMore={() => onMore(tag)}
@@ -848,10 +845,9 @@ function sortBoxesByContest(
  * which opens the whole box in the panel. An empty box reads "Empty" to everyone: owners change the
  * canvas through their agent, so there is nothing to offer here.
  */
-function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
+function CanvasBox({ tag, title, points, renderCard, onMore }: {
   tag: CanvasBoxTag;
   title: string;
-  wide: boolean;
   /** null while loading (skeleton) */
   points: PointWithUserPosition[] | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
@@ -870,9 +866,9 @@ function CanvasBox({ tag, title, wide, points, renderCard, onMore }: {
       data-testid={`canvas-box-${tag}`}
       data-empty={empty || undefined}
       // Founder (fifth round): white on white hid everything — a grey box holds white cards.
-      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-3 ${wide ? 'lg:col-span-3' : 'lg:col-span-2'}`}
+      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-2.5`}
     >
-      <div className="mb-2 flex min-w-0 items-center gap-2">
+      <div className="mb-1.5 flex min-w-0 items-center gap-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
         <h3 id={headingId} className={`text-sm font-semibold ${titleColour}`}>{title}</h3>
@@ -1046,16 +1042,16 @@ function CanvasCard({ point, viewerId, positions, compare, selected, sharedLabel
       onClick={onOpen}
       data-testid={`canvas-point-card-${point.id}`}
       data-selected={selected || undefined}
-      className={`group w-full rounded-lg border bg-card p-3 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
+      className={`group w-full rounded-lg border bg-card p-2.5 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
     >
-      <p className="line-clamp-5 break-words text-sm font-medium text-foreground">
+      <p className="line-clamp-4 break-words text-sm font-medium text-foreground">
         {/* One visibility idea: the canvas's audience, not the point's own flag, decides who reads it. */}
         {sharedLabel && <><SharedIcon label={sharedLabel} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
       </p>
       {/* The card's spread row (no info button: the card is itself one button). Founder, sixth
           round: nothing invited a click — a quiet chevron, always visible (phones have no hover). */}
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-1.5 flex items-center justify-between gap-2">
         <PointSpreadRow counts={counts} testId="canvas-card-spread-row" />
         <ChevronRight aria-hidden data-testid="canvas-card-open" className="h-4 w-4 shrink-0 text-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
       </div>

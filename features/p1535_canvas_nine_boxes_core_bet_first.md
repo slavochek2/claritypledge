@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -12,8 +12,8 @@ tags:
 workstream: clarity-canvas
 disclosure: public
 created_date: 2026-10-21
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1535: Clarity Canvas, nine boxes, core bet first, one screen

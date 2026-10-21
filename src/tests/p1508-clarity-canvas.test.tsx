@@ -1,6 +1,6 @@
 /**
  * @file p1508-clarity-canvas.test.tsx
- * @description P1508 — Clarity Canvas: box tags as system tags, grouping into eleven boxes,
+ * @description P1508 — Clarity Canvas: box tags as system tags, grouping into nine boxes (P1535),
  * box-tag pills hidden, and the canvas panel's card with its stories open.
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -51,23 +51,28 @@ const point = {
 } as unknown as PointWithUserPosition;
 
 describe('box tags', () => {
-  // Sixth round R1 (founder): Unique Value Proposition dropped; Channels → "Distribution",
-  // Revenue Streams → "Offers & Pricing" (titles only, keys unchanged); four named layers.
-  it('has exactly the eleven founder-approved boxes in four layers, in reading order', () => {
+  // P1535 (founder): nine boxes in three layers, core bet first. Ikigai dropped; Unfair Advantage
+  // and Cost Structure dropped (keys leave the list, like canvas:uvp); titles only, keys unchanged.
+  it('has exactly the nine founder-approved boxes in three layers, in reading order', () => {
     expect(CANVAS_BOX_TAGS).toEqual([
-      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
       'canvas:segments', 'canvas:problem', 'canvas:solution',
-      'canvas:advantage', 'canvas:channels', 'canvas:metrics',
-      'canvas:revenue', 'canvas:cost',
+      'canvas:channels', 'canvas:revenue', 'canvas:metrics',
+      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
     ]);
     expect(CANVAS_BOXES.map(b => b.title)).toEqual([
-      'What I love', "What I'm good at", 'What the world needs',
       'Customer Segments', 'Problem', 'Solution',
-      'Unfair Advantage', 'Distribution', 'Key Metrics',
-      'Offers & Pricing', 'Cost Structure',
+      'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
+      'Values', 'When my strengths become weaknesses', 'Who else wins when I win?',
     ]);
-    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Why I do this', 'The core bet', 'How we win', 'How it pays']);
+    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['The core bet', 'Go to market', 'Me and the world']);
     expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
+  });
+
+  it('P1535: dropped boxes leave the list but stay hidden system tags', () => {
+    for (const tag of ['canvas:advantage', 'canvas:cost', 'canvas:uvp']) {
+      expect(isCanvasBoxTag(tag)).toBe(false);
+      expect(isSystemTag(tag)).toBe(true);
+    }
   });
 
   it('every box tag is a system tag; near misses and plain tags are not', () => {
@@ -102,15 +107,17 @@ describe('box tags', () => {
   });
 
   it('one box per point: the first box tag wins; no box tag means no box', () => {
-    expect(canvasBoxOf(['st1', 'canvas:solution', 'canvas:cost'])).toBe('canvas:solution');
-    // A point still tagged with the dropped box falls through to its next box tag, or none.
-    expect(canvasBoxOf(['canvas:uvp', 'canvas:cost'])).toBe('canvas:cost');
+    expect(canvasBoxOf(['st1', 'canvas:solution', 'canvas:metrics'])).toBe('canvas:solution');
+    // A point still tagged with a dropped box falls through to its next box tag, or none.
+    expect(canvasBoxOf(['canvas:uvp', 'canvas:metrics'])).toBe('canvas:metrics');
+    expect(canvasBoxOf(['canvas:cost'])).toBeNull();
+    expect(canvasBoxOf(['canvas:advantage'])).toBeNull();
     expect(canvasBoxOf(['canvas:uvp'])).toBeNull();
     expect(canvasBoxOf(['st1'])).toBeNull();
     expect(isCanvasBoxTag('canvas:good-at')).toBe(true);
   });
 
-  it('groups points into all eleven boxes, dropping points with no box tag', () => {
+  it('groups points into all nine boxes, dropping points with no box tag', () => {
     const pts = [
       { id: 'a', systemTags: ['canvas:problem'] },
       { id: 'b', systemTags: [] },

@@ -17,8 +17,9 @@
  * though the canvas has points.
  *   - a point by ANOTHER user with the same canvas tag and a box tag    (must not appear)
  *   - an owner point with the canvas tag and NO box tag                 (must not appear)
- *   - Offers & Pricing: one point; Cost Structure stays empty
- *   - the "Why I do this" boxes stay empty
+ *   - Offers & Pricing: one point
+ *   - owner points in the dropped Unfair Advantage and Cost Structure boxes (P1535: must not appear)
+ *   - the "Me and the world" boxes stay empty
  */
 import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -33,6 +34,7 @@ const FOREIGN_TEXT = 'P1508 foreign point by someone else with the same tag';
 const UNBOXED_TEXT = 'P1508 owner point with the project tag and no box';
 const SOLUTION_TEXT = 'P1508 the solution point';
 const REVENUE_TEXT = 'P1508 the revenue point';
+const DROPPED_TEXTS = ['P1535 point in the dropped advantage box', 'P1535 point in the dropped cost box'];
 
 interface Fixture {
   /** a PUBLIC point with no canvas tag, on the owner's profile, for the profile-vs-canvas comparison */
@@ -82,6 +84,8 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   const revenuePointId = await insertPoint(owner.user.id, REVENUE_TEXT, [tag], sys(tag, 'canvas:revenue'));
   await insertPoint(other.user.id, FOREIGN_TEXT, [tag], sys(tag, 'canvas:problem'));
   await insertPoint(owner.user.id, UNBOXED_TEXT, [tag], sys(tag));
+  await insertPoint(owner.user.id, DROPPED_TEXTS[0], [tag], sys(tag, 'canvas:advantage'));
+  await insertPoint(owner.user.id, DROPPED_TEXTS[1], [tag], sys(tag, 'canvas:cost'));
   const secondTag = `${tag}b`;
   const privateTag = `${tag}p`;
   await insertPoint(owner.user.id, 'P1508 second canvas point', [tag], sys(secondTag, 'canvas:problem'));
@@ -173,7 +177,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await setTestSession(page, fx.other.email);
   });
 
-  test('smoke: the owner sees their canvas in eleven titled boxes under four layers, private point included, no console errors', async ({ page }) => {
+  test('smoke: the owner sees their canvas in nine titled boxes under three layers, private point included, no console errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     await setTestSession(page, fx.owner.email);
@@ -183,15 +187,17 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clarity Canvas');
     await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
     await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag); // the plain name: one version (the owner's other canvases are not listed here)
-    for (const title of ['What I love', "What I'm good at", 'What the world needs',
-      'Customer Segments', 'Problem', 'Solution', 'Unfair Advantage', 'Distribution', 'Key Metrics',
-      'Offers & Pricing', 'Cost Structure']) {
+    for (const title of ['Customer Segments', 'Problem', 'Solution',
+      'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
+      'Values', 'When my strengths become weaknesses', 'Who else wins when I win?']) {
       await expect(page.getByRole('heading', { level: 3, name: title, exact: true })).toBeVisible();
     }
-    await expect(page.getByRole('heading', { level: 3 })).toHaveCount(11);
-    await expect(page.getByText('Unique Value Proposition')).toHaveCount(0);
-    // R1: the four layers, named, in order; no other frames.
-    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['Why I do this', 'The core bet', 'How we win', 'How it pays']);
+    await expect(page.getByRole('heading', { level: 3 })).toHaveCount(9);
+    for (const gone of ['Unique Value Proposition', 'Unfair Advantage', 'Cost Structure', 'What I love']) {
+      await expect(page.getByText(gone, { exact: true })).toHaveCount(0);
+    }
+    // P1535: three layers, named, in order, the core bet first; no other frames.
+    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['The core bet', 'Go to market', 'Me and the world']);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
     // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
@@ -214,6 +220,9 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByText(FOREIGN_TEXT)).toHaveCount(0);
     await expect(page.getByText('P1508 user-tag-only point')).toHaveCount(0);
     await expect(page.getByText(UNBOXED_TEXT)).toHaveCount(0);
+    // P1535: a point left in a dropped box is on no box, and its tag is never a pill.
+    for (const text of DROPPED_TEXTS) await expect(page.getByText(text)).toHaveCount(0);
+    await expect(page.getByText(/canvas:/)).toHaveCount(0);
   });
 
   test('an admitted reader sees the whole canvas, private points included; a signed-in stranger and a signed-out visitor see not-found', async ({ page, browser }) => {
@@ -479,7 +488,7 @@ test.describe('P1508: Clarity Canvas', () => {
         cardContrasts: !card || getComputedStyle(card).backgroundColor !== getComputedStyle(box).backgroundColor,
       };
     }));
-    expect(report).toHaveLength(11);
+    expect(report).toHaveLength(9);
     for (const r of report) expect(r).toEqual({ transform: 'none', size: '14px', weight: '600', chipTinted: true, stroke: '2', fill: 'none', cardContrasts: true });
     await expect(page.getByTestId('canvas-box-count')).toHaveCount(0);
   });
@@ -494,12 +503,11 @@ test.describe('P1508: Clarity Canvas', () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.solutionPointId}`);
   });
 
-  test('R1: four layers in reading order — three columns from 1024px (the money row in halves), two from 640px, one below', async ({ page }) => {
+  test('P1535: three layers in reading order, core bet first — three columns from 1024px, two from 640px, one below', async ({ page }) => {
     const ORDER = [
-      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
       'canvas:segments', 'canvas:problem', 'canvas:solution',
-      'canvas:advantage', 'canvas:channels', 'canvas:metrics',
-      'canvas:revenue', 'canvas:cost',
+      'canvas:channels', 'canvas:revenue', 'canvas:metrics',
+      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
     ];
     for (const [width, columns] of [[1440, 3], [1024, 3], [1023, 2], [640, 2], [639, 1], [375, 1]] as const) {
       await page.setViewportSize({ width, height: 900 });
@@ -508,16 +516,8 @@ test.describe('P1508: Clarity Canvas', () => {
       const order = await page.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll(els => els.map(e => e.getAttribute('data-testid')?.replace('canvas-box-', '')));
       expect(order, `order at ${width}px`).toEqual(ORDER);
       const rects = await page.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll(els => els.map(e => e.getBoundingClientRect()).map(r => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width) })));
-      const firstNine = rects.slice(0, 9);
-      expect(new Set(firstNine.map(r => r.x)).size, `columns at ${width}px`).toBe(columns);
-      expect(new Set(firstNine.map(r => r.w)).size, `equal widths at ${width}px`).toBe(1);
-      if (columns === 3) {
-        // The money layer's two boxes share the row in halves.
-        const [offers, cost] = rects.slice(9);
-        expect(offers.y).toBe(cost.y);
-        expect(Math.abs(offers.w - cost.w)).toBeLessThanOrEqual(1);
-        expect(offers.w).toBeGreaterThan(firstNine[0].w * 1.4);
-      }
+      expect(new Set(rects.map(r => r.x)).size, `columns at ${width}px`).toBe(columns);
+      expect(new Set(rects.map(r => r.w)).size, `equal widths at ${width}px`).toBe(1);
       // Row by row, left to right: reading order is visual order.
       for (let i = 1; i < rects.length; i++) {
         const [p, c] = [rects[i - 1], rects[i]];
@@ -525,7 +525,7 @@ test.describe('P1508: Clarity Canvas', () => {
       }
       // Each layer's label sits above its first box.
       const labels = await page.getByTestId('canvas-layer-title').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().bottom)));
-      for (const [layer, firstBox] of [[0, 0], [1, 3], [2, 6], [3, 9]] as const) {
+      for (const [layer, firstBox] of [[0, 0], [1, 3], [2, 6]] as const) {
         expect(labels[layer] <= rects[firstBox].y, `layer ${layer} label above its boxes at ${width}px`).toBe(true);
       }
     }
@@ -683,7 +683,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     const love = page.getByTestId('canvas-box-canvas:love');
     await expect(love).toHaveAttribute('data-empty', 'true');
-    await expect(love.getByRole('heading', { name: 'What I love' })).toBeVisible();
+    await expect(love.getByRole('heading', { name: 'Values' })).toBeVisible();
     await expect(love.locator(CARD)).toHaveCount(0);
     await expect(love.getByText('Empty', { exact: true })).toBeVisible(); // D3: the owner too, no call to action
 
@@ -888,7 +888,7 @@ test.describe('P1508: Clarity Canvas', () => {
   test('layers are numbered and spaced, with no rules; cards show an open chevron; Previous / Next carry a blue edge', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03', '04']);
+    await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03']);
     // Compare reads as an action until someone is picked; the list holds only people.
     await expect(page.getByTestId('canvas-compare-picker')).toContainText('Compare positions');
     await expect(page.getByLabel('Compare positions with').locator('option:not([hidden])').first()).not.toHaveText('Compare positions');
@@ -897,7 +897,7 @@ test.describe('P1508: Clarity Canvas', () => {
     const menu = await page.getByLabel('Compare positions with').boundingBox();
     expect(Math.abs(pill!.x - menu!.x) <= 1 && Math.abs(pill!.width - menu!.width) <= 2).toBe(true);
     const titles = page.getByTestId('canvas-layer-title');
-    for (const i of [0, 1, 2, 3]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
+    for (const i of [0, 1, 2]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
     await expect(page.locator('[data-testid^="canvas-point-card-"]').first().getByTestId('canvas-card-open')).toBeVisible();
     const box = page.getByTestId('canvas-box-canvas:problem');
     await box.getByTestId('canvas-box-more').click();
@@ -1013,5 +1013,31 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(panel.getByRole('button', { name: /add a story|why you/i })).toHaveCount(0);
     const { data } = await supabaseAdmin.from('stories').select('visibility').eq('content', text).single();
     expect(data?.visibility).toBe('private'); // it follows its point, and the canvas's audience reads it
+  });
+});
+
+// P1535: its own canvas, one realistic point in every box (the shared fixture leaves most boxes
+// empty, so a fit check there passes even on a layout that does not fit).
+test.describe('P1535: one screen', () => {
+  test('at 1440x900 a canvas with one card in every box fits without vertical page scroll', async ({ page }) => {
+    test.setTimeout(120_000);
+    const tag = `p1535fit${Date.now().toString(36)}`;
+    const owner = await createTestUser({ name: 'P1535 Fit Owner' });
+    try {
+      const statement = 'A statement long enough to wrap onto a second line in a third of a desktop screen, like a real canvas point.';
+      for (const box of ['canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:channels', 'canvas:revenue',
+        'canvas:metrics', 'canvas:love', 'canvas:good-at', 'canvas:world-needs']) {
+        await insertPoint(owner.user.id, `${statement} (${box})`, [tag], sys(tag, box));
+      }
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`/p/${owner.slug}/canvas/${tag}`);
+      await waitForCanvas(page);
+      await expect(page.locator(CARD)).toHaveCount(9);
+      const last = await page.getByTestId('canvas-box-canvas:world-needs').boundingBox();
+      expect(last!.y + last!.height, 'last box bottom inside the viewport').toBeLessThanOrEqual(900);
+    } finally {
+      await supabaseAdmin.from('points').delete().contains('tags', [tag]);
+      await deleteTestUser(owner.user.id);
+    }
   });
 });
