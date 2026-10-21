@@ -276,6 +276,27 @@ locks), `20261021174500` (the rest of the SQL) and the TS commit that follows:
 | Prod safety rests on one constant compare (Opus L2), shared `/tmp` ledger (L5) | Set aside: the ref claim is signed with the project's own JWT secret; the ledger only feeds ids to a function that re-checks namespace and project |
 | Cost budget rests on a sampled 34% reuse rate (criteria 11) | Stated as an extrapolation in the Cost Budget; a full-run figure is the open AC |
 
+**Re-review (round 2: Gemini served, Codex; 2 of 2 external reviewers reported)** on the round-1 fix
+diff. Fixed in `20261021183000_p1532_review_fixes_2.sql` and the commit that follows:
+- the blocking rows are locked before their owners are read (Codex 1, the row half);
+- a retried user's dependent rows are counted only once it succeeds (Gemini 3, Codex);
+- `e2e_test_user_counts` uses the sweep's activity age (Codex 5);
+- the sweep halves its batch after a transient failure or a deferral, and a batch that only
+  defers counts as a failed attempt (Codex 2, 3);
+- `deleteTestUsers` shrinks its batch after a deferral (Gemini 2's intent; its premise of a
+  200-id batch was wrong, the batch is 50);
+- the Cost Budget now carries the failure-path arithmetic, egress and log lines (Codex 4).
+
+Set aside:
+- **Ownership check on CASCADE edges (Gemini 1).** The example it gave is wrong:
+  `clarity_sessions.creator_profile_id` is NO ACTION (catalog read). In general a CASCADE edge is
+  the schema's own decision that the row dies with the user, which is what deleting the user does
+  anyway.
+- **An owner's email changing concurrently to a non-e2e one (Codex 1, the owner half).** Exotic on
+  the test project; recorded as a known limitation.
+- **One attempt can still exceed 8 s (Codex 2).** The server checks the clock only between users.
+  A timeout rolls the whole call back (nothing is half-deleted), and the callers halve their batch.
+
 **Known limitations:** the purge's ownership check covers rows that reference a non-e2e user
 directly. A blocking row owned through a parent (a snapshot inside a non-e2e user's letter) is still
 deleted, as before P1532. Depth > 1 and the cycle RAISE have no test. Both are test-project-only.
@@ -298,6 +319,23 @@ and sign-in calls.
 | CLI sweeper, dry run | 13 pages x 1,000 users x 663 B ≈ 8.4 MB uncompressed (12,721 users) | 1 request, 3 numbers |
 | CLI sweeper, `--apply`, no flags | unbounded: 17,500 users x (6 + 2k) | ≤ 1 + 10 requests for the default 500 users |
 | Offline pack, 5 hide/show cycles mid-pack | 40 reads (measured, unit test) | ≤ 30 = one full pack (measured) |
+| Egress per cleanup request | listing: 663 B per auth user listed (measured, uncompressed) | purge answer ≈ 40 B per id (a uuid in JSON) x 50 ≈ 2 KB; count answer ≈ 100 B (estimated from the response shape) |
+| Postgres ERROR lines, normal path | k per deleted user (each provoked 23503) | 0 |
+
+**Failure paths (bounded, not typical).** A transient failure (5xx, 408, 429, timeout) costs one
+gateway error line, plus one Postgres ERROR when it is a statement timeout. Three consecutive
+failures stop the run with exit 1. Each failure halves the batch, which never grows back, so the
+hard bounds are the user limit and the time budget, not the request count:
+- **CLI sweeper:** `--apply` with no flags runs ≤ 120 s and ≤ 500 users. That is typically 1 + 10
+  requests. With two failures before each batch it is 1 + 10 x 3 = 31. If halving reaches a batch of
+  1, it is at most 1 + 500 successful requests plus failures, still capped at 120 s.
+- **Teardown ledger purge:** ⌈survivors/50⌉ requests, capped at 30 s.
+- **A batch the server cannot finish:** it returns `deferred` instead of timing out. Each deferred id
+  is re-sent once in a smaller batch; a second deferral is a failure.
+
+**Today and at 10x.** Per full run the user lifecycle drops from ≈ 13,500 requests to ≈ 4,020, and
+from ≈ 1,500 provoked error responses to 0. At 10x the tests, both scale linearly; deletion stays
+one request per 50 users.
 
 1. **Fits the plan limit today?** It cannot be shown from public figures. The Supabase registry row
    in [metered-services.md](../docs/technical/metered-services.md) has no log-ingestion number, and

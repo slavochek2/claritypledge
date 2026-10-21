@@ -120,7 +120,8 @@ export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult
     throw new Error(`sweep refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
   }
   const limit = opts.limit ?? SWEEP_DEFAULTS.limit;
-  const batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
+  // Halved after a transient failure or a batch the server could not finish (deferred), never grown.
+  let batchSize = Math.min(opts.batchSize ?? SWEEP_DEFAULTS.batchSize, 200);
   const maxFailures = opts.maxConsecutiveFailures ?? SWEEP_DEFAULTS.maxConsecutiveFailures;
   const pauseMs = opts.pauseMs ?? SWEEP_DEFAULTS.pauseMs;
   const requestTimeoutMs = opts.requestTimeoutMs ?? SWEEP_DEFAULTS.requestTimeoutMs;
@@ -168,16 +169,27 @@ export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult
       log(`sweep: request failed (${status}): ${error.message}`);
       if (!transient(status)) { result.stopped = 'refused'; break; }
       consecutive++;
+      batchSize = Math.max(1, Math.floor(batchSize / 2));
       await new Promise((r) => setTimeout(r, backoffMs(pauseMs, consecutive)));
       continue;
     }
-    consecutive = 0;
     const r = data as PurgeResult;
     result.deleted += r.deleted.length;
     result.failed += r.failed.length;
     for (const f of r.failed) log(`sweep: FAILED ${f.id}: ${f.sqlstate} ${f.message}`);
+    if (r.deferred?.length) {
+      // The server ran short of time: the deferred users stay candidates, and the next request is
+      // smaller. A batch that only defers counts as a failed attempt, so this cannot loop.
+      batchSize = Math.max(1, Math.floor(batchSize / 2));
+      if (r.deleted.length === 0) {
+        consecutive++;
+        await new Promise((res) => setTimeout(res, backoffMs(pauseMs, consecutive)));
+        continue;
+      }
+    }
+    consecutive = 0;
     if (r.deleted.length === 0) {
-      result.stopped = r.failed.length || r.deferred?.length ? 'no-progress' : 'done';
+      result.stopped = r.failed.length ? 'no-progress' : 'done';
       break;
     }
     await new Promise((res) => setTimeout(res, pauseMs));

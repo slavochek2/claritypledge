@@ -128,6 +128,19 @@ describe('P1532 sweeper bounds', () => {
   });
 });
 
+describe('P1532 sweeper: server-side deferrals', () => {
+  it('a batch that only defers halves the next request and gives up after three such batches', async () => {
+    const { client, calls } = fakeClient((fn, args) =>
+      fn === 'e2e_test_user_counts'
+        ? counts(100)
+        : { data: { deleted: [], refused: [], missing: [], failed: [], deferred: ['a', 'b'] }, error: null, status: 200, _limit: args.p_limit } as Reply);
+    const r = await sweepE2eTestUsers({ apply: true, olderThanHours: 24, client, pauseMs: 0, log: quiet });
+    expect(calls.slice(1).map((c) => c.args.p_limit)).toEqual([50, 25, 12]);
+    expect(r).toMatchObject({ stopped: 'request-failures', deleted: 0 });
+    expect(exitCodeFor(r)).toBe(1);
+  });
+});
+
 describe('P1532 ledger purge (purgeUserIds)', () => {
   const ids = Array.from({ length: 120 }, (_, i) => `u-${i}`);
   const answer = (batch: string[], deferred: string[] = []): Reply => ({

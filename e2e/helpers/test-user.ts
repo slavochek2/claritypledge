@@ -600,8 +600,9 @@ export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: num
   }
   const queue = [...ids];
   const deferredOnce = new Set<string>();
+  let batchSize = PURGE_BATCH; // halved whenever the server defers part of a batch
   while (queue.length) {
-    const batch = queue.splice(0, PURGE_BATCH);
+    const batch = queue.splice(0, batchSize);
     const { data, error } = await profileWriter.rpc('e2e_purge_test_users', { p_user_ids: batch });
     if (error || !data) {
       result.failed += batch.length;
@@ -614,6 +615,7 @@ export async function deleteTestUsers(userIds: string[]): Promise<{ deleted: num
       result.failed++;
       fail(`e2e_purge_test_users(${f.id})`, { message: `${f.sqlstate} ${f.message}` });
     }
+    if (r.deferred?.length) batchSize = Math.max(1, Math.floor(batchSize / 2));
     for (const id of r.deferred ?? []) {
       // One more try each, in a later (smaller) request; a second deferral is a failure.
       if (deferredOnce.has(id)) {
