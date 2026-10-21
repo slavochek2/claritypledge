@@ -266,7 +266,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
     >
       {/* P1539: inside the shell the strip spans the full width, above the sidebar too (it pulls left over the
           column's padding; the sidebar starts below it). */}
-      <OfflineStrip className={signedInShell ? (sidebarCollapsed ? "lg:-ml-16" : "lg:-ml-[248px]") : ""} />
+      <OfflineStrip className={shellFrame ? (sidebarCollapsed ? "lg:-ml-16" : "lg:-ml-[248px]") : ""} />
       {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} belowStrip={offlineStripShown} />}
       {!shellFrame && !hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} publicSite={publicSiteView} />

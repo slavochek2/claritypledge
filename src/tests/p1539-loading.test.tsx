@@ -179,23 +179,21 @@ describe('P1539 offline strip', () => {
 describe('P1539 collapsed rail tooltips', () => {
   const NAV = ['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile'];
 
-  it('hover opens a tooltip with the label on every rail control: each nav icon, the expand toggle, Tools and the avatar', async () => {
+  // A fresh rail per control (one test each, so each stays well inside the timeout under load):
+  // each one must open on its own first hover, not ride on a neighbour's open tooltip.
+  const targets: Array<[string, (bar: HTMLElement) => HTMLElement, string]> = [
+    ['expand toggle', bar => within(bar).getByTestId('sidebar-toggle'), 'Expand sidebar'],
+    ...NAV.map((label): [string, (bar: HTMLElement) => HTMLElement, string] => [label, bar => within(bar).getByRole('link', { name: label }), label]),
+    ['Tools', bar => within(bar).getByTestId('event-links-button'), 'Tools'],
+    ['avatar', bar => within(bar).getByTestId('rail-avatar'), 'Ada'],
+  ];
+  it.each(targets)('hover opens a tooltip with the label on the rail control: %s', async (_name, find, label) => {
     localStorage.setItem(SIDEBAR_KEY, '1');
-    const targets: Array<[(bar: HTMLElement) => HTMLElement, string]> = [
-      [bar => within(bar).getByTestId('sidebar-toggle'), 'Expand sidebar'],
-      ...NAV.map((label): [(bar: HTMLElement) => HTMLElement, string] => [bar => within(bar).getByRole('link', { name: label }), label]),
-      [bar => within(bar).getByTestId('event-links-button'), 'Tools'],
-      [bar => within(bar).getByTestId('rail-avatar'), 'Ada'],
-    ];
-    // A fresh rail per control: each one must open on its own first hover, not ride on a neighbour's open tooltip.
-    for (const [find, label] of targets) {
-      const user = userEvent.setup();
-      const { container, unmount } = renderLayout('/feed');
-      await user.hover(find(sidebar(container)!));
-      const tip = await screen.findByRole('tooltip', undefined, { timeout: 2000 });
-      expect(tip.textContent).toBe(label);
-      unmount();
-    }
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.hover(find(sidebar(container)!));
+    const tip = await screen.findByRole('tooltip', undefined, { timeout: 2000 });
+    expect(tip.textContent).toBe(label);
   });
 
   it('keyboard focus opens the tooltip too', async () => {

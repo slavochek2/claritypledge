@@ -440,7 +440,7 @@ function EventLinksDropdown({
       {tooltip ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger data-testid="event-links-button" className={triggerClass}>
+            <DropdownMenuTrigger data-testid="event-links-button" aria-label={tooltip} className={triggerClass}>
               {triggerContent}
             </DropdownMenuTrigger>
           </TooltipTrigger>
