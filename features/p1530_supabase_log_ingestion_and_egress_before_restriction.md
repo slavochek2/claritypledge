@@ -85,6 +85,21 @@ test project. Reversibility: config or code, git revert. Decision density: likel
 - [ ] The top mechanism is fixed, or handed to the founder as a decision with the numbers.
 - [ ] /day's `cp.quota` (P1525) shows the trend after the fix, recorded here with the date.
 
+## Findings 2026-10-21 (figures in `.private/docs/usage/p1530-2026-10-21.md`)
+
+- **The test project is most of the overrun.** Split by project, the 21 Sep–21 Oct cycle shows
+  prod under every free-plan limit on its own; test holds the large majority of log ingestion and
+  uncached egress. Test's daily logs, egress and new users move together, and days with no new
+  test users have zero logs. Decision Criteria 2 fires: the fix is getting test out of this org.
+- **Moving test is blocked; the rebuild is the route.** Supabase refused the transfer during the
+  grace period (20 Oct). The route chosen in another session: pause the old test project, create
+  a new one in the empty free org, migrate, reseed, repoint config. No evidence it has started
+  (old test project still serving traffic at ~09:00 UTC on 21 Oct).
+- **Top test log sources, last hour (gateway lines = most of the bytes):** a Playwright-UA browser
+  GETting `event_rsvps` about once a second; the P1522 sweeper's DELETEs (one-off backlog purge);
+  `node` GETs on `clarity_sessions`.
+- **Egress projection is still open:** the new cycle had no days of data. Re-read on 24–26 Oct.
+
 ## Related
 
 - [P1522](done/2026-06-10/p1522_supabase_egress_polling_and_e2e_users.md): the egress cut; RQ3 logs not readable.
