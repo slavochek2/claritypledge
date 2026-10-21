@@ -8,6 +8,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [product]: Artifacts are shared with events and groups through checked functions; no public switch (P1515)
+
+**Context:** The sales mastermind needs attendees to read each other's Clarity Canvases, and owners will not publish them. The 2026-03-24 ruling cut a story-level "shared" tier ("all event co-participants") as unenumerable. Three reviewers (Gemini Argon, Codex, Opus) found the first draft, which widened read policies, would have leaked shared private content onto the feed, point and story pages, profiles and realtime, because those read by policy alone.
+
+**Decision:** An artifact (first: the canvas) is Private or Shared with a list of entries: events (host plus people registered by 12 h after the start, the P1256/P1512 window, minus people the host removed) and groups (current members). Membership is live; the owner approves entries, not people. Existing read policies stay unchanged; shared content is served, to everyone including the owner, only through checked server functions, as letters do. Only stories added through the canvas belong to it. No public switch: nothing becomes public by an artifact owner's action. Letters keep their own delivery. The event room is not yet able to pair on canvas points (placeholder P1529).
+
+**Alternatives rejected:** widening RLS with an audience branch (cross-surface leak); a public canvas setting (publishes other people's stories by the owner's click); moving letters onto the model now (changes a live private path for no reader gain); reviving the P1181 branch (letter-only, one org).
+
+**Consequences:** P1515 builds after P1508 ships. `docs/definitions.md` §Story Visibility Model gains the artifact context when built (via docs-strategy-update).
+
+---
+
 ## 2026-10-21 [technical]: Supabase free-plan usage is read from the dashboard through Chrome, not the API (P1525)
 
 **Context:** The organisation went over its free plan (P1522) and /day was asked to warn at 70% of each limit (cached egress, egress, logs, MAU). Every Supabase token here was refused for organisation reads, and creating a better one would not have helped: the Management API's published definition has no organisation-usage endpoint, and the scoped-token form offers no usage or billing permission. The only usage endpoints are per-project request counts, which say nothing about egress or logs.
