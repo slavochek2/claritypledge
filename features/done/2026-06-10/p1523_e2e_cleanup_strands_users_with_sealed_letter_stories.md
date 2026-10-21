@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 49
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-users, cleanup, egress]
 disclosure: public
-delivery_stage: ship
 date_resolved: '2026-10-21'
 root_cause: stories pre-clean bypassed FK-blocker resolution, which could not clear blockers of rows the user owns; sweeper order let stuck users fill every batch
 resolution: deleteClearingReferences resolves blockers through row ids; stories pre-clean uses it; sweeper shuffles a 3x pool
@@ -23,6 +22,7 @@ reproduce_artifact:
   root_cause: stories pre-clean is a plain delete; deleteClearingReferences cannot clear blockers of rows the user owns; sweeper order starves
   confidence: high
   fix_shape: decided
+completed_at: 2026-10-21
 ---
 
 # P1523: e2e cleanup still strands users whose stories are in a sealed letter
