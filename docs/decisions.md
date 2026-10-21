@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: An AI call that reports no usage is settled at list price per call actually made, not at its reservation (P1534)
+
+**Context:** The Gemini image API returns no usage metadata. `mirror-portrait` therefore settled every run at its whole worst-case reservation ($0.70: four image calls at the backup model's price plus checks, x1.25). Real cost is about $0.069, so the $6 daily cap ran out after 8 portraits.
+**Decision:** The image loop reports each call that may have been billed, with its model: answered calls and timeouts count, refused calls do not. Vision checks count only when sent. The run settles at those calls x a per-model list-price table, never above the reservation, and an unknown model is priced at the maximum. Two exceptions: a run that never started releases its reservation, and a started run in which Google took no call keeps its whole reservation. Without that second exception, refused runs settle at $0, and since the global cap counts only dollars, they could be retried without limit. Admission still needs the full reservation free, so capacity is 77 portraits a day, not $6 / $0.069.
+**Alternatives rejected:** raising the daily cap (the counter stays wrong); settling refused runs at $0 (rejected for the reason above).
+**Consequences:** The price table must follow Google's list prices. The reviewer found the capacity figure only by modelling admission against the migration's own reservation and cap, and the test now reads both from the migration. The P1531 Cost Budget took six review rounds to get right; failure-path log lines and the base64 size were the parts missed.
+**References:** [p1534 spec](../features/done/2026-06-10/p1534_portrait_charged_at_worst_case.md)
+
 ## 2026-10-21 [technical]: Cut duplicate reads by changing query shape, not by a client request dedupe; count requests with StrictMode off (P1527)
 
 **Context:** One fresh `/feed` load measured 27 Supabase requests (stories 6, events 8). Most of that was React StrictMode, which runs every mount effect twice in dev only. With StrictMode removed (what production does) the same load was 17 (stories 3, events 5). An in-flight request dedupe was built first and cut the dev count, but saved nothing in production. Codex and Gemini review then kept finding write paths that had to invalidate it or it served pre-write data: every story, event and RSVP write, a background banner update, account erasure, and a read that starts between the database commit and the write's response.
