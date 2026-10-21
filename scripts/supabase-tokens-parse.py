@@ -27,13 +27,25 @@ HEADERS = {"TOKEN", "LAST USED", "EXPIRES"}
 WHEN_RE = re.compile(r"\bago\b|^Never used\b", re.I)
 
 
+MONTHS = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
+
+
+def to_date(s):
+    """'19 Jan 2027' with English month names regardless of locale; None when not a real date."""
+    try:
+        d, mon, y = s.split()
+        return dt.date(int(y), MONTHS[mon], int(d))
+    except (ValueError, KeyError):
+        return None
+
+
 def clean(s, n=80):
     return re.sub(r"[<>|]", " ", s).strip()[:n]
 
 
 def safe_name(s):
     """A name that looks like a key, or a table header, is never printed (P1526)."""
-    if "sbp_" in s or MASK_RE.match(s) or re.fullmatch(r"[A-Za-z0-9]{10,}", s) or s.upper() in HEADERS or re.search(r"[•*]{3,}", s):
+    if "sbp_" in s or MASK_RE.match(s) or re.fullmatch(r"[A-Za-z0-9…•*]+", s) or "…" in s or s.upper() in HEADERS or re.search(r"[•*]{3,}", s):
         return "name-withheld"
     return clean(s)
 
@@ -47,6 +59,8 @@ def parse(text, today, warn_days):
         # Name: nearest non-empty line above, skipping the LEGACY badge line.
         legacy, j, name = False, i - 1, ""
         while j >= 0:
+            if lines[j].upper() in HEADERS or MASK_RE.match(lines[j]) or EXP_RE.search(lines[j]):
+                break  # reached the header or the previous row: this row has no name of its own
             if lines[j] == "LEGACY":
                 legacy = True
             elif lines[j]:
@@ -80,7 +94,10 @@ def parse(text, today, warn_days):
         if m.group(0).strip() == "Never":
             exp, days = None, None
         else:
-            exp = dt.datetime.strptime(m.group(0).strip(), "%d %b %Y").date()
+            exp = to_date(m.group(0).strip())
+            if exp is None:
+                unreadable.append(i)
+                continue
             days = (exp - today).days
         if legacy:
             state = "legacy"
