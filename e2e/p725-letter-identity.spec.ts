@@ -475,9 +475,8 @@ test.describe('P725: Letter identity surfaces', () => {
       await inboxTab.click();
     }
 
-    const newDraftBtn = page.getByRole('button', { name: /new draft/i }).or(
-      page.getByText(/new draft/i).first()
-    );
+    // P1512: the label is icon-only on phones; the button keeps its accessible name.
+    const newDraftBtn = page.getByRole('button', { name: /new draft/i });
     await expect(newDraftBtn, '"New Draft" button not visible on Inbox tab').toBeVisible({
       timeout: 10_000,
     });
@@ -493,9 +492,8 @@ test.describe('P725: Letter identity surfaces', () => {
     await sentTab.click();
     await page.waitForLoadState('networkidle');
 
-    const newDraftBtn = page.getByRole('button', { name: /new draft/i }).or(
-      page.getByText(/new draft/i).first()
-    );
+    // P1512: the label is icon-only on phones; the button keeps its accessible name.
+    const newDraftBtn = page.getByRole('button', { name: /new draft/i });
     await expect(newDraftBtn, '"New Draft" button not visible on Sent tab').toBeVisible({
       timeout: 10_000,
     });
@@ -511,9 +509,8 @@ test.describe('P725: Letter identity surfaces', () => {
     await draftsTab.click();
     await page.waitForLoadState('networkidle');
 
-    const newDraftBtn = page.getByRole('button', { name: /new draft/i }).or(
-      page.getByText(/new draft/i).first()
-    );
+    // P1512: the label is icon-only on phones; the button keeps its accessible name.
+    const newDraftBtn = page.getByRole('button', { name: /new draft/i });
     await expect(newDraftBtn, '"New Draft" button not visible on Drafts tab').toBeVisible({
       timeout: 10_000,
     });
