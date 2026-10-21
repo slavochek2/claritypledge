@@ -42,3 +42,7 @@ and the next success flips it back. A VPN that drops one request therefore makes
 - [x] After a confirmed outage, one success sent after the failure returns to online.
 - [x] navigator offline still shows offline immediately. (evidence: p1540-offline-flap.test.tsx "navigator offline shows offline immediately", passing)
 - [x] tsc, full `src/tests` vitest run, and eslint on changed files pass.
+
+## Accepted Risk
+
+- ACCEPT: if a second request fails while a confirmation probe that later succeeds is in flight, the outage is confirmed by the next 20s periodic probe rather than immediately (Gemini 4 Argon final review, 2026-10-21). Re-probing on every still-unreachable success was rejected: a persistently failing endpoint with healthy auth would re-probe at round-trip pace.
