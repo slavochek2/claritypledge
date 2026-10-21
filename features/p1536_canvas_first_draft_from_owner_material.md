@@ -60,13 +60,13 @@ are private rows that can be deleted). Decision density: a few founder calls (be
    (P1515); no separate "accept" state. Before sharing, the owner can re-run with more material or a
    correcting note, which replaces the unshared draft.
 
-[FOUNDER DECISION: where the owner does this. (A) A single "Draft my canvas" step reached from the
-event page and `/prepare`: drop files, paste links, add a note, press one button. (B) In Clarity Chat,
-by giving files and links to their mirror. Agent recommends **A**, because of correctness and runtime
-units: chat attachments today carry only points and stories (`src/app/pages/chat/Composer.tsx:188`,
-"Attach a point or story"), so B also needs file attachments in chat and the mirror switched on in
-prod. A is one request path. The step can still be presented as the owner's agent doing the work.
-Corrections after the first draft go through the mirror later (Non-Goals).]
+**Where (founder, 2026-10-21): a preparation step every attendee does, about 15 minutes.** "every
+attendee is required to invest 15 min time to prep ... a part of it is upload stuff they have so ai
+helps turn it into clarity canvas." This is a single "Draft my canvas" step reached from the event's
+preparation, not Clarity Chat: chat attachments today carry only points and stories
+(`src/app/pages/chat/Composer.tsx:188`, "Attach a point or story"). The event page promises it, so
+this ships before the event is published. Corrections after the first draft go through the mirror
+later (Non-Goals).
 
 [FOUNDER DECISION: entry-point copy, the button label, and what the step says about where the
 material goes.]
@@ -133,8 +133,7 @@ material goes.]
 ## Cost Budget
 
 Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output per 1M tokens through
-2026-12-31). [FOUNDER DECISION: model; the brief named "Gemini Argon 4", which has no registry row
-yet. A different model needs its row added in the same change.]
+2026-12-31). Founder, 2026-10-21: "gemini 3.8 is ok for this".
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
