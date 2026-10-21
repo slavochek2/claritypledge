@@ -69,7 +69,8 @@ Then three lines:
    monthly, budgets are per user, hour and run, so convert: per-user x active users, per-hour x 730, and
    per-run x runs per month. Write the conversion as a formula with named inputs ("active users",
    "runs per month"); the reviewer reads the current values from the registry row's "Where usage is
-   read", so the values never enter a public file. For a row that lists a price and no cap (Gemini, Cloud Run), compare the
+   read", so the values never enter a public file. The spec records the verdict (fits, or does not fit) and
+   never the value behind it. For a row that lists a price and no cap (Gemini, Cloud Run), compare the
    projected monthly cost with the free tier or the spend the founder has accepted. For a row with no
    figure (log ingestion), take it from the dashboard; a limit that cannot be read makes the budget
    incomplete. A design that adds traffic while the organisation is already over that limit is
