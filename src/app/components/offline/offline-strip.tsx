@@ -14,7 +14,8 @@
 import { WifiOff } from 'lucide-react';
 import { useOfflineStripText } from '@/app/contexts/offline-status-context';
 
-export function OfflineStrip() {
+/** `className` lets the signed-in shell pull the strip left over the sidebar's column (P1539). */
+export function OfflineStrip({ className = '' }: { className?: string }) {
   const text = useOfflineStripText();
   if (!text) return null;
   return (
@@ -22,7 +23,7 @@ export function OfflineStrip() {
       role="status"
       aria-live="polite"
       data-testid="offline-strip"
-      className="sticky top-0 z-[60] bg-slate-800 text-white pt-[env(safe-area-inset-top)]"
+      className={`sticky top-0 z-[60] bg-slate-800 text-white pt-[env(safe-area-inset-top)] ${className}`}
     >
       <div className="h-7 px-4 flex items-center justify-center gap-1.5 text-xs font-medium">
         <WifiOff aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-300" />

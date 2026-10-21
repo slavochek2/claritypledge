@@ -8,6 +8,8 @@
  * invisible on fast loads. Pure CSS — no JS timers, no re-renders.
  */
 
+import { useInShellContent } from "./loader-context";
+
 interface ClarityLoaderProps {
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -44,11 +46,11 @@ export function ClarityLoader({ size = "md", className }: ClarityLoaderProps) {
 }
 
 /**
- * Full-page centered loader with CSS-based anti-flash.
- * Invisible for first 300ms (via CSS animation-delay), then fades in.
- * Fast loads never show a flash; slow loads get a smooth appearance.
+ * Boot splash: full-viewport centered loader for surfaces with no shell around them
+ * (pre-auth, public and focus pages). CSS-based anti-flash: invisible for the first 300ms
+ * (animation-delay), then fades in. Fast loads never show a flash.
  */
-export function ClarityPageLoader() {
+export function ClarityBootLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 clarity-page-loader">
       <div className="flex justify-center">
@@ -56,4 +58,31 @@ export function ClarityPageLoader() {
       </div>
     </div>
   );
+}
+
+/**
+ * P1539: content loader for INSIDE the signed-in shell. It fills the content area (flex-1,
+ * never min-h-screen) so the sidebar, bottom bar and footer do not jump when content arrives.
+ * Same 300ms CSS anti-flash as the boot splash.
+ */
+export function ClarityContentLoader() {
+  return (
+    <div
+      data-testid="content-loader"
+      className="flex min-h-[16rem] w-full flex-1 items-center justify-center p-4 clarity-page-loader"
+    >
+      <div className="flex justify-center">
+        <ClarityLoader size="md" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The page loader every call site uses. Inside the shell (InShellContentContext) it is the
+ * content loader; elsewhere it is the full-viewport boot splash.
+ */
+export function ClarityPageLoader() {
+  const inShell = useInShellContent();
+  return inShell ? <ClarityContentLoader /> : <ClarityBootLoader />;
 }

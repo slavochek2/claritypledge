@@ -59,6 +59,10 @@ Blast radius: medium. Every signed-in route renders through the shell, but nothi
 4. **Collapsed sidebar rail** (founder screenshot 2026-10-21 20:35, annotated "icons!" / "user avatar?"). When the menu is collapsed, the rail shows only the logo and a grid button. Show the nav icons (Home, Feed, Groups, Letters, Events, Partners, My Profile) with tooltips, and the user avatar at the bottom, as in the expanded state. Current icons and order; no new destinations.
 5. **Migrate** the in-shell `ClarityPageLoader` call sites to the content loader. Do not convert bespoke `animate-spin` button spinners: those are inline action feedback, not page loading.
 
+### Timing note (step 3, measure-only; no numbers captured yet)
+
+Shipped here: hover/focus preload of the sidebar destinations' route chunks (`src/app/routes/route-preload.ts`, skipped on `saveData` / 2g). Not shipped: idle preload and any auth/context reordering. Cold/warm time-to-content for `/home/c/:id` still needs a real-browser measurement (Performance trace, 3 runs each, before and after this branch); none was taken in this implementation pass.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -82,6 +86,7 @@ Blast radius: medium. Every signed-in route renders through the shell, but nothi
 - [ ] Before/after timing for `/home/c/:id` (cold and warm) recorded in this spec.
 - [ ] `e2e/p938-reproduce.spec.ts` passes. The /feed in-place refresh behaviour is unchanged.
 - [ ] Collapsed sidebar shows every nav destination as an icon (tooltip on hover) and the user avatar at the bottom.
+- [ ] Offline strip spans the full width, including above the sidebar.
 - [ ] Verified at 375px, 320px and desktop.
 
 ## Related

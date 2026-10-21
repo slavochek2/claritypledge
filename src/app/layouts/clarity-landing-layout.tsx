@@ -3,6 +3,7 @@ import { isCanvasPathname } from '@/lib/canvas-boxes';
 import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { AppSidebar } from "@/app/components/layout/app-shell/app-sidebar";
+import { InShellContentContext } from "@/components/ui/loader-context";
 import { useSidebarCollapsed } from "@/app/components/layout/app-shell/sidebar-collapse";
 import { useShellTodaysEvent } from "@/app/components/layout/app-shell/shell-nav";
 import { ShellTopBar, ShellTopBarProvider } from "@/app/components/layout/app-shell/shell-top-bar";
@@ -101,7 +102,11 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
 function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { showUserMenu, isProfilePending } = useNavAuthState();
+  const { showUserMenu, isProfilePending, sessionChecked, isLoading: authLoading } = useNavAuthState();
+  // P1539: while auth is unresolved the footer decision is not made yet. LegalFooter is a signed-out
+  // element; showing it during the check flashed it at signed-in people. Signed-out visitors get it
+  // once auth settles; product routes (/home*) never get it.
+  const authPending = authLoading || !sessionChecked;
   // P1421: the bottom nav renders while a verified user's profile is still loading,
   // so the padding that clears it must be there too.
   const showSignedInChrome = showUserMenu || isProfilePending;
@@ -250,8 +255,10 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       className={`${isLivePage || isChatHome ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col ${shellColumnPadding}`}
       data-shell-top-nav={signedInShell ? shellTopNav : undefined}
     >
-      <OfflineStrip />
-      {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />}
+      {/* P1539: inside the shell the strip spans the full width, above the sidebar too (it pulls left over the
+          column's padding; the sidebar starts below it). */}
+      <OfflineStrip className={signedInShell ? (sidebarCollapsed ? "lg:-ml-16" : "lg:-ml-[248px]") : ""} />
+      {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} belowStrip={offlineStripShown} />}
       {!signedInShell && !hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} publicSite={publicSiteView} />
       )}
@@ -265,7 +272,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe
             mounts its own slot, and capture pauses on the other two. */}
         {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot topNav={signedInShell ? shellTopNav : "all"} />}
-        {children}
+        <InShellContentContext.Provider value={signedInShell}>{children}</InShellContentContext.Provider>
       </main>
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a
           fixed bottom action bar. The footer's site links compete with the single
@@ -273,7 +280,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
       {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && !isCanvasPage && (
         showSiteFooter
           ? <ClarityFooter />
-          : (!showUserMenu || publicSiteView) && <LegalFooter />
+          : (!showUserMenu || publicSiteView) && !authPending && !isChatHome && <LegalFooter />
       )}
       {/* P113: Mobile bottom nav for logged-in users */}
       {!logoOnly && !publicSiteView && <BottomNav />}

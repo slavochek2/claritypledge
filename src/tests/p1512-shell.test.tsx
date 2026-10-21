@@ -244,21 +244,22 @@ describe('P1512 shell — one navigation per route', () => {
 });
 
 describe('P1512 shell — collapse', () => {
-  it('collapsed shows the logo-as-expand control and the Tools icon, no entries', () => {
+  it('collapsed shows the logo-as-expand control, every nav entry as an icon link (P1539), Tools and the avatar', () => {
     localStorage.setItem(SIDEBAR_KEY, '1');
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
     expect(bar.getAttribute('data-collapsed')).toBe('true');
-    expect(within(bar).queryAllByRole('link')).toHaveLength(0);
+    expect(within(bar).queryAllByRole('link')).toHaveLength(7);
     const expand = within(bar).getByRole('button', { name: 'Expand sidebar' });
     expect(expand).toHaveAttribute('aria-expanded', 'false');
     // The logo is what shows; hover swaps it for the expand icon (both live in the one button).
     expect(expand.querySelector('svg.hidden')).not.toBeNull();
-    // Tools still works collapsed: the only other control, at the bottom.
+    // Tools still works collapsed, then the avatar, at the bottom.
     const buttons = Array.from(bar.querySelectorAll('button'));
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     expect(buttons[1]).toBe(within(bar).getByTestId('event-links-button'));
     expect(buttons[1]).toHaveAttribute('title', 'Tools');
+    expect(buttons[2]).toBe(within(bar).getByTestId('rail-avatar'));
   });
 
   it('expanded shows a collapse control; collapsing then expanding persists on this device', () => {

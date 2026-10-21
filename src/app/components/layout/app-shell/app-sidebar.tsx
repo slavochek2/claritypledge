@@ -7,14 +7,16 @@
  * Groups, Letters, Events, Partners, My Profile; at the bottom, the avatar menu with a small Tools
  * icon button beside it.
  * Collapsed (64px): the logo, which turns into the expand icon on hover or keyboard focus
- * (founder decision 5), and the Tools icon button at the bottom. Nothing else is rendered while
- * collapsed, so nothing hidden stays tabbable.
+ * (founder decision 5), every nav destination as an icon with a tooltip (P1539), and Tools plus the
+ * avatar at the bottom. Hidden labels are aria-labels, so nothing hidden stays tabbable.
  *
  * Tools (a grid icon, tooltip "Tools") opens the same Links menu the top nav opens (EventLinksButton); the avatar opens the top nav's
  * menu items (NavigationMenuItems) minus whatever the sidebar itself lists. Entries are the shared model
  * in shell-nav.ts, which the phone bottom bar reads too.
  */
 import { Link } from 'react-router-dom';
+import { preloadRouteChunk } from '@/app/routes/route-preload';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CalendarCheckIcon, ChevronsUpDownIcon, LayoutGridIcon, PanelLeftCloseIcon, PanelLeftOpenIcon } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -63,7 +65,7 @@ function SidebarRow({ entry }: { entry: ShellEntry }) {
         <div
           aria-hidden="true"
           data-nav-slot-placeholder={entry.label}
-          className={cn(ROW_BASE, 'pointer-events-none animate-pulse select-none opacity-50', ROW_IDLE)}
+          className={cn(ROW_BASE, 'pointer-events-none select-none', ROW_IDLE)}
         >
           <Icon className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{entry.label}</span>
@@ -78,12 +80,51 @@ function SidebarRow({ entry }: { entry: ShellEntry }) {
         aria-current={entry.active ? 'page' : undefined}
         aria-label={entry.badge > 0 ? `${entry.label}, ${entry.badge} ${entry.badgeNoun}` : undefined}
         className={cn(ROW_BASE, entry.active ? ROW_ACTIVE : ROW_IDLE)}
+        onMouseEnter={() => preloadRouteChunk(entry.id)}
+        onFocus={() => preloadRouteChunk(entry.id)}
         onClick={entry.id === 'groups' ? () => analytics.track('org_events_nav_clicked', { source: 'sidebar' }) : undefined}
       >
         <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{entry.label}</span>
         <Badge count={entry.badge} />
       </Link>
+    </li>
+  );
+}
+
+/** Collapsed rail: the same destination as the expanded row, icon only, name on hover/focus and as aria-label. */
+function RailItem({ entry }: { entry: ShellEntry }) {
+  const { Icon } = entry;
+  const label = entry.badge > 0 ? `${entry.label}, ${entry.badge} ${entry.badgeNoun}` : entry.label;
+  const box = 'relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  if (entry.to === null) {
+    return (
+      <li>
+        <div aria-hidden="true" data-nav-slot-placeholder={entry.label} className={cn(box, 'pointer-events-none select-none', ROW_IDLE)}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </li>
+    );
+  }
+  return (
+    <li>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            to={entry.to}
+            aria-label={label}
+            aria-current={entry.active ? 'page' : undefined}
+            className={cn(box, entry.active ? ROW_ACTIVE : ROW_IDLE)}
+            onMouseEnter={() => preloadRouteChunk(entry.id)}
+            onFocus={() => preloadRouteChunk(entry.id)}
+            onClick={entry.id === 'groups' ? () => analytics.track('org_events_nav_clicked', { source: 'sidebar' }) : undefined}
+          >
+            <Icon className="h-5 w-5" aria-hidden="true" />
+            {entry.badge > 0 && <span data-badge className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />}
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right">{entry.label}</TooltipContent>
+      </Tooltip>
     </li>
   );
 }
@@ -107,16 +148,73 @@ const TOOLS_APPEARANCE = {
 interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** P1539: the offline strip spans the full width above the sidebar, so the sidebar starts below it. */
+  belowStrip?: boolean;
 }
 
-export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
+export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSidebarProps) {
   const entries = useShellEntries();
   const todays = useShellTodaysEvent();
   const { user, hasPledged, isProfilePending } = useNavAuthState();
   const handleSignOut = useShellSignOut();
 
-  const shellClass =
-    'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-muted/40 p-2 lg:flex';
+  const shellClass = cn(
+    'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-muted/40 p-2 lg:flex',
+    belowStrip && 'lg:top-7',
+  );
+
+  const avatarMenu = (compact: boolean) =>
+    isProfilePending || !user ? (
+      <div aria-hidden="true" data-nav-slot-placeholder="avatar" className={cn('flex items-center gap-3', compact ? 'h-10 w-10 justify-center' : 'min-h-12 px-1.5')}>
+        <div className="h-10 w-10 rounded-full bg-muted" />
+      </div>
+    ) : (
+      <DropdownMenu
+        modal={false}
+        onOpenChange={open => {
+          if (open) analytics.track('nav_menu_opened', { trigger: 'avatar', device: 'desktop' });
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Menu"
+            data-testid={compact ? 'rail-avatar' : undefined}
+            className={cn(
+              'flex items-center rounded-lg text-left text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              compact ? 'h-10 w-10 justify-center' : 'min-h-12 w-full gap-3 px-1.5',
+            )}
+          >
+            <GravatarAvatar
+              name={user.name}
+              avatarColor={user.avatarColor}
+              photoUrl={user.avatarUrl}
+              size="sm"
+              isPledger={hasPledged}
+            />
+            {!compact && (
+              <>
+                <span className="min-w-0 flex-1 truncate">{user.name}</span>
+                <ChevronsUpDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side={compact ? 'right' : 'top'}
+          align={compact ? 'end' : 'start'}
+          sideOffset={8}
+          // The popover is at least as wide as the sidebar's content (the account row shares its row with the Tools icon, so the trigger alone is narrower and wrapped "ClarityPledge website"), and scrolls inside the room it has.
+          className={cn(
+            'max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto min-w-[14.5rem]',
+            !compact && 'w-[var(--radix-dropdown-menu-trigger-width)]',
+          )}
+        >
+          {/* The sidebar already lists Feed, Groups, Events ...: the avatar menu does not repeat them, nor the public-site sections (one website row stands for them). */}
+          <NavigationMenuItems onSignOut={handleSignOut} omitDestinations={shellMenuOmissions(entries)} websiteLink flat />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
 
   if (collapsed) {
     return (
@@ -141,8 +239,16 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             aria-hidden="true"
           />
         </button>
-        <div className="mt-auto">
+        <TooltipProvider delayDuration={200}>
+          <ul aria-label="Menu" className="mt-2 flex flex-col items-center gap-0.5">
+            {entries.map(entry => (
+              <RailItem key={entry.id} entry={entry} />
+            ))}
+          </ul>
+        </TooltipProvider>
+        <div className="mt-auto flex flex-col items-center gap-1">
           <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
+          {avatarMenu(true)}
         </div>
       </nav>
     );
@@ -202,46 +308,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
 
       <div className="mt-2 flex items-center gap-1 border-t border-border pt-2">
         <div className="min-w-0 flex-1">
-        {isProfilePending || !user ? (
-          <div aria-hidden="true" data-nav-slot-placeholder="avatar" className="flex min-h-12 items-center gap-3 px-1.5">
-            <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-          </div>
-        ) : (
-          <DropdownMenu
-            modal={false}
-            onOpenChange={open => {
-              if (open) analytics.track('nav_menu_opened', { trigger: 'avatar', device: 'desktop' });
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Menu"
-                className="flex min-h-12 w-full items-center gap-3 rounded-lg px-1.5 text-left text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <GravatarAvatar
-                  name={user.name}
-                  avatarColor={user.avatarColor}
-                  photoUrl={user.avatarUrl}
-                  size="sm"
-                  isPledger={hasPledged}
-                />
-                <span className="min-w-0 flex-1 truncate">{user.name}</span>
-                <ChevronsUpDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              align="start"
-              sideOffset={8}
-              // The popover is at least as wide as the sidebar's content (the account row shares its row with the Tools icon, so the trigger alone is narrower and wrapped "ClarityPledge website"), and scrolls inside the room it has.
-              className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[var(--radix-dropdown-menu-trigger-width)] min-w-[14.5rem] overflow-y-auto"
-            >
-              {/* The sidebar already lists Feed, Groups, Events ...: the avatar menu does not repeat them, nor the public-site sections (one website row stands for them). */}
-              <NavigationMenuItems onSignOut={handleSignOut} omitDestinations={shellMenuOmissions(entries)} websiteLink flat />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        {avatarMenu(false)}
         </div>
         <EventLinksButton variant="dropdown" appearance={TOOLS_APPEARANCE} />
       </div>
