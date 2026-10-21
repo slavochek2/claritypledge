@@ -59,6 +59,12 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   // dependency's "DB error in getFoo: Method not found"). Verified absent from
   // our source: grep -rn "Method not found" src/ supabase/ → no hits.
   /^Method not found$/,
+  // Facebook's Android in-app browser: its injected iabjs://navigation_performance_logger
+  // calls a native bridge on beforeunload after the WebView host object is torn down
+  // (JAVASCRIPT-REACT-3W). Zero application frames. Our own window.parent.postMessage
+  // calls cannot produce "Java object is gone". ANCHORED like the pattern above, so an app
+  // error that wraps this message ("Failed to save: Error invoking ...") still reports.
+  /^Error invoking postMessage: Java object is gone$/,
 ];
 
 /**

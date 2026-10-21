@@ -41,6 +41,27 @@ describe("p988 gap 1: injected third-party errors are dropped before Sentry", ()
     ).toBe(true);
   });
 
+  it("drops the Facebook in-app browser bridge throw (JAVASCRIPT-REACT-3W)", () => {
+    expect(
+      isIgnoredMessage("Error invoking postMessage: Java object is gone")
+    ).toBe(true);
+  });
+
+  it("does NOT drop a real postMessage failure of our own", () => {
+    expect(
+      isIgnoredMessage("Failed to execute 'postMessage' on 'Window': invalid target origin")
+    ).toBe(false);
+  });
+
+  it("does NOT drop an application error that wraps the bridge message", () => {
+    expect(
+      isIgnoredMessage("Failed to save story: Error invoking postMessage: Java object is gone")
+    ).toBe(false);
+    expect(
+      isIgnoredMessage("Error invoking postMessage: Java object is gone (retry 2)")
+    ).toBe(false);
+  });
+
   // Guards the one pattern with real false-positive risk. "Method not found" is
   // a generic JSON-RPC-style string; anchoring it means a future dependency
   // that suffixes it onto a real error still reports.
