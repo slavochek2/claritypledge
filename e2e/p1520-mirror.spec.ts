@@ -122,9 +122,9 @@ test('AI, two browsers: @mirror in a channel is seen by the asker only', async (
   const B = await openAs(browser, b);
   try {
     await B.page.goto(`/home/c/${channel}`);
-    await expect(B.page.getByText(said)).toBeVisible();
+    await expect(B.page.getByTestId('message-scroller').getByText(said)).toBeVisible();
     await A.page.goto(`/home/c/${channel}`);
-    await expect(A.page.getByText(said)).toBeVisible();
+    await expect(A.page.getByTestId('message-scroller').getByText(said)).toBeVisible();
 
     const field = A.page.getByRole('textbox');
     await field.pressSequentially('@mir');
@@ -157,6 +157,30 @@ test('AI, two browsers: @mirror in a channel is seen by the asker only', async (
   } finally {
     await A.ctx.close();
     await B.ctx.close();
+  }
+});
+
+test('AI: a new user\'s mirror gets a portrait on first open, shown with the agent tint', async ({ browser }) => {
+  test.skip(!aiOn, NO_AI);
+  // B has never opened their mirror and has no portrait.
+  const sB = await signIn(b);
+  const mirrorB = await mirrorOf(sB);
+  const before = (await supabaseAdmin.from('chat_conversations').select('portrait_url').eq('id', mirrorB).single()).data?.portrait_url ?? null;
+  expect(before, 'B starts without a portrait').toBeNull();
+  const { ctx, page } = await openAs(browser, b);
+  try {
+    await page.goto(`/home/c/${mirrorB}`);
+    await expect.poll(async () =>
+      (await supabaseAdmin.from('chat_conversations').select('portrait_url, portrait_credit').eq('id', mirrorB).single()).data,
+    { timeout: 120_000 }).toMatchObject({ portrait_url: expect.any(String), portrait_credit: expect.objectContaining({}) });
+    const credit = (await supabaseAdmin.from('chat_conversations').select('portrait_credit').eq('id', mirrorB).single()).data?.portrait_credit as { artist?: string } | null;
+    expect(credit?.artist, 'painted in a named artist style').toBeTruthy();
+    // the face is shown with the agent treatment (navy tint over the image)
+    const mark = page.getByTestId('mirror-portrait').first().locator('..');
+    await expect(page.getByTestId('mirror-portrait').first()).toBeVisible({ timeout: 60_000 });
+    await expect(mark.getByTestId('agent-tint')).toHaveCount(1);
+  } finally {
+    await ctx.close();
   }
 });
 

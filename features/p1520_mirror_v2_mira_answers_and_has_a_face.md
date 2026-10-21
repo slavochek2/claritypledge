@@ -85,11 +85,11 @@ Decision density: a few. The model, the reply voice, and @Mira privacy are confi
 
 ## Acceptance Criteria
 
-- [ ] A user writes in the mirror chat and receives a reply from the mirror in the same chat.
-- [ ] @Mira in a channel: the asker sees the answer; a second member of the same channel does not, verified with two accounts.
-- [ ] A new user's mirror shows a generated portrait in an artist style, with the agent treatment.
-- [ ] New face produces a different portrait. A gender change is respected on the next generation.
-- [ ] Tapping the mirror name opens the info panel with Rename and New face.
+- [x] A user writes in the mirror chat and receives a reply from the mirror in the same chat. *(e2e/p1520-mirror.spec.ts "AI: a message written in the mirror gets a reply", real model on test, passed 2026-10-21)*
+- [x] @Mira in a channel: the asker sees the answer; a second member of the same channel does not, verified with two accounts. *("AI, two browsers" test, passed; server-side by RLS, DB canary 12/12)*
+- [x] A new user's mirror shows a generated portrait in an artist style, with the agent treatment. *("AI: a new user's mirror gets a portrait on first open" test: portrait and artist credit stored, agent tint rendered, passed)*
+- [x] New face produces a different portrait. A gender change is respected on the next generation. *("AI: New face" test passed on the real model; a later re-run was refused by the $6/day global portrait cap, the cap working)*
+- [x] Tapping the mirror name opens the info panel with Rename and New face. *(smoke test, with the mirror on: both buttons present)*
 
 ## Open Questions
 
@@ -203,9 +203,15 @@ functions are on the test project only. Every AI path is off until the mirror's 
 Verified without the model: DB canary `e2e/integration/p1520-mirror-canary.spec.ts` 12/12 (owner-only reads over
 REST and Realtime with a second account, no channel side effects, no client writes, one job per message, atomic and
 capped spend, restart accounting, erasure of derived replies, asks never copied); unit tests 47; browser smoke 1/1.
-Not yet verified: every acceptance criterion below needs the real model, so none is ticked. The three AI tests in
-`e2e/p1520-mirror.spec.ts` skip with that reason until the key is set, and run from a worktree on ports 5001-5899
-(INBOX-205: w9/w10 dev ports fail edge-function CORS).
+With the real model on test (2026-10-21): all five acceptance criteria pass in `e2e/p1520-mirror.spec.ts`, and the
+red-team suite passes 7/7. It covers channel-message injection, a forged instruction header, an injection in a
+display name, a direct request for the rules, no leak from the private mirror chat, and no leak from another channel.
+Two controls prove the model reads its context. INBOX-205 (edge-function CORS for w9/w10) is fixed on this branch.
+The model is non-deterministic: one passing red-team run is evidence, not a guarantee.
+
+**Found with the real model:** every portrait settles at the $0.70 fallback price, because the image call reports no
+cost, so the $6/day global portrait cap allows about 8 portraits a day across all users. Test runs used it up on
+2026-10-21. [FOUNDER DECISION: raise the portrait cap, or price portraits from the real per-image cost.]
 
 **Known limitations (accepted by the review rounds):** a channel shows the newest 200 private asks (older ones stay in
 the mirror chat); image and vision calls carry no explicit output-token cap (fixed-size output, reserved at the
@@ -225,9 +231,9 @@ global per day $5 replies, $6 portraits, $10 total (`_mirror_limits()` in the mi
 ## Pre-deploy Checklist
 
 ### Secrets to provision (test first; prod only after the privacy policy covers the data contract)
-- [ ] Founder creates the mirror's own Gemini key with its own hard spend cap (never reuse the banner or batch keys).
-- [ ] `MIRROR_GEMINI_API_KEY` set on the test project by the founder (value never in files or commands).
-- [ ] `MIRROR_AI_ENABLED=true` on the test project.
+- [x] The mirror's own Gemini key, `cp-mirror`, in its own project, restricted to the Gemini API, hard spend cap 75 EUR/month (confirmed from Google's budget list), registered with ai-keys monitoring and the /day Monitor tab.
+- [x] `MIRROR_GEMINI_API_KEY` set on the test project (piped from the key tool; value never in files or commands).
+- [x] `MIRROR_AI_ENABLED=true` on the test project.
 - [ ] Prod: neither is set until the privacy policy covers sending other people's messages to the model.
 
 ### Deploy commands
@@ -235,5 +241,5 @@ global per day $5 replies, $6 portraits, $10 total (`_mirror_limits()` in the mi
 - [ ] `mirror-reply` and `mirror-portrait` deploy to prod (they stay off there without the two secrets above).
 
 ### Post-deploy verification
-- [ ] On test with the key: run `e2e/p1520-mirror.spec.ts` (all 4) and the red-team suite with the real model.
+- [x] On test with the key: `e2e/p1520-mirror.spec.ts` (now 5 tests) and the red-team suite `e2e/integration/p1520-mirror-redteam.spec.ts` (7/7) with the real model.
 - [ ] Edge smoke `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait`.
