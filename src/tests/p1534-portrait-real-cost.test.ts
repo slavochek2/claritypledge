@@ -29,9 +29,21 @@ describe('P1534 portrait cost', () => {
     expect(worst).toBeLessThanOrEqual(reservePortraitUsd());
   });
 
-  it('about 85 usual portraits fit the $6 daily cap, not 8', () => {
-    expect(Math.floor(6 / portraitRunUsd([IMAGE_MODEL_PRIMARY], 1))).toBeGreaterThanOrEqual(80);
-    expect(Math.floor(6 / reservePortraitUsd())).toBeLessThan(10);
+  it('about 77 usual portraits fit the $6 daily cap (each must first reserve the worst case), not 8', () => {
+    // The database admits a run only while its reservation (portrait_max_usd, read from the migration so
+    // the two never drift) still fits under the global daily cap, then settles it at its real cost.
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261020213000_p1520_mirror_v2.sql'), 'utf8');
+    const reserve = Number(sql.match(/'portrait_max_usd',\s*([\d.]+)/)?.[1]);
+    const cap = Number(sql.match(/'global_portrait_daily_usd',\s*([\d.]+)/)?.[1]);
+    expect(reserve).toBeGreaterThanOrEqual(reservePortraitUsd());
+    const admitted = (charge: number) => {
+      let spent = 0;
+      let runs = 0;
+      while (spent + reserve <= cap + 1e-9) { spent += charge; runs++; }
+      return runs;
+    };
+    expect(admitted(portraitRunUsd([IMAGE_MODEL_PRIMARY], 1))).toBe(77);
+    expect(admitted(reserve)).toBe(8);
   });
 
   it('settles: a run never started releases its reservation', () => {
