@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 51
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [performance, supabase, egress, feed]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-21
 ---
 
 # P1527: One /feed load fetches the same tables several times
