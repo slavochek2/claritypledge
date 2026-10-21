@@ -318,6 +318,9 @@ the card's `⋯` menu, a story's own page. Signed out, or signed in without acce
 
 Accepted, recorded so nobody rediscovers them:
 
+- **Link readers' rows (phase 3d).** Someone the link alone admits is shown to others only after they write through it, and only while that link is current: closing or reopening the link hides the old link's contributors' positions and stories from everyone but their author (the owner keeps stories added through the canvas). A direct write to the database never shows, and a removed person's rows stay hidden while the link is open. Writes made through the link before this rule existed are not recorded and so are hidden.
+- **The link token (phase 3d).** The token is compared with an ordinary equality (128 random bits over the network; no constant-time compare), and whether a canvas was ever shared can be inferred from timing. The page takes `?k=` into tab storage on arrival and replaces the address without it; Mixpanel and Sentry redact it and the recording is off on that load. A person who forwards the address while the link is open can let others in: that is what the link is.
+
 - **Reply letters drop the point.** The people a letter is sent to write REPLY stories, and a reply story links to the sender's
   private points. Since letter sealing skips a private point the sender does not own (migration 20261021100100), a reply letter
   sent back to the point's owner now omits that point from its snapshot. Accepted: the same filter is what closes the leak to third

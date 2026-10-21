@@ -49,6 +49,7 @@ import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
 import { toast } from 'sonner';
 import { pointsService } from '@/app/data/points-service';
+import { clearLinkTokens, readLinkToken, storeLinkToken } from '@/lib/canvas-link-token';
 import { canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
@@ -144,9 +145,17 @@ export function CanvasPage() {
   // it. It opens only if it is one of the points THIS viewer's read returned.
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedPointId = searchParams.get('point');
-  // "Anyone with the link" is an unguessable token in the address (`?k=`). It rides every read and write,
-  // stays in the address while the reader moves around the canvas, and is part of the cache key.
-  const linkToken = searchParams.get('k') || undefined;
+  // "Anyone with the link" is an unguessable token that arrives in the address (`?k=`). It is a capability, so
+  // it is taken into tab storage on arrival and the address is replaced WITHOUT it (effect below); it never
+  // rides internal navigation. Reads, writes, refresh, Back and the cache key use the stored token.
+  const urlToken = searchParams.get('k') || undefined;
+  if (urlToken && handle && projectTag) storeLinkToken(handle, projectTag, urlToken); // idempotent
+  // (In memory too, in case tab storage is blocked: the address no longer carries it after arrival.)
+  const arrivedWith = useRef<{ canvas: string; token: string } | null>(null);
+  if (urlToken) arrivedWith.current = { canvas: `${handle}/${projectTag}`, token: urlToken };
+  const linkToken = urlToken
+    ?? (handle && projectTag ? readLinkToken(handle, projectTag) : undefined)
+    ?? (arrivedWith.current?.canvas === `${handle}/${projectTag}` ? arrivedWith.current.token : undefined);
   const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}|${linkToken ?? ''}`;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -259,7 +268,9 @@ export function CanvasPage() {
       return;
     }
     void read(key);
-    // navigationType is read once per address: a panel opening or closing must not re-serve the cache.
+    // navigationType is deliberately NOT a dependency: whether to serve the Back cache is decided once per
+    // address (key), from the navigation that brought the viewer here. A panel opening or closing re-renders
+    // without changing the key, and must not re-serve the cache (nor bump the request counter).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionChecked, key, read, cacheKey]);
 
@@ -381,6 +392,20 @@ export function CanvasPage() {
     };
   }, [isReady, read]);
 
+  // The link token has been taken into tab storage above: replace the address without it, at once and before
+  // any other navigation. (Declared before the point-anchor effect below, which also strips it.)
+  useEffect(() => {
+    if (urlToken) setParams({ k: null });
+  }, [urlToken, setParams]);
+  // Sign-out or switching person forgets every stored link token of this tab. An anonymous visitor who signs in
+  // keeps theirs: they carry on as the same person.
+  const previousViewerRef = useRef(viewerId);
+  useEffect(() => {
+    const previous = previousViewerRef.current;
+    previousViewerRef.current = viewerId;
+    if (previous && previous !== viewerId) { clearLinkTokens(); arrivedWith.current = null; }
+  }, [viewerId]);
+
   // A point opened from the address (a shared link, a reload of an old tab): put the canvas itself
   // behind it and mark the point's entry, as a card click does — so Back (the browser's, a phone's
   // swipe) closes the point and stays on the canvas instead of leaving it (review).
@@ -392,8 +417,13 @@ export function CanvasPage() {
     if (!openPointId || anchoredRef.current === openPointId) return;
     if ((locationStateRef.current as { canvasPanel?: boolean } | null)?.canvasPanel) return;
     anchoredRef.current = openPointId;
-    const here = `${window.location.pathname}${window.location.search}`;
-    const params = new URLSearchParams(window.location.search);
+    // The link token is never carried into history. (Belt and braces: the strip effect above normally lands first
+    // in the same commit, so this drop is not independently observable in a test.)
+    const withPoint = new URLSearchParams(window.location.search);
+    withPoint.delete('k');
+    const hereQuery = withPoint.toString();
+    const here = `${window.location.pathname}${hereQuery ? `?${hereQuery}` : ''}`;
+    const params = new URLSearchParams(withPoint);
     params.delete('point');
     const rest = params.toString();
     navigate(`${window.location.pathname}${rest ? `?${rest}` : ''}`, { replace: true, state: locationStateRef.current });

@@ -412,7 +412,7 @@ describe('CanvasShareControl', () => {
   }
 
   it('is a Private control: "Private · only you" until the owner shares', () => {
-    render(<CanvasShareControl name="x" visibility="private" entries={[]} onChanged={() => undefined} />);
+    render(<CanvasShareControl link="https://example.test/p/x/canvas/x" name="x" visibility="private" entries={[]} onChanged={() => undefined} />);
     expect(screen.getByTestId('canvas-share-label')).toHaveTextContent('Private · only you');
     expect(screen.queryByText(/^Shared$/)).toBeNull();
   });
@@ -422,7 +422,7 @@ describe('CanvasShareControl', () => {
       entry(),
       entry({ kind: 'group', id: 'gp', name: 'Closed circle', public: false, count: 3, names: null }),
     ]);
-    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} onChanged={() => undefined} />);
+    render(<CanvasShareControl link="https://example.test/p/x/canvas/x" name="x" visibility="shared" entries={[entry()]} onChanged={() => undefined} />);
     fireEvent.click(screen.getByTestId('canvas-share-control'));
     const rows = await screen.findAllByTestId('canvas-share-entry');
     expect(rows).toHaveLength(2);
@@ -448,7 +448,7 @@ describe('CanvasShareControl', () => {
 
   it('a failed change shows an error and leaves the list as it was', async () => {
     mockPanel([entry()]);
-    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} onChanged={() => undefined} />);
+    render(<CanvasShareControl link="https://example.test/p/x/canvas/x" name="x" visibility="shared" entries={[entry()]} onChanged={() => undefined} />);
     fireEvent.click(screen.getByTestId('canvas-share-control'));
     await screen.findAllByTestId('canvas-share-entry');
     rpc.mockImplementation(async (fn: string) => (fn === 'unshare_canvas'
@@ -463,7 +463,7 @@ describe('CanvasShareControl', () => {
   it('a share the server confirmed is never reported as "Nothing changed", even when the re-read fails (review: Codex 3)', async () => {
     mockPanel([entry()]);
     const changed = vi.fn();
-    render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} onChanged={changed} />);
+    render(<CanvasShareControl link="https://example.test/p/x/canvas/x" name="x" visibility="shared" entries={[entry()]} onChanged={changed} />);
     fireEvent.click(screen.getByTestId('canvas-share-control'));
     await screen.findAllByTestId('canvas-share-entry');
     rpc.mockImplementation(async (fn: string) => (fn === 'unshare_canvas'

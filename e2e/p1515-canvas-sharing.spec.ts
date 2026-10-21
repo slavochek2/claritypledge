@@ -583,6 +583,12 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expectNotFound(visitor, 'V without the token while the link is open');
     await visitor.goto(`${url()}?k=${token}&point=${privId}`);
     await waitForCanvas(visitor);
+    // The token is taken off the address on arrival (history, analytics and screenshots must not hold it); the open point stays.
+    await expect.poll(() => visitor.url(), { timeout: 15_000 }).not.toContain(token);
+    expect(visitor.url()).toContain(`point=${privId}`);
+    // ...and a reload still reads (the tab kept the token)
+    await visitor.reload();
+    await waitForCanvas(visitor);
     await expect(visitor.getByTestId('canvas-shared-link')).toContainText('Anyone with the link can see this canvas');
     await expect(visitor.getByTestId('canvas-point-panel').getByTestId(`feed-point-card-${privId}`)).toBeVisible();
     // (the "Filter by position" chips below the card are not write controls; the card's own buttons are)
@@ -618,5 +624,82 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expectNotFound(a2, 'A after the person entry was removed');
     await a2.close();
     await supabaseAdmin.from('witnesses').delete().eq('profile_id', O.user.id);
+  });
+  test('screenshots (phase 3): share panel with a person, an event and a group; invite field with results; General access "Anyone with the link"; a signed-out visitor holding the link; a stranger without it (set P1515_SHOTS_DIR)', async ({ page, browser }) => {
+    test.skip(!shots, 'only when P1515_SHOTS_DIR is set');
+    test.setTimeout(420_000);
+    mkdirSync(shots!, { recursive: true });
+    // Fixture: A and L are witnesses of O, so the invite field (the profile search) returns them to O.
+    for (const u of [A, L]) {
+      const w = await supabaseAdmin.from('witnesses').insert({ profile_id: O.user.id, witness_name: `P1515 witness ${RUN}`, witness_profile_id: u.user.id });
+      if (w.error) throw new Error(`[P1515 fixture] witness: ${w.error.message}`);
+    }
+    const canvas = await ensureCanvasRecord();
+    const resetAudience = async () => {
+      await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
+      await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+      const rows = [
+        { canvas_id: canvas, kind: 'person', profile_id: A.user.id },
+        { canvas_id: canvas, kind: 'event', event_id: E.id },
+        { canvas_id: canvas, kind: 'group', org_id: Y.id },
+      ];
+      const r = await supabaseAdmin.from('canvas_audience').insert(rows);
+      if (r.error) throw new Error(`[P1515 fixture] audience: ${r.error.message}`);
+    };
+    try {
+      for (const [width, height] of [[1280, 900], [375, 800], [320, 700]] as const) {
+        await resetAudience();
+        await page.setViewportSize({ width, height });
+        await setTestSession(page, O.email);
+        await page.goto(url());
+        await waitForCanvas(page);
+        await page.getByTestId('canvas-share-control').click();
+        const panel = page.getByTestId('canvas-share-panel');
+        // (a) one list: You (owner), a person, an event and a group
+        await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(3, { timeout: 20_000 });
+        await page.waitForTimeout(400);
+        await page.screenshot({ path: `${shots}/owner-${width}-p3-share-panel-list.png`, fullPage: false });
+        // (b) the invite field with search results open (people from the profile search, the owner's events and groups)
+        await panel.getByLabel('Add a person, event or group').fill('p1515');
+        await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
+        await page.waitForTimeout(600);
+        await panel.getByTestId('canvas-share-invite').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${shots}/owner-${width}-p3-invite-results.png`, fullPage: false });
+        await panel.getByLabel('Add a person, event or group').fill('');
+        // (c) General access: Anyone with the link, with the Copy link note
+        await panel.getByTestId('canvas-share-general').selectOption('link');
+        await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Anyone with the link can read it', { timeout: 20_000 });
+        await expect(panel.getByTestId('canvas-share-copy')).toBeEnabled({ timeout: 20_000 });
+        await panel.getByTestId('canvas-share-copy').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(400);
+        await page.screenshot({ path: `${shots}/owner-${width}-p3-general-access-link.png`, fullPage: false });
+        await page.keyboard.press('Escape');
+        await page.screenshot({ path: `${shots}/owner-${width}-p3-link-label.png`, fullPage: false });
+
+        // (d) a signed-out visitor holding the link: reads, no position buttons
+        const { data: opened } = await supabaseAdmin.from('canvases').select('link_token').eq('id', canvas).single();
+        const token = opened!.link_token as string;
+        const anon = await browser.newContext({ viewport: { width, height } });
+        const visitor = await anon.newPage();
+        await visitor.goto(`${url()}?k=${token}`);
+        await waitForCanvas(visitor);
+        await visitor.waitForTimeout(400);
+        await visitor.screenshot({ path: `${shots}/visitor-${width}-p3-link.png`, fullPage: false });
+        await visitor.goto(`${url()}?k=${token}&point=${privId}`);
+        await waitForCanvas(visitor);
+        await expect(visitor.getByTestId('canvas-point-panel')).toBeVisible();
+        await visitor.waitForTimeout(500);
+        await visitor.screenshot({ path: `${shots}/visitor-${width}-p3-link-panel.png`, fullPage: false });
+        // (e) a stranger without the link (signed out, the plain address): not-found while the link is open
+        await visitor.goto(url());
+        await expect(visitor.getByRole('heading', NOT_FOUND)).toBeVisible({ timeout: 30_000 });
+        await visitor.screenshot({ path: `${shots}/stranger-${width}-p3-no-link.png`, fullPage: false });
+        await anon.close();
+      }
+    } finally {
+      await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
+      await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+      await supabaseAdmin.from('witnesses').delete().eq('profile_id', O.user.id);
+    }
   });
 });

@@ -133,8 +133,8 @@ describe('canvasService', () => {
 
   it('setGeneralAccess and a person share call their functions and clear the Back cache, success or failure', async () => {
     const before = listReturnCacheGeneration();
-    rpc.mockResolvedValueOnce({ data: 'link', error: null });
-    await canvasService.setGeneralAccess('x', 'link');
+    rpc.mockResolvedValueOnce({ data: { general_access: 'link', link_token: 'tok' }, error: null });
+    expect(await canvasService.setGeneralAccess('x', 'link')).toEqual({ generalAccess: 'link', linkToken: 'tok' });
     expect(rpc).toHaveBeenCalledWith('set_canvas_general_access', { p_name: 'x', p_access: 'link' });
     expect(listReturnCacheGeneration()).toBeGreaterThan(before);
     const mid = listReturnCacheGeneration();
@@ -293,6 +293,69 @@ describe('the owner\'s panel', () => {
     fireEvent.click(screen.getByTestId('canvas-share-copy'));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(LINK));
     expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('?k='));
+  });
+
+  it('never copies a tokenless address while the canvas is open: with no token known it says so and writes nothing; CONTROL: with the token it copies', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    // the audience read says 'link' but carries no token (an older answer, or a failed field)
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_canvas_audience') return { data: { general_access: 'link', link_token: null, entries: [] }, error: null };
+      if (fn === 'get_canvas_share_targets') return { data: targets, error: null };
+      return { data: true, error: null };
+    });
+    render(<CanvasShareControl name="x" visibility="shared" generalAccess="link" entries={[]} link={LINK} onChanged={() => undefined} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-invite');
+    fireEvent.click(screen.getByTestId('canvas-share-copy'));
+    expect(await screen.findByTestId('canvas-share-copy-error')).toHaveTextContent('Could not copy the link.');
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('canvas-share-copied')).toBeNull();
+    cleanup();
+    await open([], 'shared', 'link'); // the token is known
+    fireEvent.click(screen.getByTestId('canvas-share-copy'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${LINK}?k=tok-abc`));
+  });
+
+  it('Copy link is disabled while a change and the re-read after it are in flight; CONTROL: enabled once they finish', async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_canvas_audience') return { data: { general_access: 'restricted', link_token: null, entries: [] }, error: null };
+      if (fn === 'get_canvas_share_targets') return { data: targets, error: null };
+      if (fn === 'set_canvas_general_access') { await held; return { data: { general_access: 'link', link_token: 'tok-new' }, error: null }; }
+      return { data: true, error: null };
+    });
+    render(<CanvasShareControl name="x" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-invite');
+    expect(screen.getByTestId('canvas-share-copy')).toBeEnabled();
+    fireEvent.change(screen.getByTestId('canvas-share-general'), { target: { value: 'link' } });
+    await waitFor(() => expect(screen.getByTestId('canvas-share-copy')).toBeDisabled());
+    release();
+    await waitFor(() => expect(screen.getByTestId('canvas-share-copy')).toBeEnabled());
+  });
+
+  it('the "Link copied" status goes away when access changes (it belonged to the other address)', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const state = { access: 'restricted' as 'restricted' | 'link' };
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_canvas_audience') return { data: { general_access: state.access, link_token: state.access === 'link' ? 'tok-abc' : null, entries: [] }, error: null };
+      if (fn === 'get_canvas_share_targets') return { data: targets, error: null };
+      if (fn === 'set_canvas_general_access') { state.access = 'link'; return { data: { general_access: 'link', link_token: 'tok-abc' }, error: null }; }
+      return { data: true, error: null };
+    });
+    render(<CanvasShareControl name="x" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-invite');
+    fireEvent.click(screen.getByTestId('canvas-share-copy'));
+    expect(await screen.findByTestId('canvas-share-copied')).toBeInTheDocument(); // copied the plain address
+    fireEvent.change(screen.getByTestId('canvas-share-general'), { target: { value: 'link' } });
+    await waitFor(() => expect(screen.queryByTestId('canvas-share-copied')).toBeNull());
+    fireEvent.click(screen.getByTestId('canvas-share-copy'));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(`${LINK}?k=tok-abc`));
+    expect(await screen.findByTestId('canvas-share-copied')).toBeInTheDocument(); // CONTROL: the new address has its own status
   });
 
   it('the panel says reopening makes a new link and the old one stops working', async () => {

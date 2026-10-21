@@ -114,14 +114,18 @@
         /* P1304-END */
 
         /* P1325-BEGIN — sign-in tokens ride in page URLs: the token_hash param on /auth/verify,
-           the code param on /auth/callback and the access/refresh token fragment, plus encoded copies inside
+           the code param on /auth/callback and the access/refresh token fragment, the k param (a canvas link
+           token, P1515), plus encoded copies inside
            login redirects. Every signup lands on /auth/verify, so redact them from every event
            property (composed with P1304's room-code redaction, not replacing it) and keep
            session recording off on the sign-in landing routes, where the recorder attaches the
            raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
            src/lib/sentry-filters.ts; a test asserts the two stay identical. */
-        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
         var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname)
+        /* P1515: a canvas opened with its link token (?k=) on arrival. The page replaces the address without it
+           right after load, but the recorder attaches the raw URL of THIS load, so it does not record. */
+        p1325NoRecord = p1325NoRecord || (/^\/p\/[^/]+\/canvas\/[^/]+/i.test(window.location.pathname) && /[?&]k=/.test(window.location.search || ''));
         /* P1381: /admin/* renders founder-only PII (every user's email); never record it. */
         p1325NoRecord = p1325NoRecord || /^\/admin(?:\/|$)/i.test(window.location.pathname);
         /* P1512: /home/* is Clarity Chat (people's messages); never record it. */

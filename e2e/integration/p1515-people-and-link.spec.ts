@@ -206,8 +206,10 @@ test('removing the person ends access on their next request; O keeps the story P
 test('anyone with the link is a TOKEN: the right one admits, a missing or wrong one gets the identical not-found shape; S writes with it, V never', async () => {
   // CONTROL (above): S and V got nothing while restricted. The reference answer a stranger gets:
   const reference = JSON.stringify(await getCanvas(cS));
-  expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'link' }, 'open the link')).toBe('link');
+  const opened = await ok<{ general_access: string; link_token: string }>(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'link' }, 'open the link');
   const token = await currentToken();
+  // the call itself returns the token to the owner (Copy link needs no second read to know it)
+  expect(opened).toEqual({ general_access: 'link', link_token: token });
   expect(token, 'a 128-bit random token, as hex').toMatch(/^[0-9a-f]{32}$/);
 
   // Open alone admits nobody: no token, an empty one, a wrong one, a nonexistent canvas and a nonexistent owner all get the SAME bytes.
@@ -286,7 +288,7 @@ test('while open, none of the canvas rows reach anyone through the ordinary read
 test('switching back to "Only people added" kills the token; reopening makes a NEW one and the old link stays dead', async () => {
   const oldToken = await currentToken();
   expect(oldToken).toBeTruthy();
-  expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'restricted' }, 'close the link')).toBe('restricted');
+  expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'restricted' }, 'close the link')).toEqual({ general_access: 'restricted', link_token: null });
   expect(await currentToken(), 'closing clears the token').toBeNull();
   expectNothing(await getWithToken(cS, oldToken), 'S with the old token after closing');
   expectNothing(await getWithToken(V, oldToken), 'V with the old token after closing');
@@ -318,7 +320,7 @@ test('general access is the owner\'s alone and takes only two values, on a canva
   expect((await refused(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'everyone' }, 'a third value')).code).toBe('42501');
   expect((await refused(cO, 'set_canvas_general_access', { p_name: 'p1515plnosuchcanvas', p_access: 'link' }, 'a canvas with no points')).code).toBe('42501');
   // CONTROL: the owner and a valid value are accepted (and it stays closed for everyone else).
-  expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'restricted' }, 'owner, valid')).toBe('restricted');
+  expect((await ok<{ general_access: string }>(cO, 'set_canvas_general_access', { p_name: NAME, p_access: 'restricted' }, 'owner, valid')).general_access).toBe('restricted');
   expectNothing(await getCanvas(cS), 'S');
 });
 
@@ -396,4 +398,86 @@ test('3b: the reader line names a direct person entry first, then an event, then
   expect(await via(cX), 'CONTROL: X reads through the event before the group').toMatchObject({ kind: 'event', id: E.id });
   // S is only in the group
   expect(await via(cS)).toMatchObject({ kind: 'group', id: G.id });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// Phase 3d: who counts as a reader of an open link canvas. Only the owner, entries and CURRENT-link
+// contributors (people who wrote through the current token); never a direct write, a removed person, or
+// someone who wrote through an older link.
+// ---------------------------------------------------------------------------------------------------
+test('3d: an open canvas shows the rows of the owner, entries and current-link contributors only; a direct write, a removed person and an old link\'s contributor stay hidden', async () => {
+  const NAME3 = `${NAME}c`;
+  const q = await mkPoint(O.user.id, 'c first', [`canvas_${NAME3}`, 'canvas:problem']);
+  const adminPos = async (u: TestUser, position = 'agree') => {
+    const r = await supabaseAdmin.from('point_positions').upsert({ point_id: q, user_id: u.user.id, position }, { onConflict: 'point_id,user_id' });
+    if (r.error) throw new Error(`position: ${r.error.message}`);
+  };
+  const read = (c: SupabaseClient, token: string | null) => ok<Canvas>(c, 'get_canvas', { p_owner: O.user.id, p_name: NAME3, p_link_token: token }, 'read');
+  const users = (c: Canvas) => [...new Set(c.positions.map(p => p.user_id as string))].sort();
+  const sorted = (...us: TestUser[]) => us.map(u => u.user.id).sort();
+  const writeFor = (c: SupabaseClient, token: string | null, position: string) =>
+    ok(c, 'canvas_set_position', { p_owner: O.user.id, p_name: NAME3, p_point: q, p_position: position, p_reasoning: null, p_link_token: token }, 'write');
+  await adminPos(O);
+
+  // P is added as a person, writes, and is then removed: P's rows must stay hidden afterwards, even while the link is open.
+  await ok(cO, 'share_canvas', { p_name: NAME3, p_kind: 'person', p_target: P.user.id }, 'add P');
+  await writeFor(cP, null, 'disagree');
+  expect(users(await read(cX, null)), 'X without a token sees nothing').toEqual([]);
+  expect(users(await read(cP, null)), 'CONTROL: while P is an entry, P\'s row shows').toEqual(sorted(O, P));
+  await ok(cO, 'unshare_canvas', { p_name: NAME3, p_kind: 'person', p_target: P.user.id }, 'remove P');
+
+  // Open the link: T1. S contributes through it; Z has a DIRECT position (never wrote through a function).
+  const t1 = (await ok<{ link_token: string }>(cO, 'set_canvas_general_access', { p_name: NAME3, p_access: 'link' }, 'open T1')).link_token;
+  await writeFor(cS, t1, 'agree');
+  await adminPos(Z, 'disagree');
+  const open1 = await read(cX, t1);
+  expect(users(open1), 'owner + the current contributor only').toEqual(sorted(O, S));
+  expect(users(open1)).not.toContain(Z.user.id); // a direct write never shows
+  expect(users(open1)).not.toContain(P.user.id); // the removed person stays hidden while the link is open
+  // the owner's own view applies the same rule
+  expect(users(await read(cO, null))).toEqual(sorted(O, S));
+
+  // Closing the link hides the old contributor from everyone (the owner too); the owner keeps nothing of S's position.
+  await ok(cO, 'set_canvas_general_access', { p_name: NAME3, p_access: 'restricted' }, 'close');
+  expect(users(await read(cO, null)), 'closed: S\'s position is hidden').toEqual(sorted(O));
+
+  // Reopen: T2. S wrote through T1, so S's row stays hidden until S writes through T2; a reader holding T2 sees only the owner.
+  const t2 = (await ok<{ link_token: string }>(cO, 'set_canvas_general_access', { p_name: NAME3, p_access: 'link' }, 'open T2')).link_token;
+  expect(t2).not.toBe(t1);
+  expect(users(await read(cX, t2)), 'old-link contributor hidden after the reopen').toEqual(sorted(O));
+  await writeFor(cS, t2, 'disagree');
+  expect(users(await read(cX, t2)), 'CONTROL: a current-token contributor shows').toEqual(sorted(O, S));
+  // the stale token reads nothing at all
+  expect(users(await read(cX, t1))).toEqual([]);
+
+  // Equivalence on an OPEN canvas: get_canvas returns exactly the rows the per-person rules give.
+  const canvasId = (await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', NAME3).single()).data!.id as string;
+  const expected = new Set<string>();
+  for (const u of [O, P, S, Z, X]) {
+    const can = (await supabaseAdmin.rpc('_canvas_can_read', { p_canvas: canvasId, p_uid: u.user.id })).data as boolean;
+    const contributor = (await supabaseAdmin.rpc('_canvas_link_contributor_current', { p_canvas: canvasId, p_uid: u.user.id })).data as boolean;
+    if (u.user.id === O.user.id || can || contributor) expected.add(u.user.id);
+  }
+  await adminPos(X, 'agree'); // X has a direct row too: not a reader, not shown
+  expect(users(await read(cX, t2))).toEqual([...expected].filter(id => [O, S].some(u => u.user.id === id)).sort());
+  expect([...expected].sort(), 'the oracle itself: owner and S (contributor), nobody else').toEqual(sorted(O, S));
+  await ok(cO, 'set_canvas_general_access', { p_name: NAME3, p_access: 'restricted' }, 'close for the following tests');
+});
+
+test('3d: an owner can always CLOSE the link, even on a canvas with no current points; OPENING it still needs one', async () => {
+  const NAME4 = `${NAME}d`;
+  const q = await mkPoint(O.user.id, 'd first', [`canvas_${NAME4}`, 'canvas:problem']);
+  const opened = await ok<{ link_token: string }>(cO, 'set_canvas_general_access', { p_name: NAME4, p_access: 'link' }, 'open');
+  expect(opened.link_token).toMatch(/^[0-9a-f]{32}$/);
+  // CONTROL: someone else asking to close changes nothing of the owner's canvas (their own name has no such canvas)
+  await ok(cS, 'set_canvas_general_access', { p_name: NAME4, p_access: 'restricted' }, 'S closes');
+  expect((await supabaseAdmin.from('canvases').select('general_access, link_token').eq('owner_id', O.user.id).eq('name', NAME4).single()).data)
+    .toEqual({ general_access: 'link', link_token: opened.link_token });
+  // the canvas loses its last point (the owner deleted it)
+  const del = await supabaseAdmin.from('points').delete().eq('id', q);
+  expect(del.error, del.error?.message).toBeNull();
+  expect((await refused(cO, 'set_canvas_general_access', { p_name: NAME4, p_access: 'link' }, 'open without points')).code).toBe('42501');
+  expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME4, p_access: 'restricted' }, 'close without points')).toEqual({ general_access: 'restricted', link_token: null });
+  const row = await supabaseAdmin.from('canvases').select('general_access, link_token').eq('owner_id', O.user.id).eq('name', NAME4).single();
+  expect(row.data).toEqual({ general_access: 'restricted', link_token: null });
 });

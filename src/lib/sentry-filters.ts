@@ -232,8 +232,11 @@ export function redactRoomCodes(text: string): string {
  * /auth/verify?token_hash=, and /auth/callback carries ?code= or #access_token=. Redacted
  * wherever a URL-bearing string reaches Sentry, alongside room codes. The index.html Mixpanel
  * block carries an identical copy; a test asserts they stay identical.
+ *
+ * P1515 adds `k`: the unguessable token of a canvas open to anyone with the link (`?k=<32 hex>`), plain or
+ * URL-encoded inside a login redirect. Canary: src/tests/p1515-canvas-link-token-redaction.test.ts.
  */
-export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
 
 export function redactAuthTokens(text: string): string {
   return text.replace(AUTH_TOKEN_IN_URL, "$1[redacted]");

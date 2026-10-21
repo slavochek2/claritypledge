@@ -60,7 +60,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
-  const [copied, setCopied] = useState<'yes' | 'no' | null>(null);
+  // Which address the last copy attempt was for ('' = none could be built): its status shows only while that is still the address to copy.
+  const [copied, setCopied] = useState<{ ok: boolean; target: string } | null>(null);
   const { results: found, isSearching, hasSearched } = useProfileSearch(open ? query : '');
   const access = panel?.generalAccess ?? generalAccess;
 
@@ -106,16 +107,21 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     setBusy(false);
   };
 
+  // The address "Copy link" would copy. While the canvas is open to anyone with the link, the address carries the
+  // token; if the token is not known (the panel has not read it, or the read failed) there is NO address to
+  // copy: a tokenless address would not open the canvas for the people it is sent to.
+  const copyTarget = access === 'link' ? (panel?.linkToken ? `${link}?k=${panel.linkToken}` : null) : link;
   const copyLink = async () => {
+    if (!copyTarget) { setCopied({ ok: false, target: '' }); return; }
     try {
-      // While the canvas is open to anyone with the link, the link carries its token (`?k=`); otherwise it
-      // is the plain address, which only the people, events and groups added can open.
-      await navigator.clipboard.writeText(access === 'link' && panel?.linkToken ? `${link}?k=${panel.linkToken}` : link);
-      setCopied('yes');
+      await navigator.clipboard.writeText(copyTarget);
+      setCopied({ ok: true, target: copyTarget });
     } catch {
-      setCopied('no');
+      setCopied({ ok: false, target: copyTarget });
     }
   };
+  // A status belongs to the address it was for: once access (or the token) changes, it is gone.
+  const copyStatus = copied && copied.target === (copyTarget ?? '') ? (copied.ok ? 'yes' : 'no') : null;
 
   const has = (kind: Option['kind'], id: string) => !!panel?.entries.some(x => x.kind === kind && x.id === id);
   const needle = query.trim().toLowerCase();
@@ -274,7 +280,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
                   id="canvas-share-general"
                   value={access}
                   disabled={busy}
-                  onChange={e => void change(() => canvasService.setGeneralAccess(name, e.target.value as CanvasGeneralAccess), 'Could not change who has access. Nothing changed.')}
+                  onChange={e => void change(async () => { await canvasService.setGeneralAccess(name, e.target.value as CanvasGeneralAccess); }, 'Could not change who has access. Nothing changed.')}
                   className="h-10 w-full rounded-md border border-border bg-background px-2 text-base md:text-sm"
                   data-testid="canvas-share-general"
                 >
@@ -291,13 +297,15 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
                     type="button"
                     variant="outline"
                     onClick={() => void copyLink()}
+                    // Not while a change or the re-read after it is in flight: the address would be the old one.
+                    disabled={busy}
                     className="min-h-10 gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                     data-testid="canvas-share-copy"
                   >
                     <Link2 aria-hidden className="h-4 w-4" /> Copy link
                   </Button>
-                  {copied === 'yes' && <span role="status" className="text-sm text-muted-foreground" data-testid="canvas-share-copied">Link copied</span>}
-                  {copied === 'no' && <span role="alert" className="text-sm text-red-600" data-testid="canvas-share-copy-error">Could not copy the link.</span>}
+                  {copyStatus === 'yes' && <span role="status" className="text-sm text-muted-foreground" data-testid="canvas-share-copied">Link copied</span>}
+                  {copyStatus === 'no' && <span role="alert" className="text-sm text-red-600" data-testid="canvas-share-copy-error">Could not copy the link.</span>}
                 </div>
               </div>
               {error && <p role="alert" className="text-sm text-red-600" data-testid="canvas-share-error">{error}</p>}

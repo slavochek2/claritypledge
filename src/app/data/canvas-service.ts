@@ -244,11 +244,14 @@ async function unshareCanvas(name: string, kind: 'person' | 'event' | 'group', t
   }
 }
 
-/** Owner only: open the canvas to anyone with the link, or back to the people added. */
-async function setGeneralAccess(name: string, access: CanvasGeneralAccess): Promise<void> {
+/** Owner only: open the canvas to anyone with the link, or back to the people added. Returns the new state; the
+ *  token comes back with it when the link is open (it is the owner's alone, never logged). */
+async function setGeneralAccess(name: string, access: CanvasGeneralAccess): Promise<{ generalAccess: CanvasGeneralAccess; linkToken: string | null }> {
   try {
-    const { error } = await supabase.rpc('set_canvas_general_access', { p_name: name, p_access: access });
+    const { data, error } = await supabase.rpc('set_canvas_general_access', { p_name: name, p_access: access });
     if (error) throwDbError('canvas.setGeneralAccess', error, `Could not change who has access: ${error.message}`);
+    const raw = (data ?? {}) as Json;
+    return { generalAccess: raw.general_access === 'link' ? 'link' : 'restricted', linkToken: typeof raw.link_token === 'string' ? raw.link_token : null };
   } finally {
     clearListReturnCache();
   }

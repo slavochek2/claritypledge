@@ -189,10 +189,11 @@ export function NotFoundPage() {
 
   useEffect(() => {
     analytics.track('not_found_page_viewed', {
-      attempted_path: location.pathname + location.search,
+      // Pathname only: a query can carry a capability (a canvas link token `?k=`, a sign-in token).
+      attempted_path: location.pathname,
       referrer: document.referrer || 'direct',
     });
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
   return <NotFoundDrift />;
 }
