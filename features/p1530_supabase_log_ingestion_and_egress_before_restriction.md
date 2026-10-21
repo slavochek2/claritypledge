@@ -104,6 +104,21 @@ test project. Reversibility: config or code, git revert. Decision density: likel
   blocker. Filed as [P1532](p1532_e2e_cleanup_and_offline_pack_request_amplification.md).
 - **Egress projection is still open:** the new cycle had no days of data. Re-read on 24–26 Oct.
 
+## Findings 2026-10-21 (later): TEST rebuilt, old TEST not yet paused
+
+- **TEST now lives in its own free organisation** ([P1538](p1538_rebuild_test_project_in_own_org.md)):
+  new ref `ayibkeoyukulbsjpxgaw`, every session switched. The old project is idle (cron jobs off,
+  nothing points at it) but still active.
+- **Founder call: the prod organisation was upgraded to Pro** to free the per-user slot for a
+  third free project. Side effect: prod cannot be restricted while it stays on Pro.
+- **Old TEST cannot be paused yet.** A project on a paid plan cannot be paused, and downgrading the
+  prod organisation needs at most two active free projects. Sequence when it is time: pause new
+  TEST briefly → downgrade the prod org to Free → pause old TEST → restore new TEST.
+- **When:** the docs do not say whether a downgrade after a grace period restores the risk of
+  restriction (the notice stays until the org is under limits for several cycles, and there is no
+  second grace period). Supabase support was asked (21 Oct). Decide on two signals: support's
+  answer, and prod-only usage on 24–26 Oct. Do it before the Pro renewal date.
+
 ## Related
 
 - [P1522](done/2026-06-10/p1522_supabase_egress_polling_and_e2e_users.md): the egress cut; RQ3 logs not readable.

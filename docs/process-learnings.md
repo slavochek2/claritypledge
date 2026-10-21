@@ -1839,6 +1839,11 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 ---
 
 - [ ] **Event publish: warn when the meeting venue is closed at the meet time** (due: week). 2026-10-05 hike: meet 9:30 at a cafe that opens 10:00 Sun; research noted it in passing, publish went ahead and the description said "coffee after", against the founder's default of coffee/breakfast first at the meet point. Fix: /publish-event (and select-hike) compare venue opening hours to meet time and STOP with a warning; default copy = coffee first.
+- [ ] **P1530/P1538: downgrade the prod Supabase org and pause the old TEST project** (due: week). 2026-10-21. Prod org went to Pro to free a project slot; a paid-plan project cannot be paused. Decide on two signals: Supabase support's reply (ticket sent 21 Oct) and prod-only usage read 24-26 Oct. Then: pause new TEST briefly, downgrade the prod org, pause old TEST, restore new TEST. Do it before the Pro renewal date. Full sequence in P1530 findings.
+- [ ] **TEST is missing the storage-signing service-account key** (due: month). 2026-10-21, P1538. `generate-story-image-url` and `explain-back-signed-url` return 500 on TEST until a key for the GCS-writing service account is provided; no local copy exists. Founder decision whether to mint one.
+- [ ] **Stale e2e tests found during the P1538 parity run** (due: month). 2026-10-21. Fail on old TEST too, or against main's own code: `03-login-flow` (signup link, email-field focus); `edge-fn-authz-regression` 409 test still sends terms `v1.3` but `create-and-sign` accepts only the current version since P1487; that spec's wrong-Authorization and wrong-webhook-secret tests.
+- [ ] **setup-verify-listener/partner check only the first page of listUsers** (due: month). 2026-10-21, P1538. With more than 50 users they miss the existing account and fail with "already registered". Look the account up by email instead.
+- [ ] **Drop the old TEST ref from P1532's cleanup guard once old TEST is paused** (due: month). 2026-10-21. `_e2e_purge_allowed` accepts both refs during the move.
 
 
 <!-- Resolved 2026-10-14: shipped as P1198 (ship refuses on drift) — see decisions.md 2026-10-14 -->

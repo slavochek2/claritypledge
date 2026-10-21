@@ -32,7 +32,7 @@ stay with P1530.
 
 ## Appetite
 
-Blast radius: every session that uses TEST, the env files, one CI workflow, 31 tracked files.
+Blast radius: every session that uses TEST, the env files, one CI workflow, 29 tracked files.
 Reversibility: the old project still exists and the old env files are backed up privately;
 switching back is one copy. Prod is untouched.
 
@@ -65,6 +65,21 @@ switching back is one copy. Prod is untouched.
 | The SMTP password is masked by the config API, so a config copy carries the mask | MITIGATE | Found by test (535 on signup); a new SMTP key was generated for the new project |
 | The new free org runs into its own limits at today's e2e volume | DEFER | [P1532](p1532_e2e_cleanup_and_offline_pack_request_amplification.md) |
 | One storage-signing key has no local copy | ACCEPT | Two test-only functions return 500 until it is provided; founder decision |
+| Copied rows keep image URLs on the old project's storage; storage objects were not copied | ACCEPT | Those images break on TEST once the old project is paused; new uploads go to the new storage |
+
+## Cost Budget
+
+This change moves where e2e traffic lands; it does not change what a run does.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | unchanged: same code, new target | unchanged | unchanged (P1532 owns the per-run cost: about 1,500 users minted and deleted per full run) |
+| Egress (bytes) | unchanged | unchanged | unchanged; now billed to the test organisation, 0 to prod's |
+| Log lines | unchanged | unchanged | unchanged; now in the test organisation |
+| One-time rebuild | — | — | schema dump ~0.9 MB + data dump ~5.3 MB + auth export (745 + 476 users) = about 7 MB egress from the old project, once |
+
+Consequence: the prod organisation stops paying for e2e traffic. The test organisation's free quota
+now absorbs it alone, so at today's volume TEST itself can run into its limits until P1532 lands.
 
 **Non-Goals:** pausing the old project (a paid plan cannot be paused; sequenced after the plan
 downgrade, tracked in P1530) · fixing the pre-existing failing tests found on the way (filed as notes).

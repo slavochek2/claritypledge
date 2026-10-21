@@ -34,7 +34,7 @@ relying on a row for a decision, and whenever a row is older than six months.
 
 | Service | Billing unit and limit | Read on | Source | Where usage is read | Guard |
 |---|---|---|---|---|---|
-| Supabase, Free plan (per organisation: prod and test share it) | Egress 5 GB; cached egress 5 GB; database 500 MB per project; 50,000 MAU; storage 1 GB; 500,000 edge function invocations; 2 million realtime messages; 200 peak realtime connections; API and database logs kept 1 day | 2026-10-21 | [supabase.com/pricing](https://supabase.com/pricing) | Dashboard usage page; the /day free-plan reader (P1525); private readings in `.private/docs/usage/` | `e2e/p1522-idle-request-budget.spec.ts`; `scripts/measure-idle-requests.mjs` |
+| Supabase, Free plan (per organisation; since P1538 test has its own organisation, separate from prod's) | Egress 5 GB; cached egress 5 GB; database 500 MB per project; 50,000 MAU; storage 1 GB; 500,000 edge function invocations; 2 million realtime messages; 200 peak realtime connections; API and database logs kept 1 day | 2026-10-21 | [supabase.com/pricing](https://supabase.com/pricing) | Dashboard usage page; the /day free-plan reader (P1525); private readings in `.private/docs/usage/` | `e2e/p1522-idle-request-budget.spec.ts`; `scripts/measure-idle-requests.mjs` |
 | Supabase, Pro plan (the upgrade) | From $25/month; 250 GB egress then $0.09 per GB; 250 GB cached egress then $0.03 per GB | 2026-10-21 | [supabase.com/pricing](https://supabase.com/pricing) | same | same |
 | Supabase log ingestion | The pricing page as fetched states no ingestion figure, only the 1-day retention. Take the number from the dashboard usage page, not from memory | 2026-10-21 | n/a | Dashboard usage page; `.private/docs/usage/` | none yet (P1530) |
 | Cloud Run | Request-based billing: "Cloud Run instances are only charged when they process requests, when they start, and when they shut down." Instance-based billing: charged "for the entire lifecycle of instances, even when there are no incoming requests." Idle window: "An instance will never stay idle for more than 15 minutes after processing a request" unless minimum instances keep it active | 2026-10-21 | [billing settings](https://docs.cloud.google.com/run/docs/configuring/billing-settings) | GCP billing report; `/slava:maintain:gcp-spend` | `scripts/scheduler-warm-check.py` (daily; flags a scheduled target pinged inside the idle window) |
@@ -92,8 +92,9 @@ Then three lines:
    assertion (decisions.md 2026-10-01 [process]).
 5. **Error-driven control flow is counted:** a design that learns by provoking failures pays a log line,
    usually several, per failure. Count them in the budget.
-6. **Tests count as traffic.** The test project shares the organisation's quota, so an e2e design states
-   its per-run cost, including users created and deleted.
+6. **Tests count as traffic.** The test project spends its own organisation's free quota (separate from
+   prod's since P1538; an overrun there restricts TEST), so an e2e design states its per-run cost,
+   including users created and deleted.
 
 ## Severity (founder decision, 2026-10-21: blocking)
 
