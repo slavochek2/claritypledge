@@ -52,7 +52,8 @@ describe('P1533 mirror menu', () => {
 });
 
 describe('P1533 mirror panel copy', () => {
-  it('says "Your mirror · Only you see this chat." and drops the face-choice hint', () => {
+  // P1537 superseded this panel's copy: no privacy line, no face (gender) choice.
+  it('says only "Your mirror" under a custom name, with no privacy line, hint or face choice', () => {
     const mirror = {
       enabled: true, profile: { conversationId: 'mirror-1234', portraitUrl: null, credit: null, gender: null }, portraitStatus: 'idle',
       statusFor: () => undefined, requestReply: vi.fn(), loadStatuses: vi.fn(), ask: vi.fn(), newFace: vi.fn(), ensurePortrait: vi.fn(), setGender: vi.fn(),
@@ -67,8 +68,10 @@ describe('P1533 mirror panel copy', () => {
       </MemoryRouter>,
     );
     const panel = screen.getByTestId('mirror-info');
-    expect(panel).toHaveTextContent('Your mirror · Only you see this chat.');
+    expect(panel).toHaveTextContent('Your mirror');
+    expect(panel).not.toHaveTextContent('Only you see');
     expect(panel).not.toHaveTextContent('Used the next time');
-    expect(within(panel).getByRole('radiogroup', { name: 'Face' })).toBeInTheDocument();
+    expect(within(panel).queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('radio', { name: 'Female' })).not.toBeInTheDocument();
   });
 });

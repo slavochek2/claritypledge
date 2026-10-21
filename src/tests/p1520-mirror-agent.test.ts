@@ -153,12 +153,17 @@ describe('P1520 mirror: what comes back', () => {
 
 describe('P1520 mirror: portrait', () => {
   const entry = ARTIST_POOL.find((a) => !a.exclude)!;
-  it('honours a stored gender and otherwise picks uniformly, never from a name', () => {
-    expect(resolveGender('male', () => 0)).toBe('male');
-    expect(resolveGender(null, () => 0)).toBe('female');
-    expect(resolveGender(null, () => 0.5)).toBe('male');
-    expect(resolveGender(null, () => 0.99)).toBe('neutral');
-    expect(resolveGender('robot', () => 0.99)).toBe('neutral');
+  it('always picks uniformly at random, never from a stored choice or a name (P1537)', () => {
+    expect(resolveGender(() => 0)).toBe('female');
+    expect(resolveGender(() => 0.5)).toBe('male');
+    expect(resolveGender(() => 0.99)).toBe('neutral');
+  });
+  it('asks for a clearly adult face aged about 25 to 40, for every gender (P1537)', () => {
+    for (const g of ['female', 'male', 'neutral'] as const) {
+      const p = buildMirrorPortraitPrompt(entry, g);
+      expect(p).toContain('aged about 25 to 40 (clearly an adult)');
+      expect(p).not.toMatch(/\byoung\b/i);
+    }
   });
   it('asks for a square portrait of an invented person in the artist\'s style, and forbids likeness', () => {
     const p = buildMirrorPortraitPrompt(entry, 'neutral');

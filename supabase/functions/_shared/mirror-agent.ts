@@ -252,9 +252,9 @@ export function parseReply(response: unknown): ReplyOutcome {
 
 export type PortraitGender = 'female' | 'male' | 'neutral';
 
-/** The stored choice, or a uniform random pick when there is none. Never inferred from a name. */
-export function resolveGender(stored: string | null | undefined, rng: () => number): PortraitGender {
-  if (stored === 'female' || stored === 'male' || stored === 'neutral') return stored;
+/** P1537: always a uniform random pick. A choice stored by the removed picker is ignored, so no owner stays
+ * locked to an option they can no longer see. Never inferred from a name. */
+export function resolveGender(rng: () => number): PortraitGender {
   const all: PortraitGender[] = ['female', 'male', 'neutral'];
   return all[Math.min(2, Math.floor(rng() * 3))] ?? 'neutral';
 }
@@ -270,7 +270,7 @@ const GENDER_TEXT: Record<PortraitGender, string> = {
  * (no name, no photo, no description). The style is the artist's; the face is nobody's.
  */
 export function buildMirrorPortraitPrompt(entry: ArtistEntry, gender: PortraitGender): string {
-  return `Square head-and-shoulders portrait painting of ${GENDER_TEXT[gender]}, an invented person who does not exist, in the style of ${entry.artist} (${entry.movement}), evoking the look of "${entry.work}": their palette, brushwork or line, and composition. Calm, attentive, kind expression, looking towards the viewer. Simple background.
+  return `Square head-and-shoulders portrait painting of ${GENDER_TEXT[gender]} aged about 25 to 40 (clearly an adult), an invented person who does not exist, in the style of ${entry.artist} (${entry.movement}), evoking the look of "${entry.work}": their palette, brushwork or line, and composition. Calm, attentive, kind expression, looking towards the viewer. Simple background.
 Hard constraints: the face must not resemble any real person, celebrity or historical figure, and must not be a self-portrait of the artist or a copy of any figure from their works. No text, letters, numbers, signatures, watermarks or frames. No nudity. No religious figures or symbols. No uniforms or insignia.`;
 }
 

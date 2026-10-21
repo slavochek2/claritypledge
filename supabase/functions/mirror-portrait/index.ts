@@ -1,6 +1,6 @@
 /**
  * P1520: paint (or repaint, "New face") the caller's mirror portrait: an invented person in the style of
- * an artist picked at random from the P1453 pool, square, in the gender the owner chose (random when
+ * an artist picked at random from the P1453 pool, square, in a randomly picked gender (P1537: the owner's stored choice is ignored; formerly random when
  * they chose none). Never a real person's likeness; no data about the owner goes into the prompt.
  *
  * POST {} with the owner's JWT. The portrait is stored in the existing `banners` bucket under
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
   const jobId = b.job_id;
   if (b.status !== 'run' || !jobId) return json({ error: 'Service temporarily unavailable' }, 503, cors);
 
-  const gender = resolveGender(b.gender, cryptoRng);
+  const gender = resolveGender(cryptoRng);
   let generations = 0;
   let keyBlocked = false;
   const billed: string[] = [];

@@ -8,7 +8,7 @@
  *  2. AI: a message written in the mirror gets a reply in the same chat.
  *  3. AI, two browsers: @mirror in a group's channel — the asker sees the ask and the answer marked private; a second
  *     member of the same channel sees neither, also after the app re-reads.
- *  4. AI: New face paints a portrait; the chosen face (gender) is used for the next one.
+ *  4. AI: New face paints a portrait (P1537: no face choice; gender is random).
  *
  * Tests 2-4 call the real model and run only where the server says the mirror is on (MIRROR_AI_ENABLED and the
  * mirror's own key set on the test project). Elsewhere they are SKIPPED with that reason, never passed.
@@ -192,21 +192,20 @@ test('AI: a new user\'s mirror gets a portrait on first open, shown with the age
   }
 });
 
-test('AI: New face paints a portrait, and the chosen face is used for the next one', async ({ browser }) => {
+test('AI: New face paints a portrait', async ({ browser }) => {
   test.skip(!aiOn, NO_AI);
   const { ctx, page } = await openAs(browser, a);
   try {
     await page.goto(`/home/c/${mirrorA}`);
     await page.getByTestId('mirror-info-open').click();
     const panel = page.getByTestId('mirror-info');
-    await panel.getByRole('radio', { name: 'Female' }).click();
     const before = (await supabaseAdmin.from('chat_conversations').select('portrait_url').eq('id', mirrorA).single()).data?.portrait_url ?? null;
     await panel.getByRole('button', { name: 'New face' }).click();
     await expect(panel.getByTestId('mirror-portrait')).toBeVisible({ timeout: 120_000 });
     await expect.poll(async () => {
-      const { data } = await supabaseAdmin.from('chat_conversations').select('portrait_url, portrait_credit, portrait_gender').eq('id', mirrorA).single();
-      return data && data.portrait_url !== before ? { gender: data.portrait_gender, painted: (data.portrait_credit as { gender?: string })?.gender } : null;
-    }, { timeout: 120_000 }).toEqual({ gender: 'female', painted: 'female' });
+      const { data } = await supabaseAdmin.from('chat_conversations').select('portrait_url, portrait_credit').eq('id', mirrorA).single();
+      return data && data.portrait_url !== before ? ['female', 'male', 'neutral'].includes((data.portrait_credit as { gender?: string })?.gender ?? '') : null;
+    }, { timeout: 120_000 }).toBe(true);
   } finally {
     await ctx.close();
   }

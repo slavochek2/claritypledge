@@ -252,7 +252,7 @@ describe('P1520 @ picker and private mode', () => {
 });
 
 describe('P1520 mirror info panel', () => {
-  it('shows the face, the name and role, Rename, New face and the face choice', () => {
+  it('shows the face, the name and role, Rename and New face, and no face (gender) choice (P1537)', () => {
     const newFace = vi.fn();
     const setGender = vi.fn(async () => undefined);
     const onRename = vi.fn();
@@ -262,11 +262,8 @@ describe('P1520 mirror info panel', () => {
     expect(within(panel).getByRole('heading', { name: 'Mira' })).toBeInTheDocument();
     expect(panel).toHaveTextContent('Your mirror');
     expect(screen.getByTestId('mirror-credit')).toHaveTextContent('Test Artist');
-    expect(within(panel).getByRole('radio', { name: 'Male' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(within(panel).getByRole('radio', { name: 'Female' }));
-    expect(setGender).toHaveBeenCalledWith('female');
-    fireEvent.click(within(panel).getByRole('radio', { name: 'Random' }));
-    expect(setGender).toHaveBeenCalledWith(null);
+    expect(within(panel).queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(setGender).not.toHaveBeenCalled();
     fireEvent.click(within(panel).getByRole('button', { name: 'New face' }));
     expect(newFace).toHaveBeenCalled();
     fireEvent.click(within(panel).getByRole('button', { name: 'Rename' }));
