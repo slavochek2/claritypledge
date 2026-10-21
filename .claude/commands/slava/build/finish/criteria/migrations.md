@@ -39,7 +39,7 @@ You are reviewing changes to `supabase/migrations/**`. These are SQL migrations 
 
 ## Metered cost
 
-- **Metered cost:** a migration that adds a trigger, a function called per row or per request, a cron job, or a backfill touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`). Check it against that doc; a missing or over-limit Cost Budget is HIGH and blocks the ship.
+- **Metered cost:** if the migration matches "When this applies" in `docs/technical/metered-services.md`, check it against that doc and grade by its Severity table (HIGH blocks the ship).
 
 ## Output Format
 

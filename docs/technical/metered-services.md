@@ -19,7 +19,10 @@ A design touches a metered service when it does any of these:
 - adds or changes a Cloud Scheduler job, a Cloud Run service, or a ping against one;
 - calls Gemini or transcription, or issues a key for either;
 - creates, deletes or lists test users, or otherwise changes what an e2e run does to the shared
-  Supabase organisation.
+  Supabase organisation;
+- adds a migration with a trigger, a function called per row or per request, a cron job, or a backfill;
+- calls any other paid or quota-limited API or vendor. The registry gets a row for it in the same
+  change (see below).
 
 A copy change, a CSS change or a pure-local refactor does not. When none of the four applies the
 Cost Budget section is absent, and its absence is not a finding.
@@ -39,6 +42,9 @@ relying on a row for a decision, and whenever a row is older than six months.
 | Cloud Scheduler | $0.10 per job per 31 days, prorated daily; 3 free jobs per billing account (not per project); executions are not billed. **Same provenance caveat as the Cloud Run unit prices** | 2026-10-21 | [cloud.google.com/scheduler/pricing](https://cloud.google.com/scheduler/pricing) | GCP billing report | `scripts/scheduler-warm-check.py` |
 | Gemini API | Per 1M tokens, paid tier. `gemini-3.8-flash` and `gemini-3.6-flash`: $0.75 input and $3.75 output through 2026-12-31, then $1.50 and $7.50. `gemini-3.5-flash-lite`: $0.30 input (audio $0.30) and $2.50 output. `gemini-3.1-flash-lite`: $0.25 input (audio $0.50) and $1.50 output. `gemini-3.1-pro-preview`: $2.00 and $12.00 up to 200k-token prompts. Free tier is listed for the flash and flash-lite models, not for the pro preview | 2026-10-21 | [ai.google.dev pricing](https://ai.google.dev/gemini-api/docs/pricing) | Per-key spend via `/slava:util:ai-keys` | Budget-capped keys (`/slava:util:ai-keys`) |
 
+Pages were read with a page-to-summary fetch tool. Check a number on the vendor page before a decision
+rests on it.
+
 A service not in this table that a design wants to use gets a registry row in the same change, sourced
 from its pricing page and dated, before the design ships.
 
@@ -52,13 +58,21 @@ this table. Every number shows its arithmetic. A number without arithmetic count
 | Requests | `N calls x M per call = ...` | | |
 | Egress (bytes) | | | |
 | Log lines | | | |
+| Service unit (tokens, audio minutes, instance-seconds) x registry price | | | |
 
 "Per test run" means one full e2e run or one script run, including users created and deleted.
 Log lines count the failures a design provokes (rule 5), not only the successes.
 
 Then three lines:
 
-1. **Fits the plan limit today?** Quote the registry row and the arithmetic against it.
+1. **Fits the plan limit today?** Quote the registry row and the arithmetic against it. Limits are
+   monthly, budgets are per user, hour and run, so convert: per-user x active users, and per-run x runs
+   per month, using the current figures from the registry row's "Where usage is read" (the figures
+   themselves stay private). For a row that lists a price and no cap (Gemini, Cloud Run), compare the
+   projected monthly cost with the free tier or the spend the founder has accepted. For a row with no
+   figure (log ingestion), take it from the dashboard; a limit that cannot be read makes the budget
+   incomplete. A design that adds traffic while the organisation is already over that limit is
+   over-limit for it; a design that reduces net traffic is not.
 2. **Fits at 10x?**
 3. **If either answer is no:** name the upgrade and its list price from the registry.
 
@@ -88,7 +102,8 @@ Reviewers apply these. A HIGH finding stops the ship.
 | A design matching [When this applies](#when-this-applies) has no Cost Budget | HIGH |
 | A budget number has no arithmetic | HIGH |
 | The budget exceeds a registry limit at today's scale, and no upgrade is named and accepted by the founder | HIGH |
-| The code or script breaks one of the six rules and the budget does not account for it | HIGH |
+| The code or script breaks rule 1, 3 or 4. Counting the cost does not excuse these | HIGH |
+| The code or script breaks rule 2, 5 or 6 without the written reason or the count that rule asks for | HIGH |
 | Fits today, does not fit at 10x, and no upgrade is named | MEDIUM |
 | A rule 2 or rule 6 reason is present but thin | MEDIUM |
 
@@ -98,7 +113,7 @@ Reviewers apply these. A HIGH finding stops the ship.
    (decisions.md 2026-05-31 "GPU idle-cost leak"). Rule 2.
 2. 2026-10-01: a 10-minute ping inside the idle window billed 24 h a day for two weeks
    (decisions.md 2026-10-01 [technical]). Rule 2.
-3. 2026-10-01: a retry fix made about 250 requests per second with every behaviour test green
+3. 2026-10-01: a retry fix made a request storm with every behaviour test green
    (decisions.md 2026-10-01 [process]). Rule 4.
 4. 2026-10: the Supabase organisation went over its free plan on egress, cached egress and log
    ingestion. Rules 3 and 6.

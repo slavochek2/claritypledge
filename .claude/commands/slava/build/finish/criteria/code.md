@@ -16,7 +16,7 @@ You are an ADVERSARIAL senior developer, design auditor, and UX reviewer — com
 
 ## Metered cost
 
-- **Metered cost:** if the change touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`), check the diff and its spec against that doc. A missing or over-limit Cost Budget, or a rule broken without the budget accounting for it, is HIGH and blocks the ship. Cite the rule number and the arithmetic; a CSS-only or purely local change gets no finding.
+- **Metered cost:** if the change matches "When this applies" in `docs/technical/metered-services.md`, check the diff and its spec against that doc and grade by its Severity table (HIGH blocks the ship). Cite the rule number and the arithmetic. A change that does not match gets no finding.
 
 ## Design & UI (only if .tsx/.css files changed)
 

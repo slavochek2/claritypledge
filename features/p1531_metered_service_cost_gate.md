@@ -178,6 +178,37 @@ Built on `main` (skill files). One fresh dry-run agent, 1 of 1 reported; it wrot
 - **Limit of this evidence:** the agent saw uncommitted working-tree files; a reviewer with real stakes
   uses the committed ones, which are identical after the commit below.
 
+**Pasted output of the dry run (agent's own words, trimmed to the rows that matter):**
+
+```
+Description 1 (poll Supabase every 10 s) -> Feature + Metered service. Headings in order:
+  Problem, Appetite, Solution, Risks / Non-Goals, Done-When, UX Notes, Acceptance Criteria,
+  UI Contract, Cost Budget
+Description 2 (footer copy change) -> "no row matches ... my call is that it is trivial, so no spec.
+  If a spec were forced: Problem, Appetite, Solution, Risks / Non-Goals, Done-When."  (no Cost Budget)
+
+code.md on DIFF 1 (setInterval 2000 ms + supabase count query, no guard):
+ 1 | Unbudgeted 2s Supabase poll | HIGH | rule 2: no Cost Budget, no written reason. 1 request per 2 s =
+     1,800/hour = 43,200/day per open tab.
+ 2 | No hidden-tab guard        | HIGH | rule 3: no document.visibilityState check.
+ 3 | Unbounded failing loop, overlapping requests | HIGH | rule 4: no backoff, cap or volume assertion;
+     rule 5: every failed poll also writes log lines.
+code.md on DIFF 2 (CSS padding and colour only): two LOW design caveats; metered-cost finding: none.
+```
+
+Note on the copy-change case: create-spec's "no spec for a trivial change" exception applied before any
+module logic, so the "spec without Cost Budget" half was shown as the heading list the skill would
+produce, not as a filed file. A filed one would carry the same five headings.
+
+**Review round 1 (2026-10-21):** 3 of 3 reported (Gemini review model, Codex, one Sonnet criteria agent).
+Fixed: broken mirror link, signal and severity restated in firing points (now pointers), migrations
+signal and a catch-all added to the owner doc, "over-limit" defined, rules 1/3/4 no longer excusable by
+counting, service-unit row added, classifier glob made recursive. Set aside, with reason: a Codex claim
+that incident wording leaks account figures (the same facts are already in decisions.md 2026-10-01); a
+"MUST under All optional" ambiguity (same shape as the existing Pre-deploy Checklist module); a
+registry-age firing point (LOW); the spec's own junk-user count (written by the filing session before
+this build).
+
 ## Review findings (P1522 + P1523, cost lens only)
 
 **Reviewers.** Gemini 4 Argon was asked and **refused the payload** (`delegate-gemini` exit 2). The

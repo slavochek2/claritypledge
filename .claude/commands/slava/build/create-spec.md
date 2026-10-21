@@ -237,7 +237,7 @@ Add modules appropriate to the work type. **All optional** — if a module would
 
 ### Any spec whose Solution touches a metered service
 
-`## Cost Budget` — **MUST**. The detection signal, the budget table and the rules are owned by [docs/technical/metered-services.md](../../../../docs/technical/metered-services.md); read it and fill its table. A missing or over-limit budget is a HIGH `/finish` finding and blocks shipping. When the signal does not apply (copy, CSS, pure-local refactor), the section is absent.
+`## Cost Budget` — **MUST**. The signal ("When this applies"), the budget table, the rules and the severities are owned by `docs/technical/metered-services.md`; read it and fill its table. When the signal does not apply (copy, CSS, pure-local refactor), the section is absent.
 
 ### Pre-registered decision criteria
 
@@ -267,7 +267,7 @@ Detect from the description. Don't ask — classify and state it.
 | "skill", "process", "hook", "rule", ".claude/" | Infrastructure | Alternatives Considered, Rollback Strategy |
 | "research", "investigate", "evaluate", "compare" | Research | Research Questions, Decision Criteria, Time Box, Deliverable |
 | "migrate", "upgrade", "move data", "schema change" | Migration | Migration Plan, Rollback Plan, Data Integrity Check |
-| Polling, timer, scheduler, retry, bulk or per-user calls, e2e users, Supabase/Cloud Run/Gemini (any work type) | Metered service | Cost Budget (added on top of the type above) |
+| The Solution matches "When this applies" in `docs/technical/metered-services.md` (any work type) | Metered service | Cost Budget (added on top of the type above) |
 
 **State it:** "Classifying as: infrastructure (modifies skill files). Adding: Alternatives Considered, Rollback Strategy." If genuinely ambiguous, ask one question: "Is this a [type A] or [type B]? The expansions differ."
 
@@ -398,7 +398,7 @@ Before creating the file, verify. **Every gate checks something the sections abo
 - [ ] **No claim about existing code, schema or shipped specs that you did not run a command against.** Absence claims are the highest-risk and cheapest to check — grep them. Unverifiable → write UNVERIFIED, never fact.
 - [ ] **Nothing invented to fill a section.** If a risk, non-goal or criterion exists because the template asked, delete it — a throwaway constraint on every spec trains the next agent to skim the real ones.
 - [ ] **Done-When items observable without reading the code**; for feature specs, Acceptance Criteria observable by a *person using the product*.
-- [ ] **A Solution that touches a metered service carries `## Cost Budget` with arithmetic in every number** ([metered-services.md](../../../../docs/technical/metered-services.md) defines the signal and the table).
+- [ ] **A Solution that touches a metered service carries `## Cost Budget` with arithmetic in every number** (`docs/technical/metered-services.md` defines the signal and the table).
 - [ ] **Risks carry `MITIGATE | ACCEPT | DEFER`.**
 - [ ] **Both `decisions.md` verdicts in the output** — `DUPLICATE|RELATED|NONE` *and* `RULINGS:`, each naming its terms, plus the helper's `PRIVATE LOG:` line verbatim.
 - [ ] **Frontmatter carries every field `.claude/rules/features.md` requires** — check against that file, not from memory.

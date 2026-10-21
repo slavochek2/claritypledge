@@ -35,7 +35,7 @@ You are reviewing changes to `.claude/commands/slava/**` — skill files that in
 
 ## Metered cost
 
-- **Metered cost:** a skill that polls, loops over users or rows, schedules a job, or calls Supabase, Cloud Run or Gemini touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`). Check it against that doc; a missing or over-limit Cost Budget is HIGH and blocks the ship.
+- **Metered cost:** if the skill matches "When this applies" in `docs/technical/metered-services.md`, check it against that doc and grade by its Severity table (HIGH blocks the ship).
 
 ## Output Format
 
