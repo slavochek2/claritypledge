@@ -31,6 +31,9 @@ const STALE_RUNNING_MS = 3 * 60_000;
 /** Re-read a job that another device (or a slow call) is still running. */
 const RECHECK_MS = 20_000;
 
+/** Waits before re-asking whether the mirror is on, after a failed check. */
+const AVAILABILITY_RETRY_MS = [1_000, 3_000, 9_000];
+
 export function MirrorProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const chat = useContext(ChatContext);
   if (!enabled || !chat) return <>{children}</>;
@@ -71,14 +74,23 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
   }, []);
 
   useEffect(() => {
-    getMirrorAvailability().then(
-      (on) => mounted.current && setEnabled(on),
-      () => mounted.current && setEnabled(false),
-    );
+    // A failed check is retried; only the server's own answer (or running out of retries) settles it.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = (attempt: number) => {
+      getMirrorAvailability()
+        .catch(() => null)
+        .then((on) => {
+          if (!mounted.current) return;
+          if (on !== null || attempt >= AVAILABILITY_RETRY_MS.length) setEnabled(on === true);
+          else timer = setTimeout(() => check(attempt + 1), AVAILABILITY_RETRY_MS[attempt]);
+        });
+    };
+    check(0);
     getMirrorProfile().then(
       (p) => mounted.current && setProfile(p),
       () => undefined,
     );
+    return () => clearTimeout(timer);
   }, [userId]);
 
   const recheck = useCallback(

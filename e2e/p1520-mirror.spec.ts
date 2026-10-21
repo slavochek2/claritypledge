@@ -153,7 +153,7 @@ test('AI, two browsers: @mirror in a channel is seen by the asker only', async (
     await expect(B.page.getByTestId('mirror-author')).toHaveCount(0);
     // CONTROL: B's page is live — a new channel message from A still arrives
     await sA.client.rpc('send_chat_message', { p_conversation: channel, p_body: `control ${RUN}` });
-    await expect(B.page.getByText(`control ${RUN}`)).toBeVisible();
+    await expect(B.page.getByTestId('message-scroller').getByText(`control ${RUN}`)).toBeVisible();
   } finally {
     await A.ctx.close();
     await B.ctx.close();

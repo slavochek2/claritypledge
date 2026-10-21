@@ -351,6 +351,63 @@ describe('P1520 MirrorProvider', () => {
     await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('early-1'));
   });
 
+  it('a failed availability check is retried, and the mirror turns on when the retry says so', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mirrorSvc.getMirrorAvailability.mockResolvedValueOnce(null).mockResolvedValueOnce(true);
+      mirrorSvc.getMirrorProfile.mockResolvedValue(null);
+      let seen: MirrorContextValue | null = null;
+      render(
+        <ChatContext.Provider value={chatValue({})}>
+          <MirrorProvider enabled>
+            <MirrorContext.Consumer>{(v) => { seen = v; return null; }}</MirrorContext.Consumer>
+          </MirrorProvider>
+        </ChatContext.Provider>,
+      );
+      await act(async () => undefined);
+      expect(seen!.enabled).toBeNull(); // unknown, not off
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      await waitFor(() => expect(seen!.enabled).toBe(true));
+      expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an availability check that keeps failing settles to off, and a server "off" is never re-asked', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mirrorSvc.getMirrorAvailability.mockResolvedValue(null);
+      mirrorSvc.getMirrorProfile.mockResolvedValue(null);
+      let seen: MirrorContextValue | null = null;
+      const view = render(
+        <ChatContext.Provider value={chatValue({})}>
+          <MirrorProvider enabled>
+            <MirrorContext.Consumer>{(v) => { seen = v; return null; }}</MirrorContext.Consumer>
+          </MirrorProvider>
+        </ChatContext.Provider>,
+      );
+      for (const ms of [1_000, 3_000, 9_000]) await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+      await waitFor(() => expect(seen!.enabled).toBe(false));
+      expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalledTimes(4);
+      view.unmount();
+
+      mirrorSvc.getMirrorAvailability.mockClear().mockResolvedValue(false);
+      render(
+        <ChatContext.Provider value={chatValue({})}>
+          <MirrorProvider enabled>
+            <MirrorContext.Consumer>{(v) => { seen = v; return null; }}</MirrorContext.Consumer>
+          </MirrorProvider>
+        </ChatContext.Provider>,
+      );
+      await waitFor(() => expect(seen!.enabled).toBe(false));
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('asks nothing when the server says the mirror is off', async () => {
     const { fire } = setup(false);
     await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());

@@ -116,10 +116,14 @@ async function callFunction(name: string, body: Record<string, unknown>): Promis
   return { status: 0, data: {} };
 }
 
-/** Whether the mirror can answer on this project. False on any failure: no AI control is shown then. */
-export async function getMirrorAvailability(): Promise<boolean> {
+/**
+ * Whether the mirror can answer on this project: true or false when the server said so, null when the
+ * request failed (network, cold start, auth not ready) and the answer is unknown, so the caller may ask again.
+ */
+export async function getMirrorAvailability(): Promise<boolean | null> {
   const { status, data } = await callFunction('mirror-reply', { availability: true });
-  return status === 200 && data.enabled === true;
+  if (status !== 200) return null;
+  return data.enabled === true;
 }
 
 function replyState(status: number, data: Record<string, unknown>): MirrorReplyState {
