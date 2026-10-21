@@ -209,6 +209,18 @@ that incident wording leaks account figures (the same facts are already in decis
 registry-age firing point (LOW); the spec's own junk-user count (written by the filing session before
 this build).
 
+**Known limitations (accepted, round 3):**
+- A public fits / does not fit verdict beside a public formula and a public plan limit leaks a bound on a
+  private input if many specs are read together. Accepted: two bits per spec, and the alternative is a
+  Cost Budget nobody can check.
+- Checking a verdict needs the private usage source (`.private/docs/usage/`, main checkout only). A
+  reviewer without it cannot recompute the verdict and treats the budget as incomplete (HIGH), which
+  is the safe direction.
+- The registry's Cloud Run unit prices and Cloud Scheduler price are search-summary sourced until read
+  on the vendor page (stated in the owner doc).
+- While the Supabase organisation is over plan, any net-additive Supabase design is over-limit until the
+  founder accepts an upgrade (P1530). This is the blocking decision working as written, not a defect.
+
 ## Review findings (P1522 + P1523, cost lens only)
 
 **Reviewers.** Gemini 4 Argon was asked and **refused the payload** (`delegate-gemini` exit 2). The
