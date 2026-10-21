@@ -14,7 +14,7 @@
  * every request the helpers make, including the auth admin calls.
  */
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser } from '../helpers/test-user';
+import { createTestUser, deleteTestUser, deleteTestUsers } from '../helpers/test-user';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 
 type Call = { method: string; path: string; status: number };
@@ -45,27 +45,36 @@ test.describe('P1532 cleanup request volume', () => {
 
   test('deleting one user with an FK blocker costs one request and no error responses', async () => {
     const user = await createTestUser({ name: 'P1532 Volume' });
-    const { error: docError } = await supabaseAdmin.from('clarity_docs').insert({ owner_id: user.user.id });
-    expect(docError, 'seeding the blocking doc').toBeNull();
-
-    const rec = recordRequests();
+    let deleted = false;
     try {
-      await deleteTestUser(user.user.id);
+      const { error: docError } = await supabaseAdmin.from('clarity_docs').insert({ owner_id: user.user.id });
+      expect(docError, 'seeding the blocking doc').toBeNull();
+
+      const rec = recordRequests();
+      try {
+        await deleteTestUser(user.user.id);
+        deleted = true;
+      } finally {
+        rec.restore();
+      }
+
+      const errors = rec.calls.filter((c) => c.status >= 400);
+      console.log(`[P1532] deleteTestUser: ${rec.calls.length} requests, ${errors.length} error responses`);
+      for (const c of rec.calls) console.log(`[P1532]   ${c.status} ${c.method} ${c.path}`);
+
+      // The user and the doc are really gone: a cheap delete that strands the user is no fix.
+      const { data: still } = await supabaseAdmin.auth.admin.getUserById(user.user.id);
+      expect(still?.user ?? null, 'auth user deleted').toBeNull();
+      const { count, error: countError } = await supabaseAdmin.from('clarity_docs').select('id', { count: 'exact', head: true }).eq('owner_id', user.user.id);
+      expect(countError).toBeNull();
+      expect(count, 'blocking doc deleted').toBe(0);
+
+      expect(errors, 'no provoked 4xx/5xx on the normal cleanup path').toEqual([]);
+      // Exactly one: zero would mean the recorder saw nothing, and the budget check would be blind.
+      expect(rec.calls.length, 'requests to delete one user').toBe(1);
     } finally {
-      rec.restore();
+      // Setup or the delete itself failed: do not leave the user behind.
+      if (!deleted) await deleteTestUsers([user.user.id]);
     }
-
-    const errors = rec.calls.filter((c) => c.status >= 400);
-    console.log(`[P1532] deleteTestUser: ${rec.calls.length} requests, ${errors.length} error responses`);
-    for (const c of rec.calls) console.log(`[P1532]   ${c.status} ${c.method} ${c.path}`);
-
-    // The user and the doc are really gone: a cheap delete that strands the user is no fix.
-    const { data: still } = await supabaseAdmin.auth.admin.getUserById(user.user.id);
-    expect(still?.user ?? null, 'auth user deleted').toBeNull();
-    const { count } = await supabaseAdmin.from('clarity_docs').select('id', { count: 'exact', head: true }).eq('owner_id', user.user.id);
-    expect(count, 'blocking doc deleted').toBe(0);
-
-    expect(errors, 'no provoked 4xx/5xx on the normal cleanup path').toEqual([]);
-    expect(rec.calls.length, 'requests to delete one user').toBeLessThanOrEqual(1);
   });
 });
