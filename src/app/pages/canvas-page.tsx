@@ -1044,7 +1044,7 @@ function CanvasCard({ point, viewerId, positions, compare, selected, sharedLabel
       data-selected={selected || undefined}
       className={`group w-full rounded-lg border bg-card p-2.5 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
     >
-      <p className="line-clamp-4 break-words text-sm font-medium text-foreground">
+      <p className="line-clamp-5 break-words text-sm font-medium text-foreground">
         {/* One visibility idea: the canvas's audience, not the point's own flag, decides who reads it. */}
         {sharedLabel && <><SharedIcon label={sharedLabel} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
@@ -1201,7 +1201,8 @@ function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close poi
           {/* Which box this point sits in: Previous / Next cross from box to box. */}
           <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2" data-testid="canvas-panel-box">
             {step.boxTag && <BoxIcon tag={step.boxTag} />}
-            <span className="truncate text-base font-semibold tracking-tight text-foreground">{step.box}</span>
+            {/* P1535: box titles run to 35 characters; two lines, never an ellipsis on a phone. */}
+            <span className="line-clamp-2 break-words text-base font-semibold tracking-tight text-foreground">{step.box}</span>
           </span>
           <button
             type="button"
