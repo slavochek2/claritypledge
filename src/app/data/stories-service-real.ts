@@ -20,6 +20,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
 import { pointsService } from './points-service';
+import { dedupeInFlight } from '@/lib/in-flight';
 import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
@@ -178,7 +179,13 @@ async function fetchAuthorPositions(
   return map;
 }
 
-export const realStoriesService: StoriesService = {
+/** P1527: the un-deduplicated reads that getStory / getPublicStoriesFeed wrap in dedupeInFlight. */
+interface DedupedReads {
+  fetchStory(storyId: string): Promise<StoryWithAuthor | null>;
+  fetchPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]>;
+}
+
+export const realStoriesService: StoriesService & DedupedReads = {
   // ============================================================================
   // CREATE
   // ============================================================================
@@ -262,7 +269,11 @@ export const realStoriesService: StoriesService = {
   // READ
   // ============================================================================
 
-  async getStory(storyId: string): Promise<StoryWithAuthor | null> {
+  getStory(storyId: string): Promise<StoryWithAuthor | null> {
+    return dedupeInFlight(`story:${storyId}`, () => realStoriesService.fetchStory(storyId));
+  },
+
+  async fetchStory(storyId: string): Promise<StoryWithAuthor | null> {
     log(' getStory:', storyId);
 
     const { data, error } = await supabase
@@ -548,7 +559,12 @@ export const realStoriesService: StoriesService = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
-  async getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
+  getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
+    return dedupeInFlight(`stories-feed:${limit}:${offset}:${tag ?? ''}:${ascending ?? ''}`, () =>
+      realStoriesService.fetchPublicStoriesFeed(limit, offset, tag, ascending));
+  },
+
+  async fetchPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
     log(' getPublicStoriesFeed:', { limit, offset, tag });
 
     let query = supabase
@@ -977,7 +993,11 @@ export const realStoriesService: StoriesService = {
  * Matches the stN tag in system_tags, resolves highest vN version.
  * Returns null if no matching story found.
  */
-export async function resolveStorySlug(slug: string): Promise<string | null> {
+export function resolveStorySlug(slug: string): Promise<string | null> {
+  return dedupeInFlight(`story-slug:${slug}`, () => fetchResolveStorySlug(slug));
+}
+
+async function fetchResolveStorySlug(slug: string): Promise<string | null> {
   const match = slug.match(/^st\d+$/);
   if (!match) return null;
 
@@ -998,4 +1018,39 @@ export async function resolveStorySlug(slug: string): Promise<string | null> {
 
   withVersion.sort((a: { version: number }, b: { version: number }) => b.version - a.version);
   return withVersion[0].id;
+}
+
+/**
+ * P1527: a story by its stN slug in ONE request (resolveStorySlug + getStory were two). Same
+ * choice as resolveStorySlug: the highest vN version among stories carrying the stN system tag.
+ */
+export function getStoryBySlug(slug: string): Promise<StoryWithAuthor | null> {
+  return dedupeInFlight(`story-by-slug:${slug}`, () => fetchStoryBySlug(slug));
+}
+
+async function fetchStoryBySlug(slug: string): Promise<StoryWithAuthor | null> {
+  if (!/^st\d+$/.test(slug)) return null;
+  const { data, error } = await supabase
+    .from('stories')
+    .select(`
+      *,
+      author:profiles!stories_author_id_fkey (
+        id,
+        name,
+        slug,
+        role,
+        avatar_color,
+        avatar_url,
+        ears_count,
+        has_pledged
+      )
+    `)
+    .contains('system_tags', [slug]);
+  if (error || !data?.length) return null;
+  const versionOf = (s: { system_tags?: string[] | null }) => {
+    const vTag = (s.system_tags ?? []).find((t) => /^v\d+$/.test(t));
+    return vTag ? parseInt(vTag.slice(1), 10) : 0;
+  };
+  const best = [...(data as DbStoryWithAuthor[])].sort((a, b) => versionOf(b) - versionOf(a))[0];
+  return mapStoryFromDb(best);
 }

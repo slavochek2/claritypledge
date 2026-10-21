@@ -8,6 +8,11 @@ export interface EventsService {
    * event, org-scoped or not — that is its job (spec Non-Goals).
    */
   getUpcomingEvents(orgId?: string): Promise<EventWithHost[]>;
+  /**
+   * P1527: upcoming events of several orgs in ONE read, keyed by org id (every requested id is a
+   * key; an org with none maps to []). Each list equals `getUpcomingEvents(thatOrgId)`.
+   */
+  getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>>;
   getPastEvents(orgId?: string): Promise<EventWithHost[]>;
   getEventBySlug(slug: string): Promise<EventWithHost | null>;
   getEventAttendees(eventId: string): Promise<EventAttendee[]>;

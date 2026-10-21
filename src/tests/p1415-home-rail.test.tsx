@@ -29,7 +29,16 @@ vi.mock('@/app/data/organizations-service', () => ({
 }));
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
-    getUpcomingEvents: vi.fn(async (orgId: string) => (orgId === 'g1' ? [ev('a', future(48))] : [ev('b', future(24))])),
+    // P1527: one read for all groups, keyed by the REQUESTED org ids only (like the real service).
+    // Any other org id (x1, x2, x3 ...) owns an event named after it, so a read that asked for a
+    // wrong or extra group shows up in the rendered/returned events.
+    getUpcomingEventsByOrg: vi.fn(async (orgIds: string[]) =>
+      Object.fromEntries(orgIds.map((orgId) => [
+        orgId,
+        orgId === 'g1' ? [ev('a', future(48))]
+          : orgId === 'g2' ? [ev('b', future(24))]
+          : [ev(`e-${orgId}`, future(30))],
+      ]))),
   },
 }));
 
@@ -139,10 +148,13 @@ describe('P1415 review — homeRead always carries cm, even when it is not in th
       { id: 'x2', slug: 'b', name: 'B' },
       { id: 'g1', slug: 'cm', name: 'Communication Activism Community · Chiang Mai' },
     ] as never);
-    const getUpcoming = vi.mocked(eventsService.getUpcomingEvents);
+    const getUpcoming = vi.mocked(eventsService.getUpcomingEventsByOrg);
     getUpcoming.mockClear();
     const data = await homeRead().fetch();
     expect(data!.groups.map((g) => g.slug)).toContain('cm');
-    expect(getUpcoming.mock.calls.map((c) => c[0])).toEqual(['x1', 'x2']);
+    // exactly one read, for exactly the top 2 groups
+    expect(getUpcoming.mock.calls).toEqual([[['x1', 'x2']]]);
+    // and only their events come back (cm ranked 3rd, id g1, owns event 'a' in the stub)
+    expect(data!.events.map((e) => e.id)).toEqual(['e-x1', 'e-x2']);
   });
 });

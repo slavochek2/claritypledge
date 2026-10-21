@@ -74,6 +74,12 @@ export const mockEventsService: EventsService = {
     return mockGetUpcoming().map(toEventWithHost);
   },
 
+  // P1527: org-unaware like getUpcomingEvents above — every org gets the same fixture list, which
+  // is what the old one-call-per-org fan-out returned against the mock.
+  async getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
+    return Object.fromEntries(orgIds.map((id) => [id, mockGetUpcoming().map(toEventWithHost)]));
+  },
+
   async getPastEvents(): Promise<EventWithHost[]> {
     return mockGetPast().map(toEventWithHost);
   },

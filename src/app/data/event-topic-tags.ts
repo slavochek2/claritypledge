@@ -9,10 +9,15 @@
  * `statement_tag` existed and has none.
  */
 import { supabase } from '@/lib/supabase';
+import { dedupeInFlight } from '@/lib/in-flight';
 
 export const FIXED_TOPIC_TAGS = ['understanding', 'misunderstanding', 'aisafety1'] as const;
 
-export async function getEventTopicTags(): Promise<string[]> {
+export function getEventTopicTags(): Promise<string[]> {
+  return dedupeInFlight('event-topic-tags', fetchEventTopicTags);
+}
+
+async function fetchEventTopicTags(): Promise<string[]> {
   const { data, error } = await supabase
     .from('events')
     .select('statement_tag')

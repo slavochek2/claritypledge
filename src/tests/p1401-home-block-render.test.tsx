@@ -26,10 +26,14 @@ vi.mock('@/app/data/organizations-service', () => ({
 }));
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
-    getUpcomingEvents: vi.fn(async (orgId: string) =>
-      orgId === 'g1'
-        ? [ev('past', new Date(Date.now() - 3600_000).toISOString()), ev('a', future(48))]
-        : [ev('b', future(24))]),
+    // P1527: one read for all groups, keyed by the REQUESTED org ids only (like the real service).
+    getUpcomingEventsByOrg: vi.fn(async (orgIds: string[]) =>
+      Object.fromEntries(orgIds.map((orgId) => [
+        orgId,
+        orgId === 'g1'
+          ? [ev('past', new Date(Date.now() - 3600_000).toISOString()), ev('a', future(48))]
+          : [ev('b', future(24))],
+      ]))),
   },
 }));
 

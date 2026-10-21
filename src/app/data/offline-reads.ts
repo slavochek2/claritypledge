@@ -162,8 +162,10 @@ export function homeRead(): OfflineRead<HomeHighlights> {
       // let any account's event become the one featured here.
       // P1408 (review): no per-group catch — a failing group fails the whole read, so the cache
       // keeps its last good copy instead of saving that group as having no events.
-      const perGroup = await Promise.all(ours.map((o) => eventsService.getUpcomingEvents(o.id)));
-      return { groups, events: perGroup.flat() };
+      // P1527: ONE events read (and one RSVP-count read) for all our groups, regrouped by org —
+      // same lists, same order (group order, then datetime) as one read per group.
+      const byOrg = await eventsService.getUpcomingEventsByOrg(ours.map((o) => o.id));
+      return { groups, events: ours.flatMap((o) => byOrg[o.id] ?? []) };
     },
   };
 }

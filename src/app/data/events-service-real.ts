@@ -7,6 +7,7 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
+import { dedupeInFlight } from '@/lib/in-flight';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -67,6 +68,7 @@ const log = (...args: unknown[]) => DEBUG && console.log('[events-service-real]'
 // Database row type with joined host profile
 interface DbEventWithHost {
   id: string;
+  org_id?: string | null; // P1527: `select *` carries it; used to regroup a multi-org read
   slug: string;
   title: string;
   description: string;
@@ -228,71 +230,116 @@ export async function generateSlug(title: string): Promise<string> {
   return `${titleSlug}-${dateStr}-${randomSuffix}`;
 }
 
-export const realEventsService: EventsService = {
-  async getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
+/** P1527: the un-deduplicated read that getUpcomingEvents wraps in dedupeInFlight. */
+interface DedupedReads {
+  fetchUpcomingEvents(orgId?: string): Promise<EventWithHost[]>;
+  fetchUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>>;
+}
+
+/**
+ * P1527: split one multi-org result into per-org lists. Every requested org gets a key (empty
+ * list when it has no events), and each list keeps the incoming (datetime) order — exactly what
+ * one `getUpcomingEvents(orgId)` per org returned. No per-group limit exists to re-apply.
+ */
+export function groupEventsByOrg<T>(
+  items: { orgId: string | null | undefined; event: T }[],
+  orgIds: string[],
+): Record<string, T[]> {
+  const out: Record<string, T[]> = {};
+  for (const id of orgIds) out[id] = [];
+  for (const { orgId, event } of items) {
+    if (orgId && orgId in out) out[orgId].push(event);
+  }
+  return out;
+}
+
+/** The shared upcoming-events read: `orgFilter` is one id, a list of ids, or absent (unscoped). */
+async function loadUpcoming(orgFilter?: string | string[]): Promise<{ events: EventWithHost[]; orgIds: (string | null)[] }> {
+  const graceCutoff = getGraceCutoff();
+  // P1060: the org filter is applied CONDITIONALLY and last. Omitting orgId must
+  // add no `.eq` at all — the standalone /events list stays unfiltered, which is
+  // the ALLOWED path the spec's gate-7c risk exists to protect.
+  let query = supabase
+    .from('events')
+    .select(`
+      *,
+      host:profiles!events_host_id_fkey (
+        id,
+        full_name:name,
+        slug,
+        headline:role,
+        avatar_color,
+        avatar_url,
+        has_pledged,
+        ears_count
+      )
+    `)
+    .gte('datetime', graceCutoff)
+    .in('status', ['upcoming', 'cancelled'])  // Include cancelled future events
+    .order('datetime', { ascending: true });
+
+  if (Array.isArray(orgFilter)) query = query.in('org_id', orgFilter);
+  else if (orgFilter) query = query.eq('org_id', orgFilter);
+
+  const { data, error } = await query;
+
+  if (error) {
+    logDbError('getUpcomingEvents', error);
+    return { events: [], orgIds: [] };
+  }
+
+  // Fetch attendee counts for all events
+  const rows = data as DbEventWithHost[];
+  const events = rows.map(mapEventFromDb);
+
+  // Get attendee counts in batch
+  const eventIds = events.map(e => e.id);
+  if (eventIds.length > 0) {
+    // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
+    // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
+    const { data: rsvpCounts } = await supabase
+      .from('event_rsvps')
+      .select('event_id, profile_id')
+      .in('event_id', eventIds);
+
+    if (rsvpCounts) {
+      const countMap = rsvpCounts.reduce((acc, rsvp) => {
+        acc[rsvp.event_id] = (acc[rsvp.event_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      events.forEach(event => {
+        event.attendeeCount = countMap[event.id] || 0;
+        event.hostHasRsvp = rsvpCounts.some(
+          (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
+        );
+      });
+    }
+  }
+  return { events, orgIds: rows.map((r) => r.org_id ?? null) };
+}
+
+
+export const realEventsService: EventsService & DedupedReads = {
+  getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
+    return dedupeInFlight(`upcoming-events:${orgId ?? ''}`, () => realEventsService.fetchUpcomingEvents(orgId));
+  },
+
+  fetchUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
     log(' getUpcomingEvents', orgId ?? '(unscoped)');
+    return loadUpcoming(orgId).then((r) => r.events);
+  },
 
-    const graceCutoff = getGraceCutoff();
-    // P1060: the org filter is applied CONDITIONALLY and last. Omitting orgId must
-    // add no `.eq` at all — the standalone /events list stays unfiltered, which is
-    // the ALLOWED path the spec's gate-7c risk exists to protect.
-    let query = supabase
-      .from('events')
-      .select(`
-        *,
-        host:profiles!events_host_id_fkey (
-          id,
-          full_name:name,
-          slug,
-          headline:role,
-          avatar_color,
-          avatar_url,
-          has_pledged,
-          ears_count
-        )
-      `)
-      .gte('datetime', graceCutoff)
-      .in('status', ['upcoming', 'cancelled'])  // Include cancelled future events
-      .order('datetime', { ascending: true });
+  getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
+    const ids = [...new Set(orgIds)].sort();
+    if (ids.length === 0) return Promise.resolve({});
+    return dedupeInFlight(`upcoming-events-by-org:${ids.join(',')}`, () => realEventsService.fetchUpcomingEventsByOrg(ids));
+  },
 
-    if (orgId) query = query.eq('org_id', orgId);
-
-    const { data, error } = await query;
-
-    if (error) {
-      logDbError('getUpcomingEvents', error);
-      return [];
-    }
-
-    // Fetch attendee counts for all events
-    const events = (data as DbEventWithHost[]).map(mapEventFromDb);
-
-    // Get attendee counts in batch
-    const eventIds = events.map(e => e.id);
-    if (eventIds.length > 0) {
-      // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
-      // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
-      const { data: rsvpCounts } = await supabase
-        .from('event_rsvps')
-        .select('event_id, profile_id')
-        .in('event_id', eventIds);
-
-      if (rsvpCounts) {
-        const countMap = rsvpCounts.reduce((acc, rsvp) => {
-          acc[rsvp.event_id] = (acc[rsvp.event_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        events.forEach(event => {
-          event.attendeeCount = countMap[event.id] || 0;
-          event.hostHasRsvp = rsvpCounts.some(
-            (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
-          );
-        });
-      }
-    }
-
-    return events;
+  async fetchUpcomingEventsByOrg(ids: string[]): Promise<Record<string, EventWithHost[]>> {
+    log(' getUpcomingEventsByOrg', ids.length);
+    const { events, orgIds } = await loadUpcoming(ids);
+    return groupEventsByOrg(events.map((event, i) => ({ orgId: orgIds[i], event })), ids);
   },
 
   async getPastEvents(orgId?: string): Promise<EventWithHost[]> {

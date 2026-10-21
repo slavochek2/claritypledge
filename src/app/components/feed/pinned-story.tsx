@@ -9,7 +9,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon, PlayIcon } from "lucide-react";
 import { storiesService } from "@/app/data/stories-service";
-import { resolveStorySlug } from "@/app/data/stories-service-real";
+import { getStoryBySlug } from "@/app/data/stories-service-real";
 import { FeedStoryCard } from "@/app/components/feed/feed-story-card";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { getThumbnailUrl } from "@/lib/video";
@@ -31,13 +31,9 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   // The story itself loads up front: the collapsed bar shows its author and video.
   useEffect(() => {
     let cancelled = false;
-    resolveStorySlug(PINNED_STORY_SLUG)
-      .then(async (id) => {
-        if (!id) {
-          if (!cancelled) setFailed(true);
-          return;
-        }
-        const s = await storiesService.getStory(id);
+    // One request: the slug resolves to the story's row directly (was resolveStorySlug + getStory).
+    getStoryBySlug(PINNED_STORY_SLUG)
+      .then((s) => {
         if (cancelled) return;
         if (!s) {
           setFailed(true);
