@@ -2,12 +2,12 @@
  * P1369 — the offline UI: the strip, the needs-connection body, the session bar's offline state,
  * and the age copy. Colours and copy per the spec's UI Contract (prototype variant C).
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { OfflineStatusProvider, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { OfflineStatusProvider, useOfflinePageReport, _resetProbeForTesting } from '@/app/contexts/offline-status-context';
 import { OfflineStrip } from '@/app/components/offline/offline-strip';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { SessionBar } from '@/app/components/session/session-bar';
@@ -32,7 +32,21 @@ function ui(children: React.ReactNode) {
 
 beforeEach(() => {
   _resetNetworkOutcomeForTesting();
+  _resetProbeForTesting();
+  // P1540: a failed request shows offline only once the health probe fails too.
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.test');
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
 });
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+/** A confirmed outage: the request failed and the probe failed. */
+async function drop() {
+  act(() => recordNetworkFailure());
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+}
 
 describe('offline strip', () => {
   it('online, nothing reported: no strip', () => {
@@ -70,10 +84,10 @@ describe('offline strip', () => {
     expect(screen.getByTestId('offline-strip').textContent).toMatch(/saved copy/i);
   });
 
-  it('P1337: a copy shown because the network is slow is never called offline', () => {
+  it('P1337: a copy shown because the network is slow is never called offline', async () => {
     ui(<CachedPage storedAt={Date.now() - 40 * 60_000} slow />);
     expect(screen.getByTestId('offline-strip').textContent).toBe('Saved copy · updating…');
-    act(() => recordNetworkFailure());
+    await drop();
     expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 40 min ago');
   });
 
@@ -103,9 +117,9 @@ describe('offline strip', () => {
     expect(screen.getByRole('link', { name: 'Go to home' }).getAttribute('href')).toBe('/');
   });
 
-  it('a failed Supabase request with no page report: "Offline"; cleared by the next success', () => {
+  it('a failed Supabase request with no page report: "Offline"; cleared by the next success', async () => {
     ui(<p>any page</p>);
-    act(() => recordNetworkFailure());
+    await drop();
     expect(screen.getByTestId('offline-strip').textContent).toBe('Offline');
     act(() => recordNetworkSuccess());
     expect(screen.queryByTestId('offline-strip')).toBeNull();

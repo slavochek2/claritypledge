@@ -16,14 +16,26 @@ import {
   withNetworkOutcome,
   _resetNetworkOutcomeForTesting,
 } from '@/lib/network-outcome';
-import { OfflineStatusProvider, useConnectivity } from '@/app/contexts/offline-status-context';
+import { OfflineStatusProvider, useConnectivity, _resetProbeForTesting } from '@/app/contexts/offline-status-context';
 
 beforeEach(() => {
   _resetNetworkOutcomeForTesting();
+  _resetProbeForTesting();
+  // P1540: a failure only counts as an outage once the health probe fails too.
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.test');
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
+
+/** A confirmed drop: the request failed and the probe failed (fake timers must be on). */
+async function drop() {
+  act(() => recordNetworkFailure());
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+}
 
 /** A fetch whose calls settle when the test says so. */
 function controlledFetch() {
@@ -71,20 +83,20 @@ describe('reconnect refreshes are edge-triggered and back off', () => {
     vi.useFakeTimers();
     render(<OfflineStatusProvider><Tick /></OfflineStatusProvider>);
 
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess());
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(tick()).toBe(1);
 
     // The refresh failed again at once, and something reconnected again at once.
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess());
     await act(async () => { await vi.advanceTimersByTimeAsync(1_900); });
     expect(tick()).toBe(1);
     await act(async () => { await vi.advanceTimersByTimeAsync(200); });
     expect(tick()).toBe(2);
 
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess());
     await act(async () => { await vi.advanceTimersByTimeAsync(3_900); });
     expect(tick()).toBe(2);
@@ -96,13 +108,13 @@ describe('reconnect refreshes are edge-triggered and back off', () => {
     vi.useFakeTimers();
     render(<OfflineStatusProvider><Tick /></OfflineStatusProvider>);
     for (let i = 0; i < 3; i++) {
-      act(() => recordNetworkFailure());
+      await drop();
       act(() => recordNetworkSuccess());
       await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     }
     expect(tick()).toBe(3);
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess());
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(tick()).toBe(4);
@@ -111,12 +123,12 @@ describe('reconnect refreshes are edge-triggered and back off', () => {
   it('dropping again before a delayed refresh is due cancels it', async () => {
     vi.useFakeTimers();
     render(<OfflineStatusProvider><Tick /></OfflineStatusProvider>);
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess());
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    act(() => recordNetworkFailure());
+    await drop();
     act(() => recordNetworkSuccess()); // due in 2 s
-    act(() => recordNetworkFailure()); // down again before that
+    await drop(); // down again before that
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
     expect(tick()).toBe(1);
   });

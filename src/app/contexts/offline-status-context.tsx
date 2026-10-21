@@ -16,7 +16,8 @@
  * `reconnectTick` bumps when connectivity comes back (the browser's `online` event, or the
  * first successful Supabase response after a failure). Pages that show cached data or the
  * needs-connection body re-read on it, which is what makes the strip disappear "once back
- * online and the page has refreshed". While unreachable, a light probe checks Supabase every
+ * online and the page has refreshed". A single failed request does not show offline (P1540): it
+ * triggers a probe, and only a failed probe confirms the outage. While unreachable, a light probe checks Supabase every
  * 20 s so that a captive-portal recovery (no `online` event) is noticed too.
  */
 /* eslint-disable react-refresh/only-export-components -- provider + its hooks and copy live together */
@@ -138,7 +139,23 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<ReadonlyMap<number, OfflinePageReport>>(new Map());
   const navigatorOnline = useNavigatorOnline();
   const supabaseUnreachable = useSupabaseUnreachable();
-  const offline = !navigatorOnline || supabaseUnreachable;
+  // P1540: one failed request is a hint, not a verdict (a VPN drops single requests). The strip
+  // and session bars go offline only once a health probe ALSO fails; any success clears it.
+  const [outageConfirmed, setOutageConfirmed] = useState(false);
+  useEffect(() => {
+    if (!supabaseUnreachable) {
+      setOutageConfirmed(false);
+      return;
+    }
+    let cancelled = false;
+    void probeSupabase().then((ok) => {
+      if (!cancelled && !ok) setOutageConfirmed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabaseUnreachable]);
+  const offline = !navigatorOnline || (supabaseUnreachable && outageConfirmed);
   const [reconnectTick, setReconnectTick] = useState(0);
 
   // Reconnect: offline → online, by either signal. Edge-triggered, and backed off while the
