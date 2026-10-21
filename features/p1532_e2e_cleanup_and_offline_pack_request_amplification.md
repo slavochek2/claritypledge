@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 54
 severity: high
@@ -11,8 +11,16 @@ exec_model: opus
 exec_effort: high
 tags: [supabase, e2e, cost, egress]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p1532-cleanup-request-volume.spec.ts
+  test_files_extra: [src/tests/p1532-offline-pack-resume.test.ts]
+  root_cause: "deleteTestUser learns FK blockers by provoking 23503 deletes (7 requests, one 409, for one user with one blocker); the offline pack restarts from entry 1 after a hidden-tab cut and refetches stored entries (40 reads for 5 cuts vs 30 for a full pack)"
+  confidence: high
+  surfaces_in_scope: [deleteTestUser, sweep-e2e-test-users-cli, global-teardown, createTestUser-minting, offline-pack-resume, measure-idle-requests]
+  surfaces_deferred: []
+  reproduced_at: 2026-10-21
 ---
 
 # P1532: E2E user cleanup and the offline pack still multiply Supabase requests after P1522/P1523
@@ -53,6 +61,35 @@ Three separate mechanisms:
 Plus one blind spot: `scripts/measure-idle-requests.mjs` counts only `requestfinished`, so failed
 requests (which still produce gateway logs) never appear in P1522-style measurements. A failure storm
 would read as zero.
+
+### Reproduction evidence (2026-10-21, test project)
+
+- **Cleanup (A1), live:** `e2e/integration/p1532-cleanup-request-volume.spec.ts` creates one user
+  who owns one `clarity_docs` row (`owner_id` is ON DELETE NO ACTION and not in the hand-kept
+  pre-cleans). `deleteTestUser` then made **7 requests, 1 of them an error**:
+  `DELETE story_verifications 204`, `DELETE stories 204`, `GET clarity_sessions 200`,
+  **`DELETE profiles 409`** (the provoked 23503), `DELETE clarity_docs 204`, `DELETE profiles 204`,
+  `DELETE auth/v1/admin/users 200`. The sweeper adds `getUserById` per user. That is 5 + 2k calls
+  inside `deleteTestUser` plus 1 in the sweeper, matching the spec's 6 + 2k. The canary fails on
+  "no provoked 4xx/5xx" and on the 1-request budget.
+- **Offline pack (C6), unit:** `src/tests/p1532-offline-pack-resume.test.ts`. One uninterrupted pack
+  makes 30 data reads. Five mid-pack hide/show cycles followed by completion made **40**: each
+  restart re-read the two entries stored before the hide.
+- **Sweeper (C1, C3), from code, no run:** the CLI passes `limit: Infinity` and no `timeBudgetMs`
+  (`scripts/sweep-e2e-test-users.ts:126`). The deadline is set after the listing loop (`:89`), and
+  the dry run lists every page, so listing is unbounded. The dry run was **not** executed: a
+  read-only count gives the same fact without the egress. Test has 12,721 auth users, so 13 pages
+  of full user objects per sweep. 11,976 are e2e-namespace, 11,890 of them older than 24 h.
+- **Measurement (C7), from code:** `scripts/measure-idle-requests.mjs:67` listens only to
+  `requestfinished`.
+- **FK graph, read-only catalog query:** 179 FKs in `public` or onto `auth.users`. The ON DELETE
+  NO ACTION/RESTRICT edges onto `profiles` include `clarity_docs.owner_id`, `clarity_letters.sender_id`,
+  `clarity_sessions.{creator,joiner,target_listener}_profile_id`, `clarity_agreements.*`,
+  `email_send_log.profile_id`, `letter_deliveries.receiver_profile_id`, `story_explain_backs.recorder_id`,
+  `story_verifications.{speaker,listener}_id` and `witnesses.witness_profile_id`. Only three
+  of them are in the hand-kept pre-cleans.
+- **PostgREST timeout:** `authenticator` runs with `statement_timeout=8s`, so one batch RPC must
+  finish inside 8 s. This bounds the server-side batch size.
 
 ## Invariants
 
