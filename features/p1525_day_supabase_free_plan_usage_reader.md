@@ -1,20 +1,20 @@
 ---
-status: blocked
+status: qa
 type: task
 rank: 51
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [day, supabase, quota, monitoring]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
 ---
 
-# P1525: /day reads Supabase free-plan usage (blocked on an org-read token)
+# P1525: /day reads Supabase free-plan usage from the dashboard through Chrome
 
 ## Problem
 
@@ -52,20 +52,39 @@ empty organisation's page and inferred the opposite.)
 every metric renders as `used / limit`, plus a quota-exceeded banner. That is the only source of
 the figures part 1 asks for.
 
-[FOUNDER DECISION: read the Usage page through Chrome during /day, or fall back to a proxy.]
+Founder decision 2026-10-21: read the Usage page through Chrome during /day (no proxy, no token). When
+Chrome or the Supabase sign-in is unavailable, `cp.quota` is `not-run` and the Day board shows a
+"Supabase dashboard" connection whose Fix says to open Chrome and sign in.
+
+**Built:** `scripts/supabase-usage-parse.py` (page text in; `ROW … over|under`, `BANNER:`,
+`PROJECTS:`, `USAGE:` out; exit 0/1/2), `day-cp.md` Wave 2q (step `cp.w2q`, attest), `cp.quota`
+re-registered to `cp.w2q` with connection `supabase` and severity `high`, and the global dispatcher's
+`conn supabase` label and Fix.
+
+**Known limitations:** units are normalised for B/KB/MB/GB/TB only; the parser keys on the
+"Usage Summary" heading and the `used / limit` line shape, so a dashboard redesign reads as
+`not-run`, never as clean.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Runs only when `/day` runs (2026-08-09 ruling, P1031) | ACCEPT | Same stopgap as P1524; the token is local-only |
+| Runs only when `/day` runs (2026-08-09 ruling, P1031) | ACCEPT | Stopgap: the figures exist only behind a signed-in browser session, which CI cannot hold |
+| Dashboard markup changes | MITIGATE | Missing rows or heading read as `not-run` with the sign-in Fix, never `ok` |
 | Reaching for the prod master key to unblock | MITIGATE | Never; scoped read-only tokens only (P1214) |
 
 **Non-Goals:** no writes to Supabase, no plan change, no GitHub Actions workflow.
 
 ## Done-When
 
-- [ ] The usage endpoint is established, or recorded as not readable with the reason.
-- [ ] `cp.quota` fires `problem` on the real organisation or at a deliberately low
-      `QUOTA_WARN_PCT` (gate 7), and `ok` below it.
-- [ ] The note appears when the test and prod projects sit in different organisations.
+- [x] The usage endpoint is established, or recorded as not readable with the reason — not readable
+      through the public API (its published definition, 2026-10-21); read from the dashboard instead.
+- [x] `cp.quota` fires `problem` on the real organisation or at a deliberately low
+      `QUOTA_WARN_PCT` (gate 7), and `ok` below it — the real Usage page parses to `problem` (exit 1),
+      `--warn-pct 1000` without a banner reads `ok`; 35/35 parser tests, control proven to fail; the
+      check, finding and attest were accepted by `day-step.sh` on a scratch ledger.
+      `[post-deploy]` confirm on the next full `/day`.
+- [x] The note appears when the test and prod projects sit in different organisations — the parser
+      lists each organisation's projects (`PROJECTS:`, tested) and Wave 2q step 5 files
+      `quota:test-project-in-own-org` when they differ; today both share one organisation, so the
+      live path files nothing. `[post-deploy]` observe it if the test project is moved.

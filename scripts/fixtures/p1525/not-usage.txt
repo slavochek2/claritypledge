@@ -1,0 +1,12 @@
+Title: Organizations | Supabase
+URL: https://supabase.com/dashboard/organizations
+Source element: <main>
+---
+Your Organizations
+
+Search for an organization
+
+Example Org
+Free Plan • 2 projects
+
+New organization

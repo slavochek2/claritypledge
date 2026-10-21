@@ -1,0 +1,101 @@
+Title: Usage | Example Org | Supabase
+URL: https://supabase.com/dashboard/org/exampleorgslug/usage
+Source element: <main>
+---
+Usage
+Current billing cycle
+All projects
+
+Organization is on the Free Plan
+
+01 Sep 2026 - 01 Oct 2026
+
+Your grace period has started.
+
+Your organization went over its quota in the previous billing cycle (Cached Egress Exceeded). You can continue with your projects until your grace period ends on 77 Nov, 7777. After that, the Fair Use Policy will apply. If you plan to maintain this level of usage, upgrade your plan to avoid any restrictions. If restrictions are applied, requests to your projects will return a 777 status code.
+
+Upgrade plan
+About Fair Use Policy
+
+Usage Summary
+
+Your plan includes a limited amount of usage. If exceeded, you may experience restrictions, as you are currently not billed for overages. It may take up to 1 hour to refresh.
+
+MORE INFORMATION
+
+How billing works
+
+Supabase Plans
+
+Log IngestionUPCOMING
+
+3.2 / 1 GB (320%)
+
+Log QueryUPCOMING
+
+0 / 100 GB
+
+Cached Egress
+
+6.1 / 5 GB (122%)
+
+Egress
+
+4.4 / 5 GB (88%)
+
+Storage Size
+
+0.2 / 1 GB (20%)
+
+Database Size
+
+0.3 / 0.5 GB (60%)
+
+Monthly Active Users
+
+4,210 / 50,000 MAU (8%)
+
+Realtime Concurrent Peak Connections
+
+12 / 200 (6%)
+
+Realtime Messages
+
+31,000 / 2,000,000 (2%)
+
+Edge Function Invocations
+
+900 / 500,000 (0%)
+
+Monthly Active Third-Party Users
+
+0 / 50,000 MAU
+
+Monthly Active SSO Users
+
+Unavailable in plan
+Upgrade
+
+Storage Image Transformations
+
+Unavailable in plan
+Upgrade
+
+Egress
+
+Amount of data transmitted over all network connections
+
+Database Size
+
+Current database size per project
+
+claritypledge - test
+Manage Database Size
+10.5 MB
+Database Size
+More information
+Clarity Movement - Prod
+Manage Database Size
+10.5 MB
+Database Size
+More information

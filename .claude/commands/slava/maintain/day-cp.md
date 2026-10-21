@@ -681,16 +681,7 @@ echo -e "\n=== SUPABASE TEST DB + FREE-PLAN QUOTA ==="
 TESTDB_OUT=$("$(git rev-parse --show-toplevel)/scripts/check-test-db-latency.sh" 2>&1); echo "$TESTDB_OUT"
 TESTDB_LINE=$(printf '%s\n' "$TESTDB_OUT" | sed -n 's/^TESTDB: //p' | tail -1)
 echo "CHECK cp.testdb ${TESTDB_LINE:-not-run the test database check printed no result}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-# Organisation usage against the free-plan limits (cached egress, egress, logs, MAU; warn at 70%)
-# and the note when the test project sits in its own organisation both need a token with
-# organizations_read. None of the existing tokens has it (P1524 measured 401/403/403), so until
-# SUPABASE_ORG_READ_TOKEN exists this is not-run, never ok: the quota is unwatched.
-# .env.local is gitignored, so read it from the MAIN checkout, as the funnel CSV below does.
-if grep -q '^SUPABASE_ORG_READ_TOKEN=.' "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.env.local" 2>/dev/null; then
-  echo "CHECK cp.quota not-run the token exists but the usage reader is not built yet (P1524 part 1)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-else
-  echo "CHECK cp.quota not-run no Supabase token with organizations_read (P1524)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-fi
+# cp.quota (free-plan usage, the organisation note) is read from the dashboard in step cp.w2q below.
 
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
@@ -831,6 +822,54 @@ Sessions: the `cp.sessions` CHECK line carries it; a non-zero count is the `sess
 **Record it** (the Sentry check is recorded first, above):
 ```bash
 "$DAY_STEP" attest cp.w2s --evidence "how many Sentry issues since $SINCE, and the worst one"
+```
+
+#### Wave 2q: Supabase free-plan usage (Claude in Chrome, P1525)
+
+The public API has no usage endpoint (measured 2026-10-21), so the figures come from the dashboard
+Usage page through the signed-in Chrome session. Load the Chrome tools with ToolSearch first
+(`mcp__claude-in-chrome__tabs_context_mcp`, `navigate`, `get_page_text`, `tabs_create_mcp`,
+`tabs_close_mcp`). **Never type credentials and never sign in for the founder.**
+
+1. Open `https://supabase.com/dashboard/organizations` in a new tab. `get_page_text` gives the names
+   and project counts but **no links**, so take the slugs with `find` ("links to each organization
+   page"), which returns each `href="/dashboard/org/<slug>"`. An organisation listed without a
+   project count has no projects; skip it.
+2. For each organisation with projects, navigate to `https://supabase.com/dashboard/org/<slug>/usage`,
+   `get_page_text`, write the text to a temp file and run the parser (exit 0 ok, 1 problem, 2 not-run):
+   `python3 "$(git rev-parse --show-toplevel)/scripts/supabase-usage-parse.py" "$TMP"`. Its `USAGE:` line
+   is the detail; `ROW` lines name each metric; `BANNER:` and `PROJECTS:` are context.
+3. Record the check, worst organisation winning: `problem` over `not-run` over `ok`. **Every organisation
+   with projects must be read**: if any one gave no rows, the check is `not-run` (unless another is
+   `problem`) and the detail names it, because a quiet organisation must never hide an unreadable one:
+```bash
+"$DAY_STEP" check cp.quota <ok|problem|not-run> --detail "<the USAGE: detail>" --step cp.w2q
+```
+4. One finding per `ROW` line ending `over` (the parser decides on the exact value against
+   `QUOTA_WARN_PCT`, default 70; never re-decide from the truncated percentage):
+```bash
+"$DAY_STEP" finding --check cp.quota --severity <high|low> --store private \
+  --fault-key quota:<org-slug>:<metric-slug> --title "<org>: <metric> is near or over its free-plan limit" \
+  --point-a "<metric> is at N% of the free plan" --obstacle "<grace period, or the limit it is nearing>" \
+  --point-b "usage back under the limit, or the plan upgraded" <<'BODY'
+<the ROW line, the BANNER line when present>
+BODY
+```
+   `high` when the metric is at 100% or more, or the page carries a grace-period banner; else `low`.
+   The metric slug is the `ROW` label lowercased with `_` turned into `-` (`Cached_Egress` gives
+   `quota:<org-slug>:cached-egress`), so the same metric keeps the same key every day. A grace-period banner
+   with no metric over the threshold files `quota:<org-slug>:grace-period` (`high`) instead.
+5. Organisation note: if the test project's name (`claritypledge - test`) appears under an organisation
+   other than the one holding the prod project (`Clarity Movement - Prod`), file `quota:test-project-in-own-org`
+   (`low`, a note: its usage no longer counts against prod's plan). Both in one organisation is the
+   normal case today and files nothing.
+6. Close the tab you opened. Chrome tools unavailable, signed out, or no rows from any page: record
+   `not-run`, and the REPORT block gets `conn supabase: not-connected — <why>`; otherwise
+   `conn supabase: ok`.
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.w2q --evidence "organisations read, metrics parsed, and the worst percentage, or why not-run"
 ```
 
 #### Wave 2b: User Intelligence (Mixpanel MCP — after Wave 2)

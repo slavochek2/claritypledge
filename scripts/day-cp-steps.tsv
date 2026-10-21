@@ -28,6 +28,7 @@
 cp.w1	cmd	hard	Wave 1 — prod smoke, git log, stranded specs, cloud, key digest, GCP leak tripwire
 cp.w2	cmd	hard	Wave 2 — Supabase signup funnel, job health, email cron delivery evidence
 cp.w2s	attest	hard	Wave 2 — Sentry issues since last run
+cp.w2q	attest	hard	Wave 2q — Supabase free-plan usage read from the dashboard through Chrome (P1525)
 cp.w2b	attest	hard	Wave 2b — Mixpanel user intelligence
 cp.w2c	attest	skippable	Wave 2c — signup intel (only when Wave 2 found new real-user signups)
 cp.people	cmd	hard	New and returning people recorded for the day report (P1399)
