@@ -69,6 +69,13 @@ the reason to avoid reservations is already present in the slot locks, unmanaged
 same blind query and returns the same colliding number. `scripts/check-duplicate-p-numbers.sh`
 has the same gap.
 
+## Occurrence 2026-10-21 — two sessions issued P1525 minutes apart
+
+`next-p-number.sh` returned 1525 to two sessions before either spec existed on disk. One committed
+first; the other's staged copy then blocked an unrelated `git-ops.sh ship` (the staged-set check
+refused) and that session renumbered to P1526. The pre-commit duplicate check held, and recovery
+cost one renumber plus one re-run of a close, consistent with the recheck-only Solution above.
+
 ## Risks / Non-Goals
 
 ### Risks
