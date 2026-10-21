@@ -30,7 +30,7 @@
  * Pre-fix: the three attack tests FAILED (columns flipped to true).
  * Post-fix (migration 20260605120000_p880_trust_column_guard): they PASS.
  *
- * Runs against the TEST DB (gfjctyxqlwexxwsmkakq) via .env.test.local.
+ * Runs against the TEST DB (ayibkeoyukulbsjpxgaw) via .env.test.local.
  */
 
 import { test, expect } from '@playwright/test';

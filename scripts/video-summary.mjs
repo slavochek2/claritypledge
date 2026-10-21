@@ -59,7 +59,7 @@ import {
 
 const execFileP = promisify(execFile);
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
-const TEST_REF = 'gfjctyxqlwexxwsmkakq';
+const TEST_REF = 'ayibkeoyukulbsjpxgaw';
 const ASK_MODEL = join(homedir(), '.agents/bin/ask-model'); // pinned: the checker binary is not configurable
 // A gate needs stable verdicts: at the wrapper's default (low) the same summary passed, then failed.
 const CHECKER_EFFORT = process.env.VIDEO_SUMMARY_CHECKER_EFFORT || 'high';

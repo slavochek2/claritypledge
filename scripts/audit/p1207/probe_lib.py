@@ -12,7 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-TEST_REF = "gfjctyxqlwexxwsmkakq"
+TEST_REF = "ayibkeoyukulbsjpxgaw"
 PROD_REF = "besjtuodziykmjidubzw"
 
 

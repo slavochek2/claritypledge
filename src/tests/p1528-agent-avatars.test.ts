@@ -22,7 +22,7 @@ describe('P1528 agent-avatar helpers', () => {
   it('rejects anything that is not exactly an agent-avatars object on this env', () => {
     expect(h.parseOldUrl(SB, null)).toBeNull();
     expect(h.parseOldUrl(SB, old.replace('agent-avatars', 'avatars'))).toBeNull();
-    expect(h.parseOldUrl(SB, old.replace('besjtuodziykmjidubzw', 'gfjctyxqlwexxwsmkakq'))).toBeNull();
+    expect(h.parseOldUrl(SB, old.replace('besjtuodziykmjidubzw', 'ayibkeoyukulbsjpxgaw'))).toBeNull();
     expect(h.parseOldUrl(SB, `${old}?x=1`)).toBeNull();
     expect(h.parseOldUrl(SB, old.replace('donald-trump/', '../x/'))).toBeNull();
     expect(h.parseOldUrl(SB, 'https://www.gravatar.com/avatar/abc')).toBeNull();

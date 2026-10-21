@@ -40,7 +40,7 @@ const matchingRules = (probe: Probe) => runtimeCaching.filter((r) => matches(r, 
 
 const SUPABASE_REQUESTS: Probe[] = [
   { url: 'https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories?select=*&id=eq.1' },
-  { url: 'https://gfjctyxqlwexxwsmkakq.supabase.co/rest/v1/points?select=id' },
+  { url: 'https://ayibkeoyukulbsjpxgaw.supabase.co/rest/v1/points?select=id' },
   { url: 'https://besjtuodziykmjidubzw.supabase.co/rest/v1/rpc/get_ready_distribution', method: 'POST' },
   { url: 'https://besjtuodziykmjidubzw.supabase.co/auth/v1/token?grant_type=refresh_token', method: 'POST' },
   { url: 'https://besjtuodziykmjidubzw.supabase.co/auth/v1/user' },

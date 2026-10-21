@@ -393,7 +393,7 @@ Derive from the actual data whether each invariant condition is met. The trigger
 | Live row write (prod) | Management API `curl` (runs as `postgres`), token via `keyring_require PROD_SUPABASE_ACCESS_TOKEN` | Yes — always, plus the keyring dialog |
 | Ad-hoc SQL on prod | Read-only helper for SELECTs; Management API + keyring for anything else | Yes — always |
 
-**Supabase MCP points at test** (project `gfjctyxqlwexxwsmkakq`). Never use MCP for prod. For prod: reads go through `scripts/supabase-readonly-sql.py`; writes use the Management API with the prod management token from the locked keyring — never a plaintext copy from `.env.local` or `.env.prod`, and never the account-wide `.env.local` token against the prod ref (P1214).
+**Supabase MCP points at test** (project `ayibkeoyukulbsjpxgaw`). Never use MCP for prod. For prod: reads go through `scripts/supabase-readonly-sql.py`; writes use the Management API with the prod management token from the locked keyring — never a plaintext copy from `.env.local` or `.env.prod`, and never the account-wide `.env.local` token against the prod ref (P1214).
 
 ## Explicit Non-Goals
 

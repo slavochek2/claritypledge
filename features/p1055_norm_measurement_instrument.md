@@ -156,7 +156,7 @@ Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silen
 
 **Test first, then prod, same script:**
 
-1. Run against **test** (`gfjctyxqlwexxwsmkakq`). Load the three filtered URLs with `&sort=oldest` and read the order back.
+1. Run against **test** (`ayibkeoyukulbsjpxgaw`). Load the three filtered URLs with `&sort=oldest` and read the order back.
 2. Founder reviews the rendered set — this is where the cold read is confirmed, on screen rather than in a spec.
 3. Run the **same script** against **prod** (`besjtuodziykmjidubzw`) — **a prod write, so it needs founder approval in the turn it happens.**
 

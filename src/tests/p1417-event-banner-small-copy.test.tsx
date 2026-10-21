@@ -71,7 +71,7 @@ describe('P1417: bannerSmallUrl — the small copy is derived, never stored', ()
   });
 
   it('works for any Supabase host (test project, local)', () => {
-    const test = 'https://gfjctyxqlwexxwsmkakq.supabase.co/storage/v1/object/public/event-banners/x.jpg';
+    const test = 'https://ayibkeoyukulbsjpxgaw.supabase.co/storage/v1/object/public/event-banners/x.jpg';
     expect(bannerSmallUrl(test)).toBe(`${test}.w800.webp`);
     const local = 'http://127.0.0.1:54321/storage/v1/object/public/event-banners/a/b.jpeg';
     expect(bannerSmallUrl(local)).toBe(`${local}.w800.webp`);

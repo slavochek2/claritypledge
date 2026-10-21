@@ -61,7 +61,7 @@ if (!URL_ || !SERVICE_KEY) {
 }
 // An allowlist, not a prod denylist: a worktree has no .env.prod to compare against, and a
 // denylist that cannot read its list would have to fail open or refuse every run.
-const TEST_REF = 'gfjctyxqlwexxwsmkakq'; // the test project (db-access.md)
+const TEST_REF = 'ayibkeoyukulbsjpxgaw'; // the test project (db-access.md)
 const REF = URL_.replace('https://', '').split('.')[0];
 if (REF !== TEST_REF) {
   console.error(`REFUSING: ${REF} is not the test project (${TEST_REF}). This script is test-only.`);

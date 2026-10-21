@@ -30,7 +30,7 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 npx supabase migration list -p "$DB_PASSWORD"
 
 # Generate TypeScript types (requires project link or --db-url)
-npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/types/supabase.ts
+npx supabase gen types typescript --project-id ayibkeoyukulbsjpxgaw > src/app/types/supabase.ts
 ```
 
 **`scripts/migrate.sh` does:**
@@ -56,7 +56,7 @@ npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/ty
 Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.
 
 **Known state:**
-- Project linked via `supabase link --project-ref gfjctyxqlwexxwsmkakq`
+- Project linked via `supabase link --project-ref ayibkeoyukulbsjpxgaw`
 - DB password in `SUPABASE_DB_URL` in `.env.local` (see prod section in `.env.example` for format)
 - `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections from localhost (known Supabase constraint)
 - Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
@@ -137,7 +137,7 @@ The Supabase MCP uses the official HTTP transport (OAuth-based). Config in `.mcp
   "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=gfjctyxqlwexxwsmkakq"
+      "url": "https://mcp.supabase.com/mcp?project_ref=ayibkeoyukulbsjpxgaw"
     }
   }
 }

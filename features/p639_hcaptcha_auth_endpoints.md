@@ -22,7 +22,7 @@ Risk profile: medium importance, low urgency. Target: before next growth push.
 
 ## Steps
 
-1. Enable hCaptcha in Supabase via Management API (prod ref `besjtuodziykmjidubzw`, test ref `gfjctyxqlwexxwsmkakq`)
+1. Enable hCaptcha in Supabase via Management API (prod ref `besjtuodziykmjidubzw`, test ref `ayibkeoyukulbsjpxgaw`)
 2. `npm install @hcaptcha/react-hcaptcha`
 3. Create `src/app/components/auth/CaptchaWidget.tsx` with `<CaptchaWidget>` + `useCaptcha()` hook
 4. Find all `signInWithOtp` / `signUp` call sites — add `options: { captchaToken }` to each

@@ -87,7 +87,7 @@ Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-s
 
 **Tool hierarchy for Supabase prod queries:**
 1. **curl + service role key** — prod only, universal (works in any context including subagents)
-2. **Supabase MCP** — test DB only (MCP points at `gfjctyxqlwexxwsmkakq`; never use for prod).
+2. **Supabase MCP** — test DB only (MCP points at `ayibkeoyukulbsjpxgaw`; never use for prod).
 3. **Supabase CLI** — migrations/schema only (`db push`, `db pull`, `projects api-keys`); cannot run ad-hoc SQL queries (`supabase db query` does not exist in v2.75.0)
 
 **Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.

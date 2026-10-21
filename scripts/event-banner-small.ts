@@ -35,7 +35,7 @@ type EnvName = 'test' | 'prod';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const URLS: Record<EnvName, string> = {
-  test: 'https://gfjctyxqlwexxwsmkakq.supabase.co',
+  test: 'https://ayibkeoyukulbsjpxgaw.supabase.co',
   prod: 'https://besjtuodziykmjidubzw.supabase.co',
 };
 const PAGE = 500;

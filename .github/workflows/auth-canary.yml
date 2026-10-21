@@ -40,7 +40,7 @@ jobs:
         continue-on-error: true
         env:
           PROD_SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
-          TEST_SUPABASE_URL: https://gfjctyxqlwexxwsmkakq.supabase.co
+          TEST_SUPABASE_URL: https://ayibkeoyukulbsjpxgaw.supabase.co
         run: ./scripts/auth-canary.sh
 
       # An unwatched gate is no gate. Find-or-append so repeated failures don't spam.

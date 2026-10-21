@@ -27,7 +27,7 @@ import * as dotenv from 'dotenv';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
-// Real credentials for the TEST project (gfjctyxqlwexxwsmkakq). Never prod.
+// Real credentials for the TEST project (ayibkeoyukulbsjpxgaw). Never prod.
 const parsed = dotenv.config({ path: path.resolve(REPO_ROOT, '.env.test.local') }).parsed ?? {};
 
 export default defineConfig({

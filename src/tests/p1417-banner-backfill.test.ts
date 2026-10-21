@@ -15,7 +15,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import sharp from 'sharp';
 import { processUrl } from '../../scripts/event-banner-small';
 
-const BASE = 'https://gfjctyxqlwexxwsmkakq.supabase.co';
+const BASE = 'https://ayibkeoyukulbsjpxgaw.supabase.co';
 const PATH = 'event-banners/x-v1.png';
 const URL_ORIG = `${BASE}/storage/v1/object/public/${PATH}`;
 const INFO_ORIG = `${BASE}/storage/v1/object/info/public/${PATH}`;

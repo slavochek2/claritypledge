@@ -62,7 +62,7 @@ if (!URL_ || !SERVICE_KEY) {
   process.exit(1);
 }
 // An allowlist, as in seed-p1508-canvas.mjs: anything but the test project is refused.
-const TEST_REF = 'gfjctyxqlwexxwsmkakq';
+const TEST_REF = 'ayibkeoyukulbsjpxgaw';
 const REF = URL_.replace('https://', '').split('.')[0];
 if (REF !== TEST_REF) {
   console.error(`REFUSING: ${REF} is not the test project (${TEST_REF}). This script is test-only.`);

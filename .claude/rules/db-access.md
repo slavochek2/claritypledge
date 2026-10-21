@@ -46,7 +46,7 @@ This applies to **all environments**, including test. Lost test data disrupts ac
 
 ## Supabase MCP = Test DB Only
 
-The Supabase MCP in `.mcp.json` points at `gfjctyxqlwexxwsmkakq` (**test** project). Every `mcp__supabase__*` call hits test, not prod.
+The Supabase MCP in `.mcp.json` points at `ayibkeoyukulbsjpxgaw` (**test** project). Every `mcp__supabase__*` call hits test, not prod.
 
 - **Prod project ref:** `besjtuodziykmjidubzw`
 - **Prod reads:** `curl` the REST API with the prod anon key from `.env.prod`

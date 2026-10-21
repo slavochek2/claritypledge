@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { keyringGet } from './lib/keyring.mjs';
 
 const URLS = {
-  test: 'https://gfjctyxqlwexxwsmkakq.supabase.co',
+  test: 'https://ayibkeoyukulbsjpxgaw.supabase.co',
   prod: 'https://besjtuodziykmjidubzw.supabase.co',
 };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

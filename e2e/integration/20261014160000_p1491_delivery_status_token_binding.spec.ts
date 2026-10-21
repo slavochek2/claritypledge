@@ -66,7 +66,7 @@ async function readDelivery(id: string) {
   return data!;
 }
 
-const TEST_PROJECT_REF = 'gfjctyxqlwexxwsmkakq';
+const TEST_PROJECT_REF = 'ayibkeoyukulbsjpxgaw';
 
 function readEnvLocal(name: string): string {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

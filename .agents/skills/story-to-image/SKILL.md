@@ -88,7 +88,7 @@ Read all Supabase keys directly from `.env.local` — do **NOT** use `supabase p
 |---|---|---|
 | `GEMINI_API_KEY` | `.env.local` | Nano Banana Pro image generation |
 | `gcloud` (slava@inguro.com) | gcloud auth | GCS upload |
-| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Test DB read (URL = `https://gfjctyxqlwexxwsmkakq.supabase.co`) |
+| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Test DB read (URL = `https://ayibkeoyukulbsjpxgaw.supabase.co`) |
 | `TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Test DB write |
 | `PROD_SUPABASE_ANON_KEY` | `.env.local` | Prod DB read (URL hardcoded: `https://besjtuodziykmjidubzw.supabase.co`) |
 | `PROD_SUPABASE_SERVICE_ROLE_KEY` | per-access lock (`scripts/keyring.sh`), never `.env.local` — P1316 | Prod DB write (Step 10 only; one dialog) |

@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.test.local') });
 
-export const TEST_PROJECT_REF = 'gfjctyxqlwexxwsmkakq';
+export const TEST_PROJECT_REF = 'ayibkeoyukulbsjpxgaw';
 /** Mirrors generateTestEmail() in e2e/helpers/test-user.ts. */
 export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;
 

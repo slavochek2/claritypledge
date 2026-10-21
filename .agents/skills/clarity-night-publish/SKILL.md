@@ -268,7 +268,7 @@ import json, urllib.request
 env = {k: v.strip('"') for k, v in (l.split("=", 1) for l in open(".env.local").read().splitlines()
        if l.split("=", 1)[0] in ("VITE_SUPABASE_URL", "TEST_SUPABASE_SERVICE_ROLE_KEY"))}
 U, K = env["VITE_SUPABASE_URL"], env["TEST_SUPABASE_SERVICE_ROLE_KEY"]
-assert "gfjctyxqlwexxwsmkakq" in U, "not the TEST project, stop"
+assert "ayibkeoyukulbsjpxgaw" in U, "not the TEST project, stop"
 H = {"apikey": K, "Authorization": f"Bearer {K}", "Content-Type": "application/json", "Prefer": "return=representation"}
 row = {"slug": "<slug>", "title": "<title>", "description": open("<desc.md>").read(),
        "datetime": "<UTC ISO, e.g. 2026-09-18T11:00:00+00:00 for 18:00 Bangkok>", "duration_minutes": 150,

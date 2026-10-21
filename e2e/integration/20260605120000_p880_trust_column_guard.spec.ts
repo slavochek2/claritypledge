@@ -17,7 +17,7 @@
  * State is arranged via supabaseAdmin (service_role bypasses the guard trigger by design),
  * and every assertion reads the persisted value back via service role.
  *
- * Runs against the TEST DB (gfjctyxqlwexxwsmkakq) via .env.test.local.
+ * Runs against the TEST DB (ayibkeoyukulbsjpxgaw) via .env.test.local.
  */
 
 import { test, expect } from '@playwright/test';

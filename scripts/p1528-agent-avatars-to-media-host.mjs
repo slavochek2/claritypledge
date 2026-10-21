@@ -35,7 +35,7 @@ import {
 } from './lib/p1528-agent-avatars.mjs';
 
 const URLS = {
-  test: 'https://gfjctyxqlwexxwsmkakq.supabase.co',
+  test: 'https://ayibkeoyukulbsjpxgaw.supabase.co',
   prod: 'https://besjtuodziykmjidubzw.supabase.co',
 };
 const PAGE = 500;

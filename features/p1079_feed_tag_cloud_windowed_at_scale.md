@@ -28,7 +28,7 @@ The `/feed` tag cloud (checkbox chips, BR-8 — P602 2026-03-29) is computed fro
 
 ## Reproduction Steps
 
-1. On test (`gfjctyxqlwexxwsmkakq`, 229+ public stories): load `/feed?tag=understanding`.
+1. On test (`ayibkeoyukulbsjpxgaw`, 229+ public stories): load `/feed?tag=understanding`.
 2. Observe: the "understanding"-tagged story content renders correctly in the list (P1075's fix works).
 3. Observe: no `#understanding` chip appears (checked or otherwise) in the tag cloud — `curl` confirms `understanding`-tagged rows exist but fall outside the newest-50 window (`order=created_at.desc&limit=50` — checked 2026-08-13, 0 of 50 carry it).
 
