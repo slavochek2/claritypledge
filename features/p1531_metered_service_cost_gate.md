@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 53
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [cost, supabase, polling, process]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -104,10 +104,11 @@ Reversibility: git revert (text-only changes to skills and docs). Decision densi
 | `/finish` | One "Metered cost" bullet each in `criteria/code.md`, `criteria/migrations.md` and `criteria/skills.md`. Check that the `/finish` classifier covers `scripts/*.mjs`, `*.py` and `*.sh`; it lists only `scripts/*.ts` today (`finish/SKILL.md:57`). | Every build review |
 | `docs/decisions.md` | One `[process]` entry recording the gate, the five incidents and the firing points. | Once |
 
-[FOUNDER DECISION: is a missing or over-limit Cost Budget **blocking** (a HIGH `/finish` finding
-stops the ship) or **advisory** (reported, not blocking)? Recommend blocking. Every incident above was
-a design that never showed its numbers, and an advisory finding is the "flagged, nobody acted"
-failure mode of incident 2.]
+**Decision (founder, 2026-10-21): BLOCKING.** A missing or over-limit Cost Budget on a design that
+touches a metered service is a HIGH `/finish` finding, and a HIGH finding stops the ship. Reason:
+every incident above was a design that never showed its numbers, and an advisory finding is the
+"flagged, nobody acted" failure mode of incident 2. The owner doc defines what counts as missing and
+over-limit.
 
 ### 3. First application: P1522 and P1523 reviewed through this lens
 
@@ -143,20 +144,39 @@ Text-only edits to one doc, four criteria or skill files and one decisions entry
 
 ## Done-When
 
-- [ ] `docs/technical/metered-services.md` exists, with the registry (each limit dated, with its source
+- [x] `docs/technical/metered-services.md` exists, with the registry (each limit dated, with its source
       URL), the budget table template and the six rules.
-- [ ] `/create-spec` files a spec with `## Cost Budget` for a Supabase-polling description, and files
+- [x] `/create-spec` files a spec with `## Cost Budget` for a Supabase-polling description, and files
       one without it for a copy change. Both runs are shown.
-- [ ] Gate fires (7c both halves): the `/finish` code criteria applied to a diff that adds an unguarded
+- [x] Gate fires (7c both halves): the `/finish` code criteria applied to a diff that adds an unguarded
       `setInterval` against Supabase returns a cost finding, and applied to a CSS-only diff returns
       none. Both outputs are pasted.
-- [ ] `criteria/specs.md`, `code.md`, `migrations.md` and `skills.md` each link to the owner doc, and
+- [x] `criteria/specs.md`, `code.md`, `migrations.md` and `skills.md` each link to the owner doc, and
       none restates its rules (checked by grep for the rule text).
-- [ ] The `/finish` classifier covers non-`.ts` scripts, or the reason it does not is recorded.
-- [ ] decisions.md `[process]` entry written.
-- [ ] Founder decision on blocking vs advisory recorded here.
+- [x] The `/finish` classifier covers non-`.ts` scripts, or the reason it does not is recorded.
+- [x] decisions.md `[process]` entry written.
+- [x] Founder decision on blocking vs advisory recorded here (blocking, 2026-10-21; see Solution section 2).
 - [x] Each confirmed review finding below is filed (spec, inbox note or evidence on P1530), with its
       destination named. All 11 go to P1532; the user-minting evidence was also added to P1530.
+
+## Build evidence (2026-10-21)
+
+Built on `main` (skill files). One fresh dry-run agent, 1 of 1 reported; it wrote no files.
+
+- **create-spec, both runs:** "unread badge, poll Supabase every 10 s" headings: Problem, Appetite,
+  Solution, Risks / Non-Goals, Done-When, UX Notes, Acceptance Criteria, UI Contract, **Cost Budget**.
+  "Footer copy change": agent judged it too small for a spec; if filed, headings are the five skeleton
+  ones, no Cost Budget.
+- **Gate fires / stays quiet (7c):** `code.md` applied to an unguarded 2 s `setInterval` against Supabase
+  returned three HIGH cost findings (no budget with arithmetic: 1,800 requests per hour per tab; no
+  hidden-tab guard; no bounded retry, error logs uncounted), citing rules 2 to 5. Applied to a CSS-only
+  diff it returned no cost finding.
+- **No restated rules:** grep for the rule text across `create-spec.md` and the four criteria files finds
+  nothing; the owner doc matches (control).
+- **Classifier:** `finish/SKILL.md` now routes `scripts/*.{ts,mjs,py,sh}` to the code reviewer. The Stop
+  hook (`verify-before-stop.py`) selects by edit, not extension, so nothing else needed changing.
+- **Limit of this evidence:** the agent saw uncommitted working-tree files; a reviewer with real stakes
+  uses the committed ones, which are identical after the commit below.
 
 ## Review findings (P1522 + P1523, cost lens only)
 

@@ -37,6 +37,10 @@ You are reviewing changes to `supabase/migrations/**`. These are SQL migrations 
 - `docs/technical/database.md` updated if schema changed
 - If migration adds a column used by RLS, verify the policy references it correctly
 
+## Metered cost
+
+- **Metered cost:** a migration that adds a trigger, a function called per row or per request, a cron job, or a backfill touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`). Check it against that doc; a missing or over-limit Cost Budget is HIGH and blocks the ship.
+
 ## Output Format
 
 ```markdown

@@ -54,7 +54,7 @@ Apply path-pattern matching to `CHANGED_FILES`. Each file can trigger one or mor
 
 | Path pattern | Review key | Reviewer |
 |---|---|---|
-| `src/**`, `e2e/**`, `scripts/*.ts` | `code` | Subagent with `criteria/code.md` |
+| `src/**`, `e2e/**`, `scripts/*.{ts,mjs,py,sh}` | `code` | Subagent with `criteria/code.md` |
 | `src/app/**/*.tsx`, `src/app/**/*.css` | `uat` | Delegate to `/verify` |
 | `.claude/commands/slava/**` | `skills` | Subagent with `criteria/skills.md` |
 | `.claude/rules/**`, `CLAUDE.md` | `rules` | Subagent with `criteria/rules.md` |

@@ -14,6 +14,10 @@ You are an ADVERSARIAL senior developer, design auditor, and UX reviewer — com
 - **Performance:** Unnecessary re-renders, N+1 queries, missing memoization on hot paths.
 - **Test coverage:** Are new code paths tested? Are edge cases covered? If the fix changes one instance of a repeated pattern, grep the codebase for the full set of call sites (not just the ones touched by this diff) and state the count: "M of N call sites carry an assertion; K untouched sites share the pattern and have none." Report assertions as read from test source, not executed — you cannot run the suite. Applies the call-site denominator alongside `.claude/rules/tests.md` "UI Conditional Branch Coverage" (which uses the branch denominator).
 
+## Metered cost
+
+- **Metered cost:** if the change touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`), check the diff and its spec against that doc. A missing or over-limit Cost Budget, or a rule broken without the budget accounting for it, is HIGH and blocks the ship. Cite the rule number and the arithmetic; a CSS-only or purely local change gets no finding.
+
 ## Design & UI (only if .tsx/.css files changed)
 
 - **Button purpose matrix:** Every `<Button>` must match: Primary CTA = `bg-blue-500 text-white`, Secondary = `variant="outline"`, Tertiary = `variant="ghost"`, Destructive = red styling.

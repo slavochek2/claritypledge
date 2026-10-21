@@ -29,6 +29,11 @@ You are reviewing changes to `features/p*.md` — feature specification files. T
 - No "TBD", "TODO", or placeholder sections
 - If architecture section exists: build sequence is present
 
+## Cost budget
+
+- A spec whose Solution touches a metered service carries `## Cost Budget`, with arithmetic in every number. Signal, table and severities: `docs/technical/metered-services.md`. A missing or over-limit budget is HIGH and blocks the ship.
+- A spec with no metered surface carries no such section; do not ask for one.
+
 ## Output Format
 
 ```markdown

@@ -33,6 +33,10 @@ You are reviewing changes to `.claude/commands/slava/**` — skill files that in
 - Resume support? (can the skill pick up where it left off after interruption)
 - Clean-tree / no-input case handled?
 
+## Metered cost
+
+- **Metered cost:** a skill that polls, loops over users or rows, schedules a job, or calls Supabase, Cloud Run or Gemini touches a metered service (signal, rules and severities: `docs/technical/metered-services.md`). Check it against that doc; a missing or over-limit Cost Budget is HIGH and blocks the ship.
+
 ## Output Format
 
 ```markdown
