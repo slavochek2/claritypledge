@@ -277,8 +277,8 @@ describe('chat view model', () => {
     expect(parseChatRoute('/home')).toEqual({ conversationId: null, rootId: null });
     expect(parseChatRoute('/home/c/abc')).toEqual({ conversationId: 'abc', rootId: null });
     expect(parseChatRoute('/home/c/abc/t/xyz')).toEqual({ conversationId: 'abc', rootId: 'xyz' });
-    expect(mirrorLabel({ title: null, ownerFirstName: 'Mia' })).toBe("Your mirror");
-    expect(mirrorLabel({ title: 'Scratchpad', ownerFirstName: 'Mia' })).toBe("Scratchpad · Your mirror");
+    expect(mirrorLabel({ title: null, ownerFirstName: 'Mia' })).toBe("Your mirror agent");
+    expect(mirrorLabel({ title: 'Scratchpad', ownerFirstName: 'Mia' })).toBe("Scratchpad · Your mirror agent");
   });
 
   it('turns RPC errors into sentences', () => {
@@ -1174,10 +1174,10 @@ describe('conversation', () => {
   it('names the mirror "<title> · <First>\'s mirror" in the header and the list, and Rename persists', async () => {
     svc.renameMirror.mockResolvedValue('Scratchpad');
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
-    expect(await screen.findByRole('heading', { name: "Scratchpad · Your mirror" })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: "Scratchpad · Your mirror agent" })).toBeInTheDocument();
     // in the list the name has the first line and the role leads the second
     expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain('Scratchpad');
-    expect(screen.getByTestId('row-role')).toHaveTextContent("Your mirror ·");
+    expect(screen.getByTestId('row-role')).toHaveTextContent("Your mirror agent ·");
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
@@ -1920,23 +1920,23 @@ describe('review round 3', () => {
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       const title = within(li).getByTestId('row-title');
       expect(title).toHaveTextContent(long);
-      expect(title.textContent).not.toContain("Your mirror"); // the role is not on this line
+      expect(title.textContent).not.toContain("Your mirror agent"); // the role is not on this line
       expect(title.children).toHaveLength(0); // one plain, truncating line
       expect(classesOf(title)).toContain('truncate');
       const role = within(li).getByTestId('row-role');
-      expect(role.textContent).toBe("Your mirror · ");
+      expect(role.textContent).toBe("Your mirror agent · ");
       expect(classesOf(role)).toContain('shrink-0');
       expect(classesOf(role)).toContain('text-muted-foreground');
       expect(classesOf(role)).not.toContain('truncate');
       // the preview follows on the same line and is what truncates there
       const line2 = role.parentElement as HTMLElement;
-      expect(line2).toHaveTextContent("Your mirror · You: a note");
+      expect(line2).toHaveTextContent("Your mirror agent · You: a note");
       expect(classesOf(line2.querySelector(':scope > span.min-w-0') as HTMLElement)).toContain('truncate');
     });
 
     it('in the header the same two segments, under one heading that still reads as the full label', async () => {
       renderChat('/home/c/c-mirror', [named, dmChat]);
-      const h1 = await screen.findByRole('heading', { name: `${long} · Your mirror` });
+      const h1 = await screen.findByRole('heading', { name: `${long} · Your mirror agent` });
       const [name, role] = Array.from(h1.querySelectorAll(':scope > span > span'));
       expect(classesOf(name!)).toContain('truncate');
       expect(classesOf(role!)).toContain('shrink-0');
@@ -1944,7 +1944,7 @@ describe('review round 3', () => {
 
     it('with no custom name the role alone is the first line and the preview is the second', async () => {
       renderChat('/home', [mirrorChat, dmChat]);
-      expect(await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
+      expect(await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       expect(within(li).queryByTestId('row-role')).not.toBeInTheDocument();
       expect(li).toHaveTextContent('No messages yet');
@@ -2329,12 +2329,12 @@ describe('review round 6', () => {
       return Array.from(wrapper.querySelectorAll(':scope > span')) as HTMLElement[];
     };
     // A renamed mirror: its name has the whole first line, its role is the second line.
-    const mirrorBtn = within(dialog).getByRole('button', { name: /Your mirror/ });
+    const mirrorBtn = within(dialog).getByRole('button', { name: /Your mirror agent/ });
     const lines = Array.from((mirrorBtn.querySelector('span.block.min-w-0') as HTMLElement).querySelectorAll(':scope > span')) as HTMLElement[];
     expect(lines[0]).toHaveTextContent(LONG);
     expect(classesOf(lines[0]!)).toContain('truncate');
-    expect(lines[0]!.textContent).not.toContain("Your mirror");
-    expect(lines[1]).toHaveTextContent("Your mirror");
+    expect(lines[0]!.textContent).not.toContain("Your mirror agent");
+    expect(lines[1]).toHaveTextContent("Your mirror agent");
     expect(classesOf(lines[1]!)).toContain('shrink-0');
     expect(classesOf(lines[1]!)).toContain('text-muted-foreground');
     const [gName, gTail] = segments(/organisation/);
@@ -2346,8 +2346,8 @@ describe('review round 6', () => {
     expect(eTail!.textContent).toMatch(/^ · [A-Z][a-z]{2} \d{1,2}$/);
     expect(classesOf(eTail!)).toContain('shrink-0');
     // and in the dialog's own title once a target is chosen
-    fireEvent.click(within(dialog).getByRole('button', { name: /Your mirror/ }));
-    expect(within(dialog).getByRole('heading')).toHaveTextContent(`Forward to ${LONG} · Your mirror`);
+    fireEvent.click(within(dialog).getByRole('button', { name: /Your mirror agent/ }));
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(`Forward to ${LONG} · Your mirror agent`);
   });
 
   it('S2: offline, an author whose profile cannot load is "Unknown member" with a gray initials avatar at once, never a permanent skeleton', async () => {
@@ -2380,12 +2380,12 @@ describe('review round 6', () => {
 
   it('S3: the rename dialog names the role exactly as it is shown', async () => {
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
-    const shown = (await screen.findByRole('heading', { name: "Your mirror" })).textContent;
+    const shown = (await screen.findByRole('heading', { name: "Your mirror agent" })).textContent;
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
-    expect(shown).toBe("Your mirror");
-    expect(dialog).toHaveTextContent("Its role, “Your mirror”, always stays next to the name.");
+    expect(shown).toBe("Your mirror agent");
+    expect(dialog).toHaveTextContent("Its role, “Your mirror agent”, always stays next to the name.");
     expect(dialog).not.toHaveTextContent('“your mirror”');
   });
 
@@ -3001,7 +3001,7 @@ describe('the clarified card and the mirror preview', () => {
 
   it('the mirror list row reads "Clarify: <words>" when the list carries the clarified body', async () => {
     renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: 'what I said to Alice' } }), dm('dm1', 'Alice Moreau')]);
-    const row = await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' });
+    const row = await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify: what I said to Alice');
     expect(li.textContent).not.toContain('You:');
@@ -3009,7 +3009,7 @@ describe('the clarified card and the mirror preview', () => {
 
   it('the mirror list row reads "Clarify" with no "You: Clarified message"', async () => {
     renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: null } }), dm('dm1', 'Alice Moreau')]);
-    const row = await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' });
+    const row = await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify');
     expect(li.textContent).not.toContain('Clarified message');
@@ -3055,7 +3055,7 @@ describe('the mirror mark', () => {
   it('the list row, the header and the forward picker show it, and never the owner\'s photo or initials', async () => {
     const theirs = msg('c-mirror', ME.id, 'a note to self', { id: 'nn1' });
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { lastMessage: { ...last('preview words', 1, ME.id, ME.name) } }), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [theirs] });
-    const row = (await screen.findByText("Your mirror", { selector: '[data-testid="row-title"]' })).closest('li') as HTMLElement;
+    const row = (await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' })).closest('li') as HTMLElement;
     expect(row.querySelector('[data-testid="mirror-glyph"]')).not.toBeNull();
     expect(row.querySelector('img')).toBeNull();
     expect(row.textContent).not.toContain('MM');

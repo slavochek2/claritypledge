@@ -156,7 +156,7 @@ export function parseChatRoute(pathname: string): ChatRoute {
 
 /** The mirror's subtitle everywhere: "Your mirror" (its title is the mirror's own name, e.g. "Mira"). */
 export function mirrorRole(_chat?: unknown): string {
-  return 'Your mirror';
+  return 'Your mirror agent';
 }
 export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>): string {
   const role = mirrorRole(chat);
