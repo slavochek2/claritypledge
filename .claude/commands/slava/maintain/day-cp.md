@@ -863,7 +863,26 @@ BODY
    other than the one holding the prod project (`Clarity Movement - Prod`), file `quota:test-project-in-own-org`
    (`low`, a note: its usage no longer counts against prod's plan). Both in one organisation is the
    normal case today and files nothing.
-6. Close the tab you opened. Chrome tools unavailable, signed out, or no rows from any page: record
+6. **Access keys (INBOX-P174 follow-up).** In the same tab, navigate to
+   `https://supabase.com/dashboard/account/tokens`, wait about 3 seconds (the list loads after the
+   shell, and an early read returns no rows), `get_page_text`, write it to a `600` temp file and run
+   `python3 "$(git rev-parse --show-toplevel)/scripts/supabase-tokens-parse.py" "$TMP"` (exit 0 ok,
+   1 problem, 2 not-run), then delete the file. It prints names and dates only, never a key
+   fragment (P1526). Record:
+```bash
+"$DAY_STEP" check cp.tokens <ok|problem|not-run> --detail "<the TOKENS: detail>" --step cp.w2q
+```
+   One finding per `TOKEN` line whose state is not `ok`, fault key `tokens:<state>:<name slug>`
+   (name lowercased, runs of non-alphanumerics turned into `-`) so the same key keeps its card:
+   - `legacy`: `high`. A full-access key exists although every one was retired on 2026-09-30; a
+     `supabase login` creates one silently. Point B: `supabase logout` on the machine, then the
+     founder deletes it on the tokens page (the agent cannot click Delete; the permission guard blocks it).
+   - `expired`: `high`. Every script that reads that key now fails; name it.
+   - `expiring`: `low`, or `high` within 7 days. Point B: mint the replacement with the same scope
+     and store it where the old one lives (the registry row in `.private/docs/accounts.md` says where).
+   Why this exists: a dead management key went unnoticed for three weeks, and on 2026-10-21 a
+   full-access CLI key appeared that nothing flagged.
+7. Close the tab you opened. Chrome tools unavailable, signed out, or no rows from any page: record
    `not-run`, and the REPORT block gets `conn supabase: not-connected — <why>`; otherwise
    `conn supabase: ok`.
 
