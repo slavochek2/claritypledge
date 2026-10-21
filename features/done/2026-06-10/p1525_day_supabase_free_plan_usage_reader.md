@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 51
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [day, supabase, quota, monitoring]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-21
 ---
 
 # P1525: /day reads Supabase free-plan usage from the dashboard through Chrome
