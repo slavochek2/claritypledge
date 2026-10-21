@@ -54,9 +54,10 @@ async function userExists(id: string): Promise<boolean> {
 test.describe('P1532 migration: e2e_purge_test_users', () => {
   test('the project guard allows only the test project ref', async () => {
     const ask = async (claims: unknown) => (await admin.rpc('_e2e_purge_allowed', { p_claims: claims })).data;
-    expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'service_role' })).toBe(true);
+    expect(await ask({ ref: 'ayibkeoyukulbsjpxgaw', role: 'service_role' })).toBe(true);
+    expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'service_role' })).toBe(true); // old test, until paused
     expect(await ask({ ref: 'besjtuodziykmjidubzw', role: 'service_role' })).toBe(false); // prod
-    expect(await ask({ ref: 'gfjctyxqlwexxwsmkakq', role: 'anon' })).toBe(false); // the public anon key
+    expect(await ask({ ref: 'ayibkeoyukulbsjpxgaw', role: 'anon' })).toBe(false); // the public anon key
     expect(await ask({ role: 'service_role' })).toBe(false);
     expect(await ask(null)).toBe(false);
   });

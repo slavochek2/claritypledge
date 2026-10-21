@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SWEEP_DEFAULTS, exitCodeFor, purgeUserIds, sweepE2eTestUsers, type SweepClient } from '../../scripts/sweep-e2e-test-users';
 
-const TEST_URL = 'https://gfjctyxqlwexxwsmkakq.supabase.co';
+const TEST_URL = 'https://ayibkeoyukulbsjpxgaw.supabase.co';
 type Reply = { data: unknown; error: { message: string } | null; status: number };
 
 /** A fake client: `reply(fn, args)` answers each call; every call is recorded. */

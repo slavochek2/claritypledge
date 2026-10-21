@@ -3,12 +3,14 @@
  * @description Which project and which users the e2e cleanup may touch. One home for both, read by
  * the helpers (e2e/helpers/test-user.ts), the sweeper (scripts/sweep-e2e-test-users.ts) and, as SQL,
  * by the e2e_* SQL functions (supabase/migrations/*_p1532_*.sql), which carry their own copies of
- * both values because a migration cannot import this file: `grep -l gfjctyxqlwexxwsmkakq
+ * both values because a migration cannot import this file: `grep -l ayibkeoyukulbsjpxgaw
  * supabase/migrations/*p1532*` and `grep -l 'e2e-test-\[0-9\]' supabase/migrations/*p1532*` find
  * them. Change every copy together, in a new migration.
  */
 
-export const TEST_PROJECT_REF = 'gfjctyxqlwexxwsmkakq';
+// P1530 moved TEST to a new project; the old ref stays allowed until that project is paused.
+export const TEST_PROJECT_REF = 'ayibkeoyukulbsjpxgaw';
+export const TEST_PROJECT_REFS: readonly string[] = [TEST_PROJECT_REF, 'gfjctyxqlwexxwsmkakq'];
 
 /** Mirrors generateTestEmail() in e2e/helpers/test-user.ts. */
 export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;
@@ -16,7 +18,7 @@ export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;
 /** Exact host match, not a substring: a URL that merely contains the ref must not pass. */
 export function isTestProjectUrl(url: string | undefined): boolean {
   try {
-    return new URL(url ?? '').hostname === `${TEST_PROJECT_REF}.supabase.co`;
+    return TEST_PROJECT_REFS.some((ref) => new URL(url ?? '').hostname === `${ref}.supabase.co`);
   } catch {
     return false;
   }

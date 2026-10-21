@@ -171,12 +171,14 @@ carries a request-volume assertion. Closes INBOX-204's "no net new users per ful
 
 ## Acceptance Criteria
 
-- [ ] Deleting a batch of 100 test users on the test project takes at most 5 API calls, and the
+- [x] Deleting a batch of 100 test users on the test project takes at most 5 API calls, and the
       gateway log shows no 23503 errors for it. Counts before and after recorded here.
-      *Evidence so far:* 3 users with FK blockers in 1 request, 0 error responses
-      (`e2e/integration/p1532-e2e-purge-test-users.spec.ts`); 100 users = 2 requests at 50 per
-      batch, by construction. **Open:** a 100-user run on real leftovers (`--apply --limit 100`, 3
-      requests) and the gateway-log read, which needs the founder's go (it deletes test rows).
+      *Evidence (2026-10-21, founder's go):* `sweep-e2e-test-users.ts --apply --limit 100` on test:
+      before 10,091 e2e users (10,048 older than 24h); "deleted 100, failed 0, 3 requests (0 failed),
+      stopped: limit", exit 0. Test-project log (`/analytics/endpoints/logs`): the 3 requests at
+      12:25:42-44 UTC (1 count + 2 purges), all 200, and no foreign-key error line in that window.
+      The 23503 lines in the surrounding 30 min (17, every few minutes from 12:05) come from other
+      sessions' e2e runs still on main's per-row cleanup, which is the pattern this spec removes.
 - [ ] One full e2e run leaves the e2e-namespace user count unchanged, within the teardown batch.
       Users created per run recorded before and after. *Evidence so far:* every run this session
       ended with the run ledger deleting all users it created (e.g. a 7-file sample: "created 35
