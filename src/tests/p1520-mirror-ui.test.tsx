@@ -355,7 +355,10 @@ describe('P1520 MirrorProvider', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       mirrorSvc.getMirrorAvailability.mockResolvedValueOnce(null).mockResolvedValueOnce(true);
-      mirrorSvc.getMirrorProfile.mockResolvedValue(null);
+      // the first profile read fails in the same window; the retry that turns the mirror on reads it again
+      mirrorSvc.getMirrorProfile.mockReset()
+        .mockRejectedValueOnce(new Error('cold start'))
+        .mockResolvedValue({ conversationId: MIRROR_ID, portraitUrl: null, credit: null, gender: 'female' });
       let seen: MirrorContextValue | null = null;
       render(
         <ChatContext.Provider value={chatValue({})}>
@@ -369,6 +372,7 @@ describe('P1520 MirrorProvider', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
       await waitFor(() => expect(seen!.enabled).toBe(true));
       expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(seen!.profile?.gender).toBe('female'));
     } finally {
       vi.useRealTimers();
     }
@@ -403,6 +407,96 @@ describe('P1520 MirrorProvider', () => {
       await waitFor(() => expect(seen!.enabled).toBe(false));
       await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
       expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a request that fails after the answer already arrived does not mark the message failed', async () => {
+    const { fire, ctx } = setup(true);
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    let fail: (e: Error) => void = () => undefined;
+    mirrorSvc.requestMirrorReply.mockReturnValueOnce(new Promise((_, rej) => { fail = rej; }));
+    fire({ type: 'sent', message: msg({ id: 'r1' }) });
+    await waitFor(() => expect(ctx().statusFor('r1')).toBe('thinking'));
+    // the answer arrives live, then the slow request errors out
+    fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'ans-r1', kind: 'agent', authorId: null, replyToId: 'r1' }) } });
+    await act(async () => fail(new Error('gateway timeout')));
+    expect(ctx().statusFor('r1')).not.toBe('failed');
+  });
+
+  it('a failed status read keeps polling until the job is read', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { fire, resync } = setup(true);
+      await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+      await act(async () => undefined);
+      mirrorSvc.requestMirrorReply.mockResolvedValueOnce('running');
+      mirrorSvc.listMirrorJobs.mockReset()
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValue(new Map([['p2', { state: 'done', createdAt: new Date().toISOString() }]]));
+      fire({ type: 'sent', message: msg({ id: 'p2' }) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(mirrorSvc.listMirrorJobs).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(resync).toHaveBeenCalled());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('status reads that keep failing end in failed, not endless polling', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { fire, ctx } = setup(true);
+      await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+      await act(async () => undefined);
+      mirrorSvc.requestMirrorReply.mockResolvedValueOnce('running');
+      mirrorSvc.listMirrorJobs.mockReset().mockRejectedValue(new Error('network'));
+      fire({ type: 'sent', message: msg({ id: 'p3' }) });
+      await waitFor(() => expect(ctx().statusFor('p3')).toBe('thinking'));
+      for (let i = 0; i < 15; i++) await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(ctx().statusFor('p3')).toBe('failed');
+      const calls = mirrorSvc.listMirrorJobs.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+      expect(mirrorSvc.listMirrorJobs.mock.calls.length, 'polling stopped').toBe(calls);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a retried job older than the timeout is not called failed while its new attempt runs', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { fire, ctx } = setup(true);
+      await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+      await act(async () => undefined);
+      mirrorSvc.requestMirrorReply.mockResolvedValueOnce('running');
+      // created 10 minutes ago, restarted just now by this request
+      const old = new Date(Date.now() - 10 * 60_000).toISOString();
+      mirrorSvc.listMirrorJobs.mockReset().mockResolvedValue(new Map([['p4', { state: 'running', createdAt: old }]]));
+      fire({ type: 'sent', message: msg({ id: 'p4' }) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(ctx().statusFor('p4')).toBe('thinking');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a status read that comes back without the job keeps polling, then ends in failed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { fire, ctx } = setup(true);
+      await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+      await act(async () => undefined);
+      mirrorSvc.requestMirrorReply.mockResolvedValueOnce('running');
+      mirrorSvc.listMirrorJobs.mockReset().mockResolvedValue(new Map());
+      fire({ type: 'sent', message: msg({ id: 'p5' }) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(40_000); });
+      expect(mirrorSvc.listMirrorJobs.mock.calls.length).toBeGreaterThanOrEqual(2);
+      for (let i = 0; i < 12; i++) await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      expect(ctx().statusFor('p5')).toBe('failed');
     } finally {
       vi.useRealTimers();
     }

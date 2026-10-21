@@ -101,11 +101,19 @@ test('AI: a message written in the mirror gets a reply in the same chat', async 
   const { ctx, page } = await openAs(browser, a);
   try {
     await page.goto(`/home/c/${mirrorA}`);
+    // The smoke test left a seeded mirror reply here: require one MORE reply, not any reply.
+    const replies = page.getByTestId('mirror-author');
+    await expect(replies.first()).toBeVisible();
+    const before = await replies.count();
     const text = `I think my co-founder was annoyed in today's call ${RUN}`;
     await page.getByRole('textbox').fill(text);
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.locator('[data-testid="message"]', { hasText: text })).toBeVisible();
-    await expect(page.getByTestId('mirror-author').last()).toBeVisible({ timeout: 90_000 });
+    await expect(replies).toHaveCount(before + 1, { timeout: 90_000 });
+    const { data: answer } = await supabaseAdmin.from('chat_messages').select('reply_to_id, body')
+      .eq('conversation_id', mirrorA).eq('kind', 'agent').order('created_at', { ascending: false }).limit(1).single();
+    const { data: sent } = await supabaseAdmin.from('chat_messages').select('id').eq('conversation_id', mirrorA).eq('body', text).single();
+    expect(answer?.reply_to_id, 'the new reply answers the message just sent').toBe(sent?.id);
   } finally {
     await ctx.close();
   }

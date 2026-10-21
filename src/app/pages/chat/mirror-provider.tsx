@@ -75,42 +75,63 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
 
   useEffect(() => {
     // A failed check is retried; only the server's own answer (or running out of retries) settles it.
+    // `stale` drops answers that land after the user changed or the provider unmounted.
+    let stale = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    // A failed profile read is retried on the same schedule as the availability check.
+    const loadProfile = (attempt = 0) =>
+      getMirrorProfile().then(
+        (p) => !stale && mounted.current && setProfile(p),
+        () => {
+          if (stale || !mounted.current || attempt >= AVAILABILITY_RETRY_MS.length) return;
+          timers.push(setTimeout(() => void loadProfile(attempt + 1), AVAILABILITY_RETRY_MS[attempt]));
+        },
+      );
     const check = (attempt: number) => {
       getMirrorAvailability()
         .catch(() => null)
         .then((on) => {
-          if (!mounted.current) return;
-          if (on !== null || attempt >= AVAILABILITY_RETRY_MS.length) setEnabled(on === true);
-          else timer = setTimeout(() => check(attempt + 1), AVAILABILITY_RETRY_MS[attempt]);
+          if (stale || !mounted.current) return;
+          if (on !== null || attempt >= AVAILABILITY_RETRY_MS.length) {
+            setEnabled(on === true);
+          } else timer = setTimeout(() => check(attempt + 1), AVAILABILITY_RETRY_MS[attempt]);
         });
     };
     check(0);
-    getMirrorProfile().then(
-      (p) => mounted.current && setProfile(p),
-      () => undefined,
-    );
-    return () => clearTimeout(timer);
+    void loadProfile();
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+      timers.forEach(clearTimeout);
+    };
   }, [userId]);
 
   const recheck = useCallback(
-    (id: string) => {
+    // `since` is when this client asked (or retried): a retried job restarts on the server, so its age
+    // counts from the later of that and the job's creation. Clients cannot read the job's started_at.
+    (id: string, since: number = Date.now()) => {
       window.setTimeout(() => {
         if (!mounted.current || answered.current.has(id)) return;
-        listMirrorJobs([id]).then(
-          (jobs) => {
-            const j = jobs.get(id);
-            if (!j || answered.current.has(id)) return;
-            if (j.state === 'done') {
-              setStatus(id, undefined);
-              resync();
-            } else if (j.state === 'running' || j.state === 'queued') {
-              if (Date.now() - new Date(j.createdAt).getTime() > STALE_RUNNING_MS) setStatus(id, 'failed');
-              else recheck(id);
-            } else setStatus(id, j.state === 'capped' ? 'capped' : j.state === 'failed' ? 'failed' : undefined);
-          },
-          () => undefined,
-        );
+        // A failed or empty read keeps polling, but not past the limit a slow job gets.
+        const pollAgain = () => {
+          if (!mounted.current || answered.current.has(id)) return;
+          if (Date.now() - since > STALE_RUNNING_MS) setStatus(id, 'failed');
+          else recheck(id, since);
+        };
+        listMirrorJobs([id]).then((jobs) => {
+          const j = jobs.get(id);
+          if (answered.current.has(id)) return;
+          if (!j) pollAgain();
+          else if (j.state === 'done') {
+            setStatus(id, undefined);
+            resync();
+          } else if (j.state === 'running' || j.state === 'queued') {
+            const started = Math.max(new Date(j.createdAt).getTime(), since);
+            if (Date.now() - started > STALE_RUNNING_MS) setStatus(id, 'failed');
+            else recheck(id, since);
+          } else setStatus(id, j.state === 'capped' ? 'capped' : j.state === 'failed' ? 'failed' : undefined);
+        }, pollAgain);
       }, RECHECK_MS);
     },
     [setStatus, resync],
@@ -152,7 +173,7 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
               setStatus(id, undefined);
           }
         },
-        () => mounted.current && setStatus(id, 'failed'),
+        () => mounted.current && !answered.current.has(id) && setStatus(id, 'failed'),
       );
     },
     [setStatus, resync, recheck],
