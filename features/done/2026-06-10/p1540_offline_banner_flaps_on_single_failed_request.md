@@ -1,15 +1,15 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1
 tags: [offline, network]
 disclosure: public
 created_date: '2026-10-21'
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
+completed_at: 2026-10-21
 ---
 
 # P1540: The Offline strip flaps on a single failed request
