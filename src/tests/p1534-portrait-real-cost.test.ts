@@ -34,18 +34,21 @@ describe('P1534 portrait cost', () => {
     expect(Math.floor(6 / reservePortraitUsd())).toBeLessThan(10);
   });
 
-  it('settles: nothing sent is free (the reservation is released), refused-only images are not charged', () => {
-    expect(portraitSettleUsd(reservePortraitUsd(), [], 0)).toBeNull();
-    expect(portraitSettleUsd(reservePortraitUsd(), [], 1)).toBeCloseTo(0.002, 6);
+  it('settles: a run never started releases its reservation', () => {
+    expect(portraitSettleUsd(reservePortraitUsd(), false, [], 0)).toBeNull();
+  });
+
+  it('settles: a started run whose calls were all refused settles at 0, not released (it still counts as a run)', () => {
+    expect(portraitSettleUsd(reservePortraitUsd(), true, [], 0)).toBe(0);
   });
 
   it('settles: never above the reservation', () => {
-    expect(portraitSettleUsd(0.05, [IMAGE_MODEL_PRIMARY], 1)).toBe(0.05);
+    expect(portraitSettleUsd(0.05, true, [IMAGE_MODEL_PRIMARY], 1)).toBe(0.05);
   });
 
   it('the function settles every outcome through portraitSettleUsd, with the counted calls', () => {
     const src = readFileSync(resolve(process.cwd(), 'supabase/functions/mirror-portrait/index.ts'), 'utf8');
-    expect(src).toContain('portraitSettleUsd(b.reserved_usd ?? reservePortraitUsd(), billed, visionCalls)');
+    expect(src).toContain('portraitSettleUsd(b.reserved_usd ?? reservePortraitUsd(), generations > 0, billed, visionCalls)');
     expect(src.match(/p_actual_usd: cost/g)?.length).toBe(3);
     expect(src).not.toMatch(/generations > 0 \?/);
   });

@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
   });
   // P1534: charged what its calls cost at list price (each billable image call by model, each vision check
   // sent), never more than the reservation. It used to be the whole reservation every time.
-  const cost = portraitSettleUsd(b.reserved_usd ?? reservePortraitUsd(), billed, visionCalls);
+  const cost = portraitSettleUsd(b.reserved_usd ?? reservePortraitUsd(), generations > 0, billed, visionCalls);
 
   if (!result) {
     await service.rpc('_mirror_fail_job', { p_job: jobId, p_code: keyBlocked ? 'cap' : 'generation', p_actual_usd: cost });

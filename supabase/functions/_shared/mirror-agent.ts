@@ -296,9 +296,13 @@ export function portraitRunUsd(billedModels: string[], visionChecks: number): nu
   const images = billedModels.reduce((sum, m) => sum + (IMAGE_PRICE_USD[m] ?? IMAGE_PRICE_MAX_USD), 0);
   return Math.round((images + visionChecks * VISION_CHECK_MAX_USD) * 1e6) / 1e6;
 }
-/** What a portrait run is charged: its calls at list price, never above the reservation; null if nothing was sent. */
-export function portraitSettleUsd(reservedUsd: number, billedModels: string[], visionCalls: number): number | null {
-  if (billedModels.length === 0 && visionCalls === 0) return null;
+/**
+ * What a portrait run is charged: its calls at list price, never above the reservation. Null (the reservation
+ * is released) only when no generation was started; a run whose calls were all refused settles at 0, so it
+ * still counts against the daily run limit.
+ */
+export function portraitSettleUsd(reservedUsd: number, started: boolean, billedModels: string[], visionCalls: number): number | null {
+  if (!started) return null;
   return Math.min(reservedUsd, portraitRunUsd(billedModels, visionCalls));
 }
 export function reservePortraitUsd(): number {
