@@ -15,9 +15,10 @@
  * 2. Email sent after meeting ends (P51)
  * 3. Taking the pledge
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth';
 import { hasNavVerifiedHint, setNavVerifiedHint } from '@/lib/nav-verified-hint';
+import { storedSessionUserId } from '@/lib/offline-read-cache';
 import type { Profile } from '@/app/types';
 
 interface NavAuthState {
@@ -64,13 +65,24 @@ export function useNavAuthState(): NavAuthState {
 
   // P1421: record how this session's profile resolved, as evidence for the next load.
   // A missing/failed/unverified profile clears it — the next load keeps the old behaviour.
+  // P1512: before the session check returns, the stored session (read synchronously, once per mount)
+  // stands in, so a returning verified user's first paint is already the signed-in shell, not the
+  // public top nav.
+  const [storedUserId] = useState(storedSessionUserId);
   useEffect(() => {
-    if (!sessionChecked || isLoading || !sessionUserId) return;
-    setNavVerifiedHint(sessionUserId, isVerifiedUser && user?.id === sessionUserId);
-  }, [sessionChecked, isLoading, sessionUserId, isVerifiedUser, user?.id]);
+    if (!sessionChecked || isLoading) return;
+    if (sessionUserId) {
+      setNavVerifiedHint(sessionUserId, isVerifiedUser && user?.id === sessionUserId);
+    } else if (storedUserId) {
+      // The stored session turned out dead (expired, revoked): drop its hint, or every later load
+      // would paint the shell first and then fall back to the public nav.
+      setNavVerifiedHint(storedUserId, false);
+    }
+  }, [sessionChecked, isLoading, sessionUserId, isVerifiedUser, user?.id, storedUserId]);
 
-  const isProfilePending =
-    sessionChecked && !!sessionUserId && isLoading && hasNavVerifiedHint(sessionUserId);
+  const isProfilePending = sessionChecked
+    ? !!sessionUserId && isLoading && hasNavVerifiedHint(sessionUserId)
+    : !!storedUserId && hasNavVerifiedHint(storedUserId);
 
   // Everyone else sees public CTAs (anonymous OR unverified OR loading)
   const showPublicCTAs = !showUserMenu;

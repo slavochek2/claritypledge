@@ -61,10 +61,10 @@ describe('P1512 PageHeader / PageFrame', () => {
 });
 
 describe('P1512 every shell page uses the frame', () => {
-  // The seven pages the founder named. A page that draws its own h1 again would start at its own
-  // height and size, which is the drift this frame exists to stop.
+  // The pages the founder named. A page that draws its own h1 again would start at its own height
+  // and size, which is the drift this frame exists to stop. The feed left this list in founder
+  // round 3: it is a centred column with no visible title (pinned below).
   it.each([
-    'src/app/pages/feed-page.tsx',
     'src/app/pages/org-directory-page.tsx',
     'src/app/prototypes/events/components/EventsList.tsx',
     'src/app/pages/letters-page.tsx',
@@ -76,6 +76,13 @@ describe('P1512 every shell page uses the frame', () => {
     expect(src).toContain("layout/page-header");
     expect(src).toMatch(/<PageHeader[\s\n]/);
     expect(src, 'a page-local <h1> bypasses the shared title row').not.toMatch(/<h1[\s>]/);
+  });
+
+  it('the feed is a centred column with no visible title (founder round 3)', () => {
+    const src = read('src/app/pages/feed-page.tsx');
+    expect(src).not.toMatch(/<PageHeader[\s\n]/);
+    expect(src).toContain('<h1 className="sr-only">');
+    expect(src).toMatch(/className="container mx-auto[^"]*lg:justify-center"/);
   });
 
   it('Partners keeps Back only on someone else\'s page (it has no other way out)', () => {

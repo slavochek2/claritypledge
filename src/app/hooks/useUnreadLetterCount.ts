@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/auth';
 import { getUnreadLetterCount } from '@/app/data/letters-service';
+import { shareInFlight } from '@/lib/share-in-flight';
 
 interface UnreadLetterCount {
   count: number;
@@ -14,6 +15,9 @@ export function useUnreadLetterCount(): UnreadLetterCount {
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const isMountedRef = useRef(true);
+  // P1512 (Codex): a late answer for a previous account must not land on the current one.
+  const currentUserRef = useRef<string | null>(null);
+  currentUserRef.current = user?.id ?? null;
 
   useEffect(() => {
     // Reset to true on effect body run — required for StrictMode remount cycle
@@ -29,8 +33,8 @@ export function useUnreadLetterCount(): UnreadLetterCount {
     if (!isMountedRef.current) return;
     setLoading(true);
     try {
-      const result = await getUnreadLetterCount(userId);
-      if (isMountedRef.current) setCount(result);
+      const result = await shareInFlight(`unread-letters:${userId}`, () => getUnreadLetterCount(userId));
+      if (isMountedRef.current && currentUserRef.current === userId) setCount(result);
     } catch {
       // Silently keep previous count on error
     } finally {

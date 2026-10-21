@@ -88,9 +88,10 @@ export function LettersPage() {
 
   return (
     <main aria-label="Clarity Letters" className="min-h-screen">
-      {/* P1512 founder round 3: a list of short rows reads as stretched at the shell's full width, so
-          Letters keeps the shared left edge but caps its column (Results stays next to its letter). */}
-      <PageFrame size="reading" className="[[data-shell-top-nav]_&]:max-w-3xl">
+      {/* P1512 founder round 3: the title row spans the shared frame, so New Draft sits where every
+          page's primary action sits; only the list below is capped (a list of short rows reads as
+          stretched at full width, and Results stays next to its letter). */}
+      <PageFrame size="reading">
         {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
         <PageHeader
           title="Clarity Letters"
@@ -131,7 +132,7 @@ export function LettersPage() {
           }
         />
 
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="max-w-3xl">
           <div className="sticky top-0 z-10 bg-background">
             {/* P770: tab order Inbox → Drafts → Published. */}
             <TabsList className="w-auto justify-start border-b rounded-none h-auto p-0">

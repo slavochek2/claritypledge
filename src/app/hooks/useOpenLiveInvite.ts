@@ -11,6 +11,7 @@ import {
   type LiveInviteRecord,
 } from '@/app/data/api';
 import { supabase } from '@/lib/supabase';
+import { shareInFlight } from '@/lib/share-in-flight';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
     const userId = user.id;
     let cancelled = false;
 
-    getOpenLiveInviteForUser(userId)
+    shareInFlight(`open-live-invite:${userId}`, () => getOpenLiveInviteForUser(userId))
       .then((record) => {
         if (cancelled) return;
         dispatch({ type: 'LOADED', payload: record ? mapRecord(record) : null });

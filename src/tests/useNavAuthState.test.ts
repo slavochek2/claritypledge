@@ -19,9 +19,14 @@ vi.mock('@/auth', () => ({
   useAuth: vi.fn(),
 }));
 
+// P1512: the stored session read before the session check returns.
+const stored = vi.hoisted(() => ({ id: null as string | null }));
+vi.mock('@/lib/offline-read-cache', () => ({ storedSessionUserId: () => stored.id }));
+
 import { useAuth } from '@/auth';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import type { Profile } from '@/app/types';
+import { setNavVerifiedHint } from '@/lib/nav-verified-hint';
 
 const mockUseAuth = vi.mocked(useAuth);
 
@@ -674,6 +679,58 @@ describe('useNavAuthState', () => {
       // Missing isVerified should be treated as not verified
       expect(result.current.isVerified).toBe(false);
       expect(result.current.showUserMenu).toBe(false);
+    });
+  });
+
+  describe('P1512: first paint, before the session check returns', () => {
+    const unchecked = { session: null, user: null, isLoading: true, sessionChecked: false, signOut: vi.fn() } as any;
+    beforeEach(() => {
+      localStorage.clear();
+      stored.id = null;
+    });
+
+    it('a returning verified user is pending (signed-in shell) from the first frame', () => {
+      stored.id = 'u-1';
+      setNavVerifiedHint('u-1', true);
+      mockUseAuth.mockReturnValue(unchecked);
+      const { result } = renderHook(() => useNavAuthState());
+      expect(result.current.isProfilePending).toBe(true);
+      expect(result.current.showUserMenu).toBe(false);
+    });
+
+    it('a stored session this device never saw verified keeps the public nav', () => {
+      stored.id = 'u-2';
+      mockUseAuth.mockReturnValue(unchecked);
+      const { result } = renderHook(() => useNavAuthState());
+      expect(result.current.isProfilePending).toBe(false);
+    });
+
+    it('no stored session keeps the public nav', () => {
+      mockUseAuth.mockReturnValue(unchecked);
+      const { result } = renderHook(() => useNavAuthState());
+      expect(result.current.isProfilePending).toBe(false);
+    });
+
+    it('once checked, a session that turned out absent is not pending even with a stale hint', () => {
+      stored.id = 'u-1';
+      setNavVerifiedHint('u-1', true);
+      mockUseAuth.mockReturnValue({ ...unchecked, sessionChecked: true, isLoading: false });
+      const { result } = renderHook(() => useNavAuthState());
+      expect(result.current.isProfilePending).toBe(false);
+    });
+
+    it('a stored session that turns out dead drops its hint, so the next load paints the public nav', () => {
+      stored.id = 'u-3';
+      setNavVerifiedHint('u-3', true);
+      mockUseAuth.mockReturnValue(unchecked);
+      const { result, rerender } = renderHook(() => useNavAuthState());
+      // Accepted trade-off (Codex review): this one load paints the shell before the check returns.
+      expect(result.current.isProfilePending).toBe(true);
+      mockUseAuth.mockReturnValue({ ...unchecked, sessionChecked: true, isLoading: false });
+      rerender();
+      expect(result.current.isProfilePending).toBe(false);
+      expect(result.current.showUserMenu).toBe(false);
+      expect(localStorage.getItem('cp:nav-verified:u-3')).toBeNull();
     });
   });
 });

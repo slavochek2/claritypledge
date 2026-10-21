@@ -298,6 +298,10 @@ Recorded after the second hands-on round (2026-10-20), by the review stopping ru
 - Compact story cards do not apply the full card's quote-heading formatting.
 - "Reply in thread not working" (founder report) was not reproduced on desktop or 375px; on phone the Thread action needs a long-press. Awaiting the founder's steps.
 
+Recorded after the third round (2026-10-21; Gemini Argon 4 then Codex):
+- First paint trusts the stored session plus a "verified last time" hint, so a returning signed-in user never sees the public top nav flash. A session revoked or a profile unverified since the last visit paints the signed-in shell for that one load, until the auth check returns; the hint is then dropped, so it cannot repeat (Codex MED, accepted as the cost of the founder's no-flash request).
+- The events list loads in about 4-5 s on the test project against about 2 s on main, after concurrent badge requests were shared (it was 9-17 s); the remaining gap was not isolated.
+
 ## Pre-deploy Checklist
 
 - [x] Realtime confirmed working on test (step 0)

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
+import { shareInFlight } from '@/lib/share-in-flight';
 
 interface PendingPartnerInvitationCount {
   count: number;
@@ -25,6 +26,9 @@ export function usePendingPartnerInvitationCount(): PendingPartnerInvitationCoun
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const isMountedRef = useRef(true);
+  // P1512 (Codex): a late answer for a previous account must not land on the current one.
+  const currentUserRef = useRef<string | null>(null);
+  currentUserRef.current = user?.id ?? null;
 
   useEffect(() => {
     // Reset to true on effect body run — required for StrictMode remount cycle
@@ -37,8 +41,10 @@ export function usePendingPartnerInvitationCount(): PendingPartnerInvitationCoun
     if (!isMountedRef.current) return;
     setLoading(true);
     try {
-      const invitations = await agreementsService.getIncomingInvitations(email, profileId);
-      if (isMountedRef.current) setCount(invitations.length);
+      const invitations = await shareInFlight(`incoming-invitations:${profileId}:${email}`, () =>
+        agreementsService.getIncomingInvitations(email, profileId),
+      );
+      if (isMountedRef.current && currentUserRef.current === (profileId ?? null)) setCount(invitations.length);
     } catch {
       // Silently keep previous count on error
     } finally {

@@ -29,7 +29,6 @@ import { parseTags, serializeTags, filterByTags, orderBySequence, isSystemTag } 
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
-import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 import {
   listReturnCacheGeneration,
@@ -523,31 +522,19 @@ export function FeedPage() {
     <>
       <SEO title={seoTitle} description="Browse public stories and points shared by the ClarityPledge community." />
 
-      {/* P1512: the shared page frame. Title row + Share a Story on top; below it the feed column
-          and (desktop) the right rail both start on the same line. */}
-      <PageFrame>
-        <PageHeader
-          title="Feed"
-          actions={session && (
-            <Link
-              to="/create"
-              aria-label="Share a Story"
-              className="inline-flex h-10 shrink-0 items-center gap-2 px-3 sm:px-4 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md transition-colors"
-            >
-              <Globe className="w-4 h-4" aria-hidden />
-              <span className="hidden sm:inline">Share a Story</span>
-              <span className="sm:hidden">Share</span>
-            </Link>
-          )}
-        />
-        {/* P1392: desktop adds a right rail (next events, groups); the feed column is unchanged. */}
-        <div className="lg:flex lg:items-start lg:gap-8">
-        <div className="w-full min-w-0 max-w-2xl lg:flex-1">
+      {/* P1392: desktop adds a right rail (next events, groups); the feed column is unchanged.
+          P1512 founder: the feed stays a centred column with no visible title, as on main; the
+          shared left-aligned page frame is for the other pages. */}
+      <div className="container mx-auto px-4 lg:px-8 py-6 lg:max-w-5xl lg:flex lg:gap-8 lg:justify-center">
+      <div className="max-w-2xl w-full min-w-0 mx-auto lg:mx-0">
         {/* P1401: phones get the next events and groups at the very top; desktop has the rail. */}
         <HomeTopBlock />
-        {/* P1406: the search field takes the whole row; Share a Story moved up to the title row. */}
-        <div className="mb-4">
-          <div className="relative min-w-0">
+        {/* P1392 (founder): no visible "Home" title — the stories start higher. The h1 stays for
+            screen readers and document outline. */}
+        <h1 className="sr-only">Home</h1>
+        {/* P1406 (founder): search and Share a Story on one row; the field takes the rest. */}
+        <div className="mb-4 flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -566,6 +553,17 @@ export function FeedPage() {
               </button>
             )}
           </div>
+          {session && (
+            <Link
+              to="/create"
+              aria-label="Share a Story"
+              className="inline-flex h-10 shrink-0 items-center gap-2 px-3 sm:px-4 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md transition-colors"
+            >
+              <Globe className="w-4 h-4" aria-hidden />
+              <span className="hidden sm:inline">Share a Story</span>
+              <span className="sm:hidden">Share</span>
+            </Link>
+          )}
         </div>
 
         {/* P1406: while loading, hold the tag row's height so the tabs don't jump down. */}
@@ -774,10 +772,9 @@ export function FeedPage() {
             </div>
           )}
         </div>
-        </div>
-        <HomeSideRail />
-        </div>
-      </PageFrame>
+      </div>
+      <HomeSideRail />
+      </div>
     </>
   );
 }

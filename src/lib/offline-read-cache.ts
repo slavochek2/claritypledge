@@ -251,6 +251,21 @@ export function _setOfflineEntryStoreForTesting(next: OfflineEntryStore): void {
 
 // ─── Owner (auth context) ────────────────────────────────────────────────────
 
+/**
+ * The user id of the session supabase-js has stored, read synchronously (null when none or
+ * unreadable). P1512: the nav uses it to draw the signed-in shell on the very first paint.
+ */
+export function storedSessionUserId(): string | null {
+  const key = authStorageKey();
+  try {
+    const raw = key ? localStorage.getItem(key) : null;
+    const id = raw ? (JSON.parse(raw) as { user?: { id?: unknown } } | null)?.user?.id : null;
+    return typeof id === 'string' && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 function authStorageKey(): string | null {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   if (!url) return null;
