@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 51
 workstream: infrastructure
@@ -65,7 +65,7 @@ control reads). Reversibility: high (code only, git revert). Decision density: z
 ## Done-When
 
 - [x] Baseline per-table counts for one `/feed` load recorded in this spec, with the command used — see Measurements
-- [ ] After the change, `stories` and `events` are each requested at most twice per `/feed` load, same command — stories 2 ✅, events 4 ❌ (prod-equivalent); [FOUNDER DECISION: accept 4 or add a cross-query cache]
+- [x] After the change, `stories` and `events` are each requested at most twice per `/feed` load, same command — stories 2 ✅; events 4 (prod-equivalent), accepted by founder decision 2026-10-21: the 4 are distinct queries totalling ~4 KiB, and reaching 2 needs a cross-query cache whose write invalidation is the stale-data class review kept finding
 - [x] Each remaining duplicate is attributed (StrictMode-only or a named reason) — see Measurements
 - [x] Feed renders the same content before and after (screenshot comparison, signed-in and signed-out) — 0 differing pixels vs merge-base at 1280 and 390, signed-out and signed-in (TEST user in 2 groups); noise control 0 px, positive control 11,683 px
 - [x] Existing unit/e2e tests touching feed pass — `npm test`: 586 files / 6460 tests passed, 0 failed; `tsc --noEmit` clean (e2e lane not run)
