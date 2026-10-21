@@ -8,6 +8,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [technical]: A Supabase project is rebuilt from a private schema dump, then every grant is reset and replayed (P1538)
+
+**Context:** TEST had to move to its own organisation (P1530) and Supabase refused the transfer. The migration chain cannot build a database from empty (2026-08-20, P1132), and 197 files had landed since that was measured.
+**Decision:** Restore a schema-only `pg_dump` of the old project (kept local, never committed), then copy data and the objects outside `public` (storage policies and buckets, cron, vault, publication, the one `auth.users` trigger). The new project's own default privileges grant anon and authenticated more than the dump expects, because `pg_dump` writes ACLs relative to Postgres's defaults, not the target's. So reset every object to the Postgres default ACL and replay the dump's GRANT/REVOKE lines. Prove parity with two independent oracles: a schema-dump diff and a raw `proacl`/`relacl`/`attacl` comparison. The raw one caught 299 drifted objects the restore reported as clean.
+**Alternatives rejected:** replaying the migrations (unproven at 436 files, three duplicate version keys, and it drops other branches' in-flight migrations); trusting a green restore (it was green with 299 wrong ACLs).
+**Consequences:** the 2026-08-20 rejection of dump-seeding still holds for anything committed to this public repo; a private restore does not publish the dump. Parity was also proved behaviourally: the integration suite run per test on old and new with one worker (three workers trip the auth rate limit), and only tests that pass on old and fail on new count as damage.
+**References:** [P1538](../features/done/2026-06-10/p1538_rebuild_test_project_in_own_org.md), [P1530](../features/p1530_supabase_log_ingestion_and_egress_before_restriction.md)
+
+## 2026-10-21 [technical]: The Supabase auth config API masks the SMTP password, so copying config copies the mask; verify secrets by digest, not by equality (P1538)
+
+**Context:** The old project's auth config was copied to the new one through the dashboard API, and a check that every key was equal passed. Signup then failed with `535 Authentication failed` from the SMTP relay.
+**Decision:** Treat any field the API can return masked (here `SMTP_PASS`, returned as six identical characters) as unreadable. Comparing old against new compared mask to mask, so the check was blind. For edge-function secrets, the secrets API returns a SHA-256 digest of each value, so match local candidates and new values against the old digest without printing either. That found the source of 13 of 15 secrets and proved each copy.
+**Alternatives rejected:** asserting config equality after a copy (blind for masked fields); regenerating paired secrets (a regenerated `GCS_UPLOAD_SECRET` broke its pairing with the Cloud Function; the original came back from Secret Manager, digest-verified).
+**Consequences:** an SMTP key has no recoverable copy, so a project rebuild needs a new relay key, entered by the founder.
+**References:** [P1538](../features/done/2026-06-10/p1538_rebuild_test_project_in_own_org.md)
+
+## 2026-10-21 [process]: Supabase's free-project limit is per user across organisations, and a paid-plan project cannot be paused (P1530)
+
+**Context:** The plan was to create the new TEST project in an empty free org and pause the old one last.
+**Decision:** The limit is two active free projects per Owner or Admin, counted across every org. Creating a third requires freeing a slot. The founder upgraded the prod org to Pro, which also shields prod from the 11 Nov restriction. A project on a paid plan cannot be paused, so the old TEST stays active, its cron jobs off, until the prod org is downgraded. Sequence: pause new TEST briefly, downgrade, pause old TEST, restore new TEST.
+**Alternatives rejected:** pausing old TEST first (the founder refused downtime for the concurrent sessions); a second account owning the new org (possibly against Supabase's terms, and unverified role permissions).
+**Consequences:** the downgrade timing is decided on Supabase support's answer and on prod-only usage, before the Pro renewal (task inbox).
+**References:** [P1530](../features/p1530_supabase_log_ingestion_and_egress_before_restriction.md)
+
 ## 2026-10-21 [technical]: An AI call that reports no usage is settled at list price per call actually made, not at its reservation (P1534)
 
 **Context:** The Gemini image API returns no usage metadata. `mirror-portrait` therefore settled every run at its whole worst-case reservation ($0.70: four image calls at the backup model's price plus checks, x1.25). Real cost is about $0.069, so the $6 daily cap ran out after 8 portraits.
