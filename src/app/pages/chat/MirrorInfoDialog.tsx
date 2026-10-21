@@ -54,7 +54,7 @@ export function MirrorInfoDialog({ chat, onRename, onClose }: { chat: ChatSummar
           </div>
           <DialogTitle className="max-w-full break-words">{name}</DialogTitle>
           <DialogDescription>
-            {chat.title ? `${mirrorRole(chat)} · ` : ''}Only you can see and talk to it.
+            {chat.title ? `${mirrorRole(chat)} · ` : ''}Only you see this chat.
           </DialogDescription>
           {credit && <p className="text-xs text-muted-foreground" data-testid="mirror-credit">Painted in the style of {credit.artist}</p>}
         </DialogHeader>
@@ -80,7 +80,6 @@ export function MirrorInfoDialog({ chat, onRename, onClose }: { chat: ChatSummar
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">Used the next time it gets a new face.</p>
           </fieldset>
         )}
 

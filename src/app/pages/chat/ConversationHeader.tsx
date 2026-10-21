@@ -6,7 +6,7 @@
  * (link to the live event page); the mirror always says whose mirror it is, also on a phone.
  */
 import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, Pencil, UserRound } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, Info, MoreHorizontal, Pencil, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { cn } from '@/lib/utils';
@@ -159,6 +159,13 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
                 <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
                 Event page
               </Link>
+            </DropdownMenuItem>
+          )}
+          {chat.kind === 'mirror' && actions.onMirrorInfo && (
+            // P1533: the panel (face, New face) is also reachable from the menu, not only by tapping the name.
+            <DropdownMenuItem className="min-h-10" onSelect={actions.onMirrorInfo}>
+              <Info className="mr-2 h-4 w-4" aria-hidden="true" />
+              About {chat.title ?? 'your mirror'}
             </DropdownMenuItem>
           )}
           {chat.kind === 'mirror' && (
