@@ -40,5 +40,5 @@ and the next success flips it back. A VPN that drops one request therefore makes
 - [x] One failed request, health probe answers: the strip never shows offline.
 - [x] One failed request, health probe also fails: the strip shows offline.
 - [x] After a confirmed outage, one success sent after the failure returns to online.
-- [ ] navigator offline still shows offline immediately.
+- [x] navigator offline still shows offline immediately. (evidence: p1540-offline-flap.test.tsx "navigator offline shows offline immediately", passing)
 - [x] tsc, full `src/tests` vitest run, and eslint on changed files pass.

@@ -34,6 +34,8 @@ import {
 } from 'react';
 import {
   isSupabaseUnreachable,
+  networkMark,
+  networkSucceededSince,
   recordNetworkFailure,
   recordNetworkSuccess,
   subscribeNetworkOutcome,
@@ -97,13 +99,23 @@ const PROBE_TIMEOUT_MS = 8_000;
 export const PROBE_FAILURE_COOLDOWN_MS = 2_000;
 let probeInFlight: Promise<boolean> | null = null;
 let lastProbeFailedAt = 0;
+/** Outcome-sequence mark taken when the last failed probe settled: a later success voids the cooldown. */
+let lastProbeFailedMark = 0;
 
 export function probeSupabase(timeoutMs = PROBE_TIMEOUT_MS): Promise<boolean> {
   // One shared probe: several writes (or the 20s timer) asking at once send ONE request.
   if (probeInFlight) return probeInFlight;
-  if (lastProbeFailedAt && Date.now() - lastProbeFailedAt < PROBE_FAILURE_COOLDOWN_MS) return Promise.resolve(false);
+  // A success sent after that failed probe means its answer is stale: ask again.
+  if (
+    lastProbeFailedAt &&
+    Date.now() - lastProbeFailedAt < PROBE_FAILURE_COOLDOWN_MS &&
+    !networkSucceededSince(lastProbeFailedMark)
+  ) {
+    return Promise.resolve(false);
+  }
   const probe = runProbe(timeoutMs).then((ok) => {
     lastProbeFailedAt = ok ? 0 : Date.now();
+    lastProbeFailedMark = ok ? 0 : networkMark();
     return ok;
   });
   probeInFlight = probe.finally(() => {
@@ -116,19 +128,21 @@ export function probeSupabase(timeoutMs = PROBE_TIMEOUT_MS): Promise<boolean> {
 export function _resetProbeForTesting(): void {
   probeInFlight = null;
   lastProbeFailedAt = 0;
+  lastProbeFailedMark = 0;
 }
 
 async function runProbe(timeoutMs: number): Promise<boolean> {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   if (!url) return false;
+  const startedAt = networkMark();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     await fetch(`${url.replace(/\/$/, '')}/auth/v1/health`, { cache: 'no-store', signal: controller.signal });
-    recordNetworkSuccess();
+    recordNetworkSuccess(startedAt);
     return true;
   } catch {
-    recordNetworkFailure();
+    recordNetworkFailure(startedAt);
     return false;
   } finally {
     clearTimeout(timer);
@@ -142,6 +156,10 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
   // P1540: one failed request is a hint, not a verdict (a VPN drops single requests). The strip
   // and session bars go offline only once a health probe ALSO fails; any success clears it.
   const [outageConfirmed, setOutageConfirmed] = useState(false);
+  // A probe that fails confirms the outage only if we are STILL unreachable when it answers.
+  const confirmIfStillDown = useCallback((ok: boolean) => {
+    if (!ok && isSupabaseUnreachable()) setOutageConfirmed(true);
+  }, []);
   useEffect(() => {
     if (!supabaseUnreachable) {
       setOutageConfirmed(false);
@@ -149,29 +167,32 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     void probeSupabase().then((ok) => {
-      if (!cancelled && !ok) setOutageConfirmed(true);
+      if (!cancelled) confirmIfStillDown(ok);
     });
     return () => {
       cancelled = true;
     };
-  }, [supabaseUnreachable]);
+  }, [supabaseUnreachable, confirmIfStillDown]);
   const offline = !navigatorOnline || (supabaseUnreachable && outageConfirmed);
   const [reconnectTick, setReconnectTick] = useState(0);
 
   // Reconnect: offline → online, by either signal. Edge-triggered, and backed off while the
   // connection keeps dropping again right after a reconnect (the re-read it caused failed again):
   // a persistently failing request must not turn every reconnect into an immediate re-read.
-  const wasOffline = useRef(offline);
+  // The edge follows reachability, not the displayed `offline`: an unconfirmed failure (cached
+  // page, read deadline) that then succeeds must still re-read, though the strip never showed it.
+  const down = !navigatorOnline || supabaseUnreachable;
+  const wasOffline = useRef(down);
   const lastTickAt = useRef(0);
   const backoffMs = useRef(0);
   const pendingTick = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (offline && pendingTick.current) {
+    if (down && pendingTick.current) {
       // Dropped again before the refresh was due: the next reconnect schedules a new one.
       clearTimeout(pendingTick.current);
       pendingTick.current = null;
     }
-    if (wasOffline.current && !offline && !pendingTick.current) {
+    if (wasOffline.current && !down && !pendingTick.current) {
       const now = Date.now();
       backoffMs.current =
         lastTickAt.current && now - lastTickAt.current < RECONNECT_RECOVERY_WINDOW_MS
@@ -183,8 +204,8 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
         setReconnectTick((t) => t + 1);
       }, backoffMs.current);
     }
-    wasOffline.current = offline;
-  }, [offline]);
+    wasOffline.current = down;
+  }, [down]);
   useEffect(() => () => {
     if (pendingTick.current) clearTimeout(pendingTick.current);
   }, []);
@@ -192,20 +213,22 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
   // The browser says we are back: check Supabase right away rather than waiting for a page.
   useEffect(() => {
     const onOnline = () => {
-      if (isSupabaseUnreachable()) void probeSupabase();
+      if (isSupabaseUnreachable()) void probeSupabase().then(confirmIfStillDown);
     };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
-  }, []);
+  }, [confirmIfStillDown]);
 
   // While unreachable (and the browser thinks it is online), probe now and then.
   useEffect(() => {
     if (!supabaseUnreachable || !navigatorOnline) return;
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') void probeSupabase();
+      // P1540: a failed periodic probe confirms the outage too — the first confirmation probe
+      // may have joined one already in flight that answered before the failure that kept us here.
+      if (document.visibilityState === 'visible') void probeSupabase().then(confirmIfStillDown);
     }, PROBE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [supabaseUnreachable, navigatorOnline]);
+  }, [supabaseUnreachable, navigatorOnline, confirmIfStillDown]);
 
   const setReport = useCallback((id: number, report: OfflinePageReport | null) => {
     setReports((prev) => {

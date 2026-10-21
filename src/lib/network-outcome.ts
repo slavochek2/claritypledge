@@ -138,6 +138,11 @@ export function networkFailureCount(): number {
   return failureCount;
 }
 
+/** Did a request that was sent after `mark` reach the server (the latest success started after it)? */
+export function networkSucceededSince(mark: number): boolean {
+  return lastSuccessSeq > mark;
+}
+
 /** True while the most recent request outcome was "could not reach the server". */
 export function isSupabaseUnreachable(): boolean {
   return lastFailureSeq > lastSuccessSeq;
