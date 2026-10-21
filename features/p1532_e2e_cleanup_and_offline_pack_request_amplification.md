@@ -326,10 +326,14 @@ and sign-in calls.
 gateway error line, plus one Postgres ERROR when it is a statement timeout. Three consecutive
 failures stop the run with exit 1. Each failure halves the batch, which never grows back, so the
 hard bounds are the user limit and the time budget, not the request count:
-- **CLI sweeper:** `--apply` with no flags runs ≤ 120 s and ≤ 500 users. That is typically 1 + 10
-  requests. With two failures before each batch it is 1 + 10 x 3 = 31. If halving reaches a batch of
-  1, it is at most 1 + 500 successful requests plus failures, still capped at 120 s.
-- **Teardown ledger purge:** ⌈survivors/50⌉ requests, capped at 30 s.
+- **CLI sweeper:** `--apply` with no flags runs ≤ 120 s and ≤ 500 users. On the normal path that is
+  1 + 10 requests. Failures shrink the batch for the rest of the run (50, 25, 12, 6, 3, 1). For
+  example, two failures before each success give successful batches of 12, then 3, then 1. Past that
+  point every request deletes at most one user, so the 120 s budget, not the 500-user limit, ends
+  the run. The worst case is therefore "as many requests as fit in 120 s", each costing one gateway
+  line, and three consecutive failures still stop it early.
+- **Teardown ledger purge:** on the normal path ⌈survivors/50⌉ requests. On failure the batch halves
+  the same way. It is capped at 30 s either way.
 - **A batch the server cannot finish:** it returns `deferred` instead of timing out. Each deferred id
   is re-sent once in a smaller batch; a second deferral is a failure.
 
