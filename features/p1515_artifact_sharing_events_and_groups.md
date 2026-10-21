@@ -172,7 +172,8 @@ Entries are deleted with their event, group or canvas (cascade), which only ever
 
 ### Owner experience (founder, 2026-10-19)
 
-- A control at the top of the canvas: 🔒 **Private** or 👥 **Shared**, owner only.
+- A control at the top of the canvas, owner only. ONE visibility idea (founder, 2026-10-21): a canvas is
+  Private and the owner chooses who else sees it; there is no third "Shared" setting. Words in the UI Contract.
 - Its panel, per entry: the event or group name and how many people it admits, with their names for
   events (registration lists are public by design, P1226) and for public groups; a private group shows
   its count only, because members cannot see each other there today (`membership_select`, P1010).
@@ -218,6 +219,32 @@ Entries are deleted with their event, group or canvas (cascade), which only ever
   is not recalled. Signing out clears private content at once (P1508).
 - An event the owner shares before anyone else registered admits only the host and the owner.
 - A failed share or unshare shows an error and leaves the previous state.
+
+## UI Contract
+
+Founder ruling, 2026-10-21: there is ONE visibility idea. A canvas is **Private**, and its owner chooses
+who else sees it; everything inside inherits that (the canvas's audience, not a point's or story's own
+flag, decides who reads it there). A shared icon (people) marks the canvas header, each point card and each
+story inside, and the composer, so every contributor knows who reads what. No per-item lock is shown inside
+a canvas. Every string below is **[FOUNDER DECISION: approve or change at UAT]**.
+
+| Where | String |
+|---|---|
+| Owner control, nobody added | `Private · only you` |
+| Owner control, entries | `Private · shared with <entry names>` (names joined "A, B and C"); fallback `Private · shared` when the audience could not be read |
+| Owner panel | title `Who can see this canvas`; line `It is private: only you, until you share it. Everything in it follows, and you can stop at any time.`; empty `Only you can see it.` |
+| Panel entry | name; `N person can see it` / `N people can see it`; names for an event or a public group; a private group adds `(names are private)` and shows no names; an entry the owner has left reads `You are no longer part of this, so it shows no one your canvas.` |
+| Panel add | label `Share with`, choice `Choose an event or group` (events, then groups; only the owner's own, not already added), button `Add` (shown once something is chosen); remove control named `Stop sharing with <name>`; nothing to add: `You have no events or groups to share with yet. Register for an event or join a group first.` / `That is all of your events and groups.` |
+| Panel errors | `Could not share. Nothing changed.` · `Could not stop sharing. Nothing changed.` · `Could not load who this canvas is shared with.` (the list never changes unless the server confirmed) |
+| Reader line | `Shared with you through <entry>` (an event links to its page) |
+| Shared icon | owner: `Shared with <entry names>`; reader: `Shared with you through <entry>` |
+| Composer (a private story) | owner: `Visible to you and <entry names>` or `Visible only to you`; reader: `Visible to you and everyone <owner name> shared this canvas with`. An owner's story on a public point keeps the public line (`Matches point visibility`). |
+| An added story | `Added by you` / `Added by <name>`; its author's control `Remove from this canvas` (the story stays in the author's own list) |
+| Event page | section `Canvases shared with this event`; each row `<owner name> · <canvas name>`, linking to the canvas |
+| Failures | `Failed to save position.` · `Failed to withdraw position.` · `Failed to save story. Please try again.` · `Failed to remove your story. Please try again.` |
+
+Not on a canvas for a reader, because each opens a page that reads through the ordinary loaders: `Details →`,
+the card's `⋯` menu, a story's own page. Signed out, or signed in without access: not-found, no hint.
 
 ## Risks / Non-Goals
 

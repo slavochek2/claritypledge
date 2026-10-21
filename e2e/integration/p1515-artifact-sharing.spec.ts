@@ -630,6 +630,30 @@ test('Panel: the audience shows each entry with its count, names for events and 
   expectAdmitted(await getCanvas(cN), 'N through the private group', { kind: 'group', id: Yp.id });
 });
 
+test('Share targets: the owner is offered the events they host or are admitted to and every group they belong to (a private one named), and nobody else\'s', async () => {
+  const targets = (c: SupabaseClient) => okRpc<{ events: Row[]; groups: Row[] }>(c, 'get_canvas_share_targets', {}, 'share targets');
+  const o = await targets(cO);
+  // CONTROLS first: what must be offered is offered.
+  expect(o.events.map((e) => e.id), 'O registered in time at E1').toContain(E1.id);
+  expect(o.events.find((e) => e.id === E1.id)).toMatchObject({ title: E1.title, slug: E1.slug, hosted: false });
+  expect(o.groups.map((g) => g.id).sort(), 'O belongs to Y and Yp').toEqual(expect.arrayContaining([Y.id, Yp.id]));
+  // A private group's name is unreadable to clients through ordinary access; here its member sees it.
+  expect(o.groups.find((g) => g.id === Yp.id)).toMatchObject({ name: Yp.name, public: false });
+  expect(o.groups.find((g) => g.id === Y.id)).toMatchObject({ name: Y.name, public: true });
+  const direct = await cO.from('organization').select('id').eq('id', Yp.id);
+  expect(direct.data, 'CONTROL for the point above: REST cannot name the private group').toEqual([]);
+  // The absences: an event O is not registered for, a group O is not in.
+  expect(o.events.map((e) => e.id)).not.toContain(E3.id);
+  expect(o.groups.map((g) => g.id)).not.toContain(Z.id);
+  // The host is offered the event as hosted; a late registrant is not offered it at all; N sees only N's groups.
+  expect((await targets(cH)).events.find((e) => e.id === E1.id)).toMatchObject({ hosted: true });
+  expect((await targets(cL)).events.map((e) => e.id), 'registered after the window: not admitted, not offered').not.toContain(E1.id);
+  const n = await targets(cN);
+  expect(n.groups.map((g) => g.id)).toContain(Yp.id);
+  expect(n.groups.map((g) => g.id)).not.toContain(Y.id);
+  expect((await rpc(V, 'get_canvas_share_targets', {})).error, 'signed out has no grant').not.toBeNull();
+});
+
 test('Event page: the canvases shared with E1 are listed to E1\'s admitted people (and the owner) and to no one else', async () => {
   for (const [who, c] of [['A', cA], ['A2', cA2], ['H (host)', cH], ['O (owner)', cO]] as const) {
     const list = await okRpc<Row[]>(c, 'list_canvases_shared_with_event', { p_event: E1.id }, `list ${who}`);

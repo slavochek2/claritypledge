@@ -33,7 +33,8 @@ import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { useReturnState } from '@/app/hooks/use-return-state';
-import { UNRESOLVED_WRITE_MESSAGE, canSendWrite, isNetworkWriteFailure } from '@/app/hooks/use-online-write-guard';
+import { UNRESOLVED_WRITE_MESSAGE, canSendWrite, isNetworkWriteFailure, saveInOrder } from '@/app/hooks/use-online-write-guard';
+import { SharedIcon } from '@/app/components/canvas/canvas-audience';
 import {
   beginPositionWrite,
   endPositionWrite,
@@ -52,6 +53,22 @@ export interface FeedPointCardOwner extends PointOwner {
   isAgent: boolean;
   /** the agent-account list is still loading (no avatar shape, no ear badge yet) */
   identityPending?: boolean;
+}
+
+/**
+ * P1515: the card inside a shared canvas. The canvas page hands the card the CHECKED position
+ * writes (rpc canvas_set_position / canvas_remove_position), so nothing the card does for canvas
+ * content goes through the ordinary point or story services, and says whether the viewer is the
+ * owner. A reader (anyone else) gets no link-out to a page that reads through the ordinary loaders
+ * (Details, a story's own page, the card's share menu): that content is readable only here.
+ */
+export interface FeedPointCardCanvas {
+  setPosition: (position: PositionType) => Promise<void>;
+  removePosition: () => Promise<void>;
+  /** the viewer is not the canvas's owner */
+  reader: boolean;
+  /** what the shared icon says ("Shared with …"); null: the canvas is private to its owner */
+  sharedLabel: string | null;
 }
 
 interface FeedPointCardProps {
@@ -99,6 +116,8 @@ interface FeedPointCardProps {
   onAddStory?: () => void;
   /** A preview: the statement clamped to two lines and its tags, with no votes, footer or menu. For pickers and drafts. */
   compact?: boolean;
+  /** P1515: set only by the canvas page — see FeedPointCardCanvas. Unset everywhere else. */
+  canvas?: FeedPointCardCanvas;
 }
 
 /** The compact form shares the card's frame (PointCardShell) and drops everything that acts. */
@@ -124,7 +143,7 @@ export function FeedPointCard(props: FeedPointCardProps) {
   return props.compact ? <CompactPointCard point={props.point} /> : <FullFeedPointCard {...props} />;
 }
 
-function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory }: FeedPointCardProps) {
+function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -270,7 +289,8 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
     ? (isOwnView ? 'Your story' : 'Their story')
     : `${shownStories?.length ?? 0} ${shownStories?.length === 1 ? 'story' : 'stories'}`;
   const showViewerStory = !!viewerStory && !isOwnView;
-  const menu = (
+
+  const menu = canvas?.reader ? null : (
     <CardMenu
       type="point"
       id={point.id}
@@ -291,6 +311,22 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
     setWithdrawn(false);
   };
 
+  /** P1515: withdraw through the canvas's checked function, then settle the card as a removal does. */
+  const removeViaCanvas = async (bindings: FeedPointCardCanvas) => {
+    try {
+      await bindings.removePosition();
+    } catch {
+      toast.error('Failed to withdraw position.');
+      return;
+    }
+    const removedPosition = serverPositionRef.current;
+    setLocalPosition(null);
+    savedLocal.current = null;
+    setWithdrawn(true);
+    if (removedPosition) onPointRemoved?.(point.id, removedPosition);
+    notifySaved();
+  };
+
   const handlePositionClick = async (position: PositionType) => {
     // P502: Anonymous user → optimistic local position, no redirect
     if (!session?.user) {
@@ -306,6 +342,21 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
 
     // From refs, AFTER the probe: a click made meanwhile (or a refresh) may have changed them.
     const newPosition = effectivePositionRef.current === position ? null : position;
+
+    // P1515: on a canvas the write is the checked function, never the ordinary position service.
+    if (canvas) {
+      if (newPosition === null) { await removeViaCanvas(canvas); return; }
+      setLocalPosition(newPosition);
+      try {
+        await saveInOrder(`position:${point.id}`, () => canvas.setPosition(newPosition));
+        savedLocal.current = newPosition;
+        notifySaved();
+      } catch {
+        setLocalPosition(savedLocal.current);
+        toast.error('Failed to save position.');
+      }
+      return;
+    }
 
     if (newPosition === null) {
       // Toggle-off: use guarded removal to warn about linked stories
@@ -391,7 +442,11 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                 ref={statementRef}
                 className={`min-w-0 flex-1 text-base font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-[40]'}`}
               >
-                <InlineVisibilityIcon visibility={point.visibility} />{' '}
+                {/* P1515: inside a canvas, the canvas's audience decides who reads this, not the
+                    point's own flag: the shared icon says so, in place of nothing. */}
+                {canvas
+                  ? canvas.sharedLabel && <><SharedIcon label={canvas.sharedLabel} />{' '}</>
+                  : <><InlineVisibilityIcon visibility={point.visibility} />{' '}</>}
                 {linkifyText(stripHashtags(point.statement, point.tags))}
               </p>
         </>
@@ -419,7 +474,8 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
         } : {})}
         data-testid="point-card-footer"
       >
-        <CardFooterActions type="point" onDetails={openDetails} describedBy={cardId} loading={linkedStories === undefined}>
+        {/* P1515: Details → opens a page that reads through the ordinary loaders; a canvas reader has none. */}
+        <CardFooterActions type="point" onDetails={canvas?.reader ? undefined : openDetails} describedBy={cardId} loading={linkedStories === undefined}>
           {shownStories && shownStories.length > 0 && (
             <CardExpander
               label={storyLabel}
@@ -498,6 +554,8 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                   authorPosition={owner ? undefined : linked.authorPositionOnPoint}
                   /* P1424: on this list card the story opens only via its own `Details →`. */
                   openViaDetails
+                  /* P1515: a canvas reader has no story page to open (the story is readable here only). */
+                  noDetails={canvas?.reader}
                 />
               </ThreadLineItem>
             ))}
@@ -556,6 +614,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                     return;
                   }
                   if (!(await canSendWrite())) return;
+                  if (canvas) { await removeViaCanvas(canvas); return; }
                   await guardedRemovePosition(point.id);
                 }}
               />

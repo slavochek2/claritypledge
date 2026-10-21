@@ -2,10 +2,9 @@
  * @file canvas-page.tsx
  * @description P1508: Clarity Canvas — an owner's canvas at `/p/:handle/canvas/:projectTag` (R14).
  *
- * There is no canvas record: a canvas is derived from owner + project tag. Its contents are the
- * owner's current-version points that carry the project tag (a user tag) and a box tag (a system
- * tag), placed into eleven boxes in four named layers (sixth round R1): Why I do this, The core bet,
- * How we win, How it pays.
+ * A canvas is its owner's current-version points that carry the reserved `canvas_<name>` system tag
+ * and a box tag, placed into eleven boxes in four named layers (sixth round R1): Why I do this, The
+ * core bet, How we win, How it pays.
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
  * 1024px, two from 640px, one below, each layer under its label. A box shows two cards, then
@@ -17,10 +16,16 @@
  * profile does, the point page's "Filter by position" block, and Previous / Next through the
  * canvas. Opening a box or a point adds a history entry, so Back steps out one level.
  *
- * VISIBILITY: the owner sees their private points; anyone else, public ones only (enforced in the
- * read and by RLS). Everything on screen is keyed by the viewer, so signing out or switching
- * account drops private points, stories and the open panel in the same render. A box with no
- * points is shown to everyone (the grid keeps its shape).
+ * ONE VISIBILITY IDEA (P1515, founder 2026-10-21): a canvas is Private, and its owner chooses who
+ * else sees it (events and groups). The canvas's audience decides everything inside: the whole read
+ * is one server function (`get_canvas`) that returns content only to the owner and to people an
+ * audience entry admits right now; anyone else gets not-found, even if some points are public rows.
+ * The owner has a lock control at the top; a reader sees "Shared with you through <entry>"; the
+ * shared icon marks the header, each point and each story inside. Writes (positions, an added
+ * story, taking one's own added story off) go through the checked functions for everyone, and the
+ * read is repeated, never served from the Back cache, when the tab regains focus and when the side
+ * panel opens. Everything on screen is keyed by the viewer, so signing out or switching account
+ * drops the canvas and the open panel in the same render.
  *
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
@@ -35,12 +40,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
+import { toast } from 'sonner';
 import { pointsService } from '@/app/data/points-service';
-import { storiesService } from '@/app/data/stories-service';
+import { canvasService, type AudienceEntry, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
-import { FeedPointCard, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
-import { InlineVisibilityIcon, type PositionFilter } from '@/app/components/shared';
+import { FeedPointCard, type FeedPointCardCanvas, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
+import { type PositionFilter } from '@/app/components/shared';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
 import { PointPositionsBlock } from '@/app/components/social/point-positions-block';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -55,6 +61,10 @@ import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { stripHashtags } from '@/lib/utils';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
+import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
+import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components/canvas/canvas-add-story-dialog';
+import { SharedIcon } from '@/app/components/canvas/canvas-audience';
+import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
@@ -95,8 +105,17 @@ type CanvasData =
     points: PointWithUserPosition[];
     stories: Map<string, StoryWithAuthor[]>;
     positions: Map<string, PointPositionWithUser[]>;
-    /** every project tag the owner has a canvas for (this viewer's view), for the picker */
+    /** every canvas name the owner has (the owner only; a reader's picker holds this canvas alone) */
     projectTags: string[];
+    /** P1515: 'private' (no entries) or 'shared'; never null on a canvas the viewer can read */
+    visibility: CanvasVisibility;
+    isOwner: boolean;
+    /** the entry that admits a reader (null for the owner) */
+    via: CanvasVia | null;
+    /** the owner's audience, for the lock label and the shared icon (null: not read or not the owner) */
+    audience: AudienceEntry[] | null;
+    /** ids of the stories others added through this canvas */
+    addedStoryIds: string[];
   }
   | { status: 'not-found' }
   | { status: 'error' };
@@ -159,17 +178,20 @@ export function CanvasPage() {
     try {
       const owner = await getProfileBySlugResult(handle, { withRelations: false });
       if (!owner.success) return settle({ status: owner.error === 'not_found' ? 'not-found' : 'error' });
-      // Load time: the picker's tags need only the owner, so they are read alongside the points.
-      const tagsRead = pointsService.getCanvasProjectTags(owner.data.id, viewerId);
+      // Load time: the picker's tags and the owner's audience need only the owner, so they are read
+      // alongside the canvas. A reader's picker holds this canvas alone (the owner's other canvases
+      // are not theirs to list).
+      const viewerIsOwner = viewerId === owner.data.id;
+      const tagsRead = viewerIsOwner
+        ? pointsService.getCanvasProjectTags(owner.data.id, viewerId)
+        : Promise.resolve([projectTag]);
       tagsRead.catch(() => {}); // awaited below; this only stops an unhandled rejection meanwhile
-      const points = await pointsService.getCanvasPoints(owner.data.id, projectTag, viewerId);
-      if (points.length === 0) return settle({ status: 'not-found' });
-      const ids = points.map(p => p.id);
-      const [stories, positions, projectTags] = await Promise.all([
-        storiesService.getStoriesForPoints(ids, undefined, { strict: true }),
-        pointsService.getCanvasPositions(ids),
-        tagsRead,
-      ]);
+      const audienceRead = viewerIsOwner ? canvasService.getAudience(projectTag).catch(() => null) : Promise.resolve(null);
+      // ONE read for everyone (P1515): the owner and admitted readers get the canvas, anyone else
+      // gets nothing, which is shown as not-found exactly as an unknown canvas is.
+      const view = await canvasService.getCanvas(owner.data.id, projectTag, viewerId);
+      if (view.points.length === 0) return settle({ status: 'not-found' });
+      const [projectTags, audience] = await Promise.all([tagsRead, audienceRead]);
       settle({
         status: 'ready',
         ownerId: owner.data.id,
@@ -180,10 +202,15 @@ export function CanvasPage() {
           avatarColor: owner.data.avatarColor,
           hasPledged: owner.data.hasPledged ?? false,
         },
-        points,
-        stories,
-        positions,
+        points: view.points,
+        stories: view.stories,
+        positions: view.positions,
         projectTags,
+        visibility: view.visibility ?? 'private',
+        isOwner: view.isOwner,
+        via: view.via,
+        audience,
+        addedStoryIds: view.addedStoryIds,
       });
     } catch {
       settle({ status: 'error' });
@@ -292,7 +319,34 @@ export function CanvasPage() {
   requestedBoxRef.current = requestedBox;
   const openBoxPanel = useCallback((box: CanvasBoxTag) => {
     setParams({ box }, !requestedPointRef.current && !requestedBoxRef.current);
-  }, [setParams]);
+    // The side panel opening re-reads: access removed since the page loaded shows the reduced view.
+    void read(key, true);
+  }, [key, read, setParams]);
+
+  // P1515: the audience is live, so the canvas is read again when the tab REGAINS focus — never
+  // served from the Back cache. Only after the tab was actually away (blur, or hidden): a focus with
+  // no leaving before it is the navigation's own and would defeat "Back shows it as left". What was
+  // already on screen is not recalled; the next read decides.
+  const isReady = ready !== null;
+  const awayRef = useRef(false);
+  useEffect(() => {
+    if (!isReady) return;
+    const leave = () => { awayRef.current = true; };
+    const returned = () => {
+      if (document.visibilityState === 'hidden' || !awayRef.current) return;
+      awayRef.current = false;
+      void read(keyRef.current, true);
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') leave(); else returned(); };
+    window.addEventListener('blur', leave);
+    window.addEventListener('focus', returned);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('blur', leave);
+      window.removeEventListener('focus', returned);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isReady, read]);
 
   // A point opened from the address (a shared link, a reload of an old tab): put the canvas itself
   // behind it and mark the point's entry, as a card click does — so Back (the browser's, a phone's
@@ -340,8 +394,12 @@ export function CanvasPage() {
   const [expandedStories, setExpandedStories] = useState<Record<string, string | null>>({});
   // Founder, sixth round: "+ Add a story" stays on the canvas — the letters' in-place composer.
   const [storyDialog, setStoryDialog] = useState<PositionStoryDialogState | null>(null);
+  // P1515: a reader's story is a NEW private story saved through the checked function (the owner's
+  // stays an ordinary one, above).
+  const [readerStoryDialog, setReaderStoryDialog] = useState<CanvasAddStoryState | null>(null);
   const closeStoryDialog = useCallback(() => {
     setStoryDialog(null);
+    setReaderStoryDialog(null);
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="canvas-point-panel"]')?.focus());
   }, []);
 
@@ -370,6 +428,32 @@ export function CanvasPage() {
   const compare = basePerson && withPerson
     ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
     : null;
+  // P1515: the one visibility idea. 'shared' marks the header, every point and every story inside.
+  const viewerIsOwner = !!ready && ready.isOwner;
+  const sharedLabel = ready?.visibility === 'shared'
+    ? sharedIconLabel({ isOwner: viewerIsOwner, entries: ready.audience, via: ready.via })
+    : null;
+  const addedStoryIds = new Set(ready?.addedStoryIds ?? []);
+  const composerNote = ready
+    ? composerVisibilityCopy({ isOwner: viewerIsOwner, ownerName: ready.ownerName, entries: ready.audience })
+    : '';
+  // The checked writes for the open point's card (positions), and the one for taking an added story off.
+  const canvasBindings = (point: PointWithUserPosition): FeedPointCardCanvas | undefined => ready && projectTag
+    ? {
+      setPosition: position => canvasService.setPosition(ready.ownerId, projectTag, point.id, position),
+      removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id),
+      reader: !viewerIsOwner,
+      sharedLabel,
+    }
+    : undefined;
+  const removeAddedStory = async (storyId: string) => {
+    try {
+      await canvasService.removeAddedStory(storyId);
+      refresh();
+    } catch {
+      toast.error('Failed to remove your story. Please try again.');
+    }
+  };
   const renderCard = (point: PointWithUserPosition) => ready && (
     <CanvasCard
       key={`${point.id}:${panelCloses}`}
@@ -378,6 +462,7 @@ export function CanvasPage() {
       positions={ready.positions.get(point.id) ?? []}
       compare={compare}
       selected={point.id === openPoint?.id}
+      sharedLabel={sharedLabel}
       onOpen={() => openPanel(point.id, true)}
     />
   );
@@ -437,6 +522,32 @@ export function CanvasPage() {
             />
           )}
         </div>
+        {/* P1515: the owner's lock control, or a reader's one line. Private, and the owner chooses
+            who else sees it: the same idea in both. */}
+        {ready && projectTag && (viewerIsOwner ? (
+          <div className="flex min-w-0 max-w-full" data-testid="canvas-visibility-row">
+            <CanvasShareControl
+              name={projectTag}
+              visibility={ready.visibility}
+              entries={ready.audience}
+              onChanged={refresh}
+            />
+          </div>
+        ) : ready.via && (
+          <p className="flex min-w-0 items-center gap-2 text-sm text-foreground/80" data-testid="canvas-shared-with-you">
+            <SharedIcon label={sharedLabel ?? 'Shared with you'} />
+            <span className="min-w-0">
+              Shared with you through{' '}
+              {ready.via.kind === 'event' && ready.via.slug ? (
+                <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
+                  {ready.via.name}
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground" data-testid="canvas-shared-via">{ready.via.name}</span>
+              )}
+            </span>
+          </p>
+        ))}
       </header>
 
       {current?.status === 'error' ? (
@@ -463,7 +574,7 @@ export function CanvasPage() {
           label={openPoint ? `Point: ${openPoint.statement}` : `${openBoxTitle}`}
           viewKey={openPoint?.id ?? `box:${openBox}`}
           closeLabel={openPoint ? 'Close point' : 'Close box'}
-          covered={storyDialog !== null}
+          covered={storyDialog !== null || readerStoryDialog !== null}
           step={openPoint
             ? {
               box: BOX_TITLES.get(canvasBoxOf(openPoint.systemTags) as CanvasBoxTag),
@@ -485,7 +596,9 @@ export function CanvasPage() {
           <FeedPointCard
             key={openPoint.id}
             point={openPoint}
-            linkedStories={ready.stories.get(openPoint.id) ?? []}
+            // The card shows the OWNER's story (D5); stories others added through the canvas are
+            // read in the block below, so "+ Add a story" stays offered after a reader adds one.
+            linkedStories={(ready.stories.get(openPoint.id) ?? []).filter(st => !addedStoryIds.has(st.id))}
             surface="canvas"
             owner={cardOwner}
             // Escape with the owner's story open closes the story, not the panel (review).
@@ -496,13 +609,20 @@ export function CanvasPage() {
             activeTag={projectTag ?? undefined}
             onPointRemoved={refresh}
             onPositionSaved={refresh}
-            onAddStory={() => setStoryDialog({
-              mode: 'add',
-              pointId: openPoint.id,
-              position: openPositions.find(p => p.userId === viewerId)?.position ?? openPoint.userPosition?.position ?? undefined,
-              // As /create does (P607): the story inherits the point's visibility.
-              visibility: openPoint.visibility === 'private' ? 'private' : 'public',
-            })}
+            canvas={canvasBindings(openPoint)}
+            onAddStory={() => {
+              const position = openPositions.find(p => p.userId === viewerId)?.position ?? openPoint.userPosition?.position ?? undefined;
+              if (!viewerIsOwner) return setReaderStoryDialog({ pointId: openPoint.id, position });
+              setStoryDialog({
+                mode: 'add',
+                pointId: openPoint.id,
+                position,
+                // As /create does (P607): the owner's story inherits the point's visibility.
+                visibility: openPoint.visibility === 'private' ? 'private' : 'public',
+                // ...and a private one says who reads it on this canvas.
+                audienceNote: composerNote,
+              });
+            }}
           />
           {/* D6: the point page's "Filter by position" block, counting from the canvas's one
               positions read; every author's linked stories come from the canvas's batch read. */}
@@ -521,6 +641,7 @@ export function CanvasPage() {
               }))}
               storyShownAbove={ready.ownerId}
               collapseOnEscape
+              canvas={{ sharedLabel, addedStoryIds, onRemoveAddedStory: id => void removeAddedStory(id) }}
             />
           </div>
           </>)}
@@ -530,6 +651,15 @@ export function CanvasPage() {
           Closed either way: focus back into the panel (no trigger for Radix to return it to). */}
       <LetterPositionStoryDialog
         state={storyDialog}
+        onClose={closeStoryDialog}
+        onSaved={() => { closeStoryDialog(); refresh(); }}
+      />
+      <CanvasAddStoryDialog
+        state={readerStoryDialog}
+        audienceNote={composerNote}
+        onSave={(pointId, content) => ready && projectTag
+          ? canvasService.addStory(ready.ownerId, projectTag, pointId, content).then(() => undefined)
+          : Promise.reject(new Error('canvas not ready'))}
         onClose={closeStoryDialog}
         onSaved={() => { closeStoryDialog(); refresh(); }}
       />
@@ -778,12 +908,14 @@ function stanceLabel(position: PositionType | undefined, firstPerson: boolean): 
  * side. When Compare is set, two people's positions in the compare page's columns, small (D8); a
  * person with no position reads "No position", and the card stays where it is.
  */
-function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
+function CanvasCard({ point, viewerId, positions, compare, selected, sharedLabel, onOpen }: {
   point: PointWithUserPosition;
   viewerId?: string;
   positions: PointPositionWithUser[];
   compare: { base: Person; baseId: string; baseIsViewer: boolean; other: CanvasPerson } | null;
   selected: boolean;
+  /** the shared icon's words; null: the canvas is private to its owner (no icon) */
+  sharedLabel: string | null;
   onOpen: () => void;
 }) {
   // Everyone, the owner included: the same read the open point's card and block count from.
@@ -807,7 +939,8 @@ function CanvasCard({ point, viewerId, positions, compare, selected, onOpen }: {
       className={`group w-full rounded-lg border bg-card p-3 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
     >
       <p className="line-clamp-5 break-words text-sm font-medium text-foreground">
-        {point.visibility === 'private' && <><InlineVisibilityIcon visibility={point.visibility} />{' '}</>}
+        {/* One visibility idea: the canvas's audience, not the point's own flag, decides who reads it. */}
+        {sharedLabel && <><SharedIcon label={sharedLabel} />{' '}</>}
         {stripHashtags(point.statement, point.tags)}
       </p>
       {/* The card's spread row (no info button: the card is itself one button). Founder, sixth

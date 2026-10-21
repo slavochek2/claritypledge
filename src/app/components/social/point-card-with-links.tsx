@@ -752,6 +752,7 @@ export function QuotedStory({
   getStoryAuthor,
   authorPosition,
   openViaDetails = false,
+  noDetails = false,
 }: {
   story: Story;
   /** P1364: the point this quote sits under, so the same story under two points keeps separate open state. */
@@ -781,6 +782,9 @@ export function QuotedStory({
    * page embed, live sessions — where the box keeps tap-to-open.
    */
   openViaDetails?: boolean;
+  /** P1515: no `Details →` at all — a canvas reader cannot open the story's own page (the story is
+   *  readable on the canvas only). Used with `openViaDetails`. */
+  noDetails?: boolean;
 }) {
   const author = getStoryAuthor?.(story.authorId);
   const textId = useId(); // P1424: describes the nested `Details →` by this story
@@ -1054,7 +1058,7 @@ export function QuotedStory({
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
-      {openViaDetails && (
+      {openViaDetails && !noDetails && (
         <>
           {/* P1424 review: the button is described by the story's NAME, as P1415 describes the
               card's own `Details →` ("Story by …"), never by the text <p> — a media-only story has

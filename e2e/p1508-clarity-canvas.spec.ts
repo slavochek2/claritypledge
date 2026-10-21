@@ -6,8 +6,13 @@
  * canvas's reserved `canvas_<name>` tag, as the seed does), with a unique name, so nothing depends
  * on the founder's seeded canvas:
  *   - Problem: six public points (more than a box shows) + one PRIVATE point
- *   - Solution: one point with a public story by the owner and one by the other user; the owner
- *     agrees, the other user disagrees
+ *   - Solution: one point with a public story by the owner and a story the other user ADDED through
+ *     the canvas; the owner agrees, the other user disagrees
+ *
+ * P1515 (founder ruling 2026-10-21): the canvas's audience decides everything inside it. The owner
+ * hosts an event the canvas is shared with and the other user is registered for it in time, so the
+ * default viewer here is that admitted reader. A stranger (signed in or out) sees not-found, even
+ * though most of these points are public rows.
  *   - a point by ANOTHER user with the same canvas tag and a box tag    (must not appear)
  *   - an owner point with the canvas tag and NO box tag                 (must not appear)
  *   - Offers & Pricing: one public point; Cost Structure stays empty
@@ -17,6 +22,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
 import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD, type TestUser } from './helpers/test-user';
+import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
 
 const PRIVATE_TEXT = 'P1508 private bet the owner alone can see';
 const STORY_TEXT = 'P1508 story arguing the solution point.';
@@ -28,7 +34,11 @@ const REVENUE_TEXT = 'P1508 the revenue point';
 
 interface Fixture {
   owner: TestUser;
+  /** admitted through the event the canvas is shared with */
   other: TestUser;
+  /** signed in, but not part of the audience */
+  stranger: TestUser;
+  event: TestEvent;
   tag: string;
   solutionPointId: string;
   revenuePointId: string;
@@ -58,6 +68,8 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   made.owner = owner;
   const other = await createTestUser({ name: 'P1508 Other User' });
   made.other = other;
+  const stranger = await createTestUser({ name: 'P1508 Stranger' });
+  made.stranger = stranger;
   for (let i = 1; i <= 6; i++) {
     await insertPoint(owner.user.id, `P1508 problem point number ${i} with enough words to wrap onto two lines`, [tag], sys(tag, 'canvas:problem'));
   }
@@ -79,19 +91,32 @@ async function buildCanvas(made: Partial<Fixture>): Promise<Fixture> {
   if (error) throw new Error(`[P1508 fixture] story: ${error.message}`);
   const link = await supabaseAdmin.from('story_points').insert({ story_id: story.id, point_id: solutionPointId, author_id: owner.user.id });
   if (link.error) throw new Error(`[P1508 fixture] link: ${link.error.message}`);
+  // P1515: the canvas is shared with an event the owner hosts; the other user is registered in time.
+  const event = await createTestEvent(owner.user.id, new Date(Date.now() - 3_600_000), { title: 'P1508 canvas event' });
+  made.event = event;
+  const rsvp = await supabaseAdmin.from('event_rsvps').insert({ event_id: event.id, profile_id: other.user.id, rsvped_at: new Date(Date.now() - 3 * 3_600_000).toISOString() });
+  if (rsvp.error) throw new Error(`[P1508 fixture] rsvp: ${rsvp.error.message}`);
+  const canvas = await supabaseAdmin.from('canvases').insert({ owner_id: owner.user.id, name: tag }).select('id').single();
+  if (canvas.error) throw new Error(`[P1508 fixture] canvas: ${canvas.error.message}`);
+  const audience = await supabaseAdmin.from('canvas_audience').insert({ canvas_id: canvas.data.id, kind: 'event', event_id: event.id });
+  if (audience.error) throw new Error(`[P1508 fixture] audience: ${audience.error.message}`);
+  // The other user's story is one ADDED through the canvas: a private story of theirs, recorded
+  // against the point, never an ordinary story link.
   const { data: otherStory, error: otherError } = await supabaseAdmin.from('stories').insert({
-    content: OTHER_STORY_TEXT, author_id: other.user.id, visibility: 'public',
+    content: OTHER_STORY_TEXT, author_id: other.user.id, visibility: 'private',
   }).select('id').single();
   if (otherError) throw new Error(`[P1508 fixture] other story: ${otherError.message}`);
-  const otherLink = await supabaseAdmin.from('story_points').insert({ story_id: otherStory.id, point_id: solutionPointId, author_id: other.user.id });
-  if (otherLink.error) throw new Error(`[P1508 fixture] other link: ${otherLink.error.message}`);
+  const added = await supabaseAdmin.from('canvas_added_stories').insert({
+    canvas_id: canvas.data.id, point_id: solutionPointId, story_id: otherStory.id, author_id: other.user.id,
+  });
+  if (added.error) throw new Error(`[P1508 fixture] added story: ${added.error.message}`);
   const pos = await supabaseAdmin.from('point_positions').insert([
     { point_id: solutionPointId, user_id: owner.user.id, position: 'agree' },
     { point_id: solutionPointId, user_id: other.user.id, position: 'disagree' },
   ]);
   if (pos.error) throw new Error(`[P1508 fixture] positions: ${pos.error.message}`);
 
-  return { owner, other, tag, solutionPointId, revenuePointId, privatePointId, secondTag, privateTag, url: `/p/${owner.slug}/canvas/${tag}` };
+  return { owner, other, stranger, event, tag, solutionPointId, revenuePointId, privatePointId, secondTag, privateTag, url: `/p/${owner.slug}/canvas/${tag}` };
 }
 
 const CARD = '[data-testid^="canvas-point-card-"]';
@@ -129,7 +154,15 @@ test.describe('P1508: Clarity Canvas', () => {
     if (made.owner) check('story', await supabaseAdmin.from('stories').delete().eq('author_id', made.owner.user.id).eq('content', STORY_TEXT));
     if (made.other) check('other story', await supabaseAdmin.from('stories').delete().eq('author_id', made.other.user.id).eq('content', OTHER_STORY_TEXT));
     if (made.owner) await deleteTestUser(made.owner.user.id);
+    if (made.event) await deleteTestEvent(made.event.id);
     if (made.other) await deleteTestUser(made.other.user.id);
+    if (made.stranger) await deleteTestUser(made.stranger.user.id);
+  });
+
+  // The default viewer is the admitted reader; tests that need the owner, a stranger or a signed-out
+  // visitor say so.
+  test.beforeEach(async ({ page }) => {
+    await setTestSession(page, fx.other.email);
   });
 
   test('smoke: the owner sees their canvas in eleven titled boxes under four layers, private point included, no console errors', async ({ page }) => {
@@ -175,18 +208,35 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByText(UNBOXED_TEXT)).toHaveCount(0);
   });
 
-  test('signed out, the same address shows only the public points', async ({ page }) => {
+  test('an admitted reader sees the whole canvas, private points included; a signed-in stranger and a signed-out visitor see not-found', async ({ page, browser }) => {
+    // The admitted reader (the default session).
     await page.goto(fx.url);
     await waitForCanvas(page);
     await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
     const problem = page.getByTestId('canvas-box-canvas:problem');
     await expect(problem.locator(CARD)).toHaveCount(2);
-    await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 6');
+    await expect(problem.getByTestId('canvas-box-more')).toHaveText('See all 7');
     await problem.getByTestId('canvas-box-more').click();
-    await expect(page.getByTestId('canvas-panel-box-list').locator(CARD)).toHaveCount(6);
-    await expect(page.getByText(PRIVATE_TEXT)).toHaveCount(0);
+    await expect(page.getByTestId('canvas-panel-box-list').locator(CARD)).toHaveCount(7);
+    await expect(page.getByTestId('canvas-panel-box-list').getByText(PRIVATE_TEXT)).toBeVisible(); // CONTROL for the absences below
     await page.keyboard.press('Escape');
     await expect(page.getByText(SOLUTION_TEXT)).toBeVisible();
+
+    // A signed-in stranger: not-found, although the other points are public rows.
+    await setTestSession(page, fx.stranger.email);
+    await page.goto(fx.url);
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(PRIVATE_TEXT)).toHaveCount(0);
+    await expect(page.getByText(SOLUTION_TEXT)).toHaveCount(0);
+
+    // Signed out: the same.
+    const anon = await browser.newContext();
+    const visitor = await anon.newPage();
+    await visitor.goto(fx.url);
+    await expect(visitor.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 20_000 });
+    await expect(visitor.getByText(SOLUTION_TEXT)).toHaveCount(0);
+    await expect(visitor.getByTestId('canvas-grid')).toHaveCount(0);
+    await anon.close();
   });
 
   test('every card shows its spread, always; no switch, no legend, no story count; no buttons inside a card', async ({ page }) => {
@@ -217,18 +267,19 @@ test.describe('P1508: Clarity Canvas', () => {
   });
 
   test('Compare sets two people side by side in the compare page\'s columns; the viewer\'s column reads You', async ({ page }) => {
-    // Signed out: nobody by default; picking someone sets the owner against them.
+    // The admitted reader: nobody by default; picking the owner sets "You" against them.
     await page.goto(fx.url);
     await waitForCanvas(page);
     const card = page.getByTestId(`canvas-point-card-${fx.solutionPointId}`);
     await expect(page.getByLabel('Compare positions with')).toHaveValue('');
     await expect(card.getByTestId('canvas-card-compare')).toHaveCount(0);
-    await page.getByLabel('Compare positions with').selectOption(fx.other.user.id);
-    await expect(page.getByTestId('canvas-compare-picker')).toContainText("Comparing with P1508 Other User");
-    await expect(page).toHaveURL(new RegExp(`with=${fx.other.user.id}`));
+    await page.getByLabel('Compare positions with').selectOption(fx.owner.user.id);
+    await expect(page.getByTestId('canvas-compare-picker')).toContainText(`Comparing with ${fx.owner.name}`);
+    await expect(page).toHaveURL(new RegExp(`with=${fx.owner.user.id}`));
+    await expect(card.getByTestId('canvas-card-compare')).toContainText('You');
     await expect(card.getByTestId('canvas-card-compare')).toContainText('P1508'); // first names in the narrow columns
-    await expect(card.getByTestId('canvas-card-compare')).toContainText('Agrees');
-    await expect(card.getByTestId('canvas-card-compare')).toContainText('Disagrees');
+    await expect(card.getByTestId('canvas-card-compare')).toContainText('Agrees'); // the owner
+    await expect(card.getByTestId('canvas-card-compare')).toContainText(/disagree/i); // "You": the first person
     const noPosition = page.getByTestId(`canvas-point-card-${fx.revenuePointId}`).getByTestId('canvas-card-compare').getByTestId('stance-none');
     await expect(noPosition).toHaveCount(2);
     await expect(noPosition.first()).toHaveText('No position');
@@ -333,7 +384,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
     const panel = page.getByTestId('canvas-point-panel');
-    // Reading order: Problem (6 public), then Solution, then Offers & Pricing. D7: no "N of M"; the box title stays.
+    // Reading order: Problem (6 public + the private one, which the admitted reader sees), then Solution, then Offers & Pricing. D7: no "N of M"; the box title stays.
     await expect(panel.getByTestId('canvas-panel-step')).toHaveCount(0);
     await expect(panel.getByText(/\d+ of \d+/)).toHaveCount(0);
     await expect(panel.getByTestId('canvas-panel-box')).toHaveText('Solution');
@@ -349,7 +400,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await panel.getByTestId('canvas-panel-previous').click();
     await expect(panel.getByTestId('canvas-panel-box')).toHaveText('Problem');
     await expect(page).not.toHaveURL(new RegExp(`point=${fx.solutionPointId}`));
-    await expect(panel.locator('p', { hasText: /P1508 problem point number 6/ })).toBeVisible();
+    await expect(panel.locator('p', { hasText: PRIVATE_TEXT })).toBeVisible(); // the last point of the Problem box
     await panel.getByTestId('canvas-panel-next').click();
     await expect(panel.locator('p', { hasText: SOLUTION_TEXT })).toBeVisible();
     // review fix: Enter on Next lands on the last point, where Next is gone — focus stays in the
@@ -385,10 +436,10 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page).not.toHaveURL(/point=/);
   });
 
-  test('review fix: an address naming a point not on screen is reused, so closing never steps back onto it', async ({ page }) => {
+  test('review fix: an address naming a point not on this canvas is reused, so closing never steps back onto it', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    // Signed out, a private point id does not open: the address names a point not on screen.
-    await page.goto(`${fx.url}?point=${fx.privatePointId}`);
+    // An id that is not one of this canvas's points does not open: the address names a point not on screen.
+    await page.goto(`${fx.url}?point=00000000-0000-0000-0000-0000000000cc`);
     await waitForCanvas(page);
     const panel = page.getByTestId('canvas-point-panel');
     await expect(panel).toHaveCount(0);
@@ -520,6 +571,7 @@ test.describe('P1508: Clarity Canvas', () => {
 
   test('header (R10): "Clarity Canvas" on its own line, then "by <owner> · <canvas>" with Compare on the right; no intro, no call-to-action, no footer', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    await setTestSession(page, fx.owner.email); // the owner has several canvases: the picker is a menu
     await page.goto(fx.url);
     await waitForCanvas(page);
     const h1 = page.getByRole('heading', { level: 1 });
@@ -633,7 +685,7 @@ test.describe('P1508: Clarity Canvas', () => {
     }
   });
 
-  test('after signing out on the owner canvas, no private point, story or open panel stays on screen', async ({ page }) => {
+  test('after signing out on the owner canvas, no point, story or open panel stays on screen (the canvas is not-found)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
@@ -649,45 +701,38 @@ test.describe('P1508: Clarity Canvas', () => {
     });
     await expect(page.getByTestId('canvas-point-panel')).toHaveCount(0);
     await expect(page.getByText(PRIVATE_TEXT)).toHaveCount(0);
-    await waitForCanvas(page);
+    // P1515: signed out, the canvas is not for the visitor at all — not-found, nothing of it on screen.
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(PRIVATE_TEXT)).toHaveCount(0);
-    await expect(page.getByText(SOLUTION_TEXT)).toBeVisible();
+    await expect(page.getByText(SOLUTION_TEXT)).toHaveCount(0);
   });
 
-  test('review fix: a signed-out vote in the panel is still there when the point is opened again', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(fx.url);
-    await waitForCanvas(page);
-    await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
-    const panel = page.getByTestId('canvas-point-panel');
-    await panel.getByRole('button', { name: /^disagree/i }).first().click();
-    await panel.getByRole('button', { name: 'Close' }).click();
-    await expect(panel).toHaveCount(0);
-    // The card shows the room's spread, not the viewer's own position (founder: open it to see yours).
-    await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).getByTestId('canvas-viewer-position')).toHaveCount(0);
-    await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
-    await expect(panel.getByRole('button', { name: /^disagree/i }).first()).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  test('the canvas picker lists the owner\'s canvases and switches between them; a private-only canvas is listed for the owner only', async ({ page }) => {
+  test('the canvas picker lists the owner\'s canvases and switches between them (the owner only); a reader\'s picker is the one canvas shared with them', async ({ page }) => {
+    // R9: only reserved canvas tags name a canvas — the user-tag-only point adds none.
+    await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
     await waitForCanvas(page);
     const picker = page.getByTestId('canvas-project-tag');
     await expect(picker).toHaveValue(fx.tag);
-    // R9: only reserved canvas tags name a canvas — the user-tag-only point adds none.
-    await expect(picker.locator('option')).toHaveText([fx.tag, fx.secondTag]);
+    await expect(picker.locator('option')).toHaveText([fx.tag, fx.secondTag, fx.privateTag]);
     await picker.selectOption(fx.secondTag);
     await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.secondTag}$`));
     await waitForCanvas(page);
     await expect(page.getByText('P1508 second canvas point')).toBeVisible();
 
-    await setTestSession(page, fx.owner.email);
+    // The admitted reader lists nothing of the owner's other canvases: just this one, by name.
+    await setTestSession(page, fx.other.email);
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-project-tag').locator('option')).toHaveText([fx.tag, fx.secondTag, fx.privateTag]);
+    await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag);
+    await expect(page.getByTestId('canvas-project-picker')).toHaveCount(0);
+    // ...and the owner's second canvas, never shared, is not-found for them (even its public point).
+    await page.goto(`/p/${fx.owner.slug}/canvas/${fx.secondTag}`);
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('P1508 second canvas point')).toHaveCount(0);
   });
 
-  test('D5: a visitor sees the owner exactly as the owner\'s profile shows them — owner row above a quoted box, "Their story"', async ({ page }) => {
+  test('D5: a reader sees the owner exactly as the owner\'s profile shows them — owner row above a quoted box, "Their story"', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const measure = (root: import('@playwright/test').Locator) => root.evaluate(card => {
       const row = card.querySelector('[data-testid="point-owner-row"]') as HTMLElement;
@@ -704,12 +749,12 @@ test.describe('P1508: Clarity Canvas', () => {
         quoted: pick(quoted, ['background-color', 'border-top-width', 'border-radius', 'padding']),
       };
     });
-    // The owner's profile (signed out), the same point.
+    // The owner's profile (as the same reader), the same point.
     await page.goto(`/p/${fx.owner.slug}?tab=points`);
     const profileCard = page.getByTestId(`point-card-with-links-${fx.solutionPointId}`);
     await expect(profileCard).toBeVisible({ timeout: 20_000 });
     const onProfile = await measure(profileCard);
-    // The canvas, the same visitor.
+    // The canvas, the same reader.
     await page.goto(`${fx.url}?point=${fx.solutionPointId}`);
     await waitForCanvas(page);
     const panelCard = page.getByTestId('canvas-point-panel').getByTestId(`feed-point-card-${fx.solutionPointId}`);
@@ -729,13 +774,15 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(revenueCard.getByTestId('point-owner-no-position')).toHaveText('No position');
     await expect(revenueCard.getByTestId('feed-point-story-expander')).toHaveCount(0); // no owner story, no label
 
-    // The other user (signed in) has a story here: "✓ Your story" as its own link, beside "Their story".
-    await setTestSession(page, fx.other.email);
+    // The reader has a story here, added through the canvas: it is read in the block below, not
+    // as a link to a story page ("Your story" opens /story/:id, which a reader does not use here),
+    // and "+ Add a story" stays offered because they hold a position.
     await page.goto(`${fx.url}?point=${fx.solutionPointId}`);
     await waitForCanvas(page);
     const asOther = page.getByTestId('canvas-point-panel').getByTestId(`feed-point-card-${fx.solutionPointId}`);
     await expect(asOther.getByTestId('feed-point-story-expander')).toHaveText(/Their story/);
-    await expect(asOther.getByText('Your story')).toHaveCount(1);
+    await expect(asOther.getByText('Your story')).toHaveCount(0);
+    await expect(asOther.getByRole('button', { name: /add a story|why you/i })).toBeVisible();
   });
 
   test('the spread lives on the open card (founder): its info button explains it on hover and click; Escape closes only the popover; focus that falls out still lets Escape close the panel', async ({ page }) => {
@@ -788,7 +835,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-grid')).toBeVisible();
   });
 
-  test('review fix: the open point is in the address — reload reopens it; a private id does not open signed out', async ({ page }) => {
+  test('review fix: the open point is in the address — reload reopens it; a private id gets a signed-out visitor not-found', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
@@ -801,11 +848,12 @@ test.describe('P1508: Clarity Canvas', () => {
     // the open card is marked in its box
     await expect(page.getByTestId(`canvas-point-card-${fx.solutionPointId}`)).toHaveAttribute('data-selected', 'true');
 
+    // A visitor with the private point's id gets not-found: no panel, none of the text.
     const anon = await page.context().browser()!.newContext();
     const other = await anon.newPage();
     await other.setViewportSize({ width: 1440, height: 900 });
     await other.goto(`${fx.url}?point=${fx.privatePointId}`);
-    await expect(other.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 45_000 });
+    await expect(other.getByRole('heading', { name: 'Page not found' })).toBeVisible({ timeout: 45_000 });
     await expect(other.getByTestId('canvas-point-panel')).toHaveCount(0);
     await expect(other.getByText(PRIVATE_TEXT)).toHaveCount(0);
     await anon.close();
@@ -878,9 +926,9 @@ test.describe('P1508: Clarity Canvas', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setTestSession(page, fx.owner.email);
     let canvasReads = 0;
+    // P1515: the canvas is one rpc read now (get_canvas), for its owner and every reader alike.
     page.on('request', r => {
-      const url = decodeURIComponent(r.url());
-      if (/\/rest\/v1\/points\?/.test(url) && url.includes(`canvas_${fx.tag.toLowerCase()}`)) canvasReads++;
+      if (/\/rest\/v1\/rpc\/get_canvas/.test(r.url()) && (r.postData() ?? '').includes(fx.tag.toLowerCase())) canvasReads++;
     });
     const original = (await supabaseAdmin.from('point_positions').select('position')
       .eq('point_id', fx.solutionPointId).eq('user_id', fx.owner.user.id).maybeSingle()).data?.position ?? null;

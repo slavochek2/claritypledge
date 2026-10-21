@@ -28,8 +28,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, normalize, relative, sep } from 'node:path';
 import ts from 'typescript';
 
-/** Tables whose rows (or counts) the cached lists render. story_verifications → understoodCount. */
-const BASE_CACHED_TABLES = ['point_positions', 'points', 'stories', 'story_points', 'story_verifications'];
+/** Tables whose rows (or counts) the cached lists render. story_verifications → understoodCount.
+ * P1515: the 'canvas' entry also renders added stories, the Private/Shared state and its audience,
+ * and readers' positions, which a host's removal takes off the canvas. */
+const BASE_CACHED_TABLES = ['point_positions', 'points', 'stories', 'story_points', 'story_verifications',
+  'canvas_added_stories', 'canvases', 'canvas_audience', 'event_removals'];
 const WRITE_METHODS = new Set(['insert', 'upsert', 'update', 'delete']);
 
 /** Named exceptions: `file#function` → why no invalidation is needed. Keep it small. */
@@ -246,7 +249,8 @@ const derived = deriveWriters(root);
 
 describe('P1364 cache-invalidation drift guard — the derivation', () => {
   it('finds the known writers from the migrations and edge functions (it is not blind)', () => {
-    for (const rpc of ['submit_point_response_by_token', 'replay_letter_positions', 'erase_my_account', 'submit_rating_by_token']) {
+    for (const rpc of ['submit_point_response_by_token', 'replay_letter_positions', 'erase_my_account', 'submit_rating_by_token',
+      'canvas_remove_added_story', 'unshare_canvas']) {
       expect(derived.rpcs, rpc).toContain(rpc);
     }
     expect(derived.edgeFunctions).toContain('confirm-letter-response');

@@ -24,6 +24,7 @@ const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
 const SHARING = '20261021100000_p1515_artifact_sharing.sql';
 const SEAL = '20261021100100_p1515_seal_letter_skips_foreign_private_points.sql';
 const RULING = '20261021110000_p1515_audience_decides_everything_inside.sql';
+const TARGETS = '20261021150000_p1515_canvas_share_targets.sql';
 const SEAL_BASE = '20260904120000_p1212_seal_rpc_story_author_name.sql';
 
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -144,6 +145,24 @@ describe('P1515: founder ruling migration (the audience decides everything insid
 
   it('CONTROL: the first migration really did have the D-A path (the absence above is not a blind regex)', () => {
     expect(stripComments(read(SHARING))).toMatch(/d_a_public_stories_by_others/);
+  });
+});
+
+describe('P1515: the share-targets migration (phase 2)', () => {
+  const code = stripComments(read(TARGETS));
+
+  it('adds one signed-in function with an empty search_path, and nothing that widens access', () => {
+    expect(functions(read(TARGETS)).map((f) => f.name)).toEqual(['get_canvas_share_targets']);
+    expect(functions(read(TARGETS))[0]!.header).toMatch(/SECURITY DEFINER[\s\S]*SET search_path = ''/);
+    expect(code).toMatch(/REVOKE ALL ON FUNCTION public\.get_canvas_share_targets\(\)\s+FROM PUBLIC, anon, authenticated/);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_canvas_share_targets\(\) TO authenticated;/);
+    expect(code).not.toMatch(/GRANT[^;]*\banon\b/i);
+    expect(code).not.toMatch(/\b(CREATE|ALTER|DROP)\s+(POLICY|TABLE)\b/i);
+  });
+
+  it('offers only events the same admission rule share_canvas checks admits, never every event', () => {
+    expect(code).toMatch(/public\._canvas_event_admits\(e\.id, v_uid\)/);
+    expect(code).toMatch(/WHERE m\.user_id = v_uid|m\.user_id = v_uid/);
   });
 });
 

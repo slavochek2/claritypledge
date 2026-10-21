@@ -85,7 +85,7 @@ interface DbStoryPointWithStory {
 /**
  * Transform database row to Story type
  */
-function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
+export function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
   return {
     id: row.id,
     authorId: row.author_id,

@@ -75,10 +75,11 @@ const ICON_BUTTON =
 
 // ─── Bottom row ─────────────────────────────────────────────────────────────
 
-/** P1449: CP's wrapper — on a CP list card `Details →` is always there, so `onDetails` is required. */
+/** P1449: CP's wrapper — on a CP list card `Details →` is there, so callers pass `onDetails`. P1515: only
+ *  a canvas reader's point card omits it (the page it opens reads through the ordinary loaders). */
 export function CardFooterActions(props: {
   type: CardType;
-  onDetails: () => void;
+  onDetails?: () => void;
   describedBy?: string;
   loading?: boolean;
   children?: ReactNode;

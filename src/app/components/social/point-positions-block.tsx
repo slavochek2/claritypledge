@@ -28,6 +28,21 @@ import { EarBadge } from '@/components/ui/ear-badge';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import type { Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { totalPositions, type LevelCounts } from '@/lib/position-spread';
+import { SharedIcon } from '@/app/components/canvas/canvas-audience';
+
+/**
+ * P1515: the block inside a shared canvas. Stories come from the canvas read, so they are shown in
+ * place and never link out to a story page (a reader cannot open it: it is readable on the canvas
+ * only); the canvas's shared icon marks each; and a story its author added through the canvas
+ * carries a way to take it off again.
+ */
+export interface PointPositionsBlockCanvas {
+  /** what the shared icon says; null: the canvas is private to its owner (no icon) */
+  sharedLabel: string | null;
+  /** ids of the stories people added through this canvas */
+  addedStoryIds: ReadonlySet<string>;
+  onRemoveAddedStory: (storyId: string) => void;
+}
 
 interface PointPositionsBlockProps {
   /** everyone's position on the point, with names */
@@ -54,6 +69,8 @@ interface PointPositionsBlockProps {
    * around it must not close (the toggle keeps focus after opening, outside the story region).
    */
   collapseOnEscape?: boolean;
+  /** P1515: set only by the canvas page. */
+  canvas?: PointPositionsBlockCanvas;
 }
 
 export function PointPositionsBlock({
@@ -69,6 +86,7 @@ export function PointPositionsBlock({
   onUnlinkStory,
   storyShownAbove,
   collapseOnEscape = false,
+  canvas,
 }: PointPositionsBlockProps) {
   const navigate = useNavigate();
 
@@ -195,6 +213,7 @@ export function PointPositionsBlock({
                           isViewer={isViewer}
                           onCollapse={() => setExpandedHolderId(null)}
                           onUnlinkPoint={isViewer ? onUnlinkStory : undefined}
+                          canvas={canvas}
                         />
                       )}
                     </div>
@@ -239,6 +258,8 @@ export function PointPositionsBlock({
                     <PositionlessStoryRegion
                       story={story}
                       onCollapse={() => setExpandedHolderId(null)}
+                      viewerId={viewerId}
+                      canvas={canvas}
                     />
                   )}
                 </div>
@@ -357,12 +378,14 @@ function ExpandableStoryRegion({
   isViewer,
   onCollapse,
   onUnlinkPoint,
+  canvas,
 }: {
   holder: PointPositionWithUser;
   story: StoryWithAuthor | AppStory;
   isViewer: boolean;
   onCollapse: () => void;
   onUnlinkPoint?: (storyId: string) => void;
+  canvas?: PointPositionsBlockCanvas;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
 
@@ -431,6 +454,7 @@ function ExpandableStoryRegion({
       aria-label={`${holder.userName}'s story`}
       ref={regionRef}
     >
+      {canvas && <CanvasStoryMeta canvas={canvas} storyId={story.id} authorName={holder.userName} isViewer={isViewer} />}
       <ThreadLineGroup>
         <ThreadLineItem isLast>
           <StoryCardWithLinks
@@ -440,6 +464,8 @@ function ExpandableStoryRegion({
             compact
             tags={storyTags}
             onUnlinkPoint={onUnlinkPoint}
+            // P1515: on a canvas the story is read in place; its own page is not for readers.
+            {...(canvas ? { hideActions: true, disableNavigation: true } : {})}
           />
         </ThreadLineItem>
       </ThreadLineGroup>
@@ -530,9 +556,13 @@ function PositionlessStoryRow({
 function PositionlessStoryRegion({
   story,
   onCollapse,
+  viewerId,
+  canvas,
 }: {
   story: StoryWithAuthor;
   onCollapse: () => void;
+  viewerId?: string;
+  canvas?: PointPositionsBlockCanvas;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
 
@@ -588,6 +618,7 @@ function PositionlessStoryRegion({
       aria-label={`${story.authorName}'s story`}
       ref={regionRef}
     >
+      {canvas && <CanvasStoryMeta canvas={canvas} storyId={story.id} authorName={story.authorName} isViewer={viewerId === story.authorId} />}
       <ThreadLineGroup>
         <ThreadLineItem isLast>
           <StoryCardWithLinks
@@ -596,9 +627,41 @@ function PositionlessStoryRegion({
             context="point-detail"
             compact
             tags={storyTags}
+            {...(canvas ? { hideActions: true, disableNavigation: true } : {})}
           />
         </ThreadLineItem>
       </ThreadLineGroup>
+    </div>
+  );
+}
+
+/**
+ * P1515: above a story on a canvas — the shared icon, whose story it is when someone ADDED it through
+ * the canvas, and (its author only) the way to take it off again. The story stays in its author's own
+ * list; only its place on this canvas goes.
+ */
+function CanvasStoryMeta({ canvas, storyId, authorName, isViewer }: {
+  canvas: PointPositionsBlockCanvas;
+  storyId: string;
+  authorName: string;
+  isViewer: boolean;
+}) {
+  const added = canvas.addedStoryIds.has(storyId);
+  if (!canvas.sharedLabel && !added) return null;
+  return (
+    <div className="mb-1 flex items-center gap-2 pl-1 text-xs text-muted-foreground" data-testid="canvas-story-meta">
+      {canvas.sharedLabel && <SharedIcon label={canvas.sharedLabel} />}
+      {added && <span>{isViewer ? 'Added by you' : `Added by ${authorName}`}</span>}
+      {added && isViewer && (
+        <button
+          type="button"
+          onClick={() => canvas.onRemoveAddedStory(storyId)}
+          className="ml-auto min-h-10 rounded-sm px-2 text-xs font-medium text-red-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          data-testid="canvas-remove-added-story"
+        >
+          Remove from this canvas
+        </button>
+      )}
     </div>
   );
 }

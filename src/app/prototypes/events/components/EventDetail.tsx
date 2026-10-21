@@ -24,6 +24,7 @@ import {
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
+import { EventSharedCanvases } from '@/app/components/canvas/event-shared-canvases';
 import { OrgFooterNote } from './OrgFooterNote';
 import { ImageLightbox } from '@/app/components/shared/image-lightbox';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
@@ -1052,6 +1053,9 @@ export function EventDetail() {
                 />
                 </div>
               )}
+
+              {/* P1515: canvases shared with this event, for the people the event admits. */}
+              {!isCancelled && <EventSharedCanvases eventId={event.id} enabled={isLoggedIn && (isRsvpd || isHostOfEvent)} />}
 
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               {hikeSeriesSlug ? (

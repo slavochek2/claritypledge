@@ -94,7 +94,7 @@ interface DbPositionHistoryRow {
 /**
  * Transform database row to PointWithCreator type
  */
-function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
+export function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
   return {
     id: row.id,
     statement: row.statement,
@@ -117,7 +117,7 @@ function mapPointFromDb(row: DbPointWithCreator): PointWithCreator {
 /**
  * Transform database row to PointPosition type
  */
-function mapPositionFromDb(row: {
+export function mapPositionFromDb(row: {
   id: string;
   point_id: string;
   user_id: string;
@@ -140,7 +140,7 @@ function mapPositionFromDb(row: {
 /**
  * Transform database row to PointPositionWithUser type
  */
-function mapPositionWithUserFromDb(row: DbPositionWithUser): PointPositionWithUser {
+export function mapPositionWithUserFromDb(row: DbPositionWithUser): PointPositionWithUser {
   return {
     id: row.id,
     pointId: row.point_id,

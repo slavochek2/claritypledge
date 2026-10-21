@@ -50,6 +50,13 @@ vi.mock('@/app/data/events-service', () => ({
   },
 }));
 
+// P1515: EventDetail also asks which canvases are shared with the event, once the viewer is
+// registered or hosting. None here; without this stub the real client's failed request marks the
+// network unreachable and the cancel below is (correctly) refused as offline.
+vi.mock('@/app/data/canvas-service', () => ({
+  canvasService: { listSharedWithEvent: vi.fn().mockResolvedValue([]) },
+}));
+
 // ── Analytics ─────────────────────────────────────────────────────────────────
 vi.mock('@/lib/mixpanel', () => ({
   analytics: { track: vi.fn(), identify: vi.fn() },

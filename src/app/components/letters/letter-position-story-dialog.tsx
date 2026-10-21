@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { VisibilityLine } from '@/app/components/shared/visibility-line';
+import { SharedIcon } from '@/app/components/canvas/canvas-audience';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { stripHashtags } from '@/lib/utils';
 import { createLetterPositionStory, updateLetterPositionStory } from '@/app/data/letters-service';
@@ -42,6 +43,9 @@ interface AddMode {
   position?: PositionType;
   /** The new story's visibility. Unset: private (letters). P1508's canvas passes the point's. */
   visibility?: 'public' | 'private';
+  /** P1515: on a canvas, who will read the story ("Visible to you and …"); shown in place of the
+   *  visibility line, and only for a private story (a public one still says it will be public). */
+  audienceNote?: string;
 }
 
 interface EditMode {
@@ -135,7 +139,14 @@ export function LetterPositionStoryDialog({
             </DialogHeader>
             {/* P1508: a story that will be public says so before Save, as /create does (P610). */}
             {state.mode === 'add' && state.visibility && (
-              <VisibilityLine visibility={state.visibility} source="Matches point visibility" />
+              state.audienceNote && state.visibility === 'private' ? (
+                <div role="status" className="flex items-center gap-2 rounded-lg border border-border bg-muted p-2.5 text-sm text-foreground" data-testid="canvas-composer-audience">
+                  <SharedIcon label={state.audienceNote} />
+                  <span>{state.audienceNote}</span>
+                </div>
+              ) : (
+                <VisibilityLine visibility={state.visibility} source="Matches point visibility" />
+              )
             )}
             <Textarea
               placeholder={state.position ? explainPlaceholder(state.position) : 'Share your position or reasoning…'}
