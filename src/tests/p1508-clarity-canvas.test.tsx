@@ -64,7 +64,7 @@ describe('box tags', () => {
       'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
       'Values', 'When my strengths become weaknesses', 'Who else wins when I win?',
     ]);
-    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['The core bet', 'Go to market', 'Me and the world']);
+    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
     expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
   });
 

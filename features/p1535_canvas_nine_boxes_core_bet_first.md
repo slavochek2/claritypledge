@@ -91,31 +91,31 @@ changes"). Two keys leave the box list, as `canvas:uvp` did.
 ```
 Clarity Canvas
 by <owner> · <canvas name>  [Compare positions]
-01 The core bet       Customer Segments | Problem               | Solution
-02 Go to market       Go-to-market strategy | Offers & Pricing  | How I'll know it's working
-03 Me and the world   Values           | When my strengths become weaknesses | Who else wins when I win?
+01 Core assumptions       Customer Segments | Problem               | Solution
+02 Profitability assumptions      Go-to-market strategy | Offers & Pricing  | How I'll know it's working
+03 Founder-fit assumptions        Values           | When my strengths become weaknesses | Who else wins when I win?
 ```
 Two columns from 640px and one below, same reading order. Panel, Previous / Next and "See all N"
 unchanged; they follow the new order.
 
 | Key | New title | Layer |
 |---|---|---|
-| canvas:segments | Customer Segments | The core bet |
-| canvas:problem | Problem | The core bet |
-| canvas:solution | Solution | The core bet |
-| canvas:channels | Go-to-market strategy | Go to market |
-| canvas:revenue | Offers & Pricing | Go to market |
-| canvas:metrics | How I'll know it's working | Go to market |
-| canvas:love | Values | Me and the world |
-| canvas:good-at | When my strengths become weaknesses | Me and the world |
-| canvas:world-needs | Who else wins when I win? | Me and the world |
+| canvas:segments | Customer Segments | Core assumptions |
+| canvas:problem | Problem | Core assumptions |
+| canvas:solution | Solution | Core assumptions |
+| canvas:channels | Go-to-market strategy | Profitability assumptions |
+| canvas:revenue | Offers & Pricing | Profitability assumptions |
+| canvas:metrics | How I'll know it's working | Profitability assumptions |
+| canvas:love | Values | Founder-fit assumptions |
+| canvas:good-at | When my strengths become weaknesses | Founder-fit assumptions |
+| canvas:world-needs | Who else wins when I win? | Founder-fit assumptions |
 | canvas:advantage | (dropped) | |
 | canvas:cost | (dropped) | |
 
-[FOUNDER DECISION: layer names "Go to market" and "Me and the world" are agent placeholders;
-founder said "let's go with whatever" (2026-10-21). Confirm or rename.]
-[FOUNDER DECISION: "How I'll know it's working" was proposed by the agent for Key Metrics; founder
-said "keep metrics ok" without naming the title.]
+Founder decided (2026-10-21): layers "Core assumptions", "Profitability assumptions", "Founder-fit
+assumptions", so every row reads as unproven ("assuptions for me clearr"). Replaces the placeholders
+"Go to market" (clashed with its own Go-to-market strategy box) and "Me and the world"; "bet" was
+rejected as unclear. The metrics title "How I'll know it's working" stays.
 
 Compact layout: tighter spacing between layers, cards clamped to fewer lines, smaller box padding,
 so nine boxes with one card each fit 1440x900 without page scroll. Two cards per box and "See all N"

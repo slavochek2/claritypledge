@@ -19,7 +19,7 @@
  *   - an owner point with the canvas tag and NO box tag                 (must not appear)
  *   - Offers & Pricing: one point
  *   - owner points in the dropped Unfair Advantage and Cost Structure boxes (P1535: must not appear)
- *   - the "Me and the world" boxes stay empty
+ *   - the "Founder-fit assumptions" boxes stay empty
  */
 import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -197,7 +197,7 @@ test.describe('P1508: Clarity Canvas', () => {
       await expect(page.getByText(gone, { exact: true })).toHaveCount(0);
     }
     // P1535: three layers, named, in order, the core bet first; no other frames.
-    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['The core bet', 'Go to market', 'Me and the world']);
+    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
     // R2: two cards, then "N more", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');

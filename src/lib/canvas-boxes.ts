@@ -34,9 +34,9 @@ export const CANVAS_BOX_TAGS: readonly CanvasBoxTag[] = CANVAS_BOXES.map(b => b.
 /** The three layers, top to bottom (P1535, founder): the core bet first, the founder's own
  *  values and limits last. Reading order is layer by layer, box by box; Previous / Next walk it. */
 export const CANVAS_LAYERS: readonly { title: string; boxes: readonly CanvasBoxTag[] }[] = [
-  { title: 'The core bet', boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
-  { title: 'Go to market', boxes: ['canvas:channels', 'canvas:revenue', 'canvas:metrics'] },
-  { title: 'Me and the world', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
+  { title: 'Core assumptions', boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
+  { title: 'Profitability assumptions', boxes: ['canvas:channels', 'canvas:revenue', 'canvas:metrics'] },
+  { title: 'Founder-fit assumptions', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
 ];
 
 const BOX_TAG_SET: ReadonlySet<string> = new Set(CANVAS_BOX_TAGS);

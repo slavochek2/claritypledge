@@ -3,8 +3,8 @@
  * @description P1508: Clarity Canvas — an owner's canvas at `/p/:handle/canvas/:projectTag` (R14).
  *
  * A canvas is its owner's current-version points that carry the reserved `canvas_<name>` system tag
- * and a box tag, placed into nine boxes in three named layers (P1535): The core bet, Go to market,
- * Me and the world.
+ * and a box tag, placed into nine boxes in three named layers (P1535): Core assumptions,
+ * Profitability assumptions, Founder-fit assumptions.
  *
  * READ FIRST, ACT ON OPEN (founder, event use): one grid in reading order, three columns from
  * 1024px, two from 640px, one below, each layer under its label, compact enough that a canvas with
