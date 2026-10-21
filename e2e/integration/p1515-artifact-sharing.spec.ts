@@ -542,7 +542,7 @@ test('AC10: canvas admission grants no base access: REST returns the attendee no
   expect(stIds(await getCanvas(cO))).not.toContain(S_a_direct);
 });
 
-test('AC4: O adds group Y: G reads everything; after G leaves Y the next request is public points only; events come before groups', async () => {
+test('AC4: O adds group Y: G reads everything; after G leaves Y the next request is not-found; events come before groups', async () => {
   expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Y.id }, 'share Y')).toBe(true);
   const g = await getCanvas(cG);
   expectAdmitted(g, 'G', { kind: 'group', id: Y.id });
@@ -559,7 +559,7 @@ test('AC4: O adds group Y: G reads everything; after G leaves Y the next request
   expectAdmitted(await getCanvas(cG2), 'G2 still a member', { kind: 'group', id: Y.id });
 });
 
-test('AC5: the host removes R: registration gone, R cannot register again, R sees public points only, R\'s direct writes show nowhere', async () => {
+test('AC5: the host removes R: registration gone, R cannot register again, R gets not-found, R\'s direct writes show nowhere', async () => {
   // CONTROL: R is admitted before the removal.
   expectAdmitted(await getCanvas(cR), 'R before removal', { kind: 'event', id: E1.id });
   await okRpc(cH, 'remove_event_attendee', { p_event: E1.id, p_user: R.user.id }, 'host removes R');
@@ -859,6 +859,26 @@ test('Share targets: the owner is offered the events they host or are admitted t
   expect(n.groups.map((g) => g.id)).toContain(Yp.id);
   expect(n.groups.map((g) => g.id)).not.toContain(Y.id);
   expect((await rpc(V, 'get_canvas_share_targets', {})).error, 'signed out has no grant').not.toBeNull();
+});
+
+test('Share targets: an event of any age is offered (no 90-day cutoff), newest first, and exactly what share_canvas accepts; a cancelled one is not', async () => {
+  const targets = (c: SupabaseClient) => okRpc<{ events: Row[]; groups: Row[] }>(c, 'get_canvas_share_targets', {}, 'share targets');
+  const longAgo = new Date(Date.now() - 200 * DAY); // well past the old 90-day cutoff
+  const old = await createTestEvent(H.user.id, longAgo, { title: `P1515 old event ${RUN}`, status: 'completed' });
+  const oldCancelled = await createTestEvent(H.user.id, longAgo, { title: `P1515 old cancelled ${RUN}`, status: 'cancelled' });
+  events.push(old, oldCancelled);
+  const early = new Date(longAgo.getTime() - DAY);
+  await rsvp(old.id, O.user.id, early);
+  await rsvp(oldCancelled.id, O.user.id, early);
+  const ids = (await targets(cO)).events.map((e) => e.id);
+  expect(ids, 'CONTROL: the recent event is still offered').toContain(E1.id);
+  expect(ids, 'an event 200 days old is offered').toContain(old.id);
+  expect(ids.indexOf(E1.id), 'newest first: the recent event comes before the old one').toBeLessThan(ids.indexOf(old.id));
+  expect(ids, 'a cancelled event is not offered').not.toContain(oldCancelled.id);
+  // The list is exactly what the server accepts: the offered old event shares, the cancelled one is refused.
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: old.id }, 'share the old event')).toBe(true);
+  expect((await rpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: oldCancelled.id })).error, 'cancelled: refused').not.toBeNull();
+  expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: old.id }, 'unshare the old event')).toBe(true);
 });
 
 test('Event page: the canvases shared with E1 are listed to E1\'s admitted people (and the owner) and to no one else', async () => {

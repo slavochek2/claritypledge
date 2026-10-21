@@ -6,6 +6,7 @@
 import { addBreadcrumb } from "@sentry/react";
 import type { Breadcrumb, ErrorEvent, EventHint, TransactionEvent } from "@sentry/react";
 import { NetworkBlipError } from "@/lib/network-blip";
+import { redactAuthTokens, redactRoomCodes } from "@/lib/url-token-redaction";
 
 // Frame markers for the vite-plugin-pwa generated registration script and the
 // automation-harness wrapper observed in prod events (JAVASCRIPT-REACT-19).
@@ -213,33 +214,20 @@ export function dropBrowserExtensionNoise(
   return null;
 }
 
-/**
- * P1304: the /live and /transcribe room code is a bearer capability — knowing it
- * joins the room. It rides in page URLs (`/live/<code>`), navigation breadcrumbs,
- * transaction names and encoded login redirects (`%2Ftranscribe%2F<code>`).
- *
- * This REDACTS a known token shape; it never drops an event, so the P883/P990
- * ruling against message-based drop filters does not apply.
- */
-export const ROOM_CODE_IN_URL =/((?:\/|%2F)(?:live|transcribe)(?:\/|%2F))[A-Za-z0-9_-]+/gi;
-
-export function redactRoomCodes(text: string): string {
-  return text.replace(ROOM_CODE_IN_URL, "$1[code]");
-}
+// P1304 / P1325 / P1515 URL-token patterns live in a dependency-free module (the CSP report proxy imports it too).
+export { ROOM_CODE_IN_URL, redactRoomCodes, AUTH_TOKEN_IN_URL, redactAuthTokens } from "@/lib/url-token-redaction";
 
 /**
- * P1325: sign-in tokens are bearer credentials that ride in page URLs — every signup lands on
- * /auth/verify?token_hash=, and /auth/callback carries ?code= or #access_token=. Redacted
- * wherever a URL-bearing string reaches Sentry, alongside room codes. The index.html Mixpanel
- * block carries an identical copy; a test asserts they stay identical.
- *
- * P1515 adds `k`: the unguessable token of a canvas open to anyone with the link (`?k=<32 hex>`), plain or
- * URL-encoded inside a login redirect. Canary: src/tests/p1515-canvas-link-token-redaction.test.ts.
+ * P1515 hardening: the canvas link token also travels as a BODY field (the rpc arguments `p_link_token`, the owner's
+ * `link_token`). sendDefaultPii is false, so request bodies are not normally attached, but any object field or
+ * serialized JSON key with these names is redacted wherever it reaches Sentry (request.data, extra, contexts,
+ * breadcrumb data), whatever its value looks like.
  */
-export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
+const TOKEN_FIELD_NAME = /^(?:p_link_token|link_token)$/i;
+const SERIALIZED_TOKEN_FIELD = /(\\?"(?:p_link_token|link_token)\\?"\s*:\s*\\?")[^"\\]*/gi;
 
-export function redactAuthTokens(text: string): string {
-  return text.replace(AUTH_TOKEN_IN_URL, "$1[redacted]");
+export function redactTokenFields(text: string): string {
+  return text.replace(SERIALIZED_TOKEN_FIELD, "$1[redacted]");
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -255,7 +243,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * to `{}` by Object.entries.
  */
 function redactDeep<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
-  if (typeof value === "string") return redactAuthTokens(redactRoomCodes(value)) as T;
+  if (typeof value === "string") return redactTokenFields(redactAuthTokens(redactRoomCodes(value))) as T;
   if (!Array.isArray(value) && !isPlainObject(value)) return value;
   if (seen.has(value)) return seen.get(value) as T;
   if (Array.isArray(value)) {
@@ -266,7 +254,7 @@ function redactDeep<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap())
   }
   const out: Record<string, unknown> = {};
   seen.set(value, out);
-  for (const [key, inner] of Object.entries(value)) out[key] = redactDeep(inner, seen);
+  for (const [key, inner] of Object.entries(value)) out[key] = TOKEN_FIELD_NAME.test(key) ? "[redacted]" : redactDeep(inner, seen);
   return out as T;
 }
 

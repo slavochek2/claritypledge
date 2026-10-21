@@ -417,7 +417,7 @@ describe('CanvasShareControl', () => {
     expect(screen.queryByText(/^Shared$/)).toBeNull();
   });
 
-  it('lists entries with counts, names for an event, count only for a private group', async () => {
+  it('lists entries by name only: no counts, no member names, no explainer lines', async () => {
     mockPanel([
       entry(),
       entry({ kind: 'group', id: 'gp', name: 'Closed circle', public: false, count: 3, names: null }),
@@ -426,10 +426,13 @@ describe('CanvasShareControl', () => {
     fireEvent.click(screen.getByTestId('canvas-share-control'));
     const rows = await screen.findAllByTestId('canvas-share-entry');
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent('2 people can see it');
-    expect(within(rows[0]!).getByTestId('canvas-share-entry-names')).toHaveTextContent('Ana, Ben');
-    expect(rows[1]).toHaveTextContent('3 people can see it (names are private)');
-    expect(within(rows[1]!).queryByTestId('canvas-share-entry-names')).toBeNull();
+    expect(rows[0]).toHaveTextContent('Sales mastermind');
+    expect(rows[1]).toHaveTextContent('Closed circle');
+    for (const r of rows) {
+      expect(r).not.toHaveTextContent(/can see it/);
+      expect(r).not.toHaveTextContent('Ana');
+      expect(r).not.toHaveTextContent(/Anyone who/);
+    }
   });
 
   it('adds from the owner\'s own events and groups (those not already added): picking one adds it, no separate button', async () => {
@@ -437,7 +440,7 @@ describe('CanvasShareControl', () => {
     const changed = vi.fn();
     render(<CanvasShareControl name="x" visibility="shared" entries={[entry()]} link="https://example.test/p/x/canvas/x" onChanged={changed} />);
     fireEvent.click(screen.getByTestId('canvas-share-control'));
-    await screen.findByTestId('canvas-share-invite');
+    fireEvent.focus(await screen.findByTestId('canvas-share-invite')); // the list opens on focus
     const offered = (await screen.findAllByTestId('canvas-share-option')).map(o => o.textContent);
     expect(offered).toEqual(['Session twoEvent', 'FoundersGroup']); // the entry already added (Sales mastermind) is not offered
     expect(screen.queryByTestId('canvas-share-add')).toBeNull();
@@ -481,26 +484,79 @@ describe('EventSharedCanvases', () => {
 
   it('lists the canvases shared with the event, each a link to the canvas', async () => {
     rpc.mockResolvedValue({ data: list, error: null });
-    render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled /></MemoryRouter>);
+    render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
     const link = await screen.findByTestId('event-shared-canvas-link');
     expect(link).toHaveAttribute('href', '/p/slava/canvas/sales');
     expect(link).toHaveTextContent('Slava · sales');
     expect(rpc).toHaveBeenCalledWith('list_canvases_shared_with_event', { p_event: 'e1' });
   });
 
+  it('cancelling the registration hides the list at once, same person and event (review: Gemini r11); CONTROL: still registered keeps it', async () => {
+    rpc.mockResolvedValue({ data: list, error: null });
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
+    await screen.findByTestId('event-shared-canvas-link');
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
+    expect(screen.getByTestId('event-shared-canvases')).toBeInTheDocument();
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled={false} /></MemoryRouter>);
+    expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
+  });
+
+  it('registering again never flashes the old list before the new read (review: Gemini r12)', async () => {
+    rpc.mockResolvedValueOnce({ data: list, error: null });
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
+    await screen.findByTestId('event-shared-canvas-link');
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled={false} /></MemoryRouter>);
+    rpc.mockReturnValueOnce(new Promise(() => undefined)); // the new read never answers
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
+    expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
+  });
+
   it('another event never shows the previous event\'s list while its own loads (review: Codex 2)', async () => {
     rpc.mockResolvedValueOnce({ data: list, error: null });
-    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled /></MemoryRouter>);
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
     await screen.findByTestId('event-shared-canvas-link');
     rpc.mockReturnValueOnce(new Promise(() => undefined)); // e2's list never arrives
-    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e2" enabled /></MemoryRouter>);
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e2" viewerId="v1" enabled /></MemoryRouter>);
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('list_canvases_shared_with_event', { p_event: 'e2' }));
     expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
   });
 
+  it('a direct identity switch while enabled stays true: the previous person\'s list is gone at once, and the new person is asked', async () => {
+    rpc.mockResolvedValueOnce({ data: list, error: null });
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="alice" enabled /></MemoryRouter>);
+    await screen.findByTestId('event-shared-canvas-link'); // alice may read it
+    rpc.mockClear();
+    rpc.mockReturnValueOnce(new Promise(() => undefined)); // bob's answer is still out
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="bob" enabled /></MemoryRouter>);
+    expect(screen.queryByTestId('event-shared-canvases'), 'not even for the render after the switch').toBeNull();
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('list_canvases_shared_with_event', { p_event: 'e1' }));
+  });
+
+  it('a late answer for the previous person does not land on the new one', async () => {
+    let answerAlice: (v: unknown) => void = () => undefined;
+    rpc.mockReturnValueOnce(new Promise(resolve => { answerAlice = resolve; }));
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="alice" enabled /></MemoryRouter>);
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    rpc.mockResolvedValueOnce({ data: [], error: null }); // bob reads nothing
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="bob" enabled /></MemoryRouter>);
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+    answerAlice({ data: list, error: null }); // alice's answer arrives late
+    await new Promise(r => setTimeout(r, 20));
+    expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
+  });
+
+  it('CONTROL: the same person, re-rendered, keeps the list and is not asked again', async () => {
+    rpc.mockResolvedValueOnce({ data: list, error: null });
+    const view = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="alice" enabled /></MemoryRouter>);
+    await screen.findByTestId('event-shared-canvas-link');
+    view.rerender(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="alice" enabled /></MemoryRouter>);
+    expect(screen.getByTestId('event-shared-canvas-link')).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('asks nobody the event does not admit (not enabled: no call, nothing shown)', async () => {
     rpc.mockResolvedValue({ data: list, error: null });
-    render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled={false} /></MemoryRouter>);
+    render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled={false} /></MemoryRouter>);
     await new Promise(r => setTimeout(r, 20));
     expect(rpc).not.toHaveBeenCalled();
     expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
@@ -508,13 +564,13 @@ describe('EventSharedCanvases', () => {
 
   it('renders nothing for an empty list and for a failed read', async () => {
     rpc.mockResolvedValue({ data: [], error: null });
-    const first = render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled /></MemoryRouter>);
+    const first = render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
     first.unmount();
     rpc.mockReset();
     rpc.mockResolvedValue({ data: null, error: { message: 'down' } });
-    render(<MemoryRouter><EventSharedCanvases eventId="e1" enabled /></MemoryRouter>);
+    render(<MemoryRouter><EventSharedCanvases eventId="e1" viewerId="v1" enabled /></MemoryRouter>);
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(screen.queryByTestId('event-shared-canvases')).toBeNull();
   });

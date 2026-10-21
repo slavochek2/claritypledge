@@ -68,6 +68,26 @@ async function ensureCanvasRecord(): Promise<string> {
   canvasId = data.id as string;
   return canvasId;
 }
+/** Phase 4: choosing "Anyone with the link" asks first; this picks it and answers the confirmation. */
+async function chooseLink(page: Page, panel: ReturnType<Page['getByTestId']>) {
+  await panel.getByTestId('canvas-share-general').selectOption('link');
+  await page.getByRole('button', { name: 'Share with link' }).click();
+}
+async function grantClipboard(page: Page) {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+}
+async function expectNoSidewaysScroll(page: Page, width: number) {
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth, `${width}px: no sideways scroll`).toBeLessThanOrEqual(width);
+}
+/** Escape closes the invite list first (when it is open), then the panel: press until the panel is gone. */
+async function closeSharePanel(page: Page) {
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('Escape');
+    if ((await page.getByTestId('canvas-share-panel').count()) === 0) return;
+    await page.waitForTimeout(250);
+  }
+}
 async function shareWith(kind: 'event' | 'group', id: string) {
   const canvas = await ensureCanvasRecord();
   const { error } = await supabaseAdmin.from('canvas_audience').insert({
@@ -178,16 +198,17 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(panel.getByTestId('canvas-share-empty')).toHaveText('Only you can see it.');
     // The owner's own events and groups, nothing else (not the groups of others, not other events).
     // One invite field: nothing typed lists the owner's own events, then groups by name (no people until 3 letters).
-    await expect(panel.getByLabel('Add a person, event or group')).toBeVisible();
+    await expect(panel.getByLabel('Add people, events or groups')).toBeVisible();
+    await panel.getByTestId('canvas-share-invite').click(); // focusing the field opens the list
     await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
     const options = await panel.getByTestId('canvas-share-option').allTextContents();
     expect(options).toEqual([`${E.title}Event`, `${Yp.name}Group`, `${Y.name}Group`]);
     await panel.getByTestId('canvas-share-option').filter({ hasText: E.title }).click(); // picking adds: no separate Add button
     await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1, { timeout: 20_000 }); // a share, then the panel re-reads
     await expect(panel.getByTestId('canvas-share-entry')).toContainText(E.title);
-    await page.keyboard.press('Escape');
+    await closeSharePanel(page);
     // One idea: still Private, now "shared with" the event; the icon marks the header's cards.
-    await expect(page.getByTestId('canvas-share-label')).toHaveText(`Private · shared with ${E.title}`);
+    await expect(page.getByTestId('canvas-share-label')).toHaveText(`Private · shared with ${E.title}`, { timeout: 20_000 }); // the page re-reads after the change
     await expect(page.getByTestId('canvas-shared-icon').first()).toBeVisible();
     await expect(page.getByTestId('canvas-shared-icon').first()).toHaveAttribute('aria-label', `Shared with ${E.title}`);
 
@@ -289,7 +310,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     const recorded = await supabaseAdmin.from('canvas_added_stories').select('point_id,author_id').eq('story_id', stored.data!.id).single();
     expect(recorded.data).toEqual({ point_id: privId, author_id: A.user.id });
 
-    // The owner sees both, with A's name. CONTROL for the listener above: the owner's picker DOES read /rest/v1/points.
+    // The owner sees both, with A's name. CONTROL for the listener above: the owner's own point page (ordinary loaders) DOES read /rest/v1/points.
     const ownerPage = await browser.newPage();
     await ownerPage.setViewportSize({ width: 1440, height: 900 });
     ownerPage.on('request', r => { if (ordinary.test(r.url())) ownerRequests.push(r.url()); });
@@ -305,12 +326,12 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(ownerPanel.getByText(A_STORY)).toBeVisible();
     await expect(ownerPanel.getByTestId('canvas-story-meta')).toContainText(`Added by ${A.name}`);
     await expect(ownerPanel.getByTestId('canvas-remove-added-story'), 'only the author can take it off').toHaveCount(0);
-    expect(ownerRequests.length, 'CONTROL: the same listener sees the owner\'s ordinary reads').toBeGreaterThan(0);
-
     // ...and the story shows nowhere else: not on O's point page, where the ordinary loaders run.
+    ownerRequests.length = 0;
     await ownerPage.goto(`/point/${privId}`);
     await expect(ownerPage.getByText(PRIVATE_TEXT).first()).toBeVisible({ timeout: 30_000 });
     await expect(ownerPage.getByText(A_STORY)).toHaveCount(0);
+    expect(ownerRequests.length, 'CONTROL: the same listener sees the owner\'s ordinary reads').toBeGreaterThan(0);
     await ownerPage.close();
   });
 
@@ -340,22 +361,17 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await page.getByTestId('canvas-share-control').click();
     const entries = page.getByTestId('canvas-share-panel').getByTestId('canvas-share-entry');
     await expect(entries).toHaveCount(3, { timeout: 20_000 });
-    // The event: the host (O) is not counted; A is admitted, L (late) is not.
-    const event = entries.filter({ hasText: E.title });
-    await expect(event.getByTestId('canvas-share-entry-count')).toHaveText('1 person can see it');
-    await expect(event.getByTestId('canvas-share-entry-names')).toHaveText(A.name);
-    await expect(event.getByTestId('canvas-share-entry-names')).not.toContainText(L.name);
-    // A public group names its members (O excluded); a private group says a count and no names.
-    const publicGroup = entries.filter({ hasText: Y.name });
-    await expect(publicGroup.getByTestId('canvas-share-entry-count')).toHaveText('1 person can see it');
-    await expect(publicGroup.getByTestId('canvas-share-entry-names')).toHaveText(G.name);
-    const privateGroup = entries.filter({ hasText: Yp.name });
-    await expect(privateGroup.getByTestId('canvas-share-entry-count')).toHaveText('1 person can see it (names are private)');
-    await expect(privateGroup.getByTestId('canvas-share-entry-names')).toHaveCount(0);
+    // Each row is the essentials only: the name (and the event's date); no counts, no member names, no explainer lines.
+    await expect(entries.filter({ hasText: E.title })).toHaveCount(1);
+    await expect(entries.filter({ hasText: Y.name })).toHaveCount(1);
+    await expect(entries.filter({ hasText: Yp.name })).toHaveCount(1);
+    await expect(page.getByTestId('canvas-share-entry-count')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-share-entry-names')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-share-entry-note')).toHaveCount(0);
+    for (const who of [A, L, G]) await expect(page.getByTestId('canvas-share-panel')).not.toContainText(who.name); // nobody's name is listed here
     await expect(page.getByTestId('canvas-share-panel')).not.toContainText(N.name);
-    // No combined total across entries.
-    await expect(page.getByTestId('canvas-share-panel').getByText(/\b3 people\b/)).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('canvas-share-panel').getByText(/\b\d+ (person|people)\b/)).toHaveCount(0);
+    await closeSharePanel(page);
 
     // Only the owner has the control: G (through Y) and N (through Yp) read the canvas without it.
     for (const user of [G, N]) {
@@ -429,7 +445,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
       await page.getByTestId('canvas-share-control').click();
       await expect(page.getByTestId('canvas-share-panel').getByTestId('canvas-share-entry').first()).toBeVisible();
       await page.screenshot({ path: `${shots}/owner-${width}-share-panel.png`, fullPage: false });
-      await page.keyboard.press('Escape');
+      await closeSharePanel(page);
     }
   });
 
@@ -507,10 +523,12 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(2, { timeout: 20_000 });
     await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: E.title })).toHaveCount(0, { timeout: 20_000 });
     // The event is addable again (a real choice back in the list).
+    await panel.getByTestId('canvas-share-invite').click();
+    await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
     const options = await panel.getByTestId('canvas-share-option').allTextContents();
     expect(options).toContain(`${E.title}Event`);
-    await page.keyboard.press('Escape');
-    await expect(page.getByTestId('canvas-share-label')).not.toContainText(E.title);
+    await closeSharePanel(page);
+    await expect(page.getByTestId('canvas-share-label')).not.toContainText(E.title, { timeout: 20_000 });
 
     // A's next request: nothing. G's: everything, through the group.
     const aPage = await browser.newPage();
@@ -536,18 +554,18 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await waitForCanvas(page);
     await page.getByTestId('canvas-share-control').click();
     const panel = page.getByTestId('canvas-share-panel');
-    await panel.getByLabel('Add a person, event or group').fill(A.name.slice(0, 12).toLowerCase());
+    await panel.getByLabel('Add people, events or groups').fill(A.name.slice(0, 12).toLowerCase());
     await panel.getByTestId('canvas-share-option').filter({ hasText: A.name }).click();
     // The person's row is the one that says so (a public group's row lists its members' names too).
-    const personRow = panel.getByTestId('canvas-share-entry').filter({ hasText: 'Can read it and add to it' });
+    const personRow = panel.getByTestId('canvas-share-entry').filter({ hasText: `@${A.slug}` });
     await expect(personRow).toHaveCount(1, { timeout: 20_000 });
     await expect(personRow).toContainText(A.name);
     await expect(panel.getByTestId('canvas-share-owner')).toHaveText(/You \(owner\)/);
     // CONTROL: someone the search does not return (N, no relationship) is not offered.
-    await panel.getByLabel('Add a person, event or group').fill(N.name.slice(0, 12).toLowerCase());
+    await panel.getByLabel('Add people, events or groups').fill(N.name.slice(0, 12).toLowerCase());
     await expect(panel.getByTestId('canvas-share-nothing-to-add')).toBeVisible({ timeout: 20_000 });
     await expect(panel.getByTestId('canvas-share-option').filter({ hasText: N.name })).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await closeSharePanel(page);
 
     // The person's page: the reader line names the owner.
     const aPage = await browser.newPage();
@@ -559,9 +577,9 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
 
     // General access: Anyone with the link.
     await page.getByTestId('canvas-share-control').click();
-    await panel.getByTestId('canvas-share-general').selectOption('link');
+    await chooseLink(page, panel);
     await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Anyone with the link can read it', { timeout: 20_000 });
-    await page.keyboard.press('Escape');
+    await closeSharePanel(page);
     await expect(page.getByTestId('canvas-share-label')).toHaveText('Anyone with the link', { timeout: 20_000 });
     // The link is a token: read it the way the panel's Copy link does, from the owner's own canvas record.
     const { data: opened } = await supabaseAdmin.from('canvases').select('link_token').eq('owner_id', O.user.id).eq('name', NAME).single();
@@ -572,8 +590,8 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await page.getByTestId('canvas-share-control').click();
     await panel.getByTestId('canvas-share-copy').click();
     await expect(panel.getByTestId('canvas-share-copied')).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(page.url()).origin}${url()}?k=${token}`);
-    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(page.url()).origin}${url()}#k=${token}`);
+    await closeSharePanel(page);
 
     // A signed-out visitor reads with the token, with no way to write; the plain address (no token) is still not-found.
     const anon = await browser.newContext();
@@ -581,11 +599,15 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await visitor.setViewportSize({ width: 1440, height: 900 });
     await visitor.goto(url());
     await expectNotFound(visitor, 'V without the token while the link is open');
-    await visitor.goto(`${url()}?k=${token}&point=${privId}`);
+    await visitor.goto(`${url()}?point=${privId}#k=${token}`);
     await waitForCanvas(visitor);
     // The token is taken off the address on arrival (history, analytics and screenshots must not hold it); the open point stays.
+    // index.html's first script does it before any SDK loads, so the tab's storage holds it and the address has no fragment.
     await expect.poll(() => visitor.url(), { timeout: 15_000 }).not.toContain(token);
     expect(visitor.url()).toContain(`point=${privId}`);
+    expect(visitor.url()).not.toContain('#');
+    expect(await visitor.evaluate(key => sessionStorage.getItem(key), `canvas-link:${O.slug.toLowerCase()}/${NAME}`)).toBe(token);
+    expect(await visitor.evaluate(() => (window as unknown as { __canvasLinkTokenLoad?: boolean }).__canvasLinkTokenLoad)).toBe(true);
     // ...and a reload still reads (the tab kept the token)
     await visitor.reload();
     await waitForCanvas(visitor);
@@ -598,7 +620,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     // A signed-in stranger reads AND can take a position (L registered too late for the event, and is in no group: N is in a shared group by now).
     const nPage = await browser.newPage();
     await setTestSession(nPage, L.email);
-    await nPage.goto(`${url()}?k=${token}&point=${privId}`);
+    await nPage.goto(`${url()}?point=${privId}#k=${token}`);
     await waitForCanvas(nPage);
     await expect(nPage.getByTestId(`feed-point-card-${privId}`).getByRole('button', { name: /^disagree/i }).first()).toBeVisible();
 
@@ -606,10 +628,10 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await page.getByTestId('canvas-share-control').click();
     await panel.getByTestId('canvas-share-general').selectOption('restricted');
     await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Only the people, events and groups above', { timeout: 20_000 });
-    await page.keyboard.press('Escape');
-    await visitor.goto(`${url()}?k=${token}`);
+    await closeSharePanel(page);
+    await visitor.goto(`${url()}#k=${token}`);
     await expectNotFound(visitor, 'V after closing the link');
-    await nPage.goto(`${url()}?k=${token}`);
+    await nPage.goto(`${url()}#k=${token}`);
     await expectNotFound(nPage, 'L after closing the link');
     await nPage.close();
     await anon.close();
@@ -617,7 +639,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     // Remove the person: A's next request is not-found (A has no other way in).
     await page.getByTestId('canvas-share-control').click();
     await panel.getByRole('button', { name: `Stop sharing with ${A.name}` }).click();
-    await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: 'Can read it and add to it' })).toHaveCount(0, { timeout: 20_000 });
+    await expect(panel.getByTestId('canvas-share-entry').filter({ hasText: `@${A.slug}` })).toHaveCount(0, { timeout: 20_000 });
     const a2 = await browser.newPage();
     await setTestSession(a2, A.email);
     await a2.goto(url());
@@ -625,7 +647,7 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await a2.close();
     await supabaseAdmin.from('witnesses').delete().eq('profile_id', O.user.id);
   });
-  test('screenshots (phase 3): share panel with a person, an event and a group; invite field with results; General access "Anyone with the link"; a signed-out visitor holding the link; a stranger without it (set P1515_SHOTS_DIR)', async ({ page, browser }) => {
+  test('screenshots (phase 4): the Share button closed; the panel open with the list focused; the confirmation; the link open with Copied; plus a signed-out visitor holding the link and a stranger without it (set P1515_SHOTS_DIR)', async ({ page, browser }) => {
     test.skip(!shots, 'only when P1515_SHOTS_DIR is set');
     test.setTimeout(420_000);
     mkdirSync(shots!, { recursive: true });
@@ -638,68 +660,484 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     const resetAudience = async () => {
       await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
       await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
-      const rows = [
-        { canvas_id: canvas, kind: 'person', profile_id: A.user.id },
-        { canvas_id: canvas, kind: 'event', event_id: E.id },
-        { canvas_id: canvas, kind: 'group', org_id: Y.id },
-      ];
-      const r = await supabaseAdmin.from('canvas_audience').insert(rows);
+      const r = await supabaseAdmin.from('canvas_audience').insert([{ canvas_id: canvas, kind: 'person', profile_id: A.user.id }]);
       if (r.error) throw new Error(`[P1515 fixture] audience: ${r.error.message}`);
     };
     try {
       for (const [width, height] of [[1280, 900], [375, 800], [320, 700]] as const) {
         await resetAudience();
         await page.setViewportSize({ width, height });
+        await grantClipboard(page);
         await setTestSession(page, O.email);
         await page.goto(url());
         await waitForCanvas(page);
+        // (a) the panel closed: the Share button, top right
+        await page.waitForTimeout(400);
+        await expectNoSidewaysScroll(page, width);
+        expect((await page.getByTestId('canvas-share-control').boundingBox())!.height, `${width}: Share is a 44px target`).toBeGreaterThanOrEqual(43);
+        await page.screenshot({ path: `${shots}/owner-${width}-p4-button-closed.png`, fullPage: false });
+        // (b) the panel open, the invite field focused: the owner's events and groups listed without typing
         await page.getByTestId('canvas-share-control').click();
         const panel = page.getByTestId('canvas-share-panel');
-        // (a) one list: You (owner), a person, an event and a group
-        await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(3, { timeout: 20_000 });
-        await page.waitForTimeout(400);
-        await page.screenshot({ path: `${shots}/owner-${width}-p3-share-panel-list.png`, fullPage: false });
-        // (b) the invite field with search results open (people from the profile search, the owner's events and groups)
-        await panel.getByLabel('Add a person, event or group').fill('p1515');
+        await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1, { timeout: 20_000 });
+        await panel.getByTestId('canvas-share-invite').click(); // a phone sheet does not steal focus on open: focusing is what opens the list
         await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
-        await page.waitForTimeout(600);
-        await panel.getByTestId('canvas-share-invite').scrollIntoViewIfNeeded();
-        await page.screenshot({ path: `${shots}/owner-${width}-p3-invite-results.png`, fullPage: false });
-        await panel.getByLabel('Add a person, event or group').fill('');
-        // (c) General access: Anyone with the link, with the Copy link note
+        await page.waitForTimeout(500);
+        await expectNoSidewaysScroll(page, width);
+        await page.screenshot({ path: `${shots}/owner-${width}-p4-panel-list-focused.png`, fullPage: false });
+        // (c) the confirmation
+        await panel.getByTestId('canvas-share-general').scrollIntoViewIfNeeded();
         await panel.getByTestId('canvas-share-general').selectOption('link');
+        await expect(page.getByRole('button', { name: 'Share with link' })).toBeVisible();
+        await page.waitForTimeout(400);
+        await expectNoSidewaysScroll(page, width);
+        await page.screenshot({ path: `${shots}/owner-${width}-p4-confirmation.png`, fullPage: false });
+        await page.getByRole('button', { name: 'Share with link' }).click();
+        // (d) the link open, Copy link pressed: "Copied"
         await expect(panel.getByTestId('canvas-share-general-note')).toContainText('Anyone with the link can read it', { timeout: 20_000 });
         await expect(panel.getByTestId('canvas-share-copy')).toBeEnabled({ timeout: 20_000 });
         await panel.getByTestId('canvas-share-copy').scrollIntoViewIfNeeded();
-        await page.waitForTimeout(400);
-        await page.screenshot({ path: `${shots}/owner-${width}-p3-general-access-link.png`, fullPage: false });
-        await page.keyboard.press('Escape');
-        await page.screenshot({ path: `${shots}/owner-${width}-p3-link-label.png`, fullPage: false });
+        await panel.getByTestId('canvas-share-copy').click();
+        await expect(panel.getByTestId('canvas-share-copied')).toBeVisible();
+        await page.waitForTimeout(300);
+        const copyBox = await panel.getByTestId('canvas-share-copy').boundingBox();
+        const panelBox = await panel.boundingBox();
+        expect(copyBox!.x + copyBox!.width, `${width}: Copy link is inside the panel`).toBeLessThanOrEqual(panelBox!.x + panelBox!.width);
+        expect(copyBox!.y + copyBox!.height, `${width}: Copy link is inside the panel`).toBeLessThanOrEqual(panelBox!.y + panelBox!.height + 1);
+        await expectNoSidewaysScroll(page, width);
+        await page.screenshot({ path: `${shots}/owner-${width}-p4-link-open-copied.png`, fullPage: false });
+        // On a phone with a home-indicator inset (emulated, 34px): the bottom-pinned sheet's last control clears the home bar.
+        if (width < 640) {
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } });
+          await page.waitForTimeout(400);
+          await panel.evaluate(el => { el.scrollTop = el.scrollHeight; });
+          await page.waitForTimeout(200);
+          // The sheet's header stays in view while the body is scrolled to its end.
+          const tb = (await panel.getByTestId('canvas-share-title').boundingBox())!;
+          const xb = (await panel.getByRole('button', { name: 'Close' }).boundingBox())!;
+          const sh = (await panel.boundingBox())!;
+          expect(tb.y, `${width}: the title is not scrolled out`).toBeGreaterThanOrEqual(sh.y);
+          expect(xb.y, `${width}: Close is not scrolled out`).toBeGreaterThanOrEqual(sh.y - 1);
+          expect(xb.width, `${width}: Close is a 40px target`).toBeGreaterThanOrEqual(39);
+          const padBottom = parseFloat(await panel.evaluate(el => getComputedStyle(el).paddingBottom));
+          expect(padBottom, `${width}: the emulated inset reached the sheet (control)`).toBeGreaterThanOrEqual(34);
+          const sb = (await panel.boundingBox())!;
+          const cb = (await panel.getByTestId('canvas-share-copy').boundingBox())!;
+          expect(sb.y + sb.height, `${width}: the sheet is pinned to the bottom edge`).toBeGreaterThanOrEqual(height - 1);
+          expect(cb.y + cb.height, `${width}: Copy link clears the home bar`).toBeLessThanOrEqual(height - 34 + 1);
+          expect(cb.y + cb.height, `${width}: Copy link clears the sheet's bottom edge`).toBeLessThanOrEqual(sb.y + sb.height - 34 + 1);
+          await page.screenshot({ path: `${shots}/owner-${width}-p4-sheet-bottom-inset.png`, fullPage: false });
+          await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 0 } });
+        }
+        await closeSharePanel(page);
+        // wait for the panel's closing animation to end: a shot taken mid-fade shows the page ghosting through it
+        await expect(page.getByTestId('canvas-share-panel')).toHaveCount(0);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(900);
+        await expect(page.getByTestId('canvas-share-open-icon')).toBeVisible(); // the open state wears a globe, not the lock
+        await page.screenshot({ path: `${shots}/owner-${width}-p4-button-globe.png`, fullPage: false });
 
         // (d) a signed-out visitor holding the link: reads, no position buttons
         const { data: opened } = await supabaseAdmin.from('canvases').select('link_token').eq('id', canvas).single();
         const token = opened!.link_token as string;
         const anon = await browser.newContext({ viewport: { width, height } });
         const visitor = await anon.newPage();
-        await visitor.goto(`${url()}?k=${token}`);
+        await visitor.goto(`${url()}#k=${token}`);
         await waitForCanvas(visitor);
         await visitor.waitForTimeout(400);
         await visitor.screenshot({ path: `${shots}/visitor-${width}-p3-link.png`, fullPage: false });
-        await visitor.goto(`${url()}?k=${token}&point=${privId}`);
+        await visitor.goto(`${url()}?point=${privId}#k=${token}`);
         await waitForCanvas(visitor);
         await expect(visitor.getByTestId('canvas-point-panel')).toBeVisible();
         await visitor.waitForTimeout(500);
         await visitor.screenshot({ path: `${shots}/visitor-${width}-p3-link-panel.png`, fullPage: false });
-        // (e) a stranger without the link (signed out, the plain address): not-found while the link is open
-        await visitor.goto(url());
-        await expect(visitor.getByRole('heading', NOT_FOUND)).toBeVisible({ timeout: 30_000 });
-        await visitor.screenshot({ path: `${shots}/stranger-${width}-p3-no-link.png`, fullPage: false });
         await anon.close();
+        // (e) a stranger without the link (a fresh tab, signed out, the plain address): not-found while the link is open
+        const strangerContext = await browser.newContext({ viewport: { width, height } });
+        const stranger = await strangerContext.newPage();
+        await stranger.goto(url());
+        await expect(stranger.getByRole('heading', NOT_FOUND)).toBeVisible({ timeout: 30_000 });
+        await stranger.waitForTimeout(1_500); // the 404's entrance animation settles
+        await stranger.screenshot({ path: `${shots}/stranger-${width}-p3-no-link.png`, fullPage: false });
+        await strangerContext.close();
       }
     } finally {
       await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
       await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
       await supabaseAdmin.from('witnesses').delete().eq('profile_id', O.user.id);
+    }
+  });
+  test('PHASE 4: the Share button top right; the panel anchored under it (a bottom sheet at 375 and 320); focus lists events and groups; the link asks first; Copied', async ({ page }) => {
+    test.setTimeout(240_000);
+    const canvas = await ensureCanvasRecord();
+    const reset = async () => {
+      await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
+      await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+    };
+    const generalAccess = async () => (await supabaseAdmin.from('canvases').select('general_access').eq('id', canvas).single()).data!.general_access as string;
+    try {
+      await reset();
+      await grantClipboard(page);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await setTestSession(page, O.email);
+      await page.goto(url());
+      await waitForCanvas(page);
+
+      // AC1: the owner's Share button is top right, blue, with a lock (readers and strangers have none: AC2 and AC1 above).
+      const button = page.getByTestId('canvas-share-control');
+      await expect(button).toBeVisible();
+      await expect(button).toHaveText(/^Share/);
+      await expect(button).toHaveCSS('background-color', 'rgb(37, 99, 235)');
+      await expect(page.getByTestId('canvas-share-lock-icon')).toBeVisible();
+      const buttonBox = (await button.boundingBox())!;
+      // Founder: Share is in the same header row as the byline (and Compare), not alone in the far corner.
+      const bylineBox = (await page.getByTestId('canvas-byline').boundingBox())!;
+      expect(Math.abs((buttonBox.y + buttonBox.height / 2) - (bylineBox.y + bylineBox.height / 2)), 'Share is in the byline row').toBeLessThan(40);
+      expect(buttonBox.x, 'Share is right of the byline').toBeGreaterThan(bylineBox.x + 100);
+      expect(buttonBox.y, 'Share is in the top part of the page').toBeLessThan(250);
+      if (await page.getByTestId('canvas-compare-picker').count()) {
+        const compareBox = (await page.getByTestId('canvas-compare-picker').boundingBox())!;
+        expect(buttonBox.x, 'Share is right of Compare').toBeGreaterThanOrEqual(compareBox.x + compareBox.width - 1);
+      }
+
+      // AC6 (desktop): the panel is anchored under the button, a card (border, shadow), about 420px.
+      await button.click();
+      const panel = page.getByTestId('canvas-share-panel');
+      await expect(panel).toBeVisible();
+      await expect(panel.getByTestId('canvas-share-owner')).toBeVisible({ timeout: 20_000 });
+      const box = (await panel.boundingBox())!;
+      expect(box.y, 'the panel starts under the button').toBeGreaterThanOrEqual(buttonBox.y + buttonBox.height);
+      expect(Math.abs((box.x + box.width) - (buttonBox.x + buttonBox.width)), 'right edges align').toBeLessThanOrEqual(12);
+      expect(box.width).toBeGreaterThan(380);
+      expect(box.width).toBeLessThanOrEqual(421);
+      await expect(panel).toHaveCSS('border-top-width', '1px');
+      expect(await panel.evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none');
+
+      // AC2: focusing the invite field lists the owner's events and groups without typing.
+      await expect(panel.getByTestId('canvas-share-option')).toHaveCount(0); // not on open: the list opens when the field is focused
+      await panel.getByTestId('canvas-share-invite').click();
+      await expect(panel.getByTestId('canvas-share-invite')).toBeFocused();
+      await expect(panel.getByTestId('canvas-share-option').first()).toBeVisible({ timeout: 20_000 });
+      expect(await panel.getByTestId('canvas-share-option').allTextContents()).toEqual([`${E.title}Event`, `${Yp.name}Group`, `${Y.name}Group`]);
+      // ...picking one adds it to People with access at once; You (owner) is first.
+      await panel.getByTestId('canvas-share-option').filter({ hasText: E.title }).click();
+      await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(1, { timeout: 20_000 });
+      // AC3: You first, then the entry with its subline, and a remove control that works.
+      await expect(panel.getByTestId('canvas-share-entries').locator('li').first()).toHaveAttribute('data-testid', 'canvas-share-owner');
+      await expect(panel.getByTestId('canvas-share-entry')).toContainText(E.title);
+      await expect(panel.getByTestId('canvas-share-entry-count')).toHaveCount(0);
+      await expect(panel.getByTestId('canvas-share-entry-date')).toBeVisible();
+      await panel.getByTestId('canvas-share-remove').click();
+      await expect(panel.getByTestId('canvas-share-entry')).toHaveCount(0, { timeout: 20_000 });
+
+      // AC4: Anyone with the link asks first; Cancel changes nothing.
+      await panel.getByTestId('canvas-share-general').selectOption('link');
+      await expect(page.getByText('Share with anyone who has the link?')).toBeVisible();
+      await expect(page.getByText('Anyone with this link can read this canvas, even without signing in. Signed-in people can also add positions and stories.')).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect(page.getByText('Share with anyone who has the link?')).toHaveCount(0);
+      expect(await generalAccess()).toBe('restricted');
+      await expect(panel.getByTestId('canvas-share-general')).toHaveValue('restricted');
+      await expect(panel).toBeVisible(); // the panel stayed open behind the confirmation
+      // ...Share with link opens it and the button becomes the globe.
+      await chooseLink(page, panel);
+      await expect(panel.getByTestId('canvas-share-reach')).toHaveText('Anyone with the link can open this canvas', { timeout: 20_000 });
+      expect(await generalAccess()).toBe('link');
+      // AC5: Copy link copies the address with #k= and shows Copied for two seconds.
+      const { data: opened } = await supabaseAdmin.from('canvases').select('link_token').eq('id', canvas).single();
+      await expect(panel.getByTestId('canvas-share-copy')).toBeEnabled({ timeout: 20_000 });
+      await panel.getByTestId('canvas-share-copy').click();
+      await expect(panel.getByTestId('canvas-share-copied')).toHaveText('Copied');
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(page.url()).origin}${url()}#k=${opened!.link_token}`);
+      await expect(panel.getByTestId('canvas-share-copy')).toHaveText('Copy link', { timeout: 4_000 });
+      await closeSharePanel(page);
+      await expect(page.getByTestId('canvas-share-open-icon')).toBeVisible();
+      // ...and going back needs no confirmation.
+      await button.click();
+      await panel.getByTestId('canvas-share-general').selectOption('restricted');
+      await expect(panel.getByTestId('canvas-share-general-note')).toContainText('The old link stops working.', { timeout: 20_000 });
+      await expect(page.getByText('Share with anyone who has the link?')).toHaveCount(0);
+      expect(await generalAccess()).toBe('restricted');
+      await expect(panel.getByTestId('canvas-share-copy')).toBeEnabled({ timeout: 20_000 });
+      await panel.getByTestId('canvas-share-copy').click();
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(page.url()).origin}${url()}`); // no #k= while it is closed
+      await closeSharePanel(page);
+
+      // AC6 (phones): a bottom sheet at 375 and 320, full width, pinned to the bottom, no sideways scroll.
+      for (const [width, height] of [[375, 800], [320, 700]] as const) {
+        await page.setViewportSize({ width, height });
+        await page.goto(url());
+        await waitForCanvas(page);
+        await page.getByTestId('canvas-share-control').click();
+        const sheet = page.getByTestId('canvas-share-panel');
+        await expect(sheet.getByTestId('canvas-share-owner')).toBeVisible({ timeout: 20_000 });
+        await page.waitForTimeout(500); // the sheet's entrance settles
+        const sb = (await sheet.boundingBox())!;
+        // Full width of the page (`scrollbar-gutter: stable` on html reserves the classic scrollbar's gutter in this browser: fixed elements span the page, not the gutter).
+        const pageWidth = await page.evaluate(() => document.body.getBoundingClientRect().width);
+        expect(sb.width, `${width}: full width`).toBeGreaterThanOrEqual(pageWidth - 1);
+        expect(sb.x, `${width}: starts at the left edge`).toBeLessThanOrEqual(1);
+        expect(sb.y + sb.height, `${width}: pinned to the bottom edge`).toBeGreaterThanOrEqual(height - 1);
+        expect(sb.y, `${width}: inside the viewport`).toBeGreaterThanOrEqual(0);
+        await expectNoSidewaysScroll(page, width);
+        await closeSharePanel(page);
+        await expect(page.getByTestId('canvas-share-panel')).toHaveCount(0);
+      }
+    } finally {
+      await reset();
+    }
+  });
+  test('PHASE 5: a reader admitted once sees both versions and switches; ?v=older opens it; the owner has the switcher too (screenshots with P1515_SHOTS_DIR)', async ({ page }) => {
+    test.setTimeout(300_000);
+    const canvas = await ensureCanvasRecord();
+    const V2 = `${NAME}v2`;
+    const V2_TEXT = `P1515 second version bet ${RUN}`;
+    await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+    await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
+    await shareWith('event', E.id); // ONE share: A (registered in time) is admitted to every version
+    const ver = await supabaseAdmin.from('canvas_versions').insert({ canvas_id: canvas, owner_id: O.user.id, name: V2 });
+    if (ver.error) throw new Error(`[P1515 fixture] version: ${ver.error.message}`);
+    const pt = await supabaseAdmin.from('points').insert({
+      statement: V2_TEXT, first_validator_id: O.user.id, visibility: 'private', tags: [`p1515ui${RUN}`], system_tags: ['canvas:problem', `canvas_${V2}`],
+    }).select('id').single();
+    if (pt.error) throw new Error(`[P1515 fixture] v2 point: ${pt.error.message}`);
+    const widths = shots ? ([[1280, 900], [375, 800], [320, 700]] as const) : ([[1280, 900]] as const);
+    try {
+      for (const [width, height] of widths) {
+        await page.setViewportSize({ width, height });
+        // A reader, admitted once: no ?v opens the NEWEST version.
+        await setTestSession(page, A.email);
+        await page.goto(url());
+        await waitForCanvas(page);
+        await expect(page.getByText(V2_TEXT)).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByText(PUBLIC_TEXT)).toHaveCount(0);
+        // The version that opened is written into the address (replace), so Back and a reload return to it.
+        await expect(page).toHaveURL(new RegExp(`[?&]v=${V2}`));
+        const picker = page.getByTestId('canvas-version-picker');
+        await expect(picker).toBeVisible();
+        await expect(picker.getByRole('combobox', { name: 'Version' })).toHaveValue(V2);
+        expect(await picker.getByRole('option').evaluateAll(os => os.map(o => (o as HTMLOptionElement).value))).toEqual([V2, NAME]); // newest first
+        await expect(page.getByTestId('canvas-share-control')).toHaveCount(0); // a reader never has Share
+        await expectNoSidewaysScroll(page, width);
+        if (shots) await page.screenshot({ path: `${shots}/reader-${width}-p5-switcher-newest.png`, fullPage: false });
+        // Switching: the address carries ?v= and the older version's points show.
+        await picker.getByRole('combobox', { name: 'Version' }).selectOption(NAME);
+        await expect(page).toHaveURL(new RegExp(`[?&]v=${NAME}`));
+        await expect(page.getByText(PUBLIC_TEXT)).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByText(V2_TEXT)).toHaveCount(0);
+        if (shots) await page.screenshot({ path: `${shots}/reader-${width}-p5-switcher-older.png`, fullPage: false });
+        // ?v=older opens it directly.
+        await page.goto(`${url()}?v=${NAME}`);
+        await waitForCanvas(page);
+        await expect(page.getByText(PUBLIC_TEXT)).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId('canvas-version-picker').getByRole('combobox', { name: 'Version' })).toHaveValue(NAME);
+        // A version that is not of this canvas is not-found, the same as an unreadable canvas.
+        await page.goto(`${url()}?v=nosuchversion`);
+        await expectNotFound(page, 'A with an unknown version');
+      }
+      // The owner has the switcher too (the versions of THIS canvas only), with Share in the same row; a separate canvas of theirs is not listed.
+      const other = await supabaseAdmin.from('points').insert({
+        statement: `P1515 other canvas bet ${RUN}`, first_validator_id: O.user.id, visibility: 'private', tags: [`p1515ui${RUN}`], system_tags: ['canvas:problem', `${CANVAS_TAG}other`],
+      }).select('id').single();
+      if (other.error) throw new Error(`[P1515 fixture] other canvas point: ${other.error.message}`);
+      try {
+        for (const [width, height] of [[1280, 900], [320, 700]] as const) {
+          await page.setViewportSize({ width, height });
+          await setTestSession(page, O.email);
+          await page.goto(url());
+          await waitForCanvas(page);
+          const versions = page.getByTestId('canvas-version-picker').getByRole('combobox', { name: 'Version' });
+          await expect(versions).toHaveValue(V2, { timeout: 20_000 });
+          expect(await versions.getByRole('option').evaluateAll(os => os.map(o => (o as HTMLOptionElement).value))).toEqual([V2, NAME]);
+          await expect(page.getByTestId('canvas-project-picker')).toHaveCount(0);
+          await expect(page.getByTestId('canvas-share-control')).toBeVisible();
+          await expectNoSidewaysScroll(page, width);
+          // The switcher has a visible outline and shares one row with Share at every width (no orphaned icon).
+          await expect(page.getByTestId('canvas-version-picker')).toHaveCSS('border-top-width', '1px');
+          const vb = (await page.getByTestId('canvas-version-picker').boundingBox())!;
+          const sb = (await page.getByTestId('canvas-share-control').boundingBox())!;
+          expect(Math.abs((vb.y + vb.height / 2) - (sb.y + sb.height / 2)), `${width}: the switcher and Share are on one row`).toBeLessThan(12);
+          expect(sb.x + sb.width, `${width}: Share is inside the page`).toBeLessThanOrEqual(width);
+          await page.waitForTimeout(300);
+          if (shots) await page.screenshot({ path: `${shots}/owner-${width}-p5-versions-only.png`, fullPage: false });
+        }
+      } finally {
+        await supabaseAdmin.from('points').delete().eq('id', other.data.id);
+      }
+    } finally {
+      await supabaseAdmin.from('points').delete().eq('id', pt.data.id);
+      await supabaseAdmin.from('canvas_versions').delete().eq('owner_id', O.user.id).eq('name', V2);
+      await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+    }
+  });
+  test('PHASE 5: a signed-out visitor on the #k= link of a two-version canvas lands on ?v=newest, switches to the older version, survives a reload, and Back returns to the newest (never not-found)', async ({ browser }) => {
+    test.setTimeout(240_000);
+    const canvas = await ensureCanvasRecord();
+    const V2 = `${NAME}v2`;
+    const V2_TEXT = `P1515 link version two bet ${RUN}`;
+    const TOKEN = 'b'.repeat(32);
+    await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvas);
+    const open = await supabaseAdmin.from('canvases').update({ general_access: 'link', link_token: TOKEN }).eq('id', canvas);
+    if (open.error) throw new Error(`[P1515 fixture] open link: ${open.error.message}`);
+    const ver = await supabaseAdmin.from('canvas_versions').insert({ canvas_id: canvas, owner_id: O.user.id, name: V2 });
+    if (ver.error) throw new Error(`[P1515 fixture] version: ${ver.error.message}`);
+    const pt = await supabaseAdmin.from('points').insert({
+      statement: V2_TEXT, first_validator_id: O.user.id, visibility: 'private', tags: [`p1515ui${RUN}`], system_tags: ['canvas:problem', `canvas_${V2}`],
+    }).select('id').single();
+    if (pt.error) throw new Error(`[P1515 fixture] v2 point: ${pt.error.message}`);
+    const anon = await browser.newContext();
+    try {
+      const visitor = await anon.newPage();
+      await visitor.goto(`${url()}#k=${TOKEN}`);
+      await waitForCanvas(visitor);
+      // Lands on the newest, written into the address; the token never rides it.
+      await expect(visitor).toHaveURL(new RegExp(`[?&]v=${V2}`));
+      expect(visitor.url()).not.toContain(TOKEN);
+      await expect(visitor.getByText(V2_TEXT)).toBeVisible({ timeout: 20_000 });
+      await expect(visitor.getByText(PUBLIC_TEXT)).toHaveCount(0);
+      // Switches to the older version.
+      await visitor.getByTestId('canvas-version-picker').getByRole('combobox', { name: 'Version' }).selectOption(NAME);
+      await expect(visitor).toHaveURL(new RegExp(`[?&]v=${NAME}`));
+      await expect(visitor.getByText(PUBLIC_TEXT)).toBeVisible({ timeout: 20_000 });
+      await expect(visitor.getByText(V2_TEXT)).toHaveCount(0);
+      // A reload still shows it (the token is in the tab's store, not the address).
+      await visitor.reload();
+      await waitForCanvas(visitor);
+      await expect(visitor.getByText(PUBLIC_TEXT)).toBeVisible({ timeout: 20_000 });
+      await expect(visitor.getByRole('heading', NOT_FOUND)).toHaveCount(0);
+      // Back returns to the newest, never not-found.
+      await visitor.goBack();
+      await expect(visitor).toHaveURL(new RegExp(`[?&]v=${V2}`));
+      await waitForCanvas(visitor);
+      await expect(visitor.getByText(V2_TEXT)).toBeVisible({ timeout: 20_000 });
+      await expect(visitor.getByRole('heading', NOT_FOUND)).toHaveCount(0);
+    } finally {
+      await anon.close();
+      await supabaseAdmin.from('points').delete().eq('id', pt.data.id);
+      await supabaseAdmin.from('canvas_versions').delete().eq('owner_id', O.user.id).eq('name', V2);
+      await supabaseAdmin.from('canvases').update({ general_access: 'restricted', link_token: null }).eq('id', canvas);
+    }
+  });
+  test('an owner whose canvas has no current points but has a record still gets the share control; everyone else gets not-found', async ({ page, browser }) => {
+    const empty = `${NAME}empty`;
+    const created = await supabaseAdmin.from('canvases').insert({ owner_id: O.user.id, name: empty, general_access: 'link', link_token: 'a'.repeat(32), link_generation: 1 }).select('id').single();
+    if (created.error) throw new Error(`[P1515 fixture] empty canvas: ${created.error.message}`);
+    try {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await setTestSession(page, O.email);
+      await page.goto(`/p/${O.slug}/canvas/${empty}`);
+      await expect(page.getByTestId('canvas-share-control')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('canvas-empty-owner')).toContainText('This canvas has no points yet.');
+      await expect(page.getByTestId('canvas-share-label')).toHaveText('Anyone with the link');
+      // the owner can close it
+      await page.getByTestId('canvas-share-control').click();
+      await page.getByTestId('canvas-share-general').selectOption('restricted');
+      await expect(page.getByTestId('canvas-share-general-note')).toContainText('Only the people, events and groups above', { timeout: 20_000 });
+      // everyone else: not-found (a reader holding even the right token gets nothing: there is nothing to read)
+      const other = await browser.newPage();
+      await setTestSession(other, N.email);
+      await other.goto(`/p/${O.slug}/canvas/${empty}`);
+      await expect(other.getByRole('heading', NOT_FOUND)).toBeVisible({ timeout: 30_000 });
+      await other.close();
+    } finally {
+      await supabaseAdmin.from('canvases').delete().eq('id', created.data.id);
+    }
+  });
+  test('host removal: the host removes a registered person from the event page; their canvas read becomes not-found and they cannot register again (screenshots with P1515_SHOTS_DIR)', async ({ page, browser }) => {
+    test.setTimeout(300_000);
+    // Names a person would have (short, two words): the row's phone layout is about those, not a 25-character fixture label.
+    const R = await createTestUser({ name: `Rita ${RUN.slice(-3)}` });
+    const S = await createTestUser({ name: `Sam ${RUN.slice(-3)}` });
+    const tomorrow = new Date(Date.now() + 24 * 3_600_000);
+    const ER = await createTestEvent(O.user.id, tomorrow, { title: `P1515 Removal event ${RUN}` });
+    let shared = false;
+    try {
+      for (const u of [R, S, O]) {
+        const r = await supabaseAdmin.from('event_rsvps').insert({ event_id: ER.id, profile_id: u.user.id });
+        if (r.error) throw new Error(`[P1515 fixture] rsvp: ${r.error.message}`);
+      }
+      await shareWith('event', ER.id);
+      shared = true;
+
+      // R reads the canvas through the event.
+      const rPage = await browser.newPage();
+      await setTestSession(rPage, R.email);
+      await rPage.goto(url());
+      await waitForCanvas(rPage);
+      await expect(rPage.getByTestId('canvas-shared-with-you')).toContainText(`Shared with you through ${ER.title}`);
+
+      // A registered guest (S) sees no Remove control.
+      const sPage = await browser.newPage();
+      await setTestSession(sPage, S.email);
+      await sPage.goto(`/events/${ER.slug}`);
+      await expect(sPage.getByText(/Participants \(3/)).toBeVisible({ timeout: 30_000 });
+      await expect(sPage.getByTestId('event-remove-attendee')).toHaveCount(0);
+      await sPage.close();
+
+      // The host: a Remove control next to R and S, not on the host's own row. Screenshots of the list and the dialog.
+      await setTestSession(page, O.email);
+      const shots = process.env.P1515_SHOTS_DIR;
+      for (const [width, height] of shots ? ([[1280, 900], [375, 800], [320, 700]] as const) : ([[1280, 900]] as const)) {
+        await page.setViewportSize({ width, height });
+        await page.goto(`/events/${ER.slug}`);
+        await expect(page.getByText(/Participants \(3/)).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByTestId('event-remove-attendee')).toHaveCount(2);
+        await expect(page.getByRole('button', { name: `Remove ${O.name}` })).toHaveCount(0);
+        const removeR = page.getByRole('button', { name: `Remove ${R.name}` });
+        await removeR.scrollIntoViewIfNeeded();
+        const box = await removeR.boundingBox();
+        expect(box!.height, `${width}: touch target`).toBeGreaterThanOrEqual(width < 640 ? 44 : 40);
+        if (width < 640) expect(box!.width, `${width}: phone touch target width`).toBeGreaterThanOrEqual(44);
+        if (shots) { mkdirSync(shots, { recursive: true }); await page.waitForTimeout(500); await page.screenshot({ path: `${shots}/host-${width}-participants-remove.png`, fullPage: false }); }
+        // the NAME wins the row on phones: it wraps to a second line instead of being cut (nothing clipped at any width)
+        const clipped = await page.getByRole('link', { name: R.name }).last().evaluate(el => ({ h: el.scrollHeight, c: el.clientHeight, w: el.scrollWidth, cw: el.clientWidth }));
+        if (width < 640) { // from sm the name keeps the app-wide one-line ellipsis
+          expect(clipped.h, `${width}: the removable person's name is not clipped vertically`).toBeLessThanOrEqual(clipped.c + 1);
+          expect(clipped.w, `${width}: ...nor horizontally`).toBeLessThanOrEqual(clipped.cw + 1);
+        }
+        await removeR.click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toContainText(`Remove ${R.name}?`);
+        await expect(dialog).toContainText('cannot register for this event again');
+        await expect(dialog).toContainText('lose access to anything shared with this event');
+        if (shots) { await page.waitForTimeout(400); await page.screenshot({ path: `${shots}/host-${width}-remove-dialog.png`, fullPage: false }); }
+        await dialog.getByRole('button', { name: 'Keep' }).click();
+        await expect(dialog).toHaveCount(0);
+        await expect(page.getByText(/Participants \(3/), `${width}: Keep removed nobody`).toBeVisible();
+      }
+
+      // The real removal, at desktop width.
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(`/events/${ER.slug}`);
+      await expect(page.getByText(/Participants \(3/)).toBeVisible({ timeout: 30_000 });
+      await page.getByRole('button', { name: `Remove ${R.name}` }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+      await expect(page.getByText(/Participants \(2/)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(R.name)).toHaveCount(0);
+      await expect(page.getByTestId('event-remove-attendee')).toHaveCount(1); // S only
+
+      // The server holds it: the registration is gone and the removal is recorded.
+      const gone = await supabaseAdmin.from('event_rsvps').select('id').eq('event_id', ER.id).eq('profile_id', R.user.id);
+      expect(gone.data, 'R is no longer registered').toEqual([]);
+      const rec = await supabaseAdmin.from('event_removals').select('user_id').eq('event_id', ER.id).eq('user_id', R.user.id);
+      expect(rec.data, 'the removal is recorded').toHaveLength(1);
+
+      // R's next canvas read is not-found (the page refetches on focus; a fresh load is the same read).
+      await rPage.goto(url());
+      await expectNotFound(rPage, 'R after removal');
+      // ...and R cannot register again through the page.
+      await rPage.goto(`/events/${ER.slug}`);
+      await rPage.getByTestId('rsvp-button').first().click();
+      await expect(rPage.getByText(/Couldn't sign you up/)).toBeVisible({ timeout: 30_000 });
+      const again = await supabaseAdmin.from('event_rsvps').select('id').eq('event_id', ER.id).eq('profile_id', R.user.id);
+      expect(again.data, 'R is still not registered').toEqual([]);
+      await rPage.close();
+    } finally {
+      if (shared) await stopSharingWith('event', ER.id);
+      await deleteTestEvent(ER.id);
+      await deleteTestUser(R.user.id);
+      await deleteTestUser(S.user.id);
     }
   });
 });

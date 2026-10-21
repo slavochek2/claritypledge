@@ -60,6 +60,18 @@ export interface CanvasView {
   via: CanvasVia | null;
   /** 'link': open to anyone with the link (a reader with no `via` was admitted by it) */
   generalAccess: CanvasGeneralAccess;
+  /** the OWNER of a canvas that has a record (an open link or audience entries), even with no current points */
+  canvasExists: boolean;
+  /** the version that is open (null: an answer from before versions) */
+  version: string | null;
+  /** the canvas's versions, newest first (empty: an answer from before versions) */
+  versions: CanvasVersion[];
+}
+
+/** One version of a canvas: its name (the canvas_<name> tag) and when it was made (null when unknown). */
+export interface CanvasVersion {
+  name: string;
+  createdAt: string | null;
 }
 
 /** One entry of the owner's audience panel. */
@@ -102,10 +114,11 @@ function countsOf(positions: PointPositionWithUser[]): Record<PositionType, numb
  * The canvas `name` of `ownerId`, as `viewerId` may read it. Throws on any failure: the page shows
  * one error, never a partial grid.
  */
-async function getCanvas(ownerId: string, name: string, viewerId?: string, linkToken?: string): Promise<CanvasView> {
+async function getCanvas(ownerId: string, name: string, viewerId?: string, linkToken?: string, version?: string): Promise<CanvasView> {
   // The link token (`?k=` in the address) is what admits someone who is not the owner and not in an entry;
   // a wrong or old one gets the same empty answer as any stranger.
-  const { data, error } = await supabase.rpc('get_canvas', { p_owner: ownerId, p_name: name, p_link_token: linkToken ?? null });
+  // A version is sent only when one is chosen: without it the database opens the newest.
+  const { data, error } = await supabase.rpc('get_canvas', { p_owner: ownerId, p_name: name, p_link_token: linkToken ?? null, ...(version ? { p_version: version } : {}) });
   if (error || !data) throwDbError('getCanvas', error, 'Could not load this canvas');
   const raw = data as Json;
 
@@ -148,6 +161,9 @@ async function getCanvas(ownerId: string, name: string, viewerId?: string, linkT
     isOwner: !!access.is_owner,
     admitted: !!access.admitted,
     generalAccess: access.general_access === 'link' ? 'link' : 'restricted',
+    canvasExists: !!access.canvas_exists,
+    version: typeof access.version === 'string' ? access.version : null,
+    versions: ((access.versions ?? []) as Json[]).map(v => ({ name: String(v.name), createdAt: (v.created_at as string | null) ?? null })),
     via: access.via
       ? { kind: access.via.kind, id: access.via.id, name: access.via.name, slug: access.via.slug ?? null }
       : null,
@@ -257,6 +273,18 @@ async function setGeneralAccess(name: string, access: CanvasGeneralAccess): Prom
   }
 }
 
+/** Host only: take a person off an event's guest list for good (they cannot register again) and, with it, off everything
+ *  shared with the event. The rpc records the removal and deletes the registration; it clears the Back cache after, success
+ *  or failure, like every write that changes what a canvas shows. */
+async function removeEventAttendee(eventId: string, userId: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('remove_event_attendee', { p_event: eventId, p_user: userId });
+    if (error) throwDbError('canvas.removeEventAttendee', error, `Could not remove this person: ${error.message}`);
+  } finally {
+    clearListReturnCache();
+  }
+}
+
 /** The canvases shared with an event, for people that event admits (everyone else gets []). */
 async function listSharedWithEvent(eventId: string): Promise<SharedCanvasRef[]> {
   const { data, error } = await supabase.rpc('list_canvases_shared_with_event', { p_event: eventId });
@@ -278,6 +306,7 @@ export const canvasService = {
   getShareTargets,
   shareCanvas,
   unshareCanvas,
+  removeEventAttendee,
   listSharedWithEvent,
 };
 export type CanvasService = typeof canvasService;

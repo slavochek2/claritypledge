@@ -12,23 +12,29 @@ import { Users } from 'lucide-react';
 import { canvasService, type SharedCanvasRef } from '@/app/data/canvas-service';
 import { canvasPath } from '@/lib/canvas-boxes';
 
-export function EventSharedCanvases({ eventId, enabled }: {
+export function EventSharedCanvases({ eventId, viewerId, enabled }: {
   eventId: string;
+  /** who is looking: the list is the viewer's own answer, so a different person starts over (it can stay `enabled` across the switch) */
+  viewerId: string | null | undefined;
   /** signed in and registered or hosting; anyone else is not asked */
   enabled: boolean;
 }) {
-  const [canvases, setCanvases] = useState<SharedCanvasRef[]>([]);
+  // What was read and for whom: an answer is shown only to the viewer and event it was read for, so another event's
+  // list, or the previous person's, never shows while the right one loads (not even for one render).
+  const key = `${viewerId ?? ''}|${eventId}`;
+  const [read, setRead] = useState<{ key: string; list: SharedCanvasRef[] }>({ key, list: [] });
+  // ...and only while the event still admits them (cancelling a registration hides it at once).
+  const canvases = enabled && read.key === key ? read.list : [];
 
   useEffect(() => {
-    // Cleared first: another event's list never shows while this one loads.
-    setCanvases([]);
-    if (!enabled) return;
+    // Disabled: forget the answer, so re-registering never flashes the old list before the new read.
+    if (!enabled) { setRead({ key, list: [] }); return; }
     let live = true;
     canvasService.listSharedWithEvent(eventId)
-      .then(list => { if (live) setCanvases(list); })
-      .catch(() => { if (live) setCanvases([]); });
+      .then(list => { if (live) setRead({ key, list }); })
+      .catch(() => { if (live) setRead({ key, list: [] }); });
     return () => { live = false; };
-  }, [eventId, enabled]);
+  }, [eventId, key, enabled]);
 
   if (canvases.length === 0) return null;
   return (

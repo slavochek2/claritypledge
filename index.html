@@ -2,6 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- P1515-HEAD-BEGIN: a canvas link token (#k=<token>, or the older ?k=) is a capability. Take it into
+         sessionStorage and replace the address WITHOUT it before ANY script that records a URL runs: Mixpanel's
+         first pageview, Sentry.init (Replay buffers the URL at init, outside every beforeSend), CSP reports at load,
+         history. Key format = src/lib/canvas-link-token.ts storageKey (a test asserts the two agree). Sets
+         window.__canvasLinkTokenLoad so the recording-off decisions below know this load carried a token. -->
+    <script>
+      (function () {
+        try {
+          var m = /^\/p\/([^/]+)\/canvas\/([^/]+)/i.exec(window.location.pathname);
+          if (!m) return;
+          var search = new URLSearchParams(window.location.search);
+          var hash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+          var capability = hash.get('k') || search.get('k');
+          if (!capability) return;
+          // 1. Strip the address FIRST: whatever happens next (an undecodable path, blocked storage), the capability is
+          //    never left in the URL.
+          search.delete('k');
+          hash.delete('k');
+          var s = search.toString();
+          var h = hash.toString();
+          window.history.replaceState(window.history.state, '', window.location.pathname + (s ? '?' + s : '') + (h ? '#' + h : ''));
+          window.__canvasLinkTokenLoad = true;
+          // 2. Then keep it: in memory first (sessionStorage can be blocked or full), then in sessionStorage. If the
+          //    path cannot be decoded the token is dropped (a lost link beats a leaked one).
+          try {
+            var key = 'canvas-link:' + decodeURIComponent(m[1]).toLowerCase() + '/' + decodeURIComponent(m[2]).toLowerCase();
+            (window.__canvasLinkTokenFallback = window.__canvasLinkTokenFallback || {})[key] = capability;
+            // the key THIS load wrote: a boot-time SIGNED_OUT keeps it and clears the keys earlier loads left
+            (window.__canvasLinkTokenLoadKeys = window.__canvasLinkTokenLoadKeys || []).push(key);
+            try { window.sessionStorage.setItem(key, capability); } catch (e) { /* storage blocked: the in-memory copy serves this load */ }
+          } catch (e) { /* undecodable address: dropped */ }
+        } catch (e) { /* never block the page */ }
+      })();
+    </script>
+    <!-- P1515-HEAD-END -->
     <link rel="icon" type="image/svg+xml" href="/clarity-favicon.svg" />
     <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to non-zero
          values; without it the bottom nav and other fixed-bottom UI are clipped behind the
@@ -121,11 +156,12 @@
            session recording off on the sign-in landing routes, where the recorder attaches the
            raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
            src/lib/sentry-filters.ts; a test asserts the two stay identical. */
-        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
+        var p1325SignInParam = /((?:[?&#;]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k|%6B)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
         var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname)
-        /* P1515: a canvas opened with its link token (?k=) on arrival. The page replaces the address without it
-           right after load, but the recorder attaches the raw URL of THIS load, so it does not record. */
-        p1325NoRecord = p1325NoRecord || (/^\/p\/[^/]+\/canvas\/[^/]+/i.test(window.location.pathname) && /[?&]k=/.test(window.location.search || ''));
+        /* P1515: a canvas opened with its link token on arrival. The head script above has already taken the token out
+           of the address (and set window.__canvasLinkTokenLoad); this stays as the second layer, so a load that carried
+           one is not recorded, and the check parses the query the way the page does (a percent-encoded `%6B=` is `k`). */
+        p1325NoRecord = p1325NoRecord || window.__canvasLinkTokenLoad === true || (/^\/p\/[^/]+\/canvas\/[^/]+/i.test(window.location.pathname) && (new URLSearchParams(window.location.search || '').has('k') || new URLSearchParams((window.location.hash || '').replace(/^#/, '')).has('k')));
         /* P1381: /admin/* renders founder-only PII (every user's email); never record it. */
         p1325NoRecord = p1325NoRecord || /^\/admin(?:\/|$)/i.test(window.location.pathname);
         /* P1512: /home/* is Clarity Chat (people's messages); never record it. */

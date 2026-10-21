@@ -35,7 +35,7 @@
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -48,9 +48,8 @@ import {
 import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
 import { toast } from 'sonner';
-import { pointsService } from '@/app/data/points-service';
-import { clearLinkTokens, readLinkToken, storeLinkToken } from '@/lib/canvas-link-token';
-import { canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
+import { linkTokenFromAddress, linkTokenVersion, readLinkToken, storeLinkToken, subscribeLinkTokens } from '@/lib/canvas-link-token';
+import { canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVersion, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { FeedPointCard, type FeedPointCardCanvas, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
@@ -113,8 +112,6 @@ type CanvasData =
     points: PointWithUserPosition[];
     stories: Map<string, StoryWithAuthor[]>;
     positions: Map<string, PointPositionWithUser[]>;
-    /** every canvas name the owner has (the owner only; a reader's picker holds this canvas alone) */
-    projectTags: string[];
     /** P1515: 'private' (no entries) or 'shared'; never null on a canvas the viewer can read */
     visibility: CanvasVisibility;
     isOwner: boolean;
@@ -126,6 +123,9 @@ type CanvasData =
     audience: AudienceEntry[] | null;
     /** ids of the stories others added through this canvas */
     addedStoryIds: string[];
+    /** the version that is open, and every version of the canvas, newest first (P1515 phase 5) */
+    version: string | null;
+    versions: CanvasVersion[];
   }
   | { status: 'not-found' }
   | { status: 'error' };
@@ -144,26 +144,32 @@ export function CanvasPage() {
   // The open point lives in the address (`?point=`), so Back from a story or point page reopens
   // it. It opens only if it is one of the points THIS viewer's read returned.
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { hash: urlHash } = useLocation();
   const requestedPointId = searchParams.get('point');
-  // "Anyone with the link" is an unguessable token that arrives in the address (`?k=`). It is a capability, so
-  // it is taken into tab storage on arrival and the address is replaced WITHOUT it (effect below); it never
-  // rides internal navigation. Reads, writes, refresh, Back and the cache key use the stored token.
-  const urlToken = searchParams.get('k') || undefined;
+  // `?v=<version>` picks a version; with none, the newest opens.
+  const requestedVersion = searchParams.get('v') || undefined;
+  // "Anyone with the link" is an unguessable token that arrives in the address (`#k=`, the fragment Copy link
+  // produces: a browser never sends a fragment to the server; or the older `?k=`). It is a capability, so it is
+  // taken into tab storage on arrival and the address is replaced WITHOUT it. index.html's head script already does
+  // that before any SDK loads; this is the same for an arrival it did not see (in-app navigation) and for tests. It
+  // never rides internal navigation. Reads, writes, refresh, Back and the cache key use the stored token.
+  const urlToken = linkTokenFromAddress(`?${searchParams.toString()}`, urlHash);
   if (urlToken && handle && projectTag) storeLinkToken(handle, projectTag, urlToken); // idempotent
-  // (In memory too, in case tab storage is blocked: the address no longer carries it after arrival.)
-  const arrivedWith = useRef<{ canvas: string; token: string } | null>(null);
-  if (urlToken) arrivedWith.current = { canvas: `${handle}/${projectTag}`, token: urlToken };
-  const linkToken = urlToken
-    ?? (handle && projectTag ? readLinkToken(handle, projectTag) : undefined)
-    ?? (arrivedWith.current?.canvas === `${handle}/${projectTag}` ? arrivedWith.current.token : undefined);
-  const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}|${linkToken ?? ''}`;
+  // The store is the only copy (its in-memory half covers blocked storage): the page keeps none of its own, so a clear
+  // (sign-out in another tab, expiry) re-renders this page without a token even when the viewer id did not change.
+  const tokenVersion = useSyncExternalStore(subscribeLinkTokens, linkTokenVersion, linkTokenVersion);
+  /** The token NOW: requests and writes read it when they run, never from an earlier render. */
+  const tokenNow = () => (handle && projectTag ? readLinkToken(handle, projectTag) : undefined);
+  const linkToken = tokenNow();
+  const key = `${viewerId ?? ''}|${handle ?? ''}|${projectTag ?? ''}|${linkToken ?? ''}|${requestedVersion ?? ''}`;
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // Back to a canvas shows it as it was left, from the shared return cache (P1364 rules: POP only,
   // cleared on any auth change and after every own write; a read from an older generation is
   // never written back).
   const navigationType = useNavigationType();
-  const cacheKey = listReturnCacheKey(viewerId, canvasPath(handle ?? '', projectTag ?? ''), linkToken ?? '');
+  const cacheKey = listReturnCacheKey(viewerId, `${canvasPath(handle ?? '', projectTag ?? '')}${requestedVersion ? `?v=${requestedVersion}` : ''}`, linkToken ?? '');
   // The viewer + address on screen NOW. A callback from a card that outlived its viewer (a vote
   // settling after sign-out) must not start a read for the old key: it would supersede the
   // current read and leave the page loading.
@@ -173,6 +179,9 @@ export function CanvasPage() {
   // re-read it then.
   const [panelCloses, setPanelCloses] = useState(0);
   const requestRef = useRef(0);
+  // The key a no-?v load adopted for itself: arriving there is not a new address to read.
+  const adoptedKeyRef = useRef<string | null>(null);
+  const pendingAdoptRef = useRef<{ from: string; to: string; version: string } | null>(null);
 
   // What is on screen, for `read`: a refresh with nothing ready on screen is a first load.
   const loadedRef = useRef<Loaded | null>(null);
@@ -190,12 +199,17 @@ export function CanvasPage() {
     const settle = (data: CanvasData) => {
       if (rid !== requestRef.current || forKey !== keyRef.current) return;
       if (keepOnError && data.status === 'error') return;
+      // With no ?v on a canvas of several versions, the version that opened is written into the address (replace), so Back and a
+      // reload return to THAT version, never to an older one a cached no-?v entry could serve after a newer version appears.
+      const adopt = data.status === 'ready' && !requestedVersion && data.versions.length >= 2 && data.version ? data.version : null;
+      const adoptedKey = adopt ? `${forKey.slice(0, forKey.lastIndexOf('|') + 1)}${adopt}` : null;
       if (data.status === 'ready' && generation === listReturnCacheGeneration()) {
-        writeListReturnCache(cacheKey, 'canvas', data);
+        writeListReturnCache(adopt ? listReturnCacheKey(viewerId, `${canvasPath(handle ?? '', projectTag ?? '')}?v=${adopt}`, linkToken ?? '') : cacheKey, 'canvas', data);
       }
       // The audience is live: a canvas this viewer can no longer read must not come back from the
       // Back cache. (The cache has no per-key delete; a clear costs other lists one refetch.)
       if (data.status === 'not-found') clearListReturnCache();
+      if (adopt && adoptedKey) pendingAdoptRef.current = { from: forKey, to: adoptedKey, version: adopt };
       setLoaded({ key: forKey, data });
     };
     if (!handle || !projectTag) return settle({ status: 'not-found' });
@@ -204,23 +218,22 @@ export function CanvasPage() {
     try {
       const owner = await getProfileBySlugResult(handle, { withRelations: false });
       if (!owner.success) return settle({ status: owner.error === 'not_found' ? 'not-found' : 'error' });
-      // Load time: the picker's tags and the owner's audience need only the owner, so they are read
-      // alongside the canvas. A reader's picker holds this canvas alone (the owner's other canvases
-      // are not theirs to list).
+      // Load time: the owner's audience needs only the owner, so it is read alongside the canvas.
       const viewerIsOwner = viewerId === owner.data.id;
-      const tagsRead = viewerIsOwner
-        ? pointsService.getCanvasProjectTags(owner.data.id, viewerId)
-        : Promise.resolve([projectTag]);
-      tagsRead.catch(() => {}); // awaited below; this only stops an unhandled rejection meanwhile
       // undefined = the read failed (null = not the owner, nothing to read)
       const audienceRead: Promise<AudienceEntry[] | null | undefined> = viewerIsOwner
         ? canvasService.getAudience(projectTag).catch(() => undefined)
         : Promise.resolve(null);
       // ONE read for everyone (P1515): the owner and admitted readers get the canvas, anyone else
       // gets nothing, which is shown as not-found exactly as an unknown canvas is.
-      const view = await canvasService.getCanvas(owner.data.id, projectTag, viewerId, linkToken);
-      if (view.points.length === 0) return settle({ status: 'not-found' });
-      const [projectTags, audienceResult] = await Promise.all([tagsRead, audienceRead]);
+      // A version is passed only when `?v=` names one: otherwise the call is the one it always was.
+      const view = requestedVersion
+        ? await canvasService.getCanvas(owner.data.id, projectTag, viewerId, readLinkToken(handle, projectTag), requestedVersion)
+        : await canvasService.getCanvas(owner.data.id, projectTag, viewerId, readLinkToken(handle, projectTag));
+      // No points: not-found for everyone, EXCEPT the owner of a canvas that has a record (an open link or audience
+      // entries): they must still reach the share control to close it (review), so they get the canvas with an empty state.
+      if (view.points.length === 0 && !(view.isOwner && view.canvasExists)) return settle({ status: 'not-found' });
+      const audienceResult = await audienceRead;
       // A refresh whose audience read failed keeps the audience already loaded for this canvas; only
       // a first load has none to keep (null: shown as the "could not be read" wording).
       const shown = loadedRef.current;
@@ -239,22 +252,24 @@ export function CanvasPage() {
         points: view.points,
         stories: view.stories,
         positions: view.positions,
-        projectTags,
         visibility: view.visibility ?? 'private',
         isOwner: view.isOwner,
         generalAccess: view.generalAccess,
         via: view.via,
         audience,
         addedStoryIds: view.addedStoryIds,
+        version: view.version ?? null,
+        versions: view.versions ?? [],
       });
     } catch {
       settle({ status: 'error' });
     }
-  }, [handle, projectTag, viewerId, cacheKey, linkToken]);
+  }, [handle, projectTag, viewerId, cacheKey, requestedVersion, linkToken]);
 
   // Wait for the session check: reading before it would show the owner the public canvas first.
   useEffect(() => {
     if (!sessionChecked) return;
+    if (adoptedKeyRef.current === key) { adoptedKeyRef.current = null; return; } // the page's own address write, data already on screen
     const back = navigationType === 'POP' ? readListReturnCache<CanvasData>(cacheKey, 'canvas') : undefined;
     if (back) {
       requestRef.current++; // a read still in flight for an earlier address must not land now
@@ -306,13 +321,23 @@ export function CanvasPage() {
   const location = useLocation();
   const locationStateRef = useRef<unknown>(location.state);
   locationStateRef.current = location.state;
-  const setParams = useCallback((changes: Record<string, string | null>, push = false) => {
+  // `panel`: a pushed entry marks a panel (closing it steps Back); a version change is not a panel, so it carries no mark.
+  const setParams = useCallback((changes: Record<string, string | null>, push = false, panel = true) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       for (const [k, v] of Object.entries(changes)) if (v) next.set(k, v); else next.delete(k);
       return next;
-    }, push ? { state: { canvasPanel: true } } : { replace: true, state: locationStateRef.current });
+    }, push ? (panel ? { state: { canvasPanel: true } } : {}) : { replace: true, state: locationStateRef.current });
   }, [setSearchParams]);
+  // Write the adopted version into the address (replace) and move what is on screen to that address in the same render.
+  useEffect(() => {
+    const pending = pendingAdoptRef.current;
+    if (!pending || !loaded || loaded.key !== pending.from || keyRef.current !== pending.from) return;
+    pendingAdoptRef.current = null;
+    adoptedKeyRef.current = pending.to;
+    setLoaded({ key: pending.to, data: loaded.data });
+    setParams({ v: pending.version });
+  }, [loaded, setParams]);
   const openIndex = requestedPointId ? ordered.findIndex(p => p.id === requestedPointId) : -1;
   const openPoint = openIndex >= 0 ? ordered[openIndex] : null;
   // R2: a box's "N more" opens the whole box in the panel (`?box=`); a point opened from that list
@@ -392,24 +417,32 @@ export function CanvasPage() {
     };
   }, [isReady, read]);
 
-  // The link token has been taken into tab storage above: replace the address without it, at once and before
-  // any other navigation. (Declared before the point-anchor effect below, which also strips it.)
+  // The link token has been taken into tab storage above: replace the address (query AND fragment) without it, at
+  // once and before any other navigation. (Declared before the point-anchor effect below, which also strips it.)
   useEffect(() => {
-    if (urlToken) setParams({ k: null });
-  }, [urlToken, setParams]);
-  // Sign-out or switching person forgets every stored link token of this tab. An anonymous visitor who signs in
-  // keeps theirs: they carry on as the same person.
-  const previousViewerRef = useRef(viewerId);
+    if (!urlToken) return;
+    const query = new URLSearchParams(location.search);
+    query.delete('k');
+    const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
+    fragment.delete('k');
+    navigate(
+      { pathname: location.pathname, search: query.toString() ? `?${query}` : '', hash: fragment.toString() ? `#${fragment}` : '' },
+      { replace: true, state: locationStateRef.current },
+    );
+  }, [urlToken, location.pathname, location.search, location.hash, navigate]);
+  // The tokens are cleared by the auth lifecycle (AuthContext, api.signOut, useClearLinkTokensOnAuthChange in App.tsx),
+  // even while this page is not mounted. When that happens under this page, what the Back cache holds for the canvas was
+  // read WITH the token and must not be served again: drop it (the re-read itself follows from the key, which changed).
+  const seenTokenVersion = useRef(tokenVersion);
   useEffect(() => {
-    const previous = previousViewerRef.current;
-    previousViewerRef.current = viewerId;
-    if (previous && previous !== viewerId) { clearLinkTokens(); arrivedWith.current = null; }
-  }, [viewerId]);
+    if (seenTokenVersion.current === tokenVersion) return;
+    seenTokenVersion.current = tokenVersion;
+    clearListReturnCache();
+  }, [tokenVersion]);
 
   // A point opened from the address (a shared link, a reload of an old tab): put the canvas itself
   // behind it and mark the point's entry, as a card click does — so Back (the browser's, a phone's
   // swipe) closes the point and stays on the canvas instead of leaving it (review).
-  const navigate = useNavigate();
   const openPointId = openPoint?.id ?? null;
   // Once per point: the two navigations below must never run twice for the same arrival (review).
   const anchoredRef = useRef<string | null>(null);
@@ -503,8 +536,8 @@ export function CanvasPage() {
   // The checked writes for the open point's card (positions), and the one for taking an added story off.
   const canvasBindings = (point: PointWithUserPosition): FeedPointCardCanvas | undefined => ready && projectTag
     ? {
-      setPosition: position => canvasService.setPosition(ready.ownerId, projectTag, point.id, position, linkToken),
-      removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id, linkToken),
+      setPosition: position => canvasService.setPosition(ready.ownerId, projectTag, point.id, position, tokenNow()),
+      removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id, tokenNow()),
       reader: !viewerIsOwner,
       readOnly: !viewerId,
       sharedLabel,
@@ -535,7 +568,7 @@ export function CanvasPage() {
 
   return (
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
-      {ready && <SEO title={`${ready.ownerName} · #${projectTag} — Clarity Pledge`} noIndex />}
+      {ready && <SEO title={`${ready.ownerName} · #${ready.version ?? projectTag} — Clarity Pledge`} noIndex />}
       {/* R10: the name of the thing first, then whose it is and which one: "Clarity Canvas" on its
           own line; under it "by <owner>" and the canvas's name (the menu, when the owner has more
           than one), then Compare, wrapping under them when the row is too narrow. */}
@@ -544,10 +577,10 @@ export function CanvasPage() {
         {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
             "by <owner> · <canvas> · Compare with someone…", not across the page. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base md:text-lg" data-testid="canvas-byline">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base max-sm:contents md:text-lg" data-testid="canvas-byline">
             {ready ? (
               // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
-              <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5" data-testid="canvas-owner">
+              <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 max-sm:w-full" data-testid="canvas-owner">
                 <GravatarAvatar
                   name={ready.owner.name}
                   photoUrl={ready.owner.photoUrl}
@@ -572,35 +605,40 @@ export function CanvasPage() {
               current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
             )}
             {ready && (
-              <span className="flex min-w-0 max-w-full items-center gap-2">
+              <span className="flex min-w-0 max-w-full items-center gap-2 max-sm:order-2 max-sm:flex-1 max-sm:flex-wrap" data-testid="canvas-project-slot">
                 <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
-                <ProjectPicker handle={handle ?? ''} projectTag={projectTag ?? ''} projectTags={ready.projectTags} withPerson={withPerson} />
+                {/* The dropdown lists the versions of THIS canvas, for owner and readers alike; one version is just its name.
+                    Separate canvases are reached by their own address. */}
+                {ready.versions.length >= 2
+                  ? <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={v => setParams({ v, point: null, box: null }, true, false)} />
+                  : <span className="min-w-0 truncate font-medium text-foreground" data-testid="canvas-project-tag">{projectTag}</span>}
               </span>
             )}
           </div>
+          {/* P1515: Share sits immediately right of Compare, in the same row. */}
           {ready && (
-            <ComparePicker
-              base={basePerson}
-              others={others}
-              withPerson={withPerson}
-              onCompare={id => setParams({ with: id })}
-            />
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:contents" data-testid="canvas-actions">
+              <ComparePicker
+                base={basePerson}
+                others={others}
+                withPerson={withPerson}
+                onCompare={id => setParams({ with: id })}
+              />
+              {projectTag && viewerIsOwner && (
+                <CanvasShareControl
+                  name={projectTag}
+                  visibility={ready.visibility}
+                  generalAccess={ready.generalAccess}
+                  link={`${window.location.origin}${canvasPath(handle ?? '', projectTag)}`}
+                  entries={ready.audience}
+                  onChanged={refresh}
+                />
+              )}
+            </div>
           )}
         </div>
-        {/* P1515: the owner's lock control, or a reader's one line. Private, and the owner chooses
-            who else sees it: the same idea in both. */}
-        {ready && projectTag && (viewerIsOwner ? (
-          <div className="flex min-w-0 max-w-full" data-testid="canvas-visibility-row">
-            <CanvasShareControl
-              name={projectTag}
-              visibility={ready.visibility}
-              generalAccess={ready.generalAccess}
-              link={`${window.location.origin}${canvasPath(handle ?? '', projectTag)}`}
-              entries={ready.audience}
-              onChanged={refresh}
-            />
-          </div>
-        ) : (ready.via || ready.generalAccess === 'link') && (
+        {/* P1515: a reader's one line (the owner's Share button is in the title row above). */}
+        {ready && projectTag && !viewerIsOwner && (ready.via || ready.generalAccess === 'link') && (
           <p className="flex min-w-0 items-center gap-2 text-sm text-foreground/80" data-testid="canvas-shared-with-you">
             <SharedIcon label={sharedLabel ?? 'Shared with you'} />
             <span className="min-w-0">
@@ -608,7 +646,7 @@ export function CanvasPage() {
                 <>
                   {ready.via.kind === 'person' ? 'Shared with you by' : 'Shared with you through'}{' '}
                   {ready.via.kind === 'event' && ready.via.slug ? (
-                    <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
+                    <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-blue-600 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
                       {ready.via.name}
                     </Link>
                   ) : (
@@ -620,7 +658,13 @@ export function CanvasPage() {
               )}
             </span>
           </p>
-        ))}
+        )}
+        {ready && ready.points.length === 0 && (
+          // The owner of a canvas that has a record but no current points: the share control above still works.
+          <p className="text-sm text-muted-foreground" data-testid="canvas-empty-owner">
+            This canvas has no points yet. You can still change who has access above.
+          </p>
+        )}
       </header>
 
       {current?.status === 'error' ? (
@@ -679,7 +723,7 @@ export function CanvasPage() {
             // On the card, as on the /point page's card: how everyone spreads, and why it matters.
             spread={<PointSpreadRow counts={levelCounts(openPositions)} withInfo className="mt-2" />}
             // The project tag is where the reader already is: shown, not a link out to the feed.
-            activeTag={projectTag ?? undefined}
+            activeTag={ready?.version ?? projectTag ?? undefined}
             onPointRemoved={refresh}
             onPositionSaved={refresh}
             canvas={canvasBindings(openPoint)}
@@ -731,7 +775,7 @@ export function CanvasPage() {
         state={readerStoryDialog}
         audienceNote={composerNote}
         onSave={(pointId, content) => ready && projectTag
-          ? canvasService.addStory(ready.ownerId, projectTag, pointId, content, linkToken).then(() => undefined)
+          ? canvasService.addStory(ready.ownerId, projectTag, pointId, content, tokenNow()).then(() => undefined)
           : Promise.reject(new Error('canvas not ready'))}
         onClose={closeStoryDialog}
         onSaved={() => { closeStoryDialog(); refresh(); }}
@@ -891,35 +935,28 @@ function peopleOf(
 
 /** Filled grey pills with a chevron, so a menu never looks like one of the white canvas cards. */
 const PILL = 'relative inline-flex h-10 min-w-0 max-w-full items-center rounded-full text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-500';
-const SELECT = 'h-full min-w-0 max-w-[12rem] cursor-pointer appearance-none truncate rounded-full bg-transparent pr-8 text-base font-medium focus:outline-none md:text-sm';
+const SELECT = 'h-full min-w-0 max-w-[12rem] max-sm:max-w-none max-sm:flex-1 cursor-pointer appearance-none truncate rounded-full bg-transparent pr-8 text-base font-medium focus:outline-none md:text-sm';
 
-/**
- * Which of the owner's canvases (one per `canvas_<name>` tag; R9): the byline's last step, by
- * name. With one canvas it is the name itself, not a menu with one choice (R10).
- */
-function ProjectPicker({ handle, projectTag, projectTags, withPerson }: {
-  handle: string;
-  projectTag: string;
-  projectTags: string[];
-  withPerson: CanvasPerson | null;
-}) {
-  const navigate = useNavigate();
-  const tags = projectTags.includes(projectTag) ? projectTags : [projectTag, ...projectTags];
-  const withQuery = withPerson ? `?with=${encodeURIComponent(withPerson.id)}` : '';
-  if (tags.length <= 1) {
-    return <span className="min-w-0 truncate font-medium text-foreground" data-testid="canvas-project-tag">{projectTag}</span>;
-  }
+/** P1515 phase 5: the canvas's versions, newest first with a date, for everyone the canvas admits. Same outline pill as the
+ *  canvas picker; choosing one puts it in the address (`?v=`). */
+function VersionSwitcher({ versions, open, onPick }: { versions: CanvasVersion[]; open: string; onPick: (version: string) => void }) {
+  const dateOf = (iso: string | null) => {
+    const d = iso ? new Date(iso) : null;
+    return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  };
   return (
-    <label className={`${PILL} bg-muted text-foreground hover:bg-muted/70`} data-testid="canvas-project-picker">
+    <label className={`${PILL} border border-foreground/40 bg-muted text-foreground hover:bg-muted/70 max-sm:w-full`} data-testid="canvas-version-picker">
       <select
-        aria-label="Canvas"
-        value={projectTag}
-        // Compare (`?with=`) carries over; the open point belongs to this canvas and does not.
-        onChange={e => navigate(`${canvasPath(handle ?? '', e.target.value)}${withQuery}`)}
-        className={`${SELECT} pl-3`}
-        data-testid="canvas-project-tag"
+        aria-label="Version"
+        value={open}
+        onChange={e => onPick(e.target.value)}
+        className={`${SELECT.replace('max-w-[12rem]', 'max-w-[20rem]')} pl-3`}
+        data-testid="canvas-version-select"
       >
-        {tags.map(t => <option key={t} value={t}>{t}</option>)}
+        {versions.map(v => {
+          const date = dateOf(v.createdAt);
+          return <option key={v.name} value={v.name}>{date ? `${v.name} · ${date}` : v.name}</option>;
+        })}
       </select>
       <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
     </label>
@@ -936,7 +973,7 @@ function ComparePicker({ base, others, withPerson, onCompare }: {
   // Nobody else to compare with: the pill is absent, not disabled (P955).
   if (!base || others.length === 0) return null;
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-testid="canvas-controls">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:order-4 max-sm:basis-full" data-testid="canvas-controls">
       <label
         // Founder, sixth round: Compare is a main action but read as a grey filter — a blue
         // outline until someone is picked.

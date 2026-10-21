@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'default' | 'destructive';
+  /** extra classes for the confirm button (e.g. the design system's blue for a non-destructive action) */
+  confirmClassName?: string;
   onConfirm: () => void;
   isLoading?: boolean;
 }
@@ -28,6 +31,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'destructive',
+  confirmClassName,
   onConfirm,
   isLoading = false,
 }: ConfirmDialogProps) {
@@ -53,7 +57,7 @@ export function ConfirmDialog({
       */}
       <DialogContent
         hideCloseButton
-        className="max-w-sm data-[state=closed]:!animate-none"
+        className="w-[calc(100%-2rem)] max-w-sm rounded-xl shadow-xl sm:rounded-xl data-[state=closed]:!animate-none"
         overlayClassName="data-[state=closed]:!animate-none"
       >
         <DialogHeader>
@@ -63,6 +67,7 @@ export function ConfirmDialog({
         <DialogFooter>
           <Button
             variant="ghost"
+            className="min-h-11"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
@@ -70,6 +75,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             variant={variant}
+            className={cn('min-h-11', confirmClassName)}
             onClick={onConfirm}
             disabled={isLoading}
           >

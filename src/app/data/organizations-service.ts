@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import type {
   Organization,
   OrganizationsService,
@@ -282,11 +283,17 @@ export const organizationsService: OrganizationsService = {
     // role + terms_version omitted on purpose — server DEFAULTs set them (Reconciliation A).
     // invited_by passes through raw; the membership_validate_invited_by trigger is the
     // authority on whether it resolves to an existing profile (P1076).
-    const { data, error } = await supabase
-      .from('membership')
-      .insert({ org_id: orgId, user_id: userId, invited_by: invitedBy ?? null })
-      .select('terms_version')
-      .maybeSingle();
+    let result;
+    try {
+      result = await supabase
+        .from('membership')
+        .insert({ org_id: orgId, user_id: userId, invited_by: invitedBy ?? null })
+        .select('terms_version')
+        .maybeSingle();
+    } finally {
+      clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+    }
+    const { data, error } = result;
     // Idempotent: a duplicate join is a no-op, not an error (UAT — Join clicked twice).
     // `joined: false` on the no-op path lets callers skip analytics for a row that
     // wasn't actually created (an already-member re-accepting terms creates nothing).
@@ -299,12 +306,18 @@ export const organizationsService: OrganizationsService = {
 
   async leaveOrganization(orgId) {
     const userId = await requireUserId();
-    const { data, error } = await supabase
-      .from('membership')
-      .delete()
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
-      .select('user_id');
+    let result;
+    try {
+      result = await supabase
+        .from('membership')
+        .delete()
+        .eq('org_id', orgId)
+        .eq('user_id', userId)
+        .select('user_id');
+    } finally {
+      clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+    }
+    const { data, error } = result;
     if (error) throw new Error(`Failed to leave organization: ${error.message}`);
     // `left: false` when zero rows matched (double-click, or already left) — nothing changed.
     return { left: (data ?? []).length > 0 };

@@ -50,6 +50,11 @@ export interface PersonRowProps {
    * Sits in the same slot as `action`, so pass one or the other, not both.
    */
   trailing?: React.ReactNode;
+  /**
+   * Phones: let the NAME win the row. The name may take two lines and the ear badge sits under it (side by side again from
+   * `sm`), so a trailing control does not squeeze the name to an initial. Default false: every other caller is unchanged.
+   */
+  stackOnPhone?: boolean;
 }
 
 export function PersonRow({
@@ -67,7 +72,9 @@ export function PersonRow({
   linkToProfile = true,
   size = "sm",
   trailing,
+  stackOnPhone = false,
 }: PersonRowProps) {
+  const nameWrap = stackOnPhone ? "line-clamp-2 break-words sm:line-clamp-none sm:truncate" : "truncate";
   const wrapLink = (children: React.ReactNode) =>
     linkToProfile ? <Link to={`/p/${slug}`}>{children}</Link> : <>{children}</>;
   return (
@@ -81,16 +88,16 @@ export function PersonRow({
           isPledger={isPledger ?? false}
         />
       )}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+      <div className={stackOnPhone ? "flex-1 min-w-0 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5" : "flex-1 min-w-0 flex items-center gap-1.5"}>
         {linkToProfile ? (
           <Link
             to={`/p/${slug}`}
-            className={`font-medium truncate hover:text-blue-500 transition-colors ${size === "lg" ? "text-lg" : ""}`}
+            className={`font-medium ${nameWrap} hover:text-blue-500 transition-colors ${size === "lg" ? "text-lg" : ""}`}
           >
             {name}
           </Link>
         ) : (
-          <span className={`font-medium truncate ${size === "lg" ? "text-lg" : ""}`}>{name}</span>
+          <span className={`font-medium ${nameWrap} ${size === "lg" ? "text-lg" : ""}`}>{name}</span>
         )}
         {showEarBadge && (
           <EarBadge count={earCount} name={name} size={size === "lg" ? 16 : 12} className="flex-shrink-0" />

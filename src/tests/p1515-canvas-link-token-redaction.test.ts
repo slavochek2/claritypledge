@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ErrorEvent } from '@sentry/react';
-import { AUTH_TOKEN_IN_URL, sentryBeforeBreadcrumb, sentryBeforeSend } from '@/lib/sentry-filters';
+import { AUTH_TOKEN_IN_URL, redactTokenFields, sentryBeforeBreadcrumb, sentryBeforeSend } from '@/lib/sentry-filters';
 
 const html = readFileSync(join(__dirname, '../../index.html'), 'utf8');
 const TOKEN = '3f9a0c7be214d85e6a1b9c0d4e7f2a58'; // a sample 32-hex link token; gitleaks:allow — synthetic fixture, matches no real token
@@ -33,6 +33,14 @@ const LEAKY = [
   // encoded copy inside a login redirect, and nested one level deeper
   `https://claritypledge.com/login?redirect=%2Fp%2Fana%2Fcanvas%2Fsales%3Fk%3D${TOKEN}`,
   `https://claritypledge.com/login?next=https%3A%2F%2Fclaritypledge.com%2Flogin%3Fredirect%3D%252Fp%252Fana%252Fcanvas%252Fsales%253Fk%253D${TOKEN}`,
+  // the fragment form Copy link produces, and the shapes a crafted or mangled link can take (review)
+  `https://claritypledge.com/p/ana/canvas/sales#k=${TOKEN}`,
+  `https://claritypledge.com/p/ana/canvas/sales#point=abc&k=${TOKEN}`,
+  `https://claritypledge.com/p/ana/canvas/sales?a=1&amp;k=${TOKEN}`,
+  `https://claritypledge.com/p/ana/canvas/sales?a=1;k=${TOKEN}`,
+  `https://claritypledge.com/p/ana/canvas/sales?%6B=${TOKEN}`,
+  `https://claritypledge.com/p/ana/canvas/sales?%6b=${TOKEN}`,
+  `https://claritypledge.com/login?redirect=%2Fp%2Fana%2Fcanvas%2Fsales%23k%3D${TOKEN}`,
 ];
 
 describe('P1515: Mixpanel carries no canvas link token', () => {
@@ -49,6 +57,8 @@ describe('P1515: Mixpanel carries no canvas link token', () => {
       'https://claritypledge.com/p/ana/canvas/sales',
       'https://claritypledge.com/p/ana/canvas/sales?point=0b1c2d3e&with=4f5a6b7c&box=canvas%3Aproblem',
       'https://claritypledge.com/events/x?kind=talk&key=abc&k2=1&ok=true', // names that merely contain a k
+      'https://claritypledge.com/p/ana/canvas/sales#top',
+      'https://claritypledge.com/events/x?a=1&amp;kind=talk',
     ]) expect(redact({ properties: { $current_url: url } })).toEqual({ properties: { $current_url: url } });
   });
 
@@ -98,5 +108,48 @@ describe('P1515: the not-found page logs the path only', () => {
     const src = readFileSync(join(__dirname, '../app/pages/not-found-page.tsx'), 'utf8');
     expect(src).toMatch(/attempted_path:\s*location\.pathname,/);
     expect(src).not.toMatch(/attempted_path:[^,\n]*location\.search/);
+  });
+});
+
+describe('P1515: Sentry redacts the token wherever it travels as a field (request bodies, extra, contexts, breadcrumb data)', () => {
+  const OBJECT_WITH_FIELDS = {
+    p_link_token: TOKEN,
+    nested: { link_token: TOKEN, ok: 'visible', deeper: [{ P_LINK_TOKEN: TOKEN }] },
+  };
+
+  it('redacts object fields named p_link_token / link_token anywhere in an event, whatever the value looks like', () => {
+    const event = {
+      type: undefined,
+      message: 'boom',
+      request: { url: 'https://claritypledge.com/rest/v1/rpc/get_canvas', data: { p_owner: 'o', p_name: 'sales', p_link_token: TOKEN } },
+      extra: OBJECT_WITH_FIELDS,
+      contexts: { canvas: { link_token: 'not-even-hex' } },
+      breadcrumbs: [{ category: 'fetch', data: { body: OBJECT_WITH_FIELDS } }],
+      exception: { values: [{ type: 'Error', value: 'boom' }] },
+    } as unknown as ErrorEvent;
+    const out = JSON.stringify(sentryBeforeSend(event));
+    expect(out).not.toContain(TOKEN);
+    expect(out).not.toContain('not-even-hex');
+    expect(out).toContain('visible'); // CONTROL: neighbouring fields survive
+    expect(out).toContain('"p_name":"sales"');
+    const crumb = JSON.stringify(sentryBeforeBreadcrumb({ category: 'fetch', data: { request_body: { p_link_token: TOKEN } } }));
+    expect(crumb).not.toContain(TOKEN);
+  });
+
+  it('redacts a serialized JSON key (plain and escaped inside another string)', () => {
+    const plain = JSON.stringify({ p_owner: 'o', p_link_token: TOKEN });
+    const escaped = JSON.stringify({ body: plain });
+    for (const text of [plain, escaped, `payload=${plain}`]) {
+      const out = redactTokenFields(text);
+      expect(out).not.toContain(TOKEN);
+      expect(out).toContain('[redacted]');
+    }
+    const event = { type: undefined, message: escaped, exception: { values: [{ type: 'Error', value: plain }] } } as unknown as ErrorEvent;
+    expect(JSON.stringify(sentryBeforeSend(event))).not.toContain(TOKEN);
+  });
+
+  it('CONTROL: other keys that merely resemble it are left alone', () => {
+    const text = JSON.stringify({ link_tokens_count: 3, linked: 'yes', token: 'abc' });
+    expect(redactTokenFields(text)).toBe(text);
   });
 });

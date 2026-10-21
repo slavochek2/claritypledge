@@ -476,6 +476,16 @@ test('3d: an owner can always CLOSE the link, even on a canvas with no current p
   // the canvas loses its last point (the owner deleted it)
   const del = await supabaseAdmin.from('points').delete().eq('id', q);
   expect(del.error, del.error?.message).toBeNull();
+  // The owner still reaches the canvas: an empty answer that SAYS the canvas exists (an open link, so a record), so the page can
+  // give the share control instead of not-found. Nobody else is told anything.
+  const emptyOwn = await ok<Canvas>(cO, 'get_canvas', { p_owner: O.user.id, p_name: NAME4, p_link_token: null }, 'owner, no points');
+  expect(emptyOwn.points).toEqual([]);
+  expect(emptyOwn.access).toMatchObject({ is_owner: true, admitted: true, canvas_exists: true });
+  const noRecord = await ok<Canvas>(cO, 'get_canvas', { p_owner: O.user.id, p_name: `${NAME4}nosuch`, p_link_token: null }, 'owner, no such canvas');
+  expect(noRecord.access.canvas_exists, 'a made-up canvas name is not a canvas').toBe(false);
+  const stranger = await ok<Canvas>(cS, 'get_canvas', { p_owner: O.user.id, p_name: NAME4, p_link_token: null }, 'stranger, no points');
+  expect(JSON.stringify(stranger)).not.toContain('canvas_exists'); // no hint of any kind for a stranger
+  expect(stranger.access.admitted).toBe(false);
   expect((await refused(cO, 'set_canvas_general_access', { p_name: NAME4, p_access: 'link' }, 'open without points')).code).toBe('42501');
   expect(await ok(cO, 'set_canvas_general_access', { p_name: NAME4, p_access: 'restricted' }, 'close without points')).toEqual({ general_access: 'restricted', link_token: null });
   const row = await supabaseAdmin.from('canvases').select('general_access, link_token').eq('owner_id', O.user.id).eq('name', NAME4).single();

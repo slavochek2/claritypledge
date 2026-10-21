@@ -68,8 +68,9 @@ if (!URL_ || !SERVICE_KEY) {
   process.exit(1);
 }
 // An allowlist: anything but a test project's exact origin is refused (a URL is parsed, never split,
-// so `https://<test ref>.@<other host>` cannot pass).
-const TEST_REFS = ['ayibkeoyukulbsjpxgaw'];
+// so `https://<test ref>.@<other host>` cannot pass). Test moved projects (P1530); the old ref stays
+// listed until it is retired.
+const TEST_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq'];
 let parsed;
 try { parsed = new URL(URL_); } catch { parsed = null; }
 const REF = parsed?.hostname.split('.')[0] ?? '';
@@ -204,9 +205,12 @@ async function seed() {
     if (linked) { kept += 1; continue; }
     let storyId = it.reused;
     if (storyId) {
-      const own = await must('reused story', admin.from('stories').select('id').eq('id', storyId).eq('author_id', owner.id).maybeSingle());
+      const own = await must('reused story', admin.from('stories').select('id,visibility').eq('id', storyId).eq('author_id', owner.id).maybeSingle());
       if (!own) throw new Error(`reused_story_id ${storyId} is not the owner's story`);
-    } else {
+      // A canvas point is private and a private point takes no public story: use a private copy of its text instead.
+      if (own.visibility !== 'private') storyId = null;
+    }
+    if (!storyId) {
       const found = await must('find story', admin.from('stories').select('id')
         .eq('author_id', owner.id).eq('content', it.story).eq('visibility', 'private')
         .order('created_at', { ascending: true }).limit(1).maybeSingle());

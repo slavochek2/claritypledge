@@ -9,6 +9,7 @@ import {
   sentryBeforeSendTransaction,
   IGNORED_ERROR_PATTERNS,
 } from "@/lib/sentry-filters";
+import { shouldStartReplay } from "@/lib/sentry-replay-guard";
 import { installNavTrace } from "@/lib/nav-trace";
 import { stampHistoryBoot } from "@/app/hooks/use-go-back";
 import { retryPendingOfflineClear } from "@/lib/offline-read-cache";
@@ -45,11 +46,15 @@ if (sentryDsn && import.meta.env.PROD) {
     // Performance monitoring
     integrations: [
       Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({
-        // Privacy: Mask all text and block media in replays
-        maskAllText: true,
-        blockAllMedia: true,
-      }),
+      // P1515: no Replay on a canvas load that carries its link token (`?k=`): the on-error buffer would
+      // upload the raw URL. Decided here, before init (src/lib/sentry-replay-guard.ts).
+      ...(shouldStartReplay(window.location.pathname, window.location.search, window.location.hash, (window as { __canvasLinkTokenLoad?: boolean }).__canvasLinkTokenLoad === true)
+        ? [Sentry.replayIntegration({
+          // Privacy: Mask all text and block media in replays
+          maskAllText: true,
+          blockAllMedia: true,
+        })]
+        : []),
     ],
 
     // Performance Monitoring - sample rate for production

@@ -20,6 +20,7 @@ import {
   Ear,
   RefreshCw,
   Share2,
+  UserMinus,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -31,6 +32,8 @@ import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import { EventShareRow } from './EventShareRow';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
+import { canvasService } from '@/app/data/canvas-service';
+import { REMOVE_ATTENDEE_COPY } from '../remove-attendee-copy';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useAuth } from '@/auth';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
@@ -336,6 +339,9 @@ export function EventDetail() {
   // Confirm dialog states
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
   const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
+  // P1515: the host takes a registered person off the guest list (see confirmRemoveAttendee)
+  const [removeTarget, setRemoveTarget] = useState<{ profileId: string; name: string } | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [showUncancelEventDialog, setShowUncancelEventDialog] = useState(false);
 
   // Check if current user is the host
@@ -527,6 +533,32 @@ export function EventDetail() {
 
   const handleCancelEvent = () => {
     setShowCancelEventDialog(true);
+  };
+
+  // P1515: the host takes a person off the guest list. They cannot register again, and lose what is shared with the
+  // event. A failure keeps the list as it is.
+  const confirmRemoveAttendee = async () => {
+    if (!event || !removeTarget) return;
+    if (!canWrite()) return;
+    setIsRemoving(true);
+    try {
+      await canvasService.removeEventAttendee(event.id, removeTarget.profileId);
+    } catch {
+      setIsRemoving(false);
+      toast.error(REMOVE_ATTENDEE_COPY.error);
+      setRemoveTarget(null);
+      return;
+    }
+    const gone = removeTarget.profileId;
+    setEvent((prev) => (prev ? { ...prev, attendees: (prev.attendees ?? []).filter((a) => a.profileId !== gone) } : prev));
+    // Re-read the list so the page shows what the server holds (the local filter above already took the person off).
+    try {
+      const fresh = await eventsService.getEventBySlug(event.slug);
+      if (fresh) setEvent(fresh);
+    } catch { /* the filtered list stays */ }
+    setIsRemoving(false);
+    toast.success(REMOVE_ATTENDEE_COPY.done(removeTarget.name));
+    setRemoveTarget(null);
   };
 
   const confirmCancelEvent = async () => {
@@ -1055,7 +1087,7 @@ export function EventDetail() {
               )}
 
               {/* P1515: canvases shared with this event, for the people the event admits. */}
-              {!isCancelled && <EventSharedCanvases eventId={event.id} enabled={isLoggedIn && (isRsvpd || isHostOfEvent)} />}
+              {!isCancelled && <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={isLoggedIn && (isRsvpd || isHostOfEvent)} />}
 
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               {hikeSeriesSlug ? (
@@ -1181,6 +1213,8 @@ export function EventDetail() {
               )}
               {(() => {
                 const attendees = event.attendees ?? [];
+                // Host only, and never the host's own row.
+                const canRemoveAttendee = (profileId: string) => !!isHost && profileId !== event.hostId;
                 const row = (attendee: (typeof attendees)[number], rating?: number | null, hostGrouped = false) => (
                   <PersonRow
                     key={attendee.profileId}
@@ -1194,14 +1228,31 @@ export function EventDetail() {
                     // Founder 2026-10-07: the host's grouped rows carry no ear badge, so the name
                     // keeps its room beside the marks and "understood N/10" on a phone.
                     showEarBadge={!hostGrouped}
+                    stackOnPhone={canRemoveAttendee(attendee.profileId)}
                     trailing={
-                      hostPrepMarks.has(attendee.profileId) || rating != null ? (
+                      hostPrepMarks.has(attendee.profileId) || rating != null || canRemoveAttendee(attendee.profileId) ? (
                         <span className="flex items-center gap-2">
                           {hostPrepMarks.has(attendee.profileId) && <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} />}
                           {rating != null && (
                             <span className="whitespace-nowrap text-xs text-muted-foreground" data-testid="host-opt-in-rating">
                               understood {rating}/10
                             </span>
+                          )}
+                          {canRemoveAttendee(attendee.profileId) && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-mr-2 h-11 w-11 shrink-0 p-0 text-slate-600 hover:text-destructive sm:mr-0 sm:h-10 sm:w-auto sm:px-3"
+                              data-testid="event-remove-attendee"
+                              aria-label={REMOVE_ATTENDEE_COPY.buttonLabel(attendee.name)}
+                              title={REMOVE_ATTENDEE_COPY.buttonTitle(attendee.name)}
+                              onClick={() => setRemoveTarget({ profileId: attendee.profileId, name: attendee.name })}
+                            >
+                              {/* Phones: an icon (the row has no room for a word beside the name and the ear count); the accessible name is the same. */}
+                              <UserMinus className="h-4 w-4 sm:hidden" aria-hidden="true" />
+                              <span className="hidden sm:inline">{REMOVE_ATTENDEE_COPY.button}</span>
+                            </Button>
                           )}
                         </span>
                       ) : undefined
@@ -1263,6 +1314,19 @@ export function EventDetail() {
         variant="destructive"
         onConfirm={confirmCancelRsvp}
         isLoading={isActionLoading}
+      />
+
+      {/* P1515: host removes a registered person */}
+      <ConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(open) => { if (!open && !isRemoving) setRemoveTarget(null); }}
+        title={REMOVE_ATTENDEE_COPY.title(removeTarget?.name ?? '')}
+        description={REMOVE_ATTENDEE_COPY.body(removeTarget?.name ?? '')}
+        confirmLabel={REMOVE_ATTENDEE_COPY.confirm}
+        cancelLabel={REMOVE_ATTENDEE_COPY.cancel}
+        variant="destructive"
+        onConfirm={confirmRemoveAttendee}
+        isLoading={isRemoving}
       />
 
       {/* Cancel Event Confirmation Dialog */}

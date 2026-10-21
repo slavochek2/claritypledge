@@ -62,9 +62,10 @@ if (!URL_ || !SERVICE_KEY) {
   process.exit(1);
 }
 // An allowlist, not a prod denylist: a worktree has no .env.prod to compare against, and a
-// denylist that cannot read its list would have to fail open or refuse every run. The URL is parsed, never split, so
+// denylist that cannot read its list would have to fail open or refuse every run. Test moved projects
+// (P1530); the old ref stays listed until it is retired. The URL is parsed, never split, so
 // `https://<test ref>.@<other host>` cannot pass.
-const TEST_REFS = ['ayibkeoyukulbsjpxgaw']; // the test projects (db-access.md)
+const TEST_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq']; // the test projects (db-access.md)
 let parsed;
 try { parsed = new URL(URL_); } catch { parsed = null; }
 const REF = parsed?.hostname.split('.')[0] ?? '';

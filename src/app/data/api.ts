@@ -8,6 +8,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { holdRoomCode, heldSeatSecrets } from '@/lib/room-capability';
 import { clearOfflineReadCacheWithin, roomCodeDigest } from '@/lib/offline-read-cache';
 import { parseBannerCredit } from '@/lib/banner-credit';
@@ -541,6 +542,9 @@ const SIGN_OUT_CACHE_CLEAR_BOUND_MS = 2_000;
  * @returns {Promise<void>}
  */
 export async function signOut(options: { scope?: 'global' | 'local' } = {}) {
+  // P1515: a canvas link token held in this tab must not outlive the person; first, like the offline cache below, so no
+  // path out of here (nav menu, account erasure with scope 'local') leaves it for the next person on this device.
+  clearLinkTokens();
   // P1369: the offline read cache goes FIRST — before the network sign-out, which can hang or
   // fail offline — so no path out of here leaves the previous person's rows readable. Bounded:
   // a wedged IndexedDB must not hold the sign-out (the clear keeps running, and the next person's
@@ -4314,12 +4318,18 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
   if (!(await guardSeatWrite(profileId))) return false;
 
   // Insert RSVP
-  const { error, status } = await supabase
-    .from('event_rsvps')
-    .insert({
-      event_id: eventId,
-      profile_id: profileId,
-    });
+  let inserted;
+  try {
+    inserted = await supabase
+      .from('event_rsvps')
+      .insert({
+        event_id: eventId,
+        profile_id: profileId,
+      });
+  } finally {
+    clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+  }
+  const { error, status } = inserted;
 
   if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
 
@@ -4341,12 +4351,18 @@ export async function cancelRsvp(eventId: string, profileId: string): Promise<bo
   // RLS filters it to zero rows — so the old code returned true while the seat stayed booked.
   if (!(await guardSeatWrite(profileId))) return false;
 
-  const { data, error, status } = await supabase
-    .from('event_rsvps')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('profile_id', profileId)
-    .select('id');
+  let deleted;
+  try {
+    deleted = await supabase
+      .from('event_rsvps')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('profile_id', profileId)
+      .select('id');
+  } finally {
+    clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+  }
+  const { data, error, status } = deleted;
 
   // Same server verdict as rsvpToEvent. Today anon holds DELETE, so an anonymous cancel shows
   // up as zero rows (below); this keeps it right if that grant is ever revoked.
@@ -4469,10 +4485,15 @@ export async function cancelEvent(eventId: string): Promise<boolean> {
     return false;
   }
 
-  const { error } = await supabase
-    .from('events')
-    .update({ status: 'cancelled' })
-    .eq('id', eventId);
+  let error;
+  try {
+    ({ error } = await supabase
+      .from('events')
+      .update({ status: 'cancelled' })
+      .eq('id', eventId));
+  } finally {
+    clearListReturnCache(); // P1515: a cancelled event admits no one to the canvases shared with it
+  }
 
   if (error) {
     console.error('[Events API] Error canceling event:', error);

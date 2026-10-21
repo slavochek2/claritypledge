@@ -30,13 +30,18 @@ import ts from 'typescript';
 
 /** Tables whose rows (or counts) the cached lists render. story_verifications → understoodCount.
  * P1515: the 'canvas' entry also renders added stories, the Private/Shared state and its audience,
- * and readers' positions, which a host's removal takes off the canvas. */
+ * and readers' positions, which a host's removal takes off the canvas, and what it shows follows
+ * admission, which membership (groups) and event_rsvps (events) decide. */
 const BASE_CACHED_TABLES = ['point_positions', 'points', 'stories', 'story_points', 'story_verifications',
-  'canvas_added_stories', 'canvases', 'canvas_audience', 'event_removals'];
+  'canvas_added_stories', 'canvases', 'canvas_audience', 'event_removals', 'membership', 'event_rsvps'];
 const WRITE_METHODS = new Set(['insert', 'upsert', 'update', 'delete']);
 
 /** Named exceptions: `file#function` → why no invalidation is needed. Keep it small. */
-const ALLOWLIST: Record<string, string> = {};
+const ALLOWLIST: Record<string, string> = {
+  // P1515: send-event-emails writes only event_rsvps' email-scheduling columns (reminder_scheduled_at,
+  // feedback_scheduled_at), never a registration row's existence: nothing a canvas read depends on.
+  'src/lib/event-emails.ts#invokeEventEmails': 'writes only the email-scheduling columns of event_rsvps',
+};
 
 // ─── Derivation from the database and edge-function sources ──────────────────
 

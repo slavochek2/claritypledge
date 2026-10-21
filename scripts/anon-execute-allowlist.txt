@@ -141,4 +141,4 @@ submit_calendar_source(text,text)             # signed-out visitors suggest an e
 # the owner's general access is 'link' AND the caller sends the current unguessable link token (`?k=`);
 # the same empty shape (shown as not-found) for every other canvas, with no hint that it is open.
 # Every write function and the owner's tools stay closed to anon.
-get_canvas(uuid,text,text)                    # a signed-out visitor opens a canvas shared with anyone with the link (P1515) — src/app/data/canvas-service.ts:108
+get_canvas(uuid,text,text,text)               # a signed-out visitor opens a canvas shared with anyone with the link (P1515) — src/app/data/canvas-service.ts:108

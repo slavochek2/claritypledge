@@ -13,6 +13,7 @@ import { ChatProvider } from "@/app/pages/chat/chat-provider";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
+import { useClearLinkTokensOnAuthChange } from "@/lib/canvas-link-token";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { OfflineStatusProvider, useConnectivity } from "@/app/contexts/offline-status-context";
 import { letterCodeRead } from "@/app/data/offline-reads-letters";
@@ -178,6 +179,8 @@ function FeedTagRedirect() {
 function ListReturnCacheAuthReset() {
   const { session } = useAuth();
   useClearListReturnCacheOnAuthChange(session?.user?.id);
+  // P1515: a canvas link token held in this tab must not outlive the person it was used by.
+  useClearLinkTokensOnAuthChange(session?.user?.id);
   return null;
 }
 

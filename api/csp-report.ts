@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { redactAuthTokens, redactRoomCodes } from '../src/lib/url-token-redaction.js';
 
 /**
  * Same-origin CSP violation report sink (P865).
@@ -46,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(204).end();
     return;
   }
-  const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  const contentType = ((req.headers['content-type'] || '').split(';')[0] ?? '').trim().toLowerCase();
   if (contentType && !REPORT_CONTENT_TYPES.includes(contentType)) {
     res.status(204).end();
     return;
@@ -55,6 +56,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // req.body is the parsed report (application/csp-report or application/reports+json).
     let body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    // A report carries the page's URL (document-uri, referrer, blocked-uri, source-file). A violation at document start
+    // can name an address that still holds a capability: a canvas link token (`#k=` / `?k=`), a sign-in token or a
+    // room code. Redact them before anything leaves for Sentry (P1304 / P1325 / P1515), then cap the size.
+    body = redactAuthTokens(redactRoomCodes(body));
     if (body.length > MAX_REPORT_BYTES) body = body.slice(0, MAX_REPORT_BYTES);
     await fetch(SENTRY_CSP_REPORT_URL, {
       method: 'POST',

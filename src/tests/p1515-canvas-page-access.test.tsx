@@ -10,7 +10,7 @@
  * Each "no longer" assertion has a control showing the same step while access still holds.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, cleanup, fireEvent, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { PointWithUserPosition } from '@/app/types';
@@ -33,7 +33,8 @@ vi.mock('@/app/data/api', () => ({
   })),
 }));
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { getCanvas, getAudience, setPosition } }));
-vi.mock('@/app/data/points-service', () => ({ pointsService: { getCanvasProjectTags: vi.fn(async () => ['sales']) } }));
+const getTags = vi.hoisted(() => vi.fn(async () => ['sales']));
+vi.mock('@/app/data/points-service', () => ({ pointsService: { getCanvasProjectTags: getTags } }));
 vi.mock('@/app/data/calibration-service', () => ({ calibrationService: { getEarsCount: vi.fn(async () => 0) } }));
 vi.mock('@/app/contexts/agent-accounts-context', () => ({
   useAgentAccountIds: () => ({ isAgentAccountId: () => false, isLoading: false }),
@@ -58,6 +59,7 @@ vi.mock('@/app/components/canvas/canvas-share-control', () => ({
 
 import { CanvasPage } from '@/app/pages/canvas-page';
 import { canvasPath } from '@/lib/canvas-boxes';
+import { clearLinkTokens, useClearLinkTokensOnAuthChange } from '@/lib/canvas-link-token';
 import { clearListReturnCache, listReturnCacheKey, readListReturnCache } from '@/lib/list-return-cache';
 
 const point = {
@@ -81,7 +83,7 @@ const cached = (viewer: string) => readListReturnCache(cacheKey(viewer), 'canvas
 /** The page as a browser opens it from history: a POP navigation, so a cached canvas is served. */
 function Where() {
   const location = useLocation();
-  return <output data-testid="where">{location.pathname}{location.search}</output>;
+  return <output data-testid="where" data-state={JSON.stringify(location.state ?? null)}>{location.pathname}{location.search}{location.hash}</output>;
 }
 function page(at = '/p/ana/canvas/sales') {
   return render(
@@ -106,12 +108,14 @@ const leaveAndReturn = () => act(async () => {
 });
 
 beforeEach(() => {
-  sessionStorage.clear();
+  clearLinkTokens();
   clearListReturnCache();
   auth.viewerId = 'reader-1';
   getCanvas.mockReset();
   getAudience.mockReset();
   getAudience.mockResolvedValue([]);
+  getTags.mockReset();
+  getTags.mockResolvedValue(['sales']);
 });
 afterEach(() => { cleanup(); clearListReturnCache(); });
 
@@ -327,14 +331,14 @@ describe('the link token in the address (?k=)', () => {
     await screen.findByTestId('canvas-shared-link');
     expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', 'tok123');
     cleanup();
-    sessionStorage.clear();
+    clearLinkTokens();
     getCanvas.mockClear();
     auth.viewerId = null;
     page('/p/ana/canvas/sales?k=tok123');
     await screen.findByTestId('canvas-shared-link');
     expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', undefined, 'tok123');
     cleanup();
-    sessionStorage.clear();
+    clearLinkTokens();
     getCanvas.mockClear();
     page('/p/ana/canvas/sales');
     await waitFor(() => expect(getCanvas).toHaveBeenCalled());
@@ -348,7 +352,7 @@ describe('the link token in the address (?k=)', () => {
     await cardProps.canvas!.setPosition('agree');
     expect(setPosition).toHaveBeenCalledWith('owner-1', 'sales', 'p1', 'agree', 'tok123');
     cleanup();
-    sessionStorage.clear();
+    clearLinkTokens();
     setPosition.mockClear();
     page('/p/ana/canvas/sales?point=p1');
     await screen.findByTestId('point-card');
@@ -459,6 +463,12 @@ describe('a read whose settle could be dropped: the load never gets stuck (rid /
   });
 });
 
+/** What App.tsx mounts once next to the routes: the auth-lifecycle reset of the stored link tokens. */
+function AuthReset() {
+  useClearLinkTokensOnAuthChange(auth.viewerId ?? undefined);
+  return null;
+}
+
 describe('the link token is taken off the address on arrival (a capability must not linger in history or analytics)', () => {
   const linkView = () => canvasView(false, { via: null, generalAccess: 'link' });
   const TOKEN = '3f9a0c7be214d85e6a1b9c0d4e7f2a58'; // gitleaks:allow — synthetic link-token fixture, matches no real token
@@ -533,6 +543,7 @@ describe('the link token is taken off the address on arrival (a capability must 
     auth.viewerId = null;
     const tree = (at: string) => (
       <MemoryRouter initialEntries={[at]}>
+        <AuthReset />
         <Routes><Route path="/p/:handle/canvas/:projectTag" element={<CanvasPage />} /></Routes>
       </MemoryRouter>
     );
@@ -547,5 +558,397 @@ describe('the link token is taken off the address on arrival (a capability must 
     view.rerender(tree('/p/ana/canvas/sales'));
     await waitFor(() => expect(getCanvas).toHaveBeenLastCalledWith('owner-1', 'sales', undefined, undefined));
     expect(sessionStorage.getItem(Object.keys(sessionStorage).find(k => k.startsWith('canvas-link:')) ?? 'none')).toBeNull();
+  });
+});
+
+describe('the page keeps no copy of the token: a clear under a mounted page is seen at once (a sign-out in another tab reaches an anonymous tab)', () => {
+  const TOKEN = '3f9a0c7be214d85e6a1b9c0d4e7f2a58'; // gitleaks:allow — synthetic link-token fixture, matches no real token
+  const linkView = () => canvasView(false, { via: null, generalAccess: 'link' });
+
+  it('an anonymous tab arrives with the token, the tokens are cleared with no viewer change, then the focus refetch sends NO token and a later sign-in inherits none', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    auth.viewerId = null;
+    const tree = (at: string) => (
+      <MemoryRouter initialEntries={[at]}>
+        <Routes><Route path="/p/:handle/canvas/:projectTag" element={<CanvasPage />} /></Routes>
+      </MemoryRouter>
+    );
+    const view = render(tree(`/p/ana/canvas/sales?k=${TOKEN}`));
+    await screen.findByTestId('canvas-shared-link');
+    expect(getCanvas).toHaveBeenLastCalledWith('owner-1', 'sales', undefined, TOKEN);
+    // the same-device sign-out in another tab reaches this tab as a clear; viewerId stays undefined
+    getCanvas.mockClear();
+    getCanvas.mockResolvedValue(noCanvas);
+    act(() => { clearLinkTokens(); });
+    await leaveAndReturn(); // the focus refetch
+    await waitFor(() => expect(getCanvas).toHaveBeenCalled());
+    for (const call of getCanvas.mock.calls) expect(call[3], 'every read after the clear').toBeUndefined();
+    await waitFor(() => expect(screen.getByTestId('canvas-not-found')).toBeInTheDocument());
+    // a later sign-in on this tab inherits nothing
+    getCanvas.mockClear();
+    auth.viewerId = 'reader-2';
+    view.rerender(tree('/p/ana/canvas/sales'));
+    await waitFor(() => expect(getCanvas).toHaveBeenCalled());
+    for (const call of getCanvas.mock.calls) expect(call[3], 'the next person sends none').toBeUndefined();
+  });
+
+  it('CONTROL: with no clear, the same focus refetch still sends the stored token', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    auth.viewerId = null;
+    page(`/p/ana/canvas/sales?k=${TOKEN}`);
+    await screen.findByTestId('canvas-shared-link');
+    getCanvas.mockClear();
+    await leaveAndReturn();
+    await waitFor(() => expect(getCanvas).toHaveBeenCalled());
+    for (const call of getCanvas.mock.calls) expect(call[3]).toBe(TOKEN);
+  });
+
+  it('a clear drops what the Back cache holds for the canvas (it was read with the token)', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    auth.viewerId = 'reader-1';
+    page(`/p/ana/canvas/sales?k=${TOKEN}`);
+    await grid();
+    const keyWithToken = listReturnCacheKey('reader-1', canvasPath('ana', 'sales'), TOKEN);
+    expect(readListReturnCache(keyWithToken, 'canvas')).toBeDefined();
+    getCanvas.mockResolvedValue(noCanvas);
+    act(() => { clearLinkTokens(); });
+    await waitFor(() => expect(readListReturnCache(keyWithToken, 'canvas')).toBeUndefined());
+  });
+
+  it('writes read the token when they run: a write made through a card captured BEFORE the clear sends none; CONTROL: before the clear it sends the token', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    page(`/p/ana/canvas/sales?k=${TOKEN}&point=p1`);
+    await screen.findByTestId('point-card');
+    const captured = cardProps.canvas!.setPosition; // what a card holds from an earlier render
+    await captured('agree');
+    expect(setPosition).toHaveBeenLastCalledWith('owner-1', 'sales', 'p1', 'agree', TOKEN);
+    act(() => { clearLinkTokens(); });
+    await captured('agree');
+    expect(setPosition).toHaveBeenLastCalledWith('owner-1', 'sales', 'p1', 'agree', undefined);
+  });
+});
+
+describe('the stored link token does not outlive the person, even when the canvas page is not mounted', () => {
+  const TOKEN = '3f9a0c7be214d85e6a1b9c0d4e7f2a58'; // gitleaks:allow — synthetic link-token fixture, matches no real token
+  const linkView = () => canvasView(false, { via: null, generalAccess: 'link' });
+  const Elsewhere = () => <div data-testid="elsewhere">another page</div>;
+
+  it('visit a link canvas, navigate away, sign out, come back: no token is sent; CONTROL: signing in from anonymous keeps it', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    auth.viewerId = 'reader-1';
+    const app = (showCanvas: boolean) => (
+      <MemoryRouter initialEntries={[`/p/ana/canvas/sales?k=${TOKEN}`]}>
+        <AuthReset />
+        {showCanvas
+          ? <Routes><Route path="/p/:handle/canvas/:projectTag" element={<CanvasPage />} /></Routes>
+          : <Elsewhere />}
+      </MemoryRouter>
+    );
+    const view = render(app(true));
+    await screen.findByTestId('canvas-shared-link');
+    expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', TOKEN);
+    // navigate away: CanvasPage is unmounted, the tab still holds the token
+    view.rerender(app(false));
+    expect(screen.getByTestId('elsewhere')).toBeInTheDocument();
+    expect(Object.keys(sessionStorage).some(k => k.startsWith('canvas-link:'))).toBe(true);
+    // sign out while the canvas page is NOT mounted
+    auth.viewerId = null;
+    view.rerender(app(false));
+    expect(Object.keys(sessionStorage).filter(k => k.startsWith('canvas-link:'))).toEqual([]);
+    // come back (no token in the address): the read carries none
+    getCanvas.mockClear();
+    getCanvas.mockResolvedValue(noCanvas);
+    view.unmount();
+    clearListReturnCache();
+    render(
+      <MemoryRouter initialEntries={['/p/ana/canvas/sales']}>
+        <AuthReset />
+        <Routes><Route path="/p/:handle/canvas/:projectTag" element={<CanvasPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(getCanvas).toHaveBeenCalled());
+    expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', undefined, undefined);
+    cleanup();
+    // CONTROL: an anonymous visitor who signs in keeps the token (the same person carries on)
+    clearLinkTokens();
+    getCanvas.mockResolvedValue(linkView());
+    auth.viewerId = null;
+    const anon = render(app(true));
+    await screen.findByTestId('canvas-shared-link');
+    anon.rerender(app(false));
+    auth.viewerId = 'reader-1';
+    anon.rerender(app(false));
+    expect(Object.keys(sessionStorage).some(k => k.startsWith('canvas-link:'))).toBe(true);
+  });
+
+  it('switching to another person also clears it', () => {
+    sessionStorage.setItem('canvas-link:ana/sales', TOKEN);
+    auth.viewerId = 'reader-1';
+    const view = render(<MemoryRouter><AuthReset /></MemoryRouter>);
+    auth.viewerId = 'reader-2';
+    view.rerender(<MemoryRouter><AuthReset /></MemoryRouter>);
+    expect(sessionStorage.getItem('canvas-link:ana/sales')).toBeNull();
+  });
+});
+
+describe('an owner whose canvas has no current points but has a record keeps the share control', () => {
+  const emptyOwner = (canvasExists: boolean) => canvasView(true, { points: [], canvasExists, visibility: 'shared', generalAccess: 'link' });
+
+  it('owner + record + no points: the canvas page with the share control and an empty note, not not-found', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(emptyOwner(true));
+    page();
+    await grid();
+    expect(screen.getByTestId('share-control')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-empty-owner')).toHaveTextContent('This canvas has no points yet.');
+    expect(screen.queryByTestId('canvas-not-found')).toBeNull();
+  });
+
+  it('CONTROLS: the owner with NO record (a made-up address), a reader and a signed-out visitor still get not-found', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(emptyOwner(false));
+    page();
+    await screen.findByTestId('canvas-not-found');
+    cleanup();
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, { points: [], canvasExists: false }));
+    page();
+    await screen.findByTestId('canvas-not-found');
+    cleanup();
+    auth.viewerId = null;
+    getCanvas.mockResolvedValue(noCanvas);
+    page();
+    await screen.findByTestId('canvas-not-found');
+    // even a non-owner who somehow got canvasExists true is not given the canvas
+    cleanup();
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, { points: [], canvasExists: true }));
+    page();
+    await screen.findByTestId('canvas-not-found');
+  });
+});
+
+describe('the reader line', () => {
+  it('an event the canvas was shared through is styled as the link it is (blue, underline on hover); a group is plain text', async () => {
+    getCanvas.mockResolvedValue(canvasView(false));
+    page();
+    const via = await screen.findByTestId('canvas-shared-via');
+    expect(via.tagName).toBe('A');
+    expect(via.getAttribute('href')).toBe('/events/sales-mastermind');
+    expect(via.className).toMatch(/text-blue-600/);
+    expect(via.className).not.toMatch(/text-foreground/);
+    cleanup();
+    clearListReturnCache(); // the first read is cached: Back would serve it
+    getCanvas.mockResolvedValue(canvasView(false, { via: { kind: 'group', name: 'Founders', slug: 'founders' } }));
+    page();
+    const group = await screen.findByTestId('canvas-shared-via');
+    expect(group.tagName).toBe('SPAN'); // CONTROL: no link where the contract has none
+  });
+});
+
+describe('the token in the FRAGMENT (#k=, the form Copy link produces; a browser never sends a fragment to the server)', () => {
+  const linkView = () => canvasView(false, { via: null, generalAccess: 'link' });
+  const TOKEN = '3f9a0c7be214d85e6a1b9c0d4e7f2a58'; // gitleaks:allow — synthetic link-token fixture, matches no real token
+
+  it('is read, sent with the read and stripped from the address while other query and fragment parameters stay', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    page(`/p/ana/canvas/sales?with=u1#box=canvas%3Aproblem&k=${TOKEN}`);
+    await screen.findByTestId('canvas-shared-link');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).not.toContain('k='));
+    expect(screen.getByTestId('where').textContent).toBe('/p/ana/canvas/sales?with=u1#box=canvas%3Aproblem');
+    expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', TOKEN);
+    expect(getCanvas).not.toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', undefined);
+  });
+
+  it('a fragment with only the token leaves a clean address; the stored token serves a reload with no fragment', async () => {
+    getCanvas.mockResolvedValue(linkView());
+    const first = page(`/p/ana/canvas/sales#k=${TOKEN}`);
+    await screen.findByTestId('canvas-shared-link');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/ana/canvas/sales'));
+    first.unmount();
+    clearListReturnCache();
+    getCanvas.mockClear();
+    page('/p/ana/canvas/sales');
+    await waitFor(() => expect(getCanvas).toHaveBeenCalled());
+    expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', TOKEN);
+  });
+
+  it('CONTROL: a fragment that is not the token (a plain anchor) is left alone and no token is invented', async () => {
+    getCanvas.mockResolvedValue(canvasView(false));
+    page('/p/ana/canvas/sales#top');
+    await screen.findByTestId('canvas-grid');
+    expect(screen.getByTestId('where').textContent).toBe('/p/ana/canvas/sales#top');
+    expect(getCanvas).toHaveBeenCalledWith('owner-1', 'sales', 'reader-1', undefined);
+  });
+});
+
+
+describe('P1515 phase 4: the header row', () => {
+  const withOtherPosition = () => new Map([['p1', [{
+    userId: 'u2', userName: 'Ben', userSlug: 'ben', userAvatarUrl: null, userAvatarColor: '#3b82f6', userHasPledged: false,
+  }]]]);
+
+  const versions2 = { version: 'sales_v2', versions: [{ name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z' }, { name: 'sales', createdAt: '2026-10-01T10:00:00Z' }] };
+
+  it('Share sits in the same row as Compare, immediately right of it; the version switcher is an outline button with the name and a chevron', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(canvasView(true, { positions: withOtherPosition(), ...versions2 }));
+    page();
+    await grid();
+    const compare = screen.getByTestId('canvas-compare-picker');
+    const share = screen.getByTestId('share-control');
+    expect(compare.parentElement!.parentElement).toBe(share.parentElement); // one container: Compare, then Share
+    expect(compare.parentElement!.nextElementSibling).toBe(share);
+    expect(screen.getByTestId('canvas-actions').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
+    expect(screen.getByTestId('canvas-byline').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
+    const picker = screen.getByTestId('canvas-version-picker');
+    expect(picker.className).toMatch(/\bborder\b/);
+    expect(picker.className).toMatch(/bg-muted/);
+    expect(picker.querySelector('svg')).not.toBeNull(); // the chevron
+    expect(within(picker).getByRole('combobox', { name: 'Version' })).toHaveValue('sales_v2');
+  });
+
+  it('a reader sees the plain canvas name: no picker, no chevron, no Share (control: an owner with one version is plain too, whatever other canvases they have)', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
+    expect(screen.getByTestId('canvas-project-tag').tagName).toBe('SPAN');
+    expect(screen.queryByTestId('share-control')).toBeNull();
+    cleanup();
+    auth.viewerId = 'owner-1';
+    getTags.mockResolvedValue(['sales', 'other', 'another']); // the owner's other canvases are not listed here (P1545)
+    getCanvas.mockResolvedValue(canvasView(true));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+    expect(screen.getByTestId('canvas-project-tag').tagName).toBe('SPAN');
+    expect(getTags).not.toHaveBeenCalled(); // the page no longer reads the owner's canvas list
+  });
+
+  it('V1/V2: the switcher has a visible border (outline button) and keeps its muted fill; on a phone it takes the row beside Share (flex-1, Share shrink-0 and ordered next to it)', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(canvasView(true, { positions: withOtherPosition(), ...versions2 }));
+    page();
+    await grid();
+    const picker = screen.getByTestId('canvas-version-picker');
+    expect(picker.className).toMatch(/border-foreground\/40/);
+    expect(picker.className).toMatch(/bg-muted/);
+    expect(screen.getByTestId('canvas-project-slot').className).toMatch(/max-sm:flex-1/);
+    expect(screen.getByTestId('canvas-project-slot').className).toMatch(/max-sm:order-2/);
+    expect(screen.getByTestId('canvas-controls').className).toMatch(/max-sm:order-4/); // Compare drops under the picker row
+    expect(screen.getByTestId('canvas-controls').className).toMatch(/max-sm:basis-full/); // and takes its own line, so the picker is not squeezed
+    expect(screen.getByTestId('canvas-byline').className).toMatch(/max-sm:contents/);
+    expect(screen.getByTestId('canvas-actions').className).toMatch(/max-sm:contents/);
+  });
+});
+
+describe('P1515 phase 5: the version switcher', () => {
+  const V = (name: string, createdAt: string | null = '2026-10-01T10:00:00Z') => ({ name, createdAt });
+  const two = { version: 'sales_v2', versions: [V('sales_v2', '2026-10-22T10:00:00Z'), V('sales', '2026-10-01T10:00:00Z')] };
+
+  it('W1: a reader admitted to a two-version canvas gets an outline switcher listing versions newest first with a date, the open one selected', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, two));
+    page();
+    await grid();
+    const picker = screen.getByTestId('canvas-version-picker');
+    expect(picker.className).toMatch(/\bborder\b/);
+    expect(picker.className).toMatch(/bg-muted/);
+    const select = within(picker).getByRole('combobox', { name: 'Version' }) as HTMLSelectElement;
+    expect(select.value).toBe('sales_v2');
+    const options = within(select).getAllByRole('option');
+    expect(options.map(o => (o as HTMLOptionElement).value)).toEqual(['sales_v2', 'sales']);
+    expect(options[0]!.textContent).toMatch(/^sales_v2 · /); // name, then the date
+    expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
+  });
+
+  it('W2: a one-version canvas shows the plain name, unchanged (also an answer with no versions at all)', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, { version: 'sales', versions: [V('sales')] }));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+    expect(screen.getByTestId('canvas-project-tag')).toHaveTextContent('sales');
+    cleanup();
+    getCanvas.mockResolvedValue(canvasView(false));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+  });
+
+  it('W3: no ?v asks for the newest (no version sent); ?v=older sends it', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, two));
+    page();
+    await grid();
+    expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined();
+    cleanup();
+    getCanvas.mockClear();
+    page('/p/ana/canvas/sales?v=sales');
+    await grid();
+    expect(getCanvas.mock.calls.at(-1)![4]).toBe('sales');
+  });
+
+  it('W4: choosing a version puts it in the address (?v=) and reads that version; the owner gets the same switcher', async () => {
+    auth.viewerId = 'owner-1';
+    getTags.mockResolvedValue(['sales', 'sales_v2', 'other']);
+    getCanvas.mockResolvedValue(canvasView(true, two));
+    page();
+    await grid();
+    fireEvent.change(within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' }), { target: { value: 'sales' } });
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('?v=sales'));
+    await waitFor(() => expect(getCanvas.mock.calls.at(-1)![4]).toBe('sales'));
+  });
+
+  it('X1: the dropdown lists the versions of THIS canvas only, for the owner too: no canvas picker even when the owner has other canvases; it takes the full line on a phone', async () => {
+    auth.viewerId = 'owner-1';
+    getTags.mockResolvedValue(['sales', 'sales_v2', 'other']);
+    getCanvas.mockResolvedValue(canvasView(true, two));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Canvas' })).toBeNull();
+    const versions = within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' });
+    expect(within(versions).getAllByRole('option').map(o => (o as HTMLOptionElement).value)).toEqual(['sales_v2', 'sales']);
+    expect(screen.getByTestId('canvas-version-picker').className).toMatch(/max-sm:w-full/);
+  });
+
+  it('X1b: an owner with ONE canvas (several versions) sees only the version switcher', async () => {
+    auth.viewerId = 'owner-1';
+    getTags.mockResolvedValue(['sales', 'sales_v2']);
+    getCanvas.mockResolvedValue(canvasView(true, two));
+    page();
+    await grid();
+    expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
+    expect(screen.getByTestId('canvas-version-picker')).toBeInTheDocument();
+  });
+
+  it('X2: choosing a version pushes history WITHOUT the panel state, so closing a panel never steps Back to the previous version', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, two));
+    page('/p/ana/canvas/sales?v=sales_v2');
+    await grid();
+    fireEvent.change(within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' }), { target: { value: 'sales' } });
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('?v=sales'));
+    expect(screen.getByTestId('where').getAttribute('data-state')).toBe('null');
+  });
+
+  it('X3: with no ?v and several versions the resolved version is written into the address (replace) once, with no second read; a one-version canvas keeps its address', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(canvasView(false, two));
+    page();
+    await grid();
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('?v=sales_v2'));
+    await waitFor(() => expect(getCanvas).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('canvas-version-picker')).toBeInTheDocument(); // still on screen, not reloaded
+    cleanup();
+    getCanvas.mockClear();
+    getCanvas.mockResolvedValue(canvasView(false, { version: 'sales', versions: [{ name: 'sales', createdAt: null }] }));
+    page();
+    await grid();
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/p\/ana\/canvas\/sales$/);
   });
 });

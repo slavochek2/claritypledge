@@ -1,6 +1,7 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent, PersonRef } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 import { logDbError, throwDbError } from './db-error-logger';
@@ -805,12 +806,18 @@ export const realEventsService: EventsService = {
     }
 
     // Only allow cancel if user is the host (authorization check)
-    const { error, data: updated } = await supabase
-      .from('events')
-      .update({ status: 'cancelled' })
-      .eq('id', eventId)
-      .eq('host_id', user.id)
-      .select('id');
+    let cancelled;
+    try {
+      cancelled = await supabase
+        .from('events')
+        .update({ status: 'cancelled' })
+        .eq('id', eventId)
+        .eq('host_id', user.id)
+        .select('id');
+    } finally {
+      clearListReturnCache(); // P1515: a cancelled event admits no one to the canvases shared with it (and reinstating admits again)
+    }
+    const { error, data: updated } = cancelled;
 
     if (error) {
       logDbError('cancelEvent', error);
@@ -838,12 +845,18 @@ export const realEventsService: EventsService = {
       return false;
     }
 
-    const { error, data: updated } = await supabase
-      .from('events')
-      .update({ status: 'upcoming' })
-      .eq('id', eventId)
-      .eq('host_id', user.id)
-      .select('id');
+    let reinstated;
+    try {
+      reinstated = await supabase
+        .from('events')
+        .update({ status: 'upcoming' })
+        .eq('id', eventId)
+        .eq('host_id', user.id)
+        .select('id');
+    } finally {
+      clearListReturnCache(); // P1515: see cancelEvent
+    }
+    const { error, data: updated } = reinstated;
 
     if (error) {
       logDbError('uncancelEvent', error);
@@ -912,12 +925,18 @@ export const realEventsService: EventsService = {
     if (!(await guardSeatWrite(profileId))) return false;
 
     // Insert RSVP
-    const { error, status } = await supabase
-      .from('event_rsvps')
-      .insert({
-        event_id: eventId,
-        profile_id: profileId,
-      });
+    let inserted;
+    try {
+      inserted = await supabase
+        .from('event_rsvps')
+        .insert({
+          event_id: eventId,
+          profile_id: profileId,
+        });
+    } finally {
+      clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+    }
+    const { error, status } = inserted;
 
     if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
 
@@ -948,12 +967,18 @@ export const realEventsService: EventsService = {
     // RLS filters it to zero rows — so the old code returned true while the seat stayed booked.
     if (!(await guardSeatWrite(profileId))) return false;
 
-    const { data, error, status } = await supabase
-      .from('event_rsvps')
-      .delete()
-      .eq('event_id', eventId)
-      .eq('profile_id', profileId)
-      .select('id');
+    let deleted;
+    try {
+      deleted = await supabase
+        .from('event_rsvps')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('profile_id', profileId)
+        .select('id');
+    } finally {
+      clearListReturnCache(); // P1515: admission to a canvas follows this row; Back must not serve a canvas read under the old one (success or failure)
+    }
+    const { data, error, status } = deleted;
 
     // Same server verdict as rsvpToEvent. Today anon holds DELETE, so an anonymous cancel shows
     // up as zero rows (below); this keeps it right if that grant is ever revoked.

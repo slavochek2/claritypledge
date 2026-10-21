@@ -182,7 +182,7 @@ test.describe('P1508: Clarity Canvas', () => {
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clarity Canvas');
     await expect(page.getByTestId('canvas-owner-name')).toHaveText(fx.owner.name);
-    await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag); // the picker: the owner has more than one canvas
+    await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag); // the plain name: one version (the owner's other canvases are not listed here)
     for (const title of ['What I love', "What I'm good at", 'What the world needs',
       'Customer Segments', 'Problem', 'Solution', 'Unfair Advantage', 'Distribution', 'Key Metrics',
       'Offers & Pricing', 'Cost Structure']) {
@@ -595,18 +595,18 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(byline).not.toContainText('/');
     const [title, owner, picker, controls] = await Promise.all([
       h1.boundingBox(), page.getByTestId('canvas-owner').boundingBox(),
-      page.getByTestId('canvas-project-picker').boundingBox(), page.getByTestId('canvas-controls').boundingBox(),
+      page.getByTestId('canvas-project-tag').boundingBox(), page.getByTestId('canvas-controls').boundingBox(),
     ]);
     const mid = (b: { y: number; height: number } | null) => (b ? b.y + b.height / 2 : NaN);
     expect(title && owner && picker && controls).toBeTruthy();
     expect(title!.y + title!.height <= owner!.y + 1).toBe(true); // the title on its own line, above
     expect(Math.abs(mid(owner) - mid(picker)) < 6).toBe(true);
     expect(owner!.x < picker!.x && controls!.x > picker!.x + picker!.width).toBe(true);
-    // The menus are filled pills, not white like the canvas cards.
-    for (const id of ['canvas-project-picker', 'canvas-compare-picker']) {
+    // The menu is a filled pill, not white like the canvas cards.
+    for (const id of ['canvas-compare-picker']) {
       expect(await page.getByTestId(id).evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe('rgb(255, 255, 255)');
     }
-    await expect(page.getByTestId('canvas-project-tag')).toHaveValue(fx.tag);
+    await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag);
     await expect(page.getByTestId('canvas-intro')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /discovery call/i })).toHaveCount(0);
     await expect(page.locator('footer')).toHaveCount(0);
@@ -658,7 +658,7 @@ test.describe('P1508: Clarity Canvas', () => {
       // The pickers wrap under the owner and stay inside the page.
       const [owner, controls] = [await page.getByTestId('canvas-owner').boundingBox(), await page.getByTestId('canvas-controls').boundingBox()];
       expect(owner && controls && controls.y >= owner.y + owner.height - 1).toBe(true);
-      for (const id of ['canvas-project-picker', 'canvas-compare-picker']) {
+      for (const id of ['canvas-compare-picker']) {
         const r = await page.getByTestId(id).boundingBox();
         expect(r && r.x >= 0 && r.x + r.width <= width).toBe(true);
       }
@@ -715,20 +715,21 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByText(SOLUTION_TEXT)).toHaveCount(0);
   });
 
-  test('the canvas picker lists the owner\'s canvases and switches between them (the owner only); a reader\'s picker is the one canvas shared with them', async ({ page }) => {
+  test('the header shows this canvas\'s name only (no dropdown of the owner\'s other canvases: they are reached by their own address); a reader sees the same plain name', async ({ page }) => {
     // R9: only reserved canvas tags name a canvas — the user-tag-only point adds none.
     await setTestSession(page, fx.owner.email);
     await page.goto(fx.url);
     await waitForCanvas(page);
-    const picker = page.getByTestId('canvas-project-tag');
-    await expect(picker).toHaveValue(fx.tag);
-    await expect(picker.locator('option')).toHaveText([fx.tag, fx.secondTag, fx.privateTag]);
-    await picker.selectOption(fx.secondTag);
-    await expect(page).toHaveURL(new RegExp(`/p/${fx.owner.slug}/canvas/${fx.secondTag}$`));
+    await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag);
+    await expect(page.getByTestId('canvas-project-picker')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-version-picker')).toHaveCount(0);
+    // The owner's second canvas opens through its own address.
+    await page.goto(`/p/${fx.owner.slug}/canvas/${fx.secondTag}`);
     await waitForCanvas(page);
     await expect(page.getByText('P1508 second canvas point')).toBeVisible();
+    await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.secondTag);
 
-    // The admitted reader lists nothing of the owner's other canvases: just this one, by name.
+    // The admitted reader sees the plain name too.
     await setTestSession(page, fx.other.email);
     await page.goto(fx.url);
     await waitForCanvas(page);

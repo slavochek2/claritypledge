@@ -17,6 +17,7 @@ import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, 
 import { analytics } from '@/lib/mixpanel';
 import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { clearOfflineReadCache } from '@/lib/offline-read-cache';
+import { clearLinkTokens, clearLinkTokensExceptThisLoad } from '@/lib/canvas-link-token';
 import { clearAllNavVerifiedHints } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
 import { noteAppSession } from '@/lib/session-guard';
@@ -33,6 +34,9 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
+/** P1515: how long after getSession() settles we wait for INITIAL_SESSION before treating auth as initialized anyway. */
+export const INITIAL_SESSION_FALLBACK_MS = 8000;
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -59,10 +63,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // at all. This is the measurement, not a fix.
   const deliberateSignOutRef = useRef(false);
   const hadSessionRef = useRef(false);
+  // P1515: true once this subscriber has had its INITIAL_SESSION. auth-js recovers the stored session first (an expired one
+  // that cannot be refreshed is removed and reported as SIGNED_OUT), and only then emits INITIAL_SESSION to each subscriber
+  // (GoTrueClient _initialize -> _recoverAndRefresh -> _removeSession -> SIGNED_OUT, then onAuthStateChange awaits
+  // initializePromise and calls _emitInitialSession). A session loss before it is boot recovery; after it, a real one.
+  // getSession() settling is NOT that signal: it also waits on initializePromise and can win the race against the
+  // INITIAL_SESSION emit, so it only arms a fallback in case INITIAL_SESSION never comes.
+  const authInitializedRef = useRef(false);
 
   // Effect 1: Session management only
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
   useEffect(() => {
+    let initFallbackTimer: ReturnType<typeof setTimeout> | undefined;
     // Get initial session
     const initSession = async () => {
       try {
@@ -87,6 +99,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch {
         setSessionChecked(true);
         setIsLoading(false);
+      } finally {
+        if (!authInitializedRef.current) {
+          initFallbackTimer = setTimeout(() => { authInitializedRef.current = true; }, INITIAL_SESSION_FALLBACK_MS);
+        }
       }
     };
 
@@ -143,8 +159,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
           void clearOfflineReadCache();
           // P1421: same paths drop the nav's "this user was verified here" marker.
           clearAllNavVerifiedHints();
+          // P1515: and the canvas link tokens held in this tab (expiry, a sign-out in another tab and revocation never go
+          // through api.signOut, and must not leave them for the next person on this device).
+          //  - Only during auth initialization (boot recovery: an expired, unrefreshable stored session is dropped at
+          //    startup, before the first auth state settles) the token the head script has just taken from the address
+          //    must survive; tokens left by EARLIER loads of this tab are the previous person's and go.
+          //  - Any other session loss clears ALL of them, this load's included: a session this tab held that ended, a
+          //    cross-tab sign-out, a later expiry, even on a tab that never saw a live session itself.
+          if (authInitializedRef.current || hadSessionRef.current) clearLinkTokens();
+          else clearLinkTokensExceptThisLoad();
         }
         hadSessionRef.current = !!newSession;
+        if (event === 'INITIAL_SESSION') authInitializedRef.current = true;
 
         setSession(newSession);
         noteAppSession(newSession);
@@ -156,7 +182,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(initFallbackTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Effect 2: Profile fetching - reacts to USER ID changes only

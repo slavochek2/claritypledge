@@ -1,6 +1,6 @@
 # Metered services — the cost budget every design states
 
-**Spec:** [P1531](../../features/p1531_metered_service_cost_gate.md)
+**Spec:** [P1531](../../features/done/2026-06-10/p1531_metered_service_cost_gate.md)
 
 We pay, or will pay, per request, byte, log line, instance-second or token. The same mistake
 (a design that creates traffic nobody counted) has been found five times, each time on a bill or a

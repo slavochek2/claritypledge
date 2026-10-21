@@ -26,6 +26,7 @@ const SEAL = '20261021100100_p1515_seal_letter_skips_foreign_private_points.sql'
 const RULING = '20261021110000_p1515_audience_decides_everything_inside.sql';
 const TARGETS = '20261021150000_p1515_canvas_share_targets.sql';
 const REVIEW = '20261021170000_p1515_review_fixes.sql';
+const NO_CUTOFF = '20261021240000_p1515_share_targets_no_cutoff.sql';
 const SEAL_BASE = '20260904120000_p1212_seal_rpc_story_author_name.sql';
 
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -281,5 +282,37 @@ describe('P1515: control, each check above fails on a mutated copy of the real f
   it('the seal predicate being dropped is caught', () => {
     const nextBody = stripComments(read(SEAL)).replace(/AND \(pt\.visibility = 'public'::content_visibility OR pt\.first_validator_id = v_sender_id\)/, '');
     expect(nextBody).not.toContain("pt.first_validator_id = v_sender_id");
+  });
+});
+
+describe('P1515: share targets no longer cut events off at 90 days (20261021240000)', () => {
+  const raw = read(NO_CUTOFF);
+  const code = stripComments(raw);
+  const before = fnBody(read(TARGETS), 'get_canvas_share_targets');
+  const after = fnBody(raw, 'get_canvas_share_targets');
+
+  it('carries the usual header: diffed-against and a client-safe annotation', () => {
+    expect(raw).toMatch(/diffed against: 20261021150000_p1515_canvas_share_targets\.sql/);
+    expect(raw).toMatch(/client-safe:/);
+  });
+
+  it('differs from the previous body ONLY by the removed cutoff line', () => {
+    expect(before).toContain("e.datetime > now() - interval '90 days' AND e.status IS DISTINCT FROM 'cancelled'");
+    expect(after).not.toMatch(/interval/);
+    expect(after).not.toMatch(/now\(\)/);
+    expect(before.replace("e.datetime > now() - interval '90 days' AND ", '')).toBe(after);
+  });
+
+  it('keeps newest-first ordering, the cancelled exclusion, the host-or-RSVP check and the admission rule', () => {
+    expect(after).toContain('ORDER BY e.datetime DESC, e.id');
+    expect(after).toContain("e.status IS DISTINCT FROM 'cancelled'");
+    expect(after).toContain('e.host_id = v_uid OR EXISTS (SELECT 1 FROM public.event_rsvps r WHERE r.event_id = e.id AND r.profile_id = v_uid)');
+    expect(after).toContain('public._canvas_event_admits(e.id, v_uid)');
+  });
+
+  it('restates the grants: signed in only, never anon', () => {
+    expect(code).toMatch(/REVOKE ALL ON FUNCTION public\.get_canvas_share_targets\(\)\s+FROM PUBLIC, anon, authenticated/);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_canvas_share_targets\(\) TO authenticated;/);
+    expect(code).not.toMatch(/GRANT[^;]*\banon\b/i);
   });
 });

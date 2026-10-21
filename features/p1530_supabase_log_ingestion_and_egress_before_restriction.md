@@ -106,7 +106,7 @@ test project. Reversibility: config or code, git revert. Decision density: likel
 
 ## Findings 2026-10-21 (later): TEST rebuilt, old TEST not yet paused
 
-- **TEST now lives in its own free organisation** ([P1538](p1538_rebuild_test_project_in_own_org.md)):
+- **TEST now lives in its own free organisation** ([P1538](done/2026-06-10/p1538_rebuild_test_project_in_own_org.md)):
   new ref `ayibkeoyukulbsjpxgaw`, every session switched. The old project is idle (cron jobs off,
   nothing points at it) but still active.
 - **Founder call: the prod organisation was upgraded to Pro** to free the per-user slot for a
