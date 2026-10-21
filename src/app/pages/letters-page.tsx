@@ -88,7 +88,9 @@ export function LettersPage() {
 
   return (
     <main aria-label="Clarity Letters" className="min-h-screen">
-      <PageFrame size="reading">
+      {/* P1512 founder round 3: a list of short rows reads as stretched at the shell's full width, so
+          Letters keeps the shared left edge but caps its column (Results stays next to its letter). */}
+      <PageFrame size="reading" className="[[data-shell-top-nav]_&]:max-w-3xl">
         {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
         <PageHeader
           title="Clarity Letters"

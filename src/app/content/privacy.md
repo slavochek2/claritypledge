@@ -181,10 +181,80 @@ any time (see Your Rights). We then stop using the quote and remove it where we 
 The same screens may ask whether you want to join the event's group or connect with the host on
 LinkedIn; we record your answer so we do not ask again too soon.
 
+### Clarity Chat (Home)
+
+Clarity Chat is the message list you see on Home when you are signed in. It is separate from the
+AI story guide described under AI features.
+
+**What we store.** For each message: the text you write (up to 4,000 characters), who wrote it,
+when, and when it was last edited. If you reply to a message, start a thread, or attach a point
+or story, we store a link to that message, point or story. A forwarded or clarified message also
+stores a copy of the original (see below). For each chat you are in, we store when you last read
+it and whether you marked it unread or archived it. If you block someone, we store that you
+blocked them and when. Only you can see who you have blocked.
+
+**Who can read a chat.** Messages are shown only to the people in that chat, and the database
+checks this for every request, including live updates.
+
+- **Direct messages** are readable by the two people in them. You can start one only with someone
+  you share a group, an event (under the same RSVP window as event chats, below) or an active
+  Clarity Partner Agreement with. You can start at most 20 new direct messages in any 24 hours.
+- **Group chats** (each group's General channel) are readable by current members of the group.
+  A member sees messages from the moment they joined, not earlier ones. Leaving the group ends
+  access.
+- **Event chats** are readable by the event host, who sees the whole chat. They are also readable
+  by people who RSVPed no later than 12 hours after the event starts. Those people see messages
+  from the moment they RSVPed. Cancelling the RSVP ends access.
+- **Your mirror** is a private chat that only you can read. No AI reads or answers it.
+
+**Clarify.** When you use Clarify on a message, we put a copy of it in your mirror. The copy holds
+the author's name, the text, the time, the name of the chat it came from, and up to 100 replies in
+its thread that you can read. Any note you add is saved with it. Nothing is posted in the original
+chat, and the other people in it are not told.
+
+**Forwarding.** When someone forwards a message, the new chat gets a copy of its text, the
+author's name and the time.
+
+**Attachments.** You can attach only public points and stories, or your own. Each reader sees the
+item only if they could already see it; otherwise it shows "Not available to you".
+
+**Blocking.** Blocking stops direct messages between you in both directions and removes you from
+each other's search when starting a new chat. The blocked person can tell that their messages are
+refused. Blocking does not hide either of you in a group or event chat you both belong to.
+
+**Read status.** Read markers are visible only to you, across your own devices. Other people never
+see whether you have read their messages. We do not send email or notifications about messages.
+
+**Editing and deleting.** When you edit a message, the new text replaces the old one; we do not
+keep earlier versions. When you delete a message, its text, attachment and any copy it carried
+are removed from our database, not just hidden. A record that a message was there, with its
+author and time, stays and shows as "Message deleted". Copies that others forwarded or clarified
+before you deleted it keep their copy.
+
+**How it is stored.** Messages are stored in our database at Supabase (see Who Processes Your
+Data) and delivered live through Supabase's real-time service. They are not end-to-end encrypted.
+No chat content is sent to an AI provider. Mixpanel session recording (see Analytics) is switched
+off on the chat pages, before any chat is shown. If an error happens on a chat page, Sentry's error
+replay is still attached, with all text masked, so the words of a chat are not in it.
+
+**Do we read your messages?** We do not monitor or read chats. Because they are not end-to-end
+encrypted, the people who run the service could technically open them in the database. We do so
+only when the law requires it, for example a valid request from a court or an authority.
+
+**How long we keep it.** Chats have no fixed retention period. We keep a message until its author
+deletes it or deletes their account. Deleting a group or an event deletes its chat.
+
+**When you delete your account.** Your mirror and everything in it are deleted. Your messages in
+other chats lose their text and attachments and show as "Deleted user". Copies that other people
+forwarded or clarified lose your words and your name too. Your read markers and blocks are deleted.
+Direct messages stay for the other person, without your words. A direct message is deleted once
+both people have deleted their accounts.
+
 ### AI features
 
-- **`/chat` story guide.** The text you type is sent to Google's Gemini API to generate a
-  reply and is streamed back to you. We do not store your chat messages on our servers; we
+- **AI story guide (`/create`, formerly `/chat`).** The text you type is sent to Google's Gemini
+  API to generate a reply and is streamed back to you. We do not store the messages you exchange
+  with this guide on our servers (Clarity Chat on Home is separate, above); we
   record only that your account made a request, for rate limiting.
 - **Event and story banners.** When you ask for a generated banner, the event or story title
   and description are sent to Google's Gemini API to produce an image, and title keywords may
@@ -243,7 +313,9 @@ object, correct or remove as for people named by machine accounts (below).
   so we can understand how the product is used. **Mixpanel also records sessions**: a replay of
   how the page was used — clicks, scrolling and navigation — with the contents of form fields
   excluded from capture. Recording is set to 100% of sessions and starts when the page loads:
-  nothing asks you first, and there is no in-app control to turn it off.
+  nothing asks you first, and there is no in-app control to turn it off. It is never on for
+  Clarity Chat (Home), admin pages, sign-in links, or live and transcribe rooms opened by code.
+  Product events are still counted on those pages.
 - **Sentry.** When an error occurs we send Sentry the stack trace, the URL or action that
   triggered it, browser and device metadata, and in some cases your user ID. Sentry is
   configured not to send personal data by default. On an error only, a masked replay of the
@@ -267,7 +339,7 @@ requested. These records are deleted automatically within about 75 minutes.
 
 | Purpose | Basis |
 |---|---|
-| Account, profile, pledge, stories, letters, agreements, events, groups, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
+| Account, profile, pledge, stories, letters, agreements, events, groups, Clarity Chat, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
 | Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, switching "Transcribe for AI insights" on at an event's ready screen, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
 | Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) this is biometric data under Art. 9, which normally requires explicit consent; today it is covered by the recording consent above |
 | Using recordings, transcripts and session events to improve our AI/ML services (anonymized) | Consent — Art. 6(1)(a), given with the recording |
@@ -312,7 +384,7 @@ by the person's name, never the bare name on its own.
 | Brevo | Delivers sign-in emails | Email address, sign-in link | European Union |
 | Google (Sign-In) | Optional sign-in | Google account email, name, picture | Google's global infrastructure |
 | Google Cloud (Storage, Cloud Run, Cloud Functions) | Audio, images, transcription service we run | Recordings, transcripts, voice profiles, images | United States |
-| Google Gemini API | `/chat` replies; generated banners; live and saved transcription in transcribe rooms | Chat text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
+| Google Gemini API | AI story guide (`/create`) replies; generated banners; live and saved transcription in transcribe rooms | AI story-guide text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |
@@ -333,7 +405,8 @@ Unsplash act as independent controllers for what you give them directly.
 
 **Who else sees your data.** Other participants in a session or room (display name, voice,
 live text); the sender and recipient of a letter (letter content, explain-back); attendees of
-an event you RSVP to (that you are attending); members of a group you join; and, for
+an event you RSVP to (that you are attending); members of a group you join; the people in a
+Clarity Chat you write in, and anyone they forward your message to (see Clarity Chat); and, for
 anything you publish, the public.
 
 ## International Transfers
@@ -375,7 +448,9 @@ Under the GDPR you can:
   immediately and removes your profile and sign-in identity, your stories and the positions
   and history behind them, the letters you sent and your explain-back recordings, the
   transcripts of every session you took part in, any session nobody else joined, your voice
-  profile, your partner agreements, your terms-acceptance and session-consent records, and
+  profile, your partner agreements, your terms-acceptance and session-consent records, your
+  mirror chat, the words and attachments of your Clarity Chat messages (including copies others
+  forwarded or clarified), your read markers and blocks (see Clarity Chat for what remains), and
   your AI rate-limit records. What other people have built on stays, with your name removed
   from it: points, events you hosted, group memberships, letters delivered to you, and a
   session you shared with someone else — that session remains theirs, without your name and
@@ -414,6 +489,10 @@ any of it whenever you want, and all of it by deleting your account.
   exists, so that you can go back to your own sessions, and deleted when you ask us. There is
   no fixed retention period and nothing deletes recordings on a schedule.
 - **Explain-back recordings** — kept while the letter exists.
+- **Clarity Chat messages** — kept until the author deletes them or their account, or the group
+  or event they belong to is deleted. Leaving a group or cancelling an RSVP ends your access but
+  does not delete what you wrote. A deleted message leaves a "Message deleted" record with its
+  author and time. See Clarity Chat for copies and account deletion.
 - **Partner and recipient email addresses** for unaccepted invitations — kept after the
   invitation expires (expiry only changes its status) and deleted on request.
 - **Consent and terms-acceptance records** — kept while your account exists and deleted with

@@ -13,17 +13,21 @@
  * Desktop (lg+) is two panes: the list (360px) and the conversation; a thread opens as a third
  * pane and, below 2xl, takes the list's place so the conversation never gets narrower than a phone.
  */
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { MessagesSquare } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
+import { analytics } from '@/lib/mixpanel';
 import { ChatList } from './ChatList';
 import { ConversationPane } from './ConversationPane';
 import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
 import { DESKTOP_QUERY, useBack, useFinishLeave, useMediaQuery } from './chat-hooks';
 import { chatNav, chatPath, isChannel, parseChatRoute } from './chat-view-model';
+
+/** Once stopped, Mixpanel stays stopped for the rest of the page's life; later visits render at once. */
+let sessionRecordingStopped = false;
 
 export default function ChatHomePage() {
   const ctx = useContext(ChatContext);
@@ -32,6 +36,16 @@ export default function ChatHomePage() {
   const highlightId = new URLSearchParams(search).get('m');
   const summary = ctx?.chats.find((c) => c.conversationId === route.conversationId);
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+
+  // Chats show people's messages: never record them (privacy policy). index.html covers a page that
+  // loads on /home; this covers in-app navigation into it. Unlike admin and /live, no chat content
+  // mounts until the recorder is stopped, so not even one frame of it can be captured.
+  const [recordingOff, setRecordingOff] = useState(sessionRecordingStopped);
+  useEffect(() => {
+    analytics.stopSessionRecording();
+    sessionRecordingStopped = true;
+    setRecordingOff(true);
+  }, []);
 
   // Escape closes the thread panel the way its Back does (a dialog or menu that handled Escape marked it as taken).
   const threadOpen = !!route.rootId;
@@ -46,7 +60,7 @@ export default function ChatHomePage() {
     return () => document.removeEventListener('keydown', onKey);
   }, [threadOpen, closeThread]);
 
-  if (!ctx) return <ClarityPageLoader />;
+  if (!ctx || !recordingOff) return <ClarityPageLoader />;
 
   // Threads exist in channels only: a thread URL on a 1:1 or the mirror falls back to the chat.
   if (route.rootId && route.conversationId && summary && !isChannel(summary)) {
