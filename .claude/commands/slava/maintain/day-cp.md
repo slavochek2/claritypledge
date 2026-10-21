@@ -675,6 +675,21 @@ if int(counts[2]) > 0:
 print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch delivering, no failing job, nothing overdue"))
 ' | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 
+echo -e "\n=== SUPABASE TEST DB + FREE-PLAN QUOTA ==="
+# P1524. Test database: one anon REST read, median of three samples, warn over 2s (exit 0 ok,
+# 1 finding, 2 could not run; the TESTDB: line carries the status and the plain detail).
+TESTDB_LINE=$("$(git rev-parse --show-toplevel)/scripts/check-test-db-latency.sh" | tee /dev/stderr | grep '^TESTDB: ' | tail -1)
+echo "CHECK cp.testdb ${TESTDB_LINE#TESTDB: }" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+# Organisation usage against the free-plan limits (cached egress, egress, logs, MAU; warn at 70%)
+# and the note when the test project sits in its own organisation both need a token with
+# organizations_read. None of the existing tokens has it (P1524 measured 401/403/403), so until
+# SUPABASE_ORG_READ_TOKEN exists this is not-run, never ok: the quota is unwatched.
+if grep -q '^SUPABASE_ORG_READ_TOKEN=.' "$(git rev-parse --show-toplevel)/.env.local" 2>/dev/null; then
+  echo "CHECK cp.quota not-run the token exists but the usage reader is not built yet (P1524 part 1)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else
+  echo "CHECK cp.quota not-run no Supabase token with organizations_read (P1524)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+fi
+
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
 # under .claude/worktrees/wN has no shared file; writing there silently forks the metric.
@@ -725,6 +740,7 @@ STEP
 | silent dispatch, a failing cron job, overdue or stuck emails | cp.email | `email:dispatch-silent`, `email:cron-failing:<jobname>`, `email:overdue-unsent`, `email:stuck-pending` |
 | a funnel CSV row skipped or stale | cp.w2 | `funnel:csv-skipped`, `funnel:csv-stale` |
 | a read-only query failed (`message` instead of rows) | cp.w2 | `supabase:readonly-query-failed` |
+| the test database is slow (over 2s) or does not answer 200 | cp.testdb | `testdb:slow`, `testdb:unreachable` |
 
 Keep `unconfirmed_signups=N` for the REPORT block.
 
