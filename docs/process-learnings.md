@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 206
+**Next ID:** 209
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -865,6 +865,8 @@ someone else's defect or quietly fixing out-of-scope UI.
 Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 `document.documentElement.scrollWidth > clientWidth`.
 
+Reviewed 2026-10-21 (monthly): keep — not re-measured this run; overflow evidence from 2026-08-23 unchecked
+
 ---
 
 <!-- Resolved 2026-09-15: "False >> marker claim in disagreement:prepare Stage 2 attribution instruction" — see decisions.md 2026-09-15 [process] -->
@@ -905,6 +907,8 @@ residual cost is a window where main carries a fix without its KDD entry or a cl
 Falsifier: with a second session holding an unstaged edit to a file the branch also modifies, run
 `git-ops.sh ship pN` — it starts the sequence and halts partway rather than refusing up front.
 
+Reviewed 2026-10-21 (monthly): keep — git-ops.sh still has no tracked-dirty preflight (grep of diff --name-only hits only unrelated guards)
+
 ---
 
 <!-- Resolved 2026-09-15: "check-deploy-manifest.sh --env prod prints the wrong fix command for the unpushed-stamp case" — see decisions.md 2026-09-15 [process] -->
@@ -929,6 +933,8 @@ reproduced the skill's sections from memory — the null result would have been 
 Pairs with the existing Kanban item on `/change-request` creation; file them together or as one spec.
 
 Promote recommended by /prioritize 2026-09-15: the entry says it still needs a P-number, and no open benchmark spec exists.
+
+Reviewed 2026-10-21 (monthly): keep — no benchmark spec found under features/ or features/done/
 
 ---
 
@@ -986,6 +992,8 @@ well-separated session has hand labels and the three paths are re-scored on it; 
 the conditional design in P1237 consequence 4 (measure the per-session margin and branch on it) is
 specced and adopted instead, since that removes the need for an unconditional winner.
 
+Reviewed 2026-10-21 (monthly): keep — hand-labelled session still missing; not re-checked
+
 ---
 <!-- Moved 2026-09-15: "P1250 audit of the 17 auto-closed specs" — now in features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md, §Audit -->
 
@@ -1017,6 +1025,8 @@ instrumentation is the smaller task.
 P1237 measured attribution at 59.5% against physics on correctly-aligned, well-separated audio,
 below the 75.0% naive rate, and 0 of 10 on the minority speaker. Alignment is necessary, not
 sufficient — so a "yes, they read them" answer argues for attacking attribution, not only alignment.
+Reviewed 2026-10-21 (monthly): keep — needs a Mixpanel query not run here
+
 
 ## 2026-09-08 — `ship.md` still tells the agent to run a gate that now runs itself (P1246)
 
@@ -1084,6 +1094,8 @@ low" (fail) and starts enforcing by itself.
 steps earning their place?" to evals rather than to opinion, after one benchmarked
 skill showed no measurable advantage and another was void. That question is still
 open and nothing else answers it.
+Reviewed 2026-10-21 (monthly): keep — premise changed: claude plugin eval now runs and fails on evals/*/case.yaml missing schema_version, no longer early-access refusal
+
 
 ## 2026-09-08 — turn the closure backstop into a required check (P1246), once it has a REAL green
 
@@ -1237,6 +1249,8 @@ Reviewed 2026-10-19 (weekly): keep — display issues not rechecked
 
 `git-ops.sh` sets `SHIP_GATE_OVERRIDE_REASON` only in the live run and does not store it in the ship journal, so an override ship that crashes after the spec is moved and is finished with `--resume` writes its close commit without the `Gate-Override:` trailer. Since P1309 that trailer matters: `ship-gates.sh` refuses an absorbing spec whose close carries it, and a resumed close would slip through. Read from the code by P1309's round-3 adversarial review, not reproduced (it needs a TTY override that crashes mid-ship). Done when the journal keeps the reason and `--resume` writes the same trailer; droppable if no override close is ever resumed.
 
+Reviewed 2026-10-21 (monthly): keep — journal-stored override reason not confirmed in git-ops.sh; unverified
+
 ---
 
 <!-- Resolved 2026-09-22: fixed and shipped as P1343 (features/done). -->
@@ -1278,6 +1292,8 @@ Reviewed 2026-10-19 (weekly): keep — drawer.tsx has no role=dialog or Escape h
 
 `buildLinksMenu` drops an extra whose tag collides with a standard one, but does not deduplicate repeated custom tags — two configured `tonight` rows produce two identical buttons pointing at one destination, on a sheet that now has a height ceiling and a scroll. Data-dependent: it needs an operator to configure the same tag twice, which has not been observed. Found by adversarial review during P1310. Done when validated extras are deduplicated by tag with a test for the repeated-tag case; droppable if the links column gains a uniqueness constraint at write time instead.
 
+Reviewed 2026-10-21 (monthly): keep — buildLinksMenu still in src/app/data/event-links.ts; dedupe not confirmed
+
 ---
 
 ## Confirm on a real iPhone whether the phone zoom is actually fixed — the root cause was never proven
@@ -1301,6 +1317,8 @@ Reviewed 2026-10-19 (weekly): keep — needs the founder on a real iPhone
 **due:** month
 
 Two review findings from P1310, both cosmetic-but-real. (1) "Slides" is the one Links entry that is a true document load, and it runs through `window.open`, so middle-click, cmd-click and copy-link do nothing — an `<a href="/presi" target="_blank" rel="noopener noreferrer">` styled as the other entries would keep the new-tab behaviour and restore the affordances. (2) In the mobile menu the signed-out account actions (Take the Pledge / Log In / Create Account) sit under a bare divider while Use cases, Product, Learn and the signed-in "Your account" group all carry headings — an orphaned group; the label is a founder call. Done when the link is an anchor and the group has an approved heading; droppable if the menu is restructured for other reasons first.
+
+Reviewed 2026-10-21 (monthly): keep — not re-checked
 
 ---
 ## Re-issue the scoped read-only Supabase token before it expires (~2026-12-13)
@@ -1328,6 +1346,8 @@ Done when a fresh scoped token is in `SUPABASE_READONLY_TOKEN` in **both** `.env
 P1214 retires the daily checks' need for a platform token entirely, or if P1148 lands date-aware
 rotation first.
 
+Reviewed 2026-10-21 (monthly): drop recommended; the same renewal is covered by the private store entry for the three scoped tokens, same 2026-12-13 expiry
+
 ---
 
 ## Quarterly terms review: one re-acceptance popup for everything since v1.4
@@ -1338,6 +1358,8 @@ rotation first.
 **due:** month
 
 Around 2026-12-01, batch every Terms of Service and Privacy Policy text change made since the v1.4 bump (2026-09-01), including P1307's event transcription wording (spec D15), into a single `CURRENT_TERMS_VERSION` bump, run through `/tos-review`, so users see one popup per quarter instead of one per small edit. In the same review, decide whether `/tos-review` Stage 7b ("version bump mandatory" on every terms edit) should change to quarterly batching; that is a skill change needing founder approval. Droppable if no terms text has changed since v1.4 when the date arrives.
+
+Reviewed 2026-10-21 (monthly): keep — date-triggered review around 2026-12-01, not yet due
 
 ---
 
@@ -1376,6 +1398,8 @@ anywhere in `src/`. Found while flipping `/live`'s default to off in P1307 (2026
 suite signs in with `setTestSession()` where it means a host, drops or rewrites the assertions on the
 removed checkbox, and passes. Droppable if the suite is retired in favour of an equivalent one.
 
+Reviewed 2026-10-21 (monthly): keep — not re-run
+
 ---
 
 ## Transcribe room polish the P1307 design reviews found (pre-existing)
@@ -1391,6 +1415,8 @@ the room header says "End Session" while the capture bar below says "End session
 renders a disabled full-width "Join room" before consent (P955 dead-control rule); and the roster
 line truncates one short name even at 1280 px. Screenshots: `~/Screenshots/2026-09-15/p1307-room-v3/`.
 Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 390 / 1280 px.
+
+Reviewed 2026-10-21 (monthly): keep — not re-checked
 
 ---
 
@@ -1421,20 +1447,11 @@ Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 3
 
 > Folded 2026-09-15 by P1317 from `.claude/process-learnings.md`, a third store no reader consumed. `/slava:maintain:cleanup` was checked first and has no registry-to-disk step, so the entry is still open.
 
----
-
-## Re-count the task inbox against the 88 recorded at the first /prioritize pass
-
-**ID:** INBOX-76
-**Date:** 2026-09-15
-**Status:** proposed
-**due:** month
-
-The first /prioritize pass over the inbox (2026-09-15, P1317) left 88 open entries: 68 public and 20 private. On or after 2026-10-15, add up both stores with `./scripts/inbox.sh count`. If the total is not below 88, file intake throttling (P1081's standing fallback) as a spec that week. Do not re-debate it; the pass pre-committed to this. Droppable once that spec exists or the count is below 88.
-
-Promote recommended by /prioritize 2026-10-16: trigger met, 263 open (144 public + 119 private) on 2026-10-16 vs the 88 threshold; per this entry, file intake throttling as a spec via /create-spec.
+Reviewed 2026-10-21 (monthly): keep — cleanup skill has no registry-to-disk step as of the fold date; not re-checked
 
 ---
+
+<!-- Dropped 2026-10-21: "Re-count the task inbox against the 88" (INBOX-76) — founder decision: inbox growth is answered by the rotating reviews in /weekly and /monthly, not intake throttling; see decisions.md 2026-10-21 [process] -->
 
 <!-- Resolved 2026-10-16: "P887 canary copies every scripts/lib entry as a file and fails on any subdirectory" — see decisions.md 2026-10-16 [process] -->
 ## The Links menu's standing lists are compile-time constants with no founder write path
@@ -2602,16 +2619,6 @@ From the third P1512 review round: switching chats while a Clarify is still send
 
 ---
 
-## Feed page fetches the same data several times per load
-
-**ID:** INBOX-203
-**Date:** 2026-10-20
-**Status:** proposed
-**due:** week
-
-Measured during P1522 with scripts/measure-idle-requests.mjs: one fresh /feed load requests stories 6 times and events 8 times (27 requests in total). Collapsing duplicate fetches would cut every page load's database egress further. Done when one /feed load requests each table at most once or twice; droppable if the Supabase plan is upgraded and egress stops mattering.
-
----
 
 ## Finish and verify the P1522 test-user purge
 
@@ -2632,5 +2639,30 @@ P1522 shipped before its test-user purge finished (founder call, so the egress f
 **due:** week
 
 supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts 5001, 5100-5799 and 5800-5899, but scripts/lib/worktree-port.mjs gives w9 port 5900 and w10 port 6050, so every edge function call from those worktrees' dev servers fails its CORS preflight (found by P1520's e2e from w9: the mirror reads as off locally). Fix: accept every port the worktree scheme can produce, with a test that derives the ports from worktree-port.mjs (gate 7e). Droppable if worktrees stop going past w8.
+
+---
+
+
+## Sentry: Error invoking postMessage, Java object is gone, on the Social Hike event page [day:d0e2fed3]
+
+**ID:** INBOX-207
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-21 (check: cp.sentry, severity: high).
+
+JAVASCRIPT-REACT-3W, first seen 17h ago, last seen 13h ago, 2 events, 0 users. Culprit: /events/social-hike-ban-mae-khi-loop-2026-10-25-1491d0. Message is typical of an Android WebView whose host object was torn down. https://22minds-llc.sentry.io/issues/JAVASCRIPT-REACT-3W
+
+---
+
+## /status: end with safe-to-close verdict and continue/compact/fresh recommendation
+
+**ID:** INBOX-208
+**Date:** 2026-10-21
+**Status:** proposed
+**due:** week
+
+Founder approved 2026-10-21. /status ends with one line, "safe to close" or "not safe: <reasons>", computed from git status of this session's worktrees, unanswered questions and unmet ACs. The same block recommends continue, compact, or a fresh session, judged on context size and whether the context is still valuable; for a fresh session it prints a paste-ready hand-off prompt (branch, spec, next step, open decisions). No separate /handoff skill. Droppable if /status already does both.
 
 ---

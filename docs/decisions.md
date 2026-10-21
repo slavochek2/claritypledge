@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-21 [product]: Sales-practice framing registers a novel prediction (L5); target audience frozen until the mastermind ends
+
+**Context:** /day's programme-health check read "degenerating": the sales-practice evenings (2026-10-12) and the sales mastermind (2026-10-19) were adopted without a stated novel prediction.
+**Decision:** Founder, 2026-10-21. (1) Ledger row L5: people who come motivated, bringing a real conversation or deal of their own, change their view of the other person during the session and ask to come back; people sent by someone else don't. The framing is incubating people's clarity practice; its name is not settled and does not affect the prediction. (2) The target audience is frozen until the mastermind ends, so its outcome tests one framing. A meeting with an outside contact goes ahead as a research conversation, not a re-cut.
+**Falsifier:** Attendees sent by someone else ask to come back at the same rate as self-motivated ones, or motivated attendees report no change in their view of the other person.
+**Alternatives rejected:** *Re-cut the audience now.* That would be another framing change with zero novel predictions corroborated, which trips the research programme's stopping rule.
+**References:** [research-programme.md](research-programme.md) progressivity ledger L5 · 2026-10-12 [product] · 2026-10-19 [product]
+
+## 2026-10-21 [process]: Inbox growth is answered by rotating review, not intake throttling (INBOX-76 dropped)
+
+**Context:** INBOX-76 pre-committed that if the inbox was not below 88 open entries on or after 2026-10-15, intake throttling would be filed as a spec. The count was 263 on 10-16 and 238 on 10-21. On 10-16 the response actually taken was the rotating, evidence-checked review in `/weekly` and `/monthly` (aeea92f3a), but INBOX-76 was never closed, so `/day` kept raising it as an unmet commitment.
+**Decision:** Founder, 2026-10-21: the inbox may grow; `/weekly` and `/monthly` review it in rotation and decide what gets built. INBOX-76 is dropped and no throttling spec is filed.
+**Alternatives rejected:** *File the throttling spec as pre-committed.* The founder overrode the pre-commitment in favour of the response already in place.
+**Consequences:** A growing count is no longer a finding on its own. The signal to watch is whether the rotating review closes entries; if it closes none across several runs, revisit.
+**References:** aeea92f3a · docs/process-learnings.md (INBOX-76 drop comment)
+
 ## 2026-10-21 [technical]: e2e cleanup also clears blockers of rows the user owns; a long job logs unfiltered (P1523)
 
 **Context:** P1522's purge of leftover e2e users deleted 0 users across 12 batches and reported "done". Two defects. Stories held by a sealed letter's snapshot (`letter_story_snapshots_story_id_fkey`) failed the stories pre-clean, which was a plain delete outside P1522's blocker resolution. That resolution also stopped at rows pointing straight at the profile. And the sweeper took candidates in listing order, so those users filled every batch. P1522's criteria reviewer had flagged the ordering in round 1; it was not fixed. The failures were invisible because the detached loop piped output through `grep "^sweep:" | grep -v FAILED`, which dropped every error line.
