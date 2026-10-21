@@ -4,22 +4,29 @@ import { dedupeInFlight } from '@/lib/in-flight';
 /** A thenable query builder that records each awaited request and resolves it with `rows`. */
 const requests: { table: string; calls: string[] }[] = [];
 let rows: unknown[] = [];
+/** While set, a SELECT on `stories` waits for it (its data is snapshotted when the query starts). */
+let gate: Promise<void> | null = null;
 const mockFrom = vi.fn((table: string) => {
   const rec = { table, calls: [] as string[] };
+  const snapshot = rows; // what the database holds when this query is built (= when the read starts)
   requests.push(rec);
   const builder: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'in', 'not', 'gte', 'lte', 'contains', 'order', 'range']) {
+  for (const m of ['select', 'eq', 'in', 'not', 'gte', 'lte', 'contains', 'order', 'range', 'single', 'update', 'delete', 'insert']) {
     builder[m] = (...a: unknown[]) => { rec.calls.push(`${m}:${JSON.stringify(a)}`); return builder; };
   }
-  builder.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
-    Promise.resolve({ data: rows, error: null }).then(res, rej);
+  builder.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => {
+    const single = rec.calls.some((c) => c.startsWith('single:'));
+    const isRead = rec.calls.some((c) => c.startsWith('select:')) && !rec.calls.some((c) => c.startsWith('delete:') || c.startsWith('update:'));
+    const wait = table === 'stories' && isRead && gate ? gate : Promise.resolve();
+    return wait.then(() => ({ data: single ? snapshot[0] : snapshot, error: null })).then(res, rej);
+  };
   return builder;
 });
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (t: string) => mockFrom(t), auth: { getSession: () => Promise.resolve({ data: { session: null } }) } } }));
 vi.mock('@/app/prototypes/events/banner-utils', () => ({ generateAIBanner: vi.fn() }));
 
-beforeEach(() => { requests.length = 0; rows = []; mockFrom.mockClear(); });
+beforeEach(() => { requests.length = 0; rows = []; gate = null; mockFrom.mockClear(); });
 
 describe('dedupeInFlight', () => {
   it('N concurrent callers with one key start ONE request and share its result', async () => {
@@ -155,5 +162,67 @@ describe('P1527 multi-org upcoming events (side rail)', () => {
     expect(res?.groups.map((g) => g.id)).toEqual(['A', 'B', 'C']);
     vi.doUnmock('@/app/data/organizations-service');
     vi.doUnmock('@/app/data/events-service');
+  });
+});
+
+describe('P1527 write-aware invalidation (a read after a write must not join a read from before it)', () => {
+  const storyRow = (content: string) => ({
+    id: 's1', author_id: 'a1', content, created_at: '2026-01-01T00:00:00Z', visibility: 'public', tags: [], system_tags: [], author: null,
+  });
+
+  it('getStory: two concurrent calls -> ONE stories request', async () => {
+    rows = [storyRow('v1')];
+    const { realStoriesService } = await import('@/app/data/stories-service-real');
+    const [a, b] = await Promise.all([realStoriesService.getStory('s1'), realStoriesService.getStory('s1')]);
+    expect(requests.filter((r) => r.table === 'stories')).toHaveLength(1);
+    expect(a?.content).toBe('v1');
+    expect(b?.content).toBe('v1');
+  });
+
+  it('REGRESSION: read pending -> write completes -> new read starts a fresh fetch and sees post-write data', async () => {
+    rows = [storyRow('before')];
+    let release!: () => void;
+    gate = new Promise<void>((r) => { release = r; });
+    const { realStoriesService } = await import('@/app/data/stories-service-real');
+
+    const pending = realStoriesService.getStory('s1');          // starts, snapshots 'before', waits on the gate
+    rows = [];                                                   // the write lands in the database...
+    await realStoriesService.deleteStory('s1');                  // ...and the write call completes
+    gate = null;
+    const after = await realStoriesService.getStory('s1');       // must NOT join `pending`
+
+    expect(requests.filter((r) => r.table === 'stories' && r.calls.some((c) => c.startsWith('select:')))).toHaveLength(2);
+    expect(after).toBeNull();                                    // post-write data (story is gone)
+    release();
+    expect((await pending)?.content).toBe('before');             // the dropped read still resolves for its own caller
+  });
+
+  it('invalidateInFlight drops only matching prefixes; the old promise cleanup never deletes a newer entry', async () => {
+    const { invalidateInFlight, dedupeInFlight } = await import('@/lib/in-flight'); // same module graph as the services
+    let releaseOld!: (v: string) => void;
+    const old = dedupeInFlight('story:x', () => new Promise<string>((r) => { releaseOld = r; }));
+    const other = dedupeInFlight('event:y', async () => 'y');
+    invalidateInFlight('story');
+    const start = vi.fn(async () => 'new');
+    const fresh = dedupeInFlight('story:x', start);              // new entry under the same key
+    releaseOld('old');                                           // old settles AFTER the new entry exists
+    expect(await old).toBe('old');
+    expect(await fresh).toBe('new');
+    // the old promise's cleanup must not have removed the (already settled) new entry's slot wrongly:
+    const again = vi.fn(async () => 'again');
+    const third = dedupeInFlight('story:x', again);
+    expect(await third).toBe('again');
+    expect(await other).toBe('y');
+  });
+
+  it('event writes drop pending event reads (topic tags)', async () => {
+    rows = [{ statement_tag: 'old' }];
+    const { getEventTopicTags } = await import('@/app/data/event-topic-tags');
+    const { invalidateInFlight, EVENT_READS } = await import('@/lib/in-flight');
+    const p1 = getEventTopicTags();
+    rows = [{ statement_tag: 'new' }];
+    invalidateInFlight(EVENT_READS);
+    expect(await getEventTopicTags()).toEqual(['new']);
+    expect(await p1).toEqual(['old']);
   });
 });

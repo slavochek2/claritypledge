@@ -7,7 +7,7 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
-import { dedupeInFlight } from '@/lib/in-flight';
+import { dedupeInFlight, invalidateInFlightAfterWrites, EVENT_READS } from '@/lib/in-flight';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -322,7 +322,7 @@ async function loadUpcoming(orgFilter?: string | string[]): Promise<{ events: Ev
 
 export const realEventsService: EventsService & DedupedReads = {
   getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
-    return dedupeInFlight(`upcoming-events:${orgId ?? ''}`, () => realEventsService.fetchUpcomingEvents(orgId));
+    return dedupeInFlight(`event-upcoming:${orgId ?? ''}`, () => realEventsService.fetchUpcomingEvents(orgId));
   },
 
   fetchUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
@@ -333,7 +333,7 @@ export const realEventsService: EventsService & DedupedReads = {
   getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
     const ids = [...new Set(orgIds)].sort();
     if (ids.length === 0) return Promise.resolve({});
-    return dedupeInFlight(`upcoming-events-by-org:${ids.join(',')}`, () => realEventsService.fetchUpcomingEventsByOrg(ids));
+    return dedupeInFlight(`event-upcoming-by-org:${ids.join(',')}`, () => realEventsService.fetchUpcomingEventsByOrg(ids));
   },
 
   async fetchUpcomingEventsByOrg(ids: string[]): Promise<Record<string, EventWithHost[]>> {
@@ -1394,3 +1394,11 @@ export const realEventsService: EventsService & DedupedReads = {
     return (data as DbEventWithHost[]).map(mapEventFromDb);
   },
 };
+
+// P1527: a write drops pending event reads (upcoming lists carry attendee counts and status, the
+// topic-tag read carries statement_tag), so a read started after it never joins an earlier one.
+invalidateInFlightAfterWrites(
+  realEventsService,
+  ['createEvent', 'updateEvent', 'cancelEvent', 'uncancelEvent', 'rsvpToEvent', 'cancelRsvp'],
+  EVENT_READS,
+);

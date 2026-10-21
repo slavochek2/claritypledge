@@ -20,7 +20,7 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
 import { pointsService } from './points-service';
-import { dedupeInFlight } from '@/lib/in-flight';
+import { dedupeInFlight, invalidateInFlightAfterWrites, STORY_READS } from '@/lib/in-flight';
 import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
@@ -560,7 +560,7 @@ export const realStoriesService: StoriesService & DedupedReads = {
   },
 
   getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
-    return dedupeInFlight(`stories-feed:${limit}:${offset}:${tag ?? ''}:${ascending ?? ''}`, () =>
+    return dedupeInFlight(`story-feed:${limit}:${offset}:${tag ?? ''}:${ascending ?? ''}`, () =>
       realStoriesService.fetchPublicStoriesFeed(limit, offset, tag, ascending));
   },
 
@@ -1019,6 +1019,11 @@ async function fetchResolveStorySlug(slug: string): Promise<string | null> {
   withVersion.sort((a: { version: number }, b: { version: number }) => b.version - a.version);
   return withVersion[0].id;
 }
+
+// P1527: a write drops pending story reads, so a read started after it never joins one that began before.
+// linkPointToStory / unlinkPointFromStory are skipped on purpose: they change story_points, which no
+// deduped read returns (getStory, the public feed and the slug reads select stories + author only).
+invalidateInFlightAfterWrites(realStoriesService, ['createStory', 'updateStory', 'deleteStory'], STORY_READS);
 
 /**
  * P1527: a story by its stN slug in ONE request (resolveStorySlug + getStory were two). Same
