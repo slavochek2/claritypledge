@@ -5,8 +5,8 @@ rank: 1
 tags: [offline, network]
 disclosure: public
 created_date: '2026-10-21'
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
