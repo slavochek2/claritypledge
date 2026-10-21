@@ -68,9 +68,17 @@ export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult
       scanned++;
       if (E2E_EMAIL.test(u.email ?? '') && Date.parse(u.created_at) < cutoff) ids.push(u.id);
     }
-    // Applying a bounded batch needs no full census: listing every page is itself egress.
-    if (opts.apply && ids.length >= opts.limit) break;
+    // Applying a bounded batch needs no full census: listing every page is itself egress. Gather
+    // three batches' worth so the shuffle below can step past users that always fail (P1523).
+    if (opts.apply && ids.length >= opts.limit * 3) break;
     if (data.users.length < 1000) break;
+  }
+  // P1523: shuffled, so users whose delete always fails cannot occupy every batch.
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const swap = ids[i] as string;
+    ids[i] = ids[j] as string;
+    ids[j] = swap;
   }
   const batch = ids.slice(0, opts.limit);
   const counted = opts.apply && ids.length >= opts.limit ? 'at least ' : '';

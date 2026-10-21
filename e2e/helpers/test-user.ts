@@ -431,9 +431,9 @@ export async function setTestSession(page: Page, email: string) {
  * constraint in the error, so the blockers are derived from the database instead of a list.
  * Only default-named constraints (`<table>_<column>_fkey[N]`) are resolved; anything else is
  * returned as the original error, never guessed at. Bounded: each step removes one blocker.
- * Limits (each fails closed, as before this existed): a blocker that is itself blocked by a
- * further table is not resolved (only rows pointing straight at the profile are), and a name
- * Postgres truncated at 63 bytes no longer parses.
+ * Rows selected by a non-key column (a user's stories by author_id) are resolved through their
+ * ids (P1523: stories in a sealed letter). Limits (each fails closed): blockers that reference a
+ * non-`id` key, and names Postgres truncated at 63 bytes, are not resolved.
  */
 async function deleteClearingReferences(
   table: string,
@@ -452,11 +452,20 @@ async function deleteClearingReferences(
     const named = /_fkey\d*$/.exec(constraint);
     if (!constraint.startsWith(prefix) || !named) return error;
     const blockerColumn = constraint.slice(prefix.length, named.index);
-    // Rows in `blocker` point at the row we are deleting by its `column` value only when that is
-    // the referenced key (profiles.id here); a different key would need its own lookup.
-    if (column !== 'id') return error;
-    const nested = await deleteClearingReferences(blocker, blockerColumn, value, depth + 1);
-    if (nested) return nested;
+    if (column === 'id') {
+      // The blocking rows point straight at the row being deleted.
+      const nested = await deleteClearingReferences(blocker, blockerColumn, value, depth + 1);
+      if (nested) return nested;
+      continue;
+    }
+    // P1523: the rows being deleted were selected by a non-key column (a user's stories by
+    // author_id), so the blockers point at their ids. Look those up, clear each one's blockers.
+    const { data: rows, error: selectError } = await profileWriter.from(table).select('id').eq(column, value);
+    if (selectError || !rows?.length) return error;
+    for (const row of rows as Array<{ id: string }>) {
+      const nested = await deleteClearingReferences(blocker, blockerColumn, row.id, depth + 1);
+      if (nested) return nested;
+    }
   }
   return { message: `deleteClearingReferences(${table}): gave up after 12 blockers` };
 }
@@ -496,7 +505,9 @@ export async function deleteTestUser(userId: string) {
   const { error: verificationsError } = await supabaseAdmin.from('story_verifications').delete()
     .or(`listener_id.eq.${userId},speaker_id.eq.${userId}`);
   if (verificationsError) fail('story_verifications pre-clean', verificationsError);
-  const { error: storiesError } = await supabaseAdmin.from('stories').delete().eq('author_id', userId);
+  // P1523: through deleteClearingReferences, so a story held by a sealed letter's snapshot does
+  // not strand the user.
+  const storiesError = await deleteClearingReferences('stories', 'author_id', userId);
   if (storiesError) fail('stories pre-clean', storiesError);
   // Sessions this user created (a room capture opens one: P1307/P1388) block the profile delete
   // (clarity_sessions_creator_profile_id_fkey has no cascade). Their story_verifications go first,

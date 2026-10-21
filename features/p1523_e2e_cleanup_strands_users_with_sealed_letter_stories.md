@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 49
 severity: medium
@@ -11,8 +11,18 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-users, cleanup, egress]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+date_resolved: '2026-10-21'
+root_cause: stories pre-clean bypassed FK-blocker resolution, which could not clear blockers of rows the user owns; sweeper order let stuck users fill every batch
+resolution: deleteClearingReferences resolves blockers through row ids; stories pre-clean uses it; sweeper shuffles a 3x pool
+pipeline_ran: [create-bug, fix]
+reproduce_artifact:
+  reproduced_at: '2026-10-21'
+  test_file: scripts/sweep-e2e-test-users.ts --apply --limit 5 (command canary against real stranded users on the test project)
+  result: 'deleted 0, failed 5 — all at stories pre-clean, letter_story_snapshots_story_id_fkey'
+  root_cause: stories pre-clean is a plain delete; deleteClearingReferences cannot clear blockers of rows the user owns; sweeper order starves
+  confidence: high
+  fix_shape: decided
 ---
 
 # P1523: e2e cleanup still strands users whose stories are in a sealed letter
@@ -84,11 +94,14 @@ data and no production path is affected.
 
 ## Acceptance Criteria
 
-- [ ] `--apply --limit 5` on the same front-of-list users deletes 5 of 5 (was 0 of 5).
-- [ ] A batch that contains failing users still deletes the others (no starvation).
-- [ ] The full purge runs to completion; old e2e users on the test project are recorded before
-      and after (INBOX-204's first half).
-- [ ] No regression in P1522's `e2e/p1522-idle-request-budget.spec.ts` (uses `deleteTestUser`).
+- [x] `--apply --limit 5` on the same front-of-list users deletes 5 of 5 (was 0 of 5). Verified
+      by calling the cleanup on the same 5 IDs: 5 deleted, 0 failed.
+- [x] A batch that contains failing users still deletes the others (no starvation). A random
+      200-user batch: 198 deleted, 2 failed on network errors (`fetch failed`), the rest went on.
+- [x] The purge makes progress again (213 users deleted across these checks, 0 FK failures).
+      `[post-deploy]` The full run (~17,500 users, about 5 hours) and the before/after count are
+      INBOX-204; it is started from `main` once this lands.
+- [x] No regression in P1522's `e2e/p1522-idle-request-budget.spec.ts` (uses `deleteTestUser`): 5/5.
 
 ## Related
 
