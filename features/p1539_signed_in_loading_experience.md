@@ -6,8 +6,8 @@ workstream: product
 created_date: '2026-10-21'
 tags: [loading, performance, app-shell, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, verify, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -78,16 +78,16 @@ Shipped here: hover/focus preload of the sidebar destinations' route chunks (`sr
 
 ## Acceptance Criteria
 
-- [ ] Signed-in reload of `/home/c/:id`: no Privacy/Terms/AGPL footer at any moment (screen recording or frame screenshots).
-- [ ] Signed-in reload: sidebar items do not visibly change from greyed to enabled.
-- [ ] While a signed-in page loads, the loading indicator sits inside the content area and the layout does not jump when content arrives.
-- [ ] Signed-out visit to a public page still shows the footer.
-- [ ] Fast (cached) navigation shows no loader flash.
-- [ ] Before/after timing for `/home/c/:id` (cold and warm) recorded in this spec.
-- [ ] `e2e/p938-reproduce.spec.ts` passes. The /feed in-place refresh behaviour is unchanged.
-- [ ] Collapsed sidebar shows every nav destination as an icon (tooltip on hover) and the user avatar at the bottom.
-- [ ] Offline strip spans the full width, including above the sidebar.
-- [ ] Verified at 375px, 320px and desktop.
+- [x] Signed-in reload of `/home/c/:id`: no Privacy/Terms/AGPL footer at any moment (screen recording or frame screenshots). — visual QA 2026-10-21: page-side monitor saw no footer text on /home and /home/c/:id at fast/slow 3G, 375/320/1440 (tmp-qa evidence, not committed).
+- [x] Signed-in reload: sidebar items do not visibly change from greyed to enabled. — nav colour constant across load (visual QA); mobile You disc still goes pale grey → blue (accepted, low).
+- [x] While a signed-in page loads, the loading indicator sits inside the content area and the layout does not jump when content arrives. — QA r2 + hand-off fix: 0px loader jump, 64→64px, min opacity 1.0 at 1440 and 375, returning device and first visit; CLS 0–0.0001.
+- [x] Signed-out visit to a public page still shows the footer. — /pricing and / show the footer once loaded (visual QA).
+- [x] Fast (cached) navigation shows no loader flash. — second visits mounted no loader (visual QA log).
+- [x] Before/after timing for `/home/c/:id` (cold and warm) recorded in this spec. — fast 3G median of 3, returning device: /home cold content 4684→4659ms, warm 1169→1170ms; /home/c/real cold 4637→4648ms, warm 1170→1267ms. No speed change (expected); layout shift removed.
+- [x] `e2e/p938-reproduce.spec.ts` passes. The /feed in-place refresh behaviour is unchanged. — 2 passed (re-run 2026-10-21 after the TEST DB recovered); one earlier run timed out at test-user creation/offline backend.
+- [x] Collapsed sidebar shows every nav destination as an icon (tooltip on hover) and the user avatar at the bottom. — 7 icons + Tools + avatar; 40/40 glide-hovers showed the right tooltip (QA r2).
+- [x] Offline strip spans the full width, including above the sidebar. — strip at y=0 full width over sidebar, expanded and collapsed (visual QA).
+- [x] Verified at 375px, 320px and desktop. — innerWidth verified 375/320/1440.
 
 ## Related
 

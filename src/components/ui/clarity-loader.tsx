@@ -73,18 +73,22 @@ export function ClarityBootLoader() {
 /**
  * P1539: content loader for INSIDE the signed-in shell. It fills the content area (flex-1,
  * never min-h-screen) so the sidebar, bottom bar and footer do not jump when content arrives.
- * Same 300ms CSS anti-flash as the boot splash.
+ * Same 300ms CSS anti-flash as the boot splash, and the same 64px mark at the same viewport centre.
  */
 export function ClarityContentLoader() {
   const style = chainStyle(useLoaderChain());
   return (
     <div
       data-testid="content-loader"
-      className="flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center p-4 clarity-page-loader"
+      className="flex min-h-[calc(100dvh-10rem)] w-full flex-1 clarity-page-loader"
       style={style}
     >
-      <div className="flex justify-center">
-        <ClarityLoader size="md" />
+      {/* The box above only holds the content area's height (footer and layout do not jump). The mark itself is
+          viewport-centred at the splash's size, exactly like the index.html splash and the boot loader, so the
+          hand-off splash -> content loader neither moves nor resizes. fixed + pointer-events-none: it never
+          takes a click and never depends on the sidebar offset, bottom bar or strip geometry. */}
+      <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
+        <ClarityLoader size="lg" />
       </div>
     </div>
   );
