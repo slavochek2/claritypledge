@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 47
 workstream: clarity-chat
 created_date: '2026-10-20'
 tags: [mirror-agent, chat, portraits, clarity-chat]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-21
 ---
 
 # P1520: Mirror v2 — the mirror answers, and has a face
@@ -100,9 +100,9 @@ Decision density: a few. The model, the reply voice, and @Mira privacy are confi
 ## Related
 
 - P1512: Clarity Chat v1 (on its feature branch, not yet on main).
-- [P1453](done/2026-06-10/p1453_artist_style_profile_banners.md): the artist-style generation pipeline.
-- [P1431](p1431_mirror_agent_letter_chat.md): the earlier avatar plan (own photo with a robot badge), superseded here.
-- [P1467](p1467_clarity_chat_letter_loop_v5.md): the mirror agent's role.
+- [P1453](p1453_artist_style_profile_banners.md): the artist-style generation pipeline.
+- [P1431](../../p1431_mirror_agent_letter_chat.md): the earlier avatar plan (own photo with a robot badge), superseded here.
+- [P1467](../../p1467_clarity_chat_letter_loop_v5.md): the mirror agent's role.
 
 ## Founder decisions, 2026-10-20 (second round)
 
