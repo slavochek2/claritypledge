@@ -20,7 +20,6 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
 import { pointsService } from './points-service';
-import { dedupeInFlight, invalidateInFlightAfterWrites, STORY_READS } from '@/lib/in-flight';
 import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
@@ -179,13 +178,7 @@ async function fetchAuthorPositions(
   return map;
 }
 
-/** P1527: the un-deduplicated reads that getStory / getPublicStoriesFeed wrap in dedupeInFlight. */
-interface DedupedReads {
-  fetchStory(storyId: string): Promise<StoryWithAuthor | null>;
-  fetchPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]>;
-}
-
-export const realStoriesService: StoriesService & DedupedReads = {
+export const realStoriesService: StoriesService = {
   // ============================================================================
   // CREATE
   // ============================================================================
@@ -269,11 +262,7 @@ export const realStoriesService: StoriesService & DedupedReads = {
   // READ
   // ============================================================================
 
-  getStory(storyId: string): Promise<StoryWithAuthor | null> {
-    return dedupeInFlight(`story:${storyId}`, () => realStoriesService.fetchStory(storyId));
-  },
-
-  async fetchStory(storyId: string): Promise<StoryWithAuthor | null> {
+  async getStory(storyId: string): Promise<StoryWithAuthor | null> {
     log(' getStory:', storyId);
 
     const { data, error } = await supabase
@@ -559,12 +548,7 @@ export const realStoriesService: StoriesService & DedupedReads = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
-  getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
-    return dedupeInFlight(`story-feed:${limit}:${offset}:${tag ?? ''}:${ascending ?? ''}`, () =>
-      realStoriesService.fetchPublicStoriesFeed(limit, offset, tag, ascending));
-  },
-
-  async fetchPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
+  async getPublicStoriesFeed(limit: number, offset: number, tag?: string, ascending?: boolean): Promise<StoryWithAuthor[]> {
     log(' getPublicStoriesFeed:', { limit, offset, tag });
 
     let query = supabase
@@ -993,11 +977,7 @@ export const realStoriesService: StoriesService & DedupedReads = {
  * Matches the stN tag in system_tags, resolves highest vN version.
  * Returns null if no matching story found.
  */
-export function resolveStorySlug(slug: string): Promise<string | null> {
-  return dedupeInFlight(`story-slug:${slug}`, () => fetchResolveStorySlug(slug));
-}
-
-async function fetchResolveStorySlug(slug: string): Promise<string | null> {
+export async function resolveStorySlug(slug: string): Promise<string | null> {
   const match = slug.match(/^st\d+$/);
   if (!match) return null;
 
@@ -1020,20 +1000,11 @@ async function fetchResolveStorySlug(slug: string): Promise<string | null> {
   return withVersion[0].id;
 }
 
-// P1527: a write drops pending story reads, so a read started after it never joins one that began before.
-// linkPointToStory / unlinkPointFromStory are skipped on purpose: they change story_points, which no
-// deduped read returns (getStory, the public feed and the slug reads select stories + author only).
-invalidateInFlightAfterWrites(realStoriesService, ['createStory', 'updateStory', 'deleteStory'], STORY_READS);
-
 /**
  * P1527: a story by its stN slug in ONE request (resolveStorySlug + getStory were two). Same
  * choice as resolveStorySlug: the highest vN version among stories carrying the stN system tag.
  */
-export function getStoryBySlug(slug: string): Promise<StoryWithAuthor | null> {
-  return dedupeInFlight(`story-by-slug:${slug}`, () => fetchStoryBySlug(slug));
-}
-
-async function fetchStoryBySlug(slug: string): Promise<StoryWithAuthor | null> {
+export async function getStoryBySlug(slug: string): Promise<StoryWithAuthor | null> {
   if (!/^st\d+$/.test(slug)) return null;
   const { data, error } = await supabase
     .from('stories')

@@ -7,7 +7,6 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
-import { dedupeInFlight, invalidateInFlightAfterWrites, EVENT_READS } from '@/lib/in-flight';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -230,12 +229,6 @@ export async function generateSlug(title: string): Promise<string> {
   return `${titleSlug}-${dateStr}-${randomSuffix}`;
 }
 
-/** P1527: the un-deduplicated read that getUpcomingEvents wraps in dedupeInFlight. */
-interface DedupedReads {
-  fetchUpcomingEvents(orgId?: string): Promise<EventWithHost[]>;
-  fetchUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>>;
-}
-
 /**
  * P1527: split one multi-org result into per-org lists. Every requested org gets a key (empty
  * list when it has no events), and each list keeps the incoming (datetime) order — exactly what
@@ -320,26 +313,18 @@ async function loadUpcoming(orgFilter?: string | string[]): Promise<{ events: Ev
 }
 
 
-export const realEventsService: EventsService & DedupedReads = {
-  getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
-    return dedupeInFlight(`event-upcoming:${orgId ?? ''}`, () => realEventsService.fetchUpcomingEvents(orgId));
-  },
-
-  fetchUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
+export const realEventsService: EventsService = {
+  async getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
     log(' getUpcomingEvents', orgId ?? '(unscoped)');
-    return loadUpcoming(orgId).then((r) => r.events);
+    return (await loadUpcoming(orgId)).events;
   },
 
-  getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
-    const ids = [...new Set(orgIds)].sort();
-    if (ids.length === 0) return Promise.resolve({});
-    return dedupeInFlight(`event-upcoming-by-org:${ids.join(',')}`, () => realEventsService.fetchUpcomingEventsByOrg(ids));
-  },
-
-  async fetchUpcomingEventsByOrg(ids: string[]): Promise<Record<string, EventWithHost[]>> {
+  async getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
+    const ids = [...new Set(orgIds)];
+    if (ids.length === 0) return {};
     log(' getUpcomingEventsByOrg', ids.length);
-    const { events, orgIds } = await loadUpcoming(ids);
-    return groupEventsByOrg(events.map((event, i) => ({ orgId: orgIds[i], event })), ids);
+    const { events, orgIds: rowOrgs } = await loadUpcoming(ids);
+    return groupEventsByOrg(events.map((event, i) => ({ orgId: rowOrgs[i], event })), ids);
   },
 
   async getPastEvents(orgId?: string): Promise<EventWithHost[]> {
@@ -1394,11 +1379,3 @@ export const realEventsService: EventsService & DedupedReads = {
     return (data as DbEventWithHost[]).map(mapEventFromDb);
   },
 };
-
-// P1527: a write drops pending event reads (upcoming lists carry attendee counts and status, the
-// topic-tag read carries statement_tag), so a read started after it never joins an earlier one.
-invalidateInFlightAfterWrites(
-  realEventsService,
-  ['createEvent', 'updateEvent', 'cancelEvent', 'uncancelEvent', 'rsvpToEvent', 'cancelRsvp'],
-  EVENT_READS,
-);

@@ -24,7 +24,6 @@ import type {
 import { supabase } from '@/lib/supabase';
 import { predictionsForMode } from '@/app/utils/letter-prediction-policy';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { invalidateInFlight, STORY_READS } from '@/lib/in-flight';
 import { DELIVERY_COLUMNS } from './letter-delivery-columns';
 
 // Debug logging - only in development
@@ -2123,7 +2122,6 @@ export async function updateLetterPositionStory(
     .update({ content, tags: extractHashtags(content) })
     .eq('id', storyId);
   clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
-  invalidateInFlight(STORY_READS); // P1527: a pending getStory must not serve the pre-write content
   if (error) {
     logDbError('updateLetterPositionStory', error);
     return false;

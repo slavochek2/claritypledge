@@ -6,7 +6,6 @@
  * The `createProfile` function here is an "Initiator" - it only sends the email.
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
-import { invalidatingAfter, EVENT_READS } from '@/lib/in-flight';
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode, heldSeatSecrets } from '@/lib/room-capability';
@@ -4230,7 +4229,7 @@ interface CreateEventInput {
  * Generates slug automatically from title
  * Retries with timestamp suffix on slug conflict
  */
-async function createEventImpl(input: CreateEventInput): Promise<Event | null> {
+export async function createEvent(input: CreateEventInput): Promise<Event | null> {
 
   let slug = generateEventSlug(input.title);
   let retries = 0;
@@ -4271,14 +4270,13 @@ async function createEventImpl(input: CreateEventInput): Promise<Event | null> {
   console.error('[Events API] Failed to create event after retries');
   return null;
 }
-export const createEvent = invalidatingAfter(EVENT_READS, createEventImpl);
 
 /**
  * RSVPs a user to an event
  * Checks capacity before inserting
  * Returns false if event is full or already RSVP'd
  */
-async function rsvpToEventImpl(eventId: string, profileId: string): Promise<boolean> {
+export async function rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
 
   // Check if already RSVP'd
   const alreadyRsvpd = await isUserRsvpd(eventId, profileId);
@@ -4334,12 +4332,11 @@ async function rsvpToEventImpl(eventId: string, profileId: string): Promise<bool
 
   return true;
 }
-export const rsvpToEvent = invalidatingAfter(EVENT_READS, rsvpToEventImpl);
 
 /**
  * Cancels a user's RSVP to an event
  */
-async function cancelRsvpImpl(eventId: string, profileId: string): Promise<boolean> {
+export async function cancelRsvp(eventId: string, profileId: string): Promise<boolean> {
   // P1441: never report "cancelled" unless the row is gone. An anonymous DELETE is not an error —
   // RLS filters it to zero rows — so the old code returned true while the seat stayed booked.
   if (!(await guardSeatWrite(profileId))) return false;
@@ -4380,7 +4377,6 @@ async function cancelRsvpImpl(eventId: string, profileId: string): Promise<boole
 
   return true;
 }
-export const cancelRsvp = invalidatingAfter(EVENT_READS, cancelRsvpImpl);
 
 interface UpdateEventInput {
   title?: string;
@@ -4395,7 +4391,7 @@ interface UpdateEventInput {
 /**
  * Updates an event (host only - RLS enforced + explicit ownership check)
  */
-async function updateEventImpl(eventId: string, input: UpdateEventInput): Promise<Event | null> {
+export async function updateEvent(eventId: string, input: UpdateEventInput): Promise<Event | null> {
 
   // Defense-in-depth: verify caller is the event host
   const { data: { user } } = await supabase.auth.getUser();
@@ -4443,13 +4439,12 @@ async function updateEventImpl(eventId: string, input: UpdateEventInput): Promis
 
   return mapEventFromDb(data);
 }
-export const updateEvent = invalidatingAfter(EVENT_READS, updateEventImpl);
 
 /**
  * Cancels an event (sets status to 'cancelled')
  * Host only - RLS enforced + explicit ownership check
  */
-async function cancelEventImpl(eventId: string): Promise<boolean> {
+export async function cancelEvent(eventId: string): Promise<boolean> {
 
   // Defense-in-depth: verify caller is the event host
   const { data: { user } } = await supabase.auth.getUser();
@@ -4486,7 +4481,6 @@ async function cancelEventImpl(eventId: string): Promise<boolean> {
 
   return true;
 }
-export const cancelEvent = invalidatingAfter(EVENT_READS, cancelEventImpl);
 
 // ============================================================================
 // TRANSCRIPTION API (P495)
