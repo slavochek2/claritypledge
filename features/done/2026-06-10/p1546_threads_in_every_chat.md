@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 58
 workstream: clarity-chat
 created_date: '2026-10-22'
 tags: [chat, threads, mirror]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-22
 ---
 
 # P1546: Threads in every chat: direct messages and the mirror, and the mirror answers inside its thread
@@ -75,7 +75,7 @@ Applies because the migration changes per-request functions and the canary creat
 
 ## Related
 
-P1512 (threads in channels) · P1520 (mirror) · [P1544](p1544_mirror_launch_on_prod.md) · [P1547](p1547_mirror_memory_token_budget.md) · P1536 (+ Canvas opens a mirror thread)
+P1512 (threads in channels) · P1520 (mirror) · [P1544](../../p1544_mirror_launch_on_prod.md) · [P1547](../../p1547_mirror_memory_token_budget.md) · P1536 (+ Canvas opens a mirror thread)
 
 ## Evidence (dev)
 
