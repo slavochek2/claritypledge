@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-22'
 tags: [groups, copy, navigation]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -85,13 +85,13 @@ Joining needs no skill, only the will to improve your own communication and othe
 
 ## Acceptance Criteria
 
-- [ ] `/groups/cm` shows "Clarity Practice Community · Chiang Mai" with the approved subtitle and About text, word for word (test DB screenshot; prod after ship).
-- [ ] `/groups/online` no longer loads for a signed-out visitor or a non-member, and the directory lists one group.
-- [ ] The online group's membership row still exists (count before and after).
-- [ ] An event created with an online location gets no group by default; one in Chiang Mai still gets `cm`.
-- [ ] The close page's community step says "Join the Clarity Practice Community".
-- [ ] Phone bottom nav shows Events instead of Groups and opens the events list (375px screenshot).
-- [ ] The migration raises when run against drifted copy (control: run it twice; the second run must raise or no-op, never double-apply).
+- [x] `/groups/cm` shows "Clarity Practice Community · Chiang Mai" with the approved subtitle and About text, word for word (test DB screenshot; prod after ship). Evidence: test DB `description` byte-identical to this spec (script compare, 2133 chars); `/groups/cm` at 375px renders the new name and subtitle. `[post-deploy]` re-read the prod row after ship.
+- [x] `/groups/online` no longer loads for a signed-out visitor or a non-member, and the directory lists one group. Evidence: anon GET `organization?slug=in.(cm,online)` on test returns only `cm`.
+- [x] The online group's membership row still exists (count before and after). Evidence: 3 test members before and after; prod has 2 and the migration touches no membership row.
+- [x] An event created with an online location gets no group by default; one in Chiang Mai still gets `cm`. Evidence: `org-defaults.test.ts`; close community step also only offers a public group (test DB: online events → none, Chiang Mai events → `cm`).
+- [x] The close page's community step says "Join the Clarity Practice Community". Evidence: `p1389-event-close` e2e community walk passed.
+- [x] Phone bottom nav shows Events instead of Groups and opens the events list (375px screenshot). Evidence: `e2e/p1543-phone-events-tab.spec.ts` passed with screenshot (Home · Feed · Events · Letters · You); Groups in the Me sheet.
+- [x] The migration raises when run against drifted copy (control: run it twice; the second run must raise or no-op, never double-apply). Evidence: re-run on test = no-op; drift control raised; prior subtitle and About pinned by md5, matched against prod read-only.
 
 ## Related
 
