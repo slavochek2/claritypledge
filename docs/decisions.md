@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-22 [technical]: Threads in every chat; a mirror thread is the mirror agent's context, and copies never carry its answers (P1546)
+
+**Context:** Threads were channel-only, a carry-over from the Telegram-shaped prototype. The founder asked for threads in 1:1s and the mirror, and P1536 needs a mirror thread per canvas.
+**Decision:** `send_chat_message` and `get_thread_stats` accept threads in every conversation kind. No RLS change was needed, because `chat_messages_select` is per conversation: a thread reply is readable by exactly who can read its chat. A mirror question asked inside a thread is answered inside that thread (the answer carries the trigger's `thread_root_id` and does not move `last_message_at`), and its context is that thread only; a question outside threads sees no thread replies (`_mirror_in_scope`). `clarify_chat_message` now leaves mirror agent answers and private asks out of a copied thread: a mirror thread can hold them, and a copy keeps text derived from other people's words where erasure's `derived_refs` cannot reach (found by the automated security review, not by the spec).
+**Alternatives rejected:** Thread-plus-recent-mirror context for a thread question (mixes subjects the thread exists to keep apart; the general context rules belong to P1547). Refusing Clarify on mirror thread rows (removes a useful action to protect a copy the filter protects anyway).
+**Consequences:** Any new function that copies or summarises a thread must exclude `kind = 'agent'` and `context_conversation_id IS NOT NULL` rows, or carry their `derived_refs`. The Thread action is hidden on owner-only rows (agent answers, private asks) in both the menu and the toolbar.
+**References:** [p1546 spec](../features/p1546_threads_in_every_chat.md), `supabase/migrations/20261022160000_p1546_threads_everywhere.sql`, `e2e/integration/p1546-threads-everywhere.spec.ts`
+
+## 2026-10-22 [process]: The test project's API falls over on schema reload; apply a migration once, then wait (P1546)
+
+**Context:** After the P1546 migration was applied to the test project, its REST API answered 503 `PGRST002` ("could not query the database for the schema cache") for about an hour, recovered, and failed again within minutes of the same idempotent file being re-applied. Auth stayed healthy; prod was unaffected. Dropping the one new function did not restore it, so the schema content was ruled out. `pg_stat_statements` showed the API's schema-cache queries at up to 6.3 s against the `authenticator` role's 8 s `statement_timeout`, and `SET client_encoding` at up to 2.1 s: the project is CPU-starved, and every DDL-triggered reload can time out and retry.
+**Decision:** On the test project, apply a migration exactly once (`migrate.sh`), confirm the change with a `pg_get_functiondef` read instead of re-applying, and wait for three consecutive 200s before running integration suites, one suite at a time. Treat a fixture-creation failure (org or user create) as an infrastructure result, never as a test result. A canary whose bodies passed but whose `afterAll` cleanup timed out is reported as such, and its stranded users are deleted with the same helper.
+**Alternatives rejected:** Re-running suites in a loop until green (each run creates users and adds load to the starved project). Raising `statement_timeout` for `authenticator` (a test-only divergence from prod that would hide real slow queries).
+**Consequences:** Open question, not decided here: whether the test project needs a larger compute size, or the schema needs trimming so the reload fits. Status: proposed; the falsifier is a reload timing measured on a quiet project.
+**References:** P1538 (test project in its own organisation)
+
 ## 2026-10-22 [product]: One community, named for the practice; the outward ask lives in its text, not its name (P1543)
 
 **Context:** The free Chiang Mai group was renamed "Communication Activism Community · Chiang Mai" on 2026-09-07, and the name was kept on 2026-09-08 because it filtered joiners. The founder then said he would not say that name aloud when inviting people in Chiang Mai. The online group ("Clarity Practice Community · Online") had no events and no defined audience.
