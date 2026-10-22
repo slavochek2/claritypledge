@@ -35,6 +35,8 @@ Blast radius: medium. Thread rules for two more conversation kinds, plus mirror 
 2. **Client.** New thread is offered in direct messages and the mirror. The thread panel and thread URLs work there, and reloading a thread URL opens the thread.
 3. **Mirror answers in place.** A mirror job triggered by a message inside a thread inserts its answer with that thread's `thread_root_id`. A message outside any thread is answered outside threads. For context, a mirror question asked inside a thread sees that thread first. The general context rules stay P1520's until P1547.
 
+**Copy:** every user-facing string says "mirror agent", never bare "mirror" (founder, 2026-10-22; P1544 Solution 0).
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |

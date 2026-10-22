@@ -61,6 +61,8 @@ Blast radius: high. Every user gets a blocking popup, and chat text starts going
 
 ## Solution
 
+0. **Terminology (founder, 2026-10-22): "mirror agent", never bare "mirror", in everything a user reads**: policy, terms, popup, and every UI string (today e.g. "Write to your mirror", "Could not ask your mirror. Try again.", "Could not open your mirror."). "Mirror" alone reads as a picture of yourself. `docs/definitions.md` already defines *mirror agent*.
+
 1. **Policy (`src/app/content/privacy.md`).** Rewrite the mirror promises in *Who can read a chat*, *How it is stored*, *AI features* (a new **Your mirror** bullet), *Legal Bases*, *Who Processes Your Data* (the Gemini API row) and *Your rights*. The text describes what the code does. Every factual sentence carries a `file:line` in the build report.
    - **Triggers:** a message in your mirror, Clarify, an ask about a group or event chat.
    - **What is sent:** recent context under a size limit, named generically ("recent messages, up to a limit") so that P1547 does not force another rewrite. That includes names, chat titles, and Clarify and forwarded copies, direct messages included, and copies made before their source was deleted.
@@ -72,33 +74,27 @@ Blast radius: high. Every user gets a blocking popup, and chat text starts going
      - *Contract (Art. 6(1)(b))* for what the asker sends.
      - *Legitimate interest (Art. 6(1)(f))* for other members' messages. The interest is understanding a conversation the asker is part of. It is limited to what the asker can already read, other members are told at the hard bump, and they can object.
      - The existing instruction not to post special-category information is extended to chats.
-   - **Objection:** "To object to your messages being read by another member's mirror, email …". It is honoured by Solution 4.
+   - **Objecting:** say plainly that a member who does not want their words read by other members' mirror agents can delete their messages, leave the chat, or delete their account, which removes their words everywhere, Clarify and forwarded copies included (P1520 erasure). Objections by email get that same answer (Solution 4).
 2. **Terms.** One sentence in the terms of service, with a `CURRENT_TERMS_VERSION` bump and a `TERMS_CHANGES` entry with `requiresConsent: true`. Draft wording:
-   - Terms: *"Messages you post in a group, event or direct chat can be read by the AI mirror of another person in that chat, when they ask it about the chat or copy your message into it."*
-   - Popup headline: *"Your mirror can now answer you, using Google's Gemini."*
+   - Terms: *"Messages you post in a group, event or direct chat can be read by the mirror agent of another person in that chat, when they ask it about the chat or copy your message into it."*
+   - Popup headline: *"Your mirror agent can now answer you, using Google's Gemini."*
    - Highlights:
      - What it reads.
      - Other members' mirrors may read what you post.
      - How to object.
    
-   [FOUNDER DECISION: confirm or rewrite the terms sentence and the headline.]
+   Build with this wording; the founder confirms or rewrites it at UAT (founder, 2026-10-22: proceed).
 3. **Server-side terms gate.** `mirror-reply` and `mirror-portrait` refuse unless the caller has accepted the current terms version, and they say so as a typed error the client shows. A cached old client or a direct API call cannot reach Gemini otherwise.
-4. **Whose messages may be sent.** A message by another person enters someone's mirror context only if **both**:
-   - (a) it was posted after the launch moment (the new terms version's publication time), because older messages were written under the "no AI" promise;
-   - (b) its author's profile is not marked `mirror_context_excluded`.
-   
-   (b) is an operator flag, set by the founder when an objection arrives by email. There is no user-facing control, so decision 1 holds. The asker's own messages are not limited by either rule. Both rules apply to the **original author** of a forwarded or Clarified copy too, by its stored source time and author, not only to whoever forwarded it (re-review LOW, 2026-10-22).
-
-   [FOUNDER DECISION: rule (a), "only messages posted after launch". Recommended. It keeps the old promise for what people already wrote, and the cost is a mirror that knows less about old chats for a while.]
-5. **Go live.** Verify the key's project billing (decision 3). Set `MIRROR_AI_ENABLED` and the mirror key on prod. Deploy both functions after the policy, terms and the SQL for Solutions 3 and 4 are on prod. Run the edge smoke, one real reply and one portrait on the founder's account.
+4. **Objection = leave or delete; no partial opt-outs (founder, 2026-10-22).** No per-person flag and no "delete this one message for me" requests by the operator. Members already delete their own messages themselves; account deletion is the complete remedy and already erases their words from every copy and every mirror agent answer built on them. Messages posted before launch are treated like any other (founder: "we can assume there is none").
+   > Founder: "I cannot delete only a portion of their data ... I can delete the whole thing, you including your profile. Which one do you want?"
+5. **Go live.** Verify the key's project billing (decision 3). Set `MIRROR_AI_ENABLED` and the mirror key on prod. Deploy both functions after the policy, terms and the SQL for Solution 3 are on prod. Run the edge smoke, one real reply and one portrait on the founder's account.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
 | Old client reaches Gemini before accepting | MITIGATE | Solution 3, server-side |
-| An objection cannot be honoured technically | MITIGATE | Solution 4 (b), operator flag, tested |
-| Messages written under the "no AI" promise get sent | MITIGATE | Solution 4 (a), pending the founder decision |
+| An objection that wants less than account deletion | ACCEPT | Founder decision; members can still delete their own messages. Not lawyer-reviewed: if a legal request ever insists on partial handling, revisit |
 | The blocking popup annoys returning users | ACCEPT | Decision 4 |
 | Gemini price doubles after 2026-12-31 | ACCEPT | The SQL reservation (`reply_max_usd` 0.03) already uses the post-promo price |
 
@@ -126,10 +122,10 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 - [ ] The policy names the Gemini API and links Google's terms without paraphrasing them.
 - [ ] A user on the previous terms version gets the blocking popup with the new headline. Declining logs out; accepting records `acceptance_mode = explicit`.
 - [ ] `mirror-reply` and `mirror-portrait` refuse a caller who has not accepted the current version (curl with an old-version test user on test), and the client shows the refusal.
-- [ ] A synthetic channel with one message from before launch and one after: only the after-launch message reaches the outbound model request. Shown by intercepting the request on test with synthetic fixtures, never by logging content.
-- [ ] With `mirror_context_excluded` set on a test author, none of their messages reach another member's request, while their own mirror still works.
+- [ ] Deleting a member's account removes their words from every later mirror agent request and clears answers built on them (P1520 erasure, re-run on test), and the policy says so.
 - [ ] The P1520 red-team suite passes on test. Its first test, the positive control that proves the model reads its context, passes.
-- [ ] Clarify is not offered inside the mirror.
+- [ ] Clarify is not offered inside the mirror agent chat.
+- [ ] No user-facing string says "mirror" without "agent" (grep of `src/app` strings and the policy/terms text, list attached).
 - [ ] On prod: one real reply and one portrait on the founder's account, edge smoke passes, and Sentry is clean for 10 minutes. `[post-deploy]`
 
 ## Pre-deploy Checklist
@@ -139,7 +135,7 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 - [ ] Set `MIRROR_AI_ENABLED=true` and the mirror Gemini key on prod edge functions, via `/slava:util:ai-keys`, spend-capped.
 
 ### Deploy commands
-- [ ] Policy, terms and the SQL for Solutions 3 and 4 are live on prod first (`/push` applies the migrations).
+- [ ] Policy, terms and the SQL for Solution 3 are live on prod first (`/push` applies the migrations).
 - [ ] Then deploy `mirror-reply` and `mirror-portrait` to prod.
 
 ### Post-deploy verification

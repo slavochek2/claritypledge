@@ -27,17 +27,17 @@ The founder named one case that needs a rule:
 
 ## Appetite
 
-Blast radius: medium. Cost per reply, erasure provenance, and injection surface all grow with context. Reversibility: high. The budget is one value in SQL and code. Decision density: one, the budget.
+Blast radius: medium. Cost per reply, erasure provenance, and injection surface all grow with context. Reversibility: high. The budget is one value in SQL and code. Decision density: zero (budget decided: 50,000).
 
 ## Solution
 
 1. **One budget, measured in tokens, covering the whole request:** fixed rules, metadata, escaping and data. Measure with the model's token counter or a stated conservative estimate (characters ÷ 3), and test Unicode and escaped input at the exact boundary.
 
-   [FOUNDER DECISION: the budget. Recommended **50,000 tokens**, 5× today's 10,000-token request. That is roughly 35,000 words, several hundred messages, for about 4 US cents per reply at today's price, 3.5× today's cost (the output side does not grow).]
+   **Budget: 50,000 tokens (founder approved, 2026-10-22)**, 5× today's 10,000-token request. That is roughly 35,000 words, several hundred messages, for about 4 US cents per reply at today's price, 3.5× today's cost (the output side does not grow).
 2. **Selection, newest first, until the budget is spent:**
    - **In a mirror thread** (P1546): that thread first, newest first. If the thread alone exceeds the budget, the oldest replies are dropped and the model is told "showing the last N of M messages of this thread".
    - **Then** recent mirror messages outside the thread. Other threads appear as their root plus "N replies".
-   - **Channel ask:** that channel's readable messages under the existing access rules, plus P1544's rule 4 (only after launch, excluded authors never).
+   - **Channel ask:** that channel's readable messages under the existing access rules, (deleted accounts' words never, P1520 erasure).
    - **A forwarded or Clarified thread** is one item with its own cap, 20% of the budget. Past it, the oldest replies are dropped and the model is told "showing the last N of M replies". Founder's case: it is read, to an extent, and the mirror never claims to have read what it did not.
    - **A single message over the remaining budget** is cut, with a marker. The per-message 1,000/500-character cuts go; the item caps above replace them.
 3. **Spend.** Raise `_mirror_limits().reply_max_usd` to match the new ceiling: at 50k, (50,000 × $1.50 + 1,200 × $7.50)/1M × 1.25 = **$0.105**. Keep `mirror-agent.ts` and SQL from drifting with one shared test. The per-person and global daily caps are unchanged and private, so fewer replies fit under them. `/dev` reports how many.
@@ -54,7 +54,7 @@ Blast radius: medium. Cost per reply, erasure provenance, and injection surface 
 
 **Non-Goals:**
 - Do NOT store summaries or memory outside the conversation.
-- Do NOT change who can read what (P1544 rule 4 stays).
+- Do NOT change who can read what.
 
 ## Cost Budget
 
@@ -82,4 +82,4 @@ Registry: the Gemini API row, read 2026-10-21 (`gemini-3.8-flash`, $0.75 / $3.75
 
 ## Related
 
-P1520 (mirror v2: selection, erasure, spend) · [P1544](p1544_mirror_launch_on_prod.md) (launch, rule 4) · [P1546](p1546_threads_in_every_chat.md) (threads) · `docs/technical/metered-services.md`
+P1520 (mirror v2: selection, erasure, spend) · [P1544](p1544_mirror_launch_on_prod.md) (launch) · [P1546](p1546_threads_in_every_chat.md) (threads) · `docs/technical/metered-services.md`
