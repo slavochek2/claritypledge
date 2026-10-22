@@ -87,7 +87,7 @@ Blast radius: high. Every user gets a blocking popup, and chat text starts going
    - (a) it was posted after the launch moment (the new terms version's publication time), because older messages were written under the "no AI" promise;
    - (b) its author's profile is not marked `mirror_context_excluded`.
    
-   (b) is an operator flag, set by the founder when an objection arrives by email. There is no user-facing control, so decision 1 holds. The asker's own messages are not limited by either rule.
+   (b) is an operator flag, set by the founder when an objection arrives by email. There is no user-facing control, so decision 1 holds. The asker's own messages are not limited by either rule. Both rules apply to the **original author** of a forwarded or Clarified copy too, by its stored source time and author, not only to whoever forwarded it (re-review LOW, 2026-10-22).
 
    [FOUNDER DECISION: rule (a), "only messages posted after launch". Recommended. It keeps the old promise for what people already wrote, and the cost is a mirror that knows less about old chats for a while.]
 5. **Go live.** Verify the key's project billing (decision 3). Set `MIRROR_AI_ENABLED` and the mirror key on prod. Deploy both functions after the policy, terms and the SQL for Solutions 3 and 4 are on prod. Run the edge smoke, one real reply and one portrait on the founder's account.
