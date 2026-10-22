@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 58
 workstream: clarity-chat
@@ -67,12 +67,18 @@ Applies because the migration changes per-request functions and the canary creat
 
 ## Acceptance Criteria
 
-- [ ] In a direct message, New thread opens a thread; both people read it; a third signed-in user gets nothing (curl).
-- [ ] In the mirror, a question inside a thread is answered inside that thread; a question outside threads is answered outside; two threads asked at once each get their own answer.
-- [ ] Thread URLs for a direct message and the mirror reload into the thread.
-- [ ] Mirror threads are readable by the owner only (curl as another user).
-- [ ] Deleting a thread root in a direct message behaves as it does in channels.
+- [x] In a direct message, New thread opens a thread; both people read it; a third signed-in user gets nothing (curl).
+- [x] In the mirror, a question inside a thread is answered inside that thread; a question outside threads is answered outside; two threads asked at once each get their own answer.
+- [x] Thread URLs for a direct message and the mirror reload into the thread.
+- [x] Mirror threads are readable by the owner only (curl as another user).
+- [x] Deleting a thread root in a direct message behaves as it does in channels.
 
 ## Related
 
 P1512 (threads in channels) · P1520 (mirror) · [P1544](p1544_mirror_launch_on_prod.md) · [P1547](p1547_mirror_memory_token_budget.md) · P1536 (+ Canvas opens a mirror thread)
+
+## Evidence (dev)
+
+- `e2e/integration/p1546-threads-everywhere.spec.ts` against the test DB: all 6 test bodies passed (DM read/outsider/stats; DM single-reply count; mirror owner-only; mirror answers in place incl. two threads completed out of order and context scoping; clarify never copies the agent answer; deleted DM root). The run reported 1 failed only because two `deleteTestUser` calls in `afterAll` hit test-DB statement timeouts; those users were deleted afterwards with the same helper.
+- Thread URLs reload into the thread for a 1:1 and the mirror: `src/tests/p1512-chat-ui.test.tsx` (P1546 cases); full unit suite 6884 passed.
+- Not run: the p1512 read/write and p1520 canaries. The test project was degraded all session (PostgREST schema-cache timeouts, its schema queries up to 6 s against an 8 s limit), so every attempt failed while creating fixtures, before any assertion. Re-run them before or at ship.
