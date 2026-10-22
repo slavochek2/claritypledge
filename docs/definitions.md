@@ -191,7 +191,7 @@ Authors see verification results across all listeners:
 - **L3 — Recognized:** sustained full badging (9-of-9) — the outcome-unit sense described above. A **recognition** status earned over time, not a join gate.
 - **L4 — Pledged:** members carry individual Clarity Pledges — identity beyond the organization.
 
-Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); the community type is where *Clarity Practice Community · Chiang Mai* sits (resolved 2026-08-19, renamed 2026-10-22 — [decisions.md](decisions.md) "One community, named for the practice").
+Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); the community type is where *Clarity Practice Community · Chiang Mai* sits (resolved 2026-08-19; the Chiang Mai group carries the name again since 2026-10-22 — [decisions.md](decisions.md) 2026-10-22 [product] "One community, named for the practice").
 
 *See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — "practitioners' support group"; [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"*
 
