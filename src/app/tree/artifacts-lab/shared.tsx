@@ -26,13 +26,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DETAILS_BUTTON_CLASS } from '@/app/components/shared/card-action-classes';
+import { DETAILS_BUTTON_CLASS, NESTED_DETAILS_BUTTON_CLASS } from '@/app/components/shared/card-action-classes';
 import { CHATS_UNREAD, CM_BANNER, MOCK_EVENTS, TABS, type MockArtifact, type MockRecipient } from './mock';
-import { PRIMARY, type ActionSet, type Action } from './model';
+import { PRIMARY, metaParts, type ActionSet, type Action } from './model';
 
 type TabName = (typeof TABS)[number];
 type Icon = ComponentType<{ className?: string }>;
@@ -128,12 +127,16 @@ export function Shell({ active, children, fill = false }: { active: TabName; chi
 
 /* ------------------------------------------------------------------ icons */
 
-/** The canvas sections' own blue disc (canvas-page.tsx: bg-blue-100 text-blue-600). */
+/**
+ * Two treatments so the kind reads before the label does: a letter is a FILLED blue disc with a white envelope,
+ * a canvas is the canvas sections' own pale blue disc (canvas-page.tsx: bg-blue-100 text-blue-600) with a grid.
+ */
 export function TypeDisc({ kind, size = 'md' }: { kind: MockArtifact['kind']; size?: 'md' | 'lg' }) {
   const Ic = kind === 'canvas' ? LayoutDashboard : Mail;
   const box = size === 'lg' ? 'h-11 w-11' : 'h-9 w-9';
+  const tone = kind === 'canvas' ? 'bg-blue-100 text-blue-600 ring-1 ring-inset ring-blue-300' : 'bg-blue-600 text-white';
   return (
-    <span className={`flex ${box} shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600`} aria-hidden="true">
+    <span className={`flex ${box} shrink-0 items-center justify-center rounded-full ${tone}`} aria-hidden="true">
       <Ic className={size === 'lg' ? 'h-5 w-5' : 'h-[18px] w-[18px]'} />
     </span>
   );
@@ -160,9 +163,59 @@ export function UnreadDot() {
 
 /* ---------------------------------------------------------------- actions */
 
-export function PrimaryButton({ label, className = '' }: { label: string; className?: string }) {
+/** Links go nowhere in the lab: they keep the page where it is. */
+const stay = (e: React.MouseEvent) => e.preventDefault();
+
+/** A person's name; links to /p/<slug> like the recipient rows and inbox actors do today. */
+export function ActorLink({ name, slug }: { name: string; slug?: string }) {
+  if (!slug) return <span className="font-medium">{name}</span>;
   return (
-    <button type="button" className={`${DETAILS_BUTTON_CLASS} ${className}`}>
+    <a href={`/p/${slug}`} onClick={stay} className="relative z-10 inline-flex min-h-10 items-center font-medium text-foreground hover:underline">
+      {name}
+    </a>
+  );
+}
+
+/**
+ * The title, as a link that opens the item (the draft row and inbox row open it today, drafts-tab.tsx:142).
+ * `stretch` makes the whole card the hit area; buttons and links inside it sit above with `relative z-10`.
+ */
+export function OpenTitle({ a, className = '', stretch = false }: { a: MockArtifact; className?: string; stretch?: boolean }) {
+  return (
+    <h3 className={`min-w-0 ${className}`}>
+      <a
+        href="#open"
+        onClick={stay}
+        className={`line-clamp-2 break-words rounded-sm text-base font-semibold leading-snug text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          stretch ? "after:absolute after:inset-0 after:content-['']" : ''
+        }`}
+      >
+        {a.title}
+      </a>
+    </h3>
+  );
+}
+
+/** "<name> sent you this letter" (today: "<name> sent you <title>", inbox-tab.tsx:337) plus the other facts. */
+export function MetaLine({ a, inChat }: { a: MockArtifact; inChat: boolean }) {
+  const parts = metaParts(a);
+  if (inChat) parts.push('in your chat');
+  return (
+    <p className="text-sm text-muted-foreground">
+      {a.sharedBy && (
+        <>
+          <ActorLink name={a.sharedBy} slug={a.sharedBySlug} /> {a.kind === 'letter' ? 'sent you this letter' : 'shared this canvas'}
+          {' \u00b7 '}
+        </>
+      )}
+      {parts.join(' \u00b7 ')}
+    </p>
+  );
+}
+
+export function PrimaryButton({ label, className = '', nested = false }: { label: string; className?: string; nested?: boolean }) {
+  return (
+    <button type="button" className={`${nested ? NESTED_DETAILS_BUTTON_CLASS : DETAILS_BUTTON_CLASS} ${className}`}>
       {label}
       <ArrowRight aria-hidden className="h-4 w-4" />
     </button>
@@ -220,13 +273,15 @@ export function RecipientRows({ recipients, responses }: { recipients: MockRecip
         <li key={r.name} className="flex min-h-12 items-center gap-2 py-1">
           <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-foreground">{r.name}</span>
+            <span className="block truncate text-sm">
+              <ActorLink name={r.name} slug={r.slug} />
+            </span>
             <span className="block text-sm text-muted-foreground">
               {r.status}
               {r.steps ? ` · ${r.steps.done} of ${r.steps.total} steps` : ''}
             </span>
           </span>
-          {r.hasResults && <PrimaryButton label="Results" className="h-10" />}
+          {r.hasResults && <PrimaryButton nested label="Results" />}
         </li>
       ))}
       {!!responses && (
@@ -240,31 +295,35 @@ export function RecipientRows({ recipients, responses }: { recipients: MockRecip
 
 /* ----------------------------------------------------------- page header */
 
-/** "New artifact": a labelled button. Letter first (today's Private/Public draft choice stays), then Canvas. */
+/** "New artifact": labelled button ("New" below sm, like letters-page.tsx:103). Today's private/public draft choice stays. */
 export function CreateMenu({ defaultOpen }: { defaultOpen?: boolean }) {
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger asChild>
-        <Button className={`h-10 shrink-0 gap-1.5 px-3 ${PRIMARY}`}>
+        <Button aria-label="New artifact" className={`h-10 shrink-0 gap-1.5 px-3 ${PRIMARY}`}>
           <Plus className="h-4 w-4" />
-          New artifact
+          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">New artifact</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="z-[80] w-72">
-        <DropdownMenuLabel className="flex items-center gap-2 text-blue-700">
-          <Mail className="h-4 w-4" /> New letter
-        </DropdownMenuLabel>
-        <DropdownMenuItem className="min-h-12 flex-col items-start justify-center gap-0.5">
-          <span className="flex items-center gap-2 font-medium"><Lock className="h-4 w-4" /> Private Draft</span>
-          <span className="pl-6 text-xs text-muted-foreground">Only people you share with can see this</span>
+        <DropdownMenuItem className="min-h-12 items-start gap-3">
+          <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium">Letter (private draft)</span>
+            <span className="text-xs text-muted-foreground">Only people you share with can see this</span>
+          </span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="min-h-12 flex-col items-start justify-center gap-0.5">
-          <span className="flex items-center gap-2 font-medium"><Globe className="h-4 w-4" /> Public Draft</span>
-          <span className="pl-6 text-xs text-muted-foreground">Visible on your profile</span>
+        <DropdownMenuItem className="min-h-12 items-start gap-3">
+          <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium">Letter (public draft)</span>
+            <span className="text-xs text-muted-foreground">Visible on your profile</span>
+          </span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="min-h-12 gap-2 font-medium">
-          <LayoutDashboard className="h-4 w-4 text-blue-600" /> Canvas
+        <DropdownMenuItem className="min-h-12 gap-3 font-medium">
+          <LayoutDashboard className="h-4 w-4 shrink-0" /> Canvas
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -394,21 +453,34 @@ export function Disclosure({ label, children }: { label: string; children: React
 /* ----------------------------------------------------------------- events */
 
 /**
- * [FOUNDER DECISION: banner copy and button text are placeholders.] Bold yellow, dark text, on purpose:
- * founder round 2, "a big attention banner". Many taps are the evidence for a custom list later (decision 6).
+ * [FOUNDER DECISION: banner copy and button text are placeholders.] Yellow on purpose (founder, round 2: "a big
+ * attention banner"), although .claude/rules/src.md:13 says "NEVER: ... yellow in UI". The founder's call overrides
+ * that rule here; if this ships, the rule needs an explicit exception. `quiet` is the one-level-down version for
+ * when events are listed, so "Join" stays the only primary on the page. Many taps are the evidence for a custom list.
  */
-export function ChiangMaiBanner() {
+export function ChiangMaiBanner({ quiet = false }: { quiet?: boolean }) {
   return (
-    <section aria-label={CM_BANNER.title} className="rounded-2xl border-2 border-yellow-500 bg-yellow-300 p-5 text-neutral-900 shadow-sm sm:p-7">
-      <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{CM_BANNER.title}</h2>
-      <p className="mt-2 text-lg font-medium sm:text-xl">{CM_BANNER.body}</p>
+    <section
+      aria-label={CM_BANNER.title}
+      className={
+        quiet
+          ? 'rounded-xl border border-yellow-500 bg-yellow-100 p-4 text-neutral-900'
+          : 'rounded-2xl border-2 border-yellow-500 bg-yellow-300 p-5 text-neutral-900 shadow-sm sm:p-7'
+      }
+    >
+      {quiet ? <h2 className="text-lg font-bold leading-tight">{CM_BANNER.title}</h2> : <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{CM_BANNER.title}</h2>}
+      <p className={quiet ? 'mt-1 text-sm' : 'mt-2 text-lg font-medium sm:text-xl'}>{CM_BANNER.body}</p>
       <a
         href={CM_BANNER.href}
-        onClick={e => e.preventDefault()}
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-neutral-900 px-6 text-base font-semibold text-yellow-300 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2 focus-visible:ring-offset-yellow-300 sm:w-auto"
+        onClick={stay}
+        className={
+          quiet
+            ? 'mt-2 inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900'
+            : "mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-neutral-900 px-6 text-base font-semibold text-yellow-300 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2 focus-visible:ring-offset-yellow-300 sm:w-auto"
+        }
       >
         {CM_BANNER.cta}
-        <ArrowRight aria-hidden className="h-5 w-5" />
+        <ArrowRight aria-hidden className={quiet ? 'h-4 w-4' : 'h-5 w-5'} />
       </a>
     </section>
   );
@@ -424,14 +496,14 @@ export function EventsPage({ empty }: { empty: boolean }) {
             type="button"
             className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-2 text-sm font-medium text-blue-600 hover:underline ${FOCUS}`}
           >
-            {empty ? 'Sign up to host' : 'Host'}
+            Sign up to host
           </button>
         </div>
 
         {empty ? (
           <>
-            <ChiangMaiBanner />
             <p className="text-sm text-muted-foreground">No events from us right now.</p>
+            <ChiangMaiBanner />
           </>
         ) : (
           <>
@@ -444,7 +516,7 @@ export function EventsPage({ empty }: { empty: boolean }) {
                 <Button className={`h-11 min-[480px]:px-6 ${PRIMARY}`}>Join</Button>
               </article>
             ))}
-            <ChiangMaiBanner />
+            <ChiangMaiBanner quiet />
           </>
         )}
       </main>

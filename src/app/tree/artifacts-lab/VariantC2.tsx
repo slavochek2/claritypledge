@@ -3,13 +3,14 @@
  * Rows carry no actions. Selecting one shows it in the pane (desktop) or a sheet (phone); the actions appear there, once.
  */
 import { useState, useSyncExternalStore } from 'react';
-import { X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { LabState } from './ArtifactsLab';
 import { SHARED, SHARE_MESSAGES, YOURS, type MockArtifact } from './mock';
 import {
   DraftChip,
   EmptyLine,
   EventsPage,
+  MetaLine,
   MoreMenu,
   PageHeader,
   PrimaryButton,
@@ -21,9 +22,10 @@ import {
   UnreadDot,
   VisibilityIcon,
 } from './shared';
-import { actionsFor, metaParts } from './model';
+import { actionsFor, isInChat, metaParts, recipientsLabel } from './model';
 
 type Tab = 'yours' | 'shared';
+const CHAT_TITLES = SHARE_MESSAGES.map(m => m.title);
 
 const DESKTOP_QUERY = '(min-width: 1024px)';
 function subscribeDesktop(cb: () => void) {
@@ -34,7 +36,7 @@ function subscribeDesktop(cb: () => void) {
 
 /* ---------------------------------------------------------------- preview */
 
-function Preview({ a, onClose }: { a: MockArtifact; onClose?: () => void }) {
+function Preview({ a }: { a: MockArtifact }) {
   const set = actionsFor(a);
   const msg = a.sharedBy ? SHARE_MESSAGES.find(m => m.title === a.title) : undefined;
   const hasRecipients = !a.draft && !a.sharedBy && a.kind === 'letter';
@@ -45,23 +47,13 @@ function Preview({ a, onClose }: { a: MockArtifact; onClose?: () => void }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <TypeLabel kind={a.kind} />
           <span className="flex items-center gap-2">
-            <VisibilityIcon v={a.visibility} />
+            {!a.sharedBy && <VisibilityIcon v={a.visibility} />}
             {a.draft && <DraftChip />}
           </span>
         </div>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
       </div>
       <h2 className="break-words text-xl font-semibold leading-tight text-foreground">{a.title}</h2>
-      <p className="text-sm text-muted-foreground">{metaParts(a).join(' · ')}</p>
+      <MetaLine a={a} inChat={isInChat(a, CHAT_TITLES)} />
       {a.newFrom && (
         <p className="text-sm font-medium text-blue-600">
           {'•'} {a.newFrom.count} new from {a.newFrom.name}
@@ -73,7 +65,7 @@ function Preview({ a, onClose }: { a: MockArtifact; onClose?: () => void }) {
       </div>
       {hasRecipients && (
         <section aria-label="Recipients" className="border-t border-border pt-3">
-          <h3 className="mb-1 text-sm font-semibold text-foreground">Recipients ({a.recipients?.length ?? 0})</h3>
+          <h3 className="mb-1 text-sm font-semibold text-foreground">{recipientsLabel(a)}</h3>
           <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />
         </section>
       )}
@@ -93,7 +85,7 @@ function Preview({ a, onClose }: { a: MockArtifact; onClose?: () => void }) {
 /* ------------------------------------------------------------------- list */
 
 function Row({ a, selected, onSelect }: { a: MockArtifact; selected: boolean; onSelect: () => void }) {
-  const meta = a.sharedBy ? `Shared by ${a.sharedBy}` : metaParts(a).slice(0, 2).join(' · ');
+  const meta = a.sharedBy ? `from ${a.sharedBy}` : metaParts(a).slice(0, 2).join(' \u00b7 ');
   return (
     <li>
       <button
@@ -106,17 +98,18 @@ function Row({ a, selected, onSelect }: { a: MockArtifact; selected: boolean; on
       >
         <TypeDisc kind={a.kind} size="lg" />
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className={`line-clamp-1 min-w-0 flex-1 break-words text-base text-foreground ${a.unread ? 'font-semibold' : 'font-medium'}`}>{a.title}</span>
-            <VisibilityIcon v={a.visibility} className="h-3.5 w-3.5" />
-          </span>
+          <span className={`line-clamp-1 block break-words text-base text-foreground ${a.unread ? 'font-semibold' : 'font-medium'}`}>{a.title}</span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
             <span className="font-semibold text-blue-700">{a.kind === 'canvas' ? 'Canvas' : 'Letter'}</span>
             {a.draft && <DraftChip />}
-            <span className="truncate">{'·'} {meta}</span>
+            <span className="truncate">{'\u00b7'} {meta}</span>
           </span>
         </span>
-        {a.unread && <UnreadDot />}
+        {/* Two fixed slots, so an unread dot never moves the visibility icon. Shared items show no visibility. */}
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="flex h-4 w-2.5 items-center justify-center">{a.unread && <UnreadDot />}</span>
+          <span className="flex h-4 w-4 items-center justify-center">{!a.sharedBy && <VisibilityIcon v={a.visibility} className="h-4 w-4" />}</span>
+        </span>
       </button>
     </li>
   );
@@ -125,7 +118,7 @@ function Row({ a, selected, onSelect }: { a: MockArtifact; selected: boolean; on
 /* ------------------------------------------------------------- artifacts */
 
 function ArtifactsPage({ state }: { state: LabState }) {
-  const [tab, setTab] = useState<Tab>(state === 'empty-shared' || state === 'shared' || state === 'search-open' ? 'shared' : 'yours');
+  const [tab, setTab] = useState<Tab>(state === 'empty-shared' || state === 'shared' ? 'shared' : 'yours');
   const [searchOpen, setSearchOpen] = useState(state === 'search-open');
   const [query, setQuery] = useState(state === 'search-open' ? 'hike' : '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -142,7 +135,7 @@ function ArtifactsPage({ state }: { state: LabState }) {
     unread: a.unread && !read.includes(a.id),
   }));
   const unreadShared = shared.filter(a => a.unread && !read.includes(a.id)).length;
-  const selected = items.find(a => a.id === selectedId) ?? items[0] ?? null;
+  const selected = items.find(a => a.id === selectedId) ?? null;
 
   const select = (a: MockArtifact) => {
     setSelectedId(a.id);
@@ -195,21 +188,23 @@ function ArtifactsPage({ state }: { state: LabState }) {
       </section>
 
       <section className="hidden min-w-0 flex-1 overflow-y-auto lg:block" aria-label="Preview">
-        {selected && (
+        {selected ? (
           <div className="mx-auto max-w-xl p-8">
             <Preview a={selected} />
           </div>
+        ) : (
+          <p className="p-8 text-center text-sm text-muted-foreground">Select an artifact to see it here.</p>
         )}
       </section>
 
-      {!isDesktop && sheetOpen && selected && (
-        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label={selected.title}>
-          <button type="button" aria-label="Close" className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-sheet">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" />
-            <Preview a={selected} onClose={() => setSheetOpen(false)} />
-          </div>
-        </div>
+      {!isDesktop && selected && (
+        <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+          <DialogContent className="bottom-0 left-0 top-auto max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-b-none rounded-t-2xl p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-12 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom">
+            <DialogTitle className="sr-only">{selected.title}</DialogTitle>
+            <DialogDescription className="sr-only">Details and actions</DialogDescription>
+            <Preview a={selected} />
+          </DialogContent>
+        </Dialog>
       )}
     </Shell>
   );

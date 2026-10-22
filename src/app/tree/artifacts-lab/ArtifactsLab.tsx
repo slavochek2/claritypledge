@@ -15,7 +15,7 @@ type VariantKey = keyof typeof VARIANTS;
 export function ArtifactsLab() {
   const [params, setParams] = useSearchParams();
   const rawV = params.get('v') ?? 'b2';
-  const v: VariantKey = rawV in VARIANTS ? (rawV as VariantKey) : 'b2';
+  const v: VariantKey = Object.hasOwn(VARIANTS, rawV) ? (rawV as VariantKey) : 'b2';
   const rawState = params.get('state') ?? 'full';
   const state: LabState = (STATES as readonly string[]).includes(rawState) ? (rawState as LabState) : 'full';
   const Variant = VARIANTS[v];

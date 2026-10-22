@@ -25,10 +25,10 @@ export function actionsFor(a: MockArtifact): ActionSet {
     return {
       primary: 'Edit',
       menu: [{ label: 'Prepare Letter', disabledReason: a.counts?.stories === 0 ? 'Add at least one story first.' : undefined }],
-      danger: { label: 'Delete' },
+      danger: { label: 'Delete', disabledReason: a.hasSentLetters ? "Can't delete — letters were sent from this draft." : undefined },
     };
   }
-  const shared = (a.recipients?.length ?? 0) > 0 || (a.responses ?? 0) > 0;
+  const shared = deliveryCount(a) > 0;
   return {
     primary: 'Open overview',
     menu: [
@@ -43,9 +43,7 @@ export function actionsFor(a: MockArtifact): ActionSet {
 /** One line of facts under a title, joined with a middle dot. Never empty. */
 export function metaParts(a: MockArtifact): string[] {
   const out: string[] = [];
-  if (a.sharedBy) out.push(`Shared by ${a.sharedBy}`);
   if (a.draft && a.counts) out.push(`${a.counts.stories} ${a.counts.stories === 1 ? 'story' : 'stories'}`, `${a.counts.points} ${a.counts.points === 1 ? 'point' : 'points'}`);
-  if (a.publicLink) out.push('Public link letter');
   if (a.sealed) out.push(`Sealed ${a.sealed} ago`);
   if (a.recipients && a.recipients.length > 0) {
     out.push(`${a.recipients.filter(r => r.status === 'Completed').length} of ${a.recipients.length} recipients completed`);
@@ -56,3 +54,18 @@ export function metaParts(a: MockArtifact): string[] {
   return out;
 }
 
+
+/** Every delivery of a published letter: invited recipients plus public-link respondents (sent-tab.tsx:313). */
+export function deliveryCount(a: MockArtifact): number {
+  return (a.recipients?.length ?? 0) + (a.responses ?? 0);
+}
+
+/** One rule for the recipients disclosure/section label, in both variants. */
+export function recipientsLabel(a: MockArtifact): string {
+  return `Recipients (${deliveryCount(a)})`;
+}
+
+/** Items that were posted into a chat (decision 5), yours or shared with you. */
+export function isInChat(a: MockArtifact, titles: string[]): boolean {
+  return titles.includes(a.title);
+}
