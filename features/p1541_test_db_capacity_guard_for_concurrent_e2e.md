@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 54
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [e2e, supabase, test-db, capacity]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, spec-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, spec-review, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -90,7 +90,8 @@ Reversibility: high (test tooling, `git revert`). Decision density: low; two cal
   lock taken at config load could deadlock against its own workers. `--list`, `--help` and UI or
   watch mode must never take or hang on it.
 - **Stale-lock detection survives a hard kill and PID reuse:** owner checked by PID plus process
-  start time or command, plus a hard maximum age.
+  start time. No age limit (Codex review 2026-10-22): a live run is never evicted, and a process
+  that cannot be inspected counts as alive. A hung run makes waiters give up and name it instead.
 - **The health probe retries briefly** after taking the lock (the previous run's load needs seconds
   to drain) before declaring the database overloaded.
 - Lock order need not be strictly first-come; a bounded wait covers starvation (LOW, accepted).
@@ -98,6 +99,20 @@ Reversibility: high (test tooling, `git revert`). Decision density: low; two cal
 Scope covers every way the suite starts: plain `npx playwright test`, `npm run test:e2e`, and the
 skills that run e2e (`/dev`, `/fix`, `/ship`). Each must go through the same guard. One that cannot
 is listed by name as an open question, never dropped silently.
+
+### Measured worker default (2026-10-22)
+
+Four DB-heavy spec files against TEST, one run at a time, REST read sampled every 2s:
+
+| Workers | Wall | DB median | p90 | max |
+|---|---|---|---|---|
+| 1 | 869s | 0.24s | 0.99s | 17.1s |
+| 2 | 324s | 0.20s | 0.29s | 1.8s |
+| 3 | 260s | 0.20s | 0.57s | 13.5s |
+
+Default set to 2. Other sessions were testing concurrently, so the spikes are partly confounded. The
+same 7 passed / 9 failed at every count (login, console-error and auth-gate checks): pre-existing,
+not capacity.
 
 ## Alternatives Considered
 
@@ -116,7 +131,7 @@ is listed by name as an open question, never dropped silently.
 
 | Risk | Label | Note |
 |---|---|---|
-| A crashed run leaves the lock held and blocks everyone | MITIGATE | Reclaim when the owner is gone (PID + start time) or past a hard maximum age; print the owner |
+| A crashed run leaves the lock held and blocks everyone | MITIGATE | Reclaim only when the owner is gone (PID + start time); print the owner |
 | An agent's shell timeout kills a waiting run, which it then retries | MITIGATE | Bounded wait, distinct exit code, retry hint |
 | A lock in the wrong lifecycle step deadlocks or hangs `--list`/UI mode | MITIGATE | Verify Playwright's lifecycle first; test `--list` and UI mode against the guard |
 | Waiting in line makes a session's run much slower | ACCEPT | Slower is better than everyone's run failing; the wait is printed |
@@ -165,3 +180,11 @@ is listed by name as an open question, never dropped silently.
   Solution, Risks and Done-When. Verified by command: the teardown sweep runs after every
   invocation (`e2e/global-teardown.ts`). Left unverified, to check first in `/dev`: the Playwright
   lifecycle claims. No Codex pass: no finding was disputed.
+
+- 2026-10-22 Codex final pass: 3 HIGH, 1 MEDIUM. Fixed: a live owner past 90 min was evicted (age
+  limit removed); an uninspectable process (`ps` refused) counted as dead (now alive, fail closed);
+  worker default now the measured 2. **Accepted by the founder:** the reclaim race (a late reclaimer
+  can move a just-acquired lock in a millisecond window). Worst case is two runs briefly sharing
+  TEST; the health probe then stops further runs with an `[infra]` message. Revisit if that message
+  appears twice in a week. `proper-lockfile` considered and not adopted: its waiting lock is async
+  only, and this guard must finish before the run starts.

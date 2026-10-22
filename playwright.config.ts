@@ -5,6 +5,8 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { buildE2EStorageState } from './e2e/helpers/storage-state';
 import { worktreePort } from './scripts/lib/worktree-port.mjs';
+import { guardTestDbRun } from './scripts/lib/e2e-test-db-lock.mjs';
+import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
 
 // Load test environment variables from .env.test.local
 const __filename = fileURLToPath(import.meta.url);
@@ -30,6 +32,17 @@ function getWorktreePort(): number {
 }
 
 const PORT = getWorktreePort();
+
+// P1541: TEST is the smallest Supabase size and every session on this machine shares it. One run at
+// a time: a second run waits (bounded, exit 75 when the wait runs out) and says who holds the lock.
+// Taken here, in the main runner, because the config loads before the dev server starts; workers,
+// --list, --ui and CI skip it. Released when this process exits, after teardown.
+guardTestDbRun({
+  repoDir: __dirname,
+  isTestDb: isTestProjectUrl(process.env.VITE_SUPABASE_URL),
+  url: process.env.VITE_SUPABASE_URL ?? '',
+  anonKey: process.env.VITE_SUPABASE_ANON_KEY ?? '',
+});
 
 /**
  * Load saved auth storageState for authenticated-page testing.
@@ -81,7 +94,7 @@ const storageState = buildE2EStorageState(
 /**
  * Playwright E2E Test Configuration
  *
- * - Parallel test execution with 3 workers locally (2 in CI)
+ * - Parallel test execution with 2 workers (P1541: what the TEST project sustains)
  * - Screenshots on failure for debugging
  * - Automatic dev server startup
  * - Dynamic port based on worktree (5000 for main, 5N00 for worktree-N)
@@ -99,7 +112,9 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.PLAYWRIGHT_WORKERS
     ? parseInt(process.env.PLAYWRIGHT_WORKERS)
-    : process.env.CI ? 2 : 3,
+    // P1541: 2 locally, measured on the TEST project 2026-10-22 (worst DB response 1.8s at 2 vs 13.5s
+    // at 3; 3 also tripped the auth rate limit in the P1538 parity run).
+    : 2,
 
   // Timeouts
   timeout: 30000, // 30s per test
