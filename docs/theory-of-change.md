@@ -73,7 +73,7 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 - Run free Calibration Workshops (1-to-many; you present calibration points, room calibrates against you)
 - Send Clarity Letters (P581) — async gap screening that participants bring to their real relationships
 - Create Clarity Partnership Agreements — PRIMARY conversion action. Only works with existing high-stakes relationships (co-founder, partner, boyfriend) — not strangers. Events demonstrate; conversion happens when participant brings it home (2026-03-29 field learning).
-- Run Clarity Practice Community — support group (not practice arena) for practitioners sharing experiences from bringing calibration into real relationships (P603). Testable as WhatsApp group or monthly call — no product feature needed.
+- Run a practitioners' support group (this concept used to be called "Clarity Practice Community"; that name now belongs to the free Chiang Mai community, 2026-10-22) — support group (not practice arena) for practitioners sharing experiences from bringing calibration into real relationships (P603). Testable as WhatsApp group or monthly call — no product feature needed.
 - Process meeting transcripts with AI to surface false agreements (Fractional Clarity Officer)
 - File stories & points from sessions (Slava as scribe, not the pair)
 

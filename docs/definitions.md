@@ -173,7 +173,7 @@ Authors see verification results across all listeners:
 **What it is NOT:**
 - Not a team that "agrees a lot." Internal disagreement is expected and welcome — the difference is that disagreements surface through the protocol instead of festering into hidden contracts.
 - Not a one-event credential. A team isn't a Clarity Organization because they attended a workshop together. The status is sustained by ongoing verified comprehension cycles.
-- Not the Clarity Practice Community. The Practice Community is the cross-organizational support network ([lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community"); a Clarity Organization is one specific team operating internally on the protocol.
+- Not a separate "practice community" network. *Clarity Practice Community* is the name of a community-type instance (today one: **Clarity Practice Community · Chiang Mai**), not a concept beside organizations ([decisions.md](decisions.md) 2026-08-19 and 2026-10-22).
 
 **Relationship to other artifacts:**
 - **Clarity Partner Agreements** (dyad-level) compose the relational fabric within the organization.
@@ -191,9 +191,9 @@ Authors see verification results across all listeners:
 - **L3 — Recognized:** sustained full badging (9-of-9) — the outcome-unit sense described above. A **recognition** status earned over time, not a join gate.
 - **L4 — Pledged:** members carry individual Clarity Pledges — identity beyond the organization.
 
-Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); reconciling this with the "Clarity Practice Community" distinction above is a flagged open item, not yet resolved here.
+Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); the community type is where *Clarity Practice Community · Chiang Mai* sits (resolved 2026-08-19, renamed 2026-10-22 — [decisions.md](decisions.md) "One community, named for the practice").
 
-*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model: Clarity Practice Community", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — Clarity Practice Community; [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"*
+*See also: [lean-canvas.md](lean-canvas.md) — "Long-term org model", "Clarity Organization membership"; [operational-stack.md](operational-stack.md) — "Layer 4 — Intervention (Badging)"; [theory-of-change.md](theory-of-change.md) — "practitioners' support group"; [decisions.md](decisions.md) 2026-07-23 [product] "Clarity Organizations as a community container"*
 
 ---
 

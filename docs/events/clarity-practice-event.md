@@ -289,7 +289,7 @@ the other.
 
 | Configuration | The one spoken CTA |
 |---|---|
-| **Online — the funnel event** | **The Clarity Practice Community, €295/month.** Ladder and prices: [goals.md](../goals.md):15. |
+| **Online — the funnel event** | **The paid level, €295/month** *(formerly called "the Clarity Practice Community"; that name is now the free Chiang Mai community, 2026-10-22; paid level name `[FOUNDER DECISION]`)*. Ladder and prices: [goals.md](../goals.md):15. |
 | **Offline — the forum** | **The free community join.** Local, free, open-ended. The sayable link is `/org/cm/join`. `[FOUNDER DECISION: exact wording]` — deferred until the topic and room are known; the *substance* is settled, only the phrasing is open. |
 
 **Why the offline ask is free.** The offline event's job is community, content, and the founder's own
