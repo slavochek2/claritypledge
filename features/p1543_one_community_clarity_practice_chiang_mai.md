@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-22'
 tags: [groups, copy, navigation]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
