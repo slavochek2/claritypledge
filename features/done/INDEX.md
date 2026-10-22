@@ -73,6 +73,7 @@ Last updated: 2026-10-22
 - **P1520** (Oct 26) Mirror v2: the mirror answers and has a face. Gotcha: rebase a stacked branch onto main once its base ships, or /ship replays the base's dead history.
 - **P1533** (Oct 26) Login menu flash; Mira menu and copy. Gotcha: a first-paint shortcut based on the stored session can't cover /auth/callback, where no session exists yet.
 - **P1534** (Oct 26) Portraits settled at list price per billed call. Gotcha: a run Google refused must keep its reservation, or refusals escape a dollars-only cap.
+- **P1537** (Oct 26) Mirror panel: no gender picker, no privacy line, faces aged 25–40. Gotcha: a server-side change that ignores a UI choice still confuses users until the UI ships too.
 
 ## Clarity Docs
 
