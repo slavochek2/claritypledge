@@ -68,6 +68,7 @@ import { PICKER_TIMEOUT_MS } from '@/app/pages/chat/NewMessageDialog';
 import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
 import { useChat } from '@/app/pages/chat/chat-state';
+import { MirrorContext, type MirrorContextValue } from '@/app/pages/chat/mirror-state';
 import { stageClarify } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { AttachmentCard, ATTACHMENT_TIMEOUT_MS } from '@/app/pages/chat/AttachmentCard';
@@ -191,16 +192,21 @@ function Probe() {
 type Entry = string | { pathname: string; search?: string; state?: unknown };
 type Start = string | { entries: Entry[]; index: number };
 
-function treeFor(start: Start) {
+function treeFor(start: Start, mirrorValue?: MirrorContextValue) {
   const entries = typeof start === 'string' ? [start] : start.entries;
   const index = typeof start === 'string' ? 0 : start.index;
   return (
     <MemoryRouter initialEntries={entries} initialIndex={index}>
       <ChatProvider>
-        <Routes>
-          <Route path="/home/*" element={<ChatHomePage />} />
-          <Route path="*" element={<div>elsewhere</div>} />
-        </Routes>
+        {(() => {
+          const routes = (
+            <Routes>
+              <Route path="/home/*" element={<ChatHomePage />} />
+              <Route path="*" element={<div>elsewhere</div>} />
+            </Routes>
+          );
+          return mirrorValue ? <MirrorContext.Provider value={mirrorValue}>{routes}</MirrorContext.Provider> : routes;
+        })()}
         <Probe />
       </ChatProvider>
     </MemoryRouter>
@@ -950,6 +956,28 @@ describe('conversation', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1/t/x');
     fireEvent.contextMenu(within(screen.getByTestId('conversation')).getByText('plain dm message'));
     expect(await screen.findByRole('menuitem', { name: 'Reply in thread' })).toBeInTheDocument();
+  });
+
+  it('P1546: a reloaded mirror thread asks for the status of its own unanswered questions', async () => {
+    const loadStatuses = vi.fn();
+    const value = {
+      enabled: true, profile: null, portraitStatus: 'idle', statusFor: () => undefined, requestReply: vi.fn(), loadStatuses,
+      ask: vi.fn(), newFace: vi.fn(), ensurePortrait: vi.fn(), setGender: vi.fn(),
+    } as unknown as MirrorContextValue;
+    const m = mirror();
+    const root = msg(m.conversationId, ME.id, 'mirror thread root', { id: 'mroot' });
+    const answered = msg(m.conversationId, ME.id, 'answered in thread', { id: 'mq1', threadRootId: 'mroot' });
+    const answer = msg(m.conversationId, null as unknown as string, 'the answer', { id: 'ma1', threadRootId: 'mroot', kind: 'agent', replyToId: 'mq1' });
+    const waiting = msg(m.conversationId, ME.id, 'still waiting in thread', { id: 'mq2', threadRootId: 'mroot' });
+    svc.getMyChats.mockResolvedValue([m]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { threadRootId?: string } = {}) => (opts.threadRootId ? [answered, answer, waiting] : [root]));
+    svc.listThread.mockImplementation(async () => [root, answered, answer, waiting]);
+    render(treeFor(`/home/c/${m.conversationId}/t/mroot`, value));
+    const panel = await screen.findByTestId('thread-panel');
+    expect(await within(panel).findByText('still waiting in thread')).toBeInTheDocument();
+    await waitFor(() => expect(loadStatuses.mock.calls.some(([ids]) => (ids as string[]).includes('mq2'))).toBe(true));
+    // the answered question is not asked about
+    expect(loadStatuses.mock.calls.every(([ids]) => !(ids as string[]).includes('mq1'))).toBe(true);
   });
 
   it('keeps the conversation loaded and in place when its thread opens', async () => {

@@ -2,7 +2,7 @@
  * P1520: the mirror context's shape and its hook. The provider lives in mirror-provider.tsx (a .ts file
  * for the context object keeps Fast Refresh working, as chat-state.ts does for the chat).
  */
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { MirrorGender, MirrorProfile } from '@/app/data/mirror-service';
 
@@ -37,4 +37,21 @@ export const MirrorContext = createContext<MirrorContextValue | null>(null);
 /** Null outside the provider (signed out, or a test that does not mount it): callers show no mirror AI. */
 export function useMirror(): MirrorContextValue | null {
   return useContext(MirrorContext);
+}
+
+/**
+ * After a reload, the owner's latest unanswered messages among `rows` say whether the mirror agent is still on
+ * them, or failed. Used by the conversation pane and (P1546) the thread panel, whose rows the pane never loads.
+ */
+export function useRestoreMirrorStatuses(rows: ChatMessage[] | null, userId: string | null | undefined): void {
+  const loadStatuses = useMirror()?.loadStatuses;
+  useEffect(() => {
+    if (!rows || !loadStatuses) return;
+    const answered = new Set(rows.filter((m) => m.kind === 'agent' && m.replyToId).map((m) => m.replyToId));
+    const waiting = rows
+      .filter((m) => m.authorId === userId && (m.kind === 'message' || m.kind === 'clarify') && !m.isDeleted && !answered.has(m.id))
+      .slice(-20)
+      .map((m) => m.id);
+    loadStatuses(waiting);
+  }, [rows, loadStatuses, userId]);
 }

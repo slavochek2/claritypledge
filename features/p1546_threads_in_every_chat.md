@@ -50,6 +50,21 @@ Blast radius: medium. Thread rules for two more conversation kinds, plus mirror 
 - Do NOT change the context size (P1547).
 - Do NOT add Clarify inside the mirror.
 
+## Cost Budget
+
+Applies because the migration changes per-request functions and the canary creates and deletes test users. No new timer, poll, retry or model call: a thread question triggers exactly the one mirror job a non-thread question already does.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | unchanged: a thread message is one `send_chat_message` RPC, as a chat message is; opening a thread is the existing `listThread` read (2 reads) plus one `get_thread_stats` per page of roots, now also in 1:1s and the mirror | scales with messages sent, as today | `p1546-threads-everywhere.spec.ts`: 19 RPC and 11 table call sites, some in small loops; bound at 150 requests (19 + 11 = 30 sites x at most 5 calls each) |
+| Users created / deleted | 0 | 0 | 3 users, 1 organization; deleted in `afterAll` |
+| Log lines | refusals are the existing error paths, unchanged in count | unchanged | about 20 expected refusals per run (the paired refusal cases), 1 line each |
+| Gemini | unchanged: one job per triggering message, never more | unchanged | 0: the canary drives the service steps with fixed text, never the model |
+
+1. **Fits the plan limit today?** Yes. Supabase Free (registry row read 2026-10-21): 50,000 MAU and 5 GB egress. A run adds 3 users, so 3 MAU (3 / 50,000 = 0.006%), and at most 150 small JSON responses, under 2 KB each = 0.3 MB (0.3 MB / 5 GB = 0.006%).
+2. **Fits at 10x?** Yes. 10 runs a day = 30 MAU and 3 MB a day, about 90 MB a month (1.8% of 5 GB).
+3. **Rule 1 (bulk on the server):** cleanup deletes 3 users one call each through `deleteTestUser`. Supabase Auth's admin API deletes one user per call and the repo has no batch helper. This matches every sibling chat canary (p1512, p1520). Chat rows are purged in one batch by `purgeChatFor`. Accepted, at 3 calls per run.
+
 ## Acceptance Criteria
 
 - [ ] In a direct message, New thread opens a thread; both people read it; a third signed-in user gets nothing (curl).

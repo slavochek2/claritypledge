@@ -4,12 +4,15 @@
 -- client-safe: function redefinitions only, plus one new internal helper. Every deployed client keeps
 --   working: it simply never offered a thread outside channels, and every call it makes is still accepted.
 --
--- diffed against: 20261019203000_p1512_clarity_chat.sql (send_chat_message, get_thread_stats) and
+-- diffed against: 20261019203000_p1512_clarity_chat.sql (send_chat_message, get_thread_stats,
+--   clarify_chat_message) and
 --   20261020213000_p1520_mirror_v2.sql (_mirror_begin_job, _mirror_complete_job). Each body below is that
 --   file's, with only these changes:
 --   * send_chat_message: the "threads are for channels" refusal is removed. A thread root must still be a
 --     live root of THIS conversation that the caller can read.
 --   * get_thread_stats: the channel-only early return is removed.
+--   * clarify_chat_message: the copied thread leaves out mirror agent answers and private asks
+--     (kind 'agent' or context_conversation_id set), which a mirror thread can now contain.
 --   * _mirror_begin_job: every mirror-chat context read also filters by _mirror_in_scope(x, trigger).
 --   * _mirror_complete_job: the answer carries the trigger's thread_root_id, and a thread answer does not
 --     move the mirror's last_message_at (a thread reply never does).
@@ -194,6 +197,129 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.get_thread_stats(uuid, uuid[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_thread_stats(uuid, uuid[]) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clarify_chat_message(p_source uuid, p_note text DEFAULT NULL)
+RETURNS public.chat_messages
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid       uuid := auth.uid();
+  v_src       public.chat_messages;
+  v_since     timestamptz;
+  v_src_kind  text;
+  v_author    text;
+  v_root      uuid;
+  v_thread    jsonb;
+  v_base      jsonb;
+  v_orig_id   uuid;
+  v_mirror    uuid;
+  v_title     text;
+  v_title_ref text;
+  v_src_conv  public.chat_conversations;
+  v_row       public.chat_messages;
+  v_note      text;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'chat: not authenticated' USING ERRCODE = '42501';
+  END IF;
+  -- The clarifier's own words on top of the copy: ONE message (quote + note), like a forward's note.
+  v_note := NULLIF(btrim(COALESCE(p_note, '')), '');
+  IF v_note IS NOT NULL AND char_length(v_note) > 4000 THEN
+    RAISE EXCEPTION 'chat: message too long' USING ERRCODE = '22023';
+  END IF;
+  -- FOR SHARE: see forward_chat_message (serialises with an in-flight erase).
+  SELECT m.* INTO v_src FROM public.chat_messages m
+   WHERE m.id = p_source
+     AND m.created_at >= COALESCE(public._chat_access_since(m.conversation_id, v_uid), 'infinity'::timestamptz)
+     FOR SHARE;
+  IF NOT FOUND OR v_src.deleted_at IS NOT NULL THEN
+    RAISE EXCEPTION 'chat: message not available' USING ERRCODE = '42501';
+  END IF;
+  v_since := public._chat_access_since(v_src.conversation_id, v_uid);
+  v_mirror := public._chat_ensure_mirror(v_uid);
+
+  v_root := COALESCE(v_src.thread_root_id, v_src.id);
+  -- P1546: a mirror thread can now hold mirror agent answers and private asks. Neither is ever copied (as
+  -- _mirror_refuse_agent_copy refuses a direct copy): a copied answer would keep text derived from other
+  -- people's words where erasure's derived_refs cannot find it.
+  -- Lock the thread rows first (a separate statement, so the aggregate below reads a snapshot taken
+  -- AFTER any erase that was holding them has committed).
+  PERFORM 1 FROM public.chat_messages x
+   WHERE (x.id = v_root OR x.thread_root_id = v_root)
+     AND x.id <> v_src.id
+     AND x.conversation_id = v_src.conversation_id
+     AND x.kind <> 'agent' AND x.context_conversation_id IS NULL
+     AND x.created_at >= v_since
+   ORDER BY x.created_at, x.id
+   FOR SHARE;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'author_ref', public._chat_author_ref(t.author_id),
+           'author_name', COALESCE(tp.name, 'Deleted user'),
+           'body', t.body,
+           'created_at', t.created_at) ORDER BY t.created_at, t.id), '[]'::jsonb)
+    INTO v_thread
+    FROM (SELECT x.* FROM public.chat_messages x
+           WHERE (x.id = v_root OR x.thread_root_id = v_root)
+             AND x.id <> v_src.id
+             AND x.conversation_id = v_src.conversation_id
+             AND x.kind <> 'agent' AND x.context_conversation_id IS NULL
+             AND x.deleted_at IS NULL
+             AND x.created_at >= v_since
+           ORDER BY x.created_at, x.id
+           LIMIT 100) t
+    LEFT JOIN public.profiles tp ON tp.id = t.author_id;
+
+  IF v_src.kind = 'message' THEN
+    SELECT * INTO v_src_conv FROM public.chat_conversations c WHERE c.id = v_src.conversation_id;
+    SELECT COALESCE(p.name, 'Deleted user') INTO v_author
+      FROM (SELECT 1) one LEFT JOIN public.profiles p ON p.id = v_src.author_id;
+    -- "Clarified from <author> in <title>": the title as the CLARIFIER sees the chat.
+    IF v_src_conv.kind = 'dm' THEN
+      SELECT COALESCE(p.name, 'Deleted user'),
+             public._chat_author_ref(CASE WHEN v_src_conv.dm_user_a = v_uid THEN v_src_conv.dm_user_b ELSE v_src_conv.dm_user_a END)
+        INTO v_title, v_title_ref
+        FROM (SELECT 1) one
+        LEFT JOIN public.profiles p
+               ON p.id = CASE WHEN v_src_conv.dm_user_a = v_uid THEN v_src_conv.dm_user_b ELSE v_src_conv.dm_user_a END;
+    ELSIF v_src_conv.kind = 'group' THEN
+      SELECT o.name || ' · General' INTO v_title FROM public.organization o WHERE o.id = v_src_conv.org_id;
+    ELSIF v_src_conv.kind = 'event' THEN
+      SELECT e.title INTO v_title FROM public.events e WHERE e.id = v_src_conv.event_id;
+    ELSE
+      v_title := COALESCE(v_src_conv.title, 'Mirror');
+    END IF;
+    v_base := jsonb_build_object(
+      'author_name', v_author,
+      'body', v_src.body,
+      'created_at', v_src.created_at,
+      'conversation_kind', v_src_conv.kind,
+      'conversation_title', v_title);
+    -- the other person's opaque ref, so erasing THEM can blank their name out of this title
+    IF v_title_ref IS NOT NULL THEN
+      v_base := v_base || jsonb_build_object('conversation_title_ref', v_title_ref);
+    END IF;
+    v_orig_id := v_src.author_id;
+  ELSE
+    v_base := v_src.forward_snapshot - 'thread';
+    v_orig_id := v_src.forward_author_id;
+  END IF;
+
+  INSERT INTO public.chat_messages
+    (conversation_id, author_id, body, kind, forward_snapshot, forward_author_id,
+     forwarded_from_message_id, attachment_kind, attachment_id, created_at)
+  VALUES
+    (v_mirror, v_uid, v_note, 'clarify', v_base || jsonb_build_object('thread', v_thread), v_orig_id,
+     v_src.id, v_src.attachment_kind, v_src.attachment_id, clock_timestamp())
+  RETURNING * INTO v_row;
+
+  UPDATE public.chat_conversations c SET last_message_at = v_row.created_at WHERE c.id = v_mirror;
+  RETURN v_row;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.clarify_chat_message(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.clarify_chat_message(uuid, text) TO authenticated;
 
 -- P1546: is row x in the context of a mirror question m? Asked inside a thread: the thread's root and its
 -- replies. Asked outside threads: rows outside threads. (The general context rules stay P1520's until P1547.)

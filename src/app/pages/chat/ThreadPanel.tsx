@@ -12,6 +12,7 @@ import { MessageList } from './MessageList';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
+import { useRestoreMirrorStatuses } from './mirror-state';
 import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
@@ -21,6 +22,8 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
   const chat = useChat();
   const conversationId = summary.conversationId;
   const conv = useConversationMessages({ conversationId, threadRootId: rootId });
+  // P1546: a mirror thread's own questions get their thinking / failed state back after a reload.
+  useRestoreMirrorStatuses(summary.kind === 'mirror' ? conv.server : null, chat.userId);
   const [focusToken, setFocusToken] = useState(0);
   // Every Reply inside a thread is a reply to the thread: it just moves focus to the field.
   const onReply = useCallback((_m: ChatMessage) => setFocusToken((t) => t + 1), []);

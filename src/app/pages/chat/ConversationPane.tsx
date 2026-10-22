@@ -18,7 +18,7 @@ import { MessageList } from './MessageList';
 import { Quote } from './Quote';
 import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
 import { MirrorInfoDialog } from './MirrorInfoDialog';
-import { useMirror } from './mirror-state';
+import { useMirror, useRestoreMirrorStatuses } from './mirror-state';
 import { useMirrorAsks } from './use-mirror-asks';
 import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
@@ -98,18 +98,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     if (summary.kind === 'mirror') ensurePortrait?.();
   }, [summary.kind, ensurePortrait]);
 
-  // After a reload, the owner's latest unanswered messages say whether the mirror is still on them, or failed.
-  const loadStatuses = mirror?.loadStatuses;
-  const ownRows = summary.kind === 'mirror' ? conv.server : channel ? privateRows : null;
-  useEffect(() => {
-    if (!ownRows || !loadStatuses) return;
-    const answered = new Set(ownRows.filter((m) => m.kind === 'agent' && m.replyToId).map((m) => m.replyToId));
-    const waiting = ownRows
-      .filter((m) => m.authorId === chat.userId && (m.kind === 'message' || m.kind === 'clarify') && !m.isDeleted && !answered.has(m.id))
-      .slice(-20)
-      .map((m) => m.id);
-    loadStatuses(waiting);
-  }, [ownRows, loadStatuses, chat.userId]);
+  useRestoreMirrorStatuses(summary.kind === 'mirror' ? conv.server : channel ? privateRows : null, chat.userId);
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [focusToken, setFocusToken] = useState(0);

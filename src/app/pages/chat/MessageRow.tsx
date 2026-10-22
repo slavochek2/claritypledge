@@ -34,7 +34,7 @@ const INTERACTIVE = 'button,a,input,textarea,label,[role="menu"],[role="toolbar"
 
 export interface MessageActions {
   onReply: (m: ChatMessage) => void;
-  /** Absent where threads do not exist (1:1s, the mirror) or inside the thread panel itself. */
+  /** Absent inside the thread panel itself (every chat has threads, P1546). */
   onThread?: (m: ChatMessage) => void;
   onForward: (m: ChatMessage) => void;
   /** Absent inside the mirror itself. */
@@ -399,7 +399,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
             <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        {!agent && actions.onThread && !server.threadRootId && (
+        {!ownerOnly && actions.onThread && !server.threadRootId && (
           <ToolButton label="Thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
             <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
