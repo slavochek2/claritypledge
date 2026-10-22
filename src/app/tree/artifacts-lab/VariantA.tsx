@@ -2,7 +2,7 @@
  * P1545 Phase 1, Variant A: "Tabbed list". Classic page: header (title / search / +), two segmented tabs,
  * one dense line per item. Mock data only.
  */
-import { useState, type ComponentType } from 'react';
+import { Fragment, useState, type ComponentType, type ReactNode } from 'react';
 import {
   CalendarDays,
   FileText,
@@ -135,9 +135,9 @@ function BottomTabs({ active }: { active: TabName }) {
   );
 }
 
-function PlusMenu() {
+function PlusMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button size="icon" aria-label="Create" className="h-10 w-10 shrink-0 bg-blue-600 text-white hover:bg-blue-700">
           <Plus className="h-5 w-5" />
@@ -155,8 +155,13 @@ function PlusMenu() {
   );
 }
 
+/** One column for every block so left and right edges line up on desktop. */
+const COLUMN = 'mx-auto w-full max-w-2xl px-4 pb-24 pt-4 lg:pb-10';
+
 function RowMenu({ item }: { item: MockArtifact }) {
   const actions = item.draft ? LETTER_ACTIONS.draft : LETTER_ACTIONS.sent;
+  const entries: readonly string[] =
+    item.kind === 'letter' ? [actions.primary, ...actions.more] : ['Share', 'Delete'];
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -169,13 +174,15 @@ function RowMenu({ item }: { item: MockArtifact }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[10rem]">
-        {actions.more.map(a => (
-          <div key={a}>
+        {entries.map((a, idx) => (
+          <Fragment key={a}>
             {a === 'Delete' && <DropdownMenuSeparator />}
-            <DropdownMenuItem className={`h-10 ${a === 'Delete' ? 'text-destructive focus:text-destructive' : ''}`}>
+            <DropdownMenuItem
+              className={`h-10 ${a === 'Delete' ? 'text-destructive focus:text-destructive' : idx === 0 ? 'font-medium' : ''}`}
+            >
               {a}
             </DropdownMenuItem>
-          </div>
+          </Fragment>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -185,74 +192,93 @@ function RowMenu({ item }: { item: MockArtifact }) {
 function Row({ item }: { item: MockArtifact }) {
   const KindIcon = item.kind === 'letter' ? FileText : Shapes;
   const VisIcon = item.visibility === 'public' ? Globe : Lock;
-  const isLetter = item.kind === 'letter';
-  const actions = item.draft ? LETTER_ACTIONS.draft : LETTER_ACTIONS.sent;
   const own = !item.sharedBy;
+  const inChat = !own && SHARE_MESSAGES.some(m => m.title === item.title);
+  const metaTokens: ReactNode[] = [];
+  if (own) {
+    metaTokens.push(
+      <VisIcon
+        className="h-3 w-3 shrink-0"
+        aria-label={item.visibility === 'public' ? 'Public' : 'Not public'}
+      />,
+    );
+  }
+  if (item.draft) {
+    metaTokens.push(
+      <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 text-[11px] font-medium text-foreground">
+        Draft
+      </span>,
+    );
+  }
+  if (!item.draft && item.replies) {
+    metaTokens.push(
+      <span className="shrink-0">
+        {item.replies.done} of {item.replies.total} replied
+      </span>,
+    );
+  }
+  if (item.sharedBy) metaTokens.push(<span>from {item.sharedBy}</span>);
+  if (inChat) metaTokens.push(<span>in your chat</span>);
+  metaTokens.push(<span className="shrink-0">{item.updated}</span>);
+
   return (
-    <li className="flex min-h-[48px] items-center gap-2 border-b border-border pl-1 last:border-b-0">
+    <li className="flex min-h-[56px] items-center gap-1 border-b border-border pl-1 last:border-b-0">
       <button
         type="button"
-        className="flex min-h-[48px] min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+        className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2 rounded-md py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex w-2 shrink-0 justify-center">
-          {item.unread && <span aria-label="Unread" className="h-2 w-2 rounded-full bg-blue-600" />}
+        <span className="flex h-2 w-2 shrink-0 justify-center" aria-hidden={!item.unread}>
+          {item.unread && <span role="img" aria-label="Unread" className="h-2 w-2 rounded-full bg-blue-600" />}
         </span>
         <KindIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-label={item.kind} />
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-sm ${item.unread ? 'font-semibold' : 'font-medium'} text-foreground`}>
+          <span className={`line-clamp-2 text-sm ${item.unread ? 'font-semibold' : 'font-medium'} text-foreground`}>
             {item.title}
           </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            {own && (
-              <VisIcon
-                className="h-3 w-3 shrink-0"
-                aria-label={item.visibility === 'public' ? 'Public' : 'Not public'}
-              />
-            )}
-            {item.draft && (
-              <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 text-[11px] font-medium text-foreground">
-                Draft
-              </span>
-            )}
-            {item.sharedBy && <span className="truncate">from {item.sharedBy}</span>}
-            <span className="shrink-0">{item.updated}</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+            {metaTokens.map((tok, idx) => (
+              <Fragment key={idx}>
+                {idx > 0 && <span aria-hidden="true">{'\u00b7'}</span>}
+                {tok}
+              </Fragment>
+            ))}
           </span>
         </span>
       </button>
-      {isLetter && own ? (
-        <>
-          <button
-            type="button"
-            className="h-10 shrink-0 rounded-md px-2 text-sm font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {actions.primary}
-          </button>
-          <RowMenu item={item} />
-        </>
-      ) : (
-        <span className="w-2 shrink-0" />
-      )}
+      {own && <RowMenu item={item} />}
     </li>
   );
 }
 
+function initFor(state: LabState) {
+  return {
+    tab: (state === 'shared' || state === 'empty-shared' ? 'shared' : 'yours') as 'yours' | 'shared',
+    searching: state === 'search-open',
+    query: state === 'search-open' ? 'hike' : '',
+    plusOpen: state === 'menu-open',
+  };
+}
+
 function ArtifactsPage({ state }: { state: LabState }) {
-  const [tab, setTab] = useState<'yours' | 'shared'>(state === 'empty-shared' ? 'shared' : 'yours');
-  const [searching, setSearching] = useState(false);
-  const [query, setQuery] = useState('');
+  const init = initFor(state);
+  const [tab, setTab] = useState(init.tab);
+  const [searching, setSearching] = useState(init.searching);
+  const [query, setQuery] = useState(init.query);
+  const [plusOpen, setPlusOpen] = useState(init.plusOpen);
   const [lastState, setLastState] = useState(state);
   if (lastState !== state) {
     setLastState(state);
-    setTab(state === 'empty-shared' ? 'shared' : 'yours');
-    setQuery('');
-    setSearching(false);
+    setTab(init.tab);
+    setQuery(init.query);
+    setSearching(init.searching);
+    setPlusOpen(init.plusOpen);
   }
 
   const yours = state === 'empty-yours' ? [] : YOURS;
   const shared = state === 'empty-shared' ? [] : SHARED;
   const unreadShared = shared.filter(s => s.unread).length;
-  const source = tab === 'yours' ? yours : shared;
   const q = query.trim().toLowerCase();
+  const source = q ? [...yours, ...shared] : tab === 'yours' ? yours : shared;
   const items = q ? source.filter(i => i.title.toLowerCase().includes(q)) : source;
 
   const closeSearch = () => {
@@ -261,7 +287,7 @@ function ArtifactsPage({ state }: { state: LabState }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-4 lg:pb-10">
+    <div className={COLUMN}>
       {/* Header */}
       <div className="flex h-10 items-center gap-2">
         {searching ? (
@@ -297,34 +323,40 @@ function ArtifactsPage({ state }: { state: LabState }) {
             >
               <Search className="h-5 w-5" />
             </button>
+            <PlusMenu open={plusOpen} onOpenChange={setPlusOpen} />
           </>
         )}
-        <PlusMenu />
       </div>
 
-      {/* Segmented tabs */}
-      <div role="tablist" aria-label="Artifacts" className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-        {(
-          [
-            ['yours', 'Yours', 0],
-            ['shared', 'Shared with you', unreadShared],
-          ] as const
-        ).map(([key, label, n]) => (
+      {/* Segmented tabs (hidden while a search is filtering across both) */}
+      {!q && (
+        <div role="tablist" aria-label="Artifacts" className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
           <button
-            key={key}
             type="button"
             role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              tab === key ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            aria-selected={tab === 'yours'}
+            onClick={() => setTab('yours')}
+            className={`flex h-10 min-w-0 items-center justify-center rounded-md px-1.5 text-[13px] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              tab === 'yours' ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span className="truncate">{label}</span>
-            <Badge n={n} />
+            Yours
           </button>
-        ))}
-      </div>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'shared'}
+            aria-label={unreadShared > 0 ? `Shared with you, ${unreadShared} unread` : 'Shared with you'}
+            onClick={() => setTab('shared')}
+            className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-md px-1.5 text-[13px] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              tab === 'shared' ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span>Shared with you</span>
+            <Badge n={unreadShared} />
+          </button>
+        </div>
+      )}
 
       {/* List */}
       <div className="mt-2">
@@ -344,37 +376,17 @@ function ArtifactsPage({ state }: { state: LabState }) {
           <p className="py-8 text-center text-sm text-muted-foreground">Nothing shared with you yet.</p>
         )}
       </div>
-
-      {/* Decision 5: shares post where they happened */}
-      {state === 'full' && !q && (
-        <section aria-label="Recent in chats" className="mt-6">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent in chats</h2>
-          <ul className="flex flex-col gap-2">
-            {SHARE_MESSAGES.map(m => (
-              <li key={m.chat} className="min-w-0">
-                <p className="truncate text-xs text-muted-foreground">{m.chat}</p>
-                <div className="mt-0.5 max-w-[85%] rounded-2xl rounded-tl-sm bg-muted px-3 py-2">
-                  <p className="truncate text-sm text-foreground">{m.text}</p>
-                  <div className="mt-1 flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
-                    <Shapes className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm font-medium text-foreground">{m.title}</span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
 
 function CmCard({ prominent }: { prominent: boolean }) {
   return (
-    <div
+    <section
+      aria-label="Happening in Chiang Mai"
       className={`rounded-xl border p-4 ${prominent ? 'border-blue-200 bg-blue-50' : 'border-border bg-background'}`}
     >
-      <p className="truncate text-base font-semibold text-foreground">{CM_CARD.title}</p>
+      <h2 className="text-base font-semibold text-foreground">Happening in Chiang Mai</h2>
       <p className="mt-1 text-sm text-muted-foreground">{CM_CARD.body}</p>
       {prominent ? (
         <Button className="mt-3 h-11 w-full bg-blue-600 text-white hover:bg-blue-700">See the Chiang Mai calendar</Button>
@@ -386,41 +398,38 @@ function CmCard({ prominent }: { prominent: boolean }) {
           Open calendar
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
 function EventsPage({ empty }: { empty: boolean }) {
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-4 lg:pb-10">
+    <div className={COLUMN}>
       <div className="flex h-10 items-center gap-2">
         <h1 className="min-w-0 flex-1 truncate text-2xl font-bold text-foreground">Events</h1>
-        {empty ? (
-          <button
-            type="button"
-            className="h-10 shrink-0 px-2 text-sm font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Sign up to host
-          </button>
-        ) : (
-          <Button variant="ghost" className="h-10 shrink-0 text-muted-foreground">
-            Host
-          </Button>
-        )}
+        <button
+          type="button"
+          className="inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {empty ? 'Sign up to host' : 'Host'}
+        </button>
       </div>
 
       {empty ? (
-        <div className="mt-6">
-          <CmCard prominent />
-        </div>
+        <>
+          <p className="mt-4 text-sm text-muted-foreground">No events from us right now</p>
+          <div className="mt-4">
+            <CmCard prominent />
+          </div>
+        </>
       ) : (
         <>
           <ul className="mt-4">
             {MOCK_EVENTS.map(e => (
               <li key={e.id} className="flex min-h-[56px] items-center gap-3 border-b border-border py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{e.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{e.when}</p>
+                  <p className="text-sm font-semibold text-foreground">{e.title}</p>
+                  <p className="text-xs text-muted-foreground">{e.when}</p>
                 </div>
                 <Button size="sm" className="h-10 shrink-0 bg-blue-600 px-4 text-white hover:bg-blue-700">
                   Join
@@ -440,45 +449,14 @@ function EventsPage({ empty }: { empty: boolean }) {
 export function VariantA({ state }: { state: LabState }) {
   const isEvents = state === 'events-empty' || state === 'events-some';
   const active: TabName = isEvents ? 'Events' : 'Artifacts';
-  const [searchDemo, setSearchDemo] = useState(0);
 
   return (
     <div className="relative flex min-h-[calc(100vh-2.25rem)] w-full overflow-x-hidden bg-background">
       <Sidebar active={active} />
       <main className="min-w-0 flex-1">
-        {isEvents ? <EventsPage empty={state === 'events-empty'} /> : <ArtifactsPage key={searchDemo} state={state} />}
+        {isEvents ? <EventsPage empty={state === 'events-empty'} /> : <ArtifactsPage state={state} />}
       </main>
-      {!isEvents && (
-        <p className="sr-only">
-          Lab control: remount the page to reset search state.
-        </p>
-      )}
       <BottomTabs active={active} />
-      {!isEvents && <SearchDemoToggle onReset={() => setSearchDemo(n => n + 1)} />}
-    </div>
-  );
-}
-
-/**
- * Lab-only helper (not part of the design): opens the page with search already open, so a reviewer can see
- * that state without tapping. Rendered as a small dashed chip above the phone tab bar.
- */
-function SearchDemoToggle({ onReset }: { onReset: () => void }) {
-  return (
-    <div className="fixed bottom-20 right-3 z-40 lg:bottom-4">
-      <button
-        type="button"
-        onClick={() => {
-          onReset();
-          // Open search after the remount by tapping the page's own search button.
-          requestAnimationFrame(() => {
-            document.querySelector<HTMLButtonElement>('button[aria-label="Search"]')?.click();
-          });
-        }}
-        className="h-10 rounded-full border border-dashed border-slate-400 bg-slate-100 px-3 text-xs text-slate-900 hover:bg-slate-200"
-      >
-        Lab: show search open
-      </button>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { VariantA } from './VariantA';
 import { VariantB } from './VariantB';
 import { VariantC } from './VariantC';
 
-export const STATES = ['full', 'empty-yours', 'empty-shared', 'events-empty', 'events-some'] as const;
+export const STATES = ['full', 'shared', 'menu-open', 'search-open', 'empty-yours', 'empty-shared', 'events-empty', 'events-some'] as const;
 export type LabState = (typeof STATES)[number];
 
 const VARIANTS = { a: VariantA, b: VariantB, c: VariantC } as const;

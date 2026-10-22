@@ -51,7 +51,7 @@ export const MOCK_EVENTS = [
 ];
 
 export const CM_CARD = {
-  title: 'More happening in Chiang Mai',
+  title: 'Happening in Chiang Mai',
   body: 'Talks, hikes and meetups from the community calendar.',
   href: '/cm',
 };
