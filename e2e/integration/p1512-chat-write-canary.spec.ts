@@ -305,7 +305,7 @@ test('reply and thread targets must be in the same conversation, undeleted, and 
   await refused(sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'x', p_thread_root: dmMsg.id }), 'thread rooted in another conversation');
   await refused(sA.client.rpc('send_chat_message', { p_conversation: mirror, p_body: 'x', p_reply_to: dmMsg.id }), 'mirror reply pointing at a dm message');
   await refused(sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'x', p_thread_root: reply.id }), 'thread rooted in a thread reply');
-  await refused(sA.client.rpc('send_chat_message', { p_conversation: dm, p_body: 'x', p_thread_root: dmMsg.id }), 'thread inside a 1:1');
+  // P1546: a thread inside a 1:1 is allowed now; e2e/integration/p1546-threads-everywhere.spec.ts covers it.
   await refused(sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'x', p_reply_to: gone.id }), 'reply to a deleted message');
   await refused(sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'x', p_thread_root: gone.id }), 'thread under a deleted message');
   await refused(sA.client.rpc('send_chat_message', { p_conversation: gconv, p_body: 'x', p_reply_to: '00000000-0000-4000-8000-000000000000' }), 'reply to a message that does not exist');

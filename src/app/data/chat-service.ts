@@ -105,14 +105,13 @@ export async function listMessages(
 /**
  * The thread under a root message: the root first, then its replies, oldest first.
  *
- * Returns null unless `rootId` is a root message (no thread_root_id) OF THIS conversation, the
- * conversation is a channel (group or event: 1:1s and mirrors have no threads), and the caller can
- * read it. The root is fetched by BOTH conversation_id and id, so an id from another chat cannot
+ * Returns null unless `rootId` is a root message (no thread_root_id) OF THIS conversation and the
+ * caller can read it. Every conversation kind has threads (P1546). The root is fetched by BOTH conversation_id and id, so an id from another chat cannot
  * be used to open a thread here.
  */
 export async function listThread(conversationId: string, rootId: string): Promise<ChatMessage[] | null> {
   const conversation = await getConversation(conversationId);
-  if (!conversation || (conversation.kind !== 'group' && conversation.kind !== 'event')) return null;
+  if (!conversation) return null;
 
   const { data, error } = await supabase
     .from('chat_messages')

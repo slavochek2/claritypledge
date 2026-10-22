@@ -56,12 +56,14 @@ describe('P1512 markRead', () => {
 });
 
 describe('P1512 listThread', () => {
-  it('returns null for a 1:1 or a mirror (no threads there), without fetching the root', async () => {
-    queryResults = [conv('dm')];
-    expect(await listThread('c1', 'r1')).toBeNull();
-    expect(from).toHaveBeenCalledTimes(1);
-    queryResults = [conv('mirror')];
-    expect(await listThread('c1', 'r1')).toBeNull();
+  it('returns the root first, then its replies, for a 1:1 and a mirror too (P1546: threads in every chat; the query is newest-first, the client flips it)', async () => {
+    for (const kind of ['dm', 'mirror']) {
+      queryResults = [conv(kind), row(), { data: [row({ id: 'r3', thread_root_id: 'r1', created_at: '2026-10-22T10:00:02Z' }).data, row({ id: 'r2', thread_root_id: 'r1', created_at: '2026-10-22T10:00:01Z' }).data], error: null }];
+      const thread = await listThread('c1', 'r1');
+      expect(thread?.map((m) => m.id), kind).toEqual(['r1', 'r2', 'r3']);
+      expect(from, kind).toHaveBeenCalledTimes(3);
+      from.mockClear();
+    }
   });
 
   it('returns null when the conversation is not readable or the root is not in it', async () => {

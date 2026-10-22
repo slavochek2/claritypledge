@@ -926,7 +926,7 @@ describe('conversation', () => {
     expect(await screen.findByText('Message deleted', { selector: 'p' })).toBeInTheDocument();
   });
 
-  it('offers a thread only in channels, with the reply count, and opens the panel from the route', async () => {
+  it('offers a thread in a channel, with the reply count, and opens the panel from the route (P1546: and in a 1:1)', async () => {
     const root = msg('g1', 'p-grace', 'start a thread here', { id: 'root' });
     const reply = msg('g1', ME.id, 'a reply in the thread', { id: 'rep', threadRootId: 'root' });
     svc.getThreadStats.mockResolvedValue(new Map([['root', { count: 1, authorIds: [ME.id] }]]));
@@ -941,14 +941,15 @@ describe('conversation', () => {
     expect(within(panel).getByRole('textbox', { name: 'Reply in thread' })).toBeInTheDocument();
     unmount();
 
-    // a 1:1 has no thread action, and a thread URL on it falls back to the chat
-    renderChat('/home/c/dm1/t/x', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [msg('dm1', 'p-dm1', 'plain dm message')] });
-    await screen.findByText('plain dm message');
-    expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1');
-    expect(screen.queryByTestId('thread-panel')).not.toBeInTheDocument();
-    menuOn('plain dm message');
-    expect(await screen.findByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Reply in thread' })).not.toBeInTheDocument();
+    // P1546: a 1:1 has threads too: the thread URL opens (and reopens on reload) the thread, and the action is offered
+    const dmRoot = msg('dm1', 'p-dm1', 'plain dm message', { id: 'x' });
+    const dmReply = msg('dm1', ME.id, 'a reply in the dm thread', { id: 'dmrep', threadRootId: 'x' });
+    renderChat('/home/c/dm1/t/x', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [dmRoot, dmReply] });
+    const dmPanel = await screen.findByTestId('thread-panel');
+    expect(await within(dmPanel).findByText('a reply in the dm thread')).toBeInTheDocument();
+    expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1/t/x');
+    fireEvent.contextMenu(within(screen.getByTestId('conversation')).getByText('plain dm message'));
+    expect(await screen.findByRole('menuitem', { name: 'Reply in thread' })).toBeInTheDocument();
   });
 
   it('keeps the conversation loaded and in place when its thread opens', async () => {
@@ -2805,17 +2806,17 @@ describe('message actions: toolbar and More', () => {
     expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror", 'More actions']);
   });
 
-  it('in a 1:1 there is no Thread, and in the mirror no Clarify', async () => {
+  it('a 1:1 and the mirror offer Thread (P1546), and in the mirror no Clarify', async () => {
     const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
-    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', "Clarify with your mirror"]);
+    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror"]);
     unmount();
 
     renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
     await screen.findByText('a note to self');
     fireEvent.pointerUp(screen.getByText('a note to self'));
-    expect(names(toolbarOf('a note to self'))).toEqual(['Reply', 'Forward', 'More actions']);
+    expect(names(toolbarOf('a note to self'))).toEqual(['Reply', 'Forward', 'Thread', 'More actions']);
   });
 
   it('More holds only Edit and Delete, on my own messages; on someone else\'s message there is no More', async () => {
@@ -3173,9 +3174,11 @@ describe('freshness fixes', () => {
   });
 
   describe('a thread URL that cannot be a thread keeps its Back state', () => {
-    it('a thread URL on a 1:1 is replaced by the chat, carrying what was below', async () => {
+    it('a thread URL on a 1:1 whose thread is not available is replaced by the chat, carrying what was below', async () => {
       renderChat({ entries: ['/feed', { pathname: '/home/c/dm1/t/x', state: { below: ['list'] } }], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'plain dm')] });
+      svc.listThread.mockImplementation(async () => null);
       await screen.findByText('plain dm');
+      await waitFor(() => expect(where()).toBe('/home/c/dm1'));
       expect(where()).toBe('/home/c/dm1');
       expect(nav()).toBe('REPLACE');
       expect(stateOf()).toEqual({ below: ['list'] });

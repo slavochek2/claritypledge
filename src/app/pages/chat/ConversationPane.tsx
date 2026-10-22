@@ -69,7 +69,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const go = useChatNavigate();
   const conversationId = summary.conversationId;
   const channel = isChannel(summary);
-  const conv = useConversationMessages({ conversationId, withThreads: channel });
+  const conv = useConversationMessages({ conversationId, withThreads: true });
   const visible = usePageVisible();
   const mirror = useMirror();
   const mirrorOn = mirror?.enabled === true;
@@ -178,7 +178,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   // The thread opens on top of this chat; with one already open (desktop, side by side) the same one is left alone
   // and another replaces it (chatNav), so closing never reopens the first.
   const onThread = useCallback((m: ChatMessage) => go(chatPath(conversationId, { rootId: m.id })), [go, conversationId]);
-  const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread: channel ? onThread : undefined });
+  const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread });
 
   // Read state: while this chat is open, in front AND on screen, everything up to the newest message is
   // read. "Through" is a message id, never a time: created_at has microseconds a JS Date cannot say,

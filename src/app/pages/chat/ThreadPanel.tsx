@@ -1,8 +1,8 @@
 /**
  * @file ThreadPanel.tsx
- * @description P1512: a channel message's thread — the root, then its replies, with its own composer.
- * A right-hand panel from lg up; the whole screen on a phone. Threads exist in group and event
- * channels only; a 1:1 or the mirror uses quote-reply.
+ * @description P1512: a message's thread — the root, then its replies, with its own composer.
+ * A right-hand panel from lg up; the whole screen on a phone. Every chat has threads (P1546: 1:1s
+ * and the mirror too); in the mirror, the mirror agent answers inside the thread it was asked in.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, PanelRight, X } from 'lucide-react';

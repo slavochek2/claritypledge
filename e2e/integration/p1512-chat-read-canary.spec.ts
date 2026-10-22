@@ -601,7 +601,8 @@ test('thread stats: server-side counts are exact (600 vs 1 replies), exclude del
     await refused(anonClient().rpc('get_thread_stats', { p_conversation: gconv, p_roots: [big] }), 'anon asks for thread stats');
     // A member of one chat cannot read another chat's threads by passing its roots here.
     const dmStats = await ok<Stat[]>(sB.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [m1.id] }), 'dm stats');
-    expect(dmStats, 'a 1:1 has no threads').toEqual([]);
+    // P1546: a 1:1 has threads too; its root with no replies counts 0.
+    expect(dmStats, 'a 1:1 root with no replies').toEqual([{ root_id: m1.id, reply_count: 0, recent_author_ids: [] }]);
   } finally {
     if (seededIds.length) await supabaseAdmin.from('chat_messages').delete().in('id', seededIds);
   }

@@ -63,6 +63,13 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1546 (20261022160000_p1546_threads_everywhere.sql), founder 2026-10-22: threads in every chat.
+  // A product rule, not an access guard: the thread root must still be a live root of THIS
+  // conversation the caller can read ('chat: thread not available'), and posting still goes through
+  // _chat_assert_can_post. Readers are bounded by the per-conversation RLS, so a 1:1 thread reply is
+  // the two people's and a mirror thread reply its owner's. Pinned by e2e/integration/p1546-threads-everywhere.spec.ts.
+  'send_chat_message:chat: threads are for channels',
+
   // P1321 L1 (20261008230000_p1321_letter_delivery_public_only.sql): the existence guard was
   // NARROWED, not dropped. The lookup now also requires status = 'sealed' AND
   // mode = 'one-to-many' and raises 'Letter not accessible' — the same message

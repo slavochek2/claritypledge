@@ -5,7 +5,7 @@
  * The URL says what is open, so Back works and a link opens the same view:
  *   /home                          the list (desktop: with an empty right pane)
  *   /home/c/:conversationId        a conversation (phone: full screen with its own header)
- *   /home/c/:conversationId/t/:id  a thread in a channel (right panel; full screen on a phone)
+ *   /home/c/:conversationId/t/:id  a thread in any chat (P1546: 1:1s and the mirror too) (right panel; full screen on a phone)
  *
  * The page fills the space the layout leaves it (a flex column with min-h-0), so the offline strip, the
  * active-session banner and the room-capture bar shrink it instead of pushing the composer off screen.
@@ -14,7 +14,7 @@
  * pane and, below 2xl, takes the list's place so the conversation never gets narrower than a phone.
  */
 import { useContext, useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { MessagesSquare } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
@@ -24,14 +24,14 @@ import { ConversationPane } from './ConversationPane';
 import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
 import { DESKTOP_QUERY, useBack, useFinishLeave, useMediaQuery } from './chat-hooks';
-import { chatNav, chatPath, isChannel, parseChatRoute } from './chat-view-model';
+import { parseChatRoute } from './chat-view-model';
 
 /** Once stopped, Mixpanel stays stopped for the rest of the page's life; later visits render at once. */
 let sessionRecordingStopped = false;
 
 export default function ChatHomePage() {
   const ctx = useContext(ChatContext);
-  const { pathname, search, state } = useLocation();
+  const { pathname, search } = useLocation();
   const route = parseChatRoute(pathname);
   const highlightId = new URLSearchParams(search).get('m');
   const summary = ctx?.chats.find((c) => c.conversationId === route.conversationId);
@@ -61,12 +61,6 @@ export default function ChatHomePage() {
   }, [threadOpen, closeThread]);
 
   if (!ctx || !recordingOff) return <ClarityPageLoader />;
-
-  // Threads exist in channels only: a thread URL on a 1:1 or the mirror falls back to the chat.
-  if (route.rootId && route.conversationId && summary && !isChannel(summary)) {
-    // The chat takes the thread URL's place and keeps what was below it.
-    return <Navigate to={chatPath(route.conversationId)} replace state={chatNav({ pathname, state }, chatPath(route.conversationId), 'redirect').state} />;
-  }
 
   const conversationOpen = !!route.conversationId;
   const showThread = !!(route.rootId && route.conversationId && summary);
