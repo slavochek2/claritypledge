@@ -1,22 +1,21 @@
 /**
- * P1545 Phase 1: /tree/artifacts — three Artifacts + menu variants on mock data, for the founder's pick.
- * ?v=a|b|c picks the variant, ?state= picks a scenario so every state is one link away.
+ * P1545 Phase 1: /tree/artifacts — two Artifacts + menu variants (round 2) on mock data, for the founder's pick.
+ * ?v=b2|c2 picks the variant, ?state= picks a scenario so every state is one link away.
  */
 import { useSearchParams } from 'react-router-dom';
-import { VariantA } from './VariantA';
-import { VariantB } from './VariantB';
-import { VariantC } from './VariantC';
+import { VariantB2 } from './VariantB2';
+import { VariantC2 } from './VariantC2';
 
 export const STATES = ['full', 'shared', 'menu-open', 'search-open', 'empty-yours', 'empty-shared', 'events-empty', 'events-some'] as const;
 export type LabState = (typeof STATES)[number];
 
-const VARIANTS = { a: VariantA, b: VariantB, c: VariantC } as const;
+const VARIANTS = { b2: VariantB2, c2: VariantC2 } as const;
 type VariantKey = keyof typeof VARIANTS;
 
 export function ArtifactsLab() {
   const [params, setParams] = useSearchParams();
-  const rawV = params.get('v') ?? 'a';
-  const v: VariantKey = rawV in VARIANTS ? (rawV as VariantKey) : 'a';
+  const rawV = params.get('v') ?? 'b2';
+  const v: VariantKey = rawV in VARIANTS ? (rawV as VariantKey) : 'b2';
   const rawState = params.get('state') ?? 'full';
   const state: LabState = (STATES as readonly string[]).includes(rawState) ? (rawState as LabState) : 'full';
   const Variant = VARIANTS[v];

@@ -1,0 +1,222 @@
+/**
+ * P1545 Phase 1 round 2, Variant C2: "Chat-style list + preview pane". Left sidebar (desktop) / bottom tabs (phone).
+ * Rows carry no actions. Selecting one shows it in the pane (desktop) or a sheet (phone); the actions appear there, once.
+ */
+import { useState, useSyncExternalStore } from 'react';
+import { X } from 'lucide-react';
+import type { LabState } from './ArtifactsLab';
+import { SHARED, SHARE_MESSAGES, YOURS, type MockArtifact } from './mock';
+import {
+  DraftChip,
+  EmptyLine,
+  EventsPage,
+  MoreMenu,
+  PageHeader,
+  PrimaryButton,
+  RecipientRows,
+  Shell,
+  Tabs,
+  TypeDisc,
+  TypeLabel,
+  UnreadDot,
+  VisibilityIcon,
+} from './shared';
+import { actionsFor, metaParts } from './model';
+
+type Tab = 'yours' | 'shared';
+
+const DESKTOP_QUERY = '(min-width: 1024px)';
+function subscribeDesktop(cb: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+
+/* ---------------------------------------------------------------- preview */
+
+function Preview({ a, onClose }: { a: MockArtifact; onClose?: () => void }) {
+  const set = actionsFor(a);
+  const msg = a.sharedBy ? SHARE_MESSAGES.find(m => m.title === a.title) : undefined;
+  const hasRecipients = !a.draft && !a.sharedBy && a.kind === 'letter';
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <TypeDisc kind={a.kind} size="lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <TypeLabel kind={a.kind} />
+          <span className="flex items-center gap-2">
+            <VisibilityIcon v={a.visibility} />
+            {a.draft && <DraftChip />}
+          </span>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+      <h2 className="break-words text-xl font-semibold leading-tight text-foreground">{a.title}</h2>
+      <p className="text-sm text-muted-foreground">{metaParts(a).join(' · ')}</p>
+      {a.newFrom && (
+        <p className="text-sm font-medium text-blue-600">
+          {'•'} {a.newFrom.count} new from {a.newFrom.name}
+        </p>
+      )}
+      <div className="flex items-center gap-1" role="group" aria-label="Actions">
+        <PrimaryButton label={set.primary} />
+        <MoreMenu a={a} set={set} />
+      </div>
+      {hasRecipients && (
+        <section aria-label="Recipients" className="border-t border-border pt-3">
+          <h3 className="mb-1 text-sm font-semibold text-foreground">Recipients ({a.recipients?.length ?? 0})</h3>
+          <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />
+        </section>
+      )}
+      {msg && (
+        <section className="rounded-lg border border-border bg-muted/40 p-3">
+          <h3 className="mb-2 text-sm font-medium text-muted-foreground">In your chat</h3>
+          <div className="rounded-2xl rounded-bl-sm border border-border bg-background px-3 py-2">
+            <p className="text-sm text-foreground">{msg.text}</p>
+            <p className="mt-1 break-words text-sm text-blue-700">{a.title}</p>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- list */
+
+function Row({ a, selected, onSelect }: { a: MockArtifact; selected: boolean; onSelect: () => void }) {
+  const meta = a.sharedBy ? `Shared by ${a.sharedBy}` : metaParts(a).slice(0, 2).join(' · ');
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? 'true' : undefined}
+        className={`flex min-h-[72px] w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+          selected ? 'lg:bg-blue-50' : 'hover:bg-accent'
+        }`}
+      >
+        <TypeDisc kind={a.kind} size="lg" />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className={`line-clamp-1 min-w-0 flex-1 break-words text-base text-foreground ${a.unread ? 'font-semibold' : 'font-medium'}`}>{a.title}</span>
+            <VisibilityIcon v={a.visibility} className="h-3.5 w-3.5" />
+          </span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="font-semibold text-blue-700">{a.kind === 'canvas' ? 'Canvas' : 'Letter'}</span>
+            {a.draft && <DraftChip />}
+            <span className="truncate">{'·'} {meta}</span>
+          </span>
+        </span>
+        {a.unread && <UnreadDot />}
+      </button>
+    </li>
+  );
+}
+
+/* ------------------------------------------------------------- artifacts */
+
+function ArtifactsPage({ state }: { state: LabState }) {
+  const [tab, setTab] = useState<Tab>(state === 'empty-shared' || state === 'shared' || state === 'search-open' ? 'shared' : 'yours');
+  const [searchOpen, setSearchOpen] = useState(state === 'search-open');
+  const [query, setQuery] = useState(state === 'search-open' ? 'hike' : '');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [read, setRead] = useState<string[]>([]);
+  const isDesktop = useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP_QUERY).matches, () => false);
+
+  const yours = state === 'empty-yours' ? [] : YOURS;
+  const shared = state === 'empty-shared' ? [] : SHARED;
+  const q = query.trim().toLowerCase();
+  const base = q ? [...yours, ...shared] : tab === 'yours' ? yours : shared;
+  const items = (q ? base.filter(a => a.title.toLowerCase().includes(q) || (a.sharedBy ?? '').toLowerCase().includes(q)) : base).map(a => ({
+    ...a,
+    unread: a.unread && !read.includes(a.id),
+  }));
+  const unreadShared = shared.filter(a => a.unread && !read.includes(a.id)).length;
+  const selected = items.find(a => a.id === selectedId) ?? items[0] ?? null;
+
+  const select = (a: MockArtifact) => {
+    setSelectedId(a.id);
+    setSheetOpen(true);
+    if (a.unread) setRead(r => (r.includes(a.id) ? r : [...r, a.id]));
+  };
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <Shell active="Artifacts" fill>
+      <section className="flex min-w-0 flex-1 flex-col lg:w-[400px] lg:flex-none lg:border-r lg:border-border" aria-label="Artifact list">
+        <div className="px-4 pt-5 lg:pt-6">
+          <PageHeader
+            searchOpen={searchOpen}
+            query={query}
+            onOpenSearch={() => setSearchOpen(true)}
+            onQuery={setQuery}
+            onCloseSearch={closeSearch}
+            menuOpen={state === 'menu-open'}
+          />
+          {!q && (
+            <div className="mt-3">
+              <Tabs
+                tab={tab}
+                onTab={t => {
+                  setTab(t);
+                  setSelectedId(null);
+                }}
+                unread={unreadShared}
+              />
+            </div>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pb-28 lg:pb-0">
+          {items.length === 0 ? (
+            <div className="p-4">
+              <EmptyLine query={query.trim()} tab={tab} />
+            </div>
+          ) : (
+            <ul>
+              {items.map(a => (
+                <Row key={a.id} a={a} selected={isDesktop && selected?.id === a.id} onSelect={() => select(a)} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="hidden min-w-0 flex-1 overflow-y-auto lg:block" aria-label="Preview">
+        {selected && (
+          <div className="mx-auto max-w-xl p-8">
+            <Preview a={selected} />
+          </div>
+        )}
+      </section>
+
+      {!isDesktop && sheetOpen && selected && (
+        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label={selected.title}>
+          <button type="button" aria-label="Close" className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-sheet">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" />
+            <Preview a={selected} onClose={() => setSheetOpen(false)} />
+          </div>
+        </div>
+      )}
+    </Shell>
+  );
+}
+
+export function VariantC2({ state }: { state: LabState }) {
+  if (state === 'events-empty') return <EventsPage empty />;
+  if (state === 'events-some') return <EventsPage empty={false} />;
+  return <ArtifactsPage key={state} state={state} />;
+}
