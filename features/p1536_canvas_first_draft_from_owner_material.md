@@ -189,6 +189,7 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 
 ## Open Questions
 
+0. **Blocking before /dev (2026-10-22).** Start only after **P1535** (nine boxes, `feature/p1535-canvas-nine-boxes`) and **P1515** (sharing, `feature/p1515-artifact-sharing`) have shipped: this spec writes P1535's boxes into P1515's canvas record, and both are still moving on their branches. P1515 phase 5 (founder, 2026-10-22) makes a canvas **one canvas with many versions, sharing covers every version**. Step 4's "re-running replaces the unshared draft" must be re-read against that: a re-run probably creates a new version instead. Reconcile before building.
 1. Keep the extracted text (not the files) privately as the owner's source, so later updates (P1500)
    can reread it? Agent leans yes; founder call.
 2. Can an owner re-run after sharing, or do changes after sharing go only through the mirror?
