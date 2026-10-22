@@ -25,6 +25,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -153,9 +154,9 @@ test.describe('P1490: profiles.created_at is server-owned on client writes', () 
   test('control: the terms re-acceptance write (acceptTerms shape) saves', async () => {
     const c = await signedIn(member.email);
     await admin.from('profiles').update({ accepted_terms_version: 'v1.0' }).eq('id', member.user.id);
-    const { error } = await c.from('profiles').update({ accepted_terms_version: 'v1.4' }).eq('id', member.user.id);
+    const { error } = await c.from('profiles').update({ accepted_terms_version: SERVER_CURRENT_TERMS_VERSION }).eq('id', member.user.id);
     expect(error, `terms write regressed: ${error?.message}`).toBeNull();
-    expect((await storedRow(member.user.id))!.accepted_terms_version).toBe('v1.4');
+    expect((await storedRow(member.user.id))!.accepted_terms_version).toBe(SERVER_CURRENT_TERMS_VERSION);
   });
 
   test('control: sign-in via upsert_my_profile — new row gets server time, returning user keeps the date', async () => {
@@ -166,7 +167,7 @@ test.describe('P1490: profiles.created_at is server-owned on client writes', () 
       role: 'Test Engineer',
       avatar_color: '#4A90E2',
       pledge_version: 2,
-      accepted_terms_version: 'v1.4',
+      accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
       created_at: CLIENT_SUPPLIED, // ignored: the RPC never reads it
     };
     const first = await me.client.rpc('upsert_my_profile', { p_data: payload });
@@ -194,7 +195,7 @@ test.describe('P1490: profiles.created_at is server-owned on client writes', () 
     cleanup.push(legacyId);
     const legacySlug = `p1490-legacy-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
     const { error: legacyErr } = await admin.from('profiles').insert({
-      id: legacyId, email: address, name: 'P1490 Legacy', slug: legacySlug, accepted_terms_version: 'v1.4',
+      id: legacyId, email: address, name: 'P1490 Legacy', slug: legacySlug, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
       created_at: LEGACY_DATE,
     });
     expect(legacyErr, legacyErr?.message).toBeNull();
@@ -203,7 +204,7 @@ test.describe('P1490: profiles.created_at is server-owned on client writes', () 
     const me = await newcomer(address);
     const { data, error } = await me.client.rpc('migrate_live_profile', {
       // A date in p_data is never read: the carried value comes from the legacy row itself.
-      p_data: { name: 'P1490 Legacy', slug: legacySlug, pledge_version: 2, accepted_terms_version: 'v1.4', created_at: CLIENT_SUPPLIED },
+      p_data: { name: 'P1490 Legacy', slug: legacySlug, pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION, created_at: CLIENT_SUPPLIED },
     });
     expect(error, error?.message).toBeNull();
     expect(data).toEqual({ id: me.id, migrated: true });
@@ -216,7 +217,7 @@ test.describe('P1490: profiles.created_at is server-owned on client writes', () 
     const { data, error } = await me.client.rpc('migrate_live_profile', {
       p_data: {
         name: 'P1490 No Legacy', slug: `p1490-nolegacy-${Date.now()}-${Math.floor(Math.random() * 1e4)}`,
-        pledge_version: 2, accepted_terms_version: 'v1.4', created_at: CLIENT_SUPPLIED,
+        pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION, created_at: CLIENT_SUPPLIED,
       },
     });
     expect(error, error?.message).toBeNull();

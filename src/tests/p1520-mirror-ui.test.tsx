@@ -533,3 +533,49 @@ describe('P1520 MirrorProvider', () => {
     expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('P1544 terms refusal is recoverable from the UI', () => {
+  it('a reply refused for terms shows the alert and a Reload button of at least 40px that reloads the page', () => {
+    const reload = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, reload } });
+    try {
+      wrap(row(msg({ id: 'own-terms' })), chatValue(), mirrorValue({ statusFor: () => 'terms' }));
+      const alert = screen.getByTestId('mirror-terms');
+      expect(alert).toHaveAttribute('role', 'alert');
+      expect(alert).toHaveTextContent('Accept the updated terms to use your mirror agent.');
+      const button = within(alert).getByRole('button', { name: 'Reload' });
+      expect(button.className).toContain('min-h-10');
+      fireEvent.click(button);
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
+  });
+
+  it('CONTROL: a failed reply still shows Try again and no terms alert', () => {
+    wrap(row(msg({ id: 'own-failed' })), chatValue(), mirrorValue({ statusFor: () => 'failed' }));
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByTestId('mirror-terms')).not.toBeInTheDocument();
+  });
+
+  it('the mirror panel shows the terms alert and Reload when the portrait is refused for terms', () => {
+    const reload = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, reload } });
+    try {
+      wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />, chatValue(), mirrorValue({ portraitStatus: 'terms' }));
+      const alert = screen.getByTestId('mirror-terms');
+      expect(alert).toHaveTextContent('Accept the updated terms to use your mirror agent.');
+      fireEvent.click(within(alert).getByRole('button', { name: 'Reload' }));
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
+  });
+
+  it('CONTROL: the mirror panel shows no terms alert on an idle portrait', () => {
+    wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />, chatValue(), mirrorValue({ portraitStatus: 'idle' }));
+    expect(screen.queryByTestId('mirror-terms')).not.toBeInTheDocument();
+  });
+});

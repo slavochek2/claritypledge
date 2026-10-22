@@ -29,6 +29,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -90,7 +91,7 @@ async function legacyRow(address: string, flag: boolean) {
     is_test_account: flag,
     is_verified: false,
     has_pledged: false,
-    accepted_terms_version: 'v1.4',
+    accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
   });
   expect(error, error?.message).toBeNull();
   return { id, slug, name: 'P1137 Legacy Guest' };
@@ -122,7 +123,7 @@ function payload(name: string, slug: string, extra: Record<string, unknown> = {}
     role: 'Test Engineer',
     avatar_color: '#4A90E2',
     pledge_version: 2,
-    accepted_terms_version: 'v1.4',
+    accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
     ...extra,
   };
 }

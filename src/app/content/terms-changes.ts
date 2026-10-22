@@ -27,7 +27,7 @@ export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
     highlights: [
       'It reads recent messages from your chats, up to a limit, and only you see its answer.',
       "Other members' mirror agents may read what you post in a chat you share with them.",
-      'To object, delete your messages, leave the chat or delete your account, or email us.',
+      'To object, delete your messages or your account. Leaving a chat does not remove what you posted.',
     ],
   },
   'v1.4': {

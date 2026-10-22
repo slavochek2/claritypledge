@@ -12,6 +12,7 @@
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHandler, type SignInEmail } from './handler.ts';
+import { SERVER_CURRENT_TERMS_VERSION } from '../_shared/terms-version.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -42,7 +43,7 @@ async function makeUser(sb: SupabaseClient, email: string, opts: { confirmed: bo
   if (opts.profile) {
     const { error: pErr } = await sb.from('profiles').insert({
       id: data.user.id, email, name: opts.name ?? 'P1487 Fixture', slug: `p1487-${uniq()}`, avatar_color: '#0044CC',
-      is_verified: opts.confirmed, has_pledged: false, pledge_version: 2, accepted_terms_version: 'v1.4',
+      is_verified: opts.confirmed, has_pledged: false, pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
     });
     if (pErr) throw new Error(`profile insert: ${pErr.message}`);
   }
@@ -98,7 +99,7 @@ function openLetter(handler: (r: Request) => Promise<Response>, token: string, i
   return handler(new Request('http://x/create-and-open-letter', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'user-agent': 'p1487-test', 'x-forwarded-for': ip },
-    body: JSON.stringify({ token, termsAccepted: true, termsVersion: 'v1.4' }),
+    body: JSON.stringify({ token, termsAccepted: true, termsVersion: SERVER_CURRENT_TERMS_VERSION }),
   }));
 }
 
@@ -180,7 +181,7 @@ Deno.test({
       assertFalse(raw.includes(tokenHash), 'the response never carries the emailed link');
       assertEquals(link.searchParams.get('redirect'), `/letter/${d.id}?token=${d.token}`, 'lands on the letter it was opened from');
       const pending = (await f.sb.auth.admin.getUserById(user.id)).data.user?.app_metadata?.pending_terms as { version?: string; nonce?: string } | undefined;
-      assertEquals(pending?.version, 'v1.4', 'the accepted terms version is kept server-side, not in the link');
+      assertEquals(pending?.version, SERVER_CURRENT_TERMS_VERSION, 'the accepted terms version is kept server-side, not in the link');
       assertEquals(link.searchParams.get('terms_nonce'), pending?.nonce, 'only its nonce travels, and only in the emailed link');
 
       // Control: token-only reading still works after the click.
@@ -197,14 +198,14 @@ Deno.test({
 
       // /auth/callback writes the profile (upsert_my_profile), then the letter page claims the delivery.
       const { error: upErr } = await client.rpc('upsert_my_profile', {
-        p_data: { name: 'Pat Recipient', slug: `p1487-pat-${uniq()}`, avatar_color: '#0044CC', accepted_terms_version: 'v1.4' },
+        p_data: { name: 'Pat Recipient', slug: `p1487-pat-${uniq()}`, avatar_color: '#0044CC', accepted_terms_version: SERVER_CURRENT_TERMS_VERSION },
       });
       assertEquals(upErr, null, `profile write: ${upErr?.message}`);
       // /auth/callback then records the terms the reader accepted, once.
       const { data: recorded } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: link.searchParams.get('terms_nonce') });
-      assertEquals(recorded, 'v1.4');
+      assertEquals(recorded, SERVER_CURRENT_TERMS_VERSION);
       const { data: auditRows } = await f.sb.from('terms_acceptances').select('terms_version, acceptance_mode').eq('user_id', user.id);
-      assertEquals(auditRows, [{ terms_version: 'v1.4', acceptance_mode: 'explicit' }]);
+      assertEquals(auditRows, [{ terms_version: SERVER_CURRENT_TERMS_VERSION, acceptance_mode: 'explicit' }]);
       const { data: claim, error: cErr } = await client.rpc('claim_letter_delivery', { p_token: d.token });
       assertEquals(cErr, null, `claim: ${cErr?.message}`);
       assertEquals((claim as { claimed?: boolean })?.claimed, true);

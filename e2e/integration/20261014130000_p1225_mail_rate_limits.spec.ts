@@ -29,6 +29,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 import { createTestLetter, sealTestLetter, deleteTestLetter } from '../helpers/test-letter';
 import {
   SIGNIN_MAIL_LIMITS,
@@ -245,7 +246,7 @@ test.describe('P1225: deployed request-letter-response-signin', () => {
       method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        letterId: letter, name: 'P1225 Canary', email, termsAccepted: true, termsVersion: 'v1.4', ratings: [], positions: [],
+        letterId: letter, name: 'P1225 Canary', email, termsAccepted: true, termsVersion: SERVER_CURRENT_TERMS_VERSION, ratings: [], positions: [],
       }),
     });
 
@@ -267,7 +268,7 @@ test.describe('P1225: deployed request-letter-response-signin', () => {
     deriver = await createTestUser({ name: 'P1225 Key Deriver' });
     const { error: pErr } = await supabaseAdmin.from('letter_response_pending').insert({
       user_id: deriver.user.id, letter_id: letterId, name: 'P1225 Key Deriver',
-      ratings_json: [], positions_json: [], terms_version: 'v1.4',
+      ratings_json: [], positions_json: [], terms_version: SERVER_CURRENT_TERMS_VERSION,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     });
     if (pErr) throw new Error(`pending insert failed: ${pErr.message}`);

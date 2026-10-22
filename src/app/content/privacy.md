@@ -280,10 +280,13 @@ identifier.
 
 - **Your mirror agent.** Your mirror agent is an AI that answers only you. It uses the Gemini API
   (see [Google's Gemini API terms](https://ai.google.dev/gemini-api/terms)).
-  - **When it is used.** Every message you write in your mirror agent chat is sent to it, a note
-    or a Clarify. So is a question you ask it about a group or event chat from that chat.
+  - **When it is used.** Every message or Clarify you write in your mirror agent chat is sent to
+    it and answered. A message forwarded into that chat is not answered, but it is sent along
+    with your later messages. So is a question you ask it about a group or event chat from that
+    chat.
   - **What is sent.** Your message, and recent messages, up to a limit, with the names of their
-    authors, your first name, the name you gave your mirror agent and, for a question about a
+    authors, whether a message has a point or a story attached (its kind only, not its
+    content), your first name, the name you gave your mirror agent and, for a question about a
     group or event chat, the chat's title. For a question about a group or event chat, these
     are the recent messages of that chat that you can read. For a message in your mirror agent
     chat, they are the recent messages of that chat, including the copies you made with Clarify
@@ -291,16 +294,17 @@ identifier.
     from and part of its thread. It can come from a direct message. A copy made before its
     original was deleted is still sent.
   - **Who sees the answer.** Only you. Nothing is posted in the original chat, and an answer
-    cannot be forwarded or copied.
+    cannot be forwarded or Clarified in the app.
   - **Portrait.** Your mirror agent gets a painted portrait the first time you open it, and a
     new one when you press New face. What is sent to make it describes an invented person in the
     style of an artist; nothing about you is in it. The image is stored at a public link.
   - **If you object.** If you do not want your words read by other members' mirror agents, you
     can delete your messages (a deleted message is not sent for later questions, but a copy
-    made before you deleted it keeps its text and is still sent), leave the chat, or delete your
-    account, which removes your words everywhere, including Clarify and forwarded copies and the
-    answers built on them. Email privacy AT claritypledge DOT com and you will get the same
-    answer.
+    made before you deleted it keeps its text and is still sent), or delete your account, which
+    removes your words everywhere, including Clarify and forwarded copies and the answers built
+    on them. Leaving a chat only stops you posting there from then on; it does not remove what
+    you already posted, which other members' mirror agents can still read. Email privacy AT
+    claritypledge DOT com and you will get the same answer.
 
 Google processes this content under its own terms. Do not enter health, religious or other
 special-category information into these features or into chats, and avoid putting people's names in
@@ -502,8 +506,8 @@ Under the GDPR you can:
   (JSON). There is no self-serve export yet; email us.
 - **Objection** (Art. 21) — object to analytics, session recording, error tracking or the
   newsletter without deleting your account. To object to your words being read by other
-  members' mirror agents, delete your messages, leave the chat or delete your account (see
-  Your mirror agent under AI features); we cannot remove only part of your data.
+  members' mirror agents, delete your messages or delete your account (see Your mirror
+  agent under AI features; leaving a chat does not remove what you already posted); we cannot remove only part of your data.
 - **Restriction** (Art. 18) — ask us to pause processing while a dispute is resolved.
 - **Withdraw consent** (Art. 7(3)) — for recordings, voice profiles, AI/ML use and quotes you
   allowed us to publish, at any time. When you withdraw, we delete the recordings, transcripts

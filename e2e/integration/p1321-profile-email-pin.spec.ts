@@ -25,6 +25,7 @@ import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -62,7 +63,7 @@ function upsertPayload(email: string, name: string) {
     role: 'Test Engineer',
     avatar_color: '#4A90E2',
     pledge_version: 2,
-    accepted_terms_version: 'v1.4',
+    accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
   };
 }
 

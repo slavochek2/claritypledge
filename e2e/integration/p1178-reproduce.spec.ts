@@ -31,6 +31,7 @@ import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 import { createTestAgreement, deleteTestAgreement } from '../helpers/test-agreement';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
@@ -43,7 +44,7 @@ const MAILGUN_REGION = process.env.MAILGUN_REGION ?? 'eu';
 const ACCEPTED_SUBJECT_SUFFIX = 'co-signed your Clarity Partner Agreement';
 
 /** Terms version create-and-sign accepts (index.ts ACCEPTED_TERMS_VERSIONS). */
-const TERMS_VERSION = 'v1.4';
+const TERMS_VERSION = SERVER_CURRENT_TERMS_VERSION;
 
 function fnUrl(name: string): string {
   return `${SUPABASE_URL}/functions/v1/${name}`;

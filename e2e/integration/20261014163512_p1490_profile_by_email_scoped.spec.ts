@@ -19,6 +19,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD } from '../helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -74,7 +75,7 @@ async function legacyRow(address: string) {
     name: 'P1490 Legacy Guest',
     slug,
     reason: 'P1490 legacy reason',
-    accepted_terms_version: 'v1.4',
+    accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
   });
   if (insErr) throw new Error(`legacy insert failed: ${insErr.message}`);
   return { id: data.user.id, slug, name: 'P1490 Legacy Guest' };
@@ -116,7 +117,7 @@ test.describe('P1490: get_my_profile_by_email never returns another regular acco
     const address = generateTestEmail();
     const me = await newcomer(address);
     const own = await me.client.rpc('upsert_my_profile', {
-      p_data: { name: 'P1490 Own', slug: `p1490-own-${Date.now()}`, pledge_version: 2, accepted_terms_version: 'v1.4' },
+      p_data: { name: 'P1490 Own', slug: `p1490-own-${Date.now()}`, pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION },
     });
     expect(own.error, own.error?.message).toBeNull();
     const holder = await regularAccountHolding(address.toUpperCase());
@@ -145,7 +146,7 @@ test.describe('P1490: get_my_profile_by_email never returns another regular acco
     expect(found?.reason).toBe('P1490 legacy reason');
 
     const { data: migrated, error: migErr } = await me.client.rpc('migrate_live_profile', {
-      p_data: { name: found.name, slug: found.slug, pledge_version: 2, accepted_terms_version: 'v1.4' },
+      p_data: { name: found.name, slug: found.slug, pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION },
     });
     expect(migErr, migErr?.message).toBeNull();
     expect(migrated).toEqual({ id: me.id, migrated: true });

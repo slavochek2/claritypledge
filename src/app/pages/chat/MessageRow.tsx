@@ -279,9 +279,12 @@ function MirrorReplyState({ messageId, name }: { messageId: string; name: string
   }
   if (status === 'terms') {
     return (
-      <p role="alert" data-testid="mirror-terms" className="mt-1 text-sm text-muted-foreground">
-        Accept the updated terms to use your mirror agent.
-      </p>
+      <div role="alert" data-testid="mirror-terms" className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+        <span>Accept the updated terms to use your mirror agent.</span>
+        <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => window.location.reload()}>
+          Reload
+        </Button>
+      </div>
     );
   }
   return (

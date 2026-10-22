@@ -9,6 +9,7 @@
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHandler, type AgreementSignInEmail } from './handler.ts';
+import { SERVER_CURRENT_TERMS_VERSION } from '../_shared/terms-version.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -32,7 +33,7 @@ async function setup(): Promise<Fixture> {
   const creatorId = data.user!.id;
   const { error } = await sb.from('profiles').insert({
     id: creatorId, email, name: 'Casey Creator', slug: `p1487-ag-${uniq()}`, avatar_color: '#0044CC',
-    is_verified: true, has_pledged: false, pledge_version: 2, accepted_terms_version: 'v1.4',
+    is_verified: true, has_pledged: false, pledge_version: 2, accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
   });
   if (error) throw new Error(error.message);
   return { sb, creatorId, users: [creatorId], agreements: [] };
@@ -77,7 +78,7 @@ function sign(handler: (r: Request) => Promise<Response>, body: Record<string, u
   return handler(new Request('http://x/create-and-sign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip },
-    body: JSON.stringify({ partnerName: 'Pat Partner', termsVersion: 'v1.4', ...body }),
+    body: JSON.stringify({ partnerName: 'Pat Partner', termsVersion: SERVER_CURRENT_TERMS_VERSION, ...body }),
   }));
 }
 
@@ -124,7 +125,7 @@ Deno.test({
       const nonce = link.searchParams.get('terms_nonce');
       assert(nonce, 'the link carries the terms nonce');
       const { data: recorded } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: nonce });
-      assertEquals(recorded, 'v1.4');
+      assertEquals(recorded, SERVER_CURRENT_TERMS_VERSION);
       const { data: again } = await client.rpc('consume_pending_terms_acceptance', { p_nonce: nonce });
       assertEquals(again, null);
     } finally {
@@ -153,7 +154,7 @@ Deno.test({
       assert(user, 'an account exists for the invited address');
       assertEquals(user.email_confirmed_at ?? null, null, 'unconfirmed until the mailbox link is opened');
       const pending = user.app_metadata?.pending_terms as { version?: string; nonce?: string; issued_at?: string } | undefined;
-      assertEquals(pending?.version, 'v1.4', 'the HANDLER kept the submitted (current) version');
+      assertEquals(pending?.version, SERVER_CURRENT_TERMS_VERSION, 'the HANDLER kept the submitted (current) version');
       assert(pending?.nonce && pending.nonce.length >= 32, 'with a nonce');
       assertEquals(new URL(sent[0].link).searchParams.get('terms_nonce'), pending.nonce, 'the same nonce travels only in the emailed link');
       assertFalse(raw.includes(pending.nonce), 'never in the response');

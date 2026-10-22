@@ -55,6 +55,7 @@ import {
   deleteTestLetter,
 } from '../helpers/test-letter';
 import { createTestEvent, deleteTestEvent } from '../helpers/test-event';
+import { SERVER_CURRENT_TERMS_VERSION } from '../../supabase/functions/_shared/terms-version.ts';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -481,7 +482,7 @@ test.describe('Edge-fn authz regression — create-and-sign already-processed gu
       agreementId,
       token: invitationToken,
       partnerName: 'AuthzReg Partner',
-      termsVersion: 'v1.3', // deliberately the PREVIOUS version: exercises rollout compatibility — server allowlists keep v1.3 alongside CURRENT v1.4 (P1219)
+      termsVersion: SERVER_CURRENT_TERMS_VERSION, // the server accepts only the current version (P1487); an old one is a 400 before the status guard under test
     });
 
     // Guard: agreement.status !== 'pending' → 409 ALREADY_PROCESSED. This is the

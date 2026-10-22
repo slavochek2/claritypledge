@@ -74,7 +74,7 @@ Blast radius: high. Every user gets a blocking popup, and chat text starts going
      - *Contract (Art. 6(1)(b))* for what the asker sends.
      - *Legitimate interest (Art. 6(1)(f))* for other members' messages. The interest is understanding a conversation the asker is part of. It is limited to what the asker can already read, other members are told at the hard bump, and they can object.
      - The existing instruction not to post special-category information is extended to chats.
-   - **Objecting:** say plainly that a member who does not want their words read by other members' mirror agents can delete their messages, leave the chat, or delete their account, which removes their words everywhere, Clarify and forwarded copies included (P1520 erasure). Objections by email get that same answer (Solution 4).
+   - **Objecting:** say plainly that a member who does not want their words read by other members' mirror agents can delete their messages or delete their account, which removes their words everywhere, Clarify and forwarded copies included (P1520 erasure). Objections by email get that same answer (Solution 4). **Build correction (2026-10-22, Gemini + Codex review, confirmed in code):** leaving a chat does NOT remove earlier messages from other members' mirror agent context (the context reads by the asker's access, not author membership), so the policy says leaving only stops future posts.
 2. **Terms.** One sentence in the terms of service, with a `CURRENT_TERMS_VERSION` bump and a `TERMS_CHANGES` entry with `requiresConsent: true`. Draft wording:
    - Terms: *"Messages you post in a group, event or direct chat can be read by the mirror agent of another person in that chat, when they ask it about the chat or copy your message into it."*
    - Popup headline: *"Your mirror agent can now answer you, using Google's Gemini."*
@@ -110,9 +110,10 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Reply calls | ≤10,000 in × $0.75/1M + ≤1,200 out × $3.75/1M = $0.0075 + $0.0045 = **≤$0.012** per reply; reservation $0.03 (`_mirror_limits`) | bounded by the private global daily cap | red-team suite: 7 tests (`e2e/integration/p1520-mirror-redteam.spec.ts`), ≤3 replies each = ≤21 × $0.012 = **≤$0.25** |
-| Portrait runs | P1534's reservation per run (2 generations + 2 vision checks at list price); first open + New face | bounded by the private portrait cap | 1 run on prod verification |
-| Supabase requests | 1 edge call + 1 job RPC + 1 settle per reply = 3 | 3 × replies | ≤63 for the suite |
-| Log lines | ≤2 per reply (P1453 rule: codes only, never content) | 2 × replies | ≤42 |
+| Portrait runs | reservation `portrait_max_usd` **$0.70** per run (2 generations × primary+fallback + 2 vision checks, × 1.25; `20261020213000_p1520_mirror_v2.sql:156`); first open + New face | bounded by the private portrait cap | 1 run on prod verification = **≤$0.70** |
+| Supabase requests | 1 edge invocation + 1 auth lookup + 1 terms-gate profile read (new, P1544) + 1 `mirror_request_reply` + 1 `_mirror_begin_job` + 1 `_mirror_complete_job` = **6** per reply; portrait: invocation + auth + terms read + begin + upload + settle = 6 | 6 × replies | 21 replies × 6 = **≤126** for the suite, + 6 for one portrait |
+| Egress | one reply row ≤1,200 out tokens ≈ ≤6 KB via Realtime + response ≈ **≤12 KB** per reply; one portrait image ≈ ≤1 MB on first view | 12 KB × replies | 21 × 12 KB ≈ **≤0.25 MB** + ≤1 MB portrait, against 5 GB/month free |
+| Log lines | ≤2 per reply (P1453 rule: codes only, never content) | 2 × replies | 21 × 2 = **≤42** |
 
 **Fits today:** yes. Spend is bounded by the existing private daily caps; monthly ≤ 30 × the global daily cap. **At 10×:** the caps refuse further replies rather than spend more. Raising them is a founder call with the figures in `.private/`.
 

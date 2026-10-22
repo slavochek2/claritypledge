@@ -197,7 +197,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     summary.kind === 'dm'
       ? `No messages yet. Say hello${first ? ` to ${first}` : ''}.`
       : summary.kind === 'mirror'
-        ? 'Use Clarify on any message to send it here, or write a note to yourself.'
+        ? 'Use Clarify on any message to send it here, or write to your mirror agent.'
         : 'No messages yet.';
 
   const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';

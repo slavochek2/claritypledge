@@ -37,6 +37,7 @@ import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from './helpers/test-user';
+import { SERVER_CURRENT_TERMS_VERSION } from '../supabase/functions/_shared/terms-version.ts';
 
 test.describe('Canary P880: authenticated user cannot self-promote is_verified / has_pledged', () => {
   test.describe.configure({ timeout: 60_000 });
@@ -153,7 +154,7 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
       name: victim.name,
       slug: victim.slug,
       avatar_color: '#4A90E2',
-      accepted_terms_version: 'v1.4',
+      accepted_terms_version: SERVER_CURRENT_TERMS_VERSION,
       is_verified: true,
       has_pledged: true,
     });
