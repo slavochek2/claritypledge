@@ -362,15 +362,20 @@ def unreviewed_edits(transcript_path, entries, turn_text):
 # git commit inside the slot. Never the lock's SESSION_ID (an agent claim stores a
 # PID fallback), never cwd alone, never reads. Other sessions' slots are never touched.
 SLOT_PATH_RE = re.compile(r"(/[^\s\"'`;|&<>()]*?)/\.claude/worktrees/(w\d+)(?![\w.-])")
+# A claim INVOCATION — at the start of a command, after && ; || or inside $( (the eval form).
+# A grep, echo or doc line that merely contains the words is not a claim (P1519 review).
+CLAIM_CMD_RE = re.compile(r"(?:^|&&|;|\|\||\n|\$\()\s*(?:bash\s+)?(?:\S*/)?git-ops\.sh\s+claim\s+(p\d+)\b")
 CLAIM_RESULT_RE = re.compile(r"git-ops: claimed (w\d+) for \S+\s+path\s*:\s*(\S+)")
-CLAIM_CMD_RE = re.compile(r"git-ops\.sh\s+claim\s+(p\d+)\b")
 GIT_WRITE_RE = re.compile(r"\bgit\b(?:\s+-C\s+\S+|\s+-c\s+\S+)*\s+(?:add|commit|mv|rm)\b|git-ops\.sh\s+commit-to-main\b")
 GIT_WHERE_RE = re.compile(r"(?:\bcd\s+|\s-C\s+)[\"']?([^\s\"';&|]+)")
+# Closing words only, read from the END of the turn (its last 240 characters), so "nothing
+# else changed in the schema" mid-turn does not spend the one block early (P1519 review).
 NOTHING_ELSE_RE = re.compile(
-    r"\b(nothing (else|more|left)|that'?s (all|everything)|all (done|set)|we'?re done|"
-    r"no(thing)? further)\b", re.IGNORECASE)
+    r"\b(nothing else|nothing more( to do)?|that'?s (all|everything)|we'?re done)\b[^.!?\n]{0,40}[.!]?\s*$",
+    re.IGNORECASE)
 SLOT_TIME_BUDGET_S = 5.0
 SLOT_BLOCK_LIMIT = 1   # founder decision 2026-10-20: block once per slot state
+CLAIM_WINDOW_S = 900   # a lock claimed this long after our claim command is not ours
 FINISHED_STATES = ("SHIPPED_UNCLOSED", "CLOSED_CHECKED_OUT")
 
 
@@ -387,18 +392,44 @@ def _slot_of(text):
     return (m.group(1), m.group(2)) if m else None
 
 
+def _git_write_slot(cmd, cwd, gw):
+    """The slot a git write RAN in: follow every `cd`/`-C` before it from cwd, resolving
+    relative paths, so `cd src && git add` inside a slot and `cd .claude/worktrees/w1 &&
+    git commit` from the main checkout both count. A path merely mentioned is a read."""
+    where = cwd or ""
+    for p in GIT_WHERE_RE.findall(cmd[:gw.end()]):
+        p = os.path.expanduser(p)
+        where = os.path.normpath(p if os.path.isabs(p) or not where else os.path.join(where, p))
+    return _slot_of(where + "/")
+
+
+def _lock(root, slot):
+    try:
+        with open(os.path.join(root, ".claude", "worktrees", slot, ".lock")) as f:
+            return dict(l.split("=", 1) for l in f.read().splitlines() if "=" in l)
+    except Exception:
+        return None
+
+
 def owned_slots(transcript_path):
-    """{(repo_root, slot): epoch of this session's last write to it}. Whole transcript."""
-    owned, claims = {}, []
+    """{(repo_root, slot): epoch of this session's last write to it}. Whole transcript.
+    A slot is this session's only while its CURRENT claim predates our last write to it: a
+    slot released and re-claimed by another session after we touched it is theirs."""
+    writes, claim_uses, claims = {}, {}, []
 
     def mark(key, ts):
         if key:
-            owned[key] = max(owned.get(key, 0), ts)
+            writes[key] = max(writes.get(key, 0), ts)
 
     try:
         with open(transcript_path, errors="replace") as f:
             for line in f:
-                if "worktrees/w" not in line and "git-ops.sh claim" not in line:
+                if '"tool_use"' not in line and '"tool_result"' not in line:
+                    continue
+                # A claim's result may say only "ok" (banner sent to a log), so results pass
+                # while a claim invocation is waiting for one.
+                if "worktrees/w" not in line and "git-ops" not in line and not (
+                        claim_uses and '"tool_result"' in line):
                     continue
                 try:
                     entry = json.loads(line)
@@ -420,33 +451,50 @@ def owned_slots(transcript_path):
                             cmd = inp.get("command") or ""
                             m = CLAIM_CMD_RE.search(cmd)
                             if m:
-                                claims.append((m.group(1), cwd, ts))
+                                claim_uses[b.get("id")] = (m.group(1), cwd, ts)
                             gw = GIT_WRITE_RE.search(cmd)
                             if gw:
-                                # Where the git write RAN: an explicit `cd`/`-C` target, else
-                                # cwd. A slot path merely mentioned in the command is a read.
-                                where = GIT_WHERE_RE.findall(cmd[:gw.end()])
-                                mark(_slot_of(where[-1] + "/") if where else _slot_of(cwd + "/"), ts)
-                    elif b.get("type") == "tool_result":
-                        for m in CLAIM_RESULT_RE.finditer(extract_text(b.get("content"))):
-                            mark(_slot_of(m.group(2)), ts)
+                                mark(_git_write_slot(cmd, cwd, gw), ts)
+                    elif b.get("type") == "tool_result" and b.get("tool_use_id") in claim_uses:
+                        # Only the result of OUR claim invocation, and only if it succeeded.
+                        pn, cwd0, ts0 = claim_uses.pop(b.get("tool_use_id"))
+                        if b.get("is_error"):
+                            continue
+                        # Marked at the RESULT's time: the lock's CLAIMED_AT falls between the
+                        # command and its result (worktree setup can take tens of seconds).
+                        hit = CLAIM_RESULT_RE.search(extract_text(b.get("content")))
+                        if hit:
+                            mark(_slot_of(hit.group(2)), ts or ts0)
+                        else:
+                            claims.append((pn, cwd0, ts0, ts or ts0))
     except Exception:
         return {}
-    # A claim whose result went to a log file: resolve its P-number to the slot now on it.
-    for pn, cwd, ts in claims:
+    # A claim whose banner went to a log file: the slot whose lock carries that P-number AND
+    # was claimed within CLAIM_WINDOW_S after our command — never an older lock of the same
+    # P-number held by another session.
+    for pn, cwd, ts, ts_result in claims:
         root = (_slot_of(cwd + "/") or (None,))[0] or _git_root(cwd)
         if not root:
             continue
-        wdir = os.path.join(root, ".claude", "worktrees")
         try:
-            for slot in os.listdir(wdir):
-                if not re.fullmatch(r"w\d+", slot):
-                    continue
-                with open(os.path.join(wdir, slot, ".lock")) as lf:
-                    if re.search(rf"^P_NUMBER={pn}$", lf.read(), re.M):
-                        mark((root, slot), ts)
+            slots = os.listdir(os.path.join(root, ".claude", "worktrees"))
         except Exception:
             continue
+        for slot in slots:
+            if not re.fullmatch(r"w\d+", slot):
+                continue
+            lk = _lock(root, slot)   # per directory: one slot without a lock skips only itself
+            if lk and lk.get("P_NUMBER") == pn and ts - 5 <= _epoch(lk.get("CLAIMED_AT")) <= ts + CLAIM_WINDOW_S:
+                mark((root, slot), ts_result)
+    owned = {}
+    for (root, slot), ts in writes.items():
+        lk = _lock(root, slot)
+        if lk is None:
+            continue   # released or removed: nothing of ours is left open there
+        claimed_at = _epoch(lk.get("CLAIMED_AT"))
+        if claimed_at and ts and claimed_at > ts + 5:
+            continue   # re-claimed after our last write: another session's slot now
+        owned[(root, slot)] = ts
     return owned
 
 
@@ -503,8 +551,10 @@ def slot_brief(s):
     order (/slava:build:simplify), each option a command, never free text."""
     slot, pn, st, why = s["slot"], s["pn"], s["state"], s["detail"]
     ship = f"./scripts/git-ops.sh ship {pn}"
-    park = f"./scripts/git-ops.sh park {slot}"
-    hold = f'./scripts/git-ops.sh hold {slot} --reason "<why it stays open>" --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>'
+    nonce = f'--nonce "$(sed -n \'s/^NONCE=//p\' .claude/worktrees/{slot}/.lock)"'
+    park = f"./scripts/git-ops.sh park {slot} {nonce}"
+    hold = (f'./scripts/git-ops.sh hold {slot} {nonce} --reason "<why it stays open>" '
+            f"--owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>")
     stale = (" A hold exists but you changed the slot after writing it, so it no longer explains the slot."
              if s["hold"] == "stale" else
              " The hold on it has expired." if s["hold"] == "expired" else "")
@@ -562,7 +612,7 @@ def open_slot_briefs(transcript_path, turn_text, session_id):
         text = turn_text or ""
         m = LAST_SENTENCE_QUESTION_RE.search(text)
         stripped = text[:m.start()] if (m and INTERROGATIVE_RE.match(m.group(0))) else TRAILING_QUESTION_RE.sub("", text)
-        if not (announces_completion(text) or NOTHING_ELSE_RE.search(stripped)):
+        if not (announces_completion(text) or NOTHING_ELSE_RE.search(stripped.rstrip()[-240:])):
             return []
         owned = owned_slots(transcript_path)
         if not owned:

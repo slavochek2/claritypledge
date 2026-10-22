@@ -5353,12 +5353,12 @@ SUBCOMMANDS (T02 scope)
                                the stored NONCE, OR current PID must match the stored PID.
                                Does NOT delete the worktree or branch.
 
-  hold <slot> --reason <text> --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>
+  hold <slot> --nonce <v> --reason <text> --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>
                                (P1519) Record why a slot you own stays open; the Stop hook
                                accepts it instead of closing. Refused for finished work.
                                --clear removes it.
 
-  park <slot> [--nonce <v>]    (P1519) Commit the branch's spec to main (commit-to-main),
+  park <slot> --nonce <v>      (P1519) Commit the branch's spec to main (commit-to-main),
                                remove the worktree, keep the branch (shown as PARKED).
 
   heartbeat <slot>             Refresh ONLY that slot's HEARTBEAT, in place. Silent no-op
@@ -6536,17 +6536,20 @@ p1519_slot_state() {
   printf '%s' "$line" | awk -F'\t' '{ print $3 }'
 }
 
-# hold <slot> --reason "<why it stays open>" --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>
+# hold <slot> --nonce <v> --reason "<why it stays open>" --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>
 #   Writes <slot>/.hold. The owner is a closed set so the reason names who un-blocks it:
 #   the founder, a time (the hold expires then), or another spec it waits on. Free-text
 #   owners ('me', 'wip', 'later') are refused: they are how "nothing else" got said over
 #   open slots on 2026-10-20. Finished work (code already on main, spec already closed)
 #   cannot be held — it can only be closed or parked.
-#   hold <slot> --clear   removes the hold.
+#   An owner pNNNN expires when that spec closes; a time expires then; founder does not.
+#   hold <slot> --nonce <v> --clear   removes the hold.
 cmd_hold() {
-  local slot="" reason="" owner="" clear=0
+  local slot="" reason="" owner="" clear=0 nonce_arg=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --nonce) [[ $# -ge 2 ]] || { echo "--nonce requires a value" >&2; exit 2; }; nonce_arg="$2"; shift 2 ;;
+      --nonce=*) nonce_arg="${1#--nonce=}"; shift ;;
       --reason) [[ $# -ge 2 ]] || { echo "--reason requires a value" >&2; exit 2; }; reason="$2"; shift 2 ;;
       --reason=*) reason="${1#--reason=}"; shift ;;
       --owner) [[ $# -ge 2 ]] || { echo "--owner requires a value" >&2; exit 2; }; owner="$2"; shift 2 ;;
@@ -6559,13 +6562,17 @@ cmd_hold() {
   [[ "$slot" =~ ^w[0-9]+$ ]] || { echo "usage: git-ops hold <slot> --reason <text> --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>" >&2; exit 2; }
   local dir="$WORKTREES_DIR/$slot"
   [[ -d "$dir" && -f "$dir/.lock" ]] || die "hold: $slot is not a claimed slot (no $dir/.lock)"
+  load_lockfile "$dir/.lock" || die "hold: cannot read $dir/.lock"
+  # Same proof of ownership as release: a hold silences the owner's Stop-hook check, so
+  # another session must not be able to write or clear one.
+  [[ -n "$nonce_arg" && "$nonce_arg" == "${LOCK_NONCE:-}" ]] || \
+    die "hold: ownership check failed for $slot — pass --nonce <value> (the NONCE= line of $slot/.lock, which only its owner should be reading)"
   if (( clear == 1 )); then
     rm -f "$dir/.hold"; echo "git-ops: hold on $slot cleared" >&2; return 0
   fi
   reason="$(printf '%s' "$reason" | tr '\n\t' '  ' | sed 's/^ *//; s/ *$//')"
   (( ${#reason} >= 12 )) || die "hold: --reason must say why the slot stays open, in a sentence (got '${reason}')"
-  local own_pn=""
-  load_lockfile "$dir/.lock" && own_pn="${LOCK_P_NUMBER:-}"
+  local own_pn="${LOCK_P_NUMBER:-}"
   case "$owner" in
     founder) ;;
     p[0-9][0-9][0-9]|p[0-9][0-9][0-9][0-9]|p[0-9][0-9][0-9][0-9][0-9])
@@ -6573,7 +6580,7 @@ cmd_hold() {
     *)
       if [[ "$owner" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}Z$ ]]; then
         local exp
-        exp="$(date -j -u -f '%Y-%m-%dT%H:%MZ' "$owner" +%s 2>/dev/null || date -u -d "${owner%Z}" +%s 2>/dev/null || echo 0)"
+        exp="$(date -j -u -f '%Y-%m-%dT%H:%MZ' "$owner" +%s 2>/dev/null || date -u -d "${owner%Z}" +%s 2>/dev/null || date -u -d "$(printf '%s' "${owner%Z}" | tr T ' ')" +%s 2>/dev/null || echo 0)"
         (( exp > $(date +%s) )) || die "hold: owner time $owner is not in the future"
       else
         die "hold: --owner must be founder, a UTC time YYYY-MM-DDTHH:MMZ, or a spec pNNNN (got '${owner}'; me/wip/later name nobody)"
@@ -6584,6 +6591,8 @@ cmd_hold() {
   case "$state" in
     SHIPPED_UNCLOSED|CLOSED_CHECKED_OUT)
       die "hold: $slot is finished work ($state) — there is no reason to keep it open. Close it (git-ops.sh ship ${own_pn:-pN}) or park it (git-ops.sh park $slot)." ;;
+    DIRTY|EMPTY|SPEC_ONLY|READY_TO_SHIP|IN_PROGRESS) ;;
+    *) die "hold: could not classify $slot (got '${state}') — refusing rather than holding what may be finished work" ;;
   esac
   local tmp
   tmp="$(mktemp "$dir/.hold.XXXXXX")" || die "hold: cannot write in $dir"
@@ -6598,12 +6607,18 @@ cmd_hold() {
   echo "git-ops: $slot held (owner: $owner): $reason" >&2
 }
 
-# park <slot> [--nonce <v>]
+# park <slot> --nonce <v>
 #   Set a slot aside without losing anything: the branch's copy of the spec is committed
 #   to main through commit-to-main (so the open spec is visible on the board), the
 #   worktree is removed, and the branch is KEPT, with a marker so the startup report shows
-#   it as PARKED rather than lost. Refuses on uncommitted changes. Ownership: --nonce, or
-#   run from inside the slot (where `status` already shows the nonce).
+#   it as PARKED rather than lost. Refuses on uncommitted changes. Ownership: --nonce only
+#   (teardown reaps processes running in the slot, so standing in it is not enough).
+#   The spec is copied to main only when main still holds the version the branch started
+#   from: a newer committed edit on main (a founder decision) is never reverted, an
+#   untracked or edited file at that path is never overwritten, and a closed spec is not
+#   re-created. Known limit: the copy happens just before commit-to-main takes main.lock,
+#   so a co-tenant writing that exact path in between is caught only by the post-commit
+#   blob check, not prevented.
 cmd_park() {
   local slot="" nonce_arg=""
   while [[ $# -gt 0 ]]; do
@@ -6611,54 +6626,66 @@ cmd_park() {
       --nonce) [[ $# -ge 2 ]] || { echo "--nonce requires a value" >&2; exit 2; }; nonce_arg="$2"; shift 2 ;;
       --nonce=*) nonce_arg="${1#--nonce=}"; shift ;;
       -*) echo "unknown flag: $1" >&2; exit 2 ;;
-      *) [[ -z "$slot" ]] || { echo "usage: git-ops park <slot> [--nonce <v>]" >&2; exit 2; }; slot="$1"; shift ;;
+      *) [[ -z "$slot" ]] || { echo "usage: git-ops park <slot> --nonce <v>" >&2; exit 2; }; slot="$1"; shift ;;
     esac
   done
-  [[ "$slot" =~ ^w[0-9]+$ ]] || { echo "usage: git-ops park <slot> [--nonce <v>]" >&2; exit 2; }
+  [[ "$slot" =~ ^w[0-9]+$ ]] || { echo "usage: git-ops park <slot> --nonce <v>" >&2; exit 2; }
   local dir="$WORKTREES_DIR/$slot"
   [[ -d "$dir" ]] || die "park: slot $slot does not exist at $dir"
   load_lockfile "$dir/.lock" || die "park: $slot has no lock — nothing claimed to park"
-  local caller_top
-  caller_top="$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || true)"
-  if ! [[ -n "$nonce_arg" && "$nonce_arg" == "${LOCK_NONCE:-}" ]] && \
-     ! [[ -n "$caller_top" && "$(cd "$caller_top" && pwd -P)" == "$(cd "$dir" && pwd -P)" ]]; then
-    die "park: ownership check failed for $slot — pass --nonce <value> or run from inside the slot"
-  fi
+  [[ -n "$nonce_arg" && "$nonce_arg" == "${LOCK_NONCE:-}" ]] || \
+    die "park: ownership check failed for $slot — pass --nonce <value> (the NONCE= line of $slot/.lock)"
   local branch
   branch="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null)" || die "park: $slot is not on a branch"
   if worktree_has_user_changes "$dir"; then
     {
       echo "park: $slot has uncommitted changes — commit them on $branch first (park keeps the branch, not the working tree):"
-      worktree_user_change_lines "$dir" | head -10 | sed 's/^/    /'
+      worktree_user_change_lines "$dir" | head -10 | sed 's/^/    /' || true
     } >&2
     exit 1
   fi
-  local pn="${LOCK_P_NUMBER:-}" spec=""
+  local pn="${LOCK_P_NUMBER:-}" spec="" synced=""
   [[ -n "$pn" ]] && spec="$(git -C "$dir" ls-tree -r --name-only HEAD -- features/ 2>/dev/null | grep -E "^features/${pn}_[^/]*\.md$" | head -1 || true)"
+  if [[ -n "$spec" ]] && ( cd "$REPO_ROOT" && git ls-tree -r --name-only main -- features/done/ 2>/dev/null | grep -E "/${pn}_[^/]*\.md$" >/dev/null ); then
+    spec=""   # closed on main already: copying the branch's open copy back would re-open it
+  fi
   if [[ -n "$spec" ]]; then
-    local branch_blob main_blob
+    local branch_blob main_blob base base_blob
     branch_blob="$(git -C "$dir" rev-parse "HEAD:$spec")"
     main_blob="$( cd "$REPO_ROOT" && git rev-parse -q --verify "main:$spec" 2>/dev/null || true )"
     if [[ "$branch_blob" != "$main_blob" ]]; then
-      if ( cd "$REPO_ROOT" && [[ -e "$spec" ]] && ! git diff --quiet HEAD -- "$spec" ); then
-        die "park: $spec has uncommitted edits on the main checkout (a co-tenant?) — not overwriting them; nothing was changed"
+      base="$( cd "$REPO_ROOT" && git merge-base main "$branch" 2>/dev/null || true )"
+      base_blob=""; [[ -n "$base" ]] && base_blob="$( cd "$REPO_ROOT" && git rev-parse -q --verify "$base:$spec" 2>/dev/null || true )"
+      [[ "$main_blob" == "$base_blob" ]] || \
+        die "park: $spec changed on main since $branch was cut — copying the branch's version would revert that edit. Merge the two by hand (commit on the branch), then park; nothing was changed"
+      if ( cd "$REPO_ROOT" && [[ -e "$spec" ]] && { ! git ls-files --error-unmatch -- "$spec" >/dev/null 2>&1 || ! git diff --quiet HEAD -- "$spec"; } ); then
+        die "park: $spec on the main checkout is untracked or has uncommitted edits (a co-tenant?) — not overwriting it; nothing was changed"
       fi
       ( cd "$REPO_ROOT" && git cat-file blob "$branch_blob" > "$spec" ) || die "park: could not write $spec on main"
-      ( cd "$REPO_ROOT" && cmd_commit_to_main --message "spec: $pn parked — spec synced from $branch" --files "$spec" ) \
-        || die "park: commit-to-main failed for $spec — the worktree is untouched; read the output above"
+      if ! ( cd "$REPO_ROOT" && cmd_commit_to_main --message "spec: $pn parked — spec synced from $branch" --files "$spec" ); then
+        # Put the shared checkout back exactly as it was: an uncommitted spec left on main
+        # is exposed to the next co-tenant `git add` (git.md).
+        ( cd "$REPO_ROOT" && if [[ -n "$main_blob" ]]; then git cat-file blob "$main_blob" > "$spec"; else rm -f "$spec"; fi ) || true
+        die "park: commit-to-main failed for $spec — restored $spec on main to its committed state; the worktree is untouched"
+      fi
+      [[ "$( cd "$REPO_ROOT" && git rev-parse -q --verify "main:$spec" )" == "$branch_blob" ]] || \
+        die "park: main's committed $spec is not the branch's version (a co-tenant wrote it concurrently?) — inspect 'git show main:$spec'; the worktree is untouched"
+      synced=1
     fi
   fi
+  local head
+  head="$(git -C "$dir" rev-parse HEAD)"
+  teardown_worktree_if_clean "$dir" "park" || die "park: worktree retained (see above); branch kept, nothing marked parked"
+  ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
   mkdir -p "$WORKTREES_DIR/.parked"
   {
     echo "BRANCH=$branch"
     echo "P_NUMBER=$pn"
     echo "SLOT=$slot"
     echo "PARKED_AT=$(iso_now)"
-    echo "HEAD=$(git -C "$dir" rev-parse HEAD)"
+    echo "HEAD=$head"
   } > "$WORKTREES_DIR/.parked/${branch//\//__}"
-  teardown_worktree_if_clean "$dir" "park" || die "park: worktree retained (see above); branch and marker kept"
-  ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
-  echo "git-ops: parked $slot — worktree removed, branch $branch kept${spec:+, $spec on main}" >&2
+  echo "git-ops: parked $slot — worktree removed, branch $branch kept${synced:+, $spec committed on main}" >&2
   echo "  resume with: git worktree add .claude/worktrees/$slot $branch (or re-claim a free slot)" >&2
 }
 

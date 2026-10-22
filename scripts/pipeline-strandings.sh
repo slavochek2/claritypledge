@@ -47,6 +47,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Closure gate 2.5. Overridable for the hermetic canary (scripts/test-p1519-slot-closure.sh).
+SHIP_GATES="${P1519_SHIP_GATES:-$SCRIPT_DIR/ship-gates.sh}"
 
 REPO_ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0
 REPO_ROOT="$(dirname "$REPO_ROOT")"
@@ -132,8 +134,11 @@ hold_status() {
   at="$(hold_field "$wt" WRITTEN_AT)"; owner="$(hold_field "$wt" OWNER)"
   [[ "$at" =~ ^[0-9]+$ && -n "$owner" ]] || { echo none; return; }
   if [[ "$owner" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}Z$ ]]; then
-    exp="$(date -j -u -f '%Y-%m-%dT%H:%MZ' "$owner" +%s 2>/dev/null || date -u -d "${owner%Z}" +%s 2>/dev/null || echo 0)"
+    exp="$(date -j -u -f '%Y-%m-%dT%H:%MZ' "$owner" +%s 2>/dev/null || date -u -d "${owner%Z}" +%s 2>/dev/null || date -u -d "$(printf '%s' "${owner%Z}" | tr T ' ')" +%s 2>/dev/null || echo 0)"
     (( exp > $(date +%s) )) || { echo expired; return; }
+  fi
+  if [[ "$owner" =~ ^p[0-9]+$ ]] && ls features/done/*/"${owner}"_*.md >/dev/null 2>&1; then
+    echo expired; return   # the spec it waited on has closed
   fi
   [[ "$after" =~ ^[0-9]+$ ]] || after=0
   (( at >= after )) || { echo stale; return; }
@@ -148,7 +153,8 @@ hold_line() {  # human line for the startup report; empty when there is no hold
   esac
 }
 
-# Commits on the branch that touch anything outside features/ — the "code" commits —
+# Commits on the branch that touch anything outside features/, docs/ and content/ — the
+# "code" commits —
 # split by whether an equivalent patch is already on <base> (git cherry: '-' landed,
 # '+' not). Prints "<landed> <unlanded>".
 code_commit_counts() {
@@ -158,7 +164,7 @@ code_commit_counts() {
     sha="${c#? }"
     # Process substitution, not a pipe: `| grep -q` under pipefail can report a match as
     # a miss (SIGPIPE, epistemic gate 7).
-    if $GREP -qv '^features/' < <(git diff-tree -r --root --no-commit-id --name-only "$sha" 2>/dev/null); then
+    if $GREP -qvE '^(features|docs|content)/' < <(git diff-tree -r --root --no-commit-id --name-only "$sha" 2>/dev/null); then
       [[ "$c" == "- "* ]] && landed=$((landed + 1)) || unlanded=$((unlanded + 1))
     fi
   done < <(git cherry "$base" "$br" 2>/dev/null)
@@ -201,16 +207,34 @@ classify_slot() {
     fi
     return
   fi
+  # Merged (not cherry-picked) code is reachable from main, so `git cherry` lists nothing
+  # for it: the branch tip is an ancestor of main, yet was committed after the claim.
+  local tip_at claimed_at
+  claimed_at="$(sed -n 's/^CLAIMED_AT=//p' "$wt/.lock" 2>/dev/null | head -1)"
+  claimed_at="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$claimed_at" +%s 2>/dev/null || date -u -d "$claimed_at" +%s 2>/dev/null || echo 0)"
+  tip_at="$(git log -1 --format=%ct "$br" 2>/dev/null || echo 0)"
+  if (( n_commits == 0 && claimed_at > 0 && tip_at >= claimed_at )) && git merge-base --is-ancestor "$br" main 2>/dev/null \
+     && $GREP -qvE '^(features|docs|content)/' < <(git diff --name-only "$br~1" "$br" 2>/dev/null); then
+    printf 'SHIPPED_UNCLOSED\t%s was merged into main (its tip is on main), but the spec is still open\n' "$br"
+    return
+  fi
   # A spec-only branch whose code went to main directly (inline on main, the P920
-  # no-branch route, P1510 on 2026-10-20): commits on main naming the P-number that
-  # touch code. Only checked when the branch itself carries no code.
+  # no-branch route, P1510 on 2026-10-20): main commits whose SUBJECT names the P-number
+  # and that touch code. A body mention, a docs/decisions commit or a stamp is not code.
+  # Corroborated by closure gate 2.5 where it exists: every completion item ticked. A spec
+  # still waiting on a decision (P1494) has open items, so it is never called shipped.
   if (( unlanded == 0 )) && [[ -n "$pn" ]]; then
-    while IFS= read -r c; do
-      [[ -n "$c" ]] || continue
-      $GREP -qv '^features/' < <(git diff-tree -r --no-commit-id --name-only "$c" 2>/dev/null) && direct=$((direct + 1))
-    done < <(git log main --since=90.days -i -E --grep="(^|[^0-9a-z])${pn}([^0-9]|$)" --format=%H 2>/dev/null)
+    local sha subj
+    while IFS=$'\t' read -r sha subj; do
+      [[ -n "$sha" ]] || continue
+      printf '%s' "$subj" | $GREP -qiE "(^|[^0-9a-z])${pn}([^0-9]|$)" || continue
+      $GREP -qvE '^(features|docs|content)/' < <(git diff-tree -r --no-commit-id --name-only "$sha" 2>/dev/null) && direct=$((direct + 1))
+    done < <(git log main --since=90.days -i -E --grep="(^|[^0-9a-z])${pn}([^0-9]|$)" --format='%H%x09%s' 2>/dev/null)
+    if (( direct > 0 )) && [[ -x "$SHIP_GATES" ]] && ! bash "$SHIP_GATES" "$pn" --only 2.5 >/dev/null 2>&1; then
+      direct=0
+    fi
     if (( direct > 0 )); then
-      printf 'SHIPPED_UNCLOSED	%s commit(s) naming %s already put its code on main directly; the branch holds only the spec, and the spec is still open\n' "$direct" "$pn"
+      printf 'SHIPPED_UNCLOSED\t%s commit(s) naming %s already put its code on main directly; the branch holds only the spec, and the spec is still open\n' "$direct" "$pn"
       return
     fi
   fi
@@ -218,7 +242,7 @@ classify_slot() {
   if (( unlanded == 0 )); then printf 'SPEC_ONLY\t%s commit(s) on %s, all spec-only (features/), no code\n' "$n_commits" "$br"; return; fi
   # The gate is this script's sibling, never a repo-relative path: --slot mode runs from
   # whatever cwd its caller chose, and must not execute code that cwd supplies.
-  if [[ -n "$pn" && -x "$SCRIPT_DIR/ship-gates.sh" ]] && bash "$SCRIPT_DIR/ship-gates.sh" "$pn" --only 2.5 >/dev/null 2>&1; then
+  if [[ -n "$pn" && -x "$SHIP_GATES" ]] && bash "$SHIP_GATES" "$pn" --only 2.5 >/dev/null 2>&1; then
     printf 'READY_TO_SHIP\t%s code commit(s) not on main; %s passes the closure gate\n' "$unlanded" "$pn"; return
   fi
   printf 'IN_PROGRESS\t%s code commit(s) not on main; completion items still open\n' "$unlanded"
@@ -318,7 +342,8 @@ while IFS= read -r br; do
   [[ -n "$br" ]] || continue
   printf '%s\n' "$wt_branches" | $GREP -qxF "$br" && continue
   # P1519: a branch set aside by `git-ops.sh park` is deliberate, not lost.
-  if [[ -f "$WORKTREES_DIR/.parked/${br//\//__}" ]]; then
+  _pk="$WORKTREES_DIR/.parked/${br//\//__}"
+  if [[ -f "$_pk" && "$(sed -n 's/^HEAD=//p' "$_pk" | head -1)" == "$(git rev-parse -q --verify "$br" 2>/dev/null)" ]]; then
     inflight+=("PARKED            ${br}  — parked $(sed -n 's/^PARKED_AT=//p' "$WORKTREES_DIR/.parked/${br//\//__}" | head -1); spec on main, branch kept")
     continue
   fi

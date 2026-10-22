@@ -42,17 +42,26 @@ run_hook() { # <transcript> <session> — exit code; stderr kept in $ERR
 gitops() { ( cd "$REPO" && bash scripts/git-ops.sh "$@" ); }
 claim() { # <pn> <slug> — prints the slot
   ( cd "$REPO" && bash scripts/git-ops.sh claim "$1" "$2" 2>"$TMP/claim.log" >/dev/null )
-  sed -n 's/^git-ops: claimed \(w[0-9]*\) for .*/\1/p' "$TMP/claim.log"
+  local s; s="$(sed -n 's/^git-ops: claimed \(w[0-9]*\) for .*/\1/p' "$TMP/claim.log")"
+  [[ -n "$s" ]] || { echo "FATAL: claim $1 failed — every check after this would be blind:" >&2; cat "$TMP/claim.log" >&2; exit 1; }
+  echo "$s"
 }
-NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+nonce_of() { sed -n 's/^NONCE=//p' "$REPO/.claude/worktrees/$1/.lock"; }
+hold() { local s="$1"; shift; gitops hold "$s" --nonce "$(nonce_of "$s")" "$@"; }
+now() { date -u +%Y-%m-%dT%H:%M:%S.000Z; }
+NOW="$(now)"
 LATER="$(date -u -v+10M +%Y-%m-%dT%H:%M:%S.000Z 2>/dev/null || date -u -d '+10 min' +%Y-%m-%dT%H:%M:%S.000Z)"
 N=0
 j() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"; }
+# Ids come from the command text: these helpers run inside $(...), where a counter
+# increment is lost, and a result must point at ITS tool_use for ownership to count.
+bid() { printf '%s' "$1" | cksum | cut -d' ' -f1; }
 bash_use() { # <command> <cwd> [timestamp]
-  N=$((N + 1)); printf '{"type":"assistant","timestamp":"%s","cwd":%s,"message":{"content":[{"type":"tool_use","id":"b%s","name":"Bash","input":{"command":%s}}]}}' "${3:-$NOW}" "$(j "$2")" "$N" "$(j "$1")"; }
-result() { printf '{"type":"user","timestamp":"%s","message":{"content":[{"type":"tool_result","tool_use_id":"b%s","content":%s}]},"origin":{"kind":"tool"}}' "$NOW" "$N" "$(j "$1")"; }
-edit_of() { N=$((N + 1)); printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","id":"e%s","name":"Edit","input":{"file_path":"%s"}}]}}' "${2:-$NOW}" "$N" "$1"; }
-read_of() { N=$((N + 1)); printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","id":"r%s","name":"Read","input":{"file_path":"%s"}}]}}' "$NOW" "$N" "$1"; }
+  printf '{"type":"assistant","timestamp":"%s","cwd":%s,"message":{"content":[{"type":"tool_use","id":"b%s","name":"Bash","input":{"command":%s}}]}}' "${3:-$(now)}" "$(j "$2")" "$(bid "$1")" "$(j "$1")"; }
+result() { # <command it answers> <text> [is_error]
+  printf '{"type":"user","timestamp":"%s","message":{"content":[{"type":"tool_result","tool_use_id":"b%s","is_error":%s,"content":%s}]},"origin":{"kind":"tool"}}' "$(now)" "$(bid "$1")" "${3:-false}" "$(j "$2")"; }
+edit_of() { N=$((N + 1)); printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","id":"e%s","name":"Edit","input":{"file_path":"%s"}}]}}' "${2:-$(now)}" "$N" "$1"; }
+read_of() { N=$((N + 1)); printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","id":"r%s","name":"Read","input":{"file_path":"%s"}}]}}' "$(now)" "$N" "$1"; }
 say() { printf '{"type":"assistant","message":{"content":%s}}' "$(j "$1")"; }
 user() { printf '{"type":"user","message":{"content":%s}}' "$(j "$1")"; }
 transcript() { local f="$1"; shift; : > "$f"; for l in "$@"; do printf '%s\n' "$l" >> "$f"; done; }
@@ -71,20 +80,34 @@ state_of() { ( cd "$REPO" && bash scripts/pipeline-strandings.sh --slot "$1" ) |
 NOTHING="No, nothing else."
 
 echo "[1] ownership: a slot claimed from main, lock without a session id"
+CLAIM_T1="$(now)"; sleep 1   # the claim command's timestamp precedes the lock it writes
 S1="$(claim p9001 owned)"; W1="$REPO/.claude/worktrees/$S1"
 check "claim produced a slot" "w1" "$S1"
 check "lock carries the PID fallback, not a session id" "1" "$(grep -cE "^SESSION_ID=$(hostname -s)-[0-9]+-[0-9]+$" "$W1/.lock")"
-T="$TMP/t1.jsonl"; transcript "$T" "$(bash_use './scripts/git-ops.sh claim p9001 owned 2>/tmp/claim.log' "$REPO")" "$(result 'ok')"
+T="$TMP/t1.jsonl"; C='./scripts/git-ops.sh claim p9001 owned 2>/tmp/claim.log'; transcript "$T" "$(bash_use "$C" "$REPO" "$CLAIM_T1")" "$(result "$C" 'ok')"
 check "claim whose output went to a log is owned (P_NUMBER resolved)" "$S1" "$(owned "$T")"
-transcript "$T" "$(bash_use 'echo' "$REPO")" "$(result "git-ops: claimed $S1 for feature/p9001-owned
+C='eval "$(./scripts/git-ops.sh claim p9001 owned 2>&1)"'; transcript "$T" "$(bash_use "$C" "$REPO" "$CLAIM_T1")" "$(result "$C" "git-ops: claimed $S1 for feature/p9001-owned
   path   : $W1")"
-check "claim result naming the slot is owned" "$S1" "$(owned "$T")"
+check "a claim invocation whose result names the slot is owned" "$S1" "$(owned "$T")"
 transcript "$T" "$(edit_of "$W1/src/a.ts")"
 check "an Edit inside the slot is owned" "$S1" "$(owned "$T")"
 transcript "$T" "$(bash_use 'git add src/a.ts && git commit -m x' "$W1")"
 check "a git commit run in the slot is owned" "$S1" "$(owned "$T")"
 transcript "$T" "$(read_of "$W1/src/a.ts")" "$(bash_use "cat $W1/src/a.ts" "$REPO")" "$(bash_use "cd $REPO && git add x # mentions $W1" "$W1")"
 check "reads, and a git write that ran elsewhere, are not owned (control)" "" "$(owned "$T")"
+C='grep -rn "git-ops.sh claim p9001" docs'; transcript "$T" "$(bash_use "$C" "$REPO")" "$(result "$C" 'docs/x.md: git-ops.sh claim p9001')"
+check "a command that merely mentions the claim is not a claim" "" "$(owned "$T")"
+C='./scripts/git-ops.sh claim p9001 again'; transcript "$T" "$(bash_use "$C" "$REPO")" "$(result "$C" 'git-ops: p9001 already claimed' true)"
+check "a refused claim owns nothing" "" "$(owned "$T")"
+C="cat $TMP/claim.log"; transcript "$T" "$(bash_use "$C" "$REPO")" "$(result "$C" "git-ops: claimed $S1 for feature/p9001-owned
+  path   : $W1")"
+check "printing another session's claim banner owns nothing" "" "$(owned "$T")"
+transcript "$T" "$(edit_of "$W1/src/a.ts" "2020-01-01T00:00:00.000Z")"
+check "an edit from before the slot's current claim is not ownership (slot reused)" "" "$(owned "$T")"
+transcript "$T" "$(bash_use 'cd .claude/worktrees/'"$S1"' && git add src/a.ts' "$REPO")"
+check "a relative cd into the slot, then a git write, is owned" "$S1" "$(owned "$T")"
+transcript "$T" "$(bash_use 'cd src && git add a.ts' "$W1")"
+check "a relative cd inside the slot keeps it owned" "$S1" "$(owned "$T")"
 
 echo "[2] P1511 state: code on origin/main, spec still open"
 S2="$(claim p9002 shipped)"; W2="$REPO/.claude/worktrees/$S2"
@@ -95,24 +118,58 @@ check "classified SHIPPED_UNCLOSED" "SHIPPED_UNCLOSED" "$(state_of "$S2")"
 T2="$TMP/t2.jsonl"; transcript "$T2" "$(user 'anything else?')" "$(edit_of "$W2/src/p9002.ts")" "$(say "$NOTHING")"
 check "ending on 'nothing else' blocks" "2" "$(run_hook "$T2" s2)"
 check "and shows the close step" "1" "$(grep -c "Close: ./scripts/git-ops.sh ship p9002" "$ERR")"
-check "hold is refused for finished work" "1" "$(rc gitops hold "$S2" --reason "keeping it open for a while" --owner founder)"
+check "hold is refused for finished work" "1" "$(rc hold "$S2" --reason "keeping it open for a while" --owner founder)"
 check "no .hold was written" "no" "$([[ -f "$W2/.hold" ]] && echo yes || echo no)"
 check "the brief fires once per slot state (limit 1)" "0" "$(run_hook "$T2" s2)"
+
+echo "[2b] code put on main directly: subject + code + closure gate; mentions do not count"
+STUB_OK="$TMP/gate-ok.sh"; printf '#!/bin/sh\nexit 0\n' > "$STUB_OK"; chmod +x "$STUB_OK"
+STUB_NO="$TMP/gate-no.sh"; printf '#!/bin/sh\nexit 1\n' > "$STUB_NO"; chmod +x "$STUB_NO"
+sg() { ( cd "$REPO" && P1519_SHIP_GATES="$1" bash scripts/pipeline-strandings.sh --slot "$2" ) | awk -F'\t' '{print $3}'; }
+S7="$(claim p9007 direct)"; W7="$REPO/.claude/worktrees/$S7"
+commit_in "$W7" features/p9007_direct.md "# P9007" "spec: p9007"
+commit_in "$REPO" docs/decisions.md "rejects the approach in P9007" "docs: record decision (rejects approach in P9007)"
+check "a docs commit naming the P-number is not shipped code" "SPEC_ONLY" "$(sg "$STUB_OK" "$S7")"
+commit_in "$REPO" src/other.ts "export const o = 1" "feat: other work
+
+Related: P9007"
+check "a code commit that names it only in the body is not shipped code" "SPEC_ONLY" "$(sg "$STUB_OK" "$S7")"
+commit_in "$REPO" src/p9007.ts "export const d = 7" "feat: P9007 inline on main"
+check "the P1510 shape (subject names it, touches code, gate passes) is SHIPPED_UNCLOSED" "SHIPPED_UNCLOSED" "$(sg "$STUB_OK" "$S7")"
+check "the same, with completion items still open (P1494), stays SPEC_ONLY" "SPEC_ONLY" "$(sg "$STUB_NO" "$S7")"
+S8="$(claim p9008 merged)"; W8="$REPO/.claude/worktrees/$S8"
+sleep 1; commit_in "$W8" src/p9008.ts "export const m = 8" "feat: merged work"
+( cd "$REPO" && git "${G[@]}" merge -q --no-ff -m "merge branch" feature/p9008-merged >/dev/null )
+check "a branch merged (not cherry-picked) into main is SHIPPED_UNCLOSED" "SHIPPED_UNCLOSED" "$(state_of "$S8")"
 
 echo "[3] holds: valid passes and shows at startup; me/wip rejected; stale ignored"
 S3="$(claim p9003 held)"; W3="$REPO/.claude/worktrees/$S3"
 commit_in "$W3" src/p9003.ts "export const x = 3" "feat: p9003 wip"
 check "classified IN_PROGRESS" "IN_PROGRESS" "$(state_of "$S3")"
-check "owner 'me' rejected" "1" "$(rc gitops hold "$S3" --reason "waiting for the design call" --owner me)"
-check "owner 'wip' rejected" "1" "$(rc gitops hold "$S3" --reason "waiting for the design call" --owner wip)"
-check "a past time is rejected" "1" "$(rc gitops hold "$S3" --reason "waiting for the design call" --owner 2020-01-01T00:00Z)"
-check "owner founder accepted" "0" "$(rc gitops hold "$S3" --reason "waiting for the design call" --owner founder)"
+check "owner 'me' rejected" "1" "$(rc hold "$S3" --reason "waiting for the design call" --owner me)"
+check "owner 'wip' rejected" "1" "$(rc hold "$S3" --reason "waiting for the design call" --owner wip)"
+check "a past time is rejected" "1" "$(rc hold "$S3" --reason "waiting for the design call" --owner 2020-01-01T00:00Z)"
+check "hold without the nonce is refused (another session's slot)" "1" "$(rc gitops hold "$S3" --reason "waiting for the design call" --owner founder)"
+check "owner = the slot's own spec is refused" "1" "$(rc hold "$S3" --reason "waiting for the design call" --owner p9003)"
+check "owner founder accepted" "0" "$(rc hold "$S3" --reason "waiting for the design call" --owner founder)"
 T3="$TMP/t3.jsonl"; transcript "$T3" "$(user 'anything else?')" "$(edit_of "$W3/src/p9003.ts")" "$(say "$NOTHING")"
 check "a valid hold lets the session end" "0" "$(run_hook "$T3" s3)"
 check "startup report shows the hold" "1" "$( ( cd "$REPO" && bash scripts/pipeline-strandings.sh ) | grep -c "held by founder: waiting for the design call")"
 transcript "$T3" "$(user 'anything else?')" "$(edit_of "$W3/src/p9003.ts" "$LATER")" "$(say "$NOTHING")"
 check "a hold older than the session's last write is ignored (blocks)" "2" "$(run_hook "$T3" s3b)"
 check "and says the hold is stale" "1" "$(grep -c "no longer explains the slot" "$ERR")"
+check "hold --clear without the nonce is refused" "1" "$(rc gitops hold "$S3" --clear)"
+check "hold --clear with it removes the hold" "0" "$(rc hold "$S3" --clear)"
+check "  (file gone)" "no" "$([[ -f "$W3/.hold" ]] && echo yes || echo no)"
+check "owner pNNNN accepted" "0" "$(rc hold "$S3" --reason "waits on the auth refactor" --owner p9001)"
+check "  and valid while p9001 is open" "valid" "$(cd "$REPO" && bash scripts/pipeline-strandings.sh --slot "$S3" | awk -F'\t' '{print $6}')"
+commit_in "$REPO" features/done/2026-10/p9001_owned.md "# closed" "chore: close p9001"
+check "  and expired once p9001 closes" "expired" "$(cd "$REPO" && bash scripts/pipeline-strandings.sh --slot "$S3" | awk -F'\t' '{print $6}')"
+printf 'REASON=waiting for the design call\nOWNER=2020-01-01T00:00Z\nWRITTEN_AT=%s\n' "$(date +%s)" > "$W3/.hold"
+check "an expired time hold no longer lets the session end" "2" "$(run_hook "$T3" s3c)"
+check "  and says so" "1" "$(grep -c "has expired" "$ERR")"
+check "startup report marks it EXPIRED" "1" "$( ( cd "$REPO" && bash scripts/pipeline-strandings.sh ) | grep -c "hold EXPIRED")"
+rm -f "$W3/.hold"
 
 echo "[4] no slot, or a slot owned by another session: silent, no measurable latency"
 T4="$TMP/t4.jsonl"; transcript "$T4" "$(user 'fix it')" "$(say "$NOTHING")"
@@ -139,6 +196,13 @@ T5="$TMP/t5.jsonl"; transcript "$T5" "$(user 'Anything else?')" "$(edit_of "$W5/
 check "'No, nothing else.' blocks (EMPTY slot)" "2" "$(run_hook "$T5" s5)"
 transcript "$T5" "$(user 'Anything else?')" "$(edit_of "$W5/src/x.ts")" "$(say "Here is the plan for the next step.")"
 check "a non-ending turn does not (control)" "0" "$(run_hook "$T5" s5b)"
+transcript "$T5" "$(user 'go on')" "$(edit_of "$W5/src/x.ts")" "$(say "Nothing else changed in the schema; continuing with step 2 now, then the tests.")"
+check "'nothing else' mid-turn does not spend the block" "0" "$(run_hook "$T5" s5c)"
+echo "dirty" > "$W5/src/x.ts"
+check "uncommitted work is DIRTY" "DIRTY" "$(state_of "$S5")"
+check "park refuses a dirty slot" "1" "$(rc gitops park "$S5" --nonce "$(nonce_of "$S5")")"
+check "  and leaves it in place" "yes" "$([[ -d "$W5" ]] && echo yes || echo no)"
+rm -f "$W5/src/x.ts"
 
 echo "[6] P1494 state: spec-only slot waiting on a founder decision — the brief"
 S6="$(claim p9006 decide)"; W6="$REPO/.claude/worktrees/$S6"
@@ -161,9 +225,10 @@ check "no hold is written by the hook" "no" "$([[ -f "$W6/.hold" ]] && echo yes 
 
 echo "[7] the existing gates still block while a slot is open"
 T7="$TMP/t7.jsonl"
-transcript "$T7" "$(user 'deploy it')" "$(edit_of "$W6/src/live.ts")" "$(say "It's live now.")"
+transcript "$T7" "$(user 'deploy it')" "$(edit_of "$W6/src/live.ts")" "$(say "It's live now. Done.")"
 check "claim gate blocks" "2" "$(run_hook "$T7" s7a)"
-check "claim gate message present beside the slot brief" "1" "$(grep -c "claims something is live" "$ERR")"
+check "claim gate message present" "1" "$(grep -c "claims something is live" "$ERR")"
+check "  beside the slot brief" "1" "$(grep -c "P1519 slot closure" "$ERR")"
 check "claim gate still blocks once the slot brief is spent" "2" "$(run_hook "$T7" s7a)"
 check "  (and its message is there)" "1" "$(grep -c "claims something is live" "$ERR")"
 KDD='**Item 1 — a thing**
@@ -178,6 +243,25 @@ check "review gate blocks" "2" "$(run_hook "$T7" s7c)"
 check "review gate message present" "1" "$(grep -c "P1505 review gate" "$ERR")"
 check "review gate still blocks once the slot brief is spent" "2" "$(run_hook "$T7" s7c)"
 rm -f "$W6/src/r.ts"
+
+echo "[8a] park never reverts, overwrites or re-opens a spec on main"
+S9="$(claim p9009 newer)"; W9="$REPO/.claude/worktrees/$S9"
+commit_in "$W9" features/p9009_newer.md "branch v1" "spec: p9009"
+commit_in "$REPO" features/p9009_newer.md "main: founder decision" "spec: p9009 founder decision"
+check "park refuses when main's spec moved on since the branch was cut" "1" "$(rc gitops park "$S9" --nonce "$(nonce_of "$S9")")"
+check "  main keeps the founder's version" "main: founder decision" "$(git -C "$REPO" show main:features/p9009_newer.md)"
+S10="$(claim p9010 closed)"; W10="$REPO/.claude/worktrees/$S10"
+commit_in "$W10" features/p9010_closed.md "open copy" "spec: p9010"
+commit_in "$REPO" features/done/2026-10/p9010_closed.md "closed copy" "chore: close p9010"
+check "a closed spec's slot is CLOSED_CHECKED_OUT" "CLOSED_CHECKED_OUT" "$(state_of "$S10")"
+check "park clears it" "0" "$(rc gitops park "$S10" --nonce "$(nonce_of "$S10")")"
+check "  without re-creating the open spec on main" "no" "$(git -C "$REPO" cat-file -e main:features/p9010_closed.md 2>/dev/null && echo yes || echo no)"
+S11="$(claim p9011 untracked)"; W11="$REPO/.claude/worktrees/$S11"
+commit_in "$W11" features/p9011_untracked.md "branch" "spec: p9011"
+echo "co-tenant draft" > "$REPO/features/p9011_untracked.md"
+check "park refuses to overwrite an untracked file at the spec path on main" "1" "$(rc gitops park "$S11" --nonce "$(nonce_of "$S11")")"
+check "  the co-tenant draft is intact" "co-tenant draft" "$(cat "$REPO/features/p9011_untracked.md")"
+rm -f "$REPO/features/p9011_untracked.md"
 
 echo "[8] park frees the worktree, keeps the branch, commits the spec via commit-to-main"
 NONCE="$(sed -n 's/^NONCE=//p' "$W6/.lock")"
