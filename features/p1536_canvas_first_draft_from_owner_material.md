@@ -60,16 +60,32 @@ are private rows that can be deleted). Decision density: a few founder calls (be
    (P1515); no separate "accept" state. Before sharing, the owner can re-run with more material or a
    correcting note, which replaces the unshared draft.
 
-**Where (founder, 2026-10-21): a preparation step every attendee does, about 15 minutes.** "every
-attendee is required to invest 15 min time to prep ... a part of it is upload stuff they have so ai
-helps turn it into clarity canvas." This is a single "Draft my canvas" step reached from the event's
-preparation, not Clarity Chat: chat attachments today carry only points and stories
-(`src/app/pages/chat/Composer.tsx:188`, "Attach a point or story"). The event page promises it, so
-this ships before the event is published. Corrections after the first draft go through the mirror
-later (Non-Goals).
+**Where: amended 2026-10-22 (founder). The draft happens in a thread with your mirror.**
+Steps 1-4 above (the engine) are unchanged; only the entry point and the input path move.
 
-[FOUNDER DECISION: entry-point copy, the button label, and what the step says about where the
-material goes.]
+- **+ Canvas** (the Artifacts page's create menu, P1545) and the event preparation's "Draft my
+  canvas" step both open a **new thread with the owner's mirror** (threads in the mirror: P1544).
+  The mirror opens the thread by asking for material: files, links, a note.
+- **Upload in chat.** The composer gets an upload control next to the existing paperclip
+  (`src/app/pages/chat/Composer.tsx:188`, today "Attach a point or story"), available in mirror
+  threads. Files are converted to text (markdown) server-side and the originals are not kept
+  (Invariant). Links and the note are ordinary messages in the thread.
+- **The mirror runs the draft** when the owner says so in the thread (a "Draft my canvas" action
+  under the mirror's reply, not a keyword), and replies with the result: a link to the canvas,
+  the boxes left empty as questions, and any input it could not read.
+- **Corrections after the first draft** are further messages in the same thread. Re-running before
+  sharing replaces the draft (step 4).
+
+> Founder, 2026-10-22: "when a person says new Clarity Canvas it opens a new thread with your Mirror
+> Agent and the Mirror Agent says, hey, you know, upload stuff ... upload button near the paperclip
+> where you can attach things or upload markdowns or whatever."
+
+**Depends on P1544** (the mirror on prod, its privacy text and threads in the mirror). Founder,
+2026-10-22: "make the mirror launch before". The engine (steps 1-3) can be built and tested on the
+test database in parallel; nothing goes live before P1544 is live.
+
+[FOUNDER DECISION: the mirror's opening line in a new canvas thread, the upload control's label,
+and what the thread says about where the material goes.]
 
 ## Invariants
 
@@ -101,7 +117,8 @@ material goes.]
 
 **Non-Goals**
 - Do NOT build updates after the first draft from transcripts or chat (P1500).
-- Do NOT add file attachments to Clarity Chat in this spec.
+- Do NOT add file upload outside mirror threads in this spec (amended 2026-10-22: upload in
+  mirror threads is now IN scope; direct messages and channels stay out).
 - Do NOT add canvas editing on screen (decisions.md 2026-10-19: owners edit through their agent).
 - Do NOT change the event room or pairing (P1529).
 
@@ -128,6 +145,9 @@ material goes.]
       public changes nothing outside the owner's private draft (real-model test, with a control that
       shows the test can fail).
 - [ ] With AI availability off, no draft control is shown.
+- [ ] + Canvas and the preparation step each open a new mirror thread that asks for material; a
+      PDF uploaded in that thread is drafted, and the original file is not stored afterwards.
+- [ ] The mirror's reply in the thread links the canvas and names empty boxes and unreadable inputs.
 - [ ] Works at 375px and 320px (screenshots).
 
 ## Cost Budget
@@ -184,4 +204,6 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
   [P1529](p1529_canvas_event_host_coordination.md) host and pairing ·
   [P1457](p1457_clarity_chat_data_import.md) chat data import ·
   [P1332](p1332_canvas_to_letter_skill.md) canvas to letter ·
-  P1520 mirror (availability-gate pattern, spend-capped key)
+  P1520 mirror (availability-gate pattern, spend-capped key) ·
+  [P1544](p1544_mirror_launch_on_prod.md) mirror on prod and threads (blocks go-live) ·
+  [P1545](p1545_menu_and_artifacts.md) Artifacts page, + Canvas
