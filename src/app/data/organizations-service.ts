@@ -115,6 +115,8 @@ export const organizationsService: OrganizationsService = {
       // · Chiang Mai to "Communication Activism Community · Chiang Mai"
       // (20260907120000) silently demoted it below "Clarity Practice Community ·
       // Online", because "Cl" < "Co". Copy edits must not reorder the directory.
+      // (P1543 renamed it again, to "Clarity Practice Community · Chiang Mai", and hid
+      // · Online; display_order, not the name, is what keeps it first.)
       // nullsFirst: false — an unranked org sorts AFTER every ranked one.
       .order('display_order', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true });

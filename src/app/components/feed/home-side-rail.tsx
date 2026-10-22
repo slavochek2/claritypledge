@@ -3,9 +3,9 @@
  * Two placements (founder, 2026-10-04: "very often I want to go immediately to see events or to
  * show a group"; phones showed neither):
  *   - desktop (lg+): the right column, Next events first, then Groups, level with the first card.
- *     Groups lists only the Communication Activism group (P1415);
+ *     Groups lists only the `cm` group, "Clarity Practice Community · Chiang Mai" (P1415; renamed from "Communication Activism Community" in P1543);
  *   - phones/tablets: a compact block at the top of the page, above search — Next events only
- *     (P1415: no Groups section; groups stay one tap away in the bottom nav).
+ *     (P1415: no Groups section; groups stay one tap away in the You sheet, P1543: the bottom bar's Groups tab became Events).
  * Exactly one placement is mounted for the current width, so each visit fetches once.
  * Nothing here is a filled button — the page's one primary action stays the header CTA (P955).
  * Any failure degrades to a short line; the feed never waits on, or breaks because of, this.

@@ -167,8 +167,8 @@ test.describe('P1389 evening close', () => {
     // First evening, not a member yet: the community, shown as the group's own card.
     await expect(page.getByTestId('ask-community')).toBeVisible();
     await expect(page.getByTestId('step-name')).toHaveText('Decide on joining the community');
-    await expect(page.getByTestId('step-question')).toHaveText('Join the Communication Activism Community');
-    await expect(page.getByTestId('community-card')).toContainText('Communication Activism Community');
+    await expect(page.getByTestId('step-question')).toHaveText('Join the Clarity Practice Community');
+    await expect(page.getByTestId('community-card')).toContainText('Clarity Practice Community');
     await page.getByRole('button', { name: 'Not now' }).click();
     // Then the LinkedIn step, the same evening (no waiting for a later one).
     await expect(page.getByTestId('ask-connect')).toBeVisible();
@@ -221,7 +221,7 @@ test.describe('P1389 evening close', () => {
     await expect(page.getByTestId('ask-connect')).toBeVisible(); // one flow: connect follows
     await page.getByRole('button', { name: 'Not now' }).click();
     await expect(page.getByTestId('step-end')).toBeVisible();
-    await expect(page.getByTestId('end-joined')).toContainText('You joined Communication Activism Community');
+    await expect(page.getByTestId('end-joined')).toContainText('You joined Clarity Practice Community');
     const { data: org } = await supabaseAdmin.from('organization').select('id').eq('slug', 'cm').single();
     const { data: m } = await supabaseAdmin.from('membership').select('user_id').eq('org_id', org!.id).eq('user_id', u.user.id);
     expect(m).toHaveLength(1);

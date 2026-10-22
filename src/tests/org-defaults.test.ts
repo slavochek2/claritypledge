@@ -18,20 +18,28 @@ const MON_CHAM = { lat: 18.8836, lng: 98.8175 };
 const KO_PHANGAN = { lat: 9.7319, lng: 100.0136 }; // Inner Space Coworking / Zoo Cafe
 const BANGKOK = { lat: 13.7563, lng: 100.5018 };
 
-describe('resolveOrg — online is decided by the venue, never by geography', () => {
+describe('resolveOrg — online is decided by the venue, never by geography; P1543: the online group is hidden, so it is loose', () => {
   it.each([
     'https://meet.google.com/rdi-qdab-qca',
     'https://zoom.us/j/123456',
     'Online — Google Meet', // docs/events/series/lost-cofounders.md — prose, not a URL
     'Online',
-  ])('files %s under the online community', (location) => {
-    expect(resolveOrg({ location })).toMatchObject({ kind: 'org', slug: 'online' });
+  ])('files %s under no group (loose), and says why', (location) => {
+    const res = resolveOrg({ location });
+    expect(res.kind).toBe('loose');
+    expect(res.why).toMatch(/online group is hidden \(P1543\)/);
   });
 
-  it('files an online event online even when coordinates are supplied', () => {
+  it('keeps an online event loose even when coordinates are supplied', () => {
     // A hybrid recorded from Chiang Mai must not become an in-person Chiang Mai event.
-    expect(resolveOrg({ location: 'Online — Google Meet', coords: DOI_PUI_TRAILHEAD }))
-      .toMatchObject({ kind: 'org', slug: 'online' });
+    expect(resolveOrg({ location: 'Online — Google Meet', coords: DOI_PUI_TRAILHEAD }).kind).toBe('loose');
+  });
+
+  it('never resolves to the hidden online group', () => {
+    for (const location of ['https://zoom.us/j/123456', 'Online']) {
+      const res = resolveOrg({ location });
+      expect(res.kind === 'org' ? res.slug : null).not.toBe('online');
+    }
   });
 });
 
@@ -84,6 +92,12 @@ describe('resolveOrg — an explicit choice always wins', () => {
 
   it('honours a deliberate decision to stay unaffiliated', () => {
     expect(resolveOrg({ location: 'Somewhere', orgSlug: null }).kind).toBe('loose');
+  });
+
+  it('P1543: an explicit "online" is no longer a known default — it is asked about, never resolved', () => {
+    const res = resolveOrg({ location: 'https://meet.google.com/rdi-qdab-qca', orgSlug: 'online' });
+    expect(res.kind).toBe('ask');
+    expect(res.why).toMatch(/not a known default/);
   });
 
   it('does not silently accept an unknown slug', () => {

@@ -183,11 +183,11 @@ test.describe('P1060 reviewer renders', () => {
     await page.screenshot({ path: `${OUT}/D-org-upcoming-empty-fallthrough.png`, fullPage: true });
   });
 
-  test('E — /org/online, nothing at all (the seeded day-one state)', async ({ page }) => {
+  test('E — /groups/online is hidden from a signed-out visitor (P1543: visibility private)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/groups/online');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /Online/ })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Group not found' })).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/E-org-online-empty.png`, fullPage: true });
   });
 

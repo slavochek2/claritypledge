@@ -225,7 +225,7 @@ test.describe('P1060: events.org_id migration + · Online seed', () => {
   });
 
   // ── 4. Org #2 seed (D3, D7, Done-When bullets 3-4) ───────────────────────
-  test('seeded org /org/online exists, public, has_events, carries founder copy, organizer membership', async () => {
+  test('seeded org /org/online exists, private (P1543), has_events, carries founder copy, organizer membership', async () => {
     const { data: org, error } = await supabaseAdmin
       .from('organization')
       .select('id, slug, name, blurb, visibility, has_events')
@@ -233,7 +233,8 @@ test.describe('P1060: events.org_id migration + · Online seed', () => {
       .maybeSingle();
     expect(error).toBeNull();
     expect(org, 'seed migration must insert the "online" org').toBeTruthy();
-    expect(org!.visibility).toBe('public');
+    // P1543 hid this group (visibility 'private'); the row and its membership remain.
+    expect(org!.visibility).toBe('private');
     expect(org!.has_events).toBe(true);
     // D7 originally asserted blurb IS NULL — the Non-Goal was "do NOT invent the
     // · Online blurb", and NULL was the honest state while no founder copy existed.

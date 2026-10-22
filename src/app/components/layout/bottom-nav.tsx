@@ -5,7 +5,7 @@
  * P113 Phase 2: Shows fixed bottom nav on mobile for verified users.
  * Uses design system tokens only.
  *
- * P1512: Home, Feed, Groups, Letters and You. Home is the chat list, Feed is what Home used to be.
+ * P1512: Home, Feed, Groups, Letters and You. P1543: Events replaces Groups (Groups moves into the You sheet). Home is the chat list, Feed is what Home used to be.
  * "You" opens a sheet (profile, Partners with its badge, Tools, Events, Settings, Log Out), and on an
  * event day a slim "Today's event" strip sits on top of the tabs — the top bar that used to carry
  * both is not rendered in the signed-in shell.

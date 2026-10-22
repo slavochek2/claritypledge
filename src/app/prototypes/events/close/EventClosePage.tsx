@@ -890,7 +890,7 @@ function CommunityAsk({
     // Founder (round 10, /presi3 slide 17): the invitation, one line, the group card. The long
     // About text is gone (D2): the card already says what the group is.
     <section className={cn(STACK, 'items-center gap-4')} data-testid="ask-community">
-      <Question>Join the Communication Activism Community</Question>
+      <Question>Join the Clarity Practice Community</Question>
       <Context>Practise clarity together. Build trust that holds.</Context>
       <div className="w-full max-w-md" data-testid="community-card">
         <OrgCard org={org} memberCount={community.members} participation={community.participation} isMine={false} asStatic />

@@ -155,10 +155,10 @@ beforeEach(() => {
 // ============================================================================
 
 describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
-  it('shows 5 tabs in order: Home, Feed, Groups, Letters, Me', () => {
+  it('shows 5 tabs in order: Home, Feed, Events, Letters, Me (P1543: Events replaced Groups)', () => {
     mockLoggedIn();
     renderBottomNav();
-    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'You']);
+    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Events', 'Letters', 'You']);
   });
 
   it('Partners is no longer a tab of its own', () => {

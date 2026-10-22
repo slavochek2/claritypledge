@@ -123,8 +123,12 @@ export function useShellEntries(): ShellEntry[] {
   return entries;
 }
 
-/** The phone bottom bar's tabs, in order. "Me" is the bar's own last tab, not an entry. */
-export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'feed', 'groups', 'letters'];
+/**
+ * The phone bottom bar's tabs, in order. "Me" is the bar's own last tab, not an entry.
+ * P1543: Events replaces Groups on the phone bar (founder, 2026-10-22). Groups stays one tap away in the
+ * Me sheet, which lists whatever the bar lacks.
+ */
+export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'feed', 'events', 'letters'];
 
 /**
  * The destinations a surface's own nav already links to. The menus behind it (the phone Me sheet, the

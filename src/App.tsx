@@ -1222,7 +1222,7 @@ export default function ClarityPledgeApp() {
         {/* P1323: /groups* are PRODUCT surfaces — "Groups" is a tab in the signed-in bottom nav.
             First classified `public` by mistake; the founder found the missing Links trigger. */}
         <Route path="/groups" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
-        {/* P1010: Clarity Groups — /groups/:slug (seeded groups: cm, online) */}
+        {/* P1010: Clarity Groups — /groups/:slug (seeded groups: cm, online; online hidden since P1543) */}
         <Route path="/groups/:slug" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Group Terms IS the join (focus page). */}
         <Route path="/groups/:slug/join" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />

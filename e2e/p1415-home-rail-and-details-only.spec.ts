@@ -1,6 +1,6 @@
 /**
  * P1415 — in a real browser, at the widths the spec names:
- *   - Home rail (desktop): Next events above Groups; Groups names only the Communication Activism
+ *   - Home rail (desktop): Next events above Groups; Groups names only the Clarity Practice Community (was Communication Activism before P1543)
  *     group (/groups/cm), plus "All groups". Phones: no Groups section at all.
  *   - List cards open only via `Details →`: tapping a card's body leaves the reader on the list.
  *
@@ -28,7 +28,7 @@ test.describe('P1415 — home rail', () => {
     const rail = page.getByTestId('home-side-rail');
     await expect(rail).toBeVisible({ timeout: 20000 });
     await expect(rail).toHaveAttribute('aria-label', 'Events and groups');
-    const groupLink = rail.getByRole('link', { name: /Communication Activism/ });
+    const groupLink = rail.getByRole('link', { name: /Clarity Practice Community/ });
     await expect(groupLink).toBeVisible({ timeout: 20000 });
     await expect(groupLink).toHaveAttribute('href', '/groups/cm');
     await expect(rail.getByRole('link', { name: /Clarity Practice Community/ })).toHaveCount(0);
@@ -47,7 +47,7 @@ test.describe('P1415 — home rail', () => {
       await expect(page.getByTestId('home-side-rail')).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Groups' })).toHaveCount(0);
       await expect(page.getByRole('link', { name: 'All groups' })).toHaveCount(0);
-      await expect(page.getByRole('link', { name: /Communication Activism/ })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: /Clarity Practice Community/ })).toHaveCount(0);
     });
   }
 });

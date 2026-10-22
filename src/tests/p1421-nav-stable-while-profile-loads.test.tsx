@@ -114,7 +114,7 @@ describe('P1421: bottom nav appears as soon as the session is known', () => {
     expect(nav).not.toBeNull();
     const tabs = Array.from(nav.querySelectorAll('a, [data-nav-slot-placeholder]'));
     expect(tabs.map((t) => t.querySelector('span.text-xs')?.textContent)).toEqual([
-      'Home', 'Feed', 'Groups', 'Letters', 'You',
+      'Home', 'Feed', 'Events', 'Letters', 'You',
     ]);
     expect(slotLabels(nav)).toEqual(['You']);
   });

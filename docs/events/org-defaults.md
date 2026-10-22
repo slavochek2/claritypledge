@@ -11,10 +11,14 @@ corrected 2026-09-07) because no creation path set the column at all.
 
 | Venue | Organization | slug |
 |---|---|---|
-| **Online** — a meeting link, or prose that says online | Clarity Practice Community · Online | `online` |
-| **In person, within 150 km of Chiang Mai** | Communication Activism Community · Chiang Mai | `cm` |
+| **Online** — a meeting link, or prose that says online | **nothing — loose, no group** (the online group is hidden, P1543) | — |
+| **In person, within 150 km of Chiang Mai** | Clarity Practice Community · Chiang Mai (renamed from "Communication Activism Community", P1543) | `cm` |
 | **In person, further than 150 km** | **nothing — stop and ask the founder** | — |
 | **In person, position unknown** | **nothing — stop and ask the founder** | — |
+
+An explicit `org_slug: "online"` is no longer a known default either (P1543: that group is
+`visibility = 'private'`); it is asked about like any unknown slug. Reopen the group and this
+table together if it ever returns.
 
 Online is decided by the venue, not by geography: `classifyLocation(location).type === 'virtual'`
 (the same classifier the event page renders with) **or** the location says so in words. The word
@@ -59,7 +63,7 @@ immediately, by the one person who knows the answer.
 
 | Path | Mechanism |
 |---|---|
-| `src/app/prototypes/events/org-defaults.ts` | The rule itself — `resolveOrg()` returns an org, `loose`, or `ask`. Covered by `src/tests/org-defaults.test.ts`. Everything below calls it; nothing re-implements it. |
+| `src/app/prototypes/events/org-defaults.ts` | The rule itself — `resolveOrg()` returns an org (only `cm` now), `loose`, or `ask`. Covered by `src/tests/org-defaults.test.ts`. Everything below calls it; nothing re-implements it. |
 | `scripts/create-event.ts` (used by `/re-create-event`) | Resolves it, prints `ORG=<slug>  # <why>`, and **exits 1 rather than guessing** when the answer is `ask`. Inputs: `"lat"`/`"lng"` for the venue; `"org_slug"` to override; `"org_slug": null` for deliberately unaffiliated. |
 | `scripts/resolve-event-org.ts` | The same verdict for paths that write their own INSERT. Prints `ORG_SLUG=` / `ORG_ID=` / `WHY=`, exits 1 with `ASK:` when a human must choose. |
 | `/slava:events:publish-run` | Calls the resolver with the trail coordinates it already has from AllTrails, and puts `ORG_ID` in its POST. |

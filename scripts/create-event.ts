@@ -105,7 +105,7 @@ if (decision.kind === 'ask') {
   // found weeks later by noticing a group page looks wrong; a refusal here is found
   // now, by the person who knows the answer.
   console.error(`ERROR: cannot decide which community this event belongs to — ${decision.why}`);
-  console.error('Add "lat" and "lng" for the venue, or set "org_slug" explicitly ("cm", "online", or null for none).');
+  console.error('Add "lat" and "lng" for the venue, or set "org_slug" explicitly ("cm", or null for none; the online group is hidden, P1543).');
   process.exit(1);
 }
 

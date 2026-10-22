@@ -76,7 +76,7 @@ export function distanceKm(
 }
 
 export type OrgResolution =
-  | { kind: 'org'; slug: 'cm' | 'online'; why: string }
+  | { kind: 'org'; slug: 'cm'; why: string }
   | { kind: 'loose'; why: string }
   /** The creator must say which community. Never resolved by guessing. */
   | { kind: 'ask'; why: string };
@@ -93,17 +93,23 @@ export function resolveOrg(input: ResolveOrgInput): OrgResolution {
   // 1. An explicit choice always wins, including the explicit choice to stay loose.
   if (input.orgSlug !== undefined) {
     if (input.orgSlug === null) return { kind: 'loose', why: 'org_slug: null — deliberately unaffiliated' };
-    if (input.orgSlug === 'cm' || input.orgSlug === 'online') {
+    if (input.orgSlug === 'cm') {
       return { kind: 'org', slug: input.orgSlug, why: `org_slug: "${input.orgSlug}" (explicit)` };
     }
+    // P1543: 'online' is no longer a known default — that group is hidden (visibility 'private'),
+    // so an explicit "online" falls through to here and is asked about, like any unknown slug.
     // An unknown slug is not this module's to validate — the caller resolves it
     // against the database and fails there if it names nothing.
     return { kind: 'ask', why: `org_slug: "${input.orgSlug}" is not a known default — resolve it against the database` };
   }
 
-  // 2. Online is decided by the venue, not by geography.
+  // 2. Online is decided by the venue, not by geography. P1543: the online group is hidden, so an
+  // online event belongs to no group by default (loose) rather than to a group nobody can open.
   if (isOnlineLocation(input.location)) {
-    return { kind: 'org', slug: 'online', why: 'location is a meeting link or says online' };
+    return {
+      kind: 'loose',
+      why: 'location is a meeting link or says online — the online group is hidden (P1543), so no group by default',
+    };
   }
 
   // 3. In person: inside the Chiang Mai radius is the ordinary case and is silent.

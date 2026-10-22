@@ -293,11 +293,11 @@ describe('P1512 shell — collapse', () => {
 });
 
 describe('P1512 shell — phone bottom bar', () => {
-  it('has Home, Feed, Groups, Letters and You', () => {
+  it('has Home, Feed, Events, Letters and You (P1543: Events replaces Groups)', () => {
     const { container } = renderLayout('/feed');
     const bar = container.querySelector('[data-nav="bottom"]') as HTMLElement;
     const labels = Array.from(bar.querySelectorAll('a, button')).map(el => el.querySelector('span.text-xs')?.textContent);
-    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'You']);
+    expect(labels).toEqual(['Home', 'Feed', 'Events', 'Letters', 'You']);
   });
 
   it('shows the Letters badge on the tab', () => {
@@ -342,7 +342,7 @@ describe('P1512 shell — phone bottom bar', () => {
     expect(screen.getByTestId('bottom-nav-me').className).toContain('text-blue-600');
   });
 
-  it('You opens a sheet with My Profile, Partners (badge), Tools, Settings, Log Out and Events', () => {
+  it('You opens a sheet with My Profile, Partners (badge), Tools, Groups, Settings and Log Out', () => {
     mockPartnerCount.mockReturnValue({ count: 1, loading: false });
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
@@ -350,7 +350,7 @@ describe('P1512 shell — phone bottom bar', () => {
     expect(sheet.getByRole('link', { name: 'My Profile' })).toHaveAttribute('href', '/p/ada');
     expect(sheet.getByRole('link', { name: 'Partners, 1 pending invitation' })).toHaveAttribute('href', '/p/ada/partners');
     expect(sheet.getByTestId('event-links-button')).toHaveTextContent('Tools');
-    expect(sheet.getByRole('link', { name: /^events$/i })).toHaveAttribute('href', '/events/list');
+    expect(sheet.getByRole('link', { name: /^groups$/i })).toHaveAttribute('href', '/groups');
     expect(sheet.getByRole('link', { name: /settings/i })).toHaveAttribute('href', '/settings');
     expect(sheet.getByRole('button', { name: /log out/i })).toBeInTheDocument();
   });
@@ -378,13 +378,13 @@ describe('P1512 shell — phone bottom bar', () => {
 describe('P1512 shell — menus do not repeat the nav beside them', () => {
   const hrefs = (el: HTMLElement) => Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href'));
 
-  it('the phone Me sheet leaves out Feed and Groups (in the bottom bar) and keeps Events, which the bar lacks', () => {
+  it('the phone Me sheet leaves out Feed and Events (in the bottom bar) and keeps Groups, which the bar lacks (P1543)', () => {
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = within(screen.getByTestId('me-sheet'));
     expect(sheet.queryByRole('link', { name: /^feed$/i })).toBeNull();
-    expect(sheet.queryByRole('link', { name: /^groups$/i })).toBeNull();
-    expect(sheet.getByRole('link', { name: /^events$/i })).toHaveAttribute('href', '/events/list');
+    expect(sheet.queryByRole('link', { name: /^events$/i })).toBeNull();
+    expect(sheet.getByRole('link', { name: /^groups$/i })).toHaveAttribute('href', '/groups');
   });
 
   it('the Me sheet has no Use cases or Learn group and no Pledgers; one "ClarityPledge website" row stands for them', () => {
@@ -401,14 +401,14 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     expect(website[0]!.querySelector('svg')!.getAttribute('class')).toContain('h-5');
   });
 
-  it('the Me sheet draws no public group headings: Events is a plain row after Tools, the website row sits directly above the account block', async () => {
+  it('the Me sheet draws no public group headings: Groups is a plain row after Tools, the website row sits directly above the account block', async () => {
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = screen.getByTestId('me-sheet');
     for (const heading of ['Product', 'Use cases', 'Learn', 'Your account']) expect(within(sheet).queryByText(heading)).toBeNull();
     const rows = Array.from(sheet.querySelectorAll('nav[aria-label="Account"] a, nav[aria-label="Account"] button')).filter(el => !el.hasAttribute('data-badge'));
     const names = rows.map(el => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim());
-    expect(names).toEqual(['My Profile', 'Partners', 'Tools', 'Events', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
+    expect(names).toEqual(['My Profile', 'Partners', 'Tools', 'Groups', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
   });
 
   it('the Me sheet derives what it omits from the bottom bar: no destination appears in both', () => {

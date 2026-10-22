@@ -135,7 +135,7 @@ export function groupsRead(): OfflineRead<GroupsDirectory> {
 // ─── / (home: groups + next events) ──────────────────────────────────────────
 
 export const HOME_MAX_GROUPS = 2;
-/** P1415: the one group the home rail names (Communication Activism), by SLUG — never by name or
+/** P1415: the one group the home rail names (Clarity Practice Community · Chiang Mai, renamed from Communication Activism in P1543), by SLUG — never by name or
  *  rank: a rename once silently reordered the directory (decisions.md 2026-09-07). */
 export const HOME_GROUP_SLUG = 'cm';
 

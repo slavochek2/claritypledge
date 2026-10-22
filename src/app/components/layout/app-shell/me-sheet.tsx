@@ -2,9 +2,9 @@
  * @file me-sheet.tsx
  * @description P1512: the phone's "You" sheet, opened from the bottom bar's last tab. It carries
  * what the phone bar has no room for: My Profile (a normal first row, the same person icon as the sidebar), Partners (with its
- * pending-invite badge), Tools (the same Links menu), and then the avatar menu's own items (Events,
+ * pending-invite badge), Tools (the same Links menu), and then the avatar menu's own items (Groups,
  * Settings, Log Out, ...) via NavigationMenuItems minus what the bar's tabs already link to (Feed,
- * Groups) and the public-site sections (Use cases, Learn, Pledgers), which one "ClarityPledge website" row
+ * Events; P1543 swapped Groups out of the bar for Events) and the public-site sections (Use cases, Learn, Pledgers), which one "ClarityPledge website" row
  * stands for, so nothing the bar offers is repeated.
  */
 import { useContext, useEffect, useRef } from 'react';
@@ -152,7 +152,7 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
             </Link>
           )}
           <EventLinksButton variant="sheet" appearance={TOOLS_APPEARANCE} />
-          {/* What the bottom bar lacks (Events), as plain rows with no group heading, then the website row;
+          {/* What the bottom bar lacks (Groups), as plain rows with no group heading, then the website row;
               the account block follows, so "ClarityPledge website" sits directly above it, as on desktop. */}
           <NavigationMenuItems
             variant="sheet"

@@ -78,7 +78,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     // Founder-confirmed name: "Clarity Practice Community · Chiang Mai". Matched on the
     // distinguishing words rather than verbatim so a punctuation/locale tweak to the
     // separator does not fail a smoke test whose subject is "the page renders at all".
-    await expect(page.getByRole('heading', { name: /communication activism/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /clarity practice community/i })).toBeVisible({ timeout: 10000 });
     expect(errors, `Console errors on /org/cm: ${errors.join(', ')}`).toEqual([]);
   });
 
