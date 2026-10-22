@@ -23,7 +23,9 @@ exec_effort: high
 
 **Question:** How does one learning step serve both a just-registered attendee (optional) and someone joining as a member (required), and lead naturally from event to membership?
 
-> Founder (2026-10-22, as relayed by the session that filed this spec): "Preparation is the wrong name; nobody prepares for a hike. It is learn what this community is, then decide."
+> Founder, verbatim (2026-10-22): "So far, we call this slash prepare. But it's not prepare for the event. You don't prepare for the event. On the event, the maximum you can do is you can decide to learn more and then learn. And then you decide if you join."
+
+> Founder, verbatim: "the person who just registered for the event, he optionally can learn. And the one who wants to join, he needs to manage the expectation that he needs to learn first before he joined and explained why."
 
 Journey: register → optionally learn → the event → feedback → decide on membership.
 
