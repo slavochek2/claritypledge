@@ -6532,7 +6532,7 @@ cmd_push_docs() {
 # Stop hook can never disagree about a slot. Prints the state word, or nothing.
 p1519_slot_state() {
   local slot="$1" line
-  line="$( cd "$REPO_ROOT" && bash "$REPO_ROOT/scripts/pipeline-strandings.sh" --slot "$slot" 2>/dev/null | head -1 )"
+  line="$( cd "$REPO_ROOT" && bash "$REPO_ROOT/scripts/pipeline-strandings.sh" --slot "$slot" 2>/dev/null | head -1 || true )"
   printf '%s' "$line" | awk -F'\t' '{ print $3 }'
 }
 
