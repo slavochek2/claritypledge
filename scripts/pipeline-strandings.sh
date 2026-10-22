@@ -216,7 +216,9 @@ classify_slot() {
   fi
   if (( n_commits == 0 )); then printf 'EMPTY\tclaimed, nothing committed on %s\n' "$br"; return; fi
   if (( unlanded == 0 )); then printf 'SPEC_ONLY\t%s commit(s) on %s, all spec-only (features/), no code\n' "$n_commits" "$br"; return; fi
-  if [[ -n "$pn" && -x scripts/ship-gates.sh ]] && bash scripts/ship-gates.sh "$pn" --only 2.5 >/dev/null 2>&1; then
+  # The gate is this script's sibling, never a repo-relative path: --slot mode runs from
+  # whatever cwd its caller chose, and must not execute code that cwd supplies.
+  if [[ -n "$pn" && -x "$SCRIPT_DIR/ship-gates.sh" ]] && bash "$SCRIPT_DIR/ship-gates.sh" "$pn" --only 2.5 >/dev/null 2>&1; then
     printf 'READY_TO_SHIP\t%s code commit(s) not on main; %s passes the closure gate\n' "$unlanded" "$pn"; return
   fi
   printf 'IN_PROGRESS\t%s code commit(s) not on main; completion items still open\n' "$unlanded"

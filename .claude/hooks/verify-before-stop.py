@@ -469,9 +469,15 @@ def classify_slots(owned):
                                            "scripts", "pipeline-strandings.sh"))
     if not os.path.isfile(script):
         return []
+    # Only this hook's own repository is classified: the classifier runs git in `root`, and a
+    # path in a transcript must never make the hook execute code from another checkout.
+    # P1519_TEST_REPO_ROOT admits one extra root, for the hermetic canary only.
+    allowed = {os.path.realpath(r) for r in (_git_root(os.path.dirname(script)),
+                                            os.environ.get("P1519_TEST_REPO_ROOT")) if r}
     by_root = {}
     for (root, slot), ts in owned.items():
-        by_root.setdefault(root, []).append(f"{slot}:{ts}")
+        if os.path.realpath(root) in allowed:
+            by_root.setdefault(root, []).append(f"{slot}:{ts}")
     out, deadline = [], time.monotonic() + SLOT_TIME_BUDGET_S
     for root, args in by_root.items():
         left = deadline - time.monotonic()

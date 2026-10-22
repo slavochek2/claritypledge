@@ -36,7 +36,7 @@ ERR="$TMP/hook.err"
 run_hook() { # <transcript> <session> — exit code; stderr kept in $ERR
   local a=0
   echo "{\"transcript_path\":\"$1\",\"stop_hook_active\":false,\"session_id\":\"$2\"}" \
-    | CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$STOP_HOOK" >/dev/null 2>"$ERR" || a=$?
+    | P1519_TEST_REPO_ROOT="${ROOT_OVERRIDE-$REPO}" CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$STOP_HOOK" >/dev/null 2>"$ERR" || a=$?
   echo "$a"
 }
 gitops() { ( cd "$REPO" && bash scripts/git-ops.sh "$@" ); }
@@ -127,6 +127,11 @@ cp "$SCRIPT_DIR/../.claude/hooks/_transcript_lib.py" "$TMP/"; cp "$BASE" "$TMP/v
 t2="$(ms)"; for _ in 1 2 3 4 5; do echo "{\"transcript_path\":\"$T4\",\"session_id\":\"s4d\"}" | CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$TMP/verify-before-stop-base.py" >/dev/null 2>&1 || true; done; t3="$(ms)"
 added=$(( ((t1 - t0) - (t3 - t2)) / 5 ))
 check "added latency per Stop under 50ms (measured ${added}ms vs the hook on main)" "yes" "$([[ $added -lt 50 ]] && echo yes || echo no)"
+
+echo "[4b] a slot in a repo other than the hook's own is never classified"
+transcript "$T4" "$(user 'x')" "$(edit_of "$W2/src/p9002.ts")" "$(say "$NOTHING")"
+check "foreign-repo slot ignored without the test admission" "0" "$(ROOT_OVERRIDE= run_hook "$T4" s4e)"
+check "the same slot, admitted, blocks (control)" "2" "$(run_hook "$T4" s4f)"
 
 echo "[5] the literal reply triggers the check for a slot owner"
 S5="$(claim p9005 literal)"; W5="$REPO/.claude/worktrees/$S5"
