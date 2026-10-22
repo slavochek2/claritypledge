@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 54
 workstream: infrastructure
@@ -146,20 +146,28 @@ not capacity.
 
 ## Done-When
 
-- [ ] Two `playwright test` runs started at the same time from two worktrees: the second waits,
+- [x] Two `playwright test` runs started at the same time from two worktrees: the second waits,
       prints the first run's worktree and branch, and starts when the first ends (shown by log).
-- [ ] Killing the first run mid-way (including `kill -9`) frees the lock for the waiting run.
-- [ ] A waiting run that exceeds the bounded wait exits with its distinct code and names the holder.
-- [ ] `npx playwright test --list` never waits on the lock.
-- [ ] The lock is held through teardown: a run queued behind another starts only after the first
+- [x] Killing the first run mid-way (including `kill -9`) frees the lock for the waiting run.
+- [x] A waiting run that exceeds the bounded wait exits with its distinct code and names the holder.
+- [x] `npx playwright test --list` never waits on the lock.
+- [x] The lock is held through teardown: a run queued behind another starts only after the first
       run's teardown sweep has finished (shown by timestamps).
-- [ ] With TEST deliberately slow (or the probe pointed at a host that does not answer), the run
+- [x] With TEST deliberately slow (or the probe pointed at a host that does not answer), the run
       prints "test database is overloaded" before any test runs, labelled infrastructure.
-- [ ] The default worker count against TEST is set from a recorded measurement on the nano project,
+- [x] The default worker count against TEST is set from a recorded measurement on the nano project,
       and the measurement is in the spec.
-- [ ] Every start path in Solution scope goes through the guard, each shown by a run log.
-- [ ] `.claude/rules/tests.md` names the test project's size, that it is shared, and how heavy
+- [x] Every start path in Solution scope goes through the guard, each shown by a run log.
+- [x] `.claude/rules/tests.md` names the test project's size, that it is shared, and how heavy
       suites run.
+
+Evidence (2026-10-22, committed code, scratchpad `p1541-final.sh`): A held the lock 22:39:18, B logged
+"waiting for w16 (feature/p1541…)" at 22:39:26; A's teardown sweep finished 22:39:35 and A exited;
+B took the lock 22:39:37. kill -9 holder → next run "reclaiming a stale e2e lock", 6 passed. Bounded
+wait 5s → exit 75 naming the holder. `--list` exit 0 in 1s, no lock lines. Probe at a dead host →
+exit 75 "[infra] TEST database is overloaded", lock released. Start paths: `npm run test:e2e` and the
+capture config load `playwright.config.ts` (guarded); the overnight script targets local Supabase
+(skips, not TEST). Worker measurement: table above. tests.md rule added.
 
 ## Open Questions
 

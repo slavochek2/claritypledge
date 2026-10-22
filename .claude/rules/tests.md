@@ -22,6 +22,7 @@ Tests are executable specifications. Modifying a test to make it pass = changing
 
 - Location: `e2e/*.spec.ts`
 - Run: `npm run test:e2e`
+- **TEST is the smallest Supabase size, shared by every session on this machine** (P1541). A run takes a machine-wide lock: a second run waits up to 10 min, then exits **75** with an `[infra]` line naming the holder, and exits 75 too if TEST is overloaded. Exit 75 is not an app failure: report it, never retry-loop it. Default 2 workers (measured; see the P1541 spec).
 - Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
 - Writing tests against a table with no owner/session scoping, or reading DOM state after any wait? See the guide's "shared table" and "non-retrying DOM read" entries (P1083) — table wipes and single-shot reads both race under this repo's default concurrent Playwright projects and React StrictMode.
 - Seeding localStorage/sessionStorage (shape validators, `savedAt` vs `timestamp` incident): [e2e-testing-guide.md — Seeding the ActiveSessionBanner](docs/technical/e2e-testing-guide.md#seeding-the-activesessionbanner-p888-pattern) — grep the interface definition, never copy seed shapes from sibling tests
