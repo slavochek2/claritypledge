@@ -64,7 +64,7 @@ are private rows that can be deleted). Decision density: a few founder calls (be
 Steps 1-4 above (the engine) are unchanged; only the entry point and the input path move.
 
 - **+ Canvas** (the Artifacts page's create menu, P1545) and the event preparation's "Draft my
-  canvas" step both open a **new thread with the owner's mirror** (threads in the mirror: P1544).
+  canvas" step both open a **new thread with the owner's mirror** (threads in the mirror: P1546).
   The mirror opens the thread by asking for material: files, links, a note.
 - **Upload in chat.** The composer gets an upload control next to the existing paperclip
   (`src/app/pages/chat/Composer.tsx:188`, today "Attach a point or story"), available in mirror
@@ -80,7 +80,7 @@ Steps 1-4 above (the engine) are unchanged; only the entry point and the input p
 > Agent and the Mirror Agent says, hey, you know, upload stuff ... upload button near the paperclip
 > where you can attach things or upload markdowns or whatever."
 
-**Depends on P1544** (the mirror on prod, its privacy text and threads in the mirror). Founder,
+**Depends on P1544** (the mirror on prod and its privacy text) **and P1546** (threads in the mirror). Founder,
 2026-10-22: "make the mirror launch before". The engine (steps 1-3) can be built and tested on the
 test database in parallel; nothing goes live before P1544 is live.
 
@@ -205,5 +205,6 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
   [P1457](p1457_clarity_chat_data_import.md) chat data import ·
   [P1332](p1332_canvas_to_letter_skill.md) canvas to letter ·
   P1520 mirror (availability-gate pattern, spend-capped key) ·
-  [P1544](p1544_mirror_launch_on_prod.md) mirror on prod and threads (blocks go-live) ·
+  [P1544](p1544_mirror_launch_on_prod.md) mirror on prod (blocks go-live) ·
+  [P1546](p1546_threads_in_every_chat.md) threads in the mirror (blocks the entry point) ·
   [P1545](p1545_menu_and_artifacts.md) Artifacts page, + Canvas

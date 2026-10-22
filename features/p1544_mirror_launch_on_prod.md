@@ -4,7 +4,7 @@ type: story
 rank: 56
 workstream: clarity-chat
 created_date: '2026-10-22'
-tags: [mirror, privacy, terms, threads]
+tags: [mirror, privacy, terms]
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
@@ -13,138 +13,139 @@ exec_model: opus
 exec_effort: high
 ---
 
-# P1544: Mirror on prod: honest policy, hard terms bump, threads in every chat, a mirror that remembers
+# P1544: Mirror on prod: honest policy, hard terms bump, server-side terms gate
+
+**Split 2026-10-22 after spec review.** Gemini 4 Argon and Codex both recommended splitting, and the founder decisions are preserved across all three:
+- **P1544** (this spec) switches the mirror on, at today's context.
+- **[P1546](p1546_threads_in_every_chat.md):** threads in direct messages and the mirror.
+- **[P1547](p1547_mirror_memory_token_budget.md):** the mirror reads far more.
+
+Each ships on its own. P1536 needs P1544 and P1546.
 
 ## Problem
 
-**Situation:** The mirror agent (P1520) and its portrait (P1534, P1537) are built, shipped to main and work on test. On prod they are off by design: `mirror-reply` and `mirror-portrait` were never deployed there, and neither `MIRROR_AI_ENABLED` nor the mirror key is set (decisions.md, the P1520 availability entry). The reason is the privacy policy. It says *"Your mirror is a private chat that only you can read. No AI reads or answers it."* and *"No chat content is sent to an AI provider."*
+**Situation:** The mirror agent (P1520) and its portrait (P1534, P1537) are on main and work on test. On prod they are off by design:
+- `mirror-reply` and `mirror-portrait` were never deployed;
+- neither `MIRROR_AI_ENABLED` nor the mirror key is set (decisions.md, the P1520 availability entry).
 
-**Complication:** The founder wants the mirror live:
+The reason is the privacy policy, which says *"Your mirror is a private chat that only you can read. No AI reads or answers it."* and *"No chat content is sent to an AI provider."* (`src/app/content/privacy.md`, Clarity Chat section).
+
+**Complication:** The founder wants it live:
 
 > Founder, verbatim: "we already have the mirror agent, but it's not responding, so what's the point of having it?"
 
-A Gemini 4 Argon and a Codex review of a first policy draft (2026-10-22, this conversation) found that it would have been false in four places. Each was confirmed in code before this spec was written:
-- Mirror context includes Clarify and forwarded copies of other people's messages, direct messages included (`supabase/functions/_shared/mirror-agent.ts:110-118`).
+A first policy draft, reviewed by Gemini and Codex on 2026-10-22, would have been false in four places. Each was confirmed in code:
+- Context includes Clarify and forwarded copies, including direct messages (`supabase/functions/_shared/mirror-agent.ts:110-118`).
 - A copy made before its source was deleted is still sent (`supabase/migrations/20261020213000_p1520_mirror_v2.sql:470-478`).
-- The portrait is generated automatically on first open (`src/app/pages/chat/ConversationPane.tsx:95`) and stored at a public URL (`supabase/functions/mirror-portrait/index.ts:109`).
-- "Not used for training" is a fact about the Google billing account, not about our code.
+- The portrait is made on first open (`src/app/pages/chat/ConversationPane.tsx:95`) and stored at a public URL (`supabase/functions/mirror-portrait/index.ts:109`).
+- "Not used for training" is a fact about the Google account, not our code.
 
-Separately, the mirror reads very little (`MAX_IN_TOKENS = 10_000`, a 6,000-character data budget, at most 30 messages) and has no threads, because threads exist in channels only (`src/app/pages/chat/ChatHomePage.tsx:65`).
+A review of this spec also found that nothing on the server checks terms acceptance before an AI call (`supabase/functions/mirror-reply/index.ts`, no terms read).
 
-**Question:** What does the policy, the terms and the product have to say and do so that switching the mirror on is honest, and so the mirror is worth switching on?
+**Question:** What must the policy, the terms and the server say and do so that switching the mirror on is honest?
 
 ## Appetite
 
-Blast radius: high. Every user gets a blocking terms popup, and chat content starts leaving for Google. Reversibility: medium. Unsetting `MIRROR_AI_ENABLED` turns the AI off at once; the terms version stays bumped. Decision density: one open call, the context budget (below). Everything else was decided by the founder on 2026-10-22.
+Blast radius: high. Every user gets a blocking popup, and chat text starts going to Google. Reversibility: medium. Unsetting `MIRROR_AI_ENABLED` stops the AI at once; the terms version stays bumped. Decision density: the wording below, plus two rules flagged for the founder.
 
 ## Founder decisions (2026-10-22, this conversation)
 
-1. **No opt-out setting.** There is no "don't include my messages in other people's mirrors" setting.
+1. **No self-serve opt-out setting.**
    > "This defies the whole purpose of the chat … I can forward your message from WhatsApp or Telegram to my AI anyway."
 
-   The platform still does the sending, so disclosure is ours. That means: a terms sentence, an honest policy, and objections by email, handled case by case (the Art. 21 route lives in the rights section).
+   The platform does the sending, so disclosure is ours: a terms sentence, an honest policy, and objections by email.
 2. **Google: name the service and link Google's terms. Never describe Google's behaviour on its behalf.**
-   > "why would we on behalf of Google say something?"
-3. **Paid tier.** The key's Google Cloud project must have billing enabled, which credits count as. Verify it; never assume it.
-4. **Hard bump.** `requiresConsent: true`. This reverses an explicit "no AI" promise and starts sending third-party chat text to a provider. Precedent: v1.4 (`src/app/content/terms-changes.ts`).
-5. **Threads in every chat:** direct messages and the mirror, not only channels.
-   > "in one-on-one chats, I don't have threads. But why not? Maybe we should allow that."
-6. **Clarify stays hidden inside the mirror.** In the mirror it would copy a message into the same chat (`use-message-actions.tsx`, `onClarify` is undefined for `kind === 'mirror'`). Reply, Forward and New thread work as everywhere else.
-7. **The mirror reads far more than 30 messages.**
-   > "it can read much more than just last 30 because last 30 is very, very little … at some point it should cut because maybe it takes us too many tokens and too much money."
-
-   The founder flagged long forwarded threads as the case needing a rule. The rule is in Solution 3.
+3. **Paid tier.** The key's project must have billing enabled, which credits count as. Verify it.
+4. **Hard bump** (`requiresConsent: true`). This reverses an explicit "no AI" promise. Precedent: v1.4.
+5. **Clarify stays hidden inside the mirror** (`use-message-actions.tsx`: `onClarify` is undefined for `kind === 'mirror'`).
 
 ## Solution
 
-1. **Policy (`src/app/content/privacy.md`).** Rewrite the four sections that make the mirror promise:
-   - *Who can read a chat*
-   - *How it is stored*
-   - *AI features*: a new **Your mirror** bullet
-   - *Legal Bases* and *Who Processes Your Data* (the Gemini API row)
-   
-   The new text describes what the code does, item by item, as found in review:
+1. **Policy (`src/app/content/privacy.md`).** Rewrite the mirror promises in *Who can read a chat*, *How it is stored*, *AI features* (a new **Your mirror** bullet), *Legal Bases*, *Who Processes Your Data* (the Gemini API row) and *Your rights*. The text describes what the code does. Every factual sentence carries a `file:line` in the build report.
    - **Triggers:** a message in your mirror, Clarify, an ask about a group or event chat.
-   - **What is sent:** the current context (Solution 3), names, chat titles, Clarify and forwarded copies including direct messages, and copies made before a source was deleted.
-   - **Who sees the answer:** only the asker. Nothing posts in the original chat.
-   - **Account deletion:** answers built on a deleted account's words are cleared, and nothing already sent can be recalled.
-   - **Portrait:** made on first open and on New face, no data about the owner in the prompt, stored at a public link.
-   - **Google:** named as the Gemini API, with a link to Google's own terms and no paraphrase of them.
-   - **Rights:** an objection line ("object to your messages being read by another member's mirror: email …").
+   - **What is sent:** recent context under a size limit, named generically ("recent messages, up to a limit") so that P1547 does not force another rewrite. That includes names, chat titles, and Clarify and forwarded copies, direct messages included, and copies made before their source was deleted.
+   - **Who sees the answer:** only the asker. Nothing is posted in the original chat.
+   - **Account deletion:** answers built on a deleted account's words are cleared (`derived_refs` erasure, P1520). Nothing already sent can be recalled.
+   - **Portrait:** made on first open and on New face, contains no data about the owner, stored at a public link, and stays stored when the owner's account is erased (`20261020213000_p1520_mirror_v2.sql:48`).
+   - **Google:** "the Gemini API", with a link to Google's own terms and no paraphrase.
+   - **Legal basis:**
+     - *Contract (Art. 6(1)(b))* for what the asker sends.
+     - *Legitimate interest (Art. 6(1)(f))* for other members' messages. The interest is understanding a conversation the asker is part of. It is limited to what the asker can already read, other members are told at the hard bump, and they can object.
+     - The existing instruction not to post special-category information is extended to chats.
+   - **Objection:** "To object to your messages being read by another member's mirror, email …". It is honoured by Solution 4.
+2. **Terms.** One sentence in the terms of service, with a `CURRENT_TERMS_VERSION` bump and a `TERMS_CHANGES` entry with `requiresConsent: true`. Draft wording:
+   - Terms: *"Messages you post in a group, event or direct chat can be read by the AI mirror of another person in that chat, when they ask it about the chat or copy your message into it."*
+   - Popup headline: *"Your mirror can now answer you, using Google's Gemini."*
+   - Highlights:
+     - What it reads.
+     - Other members' mirrors may read what you post.
+     - How to object.
    
-   Draft it, then run Gemini and Codex against the code before it ships. Every factual sentence gets a `file:line`.
-2. **Terms.** One sentence in the terms of service: *"Messages you post in a group, event or direct chat can be read by the AI mirror of another person in that chat when they ask it about the chat or copy your message into it."* [FOUNDER DECISION: wording.] Bump `CURRENT_TERMS_VERSION` with a `TERMS_CHANGES` entry, `requiresConsent: true`, one headline and at most three highlights. [FOUNDER DECISION: headline wording.]
-3. **Context: the mirror remembers.** Replace the 30-message, 6,000-character window with a token budget. Selection, newest first, until the budget is spent:
-   - **In a mirror thread:** the whole thread first, then recent mirror messages outside it.
-   - **In the mirror's main chat:** recent mirror messages, threads included as their root plus a line saying how many replies they have.
-   - **For a channel ask:** that channel's readable messages under the existing access rules (from the asker's access time, deleted ones excluded).
-   - **A forwarded or Clarified thread** counts as one item with its own cap, 20% of the budget. Past the cap the oldest replies are dropped, and the mirror is told "showing the last N of M replies", so it never claims to have read what it did not.
-   - The request is refused and never sent when the assembled prompt would exceed the budget. That is today's rule, kept.
+   [FOUNDER DECISION: confirm or rewrite the terms sentence and the headline.]
+3. **Server-side terms gate.** `mirror-reply` and `mirror-portrait` refuse unless the caller has accepted the current terms version, and they say so as a typed error the client shows. A cached old client or a direct API call cannot reach Gemini otherwise.
+4. **Whose messages may be sent.** A message by another person enters someone's mirror context only if **both**:
+   - (a) it was posted after the launch moment (the new terms version's publication time), because older messages were written under the "no AI" promise;
+   - (b) its author's profile is not marked `mirror_context_excluded`.
    
-   [FOUNDER DECISION: the context budget. Options and costs are in the Cost Budget. Recommendation: **50,000 input tokens**. That is about 35,000 words, several hundred chat messages, for about 4 US cents per reply at today's price. 10× the current window at 3.5× the current cost per reply, since the output side does not grow.]
-4. **Threads in every chat.** Allow New thread in direct messages and the mirror. The server rule that today permits threads only in channels (`/dev` locates it in `send_chat_message`/RLS and the thread RPCs) widens to all conversation kinds. The thread panel and the thread URL work for direct messages and the mirror. Today a thread URL on those falls back to the chat (`ChatHomePage.tsx:65`). The mirror answers inside a thread when asked inside it.
-5. **Go live.** Verify the key's project billing (decision 3), set `MIRROR_AI_ENABLED` and the mirror key on prod, deploy both functions, and run the edge smoke plus one real reply and one portrait on the founder's account.
+   (b) is an operator flag, set by the founder when an objection arrives by email. There is no user-facing control, so decision 1 holds. The asker's own messages are not limited by either rule.
+
+   [FOUNDER DECISION: rule (a), "only messages posted after launch". Recommended. It keeps the old promise for what people already wrote, and the cost is a mirror that knows less about old chats for a while.]
+5. **Go live.** Verify the key's project billing (decision 3). Set `MIRROR_AI_ENABLED` and the mirror key on prod. Deploy both functions after the policy, terms and the SQL for Solutions 3 and 4 are on prod. Run the edge smoke, one real reply and one portrait on the founder's account.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A long context makes injected text in a forwarded message more likely to steer the mirror | MITIGATE | The existing real-model red-team suite (P1520) is re-run at the new budget, with a control test; quoted text stays data, never instructions |
-| Bigger context multiplies cost per reply | MITIGATE | Reservation formula uses the new `MAX_IN_TOKENS`; existing per-person and global daily caps unchanged (values kept private), so fewer replies fit under the same cap rather than more money |
-| The blocking popup annoys returning users | ACCEPT | Founder decision 4; the change reverses an explicit promise |
-| A member objects by email | ACCEPT | Handled case by case; a product-level setting was rejected (decision 1) |
-| Gemini prices double after 2026-12-31 (registry) | ACCEPT | The reservation already uses the post-promo price; the caps hold |
+| Old client reaches Gemini before accepting | MITIGATE | Solution 3, server-side |
+| An objection cannot be honoured technically | MITIGATE | Solution 4 (b), operator flag, tested |
+| Messages written under the "no AI" promise get sent | MITIGATE | Solution 4 (a), pending the founder decision |
+| The blocking popup annoys returning users | ACCEPT | Decision 4 |
+| Gemini price doubles after 2026-12-31 | ACCEPT | The SQL reservation (`reply_max_usd` 0.03) already uses the post-promo price |
 
 **Non-Goals**
-- Do NOT add an opt-out setting.
-- Do NOT change who can read what in a chat, or the mirror's owner-only rule.
-- Do NOT add file uploads to chat. That is P1536.
+- Do NOT change the context size (P1547) or add threads (P1546).
+- Do NOT add a user-facing opt-out.
 - Do NOT add Clarify inside the mirror.
-- Do NOT add per-mirror memory beyond the conversation (no summaries stored elsewhere).
 
 ## Cost Budget
 
-Registry: Gemini API row, `docs/technical/metered-services.md`, read 2026-10-21. Model `gemini-3.8-flash`: $0.75 input / $3.75 output per 1M tokens through 2026-12-31, then $1.50 / $7.50. The code reserves at $1.50 / $7.50 × 1.25 (`mirror-agent.ts`).
+Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-10-21. Model `gemini-3.8-flash`, $0.75 / $3.75 per 1M tokens through 2026-12-31, then $1.50 / $7.50. Context is unchanged here, so per-call figures are P1520's.
 
-| Measure | Per reply | Per user per day | Per test run |
+| Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | 1 Gemini call per reply (unchanged) | 20 replies × 1 = 20 calls (planning figure) | red-team suite: `/dev` counts the calls, then N × the per-reply cost |
-| Tokens, today (10k in) | 10,000 × $0.75/1M + 1,200 × $3.75/1M = $0.0075 + $0.0045 = **$0.012** | 20 × $0.012 = $0.24 | — |
-| Tokens at **50k (recommended)** | 50,000 × $0.75/1M + 1,200 × $3.75/1M = $0.0375 + $0.0045 = **$0.042** | 20 × $0.042 = **$0.84** | — |
-| Tokens at 100k | 100,000 × $0.75/1M + $0.0045 = **$0.0795** | 20 × $0.0795 = $1.59 | — |
-| Reservation at 50k (post-promo, ×1.25) | (50,000 × $1.50 + 1,200 × $7.50)/1M × 1.25 = ($0.075 + $0.009) × 1.25 = **$0.105** | — | — |
+| Reply calls | ≤10,000 in × $0.75/1M + ≤1,200 out × $3.75/1M = $0.0075 + $0.0045 = **≤$0.012** per reply; reservation $0.03 (`_mirror_limits`) | bounded by the private global daily cap | red-team suite: 7 tests (`e2e/integration/p1520-mirror-redteam.spec.ts`), ≤3 replies each = ≤21 × $0.012 = **≤$0.25** |
+| Portrait runs | P1534's reservation per run (2 generations + 2 vision checks at list price); first open + New face | bounded by the private portrait cap | 1 run on prod verification |
+| Supabase requests | 1 edge call + 1 job RPC + 1 settle per reply = 3 | 3 × replies | ≤63 for the suite |
+| Log lines | ≤2 per reply (P1453 rule: codes only, never content) | 2 × replies | ≤42 |
 
-A reply rarely uses the full budget; these are ceilings. Daily caps are unchanged and private. `/dev` reports how many replies the per-person cap now allows.
+**Fits today:** yes. Spend is bounded by the existing private daily caps; monthly ≤ 30 × the global daily cap. **At 10×:** the caps refuse further replies rather than spend more. Raising them is a founder call with the figures in `.private/`.
 
 ## Acceptance Criteria
 
-- [ ] The privacy policy's mirror text matches the code on every point listed in Solution 1. Each factual sentence carries a `file:line` in the build report, confirmed by a Gemini and a Codex review.
-- [ ] The policy names the Gemini API and links Google's terms, and paraphrases none of them.
-- [ ] A returning user on the previous terms version gets the blocking popup with the new headline. Declining logs them out; accepting records `acceptance_mode = explicit`.
-- [ ] In a direct message and in the mirror, New thread opens a thread; its URL reloads into the thread; a thread reply in a direct message is readable by both people and nobody else (RLS checked by curl).
-- [ ] Asked inside a mirror thread, the mirror's request contains that whole thread (shown by the request log on test). Asked in the main mirror chat, it contains messages older than the old 30-message window.
-- [ ] A forwarded thread over the per-item cap is cut to its newest replies, and the request tells the model "showing the last N of M".
-- [ ] Clarify is not offered inside the mirror; Reply, Forward and New thread are.
-- [ ] The red-team suite passes at the new budget, with its control failing as designed.
-- [ ] On prod: one real reply and one portrait on the founder's account. Smoke passes. Sentry shows no new errors in 10 minutes. `[post-deploy]`
+- [ ] Every factual sentence of the new mirror text in the policy is backed by a `file:line` in the build report, and a Gemini and a Codex review find no false statement.
+- [ ] The policy names the Gemini API and links Google's terms without paraphrasing them.
+- [ ] A user on the previous terms version gets the blocking popup with the new headline. Declining logs out; accepting records `acceptance_mode = explicit`.
+- [ ] `mirror-reply` and `mirror-portrait` refuse a caller who has not accepted the current version (curl with an old-version test user on test), and the client shows the refusal.
+- [ ] A synthetic channel with one message from before launch and one after: only the after-launch message reaches the outbound model request. Shown by intercepting the request on test with synthetic fixtures, never by logging content.
+- [ ] With `mirror_context_excluded` set on a test author, none of their messages reach another member's request, while their own mirror still works.
+- [ ] The P1520 red-team suite passes on test. Its first test, the positive control that proves the model reads its context, passes.
+- [ ] Clarify is not offered inside the mirror.
+- [ ] On prod: one real reply and one portrait on the founder's account, edge smoke passes, and Sentry is clean for 10 minutes. `[post-deploy]`
 
 ## Pre-deploy Checklist
 
 ### Secrets to provision
-- [ ] Confirm the mirror key's Google Cloud project has billing enabled (credits count). Record the project, not the figures, in `.private/docs/accounts.md`.
-- [ ] Set `MIRROR_AI_ENABLED=true` and the mirror's Gemini key on **prod** edge functions, via `/slava:util:ai-keys`; spend-capped.
+- [ ] Confirm the mirror key's project has billing enabled. Record which project in `.private/docs/accounts.md`, with no figures.
+- [ ] Set `MIRROR_AI_ENABLED=true` and the mirror Gemini key on prod edge functions, via `/slava:util:ai-keys`, spend-capped.
 
 ### Deploy commands
-- [ ] Deploy `mirror-reply` and `mirror-portrait` to prod (through `/push`'s function deploy). Only after the policy and terms changes are live on main.
+- [ ] Policy, terms and the SQL for Solutions 3 and 4 are live on prod first (`/push` applies the migrations).
+- [ ] Then deploy `mirror-reply` and `mirror-portrait` to prod.
 
 ### Post-deploy verification
 - [ ] `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait` on prod.
 - [ ] Sentry clean for 10 minutes.
 
-## Open Questions
-
-1. Does the Gemini key for the mirror sit in the same Google Cloud project as the other keys, or its own? `/dev` reads it from ai-keys and records it privately.
-
 ## Related
 
-P1520 (mirror v2), P1534 / P1537 (portrait), P1512 (Clarity Chat, privacy policy), P1536 (canvas from material, depends on this), decisions.md P1520 availability entry, `src/app/content/terms-changes.ts`, `docs/technical/metered-services.md`
+P1520 (mirror v2) · P1534 / P1537 (portrait) · P1512 (Clarity Chat policy) · [P1546](p1546_threads_in_every_chat.md) · [P1547](p1547_mirror_memory_token_budget.md) · P1536 (needs this) · `src/app/content/terms-changes.ts` · `docs/technical/metered-services.md`

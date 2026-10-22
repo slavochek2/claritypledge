@@ -123,4 +123,4 @@ Phase 2:
 
 ## Related
 
-P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1515 (canvas sharing model: Private or Shared, link access, no public switch) · P1508 (canvas page) · P1536 (+ Canvas opens a mirror thread) · P1544 (threads everywhere) · P1437 (`/tree` mock-prototype pattern) · decisions.md 2026-04-06 (letters email metaphor, superseded for navigation)
+P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1515 (canvas sharing model: Private or Shared, link access, no public switch) · P1508 (canvas page) · P1536 (+ Canvas opens a mirror thread) · P1546 (threads everywhere) · P1437 (`/tree` mock-prototype pattern) · decisions.md 2026-04-06 (letters email metaphor, superseded for navigation)
