@@ -385,6 +385,7 @@ Last updated: 2026-10-22
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1543** (Oct 22) One community: Clarity Practice Community · Chiang Mai, online group hidden, Events tab on phones — hiding a group must also remove it from every flow that offers it (the close fell back to it)
 - **P1429** (Oct 7) Clarity Night review fixes: a privacy choice lives in the DB under a per-user lock (a vote and Hide raced 13/40 before); a lost-response retry is answered by an idempotent RPC, never inferred from a re-read (the spec's assumed 23505 was really 22023)
 - **P1337** (Oct 6) Clarity Night rounds: trios by disagreement on the host's bell. Each role is a task beside the name (the observer leads the close, not the clock); Table shows only the table; In / Out / Undecided is host-only
 - **P1433** (Oct 7) Event-night navigation: "Today's event" on every page, Back lands in the room, re-entry resumes at the table — every Back control now reads useTonightsEvent, so it must tolerate no AuthProvider; Back fallback skips the event's own pages (/ready→/room loops).

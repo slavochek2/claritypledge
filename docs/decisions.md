@@ -8,6 +8,49 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-22 [product]: One community, named for the practice; the outward ask lives in its text, not its name (P1543)
+
+**Context:** The free Chiang Mai group was renamed "Communication Activism Community · Chiang Mai" on 2026-09-07, and the name was kept on 2026-09-08 because it filtered joiners. The founder then said he would not say that name aloud when inviting people in Chiang Mai. The online group ("Clarity Practice Community · Online") had no events and no defined audience.
+**Decision:** One community: `cm` is **Clarity Practice Community · Chiang Mai**, with a 7-paragraph About approved by the founder after a Gemini 4 Argon and Codex edit pass. The "carry it outward" ask stays as the text "We also try to carry this practice outside of our community". The online group is **hidden** (`visibility = 'private'`), never deleted, and its members are untouched. Online events default to no group. The phone tab bar gets **Events** in place of Groups, with Groups moving into the Me sheet. The signed-out desktop menu is unchanged.
+**Alternatives rejected:** Swap the two groups' names and texts (the online text says "we meet online", and nobody runs anything there). Keep "activism" in the name (a name the founder will not say recruits no one). Delete the online group (irreversible; drops a member silently).
+**Consequences:** Supersedes the naming half of 2026-09-07 and 2026-09-08. Their filter argument now rests on the About text, not the name. Falsifier: after two months, nobody who joined has done anything outward, which would mean the ask in the text is decoration. The paid level can no longer be called "Clarity Practice Community" (P1183, open). Reopening an online group starts from a new name and audience, not from this row.
+**References:** [p1543](../features/done/2026-06-10/p1543_one_community_clarity_practice_chiang_mai.md) · `supabase/migrations/20261022133000_p1543_one_community.sql`
+
+## 2026-10-22 [technical]: The event close offers only a public group (P1543)
+
+**Context:** `p1389_community_org` fell back to the slug `online` for any unaffiliated event outside Chiang Mai and never checked visibility. Once `online` was hidden, the close would have offered "join the community" for a group nobody can open, and `join_community_from_close` would have enrolled people and recorded a "yes" that suppresses the ask on every later evening. Found by the Opus adversary on the P1543 review.
+**Decision:** The function returns the event's own group only if it is public, else `cm` for an event in Chiang Mai, else nothing. Every caller already treated NULL as "no community step".
+**Consequences:** Hiding any group now also removes it from the close. Online events have no community step until an online group exists again.
+**References:** `supabase/migrations/20261022140000_p1543_close_community_public_only.sql`
+
+## 2026-10-22 [product]: The mirror agent goes live on disclosure, not an opt-out; objection means leave or delete (P1544)
+
+**Context:** The mirror agent (P1520) is built but off on prod, because the privacy policy promises "No AI reads or answers it". A first policy draft, reviewed by Gemini and Codex, would have been false in four places: Clarify and forwarded copies (including direct messages) are sent, copies outlive their deleted source, the portrait is made automatically and stored publicly, and "no training" depends on the Google account, not the code.
+**Decision:** No self-serve "don't send my messages" setting. The founder's reasoning: it defeats the chat's purpose, and anyone can already paste a message into their own AI. Because the platform does the sending, the disclosure is ours:
+- a terms sentence;
+- a policy that states what the code does, line for line;
+- a **hard** terms bump;
+- a server-side check that the caller accepted the current terms before any AI call.
+
+An objection is answered with the member's own tools: delete messages, leave the chat, or delete the account, which already erases their words from every copy and every answer built on them. There are no partial operator deletions. Google is named as "the Gemini API" with a link to Google's terms; we never describe Google's behaviour. User-facing copy always says **"mirror agent"**, never bare "mirror".
+**Alternatives rejected:** a per-person opt-out (rejected by the founder). An operator flag honouring emailed objections (an operator burden for a case account deletion already covers). Counting only messages posted after launch (the founder: there are effectively none).
+**Consequences:** Not lawyer-reviewed. If a legal request ever insists on partial handling, revisit. The work is split three ways: P1544 (launch), P1546 (threads in every chat), P1547 (a 50,000-token context, approved).
+**References:** [p1544](../features/p1544_mirror_launch_on_prod.md) · [p1546](../features/p1546_threads_in_every_chat.md) · [p1547](../features/p1547_mirror_memory_token_budget.md)
+
+## 2026-10-22 [product]: Feed home again; Artifacts replaces Letters; one Inbox rule by chat kind (P1545)
+
+**Context:** Home became the chat list in P1512, but there are few chats, so the first screen looks empty. Letters had their own email-style menu (2026-04-06), while canvases (P1508, P1515) had no menu at all.
+**Decision:**
+- **Home:** Feed is Home again. Tabs are Home · Chats · Events · Artifacts · You.
+- **Artifacts:** two tabs, **Yours** and **Shared with you** (the old letter inbox plus received canvases).
+- **Cards:** only the existing 🔒 not-public / 🌐 public icons, with no "shared" icon. Who it is shared with lives in the Share panel, because an artifact can be shared with many entries or none. Two exceptions: a received card names its sender, and an unsent letter shows "Draft", because sealing is a real state.
+- **Chats, one rule:** a chat enters Inbox when it becomes relevant and arrives unread. Relevance is decided by kind only, never by series: a direct message when someone writes, a group on joining, an event 24 hours before it starts or when anyone writes. An event chat nobody wrote in leaves 12 hours after the start.
+- **Events list:** a Chiang Mai calendar card; when the list is empty for signed-out visitors, it replaces "Sign Up to Host" as the main element.
+- **Process:** built as three mock variants first. The founder clicks through them and picks one before the real build.
+**Alternatives rejected:** an "All" tab (it only mixes the two). A third "shared" icon (it would redefine the lock on artifacts only). An Artifacts tab inside Chats (two places to look). Embedding Google Calendar on Events (heavy on phones, already at /cm).
+**Consequences:** Supersedes 2026-04-06's navigation (the email metaphor stays inside letters). Old `/letters` URLs must redirect.
+**References:** [p1545](../features/p1545_menu_and_artifacts.md)
+
 ## 2026-10-22 [technical]: Slot ownership is bounded by the lock's claim time, and "shipped" needs proof the branch made the commit (P1519 build)
 
 **Context:** P1519 (decided 2026-10-20, entry below) was built and given three review rounds (Gemini review model, Codex, Opus adversary, Sonnet criteria; 4 of 4, then 3 of 3, then 1 of 1). Every round reproduced real holes in the first design's two load-bearing questions: *which slot is this session's*, and *is this slot's work already finished*. Both answers block a session or refuse a hold, so a wrong answer either traps the owner or acts on a co-tenant's slot.
