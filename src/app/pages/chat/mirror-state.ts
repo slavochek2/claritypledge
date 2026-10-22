@@ -44,14 +44,17 @@ export function useMirror(): MirrorContextValue | null {
  * them, or failed. Used by the conversation pane and (P1546) the thread panel, whose rows the pane never loads.
  */
 export function useRestoreMirrorStatuses(rows: ChatMessage[] | null, userId: string | null | undefined): void {
-  const loadStatuses = useMirror()?.loadStatuses;
+  const mirror = useMirror();
+  const loadStatuses = mirror?.loadStatuses;
+  // `enabled` resolves after the rows can have loaded; loadStatuses ignores calls until then, so ask again when it does.
+  const enabled = mirror?.enabled === true;
   useEffect(() => {
-    if (!rows || !loadStatuses) return;
+    if (!rows || !loadStatuses || !enabled) return;
     const answered = new Set(rows.filter((m) => m.kind === 'agent' && m.replyToId).map((m) => m.replyToId));
     const waiting = rows
       .filter((m) => m.authorId === userId && (m.kind === 'message' || m.kind === 'clarify') && !m.isDeleted && !answered.has(m.id))
       .slice(-20)
       .map((m) => m.id);
     loadStatuses(waiting);
-  }, [rows, loadStatuses, userId]);
+  }, [rows, loadStatuses, userId, enabled]);
 }

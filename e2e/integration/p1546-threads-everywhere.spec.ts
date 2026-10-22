@@ -240,6 +240,23 @@ test('mirror answers in place: outside threads stays outside, each thread gets i
   expect((await sB.client.from('chat_messages').select('id').in('id', [a1.id, a2.id])).data).toEqual([]);
 });
 
+test('clarify from a mirror thread copies the people in it, never the mirror agent\'s answer (erasure cannot reach a copy)', async () => {
+  const R = await send(sA, mirA, `CL-ROOT-${RUN}`);
+  const Q = await send(sA, mirA, `CL-QUESTION-${RUN}`, { p_thread_root: R.id });
+  const job = await requestReply(sA, Q.id);
+  expect((await begin(job.job_id)).status).toBe('run');
+  const answer = await complete(job.job_id, `CL-AGENT-ANSWER-${RUN}`);
+  expect(answer.thread_root_id, 'the answer is in the thread').toBe(R.id);
+  const later = await send(sA, mirA, `CL-LATER-${RUN}`, { p_thread_root: R.id });
+
+  const cl = await ok<Row>(sA.client.rpc('clarify_chat_message', { p_source: later.id }), 'clarify a mirror thread reply');
+  const copied = JSON.stringify((cl.forward_snapshot as { thread?: unknown }).thread ?? []);
+  // control: the owner's own thread messages ride along
+  expect(copied, 'the thread root is copied').toContain(`CL-ROOT-${RUN}`);
+  expect(copied, 'the owner\'s question is copied').toContain(`CL-QUESTION-${RUN}`);
+  expect(copied, 'the mirror agent\'s answer is never copied').not.toContain(`CL-AGENT-ANSWER-${RUN}`);
+});
+
 test('DM: deleting a thread root keeps the replies and closes the thread to new replies', async () => {
   const root = await send(sA, dm, `del-root-${RUN}`);
   const reply = await send(sB, dm, `del-reply-${RUN}`, { p_thread_root: root.id });
