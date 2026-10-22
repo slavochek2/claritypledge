@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 46
 workstream: infrastructure
 created_date: '2026-10-20'
 tags: [worktrees, stop-hook, session-end, pipeline]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-22
 ---
 
 # P1519: A session cannot end "nothing else" while its own slot is still open
