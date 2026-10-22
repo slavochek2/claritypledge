@@ -4,7 +4,7 @@
  * Phone: list only; a row opens a bottom sheet with the same preview and actions.
  * Mock data only. Search-open can be forced with ?search=1.
  */
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   CalendarDays,
@@ -147,16 +147,23 @@ function VisibilityIcon({ v, className = 'h-4 w-4' }: { v: MockArtifact['visibil
   );
 }
 
+const DESKTOP_QUERY = '(min-width: 1024px)';
+function subscribeDesktop(cb: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+
 function KindIcon({ kind, className = 'h-4 w-4' }: { kind: MockArtifact['kind']; className?: string }) {
   const Icon = kind === 'letter' ? FileText : LayoutDashboard;
   return <Icon className={className} aria-hidden="true" />;
 }
 
-function PlusMenu({ children, defaultOpen = false }: { children: React.ReactNode; defaultOpen?: boolean }) {
+function PlusMenu({ children, defaultOpen = false, side = 'bottom' }: { children: React.ReactNode; defaultOpen?: boolean; side?: 'top' | 'bottom' }) {
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top" className="z-[80] w-44">
+      <DropdownMenuContent align="end" side={side} className="z-[80] w-44">
         <DropdownMenuItem className="min-h-10 gap-2">
           <FileText className="h-4 w-4" /> Letter
         </DropdownMenuItem>
@@ -171,8 +178,8 @@ function PlusMenu({ children, defaultOpen = false }: { children: React.ReactNode
 /* ---------------------------------------------------------------- preview */
 
 function actionsFor(a: MockArtifact): { primary: string; secondary: string[]; menu: string[] } {
+  if (a.sharedBy) return { primary: 'Open', secondary: [], menu: [] };
   if (a.kind === 'canvas') return { primary: 'Open', secondary: [], menu: ['Share'] };
-  if (a.sharedBy) return { primary: 'Open', secondary: ['Preview'], menu: [] };
   const set = a.draft ? LETTER_ACTIONS.draft : LETTER_ACTIONS.sent;
   return { primary: set.primary, secondary: set.more.filter(l => l !== 'Delete'), menu: [] };
 }
@@ -200,7 +207,7 @@ function ActionBar({ a }: { a: MockArtifact }) {
             </DropdownMenuItem>
           ))}
           {menu.length > 0 && <DropdownMenuSeparator />}
-          <DropdownMenuItem className="min-h-10 text-destructive focus:text-destructive">Delete</DropdownMenuItem>
+          <DropdownMenuItem className="min-h-10 text-destructive focus:text-destructive">{a.sharedBy ? 'Remove from my list' : 'Delete'}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -210,7 +217,8 @@ function ActionBar({ a }: { a: MockArtifact }) {
 function ChatEcho({ a }: { a: MockArtifact }) {
   if (!a.sharedBy) return null;
   const msg = SHARE_MESSAGES.find(m => m.title === a.title);
-  const text = msg?.text ?? `${a.sharedBy} shared a ${a.kind}`;
+  if (!msg) return null;
+  const text = msg.text;
   return (
     <section className="rounded-lg border border-border bg-muted/40 p-3">
       <h3 className="mb-2 text-xs font-medium text-muted-foreground">In your chat</h3>
@@ -284,7 +292,7 @@ function Row({ a, selected, unread, onSelect }: { a: MockArtifact; selected: boo
           <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
             <KindIcon kind={a.kind} className="h-3 w-3 shrink-0" />
             {a.sharedBy ? (
-              <span>from {a.sharedBy} {'·'} in your chat</span>
+              <span>from {a.sharedBy}{SHARE_MESSAGES.some(m => m.title === a.title) ? ' · in your chat' : ''}</span>
             ) : a.draft ? (
               <span className="rounded-md border border-border bg-muted px-1.5 py-px font-medium text-foreground">Draft</span>
             ) : a.replies ? (
@@ -344,7 +352,7 @@ function ArtifactsPage({ state }: { state: LabState }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [read, setRead] = useState<string[]>([]);
-  const [isDesktop] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
+  const isDesktop = useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP_QUERY).matches, () => false);
 
   const yours = state === 'empty-yours' ? [] : YOURS;
   const shared = state === 'empty-shared' ? [] : SHARED;
@@ -471,7 +479,7 @@ function ArtifactsPage({ state }: { state: LabState }) {
       {canCreate && (
         <div className="lg:hidden">
           <div className="fixed bottom-20 right-4 z-40 mb-[env(safe-area-inset-bottom)]">
-            <PlusMenu defaultOpen={menuOpen && !isDesktop}>
+            <PlusMenu defaultOpen={menuOpen && !isDesktop} side="top">
               <Button aria-label="New artifact" className={`h-14 w-14 rounded-full p-0 shadow-lg ${PRIMARY}`}>
                 <Plus className="!h-6 !w-6" />
               </Button>
