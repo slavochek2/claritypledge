@@ -103,6 +103,7 @@ const LandingWatch = lazy(() => import("@/app/tree/landing-lab/watch/LandingWatc
 const LandingDo = lazy(() => import("@/app/tree/landing-lab/do/LandingDo").then(m => ({ default: m.LandingDo })));
 const LandingWild = lazy(() => import("@/app/tree/landing-lab/wild/LandingWild").then(m => ({ default: m.LandingWild })));
 const LandingFirst = lazy(() => import("@/app/tree/landing-lab/first/LandingFirst").then(m => ({ default: m.LandingFirst })));
+const ArtifactsLab = lazy(() => import("@/app/tree/artifacts-lab/ArtifactsLab").then(m => ({ default: m.ArtifactsLab })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
 const ComparePositionsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-compare-positions-prototype").then(m => ({ default: m.ComparePositionsPrototype })));
@@ -1173,6 +1174,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/landing-do" element={<LazyRoute><LandingDo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/artifacts" element={<LazyRoute><ArtifactsLab /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/compare-positions" element={<LazyRoute><ComparePositionsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/host-controls" element={<LazyRoute><HostControlsPrototype /></LazyRoute>} />}
