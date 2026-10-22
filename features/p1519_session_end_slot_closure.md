@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 46
 workstream: infrastructure
@@ -95,7 +95,7 @@ Each is a named canary in `scripts/test-p1519-*.sh`, built from real transcript 
 
 **Final pass 2026-10-22** (Gemini, on the round-3 diff). Fixed with canaries: a co-tenant's `--no-ff` merge fast-forwarded into a fresh slot read as shipped (merged-branch proof now reads the branch's own reflog: only commits *made on* the branch count); `git -C` treated as moving the shell for later commands.
 
-**Known limitations.** Ownership needs transcript timestamps and a lock `CLAIMED_AT`; without them the re-claim bound is skipped. A refused claim counts as ours if another session claimed the same P-number within 5 seconds of it. Gate 2.5 corroboration reads the spec on main, so a P1510-shape slot whose ticked spec exists only on the branch reads `SPEC_ONLY` (the safe direction: hold stays available). A `cd` path containing parentheses is mangled by the subshell filter. A hold written in the same second as the session's last write reads stale; the session is shown the brief at most once more and can re-hold. `park` writes the spec on the main checkout just before `commit-to-main` takes `main.lock`; a co-tenant writing that exact path in that window is detected by the post-commit blob check, not prevented. A `founder`-owned hold never expires (founder decision: the founder un-blocks it). Subagent stops and sessions that end without a Stop event stay out of scope (Risks table).
+**Known limitations.** Ownership needs transcript timestamps and a lock `CLAIMED_AT`; without them the re-claim bound is skipped. A refused claim counts as ours if another session claimed the same P-number within 5 seconds of it. Gate 2.5 corroboration reads the spec on main, so a P1510-shape slot whose ticked spec exists only on the branch reads `SPEC_ONLY` (the safe direction: hold stays available). A `cd` path containing parentheses is mangled by the subshell filter. A hold written in the same second as the session's last write reads stale; the session is shown the brief at most once more and can re-hold. The merged-branch proof walks the reflog with `--since`, which can stop early if the branch was reset to an older commit after committing, and it counts only `commit:`/`commit (amend):` entries (a cherry-pick or merge commit made on the branch is not counted); attached `git -C<path>` is not parsed. Last verification pass (Gemini, 1 of 1): fixes confirmed, these three recorded rather than fixed (decisions.md 2026-10-14 stopping rule). `park` writes the spec on the main checkout just before `commit-to-main` takes `main.lock`; a co-tenant writing that exact path in that window is detected by the post-commit blob check, not prevented. A `founder`-owned hold never expires (founder decision: the founder un-blocks it). Subagent stops and sessions that end without a Stop event stay out of scope (Risks table).
 
 ## Alternatives Considered
 
