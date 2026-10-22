@@ -260,6 +260,7 @@ Last updated: 2026-10-22
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1539** (Oct 26) Signed-in loading experience — shell reserved up front; in-content loader continues splash fade without moving.
 - **P1506** (Oct 26) /hospitals use-case page — MotionConfig reducedMotion="user" skips only transforms; pathLength draws need their own useReducedMotion check
 - **P1453** (Oct 26) Artist-style profile banners, signed "after <artist>" — ink chosen from the displayed crop's luminance, stored with the banner; rate limit reserves first, then counts
 - **P1483** (Oct 26) Agent banners navy, people in color — judge a profile treatment on the whole header with real avatars, never on banner strips
@@ -429,6 +430,7 @@ Last updated: 2026-10-22
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1540** (Oct 26) Offline banner flapping — one failed fetch is suspicion; a second probe confirms. Stamp probes at send time.
 - **P1541** (Oct 22) One e2e run at a time against the shared TEST project — machine-wide lock in the git common dir, exit 75 = infra not app; a live holder is never evicted and an uninspectable one counts as alive (Codex); 2 workers measured
 - **P1519** (Oct 22) A session cannot end while its own slot is open — Stop-hook gate 4 + `git-ops.sh hold/park`; ownership = this transcript's writes bounded by the lock's `CLAIMED_AT`; "shipped" needs proof the branch made the commit (reflog), never ancestry alone; three review rounds each reproduced real holes — see decisions.md 2026-10-22 [technical]
 - **P1524** (Oct 21) /day test-database response check — curl exits 28 after a 200 header on a stalled body; check the exit code, not only the HTTP status.

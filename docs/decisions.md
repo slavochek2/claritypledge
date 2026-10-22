@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-22 [technical]: Offline is confirmed, not inferred from one failed request (P1540)
+
+**Context:** The offline banner flapped offline/online, including during magic-link sign-in. One thrown fetch flipped the whole app offline. The trigger was a VPN tunnel dropping individual requests while the network was fine.
+**Decision:** `offline = !navigator.onLine || (supabaseUnreachable && outageConfirmed)`. A failed request only marks the backend suspect; a follow-up probe must also fail before the banner shows. Probes are stamped at send time, so a late answer from before recovery cannot confirm an outage, and any later success resets the cooldown. Recovery of reachability drives the reconnect refresh.
+**Alternatives rejected:** A fixed debounce on the banner (still flips on any burst of VPN drops, and delays real-recovery equally); trusting `navigator.onLine` alone (blind to a dead backend).
+**Consequences:** A real backend outage now takes up to ~20s to show (accepted in the spec). Any new code that reports network outcomes must go through `network-outcome.ts` with a send-time mark, never a completion-time one.
+**References:** [p1540](../features/done/2026-06-10/p1540_offline_banner_flaps_on_single_failed_request.md) · `src/app/contexts/offline-status-context.tsx` · `src/lib/network-outcome.ts`
+
+## 2026-10-22 [product]: Signed-in loading keeps the shell still and loads inside the content area (P1539)
+
+**Context:** Signed-in pages drew the menu, then a large centred loader, and the legal footer flashed while auth was pending. The founder compared it to Notion, which shows the whole app frame at once.
+**Decision:** One loading standard. The shell (sidebar geometry, offline strip) is reserved immediately for a stored session; content routes show a 64px viewport-centred mark that continues the boot splash's fade without moving or resizing. No footer while auth is pending or on chat home. Collapsed rail shows icons, Tools and the avatar. Sidebar stays open by default, remembered per device. The offline strip spans the full page including the sidebar.
+**Alternatives rejected:** Skeleton screens per page (more surfaces to keep in sync, no measured speed gain); forcing the rail collapsed on some pages (surprising, per-page state).
+**Consequences:** Measured load time did not change; layout shift did. New lazy routes inherit the standard through `LazyRoute`; do not add page-local full-screen loaders.
+**References:** [p1539](../features/done/2026-06-10/p1539_signed_in_loading_experience.md) · `src/components/ui/clarity-loader.tsx` · `src/components/ui/loader-chain.ts`
+
 ## 2026-10-22 [technical]: Threads in every chat; a mirror thread is the mirror agent's context, and copies never carry its answers (P1546)
 
 **Context:** Threads were channel-only, a carry-over from the Telegram-shaped prototype. The founder asked for threads in 1:1s and the mirror, and P1536 needs a mirror thread per canvas.
