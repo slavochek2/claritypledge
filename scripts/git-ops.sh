@@ -6650,6 +6650,9 @@ cmd_park() {
     spec=""   # closed on main already: copying the branch's open copy back would re-open it
   fi
   if [[ -n "$spec" ]]; then
+    local _other
+    _other="$( cd "$REPO_ROOT" && git ls-tree -r --name-only main -- features/ 2>/dev/null | grep -E "^features/${pn}_[^/]*\.md$" | grep -vxF "$spec" | head -1 || true )"
+    [[ -z "$_other" ]] || die "park: main has $pn's spec as $_other but the branch has it as $spec (renamed?) — committing it would leave two open specs; rename on main first; nothing was changed"
     local branch_blob main_blob base base_blob
     branch_blob="$(git -C "$dir" rev-parse "HEAD:$spec")"
     main_blob="$( cd "$REPO_ROOT" && git rev-parse -q --verify "main:$spec" 2>/dev/null || true )"
@@ -6665,7 +6668,11 @@ cmd_park() {
       if ! ( cd "$REPO_ROOT" && cmd_commit_to_main --message "spec: $pn parked — spec synced from $branch" --files "$spec" ); then
         # Put the shared checkout back exactly as it was: an uncommitted spec left on main
         # is exposed to the next co-tenant `git add` (git.md).
-        ( cd "$REPO_ROOT" && if [[ -n "$main_blob" ]]; then git cat-file blob "$main_blob" > "$spec"; else rm -f "$spec"; fi ) || true
+        # Unless the commit landed after all (commit-to-main can exit non-zero after
+        # committing, P1279): then the file on disk IS the committed one; leave it.
+        if [[ "$( cd "$REPO_ROOT" && git rev-parse -q --verify "main:$spec" 2>/dev/null || true )" != "$branch_blob" ]]; then
+          ( cd "$REPO_ROOT" && if [[ -n "$main_blob" ]]; then git cat-file blob "$main_blob" > "$spec"; else rm -f "$spec"; fi ) || true
+        fi
         die "park: commit-to-main failed for $spec — restored $spec on main to its committed state; the worktree is untouched"
       fi
       [[ "$( cd "$REPO_ROOT" && git rev-parse -q --verify "main:$spec" )" == "$branch_blob" ]] || \

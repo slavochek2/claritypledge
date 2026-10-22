@@ -140,8 +140,15 @@ hold_status() {
   if [[ "$owner" =~ ^p[0-9]+$ ]] && ls features/done/*/"${owner}"_*.md >/dev/null 2>&1; then
     echo expired; return   # the spec it waited on has closed
   fi
+  # A hold from a previous claim of this directory says nothing about the current one.
+  local claimed
+  claimed="$(sed -n 's/^CLAIMED_AT=//p' "$wt/.lock" 2>/dev/null | head -1)"
+  claimed="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$claimed" +%s 2>/dev/null || date -u -d "$claimed" +%s 2>/dev/null || echo 0)"
+  (( at >= claimed )) || { echo none; return; }
   [[ "$after" =~ ^[0-9]+$ ]] || after=0
-  (( at >= after )) || { echo stale; return; }
+  # Strictly after: both sides are whole seconds, so a write in the hold's own second may
+  # have come after it — then the hold does not explain the slot (P1519 re-review).
+  (( after == 0 || at > after )) || { echo stale; return; }
   echo valid
 }
 hold_line() {  # human line for the startup report; empty when there is no hold
@@ -208,14 +215,23 @@ classify_slot() {
     return
   fi
   # Merged (not cherry-picked) code is reachable from main, so `git cherry` lists nothing
-  # for it: the branch tip is an ancestor of main, yet was committed after the claim.
-  local tip_at claimed_at
+  # for it. Proof the BRANCH authored it: a code commit made after the claim that is
+  # reachable from the branch but NOT on main's first-parent line — a --no-ff merge brings
+  # in the branch's commits as a second parent. A branch fast-forwarded to main picks up
+  # co-tenant commits that ARE first-parent, so a refresh is never mistaken for shipping.
+  local claimed_at c fp merged=0
   claimed_at="$(sed -n 's/^CLAIMED_AT=//p' "$wt/.lock" 2>/dev/null | head -1)"
   claimed_at="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$claimed_at" +%s 2>/dev/null || date -u -d "$claimed_at" +%s 2>/dev/null || echo 0)"
-  tip_at="$(git log -1 --format=%ct "$br" 2>/dev/null || echo 0)"
-  if (( n_commits == 0 && claimed_at > 0 && tip_at >= claimed_at )) && git merge-base --is-ancestor "$br" main 2>/dev/null \
-     && $GREP -qvE '^(features|docs|content)/' < <(git diff --name-only "$br~1" "$br" 2>/dev/null); then
-    printf 'SHIPPED_UNCLOSED\t%s was merged into main (its tip is on main), but the spec is still open\n' "$br"
+  if (( n_commits == 0 && claimed_at > 0 )) && git merge-base --is-ancestor "$br" main 2>/dev/null; then
+    fp="$(git rev-list --first-parent --since="@$claimed_at" main 2>/dev/null)"
+    while IFS= read -r c; do
+      [[ -n "$c" ]] || continue
+      $GREP -qxF "$c" <<< "$fp" && continue   # here-string: `| grep -q` can SIGPIPE under pipefail
+      $GREP -qvE '^(features|docs|content)/' < <(git diff-tree -r --no-commit-id --name-only "$c" 2>/dev/null) && { merged=1; break; }
+    done < <(git rev-list --no-merges --since="@$claimed_at" "$br" 2>/dev/null)
+  fi
+  if (( merged == 1 )); then
+    printf 'SHIPPED_UNCLOSED\t%s was merged into main (its commits are on main), but the spec is still open\n' "$br"
     return
   fi
   # A spec-only branch whose code went to main directly (inline on main, the P920

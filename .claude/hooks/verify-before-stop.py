@@ -364,7 +364,8 @@ def unreviewed_edits(transcript_path, entries, turn_text):
 SLOT_PATH_RE = re.compile(r"(/[^\s\"'`;|&<>()]*?)/\.claude/worktrees/(w\d+)(?![\w.-])")
 # A claim INVOCATION — at the start of a command, after && ; || or inside $( (the eval form).
 # A grep, echo or doc line that merely contains the words is not a claim (P1519 review).
-CLAIM_CMD_RE = re.compile(r"(?:^|&&|;|\|\||\n|\$\()\s*(?:bash\s+)?(?:\S*/)?git-ops\.sh\s+claim\s+(p\d+)\b")
+# No newline alternative: a heredoc line (a handoff note) is text, not a command.
+CLAIM_CMD_RE = re.compile(r"(?:^|&&|;|\|\||\$\()\s*(?:\w+=\S*\s+)*(?:bash\s+)?(?:\S*/)?git-ops\.sh\s+claim\s+(p\d+)\b")
 CLAIM_RESULT_RE = re.compile(r"git-ops: claimed (w\d+) for \S+\s+path\s*:\s*(\S+)")
 GIT_WRITE_RE = re.compile(r"\bgit\b(?:\s+-C\s+\S+|\s+-c\s+\S+)*\s+(?:add|commit|mv|rm)\b|git-ops\.sh\s+commit-to-main\b")
 GIT_WHERE_RE = re.compile(r"(?:\bcd\s+|\s-C\s+)[\"']?([^\s\"';&|]+)")
@@ -392,15 +393,33 @@ def _slot_of(text):
     return (m.group(1), m.group(2)) if m else None
 
 
-def _git_write_slot(cmd, cwd, gw):
-    """The slot a git write RAN in: follow every `cd`/`-C` before it from cwd, resolving
-    relative paths, so `cd src && git add` inside a slot and `cd .claude/worktrees/w1 &&
-    git commit` from the main checkout both count. A path merely mentioned is a read."""
-    where = cwd or ""
-    for p in GIT_WHERE_RE.findall(cmd[:gw.end()]):
-        p = os.path.expanduser(p)
-        where = os.path.normpath(p if os.path.isabs(p) or not where else os.path.join(where, p))
-    return _slot_of(where + "/")
+SUBSHELL_RE = re.compile(r"(?<!\$)\([^()]*\)")
+
+
+def _git_write_slots(cmd, cwd):
+    """Every slot a git write in this command RAN in: follow each `cd`/`-C` before it from
+    cwd, resolving relative paths (`cd src && git add` inside a slot, `cd
+    .claude/worktrees/w1 && git commit` from main) and `cd -`. A `( ... )` subshell's cd
+    does not outlive it, so its contents are dropped first. A path merely mentioned is a
+    read."""
+    flat = cmd
+    while True:
+        nxt = SUBSHELL_RE.sub(" ", flat)
+        if nxt == flat:
+            break
+        flat = nxt
+    out, start = [], 0
+    where = prev = cwd or ""
+    for gw in GIT_WRITE_RE.finditer(flat):
+        for p in GIT_WHERE_RE.findall(flat[start:gw.end()]):
+            if p == "-":
+                where, prev = prev, where
+                continue
+            p = os.path.expanduser(p)
+            prev, where = where, os.path.normpath(p if os.path.isabs(p) or not where else os.path.join(where, p))
+        start = gw.end()
+        out.append(_slot_of(where + "/"))
+    return out
 
 
 def _lock(root, slot):
@@ -452,9 +471,8 @@ def owned_slots(transcript_path):
                             m = CLAIM_CMD_RE.search(cmd)
                             if m:
                                 claim_uses[b.get("id")] = (m.group(1), cwd, ts)
-                            gw = GIT_WRITE_RE.search(cmd)
-                            if gw:
-                                mark(_git_write_slot(cmd, cwd, gw), ts)
+                            for key in _git_write_slots(cmd, cwd):
+                                mark(key, ts)
                     elif b.get("type") == "tool_result" and b.get("tool_use_id") in claim_uses:
                         # Only the result of OUR claim invocation, and only if it succeeded.
                         pn, cwd0, ts0 = claim_uses.pop(b.get("tool_use_id"))
@@ -551,7 +569,8 @@ def slot_brief(s):
     order (/slava:build:simplify), each option a command, never free text."""
     slot, pn, st, why = s["slot"], s["pn"], s["state"], s["detail"]
     ship = f"./scripts/git-ops.sh ship {pn}"
-    nonce = f'--nonce "$(sed -n \'s/^NONCE=//p\' .claude/worktrees/{slot}/.lock)"'
+    lock = os.path.join(s.get("root") or ".", ".claude", "worktrees", slot, ".lock")
+    nonce = f'--nonce "$(sed -n \'s/^NONCE=//p\' {lock})"'
     park = f"./scripts/git-ops.sh park {slot} {nonce}"
     hold = (f'./scripts/git-ops.sh hold {slot} {nonce} --reason "<why it stays open>" '
             f"--owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>")
