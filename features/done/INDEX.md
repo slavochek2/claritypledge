@@ -429,6 +429,7 @@ Last updated: 2026-10-22
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1541** (Oct 22) One e2e run at a time against the shared TEST project — machine-wide lock in the git common dir, exit 75 = infra not app; a live holder is never evicted and an uninspectable one counts as alive (Codex); 2 workers measured
 - **P1519** (Oct 22) A session cannot end while its own slot is open — Stop-hook gate 4 + `git-ops.sh hold/park`; ownership = this transcript's writes bounded by the lock's `CLAIMED_AT`; "shipped" needs proof the branch made the commit (reflog), never ancestry alone; three review rounds each reproduced real holes — see decisions.md 2026-10-22 [technical]
 - **P1524** (Oct 21) /day test-database response check — curl exits 28 after a 200 header on a stalled body; check the exit code, not only the HTTP status.
 - **P1525** (Oct 21) /day reads Supabase free-plan usage via Chrome — the public API has no org-usage endpoint; a grace banner is a problem even under threshold.
