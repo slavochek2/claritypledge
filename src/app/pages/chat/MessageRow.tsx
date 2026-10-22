@@ -277,6 +277,13 @@ function MirrorReplyState({ messageId, name }: { messageId: string; name: string
       </p>
     );
   }
+  if (status === 'terms') {
+    return (
+      <p role="alert" data-testid="mirror-terms" className="mt-1 text-sm text-muted-foreground">
+        Accept the updated terms to use your mirror agent.
+      </p>
+    );
+  }
   return (
     <div role="alert" data-testid="mirror-failed" className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
       <span>{name} could not answer.</span>

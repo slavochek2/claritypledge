@@ -154,7 +154,7 @@ export function parseChatRoute(pathname: string): ChatRoute {
 // Titles
 // ---------------------------------------------------------------------------
 
-/** The mirror's subtitle everywhere: "Your mirror" (its title is the mirror's own name, e.g. "Mira"). */
+/** The mirror's subtitle everywhere: "Your mirror agent" (its title is the mirror's own name, e.g. "Mira"). */
 export function mirrorRole(_chat?: unknown): string {
   return 'Your mirror agent';
 }
@@ -164,12 +164,12 @@ export function mirrorLabel(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'>)
 }
 
 /**
- * The mirror's own name, for a sentence: the custom title once renamed, else "your mirror".
+ * The mirror's own name, for a sentence: the custom title once renamed, else "your mirror agent".
  * "Clarify with Mira", "Sent to Mira to clarify".
  */
 export function mirrorName(chat: Pick<ChatSummary, 'title' | 'ownerFirstName'> | null | undefined): string {
   if (chat?.title) return chat.title;
-  return 'your mirror';
+  return 'your mirror agent';
 }
 
 /** The one-line name of a chat in the list, forward picker and search. */
@@ -199,7 +199,7 @@ export function sourceLabel(kind: string | null, title: string | null): string {
     case 'event':
       return 'an event chat';
     case 'mirror':
-      return 'your mirror';
+      return 'your mirror agent';
     default:
       return 'a chat';
   }

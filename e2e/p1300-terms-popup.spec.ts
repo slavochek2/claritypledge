@@ -16,7 +16,7 @@ import { createTestUser, deleteTestUser, setTestSession, type TestUser } from '.
 // Any version outside ACCEPTED_TERMS_VERSIONS makes needsTermsAcceptance() return true.
 const STALE_TERMS_VERSION = 'v1.3';
 // Keep in sync with CURRENT_TERMS_VERSION, as test-user.ts does.
-const CURRENT_TERMS_VERSION = 'v1.4';
+const CURRENT_TERMS_VERSION = 'v1.5';
 
 const VIEWPORTS = [
   { label: 'desktop', width: 1280, height: 800 },

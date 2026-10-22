@@ -522,4 +522,14 @@ describe('P1520 MirrorProvider', () => {
     fire({ type: 'sent', message: msg({ id: 'p2' }) });
     await waitFor(() => expect(ctx().statusFor('p2')).toBe('capped'));
   });
+
+  it('P1544: a refusal for terms not accepted shows as terms, and nothing retries by itself', async () => {
+    const { fire, ctx } = setup(true);
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    mirrorSvc.requestMirrorReply.mockResolvedValueOnce('terms');
+    fire({ type: 'sent', message: msg({ id: 'p3' }) });
+    await waitFor(() => expect(ctx().statusFor('p3')).toBe('terms'));
+    expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
+  });
 });

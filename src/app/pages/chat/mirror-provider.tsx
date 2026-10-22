@@ -165,6 +165,9 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
             case 'failed':
               setStatus(id, 'failed');
               break;
+            case 'terms':
+              setStatus(id, 'terms');
+              break;
             case 'disabled':
               setEnabled(false);
               setStatus(id, undefined);
@@ -283,6 +286,7 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
           void refreshProfile().then(() => mounted.current && setPortraitStatus('idle'));
         }, RECHECK_MS);
       } else if (state === 'capped') setPortraitStatus('capped');
+      else if (state === 'terms') setPortraitStatus('terms');
       else if (state === 'disabled') {
         setEnabled(false);
         setPortraitStatus('idle');

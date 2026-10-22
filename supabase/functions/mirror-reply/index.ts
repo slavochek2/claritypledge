@@ -10,6 +10,7 @@
  * marks it running) → one Gemini call → _mirror_complete_job (writes the agent row, settles the spend).
  * The reply reaches the client through Realtime like any message; the response also carries it.
  *
+ * Refuses (409 terms_not_accepted, P1544) unless the caller has accepted the current terms version.
  * OFF unless MIRROR_AI_ENABLED is "true" and the mirror's own key is set. Both are set on the test
  * project only: no AI call may run on prod until the privacy policy covers sending other people's
  * messages to the model (founder, 2026-10-20). Both have explicit "off" defaults so the deploy-time
@@ -21,6 +22,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import { MIRROR_MODEL, MirrorRequestTooLarge, buildMirrorRequest, parseReply, type BeginRun } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -64,7 +66,10 @@ Deno.serve(async (req: Request) => {
   // The app asks once per session whether the mirror can answer here, so a project where it is off
   // (prod, until the privacy policy covers it) shows no AI controls and sends no further requests.
   if (body.availability === true) return json({ enabled }, 200, cors);
-  if (!enabled) return json({ error: 'The mirror cannot answer yet', code: 'DISABLED' }, 503, cors);
+  if (!enabled) return json({ error: 'The mirror agent cannot answer yet', code: 'DISABLED' }, 503, cors);
+  // P1544: no job, no reservation and no model call for a caller who has not accepted the current terms.
+  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  if (!(await callerHasCurrentTerms(service, user.id))) return json(TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS, cors);
   const messageId = typeof body.message_id === 'string' && UUID_RE.test(body.message_id) ? body.message_id : null;
   if (!messageId) return json({ error: 'message_id is required' }, 400, cors);
 
@@ -77,7 +82,6 @@ Deno.serve(async (req: Request) => {
   const job = Array.isArray(jobRows) ? jobRows[0] as { job_id: string; state: string } | undefined : undefined;
   if (jobError || !job) return json({ error: 'Message not available', code: 'NOT_AVAILABLE' }, 404, cors);
 
-  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const { data: begun, error: beginError } = await service.rpc('_mirror_begin_job', { p_job: job.job_id });
   if (beginError || !begun) {
     console.error('mirror-reply: begin failed', { code: beginError?.code });

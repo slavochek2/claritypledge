@@ -35,9 +35,9 @@ describe('P1533 mirror menu', () => {
     expect(onMirrorInfo).toHaveBeenCalled();
   });
 
-  it('falls back to "About your mirror" when the mirror has no name', () => {
+  it('falls back to "About your mirror agent" when the mirror has no name', () => {
     render(<MemoryRouter><ConversationHeader chat={{ ...mirrorChat, title: '  ' }} blocked={false} actions={actions({ onMirrorInfo: vi.fn() })} /></MemoryRouter>);
-    expect(within(openMenu()).getByRole('menuitem', { name: 'About your mirror' })).toBeInTheDocument();
+    expect(within(openMenu()).getByRole('menuitem', { name: 'About your mirror agent' })).toBeInTheDocument();
   });
 
   it('has no About item where the panel is not offered', () => {

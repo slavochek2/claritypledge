@@ -205,12 +205,18 @@ checks this for every request, including live updates.
 - **Event chats** are readable by the event host, who sees the whole chat. They are also readable
   by people who RSVPed no later than 12 hours after the event starts. Those people see messages
   from the moment they RSVPed. Cancelling the RSVP ends access.
-- **Your mirror** is a private chat that only you can read. No AI reads or answers it.
+- **Your mirror agent** is a private chat that only you can read. An AI answers you in it (see
+  Your mirror agent under AI features).
 
-**Clarify.** When you use Clarify on a message, we put a copy of it in your mirror. The copy holds
+A member's mirror agent can also read what that member can read, and sends it to Google's Gemini
+API. So a message you post in a group, event or direct chat can be read by another person's
+mirror agent when they ask it about the chat or copy your message into it. Your own mirror
+agent works the same way on what you can read. Nothing it reads is posted anywhere.
+
+**Clarify.** When you use Clarify on a message, we put a copy of it in your mirror agent chat. The copy holds
 the author's name, the text, the time, the name of the chat it came from, and up to 100 replies in
 its thread that you can read. Any note you add is saved with it. Nothing is posted in the original
-chat, and the other people in it are not told.
+chat, and the other people in it are not told. Your mirror agent then answers the copy.
 
 **Forwarding.** When someone forwards a message, the new chat gets a copy of its text, the
 author's name and the time.
@@ -233,7 +239,10 @@ before you deleted it keep their copy.
 
 **How it is stored.** Messages are stored in our database at Supabase (see Who Processes Your
 Data) and delivered live through Supabase's real-time service. They are not end-to-end encrypted.
-No chat content is sent to an AI provider. Mixpanel session recording (see Analytics) is switched
+Chat content is sent to an AI provider only when a mirror agent is asked, as described under
+Your mirror agent in AI features. For each request to a mirror agent we keep which message
+triggered it, whether it finished, and whose words it drew on, so that answers can be cleared when
+an account is deleted (below). Mixpanel session recording (see Analytics) is switched
 off on the chat pages, before any chat is shown. If an error happens on a chat page, Sentry's error
 replay is still attached, with all text masked, so the words of a chat are not in it.
 
@@ -244,11 +253,15 @@ only when the law requires it, for example a valid request from a court or an au
 **How long we keep it.** Chats have no fixed retention period. We keep a message until its author
 deletes it or deletes their account. Deleting a group or an event deletes its chat.
 
-**When you delete your account.** Your mirror and everything in it are deleted. Your messages in
+**When you delete your account.** Your mirror agent chat and everything in it are deleted, with the
+records of its requests. Answers that other people's mirror agents gave using your words are
+cleared. Words already sent to Google cannot be recalled by us. Your messages in
 other chats lose their text and attachments and show as "Deleted user". Copies that other people
 forwarded or clarified lose your words and your name too. Your read markers and blocks are deleted.
 Direct messages stay for the other person, without your words. A direct message is deleted once
-both people have deleted their accounts.
+both people have deleted their accounts. The portrait of your mirror agent (see AI features) is
+the one thing that stays: its file remains stored at a public link that does not carry your
+identifier.
 
 ### AI features
 
@@ -265,8 +278,32 @@ both people have deleted their accounts.
   transcript. Only the audio is sent — no name, no room code and no previously transcribed
   text goes with it.
 
+- **Your mirror agent.** Your mirror agent is an AI that answers only you. It uses the Gemini API
+  (see [Google's Gemini API terms](https://ai.google.dev/gemini-api/terms)).
+  - **When it is used.** Every message you write in your mirror agent chat is sent to it, a note
+    or a Clarify. So is a question you ask it about a group or event chat from that chat.
+  - **What is sent.** Your message, and recent messages, up to a limit, with the names of their
+    authors, your first name, the name you gave your mirror agent and, for a question about a
+    group or event chat, the chat's title. For a question about a group or event chat, these
+    are the recent messages of that chat that you can read. For a message in your mirror agent
+    chat, they are the recent messages of that chat, including the copies you made with Clarify
+    or by forwarding. A copy holds the author's name, the text, the name of the chat it came
+    from and part of its thread. It can come from a direct message. A copy made before its
+    original was deleted is still sent.
+  - **Who sees the answer.** Only you. Nothing is posted in the original chat, and an answer
+    cannot be forwarded or copied.
+  - **Portrait.** Your mirror agent gets a painted portrait the first time you open it, and a
+    new one when you press New face. What is sent to make it describes an invented person in the
+    style of an artist; nothing about you is in it. The image is stored at a public link.
+  - **If you object.** If you do not want your words read by other members' mirror agents, you
+    can delete your messages (a deleted message is not sent for later questions, but a copy
+    made before you deleted it keeps its text and is still sent), leave the chat, or delete your
+    account, which removes your words everywhere, including Clarify and forwarded copies and the
+    answers built on them. Email privacy AT claritypledge DOT com and you will get the same
+    answer.
+
 Google processes this content under its own terms. Do not enter health, religious or other
-special-category information into these features, and avoid putting people's names in
+special-category information into these features or into chats, and avoid putting people's names in
 event or story titles that you ask us to illustrate; the platform works without these
 features. These calls go to the Gemini API at `generativelanguage.googleapis.com` with an API
 key, not to Vertex AI; Google processes what is sent under the terms that apply to that API.
@@ -339,6 +376,8 @@ requested. These records are deleted automatically within about 75 minutes.
 
 | Purpose | Basis |
 |---|---|
+| What you send to your own mirror agent | Contract — Art. 6(1)(b) |
+| Other members' messages sent to your mirror agent when you ask it about a chat | Legitimate interest — Art. 6(1)(f): understanding a conversation you are part of. It is limited to what you can already read, the other members are told when they accept the terms, and they can object (see Your Rights) |
 | Account, profile, pledge, stories, letters, agreements, events, groups, Clarity Chat, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
 | Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, switching "Transcribe for AI insights" on at an event's ready screen, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
 | Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) this is biometric data under Art. 9, which normally requires explicit consent; today it is covered by the recording consent above |
@@ -384,7 +423,7 @@ by the person's name, never the bare name on its own.
 | Brevo | Delivers sign-in emails | Email address, sign-in link | European Union |
 | Google (Sign-In) | Optional sign-in | Google account email, name, picture | Google's global infrastructure |
 | Google Cloud (Storage, Cloud Run, Cloud Functions) | Audio, images, transcription service we run | Recordings, transcripts, voice profiles, images | United States |
-| Google Gemini API | AI story guide (`/create`) replies; generated banners; live and saved transcription in transcribe rooms | AI story-guide text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
+| Google Gemini API | AI story guide (`/create`) replies; generated banners; live and saved transcription in transcribe rooms; mirror agent answers and portraits | AI story-guide text; event/story titles and descriptions; recorded voice segments; chat messages and copies, with authors' names, sent to a mirror agent | Google's global infrastructure |
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |
@@ -449,7 +488,7 @@ Under the GDPR you can:
   and history behind them, the letters you sent and your explain-back recordings, the
   transcripts of every session you took part in, any session nobody else joined, your voice
   profile, your partner agreements, your terms-acceptance and session-consent records, your
-  mirror chat, the words and attachments of your Clarity Chat messages (including copies others
+  mirror agent chat, the words and attachments of your Clarity Chat messages (including copies others
   forwarded or clarified), your read markers and blocks (see Clarity Chat for what remains), and
   your AI rate-limit records. What other people have built on stays, with your name removed
   from it: points, events you hosted, group memberships, letters delivered to you, and a
@@ -462,7 +501,9 @@ Under the GDPR you can:
 - **Portability** (Art. 20) — ask for an export of your data in a machine-readable format
   (JSON). There is no self-serve export yet; email us.
 - **Objection** (Art. 21) — object to analytics, session recording, error tracking or the
-  newsletter without deleting your account.
+  newsletter without deleting your account. To object to your words being read by other
+  members' mirror agents, delete your messages, leave the chat or delete your account (see
+  Your mirror agent under AI features); we cannot remove only part of your data.
 - **Restriction** (Art. 18) — ask us to pause processing while a dispute is resolved.
 - **Withdraw consent** (Art. 7(3)) — for recordings, voice profiles, AI/ML use and quotes you
   allowed us to publish, at any time. When you withdraw, we delete the recordings, transcripts

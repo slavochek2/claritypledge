@@ -14,6 +14,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import { ownedBannerPath } from '../_shared/banner-path.ts';
 import { base64ToBytes, BANNER_BUCKET, creditFor, runArtistBanner } from '../_shared/artist-banner-run.ts';
 import { cryptoRng } from '../_shared/artist-banner.ts';
@@ -54,6 +55,8 @@ Deno.serve(async (req: Request) => {
   if (authError || !user) return json({ error: 'Unauthorized' }, 401, cors);
 
   const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  // P1544: no reservation and no model call for a caller who has not accepted the current terms.
+  if (!(await callerHasCurrentTerms(service, user.id))) return json(TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS, cors);
   const { data: begun, error: beginError } = await service.rpc('_mirror_begin_portrait', { p_owner: user.id });
   if (beginError || !begun) {
     console.error('mirror-portrait: begin failed', { code: beginError?.code });

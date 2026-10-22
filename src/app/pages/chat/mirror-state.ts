@@ -10,9 +10,9 @@ import type { MirrorGender, MirrorProfile } from '@/app/data/mirror-service';
  * What the mirror is doing about one of its owner's messages. Absent = nothing to show (answered, or
  * never asked). `unavailable`: the mirror cannot answer on this project.
  */
-export type MirrorReplyStatus = 'thinking' | 'failed' | 'capped';
+export type MirrorReplyStatus = 'thinking' | 'failed' | 'capped' | 'terms';
 
-export type PortraitStatus = 'idle' | 'painting' | 'failed' | 'capped';
+export type PortraitStatus = 'idle' | 'painting' | 'failed' | 'capped' | 'terms';
 
 export interface MirrorContextValue {
   /** null while unknown. False: the mirror cannot answer here, and no AI control is shown. */

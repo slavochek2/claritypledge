@@ -111,6 +111,13 @@ sent to Google's Gemini API to produce an image, and title keywords may be sent 
 to find a stock photo. Generated images may be inaccurate or unsuitable; you are responsible
 for reviewing an image before you publish it.
 
+### Your mirror agent
+
+Messages you post in a group, event or direct chat can be read by the mirror agent of another
+person in that chat, when they ask it about the chat or copy your message into it. Our
+[Privacy Policy](https://claritypledge.com/privacy-policy) explains what is sent to Google's
+Gemini API and how to object.
+
 ## Machine Accounts and Public-Source Content
 
 Some accounts on the platform are operated by machines rather than by the person they are

@@ -49,7 +49,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
               // and where × cancels. The mirror opens on top of here (its Back returns here).
               const target = chats.find((c) => c.kind === 'mirror');
               if (!target) {
-                toast.error('Could not open your mirror.');
+                toast.error('Could not open your mirror agent.');
                 return;
               }
               stageClarify(target.conversationId, { message: m, authorName: m.authorId ? authors[m.authorId]?.name ?? 'Unknown member' : 'Deleted user' });

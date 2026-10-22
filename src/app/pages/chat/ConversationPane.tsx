@@ -86,7 +86,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
             label: mirrorChat?.title ?? mirrorRole(),
             detail: mirrorChat?.title ? `${mirrorRole()} (private)` : 'private',
             mark: <MirrorMark size="sm" />,
-            keywords: ['mirror', 'your mirror'],
+            keywords: ['mirror', 'mirror agent', 'your mirror agent'],
           }]
         : undefined,
     [channel, mirrorOn, mirrorChat?.title],
@@ -192,7 +192,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   const first = (other?.name ?? '').split(' ')[0] ?? '';
   const placeholder =
-    summary.kind === 'dm' ? `Message ${first || 'them'}` : summary.kind === 'group' ? `Message ${summary.org?.name ?? 'the group'}` : summary.kind === 'event' ? `Message ${summary.event?.title ?? 'the event'}` : 'Write to your mirror';
+    summary.kind === 'dm' ? `Message ${first || 'them'}` : summary.kind === 'group' ? `Message ${summary.org?.name ?? 'the group'}` : summary.kind === 'event' ? `Message ${summary.event?.title ?? 'the event'}` : 'Write to your mirror agent';
   const empty =
     summary.kind === 'dm'
       ? `No messages yet. Say hello${first ? ` to ${first}` : ''}.`
@@ -327,7 +327,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
                   return true;
                 },
                 (e) => {
-                  toast.error(chatErrorText(e, 'Could not send this to your mirror.'));
+                  toast.error(chatErrorText(e, 'Could not send this to your mirror agent.'));
                   return false;
                 },
               ).finally(() => {
@@ -340,7 +340,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
               return mirror.ask(conversationId, body).then(
                 () => true,
                 (e) => {
-                  toast.error(chatErrorText(e, 'Could not ask your mirror. Try again.'));
+                  toast.error(chatErrorText(e, 'Could not ask your mirror agent. Try again.'));
                   return false;
                 },
               );
@@ -370,7 +370,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
       {infoOpen && <MirrorInfoDialog chat={summary} onRename={() => setRenaming(true)} onClose={() => setInfoOpen(false)} />}
       {renaming && (
         <RenameMirrorDialog
-          initial={summary.title ?? 'Mirror'}
+          initial={summary.title ?? 'Mirror agent'}
           role={mirrorRole(summary)}
           onClose={() => setRenaming(false)}
           onSaved={() => void chat.refresh()}

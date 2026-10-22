@@ -37,6 +37,7 @@ export function MirrorInfoDialog({ chat, onRename, onClose }: { chat: ChatSummar
         </DialogHeader>
 
         {status === 'capped' && <p role="status" className="text-sm text-muted-foreground">No more new faces today. Try again tomorrow.</p>}
+        {status === 'terms' && <p role="alert" data-testid="mirror-terms" className="text-sm text-muted-foreground">Accept the updated terms to use your mirror agent.</p>}
         {status === 'failed' && <p role="alert" className="text-sm text-red-700">Could not paint a new face. Try again.</p>}
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

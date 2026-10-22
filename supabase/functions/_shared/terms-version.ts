@@ -5,7 +5,7 @@
  * src/tests/p1487-terms-version-single-source.test.ts fails when they, or the
  * consume_pending_terms_acceptance migration, disagree.
  */
-export const SERVER_CURRENT_TERMS_VERSION = 'v1.4';
+export const SERVER_CURRENT_TERMS_VERSION = 'v1.5';
 
 export function isCurrentTermsVersion(v: unknown): v is typeof SERVER_CURRENT_TERMS_VERSION {
   return v === SERVER_CURRENT_TERMS_VERSION;

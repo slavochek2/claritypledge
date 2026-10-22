@@ -24,8 +24,11 @@ export interface MirrorProfile {
   gender: MirrorGender | null;
 }
 
-/** What one reply request ended in. `disabled`: the mirror cannot answer on this project at all. */
-export type MirrorReplyState = 'done' | 'running' | 'capped' | 'failed' | 'cancelled' | 'disabled';
+/**
+ * What one reply request ended in. `disabled`: the mirror agent cannot answer on this project at all.
+ * `terms`: the server refused because the caller has not accepted the current terms (P1544).
+ */
+export type MirrorReplyState = 'done' | 'running' | 'capped' | 'failed' | 'cancelled' | 'disabled' | 'terms';
 
 export type MirrorJobState = 'queued' | 'running' | 'done' | 'failed' | 'capped' | 'cancelled';
 
@@ -128,6 +131,7 @@ export async function getMirrorAvailability(): Promise<boolean | null> {
 
 function replyState(status: number, data: Record<string, unknown>): MirrorReplyState {
   if (data.code === 'DISABLED') return 'disabled';
+  if (status === 409 && data.code === 'TERMS_NOT_ACCEPTED') return 'terms';
   const s = data.state;
   if (s === 'done' || s === 'running' || s === 'capped' || s === 'failed' || s === 'cancelled') return s;
   if (status === 429) return 'capped';

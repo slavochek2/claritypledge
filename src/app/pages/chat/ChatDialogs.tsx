@@ -346,7 +346,7 @@ export function RenameMirrorDialog({ initial, role, onClose, onSaved }: { initia
           }}
         >
           <DialogHeader className="text-left">
-            <DialogTitle>Rename your mirror</DialogTitle>
+            <DialogTitle>Rename your mirror agent</DialogTitle>
             <DialogDescription>Its role, “{role}”, always stays next to the name.</DialogDescription>
           </DialogHeader>
           <label className="block text-sm text-foreground">
