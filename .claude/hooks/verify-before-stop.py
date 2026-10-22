@@ -368,7 +368,8 @@ SLOT_PATH_RE = re.compile(r"(/[^\s\"'`;|&<>()]*?)/\.claude/worktrees/(w\d+)(?![\
 CLAIM_CMD_RE = re.compile(r"(?:^|&&|;|\|\||\$\()\s*(?:\w+=\S*\s+)*(?:bash\s+)?(?:\S*/)?git-ops\.sh\s+claim\s+(p\d+)\b")
 CLAIM_RESULT_RE = re.compile(r"git-ops: claimed (w\d+) for \S+\s+path\s*:\s*(\S+)")
 GIT_WRITE_RE = re.compile(r"\bgit\b(?:\s+-C\s+\S+|\s+-c\s+\S+)*\s+(?:add|commit|mv|rm)\b|git-ops\.sh\s+commit-to-main\b")
-GIT_WHERE_RE = re.compile(r"(?:\bcd\s+|\s-C\s+)[\"']?([^\s\"';&|]+)")
+CD_RE = re.compile(r"\bcd\s+[\"']?([^\s\"';&|]+)")
+GIT_C_RE = re.compile(r"\s-C\s+[\"']?([^\s\"';&|]+)")
 # Closing words only, read from the END of the turn (its last 240 characters), so "nothing
 # else changed in the schema" mid-turn does not spend the one block early (P1519 review).
 NOTHING_ELSE_RE = re.compile(
@@ -408,17 +409,24 @@ def _git_write_slots(cmd, cwd):
         if nxt == flat:
             break
         flat = nxt
+    def resolve(base, p):
+        p = os.path.expanduser(p)
+        return os.path.normpath(p if os.path.isabs(p) or not base else os.path.join(base, p))
+
     out, start = [], 0
     where = prev = cwd or ""
     for gw in GIT_WRITE_RE.finditer(flat):
-        for p in GIT_WHERE_RE.findall(flat[start:gw.end()]):
+        # `cd` moves the shell for everything after it; `git -C` only that one invocation.
+        for p in CD_RE.findall(flat[start:gw.start()]):
             if p == "-":
                 where, prev = prev, where
-                continue
-            p = os.path.expanduser(p)
-            prev, where = where, os.path.normpath(p if os.path.isabs(p) or not where else os.path.join(where, p))
+            else:
+                prev, where = where, resolve(where, p)
         start = gw.end()
-        out.append(_slot_of(where + "/"))
+        here = where
+        for p in GIT_C_RE.findall(gw.group(0)):
+            here = resolve(here, p)
+        out.append(_slot_of(here + "/"))
     return out
 
 

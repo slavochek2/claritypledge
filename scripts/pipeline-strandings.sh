@@ -215,20 +215,20 @@ classify_slot() {
     return
   fi
   # Merged (not cherry-picked) code is reachable from main, so `git cherry` lists nothing
-  # for it. Proof the BRANCH authored it: a code commit made after the claim that is
-  # reachable from the branch but NOT on main's first-parent line — a --no-ff merge brings
-  # in the branch's commits as a second parent. A branch fast-forwarded to main picks up
-  # co-tenant commits that ARE first-parent, so a refresh is never mistaken for shipping.
-  local claimed_at c fp merged=0
+  # for it. Proof the BRANCH authored it comes from the branch's own reflog: a code commit
+  # MADE on this branch after the claim ("commit:" entries), now reachable from main. A
+  # fast-forward refresh (reflog "merge main: Fast-forward") brings in co-tenant commits —
+  # first-parent or a co-tenant's --no-ff merge alike — and none of them was made here.
+  local claimed_at c msg merged=0
   claimed_at="$(sed -n 's/^CLAIMED_AT=//p' "$wt/.lock" 2>/dev/null | head -1)"
   claimed_at="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$claimed_at" +%s 2>/dev/null || date -u -d "$claimed_at" +%s 2>/dev/null || echo 0)"
   if (( n_commits == 0 && claimed_at > 0 )) && git merge-base --is-ancestor "$br" main 2>/dev/null; then
-    fp="$(git rev-list --first-parent --since="@$claimed_at" main 2>/dev/null)"
-    while IFS= read -r c; do
+    while IFS=$'\t' read -r c msg; do
       [[ -n "$c" ]] || continue
-      $GREP -qxF "$c" <<< "$fp" && continue   # here-string: `| grep -q` can SIGPIPE under pipefail
+      case "$msg" in "commit:"*|"commit (amend):"*) ;; *) continue ;; esac
+      git merge-base --is-ancestor "$c" main 2>/dev/null || continue
       $GREP -qvE '^(features|docs|content)/' < <(git diff-tree -r --no-commit-id --name-only "$c" 2>/dev/null) && { merged=1; break; }
-    done < <(git rev-list --no-merges --since="@$claimed_at" "$br" 2>/dev/null)
+    done < <(git reflog show --since="@$claimed_at" --format='%H%x09%gs' "refs/heads/$br" 2>/dev/null)
   fi
   if (( merged == 1 )); then
     printf 'SHIPPED_UNCLOSED\t%s was merged into main (its commits are on main), but the spec is still open\n' "$br"

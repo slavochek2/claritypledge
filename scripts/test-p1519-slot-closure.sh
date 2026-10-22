@@ -112,6 +112,12 @@ transcript "$T" "$(bash_use "(cd $W1 && cat src/a.ts); git add src/base.ts" "$RE
 check "a subshell's cd does not outlive it (read in a slot, write on main)" "" "$(owned "$T")"
 transcript "$T" "$(bash_use "git -C $REPO add x && git -C $W1 commit -m y" "$REPO")"
 check "every git write in a chained command counts, not only the first" "$S1" "$(owned "$T")"
+transcript "$T" "$(bash_use "git -C $W1 add src/a.ts && git commit -m main-only" "$REPO")"
+check "git -C applies to its own invocation, not to the next command (still owned via the -C)" "$S1" "$(owned "$T")"
+transcript "$T" "$(bash_use "git -C $REPO add x && git commit -m in-slot" "$W1")"
+check "  and a plain commit after a -C elsewhere still runs in the slot cwd" "$S1" "$(owned "$T")"
+transcript "$T" "$(bash_use "git -C $W1 status && git -C $REPO add x" "$REPO")"
+check "  a -C read in the slot then a write on main owns nothing (control)" "" "$(owned "$T")"
 C="cat > note.md <<'EOF'
 ./scripts/git-ops.sh claim p9001 later
 EOF"; transcript "$T" "$(bash_use "$C" "$REPO" "$CLAIM_T1")" "$(result "$C" 'ok')"
@@ -156,6 +162,9 @@ sleep 1; S12="$(claim p9012 refresh)"; W12="$REPO/.claude/worktrees/$S12"
 sleep 1; commit_in "$REPO" src/cotenant.ts "export const c = 1" "feat: a co-tenant's work on main"
 git -C "$W12" merge -q --ff-only main
 check "a fresh slot fast-forwarded to main is not 'shipped' (co-tenant code)" "EMPTY" "$(state_of "$S12")"
+( cd "$REPO" && git checkout -q -b cotenant-feature && echo "export const z = 1" > src/z.ts && git add src/z.ts && git "${G[@]}" commit -qm "feat: co-tenant feature" && git checkout -q main && git "${G[@]}" merge -q --no-ff -m "merge co-tenant" cotenant-feature >/dev/null )
+git -C "$W12" merge -q --ff-only main
+check "  nor after a co-tenant's --no-ff merge is fast-forwarded in" "EMPTY" "$(state_of "$S12")"
 
 echo "[3] holds: valid passes and shows at startup; me/wip rejected; stale ignored"
 S3="$(claim p9003 held)"; W3="$REPO/.claude/worktrees/$S3"
