@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 ---
 
@@ -426,6 +426,7 @@ Last updated: 2026-10-21
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1519** (Oct 22) A session cannot end while its own slot is open — Stop-hook gate 4 + `git-ops.sh hold/park`; ownership = this transcript's writes bounded by the lock's `CLAIMED_AT`; "shipped" needs proof the branch made the commit (reflog), never ancestry alone; three review rounds each reproduced real holes — see decisions.md 2026-10-22 [technical]
 - **P1524** (Oct 21) /day test-database response check — curl exits 28 after a 200 header on a stalled body; check the exit code, not only the HTTP status.
 - **P1525** (Oct 21) /day reads Supabase free-plan usage via Chrome — the public API has no org-usage endpoint; a grace banner is a problem even under threshold.
 - **P1514** (Oct 20) Retire the long spec pipeline — ten skills archived on 0-use evidence (90-day transcript search, control-checked); the build agent never stamped `dev` in `pipeline_ran`, so gate 2.5 caught it at ship and it was stamped by hand; review fixes needed the main session for rules files (subagents cannot edit `.claude/rules/`)
