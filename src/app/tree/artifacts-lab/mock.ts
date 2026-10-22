@@ -74,7 +74,7 @@ export const YOURS: MockArtifact[] = [
   },
   { id: 'l0', kind: 'letter', title: 'Follow-up to "calibrated"', visibility: 'private', draft: true, hasSentLetters: true, counts: { stories: 2, points: 4 }, updated: '5h' },
   { id: 'l4', kind: 'letter', title: 'A note before the retreat', visibility: 'private', sealed: '1 hour', updated: '1h', recipients: [] },
-  { id: 'l3', kind: 'letter', title: 'Ten questions before we start', visibility: 'public', publicLink: true, sealed: '5 days', updated: '1d', respondents: [{ name: 'Lena', slug: 'lena', status: 'Completed', hasResults: true }, { name: 'Ari', status: 'Reading', steps: { done: 2, total: 5 }, hasResults: true }], recipients: [] },
+  { id: 'l3', kind: 'letter', title: 'Ten questions before we start', visibility: 'public', publicLink: true, sealed: '5 days', updated: '1d', respondents: [{ name: 'Lena', slug: 'lena', status: 'Completed', hasResults: true }, { name: 'Ari', status: 'In progress', steps: { done: 2, total: 5 }, hasResults: true }], recipients: [] },
   { id: 'c1', kind: 'canvas', title: 'Co-founder roles: first sketch', visibility: 'private', updated: '3d' },
   { id: 'c2', kind: 'canvas', title: 'Clarity Night: questions board', visibility: 'public', updated: '1w' },
 ];
