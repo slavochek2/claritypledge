@@ -108,8 +108,8 @@ Blast radius: high. Every signed-in screen's navigation, plus the letters surfac
 ## Acceptance Criteria
 
 Phase 1:
-- [ ] Three variants reachable on one dev route, each at desktop, 375px and 320px, covering every state listed in Phase 1.
-- [ ] Visual review reports received from Gemini 4 Argon and Opus (count stated), findings fixed or set aside with a reason.
+- [x] Three variants reachable on one dev route, each at desktop, 375px and 320px, covering every state listed in Phase 1.
+- [x] Visual review reports received from Gemini 4 Argon and Opus (count stated), findings fixed or set aside with a reason.
 - [ ] The founder's pick and comments recorded under `## Resolved Decisions`.
 
 Phase 2:
@@ -120,6 +120,15 @@ Phase 2:
 - [ ] Every old `/letters` tab URL lands on the matching Artifacts view.
 - [ ] Events list, signed out and empty: the Chiang Mai card is the main element and "Sign Up to Host" is a quiet link. With events: the card sits below the list. Taps record a Mixpanel event.
 - [ ] Screenshots at 1440, 375 and 320 pass `.claude/rules/visual-qa.md`, reviewed by a separate agent.
+
+## Phase 1 record
+
+- **Route:** `/tree/artifacts?v=a|b|c&state=full|shared|menu-open|search-open|empty-yours|empty-shared|events-empty|events-some` (dev only). Files: `src/app/tree/artifacts-lab/`.
+- **Variants:** A = compact tabbed list, left sidebar. B = card grid, top nav, chats side panel. C = icon rail + list + preview pane (phone: list + bottom sheet).
+- **Visual review:** 10 of 10 reports received (Gemini 4 Argon, 3 rounds x 3 variants, plus 1 Opus critic). Last round: A 0 HIGH, B 1 HIGH, C 1 HIGH; C's was fixed. Set aside: fixed tab bar drawn mid-page (a full-page-capture artifact, checked against a viewport shot); B's phone chat preview (round 2 removed it as a duplicate, round 3 asked for it back, so the card meta says "in your chat"); the "Shared" short label (the spec names the tab "Shared with you").
+- **Code review:** 3 of 3 reports (Sonnet `/finish` code reviewer plus 2 Gemini 4 Argon rounds). Fixed: C showed Share/Delete on items you don't own, claimed "in your chat" with no share message, opened the + menu upward on desktop, and froze its breakpoint; lab params are now validated.
+- **Carried to Phase 2** (lab-only, not fixed in throwaway code): build on the real `BottomNav` and shared components, not the lab copies; phone sheet needs a real dialog primitive (Escape, focus trap, scroll lock); the tabs need the full ARIA tab pattern; on desktop a pane that opens by default marks its item read; the dual-mounted + menu should become a single responsive trigger; delete `src/app/tree/artifacts-lab/` and its route once the picked variant ships.
+- **Copy still open** (placeholders written by agents): "Remove from my list" on shared items, the Chiang Mai card's button and link text, the empty-state lines, "No events from us right now".
 
 ## Related
 
