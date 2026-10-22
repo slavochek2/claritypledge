@@ -980,6 +980,26 @@ describe('conversation', () => {
     expect(loadStatuses.mock.calls.every(([ids]) => !(ids as string[]).includes('mq1'))).toBe(true);
   });
 
+  it('P1546: mirror availability that resolves after the thread loaded still restores its status', async () => {
+    const loadStatuses = vi.fn();
+    const base = {
+      profile: null, portraitStatus: 'idle', statusFor: () => undefined, requestReply: vi.fn(), loadStatuses,
+      ask: vi.fn(), newFace: vi.fn(), ensurePortrait: vi.fn(), setGender: vi.fn(),
+    };
+    const m = mirror();
+    const root = msg(m.conversationId, ME.id, 'late root', { id: 'lroot' });
+    const waiting = msg(m.conversationId, ME.id, 'late waiting', { id: 'lq', threadRootId: 'lroot' });
+    svc.getMyChats.mockResolvedValue([m]);
+    svc.listMessages.mockImplementation(async (_id: string, opts: { threadRootId?: string } = {}) => (opts.threadRootId ? [waiting] : [root]));
+    svc.listThread.mockImplementation(async () => [root, waiting]);
+    const path = `/home/c/${m.conversationId}/t/lroot`;
+    const { rerender } = render(treeFor(path, { ...base, enabled: false } as unknown as MirrorContextValue));
+    expect(await within(await screen.findByTestId('thread-panel')).findByText('late waiting')).toBeInTheDocument();
+    expect(loadStatuses, 'nothing is asked while the mirror is not yet available').not.toHaveBeenCalled();
+    rerender(treeFor(path, { ...base, enabled: true } as unknown as MirrorContextValue));
+    await waitFor(() => expect(loadStatuses.mock.calls.some(([ids]) => (ids as string[]).includes('lq'))).toBe(true));
+  });
+
   it('keeps the conversation loaded and in place when its thread opens', async () => {
     const root = msg('g1', 'p-grace', 'main pane message', { id: 'root2' });
     const reply = msg('g1', ME.id, 'thread pane reply', { id: 'rep2', threadRootId: 'root2' });

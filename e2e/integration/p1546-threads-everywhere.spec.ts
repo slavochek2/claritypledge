@@ -250,7 +250,9 @@ test('clarify from a mirror thread copies the people in it, never the mirror age
   const later = await send(sA, mirA, `CL-LATER-${RUN}`, { p_thread_root: R.id });
 
   const cl = await ok<Row>(sA.client.rpc('clarify_chat_message', { p_source: later.id }), 'clarify a mirror thread reply');
-  const copied = JSON.stringify((cl.forward_snapshot as { thread?: unknown }).thread ?? []);
+  const thread = ((cl.forward_snapshot as { thread?: unknown[] }).thread ?? []);
+  expect(thread, 'exactly the root and the question: no placeholder for the answer, the source itself not repeated').toHaveLength(2);
+  const copied = JSON.stringify(thread);
   // control: the owner's own thread messages ride along
   expect(copied, 'the thread root is copied').toContain(`CL-ROOT-${RUN}`);
   expect(copied, 'the owner\'s question is copied').toContain(`CL-QUESTION-${RUN}`);
