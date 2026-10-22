@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 216
+**Next ID:** 217
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2737,5 +2737,16 @@ Under a simulated outage (scripts/measure-idle-requests.mjs --block /rest/v1/, /
 **due:** month
 
 Today (P1542) any event without a series recipe gets the Clarity Night recipe, and the enable-prepare toggle makes that full preparation a required room gate. Fine while the founder is the only host. Do this when another organizer actually hosts; drop it if no second organizer appears.
+
+---
+
+## Revisit branch feature/p1390-letter-review-proto when the mirror agent supports letters
+
+**ID:** INBOX-216
+**Date:** 2026-10-22
+**Status:** proposed
+**due:** month
+
+The branch holds 12 commits of letter-chat and letter-review prototypes. They were committed under the P1390 label, but P1390's spec is about room audio filling /live, so the two are unrelated. The branch has no worktree and is kept. Revisit it when the mirror agent (P1437) is extended to support letters; related to the P1431 letter chat. Droppable if P1437 settles on a different letter surface.
 
 ---
