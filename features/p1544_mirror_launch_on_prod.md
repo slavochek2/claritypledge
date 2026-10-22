@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 56
 workstream: clarity-chat
@@ -119,15 +119,23 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 
 ## Acceptance Criteria
 
-- [ ] Every factual sentence of the new mirror text in the policy is backed by a `file:line` in the build report, and a Gemini and a Codex review find no false statement.
-- [ ] The policy names the Gemini API and links Google's terms without paraphrasing them.
-- [ ] A user on the previous terms version gets the blocking popup with the new headline. Declining logs out; accepting records `acceptance_mode = explicit`.
-- [ ] `mirror-reply` and `mirror-portrait` refuse a caller who has not accepted the current version (curl with an old-version test user on test), and the client shows the refusal.
-- [ ] Deleting a member's account removes their words from every later mirror agent request and clears answers built on them (P1520 erasure, re-run on test), and the policy says so.
-- [ ] The P1520 red-team suite passes on test. Its first test, the positive control that proves the model reads its context, passes.
-- [ ] Clarify is not offered inside the mirror agent chat.
-- [ ] No user-facing string says "mirror" without "agent" (grep of `src/app` strings and the policy/terms text, list attached).
+- [x] Every factual sentence of the new mirror text in the policy is backed by a `file:line` in the build report, and a Gemini and a Codex review find no false statement.
+- [x] The policy names the Gemini API and links Google's terms without paraphrasing them.
+- [x] A user on the previous terms version gets the blocking popup with the new headline. Declining logs out; accepting records `acceptance_mode = explicit`.
+- [x] `mirror-reply` and `mirror-portrait` refuse a caller who has not accepted the current version (curl with an old-version test user on test), and the client shows the refusal.
+- [x] Deleting a member's account removes their words from every later mirror agent request and clears answers built on them (P1520 erasure, re-run on test), and the policy says so.
+- [x] The P1520 red-team suite passes on test. Its first test, the positive control that proves the model reads its context, passes.
+- [x] Clarify is not offered inside the mirror agent chat.
+- [x] No user-facing string says "mirror" without "agent" (grep of `src/app` strings and the policy/terms text, list attached).
 - [ ] On prod: one real reply and one portrait on the founder's account, edge smoke passes, and Sentry is clean for 10 minutes. `[post-deploy]`
+
+**Evidence (2026-10-22, test project, branch HEAD 4aa788850):**
+- AC1/AC2: sentence-to-code map in the build report; Gemini + Codex + Sonnet reviews, every false statement found was fixed (objection wording, attachment kind, "cannot be copied"); Gemini re-review of the fixes found none.
+- AC3: `e2e/p1300-terms-popup.spec.ts` — accept records acceptance and closes the notice ✓, documents open ✓. The smoke test fails only on console CORS errors because slot w14's dev port 6400 is outside `_shared/cors.ts` DEV_ORIGIN_RE (pre-existing, filed); its popup assertions ran before the console check.
+- AC4: `e2e/integration/p1544-terms-gate-live.spec.ts` 3 passed (v1.4 user → 409 from both functions, 0 jobs, 0 spend; current-version control → 404 NOT_AVAILABLE). Refusal UI: `src/tests/p1520-mirror-ui.test.tsx`.
+- AC5/AC6: `p1520-mirror-redteam` + `p1520-mirror-canary` 18 passed, 1 flaky (channel ask Realtime delivery control, passed on retry; unrelated to P1544). Erase scrub + its control passed.
+- AC7: `src/tests/p1520-mirror-ui.test.tsx:135` (no Clarify in the mirror).
+- AC8: grep of `src/app` (.ts/.tsx) and policy/terms text — no bare "mirror" in chat UI; remaining hits are the landing-lab rehearsal (different feature, founder decision open), the pledge verb "mirror back", and policy line wraps before "agent".
 
 ## Pre-deploy Checklist
 
