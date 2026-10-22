@@ -231,6 +231,8 @@ Steven Pinker's insight: Common knowledge isn't "everyone knows X" — it's "eve
 
 The **Topology Map** broadcasts the verification state of the network. When I see that verified understanding exists between people who disagree, I know that they know that I know.
 
+**Untested assumption, named 2026-10-22:** this leverage point, Stage 5 of the cascade and the Recursive Spokescouncil all assume that verification between *some* people changes the beliefs of people who only *see* it. That is a bet, not a mechanism: [hypotheses.md](hypotheses.md) H-ObserverTransfer, UNTESTED.
+
 > "By knowing exactly who understands, the network becomes 'anti-fragile.' You can identify the 'understanding gaps' in the network and route communication specifically to those nodes to re-sync the entire group."
 
 ### Routing Intelligence: Which Gaps Matter Most

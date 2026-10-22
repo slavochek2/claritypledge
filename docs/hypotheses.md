@@ -68,6 +68,9 @@ These apply to **new or materially-updated** hypotheses. Existing entries are **
 | H-AgentEpistemics | Epistemic verification for AI agent memory is a product | Blocked | P2 | H-LetterAsProduct | New 2026-04-12 — article-as-demand-test |
 | H-LegibilityVsCost | Understanding-practices never became default infrastructure because the failure is self-concealing (legibility-binding), not because the cure is too costly (cost-binding); the Clarity Letter runs the fork | Active | P2 | H-WTP-Pain | New 2026-07-21 — category-level; distinct from killed H-LetterAsProduct (viral-R0). **UNTESTED.** |
 | H-NormRaisesSafety | A trainable gap-admission norm **raises** team psychological safety — Edmondson's scale is our outcome, not our rival | Active | P2 | — | New 2026-08-12 — reverses the direction of the overlap instead of defending against it (her arrow: safety → disclosure; ours: norm → disclosure → safety). Novel prediction recorded before test. **Deferred, not close to testable:** needs temporal separation + a control arm, which a commercial engagement cannot supply. **UNTESTED, n=0.** decisions.md 2026-08-12 [product] |
+| H-ObserverTransfer | Watching two people from opposite sides verify each other's understanding corrects the audience's picture of the other side more than watching them debate | Active | P2 | — | New 2026-10-22, founder conversation. Tests the observer step the theory-of-change cascade assumes and never states. **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
+| H-TruthTracking | On contested questions that have a checkable answer, verification moves the people who were wrong toward the answer more than it moves the people who were right. Verification as error correction, not convergence | Active | P1 (scientific) | — | New 2026-10-22, founder conversation. The cheapest test of hard-core K7 (truth-measurement layer). **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
+| H-CalibrationPredicts | A person's listening-calibration track record predicts whether their next "I understood" is true, so it is a local trust signal for whose "got it" to rely on, inside a team, not a general credibility score | Active | P1 | — | New 2026-10-22, founder conversation. Turns the trust/hierarchy chain into a testable link. **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
 | H-AccountingLayer | Misunderstanding-harm goes unfixed in institutions because they can't *attribute/account for* it (no metric/owner/budget), not because they can't see it — so CP could be an accounting layer that makes it countable | Blocked | P2 | H-LegibilityVsCost | New 2026-07-21 — counter recorded: absence may be correct triage. Test = find countable "corpses" (aviation CRM). **UNTESTED.** |
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
@@ -553,6 +556,116 @@ Surviving differentiators, narrower than the docs previously implied: (1) **a nu
 **Positioning guardrail:** psychological safety is the **outcome measure, never the pitch.** It sits adjacent to the anti-positioning guardrail in [lean-canvas.md](lean-canvas.md) §Customer Segments against labelling the buyer's problem "culture," and carries the same failure mode — a crowded category with rubrics CP does not optimise for.
 **Falsifier:** install the norm and Edmondson-scale safety is flat at T2 **in rooms where unprompted admission demonstrably rose** ⟹ the norm does not cause safety, and Edmondson's original arrow stands unchallenged.
 **Status (2026-08-12):** New, P2/deferred, `UNTESTED`, n=0. See [decisions.md](decisions.md) 2026-08-12 [product]; narrative `content/articles/a67_disclosure-needs-two-gates.md`.
+
+---
+
+#### H-ObserverTransfer: Watching a verified exchange corrects the audience's picture of the other side
+
+> **Programme tag:** `both` · **Core-adjacent: no (belt).** K5 is untouched: the observer is never claimed to have verified anything, because the observer has no counterparty. The claim is only about what watching someone else's verification does to the observer's beliefs about a third party.
+
+**Bet (2026-10-22, UNTESTED, n=0):** An audience that watches two recognized people from opposite sides of a contested topic run paraphrase-and-confirm (each restates the other to that person's satisfaction before replying) ends up with a **more accurate picture of what the other side believes** than an audience that watches the same two people debate the same topic in the ordinary way.
+
+**Why it matters: it is the untested step under the end-state.** [theory-of-change.md](theory-of-change.md) assumes it in three places without stating it as a bet: Leverage Point 3 (*"When I see that verified understanding exists between people who disagree, I know that they know that I know"*), Stage 5 of the cascade (*"Everyone can see…"*), and the Recursive Spokescouncil (reps verify, and their cells are assumed to inherit the result). The parked H-ToleranceAmplifies and H-ProtocolReachesScale assume it at scale. This entry is the smallest test of whether it holds at all. **If it fails, verified understanding scales only through direct participation** (every person needs their own counterparty, per K5), and the broadcast and representative routes in the theory of change lose their mechanism.
+
+**Distinct from three neighbours, and the distinction is what is new:**
+- *"The act IS the broadcast"* ([lean-canvas.md](lean-canvas.md) §Channels & Flywheel) claims that watching verification moves **norm expectations** (people come to expect that others verify). This claims it moves **content beliefs** about the other side.
+- H-ChampionYield's fishbowl claim is about the observer's **will to adopt** after watching others' gap surface. This is about the observer's **model of an outgroup**.
+- H-NormFlip's non-adopter-as-invoker bet predicts that *invoking* converts better than *watching*. That is compatible with this one, which compares watching verification against watching a debate, never watching against doing.
+
+**Not the Flip.** [theory-of-change.md](theory-of-change.md) holds that the Clarity Flip is irreducibly interpersonal and that no path without a counterparty can deliver it. This entry does not contest that. A viewer's corrected estimate of the other side is not verified understanding, and the bet makes no claim that it is.
+
+**Test:** two short recordings, same two speakers, same topic: **(A)** a verified exchange, **(B)** an ordinary debate **matched for civility and length**. Two separate audiences. Before and after viewing, each viewer estimates what a typical member of the other side believes on 3–5 concrete items; the error is scored against that side's actual answers (the speakers' own, or a small sample from each side). Primary outcome: the reduction in estimation error. Secondary: warmth toward the other side. A third, no-video audience separates both arms from simply being asked twice.
+
+**Novel prediction, recorded 2026-10-22 before any test.** Arm A reduces audience misperception **more** than arm B. No predecessor framing predicts movement in people who were not in the exchange: the cascade framings assume it without stating it, and the dyadic hypotheses (H-ForkSoftening, H-StoryParaphrase) predict movement only in participants. The obvious rival account, *any calm, civil exchange corrects stereotypes and verification adds nothing*, predicts the two arms move equally, which is why arm B must match civility and not only topic. Discriminating. *Corroboration status: pending.*
+
+**Transform if:** across two runs, arm A's reduction in misperception is no larger than arm B's ⟹ verified understanding does not transfer to observers, and the theory of change must route scale through participation only. If both arms beat the no-video control equally, the effect is civility, not verification.
+
+**What this does NOT claim:**
+- That understanding produces agreement or cooperation. [theory-of-change.md](theory-of-change.md) §"Scope limit: comprehension is not commitment" already bounds that.
+- That it reaches people whose incoherence pays them. That is "The hole" in the same doc, and it is still open.
+- That an influencer's audience verified anything. They watched someone else do it.
+
+**Outside evidence (checked 2026-10-22; abstracts and search summaries only, so read the full papers before publishing).** Mernyk, Pink, Druckman & Willer 2022, *PNAS* 119(16), doi:10.1073/pnas.2116851119: partisans overestimated the other side's support for violence by 245–442%, and a brief informational correction cut their own support for violence by 34%. That correction is **information** (telling people the real numbers). This bet asks whether **watching verification** does the same job. Lees & Cikara 2020 is agent-reported and still unchecked.
+
+**What the social-dilemma literature implies for scope (sweep run 2026-10-22).**
+- Communication raises cooperation in social dilemmas by about d = 1.01 (face-to-face 1.21, written 0.46). Source: Balliet 2010, *J. Conflict Resolution* 54(1), doi:10.1177/0022002709352443; checked against the abstract.
+- The credited mechanisms are promises, commitment and norms, not understanding. In Frank, Gilovich & Regan 1993, unenforceable promises cut one-shot PD defection to about 26–29%, against 47–72% without them (checked against the full text).
+- Better understanding of the *payoffs* can lower cooperation. Andreoni 1995: "about half of all cooperation" comes from subjects who understand free-riding (checked against the full text), so the rest is plausibly confusion.
+- Under threshold uncertainty, where the game turns back into a PD, pledges stop being kept (Barrett & Dannenberg 2012, *PNAS*). The direction is confirmed; the agent's exact figures (98%, 0/20) were not.
+- The sweep found no study that uses paraphrase-plus-speaker-confirmation as the treatment in a PD, public-goods or commons game. That is the agent's search result, not proof of absence.
+- **Consequence:** this entry stays on beliefs and hostility, where the outside evidence is strongest. It makes no cooperation claim. Whether verification adds anything beyond commitment is a separate open test: a 2×2 design crossing promise against paraphrase-confirm.
+
+**Layer scope (added 2026-10-22):** this entry covers beliefs about **what the other side believes**, never beliefs about **the world**. Whether verification moves people toward *true* beliefs is a separate, stronger bet: H-TruthTracking.
+
+**Why P2:** the active business queue is unaffected. The test is cheap and can ride on an event that already has a topic which splits the room (H-StoryParaphrase's split-room design).
+
+**Status (2026-10-22):** New. **UNTESTED, n=0.** Source: founder conversation 2026-10-22 (whether a fast way to find the deepest crux, spread through influencers, could make collective decisions easier). See [decisions.md](decisions.md) 2026-10-22 [product].
+
+---
+
+#### H-TruthTracking: Verification is error correction, not convergence
+
+> **Programme tag:** `scientific` · **Core-adjacent: yes.** It is the nearest empirical test of **K7** (aim: a truth-measurement layer built on verified understanding; [research-programme.md](research-programme.md#k7--aim)). K7 is a value commitment and cannot be refuted, but if this bet fails repeatedly, the belt has no mechanism left for realizing K7. **Ad-hoc-ness budget: ONE auxiliary**, the question-selection precondition below. A second failure after that escalates to `/slava:maintain:programme-health`.
+
+**The three layers this separates (2026-10-22).** (1) Beliefs about **what someone meant**: the protocol corrects these directly, because the speaker is the authority on their meaning. (2) Beliefs about **what the other side believes**: H-ObserverTransfer. (3) Beliefs about **the world**: the speaker is no authority here, so the protocol cannot correct them directly. [lean-canvas.md](lean-canvas.md) already states this bound: the protocol measures the speaker↔listener gap, not the listener↔world gap ("Calibration as a disqualifier, not a credibility oracle"). The claim that connects layer 1 to layer 3 is the **Popper Gap** ([definitions.md](definitions.md) §"The Popper Gap and the Deutsch Gap"): without verification you test a belief against your reconstruction of the objection, so it survives by default. Verification removes the strawman, which is a **precondition** for error correction, not error correction itself.
+
+**Bet (2026-10-22, UNTESTED, n=0):** on contested questions that have a **checkable answer**, people who go through a verified exchange with someone holding the opposite answer move **toward the correct answer** more than people in a matched debate. The asymmetry is the signature: those who started wrong move more than those who started right.
+
+**Why the rival matters.** A pure convergence effect (verification makes people agree more, regardless of truth) is the failure this programme already rejected once: [lean-canvas.md](lean-canvas.md) killed *"the more shared meanings, the smarter the group"* as a convergence claim that sells the groupthink limit case. If verification is a convergence machine, the K7 aim has no mechanism. A second rival, from the social-dilemma literature (Andreoni 1995): better understanding can *remove* positions held through confusion, which would look like truth-tracking only where confusion was on the wrong side.
+
+**Test:** 4–6 contested questions with a checkable answer the participants do not know (empirical claims with a published resolution, base rates, forecasts that resolve within weeks). Pairs that disagree are assigned to a verified exchange (paraphrase-to-satisfaction before replying) or a matched debate. Before and after, each participant gives an answer and a 0–100 confidence. Score with a proper scoring rule (Brier) against the resolved answer. Primary outcome: change in accuracy, split by who started right vs wrong.
+
+**Novel prediction, recorded 2026-10-22 before any test.** In the verified arm, initially-wrong participants improve their score more than initially-right participants worsen it, and that net accuracy gain is larger than in the debate arm. No predecessor framing predicts this asymmetry. H-ForkSoftening and H-DisagreementDecomposition predict softening and partitioning, both of which are truth-blind. The truth-score design in [theory-of-change.md](theory-of-change.md) ("Future instrumentation: operationalized truth scores") describes a measurement and makes no prediction. The convergence rival predicts symmetric movement. Discriminating. *Corroboration status: pending.*
+
+**Prior art: the general claim is already established, so this bet is narrowed to the protocol (literature check 2026-10-22, abstracts and summaries, full texts not read).**
+- **Discussion moves people toward truth on problems with a demonstrable answer, and it does so asymmetrically.** Trouche, Sander & Mercier 2014, *JEP: General* 143(5): given counterarguments, many switched to the correct answer and almost none to a wrong one, and confidence did not predict who switched. Navajas et al. 2018, *Nature Human Behaviour*, doi:10.1038/s41562-017-0273-4: short debates in groups of five improved accuracy. Laughlin's "truth wins / truth-supported wins" (secondary sources only). **So neither "discussion improves accuracy" nor the wrong-side-moves-more signature is new.**
+- **Known conditions and failures:** similar competence and honest confidence (Bahrami et al. 2010, *Science*); no dominant error-prone hub (Becker et al. 2017, *PNAS*); unshared information often stays hidden (Stasser & Titus 1985, hidden profiles).
+- **A prior against:** in a preregistered field experiment with about 1,500 people, active listening (including paraphrasing) made conversations feel better but did not increase persuasion, immediately or at five weeks (Santoro, Broockman, Kalla & Porat 2025, *PNAS*, doi:10.1073/pnas.2421982122). The outcome there was attitudes, not accuracy, but it lowers the prior that paraphrase adds anything.
+- **What remains new:** nobody found tests speaker-**verified** paraphrase against plain discussion *on accuracy against ground truth*. That is the only claim this entry makes. The novel prediction is therefore restated as **verified exchange > matched plain discussion** on net accuracy gain. "Discussion > no discussion" is known and does not count.
+- **Design requirements this adds:** the control is equal-length plain discussion plus a "restate your own view" arm, so extra time and extra turns cannot explain a win; one item set is hidden-profile, to test whether verification fixes the Stasser failure; and paraphrase fidelity is scored by the speaker and, where possible, by an independent rater.
+
+**The intervention is the protocol, not paraphrase (founder clarification, 2026-10-22).** CP's claimed increment is a protocol that **reveals the understanding gap in about three minutes** (sealed 0–10 estimates, then paraphrase until the speaker confirms, then the gap shown) inside a norm where **admitting a gap is rewarded, not punished** (H-NormFlip: *"reward the ritual, not the outcome"*). Active listening is prior art and only one component. Consequences:
+- **Santoro et al. 2025 bears on the listening component only.** It tested listener-side active listening used to persuade, with no gap reveal, no speaker confirmation and no reward. It is evidence against selling "listening", not a test of this protocol.
+- **Sharpened prediction, recorded before any test:** the protocol's advantage over plain discussion is **largest on hidden-information items** and **smallest on simple demonstrable items**. Plain discussion already handles demonstrable answers (Trouche 2014). It fails where people do not surface what they lack or did not follow (Stasser & Titus), and the social cost of saying so is part of that failure. That cost is exactly what the reward norm removes. If the advantage is equal across item types, the reveal-and-reward mechanism is not doing the work.
+- **The estimate exchange is a detector, not a rival to paraphrase (founder correction, 2026-10-22).** Without it the only ways to see a gap are nonverbal cues or paraphrasing everything. The sealed estimates decide **where** paraphrase is worth running ([lean-canvas.md](lean-canvas.md) "The architecture in one sentence": *the min is an effort allocator*). An earlier draft of this bullet pitted "protocol vs paraphrase-only" as competitors, which was a category error.
+- **Three arms, each measuring something different:** (1) **plain discussion** (gaps found only by chance or nonverbally); (2) **triage, i.e. the protocol** (estimates first, paraphrase only where a gap is flagged); (3) **paraphrase everything** (the expensive upper bound). **The claims:** *detection*: of the points where paraphrase fails, the estimates flag materially more than plain-discussion participants notice; *efficiency*: (2) beats (1) on net accuracy gain and recovers most of (3)'s gain in a fraction of its time. Report accuracy gain per minute.
+- **Known blind spot, measured rather than assumed:** convergent error (both estimate high, both wrong) passes triage unflagged ([definitions.md](definitions.md) §Verification Threshold). The test records how often a failed paraphrase in arm (3) would have been skipped by arm (2)'s estimates.
+
+**Auxiliary (the one budgeted adjustment): question selection.** Truth-tracking is only testable where someone in the pair holds the right answer and holds it for reasons they can state. Questions where both sides are guessing test nothing, and the result is recorded as uninformative, never as a pass or a fail.
+
+**Transform if:** across two runs, movement in the verified arm is symmetric between initially-right and initially-wrong participants (convergence) or no more accurate than in the debate arm ⟹ verification does not track truth at layer 3. The Popper-gap framing then narrows to "verification makes disagreement precise", and the "error correction" language must be withdrawn from public writing. If the debate arm tracks truth equally well, the increment is engagement, not verification.
+
+**Scope:** values questions have no checkable answer, so this bet says nothing about them. There, the best outcome remains a precise, verified disagreement.
+
+**Relationship:** sits beside **H-PopperianIncrement** (front of the scientific queue), which tests error-*catching* against a readback control. This entry tests whether beliefs move toward truth. It does not take that slot (exactly one entry may hold it). It is runnable now, with no install precondition, so it may produce the first corroborated novel prediction for K7.
+
+**Status (2026-10-22):** New. **UNTESTED, n=0.** Source: founder conversation 2026-10-22 ("does it correct false beliefs about the other side, or false beliefs in general?"). See [decisions.md](decisions.md) 2026-10-22 [product].
+
+---
+
+#### H-CalibrationPredicts: A calibration track record tells you whose "I understood" to trust
+
+> **Programme tag:** `both` · **Core-adjacent: no (belt).** Rests on K4 (the speaker is the arbiter of being understood) and on the KK argument in [definitions.md](definitions.md) §Understanding Calibration: a person cannot self-certify comprehension, so external track record is the only honest evidence.
+
+**The chain (founder, 2026-10-22):** revealing the gap → data on listening calibration → a proxy for whether a person *knows when they don't understand* → a proxy for whether to trust their "I understood" → if accumulated and visible, a shift in what earns standing in a group (the end-state "status flip" in [theory-of-change.md](theory-of-change.md)).
+
+**Bet (UNTESTED, n=0), deliberately narrowed to the strong link:** a person's past calibration (how closely their self-estimate matched the speaker's confirmation) **predicts the accuracy of their next self-estimate**, so within a team it tells you whose "got it" to rely on. **Not claimed:** that it says whether they are right about the world. [lean-canvas.md](lean-canvas.md) already rules that out ("Calibration as a disqualifier, not a credibility oracle"), and this entry inherits that bound.
+
+**Test:** across repeated sessions in one team, compute each person's calibration over their first N checks, and use it to predict the gap on checks N+1…N+k. Then repeat across topics (routine handoffs vs contested decisions) and across counterparts.
+
+**Novel prediction, recorded 2026-10-22 before any test.** Calibration measured on early checks predicts calibration on later checks **better than self-rated confidence does**, and the prediction holds across counterparts within the same team. Predecessor framings treated the calibration score as a per-session reading or a trainable skill (H-CalibrationTrainable) and made no claim that it is a **stable, predictive trait**. The rival, *it is noise plus whoever happened to be the speaker*, predicts near-zero test–retest correlation once the speaker is varied. *Corroboration status: pending.*
+
+**Transform if:** early calibration does not predict later calibration (test–retest near zero), or it predicts within one topic or counterpart but collapses across them ⟹ the score is a reading of a moment, not a trust signal. The trust and hierarchy chain then drops to "useful in-session feedback only".
+
+**Known threats, carried rather than re-derived:**
+- **Goodhart** (H-NormFlip addition (a)): once the score carries status, people predict the speaker's number instead of introspecting. Test it by comparing calibration before and after the score is made visible.
+- **Encoding vs decoding confound** (same place): needs crossed designs, the same listener across several speakers.
+- **Affective safety and power** (H-AffectiveHonesty, employment-asymmetry bound): cold rooms and bosses inflate estimates.
+- **Transfer is listed as untested** in [theory-of-change.md](theory-of-change.md) Evidence Gaps ("Conversational calibration → general metacognition").
+
+**Scope of use:** **in-team only.** A public reputation score (Stage 3, Verified Listener Score) waits until this corroborates **and** the Goodhart test shows the score survives being visible.
+
+**Status (2026-10-22):** New. **UNTESTED, n=0.** See [decisions.md](decisions.md) 2026-10-22 [product].
 
 ---
 

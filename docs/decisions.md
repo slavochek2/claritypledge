@@ -75,6 +75,42 @@ An objection is answered with the member's own tools: delete messages, leave the
 **Consequences:** Accepted limits are listed in the spec's Known limitations: the window before `commit-to-main` takes `main.lock`, and the reflog `--since` walk. For the next gate built on transcript parsing: the canary's fixture helpers ran inside `$(...)`, so a tool_use/tool_result id counter never advanced. Every result pointed at a stale id, and the first version of the suite passed only because nothing yet required a result to belong to its call. Bind fixture ids to content, not to a counter.
 **References:** [p1519](../features/p1519_session_end_slot_closure.md) · `scripts/test-p1519-slot-closure.sh` · 2026-10-20 [process] entry below · 2026-10-14 [process] "when to stop review rounds"
 
+## 2026-10-22 [product]: Calibration as a trust signal is registered in-team only, H-CalibrationPredicts (P1, UNTESTED)
+
+**Context:** The founder proposed a chain: revealing the gap gives listening-calibration data, which proxies whether someone knows when they do not understand, which proxies whether to trust them, which could change social hierarchy. Steelmanning and then trying to falsify it showed one strong link (a track record predicts whose "I understood" holds) and one weak one (general trust, which the lean canvas already rules out). Five threats were already recorded across the docs; no entry tested the strong link.
+
+**Decision:** Register H-CalibrationPredicts: early calibration predicts later calibration better than confidence does, across counterparts. Use it in-team only, with no public score until it corroborates and survives a visibility (Goodhart) test.
+
+**Alternatives rejected:** a public reputation score now (gameable, a surveillance object); claim-only positioning with no data.
+
+**Falsifier:** test–retest near zero, or collapse across topics or counterparts ⟹ the score is a reading of a moment, not a trust signal.
+
+**Consequences:** the champion pitch may say "know whose 'got it' you can rely on" as a bet, never as a finding.
+
+## 2026-10-22 [product]: Verification as error correction is registered as its own bet, H-TruthTracking (P1 scientific, UNTESTED)
+
+**Context:** The founder asked whether verification corrects false beliefs about the other side only, or false beliefs in general. Thinking it through separated three layers: what someone meant (corrected directly), what the other side believes (H-ObserverTransfer), and the world (not correctable directly, because the speaker is no authority on it). The Popper Gap makes verification a precondition for error correction about the world, not error correction itself. No bet tested whether beliefs actually move toward truth rather than toward each other.
+
+**Decision:** Register H-TruthTracking at P1-scientific, core-adjacent to K7, with a one-auxiliary budget. Test: contested questions with checkable answers, verified exchange vs matched debate, Brier-scored, split by who started right. Scope H-ObserverTransfer explicitly to the second layer. Public writing says verification "makes real tests of beliefs possible", never "corrects false beliefs", until this corroborates.
+
+**Alternatives rejected:** folding it into H-ObserverTransfer (a different layer and a different oracle); taking the P0-scientific slot (H-PopperianIncrement holds it, and exactly one may); leaving it implicit in the K7 truth-score design (that design measures and does not predict).
+
+**Falsifier:** movement in the verified arm is symmetric between initially-right and initially-wrong participants, or no more accurate than in debate ⟹ verification is convergence, not error correction, and the "error correction" language is withdrawn.
+
+**Consequences:** H-TruthTracking is runnable at an event with no install precondition, so it is the programme's fastest route to a corroborated novel prediction on K7.
+
+## 2026-10-22 [product]: Observer transfer is registered as a bet, H-ObserverTransfer (P2, UNTESTED)
+
+**Context:** In conversation the founder asked whether a fast way to find the deepest crux of a disagreement, verified and then spread through influencers, could make collective decisions easier at the scale of humanity. Steelmanning and then trying to falsify the idea left one testable kernel. The theory of change already holds the large version (the √N cascade, the Topology Map, the Recursive Spokescouncil) and already bounds it (§"Scope limit: comprehension is not commitment"). What no doc states as a bet is the step all three scaling routes depend on: that people who only *watch* a verified exchange update their picture of the other side.
+
+**Decision:** Register H-ObserverTransfer in `hypotheses.md` at P2: watching two people from opposite sides verify each other's understanding reduces the audience's misperception of the other side more than watching the same two people debate, matched for civility. Add a one-line pointer under theory-of-change.md Leverage Point 3 naming the assumption as untested. Do not pursue it ahead of the active business queue.
+
+**Alternatives rejected:** pursuing the large version now (scope expansion with no pilot on the active focus); leaving it unrecorded until validated (forbidden by the record-under-uncertainty rule, epistemic gate 8); folding it into the parked H-ToleranceAmplifies (that bet assumes the transfer at scale; this tests whether it exists at all).
+
+**Falsifier:** across two runs, the verified-exchange arm reduces audience misperception no more than a civility-matched debate arm ⟹ verified understanding does not transfer to observers, and the theory of change routes scale through direct participation only.
+
+**Consequences:** the scaling routes in theory-of-change.md now point at a named bet instead of resting on an unstated mechanism. The outside evidence cited in the entry (meta-perception correction studies) is from memory and unread. A literature sweep on communication in prisoner's-dilemma and commons settings ran the same session, and its results fold into the entry once verified.
+
 ## 2026-10-21 [technical]: A Supabase project is rebuilt from a private schema dump, then every grant is reset and replayed (P1538)
 
 **Context:** TEST had to move to its own organisation (P1530) and Supabase refused the transfer. The migration chain cannot build a database from empty (2026-08-20, P1132), and 197 files had landed since that was measured.
