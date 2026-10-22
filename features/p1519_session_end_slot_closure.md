@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 46
 workstream: infrastructure
 created_date: '2026-10-20'
 tags: [worktrees, stop-hook, session-end, pipeline]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -78,14 +78,16 @@ Blast radius: medium — every session that holds a slot, through the Stop hook 
 
 Each is a named canary in `scripts/test-p1519-*.sh`, built from real transcript JSONL and a real `.lock` without `CP_SESSION_ID`, with the failure path shown failing (epistemic gate 7, exit code pasted).
 
-- [ ] A slot claimed from main (no session id on the lock) is detected as owned
-- [ ] A session ending with its slot in the P1511 state (code on `origin/main`, spec open) is blocked and shown the close step; a hold is refused for it
-- [ ] A valid hold lets the session end and the next startup report shows it; a hold with owner `me` or `wip` is rejected; a hold older than the session's last write is ignored
-- [ ] A session with no slot or a clean one ends with no output and no measurable added latency
-- [ ] The literal reply "No, nothing else." triggers the check for a session that owns a slot
-- [ ] When the session cannot close the slot itself, the blocked turn shows why it is open, the cost, the options and a recommendation, in that order, before any hold is written (canary on the P1494 state)
-- [ ] Claim, KDD and review gates each still block in their own canary while a slot is open
-- [ ] `git-ops.sh park` frees the worktree, keeps the branch and commits the spec via `commit-to-main`; the session then passes
+- [x] A slot claimed from main (no session id on the lock) is detected as owned
+- [x] A session ending with its slot in the P1511 state (code on `origin/main`, spec open) is blocked and shown the close step; a hold is refused for it
+- [x] A valid hold lets the session end and the next startup report shows it; a hold with owner `me` or `wip` is rejected; a hold older than the session's last write is ignored
+- [x] A session with no slot or a clean one ends with no output and no measurable added latency
+- [x] The literal reply "No, nothing else." triggers the check for a session that owns a slot
+- [x] When the session cannot close the slot itself, the blocked turn shows why it is open, the cost, the options and a recommendation, in that order, before any hold is written (canary on the P1494 state)
+- [x] Claim, KDD and review gates each still block in their own canary while a slot is open
+- [x] `git-ops.sh park` frees the worktree, keeps the branch and commits the spec via `commit-to-main`; the session then passes
+
+**Evidence (2026-10-22):** `bash scripts/test-p1519-slot-closure.sh` — 50 passed, 0 failed. Against main's hook (`P1519_STOP_HOOK=<main copy>`): 37 passed, 13 failed, exit 1. Measured added latency on a no-slot Stop: 13ms. Existing suites green: p1505 review gate 61/0, browser-evidence 11/0, p1326 33/0, p1381 6/0, git-ops adopt 42/0, gc 4/0, extensions and ship invariants all hold. Live check on real slots: the classifier reports w1/P1510 and w10/P1516 as `SHIPPED_UNCLOSED` (code put on main directly, spec still open), which the startup report had listed as READY TO SHIP.
 
 ## Alternatives Considered
 

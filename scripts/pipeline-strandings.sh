@@ -28,14 +28,25 @@ set -uo pipefail
 #            question). Default omits them: on this repo that is 6 lines every
 #            single session, which is how a report becomes wallpaper.
 # --strict   exit 1 when anything is reported (for callers that want a check).
+# --slot wN[:EPOCH]  (P1519, repeatable) classify ONLY these slots, for the Stop hook's
+#            owner check, and print one machine line per slot instead of the report:
+#              SLOT<TAB>slot<TAB>state<TAB>pn<TAB>branch<TAB>hold<TAB>detail
+#            EPOCH is the owning session's last write to the slot; a hold written before
+#            it is STALE. The liveness test is skipped: the caller IS the slot's activity,
+#            so it would read LIVE and hide the slot from its own owner.
 STRICT=0
 SHOW_ALL=0
-for _arg in "$@"; do
-  case "$_arg" in
+SLOT_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --strict) STRICT=1 ;;
     --all)    SHOW_ALL=1 ;;
+    --slot)   [[ $# -ge 2 ]] && { SLOT_ARGS+=("$2"); shift; } ;;
+    --slot=*) SLOT_ARGS+=("${1#--slot=}") ;;
   esac
+  shift
 done
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 REPO_ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0
 REPO_ROOT="$(dirname "$REPO_ROOT")"
@@ -79,9 +90,9 @@ fi
 # are independent, so a wrong liveness verdict alone cannot produce the advice.
 # It also skipped every worktree outside .claude/worktrees/ and every detached one,
 # which hid a scratchpad worktree for two days; those are now reported.
-if [[ -f "$REPO_ROOT/scripts/lib/worktree-changes.sh" ]]; then
+if [[ -f "$SCRIPT_DIR/lib/worktree-changes.sh" ]]; then
   # shellcheck source=lib/worktree-changes.sh
-  source "$REPO_ROOT/scripts/lib/worktree-changes.sh"
+  source "$SCRIPT_DIR/lib/worktree-changes.sh"
 else
   worktree_has_user_changes() { return 0; }   # fail toward "in flight", never toward advice
 fi
@@ -107,6 +118,124 @@ mtime_of() {  # portable: BSD stat first, then GNU
     || date -d "@$(stat -c %Y "$1" 2>/dev/null || echo 0)" '+%Y-%m-%d %H:%M' 2>/dev/null \
     || echo "?"
 }
+
+# ── P1519: holds and the per-slot classifier ───────────────────────────────
+# A hold is the owning session's one-line answer to "why does this slot stay open",
+# written by `git-ops.sh hold` to <slot>/.hold (KEY=VALUE: REASON, OWNER, WRITTEN_AT
+# epoch). OWNER is founder | YYYY-MM-DDTHH:MMZ (expires then) | pNNNN (waits on spec).
+# hold_status <wt> [after-epoch] prints: none | valid | expired | stale (older than
+# after-epoch, i.e. the session wrote to the slot after explaining it).
+hold_field() { sed -n "s/^$2=//p" "$1/.hold" 2>/dev/null | head -1; }
+hold_status() {
+  local wt="$1" after="${2:-0}" at owner exp
+  [[ -f "$wt/.hold" ]] || { echo none; return; }
+  at="$(hold_field "$wt" WRITTEN_AT)"; owner="$(hold_field "$wt" OWNER)"
+  [[ "$at" =~ ^[0-9]+$ && -n "$owner" ]] || { echo none; return; }
+  if [[ "$owner" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}Z$ ]]; then
+    exp="$(date -j -u -f '%Y-%m-%dT%H:%MZ' "$owner" +%s 2>/dev/null || date -u -d "${owner%Z}" +%s 2>/dev/null || echo 0)"
+    (( exp > $(date +%s) )) || { echo expired; return; }
+  fi
+  [[ "$after" =~ ^[0-9]+$ ]] || after=0
+  (( at >= after )) || { echo stale; return; }
+  echo valid
+}
+hold_line() {  # human line for the startup report; empty when there is no hold
+  local wt="$1" st
+  st="$(hold_status "$wt")"
+  case "$st" in
+    valid)   echo "held by $(hold_field "$wt" OWNER): $(hold_field "$wt" REASON)" ;;
+    expired) echo "hold EXPIRED ($(hold_field "$wt" OWNER)): $(hold_field "$wt" REASON)" ;;
+  esac
+}
+
+# Commits on the branch that touch anything outside features/ — the "code" commits —
+# split by whether an equivalent patch is already on <base> (git cherry: '-' landed,
+# '+' not). Prints "<landed> <unlanded>".
+code_commit_counts() {
+  local base="$1" br="$2" c sha landed=0 unlanded=0
+  while IFS= read -r c; do
+    [[ -n "$c" ]] || continue
+    sha="${c#? }"
+    # Process substitution, not a pipe: `| grep -q` under pipefail can report a match as
+    # a miss (SIGPIPE, epistemic gate 7).
+    if $GREP -qv '^features/' < <(git diff-tree -r --root --no-commit-id --name-only "$sha" 2>/dev/null); then
+      [[ "$c" == "- "* ]] && landed=$((landed + 1)) || unlanded=$((unlanded + 1))
+    fi
+  done < <(git cherry "$base" "$br" 2>/dev/null)
+  echo "$landed $unlanded"
+}
+
+# classify_slot <wt> — one state for a slot this session owns:
+#   CLOSED_CHECKED_OUT  spec already in features/done/, worktree still here
+#   SHIPPED_UNCLOSED    every code commit is already on main/origin/main, spec still open
+#   DIRTY               uncommitted changes in the worktree
+#   EMPTY               claimed, nothing committed
+#   SPEC_ONLY           only spec commits (features/), no code
+#   READY_TO_SHIP       unlanded code, closure gate 2.5 passes
+#   IN_PROGRESS         unlanded code, completion items still open
+# Prints "<state><TAB><detail>".
+classify_slot() {
+  # The caller reads our output with IFS=<tab>; a process substitution inherits it.
+  local IFS=$' \t\n'
+  local wt="$1" br pn landed unlanded om_landed om_unlanded n_commits c direct=0
+  br="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  pn="$(printf '%s' "$br" | $GREP -oE 'p[0-9]+' | head -1)"
+  if [[ -n "$pn" ]] && ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 && \
+     ! ls features/"${pn}"_*.md features/*/"${pn}"_*.md >/dev/null 2>&1; then
+    printf 'CLOSED_CHECKED_OUT\t%s is closed in features/done/ but %s is still checked out\n' "$pn" "$br"; return
+  fi
+  if worktree_has_user_changes "$wt"; then
+    printf 'DIRTY\tuncommitted changes: %s\n' "$(worktree_user_change_lines "$wt" | head -3 | tr '\n' ' ' | sed 's/ *$//')"; return
+  fi
+  n_commits="$(git cherry main "$br" 2>/dev/null | $GREP -c . || true)"
+  read -r landed unlanded < <(code_commit_counts main "$br")
+  if (( unlanded == 0 && landed > 0 )); then
+    om_landed=0
+    if git rev-parse --verify -q origin/main >/dev/null; then
+      read -r om_landed om_unlanded < <(code_commit_counts origin/main "$br")
+    fi
+    if (( om_landed == landed )); then
+      printf 'SHIPPED_UNCLOSED\tall %s code commit(s) of %s are on origin/main (pushed), but the spec is still open\n' "$landed" "$pn"
+    else
+      printf 'SHIPPED_UNCLOSED\tall %s code commit(s) of %s are on local main (not yet pushed), but the spec is still open\n' "$landed" "$pn"
+    fi
+    return
+  fi
+  # A spec-only branch whose code went to main directly (inline on main, the P920
+  # no-branch route, P1510 on 2026-10-20): commits on main naming the P-number that
+  # touch code. Only checked when the branch itself carries no code.
+  if (( unlanded == 0 )) && [[ -n "$pn" ]]; then
+    while IFS= read -r c; do
+      [[ -n "$c" ]] || continue
+      $GREP -qv '^features/' < <(git diff-tree -r --no-commit-id --name-only "$c" 2>/dev/null) && direct=$((direct + 1))
+    done < <(git log main --since=90.days -i -E --grep="(^|[^0-9a-z])${pn}([^0-9]|$)" --format=%H 2>/dev/null)
+    if (( direct > 0 )); then
+      printf 'SHIPPED_UNCLOSED	%s commit(s) naming %s already put its code on main directly; the branch holds only the spec, and the spec is still open\n' "$direct" "$pn"
+      return
+    fi
+  fi
+  if (( n_commits == 0 )); then printf 'EMPTY\tclaimed, nothing committed on %s\n' "$br"; return; fi
+  if (( unlanded == 0 )); then printf 'SPEC_ONLY\t%s commit(s) on %s, all spec-only (features/), no code\n' "$n_commits" "$br"; return; fi
+  if [[ -n "$pn" && -x scripts/ship-gates.sh ]] && bash scripts/ship-gates.sh "$pn" --only 2.5 >/dev/null 2>&1; then
+    printf 'READY_TO_SHIP\t%s code commit(s) not on main; %s passes the closure gate\n' "$unlanded" "$pn"; return
+  fi
+  printf 'IN_PROGRESS\t%s code commit(s) not on main; completion items still open\n' "$unlanded"
+}
+
+if [[ ${#SLOT_ARGS[@]} -gt 0 ]]; then
+  for _sa in "${SLOT_ARGS[@]}"; do
+    _slot="${_sa%%:*}"; _after=0; [[ "$_sa" == *:* ]] && _after="${_sa#*:}"
+    [[ "$_slot" =~ ^w[0-9]+$ ]] || continue
+    _wt="$WORKTREES_DIR/$_slot"
+    # Gone (shipped and removed) or released: nothing of this session's is left open.
+    [[ -d "$_wt" && -f "$_wt/.lock" ]] || continue
+    _br="$(git -C "$_wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+    _pn="$(printf '%s' "$_br" | $GREP -oE 'p[0-9]+' | head -1)"
+    IFS=$'\t' read -r _state _detail < <(classify_slot "$_wt")
+    printf 'SLOT\t%s\t%s\t%s\t%s\t%s\t%s\n' "$_slot" "$_state" "${_pn:--}" "$_br" "$(hold_status "$_wt" "$_after")" "$_detail"
+  done
+  exit 0
+fi
 
 while IFS= read -r wt; do
   [[ -n "$wt" ]] || continue
@@ -135,6 +264,11 @@ while IFS= read -r wt; do
   fi
 
   hold="$(hold_reason "$wt" "$slot")"
+  # P1519: the owning session's stated reason travels with the slot.
+  hsuf=""; _hl="$(hold_line "$wt")"
+  [[ -n "$_hl" ]] && hsuf="
+                    ${_hl}"
+  _lines_before=$(( ${#findings[@]} + ${#inflight[@]} ))
 
   # Spec already in features/done/ while its worktree is still live: the work
   # shipped and Phase 3 cleanup did not run (or ran against a different branch).
@@ -142,10 +276,10 @@ while IFS= read -r wt; do
      ! ls features/"${pn}"_*.md features/*/"${pn}"_*.md >/dev/null 2>&1; then
     if [[ -n "$hold" ]]; then
       findings+=("STRANDED WORKTREE ${slot}  — ${pn} is already closed in features/done/, but ${br} is still checked out
-                    NOT removable yet: ${hold}")
+                    NOT removable yet: ${hold}${hsuf}")
     else
       findings+=("STRANDED WORKTREE ${slot}  — ${pn} is already closed in features/done/, but ${br} is still checked out
-                    remove with:    git worktree remove --force ${wt#$REPO_ROOT/} && git branch -D ${br}")
+                    remove with:    git worktree remove --force ${wt#$REPO_ROOT/} && git branch -D ${br}${hsuf}")
     fi
     continue
   fi
@@ -156,19 +290,23 @@ while IFS= read -r wt; do
   if [[ -x scripts/ship-gates.sh ]]; then
     if gate_out="$(bash scripts/ship-gates.sh "$pn" --only 2.5 2>&1)"; then
       if [[ -n "$hold" ]]; then
-        inflight+=("IN FLIGHT         ${slot}  — ${pn} passes the closure gate, but ${hold}")
+        inflight+=("IN FLIGHT         ${slot}  — ${pn} passes the closure gate, but ${hold}${hsuf}")
       else
         findings+=("READY TO SHIP     ${slot}  — ${pn} passes the closure gate; nothing is waiting on the work
-                    close with:     ./scripts/git-ops.sh ship ${pn}")
+                    close with:     ./scripts/git-ops.sh ship ${pn}${hsuf}")
       fi
     else
       open_n="$(printf '%s' "$gate_out" | $GREP -oE '^\[GATE 2.5\] FAIL: [0-9]+' | $GREP -oE '[0-9]+$' || true)"
       if [[ -n "$open_n" ]]; then
-        inflight+=("IN FLIGHT         ${slot}  — ${pn}, ${open_n} completion item(s) still open")
+        inflight+=("IN FLIGHT         ${slot}  — ${pn}, ${open_n} completion item(s) still open${hsuf}")
       fi
       # Any other gate-2.5 failure (no spec, no completion section) is reported
       # by the ship path itself at close time; not repeated here as a strand.
     fi
+  fi
+  # P1519: a held slot is always shown, even when nothing above had a line for it.
+  if [[ -n "$_hl" ]] && (( ${#findings[@]} + ${#inflight[@]} == _lines_before )); then
+    findings+=("HELD              ${slot}  — ${pn} on ${br}${hsuf}")
   fi
 done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0,10)}')
 
@@ -177,6 +315,11 @@ wt_branches="$(git worktree list --porcelain 2>/dev/null | awk '/^branch /{print
 while IFS= read -r br; do
   [[ -n "$br" ]] || continue
   printf '%s\n' "$wt_branches" | $GREP -qxF "$br" && continue
+  # P1519: a branch set aside by `git-ops.sh park` is deliberate, not lost.
+  if [[ -f "$WORKTREES_DIR/.parked/${br//\//__}" ]]; then
+    inflight+=("PARKED            ${br}  — parked $(sed -n 's/^PARKED_AT=//p' "$WORKTREES_DIR/.parked/${br//\//__}" | head -1); spec on main, branch kept")
+    continue
+  fi
   findings+=("BRANCH, NO SLOT   ${br}  — a feature branch with no worktree (P781); commits here are easy to lose")
 done < <(git branch --format='%(refname:short)' 2>/dev/null | $GREP -E '^(feature|fix)/' || true)
 

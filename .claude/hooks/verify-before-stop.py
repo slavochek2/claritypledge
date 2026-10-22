@@ -353,6 +353,228 @@ def unreviewed_edits(transcript_path, entries, turn_text):
         return []
 
 
+# --- Slot-closure gate (P1519) ----------------------------------------------
+# Founder, 2026-10-20: "anything else?" was answered "no, nothing else" over slots that
+# were shipped-but-unclosed, spec-only and waiting on a decision nobody surfaced. The
+# startup report (P1246) sees them, but only in the NEXT session, which cannot decide.
+# So the owning session is asked here, once per slot state, before it ends.
+# Ownership is read from THIS transcript — a claim result, or an Edit/Write/git add/
+# git commit inside the slot. Never the lock's SESSION_ID (an agent claim stores a
+# PID fallback), never cwd alone, never reads. Other sessions' slots are never touched.
+SLOT_PATH_RE = re.compile(r"(/[^\s\"'`;|&<>()]*?)/\.claude/worktrees/(w\d+)(?![\w.-])")
+CLAIM_RESULT_RE = re.compile(r"git-ops: claimed (w\d+) for \S+\s+path\s*:\s*(\S+)")
+CLAIM_CMD_RE = re.compile(r"git-ops\.sh\s+claim\s+(p\d+)\b")
+GIT_WRITE_RE = re.compile(r"\bgit\b(?:\s+-C\s+\S+|\s+-c\s+\S+)*\s+(?:add|commit|mv|rm)\b|git-ops\.sh\s+commit-to-main\b")
+GIT_WHERE_RE = re.compile(r"(?:\bcd\s+|\s-C\s+)[\"']?([^\s\"';&|]+)")
+NOTHING_ELSE_RE = re.compile(
+    r"\b(nothing (else|more|left)|that'?s (all|everything)|all (done|set)|we'?re done|"
+    r"no(thing)? further)\b", re.IGNORECASE)
+SLOT_TIME_BUDGET_S = 5.0
+SLOT_BLOCK_LIMIT = 1   # founder decision 2026-10-20: block once per slot state
+FINISHED_STATES = ("SHIPPED_UNCLOSED", "CLOSED_CHECKED_OUT")
+
+
+def _epoch(ts):
+    try:
+        from datetime import datetime
+        return int(datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp())
+    except Exception:
+        return 0
+
+
+def _slot_of(text):
+    m = SLOT_PATH_RE.search(text or "")
+    return (m.group(1), m.group(2)) if m else None
+
+
+def owned_slots(transcript_path):
+    """{(repo_root, slot): epoch of this session's last write to it}. Whole transcript."""
+    owned, claims = {}, []
+
+    def mark(key, ts):
+        if key:
+            owned[key] = max(owned.get(key, 0), ts)
+
+    try:
+        with open(transcript_path, errors="replace") as f:
+            for line in f:
+                if "worktrees/w" not in line and "git-ops.sh claim" not in line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                ts = _epoch(entry.get("timestamp"))
+                cwd = entry.get("cwd") or ""
+                content = get_message_content(entry)
+                if not isinstance(content, list):
+                    continue
+                for b in content:
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "tool_use":
+                        name, inp = b.get("name"), b.get("input") or {}
+                        if name in REVIEW_EDIT_TOOLS:
+                            mark(_slot_of(inp.get("file_path") or inp.get("notebook_path") or ""), ts)
+                        elif name == "Bash":
+                            cmd = inp.get("command") or ""
+                            m = CLAIM_CMD_RE.search(cmd)
+                            if m:
+                                claims.append((m.group(1), cwd, ts))
+                            gw = GIT_WRITE_RE.search(cmd)
+                            if gw:
+                                # Where the git write RAN: an explicit `cd`/`-C` target, else
+                                # cwd. A slot path merely mentioned in the command is a read.
+                                where = GIT_WHERE_RE.findall(cmd[:gw.end()])
+                                mark(_slot_of(where[-1] + "/") if where else _slot_of(cwd + "/"), ts)
+                    elif b.get("type") == "tool_result":
+                        for m in CLAIM_RESULT_RE.finditer(extract_text(b.get("content"))):
+                            mark(_slot_of(m.group(2)), ts)
+    except Exception:
+        return {}
+    # A claim whose result went to a log file: resolve its P-number to the slot now on it.
+    for pn, cwd, ts in claims:
+        root = (_slot_of(cwd + "/") or (None,))[0] or _git_root(cwd)
+        if not root:
+            continue
+        wdir = os.path.join(root, ".claude", "worktrees")
+        try:
+            for slot in os.listdir(wdir):
+                if not re.fullmatch(r"w\d+", slot):
+                    continue
+                with open(os.path.join(wdir, slot, ".lock")) as lf:
+                    if re.search(rf"^P_NUMBER={pn}$", lf.read(), re.M):
+                        mark((root, slot), ts)
+        except Exception:
+            continue
+    return owned
+
+
+def _git_root(cwd):
+    if not cwd:
+        return None
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                             capture_output=True, text=True, timeout=2).stdout.strip()
+        return os.path.dirname(out) if out else None
+    except Exception:
+        return None
+
+
+def classify_slots(owned):
+    """Machine lines from pipeline-strandings.sh --slot, as dicts. [] on any failure."""
+    import subprocess
+    script = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                                           "scripts", "pipeline-strandings.sh"))
+    if not os.path.isfile(script):
+        return []
+    by_root = {}
+    for (root, slot), ts in owned.items():
+        by_root.setdefault(root, []).append(f"{slot}:{ts}")
+    out, deadline = [], time.monotonic() + SLOT_TIME_BUDGET_S
+    for root, args in by_root.items():
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        try:
+            cmd = ["bash", script]
+            for a in args:
+                cmd += ["--slot", a]
+            res = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=left)
+        except Exception:
+            continue
+        for line in res.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 7 and parts[0] == "SLOT":
+                out.append(dict(root=root, slot=parts[1], state=parts[2], pn=parts[3],
+                                branch=parts[4], hold=parts[5], detail="\t".join(parts[6:])))
+    return out
+
+
+def slot_brief(s):
+    """The blocked message for one slot: why, cost, options, recommendation — in that
+    order (/slava:build:simplify), each option a command, never free text."""
+    slot, pn, st, why = s["slot"], s["pn"], s["state"], s["detail"]
+    ship = f"./scripts/git-ops.sh ship {pn}"
+    park = f"./scripts/git-ops.sh park {slot}"
+    hold = f'./scripts/git-ops.sh hold {slot} --reason "<why it stays open>" --owner <founder|YYYY-MM-DDTHH:MMZ|pNNNN>'
+    stale = (" A hold exists but you changed the slot after writing it, so it no longer explains the slot."
+             if s["hold"] == "stale" else
+             " The hold on it has expired." if s["hold"] == "expired" else "")
+    if st == "SHIPPED_UNCLOSED":
+        return (f"Slot {slot} ({pn}) — finished, not closed. YOU can close it: do it now.\n"
+                f"  Why it is still open: {why}.{stale}\n"
+                f"  What leaving it costs you: the board shows shipped work as open, and the next session's "
+                f"startup report hands you a cleanup it has no context for.\n"
+                f"  Options:\n"
+                f"    - Close: {ship}  — closes the spec, removes the worktree; it does not push.\n"
+                f"    - Park:  {park}  — frees the slot, leaves the spec open.\n"
+                f"    (No hold: finished work has no reason to stay open.)\n"
+                f"  Recommendation: Close, because the code is already on main and only the bookkeeping is missing.")
+    if st == "CLOSED_CHECKED_OUT":
+        return (f"Slot {slot} ({pn}) — spec closed, worktree still checked out. YOU can clear it: do it now.\n"
+                f"  Why it is still open: {why}.{stale}\n"
+                f"  What leaving it costs you: a slot that looks busy and a STRANDED line in every startup report.\n"
+                f"  Options:\n"
+                f"    - Park: {park}  — removes the worktree, keeps the branch.\n"
+                f"    (No hold: finished work has no reason to stay open.)\n"
+                f"  Recommendation: Park, because nothing in the slot is still needed.")
+    cost = {
+        "DIRTY": "uncommitted work sits in a worktree no later session knows is yours; a cleanup can discard it",
+        "EMPTY": "a claimed slot that holds nothing, counted as busy until someone asks you about it",
+        "SPEC_ONLY": "an open spec on a branch, invisible on main's board; if it is waiting on your decision, nobody has asked you",
+        "READY_TO_SHIP": "finished code that is not on main; the startup report will tell another session to ship it without knowing why it waited",
+        "IN_PROGRESS": "half-built code with no note of where it stopped or who picks it up",
+    }.get(st, "an open slot with no stated owner")
+    opts = []
+    if st == "READY_TO_SHIP":
+        opts.append(f"    - Ship: {ship}  — only if the founder has said ship; it does not push.")
+    if st == "DIRTY":
+        opts.append("    - Commit the changes on the branch, then park or hold.")
+    else:
+        opts.append(f"    - Park: {park}  — spec committed to main, worktree removed, branch kept for later.")
+    opts.append(f"    - Hold: {hold}  — keeps the slot; the next startup report shows your reason and owner.")
+    rec = {
+        "DIRTY": "commit, then Hold with the founder as owner if a decision is pending, otherwise Park",
+        "EMPTY": "Park, because nothing has been built yet",
+        "SPEC_ONLY": "Hold with the founder as owner if the spec is waiting on a decision, otherwise Park",
+        "READY_TO_SHIP": "Ship if the founder already said so in this session, otherwise Hold with the founder as owner",
+        "IN_PROGRESS": "Hold naming who resumes it and when, or Park if nobody will this week",
+    }.get(st, "Hold with the founder as owner")
+    return (f"Slot {slot} ({pn}) — open, and it needs the founder's call. Present the four parts below "
+            f"to the founder IN THIS ORDER, wait for the answer, and only then run the command:\n"
+            f"  Why it is still open: {why}.{stale}\n"
+            f"  What leaving it costs you: {cost}.\n"
+            f"  Options:\n" + "\n".join(opts) + "\n"
+            f"  Recommendation: {rec}.")
+
+
+def open_slot_briefs(transcript_path, turn_text, session_id):
+    """Briefs for slots this session owns that are still open. Fails open ([])."""
+    try:
+        text = turn_text or ""
+        m = LAST_SENTENCE_QUESTION_RE.search(text)
+        stripped = text[:m.start()] if (m and INTERROGATIVE_RE.match(m.group(0))) else TRAILING_QUESTION_RE.sub("", text)
+        if not (announces_completion(text) or NOTHING_ELSE_RE.search(stripped)):
+            return []
+        owned = owned_slots(transcript_path)
+        if not owned:
+            return []
+        briefs = []
+        for s in classify_slots(owned):
+            if s["hold"] == "valid" and s["state"] not in FINISHED_STATES:
+                continue
+            key = f"{session_id}-p1519-{s['slot']}-{s['state']}"
+            # Bump first: an unwritable counter returns RETRY_LIMIT and DISABLES the check.
+            if _retry_count(key, bump=True) >= SLOT_BLOCK_LIMIT:
+                continue
+            briefs.append(slot_brief(s))
+        return briefs
+    except Exception:
+        return []
+
+
 def main():
     data = load_input()
     # A block forces the agent to keep working; the stop that follows must not run unchecked
@@ -449,7 +671,11 @@ def main():
     review_turn_text = "\n".join(reversed(review_chunks))
     unreviewed = unreviewed_edits(transcript_path, entries, review_turn_text)
 
-    if not problems and not claim_problem and not unreviewed:
+    # --- Gate 4 (SLOT CLOSURE, P1519): a slot this session owns is still open. Computed
+    #     after, and independent of, gates 1-3; never on the stop_hook_active path above.
+    slot_briefs = open_slot_briefs(transcript_path, review_turn_text, session_id)
+
+    if not problems and not claim_problem and not unreviewed and not slot_briefs:
         sys.exit(0)
 
     messages = []
@@ -477,6 +703,12 @@ def main():
             "(snapshot, reviewers by stakes, then the receipt via scripts/review_receipt.py). "
             "Report '<received> of <spawned>' and every finding as FIXED or for the founder. "
             "If the founder said to skip review, say so plainly instead."
+        )
+    if slot_briefs:
+        messages.append(
+            "BLOCKED (P1519 slot closure): you are ending the session while a slot you own is still "
+            "open. Close it, park it, or hold it with a reason and an owner. This fires once per slot "
+            "state.\n\n" + "\n\n".join(slot_briefs)
         )
     sys.stderr.write("\n\n".join(messages) + "\n")
     sys.exit(2)

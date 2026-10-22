@@ -748,6 +748,20 @@ if [ -n "$REVIEW_GATE_STAGED" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
+# 4.7e-ter. P1519 slot-closure canary — the same Stop hook now also blocks a session ending
+# over a slot it owns. The classifier (pipeline-strandings.sh --slot), the hold/park commands
+# (git-ops.sh) and the bookkeeping filter (worktree-changes.sh) are its other halves.
+SLOT_GATE_STAGED=$(echo "$BROWSER_EVIDENCE_ALL_STAGED" | grep -E '^(\.claude/hooks/(verify-before-stop|_transcript_lib)\.py|\.claude/settings\.json|scripts/(pipeline-strandings\.sh|git-ops\.sh|lib/worktree-changes\.sh|test-p1519-slot-closure\.sh))$' || true)
+if [ -n "$SLOT_GATE_STAGED" ]; then
+    if [ -f "scripts/test-p1519-slot-closure.sh" ]; then
+        if ! run_quiet "Slot-closure canary (P1519)" bash scripts/test-p1519-slot-closure.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Slot-closure canary... ${RED}✗ scripts/test-p1519-slot-closure.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
 echo ""
 
 # 4.7f. P1116 mechanization canaries — run when a hook, the validator, or one of their

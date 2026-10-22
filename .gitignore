@@ -157,3 +157,6 @@ scripts/.trusted-ship-gates.sh
 # P1326: per-slot activity marker written by the PostToolUse hook (never committed)
 .activity
 .activity.*
+# P1519: per-slot hold written by `git-ops.sh hold` (never committed)
+.hold
+.hold.*

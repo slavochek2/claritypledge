@@ -49,7 +49,7 @@ worktree_user_change_lines() {
     if [[ "${line:0:3}" == "!! " ]]; then
       name="${line:3}"; name="${name%/}"
       case "$name" in
-        dist|playwright-report|test-results|coverage|node_modules|.activity|.activity.*) continue ;;
+        dist|playwright-report|test-results|coverage|node_modules|.activity|.activity.*|.hold|.hold.*) continue ;;
         __pycache__|*/__pycache__) continue ;;
         .env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
         .private)
@@ -64,7 +64,7 @@ worktree_user_change_lines() {
       name="${line:3}"
       name="${name%/}"
       case "$name" in
-        .lock|.lock.*|.activity|.activity.*) continue ;;
+        .lock|.lock.*|.activity|.activity.*|.hold|.hold.*) continue ;;
       esac
       case "$name" in
         node_modules|.env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
