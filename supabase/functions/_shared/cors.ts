@@ -2,9 +2,10 @@
 // See docs/technical/edge-functions.md for usage.
 
 // Dev ports come from scripts/lib/worktree-port.mjs: w0=5001; wN=5000+N*100 (w1..w9 = 5100..5900, whole
-// hundreds accepted for Vite HMR offsets); named=5800..5899; w10's 6000 is browser-restricted, so 6050.
+// hundreds accepted for Vite HMR offsets); named=5800..5899; w10's 6000 is browser-restricted, so 6050;
+// w11..w19 = 6100..6900, whole hundreds likewise.
 // src/tests/inbox205-cors-dev-ports.test.ts fails if a slot's port is not accepted here.
-const DEV_ORIGIN_RE = /^http:\/\/localhost:(5001|5[1-9]\d{2}|6050)$/;
+const DEV_ORIGIN_RE = /^http:\/\/localhost:(5001|5[1-9]\d{2}|6050|6[1-9]\d{2})$/;
 // Project-prefixed: claritypledge-<hash>, claritypledge-git-<branch>-<team>-<id>, claritypledge-git-staging.
 // Narrows, does not close: Vercel subdomains are first-come, so another account's
 // "claritypledge-x" project would still match. No Allow-Credentials is sent, so
