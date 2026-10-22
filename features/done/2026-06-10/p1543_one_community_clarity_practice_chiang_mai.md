@@ -1,16 +1,16 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 6
 workstream: events
 created_date: '2026-10-22'
 tags: [groups, copy, navigation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
+completed_at: 2026-10-22
 ---
 
 # P1543: One community: "Clarity Practice Community · Chiang Mai", online group hidden, Events tab on phones
