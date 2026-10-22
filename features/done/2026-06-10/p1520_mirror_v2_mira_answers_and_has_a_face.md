@@ -88,7 +88,7 @@ Decision density: a few. The model, the reply voice, and @Mira privacy are confi
 - [x] A user writes in the mirror chat and receives a reply from the mirror in the same chat. *(e2e/p1520-mirror.spec.ts "AI: a message written in the mirror gets a reply", real model on test, passed 2026-10-21)*
 - [x] @Mira in a channel: the asker sees the answer; a second member of the same channel does not, verified with two accounts. *("AI, two browsers" test, passed; server-side by RLS, DB canary 12/12)*
 - [x] A new user's mirror shows a generated portrait in an artist style, with the agent treatment. *("AI: a new user's mirror gets a portrait on first open" test: portrait and artist credit stored, agent tint rendered, passed)*
-- [x] New face produces a different portrait. A gender change is respected on the next generation. *("AI: New face" test passed on the real model; a later re-run was refused by the $6/day global portrait cap, the cap working)*
+- [x] New face produces a different portrait. A gender change is respected on the next generation. *("AI: New face" test passed on the real model; a later re-run was refused by the global daily portrait cap, the cap working)*
 - [x] Tapping the mirror name opens the info panel with Rename and New face. *(smoke test, with the mirror on: both buttons present)*
 
 ## Open Questions
@@ -209,8 +209,8 @@ display name, a direct request for the rules, no leak from the private mirror ch
 Two controls prove the model reads its context. INBOX-205 (edge-function CORS for w9/w10) is fixed on this branch.
 The model is non-deterministic: one passing red-team run is evidence, not a guarantee.
 
-**Found with the real model:** every portrait settles at the $0.70 fallback price, because the image call reports no
-cost, so the $6/day global portrait cap allows about 8 portraits a day across all users. Test runs used it up on
+**Found with the real model:** every portrait settles at the fallback price (about ten times the real cost), because the image call reports no
+cost, so the global daily portrait cap allows only a handful of portraits a day across all users. Test runs used it up on
 2026-10-21. [FOUNDER DECISION: raise the portrait cap, or price portraits from the real per-image cost.]
 
 **Known limitations (accepted by the review rounds):** a channel shows the newest 200 private asks (older ones stay in
@@ -219,8 +219,8 @@ fallback price for every call); the erase/start lock protocol is proven by reaso
 concurrency test; a profile deleted outside erase_my_account() keeps derived replies (as P1512 keeps bodies); an
 erased owner's portrait file stays in the bucket, unlinked.
 
-**Spend numbers to confirm** [FOUNDER DECISION]: per person per day $0.60 and 30 replies, $2.10 and 3 portraits;
-global per day $5 replies, $6 portraits, $10 total (`_mirror_limits()` in the migration). Prices assume Gemini's
+**Spend numbers to confirm** [FOUNDER DECISION]: per person per day a reply cap and a portrait cap;
+global per day a replies cap, a portraits cap and a total cap (values in `_mirror_limits()` in the migration). Prices assume Gemini's
 2027 rates.
 
 **Copy to confirm** [FOUNDER DECISION]: "<name>'s reading. You decide what fits.", "<name> is thinking…",
