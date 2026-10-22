@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 215
+**Next ID:** 216
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2726,5 +2726,16 @@ Found by P1532's regression sample (2026-10-21): e2e/p402-points-tab.spec.ts fai
 **due:** month
 
 Under a simulated outage (scripts/measure-idle-requests.mjs --block /rest/v1/, /feed, 1 minute, 2026-10-21) the page sent GET rest:organization 5 times and rest:events 4 times. Check those retry paths against docs/technical/metered-services.md rule 4 (bounded, with backoff and jitter, and carrying a request-volume assertion). Done when each path is shown bounded, or fixed; droppable if the retries turn out to be distinct callers rather than retries.
+
+---
+
+## Decide which prepare/close recipe a second organizer's events get
+
+**ID:** INBOX-215
+**Date:** 2026-10-22
+**Status:** proposed
+**due:** month
+
+Today (P1542) any event without a series recipe gets the Clarity Night recipe, and the enable-prepare toggle makes that full preparation a required room gate. Fine while the founder is the only host. Do this when another organizer actually hosts; drop it if no second organizer appears.
 
 ---
