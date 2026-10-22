@@ -51,7 +51,12 @@ BEGIN
          blurb = new_blurb,
          description = new_description
    WHERE slug = 'cm'
-     AND name = old_name;
+     AND name = old_name
+     -- Review fix (Gemini + Codex): pin the prior copy too, so an edit made to the subtitle or
+     -- About since 2026-10-22 raises below instead of being overwritten. Hashes are of the live
+     -- prod row read that day (identical on test before this migration ran).
+     AND md5(blurb) = 'd32bd4b7165d9bdf6a38ae23698eb3c8'
+     AND md5(description) = '98a3b6c47ed06be303208840dea1f2ef';
 
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n = 0 THEN
@@ -64,7 +69,7 @@ BEGIN
          AND description = new_description
     ) THEN
       RAISE EXCEPTION
-        'P1543: organization cm is neither the expected prior state (name = %) nor the target state. The live row has drifted from what this migration was written against; re-read it before applying.', old_name;
+        'P1543: organization cm is neither the expected prior state (name = %) nor the target state (name, subtitle or About differ). The live row has drifted from what this migration was written against; re-read it before applying.', old_name;
     END IF;
   ELSIF n <> 1 THEN
     RAISE EXCEPTION 'P1543: cm UPDATE affected % rows, expected 1.', n;

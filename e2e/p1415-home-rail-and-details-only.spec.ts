@@ -31,7 +31,8 @@ test.describe('P1415 — home rail', () => {
     const groupLink = rail.getByRole('link', { name: /Clarity Practice Community/ });
     await expect(groupLink).toBeVisible({ timeout: 20000 });
     await expect(groupLink).toHaveAttribute('href', '/groups/cm');
-    await expect(rail.getByRole('link', { name: /Clarity Practice Community/ })).toHaveCount(0);
+    // P1543: the online group is hidden, so the rail never names it.
+    await expect(rail.getByRole('link', { name: /· Online/ })).toHaveCount(0);
     await expect(rail.getByRole('link', { name: 'All groups' })).toBeVisible();
     const headings = await rail.getByRole('heading', { level: 2 }).allTextContents();
     expect(headings.map((h) => h.trim())).toEqual([expect.stringMatching(/^Next events?$/), 'Groups']);
