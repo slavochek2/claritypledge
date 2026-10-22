@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 54
 workstream: infrastructure
 created_date: '2026-10-21'
 tags: [e2e, supabase, test-db, capacity]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, spec-review, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-22
 ---
 
 # P1541: Concurrent e2e runs from several sessions overload the test database
@@ -176,8 +176,8 @@ capture config load `playwright.config.ts` (guarded); the overnight script targe
 
 ## Related
 
-- [P1530](p1530_supabase_log_ingestion_and_egress_before_restriction.md): quota, logs and egress on the free plan.
-- [P1532](p1532_e2e_cleanup_and_offline_pack_request_amplification.md): API calls per test user.
+- [P1530](../../p1530_supabase_log_ingestion_and_egress_before_restriction.md): quota, logs and egress on the free plan.
+- [P1532](../../p1532_e2e_cleanup_and_offline_pack_request_amplification.md): API calls per test user.
 - P1234: concurrent runs killing each other's dev servers (separate worktrees rule).
 - P1538: TEST rebuilt in its own project; parity run used one worker.
 - decisions.md 2026-09-15 (P1078): `--workers=1` rejected as a fix for fixture collisions.
