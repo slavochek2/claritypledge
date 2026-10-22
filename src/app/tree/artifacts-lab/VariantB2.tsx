@@ -56,7 +56,7 @@ function ArtifactCard({ a }: { a: MockArtifact }) {
       {hasRecipients && deliveryCount(a) > 0 && (
         <div className="relative z-10 mt-2">
           <Disclosure label={recipientsLabel(a)}>
-            <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />
+            <RecipientRows recipients={a.recipients ?? []} respondents={a.respondents} />
           </Disclosure>
         </div>
       )}

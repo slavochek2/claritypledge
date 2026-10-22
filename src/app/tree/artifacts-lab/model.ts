@@ -48,7 +48,8 @@ export function metaParts(a: MockArtifact): string[] {
   if (a.recipients && a.recipients.length > 0) {
     out.push(`${a.recipients.filter(r => r.status === 'Completed').length} of ${a.recipients.length} recipients completed`);
   }
-  if (a.responses) out.push(`${a.responses} ${a.responses === 1 ? 'response' : 'responses'}`);
+  const n = a.respondents?.length ?? 0;
+  if (n) out.push(`${n} ${n === 1 ? 'response' : 'responses'}`);
   if (a.steps) out.push(`${a.steps.done} of ${a.steps.total} steps`);
   // One time only: a published letter already says "Sealed X ago".
   if (!a.sealed) out.push(a.draft ? `Updated ${a.updated} ago` : `${a.updated} ago`);
@@ -58,7 +59,7 @@ export function metaParts(a: MockArtifact): string[] {
 
 /** Every delivery of a published letter: invited recipients plus public-link respondents (sent-tab.tsx:313). */
 export function deliveryCount(a: MockArtifact): number {
-  return (a.recipients?.length ?? 0) + (a.responses ?? 0);
+  return (a.recipients?.length ?? 0) + (a.respondents?.length ?? 0);
 }
 
 /** One rule for the recipients disclosure/section label, in both variants. */

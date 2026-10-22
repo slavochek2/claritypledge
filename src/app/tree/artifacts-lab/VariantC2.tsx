@@ -67,7 +67,7 @@ function Preview({ a }: { a: MockArtifact }) {
       {hasRecipients && deliveryCount(a) > 0 && (
         <section aria-label="Recipients" className="border-t border-border pt-3">
           <h3 className="mb-1 text-sm font-semibold text-foreground">{recipientsLabel(a)}</h3>
-          <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />
+          <RecipientRows recipients={a.recipients ?? []} respondents={a.respondents} />
         </section>
       )}
       {msg && (

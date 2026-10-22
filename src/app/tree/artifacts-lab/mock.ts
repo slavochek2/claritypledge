@@ -37,11 +37,11 @@ export interface MockArtifact {
   publicLink?: boolean;
   /**
    * Published letters: the deliveries with an email (sent-tab.tsx:171). Delete letter is disabled when
-   * recipients + responses is above zero, as `deliveries.length > 0` is today (sent-tab.tsx:313).
+   * recipients + respondents is above zero, as `deliveries.length > 0` is today (sent-tab.tsx:313).
    */
   recipients?: MockRecipient[];
-  /** Published letters: deliveries without an email (people who answered through the public link). */
-  responses?: number;
+  /** Published letters: deliveries without an email, one row each like today (sent-tab.tsx:351-355). */
+  respondents?: MockRecipient[];
   /** Published letters: unread explain-backs ("N new from <name>"). */
   newFrom?: { name: string; count: number };
   /** Shared with you: who shared it. */
@@ -74,7 +74,7 @@ export const YOURS: MockArtifact[] = [
   },
   { id: 'l0', kind: 'letter', title: 'Follow-up to "calibrated"', visibility: 'private', draft: true, hasSentLetters: true, counts: { stories: 2, points: 4 }, updated: '5h' },
   { id: 'l4', kind: 'letter', title: 'A note before the retreat', visibility: 'private', sealed: '1 hour', updated: '1h', recipients: [] },
-  { id: 'l3', kind: 'letter', title: 'Ten questions before we start', visibility: 'public', publicLink: true, sealed: '5 days', updated: '1d', responses: 2, recipients: [] },
+  { id: 'l3', kind: 'letter', title: 'Ten questions before we start', visibility: 'public', publicLink: true, sealed: '5 days', updated: '1d', respondents: [{ name: 'Lena', slug: 'lena', status: 'Completed', hasResults: true }, { name: 'Ari', status: 'Reading', steps: { done: 2, total: 5 }, hasResults: true }], recipients: [] },
   { id: 'c1', kind: 'canvas', title: 'Co-founder roles: first sketch', visibility: 'private', updated: '3d' },
   { id: 'c2', kind: 'canvas', title: 'Clarity Night: questions board', visibility: 'public', updated: '1w' },
 ];

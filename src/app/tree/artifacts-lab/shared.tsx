@@ -265,11 +265,11 @@ function ActionItem({ action, danger = false }: { action: Action; danger?: boole
 
 /* -------------------------------------------------------------- recipients */
 
-export function RecipientRows({ recipients, responses }: { recipients: MockRecipient[]; responses?: number }) {
-  if (recipients.length === 0 && !responses) return <p className="text-sm text-muted-foreground">No recipients yet.</p>;
+export function RecipientRows({ recipients, respondents = [] }: { recipients: MockRecipient[]; respondents?: MockRecipient[] }) {
+  if (recipients.length === 0 && respondents.length === 0) return <p className="text-sm text-muted-foreground">No recipients yet.</p>;
   return (
     <ul className="flex flex-col divide-y divide-border/60">
-      {recipients.map(r => (
+      {[...recipients, ...respondents].map(r => (
         <li key={r.name} className="flex min-h-12 items-center gap-2 py-1">
           <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="min-w-0 flex-1">
@@ -284,11 +284,6 @@ export function RecipientRows({ recipients, responses }: { recipients: MockRecip
           {r.hasResults && <PrimaryButton nested label="Results" />}
         </li>
       ))}
-      {!!responses && (
-        <li className="flex min-h-12 items-center py-1 text-sm text-muted-foreground">
-          {responses} {responses === 1 ? 'response' : 'responses'} through the public link
-        </li>
-      )}
     </ul>
   );
 }

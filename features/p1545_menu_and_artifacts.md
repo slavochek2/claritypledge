@@ -108,7 +108,7 @@ Blast radius: high. Every signed-in screen's navigation, plus the letters surfac
 ## Acceptance Criteria
 
 Phase 1:
-- [x] Three variants reachable on one dev route, each at desktop, 375px and 320px, covering every state listed in Phase 1.
+- [x] Variants reachable on one dev route, each at desktop, 375px and 320px, covering every state listed in Phase 1. Round 1 had A/B/C; after founder feedback, round 2 has B2 and C2 at `/tree/artifacts?v=b2|c2` (A/B/C were removed).
 - [x] Visual review reports received from Gemini 4 Argon and Opus (count stated), findings fixed or set aside with a reason.
 - [ ] The founder's pick and comments recorded under `## Resolved Decisions`.
 
@@ -122,6 +122,8 @@ Phase 2:
 - [ ] Screenshots at 1440, 375 and 320 pass `.claude/rules/visual-qa.md`, reviewed by a separate agent.
 
 ## Phase 1 record
+
+Round 1 (historical; A/B/C no longer exist in the lab, see round 2 for the current route):
 
 - **Route:** `/tree/artifacts?v=a|b|c&state=full|shared|menu-open|search-open|empty-yours|empty-shared|events-empty|events-some` (dev only). Files: `src/app/tree/artifacts-lab/`.
 - **Variants:** A = compact tabbed list, left sidebar. B = card grid, top nav, chats side panel. C = icon rail + list + preview pane (phone: list + bottom sheet).
@@ -171,3 +173,11 @@ Read from the real code on 2026-10-22 (`letters-page.tsx`, `drafts-tab.tsx`, `se
 ## Related
 
 P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1515 (canvas sharing model: Private or Shared, link access, no public switch) · P1508 (canvas page) · P1536 (+ Canvas opens a mirror thread) · P1546 (threads everywhere) · P1437 (`/tree` mock-prototype pattern) · decisions.md 2026-04-06 (letters email metaphor, superseded for navigation)
+
+## Phase 1 round 2 record
+
+- **Route:** `/tree/artifacts?v=b2|c2&state=full|selected|shared|menu-open|search-open|empty-yours|empty-shared|events-empty|events-some` (dev only).
+- **Founder feedback applied:** left menu (no top menu); labelled "New artifact" ("New" on phone); blue type discs, letter filled vs canvas outlined; one fixed button per card, rest behind "…", nothing hover-only; C2 actions in one place; real letter actions per the inventory above; bold yellow Chiang Mai banner, quieter when events exist.
+- **Visual review:** 5 of 5 reports (Opus critic once; Gemini 4 Argon twice per variant). Set aside: the New menu's private/public draft split (today's behaviour); card buttons ~34px (the shared production Details/Open class).
+- **Code review:** Gemini code review 1 of 2 runs delivered (second timed out, rerouted); Codex 2 of 2. Fixed: `?v=toString` crash; C2 sheet focus return; public-link respondents shown one row each with Results, as today.
+- **For the founder:** yellow breaks `.claude/rules/src.md` (needs an explicit exception); Prepare Letter moved behind "…"; inbox activity moved onto your sent letter's card; canvas delete; where the live-invite row lives; default tab.
