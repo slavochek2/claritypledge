@@ -147,8 +147,8 @@ slug as `"org_slug"` in the JSON above. That is the whole rule for a series: the
 occurrence already answers it, so there is nothing to infer and nothing to ask.
 
 Only when the source event carries no `org_id` (the two 2026 Ko Phangan events, deliberately
-unaffiliated) do you omit `org_slug` and let the script decide — it files an online venue
-under `online`, and for an in-person one it needs `"lat"`/`"lng"`, stopping to ask you if the
+unaffiliated) do you omit `org_slug` and let the script decide — it leaves an online venue
+unaffiliated (the online group is hidden, P1543), and for an in-person one it needs `"lat"`/`"lng"`, stopping to ask you if the
 venue is more than 150 km from Chiang Mai. `"org_slug": null` keeps an occurrence
 deliberately unaffiliated. Rule: `docs/events/org-defaults.md`.
 

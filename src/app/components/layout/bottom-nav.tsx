@@ -17,7 +17,7 @@ import { analytics } from "@/lib/mixpanel";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
-import { EVENTS_NAV_TO } from "./nav-links";
+import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "./nav-links";
 import { isBottomNavHiddenRoute } from "./bottom-nav-routes";
 import { MeSheet } from "./app-shell/me-sheet";
 import { PHONE_TAB_IDS, useShellEntries, useShellTodaysEvent, type ShellEntry, type ShellEntryId } from "./app-shell/shell-nav";
@@ -118,7 +118,9 @@ export function BottomNav() {
               onClick={
                 entry.to === EVENTS_NAV_TO
                   ? () => analytics.track("org_events_nav_clicked", { source: "bottom_nav" })
-                  : undefined
+                  : entry.to === EVENTS_LIST_TO
+                    ? () => analytics.track("events_list_nav_clicked", { source: "bottom_nav" })
+                    : undefined
               }
             >
               <TabBody entry={entry} active={entry.active} />

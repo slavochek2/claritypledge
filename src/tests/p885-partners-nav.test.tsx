@@ -161,6 +161,17 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
     expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Events', 'Letters', 'You']);
   });
 
+  it('P1543: tapping the Events tab opens the events list and records events_list_nav_clicked', async () => {
+    const { analytics } = await import('@/lib/mixpanel');
+    mockLoggedIn();
+    renderBottomNav();
+    const nav = screen.getByRole('navigation', { name: /mobile navigation/i });
+    const events = within(nav).getByText('Events').closest('a')!;
+    expect(events).toHaveAttribute('href', '/events/list');
+    fireEvent.click(events);
+    expect(analytics.track).toHaveBeenCalledWith('events_list_nav_clicked', { source: 'bottom_nav' });
+  });
+
   it('Partners is no longer a tab of its own', () => {
     mockLoggedIn();
     renderBottomNav();
