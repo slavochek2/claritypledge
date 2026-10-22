@@ -2,7 +2,7 @@
  * P1545 Phase 1 round 2, Variant C2: "Chat-style list + preview pane". Left sidebar (desktop) / bottom tabs (phone).
  * Rows carry no actions. Selecting one shows it in the pane (desktop) or a sheet (phone); the actions appear there, once.
  */
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { LabState } from './ArtifactsLab';
 import { SHARED, SHARE_MESSAGES, YOURS, type MockArtifact } from './mock';
@@ -138,7 +138,10 @@ function ArtifactsPage({ state }: { state: LabState }) {
   const unreadShared = shared.filter(a => a.unread && !read.includes(a.id)).length;
   const selected = items.find(a => a.id === selectedId) ?? null;
 
+  // Focus returns to the row that opened the phone sheet (the sheet is controlled, so Radix has no trigger to return to).
+  const opener = useRef<HTMLElement | null>(null);
   const select = (a: MockArtifact) => {
+    opener.current = document.activeElement as HTMLElement | null;
     setSelectedId(a.id);
     setSheetOpen(true);
     if (a.unread) setRead(r => (r.includes(a.id) ? r : [...r, a.id]));
@@ -200,7 +203,7 @@ function ArtifactsPage({ state }: { state: LabState }) {
 
       {!isDesktop && selected && (
         <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-          <DialogContent className="bottom-0 left-0 top-auto max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-b-none rounded-t-2xl p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-12 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom">
+          <DialogContent onCloseAutoFocus={e => { e.preventDefault(); opener.current?.focus(); }} className="bottom-0 left-0 top-auto max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-b-none rounded-t-2xl p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-12 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom">
             <DialogTitle className="sr-only">{selected.title}</DialogTitle>
             <DialogDescription className="sr-only">Details and actions</DialogDescription>
             <Preview a={selected} />
