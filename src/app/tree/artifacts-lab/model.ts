@@ -50,7 +50,8 @@ export function metaParts(a: MockArtifact): string[] {
   }
   if (a.responses) out.push(`${a.responses} ${a.responses === 1 ? 'response' : 'responses'}`);
   if (a.steps) out.push(`${a.steps.done} of ${a.steps.total} steps`);
-  out.push(a.draft ? `Updated ${a.updated} ago` : `${a.updated} ago`);
+  // One time only: a published letter already says "Sealed X ago".
+  if (!a.sealed) out.push(a.draft ? `Updated ${a.updated} ago` : `${a.updated} ago`);
   return out;
 }
 

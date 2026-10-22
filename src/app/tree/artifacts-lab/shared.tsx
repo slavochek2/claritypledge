@@ -306,7 +306,7 @@ export function CreateMenu({ defaultOpen }: { defaultOpen?: boolean }) {
           <span className="hidden sm:inline">New artifact</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="z-[80] w-72">
+      <DropdownMenuContent align="end" collisionPadding={16} className="z-[80] w-72 max-w-[calc(100vw-32px)]">
         <DropdownMenuItem className="min-h-12 items-start gap-3">
           <Mail className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="flex flex-col gap-0.5">
@@ -423,12 +423,16 @@ export function Tabs({ tab, onTab, unread }: { tab: 'yours' | 'shared'; onTab: (
 }
 
 export function EmptyLine({ query, tab }: { query: string; tab: 'yours' | 'shared' }) {
-  const text = query
-    ? `No matches for "${query}".`
-    : tab === 'yours'
-      ? 'Nothing here yet. Use New artifact to start a letter or a canvas.'
-      : 'Nothing has been shared with you yet.';
-  return <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">{text}</p>;
+  const box = 'rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground';
+  if (query) return <p className={box}>No matches for "{query}".</p>;
+  if (tab === 'shared') return <p className={box}>Nothing has been shared with you yet.</p>;
+  // The button reads "New" below sm and "New artifact" from sm up; the sentence follows it.
+  return (
+    <p className={box}>
+      Nothing here yet. Use <span className="sm:hidden">New</span>
+      <span className="hidden sm:inline">New artifact</span> to start a letter or a canvas.
+    </p>
+  );
 }
 
 /** Small disclosure used by B2 cards. */

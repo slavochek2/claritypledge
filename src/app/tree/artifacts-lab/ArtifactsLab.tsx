@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import { VariantB2 } from './VariantB2';
 import { VariantC2 } from './VariantC2';
 
-export const STATES = ['full', 'shared', 'menu-open', 'search-open', 'empty-yours', 'empty-shared', 'events-empty', 'events-some'] as const;
+export const STATES = ['full', 'selected', 'shared', 'menu-open', 'search-open', 'empty-yours', 'empty-shared', 'events-empty', 'events-some'] as const;
 export type LabState = (typeof STATES)[number];
 
 const VARIANTS = { b2: VariantB2, c2: VariantC2 } as const;

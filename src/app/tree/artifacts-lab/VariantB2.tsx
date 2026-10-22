@@ -24,7 +24,7 @@ import {
   UnreadDot,
   VisibilityIcon,
 } from './shared';
-import { actionsFor, isInChat, recipientsLabel } from './model';
+import { actionsFor, deliveryCount, isInChat, recipientsLabel } from './model';
 
 type Tab = 'yours' | 'shared';
 const CHAT_TITLES = SHARE_MESSAGES.map(m => m.title);
@@ -52,7 +52,8 @@ function ArtifactCard({ a }: { a: MockArtifact }) {
           </p>
         )}
       </div>
-      {hasRecipients && (
+      {hasRecipients && deliveryCount(a) === 0 && <p className="px-4 pt-2 text-sm text-muted-foreground">No recipients yet.</p>}
+      {hasRecipients && deliveryCount(a) > 0 && (
         <div className="relative z-10 mt-2">
           <Disclosure label={recipientsLabel(a)}>
             <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />

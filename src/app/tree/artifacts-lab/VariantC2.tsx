@@ -22,7 +22,7 @@ import {
   UnreadDot,
   VisibilityIcon,
 } from './shared';
-import { actionsFor, isInChat, metaParts, recipientsLabel } from './model';
+import { actionsFor, deliveryCount, isInChat, metaParts, recipientsLabel } from './model';
 
 type Tab = 'yours' | 'shared';
 const CHAT_TITLES = SHARE_MESSAGES.map(m => m.title);
@@ -63,7 +63,8 @@ function Preview({ a }: { a: MockArtifact }) {
         <PrimaryButton label={set.primary} />
         <MoreMenu a={a} set={set} />
       </div>
-      {hasRecipients && (
+      {hasRecipients && deliveryCount(a) === 0 && <p className="text-sm text-muted-foreground">No recipients yet.</p>}
+      {hasRecipients && deliveryCount(a) > 0 && (
         <section aria-label="Recipients" className="border-t border-border pt-3">
           <h3 className="mb-1 text-sm font-semibold text-foreground">{recipientsLabel(a)}</h3>
           <RecipientRows recipients={a.recipients ?? []} responses={a.responses} />
@@ -99,10 +100,10 @@ function Row({ a, selected, onSelect }: { a: MockArtifact; selected: boolean; on
         <TypeDisc kind={a.kind} size="lg" />
         <span className="min-w-0 flex-1">
           <span className={`line-clamp-1 block break-words text-base text-foreground ${a.unread ? 'font-semibold' : 'font-medium'}`}>{a.title}</span>
-          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
             <span className="font-semibold text-blue-700">{a.kind === 'canvas' ? 'Canvas' : 'Letter'}</span>
             {a.draft && <DraftChip />}
-            <span className="truncate">{'\u00b7'} {meta}</span>
+            <span className="min-w-0 break-words">{'\u00b7'} {meta}</span>
           </span>
         </span>
         {/* Two fixed slots, so an unread dot never moves the visibility icon. Shared items show no visibility. */}
@@ -121,8 +122,8 @@ function ArtifactsPage({ state }: { state: LabState }) {
   const [tab, setTab] = useState<Tab>(state === 'empty-shared' || state === 'shared' ? 'shared' : 'yours');
   const [searchOpen, setSearchOpen] = useState(state === 'search-open');
   const [query, setQuery] = useState(state === 'search-open' ? 'hike' : '');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(state === 'selected' ? (YOURS[0]?.id ?? null) : null);
+  const [sheetOpen, setSheetOpen] = useState(state === 'selected');
   const [read, setRead] = useState<string[]>([]);
   const isDesktop = useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP_QUERY).matches, () => false);
 
