@@ -2751,16 +2751,6 @@ The branch holds 12 commits of letter-chat and letter-review prototypes. They we
 
 ---
 
-## 9 e2e failures repeat at every worker count (login, console-error, auth-gate)
-
-**ID:** INBOX-217
-**Date:** 2026-10-22
-**Status:** proposed
-**due:** week
-
-Seen 2026-10-22 during the P1541 measurement: 03-login-flow, p1351-header-contexts, p1420-clear-position-lost-response, p273-verification-gate gave the same 7 passed / 9 failed at 1, 2 and 3 workers against TEST, so not capacity. Includes the mirror-reply CORS console error. Next: /reproduce then /fix per spec file.
-
----
 
 ## Test project API times out reloading its schema after every migration
 
