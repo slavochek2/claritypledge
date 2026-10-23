@@ -19,7 +19,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
-import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems } from '@/app/data/letters-service';
+import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
 import { buildArtifacts, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -39,7 +39,7 @@ export interface TabData {
 
 interface Sources {
   docs: ClarityDoc[] | null;
-  sent: { letters: SentLetter[]; deliveries: Record<string, LetterDelivery[]> } | null;
+  sent: { letters: SentLetter[]; deliveries: Record<string, LetterDelivery[]>; newByDelivery: Record<string, number> } | null;
   myCanvases: MyCanvasRow[] | null;
   received: InboxItem[] | null;
   /** Sender-side activity on my own letters (the capped mixed inbox list). */
@@ -55,7 +55,16 @@ type Failed = Partial<Record<keyof Sources, boolean>>;
 async function loadSent(userId: string): Promise<NonNullable<Sources['sent']>> {
   const letters = await getAllSentLettersOrThrow(userId);
   const deliveries = letters.length ? await getDeliveriesForLettersOrThrow(letters.map(l => l.id)) : {};
-  return { letters, deliveries };
+  // Unread explain-backs feed "N new from <name>". A per-row refinement, like the inbox badge it replaces:
+  // a failure degrades to "nothing new" and never fails the sent letters.
+  let newByDelivery: Record<string, number> = {};
+  try {
+    const ids = Object.values(deliveries).flat().map(d => d.id);
+    newByDelivery = (await getUnreadExplainBackCountsByDelivery(ids)) ?? {};
+  } catch {
+    newByDelivery = {};
+  }
+  return { letters, deliveries, newByDelivery };
 }
 
 export function useArtifactsData(userId: string, userSlug: string | null): TabDataResult {
@@ -137,6 +146,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
         docs: sources.docs ?? [],
         sentLetters: sources.sent?.letters ?? [],
         deliveriesByLetter: sources.sent?.deliveries ?? {},
+        newByDelivery: sources.sent?.newByDelivery ?? {},
         // Received rows only from the paged read; the mixed list contributes sender activity alone.
         inbox: [...(sources.received ?? []), ...(sources.activity ?? []).filter(i => i.type !== 'received')],
         myCanvases: sources.myCanvases ?? [],

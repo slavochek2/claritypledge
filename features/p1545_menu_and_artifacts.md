@@ -250,6 +250,21 @@ P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1
 - **Code review:** Gemini code review 1 of 2 runs delivered (second timed out, rerouted); Codex 2 of 2. Fixed: `?v=toString` crash; C2 sheet focus return; public-link respondents shown one row each with Results, as today.
 - **For the founder:** yellow breaks `.claude/rules/src.md` (needs an explicit exception); Prepare Letter moved behind "…"; inbox activity moved onto your sent letter's card; canvas delete; where the live-invite row lives; default tab.
 
+### Letters parity (founder, 2026-10-23, answers 1A 2A)
+
+Replaces the "Unread mark only on Shared with you" and "One meta line per row" bullets above for letters. Reviews: Gemini 4 Argon, Codex, Opus, 3 of 3.
+
+- **Row grammar `[state] · [one fact] · [time]`:**
+  - draft `Draft · 3 stories, 5 points · 2h ago`; a draft already sent: `Draft · 3 stories, 5 points · sent 2×`;
+  - sent `Sent to 3 · 1 of 3 done · 2d ago`; while something is new: `Sent to 3 · 1 new from Tom · 1h ago` (words, no dot; decision 1A);
+  - public link `Public link · 4 done · 2d ago`;
+  - received `From Tom · 2 of 5 steps · 4d ago` / `From Anna · done · 1w ago`. Vocabulary: "done" everywhere.
+- **Overview page = the letter's control page.** A Recipients section above the stories: per person status (Invited / Opened / In progress / done), "N of M steps", "new" mark, one whole-letter Results link (`/letter/:id/results?delivery=`). Public-link respondents one row each, latest 10 plus "Show all". Actions: Add recipients (`LetterReceiverModal`), Preview (new tab), Copy public link, Sealed date. A person's "new" mark clears when their results are opened.
+- **Bug:** a completed recipient must keep Results even when the stories have no points (`cohort-table.tsx:128,205`).
+- **Delete on a sent letter:** shown disabled with today's reason, not hidden.
+- **Live invite ("Join")** shown above both tabs.
+- **Kept:** "No recipients yet", Retry on error, the "Can't delete" message, private/public choice on New, Prepare letter guard (0 stories).
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.
@@ -263,4 +278,5 @@ P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1
   - Window-focus refresh: the page already polls every 15s and refreshes when the tab becomes visible.
 - **Open (known, not fixed):** after you open a canvas in this session, a later re-share of it is not marked unread until the page remounts (`artifacts-page.tsx` `opened` override; Codex round 6). Fix: drop the override once the server confirms the read.
 - **Not verified:** the TEST project was overloaded all afternoon (504/503, e2e gate exit 75). No e2e run and no signed-in real-data screenshots exist yet. 25+ e2e specs still drive the old /letters tab UI and need updating once TEST is healthy.
-- **Founder items:** + Canvas is hidden until P1536 builds canvas creation (label "New artifact" vs "New letter"?); shared rows have no "…" (add "Remove from my list"?); copy marked [FOUNDER DECISION] (share card line, empty states, "Loading more…", "Go to Letters" on the session-ended screen).
+- **Founder answers (2026-10-23):** keep the label "New artifact"; Canvas joins that menu in P1536 (noted there). Shared rows stay without "…" for now. Placeholder copy accepted as is, and the session-ended button reads "Go to Artifacts".
+- **Founder items (resolved above):** + Canvas is hidden until P1536 builds canvas creation (label "New artifact" vs "New letter"?); shared rows have no "…" (add "Remove from my list"?); copy marked [FOUNDER DECISION] (share card line, empty states, "Loading more…", "Go to Letters" on the session-ended screen).

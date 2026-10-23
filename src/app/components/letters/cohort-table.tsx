@@ -125,9 +125,11 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
             // responseMap keys are `${delivery_id}:${point_id}` across ALL stories,
             // but point IDs are globally unique UUIDs so cross-story collision is impossible.
             // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
-            const hasAnyPositionInThisStory = story.points.some((p) =>
-              responseMap.has(`${d.delivery_id}:${p.id}`)
-            );
+            // A recipient who finished always keeps Results, even when this story has no points
+            // (nothing to position, so there is no position to find).
+            const hasAnyPositionInThisStory =
+              d.completed_at !== null ||
+              story.points.some((p) => responseMap.has(`${d.delivery_id}:${p.id}`));
             return (
               <tr
                 key={d.delivery_id}

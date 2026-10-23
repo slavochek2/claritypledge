@@ -383,7 +383,7 @@ describe('P769: SessionEndedScreen component (canary — unskip after implementa
       )
     );
 
-    const cta = screen.getByRole('link', { name: /letters|go to letters|view letters/i });
+    const cta = screen.getByRole('link', { name: /go to artifacts/i });
     expect(cta).toHaveAttribute('href', '/artifacts');
   });
 });

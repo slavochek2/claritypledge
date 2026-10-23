@@ -9,6 +9,7 @@ import {
   parseTab,
   parseType,
   receivedInboxItems,
+  receivedLetterMeta,
   repliedCountByLetter,
   senderActivityItems,
   sentMeta,
@@ -66,19 +67,40 @@ describe('meta strings (Resolved Decisions: one line)', () => {
     expect(agoPhrase(null)).toBe('');
   });
 
-  it('draft: "Draft · edited 2h ago"', () => {
-    expect(draftMeta(ago(2 * H))).toBe('Draft · edited 2h ago');
+  it('draft: "Draft · 3 stories, 5 points · 2h ago"', () => {
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 3, points: 5 })).toBe('Draft · 3 stories, 5 points · 2h ago');
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 1, points: 1 })).toBe('Draft · 1 story, 1 point · 2h ago');
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 0, points: 0 })).toBe('Draft · 0 stories, 0 points · 2h ago');
   });
 
-  it('sent: "Sent to 3 · 1 replied"; no replies drops the reply part', () => {
-    expect(sentMeta({ isPublic: false, recipientCount: 3, repliedCount: 1 })).toBe('Sent to 3 · 1 replied');
-    expect(sentMeta({ isPublic: false, recipientCount: 3, repliedCount: 0 })).toBe('Sent to 3');
-    expect(sentMeta({ isPublic: false, recipientCount: 0, repliedCount: 0 })).toBe('No recipients yet');
+  it('a draft already sent says how often instead of the time: "sent 2×"', () => {
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 3, points: 5, sentCount: 2 })).toBe('Draft · 3 stories, 5 points · sent 2×');
   });
 
-  it('public link: "Public link · 2 replied"', () => {
-    expect(sentMeta({ isPublic: true, recipientCount: 0, repliedCount: 2 })).toBe('Public link · 2 replied');
-    expect(sentMeta({ isPublic: true, recipientCount: 0, repliedCount: 0 })).toBe('Public link');
+  it('sent: "Sent to 3 · 1 of 3 done · 2d ago"', () => {
+    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, sealedAt: ago(2 * D) })).toBe('Sent to 3 · 1 of 3 done · 2d ago');
+    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Sent to 3 · 0 of 3 done · 2d ago');
+    expect(sentMeta({ isPublic: false, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('No recipients yet · 2d ago');
+  });
+
+  it('sent while something is new: "Sent to 3 · 1 new from Tom · 1h ago" (words, no dot)', () => {
+    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 1, newFrom: ['Tom'], sealedAt: ago(H) }))
+      .toBe('Sent to 3 · 1 new from Tom · 1h ago');
+    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 3, newFrom: ['Tom', 'Anna'], sealedAt: ago(H) }))
+      .toBe('Sent to 3 · 3 new from 2 people · 1h ago');
+  });
+
+  it('public link: "Public link · 4 done · 2d ago"', () => {
+    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 4, sealedAt: ago(2 * D) })).toBe('Public link · 4 done · 2d ago');
+    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 2d ago');
+  });
+
+  it('received: "From Tom · 2 of 5 steps · 4d ago" and "From Anna · done · 4d ago"', () => {
+    expect(receivedLetterMeta(inboxItem({ actor_name: 'Tom', steps_completed: 2, total_steps: 5, timestamp: ago(4 * D) })))
+      .toBe('From Tom · 2 of 5 steps · 4d ago');
+    expect(receivedLetterMeta(inboxItem({ actor_name: 'Anna', completed_at: ago(D), steps_completed: 5, total_steps: 5, timestamp: ago(4 * D) })))
+      .toBe('From Anna · done · 4d ago');
+    expect(receivedLetterMeta(inboxItem({ actor_name: 'Tom', timestamp: ago(4 * D) }))).toBe('From Tom · 4d ago');
   });
 
   it('canvas: "Edited 3d ago"; unknown edit says "Canvas"', () => {
@@ -92,7 +114,7 @@ describe('meta strings (Resolved Decisions: one line)', () => {
     expect(sharedMeta(null, ago(H))).toBe('From someone · 1h ago');
   });
 
-  it('never mentions stories, points, Sealed or recipients lists', () => {
+  it('rows never list recipients or say Sealed or replied', () => {
     const { yours, shared } = buildArtifacts(source({
       docs: [doc()],
       sentLetters: [letter()],
@@ -101,7 +123,7 @@ describe('meta strings (Resolved Decisions: one line)', () => {
       inbox: [inboxItem()],
       sharedCanvases: [sharedCanvas()],
     }));
-    for (const r of [...yours, ...shared]) expect(r.meta).not.toMatch(/stor(y|ies)|point|Sealed|recipients completed/i);
+    for (const r of [...yours, ...shared]) expect(r.meta).not.toMatch(/Sealed|recipients completed|replied/i);
   });
 });
 
@@ -122,13 +144,13 @@ describe('partition of the inbox', () => {
     expect(shared.map(r => r.ref.deliveryId)).toEqual(['rd1']);
   });
 
-  it('sender-side activity joins onto the sent letter\'s "N replied"', () => {
+  it('sender-side activity joins onto the sent letter\'s "N of M done"', () => {
     const { yours } = buildArtifacts(source({
       sentLetters: [letter()],
       deliveriesByLetter: { l1: [delivery({ id: 'sd1' }), delivery({ id: 'x2' })] }, // deliveries lag: none completed yet
       inbox: [sender, progress],
     }));
-    expect(yours[0]?.meta).toBe('Sent to 2 · 1 replied'); // only recipient_responded counts, "reading" does not
+    expect(yours[0]?.meta).toBe('Sent to 2 · 1 of 2 done · 1d ago'); // only recipient_responded counts, "reading" does not
   });
 
   it('replied counts a delivery once when deliveries and inbox both report it', () => {
@@ -146,6 +168,23 @@ describe('partition of the inbox', () => {
 });
 
 describe('rows', () => {
+  it('new explain-backs show as "N new from <name>" on the sent letter', () => {
+    const { yours } = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(H) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Ann' })] },
+      newByDelivery: { dv1: 1 },
+    }));
+    expect(yours[0]?.meta).toBe('Sent to 2 · 1 new from Tom · 1h ago');
+  });
+
+  it('a draft counts the letters sent from it', () => {
+    const { yours } = buildArtifacts(source({
+      docs: [doc({ id: 'd9', story_count: 3, point_count: 5, has_sent_letters: true })],
+      sentLetters: [letter({ id: 'l1' }), letter({ id: 'l2' })],
+    }));
+    expect(yours.find(r => r.state === 'draft')?.meta).toBe('Draft · 3 stories, 5 points · sent 2×');
+  });
+
   it('Yours holds drafts, sent letters and own canvases, newest first', () => {
     const { yours } = buildArtifacts(source({
       docs: [doc({ updated_at: ago(2 * H) })],
@@ -211,16 +250,15 @@ describe('"…" menu guards (today\'s rules)', () => {
     expect(ok.at(-1)?.danger).toBe(true);
   });
 
-  it('sent letter: Copy public link only on public letters; Delete letter is omitted once any delivery exists', () => {
+  it('sent letter: Copy public link only on public letters; Delete letter is disabled with its reason once any delivery exists', () => {
     const priv = menu({ sentLetters: [letter()] });
     expect(priv.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'delete-letter']);
     expect(priv.at(-1)?.disabledReason).toBeUndefined();
     const pub = menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } });
-    // shared (a delivery exists): no Delete letter item at all, and nothing is drawn disabled
-    expect(pub.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'copy-public-link']);
-    expect(pub.some(a => a.disabledReason)).toBe(false);
+    expect(pub.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'copy-public-link', 'delete-letter']);
+    expect(pub.at(-1)).toMatchObject({ danger: true, disabledReason: "Can't delete — letter has been shared." });
     const sharedPrivate = menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } });
-    expect(sharedPrivate.map(a => a.id)).toEqual(['preview-letter', 'add-recipients']);
+    expect(sharedPrivate.at(-1)).toMatchObject({ id: 'delete-letter', disabledReason: "Can't delete — letter has been shared." });
   });
 
   it('own canvas: Share only; shared items have no menu', () => {

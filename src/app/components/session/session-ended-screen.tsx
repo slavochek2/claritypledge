@@ -16,7 +16,7 @@ export function SessionEndedScreen({ className }: SessionEndedScreenProps) {
         This session has ended
       </h2>
       <Button asChild className="w-full max-w-xs" size="lg">
-        <Link to="/artifacts">Go to Letters</Link>
+        <Link to="/artifacts">Go to Artifacts</Link>
       </Button>
     </div>
   );

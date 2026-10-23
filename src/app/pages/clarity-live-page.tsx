@@ -3064,7 +3064,7 @@ export function ClarityLivePage() {
       }
 
       // P921 Cause 1: A cold link/refresh to an ALREADY-ended session must show
-      // the SessionEndedScreen ("This session has ended" + Go to Letters), not
+      // the SessionEndedScreen ("This session has ended" + Go to Artifacts), not
       // route through join → live → PartnerLeftScreen. joinClaritySession returns
       // an ended row without writing joiner_name (see api.ts guard); detect it
       // here and short-circuit before transitioning to the live view.

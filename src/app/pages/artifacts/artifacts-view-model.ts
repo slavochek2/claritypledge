@@ -10,9 +10,10 @@
  *  - Yours = drafts + sent letters + own canvases. Shared with you = letters sent to you + canvases
  *    shared with you.
  *  - Inbox rows about activity on YOUR letters (completed, reading, responded) never become rows and
- *    never count as unread; they join onto the matching sent letter's "N replied".
- *  - One meta line per row; no recipients, no counts of stories or points, no second timestamp.
- *  - An unread mark exists only on Shared with you.
+ *    never count as unread; they join onto the matching sent letter's "N of M done".
+ *  - One meta line per row, `[state] · [one fact] · [time]` (Letters parity). Words, never a dot, for
+ *    activity on your own letters ("1 new from Tom"); "done" is the vocabulary everywhere.
+ *  - An unread dot exists only on Shared with you.
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { canvasPath } from '@/lib/canvas-boxes';
@@ -88,6 +89,8 @@ export interface ArtifactsSource {
   sharedCanvases: CanvasSharedWithMe[];
   /** The signed-in person's public handle: own canvas addresses are built with it. */
   userSlug: string | null;
+  /** Unread explain-backs per delivery id (the sender's "N new from <name>"). Absent = none. */
+  newByDelivery?: Record<string, number>;
 }
 
 export interface ArtifactsModel {
@@ -112,20 +115,55 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** "Draft · edited 2h ago". */
-export function draftMeta(updatedAt: string): string {
-  const ago = agoPhrase(updatedAt);
-  return ago ? `Draft · edited ${ago}` : 'Draft';
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** `[state] · [fact] · [time]`: empty parts are dropped. */
+function joinMeta(parts: (string | null | undefined | false)[]): string {
+  return parts.filter((p): p is string => !!p).join(' · ');
 }
 
-/** "Sent to 3 · 1 replied", "Public link · 2 replied". No replies yet: the reply part is dropped. */
-export function sentMeta(opts: { isPublic: boolean; recipientCount: number; repliedCount: number }): string {
-  const parts: string[] = [];
-  if (opts.isPublic) parts.push('Public link');
-  if (opts.recipientCount > 0) parts.push(`Sent to ${opts.recipientCount}`);
-  if (parts.length === 0) parts.push('No recipients yet');
-  if (opts.repliedCount > 0) parts.push(`${opts.repliedCount} replied`);
-  return parts.join(' · ');
+/**
+ * "Draft · 3 stories, 5 points · 2h ago"; a draft already sent: "Draft · 3 stories, 5 points · sent 2×".
+ */
+export function draftMeta(opts: { updatedAt: string; stories: number; points: number; sentCount?: number }): string {
+  const counts = `${plural(opts.stories, 'story', 'stories')}, ${plural(opts.points, 'point', 'points')}`;
+  const tail = opts.sentCount && opts.sentCount > 0 ? `sent ${opts.sentCount}×` : agoPhrase(opts.updatedAt);
+  return joinMeta(['Draft', counts, tail]);
+}
+
+/**
+ * "Sent to 3 · 1 of 3 done · 2d ago"; while something is new: "Sent to 3 · 1 new from Tom · 1h ago";
+ * public link: "Public link · 4 done · 2d ago".
+ */
+export function sentMeta(opts: {
+  isPublic: boolean;
+  recipientCount: number;
+  doneCount: number;
+  newCount?: number;
+  /** Names of the people the new items are from. */
+  newFrom?: string[];
+  sealedAt?: string | null;
+}): string {
+  const state = opts.isPublic ? 'Public link' : opts.recipientCount > 0 ? `Sent to ${opts.recipientCount}` : 'No recipients yet';
+  let fact: string | null = null;
+  if (opts.newCount && opts.newCount > 0) {
+    const who = opts.newFrom ?? [];
+    fact = `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
+  } else if (opts.isPublic) {
+    fact = opts.doneCount > 0 ? `${opts.doneCount} done` : null;
+  } else if (opts.recipientCount > 0) {
+    fact = `${Math.min(opts.doneCount, opts.recipientCount)} of ${opts.recipientCount} done`;
+  }
+  return joinMeta([state, fact, agoPhrase(opts.sealedAt)]);
+}
+
+/** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · done · 1w ago". */
+export function receivedLetterMeta(item: InboxItem): string {
+  const from = `From ${item.actor_name?.trim() || 'someone'}`;
+  let fact: string | null = null;
+  if (item.completed_at) fact = 'done';
+  else if (item.total_steps !== undefined) fact = `${Math.min(item.steps_completed ?? 0, item.total_steps)} of ${item.total_steps} steps`;
+  return joinMeta([from, fact, agoPhrase(item.timestamp)]);
 }
 
 /** "Edited 3d ago"; a canvas with no known edit just says "Canvas". */
@@ -166,7 +204,7 @@ export function senderActivityItems(inbox: InboxItem[]): InboxItem[] {
 }
 
 /**
- * Replies per sent letter: deliveries that completed, unioned by delivery id with the completed
+ * Done count per sent letter: deliveries that completed, unioned by delivery id with the completed
  * sender-side activity the inbox reported (the inbox is capped, the deliveries are not, so either
  * may lag the other).
  */
@@ -196,14 +234,14 @@ const ms = (iso: string | null | undefined): number => {
   return Number.isNaN(t) ? 0 : t;
 };
 
-export function draftRow(doc: ClarityDoc): ArtifactRow {
+export function draftRow(doc: ClarityDoc, sentCount = 0): ArtifactRow {
   return {
     key: `draft:${doc.id}`,
     kind: 'letter',
     tab: 'yours',
     state: 'draft',
     title: doc.title,
-    meta: draftMeta(doc.updated_at),
+    meta: draftMeta({ updatedAt: doc.updated_at, stories: doc.story_count, points: doc.point_count, sentCount }),
     visibility: doc.visibility === 'public' ? 'public' : 'private',
     unread: false,
     href: `/letters/drafts/${doc.id}`,
@@ -225,16 +263,24 @@ export function draftRow(doc: ClarityDoc): ArtifactRow {
   };
 }
 
-export function sentRow(letter: SentLetter, deliveries: LetterDelivery[], replied: number): ArtifactRow {
+export function sentRow(
+  letter: SentLetter,
+  deliveries: LetterDelivery[],
+  done: number,
+  newByDelivery: Record<string, number> = {},
+): ArtifactRow {
   const isPublic = letter.mode === 'one-to-many';
   const recipientCount = deliveries.filter(d => d.receiver_email).length;
+  const withNew = deliveries.filter(d => (newByDelivery[d.id] ?? 0) > 0);
+  const newCount = withNew.reduce((n, d) => n + (newByDelivery[d.id] ?? 0), 0);
+  const newFrom = [...new Set(withNew.map(d => d.receiver_name?.trim() || 'someone'))];
   return {
     key: `sent:${letter.id}`,
     kind: 'letter',
     tab: 'yours',
     state: 'sent',
     title: letter.doc_title,
-    meta: sentMeta({ isPublic, recipientCount, repliedCount: replied }),
+    meta: sentMeta({ isPublic, recipientCount, doneCount: done, newCount, newFrom, sealedAt: letter.sealed_at ?? letter.created_at }),
     visibility: isPublic ? 'public' : 'private',
     unread: false,
     href: `/letter/${letter.id}/overview`,
@@ -243,10 +289,14 @@ export function sentRow(letter: SentLetter, deliveries: LetterDelivery[], replie
       { id: 'preview-letter', label: 'Preview letter' },
       { id: 'add-recipients', label: 'Add recipient(s)' },
       ...(isPublic ? [{ id: 'copy-public-link' as const, label: 'Copy public link' }] : []),
-      // Any delivery (recipients and link respondents) means the letter was shared: it cannot be deleted,
-      // so the item is left out rather than drawn disabled (the overview page explains why). The handler
-      // still maps DELIVERIES_EXIST from the server to a toast.
-      ...(deliveries.length === 0 ? [{ id: 'delete-letter' as const, label: 'Delete letter', danger: true }] : []),
+      // Any delivery (recipients and link respondents) means the letter was shared: Delete stays in the
+      // menu, disabled with today's reason. The handler still maps DELIVERIES_EXIST from the server.
+      {
+        id: 'delete-letter' as const,
+        label: 'Delete letter',
+        danger: true,
+        ...(deliveries.length > 0 ? { disabledReason: "Can't delete — letter has been shared." } : {}),
+      },
     ],
     ref: { letterId: letter.id, sourceDocId: letter.source_doc_id, isPublicLetter: isPublic },
   };
@@ -276,7 +326,7 @@ export function receivedLetterRow(item: InboxItem): ArtifactRow {
     tab: 'shared',
     state: 'received-letter',
     title: item.title,
-    meta: sharedMeta(item.actor_name, item.timestamp),
+    meta: receivedLetterMeta(item),
     visibility: null,
     unread: !item.read_at,
     // A finished letter goes straight to its results; an open one to the reading flow (inbox-tab.tsx).
@@ -310,9 +360,11 @@ const newestFirst = (a: ArtifactRow, b: ArtifactRow) => b.sortAt - a.sortAt;
 
 export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
   const replied = repliedCountByLetter(src.deliveriesByLetter, src.inbox);
+  const sentCounts: Record<string, number> = {};
+  for (const l of src.sentLetters) sentCounts[l.source_doc_id] = (sentCounts[l.source_doc_id] ?? 0) + 1;
   const yours = [
-    ...src.docs.map(draftRow),
-    ...src.sentLetters.map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0)),
+    ...src.docs.map(d => draftRow(d, sentCounts[d.id] ?? 0)),
+    ...src.sentLetters.map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery)),
     ...src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)),
   ].sort(newestFirst);
   const shared = [

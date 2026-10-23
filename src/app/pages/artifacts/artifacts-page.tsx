@@ -183,6 +183,9 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
           onCreateLetter={visibility => void handleCreateLetter(visibility)}
         />
 
+        {/* The live invite sits above both tabs: it is a session to join, not an item of either list. */}
+        {invite && !invite.closedAt && <LiveInviteRow invite={invite} />}
+
         <Tabs value={tab} onValueChange={handleTab}>
           {/* Not sticky: header, tabs and chips scroll together, as on Feed and Chats. */}
           <div>
@@ -222,7 +225,6 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
               onOpen={handleOpen}
               onRefresh={data.refresh}
               onClearFilters={clearFilters}
-              invite={type === 'all' && !query.trim() && invite && !invite.closedAt ? invite : null}
             />
           </TabsContent>
         </Tabs>
@@ -266,20 +268,14 @@ interface ListProps {
   onOpen: (row: ArtifactRow) => void;
   onRefresh: () => Promise<void>;
   onClearFilters: () => void;
-  invite?: OpenLiveInvite | null;
 }
 
-function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onClearFilters, invite = null }: ListProps) {
+function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onClearFilters }: ListProps) {
   const refresh = () => { void onRefresh(); };
-
-  // The live invite loads on its own: it shows in every state of the artifact sources, and the
-  // wrapper stays one element so the row never remounts as those sources settle.
-  const inviteRow = invite ? <LiveInviteRow invite={invite} /> : null;
 
   if (data.status === 'loading' || data.status === 'error') {
     return (
       <div>
-        {inviteRow}
         {data.status === 'loading' ? (
           <div className="flex justify-center py-12" role="status" aria-label="Loading">
             <ClarityLoader size="lg" />
@@ -300,7 +296,6 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
 
   return (
     <div>
-      {inviteRow}
       {data.partial && (
         <p role="status" className="flex flex-wrap items-center gap-x-3 pb-2 text-sm text-muted-foreground">
           Some items could not be loaded.
@@ -313,7 +308,7 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
         // [FOUNDER DECISION: "Loading more…" copy is a placeholder.]
         <p role="status" className="pb-2 text-sm text-muted-foreground">Loading more…</p>
       )}
-      {rows.length === 0 && !invite ? (
+      {rows.length === 0 ? (
         data.pending ? null : <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
       ) : (
         <ul className="flex flex-col divide-y divide-border/60" aria-label={tab === 'yours' ? 'Your artifacts' : 'Shared with you'}>
@@ -355,7 +350,7 @@ function EmptyLine({
   );
 }
 
-/** P703: the open live invite, above the shared items; it disappears when the session closes. */
+/** P703: the open live invite, above both tabs; it disappears when the session closes. */
 function LiveInviteRow({ invite }: { invite: OpenLiveInvite }) {
   const navigate = useNavigate();
   return (

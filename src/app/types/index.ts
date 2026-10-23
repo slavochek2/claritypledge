@@ -1789,6 +1789,10 @@ export interface LetterOverviewPayload {
     sender_id: string;
     /** P1379: letter mode; null when unreadable (fails closed: no prediction shown). */
     mode: LetterMode | null;
+    /** P1545: for Preview; null when unreadable. */
+    source_doc_id?: string | null;
+    /** P1545: for the "Sealed" date; null when unreadable. */
+    sealed_at?: string | null;
     sender: {                  // P843: author avatar + full name for overview header
       profile_id: string | null;
       name: string;

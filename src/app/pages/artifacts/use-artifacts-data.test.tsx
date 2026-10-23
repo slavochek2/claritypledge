@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getAllReceivedLetters: vi.fn(),
   listMyCanvases: vi.fn(),
   listSharedWithMe: vi.fn(),
+  getUnreadExplainBackCountsByDelivery: vi.fn(),
 }));
 vi.mock('@/app/data/docs-service', () => ({ docsService: { getDocsByUserOrThrow: mocks.getDocsByUserOrThrow } }));
 vi.mock('@/app/data/letters-service', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/app/data/letters-service', () => ({
   getDeliveriesForLettersOrThrow: mocks.getDeliveriesForLettersOrThrow,
   getInboxItems: mocks.getInboxItems,
   getAllReceivedLetters: mocks.getAllReceivedLetters,
+  getUnreadExplainBackCountsByDelivery: mocks.getUnreadExplainBackCountsByDelivery,
 }));
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: mocks.listSharedWithMe },
@@ -40,6 +42,7 @@ beforeEach(() => {
   mocks.getAllReceivedLetters.mockResolvedValue([]);
   mocks.listMyCanvases.mockResolvedValue([]);
   mocks.listSharedWithMe.mockResolvedValue([]);
+  mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
 });
 
 describe('useArtifactsData ordering and failures', () => {
@@ -64,9 +67,34 @@ describe('useArtifactsData ordering and failures', () => {
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('rpc down'));
     await act(async () => { await result.current.refresh(); });
     expect(result.current.yours.rows).toHaveLength(1);
-    expect(result.current.yours.rows[0].menu.map(a => a.id)).not.toContain('delete-letter');
+    expect(result.current.yours.rows[0]?.menu.find(a => a.id === 'delete-letter')?.disabledReason).toBeTruthy();
     expect(result.current.yours.partial).toBe(true);
     expect(result.current.yours.status).toBe('ready');
+  });
+});
+
+describe('useArtifactsData activity source', () => {
+  const letter = { id: 'l1', source_doc_id: 'd9', sender_id: 'me', mode: 'one-to-one', status: 'sealed', sealed_at: new Date().toISOString(), created_at: new Date().toISOString(), doc_title: 'Hello Tom' };
+  const deliveries = { l1: [{ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', receiver_name: 'Tom', status: 'completed' }] };
+
+  it('unread explain-backs become "N new from <name>" on the sent letter', async () => {
+    mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
+    mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ dv1: 2 });
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    expect(mocks.getUnreadExplainBackCountsByDelivery).toHaveBeenCalledWith(['dv1']);
+    expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
+  });
+
+  it('a failing activity read degrades to no "new" part, never to an error', async () => {
+    mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
+    mocks.getUnreadExplainBackCountsByDelivery.mockRejectedValue(new Error('x'));
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 1 of 1 done/);
+    expect(result.current.yours.partial).toBe(false);
   });
 });
 

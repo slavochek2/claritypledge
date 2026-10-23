@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getAllReceivedLetters: vi.fn(),
   markDeliveryRead: vi.fn(),
   deleteLetter: vi.fn(),
+  getUnreadExplainBackCountsByDelivery: vi.fn(),
   listMyCanvases: vi.fn(),
   listSharedWithMe: vi.fn(),
   markCanvasRead: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('@/app/data/letters-service', () => ({
   getAllReceivedLetters: mocks.getAllReceivedLetters,
   markDeliveryRead: mocks.markDeliveryRead,
   deleteLetter: mocks.deleteLetter,
+  getUnreadExplainBackCountsByDelivery: mocks.getUnreadExplainBackCountsByDelivery,
 }));
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: {
@@ -106,6 +108,7 @@ beforeEach(() => {
   mocks.listSharedWithMe.mockResolvedValue([
     { canvasId: 'c1', name: 'q4_plan', ownerId: 'o1', ownerName: 'Tom', ownerSlug: 'tom', ownerAvatarUrl: null, ownerAvatarColor: null, via: 'person', viaName: null, sharedAt: ago(H), unread: true },
   ]);
+  mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
   mocks.markDeliveryRead.mockResolvedValue(undefined);
   mocks.markCanvasRead.mockResolvedValue(undefined);
 });
@@ -117,7 +120,7 @@ describe('Artifacts page', () => {
     expect(screen.getByRole('tab', { name: 'Yours' })).toHaveAttribute('aria-selected', 'true');
     expect(rows().map(r => within(r).getByRole('heading').textContent)).toEqual(['Draft about trust', 'Hello Tom', 'sales map']);
     const metas = screen.getAllByTestId('artifact-meta').map(m => m.textContent);
-    expect(metas).toEqual(['Draft · edited 2h ago', 'Sent to 1 · 1 replied', 'Edited 3d ago']);
+    expect(metas).toEqual(['Draft · 2 stories, 3 points · 2h ago', 'Sent to 1 · 1 of 1 done · 1d ago', 'Edited 3d ago']);
     // one fixed button at most: none, the row link opens the item
     expect(screen.queryByRole('button', { name: /^(open|edit|results)/i })).toBeNull();
   });
@@ -169,7 +172,7 @@ describe('Artifacts page', () => {
     await screen.findByText('Draft about trust');
     const row = rows()[0]!;
     const meta = within(row).getByTestId('artifact-meta');
-    expect(meta.textContent).toBe('Draft · edited 2h ago');
+    expect(meta.textContent).toBe('Draft · 2 stories, 3 points · 2h ago');
     const icon = within(row).getByRole('img', { name: /Only people you share with/ });
     expect(meta.parentElement).toContainElement(icon);
     expect(within(row).getByRole('heading')).not.toContainElement(icon);
@@ -360,13 +363,13 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBeGreaterThan(calls));
     });
 
-    it('sent letter: no Delete item once shared; Add recipient(s) opens the modal', async () => {
+    it('sent letter: Delete letter is shown disabled with its reason once shared; Add recipient(s) opens the modal', async () => {
       const user = userEvent.setup();
       renderPage();
       await openMenu(user, 'Hello Tom');
       await screen.findByRole('menuitem', { name: 'Add recipient(s)' });
-      expect(screen.queryByRole('menuitem', { name: /Delete letter/ })).toBeNull(); // omitted, not disabled
-      expect(screen.queryByText("Can't delete — letter has been shared.")).toBeNull();
+      expect(screen.getByRole('menuitem', { name: /Delete letter/ })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByText("Can't delete — letter has been shared.")).toBeInTheDocument();
       expect(screen.queryByRole('menuitem', { name: /Copy public link/ })).toBeNull(); // private letter
       await user.click(screen.getByRole('menuitem', { name: 'Add recipient(s)' }));
       expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
@@ -469,7 +472,7 @@ describe('Artifacts page', () => {
   });
 
   describe('live invite', () => {
-    it('sits at the top of Shared with you with Join, and counts in the tab number', async () => {
+    it('sits above both tabs with Join (here seen on Shared with you), and counts in the tab number', async () => {
       mocks.invite.current = { sessionId: 's1', code: 'ABC', authorName: 'Zed', storyTitle: 'A story', closedAt: null };
       renderPage('/artifacts?tab=shared');
       const row = await screen.findByTestId('live-invite-row');
@@ -503,11 +506,13 @@ describe('Artifacts page', () => {
       expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     });
 
-    it('is not drawn on Yours', async () => {
+    it('is drawn above Yours too, and stays when a type chip or search is active', async () => {
       mocks.invite.current = { sessionId: 's1', code: 'ABC', authorName: 'Zed', storyTitle: 'A story', closedAt: null };
-      renderPage();
-      await screen.findByText('Draft about trust');
-      expect(screen.queryByTestId('live-invite-row')).toBeNull();
+      renderPage('/artifacts?type=canvases');
+      await screen.findByText('sales map');
+      const row = screen.getByTestId('live-invite-row');
+      expect(row).toHaveTextContent('Zed invited you to verify A story');
+      expect(row.compareDocumentPosition(screen.getByRole('tab', { name: 'Yours' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 

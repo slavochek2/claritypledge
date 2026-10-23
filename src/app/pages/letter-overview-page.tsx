@@ -13,8 +13,18 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
 import { CohortTable } from '@/app/components/letters/cohort-table';
-import { getLetterOverview } from '@/app/data/letters-service';
-import type { LetterOverviewPayload } from '@/app/types';
+import { LetterRecipientsSection } from '@/app/components/letters/letter-recipients-section';
+import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
+import {
+  getDeliveriesForLettersOrThrow,
+  getExplainBacksForDelivery,
+  getLetterOverview,
+  markExplainBackRead,
+  getUnreadExplainBackCountsByDelivery,
+  markDeliveryRead,
+} from '@/app/data/letters-service';
+import { toast } from 'sonner';
+import type { LetterDelivery, LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
@@ -63,6 +73,11 @@ export function LetterOverviewPage() {
   const [pageState, setPageState] = useState<PageState>('loading');
   const [payload, setPayload] = useState<LetterOverviewPayload | null>(null);
   const trackedLetterIdRef = useRef<string | null>(null);
+  // Recipients section: status, steps and "new" marks come from the deliveries read, which the overview RPC lacks.
+  const [deliveries, setDeliveries] = useState<LetterDelivery[]>([]);
+  const [recipientsFailed, setRecipientsFailed] = useState(false);
+  const [newByDelivery, setNewByDelivery] = useState<Record<string, number>>({});
+  const [addOpen, setAddOpen] = useState(false);
 
   // Auth gate — redirect to login if unauthenticated
   useEffect(() => {
@@ -86,11 +101,26 @@ export function LetterOverviewPage() {
     if (!letterId || !user) return;
     setPageState('loading');
     try {
-      const result = await getLetterOverview(letterId);
+      const [result, recipients] = await Promise.all([
+        getLetterOverview(letterId),
+        getDeliveriesForLettersOrThrow([letterId]).then(
+          (grouped) => grouped[letterId] ?? [],
+          () => null,
+        ),
+      ]);
       if (!result) {
         // RPC returned null/empty — not author, or not sealed
         setPageState('not-authorized');
         return;
+      }
+      setRecipientsFailed(recipients === null);
+      if (recipients) {
+        setDeliveries(recipients);
+        try {
+          setNewByDelivery((await getUnreadExplainBackCountsByDelivery(recipients.map((d) => d.id))) ?? {});
+        } catch {
+          setNewByDelivery({});
+        }
       }
       if (result.deliveries.length === 0) {
         setPayload(result);
@@ -146,20 +176,33 @@ export function LetterOverviewPage() {
     );
   }
 
-  // ── Empty (zero deliveries) ─────────────────────────────────────────────────
-  if (pageState === 'empty' || !payload) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <FocusHeader fallback={BACK_FALLBACK} />
-        <div className="py-12">
-          <p className="text-muted-foreground text-sm">No recipients on this letter yet.</p>
-        </div>
-      </div>
-    );
-  }
+  if (!payload) return null;
 
   // ── Success ─────────────────────────────────────────────────────────────────
-  const { letter, stories, deliveries, predictions, ratings, pointResponses } = payload;
+  const { letter, stories, predictions, ratings, pointResponses } = payload;
+  const isPublic = letter.mode === 'one-to-many';
+  const hasCohort = payload.deliveries.length > 0;
+
+  const handleResultsOpened = (deliveryId: string) => {
+    setNewByDelivery((prev) => (prev[deliveryId] ? { ...prev, [deliveryId]: 0 } : prev));
+    // Opening their results is how the author sees what a person sent back: clear the unread
+    // explain-backs and the inbox row too, best effort (the mark returns on the next load if this fails).
+    void markDeliveryRead(deliveryId).catch(() => {});
+    void getExplainBacksForDelivery(deliveryId)
+      .then((rows) => Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id))))
+      .catch(() => {});
+  };
+  const handlePreview = () => {
+    if (letter.source_doc_id) window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
+  };
+  const handleCopyPublicLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/letter/${letter.id}`);
+      toast.success('Link copied to clipboard');
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -195,7 +238,27 @@ export function LetterOverviewPage() {
           </div>
         </div>
 
-        {stories.map((story) => {
+        {recipientsFailed ? (
+          <section>
+            <h2 className="mb-1 text-base font-medium text-foreground">Recipients</h2>
+            <p className="text-sm text-muted-foreground">Something went wrong loading the recipients.</p>
+            <Button variant="outline" className="mt-2 min-h-10" onClick={fetchData}>Retry</Button>
+          </section>
+        ) : (
+          <LetterRecipientsSection
+            letterId={letter.id}
+            isPublic={isPublic}
+            deliveries={deliveries}
+            newByDelivery={newByDelivery}
+            sealedAt={letter.sealed_at ?? null}
+            onResultsOpened={handleResultsOpened}
+            onAddRecipients={() => setAddOpen(true)}
+            onPreview={handlePreview}
+            onCopyPublicLink={() => void handleCopyPublicLink()}
+          />
+        )}
+
+        {hasCohort && stories.map((story) => {
           const heading = snippet(stripHashtags(story.content, story.hashtags), 80) || 'Untitled story';
           return (
           <section key={story.story_id}>
@@ -206,7 +269,7 @@ export function LetterOverviewPage() {
             </h2>
             <CohortTable
               story={story}
-              deliveries={deliveries}
+              deliveries={payload.deliveries}
               ratings={ratings}
               predictions={predictions}
               responses={pointResponses}
@@ -216,6 +279,19 @@ export function LetterOverviewPage() {
           </section>
           );
         })}
+
+        {addOpen && (
+          <LetterReceiverModal
+            mode="add-recipient"
+            open
+            onOpenChange={setAddOpen}
+            letterId={letter.id}
+            onRecipientAdded={() => {
+              setAddOpen(false);
+              void fetchData();
+            }}
+          />
+        )}
 
         {/* P1364 §3 — the same way out at the end of the page. */}
         <BottomBackButton fallback={BACK_FALLBACK} testId="letter-overview-bottom-back" className="mt-0" />

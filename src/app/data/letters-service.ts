@@ -1681,11 +1681,13 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
   // letter. Unreadable → null, which fails closed (no prediction column).
   const { data: modeRow, error: modeError } = await supabase
     .from('clarity_letters')
-    .select('mode')
+    .select('mode, source_doc_id, sealed_at')
     .eq('id', letterId)
     .maybeSingle();
   if (modeError) logDbError('getLetterOverview.mode', modeError);
   const letterMode = ((modeRow as { mode?: string } | null)?.mode ?? null) as LetterMode | null;
+  const sourceDocId = ((modeRow as { source_doc_id?: string } | null)?.source_doc_id ?? null);
+  const sealedAt = ((modeRow as { sealed_at?: string } | null)?.sealed_at ?? null);
 
   return {
     letter: (() => {
@@ -1696,6 +1698,8 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
         status: (letterRaw['status'] as string) ?? '',
         sender_id: (letterRaw['sender_id'] as string) ?? '',
         mode: letterMode,
+        source_doc_id: sourceDocId,
+        sealed_at: sealedAt,
         sender: {
           profile_id: (senderRaw['profile_id'] as string | null) ?? null,
           name: (senderRaw['name'] as string) ?? 'Author',
