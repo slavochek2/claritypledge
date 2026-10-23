@@ -651,8 +651,8 @@ test.describe('monitoring, stats, reflection', () => {
     await collapseSidebar(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
     const tiles = page.locator('.d-srcc')
-    await expect(tiles).toHaveCount(2)
-    for (const i of [0, 1]) expect((await rectOf(tiles.nth(i), 'card')).width).toBeGreaterThanOrEqual(240)
+    await expect(tiles).toHaveCount(3) // P1552: Google Cloud, Subscriptions, Token usage
+    for (const i of [0, 1, 2]) expect((await rectOf(tiles.nth(i), 'card')).width).toBeGreaterThanOrEqual(240)
     const title = tiles.filter({ hasText: 'Subscriptions' }).locator('.d-n')
     expect(await title.evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length })).toBe(1)
     await expect(tiles.first().locator('.d-v')).toHaveText('€70 / €400')
