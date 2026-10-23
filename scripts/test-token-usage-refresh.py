@@ -170,5 +170,24 @@ with tempfile.TemporaryDirectory() as h:  # end to end through the script, fake 
     blk = json.load(open(os.path.join(h, '.claude', '.token-usage-out', 'tokens-block.json')))
     check('gemini: the script reads HOME/.agents/logs/delegation.log into the block', rc == 0 and sum(w.get('gemini_calls', 0) for w in blk['weeks']) == 1, blk['weeks'][-2:])
 
+# 5. P1552 review: a crash while building the tokens block must not cost quota.json or the TOKENS line
+with tempfile.TemporaryDirectory() as h:
+    write(h + '/.claude/projects/-Users-x-Projects-public-demo/s1.jsonl', [claude_line('m1', 'r1', 5)])
+    write(h + '/.claude/.quota-cache.json', [json.dumps({'five_hour_pct': 10, 'seven_day_pct': 20})])
+    driver = ("import importlib.util, sys\n"
+              "spec = importlib.util.spec_from_file_location('tur2', %r)\n"
+              "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+              "def boom(*a, **k): raise RuntimeError('forced')\n"
+              "m.reduce_tokens = boom\n"
+              "m.main(sys.argv[1])\n" % SCRIPT)
+    out_dir = os.path.join(h, '.claude', '.token-usage-out')
+    p = subprocess.run([sys.executable, '-c', driver, out_dir], env=dict(os.environ, HOME=h), capture_output=True, text=True)
+    check('forced reduce failure: the run still exits 0', p.returncode == 0, p.stderr[-300:])
+    check('forced reduce failure: the block is {collected:false}', json.load(open(out_dir + '/tokens-block.json')) == {'collected': False}, '')
+    check('forced reduce failure: quota.json is still written', json.load(open(out_dir + '/quota.json'))[1]['used_pct'] == 20, '')
+    check('forced reduce failure: the TOKENS line is still printed', 'TOKENS:' in p.stdout and 'Files:' in p.stdout, p.stdout[-200:])
+    check('forced reduce failure: the daily file is still written', os.path.exists(out_dir + '/token-usage-daily.json'), '')
+    check('forced reduce failure: the reason is reported on stderr', 'forced' in p.stderr, p.stderr[-200:])
+
 print('\n%d failed' % len(failures) if failures else '\nall passed')
 sys.exit(1 if failures else 0)

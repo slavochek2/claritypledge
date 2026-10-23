@@ -52,7 +52,7 @@ Build order matters because one contract joins three parts. `/dev` may split B i
    tokens: { collected, as_of,                       // latest log day included
      weeks:  [{ p, output:{Opus,Sonnet,Haiku,Fable,Codex}, median4?, days:{claude,codex}, ctx_per_reply? }],   // last ~13 completed weeks
      months: [ same shape ],                         // last ~10 completed months
-     projects_28d: [{ project, output, share }] }    // top 8 plus "all others"
+     projects_28d: [{ project, output, share }] }    // top 5 plus "all others" (changed to 5 after the design review, 2026-10-23)
    ```
    Model share is computed by the pane from the per-family outputs, not stored. Context per reply is Claude only.
 2. The reduction from the collector's rows to this block lives in the collector (`scripts/token-usage-refresh.py`), tested with synthetic logs, so the personal writer only reads a file.
@@ -118,7 +118,7 @@ States:
 - fewer than two earlier periods (the median line is hidden, the reading says "no baseline yet");
 - Claude missing but Codex present, and the reverse (only the series that exist are drawn and listed);
 - a period with no usage (a zero, not a gap);
-- many projects (top 8 plus "all others"; long names truncate, full name on hover);
+- many projects (top 5 plus "all others"; long names truncate, full name on hover) (changed to 5 after the design review, 2026-10-23);
 - 375px width (readings stack, nothing clipped).
 
 Siblings to compare against: the Subscriptions and Google Cloud panes.

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { parseReport, type DayReport, type DayTokens } from '../../src/lib/day'
 import { TokenUsage } from '../../src/components/day/TokenUsage'
 import { MonitoringTab } from '../../src/components/day/MonitoringTab'
-import { FAMILY_COLOUR, fmtTokens, visibleStacks, TOOL_COLOUR, tokenReadings, tokensEmpty } from '../../src/components/day/tokens'
+import { allocatePercent, FAMILY_COLOUR, fittingLabels, fmtTokens, visibleStacks, TOOL_COLOUR, tokenReadings, tokensEmpty } from '../../src/components/day/tokens'
 import { synthReport } from './fixtures/day-fixture'
 import { SYNTH_TOKENS } from './fixtures/day-tokens'
 
@@ -77,6 +77,25 @@ describe('P1552 parser', () => {
     expect('gemini_calls' in t.weeks[2] || 'gemini' in t.weeks[2].days).toBe(false)
   })
 
+  it('CALENDAR — week starts must be real Mondays, months 01-12, days at most the period length; bad rows dropped', () => {
+    const row = (p: string, days: object = { claude: 1 }) => ({ p, output: { Opus: 1 }, days })
+    const t = parsed({
+      collected: true,
+      weeks: [row('2026-10-05'), row('2026-10-06'), row('2026-02-30'), row('2026-13-05'), row('2026-10-12', { claude: 8 }), row('2026-10-19', { claude: 7, gemini: 7 })],
+      months: [row('2026-02', { claude: 28 }), row('2026-13'), row('2026-00'), row('2026-02-', {}), row('2026-04', { claude: 31 }), row('2026-03', { claude: 31 })],
+      projects_28d: [],
+    }).monitoring!.tokens!
+    expect(t.weeks.map((w) => w.p)).toEqual(['2026-10-05', '2026-10-19']) // not a Monday, impossible date, month 13, 8 days in a week
+    expect(t.months.map((m) => m.p)).toEqual(['2026-02', '2026-03']) // April has 30 days, so 31 is out
+  })
+
+  it('ORDER — periods are sorted oldest first and a repeated period is kept once', () => {
+    const row = (p: string, n: number) => ({ p, output: { Opus: n }, days: { claude: 1 } })
+    const t = parsed({ collected: true, weeks: [row('2026-10-12', 3), row('2026-10-05', 1), row('2026-10-12', 99), row('2026-09-28', 2)], months: [row('2026-10', 1).p === '' ? [] : { p: '2026-10', output: {}, days: {} }, { p: '2026-09', output: {}, days: {} }, { p: '2026-10', output: { Opus: 5 }, days: {} }], projects_28d: [] }).monitoring!.tokens!
+    expect(t.weeks.map((w) => [w.p, w.output.Opus])).toEqual([['2026-09-28', 2], ['2026-10-05', 1], ['2026-10-12', 3]])
+    expect(t.months.map((m) => m.p)).toEqual(['2026-09', '2026-10'])
+  })
+
   it('NOT A BLOCK — a non-object tokens field is absent, not an empty collected block', () => {
     expect(parsed('x').monitoring?.tokens).toBeUndefined()
     expect(parsed({ collected: false }).monitoring?.tokens).toEqual({ collected: false, weeks: [], months: [], projects_28d: [] })
@@ -99,26 +118,51 @@ describe('P1552 readings', () => {
     expect(tokenReadings(SYNTH_TOKENS, 'week').ratio).toBeGreaterThan(1.5)
     expect('spikeProject' in tokenReadings(SYNTH_TOKENS, 'week')).toBe(false)
   })
-  it('shares: what the key leaves out is shown as Other, so the key reads 100%', () => {
+  it('shares: largest-remainder percentages add up to exactly 100, over families that have output', () => {
     const sum = (t: DayTokens) => tokenReadings(t, 'week').shares.reduce((a, s) => a + s.pct, 0)
-    // three equal families round to 33% each (99%): the missing 1% is Other
-    const thirds: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 100, Sonnet: 100, Codex: 100 }, days: { claude: 1 } }] }
-    const r = tokenReadings(thirds, 'week')
-    expect(r.shares.map((s) => [s.family, s.pct])).toEqual([['Opus', 33], ['Sonnet', 33], ['Codex', 33], ['Other', 1]])
+    const week = (output: Record<string, number>): DayTokens => ({ ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output, days: { claude: 1 } }] })
+    const thirds = week({ Opus: 100, Sonnet: 100, Codex: 100 })
+    expect(tokenReadings(thirds, 'week').shares.map((s) => [s.family, s.pct])).toEqual([['Opus', 34], ['Sonnet', 33], ['Codex', 33]]) // no phantom Other
     expect(sum(thirds)).toBe(100)
-    // a family that rounds to 0% is folded into Other, with its real value
-    const tiny: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 98_000, Haiku: 400, Codex: 400, Sonnet: 1_200 }, days: { claude: 1 } }] }
+    const tiny = week({ Opus: 98_000, Haiku: 400, Codex: 400, Sonnet: 1_200 })
     const t = tokenReadings(tiny, 'week').shares
-    expect(t.map((s) => s.family)).toEqual(['Opus', 'Sonnet', 'Other'])
-    expect(t.find((s) => s.family === 'Other')?.value).toBe(800)
+    expect(t.map((s) => [s.family, s.pct])).toEqual([['Opus', 98], ['Sonnet', 1], ['Haiku', 1]]) // Codex rounds to 0 and is hidden
     expect(sum(tiny)).toBe(100)
-    // an existing Other family absorbs the rest instead of a second Other row
-    const withOther: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 100, Sonnet: 100, Other: 100 }, days: { claude: 1 } }] }
-    expect(tokenReadings(withOther, 'week').shares.filter((s) => s.family === 'Other')).toHaveLength(1)
-    expect(sum(withOther)).toBe(100)
-    expect(sum(SYNTH_TOKENS)).toBe(100) // control: an already-whole key gains nothing
+    expect(sum(SYNTH_TOKENS)).toBe(100)
     expect(tokenReadings(SYNTH_TOKENS, 'week').shares.map((s) => s.family)).not.toContain('Other')
-    expect(renderToStaticMarkup(TokenUsage({ tokens: thirds, per: 'week' }))).toContain('Other 1%')
+    expect(renderToStaticMarkup(TokenUsage({ tokens: thirds, per: 'week' }))).not.toContain('Other')
+    for (const v of [[1, 1, 1], [7, 3], [1, 2, 4, 8, 16], [999, 1], [1, 1, 1, 1, 1, 1, 1]]) expect(allocatePercent(v).reduce((a, b) => a + b, 0)).toBe(100)
+    expect(allocatePercent([0, 0])).toEqual([0, 0])
+  })
+  it('shares: a period with no output has none, and the pane shows a dash, not "Other 100%"', () => {
+    const zero: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: {}, days: { claude: 0 } }] }
+    expect(tokenReadings(zero, 'week').shares).toEqual([])
+    const h = renderToStaticMarkup(TokenUsage({ tokens: zero, per: 'week' }))
+    expect(h).not.toContain('Other')
+    expect(h).toMatch(/data-reading="share"[^]*?<b>—<\/b>/)
+    const zeroWithOther: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 0, Mystery: 0 }, days: {} }] }
+    expect(tokenReadings(zeroWithOther, 'week').shares).toEqual([])
+  })
+  it('an unknown family counts as Other: in the shares and in the bars, so a bar total matches its stack', () => {
+    const odd: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 50, Mystery: 30, Other: 20 }, days: { claude: 1 } }] }
+    expect(tokenReadings(odd, 'week').shares.map((s) => [s.family, s.pct])).toEqual([['Opus', 50], ['Other', 50]])
+    const h = renderToStaticMarkup(TokenUsage({ tokens: odd, per: 'week' }))
+    expect(h).toContain('Other 5 Oct: 50') // 30 + 20 in one segment
+    expect(h).not.toContain('Mystery')
+    const heights = [...h.matchAll(/<rect[^>]*height="([\d.]+)"/g)].map((m) => +m[1])
+    const total = renderToStaticMarkup(TokenUsage({ tokens: { ...odd, weeks: [{ p: '2026-10-05', output: { Opus: 100 }, days: { claude: 1 } }] }, per: 'week' }))
+    const full = [...total.matchAll(/<rect[^>]*height="([\d.]+)"/g)].map((m) => +m[1])[0]
+    expect(heights.reduce((a, b) => a + b, 0)).toBeCloseTo(full, 3) // stack height equals a bar of the same total
+  })
+  it('caption: "no baseline yet" (too little history) is not "no change vs usual" (baseline, nothing moved)', () => {
+    const wk = (p: string) => ({ p, output: { Opus: 90, Codex: 10 }, days: { claude: 1 } })
+    const flat: DayTokens = { ...SYNTH_TOKENS, weeks: [wk('2026-09-14'), wk('2026-09-21'), wk('2026-09-28'), wk('2026-10-05')] }
+    expect(tokenReadings(flat, 'week')).toMatchObject({ baseline: true, mover: null })
+    const h = renderToStaticMarkup(TokenUsage({ tokens: flat, per: 'week' }))
+    expect(h).toMatch(/data-share-caption="true">no change vs usual</)
+    const young: DayTokens = { ...SYNTH_TOKENS, weeks: [wk('2026-09-28'), wk('2026-10-05')] }
+    expect(tokenReadings(young, 'week')).toMatchObject({ baseline: false, mover: null })
+    expect(renderToStaticMarkup(TokenUsage({ tokens: young, per: 'week' }))).toMatch(/data-share-caption="true">no baseline yet</)
   })
   it('largest mover: share now against the median share of the periods before', () => {
     const weeks = [
@@ -263,6 +307,33 @@ describe('P1552 pane render', () => {
     const none = html({ ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: undefined })) })
     expect(none).toContain('no baseline yet') // control: missing is not zero
     expect(none).not.toContain('data-usual=')
+  })
+  it('the total label sits above the dashed tick, never struck through by it', () => {
+    const y = (h: string, re: RegExp) => +(re.exec(h)?.[1] ?? NaN)
+    // usual above the bar (110 > 100), equal, and below: the label is always above the higher of bar top and tick
+    for (const usual of [110, 100, 60]) {
+      const t: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 100 }, days: { claude: 1 }, median4: usual }] }
+      const h = html(t)
+      const label = y(h, /y="([\d.]+)"[^>]*data-bar-total/)
+      const tick = y(h, /<g data-usual[^>]*><line [^>]*y1="([\d.]+)"/)
+      const barTop = y(h, /<rect [^>]*y="([\d.]+)"/)
+      expect(label).toBeLessThan(Math.min(tick, barTop) - 4) // baseline clears the tick (2px stroke + 2px outline) and the bar
+    }
+  })
+  it('legend order is fixed: Opus, Sonnet, Haiku, Fable, Other, Codex - whichever periods carry which family', () => {
+    const w = (p: string, output: Record<string, number>) => ({ p, output, days: { claude: 1 } })
+    const t: DayTokens = { ...SYNTH_TOKENS, weeks: [w('2026-09-14', { Opus: 5 }), w('2026-09-21', { Codex: 5, Opus: 1 }), w('2026-09-28', { Other: 2, Fable: 2, Haiku: 2, Sonnet: 2 })] }
+    const legend = html(t).split('class="d-legend"')[1].split('</div>')[0]
+    const names = [...legend.matchAll(/<\/i>([A-Za-z]+)</g)].map((m) => m[1])
+    expect(names).toEqual(['Opus', 'Sonnet', 'Haiku', 'Fable', 'Other', 'Codex'])
+  })
+  it('x labels: the one that would touch the previous one is dropped, the last always shows', () => {
+    // 5 Oct and 12 Oct at 33px apart with ~43px-wide labels: the last wins, its neighbour goes, the next one fits
+    expect(fittingLabels([40, 73, 106, 139], [43, 43, 50, 50])).toEqual([false, true, false, true])
+    expect(fittingLabels([0, 100, 200], [40, 40, 40])).toEqual([true, true, true])
+    expect(fittingLabels([10], [40])).toEqual([true])
+    expect(fittingLabels([], [])).toEqual([])
+    expect(fittingLabels([0, 10], [40, 40])[1]).toBe(true)
   })
   it('project list shows what the collector sends (top 5 plus all others), bars scaled to the biggest', () => {
     const h = html(SYNTH_TOKENS)

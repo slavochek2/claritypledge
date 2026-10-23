@@ -604,6 +604,34 @@ test.describe('monitoring, stats, reflection', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true) // no horizontal page scroll
   })
 
+  test('P1552 Token usage pane at narrow widths: heading on one line, 40px toggle buttons, no overlapping axis labels, no label struck by a tick', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    await openDay(page)
+    await collapseSidebar(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Token usage/ }).click()
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 800 }) // the chart re-measures its card
+      const pane = page.locator('[data-tokens-pane]')
+      await expect(pane.locator('svg[data-stacked-bars]')).toBeVisible()
+      const heading = page.locator('.d-dhead h2', { hasText: 'Token usage' })
+      expect(await heading.evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length }), `${width}px heading lines`).toBe(1)
+      for (const name of ['Week', 'Month']) expect((await rectOf(page.getByRole('tab', { name }), name)).height, `${width}px ${name} button`).toBeGreaterThanOrEqual(40)
+      const clash = await pane.locator('svg[data-stacked-bars]').evaluate((svg) => {
+        const box = (e: Element) => e.getBoundingClientRect()
+        const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+        const axis = [...svg.querySelectorAll('g[data-bar] > text:not([data-bar-total])')].map(box)
+        const labels = axis.some((a, i) => axis.slice(i + 1).some((b) => hit(a, b)))
+        const ticks = [...svg.querySelectorAll('g[data-usual] line')].map(box)
+        const totals = [...svg.querySelectorAll('[data-bar-total]')].map(box)
+        const crowded = totals.some((a, i) => totals.slice(i + 1).some((b) => hit(a, b)))
+        return { labels, crowded, struck: totals.some((t) => ticks.some((k) => hit(t, k))) }
+      })
+      expect(clash, `${width}px`).toEqual({ labels: false, crowded: false, struck: false })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}px page scroll`).toBe(true)
+    }
+  })
+
   // P1552 widened the P1399 ruling on purpose: Monitoring is money, subscriptions and token usage.
   test('Monitoring is money, subscriptions and token usage only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
     await openDay(page)

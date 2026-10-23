@@ -277,8 +277,14 @@ def main(out_dir):
     rows = [dict(day=r[0], tool=r[1], model=r[2], project=r[3], input=r[4], output=r[5],
                  cache_write=r[6], cache_read=r[7], messages=r[8]) for r in cur]
     write_json(os.path.join(out_dir, 'token-usage-daily.json'), rows)
-    write_json(os.path.join(out_dir, 'tokens-block.json'),
-               reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date(), parse_gemini_calls()))
+    # The tokens block is the optional part: whatever goes wrong reducing it (or reading the Gemini log) must
+    # not cost quota.json or the TOKENS line, so it degrades to {collected:false} and the run goes on.
+    try:
+        block = reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date(), parse_gemini_calls())
+    except Exception as e:
+        block = {'collected': False}
+        print('TOKENS block not built: %s: %s' % (type(e).__name__, str(e)[:200]), file=sys.stderr)
+    write_json(os.path.join(out_dir, 'tokens-block.json'), block)
 
     quota = []
     try:

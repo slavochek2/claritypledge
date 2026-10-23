@@ -308,9 +308,9 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-s2 { display: block; color: var(--fg3); font-weight: 400; }
 .d-ph { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
 .d-dhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 24px 0 8px; }
-.d-dhead h2 { font-size: 17px; font-weight: 700; }
+.d-dhead h2 { font-size: 17px; font-weight: 700; white-space: nowrap; } /* a heading never wraps beside the Week/Month toggle (P1552, 320px) */
 .d-sub { font-size: 14px; color: var(--fg2); }
-.d-segs { display: flex; background: #e9eef5; border-radius: 8px; padding: 2px; }
+.d-segs { flex-shrink: 0; display: flex; background: #e9eef5; border-radius: 8px; padding: 2px; }
 .d-segs button { border: 0; background: none; height: 40px; padding: 0 12px; border-radius: 6px; font-weight: 600; font-size: 13px; color: var(--fg3); }
 .d-segs button[aria-selected=true] { background: var(--card); color: var(--fg); box-shadow: var(--sh); }
 .d-chart { padding: 14px 16px; }
@@ -537,7 +537,7 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-tk-bar i { display: block; height: 100%; background: var(--slate); border-radius: 4px; }
 .d-tk-proj li.other { color: var(--fg3); }
 .d-tk-val { text-align: right; font-variant-numeric: tabular-nums; }
-@media (max-width: 720px) { .d-tk-reads { grid-template-columns: minmax(0, 1fr); } }
+@container day (max-width: 559px) { .d-tk-reads { grid-template-columns: minmax(0, 1fr); } }
 .d-legend i.box { height: 10px; width: 10px; border-radius: 2px; vertical-align: -1px; }
 .d-tk-strip { display: flex; flex-direction: column; gap: 2px; }
 .d-tk-strip > div { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }

@@ -5,7 +5,7 @@
 
 import type { DayTokens } from '../../lib/day'
 import { StackedBars } from './charts'
-import { FAMILY_COLOUR, FAMILY_ORDER, fmtTokens, periodLabel, TOOL_COLOUR, TOOL_LABEL, tokenReadings, tokensEmpty, totalOf, type Per } from './tokens'
+import { familyOutputs, FAMILY_COLOUR, FAMILY_ORDER, fmtTokens, periodLabel, TOOL_COLOUR, TOOL_LABEL, tokenReadings, tokensEmpty, totalOf, type Per } from './tokens'
 
 const WORDS = {
   title: 'Output written by models', // [FOUNDER DECISION: wording]
@@ -45,7 +45,7 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
     label: periodLabel(p.p),
     total: totalOf(p),
     usual: p.median4 != null ? p.median4 : null,
-    segments: FAMILY_ORDER.map((f) => ({ key: f, value: p.output[f] ?? 0, colour: FAMILY_COLOUR[f] })),
+    segments: FAMILY_ORDER.map((f) => ({ key: f, value: familyOutputs(p.output)[f] ?? 0, colour: FAMILY_COLOUR[f] })), // unknown families are counted as Other
   }))
   const usualText =
     r.usualZero ? (r.total === 0 ? 'same as usual' : 'usual is 0') : r.ratio === null ? 'no baseline yet' : `${r.ratio.toFixed(1)}× usual`
@@ -95,7 +95,7 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
             <>
               <div className="d-tk-share" role="img" aria-label={r.shares.map((s) => `${s.family} ${s.pct}%`).join(', ')}>
                 {r.shares.map((s) => (
-                  <i key={s.family} style={{ width: `${(s.value / (r.total || 1)) * 100}%`, background: FAMILY_COLOUR[s.family] }} title={`${s.family} ${s.pct}%`} />
+                  <i key={s.family} style={{ width: `${s.pct}%`, background: FAMILY_COLOUR[s.family] }} title={`${s.family} ${s.pct}%`} />
                 ))}
               </div>
               <div className="d-tk-sharekey">
@@ -104,7 +104,7 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
                 ))}
               </div>
               <span className="d-s" data-share-caption>
-                {r.mover ? `Biggest change vs usual: ${r.mover.family} ${r.mover.from}% → ${r.mover.to}%` : 'no baseline yet'}
+                {r.mover ? `Biggest change vs usual: ${r.mover.family} ${r.mover.from}% → ${r.mover.to}%` : r.baseline ? 'no change vs usual' : 'no baseline yet'}
               </span>
             </>
           )}

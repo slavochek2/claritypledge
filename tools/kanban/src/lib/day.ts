@@ -828,16 +828,30 @@ function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefin
   return m
 }
 
-const WEEK_P = /^\d{4}-\d{2}-\d{2}$/
-const MONTH_P = /^\d{4}-\d{2}$/
+/** A real calendar date (2026-02-30 is not), as a UTC date; null otherwise. */
+function realDate(y: number, m: number, d: number): Date | null {
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt : null
+}
+/** Days in the period a label names (7 for a week starting on a real Monday; the month's length for YYYY-MM), or null when the label is not a real period start. */
+function periodDays(p: string, kind: 'week' | 'month'): number | null {
+  if (kind === 'week') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p)
+    const dt = m && realDate(+m[1], +m[2], +m[3])
+    return dt && dt.getUTCDay() === 1 ? 7 : null
+  }
+  const m = /^(\d{4})-(\d{2})$/.exec(p)
+  return m && +m[2] >= 1 && +m[2] <= 12 ? new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate() : null
+}
 const MAX_PROJECT_NAME = 60
 const nonNeg = (v: unknown) => (num(v) !== undefined && (v as number) >= 0 ? (v as number) : undefined)
 
 /** P1552: a malformed period or project row is removed and the rest renders; an unusable block is absent. */
 function readTokens(x: unknown): DayTokens | undefined {
   if (!isObj(x)) return undefined
-  const period = (shape: RegExp) => (r: unknown): DayTokenPeriod | null => {
-    if (!isObj(r) || typeof r.p !== 'string' || !shape.test(r.p) || !isObj(r.output)) return null
+  const period = (kind: 'week' | 'month') => (r: unknown): DayTokenPeriod | null => {
+    const len = isObj(r) && typeof r.p === 'string' ? periodDays(r.p, kind) : null
+    if (!isObj(r) || typeof r.p !== 'string' || len === null || !isObj(r.output)) return null
     const output: Record<string, number> = {}
     for (const [k, v] of Object.entries(r.output)) {
       const n = nonNeg(v)
@@ -849,6 +863,8 @@ function readTokens(x: unknown): DayTokens | undefined {
       const n = nonNeg(d[t])
       if (n !== undefined && Number.isInteger(n)) days[t] = n
     }
+    // more days in use than the period has is not a count: the row cannot be trusted
+    if (Object.values(days).some((n) => n > len)) return null
     const median4 = nonNeg(r.median4)
     const ctx = nonNeg(r.ctx_per_reply)
     const calls = nonNeg(r.gemini_calls)
@@ -860,12 +876,14 @@ function readTokens(x: unknown): DayTokens | undefined {
     }
   }
   const list = <T,>(v: unknown, read: (r: unknown) => T | null): T[] => (Array.isArray(v) ? v.map(read).filter((r): r is T => r !== null) : [])
+  // oldest first, one row per period (the first of a repeated period wins; the sort is stable)
+  const ordered = (rows: DayTokenPeriod[]) => rows.slice().sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : 0)).filter((r, i, all) => i === 0 || all[i - 1].p !== r.p)
   const asOf = isoDay(x.as_of)
   return {
     collected: x.collected === true,
     ...(asOf ? { as_of: asOf } : {}),
-    weeks: list(x.weeks, period(WEEK_P)),
-    months: list(x.months, period(MONTH_P)),
+    weeks: ordered(list(x.weeks, period('week'))),
+    months: ordered(list(x.months, period('month'))),
     projects_28d: list(x.projects_28d, (r): DayTokenProject | null => {
       const name = isObj(r) ? scrubIds(oneLine(r.project, MAX_PROJECT_NAME)) : undefined
       const output = isObj(r) ? nonNeg(r.output) : undefined

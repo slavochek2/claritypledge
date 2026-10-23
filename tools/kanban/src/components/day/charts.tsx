@@ -4,7 +4,7 @@
 // marker shows a reset. The chart measures its card, so it fills the width with true-size text.
 
 import { useLayoutEffect, useRef, useState } from 'react'
-import { visibleStacks } from './tokens'
+import { fittingLabels, visibleStacks } from './tokens'
 import { groupResets, projectQuota, QUOTA_COLOURS, resetGroupLabel, WEEK_MS, type QuotaLine } from './quota'
 
 export interface Series {
@@ -174,9 +174,16 @@ export function StackedBars({ stacks, fmt, label, usualLabel }: { stacks: Stack[
   const slot = pw / Math.max(1, shown.length)
   const bw = Math.min(40, slot * 0.7)
   const cx = (i: number) => BM.l + slot * (i + 0.5)
-  const step = Math.max(1, Math.ceil(56 / slot))
+  // x labels that would sit on the previous one are dropped; the last label wins
+  // total labels get the same treatment: where the bars are too close for every total, the last one wins
+  const totalShown = fittingLabels(shown.map((_, i) => cx(i)), shown.map((s) => fmt(s.total).length * 5.8 + 2))
+  const labelShown = fittingLabels(shown.map((_, i) => cx(i)), shown.map((s) => s.label.length * 7 + 10))
+  // the legend order is the stack order, whichever periods happen to carry which family
+  const order = (shown[0]?.segments ?? []).map((g) => g.key)
+  const rank = (k: string) => (order.includes(k) ? order.indexOf(k) : order.length)
   const keys: { key: string; colour: string }[] = []
   for (const s of shown) for (const g of s.segments) if (g.value > 0 && !keys.some((k) => k.key === g.key)) keys.push({ key: g.key, colour: g.colour })
+  keys.sort((a, b) => rank(a.key) - rank(b.key))
   const hasUsual = shown.some((s) => s.usual != null)
   return (
     <>
@@ -200,15 +207,17 @@ export function StackedBars({ stacks, fmt, label, usualLabel }: { stacks: Stack[
                   </rect>
                 )
               })}
-              <text x={cx(i)} y={Y(s.total) - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="#475569" data-bar-total>{fmt(s.total)}</text>
+              {totalShown[i] && (
+                <text x={cx(i)} y={Y(Math.max(s.total, s.usual ?? 0)) - (s.usual != null && s.usual >= s.total ? 9 : 5)} textAnchor="middle" fontSize="10" fontWeight="600" fill="#475569" data-bar-total>{fmt(s.total)}</text>
+              )}
               {s.usual != null && (
                 <g data-usual={s.label}>
-                  <line x1={cx(i) - bw / 2 - 3} x2={cx(i) + bw / 2 + 3} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#fff" strokeWidth="4" />
-                  <line x1={cx(i) - bw / 2 - 3} x2={cx(i) + bw / 2 + 3} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#0f172a" strokeWidth="2" strokeDasharray="4 2" />
+                  <line x1={cx(i) - bw / 2} x2={cx(i) + bw / 2} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#fff" strokeWidth="4" />
+                  <line x1={cx(i) - bw / 2} x2={cx(i) + bw / 2} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#0f172a" strokeWidth="2" strokeDasharray="4 2" />
                   <title>{`Usual ${s.label}: ${fmt(s.usual)}`}</title>
                 </g>
               )}
-              {(i % step === 0 || i === shown.length - 1) && (
+              {labelShown[i] && (
                 <text x={cx(i)} y={height - 8} textAnchor="middle" fontSize="13" fill="#64748b">{s.label}</text>
               )}
             </g>
