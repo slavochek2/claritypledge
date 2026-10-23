@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 63
 workstream: product
 created_date: '2026-10-23'
 tags: [events, chat, ui]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 driver: heuristic
+completed_at: 2026-10-23
 ---
 
 # P1551: Remove "Open chat" from event pages
@@ -20,7 +20,7 @@ driver: heuristic
 
 On an event page the host and anyone who RSVPed see an "Open chat" button right under the title,
 above the "Join WhatsApp group" button the event actually uses. It shipped as one line of
-[P1512](done/2026-06-10/p1512_clarity_chat_v1_real_release.md) (decision 31) with no hypothesis
+[P1512](p1512_clarity_chat_v1_real_release.md) (decision 31) with no hypothesis
 behind it. Social hikes always run on a WhatsApp group, so the page offers two places to talk and
 puts the unused one first.
 
@@ -54,4 +54,4 @@ event channel enters it 24h before the start, P1512 decision 30). Group pages ke
 
 ## Related
 
-- [P1512](done/2026-06-10/p1512_clarity_chat_v1_real_release.md) decision 31: added the button.
+- [P1512](p1512_clarity_chat_v1_real_release.md) decision 31: added the button.
