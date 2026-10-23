@@ -123,10 +123,11 @@ describe('D5: the open point card shows the canvas owner as their profile does',
     expect(within(row).getByTestId('point-owner-no-position')).toHaveTextContent('No position');
   });
 
-  it('the owner: the own-card header, "Your story" once — never a second "Your story" link', () => {
+  it('the owner: the owner row above the quoted card, "Your story" once — never a second "Your story" link', () => {
     auth.viewerId = 'owner-1';
     const { container } = renderCard(owner(), [story('s-owner', 'owner-1')]);
-    expect(container.querySelector('.bg-gray-50')).toBeNull(); // not quoted
+    // P1535 (founder): the owner sees the row above the card too, as on people's pages.
+    expect(container.querySelector('.bg-gray-50')).not.toBeNull(); // quoted
     expect(screen.getByTestId('point-owner-row')).toBeInTheDocument();
     expect(screen.getAllByText('Your story')).toHaveLength(1);
   });

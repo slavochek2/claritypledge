@@ -44,8 +44,7 @@ import {
   settlePositionWrite,
 } from '@/app/data/position-write-outcome';
 import { networkMark } from '@/lib/network-outcome';
-import { PointOwnHeader, PointOwnerQuoteRow, type PointOwner } from '@/app/components/shared/point-owner-header';
-import { pointOwnerLayout } from '@/lib/point-owner-layout';
+import { PointOwnerQuoteRow, type PointOwner } from '@/app/components/shared/point-owner-header';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
 
 /** P1508 D5: the canvas owner, filled once by the canvas page. */
@@ -287,7 +286,6 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
      owner's only (a person has at most one story per point), the expander says whose; the viewer's
      own story is a separate link only when the viewer is not the owner — never two "Your story". */
   const isOwnView = !!owner && viewerId === owner.id;
-  const ownerLayout = owner ? pointOwnerLayout({ isOwnView, position: owner.position, rowWithoutPosition: true }) : null;
   const shownStories = owner ? linkedStories?.filter(linked => linked.authorId === owner.id) : linkedStories;
   const storyLabel = owner
     ? (isOwnView ? 'Your story' : 'Their story')
@@ -429,11 +427,10 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
     {/* P1445: the frame (card, pin, statement row) is the shared PointCardShell — the Day board renders
        its reflection statements in the same one. Everything product-side stays here. */}
     <PointCardShell
-      header={owner && (ownerLayout === 'quote'
-        ? <PointOwnerQuoteRow owner={owner} inList isAgent={owner.isAgent} identityPending={owner.identityPending ?? false} showEar={owner.ear !== undefined} menu={menu} />
-        // The owner reading their own: their header follows their vote at once, as the buttons do.
-        : <PointOwnHeader owner={{ ...owner, position: authedEffective }} inList menu={menu} showNoPosition />)}
-      quoted={ownerLayout === 'quote'}
+      // The canvas shows the owner row ABOVE the quoted box for everyone, the owner included
+      // (founder), as a profile does for others. The owner reading their own: the row follows their vote at once, as the buttons do.
+      header={owner && <PointOwnerQuoteRow owner={isOwnView ? { ...owner, position: authedEffective } : owner} inList isAgent={owner.isAgent} identityPending={owner.identityPending ?? false} showEar={owner.ear !== undefined} menu={menu} />}
+      quoted={!!owner}
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
