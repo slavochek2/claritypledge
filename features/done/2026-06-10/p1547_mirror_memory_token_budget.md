@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 59
 workstream: clarity-chat
 created_date: '2026-10-22'
 tags: [mirror, context, cost]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-23
 ---
 
 # P1547: The mirror remembers: a token budget instead of 30 messages
