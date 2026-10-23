@@ -117,7 +117,7 @@ test('a share is quiet, the quote shows only for an older message, no footer, sq
 
 test('the More menu has no Rename; the About window has Rename and centered buttons', async ({ browser }) => {
   for (const { w, h } of SIZES) {
-    const { page, close } = await open(browser, seeded, w, h);
+    const { page, errors, close } = await open(browser, seeded, w, h);
     try {
       await page.goto(`/home/c/${mirrorSeeded}`);
       await page.getByRole('button', { name: 'More', exact: true }).click();
@@ -128,10 +128,19 @@ test('the More menu has no Rename; the About window has Rename and centered butt
       const panel = page.getByTestId('mirror-info');
       const rename = panel.getByRole('button', { name: 'Rename' });
       await expect(rename).toBeVisible();
-      const [p, b] = await Promise.all([panel.boundingBox(), rename.boundingBox()]);
-      const offset = Math.abs((b!.x + b!.width / 2) - (p!.x + p!.width / 2));
-      expect(offset, `Rename centered in the About window (offset ${offset}px)`).toBeLessThan(w < 640 ? p!.width / 2 : 40);
+      // The buttons on Rename's row, centered as a group (Rename may sit beside New portrait).
+      const offset = await panel.evaluate((el) => {
+        const all = [...el.querySelectorAll('button')].map((x) => x.getBoundingClientRect());
+        const r = [...el.querySelectorAll('button')].find((x) => x.textContent?.trim() === 'Rename')!.getBoundingClientRect();
+        const row = all.filter((x) => Math.abs(x.top - r.top) < 4 && x.width > 0);
+        const left = Math.min(...row.map((x) => x.left));
+        const right = Math.max(...row.map((x) => x.right));
+        const p = el.getBoundingClientRect();
+        return Math.abs((left + right) / 2 - (p.left + p.right) / 2);
+      });
+      expect(offset, `About buttons centered (offset ${offset}px)`).toBeLessThan(8);
       await page.screenshot({ path: `test-results/p1554/about-${w}.png` });
+      expect(errors, 'no page errors').toEqual([]);
     } finally {
       await close();
     }
