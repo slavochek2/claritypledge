@@ -10,11 +10,15 @@
  * be loaded" when only part did.
  *
  * Refreshes quietly every 15 s while the tab is visible and on focus (today's inbox/sent behaviour):
- * a failed quiet refresh keeps what is on screen.
+ * a failed quiet refresh keeps what is on screen and marks the tab "partial" (a small retry line).
+ * The sent letters and their deliveries come from the throwing readers: an empty answer from the
+ * tolerant ones could be a failure, and a letter whose recipients are unknown must never offer Delete.
+ * Each source carries a request generation: only the newest request may write, so a slow older
+ * response can never bring back a row a newer refresh already removed.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
-import { getAllReceivedLetters, getAllSentLetters, getDeliveriesForLetters, getInboxItems } from '@/app/data/letters-service';
+import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
 import { buildArtifacts, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -46,8 +50,8 @@ const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, received: nul
 type Failed = Partial<Record<keyof Sources, boolean>>;
 
 async function loadSent(userId: string): Promise<NonNullable<Sources['sent']>> {
-  const letters = await getAllSentLetters(userId);
-  const deliveries = letters.length ? await getDeliveriesForLetters(letters.map(l => l.id)) : {};
+  const letters = await getAllSentLettersOrThrow(userId);
+  const deliveries = letters.length ? await getDeliveriesForLettersOrThrow(letters.map(l => l.id)) : {};
   return { letters, deliveries };
 }
 
@@ -58,8 +62,10 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   const mounted = useRef(true);
   const userRef = useRef(userId);
   userRef.current = userId;
-  // Sources that have loaded at least once for this person: a later failure keeps their last value.
-  const loadedOnce = useRef<Set<keyof Sources>>(new Set());
+  // Newest request number per source: a response from an older request is dropped.
+  const generation = useRef<Partial<Record<keyof Sources, number>>>({});
+  // Sources with data on screen (loaded at least once for this person): a later failure keeps that value.
+  const [loaded, setLoaded] = useState<Partial<Record<keyof Sources, boolean>>>({});
 
   useEffect(() => {
     mounted.current = true;
@@ -68,22 +74,26 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
 
   const load = useCallback(async () => {
     const forUser = userId;
-    const run = <K extends keyof Sources>(key: K, fn: () => Promise<NonNullable<Sources[K]>>) =>
-      fn().then(
+    const run = <K extends keyof Sources>(key: K, fn: () => Promise<NonNullable<Sources[K]>>) => {
+      const mine = (generation.current[key] ?? 0) + 1;
+      generation.current[key] = mine;
+      const current = () => mounted.current && userRef.current === forUser && generation.current[key] === mine;
+      return fn().then(
         value => {
-          if (!mounted.current || userRef.current !== forUser) return;
-          loadedOnce.current.add(key);
+          if (!current()) return;
+          setLoaded(prev => (prev[key] ? prev : { ...prev, [key]: true }));
           setSources(prev => ({ ...prev, [key]: value }));
           setFailed(prev => (prev[key] ? { ...prev, [key]: false } : prev));
           setSettled(prev => (prev[key] ? prev : { ...prev, [key]: true }));
         },
         () => {
-          if (!mounted.current || userRef.current !== forUser) return;
-          // A quiet refresh that fails keeps the last good value; only a source that never loaded is "failed".
-          if (!loadedOnce.current.has(key)) setFailed(prev => ({ ...prev, [key]: true }));
+          if (!current()) return;
+          // A failed read keeps the last good value (if any) and is flagged, so the tab can say items may be missing.
+          setFailed(prev => (prev[key] ? prev : { ...prev, [key]: true }));
           setSettled(prev => (prev[key] ? prev : { ...prev, [key]: true }));
         },
       );
+    };
     await Promise.all([
       run('docs', () => docsService.getDocsByUser(forUser)),
       run('sent', () => loadSent(forUser)),
@@ -95,7 +105,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   }, [userId]);
 
   useEffect(() => {
-    loadedOnce.current = new Set();
+    setLoaded({});
     setSources(EMPTY);
     setFailed({});
     setSettled({});
@@ -128,7 +138,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
     const allSettled = keys.every(k => settled[k]);
     if (!allSettled) return { status: 'loading', rows, partial: false };
     const failedCount = keys.filter(k => failed[k]).length;
-    if (failedCount === keys.length) return { status: 'error', rows: [], partial: false };
+    // Nothing to show and every source failed: the error state. If anything is on screen, keep it.
+    if (failedCount === keys.length && !keys.some(k => loaded[k])) return { status: 'error', rows: [], partial: false };
     return { status: 'ready', rows, partial: failedCount > 0 };
   };
 

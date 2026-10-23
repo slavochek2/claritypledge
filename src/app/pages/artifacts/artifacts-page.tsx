@@ -175,7 +175,8 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
         />
 
         <Tabs value={tab} onValueChange={handleTab}>
-          <div className="sticky top-0 z-10 bg-background">
+          {/* Not sticky: header, tabs and chips scroll together, as on Feed and Chats. */}
+          <div>
             <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">
               <TabsTrigger value="yours" className={TAB_TRIGGER}>Yours</TabsTrigger>
               <TabsTrigger value="shared" aria-label={sharedAria} className={`${TAB_TRIGGER} gap-2`}>

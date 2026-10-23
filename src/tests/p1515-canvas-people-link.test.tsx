@@ -270,6 +270,15 @@ describe('the owner\'s panel', () => {
     }
   });
 
+  it('displayTitle replaces only the visible heading; the canvas name still drives the reads', async () => {
+    mockPanel([], 'restricted');
+    render(<CanvasShareControl name="x" displayTitle="Sales map" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-invite');
+    expect(screen.getByTestId('canvas-share-title')).toHaveTextContent('Sales map');
+    expect(rpc).toHaveBeenCalledWith('get_canvas_audience', expect.objectContaining({ p_name: 'x' }));
+  });
+
   it('the panel title is the canvas name, with a Close control', async () => {
     await open();
     expect(screen.getByTestId('canvas-share-title')).toHaveTextContent('x');

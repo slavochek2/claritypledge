@@ -35,14 +35,14 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
   }, [searchOpen]);
 
   return (
-    <header data-page-header className="mb-4 flex min-h-10 items-center gap-2">
+    <header data-page-header className="mb-4 flex min-h-10 items-center gap-1.5 sm:gap-2">
       <h1 className="shrink-0 text-xl font-bold text-foreground sm:text-2xl">Artifacts</h1>
 
       {/* The search takes the free space between the title and the button: an icon at its right end when
           closed, a field filling it when open. Neither neighbour moves. */}
       <div className="flex min-w-0 flex-1 justify-end">
         {searchOpen ? (
-          <div className="relative w-full min-w-0 sm:max-w-sm" role="search">
+          <div className="relative w-full min-w-[130px] sm:max-w-sm" role="search">
             {/* One field at every width: a compact magnifier, then the text. */}
             <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
@@ -53,13 +53,13 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
               onKeyDown={e => { if (e.key === 'Escape') onCloseSearch(); }}
               placeholder="Search titles"
               aria-label="Search artifacts by title"
-              className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-7 pr-8 text-base focus-visible:border-blue-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 [&::-webkit-search-cancel-button]:hidden"
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-7 pr-10 text-base focus-visible:border-blue-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 [&::-webkit-search-cancel-button]:hidden"
             />
             <button
               type="button"
               onClick={onCloseSearch}
               aria-label="Close search"
-              className="absolute right-0 top-0 flex h-10 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+              className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -73,10 +73,11 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button aria-label="New artifact" className="h-10 shrink-0 gap-1.5 bg-blue-500 px-3 text-white hover:bg-blue-700">
+          <Button aria-label="New artifact" className="h-10 shrink-0 gap-1.5 bg-blue-500 px-2.5 text-white sm:px-3 hover:bg-blue-700">
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">New artifact</span>
-            <span className="sm:hidden">New</span>
+            {/* At the narrowest widths, with the search field open, the label gives way to the "+" so the field keeps its width. */}
+            <span className={`sm:hidden ${searchOpen ? 'max-[340px]:hidden' : ''}`}>New</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" collisionPadding={16} className="w-72 max-w-[calc(100vw-32px)]">

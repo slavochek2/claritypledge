@@ -8,8 +8,8 @@ const mocks = vi.hoisted(() => ({
   getDocsByUser: vi.fn(),
   deleteDoc: vi.fn(),
   createDoc: vi.fn(),
-  getAllSentLetters: vi.fn(),
-  getDeliveriesForLetters: vi.fn(),
+  getAllSentLettersOrThrow: vi.fn(),
+  getDeliveriesForLettersOrThrow: vi.fn(),
   getInboxItems: vi.fn(),
   getAllReceivedLetters: vi.fn(),
   markDeliveryRead: vi.fn(),
@@ -27,8 +27,8 @@ vi.mock('@/app/data/docs-service', () => ({
   docsService: { getDocsByUser: mocks.getDocsByUser, deleteDoc: mocks.deleteDoc, createDoc: mocks.createDoc },
 }));
 vi.mock('@/app/data/letters-service', () => ({
-  getAllSentLetters: mocks.getAllSentLetters,
-  getDeliveriesForLetters: mocks.getDeliveriesForLetters,
+  getAllSentLettersOrThrow: mocks.getAllSentLettersOrThrow,
+  getDeliveriesForLettersOrThrow: mocks.getDeliveriesForLettersOrThrow,
   getInboxItems: mocks.getInboxItems,
   getAllReceivedLetters: mocks.getAllReceivedLetters,
   markDeliveryRead: mocks.markDeliveryRead,
@@ -90,8 +90,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.invite.current = null;
   mocks.getDocsByUser.mockResolvedValue([doc()]);
-  mocks.getAllSentLetters.mockResolvedValue([sentLetter]);
-  mocks.getDeliveriesForLetters.mockResolvedValue({ l1: [delivery()] });
+  mocks.getAllSentLettersOrThrow.mockResolvedValue([sentLetter]);
+  mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery()] });
   mocks.listMyCanvases.mockResolvedValue([
     { canvasId: null, name: 'sales_map', generalAccess: 'link', hasAudience: false, lastEdit: ago(3 * 24 * H) },
   ]);
@@ -245,6 +245,35 @@ describe('Artifacts page', () => {
     expect(rows()).toHaveLength(3);
   });
 
+  it('header, tabs and chips scroll together: nothing is sticky (as Feed and Chats)', async () => {
+    const { container } = renderPage();
+    await screen.findByText('Draft about trust');
+    expect(container.querySelector('.sticky')).toBeNull();
+  });
+
+  it('the search clear button has a 40px hit area and the field keeps a minimum width on a phone', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Draft about trust');
+    await user.click(screen.getByRole('button', { name: 'Search artifacts' }));
+    const close = screen.getByRole('button', { name: 'Close search' });
+    expect(close.className).toMatch(/\bh-10\b/);
+    expect(close.className).toMatch(/\bw-10\b/);
+    expect(screen.getByRole('search').className).toMatch(/min-w-\[130px\]/);
+    // the narrowest phones drop the New label (the button keeps its aria-label) while searching
+    expect(screen.getByText('New', { selector: 'span.sm\\:hidden' }).className).toMatch(/max-\[340px\]:hidden/);
+  });
+
+  it('the row menu opens below its button, end-aligned', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Draft about trust');
+    await user.click(screen.getByRole('button', { name: 'Actions for Draft about trust' }));
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveAttribute('data-side', 'bottom');
+    expect(menu).toHaveAttribute('data-align', 'end');
+  });
+
   it('search covers the current tab only', async () => {
     const user = userEvent.setup();
     renderPage('/artifacts?tab=shared');
@@ -345,7 +374,7 @@ describe('Artifacts page', () => {
 
     it('sent letter nobody has received: Delete letter is offered and asks first', async () => {
       const user = userEvent.setup();
-      mocks.getDeliveriesForLetters.mockResolvedValue({});
+      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
       renderPage();
       await openMenu(user, 'Hello Tom');
       const del = await screen.findByRole('menuitem', { name: /Delete letter/ });
@@ -480,7 +509,7 @@ describe('Artifacts page', () => {
     it('Yours error: message and Retry; Shared with you stays usable', async () => {
       const user = userEvent.setup();
       mocks.getDocsByUser.mockRejectedValue(new Error('x'));
-      mocks.getAllSentLetters.mockRejectedValue(new Error('x'));
+      mocks.getAllSentLettersOrThrow.mockRejectedValue(new Error('x'));
       mocks.listMyCanvases.mockRejectedValue(new Error('x'));
       renderPage();
       expect(await screen.findByText('Something went wrong loading your artifacts.')).toBeInTheDocument();
@@ -488,7 +517,7 @@ describe('Artifacts page', () => {
       expect(await screen.findByText('Note from Mara')).toBeInTheDocument();
       await user.click(screen.getByRole('tab', { name: 'Yours' }));
       mocks.getDocsByUser.mockResolvedValue([doc()]);
-      mocks.getAllSentLetters.mockResolvedValue([]);
+      mocks.getAllSentLettersOrThrow.mockResolvedValue([]);
       mocks.listMyCanvases.mockResolvedValue([]);
       await user.click(screen.getByRole('button', { name: 'Retry' }));
       expect(await screen.findByText('Draft about trust')).toBeInTheDocument();
@@ -505,7 +534,7 @@ describe('Artifacts page', () => {
     it('empty Yours and empty Shared with you each say so', async () => {
       const user = userEvent.setup();
       mocks.getDocsByUser.mockResolvedValue([]);
-      mocks.getAllSentLetters.mockResolvedValue([]);
+      mocks.getAllSentLettersOrThrow.mockResolvedValue([]);
       mocks.listMyCanvases.mockResolvedValue([]);
       mocks.getInboxItems.mockResolvedValue([]);
       mocks.getAllReceivedLetters.mockResolvedValue([]);

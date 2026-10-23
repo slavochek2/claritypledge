@@ -84,7 +84,7 @@ const SHEET_CLASS =
   'data-[state=open]:!zoom-in-100 data-[state=open]:!slide-in-from-left-0 data-[state=open]:!slide-in-from-top-0 ' +
   'data-[state=closed]:!zoom-out-100 data-[state=closed]:!slide-out-to-left-0 data-[state=closed]:!slide-out-to-top-0 [&>*]:min-w-0';
 
-export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger = false, openSignal = 0 }: {
+export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger = false, openSignal = 0, displayTitle }: {
   /** the canvas's name (the part after canvas_) */
   name: string;
   visibility: CanvasVisibility;
@@ -100,6 +100,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   hideTrigger?: boolean;
   /** P1545: opens the panel each time this number grows (0 = never). */
   openSignal?: number;
+  /** P1545: the heading shown in the panel (e.g. "sales map"); every read and write still uses `name`. Defaults to `name`. */
+  displayTitle?: string;
 }) {
   const sheet = useIsSheet();
   const [open, setOpen] = useState(false);
@@ -344,8 +346,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
       {/* The header stays put: only the body scrolls, and the footer stays pinned under it. */}
       <div className="flex shrink-0 items-start justify-between gap-2 px-4 pb-2 pt-4" data-testid="canvas-share-header">
         {sheet
-          ? <DialogTitle className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{name}</DialogTitle>
-          : <h2 id={titleId} className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{name}</h2>}
+          ? <DialogTitle className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{displayTitle ?? name}</DialogTitle>
+          : <h2 id={titleId} className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{displayTitle ?? name}</h2>}
         <button
           type="button"
           onClick={() => setOpen(false)}

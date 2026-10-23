@@ -645,14 +645,37 @@ export async function getDeliveriesForLetters(
   await requireAuth();
   log('getDeliveriesForLetters:', letterIds.length, 'letters');
 
+  try {
+    return await fetchDeliveriesGrouped(letterIds);
+  } catch (error) {
+    logDbError('getDeliveriesForLetters', error as PostgrestError);
+    return Object.fromEntries(letterIds.map((id) => [id, []]));
+  }
+}
+
+/**
+ * P1545: same read, but a database error rejects instead of reading as "no recipients". The Artifacts
+ * page uses it so a failed read never replaces what it already shows, and never offers Delete letter
+ * for a letter whose recipients are unknown.
+ */
+export async function getDeliveriesForLettersOrThrow(
+  letterIds: string[]
+): Promise<Record<string, LetterDelivery[]>> {
+  if (letterIds.length === 0) return {};
+  await requireAuth();
+  log('getDeliveriesForLettersOrThrow:', letterIds.length, 'letters');
+  try {
+    return await fetchDeliveriesGrouped(letterIds);
+  } catch (error) {
+    throwDbError('getDeliveriesForLettersOrThrow', error as PostgrestError, 'Failed to load deliveries');
+  }
+}
+
+async function fetchDeliveriesGrouped(letterIds: string[]): Promise<Record<string, LetterDelivery[]>> {
   // P699 Phase 2: use get_deliveries_with_progress to include steps_completed + total_steps
   const { data, error } = await supabase
     .rpc('get_deliveries_with_progress', { p_letter_ids: letterIds });
-
-  if (error) {
-    logDbError('getDeliveriesForLetters', error);
-    return Object.fromEntries(letterIds.map((id) => [id, []]));
-  }
+  if (error) throw error;
 
   const deliveries = (data ?? []) as LetterDelivery[];
   const grouped: Record<string, LetterDelivery[]> = Object.fromEntries(
@@ -823,6 +846,28 @@ export async function getAllSentLetters(senderId: string): Promise<
   await requireAuth();
   log('getAllSentLetters:', senderId);
 
+  try {
+    return await fetchSentLetters(senderId);
+  } catch (error) {
+    logDbError('getAllSentLetters', error as PostgrestError);
+    return [];
+  }
+}
+
+/** P1545: same read, but a database error rejects instead of reading as "no sent letters". */
+export async function getAllSentLettersOrThrow(senderId: string): Promise<
+  Array<ClarityLetter & { doc_title: string }>
+> {
+  await requireAuth();
+  log('getAllSentLettersOrThrow:', senderId);
+  try {
+    return await fetchSentLetters(senderId);
+  } catch (error) {
+    throwDbError('getAllSentLettersOrThrow', error as PostgrestError, 'Failed to load sent letters');
+  }
+}
+
+async function fetchSentLetters(senderId: string): Promise<Array<ClarityLetter & { doc_title: string }>> {
   const { data, error } = await supabase
     .from('clarity_letters')
     .select('*, clarity_docs!inner(title)')
@@ -830,10 +875,7 @@ export async function getAllSentLetters(senderId: string): Promise<
     .eq('status', 'sealed')
     .order('sealed_at', { ascending: false });
 
-  if (error) {
-    logDbError('getAllSentLetters', error);
-    return [];
-  }
+  if (error) throw error;
 
   return (data ?? []).map((row: Record<string, unknown>) => ({
     ...row,

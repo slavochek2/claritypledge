@@ -21,7 +21,7 @@ import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
 import { canvasPath } from '@/lib/canvas-boxes';
-import type { ArtifactRow, RowAction } from './artifacts-view-model';
+import { canvasTitle, type ArtifactRow, type RowAction } from './artifacts-view-model';
 
 interface Props {
   row: ArtifactRow;
@@ -149,6 +149,8 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
+          side="bottom"
+          sideOffset={4}
           className="min-w-[12rem]"
           onCloseAutoFocus={e => {
             if (!shareAfterClose.current) return;
@@ -168,6 +170,7 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
         <div className="pointer-events-none absolute right-0 top-0">
           <CanvasShareControl
             name={canvasName}
+            displayTitle={canvasTitle(canvasName)}
             visibility={row.ref.hasAudience || row.ref.generalAccess === 'link' ? 'shared' : 'private'}
             generalAccess={row.ref.generalAccess ?? 'restricted'}
             entries={null}
