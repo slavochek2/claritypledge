@@ -32,7 +32,7 @@ without promising capabilities that are not built yet?
 
 > On public vs unlisted: "use case public - why would it be private? ... who cares? what is there to lose if anything?"
 
-> On follow-through: "who said yes to Clarity Meeting Principle, Clarity Group terms? Because then follow-through means answering Clarity Chat or answering Clarity letters." And: "it's about rewards. It's not about punishment ... for praising, we don't need to see who is not following through, but seeing who follows through."
+> On follow-through: "who said yes to Clarity Meeting Principle, Clarity Group terms? Because then follow-through means answering Clarity Chat or answering Clarity letters." And: "it's about rewards ... for praising, we don't need to see who is not following through, but seeing who follows through."
 
 ## Appetite
 
@@ -45,8 +45,8 @@ Decision density: a few (route name, headline, CTA, indexing).
   import (P1457) and the follow-through record (P1559) are not live. The page describes them as how it
   works / what we are building, never as a feature a visitor can switch on today. A visitor who books a
   call must not discover the page oversold.
-- **Praise, not surveillance.** The page never says or implies that anyone sees who did *not* follow
-  through, and never shows a ranking of people. People opt into the terms themselves.
+- **Recognition only.** Follow-through appears as recognition of the people who answered, with no
+  ranking. People say yes to the terms themselves.
 - Every statistic carries an inline citation to a primary source, wording within the source (as P1506).
   Do NOT use the "70% of change programmes fail" figure: it is widely repeated without a primary
   empirical source.
@@ -70,8 +70,8 @@ Sections (order and copy drafted in /dev, every heading and the hero approved by
    after a meeting, each person's agent helps turn what was said into points, stories and letters →
    people answer each other in Clarity Chat → if someone disagrees with the principle itself, that goes
    through the same check (CMP10). Built vs coming is labelled per the first invariant.
-4. **What you see**: follow-through shown as praise: each person sees their own record; the team sees
-   who answered, never a list of who did not. Exact visibility rules are P1559's to decide; the page
+4. **What you see**: follow-through shown as recognition: each person sees their own record; the team
+   sees who answered. Exact visibility rules are P1559's to decide; the page
    copy follows whatever P1559 settles, and until then stays at this level.
 5. **Where it matters most**: AI rollouts, digital transformation, reorganisations (short cards).
 6. **CTA**: "Book a 15-min discovery call" → /intro, exactly one primary CTA (2026-10-02 ruling, as
@@ -84,7 +84,7 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 
 | Risk | Label | Note |
 |---|---|---|
-| Page reads as surveillance of employees | MITIGATE | Invariant 2; QA subagent reads the page as a skeptical employee |
+| A team member reading the page does not see themselves in it | MITIGATE | Invariant 2; QA subagent also reads the page as a team member, not only as the change lead |
 | Page oversells unbuilt features | MITIGATE | Invariant 1; built-vs-coming labelling checked in AC |
 | The use case is wrong (no change lead feels this pain) | ACCEPT | The page is cheap; discovery calls test it. Revise after ~5 calls |
 | Menu gets a sixth use case and grows crowded | ACCEPT | Ruling 2026-10-17 accepted the menu cost per use case |
@@ -98,11 +98,11 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 
 - [ ] The page loads at the chosen route with the site's top menu and footer, signed in or not, and appears in the Use cases menu.
 - [ ] A reader can tell, for each capability mentioned, whether it works today or is being built.
-- [ ] No sentence implies anyone sees who did not follow through; no ranking of people anywhere.
+- [ ] Follow-through appears only as recognition of people who answered; no ranking of people anywhere.
 - [ ] Each statistic has an inline citation and a References entry; the 70% failure figure does not appear.
 - [ ] One primary action only, the founder-confirmed CTA, in the hero and a closing section.
 - [ ] Analytics: `landing_page_viewed` with the page's variant on load, and a CTA click event (unit test pre-deploy). `[post-deploy]` confirm in Mixpanel.
-- [ ] Screenshots at 320px, 375px and desktop, reviewed by a separate QA subagent against the visual-qa checklist, plus one read-through as a skeptical employee.
+- [ ] Screenshots at 320px, 375px and desktop, reviewed by a separate QA subagent against the visual-qa checklist, plus one read-through as a team member.
 
 ## Open Questions
 
@@ -111,6 +111,6 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 ## Related
 
 - [P1506](done/2026-06-10/p1506_hospitals_use_case_page.md): template page.
-- [P1559](p1559_follow_through_record.md): follow-through record (visibility rules this page must follow).
+- [P1559](p1559_follow_through_record.md): Clarity Ledger counts (what this page says about follow-through).
 - [P1457](p1457_clarity_chat_data_import.md), [P1437](p1437_conversation_groups_agents_check_understanding.md), [P1431](p1431_mirror_agent_letter_chat.md): import and agent drafting.
 - hypotheses.md H-ChatFollowThrough; decisions.md 2026-10-23 [product], 2026-10-17 [product] (P1506), 2026-09-21 [product].
