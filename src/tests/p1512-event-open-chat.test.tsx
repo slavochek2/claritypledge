@@ -1,8 +1,8 @@
 /**
- * P1512 — the event page's "Open chat": host and RSVP'd viewers only, and it opens the event's channel in Home
- * (or Home while the channel is not in the chat list yet). Harness copied from p1365-rsvp-repeat-render.test.tsx.
+ * P1512 → P1551 — the event page no longer offers "Open chat" (founder 2026-10-23). The chat harness stays
+ * so the absence is proven with the chat mounted and the event channel in the list.
  */
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import React from 'react';
@@ -84,7 +84,6 @@ vi.mock('@/app/prototypes/events/utils', () => ({
 
 import { EventDetail } from '@/app/prototypes/events/components/EventDetail';
 
-import { fireEvent } from '@testing-library/react';
 import { useNavigate } from 'react-router-dom';
 import { chatNav } from '@/app/pages/chat/chat-view-model';
 import { ChatContext } from '@/app/pages/chat/chat-state';
@@ -128,46 +127,43 @@ function renderAt(chats: unknown[] = [eventChannel], withChat = true) {
   render(withChat ? <ChatContext.Provider value={ctx}>{page}</ChatContext.Provider> : page);
 }
 
-describe('P1512: event page Open chat', () => {
+// P1551 (founder 2026-10-23): the event page no longer offers Open chat to anyone. Event chats stay
+// reachable from the inbox; group pages keep theirs (p1512-org-open-chat.test.tsx).
+describe('P1551: event page has no Open chat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEventBySlug.mockResolvedValue(event);
     mockIsUserRsvpd.mockResolvedValue(false);
   });
 
-  it('is hidden for a visitor who is signed out, and for a signed-in viewer who has not RSVPd', async () => {
+  it('is absent for a signed-out visitor and a signed-in viewer who has not RSVPd', async () => {
     mockUseAuth.mockReturnValue({ user: null, session: null });
     renderAt();
     await screen.findByText('Test Event');
-    expect(screen.queryByTestId('event-open-chat')).toBeNull();
+    expect(screen.queryByText('Open chat')).toBeNull();
     cleanup();
     mockUseAuth.mockReturnValue({ user: { id: 'viewer' }, session: {} });
     renderAt();
     await screen.findByText('Test Event');
-    expect(screen.queryByTestId('event-open-chat')).toBeNull();
+    expect(screen.queryByText('Open chat')).toBeNull();
   });
 
-  it('is shown to an RSVPd viewer and opens the event channel', async () => {
+  it('is absent for an RSVPd viewer, even with the event channel in the chat list', async () => {
     mockUseAuth.mockReturnValue({ user: { id: 'viewer' }, session: {} });
     mockIsUserRsvpd.mockResolvedValue(true);
     renderAt();
-    fireEvent.click(await screen.findByTestId('event-open-chat'));
-    expect(await screen.findByText('chat opened')).toBeInTheDocument();
-    // On top of the event page: the state carries a way back to it.
-    expect(JSON.parse(screen.getByTestId('state').textContent ?? 'null')).toEqual({ below: ['from'] });
-  });
-
-  it('is shown to the host, and falls back to Home while the channel is not in the list', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 'host-user-id' }, session: {} });
-    renderAt([]);
-    fireEvent.click(await screen.findByTestId('event-open-chat'));
-    expect(await screen.findByText('home opened')).toBeInTheDocument();
-  });
-
-  it('is not offered where chat is not mounted', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 'host-user-id' }, session: {} });
-    renderAt([], false);
     await screen.findByText('Test Event');
+    await waitFor(() => expect(mockIsUserRsvpd).toHaveBeenCalled());
+    await act(async () => {});
+    expect(screen.queryByText('Open chat')).toBeNull();
     expect(screen.queryByTestId('event-open-chat')).toBeNull();
+  });
+
+  it('is absent for the host', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'host-user-id' }, session: {} });
+    renderAt();
+    await screen.findByText('Test Event');
+    await act(async () => {});
+    expect(screen.queryByText('Open chat')).toBeNull();
   });
 });
