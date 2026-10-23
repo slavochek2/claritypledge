@@ -10,7 +10,7 @@
  */
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CalendarIcon, EyeOffIcon, FlagIcon, MessagesSquareIcon, ShuffleIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, EyeOffIcon, FlagIcon, MessagesSquareIcon, ShuffleIcon } from "lucide-react";
 import { motion, MotionConfig, type Variants } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
@@ -21,21 +21,21 @@ import { CHANGE_LEADS_OG } from "@/app/content/change-leads-og";
 
 const CAUSES: { icon: typeof EyeOffIcon; title: string; text: string }[] = [
   { icon: ShuffleIcon, title: "Different yeses", text: 'One person heard "try it when you like." Another heard "use it for every report." Both said yes.' },
-  { icon: MessagesSquareIcon, title: "Nobody checks", text: 'Asking "what did you understand?" feels awkward, more so across seniority. So nobody asks.' },
+  { icon: MessagesSquareIcon, title: "Nobody checks", text: 'Asking "what did you understand?" feels awkward. So nobody asks.' },
   { icon: EyeOffIcon, title: "Silence looks like agreement", text: "Doubts don't get raised in the meeting. They show up later, when people simply don't do it." },
 ];
 
 type Status = "Built today" | "Being built";
 const STEPS: { title: string; status: Status; text: string }[] = [
-  { title: "Agree on how you talk.", status: "Built today", text: "The team opts into the Clarity Meeting Principle and the Clarity Group terms. Each person says yes for themselves." },
-  { title: "Turn the meeting into points.", status: "Being built", text: "After a meeting, each person's agent helps turn what was said into points, stories and letters." },
+  { title: "Agree on how you talk.", status: "Built today", text: "The team opts into a short set of meeting rules, the Clarity Meeting Principle. Each person says yes for themselves." },
+  { title: "Turn the meeting into points.", status: "Being built", text: "After a meeting, you can ask your own agent to draft points and letters from it. You review every draft, and nothing is sent until you send it." },
   { title: "Answer each other.", status: "Built today", text: "People answer each other's points in Clarity Chat, and each other's letters. Gaps surface in writing, not in the hallway." },
   { title: "Disagree openly, even with the rules.", status: "Built today", text: "If someone disagrees with the principle itself, that goes through the same check. Nothing is forced." },
 ];
 
 const RECORD = [
-  "You see your own record: what you said yes to, and what you answered.",
-  "What the team sees is still being designed. It will never be a list of who didn't, or a ranking.",
+  "Nobody, including your manager, gets a list of who didn't answer. No ranking, no score.",
+  "You see your own follow-through: what you said yes to, and what you answered.",
   "Nobody is enrolled by their manager. People opt in themselves.",
 ];
 
@@ -108,7 +108,7 @@ export function ChangeLeadsPage() {
           <div className="container mx-auto max-w-4xl text-center">
             <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-[11px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em]">
               <FlagIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              For change and AI rollout leads
+              For change leads
             </div>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
               Everyone agreed. <span className="block text-blue-500">Then nothing changed.</span>
@@ -157,23 +157,21 @@ export function ChangeLeadsPage() {
             <Reveal>
               <SectionHeader title={<span className="inline-block text-balance">How a yes becomes a <span className="text-blue-500">follow-through</span></span>} />
             </Reveal>
+            <p className="-mt-6 mb-8 text-sm text-foreground/75 text-center text-balance">
+              Steps marked &ldquo;Being built&rdquo; are not available yet. Today, teams write points and letters themselves.
+            </p>
             <motion.ol className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               {STEPS.map((s, i) => (
                 <motion.li key={s.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-4 text-left">
                   <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0">{i + 1}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-                      <h3 className="font-bold">{s.title}</h3>
-                      <StatusBadge status={s.status} />
-                    </div>
+                    <h3 className="font-bold">{s.title}</h3>
+                    <div className="mt-1 mb-2"><StatusBadge status={s.status} /></div>
                     <p className="text-sm text-muted-foreground leading-relaxed">{s.text}</p>
                   </div>
                 </motion.li>
               ))}
             </motion.ol>
-            <p className="mt-6 text-sm text-muted-foreground text-center">
-              Steps marked &ldquo;Being built&rdquo; are not available yet. Today, teams write points and letters themselves.
-            </p>
           </div>
         </section>
 
@@ -188,13 +186,14 @@ export function ChangeLeadsPage() {
             </Reveal>
             <motion.ul className="space-y-3" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               {RECORD.map((t) => (
-                <motion.li key={t} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card px-5 py-4 shadow-sm text-left">
-                  {t}
+                <motion.li key={t} variants={STAGGER_ITEM} className="flex gap-3 text-left">
+                  <CheckIcon className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{t}</span>
                 </motion.li>
               ))}
             </motion.ul>
             <p className="mt-8 text-lg font-semibold text-center text-balance">
-              Change spreads when people see others following through, not when they&rsquo;re watched.
+              Change spreads when people see each other following through.
             </p>
           </div>
         </section>
