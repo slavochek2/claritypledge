@@ -32,6 +32,8 @@ async function member(label: string): Promise<{ u: TestUser; s: SignedIn }> {
   await createTestMembership(org.id, u.user.id);
   const s = await signIn(u);
   await myChatIds(s.client);
+  // The group conversation exists once a member's chat list has been opened (as in the P1520 canary).
+  if (!gconv) gconv = await adminConversation('group', { org_id: org.id });
   return { u, s };
 }
 
@@ -67,7 +69,6 @@ const erase = async (s: SignedIn) => {
 test.beforeAll(async () => {
   test.setTimeout(120_000);
   org = await createTestOrganization({ name: `P1547 budget ${RUN}` });
-  gconv = await adminConversation('group', { org_id: org.id });
 });
 
 test.afterAll(async () => {
