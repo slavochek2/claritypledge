@@ -18,9 +18,9 @@ export const CHAT_TABS: Array<{ id: ChatTab; label: string }> = [
 export const isChannel = (c: Pick<ChatSummary, 'kind'>) => c.kind === 'group' || c.kind === 'event';
 
 // ---------------------------------------------------------------------------
-// Routes: /home, /home/c/:conversationId, /home/c/:conversationId/t/:rootId
+// Routes: /chats, /chats/c/:conversationId, /chats/c/:conversationId/t/:rootId
 // ---------------------------------------------------------------------------
-export const HOME = '/home';
+export const HOME = '/chats';
 /** Where "Invite a Clarity Partner" goes (the new-message picker, the list's empty hint). */
 export const INVITE_PARTNER_PATH = '/agreements/new/create';
 export const chatPath = (conversationId: string, opts: { rootId?: string; messageId?: string } = {}) => {
@@ -128,7 +128,7 @@ export function leavePlan(_pathname: string, state: unknown): LeaveStep {
   return { kind: 'pop-replace', steps: below.length, to: HOME };
 }
 
-/** A group's General channel in Home, from the chat list; /home while the channel is not in the list (yet). */
+/** A group's General channel in Home, from the chat list; /chats while the channel is not in the list (yet). */
 export function groupChatPath(chats: ChatSummary[], orgId: string): string {
   const channel = chats.find((c) => c.kind === 'group' && c.org?.id === orgId);
   return channel ? chatPath(channel.conversationId) : HOME;
@@ -140,7 +140,7 @@ export interface ChatRoute {
 }
 
 export function parseChatRoute(pathname: string): ChatRoute {
-  const m = /^\/home\/c\/([^/]+)(?:\/t\/([^/]+))?\/?$/.exec(pathname);
+  const m = /^\/chats\/c\/([^/]+)(?:\/t\/([^/]+))?\/?$/.exec(pathname);
   return { conversationId: m?.[1] ?? null, rootId: m?.[2] ?? null };
 }
 
@@ -225,12 +225,14 @@ export function sortByActivity(chats: ChatSummary[]): ChatSummary[] {
 export const EVENT_INBOX_LEAD_HOURS = 24;
 
 /**
- * The Inbox: people (1:1s and the mirror) plus the channels that are alive: a channel with at least one message, or an
- * event from 24h before it starts. Channels lists every channel, empty ones too. (Whether an empty past event shows at
+ * The Inbox: people (1:1s and the mirror), every group (P1545: joined means in Inbox, even with no messages), and the
+ * events that are alive: an event with at least one message, or from 24h before it starts. Channels lists every
+ * channel, empty ones too. (Whether an empty past event shows at
  * all is isChatVisibleInList.)
  */
 export function isInInbox(chat: ChatSummary, now: Date = new Date()): boolean {
   if (!isChannel(chat)) return true;
+  if (chat.kind === 'group') return true;
   if (chat.lastMessage) return true;
   if (chat.kind !== 'event' || !chat.event) return false;
   return now.getTime() >= new Date(chat.event.datetime).getTime() - EVENT_INBOX_LEAD_HOURS * 60 * 60 * 1000;

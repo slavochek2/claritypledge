@@ -3,9 +3,9 @@
  * @description P1512: the signed-in Home — the chat list and the open conversation.
  *
  * The URL says what is open, so Back works and a link opens the same view:
- *   /home                          the list (desktop: with an empty right pane)
- *   /home/c/:conversationId        a conversation (phone: full screen with its own header)
- *   /home/c/:conversationId/t/:id  a thread in any chat (P1546: 1:1s and the mirror too) (right panel; full screen on a phone)
+ *   /chats                          the list (desktop: with an empty right pane)
+ *   /chats/c/:conversationId        a conversation (phone: full screen with its own header)
+ *   /chats/c/:conversationId/t/:id  a thread in any chat (P1546: 1:1s and the mirror too) (right panel; full screen on a phone)
  *
  * The page fills the space the layout leaves it (a flex column with min-h-0), so the offline strip, the
  * active-session banner and the room-capture bar shrink it instead of pushing the composer off screen.
@@ -38,7 +38,7 @@ export default function ChatHomePage() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   // Chats show people's messages: never record them (privacy policy). index.html covers a page that
-  // loads on /home; this covers in-app navigation into it. Unlike admin and /live, no chat content
+  // loads on /chats; this covers in-app navigation into it. Unlike admin and /live, no chat content
   // mounts until the recorder is stopped, so not even one frame of it can be captured.
   const [recordingOff, setRecordingOff] = useState(sessionRecordingStopped);
   useEffect(() => {

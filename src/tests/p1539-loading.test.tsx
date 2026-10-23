@@ -1,6 +1,6 @@
 /**
  * @file p1539-loading.test.tsx
- * @description P1539 — signed-in loading: no legal footer on /home* or while auth is pending, collapsed rail
+ * @description P1539 — signed-in loading: no legal footer on /chats* or while auth is pending, collapsed rail
  * shows nav icons plus avatar, the in-shell loader is not min-h-screen, the offline strip spans the sidebar.
  */
 import { render, screen, within } from '@testing-library/react';
@@ -100,17 +100,17 @@ beforeEach(() => {
 const footerLink = () => screen.queryByRole('link', { name: /privacy/i });
 
 describe('P1539 footer', () => {
-  it('is not rendered on /home, /home/c/:id for a signed-in person', () => {
-    for (const route of ['/home', '/home/c/abc']) {
+  it('is not rendered on /chats, /chats/c/:id for a signed-in person', () => {
+    for (const route of ['/chats', '/chats/c/abc']) {
       const { unmount } = renderLayout(route);
       expect(footerLink()).toBeNull();
       unmount();
     }
   });
 
-  it('is not rendered on /home* while auth is still resolving', () => {
+  it('is not rendered on /chats* while auth is still resolving', () => {
     mockUseAuth.mockReturnValue(restoring);
-    renderLayout('/home/c/abc');
+    renderLayout('/chats/c/abc');
     expect(footerLink()).toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe('P1539 collapsed rail', () => {
     expect(bar.getAttribute('data-collapsed')).toBe('true');
     const menu = within(bar).getByRole('list', { name: 'Menu' });
     const labels = Array.from(menu.querySelectorAll('a')).map(a => a.getAttribute('aria-label'));
-    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile']);
+    expect(labels).toEqual(['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile']);
     expect(within(bar).getByTestId('rail-avatar')).toBeTruthy();
   });
 });
@@ -177,7 +177,7 @@ describe('P1539 offline strip', () => {
 
 
 describe('P1539 collapsed rail tooltips', () => {
-  const NAV = ['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile'];
+  const NAV = ['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile'];
 
   // A fresh rail per control (one test each, so each stays well inside the timeout under load):
   // each one must open on its own first hover, not ride on a neighbour's open tooltip.
@@ -200,9 +200,9 @@ describe('P1539 collapsed rail tooltips', () => {
     localStorage.setItem(SIDEBAR_KEY, '1');
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
-    within(bar).getByRole('link', { name: 'Letters' }).focus();
+    within(bar).getByRole('link', { name: 'Artifacts' }).focus();
     const tip = await screen.findByRole('tooltip');
-    expect(tip.textContent).toBe('Letters');
+    expect(tip.textContent).toBe('Artifacts');
   });
 
   it('the avatar focus ring is round (rounded-full), not a rounded square', () => {
@@ -257,7 +257,7 @@ describe('P1539 pre-shell loader position', () => {
     mockStoredSession = 'u1';
     mockUseAuth.mockReturnValue(restoring);
     const { container } = render(
-      <MemoryRouter initialEntries={['/home']}>
+      <MemoryRouter initialEntries={['/chats']}>
         <ClarityLandingLayout surface="product"><ClarityPageLoader /></ClarityLandingLayout>
       </MemoryRouter>,
     );
@@ -270,7 +270,7 @@ describe('P1539 pre-shell loader position', () => {
   it('no stored session: still the full-viewport boot splash (nothing to expect)', () => {
     mockUseAuth.mockReturnValue(restoring);
     render(
-      <MemoryRouter initialEntries={['/home']}>
+      <MemoryRouter initialEntries={['/chats']}>
         <ClarityLandingLayout surface="product"><ClarityPageLoader /></ClarityLandingLayout>
       </MemoryRouter>,
     );

@@ -201,7 +201,7 @@ function treeFor(start: Start, mirrorValue?: MirrorContextValue) {
         {(() => {
           const routes = (
             <Routes>
-              <Route path="/home/*" element={<ChatHomePage />} />
+              <Route path="/chats/*" element={<ChatHomePage />} />
               <Route path="*" element={<div>elsewhere</div>} />
             </Routes>
           );
@@ -280,9 +280,9 @@ describe('chat view model', () => {
   });
 
   it('parses the chat routes and labels the mirror', () => {
-    expect(parseChatRoute('/home')).toEqual({ conversationId: null, rootId: null });
-    expect(parseChatRoute('/home/c/abc')).toEqual({ conversationId: 'abc', rootId: null });
-    expect(parseChatRoute('/home/c/abc/t/xyz')).toEqual({ conversationId: 'abc', rootId: 'xyz' });
+    expect(parseChatRoute('/chats')).toEqual({ conversationId: null, rootId: null });
+    expect(parseChatRoute('/chats/c/abc')).toEqual({ conversationId: 'abc', rootId: null });
+    expect(parseChatRoute('/chats/c/abc/t/xyz')).toEqual({ conversationId: 'abc', rootId: 'xyz' });
     expect(mirrorLabel({ title: null, ownerFirstName: 'Mia' })).toBe("Your mirror agent");
     expect(mirrorLabel({ title: 'Scratchpad', ownerFirstName: 'Mia' })).toBe("Scratchpad · Your mirror agent");
   });
@@ -306,7 +306,7 @@ describe('chat list', () => {
   ];
 
   it('filters by tab: All, Unread, Partners, Channels', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     const titles = () => screen.getAllByTestId('row-title').map((n) => n.textContent);
     expect(titles()).toHaveLength(5);
@@ -325,7 +325,7 @@ describe('chat list', () => {
   });
 
   it('the folder tabs are at least 40px tall touch targets', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     for (const name of ['Inbox', /^Unread/, 'Partners', 'Channels']) {
       expect(screen.getByRole('tab', { name }).className).toContain('min-h-11'); // 44px
@@ -333,7 +333,7 @@ describe('chat list', () => {
   });
 
   it('shows the unread count on the Unread tab and on the row, in recency order', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     expect(screen.getByRole('tab', { name: /Unread/ })).toHaveTextContent('1');
     expect(within(rowFor('Ada Lovelace')).getByLabelText('2 unread')).toBeInTheDocument();
@@ -341,13 +341,13 @@ describe('chat list', () => {
   });
 
   it('hides a past event channel with no messages', async () => {
-    renderChat('/home', [mirror(), eventChat('old', 'Old Night', -48), eventChat('new', 'Next Night', 20)]);
+    renderChat('/chats', [mirror(), eventChat('old', 'Old Night', -48), eventChat('new', 'Next Night', 20)]);
     await screen.findByText('Next Night', { selector: '[data-testid="row-title"]' });
     expect(screen.queryByText('Old Night')).not.toBeInTheDocument();
   });
 
   it('archives a chat through the service and moves it to the collapsed Archived section', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Linus Torvalds', { selector: '[data-testid="row-title"]' });
     fireEvent.contextMenu(rowButton('Linus Torvalds'));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
@@ -362,7 +362,7 @@ describe('chat list', () => {
   });
 
   it('marks a chat unread through the service and shows the dot', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Linus Torvalds', { selector: '[data-testid="row-title"]' });
     fireEvent.contextMenu(rowButton('Linus Torvalds'));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
@@ -371,7 +371,7 @@ describe('chat list', () => {
   });
 
   it('marks an unread chat read', async () => {
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.contextMenu(rowButton('Ada Lovelace'));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as read' }));
@@ -380,14 +380,14 @@ describe('chat list', () => {
   });
 
   it('says "Message someone from your groups or events" only when there are no chats besides the mirror', async () => {
-    const first = renderChat('/home', [mirror()]);
+    const first = renderChat('/chats', [mirror()]);
     expect(await screen.findByTestId('no-dm-hint')).toHaveTextContent('Message someone from your groups or events');
     first.unmount();
-    const second = renderChat('/home', [mirror(), group('g1', 'Builders')]);
+    const second = renderChat('/chats', [mirror(), group('g1', 'Builders')]);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     expect(screen.queryByTestId('no-dm-hint')).not.toBeInTheDocument();
     second.unmount();
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     expect(screen.queryByTestId('no-dm-hint')).not.toBeInTheDocument();
   });
@@ -396,7 +396,7 @@ describe('chat list', () => {
     const grace = { id: 'p-new', name: 'Grace Hopper', slug: 'grace', avatarUrl: null, avatarColor: null, shared: 'Builders', dmConversationId: null };
     const ada = { id: 'p-dm1', name: 'Ada Lovelace', slug: 'ada', avatarUrl: null, avatarColor: null, shared: 'Clarity Partner', dmConversationId: 'dm1' };
     const open = async () => {
-      renderChat('/home', chats);
+      renderChat('/chats', chats);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const plus = screen.getByRole('button', { name: 'New message' });
       fireEvent.click(plus);
@@ -404,7 +404,7 @@ describe('chat list', () => {
     };
 
     it('has a visible tooltip "New message" on hover and on keyboard focus, and stays an outline button', async () => {
-      const view = renderChat('/home', chats);
+      const view = renderChat('/chats', chats);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const plus = screen.getByRole('button', { name: 'New message' });
       expect(plus).not.toHaveAttribute('title');
@@ -417,7 +417,7 @@ describe('chat list', () => {
       view.unmount();
 
       // Keyboard focus shows it too.
-      renderChat('/home', chats);
+      renderChat('/chats', chats);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
       act(() => screen.getByRole('button', { name: 'New message' }).focus());
@@ -462,7 +462,7 @@ describe('chat list', () => {
       svc.searchPeople.mockResolvedValue([ada]);
       const { dialog } = await open();
       fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1'));
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1'));
       expect(svc.startDm).not.toHaveBeenCalled();
       expect(screen.queryByRole('dialog', { name: 'New message' })).not.toBeInTheDocument();
     });
@@ -475,7 +475,7 @@ describe('chat list', () => {
       svc.getMyChats.mockResolvedValue([...chats, dm('dm-new', 'Grace Hopper')]);
       fireEvent.click(await within(dialog).findByRole('button', { name: /Grace Hopper/ }));
       await waitFor(() => expect(svc.startDm).toHaveBeenCalledWith('p-new'));
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm-new'));
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm-new'));
       expect(screen.queryByRole('dialog', { name: 'New message' })).not.toBeInTheDocument();
     });
 
@@ -515,7 +515,7 @@ describe('chat list', () => {
       svc.searchPeople.mockResolvedValue([ada]);
       const { plus, dialog } = await open();
       fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1'));
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1'));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New message' })).not.toBeInTheDocument());
       await screen.findByRole('textbox', { name: 'Message Ada' });
       await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
@@ -532,7 +532,7 @@ describe('chat list', () => {
       fireEvent.keyDown(dialog, { key: 'Escape' });
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New message' })).not.toBeInTheDocument());
       await act(async () => { resolve('dm-late'); await new Promise((r) => setTimeout(r, 50)); });
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home$/);
+      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/);
     });
 
     it('the Close control sits in the header row with the title: ghost, 40px, one control (like the Me sheet)', async () => {
@@ -600,7 +600,7 @@ describe('chat list', () => {
         vi.useFakeTimers();
         try {
           svc.searchPeople.mockImplementation(() => new Promise(() => undefined));
-          renderChat('/home', chats);
+          renderChat('/chats', chats);
           await act(async () => { await vi.advanceTimersByTimeAsync(50); });
           fireEvent.click(screen.getByRole('button', { name: 'New message' }));
           const dialog = screen.getByRole('dialog', { name: 'New message' });
@@ -661,7 +661,7 @@ describe('chat list', () => {
         svc.getMyChats.mockResolvedValue([...chats, dm('dm-remote', 'Ada Lovelace')]);
         const before = svc.getMyChats.mock.calls.length;
         fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
-        await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm-remote'));
+        await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm-remote'));
         expect(svc.getMyChats.mock.calls.length).toBeGreaterThan(before);
         expect(screen.queryByTestId('chat-unavailable')).not.toBeInTheDocument();
         expect(await screen.findByTestId('conversation')).toBeInTheDocument();
@@ -673,7 +673,7 @@ describe('chat list', () => {
         svc.getMyChats.mockRejectedValue(new Error('network'));
         fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
         await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
-        expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home$/);
+        expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/);
         expect(screen.getByRole('dialog', { name: 'New message' })).toBeInTheDocument();
       });
 
@@ -682,12 +682,12 @@ describe('chat list', () => {
         const { dialog } = await open();
         fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
         await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
-        expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home$/);
+        expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/);
       });
 
       it('the person whose chat is already open: focus goes to that chat\'s composer, not the page body', async () => {
         svc.searchPeople.mockResolvedValue([ada]);
-        renderChat('/home/c/dm1', chats, { dm1: [] });
+        renderChat('/chats/c/dm1', chats, { dm1: [] });
         await screen.findByRole('textbox', { name: 'Message Ada' });
         fireEvent.click(screen.getByRole('button', { name: 'New message' }));
         const dialog = await screen.findByRole('dialog', { name: 'New message' });
@@ -701,7 +701,7 @@ describe('chat list', () => {
         svc.searchPeople.mockResolvedValue([ada]);
         const { dialog } = await open();
         fireEvent.click(await within(dialog).findByRole('button', { name: /Ada Lovelace/ }));
-        await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1'));
+        await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1'));
         const composer = await screen.findByRole('textbox', { name: 'Message Ada' });
         await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
         expect(composer).toHaveFocus();
@@ -759,7 +759,7 @@ describe('chat list', () => {
 
   it('shows a skeleton while loading, then an inline error with Retry that reads again', async () => {
     svc.getMyChats.mockRejectedValueOnce(new Error('network'));
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     expect(screen.getByRole('status', { name: 'Loading chats' })).toBeInTheDocument();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Could not load your chats');
@@ -770,23 +770,23 @@ describe('chat list', () => {
   it('starts a 1:1 from a people result: Message calls startDm and opens the chat', async () => {
     svc.searchPeople.mockResolvedValue([{ id: 'p-new', name: 'Grace Hopper', slug: 'grace', avatarUrl: null, avatarColor: null, shared: 'Builders', dmConversationId: null }]);
     svc.startDm.mockResolvedValue('dm-new');
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.change(screen.getByLabelText('Search chats and people'), { target: { value: 'Grace' } });
     const button = await screen.findByRole('button', { name: 'Message Grace Hopper' }, { timeout: 3000 });
     expect(screen.getByText('Builders')).toBeInTheDocument(); // the shared reason
     fireEvent.click(button);
     await waitFor(() => expect(svc.startDm).toHaveBeenCalledWith('p-new'));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm-new'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm-new'));
   });
 
   it('opens a message hit at the message', async () => {
     svc.searchMessages.mockResolvedValue([{ messageId: 'm-hit', conversationId: 'dm1', authorId: 'p-dm1', authorName: 'Ada Lovelace', body: 'the needle', createdAt: iso(3) }]);
-    renderChat('/home', chats);
+    renderChat('/chats', chats);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.change(screen.getByLabelText('Search chats and people'), { target: { value: 'needle' } });
     fireEvent.click(await screen.findByText('the needle', {}, { timeout: 3000 }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1?m=m-hit'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1?m=m-hit'));
   });
 });
 
@@ -804,7 +804,7 @@ describe('conversation', () => {
       msg('dm1', 'p-dm1', null, { isDeleted: true, deletedAt: iso(2) }),
       msg('dm1', null, 'from a gone account'),
     ];
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: msgs });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: msgs });
     expect(await screen.findByText('first from Ada')).toBeInTheDocument();
     expect(screen.getByText('(edited)')).toBeInTheDocument();
     expect(screen.getByText('Message deleted', { selector: 'p' })).toBeInTheDocument();
@@ -820,7 +820,7 @@ describe('conversation', () => {
 
   it('asks again for author names after a dropped connection instead of leaving "Unknown"', async () => {
     helpers.getChatAuthors.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'who wrote this')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'who wrote this')] });
     expect(await screen.findByText('who wrote this')).toBeInTheDocument();
     // while the name is on its way: a quiet bar, never a flash of "Unknown"
     expect(screen.getByRole('status', { name: 'Loading name' })).toBeInTheDocument();
@@ -832,34 +832,34 @@ describe('conversation', () => {
 
   it('says "Unknown member" once the lookup finds no profile for an author', async () => {
     helpers.getChatAuthors.mockResolvedValue([]);
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-ghost', 'from someone unreadable')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-ghost', 'from someone unreadable')] });
     expect(await screen.findByText('from someone unreadable')).toBeInTheDocument();
     expect(await screen.findByText('Unknown member', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('links the header to the live profile, group page and event page', async () => {
-    const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     expect(await screen.findByRole('link', { name: /Ada Lovelace/ })).toHaveAttribute('href', '/p/ada');
     unmount();
     const g = group('g1', 'Builders');
-    const { unmount: u2 } = renderChat('/home/c/g1', [mirror(), g], { g1: [] });
+    const { unmount: u2 } = renderChat('/chats/c/g1', [mirror(), g], { g1: [] });
     expect(await screen.findByRole('link', { name: /Builders/ })).toHaveAttribute('href', '/groups/builders');
     u2();
     const e = eventChat('ev1', 'Friday Night', 5);
-    renderChat('/home/c/ev1', [mirror(), e], { ev1: [] });
+    renderChat('/chats/c/ev1', [mirror(), e], { ev1: [] });
     expect(await screen.findByRole('link', { name: /Friday Night/ })).toHaveAttribute('href', '/events/friday-night');
   });
 
   it('marks the open chat read up to its newest message', async () => {
     const c = dm('dm1', 'Ada Lovelace', { unreadCount: 1, lastMessage: last('hey', 2, 'p-dm1', 'Ada') });
-    renderChat('/home/c/dm1', [mirror(), c], { dm1: [msg('dm1', 'p-dm1', 'hey')] });
+    renderChat('/chats/c/dm1', [mirror(), c], { dm1: [msg('dm1', 'p-dm1', 'hey')] });
     await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'lm-hey' }));
   });
 
   it('sends optimistically: shows "Sending…" at once, then the confirmed message', async () => {
     let resolve!: (m: ChatMessage) => void;
     svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { resolve = r; }));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     const box = await screen.findByRole('textbox', { name: 'Message Ada' });
     await userEvent.type(box, 'hello Ada');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
@@ -874,7 +874,7 @@ describe('conversation', () => {
 
   it('shows a failed send with Retry, and Retry sends again', async () => {
     svc.sendMessage.mockRejectedValueOnce(new Error('chat send_chat_message failed: chat: cannot message this person'));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'will fail');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     const failed = await screen.findByTestId('send-failed');
@@ -891,7 +891,7 @@ describe('conversation', () => {
     window.matchMedia = vi.fn().mockImplementation((q: string) => ({ matches: q.includes('pointer: fine'), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
     try {
       svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, 'one', { id: 'server-3' }));
-      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+      renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
       const box = await screen.findByRole('textbox', { name: 'Message Ada' });
       fireEvent.change(box, { target: { value: 'one' } });
       fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
@@ -906,7 +906,7 @@ describe('conversation', () => {
   it('offers Edit and Delete on my own message only; edit and delete call the service', async () => {
     const mine = msg('dm1', ME.id, 'my words', { id: 'mine' });
     const theirs = msg('dm1', 'p-dm1', 'their words', { id: 'theirs' });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs, mine] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs, mine] });
     await screen.findByText('my words');
 
     await menuOn('their words');
@@ -936,12 +936,12 @@ describe('conversation', () => {
     const root = msg('g1', 'p-grace', 'start a thread here', { id: 'root' });
     const reply = msg('g1', ME.id, 'a reply in the thread', { id: 'rep', threadRootId: 'root' });
     svc.getThreadStats.mockResolvedValue(new Map([['root', { count: 1, authorIds: [ME.id] }]]));
-    const { unmount } = renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
+    const { unmount } = renderChat('/chats/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     await screen.findByText('start a thread here');
     expect(await screen.findByTestId('replies-link')).toHaveTextContent('1 reply');
     await menuOn('start a thread here');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
-    expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1/t/root');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/g1/t/root');
     const panel = await screen.findByTestId('thread-panel');
     expect(await within(panel).findByText('a reply in the thread')).toBeInTheDocument();
     expect(within(panel).getByRole('textbox', { name: 'Reply in thread' })).toBeInTheDocument();
@@ -950,10 +950,10 @@ describe('conversation', () => {
     // P1546: a 1:1 has threads too: the thread URL opens (and reopens on reload) the thread, and the action is offered
     const dmRoot = msg('dm1', 'p-dm1', 'plain dm message', { id: 'x' });
     const dmReply = msg('dm1', ME.id, 'a reply in the dm thread', { id: 'dmrep', threadRootId: 'x' });
-    renderChat('/home/c/dm1/t/x', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [dmRoot, dmReply] });
+    renderChat('/chats/c/dm1/t/x', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [dmRoot, dmReply] });
     const dmPanel = await screen.findByTestId('thread-panel');
     expect(await within(dmPanel).findByText('a reply in the dm thread')).toBeInTheDocument();
-    expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1/t/x');
+    expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1/t/x');
     fireEvent.contextMenu(await within(screen.getByTestId('conversation')).findByText('plain dm message'));
     expect(await screen.findByRole('menuitem', { name: 'Reply in thread' })).toBeInTheDocument();
   });
@@ -972,7 +972,7 @@ describe('conversation', () => {
     svc.getMyChats.mockResolvedValue([m]);
     svc.listMessages.mockImplementation(async (_id: string, opts: { threadRootId?: string } = {}) => (opts.threadRootId ? [answered, answer, waiting] : [root]));
     svc.listThread.mockImplementation(async () => [root, answered, answer, waiting]);
-    render(treeFor(`/home/c/${m.conversationId}/t/mroot`, value));
+    render(treeFor(`/chats/c/${m.conversationId}/t/mroot`, value));
     const panel = await screen.findByTestId('thread-panel');
     expect(await within(panel).findByText('still waiting in thread')).toBeInTheDocument();
     await waitFor(() => expect(loadStatuses.mock.calls.some(([ids]) => (ids as string[]).includes('mq2'))).toBe(true));
@@ -992,7 +992,7 @@ describe('conversation', () => {
     svc.getMyChats.mockResolvedValue([m]);
     svc.listMessages.mockImplementation(async (_id: string, opts: { threadRootId?: string } = {}) => (opts.threadRootId ? [waiting] : [root]));
     svc.listThread.mockImplementation(async () => [root, waiting]);
-    const path = `/home/c/${m.conversationId}/t/lroot`;
+    const path = `/chats/c/${m.conversationId}/t/lroot`;
     const { rerender } = render(treeFor(path, { ...base, enabled: false } as unknown as MirrorContextValue));
     expect(await within(await screen.findByTestId('thread-panel')).findByText('late waiting')).toBeInTheDocument();
     expect(loadStatuses, 'nothing is asked while the mirror is not yet available').not.toHaveBeenCalled();
@@ -1004,7 +1004,7 @@ describe('conversation', () => {
     const root = msg('g1', 'p-grace', 'main pane message', { id: 'root2' });
     const reply = msg('g1', ME.id, 'thread pane reply', { id: 'rep2', threadRootId: 'root2' });
     svc.getThreadStats.mockResolvedValue(new Map([['root2', { count: 1, authorIds: [ME.id] }]]));
-    renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
+    renderChat('/chats/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     await screen.findByText('main pane message');
     const mainLoads = svc.listMessages.mock.calls.length;
     fireEvent.click(await screen.findByTestId('replies-link'));
@@ -1019,7 +1019,7 @@ describe('conversation', () => {
   it('opens a thread URL directly with both the conversation and the thread loaded', async () => {
     const root = msg('g1', 'p-grace', 'direct main message', { id: 'root3' });
     const reply = msg('g1', ME.id, 'direct thread reply', { id: 'rep3', threadRootId: 'root3' });
-    renderChat('/home/c/g1/t/root3', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
+    renderChat('/chats/c/g1/t/root3', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     const panel = await screen.findByTestId('thread-panel');
     expect(await within(panel).findByText('direct thread reply')).toBeInTheDocument();
     expect(await within(screen.getByTestId('conversation')).findByText('direct main message')).toBeInTheDocument();
@@ -1027,7 +1027,7 @@ describe('conversation', () => {
   });
 
   it('a tap shows the actions in line under the message (never floating over text) and a scroll dismisses them', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'tap me'), msg('dm1', 'p-dm1', 'the next row')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'tap me'), msg('dm1', 'p-dm1', 'the next row')] });
     const text = await screen.findByText('tap me');
     const toolbar = () => within(text.closest('li') as HTMLElement).getByRole('toolbar', { name: 'Message actions' });
     expect(toolbar()).toHaveClass('absolute'); // not selected: the hover variant, invisible until hover or focus
@@ -1046,7 +1046,7 @@ describe('conversation', () => {
   it('quote-replies: the bar shows above the field and the send carries replyToId', async () => {
     const theirs = msg('dm1', 'p-dm1', 'quote me please', { id: 'q1' });
     svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, 'answer', { id: 'a1', replyToId: 'q1' }));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
     await screen.findByText('quote me please');
     await menuOn('quote me please');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
@@ -1065,7 +1065,7 @@ describe('conversation', () => {
     const a = msg('dm1', ME.id, 'reply one', { replyToId: 'o1' });
     const b = msg('dm1', ME.id, 'reply two', { replyToId: 'o2' });
     const c = msg('dm1', ME.id, 'reply three', { replyToId: 'unreadable' });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [original, gone, a, b, c] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [original, gone, a, b, c] });
     await screen.findByText('reply one');
     await waitFor(() => expect(screen.getAllByTestId('reply-quote')).toHaveLength(3));
     const quotes = screen.getAllByTestId('reply-quote').map((q) => q.textContent);
@@ -1077,7 +1077,7 @@ describe('conversation', () => {
   it('forward: pick a chat, add a note, call forwardMessage with the source, target and note', async () => {
     const theirs = msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' });
     svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, 'see this', { id: 'f2', kind: 'forward' }));
-    renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
     await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -1094,11 +1094,11 @@ describe('conversation', () => {
     const theirs = msg('dm1', 'p-dm1', 'clarify this', { id: 'cl1' });
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl2', kind: 'clarify' }));
     svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, 'because it is vague', { id: 'cl3' }));
-    const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
+    const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
     await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
     const pending = await screen.findByTestId('clarify-pending');
     expect(pending).toHaveTextContent('Clarify');
     expect(pending).toHaveTextContent('clarify this');
@@ -1113,7 +1113,7 @@ describe('conversation', () => {
     unmount();
 
     // Stage again, add a note, send: ONE clarify message carrying the note.
-    const again = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
+    const again = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
     await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
@@ -1129,7 +1129,7 @@ describe('conversation', () => {
     again.unmount();
 
     const own = msg('c-mirror', ME.id, 'a note to self', { id: 'n1' });
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [own] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [own] });
     await screen.findByText('a note to self');
     await menuOn('a note to self');
     expect(await screen.findByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
@@ -1141,7 +1141,7 @@ describe('conversation', () => {
     const fwd = msg('dm1', 'p-dm1', 'note on top', { id: 'f1', kind: 'forward', forwardSnapshot: snap('forwarded words'), forwardedFromMessageId: 'src-ok' });
     const cla = msg('dm1', ME.id, null, { id: 'f2', kind: 'clarify', forwardSnapshot: snap('clarified words', [{ authorName: 'Linus', body: 'a thread entry', createdAt: iso(20) }]), forwardedFromMessageId: 'src-gone' });
     svc.getMessage.mockImplementation(async (id: string) => (id === 'src-ok' ? msg('g1', 'p-grace', 'original', { id: 'src-ok' }) : null));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [fwd, cla] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [fwd, cla] });
     const forwarded = await screen.findByTestId('forwarded-card');
     expect(forwarded).toHaveTextContent('Forwarded from Grace Hopper');
     expect(forwarded).toHaveTextContent('forwarded words');
@@ -1157,9 +1157,9 @@ describe('conversation', () => {
     // A source this reader can no longer read: a quiet note, and nowhere to go.
     fireEvent.click(clarified);
     await waitFor(() => expect(toastFn).toHaveBeenCalledWith("The original isn't available to you any more."));
-    expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
+    expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
     fireEvent.click(forwarded);
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1?m=src-ok'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/g1?m=src-ok'));
   });
 
   it('shows "Not available to you" for an attachment the reader cannot read, and the card when they can', async () => {
@@ -1168,7 +1168,7 @@ describe('conversation', () => {
     helpers.loadAttachment.mockImplementation(async (kind: string, id: string) =>
       id === 'st-open' ? { kind, id, title: 'T', tags: [], story: { id, content: 'a story everyone may read' }, linkedPoints: [] } : null,
     );
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [unreadable, readable] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [unreadable, readable] });
     expect(await screen.findByText('Not available to you')).toBeInTheDocument();
     expect(await screen.findByTestId('story-card')).toHaveTextContent('a story everyone may read');
     expect(helpers.loadAttachment).toHaveBeenCalledWith('point', 'pt-secret', ME.id);
@@ -1177,7 +1177,7 @@ describe('conversation', () => {
   it('attaches one of my points: the picker stages it and the send carries the attachment', async () => {
     helpers.loadMyShareables.mockResolvedValue([{ kind: 'point', id: 'pt-1', title: 'Clarity beats cleverness', tags: ['clarity'], point: { id: 'pt-1', statement: 'Clarity beats cleverness' } }]);
     svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, null, { id: 'sent-at', attachmentKind: 'point', attachmentId: 'pt-1' }));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Clarity beats cleverness/ }));
     expect(await within(await screen.findByTestId('staged-attachment')).findByTestId('point-card')).toHaveTextContent('Clarity beats cleverness');
@@ -1190,7 +1190,7 @@ describe('conversation', () => {
 
   it('disables the composer with an explanation for a blocked person, and Unblock reads the list back', async () => {
     svc.unblockUser.mockResolvedValue(undefined);
-    renderChat('/home/c/dm1', [mirror(), { ...dmChat, canSend: false, blockedByMe: true }], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), { ...dmChat, canSend: false, blockedByMe: true }], { dm1: [] });
     const notice = await screen.findByTestId('composer-blocked');
     expect(notice).toHaveTextContent('You blocked Ada Lovelace. Unblock to send messages.');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -1201,7 +1201,7 @@ describe('conversation', () => {
   });
 
   it('when the OTHER person blocked me, the composer explains without saying who blocked', async () => {
-    renderChat('/home/c/dm1', [mirror(), { ...dmChat, canSend: false, blockedByMe: false }], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), { ...dmChat, canSend: false, blockedByMe: false }], { dm1: [] });
     const notice = await screen.findByTestId('composer-blocked');
     expect(notice).toHaveTextContent('You cannot send messages in this chat.');
     expect(notice).not.toHaveTextContent(/blocked/i);
@@ -1211,7 +1211,7 @@ describe('conversation', () => {
 
   it('blocks from the header menu after a confirmation', async () => {
     svc.blockUser.mockResolvedValue(undefined);
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await userEvent.click(await screen.findByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Block' }));
     const dialog = await screen.findByRole('dialog');
@@ -1297,7 +1297,7 @@ describe('conversation', () => {
 
   it('names the mirror "<title> · <First>\'s mirror" in the header and the list, and Rename persists', async () => {
     svc.renameMirror.mockResolvedValue('Scratchpad');
-    renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
     expect(await screen.findByRole('heading', { name: "Scratchpad · Your mirror agent" })).toBeInTheDocument();
     // in the list the name has the first line and the role leads the second
     expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain('Scratchpad');
@@ -1317,16 +1317,16 @@ describe('conversation', () => {
 
   it('leaves the chat when it is marked unread from the header menu, and sets the flag', async () => {
     const theirs = msg('dm1', 'p-dm1', 'read later', { id: 'ml' });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
     await screen.findByText('read later');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
     expect(svc.setChatState).toHaveBeenCalledWith('dm1', { manualUnread: true });
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home$/));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/));
   });
 
   it('says a chat is not available when the id is not one the person can read', async () => {
-    renderChat('/home/c/nope', [mirror(), dmChat]);
+    renderChat('/chats/c/nope', [mirror(), dmChat]);
     expect(await screen.findByTestId('chat-unavailable')).toHaveTextContent("This chat isn't available");
   });
 });
@@ -1338,7 +1338,7 @@ describe('realtime', () => {
   const dmChat = dm('dm1', 'Ada Lovelace');
 
   it('appends a message from another person without a reload and shows it once', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'earlier')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'earlier')] });
     await screen.findByText('earlier');
     const incoming = msg('dm1', 'p-dm1', 'live from Realtime', { id: 'rt-1' });
     act(() => handlers?.onMessage({ type: 'INSERT', message: incoming }));
@@ -1349,7 +1349,7 @@ describe('realtime', () => {
 
   it('applies an UPDATE: an edit and a delete arrive live', async () => {
     const m = msg('dm1', 'p-dm1', 'before', { id: 'rt-2' });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [m] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [m] });
     await screen.findByText('before');
     act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...m, body: 'after', editedAt: iso(0) } }));
     expect(await screen.findByText('after')).toBeInTheDocument();
@@ -1361,7 +1361,7 @@ describe('realtime', () => {
   it('drops the pending twin when my own message arrives by Realtime before the RPC replies', async () => {
     let resolve!: (m: ChatMessage) => void;
     svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { resolve = r; }));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'race me');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Sending…');
@@ -1375,7 +1375,7 @@ describe('realtime', () => {
   });
 
   it('refetches the list and the open conversation when the subscription (re)connects', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
     await screen.findByText('one');
     const listCalls = svc.getMyChats.mock.calls.length;
     const msgCalls = svc.listMessages.mock.calls.length;
@@ -1386,7 +1386,7 @@ describe('realtime', () => {
 
   it('updates unread and archived when another device changes the state', async () => {
     const c = dm('dm1', 'Ada Lovelace', { unreadCount: 3, lastMessage: last('hi', 4, 'p-dm1', 'Ada') });
-    renderChat('/home', [mirror(), c]);
+    renderChat('/chats', [mirror(), c]);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     expect(within(rowFor('Ada Lovelace')).getByLabelText('3 unread')).toBeInTheDocument();
     act(() => handlers?.onState({ conversationId: 'dm1', profileId: ME.id, lastReadAt: iso(0), manualUnread: false, archived: true }));
@@ -1412,7 +1412,7 @@ describe('review round 2', () => {
       if (opts && !(opts instanceof Date) && opts.throughMessageId) readThrough = true;
     });
     renderChat(
-      '/home/c/dm1',
+      '/chats/c/dm1',
       async () => [
         mirror(),
         dm('dm1', 'Ada Lovelace', { unreadCount: readThrough ? 0 : 1, lastMessage: { ...last('hey', 1, 'p-dm1', 'Ada'), id: 'lm-newest', createdAt: MICRO } }),
@@ -1437,10 +1437,10 @@ describe('review round 2', () => {
       return older.slice(-(opts.limit ?? 50));
     });
     render(
-      <MemoryRouter initialEntries={['/home/c/dm1']}>
+      <MemoryRouter initialEntries={['/chats/c/dm1']}>
         <ChatProvider>
           <Routes>
-            <Route path="/home/*" element={<ChatHomePage />} />
+            <Route path="/chats/*" element={<ChatHomePage />} />
           </Routes>
         </ChatProvider>
       </MemoryRouter>,
@@ -1457,7 +1457,7 @@ describe('review round 2', () => {
   it('a fetch that started before a delete cannot bring the deleted words back', async () => {
     const m = msg('dm1', 'p-dm1', 'about to be deleted', { id: 'del1' });
     let release!: () => void;
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [m] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [m] });
     await screen.findByText('about to be deleted');
     // the next read (a resync) is slow and returns the row as it was BEFORE the delete
     svc.listMessages.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve([m]); }));
@@ -1474,7 +1474,7 @@ describe('review round 2', () => {
   it('a Realtime event never removes a pending send: when the send then fails, Retry is still there', async () => {
     let reject!: (e: Error) => void;
     svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>((_r, rej) => { reject = rej; }));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'ok');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Sending…');
@@ -1503,7 +1503,7 @@ describe('review round 2 (continued)', () => {
 
   it('a different signed-in person starts clean: no draft, no failed send, nothing of the previous person', async () => {
     svc.sendMessage.mockRejectedValue(new Error('chat send_chat_message failed: chat: cannot message this person'));
-    const view = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    const view = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     const box = await screen.findByRole('textbox', { name: 'Message Ada' });
     await userEvent.type(box, 'failing one');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
@@ -1512,16 +1512,16 @@ describe('review round 2 (continued)', () => {
     // someone else signs in on this tab
     AUTH.user = { ...ME, id: 'other-user', name: 'Olga Other' };
     svc.getMyChats.mockResolvedValue([mirror('c-olga', { ownerFirstName: 'Olga' }), dmChat]);
-    view.rerender(treeFor('/home/c/dm1'));
+    view.rerender(treeFor('/chats/c/dm1'));
     expect(await screen.findByRole('textbox', { name: 'Message Ada' })).toHaveValue('');
     expect(screen.queryByTestId('send-failed')).not.toBeInTheDocument();
     expect(screen.queryByText('failing one')).not.toBeInTheDocument();
   });
 
   it('a thread that does not exist for this person closes itself and returns to the conversation', async () => {
-    renderChat('/home/c/g1/t/not-a-thread', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-grace', 'a channel message', { id: 'cm1' })] });
+    renderChat('/chats/c/g1/t/not-a-thread', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-grace', 'a channel message', { id: 'cm1' })] });
     svc.listThread.mockImplementation(async () => null);
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/g1$/));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/g1$/));
     expect(screen.queryByTestId('thread-panel')).not.toBeInTheDocument();
     expect(await screen.findByText('a channel message')).toBeInTheDocument();
   });
@@ -1529,13 +1529,13 @@ describe('review round 2 (continued)', () => {
   it('a phone showing a thread does not mark the hidden channel read; a desktop showing both does', async () => {
     const chats = async () => [mirror(), group('g1', 'Builders', { unreadCount: 2, lastMessage: last('hi all', 1, 'p-grace', 'Grace Hopper') })];
     const msgs = { g1: [msg('g1', 'p-grace', 'root message', { id: 'root8' }), msg('g1', ME.id, 'a reply', { id: 'rep8', threadRootId: 'root8' })] };
-    const { unmount } = renderChat('/home/c/g1/t/root8', chats, msgs);
+    const { unmount } = renderChat('/chats/c/g1/t/root8', chats, msgs);
     await screen.findByTestId('thread-panel');
     await sleep(250);
     expect(svc.markRead).not.toHaveBeenCalled();
     unmount();
     await asDesktop(async () => {
-      renderChat('/home/c/g1/t/root8', chats, msgs);
+      renderChat('/chats/c/g1/t/root8', chats, msgs);
       await screen.findByTestId('thread-panel');
       await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('g1', { throughMessageId: 'lm-hi all' }));
     })();
@@ -1544,7 +1544,7 @@ describe('review round 2 (continued)', () => {
   it('a quote follows its source: an edit and a delete show at once, and the same search re-reads after an edit', async () => {
     const orig = msg('dm1', 'p-dm1', 'before the edit', { id: 'src9' });
     const reply = msg('dm1', ME.id, 'my reply', { id: 'rep9', replyToId: 'src9' });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [orig, reply] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [orig, reply] });
     await screen.findByText('my reply');
     expect(screen.getByTestId('reply-quote')).toHaveTextContent('before the edit');
     act(() => handlers?.onMessage({ type: 'UPDATE', message: { ...orig, body: 'after the edit', editedAt: iso(0) } }));
@@ -1555,7 +1555,7 @@ describe('review round 2 (continued)', () => {
 
   it('search results are read again when a message is edited or deleted', async () => {
     svc.searchMessages.mockResolvedValue([{ messageId: 'mh', conversationId: 'dm1', authorId: 'p-dm1', authorName: 'Ada Lovelace', body: 'the old words', createdAt: iso(3) }]);
-    renderChat('/home', [mirror(), dmChat]);
+    renderChat('/chats', [mirror(), dmChat]);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.change(screen.getByLabelText('Search chats and people'), { target: { value: 'words' } });
     expect(await screen.findByText('the old words', {}, { timeout: 3000 })).toBeInTheDocument();
@@ -1570,7 +1570,7 @@ describe('review round 2 (continued)', () => {
     const theirs = msg('dm1', 'p-dm1', 'forward this one', { id: 'fw10' });
     const chats = [mirror(), dmChat, dm('dm2', 'Blocked Bob', { canSend: false }), group('g1', 'Builders')];
     svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, null, { id: 'fwd-ok', kind: 'forward' }));
-    renderChat('/home/c/dm1', chats, { dm1: [theirs] });
+    renderChat('/chats/c/dm1', chats, { dm1: [theirs] });
     await screen.findByText('forward this one');
     await menuOn('forward this one');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -1586,7 +1586,7 @@ describe('review round 2 (continued)', () => {
 
   it('a thread whose first message was deleted takes no new replies and says why', async () => {
     const root = msg('g1', 'p-grace', null, { id: 'root11', isDeleted: true, deletedAt: iso(2) });
-    renderChat('/home/c/g1/t/root11', [mirror(), group('g1', 'Builders')], { g1: [root, msg('g1', ME.id, 'an old reply', { threadRootId: 'root11' })] });
+    renderChat('/chats/c/g1/t/root11', [mirror(), group('g1', 'Builders')], { g1: [root, msg('g1', ME.id, 'an old reply', { threadRootId: 'root11' })] });
     const note = await screen.findByTestId('thread-composer-blocked');
     expect(note).toHaveTextContent("The first message of this thread was deleted, so it can't take new replies.");
     expect(screen.queryByRole('textbox', { name: 'Reply in thread' })).not.toBeInTheDocument();
@@ -1594,7 +1594,7 @@ describe('review round 2 (continued)', () => {
 
   it('a failed send survives switching to another chat and back, and still offers Retry', async () => {
     svc.sendMessage.mockRejectedValueOnce(new Error('chat send_chat_message failed: chat: cannot message this person'));
-    renderChat('/home/c/dm1', [mirror(), dmChat, dm('dm2', 'Linus Torvalds')], { dm1: [], dm2: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat, dm('dm2', 'Linus Torvalds')], { dm1: [], dm2: [] });
     await userEvent.type(await screen.findByRole('textbox', { name: 'Message Ada' }), 'still mine');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByTestId('send-failed');
@@ -1620,7 +1620,7 @@ describe('review round 2 (continued)', () => {
       pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
     );
     svc.getMessage.mockImplementation(async (id: string) => (id === 'lost1' ? msg('dm1', 'p-dm1', 'a message paging cannot reach', { id: 'lost1', createdAt: new Date(NOW - 99999 * 1000).toISOString() }) : (pool.find((m) => m.id === id) ?? null)));
-    render(treeFor('/home/c/dm1'));
+    render(treeFor('/chats/c/dm1'));
     await screen.findByText('quoting an old one');
     expect(screen.queryByText('history 05')).not.toBeInTheDocument();
     const quotes = await screen.findAllByTestId('reply-quote');
@@ -1634,7 +1634,7 @@ describe('review round 2 (continued)', () => {
   }, 20_000);
 
   it('the message menu gives focus back to the control that opened it', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', ME.id, 'menu focus')] }); // my own message: More exists only where Edit and Delete do
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', ME.id, 'menu focus')] }); // my own message: More exists only where Edit and Delete do
     const text = await screen.findByText('menu focus');
     const more = within(text.closest('li') as HTMLElement).getByRole('button', { name: 'More actions' });
     more.focus();
@@ -1654,7 +1654,7 @@ describe('review round 2 (continued)', () => {
       replies.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
     );
     svc.listThread.mockImplementation(async () => [root, ...replies.slice(-200)]);
-    render(treeFor('/home/c/g1/t/root16'));
+    render(treeFor('/chats/c/g1/t/root16'));
     const panel = await screen.findByTestId('thread-panel');
     await within(panel).findByText('reply 205');
     expect(within(panel).queryByText('reply 005')).not.toBeInTheDocument();
@@ -1670,7 +1670,7 @@ describe('review round 2 (continued)', () => {
     svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
       pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
     );
-    render(treeFor('/home/c/dm1'));
+    render(treeFor('/chats/c/dm1'));
     await screen.findByText('old 060');
     // 130 messages arrive while the socket is down (more than two pages), and one old one (inside the re-read range) is removed
     pool = [...pool.filter((m) => m.id !== 'old50'), ...Array.from({ length: 130 }, (_, i) => mk(i + 1, 'new', 4000 - i))];
@@ -1685,7 +1685,7 @@ describe('review round 2 (continued)', () => {
   it('a deleted thread reply lowers the reply count', async () => {
     const root = msg('g1', 'p-grace', 'counted root', { id: 'root20' });
     svc.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 2, authorIds: [ME.id] }]]));
-    renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root] });
+    renderChat('/chats/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root] });
     expect(await screen.findByTestId('replies-link')).toHaveTextContent('2 replies');
     svc.getThreadStats.mockResolvedValueOnce(new Map([['root20', { count: 1, authorIds: [ME.id] }]]));
     act(() => handlers?.onMessage({ type: 'UPDATE', message: msg('g1', ME.id, null, { id: 'gone-reply', threadRootId: 'root20', isDeleted: true, deletedAt: iso(0) }) }));
@@ -1695,7 +1695,7 @@ describe('review round 2 (continued)', () => {
   it('a list read that never answers ends in an error with Retry, not an endless skeleton', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     svc.getMyChats.mockImplementationOnce(() => new Promise(() => undefined));
-    renderChat('/home', [mirror(), dmChat]);
+    renderChat('/chats', [mirror(), dmChat]);
     expect(screen.getByRole('status', { name: 'Loading chats' })).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(LIST_READ_TIMEOUT_MS + 100);
@@ -1709,7 +1709,7 @@ describe('review round 2 (continued)', () => {
   describe('cost', () => {
     it('a thread reply costs no list read; a top-level message patches its row at once and reads the list after two quiet seconds', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      renderChat('/home', [mirror(), dmChat]);
+      renderChat('/chats', [mirror(), dmChat]);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const reads = () => svc.getMyChats.mock.calls.length;
       const base = reads();
@@ -1727,7 +1727,7 @@ describe('review round 2 (continued)', () => {
     });
 
     it('a conversation the list has never seen is read at once', async () => {
-      renderChat('/home', [mirror(), dmChat]);
+      renderChat('/chats', [mirror(), dmChat]);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const base = svc.getMyChats.mock.calls.length;
       act(() => handlers?.onMessage({ type: 'INSERT', message: msg('brand-new', 'p-x', 'hello out of nowhere', { id: 'nn1' }) }));
@@ -1736,13 +1736,13 @@ describe('review round 2 (continued)', () => {
 
     it('the slow timer runs only while a conversation is open and visible, every 60 seconds', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      const list = renderChat('/home', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+      const list = renderChat('/chats', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       let base = svc.getMyChats.mock.calls.length;
       await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS + 5_000); });
       expect(svc.getMyChats.mock.calls.length).toBe(base); // nothing open: the 60s conversation timer does not run (the 2-minute list refresh is tested separately)
       list.unmount();
-      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+      renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
       await screen.findByText('one');
       base = svc.getMyChats.mock.calls.length;
       await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL_MS - 500); });
@@ -1788,7 +1788,7 @@ describe('final batch', () => {
     <MemoryRouter initialEntries={[path]}>
       <ChatProvider>
         <Routes>
-          <Route path="/home/*" element={<ChatHomePage />} />
+          <Route path="/chats/*" element={<ChatHomePage />} />
         </Routes>
         <Probe />
       </ChatProvider>
@@ -1812,7 +1812,7 @@ describe('final batch', () => {
     const base = new Date(NOW - 60_000).toISOString().replace('Z', ''); // ...:00.mmm
     const shownNewest = msg('dm1', 'p-dm1', 'the newest', { id: 'S', createdAt: `${base}789+00:00` });
     const staleListed = { ...last('older', 1, 'p-dm1', 'Ada'), id: 'L', createdAt: `${base}456+00:00` }; // the list lags by 333 microseconds
-    renderChat('/home/c/dm1', async () => [mirror(), dm('dm1', 'Ada Lovelace', { unreadCount: 1, lastMessage: staleListed })], { dm1: [shownNewest] });
+    renderChat('/chats/c/dm1', async () => [mirror(), dm('dm1', 'Ada Lovelace', { unreadCount: 1, lastMessage: staleListed })], { dm1: [shownNewest] });
     await screen.findByText('the newest');
     await waitFor(() => expect(svc.markRead).toHaveBeenCalledWith('dm1', { throughMessageId: 'S' }));
     expect(svc.markRead).not.toHaveBeenCalledWith('dm1', { throughMessageId: 'L' });
@@ -1826,7 +1826,7 @@ describe('final batch', () => {
     svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
       pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
     );
-    render(treeAt('/home/c/dm1'));
+    render(treeAt('/chats/c/dm1'));
     await screen.findByText('old 060');
     pool = [...pool, ...Array.from({ length: 130 }, (_, i) => mk(i + 1, 'new', 4000 - i))]; // more than two pages while away
     act(() => handlers?.onSubscribed?.());
@@ -1844,7 +1844,7 @@ describe('final batch', () => {
     svc.listMessages.mockImplementation(async (_id: string, opts: { before?: unknown; limit?: number } = {}) =>
       pool.filter((m) => Date.parse(m.createdAt) < cursorTime(opts.before)).slice(-(opts.limit ?? 50)),
     );
-    render(treeAt('/home/c/dm1'));
+    render(treeAt('/chats/c/dm1'));
     await screen.findByText('old 060');
     expect(screen.getByRole('button', { name: 'Load earlier messages' })).toBeInTheDocument();
     pool = Array.from({ length: 12 }, (_, i) => mk(i + 1, 'only', 100 - i)); // everything older is gone
@@ -1858,7 +1858,7 @@ describe('final batch', () => {
     let pool: ChatMessage[] = [mk(1, 'gone', 300), mk(2, 'gone', 200)];
     svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
     svc.listMessages.mockImplementation(async () => pool);
-    render(treeAt('/home/c/dm1'));
+    render(treeAt('/chats/c/dm1'));
     await screen.findByText('gone 002');
     pool = [];
     act(() => handlers?.onSubscribed?.());
@@ -1873,7 +1873,7 @@ describe('final batch', () => {
     let pool: ChatMessage[] = [m1, m2, m3];
     svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
     svc.listMessages.mockImplementation(async () => pool);
-    render(treeAt('/home/c/dm1'));
+    render(treeAt('/chats/c/dm1'));
     await screen.findByText('removed 003');
     pool = [m1, m2];
     let release!: () => void;
@@ -1895,7 +1895,7 @@ describe('final batch', () => {
       svc.getThreadStats.mockResolvedValue(new Map([['rootC', { count: 1, authorIds: ['p-grace'] }]]));
       const reply = msg('g1', ME.id, 'my reply', { id: 'replyC', threadRootId: 'rootC', createdAt: new Date().toISOString() });
       svc.sendMessage.mockResolvedValue(reply);
-      renderChat('/home/c/g1/t/rootC', [mirror(), group('g1', 'Builders')], { g1: [root] });
+      renderChat('/chats/c/g1/t/rootC', [mirror(), group('g1', 'Builders')], { g1: [root] });
       const panel = await screen.findByTestId('thread-panel');
       const main = within(screen.getByTestId('conversation'));
       expect(await main.findByTestId('replies-link')).toHaveTextContent('1 reply');
@@ -1911,7 +1911,7 @@ describe('final batch', () => {
   // ---- G: a slow list-only refresh ----
   it('G: the list refreshes every 2 minutes while it is shown and the tab is visible; no conversation read, nothing before then', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderChat('/home', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
+    renderChat('/chats', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'one')] });
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     const base = svc.getMyChats.mock.calls.length;
     const msgBase = svc.listMessages.mock.calls.length;
@@ -1941,7 +1941,7 @@ describe('final batch', () => {
     view.unmount();
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     try {
-      renderChat('/home', [mirror(), dmChat]);
+      renderChat('/chats', [mirror(), dmChat]);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const b2 = svc.getMyChats.mock.calls.length;
       await act(async () => { await vi.advanceTimersByTimeAsync(LIST_POLL_MS * 2 + 100); });
@@ -2025,7 +2025,7 @@ describe('review round 3', () => {
     const nullBody = msg('dm1', 'p-dm1', null, { id: 'e2', kind: 'forward', forwardSnapshot: snap('Grace Hopper', null), forwardedFromMessageId: 's2' });
     const clarifyGone = msg('dm1', ME.id, null, { id: 'e3', kind: 'clarify', forwardSnapshot: snap('Deleted user', null), forwardedFromMessageId: 's3' });
     const fine = msg('dm1', 'p-dm1', null, { id: 'e4', kind: 'forward', forwardSnapshot: snap('Grace Hopper', 'still here'), forwardedFromMessageId: 's4' });
-    renderChat('/home/c/dm1', [mirrorChat, dmChat], { dm1: [erasedAuthor, nullBody, clarifyGone, fine] });
+    renderChat('/chats/c/dm1', [mirrorChat, dmChat], { dm1: [erasedAuthor, nullBody, clarifyGone, fine] });
     await screen.findByText('still here');
     const cards = [...screen.getAllByTestId('forwarded-card'), ...screen.getAllByTestId('clarified-card')];
     expect(cards).toHaveLength(4);
@@ -2040,7 +2040,7 @@ describe('review round 3', () => {
     const named = mirror('c-mirror', { ownerFirstName: 'Mia', title: long });
 
     it('in the list the custom name has the whole first line (truncating alone) and "Mia\'s mirror ·" leads the second line, never cut', async () => {
-      renderChat('/home', [mirror('c-mirror', { ownerFirstName: 'Mia', title: long, lastMessage: last('a note', 3, ME.id, ME.name) }), dmChat]);
+      renderChat('/chats', [mirror('c-mirror', { ownerFirstName: 'Mia', title: long, lastMessage: last('a note', 3, ME.id, ME.name) }), dmChat]);
       await screen.findAllByTestId('row-title');
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       const title = within(li).getByTestId('row-title');
@@ -2060,7 +2060,7 @@ describe('review round 3', () => {
     });
 
     it('in the header the same two segments, under one heading that still reads as the full label', async () => {
-      renderChat('/home/c/c-mirror', [named, dmChat]);
+      renderChat('/chats/c/c-mirror', [named, dmChat]);
       const h1 = await screen.findByRole('heading', { name: `${long} · Your mirror agent` });
       const [name, role] = Array.from(h1.querySelectorAll(':scope > span > span'));
       expect(classesOf(name!)).toContain('truncate');
@@ -2068,7 +2068,7 @@ describe('review round 3', () => {
     });
 
     it('with no custom name the role alone is the first line and the preview is the second', async () => {
-      renderChat('/home', [mirrorChat, dmChat]);
+      renderChat('/chats', [mirrorChat, dmChat]);
       expect(await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' })).toBeInTheDocument();
       const li = document.querySelector('[data-chat="c-mirror"]') as HTMLElement;
       expect(within(li).queryByTestId('row-role')).not.toBeInTheDocument();
@@ -2097,7 +2097,7 @@ describe('review round 3', () => {
 
     it('K: the selected row is a light blue tint with a blue accent, not a blue fill; avatars stay visible and text is at least 4.5:1', async () => {
       const grp = group('g1', 'Builders', { lastMessage: last('hello all', 5, 'p-grace', 'Grace Hopper') });
-      renderChat('/home/c/g1', [mirrorChat, dmChat, grp]);
+      renderChat('/chats/c/g1', [mirrorChat, dmChat, grp]);
       const row = (await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' })).closest('li')!;
       const btn = within(row).getAllByRole('button')[0]!;
       const cls = classesOf(btn);
@@ -2119,7 +2119,7 @@ describe('review round 3', () => {
       const readRow = group('g1', 'Builders', { lastMessage: last('hello all', 5, 'p-grace', 'Grace Hopper') });
       const unreadRow = group('g2', 'Readers', { unreadCount: 2, lastMessage: last('news', 4, 'p-grace', 'Grace Hopper') });
       const mine = dm('dm1', 'Ada Lovelace', { lastMessage: last('see you', 3, ME.id, ME.name) });
-      renderChat('/home', [mirrorChat, readRow, unreadRow, mine]);
+      renderChat('/chats', [mirrorChat, readRow, unreadRow, mine]);
       await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
       const prefixOf = (title: string) => within(rowFor(title)).getByText(/^(Grace|You):$/);
       for (const t of ['Builders · General', 'Ada Lovelace']) {
@@ -2138,7 +2138,7 @@ describe('review round 3', () => {
   describe('M: phone action bar and dialogs', () => {
     it('the tapped message toolbar is one non-wrapping row: icon buttons with names, a labelled Clarify, and no More on someone else\'s message', async () => {
       const grp = group('g1', 'Builders');
-      renderChat('/home/c/g1', [mirrorChat, grp], { g1: [msg('g1', 'p-grace', 'a message to tap', { id: 'tap1' })] });
+      renderChat('/chats/c/g1', [mirrorChat, grp], { g1: [msg('g1', 'p-grace', 'a message to tap', { id: 'tap1' })] });
       const text = await screen.findByText('a message to tap');
       fireEvent.pointerUp(text);
       const bar = within(text.closest('li') as HTMLElement).getByRole('toolbar', { name: 'Message actions' });
@@ -2161,7 +2161,7 @@ describe('review round 3', () => {
         expect(classesOf(head.parentElement!)).toContain('text-left');
       };
       // Block (the confirmation) and Forward (a sheet) on a 1:1.
-      const view = renderChat('/home/c/dm1', [mirrorChat, dmChat], { dm1: [msg('dm1', 'p-dm1', 'something')] });
+      const view = renderChat('/chats/c/dm1', [mirrorChat, dmChat], { dm1: [msg('dm1', 'p-dm1', 'something')] });
       await screen.findByText('something');
       await userEvent.click(screen.getByRole('button', { name: 'More' }));
       await userEvent.click(await screen.findByRole('menuitem', { name: 'Block' }));
@@ -2173,7 +2173,7 @@ describe('review round 3', () => {
       check(await screen.findByRole('dialog'));
       view.unmount();
       // Attach (a sheet) and Rename on the mirror.
-      renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
+      renderChat('/chats/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
       fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
       check(await screen.findByRole('dialog'));
       fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
@@ -2200,7 +2200,7 @@ describe('review round 4', () => {
 
   it('N: every send mints its own uuid, and a Retry of the same send reuses it', async () => {
     svc.sendMessage.mockRejectedValueOnce(new Error('chat send_chat_message failed: chat: cannot message this person'));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await typeAndSend('first');
     const failed = await screen.findByTestId('send-failed');
     svc.sendMessage.mockImplementation(async (input: { body: string; clientId: string }) => msg('dm1', ME.id, input.body, { id: `srv-${input.body}`, clientId: input.clientId }));
@@ -2227,7 +2227,7 @@ describe('review round 4', () => {
       }
       return row;
     });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await typeAndSend('lost reply');
     const failed = await screen.findByTestId('send-failed');
     expect(logOf().getAllByText('lost reply')).toHaveLength(1);
@@ -2244,7 +2244,7 @@ describe('review round 4', () => {
     svc.sendMessage.mockImplementation(async () => {
       throw new Error('TypeError: Failed to fetch');
     });
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await typeAndSend('stored anyway');
     await screen.findByTestId('send-failed');
     act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', ME.id, 'stored anyway', { id: 'rt-9', createdAt: new Date().toISOString(), clientId: sentWith(0)! }) }));
@@ -2254,7 +2254,7 @@ describe('review round 4', () => {
 
   it('N: the pending row is matched by clientId, not words: the same words from another device are a second message', async () => {
     svc.sendMessage.mockImplementation(() => new Promise<ChatMessage>(() => undefined));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     await typeAndSend('same words');
     await screen.findByText('Sending…');
     act(() => handlers?.onMessage({ type: 'INSERT', message: msg('dm1', ME.id, 'same words', { id: 'other-dev', createdAt: new Date().toISOString(), clientId: 'some-other-uuid' }) }));
@@ -2265,7 +2265,7 @@ describe('review round 4', () => {
   it('N: a forward carries one clientId per target, so pressing Send again after a lost reply replays it', async () => {
     const theirs = msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' });
     svc.forwardMessage.mockRejectedValueOnce(new Error('TypeError: Failed to fetch')).mockResolvedValue(msg('g1', ME.id, null, { id: 'f2', kind: 'forward' }));
-    renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
     await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -2281,7 +2281,7 @@ describe('review round 4', () => {
   });
 
   it('O: the composer hint is one truncating line, drawn by hand, and the field keeps its accessible name', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
     const box = await screen.findByRole('textbox', { name: 'Message Ada' });
     expect(box).not.toHaveAttribute('placeholder');
     const hint = screen.getByTestId('composer-hint');
@@ -2352,7 +2352,7 @@ describe('review round 5', () => {
   it('Q: going A, B, back to A reuses A\'s original forward key; B gets its own', async () => {
     const theirs = msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' });
     svc.forwardMessage.mockRejectedValue(new Error('TypeError: Failed to fetch'));
-    renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders'), group('g2', 'Readers')], { dm1: [theirs] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat, group('g1', 'Builders'), group('g2', 'Readers')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
     await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -2381,10 +2381,10 @@ describe('review round 5', () => {
       svc.getMyChats.mockResolvedValue([mirror(), dmChat]);
       svc.listMessages.mockResolvedValue([]);
       return render(
-        <MemoryRouter initialEntries={['/home/c/dm1']}>
+        <MemoryRouter initialEntries={['/chats/c/dm1']}>
           <ChatProvider>
             <Routes>
-              <Route path="/home/*" element={<ChatHomePage />} />
+              <Route path="/chats/*" element={<ChatHomePage />} />
             </Routes>
             <OutboxSize />
           </ChatProvider>
@@ -2435,7 +2435,7 @@ describe('review round 6', () => {
   const classesOf = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
   const LONG = 'A very long mirror name that will certainly not fit on one line of a phone';
   const openForward = async (chats: ChatSummary[]) => {
-    renderChat('/home/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' })] });
+    renderChat('/chats/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' })] });
     await screen.findByText('worth forwarding');
     await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -2479,7 +2479,7 @@ describe('review round 6', () => {
   it('S2: offline, an author whose profile cannot load is "Unknown member" with a gray initials avatar at once, never a permanent skeleton', async () => {
     const online = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
     helpers.getChatAuthors.mockRejectedValue(new TypeError('Failed to fetch'));
-    renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-stranger', 'from a stranger')] });
+    renderChat('/chats/c/g1', [mirror(), group('g1', 'Builders')], { g1: [msg('g1', 'p-stranger', 'from a stranger')] });
     await screen.findByText('from a stranger');
     expect(await screen.findByText('Unknown member', { selector: 'span' })).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: 'Loading name' })).not.toBeInTheDocument();
@@ -2492,7 +2492,7 @@ describe('review round 6', () => {
 
   it('S2: a name that has not loaded after a short wait is taken from the chat list (the 1:1 partner), and the real profile replaces it when it loads', async () => {
     helpers.getChatAuthors.mockRejectedValue(new TypeError('Failed to fetch'));
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'who wrote this')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'who wrote this')] });
     await screen.findByText('who wrote this');
     expect(screen.getByRole('status', { name: 'Loading name' })).toBeInTheDocument();
     const row = screen.getByText('who wrote this').closest('li') as HTMLElement;
@@ -2505,7 +2505,7 @@ describe('review round 6', () => {
   }, 20_000);
 
   it('S3: the rename dialog names the role exactly as it is shown', async () => {
-    renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
     const shown = (await screen.findByRole('heading', { name: "Your mirror agent" })).textContent;
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: /^About / }));
@@ -2517,7 +2517,7 @@ describe('review round 6', () => {
   });
 
   it('S4: an erased account has a neutral gray avatar, not a coloured initials disc', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', null, 'words of an erased person', { id: 'gone1' })] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', null, 'words of an erased person', { id: 'gone1' })] });
     const row = (await screen.findByText('words of an erased person')).closest('li') as HTMLElement;
     const avatar = row.querySelector('.bg-gray-200') as HTMLElement;
     expect(avatar).not.toBeNull();
@@ -2527,7 +2527,7 @@ describe('review round 6', () => {
   });
 
   it('N1: the conversation header title is one line with an ellipsis, on the title and the subtitle', async () => {
-    renderChat('/home/c/g1', [mirror(), group('g1', 'An organisation with a very long name indeed')], { g1: [] });
+    renderChat('/chats/c/g1', [mirror(), group('g1', 'An organisation with a very long name indeed')], { g1: [] });
     const h1 = await screen.findByRole('heading', { name: 'An organisation with a very long name indeed' });
     expect(classesOf(h1)).toContain('truncate');
     expect(classesOf(h1).some((c) => c.startsWith('line-clamp'))).toBe(false);
@@ -2551,7 +2551,7 @@ async function asDesktopAsync<T>(fn: () => Promise<T>): Promise<T> {
 describe('nothing fake', () => {
   it('renders no "coming soon", placeholder, prototype or mock text in the list, a conversation or a dialog', async () => {
     const chats = [mirror(), dm('dm1', 'Ada Lovelace', { isPartner: true }), group('g1', 'Builders'), eventChat('ev1', 'Friday Night', 5)];
-    renderChat('/home/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'a normal message')] });
+    renderChat('/chats/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'a normal message')] });
     await screen.findByText('a normal message');
     await menuOn('a normal message');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
@@ -2579,86 +2579,86 @@ describe('Back goes back', () => {
   };
 
   it('a chat opened from the list: Back pops to the list, and one more pop leaves the app (no chat in between)', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
-    expect(where()).toBe('/home/c/dm1');
+    expect(where()).toBe('/chats/c/dm1');
     expect(nav()).toBe('PUSH');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('a chat arrived at cold (a link, a toast): Back replaces it with the list, so no loop forms', async () => {
-    renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('hello there');
     fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('REPLACE');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('a thread opened from its chat: Back pops to the chat, then to the list, then out of the app', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
-    expect(where()).toBe('/home/c/g1/t/root');
+    expect(where()).toBe('/chats/c/g1/t/root');
     fireEvent.click(screen.getByRole('button', { name: 'Back to the conversation' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('POP');
     fireEvent.click(screen.getByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('a thread arrived at cold: Back and Close replace it with its chat', async () => {
-    const { unmount } = renderChat({ entries: ['/feed', '/home/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
+    const { unmount } = renderChat({ entries: ['/feed', '/chats/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByTestId('thread-panel');
     fireEvent.click(screen.getByRole('button', { name: 'Back to the conversation' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('REPLACE');
     act(() => historyBack());
     expect(where()).toBe('/feed');
     unmount();
 
-    renderChat({ entries: ['/feed', '/home/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByTestId('thread-panel');
     fireEvent.click(screen.getByRole('button', { name: 'Close thread' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('REPLACE');
   });
 
   it('Escape closes a thread the same way: pop when the chat is the previous entry, replace when it is not', async () => {
-    const { unmount } = renderChat('/home/c/g1', [mirror(), channel], threadMsgs);
+    const { unmount } = renderChat('/chats/c/g1', [mirror(), channel], threadMsgs);
     await screen.findByText('start a thread here');
     await openThread();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('POP');
     unmount();
 
-    renderChat({ entries: ['/feed', '/home/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/g1/t/root'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByTestId('thread-panel');
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('REPLACE');
   });
 
   it('archiving the open chat steps back to the list it came from: no duplicate list entry, never the archived chat', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('hello there');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     expect(screen.queryByTestId('conversation')).not.toBeInTheDocument();
     act(() => historyBack());
@@ -2666,49 +2666,49 @@ describe('Back goes back', () => {
   });
 
   it('archiving a chat that was arrived at cold replaces it with the list', async () => {
-    renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('hello there');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('REPLACE');
   });
 
   it('archiving with a thread open steps back over the thread AND the chat, to the list', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('marking unread with a thread open leaves nothing behind that reopens the chat', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('archiving the open chat from its list row steps back too', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('hello there');
     fireEvent.contextMenu(rowButton('Ada Lovelace'));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
@@ -2716,83 +2716,83 @@ describe('Back goes back', () => {
 
   it('opening another thread while one is open replaces it: closing the second does not reopen the first', async () => {
     const second = msg('g1', 'p-grace', 'a second thread root', { id: 'root2' });
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel], { g1: [...threadMsgs.g1, second] });
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel], { g1: [...threadMsgs.g1, second] });
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
-    expect(where()).toBe('/home/c/g1/t/root');
+    expect(where()).toBe('/chats/c/g1/t/root');
     await menuOn('a second thread root');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
-    await waitFor(() => expect(where()).toBe('/home/c/g1/t/root2'));
+    await waitFor(() => expect(where()).toBe('/chats/c/g1/t/root2'));
     expect(nav()).toBe('REPLACE');
     fireEvent.click(screen.getByRole('button', { name: 'Back to the conversation' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('POP');
   });
 
   it('pressing the already-open thread again does nothing: no duplicate entry', async () => {
     svc.getThreadStats.mockResolvedValue(new Map([['root', { count: 1, authorIds: [ME.id] }]]));
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
     fireEvent.click(await screen.findByTestId('replies-link'));
-    expect(where()).toBe('/home/c/g1/t/root');
+    expect(where()).toBe('/chats/c/g1/t/root');
     fireEvent.click(screen.getByRole('button', { name: 'Back to the conversation' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
   });
 
   it('a thread reply found by search: the thread\'s Back goes to its conversation (which the history lacks), then to the list', async () => {
     svc.getMessage.mockResolvedValue(msg('g1', ME.id, 'a reply in the thread', { id: 'rep', threadRootId: 'root' }));
     renderChat(
-      { entries: ['/feed', '/home', { pathname: '/home/c/g1', search: '?m=rep', state: { below: ['list'] } }], index: 2 },
+      { entries: ['/feed', '/chats', { pathname: '/chats/c/g1', search: '?m=rep', state: { below: ['list'] } }], index: 2 },
       [mirror(), channel],
       threadMsgs,
     );
     await screen.findByTestId('thread-panel');
-    expect(where()).toBe('/home/c/g1/t/root?m=rep');
+    expect(where()).toBe('/chats/c/g1/t/root?m=rep');
     fireEvent.click(screen.getByRole('button', { name: 'Back to the conversation' }));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('REPLACE');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
   });
 
   it('a cold-arrived channel -> thread -> archive leaves no channel behind', async () => {
-    renderChat({ entries: ['/feed', '/home/c/g1'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/g1'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('start a thread here');
     await openThread();
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     act(() => historyBack());
     await waitFor(() => expect(where()).toBe('/feed'));
   });
 
   it('a cold-arrived channel -> thread -> mark unread leaves no channel behind', async () => {
-    renderChat({ entries: ['/feed', '/home/c/g1'], index: 1 }, [mirror(), channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/g1'], index: 1 }, [mirror(), channel], threadMsgs);
     await screen.findByText('start a thread here');
     await openThread();
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     act(() => historyBack());
     await waitFor(() => expect(where()).toBe('/feed'));
   });
 
   it('list beside an open thread -> select another chat: Back goes to the list, not the first channel', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), channel, dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), channel, dmChat], threadMsgs);
     await screen.findByText('Builders · General', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Builders · General'));
     await screen.findByText('start a thread here');
     await openThread();
     fireEvent.click(rowButton('Ada Lovelace'));
-    expect(where()).toBe('/home/c/dm1');
+    expect(where()).toBe('/chats/c/dm1');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
@@ -2800,36 +2800,36 @@ describe('Back goes back', () => {
 
   it('list -> chat -> Clarify -> mirror -> select another chat: Back goes to the list, not into the chat', async () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl20', kind: 'clarify' }));
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'clarify then switch')], g1: [] });
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'clarify then switch')], g1: [] });
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('clarify then switch');
     await menuOn('clarify then switch');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/home/c/c-mirror'));
+    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror'));
     fireEvent.click(rowButton('Builders · General'));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
   });
 
   it('a chat reached from a group page -> Clarify -> mirror -> archive leaves no chat behind', async () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl21', kind: 'clarify' }));
-    renderChat({ entries: ['/feed', '/groups/cm', '/home/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
+    renderChat({ entries: ['/feed', '/groups/cm', '/chats/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
     await screen.findByText('clarify from group');
     await menuOn('clarify from group');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/home/c/c-mirror'));
+    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror'));
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     act(() => historyBack());
     await waitFor(() => expect(where()).toBe('/groups/cm'));
   });
 
   it('the composer focus Clarify asks for is spent once: going back and forward again does not take focus', async () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl22', kind: 'clarify' }));
-    renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify once')] });
+    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify once')] });
     await screen.findByText('clarify once');
     await menuOn('clarify once');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
@@ -2844,7 +2844,7 @@ describe('Back goes back', () => {
   });
 
   it('a double tap on Back pops once, not twice out of the app', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     const back = await screen.findByRole('button', { name: 'Back to chats' });
@@ -2852,60 +2852,60 @@ describe('Back goes back', () => {
       back.click();
       back.click();
     });
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
   });
 
   it('switching chats while one is open (desktop list) keeps the list as the entry before the chat', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat, channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat, channel], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('hello there');
     fireEvent.click(rowButton('Builders · General'));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     expect(nav()).toBe('REPLACE');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('marking the chat unread steps back to the list, so Back does not return and read it again', async () => {
-    renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('hello there');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     expect(nav()).toBe('POP');
     act(() => historyBack());
     expect(where()).toBe('/feed');
   });
 
   it('marking a chat arrived at cold unread replaces it with the list', async () => {
-    renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], threadMsgs);
     await screen.findByText('hello there');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     expect(nav()).toBe('REPLACE');
   });
 
   it('a chat link that cannot be opened: "Back to chats" follows the same rule', async () => {
-    renderChat({ entries: ['/feed', '/home/c/nope'], index: 1 }, [mirror(), dmChat]);
+    renderChat({ entries: ['/feed', '/chats/c/nope'], index: 1 }, [mirror(), dmChat]);
     fireEvent.click(await within(await screen.findByTestId('chat-unavailable')).findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('REPLACE');
   });
 
   it('a chat switched to from one that had no list before it carries no marker: Back replaces with the list', async () => {
-    renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat, channel], threadMsgs);
+    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat, channel], threadMsgs);
     await screen.findByText('hello there');
     fireEvent.click(rowButton('Builders · General'));
-    expect(where()).toBe('/home/c/g1');
+    expect(where()).toBe('/chats/c/g1');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-    expect(where()).toBe('/home');
+    expect(where()).toBe('/chats');
     expect(nav()).toBe('REPLACE');
   });
 });
@@ -2919,34 +2919,34 @@ describe('message actions: toolbar and More', () => {
   const menuNames = () => within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent);
 
   it('in a channel the toolbar reads Reply, Forward, Thread, Clarify', async () => {
-    renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'a channel post', { id: 'cp' })] });
+    renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'a channel post', { id: 'cp' })] });
     await screen.findByText('a channel post');
     fireEvent.pointerUp(screen.getByText('a channel post'));
     expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent"]);
   });
 
   it('on my own channel post More joins the toolbar (Edit and Delete live there)', async () => {
-    renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my own post', { id: 'op' })] });
+    renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my own post', { id: 'op' })] });
     await screen.findByText('my own post');
     fireEvent.pointerUp(screen.getByText('my own post'));
     expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
   });
 
   it('a 1:1 and the mirror offer Thread (P1546), and in the mirror no Clarify', async () => {
-    const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
+    const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
     expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent"]);
     unmount();
 
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
     await screen.findByText('a note to self');
     fireEvent.pointerUp(screen.getByText('a note to self'));
     expect(names(toolbarOf('a note to self'))).toEqual(['Reply', 'Forward', 'Thread', 'More actions']);
   });
 
   it('More holds only Edit and Delete, on my own messages; on someone else\'s message there is no More', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'theirs'), msg('dm1', ME.id, 'mine')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'theirs'), msg('dm1', ME.id, 'mine')] });
     await screen.findByText('mine');
     fireEvent.pointerUp(screen.getByText('theirs'));
     expect(within(toolbarOf('theirs')).queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
@@ -2957,14 +2957,14 @@ describe('message actions: toolbar and More', () => {
   });
 
   it('a right-click opens the full list (no Mark as unread: that marks the whole chat, so it lives on the chat)', async () => {
-    renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my channel post')] });
+    renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my channel post')] });
     await screen.findByText('my channel post');
     await menuOn('my channel post');
     expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify', 'Edit', 'Delete']);
   });
 
   it('no message menu offers Mark as unread (right-click on someone else\'s message), while the chat menus still do', async () => {
-    renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'not mine')] });
+    renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'not mine')] });
     await screen.findByText('not mine');
     await menuOn('not mine');
     expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify']);
@@ -2975,7 +2975,7 @@ describe('message actions: toolbar and More', () => {
   });
 
   it('Clarify is a labelled button: the mirror\'s face, the word, and "Clarify with <mirror name>" for its name and tip', async () => {
-    renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify me')] });
+    renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify me')] });
     await screen.findByText('clarify me');
     fireEvent.pointerUp(screen.getByText('clarify me'));
     const button = within(toolbarOf('clarify me')).getByRole('button', { name: "Clarify with your mirror agent" });
@@ -2994,14 +2994,14 @@ describe('message actions: toolbar and More', () => {
   it('a renamed mirror is named by its title, in the button and the clarified card', async () => {
     const renamed = mirror('c-mirror', { title: 'Thinking out loud' });
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl9', kind: 'clarify' }));
-    renderChat('/home/c/dm1', [renamed, dmChat], {
+    renderChat('/chats/c/dm1', [renamed, dmChat], {
       dm1: [msg('dm1', 'p-dm1', 'rename test', { id: 'rn1' })],
       'c-mirror': [msg('c-mirror', ME.id, null, { id: 'cl9', kind: 'clarify', forwardSnapshot: { authorName: 'Ada Lovelace', body: 'words', createdAt: iso(5), conversationKind: 'dm', conversationTitle: 'Ada Lovelace', thread: [] } })],
     });
     await screen.findByText('rename test');
     fireEvent.pointerUp(screen.getByText('rename test'));
     fireEvent.click(within(toolbarOf('rename test')).getByRole('button', { name: 'Clarify with Thinking out loud' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
     expect(await screen.findByTestId('clarified-card')).toHaveTextContent('Sent to Thinking out loud to clarify');
   });
 
@@ -3010,37 +3010,37 @@ describe('message actions: toolbar and More', () => {
     const clarifyIt = async (text: string) => {
       await menuOn(text);
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
     };
     beforeEach(() => {
       svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl7', kind: 'clarify' }));
     });
 
     it('pushes the mirror, and its Back returns to the chat clarified from', async () => {
-      renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify back')] });
+      renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify back')] });
       await screen.findByText('clarify back');
       await clarifyIt('clarify back');
       expect(nav()).toBe('PUSH');
       fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home\/c\/dm1$/);
+      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
       expect(nav()).toBe('POP');
     });
 
     it('leaving the mirror for good (archive) steps back over it and the chat it was clarified from, to the list', async () => {
-      renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify deep')] });
+      renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify deep')] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       fireEvent.click(rowButton('Ada Lovelace'));
       await screen.findByText('clarify deep');
       await clarifyIt('clarify deep');
       await userEvent.click(screen.getByRole('button', { name: 'More' }));
       await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/home$/);
+      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/);
       expect(nav()).toBe('POP');
     });
 
     it('a failed clarify shows an error toast, keeps the quote staged and puts the typed note back', async () => {
       svc.clarifyMessage.mockRejectedValue(new Error('chat clarify failed: chat: not available'));
-      renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')], 'c-mirror': [] });
+      renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')], 'c-mirror': [] });
       await screen.findByText('clarify fail');
       await menuOn('clarify fail');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
@@ -3059,7 +3059,7 @@ describe('the clarified card and the mirror preview', () => {
   const clarified = (author: string, kind: 'dm' | 'group' | 'event' | null, title: string | null, forwardAuthorId: string | null = null, id = 'cc1') =>
     msg('c-mirror', ME.id, null, { id, kind: 'clarify', forwardAuthorId, forwardSnapshot: { authorName: author, body: 'what I said', createdAt: iso(5), conversationKind: kind, conversationTitle: title, thread: [] } });
   const cardFor = async (m: ChatMessage) => {
-    renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [m] });
+    renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [m] });
     return await screen.findByTestId('clarified-card');
   };
 
@@ -3099,21 +3099,21 @@ describe('the clarified card and the mirror preview', () => {
   });
 
   it('a channel names the channel or event chat on line 1 and the author on line 2', async () => {
-    const { unmount } = renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', 'Builders · General')] });
+    const { unmount } = renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', 'Builders · General')] });
     let card = await screen.findByTestId('clarified-card');
     expect(label(card).textContent).toBe("Sent to your mirror agent to clarify · from Builders · General");
     expect(author(card).textContent).toBe('Grace Hopper');
     unmount();
-    renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'event', 'Friday Night')] });
+    renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'event', 'Friday Night')] });
     card = await screen.findByTestId('clarified-card');
     expect(label(card).textContent).toBe("Sent to your mirror agent to clarify · from Friday Night");
   });
 
   it('with no title the kind speaks: "your chat", "a group chat"', async () => {
-    const { unmount } = renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Alice Moreau', 'dm', null)] });
+    const { unmount } = renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Alice Moreau', 'dm', null)] });
     expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to your mirror agent to clarify · from your chat");
     unmount();
-    renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', null)] });
+    renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Alice Moreau')], { 'c-mirror': [clarified('Grace Hopper', 'group', null)] });
     expect(label(await screen.findByTestId('clarified-card')).textContent).toBe("Sent to your mirror agent to clarify · from a group chat");
   });
 
@@ -3127,7 +3127,7 @@ describe('the clarified card and the mirror preview', () => {
   });
 
   it('the mirror list row reads "Clarify: <words>" when the list carries the clarified body', async () => {
-    renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: 'what I said to Alice' } }), dm('dm1', 'Alice Moreau')]);
+    renderChat('/chats', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: 'what I said to Alice' } }), dm('dm1', 'Alice Moreau')]);
     const row = await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify: what I said to Alice');
@@ -3135,7 +3135,7 @@ describe('the clarified card and the mirror preview', () => {
   });
 
   it('the mirror list row reads "Clarify" with no "You: Clarified message"', async () => {
-    renderChat('/home', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: null } }), dm('dm1', 'Alice Moreau')]);
+    renderChat('/chats', [mirror('c-mirror', { lastMessage: { ...last('x', 1, ME.id, ME.name), kind: 'clarify', body: null } }), dm('dm1', 'Alice Moreau')]);
     const row = await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' });
     const li = row.closest('li') as HTMLElement;
     expect(li).toHaveTextContent('Clarify');
@@ -3181,7 +3181,7 @@ describe('the mirror mark', () => {
 
   it('the list row, the header and the forward picker show it, and never the owner\'s photo or initials', async () => {
     const theirs = msg('c-mirror', ME.id, 'a note to self', { id: 'nn1' });
-    renderChat('/home/c/c-mirror', [mirror('c-mirror', { lastMessage: { ...last('preview words', 1, ME.id, ME.name) } }), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [theirs] });
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror', { lastMessage: { ...last('preview words', 1, ME.id, ME.name) } }), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [theirs] });
     const row = (await screen.findByText("Your mirror agent", { selector: '[data-testid="row-title"]' })).closest('li') as HTMLElement;
     expect(row.querySelector('[data-testid="mirror-glyph"]')).not.toBeNull();
     expect(row.querySelector('img')).toBeNull();
@@ -3207,28 +3207,28 @@ describe('the conversation header title is a link to who or what the chat is wit
   const titleLink = (name: string | RegExp) => within(screen.getByTestId('conversation').querySelector('header') as HTMLElement).queryByRole('link', { name });
 
   it('a 1:1 links the person\'s profile', async () => {
-    renderChat('/home/c/dm1', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [] });
+    renderChat('/chats/c/dm1', [mirror(), dm('dm1', 'Ada Lovelace')], { dm1: [] });
     await screen.findByTestId('conversation');
     expect(titleLink(/Ada Lovelace/)).toHaveAttribute('href', '/p/ada');
   });
 
   it('a group links its page, an event links its page', async () => {
-    const { unmount } = renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [] });
+    const { unmount } = renderChat('/chats/c/g1', [mirror(), group('g1', 'Builders')], { g1: [] });
     await screen.findByTestId('conversation');
     expect(within(screen.getByTestId('conversation')).getByRole('link', { name: /Builders/ })).toHaveAttribute('href', '/groups/builders');
     unmount();
-    renderChat('/home/c/e1', [mirror(), eventChat('e1', 'Friday Night', 5)], { e1: [] });
+    renderChat('/chats/c/e1', [mirror(), eventChat('e1', 'Friday Night', 5)], { e1: [] });
     await screen.findByTestId('conversation');
     expect(within(screen.getByTestId('conversation')).getByRole('link', { name: /Friday Night/ })).toHaveAttribute('href', '/events/friday-night');
   });
 
   it('the mirror and a person whose account is gone have no link to follow', async () => {
-    const { unmount } = renderChat('/home/c/c-mirror', [mirror(), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [] });
+    const { unmount } = renderChat('/chats/c/c-mirror', [mirror(), dm('dm1', 'Ada Lovelace')], { 'c-mirror': [] });
     await screen.findByTestId('conversation');
     expect(within(screen.getByTestId('conversation').querySelector('header') as HTMLElement).queryAllByRole('link')).toHaveLength(0);
     unmount();
     const gone = dm('dm9', 'Gone', { other: { id: null, name: 'Deleted user', slug: null, avatarUrl: null, avatarColor: null } });
-    renderChat('/home/c/dm9', [mirror(), gone], { dm9: [] });
+    renderChat('/chats/c/dm9', [mirror(), gone], { dm9: [] });
     await screen.findByTestId('conversation');
     expect(within(screen.getByTestId('conversation').querySelector('header') as HTMLElement).queryAllByRole('link')).toHaveLength(0);
   });
@@ -3247,14 +3247,14 @@ describe('freshness fixes', () => {
   const rootMsg = msg('g1', 'p-grace', 'start a thread here', { id: 'root' });
 
   it('a cold chat -> thread -> Mark as unread ends unread: nothing reads the chat on the way out', async () => {
-    renderChat({ entries: ['/feed', '/home/c/g1'], index: 1 }, [mirror(), channel], { g1: [rootMsg] });
+    renderChat({ entries: ['/feed', '/chats/c/g1'], index: 1 }, [mirror(), channel], { g1: [rootMsg] });
     await screen.findByText('start a thread here');
     await menuOn('start a thread here');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
     await screen.findByTestId('thread-panel');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Mark as unread' }));
-    await waitFor(() => expect(where()).toBe('/home'));
+    await waitFor(() => expect(where()).toBe('/chats'));
     await sleep(100);
     expect(svc.setChatState).toHaveBeenCalledWith('g1', { manualUnread: true });
     expect(svc.markRead).not.toHaveBeenCalled();
@@ -3264,7 +3264,7 @@ describe('freshness fixes', () => {
   describe('the "Open" on a toast goes by where the person is when they press it', () => {
     const forwardFromAda = async () => {
       svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, 'see this', { id: 'f9', kind: 'forward' }));
-      renderChat({ entries: ['/feed', '/home'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw9' })], g1: [] });
+      renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw9' })], g1: [] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       fireEvent.click(rowButton('Ada Lovelace'));
       await screen.findByText('worth forwarding');
@@ -3281,51 +3281,51 @@ describe('freshness fixes', () => {
     it('still on the chat it forwarded from: the target opens on top of it, and Back returns to it', async () => {
       const open = await forwardFromAda();
       act(() => open());
-      expect(where()).toBe('/home/c/g1');
+      expect(where()).toBe('/chats/c/g1');
       expect(nav()).toBe('PUSH');
       expect(stateOf()).toEqual({ below: ['conv', 'list'] });
       fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
-      expect(where()).toBe('/home/c/dm1');
+      expect(where()).toBe('/chats/c/dm1');
       expect(nav()).toBe('POP');
     });
 
     it('after the person went back to the list (the chat it came from is gone): the list is what is below', async () => {
       const open = await forwardFromAda();
       fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
-      expect(where()).toBe('/home');
+      expect(where()).toBe('/chats');
       act(() => open());
-      expect(where()).toBe('/home/c/g1');
+      expect(where()).toBe('/chats/c/g1');
       expect(stateOf()).toEqual({ below: ['list'] });
     });
   });
 
   describe('a thread URL that cannot be a thread keeps its Back state', () => {
     it('a thread URL on a 1:1 whose thread is not available is replaced by the chat, carrying what was below', async () => {
-      renderChat({ entries: ['/feed', { pathname: '/home/c/dm1/t/x', state: { below: ['list'] } }], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'plain dm')] });
+      renderChat({ entries: ['/feed', { pathname: '/chats/c/dm1/t/x', state: { below: ['list'] } }], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'plain dm')] });
       svc.listThread.mockImplementation(async () => null);
       await screen.findByText('plain dm');
-      await waitFor(() => expect(where()).toBe('/home/c/dm1'));
-      expect(where()).toBe('/home/c/dm1');
+      await waitFor(() => expect(where()).toBe('/chats/c/dm1'));
+      expect(where()).toBe('/chats/c/dm1');
       expect(nav()).toBe('REPLACE');
       expect(stateOf()).toEqual({ below: ['list'] });
     });
 
     it('a thread that is not available, arrived at with the list below: replaced by its chat, state kept', async () => {
-      renderChat({ entries: ['/feed', { pathname: '/home/c/g1/t/gone', state: { below: ['list'] } }], index: 1 }, [mirror(), channel], { g1: [rootMsg] });
+      renderChat({ entries: ['/feed', { pathname: '/chats/c/g1/t/gone', state: { below: ['list'] } }], index: 1 }, [mirror(), channel], { g1: [rootMsg] });
       svc.listThread.mockImplementation(async () => null);
-      await waitFor(() => expect(where()).toBe('/home/c/g1'));
+      await waitFor(() => expect(where()).toBe('/chats/c/g1'));
       expect(nav()).toBe('REPLACE');
       expect(stateOf()).toEqual({ below: ['list'] });
     });
 
     it('a thread that is not available, opened from its chat: closing it pops back to that chat', async () => {
       renderChat(
-        { entries: ['/feed', '/home', { pathname: '/home/c/g1', state: { below: ['list'] } }, { pathname: '/home/c/g1/t/gone', state: { below: ['conv', 'list'] } }], index: 3 },
+        { entries: ['/feed', '/chats', { pathname: '/chats/c/g1', state: { below: ['list'] } }, { pathname: '/chats/c/g1/t/gone', state: { below: ['conv', 'list'] } }], index: 3 },
         [mirror(), channel],
         { g1: [rootMsg] },
       );
       svc.listThread.mockImplementation(async () => null);
-      await waitFor(() => expect(where()).toBe('/home/c/g1'));
+      await waitFor(() => expect(where()).toBe('/chats/c/g1'));
       expect(nav()).toBe('POP');
     });
   });
@@ -3336,7 +3336,7 @@ describe('a pending Clarify (review fixes)', () => {
   const src = (text = 'to clarify') => msg('dm1', 'p-dm1', text, { id: 'src1' });
 
   it('F6: one staged for a mirror pane that is already open appears without a navigation', async () => {
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
     await screen.findByRole('textbox', { name: 'Write to your mirror agent' });
     expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
     act(() => stageClarify('c-mirror', { message: src('late clarify'), authorName: 'Ada Lovelace' }));
@@ -3345,17 +3345,17 @@ describe('a pending Clarify (review fixes)', () => {
 
   it('F5: it is taken once: after the pane is closed and opened again it does not come back', async () => {
     stageClarify('c-mirror', { message: src('only once'), authorName: 'Ada Lovelace' });
-    const first = renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    const first = renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
     expect(await screen.findByTestId('clarify-pending')).toBeInTheDocument();
     first.unmount();
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
     await screen.findByRole('textbox', { name: 'Write to your mirror agent' });
     expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
   });
 
   it('F7: Reply and Clarify are never pending together', async () => {
     stageClarify('c-mirror', { message: src('stage first'), authorName: 'Ada Lovelace' });
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self', { id: 'n9' })] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self', { id: 'n9' })] });
     await screen.findByTestId('clarify-pending');
     await menuOn('a note to self');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
@@ -3390,7 +3390,7 @@ describe('a pending Clarify (review fixes)', () => {
     svc.clarifyMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { land = r; }));
     svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'x1' }));
     stageClarify('c-mirror', { message: src('with attachment'), authorName: 'Ada Lovelace' });
-    renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
     await screen.findByTestId('clarify-pending');
     fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Alpha/ }));

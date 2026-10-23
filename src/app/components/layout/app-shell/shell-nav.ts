@@ -12,8 +12,8 @@ import {
   CalendarDaysIcon,
   HomeIcon,
   LandmarkIcon,
-  MailIcon,
-  NewspaperIcon,
+  MessageSquareIcon,
+  ShapesIcon,
   UserIcon,
   UsersIcon,
   type LucideIcon,
@@ -26,10 +26,14 @@ import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from '@/app/h
 import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { useChatUnreadCount } from '@/app/pages/chat/chat-state';
 
-/** Where the signed-in home lives (D9). `/` forwards here once the session has restored. */
-export const HOME_PATH = '/home';
+/** Where the signed-in home lives: the feed (P1545). `/` forwards here once the session has restored. */
+export const HOME_PATH = '/feed';
+/** The chat list and every conversation under it (P1545: was /home). */
+export const CHATS_PATH = '/chats';
+/** Letters and canvases (P1545: replaces /letters). */
+export const ARTIFACTS_PATH = '/artifacts';
 
-export type ShellEntryId = 'home' | 'feed' | 'groups' | 'letters' | 'events' | 'partners' | 'profile';
+export type ShellEntryId = 'home' | 'chats' | 'groups' | 'artifacts' | 'events' | 'partners' | 'profile';
 
 export interface ShellEntry {
   id: ShellEntryId;
@@ -53,16 +57,16 @@ function isUnder(pathname: string, prefix: string): boolean {
 export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: string | null): boolean {
   switch (id) {
     case 'home':
-      // Home owns the chat list and every conversation under it (/home/c/...).
-      return isUnder(pathname, HOME_PATH);
-    case 'feed':
-      return pathname === '/feed';
+      return pathname === HOME_PATH;
+    case 'chats':
+      // Chats owns the list and every conversation under it (/chats/c/...).
+      return isUnder(pathname, CHATS_PATH);
     case 'groups':
       // Groups owns /groups and its subtree. Events has its own entry now, so the event routes no
       // longer light Groups (isEventsNavActive in nav-links still serves the top nav).
       return isUnder(pathname, EVENTS_NAV_TO);
-    case 'letters':
-      return pathname.startsWith('/letters');
+    case 'artifacts':
+      return isUnder(pathname, ARTIFACTS_PATH);
     case 'events':
       return isUnder(pathname, '/events');
     case 'partners':
@@ -86,7 +90,7 @@ export function useShellEntries(): ShellEntry[] {
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
-  // P1512: unread chats ride on Home (0 outside the chat provider).
+  // P1512: unread chats ride on the Chats entry (0 outside the chat provider).
   const unreadChats = useChatUnreadCount();
 
   const make = (
@@ -99,10 +103,11 @@ export function useShellEntries(): ShellEntry[] {
   ): ShellEntry => ({ id, label, to, Icon, active: to !== null && isShellEntryActive(id, pathname, slug), badge, badgeNoun });
 
   const entries: ShellEntry[] = [
-    make('home', 'Home', HOME_PATH, HomeIcon, unreadChats, unreadChats === 1 ? 'unread chat' : 'unread chats'),
-    make('feed', 'Feed', '/feed', NewspaperIcon),
+    make('home', 'Home', HOME_PATH, HomeIcon),
+    make('chats', 'Chats', CHATS_PATH, MessageSquareIcon, unreadChats, unreadChats === 1 ? 'unread chat' : 'unread chats'),
     make('groups', 'Groups', EVENTS_NAV_TO, LandmarkIcon),
-    make('letters', 'Letters', '/letters', MailIcon, unreadLetterCount + (invite ? 1 : 0)),
+    // Badge is today's letters count until the Artifacts page defines "unread Shared with you".
+    make('artifacts', 'Artifacts', ARTIFACTS_PATH, ShapesIcon, unreadLetterCount + (invite ? 1 : 0)),
     make('events', 'Events', EVENTS_LIST_TO, CalendarDaysIcon),
   ];
   if (isProfilePending) {
@@ -126,9 +131,9 @@ export function useShellEntries(): ShellEntry[] {
 /**
  * The phone bottom bar's tabs, in order. "Me" is the bar's own last tab, not an entry.
  * P1543: Events replaces Groups on the phone bar (founder, 2026-10-22). Groups stays one tap away in the
- * Me sheet, which lists whatever the bar lacks.
+ * Me sheet, which lists whatever the bar lacks. P1545: Home is the feed, Chats its own tab, Artifacts replaces Letters.
  */
-export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'feed', 'events', 'letters'];
+export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'chats', 'events', 'artifacts'];
 
 /**
  * The destinations a surface's own nav already links to. The menus behind it (the phone Me sheet, the

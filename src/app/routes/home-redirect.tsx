@@ -1,12 +1,12 @@
 /**
  * @file home-redirect.tsx
- * @description P1512: where "/" and "/home" send people.
+ * @description P1512: where "/" sends people, and the guard for the chat routes.
  *
- * "/" (and the installed app's start_url) lands a SIGNED-IN person on Home and everyone else on the
+ * "/" (and the installed app's start_url) lands a SIGNED-IN person on Home (the feed, P1545) and everyone else on the
  * feed (P1392). The decision waits for the auth session to restore: before it does, a signed-in
  * person looks signed out, and redirecting then would drop them on the feed on every cold start.
  *
- * "/home" is the signed-in home. A signed-out visitor who reaches it (a stale bookmark, a shared
+ * "/chats" is signed-in only (it was "/home" before P1545). A signed-out visitor who reaches it (a stale bookmark, a shared
  * link) is sent to the feed. Both ask useHomeReadiness, the same answer the chat provider uses.
  */
 import type { ReactNode } from "react";
@@ -56,4 +56,14 @@ export function HomeRoute({ children }: { children: ReactNode }) {
   if (state === "profile-error") return <HomeProfileError onRetry={retry} />;
   if (state === "signed-out") return <Navigate to="/feed" replace />;
   return <>{children}</>;
+}
+
+/**
+ * P1545: /home and /home/c/:id[/t/:id] moved to /chats when Home became the feed. The rest of the path,
+ * the query and the hash ride along, so an old shared link or notification still opens the same chat.
+ */
+export function HomeLegacyRedirect() {
+  const location = useLocation();
+  const rest = location.pathname.replace(/^\/home/, "");
+  return <Navigate to={`/chats${rest}${location.search}${location.hash}`} replace />;
 }

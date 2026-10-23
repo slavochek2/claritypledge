@@ -3,8 +3,8 @@
  * @description P1512: the signed-in desktop sidebar (lg and up). It replaces the top nav for a
  * signed-in person, so a page shows exactly one navigation.
  *
- * Expanded (248px): logo and collapse control; Today's event when there is one; Home, Feed,
- * Groups, Letters, Events, Partners, My Profile; at the bottom, the avatar menu with a small Tools
+ * Expanded (248px): logo and collapse control; Today's event when there is one; Home, Chats,
+ * Groups, Artifacts, Events, Partners, My Profile; at the bottom, the avatar menu with a small Tools
  * icon button beside it.
  * Collapsed (64px): the logo, which turns into the expand icon on hover or keyboard focus
  * (founder decision 5), every nav destination as an icon with a tooltip (P1539), and Tools plus the

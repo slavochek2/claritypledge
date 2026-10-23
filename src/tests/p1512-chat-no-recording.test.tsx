@@ -1,6 +1,6 @@
 /**
  * P1512: the privacy policy says chats are never recorded by Mixpanel session replay.
- * index.html covers a page that LOADS on /home; this pins the in-app path: arriving on Home from
+ * index.html covers a page that LOADS on /chats; this pins the in-app path: arriving on Home from
  * another page, the recorder is stopped before any chat content is in the DOM, so not even one
  * frame of a chat can reach a replay.
  */
@@ -29,10 +29,10 @@ import { ChatContext } from '@/app/pages/chat/chat-state';
 describe('P1512: chats are never in a session recording', () => {
   it('stops Mixpanel recording before any chat content mounts', async () => {
     render(
-      <MemoryRouter initialEntries={['/home']}>
+      <MemoryRouter initialEntries={['/chats']}>
         <ChatContext.Provider value={{ chats: [] } as never}>
           <Routes>
-            <Route path="/home/*" element={<ChatHomePage />} />
+            <Route path="/chats/*" element={<ChatHomePage />} />
           </Routes>
         </ChatContext.Provider>
       </MemoryRouter>,

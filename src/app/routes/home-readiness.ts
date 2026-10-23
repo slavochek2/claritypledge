@@ -1,7 +1,7 @@
 /**
  * @file home-readiness.ts
  * @description P1512: the ONE answer to "may this person see Home yet?", read by "/" (HomeRedirect),
- * "/home" (HomeRoute) and the chat provider, so the three can never disagree.
+ * "/chats" (HomeRoute) and the chat provider, so the three can never disagree.
  *
  *   pending        the session (and its profile) is still resolving
  *   signed-in      a verified person with a loaded profile

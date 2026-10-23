@@ -97,14 +97,14 @@ describe('P1512 — group page "Open chat"', { timeout: 30000 }, () => {
     expect(button.className).toContain('border');
     expect(button.className).not.toContain('bg-blue');
     fireEvent.click(button);
-    expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
+    expect(await screen.findByTestId('where')).toHaveTextContent('/chats/c/c-builders');
   });
 
   it('right after joining, the channel is not in the list yet: it reads the list again and opens the channel', async () => {
     refresh.mockResolvedValue([channel('c-other', 'org-9'), channel('c-builders', 'org-1')]);
     renderPage([channel('c-other', 'org-9')]);
     fireEvent.click(await findOpenChat());
-    expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
+    expect(await screen.findByTestId('where')).toHaveTextContent('/chats/c/c-builders');
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -112,20 +112,20 @@ describe('P1512 — group page "Open chat"', { timeout: 30000 }, () => {
     refresh.mockResolvedValue([channel('c-other', 'org-9')]);
     const { unmount } = renderPage([channel('c-other', 'org-9')]);
     fireEvent.click(await findOpenChat());
-    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/home$/);
+    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/chats$/);
     expect(refresh).toHaveBeenCalledTimes(1);
     unmount();
 
     refresh.mockResolvedValue(null);
     renderPage([]);
     fireEvent.click(await findOpenChat());
-    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/home$/);
+    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/chats$/);
   });
 
   it('a channel already in the list opens without reading the list again', async () => {
     renderPage([channel('c-builders', 'org-1')]);
     fireEvent.click(await findOpenChat());
-    expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
+    expect(await screen.findByTestId('where')).toHaveTextContent('/chats/c/c-builders');
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -198,7 +198,7 @@ describe('P1512 — a late chat refresh never redirects someone who has already 
     renderWithExit([channel('c-other', 'org-9')]);
     fireEvent.click(await findOpenChat());
     late.resolve([channel('c-builders', 'org-1')]);
-    expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
+    expect(await screen.findByTestId('where')).toHaveTextContent('/chats/c/c-builders');
   });
 });
 

@@ -105,7 +105,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const { showUserMenu, isProfilePending, sessionChecked, isLoading: authLoading, hasStoredSession } = useNavAuthState();
   // P1539: while auth is unresolved the footer decision is not made yet. LegalFooter is a signed-out
   // element; showing it during the check flashed it at signed-in people. Signed-out visitors get it
-  // once auth settles; product routes (/home*) never get it.
+  // once auth settles; product routes (/chats*) never get it.
   const authPending = authLoading || !sessionChecked;
   // P1421: the bottom nav renders while a verified user's profile is still loading,
   // so the padding that clears it must be there too.
@@ -150,7 +150,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // P1512: Home (the chat list, a conversation, a thread) fills the screen exactly: the page inside
   // is a flex column, so the offline strip, the session banner and the room bar take their height
   // from it instead of pushing the composer below the fold.
-  const isChatHome = location.pathname === "/home" || location.pathname.startsWith("/home/");
+  const isChatHome = location.pathname === "/chats" || location.pathname.startsWith("/chats/");
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/") ||
     location.pathname === "/transcribe" || location.pathname.startsWith("/transcribe/");
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading

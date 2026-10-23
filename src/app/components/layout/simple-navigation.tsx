@@ -16,8 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MailIcon, CalendarCheckIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MessageSquareIcon, ShapesIcon, CalendarCheckIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
+import { useChatUnreadCount } from "@/app/pages/chat/chat-state";
 import { HOME_PATH } from "@/app/components/layout/app-shell/shell-nav";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 // P1179/P1323: the Links trigger. Renders as a sibling of the avatar in EVERY right-hand group
@@ -293,6 +294,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
   const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
+  const unreadChats = useChatUnreadCount();
   // P885: badge count for the Partners nav entry (incoming pending invitations)
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
   // P1433: decided once here — the button, and (for someone not registered) the marketing CTA
@@ -399,18 +401,39 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
         }`}
       >
         <HomeIcon className="w-5 h-5" />
-        <span className="text-xs mt-1 font-medium">Feed</span>
+        <span className="text-xs mt-1 font-medium">Home</span>
       </Link>
       <Link
-        to="/letters"
+        to="/chats"
         className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-          location.pathname.startsWith("/letters")
+          location.pathname === "/chats" || location.pathname.startsWith("/chats/")
             ? "text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         }`}
       >
         <span className="relative">
-          <MailIcon className="w-5 h-5" />
+          <MessageSquareIcon className="w-5 h-5" />
+          {unreadChats > 0 && (
+            <span
+              data-badge
+              className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold leading-4 text-white bg-blue-500 rounded-full text-center"
+            >
+              {unreadChats > 99 ? '99+' : unreadChats}
+            </span>
+          )}
+        </span>
+        <span className="text-xs mt-1 font-medium">Chats</span>
+      </Link>
+      <Link
+        to="/artifacts"
+        className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+          location.pathname.startsWith("/artifacts")
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        }`}
+      >
+        <span className="relative">
+          <ShapesIcon className="w-5 h-5" />
           {lettersBadgeCount > 0 && (
             <span
               data-badge
@@ -420,7 +443,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
             </span>
           )}
         </span>
-        <span className="text-xs mt-1 font-medium">Letters</span>
+        <span className="text-xs mt-1 font-medium">Artifacts</span>
       </Link>
       {/* P1421: while the profile loads, a same-markup inert slot holds Partners' width so
           Groups (and everything after it) is already where it will be once it resolves. */}

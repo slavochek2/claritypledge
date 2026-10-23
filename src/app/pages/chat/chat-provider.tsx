@@ -37,7 +37,7 @@ import {
 import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { clearDraftsExcept, useChatNavigate } from './chat-hooks';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
-import { chatErrorText, compareMessages, compareTimestamps, unreadChatCount } from './chat-view-model';
+import { chatErrorText, compareMessages, compareTimestamps, HOME, unreadChatCount } from './chat-view-model';
 import { MirrorProvider } from './mirror-provider';
 
 /** After a Realtime event: a full list read waits for this much quiet. */
@@ -146,7 +146,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   // A different person is a different provider (key = epoch): nothing carries over.
   return (
-    <ChatProviderInner key={current.epoch} userId={userId} enabled={!embedded} listShown={pathname === '/home'}>
+    <ChatProviderInner key={current.epoch} userId={userId} enabled={!embedded} listShown={pathname === HOME}>
       {/* P1520: the mirror's replies and face, for the same signed-in user */}
       <MirrorProvider enabled={!!userId && !embedded}>{children}</MirrorProvider>
     </ChatProviderInner>

@@ -192,7 +192,7 @@ test.afterAll(async () => {
 test('smoke: Home is the chat list with the mirror and the group General channel, no console errors', async () => {
   const errors: string[] = [];
   pageA.on('pageerror', (e) => errors.push(e.message));
-  await pageA.goto('/home');
+  await pageA.goto('/chats');
   await expect(pageA.getByTestId('chat-list')).toBeVisible();
   await expect(row(pageA, 'mirror')).toBeVisible();
   await expect(row(pageA, `${ORG_NAME} · General`)).toBeVisible();
@@ -205,13 +205,13 @@ test('smoke: Home is the chat list with the mirror and the group General channel
 
 test('A finds B by search, starts a 1:1 and B sees it live with an unread badge', async () => {
   // B is already on Home, so its subscription is up before A writes.
-  await pageB.goto('/home');
+  await pageB.goto('/chats');
   await expect(pageB.getByTestId('chat-list')).toBeVisible();
   await pageB.waitForTimeout(2500);
 
   await pageA.getByLabel('Search chats and people').fill(B_NAME);
   await pageA.getByRole('button', { name: `Message ${B_NAME}` }).click();
-  await expect(pageA).toHaveURL(/\/home\/c\//);
+  await expect(pageA).toHaveURL(/\/chats\/c\//);
   await expect(conversation(pageA).getByRole('heading', { name: B_NAME })).toBeVisible();
 
   await sendText(pageA, 'hello from A');
@@ -273,8 +273,8 @@ test('B replies and A sees it live; A edits and deletes and B sees both', async 
 
 test('General channel: A posts, B replies in a thread, A sees the reply count live', async () => {
   const general = `${ORG_NAME} · General`;
-  await pageA.goto('/home');
-  await pageB.goto('/home');
+  await pageA.goto('/chats');
+  await pageB.goto('/chats');
   await expect(row(pageA, general)).toBeVisible({ timeout: 20_000 });
   await expect(row(pageB, general)).toBeVisible({ timeout: 20_000 });
   await pageB.waitForTimeout(2500);
@@ -309,7 +309,7 @@ test('General channel: A posts, B replies in a thread, A sees the reply count li
 
 test('opening a thread or another chat does not remount the page: the conversation stays and the list keeps its tab', async () => {
   const general = `${ORG_NAME} · General`;
-  await pageA.goto('/home');
+  await pageA.goto('/chats');
   await pageA.getByRole('tab', { name: 'Channels' }).click();
   await row(pageA, general).getByRole('button').first().click();
   const node = await messageWith(pageA, 'channel post from A').elementHandle();
@@ -374,7 +374,7 @@ test('a send whose reply is lost stores exactly one message: the retry replays t
   test.setTimeout(120_000);
   const convId = await dmConversationId();
   await pageA.setViewportSize({ width: 1280, height: 800 });
-  await pageA.goto(`/home/c/${convId}`);
+  await pageA.goto(`/chats/c/${convId}`);
   await expect(composer(pageA)).toBeVisible();
   const keys: Array<string | null> = [];
   let lost = true;
@@ -415,7 +415,7 @@ test('A attaches a point and a story; B sees both cards; a private attachment sh
   cleanup.push(() => deleteTestPoint(secret.id));
   await createTestPosition(secret.id, a.user.id, 'agree');
 
-  await pageA.goto('/home');
+  await pageA.goto('/chats');
   await row(pageA, B_NAME).getByRole('button').first().click();
   await pageA.getByRole('button', { name: 'Attach a point or story' }).click();
   const dialog = pageA.getByRole('dialog');
@@ -448,7 +448,7 @@ test('QA shots 1: a new person sees their mirror, the group General channel and 
   try {
     for (const { w, h } of SIZES) {
       await page.setViewportSize({ width: w, height: h });
-      await page.goto('/home');
+      await page.goto('/chats');
       await listReady(page);
       await expect(row(page, `${ORG_NAME} · General`)).toBeVisible();
       await expect(row(page, 'mirror')).toBeVisible();
@@ -467,7 +467,7 @@ test('a forward of a message whose author was erased reads "Forwarded from Delet
   const said = await supabaseAdmin.from('chat_messages').insert({ conversation_id: generalId, author_id: c.user.id, body: `words of C ${RUN}` });
   expect(said.error).toBeNull();
 
-  await pageA.goto(`/home/c/${generalId}`);
+  await pageA.goto(`/chats/c/${generalId}`);
   await expect(messageWith(pageA, `words of C ${RUN}`)).toBeVisible();
   await menuOn(pageA, `words of C ${RUN}`, 'Forward');
   const dialog = pageA.getByRole('dialog');
@@ -477,7 +477,7 @@ test('a forward of a message whose author was erased reads "Forwarded from Delet
 
   // Before the erase the copy shows the words; after it, the author is "Deleted user" and the text is gone.
   const convId = await dmConversationId();
-  await pageA.goto(`/home/c/${convId}`);
+  await pageA.goto(`/chats/c/${convId}`);
   await expect(pageA.getByTestId('forwarded-card').filter({ hasText: `words of C ${RUN}` })).toBeVisible();
   const erased = await supabaseAdmin.rpc('erase_chat_data_for', { p_uid: c.user.id });
   expect(erased.error).toBeNull();
@@ -501,7 +501,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
 
   for (const { w, h } of SIZES) {
     await pageA.setViewportSize({ width: w, height: h });
-    await pageA.goto('/home');
+    await pageA.goto('/chats');
     await listReady(pageA);
     await expect(row(pageA, B_NAME)).toBeVisible();
     await noHScroll(pageA, `list ${w}`);
@@ -532,7 +532,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await pageA.keyboard.press('Escape');
 
     // Channel with the thread panel: both panes loaded before the shot
-    await pageA.goto('/home');
+    await pageA.goto('/chats');
     await listReady(pageA);
     await row(pageA, general).getByRole('button').first().click();
     await expect(messageWith(pageA, 'channel post from A')).toBeVisible();
@@ -549,7 +549,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await shot('channel-thread', w);
 
     // Mirror, renamed from the header menu
-    await pageA.goto(`/home/c/${mirrorId}`);
+    await pageA.goto(`/chats/c/${mirrorId}`);
     await expect(pageA.getByTestId('clarified-card')).toBeVisible();
     await expect(pageA.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
     await noHScroll(pageA, `mirror ${w}`);
@@ -580,7 +580,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await shot('mirror-renamed', w);
 
       // Block: confirm dialog, then the blocked composer; unblock puts the field back.
-      await pageA.goto(`/home/c/${convId}`);
+      await pageA.goto(`/chats/c/${convId}`);
       await expect(messageWith(pageA, 'reply from B')).toBeVisible();
       await pageA.getByRole('button', { name: 'More', exact: true }).click();
       await pageA.getByRole('menuitem', { name: 'Block' }).click();
@@ -615,7 +615,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
   const LONG = 'Thinking out loud about everything that matters to me today';
   for (const { w, h } of SIZES.slice(1)) {
     await pageA.setViewportSize({ width: w, height: h });
-    await pageA.goto(`/home/c/${mirrorId}`);
+    await pageA.goto(`/chats/c/${mirrorId}`);
     await expect(pageA.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
     await pageA.getByRole('button', { name: 'More', exact: true }).click();
     await pageA.getByRole('menuitem', { name: /^About / }).click();
@@ -633,7 +633,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     expect(parts.roleCut, `the role is not cut in the header at ${w}`).toBe(false);
     expect(parts.roleRight, `the role is inside the screen at ${w}`).toBeLessThanOrEqual(w);
     await shot('mirror-long-name-header', w);
-    await pageA.goto('/home');
+    await pageA.goto('/chats');
     await listReady(pageA);
     const mirrorRow = row(pageA, "Alicetest's mirror");
     const inList = await mirrorRow.evaluate((li) => {
@@ -650,14 +650,14 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
   }
 
   await pageA.setViewportSize({ width: 1280, height: 800 });
-  await pageA.goto('/home');
+  await pageA.goto('/chats');
   await listReady(pageA);
   await shot('list-renamed', 1280);
 
   // A phone for real: tap a message and the actions open in line, covering nothing; scrolling dismisses them.
   const { ctx, page } = await openTouch(browser, a);
   try {
-    await page.goto(`/home/c/${convId}`);
+    await page.goto(`/chats/c/${convId}`);
     await expect(messageWith(page, 'reply from B')).toBeVisible();
     await expect(page.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
     await expect(page.getByRole('status', { name: 'Loading attachment' })).toHaveCount(0);
@@ -704,7 +704,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
 
     // The worst case at the narrowest width: my own channel post has Reply, Forward, Thread, Clarify and More (Edit, Delete).
     await page.setViewportSize({ width: 320, height: 640 });
-    await page.goto('/home');
+    await page.goto('/chats');
     await expect(page.getByTestId('chat-list')).toBeVisible();
     await page.getByTestId('chat-list').locator('li[data-chat]').filter({ hasText: general }).getByRole('button').first().click();
     await expect(messageWith(page, 'channel post from A')).toBeVisible();
@@ -737,7 +737,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     // Attachment cards that cannot load: a compact error row with Retry, never an empty grey box.
     await page.setViewportSize({ width: 375, height: 760 });
     await page.route(/\/rest\/v1\/(points|stories)\?/, (route) => route.abort('failed'));
-    await page.goto(`/home/c/${convId}`);
+    await page.goto(`/chats/c/${convId}`);
     await expect(messageWith(page, 'reply from B')).toBeVisible();
     const errors = page.getByTestId('attachment-error');
     await expect(errors.first()).toBeVisible({ timeout: 30_000 });
@@ -756,7 +756,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     const blockAuthors = (route: import('@playwright/test').Route) =>
       route.request().url().includes('id=in.') ? route.abort('failed') : route.continue();
     await page.route(/\/rest\/v1\/profiles\?/, blockAuthors);
-    await page.goto(`/home/c/${convId}`);
+    await page.goto(`/chats/c/${convId}`);
     await expect(messageWith(page, 'reply from B')).toBeVisible();
     await expect(page.getByRole('status', { name: 'Loading name' })).toHaveCount(0, { timeout: 20_000 });
     await expect(page.locator('[data-testid="message"] .animate-pulse')).toHaveCount(0);
@@ -783,7 +783,7 @@ test('the offline strip and the active-session banner shrink the chat: the compo
     const convId = await dmConversationId();
     for (const { w, h } of SIZES.slice(0, 2)) {
       await page.setViewportSize({ width: w, height: h });
-      await page.goto(`/home/c/${convId}`);
+      await page.goto(`/chats/c/${convId}`);
       await expect(page.getByRole('status', { name: 'Active session notification' })).toBeVisible();
       await expect(composer(page)).toBeVisible();
       await expect(page.getByTestId('message').first()).toBeVisible(); // messages loaded before the connection drops
@@ -800,7 +800,7 @@ test('the offline strip and the active-session banner shrink the chat: the compo
       if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/offline-and-session-banner-${w}.png` });
       // the same on the list pane (phone: list is the page): load it online, then drop the connection
       await ctx.setOffline(false);
-      await page.goto('/home');
+      await page.goto('/chats');
       await expect(page.getByTestId('chat-list')).toBeVisible();
       await ctx.setOffline(true);
       await expect(page.getByTestId('offline-strip')).toBeVisible();
@@ -826,7 +826,7 @@ test('a long history opens at the bottom, pages back in place, and offers the ju
   expect(ins.error).toBeNull();
 
   await pageA.setViewportSize({ width: 1280, height: 800 });
-  await pageA.goto(`/home/c/${convId}`);
+  await pageA.goto(`/chats/c/${convId}`);
   await expect(messageWith(pageA, 'realtime probe')).toBeVisible();
   const scroller = pageA.getByTestId('message-scroller');
   const gap = () => scroller.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
@@ -848,7 +848,7 @@ test('a long history opens at the bottom, pages back in place, and offers the ju
 
   // Scrolled up: a new message does not yank the view; the jump-down button counts it (P1554).
   await scroller.evaluate((el) => { el.scrollTop = 300; });
-  await pageB.goto(`/home/c/${convId}`);
+  await pageB.goto(`/chats/c/${convId}`);
   await expect(composer(pageB)).toBeVisible();
   await sendText(pageB, 'pill probe');
   const pill = pageA.getByRole('button', { name: 'Jump to the newest message, 1 new' });

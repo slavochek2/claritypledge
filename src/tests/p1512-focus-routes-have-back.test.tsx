@@ -94,7 +94,7 @@ const OUT_OF_SHELL: Out[] = [
   { pattern: '/org/:slug/join', appPath: '/org/*', check: 'special', why: 'redirects to /groups/:slug/join before it renders (P1193)' },
   { pattern: '/letter/:id', check: 'special', why: 'immersive letter reading/compose: no shell, the letter draws its own exit (P852)' },
   { pattern: '/transcribe', check: 'special', why: '/live and /transcribe keep their own sticky header, outside the shell' },
-  { pattern: '/home/c/:id', check: 'special', why: 'an open chat conversation draws its own header and Back (P1512)' },
+  { pattern: '/chats/c/:id', check: 'special', why: 'an open chat conversation draws its own header and Back (P1512)' },
 ];
 
 /** `/a/:x/b` -> a regex that matches `/a/<anything>/b` (and a trailing `/`). */

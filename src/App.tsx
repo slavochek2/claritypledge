@@ -5,7 +5,7 @@ import { isChunkErrorMessage } from "@/lib/chunk-error";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { HomeRedirect, HomeRoute } from "@/app/routes/home-redirect";
+import { HomeLegacyRedirect, HomeRedirect, HomeRoute } from "@/app/routes/home-redirect";
 import { AuthCallbackPage, AuthVerifyPage, EventLinkPage, AuthProvider, useAuth } from "@/auth";
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
@@ -329,7 +329,7 @@ function StaleChunkPrompt() {
 // and resetting any chunk-error state so a route error doesn't bleed into the next route.
 function LazyRoute({ children, stable = false }: { children: ReactNode; stable?: boolean }) {
   const { pathname } = useLocation();
-  // `stable`: one page owns a whole path family (P1512 Home: /home, /home/c/:id, /home/c/:id/t/:id), so
+  // `stable`: one page owns a whole path family (P1512 Chats: /chats, /chats/c/:id, /chats/c/:id/t/:id), so
   // moving inside it must not remount the page and throw away the open chat, the list's tab and the search.
   return (
     <ChunkErrorBoundary key={stable ? undefined : pathname}>
@@ -389,16 +389,16 @@ export default function ClarityPledgeApp() {
       <TermsAcceptanceGate>
       <Routes>
         {/* P1392: signed out → /feed (Stories). Landing lives at /builders.
-            P1512: signed in → /home, once the session has restored. */}
+            P1545: signed in → /feed, once the session has restored. */}
         <Route
           path="/"
           element={<HomeRedirect />}
         />
 
-        {/* P1512: the signed-in home: the chat list, /home/c/:id a conversation, /home/c/:id/t/:id a thread.
+        {/* P1512/P1545: the chat list (/chats), /chats/c/:id a conversation, /chats/c/:id/t/:id a thread.
             Signed-out visitors are sent to the feed. */}
         <Route
-          path="/home/*"
+          path="/chats/*"
           element={
             <ClarityLandingLayout surface="product">
               <HomeRoute>
@@ -409,6 +409,9 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+
+        {/* P1545: chats lived at /home until Home became the feed; keep old links working. */}
+        <Route path="/home/*" element={<HomeLegacyRedirect />} />
 
         {/* P1392: the build-the-right-thing landing, formerly "/" for anonymous visitors. */}
         <Route
@@ -1042,6 +1045,18 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <TranscribeRoomPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1545: placeholder — renders today's Letters page until the Artifacts page replaces it. */}
+        <Route
+          path="/artifacts"
+          element={
+            <ClarityLandingLayout surface="product">
+              <LazyRoute>
+                <LettersPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

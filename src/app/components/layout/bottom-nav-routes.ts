@@ -4,8 +4,8 @@
  * the layout's bottom padding (P1387), so the two can never diverge again.
  */
 
-/** P1512: an open conversation is a focus page (its own header and composer); the chat LIST (/home) keeps the bar. */
-export const CHAT_CONVERSATION_PREFIX = '/home/c/';
+/** P1512: an open conversation is a focus page (its own header and composer); the chat LIST (/chats) keeps the bar. */
+export const CHAT_CONVERSATION_PREFIX = '/chats/c/';
 
 /**
  * True on the routes where the BottomNav hides itself (focus pages with their own header or

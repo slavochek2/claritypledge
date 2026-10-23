@@ -31,7 +31,7 @@ import type { Organization, OrgMember, OrgParticipation, OrgRole } from "@/app/d
 import { safeLinkHref } from "@/app/prototypes/events/location-utils";
 import { URL_RUN, splitTrailingPunctuation } from "@/lib/linkify";
 import { ChatContext } from "@/app/pages/chat/chat-state";
-import { groupChatPath } from "@/app/pages/chat/chat-view-model";
+import { groupChatPath, HOME } from "@/app/pages/chat/chat-view-model";
 import { PageFrame } from "@/app/components/layout/page-header";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 
@@ -258,7 +258,7 @@ export function OrgPage() {
   const handleOpenChat = useCallback(async () => {
     if (!org || openingChat) return;
     const known = groupChatPath(chats ?? [], org.id);
-    if (known !== "/home" || !refreshChats) {
+    if (known !== HOME || !refreshChats) {
       navigate(known);
       return;
     }

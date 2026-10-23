@@ -45,10 +45,10 @@ vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
 import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';
 import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
 import { EventLinksMenu } from '@/app/components/layout/event-links-menu';
-import { HomeRedirect, HomeRoute } from '@/app/routes/home-redirect';
+import { HomeLegacyRedirect, HomeRedirect, HomeRoute } from '@/app/routes/home-redirect';
 import { PENDING_TIMEOUT_MS } from '@/app/routes/home-readiness';
 import { setNavVerifiedHint } from '@/lib/nav-verified-hint';
-import { isShellEntryActive } from '@/app/components/layout/app-shell/shell-nav';
+import { isShellEntryActive, PHONE_TAB_IDS } from '@/app/components/layout/app-shell/shell-nav';
 import { AUDIENCE_LINKS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 
 const signedIn = {
@@ -87,13 +87,13 @@ beforeEach(() => {
 });
 
 describe('P1512 shell — signed-in desktop sidebar', () => {
-  it('lists exactly Home, Feed, Groups, Letters, Events, Partners, My Profile and no Search (Tools is an icon at the bottom)', () => {
+  it('lists exactly Home, Chats, Groups, Artifacts, Events, Partners, My Profile and no Search (Tools is an icon at the bottom)', () => {
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
     expect(bar).not.toBeNull();
     const menu = within(bar).getByRole('list', { name: 'Menu' });
     const labels = Array.from(menu.querySelectorAll('li')).map(li => li.textContent?.trim());
-    expect(labels).toEqual(['Home', 'Feed', 'Groups', 'Letters', 'Events', 'Partners', 'My Profile']);
+    expect(labels).toEqual(['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile']);
     expect(within(bar).queryByText(/search/i)).toBeNull();
   });
 
@@ -101,27 +101,27 @@ describe('P1512 shell — signed-in desktop sidebar', () => {
     const { container } = renderLayout('/feed');
     const bar = within(sidebar(container)!);
     const hrefOf = (name: RegExp) => bar.getByRole('link', { name }).getAttribute('href');
-    expect(hrefOf(/^home$/i)).toBe('/home');
-    expect(hrefOf(/^feed$/i)).toBe('/feed');
+    expect(hrefOf(/^home$/i)).toBe('/feed');
+    expect(hrefOf(/^chats$/i)).toBe('/chats');
     expect(hrefOf(/^groups$/i)).toBe('/groups');
-    expect(hrefOf(/^letters$/i)).toBe('/letters');
+    expect(hrefOf(/^artifacts$/i)).toBe('/artifacts');
     expect(hrefOf(/^events$/i)).toBe('/events/list');
     expect(hrefOf(/^partners$/i)).toBe('/p/ada/partners');
     expect(hrefOf(/^my profile$/i)).toBe('/p/ada');
   });
 
   it('marks only the current entry with aria-current', () => {
-    const { container } = renderLayout('/letters');
+    const { container } = renderLayout('/artifacts');
     const current = Array.from(sidebar(container)!.querySelectorAll('[aria-current="page"]'));
-    expect(current.map(el => el.textContent?.trim())).toEqual(['Letters']);
+    expect(current.map(el => el.textContent?.trim())).toEqual(['Artifacts']);
   });
 
-  it('shows the Letters and Partners badges', () => {
+  it('shows the Artifacts and Partners badges', () => {
     mockUnread.mockReturnValue({ count: 4, loading: false });
     mockPartnerCount.mockReturnValue({ count: 2, loading: false });
     const { container } = renderLayout('/feed');
     const bar = within(sidebar(container)!);
-    expect(bar.getByRole('link', { name: 'Letters, 4 unread' }).querySelector('[data-badge]')!.textContent).toBe('4');
+    expect(bar.getByRole('link', { name: 'Artifacts, 4 unread' }).querySelector('[data-badge]')!.textContent).toBe('4');
     expect(bar.getByRole('link', { name: 'Partners, 2 pending invitations' }).querySelector('[data-badge]')!.textContent).toBe('2');
   });
 
@@ -231,9 +231,9 @@ describe('P1512 shell — one navigation per route', () => {
     expect(container.querySelector('main')!.className).not.toContain('4rem');
   });
 
-  it('the shell top bar is on a browse page too, and not on Home (chat draws its own header)', () => {
+  it('the shell top bar is on a browse page too, and not on Chats (chat draws its own header)', () => {
     expect(renderLayout('/feed').container.querySelector('main [data-shell-top-bar]')).not.toBeNull();
-    const home = renderLayout('/home').container;
+    const home = renderLayout('/chats').container;
     expect(home.querySelector('[data-shell-top-bar]')).toBeNull();
   });
 
@@ -271,7 +271,7 @@ describe('P1512 shell — collapse', () => {
 
     fireEvent.click(within(sidebar(container)!).getByRole('button', { name: 'Expand sidebar' }));
     expect(localStorage.getItem(SIDEBAR_KEY)).toBe('0');
-    expect(within(sidebar(container)!).getByRole('link', { name: /^feed$/i })).toBeInTheDocument();
+    expect(within(sidebar(container)!).getByRole('link', { name: /^home$/i })).toBeInTheDocument();
   });
 
   it('shifts the content column by the sidebar width', () => {
@@ -293,18 +293,18 @@ describe('P1512 shell — collapse', () => {
 });
 
 describe('P1512 shell — phone bottom bar', () => {
-  it('has Home, Feed, Events, Letters and You (P1543: Events replaces Groups)', () => {
+  it('has Home, Chats, Events, Artifacts and You (P1545)', () => {
     const { container } = renderLayout('/feed');
     const bar = container.querySelector('[data-nav="bottom"]') as HTMLElement;
     const labels = Array.from(bar.querySelectorAll('a, button')).map(el => el.querySelector('span.text-xs')?.textContent);
-    expect(labels).toEqual(['Home', 'Feed', 'Events', 'Letters', 'You']);
+    expect(labels).toEqual(['Home', 'Chats', 'Events', 'Artifacts', 'You']);
   });
 
-  it('shows the Letters badge on the tab', () => {
+  it('shows the Artifacts badge on the tab', () => {
     mockUnread.mockReturnValue({ count: 7, loading: false });
     const { container } = renderLayout('/feed');
     const bar = within(container.querySelector('[data-nav="bottom"]') as HTMLElement);
-    expect(bar.getByRole('link', { name: 'Letters, 7 unread' }).querySelector('[data-badge]')!.textContent).toBe('7');
+    expect(bar.getByRole('link', { name: 'Artifacts, 7 unread' }).querySelector('[data-badge]')!.textContent).toBe('7');
   });
 
   it('the last tab is labelled You (aria "You", plus the Partners badge text), keeps its test id, and is a button that opens the sheet', () => {
@@ -383,6 +383,8 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = within(screen.getByTestId('me-sheet'));
     expect(sheet.queryByRole('link', { name: /^feed$/i })).toBeNull();
+    expect(sheet.queryByRole('link', { name: /^chats$/i })).toBeNull();
+    expect(sheet.queryByRole('link', { name: /^artifacts$/i })).toBeNull();
     expect(sheet.queryByRole('link', { name: /^events$/i })).toBeNull();
     expect(sheet.getByRole('link', { name: /^groups$/i })).toHaveAttribute('href', '/groups');
   });
@@ -536,13 +538,13 @@ describe('P1512 — the public website, signed in', () => {
     // One per breakpoint group (desktop row, phone bar); CSS shows exactly one.
     const openApp = nav.getAllByRole('link', { name: 'Open app' });
     expect(openApp).toHaveLength(2);
-    for (const link of openApp) expect(link).toHaveAttribute('href', '/home');
+    for (const link of openApp) expect(link).toHaveAttribute('href', '/feed');
     expect(nav.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
     expect(nav.queryByRole('link', { name: /^log in$/i })).toBeNull();
     expect(nav.queryByRole('link', { name: /create account/i })).toBeNull();
     expect(nav.queryByRole('link', { name: /discovery call/i })).toBeNull();
     // The app nav is not drawn on the website.
-    expect(nav.queryByRole('link', { name: /^letters$/i })).toBeNull();
+    expect(nav.queryByRole('link', { name: /^artifacts$/i })).toBeNull();
     expect(nav.queryByRole('link', { name: /my profile/i })).toBeNull();
     // Content is not pushed right by a sidebar column.
     expect(container.firstElementChild!.className).not.toContain('lg:pl-');
@@ -617,8 +619,8 @@ describe('P1512 — the public website, signed in', () => {
     expect(signedIn.signOut).not.toHaveBeenCalled();
   });
 
-  it('product routes keep the shell (Feed, Groups, Events, Letters, chat)', () => {
-    for (const path of ['/feed', '/groups', '/events/list', '/letters', '/home']) {
+  it('product routes keep the shell (Feed, Groups, Events, Artifacts, chat)', () => {
+    for (const path of ['/feed', '/groups', '/events/list', '/artifacts', '/chats']) {
       const { container, unmount } = renderLayout(path);
       expect(sidebar(container), path).not.toBeNull();
       expect(topNav(container), path).toBeNull();
@@ -639,7 +641,7 @@ describe('P1512 — the public website, signed in', () => {
 
   it('the sidebar logo still goes to Home', () => {
     const { container } = renderLayout('/feed');
-    expect(sidebar(container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
+    expect(sidebar(container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/feed');
   });
 });
 
@@ -659,10 +661,30 @@ describe('P1512 shell — active rule', () => {
     expect(isShellEntryActive('profile', '/me', 'ada')).toBe(true);
   });
 
-  it('Home and Feed are exact', () => {
-    expect(isShellEntryActive('home', '/home', null)).toBe(true);
-    expect(isShellEntryActive('home', '/feed', null)).toBe(false);
-    expect(isShellEntryActive('feed', '/feed', null)).toBe(true);
+  it('Home (the feed) is exact', () => {
+    expect(isShellEntryActive('home', '/feed', null)).toBe(true);
+    expect(isShellEntryActive('home', '/feed/x', null)).toBe(false);
+    expect(isShellEntryActive('home', '/chats', null)).toBe(false);
+  });
+
+  it('Chats owns /chats and every conversation under it, never /home or a lookalike', () => {
+    expect(isShellEntryActive('chats', '/chats', null)).toBe(true);
+    expect(isShellEntryActive('chats', '/chats/c/abc', null)).toBe(true);
+    expect(isShellEntryActive('chats', '/chats/c/abc/t/xyz', null)).toBe(true);
+    expect(isShellEntryActive('chats', '/chatsX', null)).toBe(false);
+    expect(isShellEntryActive('chats', '/feed', null)).toBe(false);
+  });
+
+  it('Artifacts owns /artifacts and its subtree', () => {
+    expect(isShellEntryActive('artifacts', '/artifacts', null)).toBe(true);
+    expect(isShellEntryActive('artifacts', '/artifacts/x', null)).toBe(true);
+    expect(isShellEntryActive('artifacts', '/artifactsX', null)).toBe(false);
+    expect(isShellEntryActive('artifacts', '/letters', null)).toBe(false);
+  });
+
+  it('the phone tabs are Home, Chats, Events, Artifacts and Feed is not among them', () => {
+    expect(PHONE_TAB_IDS).toEqual(['home', 'chats', 'events', 'artifacts']);
+    expect(PHONE_TAB_IDS).not.toContain('feed');
   });
 });
 
@@ -676,7 +698,8 @@ function renderRoutes(entry: string) {
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
-        <Route path="/home" element={<HomeRoute><Where /></HomeRoute>} />
+        <Route path="/chats/*" element={<HomeRoute><Where /></HomeRoute>} />
+        <Route path="/home/*" element={<HomeLegacyRedirect />} />
         <Route path="/feed" element={<Where />} />
         <Route path="/builders" element={<Where />} />
       </Routes>
@@ -684,8 +707,8 @@ function renderRoutes(entry: string) {
   );
 }
 
-describe('P1512 — "/" and "/home" redirects', () => {
-  it('waits for the session to restore, then sends a signed-in person to /home', async () => {
+describe('P1512/P1545 — "/", "/chats" and the old "/home" redirects', () => {
+  it('waits for the session to restore, then sends a signed-in person to /feed (Home)', async () => {
     mockUseAuth.mockReturnValue(restoring);
     const view = renderRoutes('/');
     // Pending: nothing has navigated anywhere (a loader, not the feed).
@@ -695,12 +718,12 @@ describe('P1512 — "/" and "/home" redirects', () => {
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
-          <Route path="/home" element={<HomeRoute><Where /></HomeRoute>} />
+          <Route path="/chats" element={<HomeRoute><Where /></HomeRoute>} />
           <Route path="/feed" element={<Where />} />
         </Routes>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/home'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/feed'));
   });
 
   it('does not decide while a restored session\'s profile is still loading', () => {
@@ -721,15 +744,25 @@ describe('P1512 — "/" and "/home" redirects', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/builders?referrer=abc'));
   });
 
-  it('/home sends a signed-out visitor to /feed', async () => {
+  it('/chats sends a signed-out visitor to /feed', async () => {
     mockUseAuth.mockReturnValue(signedOut);
-    renderRoutes('/home');
+    renderRoutes('/chats');
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/feed'));
   });
 
-  it('/home shows its page for a signed-in person', () => {
+  it('/chats shows its page for a signed-in person', () => {
+    renderRoutes('/chats');
+    expect(screen.getByTestId('where').textContent).toBe('/chats');
+  });
+
+  it('/home redirects to /chats for a signed-in person', async () => {
     renderRoutes('/home');
-    expect(screen.getByTestId('where')).toHaveTextContent('/home');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/chats'));
+  });
+
+  it('/home/c/:id/t/:id and the query ride along to /chats', async () => {
+    renderRoutes('/home/c/abc/t/xyz?m=m1');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/chats/c/abc/t/xyz?m=m1'));
   });
 });
 
@@ -737,17 +770,17 @@ describe('P1512 review round 2 — logo and readiness', () => {
   it('the sidebar logo goes to Home when signed in (the phone focus page has no logo nav any more), and the logo goes to "/" when signed out', () => {
     const inShell = renderLayout('/create');
     expect(inShell.container.querySelector('.lg\\:hidden > [data-nav="main"] a[aria-label="ClarityPledge"]')).toBeNull();
-    expect(sidebar(inShell.container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/home');
+    expect(sidebar(inShell.container)?.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/feed');
     inShell.unmount();
     mockUseAuth.mockReturnValue(signedOut);
     const out = renderLayout('/create');
     expect(out.container.querySelector('a[aria-label="ClarityPledge"]')?.getAttribute('href')).toBe('/');
   });
 
-  it('/home with a session whose profile could not be loaded shows an inline error with Retry, not the feed and not a spinner', async () => {
+  it('/chats with a session whose profile could not be loaded shows an inline error with Retry, not the feed and not a spinner', async () => {
     const refreshProfile = vi.fn();
     mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: false, refreshProfile });
-    renderRoutes('/home');
+    renderRoutes('/chats');
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('We could not load your account');
     expect(screen.queryByTestId('where')).toBeNull();
@@ -766,7 +799,7 @@ describe('P1512 review round 2 — logo and readiness', () => {
     vi.useFakeTimers();
     try {
       mockUseAuth.mockReturnValue({ ...signedIn, user: null, isLoading: true });
-      renderRoutes('/home');
+      renderRoutes('/chats');
       expect(screen.queryByRole('alert')).toBeNull();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(PENDING_TIMEOUT_MS + 100);
@@ -779,7 +812,7 @@ describe('P1512 review round 2 — logo and readiness', () => {
 
   it('an unverified person is signed out for Home, exactly as the chat provider treats them', async () => {
     mockUseAuth.mockReturnValue({ ...signedIn, user: { ...signedIn.user, isVerified: false } });
-    renderRoutes('/home');
+    renderRoutes('/chats');
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/feed'));
   });
 });

@@ -8,10 +8,10 @@
 import type { ShellEntryId } from '@/app/components/layout/app-shell/shell-nav';
 
 const LOADERS: Record<ShellEntryId, () => Promise<unknown>> = {
-  home: () => import('@/app/pages/chat/ChatHomePage'),
-  feed: () => import('@/app/pages/feed-page'),
+  home: () => import('@/app/pages/feed-page'),
+  chats: () => import('@/app/pages/chat/ChatHomePage'),
   groups: () => import('@/app/pages/org-directory-page'),
-  letters: () => import('@/app/pages/letters-page'),
+  artifacts: () => import('@/app/pages/letters-page'),
   events: () => import('@/app/prototypes/events'),
   partners: () => import('@/app/pages/profile-connections-page'),
   profile: () => import('@/app/pages/profile-page-v2'),

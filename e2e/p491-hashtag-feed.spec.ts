@@ -232,21 +232,14 @@ test.describe('P491: Authenticated User Flows', () => {
     if (author?.user?.id) await deleteTestUser(author.user.id);
   });
 
-  // P1512 (founder decision D9): a signed-in "/" now lands on /home (the chat list). The feed this
-  // test was written for is still one navigation away — the second half asserts it is reachable
-  // and still renders its page, so the feed's own landing is not left unprotected.
-  test('authenticated user visiting / is redirected to /home, and the feed stays reachable at /feed (UAT-7)', async ({ page }) => {
+  // P1545: Home is the feed again, so a signed-in "/" lands on /feed (P1512 had sent it to the chat list).
+  test('authenticated user visiting / is redirected to /feed (UAT-7)', async ({ page }) => {
     await setTestSession(page, author.email);
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await expect(page).toHaveURL(/\/home/);
-    await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
-
-    await page.goto('/feed');
-    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/feed/);
-    // P1512 decision 15: the feed's page title is now the visible "Feed" (it was a hidden "Home").
+    // P1512 decision 15: the feed's page title is the visible "Feed".
     await expect(page.getByRole('heading', { name: /^feed$/i, level: 1 })).toBeVisible();
   });
 
@@ -256,11 +249,11 @@ test.describe('P491: Authenticated User Flows', () => {
     await page.goto('/feed');
     await page.waitForLoadState('networkidle');
 
-    // P1512: the bar is Home (the chat list, /home), Feed, Groups, Letters, Me. What UAT-9 protects
-    // is the DESTINATION — that the feed replaced History in the bottom nav — so the entry that
-    // points at /feed is now labelled "Feed" and its target is what is asserted.
+    // P1545: the bar is Home (the feed), Chats, Events, Artifacts, You. What UAT-9 protects is the
+    // DESTINATION — that the feed replaced History in the bottom nav — so the entry that points at
+    // /feed is "Home" and its target is what is asserted.
     const bottomNav = page.locator('nav[aria-label="Mobile navigation"]');
-    await expect(bottomNav.getByRole('link', { name: 'Feed', exact: true })).toHaveAttribute('href', '/feed');
+    await expect(bottomNav.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute('href', '/feed');
 
     // History should NOT be in bottom nav
     await expect(bottomNav.getByText('History')).not.toBeVisible();

@@ -21,7 +21,8 @@ describe('Inbox and Channels tabs', () => {
     expect(CHAT_TABS[0]).toEqual({ id: 'inbox', label: 'Inbox' });
   });
   it.each([
-    ['an empty group', chat('group'), { inbox: false, channels: true }],
+    // P1545: joined means in Inbox, even with no messages.
+    ['an empty group', chat('group'), { inbox: true, channels: true }],
     ['a group with a message', chat('group', { lastMessage: last }), { inbox: true, channels: true }],
     ['an empty event 3 days out', event(72), { inbox: false, channels: true }],
     ['an empty event 20h out', event(20), { inbox: true, channels: true }],
@@ -31,6 +32,10 @@ describe('Inbox and Channels tabs', () => {
     ['the mirror', chat('mirror'), { inbox: true, channels: false }],
   ])('%s', (_name, c, expected) => {
     expect(where(c)).toEqual(expected);
+  });
+  it('a group is always in the Inbox, with or without messages', () => {
+    expect(isInInbox(chat('group'), NOW)).toBe(true);
+    expect(isInInbox(chat('group', { lastMessage: last }), NOW)).toBe(true);
   });
   it('an empty event is in the Inbox from exactly 24h before it starts', () => {
     expect(isInInbox(event(24), NOW)).toBe(true);

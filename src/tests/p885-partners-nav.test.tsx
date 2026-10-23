@@ -155,10 +155,10 @@ beforeEach(() => {
 // ============================================================================
 
 describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
-  it('shows 5 tabs in order: Home, Feed, Events, Letters, Me (P1543: Events replaced Groups)', () => {
+  it('shows 5 tabs in order: Home, Chats, Events, Artifacts, Me (P1543: Events replaced Groups)', () => {
     mockLoggedIn();
     renderBottomNav();
-    expect(bottomNavLabels()).toEqual(['Home', 'Feed', 'Events', 'Letters', 'You']);
+    expect(bottomNavLabels()).toEqual(['Home', 'Chats', 'Events', 'Artifacts', 'You']);
   });
 
   it('P1543: tapping the Events tab opens the events list and records events_list_nav_clicked', async () => {
@@ -226,11 +226,11 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
     expect(partnersLink().querySelector('[data-badge]')!.textContent).toBe('99+');
   });
 
-  it('partner invitations do NOT leak into the Letters badge', () => {
+  it('partner invitations do NOT leak into the Artifacts badge', () => {
     mockLoggedIn();
     mockUsePendingPartnerInvitationCount.mockReturnValue({ count: 5, loading: false });
     renderBottomNav();
-    const letters = screen.getByRole('link', { name: /letters/i });
+    const letters = screen.getByRole('link', { name: /artifacts/i });
     expect(letters.querySelector('[data-badge]')).toBeNull();
   });
 
@@ -247,7 +247,7 @@ describe('P885 — BottomNav Partners item (P1512: behind the Me tab)', () => {
     expect(sheet.queryByRole('link', { name: /partners/i })).toBeNull();
     // Other items still render. The Me sheet is a modal dialog now (P1512 item 22), so the bar behind it is
     // hidden from the accessibility tree while it is open: look for the link with hidden content included.
-    expect(screen.getByRole('link', { name: /letters/i, hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /artifacts/i, hidden: true })).toBeInTheDocument();
   });
 });
 

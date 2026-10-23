@@ -67,11 +67,11 @@ describe('P1421: header holds its signed-in slots while the profile loads', () =
     const { container } = render(<MemoryRouter><SimpleNavigation /></MemoryRouter>);
     const main = container.querySelector('[data-nav="main"]') as HTMLElement;
     expect(slotLabels(main)).toEqual(['Partners', 'My Profile', 'avatar']);
-    // Order matches the loaded row: Feed (P1512: formerly "Home"), Letters, Partners, Groups, My Profile.
+    // Order matches the loaded row: Home (the feed), Chats, Artifacts, Partners, Groups, My Profile.
     const row = main.querySelector('.hidden.lg\\:flex') as HTMLElement;
     const order = Array.from(row.querySelectorAll('a, [data-nav-slot-placeholder]'))
       .map((el) => el.getAttribute('data-nav-slot-placeholder') ?? el.textContent?.trim());
-    expect(order).toEqual(['Feed', 'Letters', 'Partners', 'Groups', 'My Profile', 'avatar']);
+    expect(order).toEqual(['Home', 'Chats', 'Artifacts', 'Partners', 'Groups', 'My Profile', 'avatar']);
     // Slots are not clickable links (a click there must not navigate anywhere).
     expect(screen.queryByRole('link', { name: /partners/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /my profile/i })).not.toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('P1421: bottom nav appears as soon as the session is known', () => {
     expect(nav).not.toBeNull();
     const tabs = Array.from(nav.querySelectorAll('a, [data-nav-slot-placeholder]'));
     expect(tabs.map((t) => t.querySelector('span.text-xs')?.textContent)).toEqual([
-      'Home', 'Feed', 'Events', 'Letters', 'You',
+      'Home', 'Chats', 'Events', 'Artifacts', 'You',
     ]);
     expect(slotLabels(nav)).toEqual(['You']);
   });
@@ -145,7 +145,7 @@ describe('P1421 review: early chrome needs evidence the user is verified', () =>
     );
     expect(slotLabels(container)).toEqual([]);
     expect(container.querySelector('[data-nav="bottom"]')).toBeNull();
-    expect(screen.getAllByRole('link', { name: /letters/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /artifacts/i }).length).toBeGreaterThan(0);
   });
 
   it('pending → resolves UNVERIFIED: hint is cleared, layout is logged-out', () => {

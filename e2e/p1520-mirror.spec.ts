@@ -75,7 +75,7 @@ test('smoke: a mirror reply shows as the mirror, and the mirror\'s name opens it
 
   const { ctx, page, errors } = await openAs(browser, a);
   try {
-    await page.goto(`/home/c/${mirrorA}`);
+    await page.goto(`/chats/c/${mirrorA}`);
     const reply = page.locator('[data-testid="message"]', { hasText: answer });
     await expect(reply).toBeVisible();
     await expect(reply.getByTestId('mirror-author')).toContainText('Your mirror');
@@ -100,7 +100,7 @@ test('AI: a message written in the mirror gets a reply in the same chat', async 
   test.skip(!aiOn, NO_AI);
   const { ctx, page } = await openAs(browser, a);
   try {
-    await page.goto(`/home/c/${mirrorA}`);
+    await page.goto(`/chats/c/${mirrorA}`);
     // The smoke test left a seeded mirror reply here: require one MORE reply, not any reply.
     const replies = page.getByTestId('mirror-author');
     await expect(replies.first()).toBeVisible();
@@ -129,9 +129,9 @@ test('AI, two browsers: @mirror in a channel is seen by the asker only', async (
   const A = await openAs(browser, a);
   const B = await openAs(browser, b);
   try {
-    await B.page.goto(`/home/c/${channel}`);
+    await B.page.goto(`/chats/c/${channel}`);
     await expect(B.page.getByTestId('message-scroller').getByText(said)).toBeVisible();
-    await A.page.goto(`/home/c/${channel}`);
+    await A.page.goto(`/chats/c/${channel}`);
     await expect(A.page.getByTestId('message-scroller').getByText(said)).toBeVisible();
 
     const field = A.page.getByRole('textbox');
@@ -177,7 +177,7 @@ test('AI: a new user\'s mirror gets a portrait on first open, shown with the age
   expect(before, 'B starts without a portrait').toBeNull();
   const { ctx, page } = await openAs(browser, b);
   try {
-    await page.goto(`/home/c/${mirrorB}`);
+    await page.goto(`/chats/c/${mirrorB}`);
     await expect.poll(async () =>
       (await supabaseAdmin.from('chat_conversations').select('portrait_url, portrait_credit').eq('id', mirrorB).single()).data,
     { timeout: 120_000 }).toMatchObject({ portrait_url: expect.any(String), portrait_credit: expect.objectContaining({}) });
@@ -196,7 +196,7 @@ test('AI: New face paints a portrait', async ({ browser }) => {
   test.skip(!aiOn, NO_AI);
   const { ctx, page } = await openAs(browser, a);
   try {
-    await page.goto(`/home/c/${mirrorA}`);
+    await page.goto(`/chats/c/${mirrorA}`);
     await page.getByTestId('mirror-info-open').click();
     const panel = page.getByTestId('mirror-info');
     const before = (await supabaseAdmin.from('chat_conversations').select('portrait_url').eq('id', mirrorA).single()).data?.portrait_url ?? null;
