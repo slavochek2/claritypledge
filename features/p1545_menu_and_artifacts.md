@@ -86,6 +86,57 @@ Blast radius: high. Every signed-in screen's navigation, plus the letters surfac
 - the events-list card (decision 6).
 - Old `/letters` URLs redirect to the matching Artifacts view.
 
+### Phase 2 build plan (2026-10-23, after the founder pick; P1515 is on main)
+
+Verified this session: main carries P1515's 13 migrations; no RPC lists "my canvases" or "canvases shared with me"; `chat_messages.attachment_kind` allows only `point`/`story` (`20261019203000_p1512_clarity_chat.sql:119`); a channel with no messages has unread 0 in `get_my_chats`. P1536 (canvas from a mirror thread) is not built, so **+ Canvas opens today's canvas page**; switching it to a mirror thread is P1536's job.
+
+Work packages, each built by one Sonnet subagent, in this order (WP2-4 may run in parallel after WP1):
+
+- **WP1 Data (one migration, TDD against the test DB).**
+  - `list_my_artifacts_canvases()`: the caller's canvases with name, `general_access`, has-audience, last edit. Visibility = 🌐 when `general_access='link'`, else 🔒 (decision 4: "not public" covers people/groups/events).
+  - `list_canvases_shared_with_me()`: canvases admitting the caller (reuse `_canvas_can_read`/`_canvas_admitted_via`), excluding own, with owner name/handle, who shared it (`via`), shared-at, read state.
+  - Chat attachments: widen the check to `'point','story','canvas','letter'`; `send_chat_message` and `_chat_can_attach` accept them, admitting only when the chat's audience can already read the artifact (never widens access).
+  - `share_canvas` posts one attachment message in the target chat (person: the DM; group/event: its channel). Opening the artifact marks the message read and the Shared-with-you row read (one read state).
+  - `get_my_chats`: a group or event channel the caller joined and never opened counts unread 1 until first open (decision 3). Empty groups are in Inbox.
+- **WP2 Navigation.** `shell-nav.ts`: Home = `/feed` (feed), new `chats` entry (`/home`, unread badge moves here), `letters` → `artifacts` (`/artifacts`, badge = unread Shared with you). `PHONE_TAB_IDS = ['home','chats','events','artifacts']` + You. `HomeRedirect` sends signed-in users to `/feed`. `simple-navigation.tsx` follows. `isInInbox`: groups always in Inbox.
+- **WP3 Artifacts page** (`/artifacts`, browse page with BottomNav), the list from Resolved Decisions:
+  - Header: title, search icon that expands in place, New artifact (+) with Letter (Private/Public as today) and Canvas.
+  - Tabs Yours / Shared with you (Radix tabs, full ARIA). Chips All · Letters · Canvases.
+  - Rows: type disc, title, one meta line, 🔒/🌐 via `InlineVisibilityIcon` (own items only), "…" top right, at most one fixed button. Unread dot on Shared-with-you only.
+  - Row tap opens the item's existing page: draft → `/letters/drafts/:id`; sent → `/letter/:id/overview`; canvas → canvas page; received letter → today's inbox target.
+  - "…" carries the rest of the action inventory above (Prepare Letter, Delete with today's guards, Preview, Copy public link, Add recipients via `LetterReceiverModal`, Share for canvases via the P1515 Share panel).
+  - Live-invite row from today's Inbox: top of Shared with you.
+  - Reuse existing services (`getDocsByUser`, `getAllSentLetters`, `getInboxItems`, WP1 RPCs); no new letter logic.
+- **WP4 Chat share card.** `AttachmentCard` renders `canvas`/`letter` as a small card (type disc, title, "<name> shared a canvas") that opens the artifact.
+- **WP5 Events + redirects + cleanup.** Promote the lab `ChiangMaiBanner` into `src/app/components/events/` (yellow, founder exception); EventsList per the decision 6 table; Mixpanel `cm_calendar_card_clicked {placement, has_events}`. `/letters?tab=inbox|drafts|sent` → `/artifacts?tab=shared|yours&type=letters` (drafts/sent both Yours); `/docs` likewise; update the in-app links listed by the code map and the e2e `goto`s. Delete `src/app/tree/artifacts-lab/` and its route.
+
+**Spec review amendments (Codex 1 of 1, Gemini 4 Argon 1 of 1; claims checked against migrations).** These override the work packages above where they differ:
+- **Resolved Decisions win over the round-2 action inventory**: no recipient disclosure in rows, no unread dot on Yours, only the one-line meta strings.
+- **My canvases** = the owner's canvas tags (`getCanvasProjectTags`, the canvas set today) merged with `canvases` rows. A row exists only once shared (`INSERT INTO public.canvases` runs inside the share RPCs), so a canvas with no row is 🔒.
+- **Shared with me lists explicit grants only** (person, group I belong to, event I attend), never `general_access='link'` alone. Otherwise every link canvas leaks to everyone.
+- **Artifact read state**: new `canvas_reads(canvas_id, user_id, read_at)` (RLS: own rows only, RPC-only like P1515) plus `mark_canvas_read`, called on canvas page mount. Unread = no read row, or read before shared-at. Chat read state stays channel-level and separate; opening the canvas from a chat clears the artifact state.
+- **Share posting**: only on a new grant, never on re-share. A person's DM is find-or-create via `start_dm`. Letters do the same on seal/add-recipient for registered recipients (DM only). A private letter is never attached to a group or event channel.
+- **`_chat_can_attach`**:
+  - canvas in a DM: the other member has a person grant, or the canvas is link-public;
+  - canvas in a channel: that group or event has a grant;
+  - letter: DM only, and the other member is a recipient.
+- **A revoked or deleted artifact** renders "No longer available" in the chat card, and the message stays.
+- **Unread for an empty channel** follows Inbox eligibility: groups always; events only from 24h before to 12h after the start.
+  - Opening an empty channel sets `last_read_at = now()`.
+  - The migration backfills `last_read_at` for existing memberships, so nobody gets phantom badges on deploy.
+- **Routes**:
+  - Chats moves to `/chats`, with `/home` and `/home/c/:id` redirecting to the `/chats` equivalents. Home = `/feed`.
+  - Bare `/letters` and `/docs` go to `/artifacts`; drafts and sent go to `?tab=yours`, inbox to `?tab=shared`.
+  - In-app back/fallback links point straight at `/artifacts`.
+- **Default tab**: Yours.
+- **Yours vs Shared with you**: sender-side activity from `getInboxItems` ("X completed your letter") is removed from Shared with you and its badge, and joined onto the matching sent letter's "N replied" meta.
+- **+ Canvas** opens the owner's canvas page in its existing new-canvas flow (the `ProjectPicker` path); P1536 later swaps this for a mirror thread.
+- **Tests added**: `get_my_chats` returns unread 1 for an empty joined group, 0 after open, and 0 for an empty event more than 24h ahead; a link-only canvas is absent from Shared with me.
+
+Tests: unit tests per WP (nav entries, view-model Inbox rule, row meta strings, redirects); RPC tests on the test DB for WP1 (owner/shared/excluded, attachment refused when the audience can't read); one two-party e2e: owner shares a canvas with a person → it appears in their chat and Shared with you, opening it clears both.
+
+Review: Gemini 4 Argon visual (1440/375/320, every state) + Opus critic; Codex code + Gemini code; fix rounds until no realistic finding; then founder clicks through locally.
+
 [FOUNDER DECISION: all on-screen copy in the picked variant: tab labels beyond "Artifacts", the card text for the Chiang Mai calendar, the share message wording, empty-state lines.]
 
 ## Risks / Non-Goals
