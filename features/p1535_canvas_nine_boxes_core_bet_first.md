@@ -171,19 +171,24 @@ canvas, feed and `/stake`, playground files.
 
 ## Acceptance Criteria
 
-- [ ] The canvas shows nine titled boxes under three numbered layers, in this order: Customer
+- [x] The canvas shows nine titled boxes under three numbered layers, in this order: Customer
       Segments, Problem, Solution / Go-to-market strategy, Offers & Pricing, How I'll know it's
       working / My values, My biggest challenge, Who else wins when I win? (founder renames
       2026-10-23: "Values" → "My values"; "My biggest challenge" replaces "When my strengths
       become weaknesses", same tag)
-- [ ] No Unfair Advantage, Cost Structure or Unique Value Proposition box; points tagged with those
+- [x] No Unfair Advantage, Cost Structure or Unique Value Proposition box; points tagged with those
       keys appear nowhere on the canvas and show no `canvas:` pill.
-- [ ] At 1440x900, a canvas with one card in every box fits without vertical page scroll.
-- [ ] Three columns at 1024px and wider, two from 640px, one below; reading order is visual order;
+- [x] At 1440x900, a canvas with one card in every box fits without vertical page scroll.
+- [x] Three columns at 1024px and wider, two from 640px, one below; reading order is visual order;
       Previous / Next follow it.
-- [ ] No overflow at 320px, including the longest titles in box and panel headers.
-- [ ] Surfaces not in scope are visually unchanged (feed, point page).
-- [ ] All other P1508 unit and e2e tests still pass.
+- [x] No overflow at 320px, including the longest titles in box and panel headers.
+- [x] Surfaces not in scope are visually unchanged (feed, point page).
+- [x] All other P1508 unit and e2e tests still pass.
+
+Evidence (2026-10-23, TEST DB): unit `src/tests/p1508* p1515*` 430/430; e2e `p1508-clarity-canvas` 31/31
+(two DB-timeout failures re-run green at 1 worker); 1440x900 scrollHeight 900 = innerHeight; 320px no page
+overflow; screenshots + independent visual QA. Feed `p491-hashtag-feed`: same 2 failures on main (pre-existing,
+not this branch). Known minor: the owner name in the panel row truncates at 320px.
 
 ## Next Steps
 
