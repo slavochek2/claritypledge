@@ -322,8 +322,20 @@ describe('P1545 WP1: letters post into the 1:1 for registered recipients only', 
     expect(forP.available).toBe(true);
     expect(forP.title).toBe(`P1545 letter ${RUN}`);
     expect(forP.is_sender).toBe(false);
+    // /letter/:id takes a DELIVERY id: the card carries the viewer's own, never the letter's
+    const { data: dP } = await supabaseAdmin.from('letter_deliveries').select('id').eq('letter_id', letterId).eq('receiver_profile_id', P.user.id);
+    expect(dP).toHaveLength(1);
+    expect(forP.delivery_id).toBe(dP![0]!.id);
+    expect(forP.delivery_id).not.toBe(letterId);
+    // received letters are paged without the mixed-list cap
+    const page = await ok<Row[]>(cP, 'get_received_letters_page', { p_limit: 100, p_before_ts: null, p_before_id: null }, 'P received page');
+    expect(page.map(r => r.delivery_id)).toContain(dP![0]!.id);
+    expect(page.every(r => r.type === 'received')).toBe(true);
+    const none = await ok<Row[]>(cX, 'get_received_letters_page', { p_limit: 100, p_before_ts: null, p_before_id: null }, 'X received page');
+    expect(none.find(r => r.letter_id === letterId), 'control: a non-recipient lists nothing').toBeUndefined();
     const forO = await ok<Row>(cO, 'get_chat_artifact_attachment', { p_kind: 'letter', p_id: letterId }, 'O letter card');
     expect(forO.available && forO.is_sender).toBe(true);
+    expect(forO.delivery_id, 'sender who is not a recipient has no delivery').toBeNull();
     const forX = await ok<Row>(cX, 'get_chat_artifact_attachment', { p_kind: 'letter', p_id: letterId }, 'X letter card');
     expect(forX).toEqual({ available: false, kind: 'letter', id: letterId });
   });

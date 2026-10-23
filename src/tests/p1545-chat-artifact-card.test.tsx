@@ -2,7 +2,8 @@
  * @file p1545-chat-artifact-card.test.tsx
  * @description P1545 WP4: a canvas / letter shared into a chat is a small card that opens the artifact.
  *   - available canvas: title, "<first name> shared a canvas", links to the canvas page
- *   - available letter: the recipient opens /letter/:id, the sender /letter/:id/overview
+ *   - available letter: the recipient opens /letter/<their delivery id> (the route takes a DELIVERY id),
+ *     the sender /letter/:id/overview
  *   - unavailable: "No longer available", muted, not a link
  *   - one read per artifact, however many cards or renders
  *   - opening a canvas as a reader marks it read (and the owner does not call it)
@@ -49,7 +50,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import type { PointWithUserPosition } from '@/app/types';
 
 const canvas: ChatArtifact = { available: true, kind: 'canvas', id: 'cv1', name: 'Sales plan', ownerId: 'owner-1', ownerName: 'Ana Petrova', ownerSlug: 'ana', isOwner: false };
-const letter: ChatArtifact = { available: true, kind: 'letter', id: 'lt1', title: 'On our roadmap', senderId: 'owner-1', senderName: 'Ana Petrova', senderSlug: 'ana', isSender: false };
+const letter: ChatArtifact = { available: true, kind: 'letter', id: 'lt1', title: 'On our roadmap', senderId: 'owner-1', senderName: 'Ana Petrova', senderSlug: 'ana', isSender: false, deliveryId: 'dl1' };
 
 const card = (kind: 'canvas' | 'letter', id: string, compact = false) =>
   render(
@@ -102,7 +103,16 @@ describe('letter card', () => {
     const link = await screen.findByTestId('attachment-letter');
     expect(link).toHaveTextContent('On our roadmap');
     expect(link).toHaveTextContent('Ana shared a letter');
-    expect(link).toHaveAttribute('href', '/letter/lt1');
+    // /letter/:id takes a DELIVERY id: a letter with several recipients has one delivery each.
+    expect(link).toHaveAttribute('href', '/letter/dl1');
+  });
+
+  it('a recipient whose delivery id is missing gets a drawn card, never a link to the letter id', async () => {
+    svc.getChatArtifact.mockResolvedValue({ ...letter, deliveryId: null });
+    card('letter', 'lt1');
+    const el = await screen.findByTestId('attachment-letter');
+    expect(el.tagName).not.toBe('A');
+    expect(el).toHaveTextContent('On our roadmap');
   });
 
   it('the sender opens the overview', async () => {

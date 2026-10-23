@@ -134,8 +134,9 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
 
   const canvasName = row.ref.canvasName;
 
+  // Top right, level with the first title line: the 40px button starts 8px above the row's text.
   return (
-    <div className="relative z-10 shrink-0">
+    <div className="relative z-10 -mt-2 shrink-0">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button

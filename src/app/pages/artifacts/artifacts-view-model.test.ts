@@ -211,13 +211,16 @@ describe('"…" menu guards (today\'s rules)', () => {
     expect(ok.at(-1)?.danger).toBe(true);
   });
 
-  it('sent letter: Copy public link only on public letters; Delete blocked by any delivery', () => {
+  it('sent letter: Copy public link only on public letters; Delete letter is omitted once any delivery exists', () => {
     const priv = menu({ sentLetters: [letter()] });
     expect(priv.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'delete-letter']);
     expect(priv.at(-1)?.disabledReason).toBeUndefined();
     const pub = menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } });
-    expect(pub.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'copy-public-link', 'delete-letter']);
-    expect(pub.at(-1)?.disabledReason).toBe("Can't delete — letter has been shared.");
+    // shared (a delivery exists): no Delete letter item at all, and nothing is drawn disabled
+    expect(pub.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'copy-public-link']);
+    expect(pub.some(a => a.disabledReason)).toBe(false);
+    const sharedPrivate = menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } });
+    expect(sharedPrivate.map(a => a.id)).toEqual(['preview-letter', 'add-recipients']);
   });
 
   it('own canvas: Share only; shared items have no menu', () => {

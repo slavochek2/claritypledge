@@ -18,6 +18,7 @@ import { analytics } from '@/lib/mixpanel';
 import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { clearOfflineReadCache } from '@/lib/offline-read-cache';
 import { clearLinkTokens, clearLinkTokensExceptThisLoad } from '@/lib/canvas-link-token';
+import { clearArtifactAttachmentCache } from '@/app/pages/chat/artifact-attachment-cache';
 import { clearAllNavVerifiedHints } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
 import { noteAppSession } from '@/lib/session-guard';
@@ -159,6 +160,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           void clearOfflineReadCache();
           // P1421: same paths drop the nav's "this user was verified here" marker.
           clearAllNavVerifiedHints();
+          // P1545: and the chat artifact cards' answers, judged for the person who just left.
+          clearArtifactAttachmentCache();
           // P1515: and the canvas link tokens held in this tab (expiry, a sign-out in another tab and revocation never go
           // through api.signOut, and must not leave them for the next person on this device).
           //  - Only during auth initialization (boot recovery: an expired, unrefreshable stored session is dropped at

@@ -10,10 +10,10 @@ import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { ArtifactRowMenu } from './artifact-row-menu';
 import type { ArtifactRow as Row } from './artifacts-view-model';
 
-/** A letter is a filled blue disc with an envelope; a canvas is the canvas page's pale blue disc with a grid. */
+/** Letter and canvas carry equal weight: the same pale blue disc, told apart by the icon (solid blue is for actions). */
 export function TypeDisc({ kind }: { kind: Row['kind'] }) {
   const Icon = kind === 'canvas' ? LayoutDashboard : Mail;
-  const tone = kind === 'canvas' ? 'bg-blue-100 text-blue-600 ring-1 ring-inset ring-blue-300' : 'bg-blue-600 text-white';
+  const tone = 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200';
   return (
     <span
       data-testid={`artifact-type-${kind}`}
@@ -36,7 +36,8 @@ const TITLE_CLASS =
   'line-clamp-2 break-words rounded-sm text-base leading-snug text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
-  const titleWeight = row.unread ? 'font-semibold' : 'font-medium';
+  // One weight for read titles on both tabs; heavier only while unread (with the dot).
+  const titleWeight = row.unread ? 'font-semibold' : 'font-normal';
   return (
     <li
       data-testid="artifact-row"
@@ -46,13 +47,8 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
     >
       <TypeDisc kind={row.kind} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-1.5">
-          {row.visibility && (
-            <span className="mt-1 shrink-0">
-              <InlineVisibilityIcon visibility={row.visibility} />
-            </span>
-          )}
-          <h3 className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0">
             {row.href ? (
               // The link stretches over the whole row; the "…" sits above it (z-10), so it never opens the item.
               <Link
@@ -70,9 +66,11 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
             <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" role="img" aria-label="Unread" />
           )}
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground" data-testid="artifact-meta">
-          {row.meta}
-        </p>
+        {/* Visibility opens the meta line, so the title and the line below share one left edge. */}
+        <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+          {row.visibility && <InlineVisibilityIcon visibility={row.visibility} />}
+          <p data-testid="artifact-meta" className="min-w-0">{row.meta}</p>
+        </div>
       </div>
       <ArtifactRowMenu row={row} userSlug={userSlug} onChanged={onChanged} />
     </li>

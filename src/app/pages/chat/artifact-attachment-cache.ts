@@ -4,13 +4,26 @@ import { canvasService, type ChatArtifact } from '@/app/data/canvas-service';
 type ArtifactKind = 'canvas' | 'letter';
 
 /**
- * One read per (viewer, artifact) for the whole session of the page: a thread of shares, a re-render
- * or a second card for the same artifact shares the one in-flight / settled answer. A failed read is
- * dropped so the next mount asks again.
+ * How long a settled answer is trusted. Access can be revoked (or granted) at any time, so an answer is
+ * never kept for the life of the page: it is read again once older than this, and every time a chat
+ * conversation is (re)opened (use-conversation.ts) and on sign-out (AuthProvider).
  */
-const cache = new Map<string, Promise<ChatArtifact>>();
+export const ARTIFACT_ATTACHMENT_TTL_MS = 30_000;
 
-/** Forget every cached answer (sign-out, tests). */
+interface Entry {
+  read: Promise<ChatArtifact>;
+  /** When the read settled; null while in flight (an in-flight read is always shared). */
+  settledAt: number | null;
+}
+
+/**
+ * One read per (viewer, artifact) while it is fresh: a thread of shares, a re-render or a second card for
+ * the same artifact shares the one in-flight / settled answer. A failed read is dropped so the next mount
+ * asks again.
+ */
+const cache = new Map<string, Entry>();
+
+/** Forget every cached answer (sign-out, a chat opened, tests). */
 export function clearArtifactAttachmentCache(): void {
   cache.clear();
 }
@@ -18,11 +31,16 @@ export function clearArtifactAttachmentCache(): void {
 export function loadArtifact(kind: ArtifactKind, id: string, viewerId: string): Promise<ChatArtifact> {
   const key = `${viewerId}|${kind}|${id}`;
   const hit = cache.get(key);
-  if (hit) return hit;
-  const read = canvasService.getChatArtifact(kind, id);
-  cache.set(key, read);
-  read.catch(() => {
-    if (cache.get(key) === read) cache.delete(key);
-  });
-  return read;
+  if (hit && (hit.settledAt === null || Date.now() - hit.settledAt < ARTIFACT_ATTACHMENT_TTL_MS)) return hit.read;
+  const entry: Entry = { read: canvasService.getChatArtifact(kind, id), settledAt: null };
+  cache.set(key, entry);
+  entry.read.then(
+    () => {
+      entry.settledAt = Date.now();
+    },
+    () => {
+      if (cache.get(key) === entry) cache.delete(key);
+    },
+  );
+  return entry.read;
 }

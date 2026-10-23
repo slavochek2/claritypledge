@@ -115,6 +115,12 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
     setQuery('');
   };
 
+  // "Clear search" on a no-match state: drops the query and the type chip together.
+  const clearFilters = () => {
+    setQuery('');
+    update({ type: 'all' });
+  };
+
   const handleCreateLetter = async (visibility: ContentVisibility) => {
     setCreating(true);
     try {
@@ -150,12 +156,14 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
   const shared = useMemo(() => ({ ...data.shared, rows: withOpened(data.shared.rows) }), [data.shared, withOpened]);
   const unread = unreadSharedCount(shared.rows) + (invite && !invite.closedAt ? 1 : 0);
 
-  const sharedLabel = unread > 0 ? `Shared with you (${unread})` : 'Shared with you';
   const sharedAria = unread > 0 ? `Shared with you, ${unread} unread` : 'Shared with you';
 
   return (
     <main aria-label="Artifacts" className="min-h-screen">
-      <PageFrame size="reading">
+      {/* The bottom padding clears the phone tab bar (4rem) plus the home-indicator inset, with air to spare. */}
+      <PageFrame size="reading" className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-8">
+        {/* Capped so the "…" at each row's right edge stays near the content on wide screens. */}
+        <div className="max-w-3xl">
         <ArtifactsHeader
           searchOpen={searchOpen}
           query={query}
@@ -168,9 +176,15 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
 
         <Tabs value={tab} onValueChange={handleTab}>
           <div className="sticky top-0 z-10 bg-background">
-            <TabsList className="h-auto w-auto justify-start rounded-none border-b bg-transparent p-0">
+            <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">
               <TabsTrigger value="yours" className={TAB_TRIGGER}>Yours</TabsTrigger>
-              <TabsTrigger value="shared" aria-label={sharedAria} className={TAB_TRIGGER}>{sharedLabel}</TabsTrigger>
+              <TabsTrigger value="shared" aria-label={sharedAria} className={`${TAB_TRIGGER} gap-2`}>
+                Shared with you
+                {/* Unread is a mark, not a count of items: a dot, as the nav badges mark it. */}
+                {unread > 0 && (
+                  <span data-testid="shared-unread-dot" aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -185,6 +199,7 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
               userSlug={userSlug}
               onOpen={handleOpen}
               onRefresh={data.refresh}
+              onClearFilters={clearFilters}
             />
           </TabsContent>
           <TabsContent value="shared" className="mt-0">
@@ -196,10 +211,12 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
               userSlug={userSlug}
               onOpen={handleOpen}
               onRefresh={data.refresh}
+              onClearFilters={clearFilters}
               invite={type === 'all' && !query.trim() && invite && !invite.closedAt ? invite : null}
             />
           </TabsContent>
         </Tabs>
+        </div>
       </PageFrame>
     </main>
   );
@@ -238,10 +255,11 @@ interface ListProps {
   userSlug: string | null;
   onOpen: (row: ArtifactRow) => void;
   onRefresh: () => Promise<void>;
+  onClearFilters: () => void;
   invite?: OpenLiveInvite | null;
 }
 
-function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, invite = null }: ListProps) {
+function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onClearFilters, invite = null }: ListProps) {
   const refresh = () => { void onRefresh(); };
 
   if (data.status === 'loading') {
@@ -277,7 +295,7 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, inv
       )}
       {invite && <LiveInviteRow invite={invite} />}
       {rows.length === 0 && !invite ? (
-        <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} />
+        <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
       ) : (
         <ul className="flex flex-col divide-y divide-border/60" aria-label={tab === 'yours' ? 'Your artifacts' : 'Shared with you'}>
           {rows.map(row => (
@@ -290,10 +308,24 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, inv
 }
 
 /** [FOUNDER DECISION: all empty-state copy is a placeholder.] */
-function EmptyLine({ tab, total, type, query }: { tab: ArtifactTab; total: number; type: ArtifactTypeFilter; query: string }) {
-  const box = 'rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground';
+function EmptyLine({
+  tab, total, type, query, onClear,
+}: { tab: ArtifactTab; total: number; type: ArtifactTypeFilter; query: string; onClear: () => void }) {
+  const box = 'flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground';
   const q = query.trim();
-  if (q) return <p className={box}>No matches for “{q}”.</p>;
+  if (q && total > 0) {
+    // Name the scope: the search covers this tab and this type only.
+    const noun = type === 'all' ? 'artifacts' : type;
+    const scope = tab === 'shared' ? ' shared with you' : '';
+    return (
+      <div className={box}>
+        <p>{`No ${noun}${scope} match “${q}”.`}</p>
+        <button type="button" onClick={onClear} className="inline-flex min-h-10 items-center rounded-sm px-2 font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Clear search
+        </button>
+      </div>
+    );
+  }
   if (total > 0 && type !== 'all') return <p className={box}>No {type} here yet.</p>;
   if (tab === 'shared') return <p className={box}>Nothing has been shared with you yet.</p>;
   return (

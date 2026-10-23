@@ -325,7 +325,7 @@ export interface CanvasSharedWithMe {
 export type ChatArtifact =
   | { available: false; kind: 'canvas' | 'letter'; id: string }
   | { available: true; kind: 'canvas'; id: string; name: string; ownerId: string; ownerName: string | null; ownerSlug: string | null; isOwner: boolean }
-  | { available: true; kind: 'letter'; id: string; title: string | null; senderId: string; senderName: string | null; senderSlug: string | null; isSender: boolean };
+  | { available: true; kind: 'letter'; id: string; title: string | null; senderId: string; senderName: string | null; senderSlug: string | null; isSender: boolean; deliveryId: string | null };
 
 /** The caller's canvases: every canvas they hold points on, merged with the ones already shared. */
 async function listMyCanvases(): Promise<MyCanvasRow[]> {
@@ -374,7 +374,7 @@ async function getChatArtifact(kind: 'canvas' | 'letter', id: string): Promise<C
   if (kind === 'canvas') {
     return { available: true, kind, id: r.id, name: r.name, ownerId: r.owner_id, ownerName: r.owner_name ?? null, ownerSlug: r.owner_slug ?? null, isOwner: !!r.is_owner };
   }
-  return { available: true, kind, id: r.id, title: r.title ?? null, senderId: r.sender_id, senderName: r.sender_name ?? null, senderSlug: r.sender_slug ?? null, isSender: !!r.is_sender };
+  return { available: true, kind, id: r.id, title: r.title ?? null, senderId: r.sender_id, senderName: r.sender_name ?? null, senderSlug: r.sender_slug ?? null, isSender: !!r.is_sender, deliveryId: r.delivery_id ?? null };
 }
 
 export const canvasService = {

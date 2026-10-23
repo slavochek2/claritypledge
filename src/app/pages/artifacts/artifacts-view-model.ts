@@ -243,13 +243,10 @@ export function sentRow(letter: SentLetter, deliveries: LetterDelivery[], replie
       { id: 'preview-letter', label: 'Preview letter' },
       { id: 'add-recipients', label: 'Add recipient(s)' },
       ...(isPublic ? [{ id: 'copy-public-link' as const, label: 'Copy public link' }] : []),
-      {
-        id: 'delete-letter',
-        label: 'Delete letter',
-        danger: true,
-        // Any delivery (recipients and link respondents) means the letter was shared.
-        disabledReason: deliveries.length > 0 ? "Can't delete — letter has been shared." : undefined,
-      },
+      // Any delivery (recipients and link respondents) means the letter was shared: it cannot be deleted,
+      // so the item is left out rather than drawn disabled (the overview page explains why). The handler
+      // still maps DELIVERIES_EXIST from the server to a toast.
+      ...(deliveries.length === 0 ? [{ id: 'delete-letter' as const, label: 'Delete letter', danger: true }] : []),
     ],
     ref: { letterId: letter.id, sourceDocId: letter.source_doc_id, isPublicLetter: isPublic },
   };

@@ -37,10 +37,15 @@ function shareLine(artifact: Extract<ChatArtifact, { available: true }>): string
   return `${who} shared a ${artifact.kind}`;
 }
 
-/** Where the card goes: a canvas to its page, a letter to its sender view or its recipient view. */
+/**
+ * Where the card goes: a canvas to its page, a letter to its sender view or its recipient view. The
+ * recipient route /letter/:id takes the viewer's DELIVERY id, never the letter id; with no delivery the
+ * card is drawn, not linked.
+ */
 function targetOf(artifact: Extract<ChatArtifact, { available: true }>): string | null {
   if (artifact.kind === 'canvas') return artifact.ownerSlug ? canvasPath(artifact.ownerSlug, artifact.name) : null;
-  return artifact.isSender ? `/letter/${artifact.id}/overview` : `/letter/${artifact.id}`;
+  if (artifact.isSender) return `/letter/${artifact.id}/overview`;
+  return artifact.deliveryId ? `/letter/${artifact.deliveryId}` : null;
 }
 
 export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: { kind: ArtifactKind; id: string; viewerId: string; compact?: boolean }) {

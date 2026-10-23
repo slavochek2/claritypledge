@@ -43,8 +43,8 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
       <div className="flex min-w-0 flex-1 justify-end">
         {searchOpen ? (
           <div className="relative w-full min-w-0 sm:max-w-sm" role="search">
-            {/* The magnifier is dropped on phones: the field needs the room (it sits between the title and New). */}
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-muted-foreground sm:block" aria-hidden="true" />
+            {/* One field at every width: a compact magnifier, then the text. */}
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
               ref={inputRef}
               type="search"
@@ -53,13 +53,13 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
               onKeyDown={e => { if (e.key === 'Escape') onCloseSearch(); }}
               placeholder="Search titles"
               aria-label="Search artifacts by title"
-              className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-3 pr-9 text-base sm:pl-8 sm:pr-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-7 pr-8 text-base focus-visible:border-blue-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600 [&::-webkit-search-cancel-button]:hidden"
             />
             <button
               type="button"
               onClick={onCloseSearch}
               aria-label="Close search"
-              className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-0 top-0 flex h-10 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>

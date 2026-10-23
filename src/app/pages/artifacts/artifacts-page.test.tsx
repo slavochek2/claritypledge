@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getAllSentLetters: vi.fn(),
   getDeliveriesForLetters: vi.fn(),
   getInboxItems: vi.fn(),
+  getAllReceivedLetters: vi.fn(),
   markDeliveryRead: vi.fn(),
   deleteLetter: vi.fn(),
   listMyCanvases: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('@/app/data/letters-service', () => ({
   getAllSentLetters: mocks.getAllSentLetters,
   getDeliveriesForLetters: mocks.getDeliveriesForLetters,
   getInboxItems: mocks.getInboxItems,
+  getAllReceivedLetters: mocks.getAllReceivedLetters,
   markDeliveryRead: mocks.markDeliveryRead,
   deleteLetter: mocks.deleteLetter,
 }));
@@ -93,8 +95,11 @@ beforeEach(() => {
   mocks.listMyCanvases.mockResolvedValue([
     { canvasId: null, name: 'sales_map', generalAccess: 'link', hasAudience: false, lastEdit: ago(3 * 24 * H) },
   ]);
+  // Letters to me come from their own paged read; the mixed inbox list only supplies sender activity
+  // (it still carries a received row here: a control that Shared with you never lists it from there).
+  mocks.getAllReceivedLetters.mockResolvedValue([received()]);
   mocks.getInboxItems.mockResolvedValue([
-    received(),
+    received({ delivery_id: 'from-mixed-list', title: 'Must not show twice' }),
     // activity on my own letter: must not become a row in Shared with you
     { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann' },
   ]);
@@ -120,9 +125,67 @@ describe('Artifacts page', () => {
   it('shows the unread count on the Shared with you tab, not on Yours', async () => {
     renderPage();
     await screen.findByText('Draft about trust');
-    expect(screen.getByRole('tab', { name: 'Shared with you, 2 unread' })).toBeInTheDocument();
+    const tab = screen.getByRole('tab', { name: 'Shared with you, 2 unread' });
+    expect(tab).toBeInTheDocument();
+    // the label is words plus a dot: the number never reads as an item count
+    expect(tab.textContent).toBe('Shared with you');
+    expect(tab.textContent).not.toMatch(/[()0-9]/);
+    expect(within(tab).getByTestId('shared-unread-dot')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Yours' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Yours' })!.querySelector('[data-testid="shared-unread-dot"]')).toBeNull();
     expect(document.querySelectorAll('[aria-label="Unread"]')).toHaveLength(0); // no dots on Yours
+  });
+
+  it('with nothing unread the tab carries no dot', async () => {
+    mocks.getAllReceivedLetters.mockResolvedValue([received({ read_at: ago(H) })]);
+    mocks.listSharedWithMe.mockResolvedValue([]);
+    renderPage();
+    await screen.findByText('Draft about trust');
+    const tab = screen.getByRole('tab', { name: 'Shared with you' });
+    expect(within(tab).queryByTestId('shared-unread-dot')).toBeNull();
+  });
+
+  it('titles weigh the same on both tabs; only an unread title is heavier, and its dot sits next to the title', async () => {
+    const user = userEvent.setup();
+    mocks.getAllReceivedLetters.mockResolvedValue([received(), received({ delivery_id: 'rd2', letter_id: 'rl2', title: 'Old note', read_at: ago(H) })]);
+    renderPage();
+    await screen.findByText('Draft about trust');
+    const yoursWeights = rows().map(r => within(r).getByRole('heading').firstElementChild!.className.match(/font-(normal|medium|semibold|bold)/)![0]);
+    expect(new Set(yoursWeights)).toEqual(new Set(['font-normal']));
+    await user.click(screen.getByRole('tab', { name: /Shared with you/ }));
+    const readRow = (await screen.findByText('Old note')).closest('[data-testid="artifact-row"]') as HTMLElement;
+    const unreadRow = screen.getByText('Note from Mara').closest('[data-testid="artifact-row"]') as HTMLElement;
+    expect(within(readRow).getByRole('heading').firstElementChild!.className).toContain('font-normal');
+    const unreadHeading = within(unreadRow).getByRole('heading');
+    expect(unreadHeading.firstElementChild!.className).toContain('font-semibold');
+    // dot: a sibling of the title heading (same title line), not inside the "…" action slot
+    const dot = within(unreadRow).getByRole('img', { name: 'Unread' });
+    expect(dot.parentElement).toBe(unreadHeading.parentElement);
+    expect(dot.closest('div.relative')).toBeNull();
+  });
+
+  it('own items open the meta line with the visibility icon, so title and meta share a left edge', async () => {
+    renderPage();
+    await screen.findByText('Draft about trust');
+    const row = rows()[0]!;
+    const meta = within(row).getByTestId('artifact-meta');
+    expect(meta.textContent).toBe('Draft · edited 2h ago');
+    const icon = within(row).getByRole('img', { name: /Only people you share with/ });
+    expect(meta.parentElement).toContainElement(icon);
+    expect(within(row).getByRole('heading')).not.toContainElement(icon);
+    expect(icon.compareDocumentPosition(meta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('letter and canvas discs share one pale tint and keep different icons', async () => {
+    renderPage();
+    await screen.findByText('Draft about trust');
+    const letter = screen.getAllByTestId('artifact-type-letter')[0]!;
+    const canvas = screen.getByTestId('artifact-type-canvas');
+    for (const disc of [letter, canvas]) {
+      expect(disc.className).toContain('bg-blue-50');
+      expect(disc.className).not.toMatch(/bg-blue-[6-9]00/);
+    }
+    expect(letter.innerHTML).not.toBe(canvas.innerHTML);
   });
 
   it('Shared with you lists received letters and canvases with sender and unread dots, never activity on your letters', async () => {
@@ -176,7 +239,7 @@ describe('Artifacts page', () => {
     expect(screen.getByText('Draft about trust')).toBeInTheDocument();
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'zzz');
-    expect(screen.getByText('No matches for “zzz”.')).toBeInTheDocument();
+    expect(screen.getByText('No artifacts match “zzz”.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Close search' }));
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(rows()).toHaveLength(3);
@@ -188,7 +251,38 @@ describe('Artifacts page', () => {
     await screen.findByText('Note from Mara');
     await user.click(screen.getByRole('button', { name: 'Search artifacts' }));
     await user.type(screen.getByRole('searchbox'), 'trust'); // a Yours title
-    expect(screen.getByText('No matches for “trust”.')).toBeInTheDocument();
+    // plain text naming the scope (this tab), not a dashed box
+    const line = screen.getByText('No artifacts shared with you match “trust”.');
+    expect(line.className).not.toMatch(/dashed|border/);
+    expect(line.parentElement!.className).not.toMatch(/dashed|border/);
+  });
+
+  it('the no-match state offers Clear search, which clears the query and the type chip', async () => {
+    const user = userEvent.setup();
+    renderPage('/artifacts?type=letters');
+    await screen.findByText('Draft about trust');
+    await user.click(screen.getByRole('button', { name: 'Search artifacts' }));
+    await user.type(screen.getByRole('searchbox'), 'zzz');
+    expect(screen.getByText('No letters match “zzz”.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(screen.getByTestId('loc').textContent).toBe('/artifacts');
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(rows()).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+  });
+
+  it('search keeps one style at every width: magnifier shown, blue focus ring, title and New untouched', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Draft about trust');
+    await user.click(screen.getByRole('button', { name: 'Search artifacts' }));
+    const box = screen.getByRole('searchbox');
+    expect(box.className).toContain('focus-visible:ring-blue-600');
+    expect(box.className).not.toContain('focus-visible:ring-2');
+    expect(box.parentElement!.querySelector('svg.lucide-search')!.getAttribute('class')).not.toMatch(/hidden/);
+    expect(screen.getByRole('heading', { level: 1, name: 'Artifacts' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'New artifact' })).toBeVisible();
   });
 
   it('New artifact offers the two letter drafts and no dead Canvas entry; a letter creates a draft', async () => {
@@ -237,16 +331,25 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(mocks.getDocsByUser.mock.calls.length).toBeGreaterThan(calls));
     });
 
-    it('sent letter: Delete is blocked once shared; Add recipient(s) opens the modal', async () => {
+    it('sent letter: no Delete item once shared; Add recipient(s) opens the modal', async () => {
       const user = userEvent.setup();
       renderPage();
       await openMenu(user, 'Hello Tom');
-      const del = await screen.findByRole('menuitem', { name: /Delete letter/ });
-      expect(del).toHaveAttribute('aria-disabled', 'true');
-      expect(within(del).getByText("Can't delete — letter has been shared.")).toBeInTheDocument();
+      await screen.findByRole('menuitem', { name: 'Add recipient(s)' });
+      expect(screen.queryByRole('menuitem', { name: /Delete letter/ })).toBeNull(); // omitted, not disabled
+      expect(screen.queryByText("Can't delete — letter has been shared.")).toBeNull();
       expect(screen.queryByRole('menuitem', { name: /Copy public link/ })).toBeNull(); // private letter
       await user.click(screen.getByRole('menuitem', { name: 'Add recipient(s)' }));
       expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
+    });
+
+    it('sent letter nobody has received: Delete letter is offered and asks first', async () => {
+      const user = userEvent.setup();
+      mocks.getDeliveriesForLetters.mockResolvedValue({});
+      renderPage();
+      await openMenu(user, 'Hello Tom');
+      const del = await screen.findByRole('menuitem', { name: /Delete letter/ });
+      expect(del).not.toHaveAttribute('aria-disabled', 'true');
     });
 
     it('canvas: Share opens the P1515 share panel for that canvas', async () => {
@@ -309,7 +412,7 @@ describe('Artifacts page', () => {
 
     it('a read item opens without marking anything', async () => {
       const user = userEvent.setup();
-      mocks.getInboxItems.mockResolvedValue([received({ read_at: ago(H) })]);
+      mocks.getAllReceivedLetters.mockResolvedValue([received({ read_at: ago(H) })]);
       renderPage('/artifacts?tab=shared');
       await screen.findByText('Note from Mara');
       await user.click(screen.getByRole('link', { name: 'Note from Mara' }));
@@ -333,6 +436,37 @@ describe('Artifacts page', () => {
       renderPage();
       await screen.findByText('Draft about trust');
       expect(screen.queryByTestId('live-invite-row')).toBeNull();
+    });
+  });
+
+  describe('received letters are not trimmed by sender activity (Codex finding)', () => {
+    it('lists all 25 received letters even when 30 newer activity rows fill the mixed inbox', async () => {
+      const letters = Array.from({ length: 25 }, (_, i) => received({ delivery_id: `rd${i}`, letter_id: `rl${i}`, title: `Letter ${i}`, timestamp: ago((i + 2) * H) }));
+      const activity = Array.from({ length: 30 }, (_, i) => ({
+        ...received(), type: 'recipient_responded' as const, delivery_id: `act${i}`, letter_id: 'l1', title: 'Hello Tom', timestamp: ago(i * 1000),
+      }));
+      mocks.getAllReceivedLetters.mockResolvedValue(letters);
+      mocks.getInboxItems.mockResolvedValue(activity.slice(0, 20)); // what the capped mixed list can hold
+      mocks.listSharedWithMe.mockResolvedValue([]);
+      renderPage('/artifacts?tab=shared');
+      await screen.findByText('Letter 0');
+      expect(rows()).toHaveLength(25);
+      expect(screen.getByText('Letter 24')).toBeInTheDocument();
+      expect(screen.queryByText('Hello Tom')).toBeNull();
+    });
+
+    it('a failing sender-activity read does not blank or error Shared with you', async () => {
+      mocks.getInboxItems.mockRejectedValue(new Error('x'));
+      renderPage('/artifacts?tab=shared');
+      await screen.findByText('Note from Mara');
+      expect(screen.queryByText('Some items could not be loaded.')).toBeNull();
+    });
+
+    it('a failing received-letters read says some items are missing and keeps the canvases', async () => {
+      mocks.getAllReceivedLetters.mockRejectedValue(new Error('x'));
+      renderPage('/artifacts?tab=shared');
+      await screen.findByText('q4 plan');
+      expect(screen.getByText('Some items could not be loaded.')).toBeInTheDocument();
     });
   });
 
@@ -374,6 +508,7 @@ describe('Artifacts page', () => {
       mocks.getAllSentLetters.mockResolvedValue([]);
       mocks.listMyCanvases.mockResolvedValue([]);
       mocks.getInboxItems.mockResolvedValue([]);
+      mocks.getAllReceivedLetters.mockResolvedValue([]);
       mocks.listSharedWithMe.mockResolvedValue([]);
       renderPage();
       expect(await screen.findByText(/Nothing here yet\./)).toBeInTheDocument();

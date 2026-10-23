@@ -28,6 +28,7 @@ import {
   type ChatMessage,
   type ThreadStats,
 } from '@/app/data/chat-service';
+import { clearArtifactAttachmentCache } from './artifact-attachment-cache';
 import { useChat, type LocalMessage, type SendInput } from './chat-state';
 import { appendIfNewer, compareMessages, newerVersion, reconcileWindow, replaceLoaded, replaceWindow, upsertMessage } from './chat-view-model';
 
@@ -212,6 +213,9 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
   }, [sync]);
 
   useEffect(() => {
+    // P1545: opening a conversation (or a thread) asks again about the artifacts shared in it: access may
+    // have been revoked or granted since the last answer.
+    clearArtifactAttachmentCache();
     generation.current++;
     latestRead.current++;
     loadedOnce.current = false;

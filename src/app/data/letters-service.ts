@@ -842,6 +842,24 @@ export async function getAllSentLetters(senderId: string): Promise<
   })) as Array<ClarityLetter & { doc_title: string }>;
 }
 
+function mapInboxRow(row: Record<string, unknown>): InboxItem {
+  return {
+    type: row['type'] as InboxItem['type'],
+    delivery_id: row['delivery_id'] as string,
+    letter_id: row['letter_id'] as string,
+    title: (row['title'] as string) ?? 'Untitled',
+    actor_name: (row['actor_name'] as string) ?? 'Someone',
+    actor_slug: (row['actor_slug'] as string | null) ?? null,
+    timestamp: row['timestamp'] as string,
+    read_at: (row['read_at'] as string | null) ?? null,
+    completed_at: (row['completed_at'] as string | null) ?? null,
+    stories_rated: row['stories_rated'] != null ? Number(row['stories_rated']) : undefined,
+    total_stories: row['total_stories'] != null ? Number(row['total_stories']) : undefined,
+    steps_completed: row['steps_completed'] != null ? Number(row['steps_completed']) : undefined,
+    total_steps: row['total_steps'] != null ? Number(row['total_steps']) : undefined,
+  };
+}
+
 /**
  * P660 AD6 / P690: Get inbox items combining received letters + responses to my letters.
  * Uses SECURITY DEFINER RPC to bypass clarity_docs SELECT RLS that would
@@ -866,21 +884,48 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
 
   const rows = (data as Array<Record<string, unknown>>) ?? [];
 
-  return rows.slice(0, 20).map(row => ({
-    type: row['type'] as InboxItem['type'],
-    delivery_id: row['delivery_id'] as string,
-    letter_id: row['letter_id'] as string,
-    title: (row['title'] as string) ?? 'Untitled',
-    actor_name: (row['actor_name'] as string) ?? 'Someone',
-    actor_slug: (row['actor_slug'] as string | null) ?? null,
-    timestamp: row['timestamp'] as string,
-    read_at: (row['read_at'] as string | null) ?? null,
-    completed_at: (row['completed_at'] as string | null) ?? null,
-    stories_rated: row['stories_rated'] != null ? Number(row['stories_rated']) : undefined,
-    total_stories: row['total_stories'] != null ? Number(row['total_stories']) : undefined,
-    steps_completed: row['steps_completed'] != null ? Number(row['steps_completed']) : undefined,
-    total_steps: row['total_steps'] != null ? Number(row['total_steps']) : undefined,
-  }));
+  return rows.slice(0, 20).map(mapInboxRow);
+}
+
+/** P1545: rows per get_received_letters_page call (the RPC clamps at 200). */
+export const RECEIVED_LETTERS_PAGE_SIZE = 100;
+/**
+ * P1545: the walk stops after this many pages, so a pathological inbox cannot loop forever. 50 x 100 =
+ * 5,000 letters delivered to one person, newest first; anything older is not listed.
+ */
+export const RECEIVED_LETTERS_MAX_PAGES = 50;
+
+/**
+ * P1545 (Codex finding): EVERY letter delivered to the person, newest first, for Shared with you.
+ * get_inbox_items cannot serve this: it trims a MIXED list (letters to me + activity on my letters) to 20
+ * rows server side, so received letters fell off behind sender activity. This pages
+ * get_received_letters_page by (timestamp, delivery id) until a short page, up to RECEIVED_LETTERS_MAX_PAGES.
+ * Throws on a failed page, like getInboxItems: a failed read is not an empty inbox.
+ */
+export async function getAllReceivedLetters(userId: string): Promise<InboxItem[]> {
+  await requireAuth();
+  log('getAllReceivedLetters:', userId);
+
+  const items: InboxItem[] = [];
+  let beforeTs: string | null = null;
+  let beforeId: string | null = null;
+  for (let page = 0; page < RECEIVED_LETTERS_MAX_PAGES; page++) {
+    const { data, error } = await supabase.rpc('get_received_letters_page', {
+      p_limit: RECEIVED_LETTERS_PAGE_SIZE,
+      p_before_ts: beforeTs,
+      p_before_id: beforeId,
+    });
+    if (error) {
+      throwDbError('getAllReceivedLetters', error, `Failed to load received letters: ${error.message}`);
+    }
+    const rows = (data as Array<Record<string, unknown>>) ?? [];
+    for (const row of rows) items.push(mapInboxRow(row));
+    const last = rows[rows.length - 1];
+    if (!last || rows.length < RECEIVED_LETTERS_PAGE_SIZE) break;
+    beforeTs = last['timestamp'] as string;
+    beforeId = last['delivery_id'] as string;
+  }
+  return items;
 }
 
 /**

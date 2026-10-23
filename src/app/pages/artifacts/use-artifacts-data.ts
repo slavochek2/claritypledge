@@ -2,17 +2,19 @@
  * @file use-artifacts-data.ts
  * @description P1545 WP3: loads everything the Artifacts page lists and hands it to the view model.
  *
- * One hook for both tabs because the two share a source: `getInboxItems` feeds Shared with you (letters
- * sent to you) AND the sent letters' "N replied" in Yours. Each source settles on its own, so one slow
- * or failing service never blanks the other tab; a tab errors only when all of ITS sources failed, and
- * says "some could not be loaded" when only part did.
+ * One hook for both tabs. Letters sent to you come from `getAllReceivedLetters` (paged, no 20-row cap);
+ * `getInboxItems` (a capped mixed list) is read only for sender activity, which feeds the sent letters'
+ * "N replied" in Yours. That read is a refinement: the deliveries already give the replied count, so it
+ * belongs to neither tab's success rule. Each source settles on its own, so one slow or failing service
+ * never blanks the other tab; a tab errors only when all of ITS sources failed, and says "some could not
+ * be loaded" when only part did.
  *
  * Refreshes quietly every 15 s while the tab is visible and on focus (today's inbox/sent behaviour):
  * a failed quiet refresh keeps what is on screen.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
-import { getAllSentLetters, getDeliveriesForLetters, getInboxItems } from '@/app/data/letters-service';
+import { getAllReceivedLetters, getAllSentLetters, getDeliveriesForLetters, getInboxItems } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
 import { buildArtifacts, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -32,11 +34,13 @@ interface Sources {
   docs: ClarityDoc[] | null;
   sent: { letters: SentLetter[]; deliveries: Record<string, LetterDelivery[]> } | null;
   myCanvases: MyCanvasRow[] | null;
-  inbox: InboxItem[] | null;
+  received: InboxItem[] | null;
+  /** Sender-side activity on my own letters (the capped mixed inbox list). */
+  activity: InboxItem[] | null;
   sharedCanvases: CanvasSharedWithMe[] | null;
 }
 
-const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, inbox: null, sharedCanvases: null };
+const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, received: null, activity: null, sharedCanvases: null };
 
 /** `null` = not settled yet, or failed; `failed` tells the two apart. */
 type Failed = Partial<Record<keyof Sources, boolean>>;
@@ -84,7 +88,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
       run('docs', () => docsService.getDocsByUser(forUser)),
       run('sent', () => loadSent(forUser)),
       run('myCanvases', () => canvasService.listMyCanvases()),
-      run('inbox', () => getInboxItems(forUser)),
+      run('received', () => getAllReceivedLetters(forUser)),
+      run('activity', () => getInboxItems(forUser)),
       run('sharedCanvases', () => canvasService.listSharedWithMe()),
     ]);
   }, [userId]);
@@ -110,7 +115,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
         docs: sources.docs ?? [],
         sentLetters: sources.sent?.letters ?? [],
         deliveriesByLetter: sources.sent?.deliveries ?? {},
-        inbox: sources.inbox ?? [],
+        // Received rows only from the paged read; the mixed list contributes sender activity alone.
+        inbox: [...(sources.received ?? []), ...(sources.activity ?? []).filter(i => i.type !== 'received')],
         myCanvases: sources.myCanvases ?? [],
         sharedCanvases: sources.sharedCanvases ?? [],
         userSlug,
@@ -128,7 +134,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
 
   return {
     yours: tabState(['docs', 'sent', 'myCanvases'], model.yours),
-    shared: tabState(['inbox', 'sharedCanvases'], model.shared),
+    shared: tabState(['received', 'sharedCanvases'], model.shared),
     refresh: load,
   };
 }
