@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [technical]: The mirror agent reads a token budget, counted by the model, not a message count (P1547)
+
+**Context:** The mirror read the last 30 messages, each cut to 1,000 characters. The founder found that too little ("last 30 is very, very little") and approved a 50,000-token budget. Three review rounds (Gemini, Codex, an Opus adversary) found that a local estimate is not a cost bound: punctuation, base64 and escaped text run at about 1–2 characters per token, measured 22 tokens for about 40 such characters on the live API.
+**Decision:**
+- SQL offers rows newest first up to about 150,000 characters (2,000-row cap), locked in **one** `FOR SHARE SKIP LOCKED` pass.
+- The edge function selects what fits: the thread first, then the main chat, copied threads capped at 20%.
+- Before every send it asks Gemini `countTokens` (free) and shrinks the request until it fits 50,000. If counting fails, the reply is held to the UTF-8 byte bound and degrades to a shorter context instead of refusing.
+- `reply_max_usd` is 0.105, with one test that fails if code and SQL disagree.
+- A start whose answered message is locked returns `busy`, never an answer to an older message.
+**Alternatives rejected:** chars ÷ 3 as the bound (undercounts hostile text, so spend could overshoot the reservation); a plain `FOR SHARE` (deadlocks with the phased locks in account erasure); re-measuring a whole copy per dropped reply (quadratic, about 11 s of edge CPU on a hostile thread, now about 0.3 s with a regression test).
+**Consequences:**
+- About 5 replies can be in flight per person under the unchanged daily cap.
+- Erasure refs over-include offered-but-trimmed rows (the safe direction).
+- An owner deleting their own channel @-ask at the instant its job starts can still get an answer (the same as before).
+- Known limitations are listed in the spec.
+**References:** [p1547](../features/p1547_mirror_memory_token_budget.md)
 ## 2026-10-23 [product]: Day Monitoring is money, subscriptions and token usage; token readings are activity, never productivity (P1552)
 
 **Context:** P1399 ruled Monitoring "money and subscriptions only". Token usage for Claude Code and Codex was on a separate claude.ai page, refreshed weekly by `/weekly`. The founder asked for it to live in Monitoring and to be updated by `/day` without spending model tokens.
