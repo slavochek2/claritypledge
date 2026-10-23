@@ -41,7 +41,7 @@ Reversibility: medium. Decision density: a few.
 ## Invariants
 
 - **Counted against a yes the person gave themselves.** Only people who said yes to the terms appear.
-- **Recognition only.** The view shows who answered and what they answered. Nothing else about people.
+- **Recognition only.** The view shows answers given. Nothing else about people.
 - **Counts, not scores.** No ranking and no public score (decisions.md 2026-10-22 [product]; calibration
   stays in-team only). Entries are frozen events, as in the 2026-07-24 ledger ruling.
 
@@ -49,7 +49,7 @@ Reversibility: medium. Decision density: a few.
 
 The Understanding Ledger's v1 count view (decisions.md 2026-07-24), at group level. Each person sees
 their own record: when they said yes to the terms, and the chats and letters they answered. The team
-sees who answered.
+sees follow-through recognised, by name or as a total (founder decision below).
 
 [FOUNDER DECISION: the team sees names of who answered, or a total only ("4 answered this week").]
 [FOUNDER DECISION: what counts as answered: any reply, setting a position, or answering a letter.]

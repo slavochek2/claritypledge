@@ -65,6 +65,7 @@ A rewrite removes the direct identifier; it does not make the paragraph anonymou
 - **Operational spend and account figures** — cap/budget amounts, raising or lifting limits, monthly usage or billed totals, credit balances and expiry dates, billing account IDs. Treat as a **hard flag** in public files: keep the lesson ("cap raised", "usage far above the bill"), move the numbers to `.private/`. (2026-10-14: a decisions.md entry published the founder's cap amounts, gross usage and monthly pace; the review only soft-flagged it.)
 - **Funder targeting details** — named funders with strategic reasoning (awkward if they see it before being approached)
 - **Anything you'd be uncomfortable seeing quoted** in a critical article about you or the company
+- **Dark framing of the product (warning, never a block)** — words such as *surveillance*, *punishment*, *policing*, *spying*, *exposing* or *shaming* used about what the product does or might do. Read out of context they make a careful product sound sinister. Suggest a rewording that names what we want (e.g. "recognition of who answered" instead of "not surveillance"). Leave it when the word is the accurate record of a rejected idea in `docs/decisions.md`, and say so. (2026-10-23: two new specs described a follow-through view by what it must not become; the founder: *"Don't write what we don't want."*)
 
 ### Not a concern
 - General product strategy already on the website

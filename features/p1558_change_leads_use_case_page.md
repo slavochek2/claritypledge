@@ -45,8 +45,8 @@ Decision density: a few (route name, headline, CTA, indexing).
   import (P1457) and the follow-through record (P1559) are not live. The page describes them as how it
   works / what we are building, never as a feature a visitor can switch on today. A visitor who books a
   call must not discover the page oversold.
-- **Recognition only.** Follow-through appears as recognition of the people who answered, with no
-  ranking. People say yes to the terms themselves.
+- **Recognition only.** Follow-through appears as recognition, with no ranking, and the page does not
+  promise names or totals before P1559 decides. People say yes to the terms themselves.
 - Every statistic carries an inline citation to a primary source, wording within the source (as P1506).
   Do NOT use the "70% of change programmes fail" figure: it is widely repeated without a primary
   empirical source.
@@ -71,7 +71,7 @@ Sections (order and copy drafted in /dev, every heading and the hero approved by
    people answer each other in Clarity Chat → if someone disagrees with the principle itself, that goes
    through the same check (CMP10). Built vs coming is labelled per the first invariant.
 4. **What you see**: follow-through shown as recognition: each person sees their own record; the team
-   sees who answered. Exact visibility rules are P1559's to decide; the page
+   sees follow-through recognised. Whether by name or as a total is P1559's to decide; the page
    copy follows whatever P1559 settles, and until then stays at this level.
 5. **Where it matters most**: AI rollouts, digital transformation, reorganisations (short cards).
 6. **CTA**: "Book a 15-min discovery call" → /intro, exactly one primary CTA (2026-10-02 ruling, as
@@ -98,7 +98,7 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 
 - [ ] The page loads at the chosen route with the site's top menu and footer, signed in or not, and appears in the Use cases menu.
 - [ ] A reader can tell, for each capability mentioned, whether it works today or is being built.
-- [ ] Follow-through appears only as recognition of people who answered; no ranking of people anywhere.
+- [ ] Follow-through appears only as recognition, with no ranking of people, and the copy does not commit to names or totals.
 - [ ] Each statistic has an inline citation and a References entry; the 70% failure figure does not appear.
 - [ ] One primary action only, the founder-confirmed CTA, in the hero and a closing section.
 - [ ] Analytics: `landing_page_viewed` with the page's variant on load, and a CTA click event (unit test pre-deploy). `[post-deploy]` confirm in Mixpanel.
