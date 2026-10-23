@@ -33,6 +33,8 @@ export interface TabData {
   rows: ArtifactRow[];
   /** Ready, but at least one source failed: the list may be missing items. */
   partial: boolean;
+  /** At least one source of this tab has not answered yet; rows already loaded are shown meanwhile. */
+  pending: boolean;
 }
 
 interface Sources {
@@ -145,12 +147,14 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   );
 
   const tabState = (keys: (keyof Sources)[], rows: ArtifactRow[]): TabData => {
-    const allSettled = keys.every(k => settled[k]);
-    if (!allSettled) return { status: 'loading', rows, partial: false };
+    const pending = !keys.every(k => settled[k]);
+    const anyLoaded = keys.some(k => loaded[k]);
+    // Spinner only while there is nothing to show yet; once any source has rows, show them and keep the rest pending.
+    if (pending && rows.length === 0) return { status: 'loading', rows, partial: false, pending: true };
     const failedCount = keys.filter(k => failed[k]).length;
     // Nothing to show and every source failed: the error state. If anything is on screen, keep it.
-    if (failedCount === keys.length && !keys.some(k => loaded[k])) return { status: 'error', rows: [], partial: false };
-    return { status: 'ready', rows, partial: failedCount > 0 };
+    if (!pending && failedCount === keys.length && !anyLoaded) return { status: 'error', rows: [], partial: false, pending: false };
+    return { status: 'ready', rows, partial: failedCount > 0, pending };
   };
 
   return {

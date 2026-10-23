@@ -295,8 +295,12 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
         </p>
       )}
       {invite && <LiveInviteRow invite={invite} />}
+      {data.pending && (
+        // [FOUNDER DECISION: "Loading more…" copy is a placeholder.]
+        <p role="status" className="pb-2 text-sm text-muted-foreground">Loading more…</p>
+      )}
       {rows.length === 0 && !invite ? (
-        <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
+        data.pending ? null : <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
       ) : (
         <ul className="flex flex-col divide-y divide-border/60" aria-label={tab === 'yours' ? 'Your artifacts' : 'Shared with you'}>
           {rows.map(row => (

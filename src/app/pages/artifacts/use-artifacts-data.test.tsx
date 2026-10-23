@@ -106,3 +106,27 @@ describe('useArtifactsData polling', () => {
     expect(result.current.yours.rows).toHaveLength(0);
   });
 });
+
+describe('useArtifactsData progressive loading', () => {
+  it('shows loaded drafts while the sent letters are still pending, then settles', async () => {
+    const sent = deferred<never[]>();
+    mocks.getDocsByUserOrThrow.mockResolvedValue([doc]);
+    mocks.getAllSentLettersOrThrow.mockReturnValue(sent.promise);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    expect(result.current.yours.status).toBe('ready');
+    expect(result.current.yours.pending).toBe(true);
+    await act(async () => { sent.resolve([]); await Promise.resolve(); });
+    await waitFor(() => expect(result.current.yours.pending).toBe(false));
+    expect(result.current.yours.rows).toHaveLength(1);
+  });
+
+  it('stays loading while no source of the tab has data yet', async () => {
+    const docs = deferred<ClarityDoc[]>();
+    mocks.getDocsByUserOrThrow.mockReturnValue(docs.promise);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.yours.status).toBe('loading');
+    expect(result.current.yours.pending).toBe(true);
+  });
+});

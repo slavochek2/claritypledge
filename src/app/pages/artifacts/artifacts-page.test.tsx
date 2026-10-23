@@ -554,4 +554,22 @@ describe('Artifacts page', () => {
       expect(screen.getByText('No canvases here yet.')).toBeInTheDocument();
     });
   });
+
+  it('shows loaded drafts and a quiet "Loading more" line while sent letters are pending, with no empty state', async () => {
+    mocks.getAllSentLettersOrThrow.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    await screen.findByText('Draft about trust');
+    expect(screen.getByText('Loading more…')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Loading')).toBeNull();
+  });
+
+  it('does not show the empty state while a source is still pending', async () => {
+    mocks.getDocsByUserOrThrow.mockResolvedValue([]);
+    mocks.listMyCanvases.mockResolvedValue([]);
+    mocks.getAllSentLettersOrThrow.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    await screen.findByRole('status', { name: 'Loading' });
+    expect(rows()).toHaveLength(0);
+    expect(screen.queryByText(/nothing here|no artifacts|yet/i)).toBeNull();
+  });
 });
