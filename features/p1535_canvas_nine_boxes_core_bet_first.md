@@ -93,7 +93,7 @@ Clarity Canvas
 by <owner> · <canvas name>  [Compare positions]
 01 Core assumptions       Customer Segments | Problem               | Solution
 02 Profitability assumptions      Go-to-market strategy | Offers & Pricing  | How I'll know it's working
-03 Founder-fit assumptions        Values           | When my strengths become weaknesses | Who else wins when I win?
+03 Founder-fit assumptions        My values        | My biggest challenge | Who else wins when I win?
 ```
 Two columns from 640px and one below, same reading order. Panel, Previous / Next and "See all N"
 unchanged; they follow the new order.
@@ -106,8 +106,8 @@ unchanged; they follow the new order.
 | canvas:channels | Go-to-market strategy | Profitability assumptions |
 | canvas:revenue | Offers & Pricing | Profitability assumptions |
 | canvas:metrics | How I'll know it's working | Profitability assumptions |
-| canvas:love | Values | Founder-fit assumptions |
-| canvas:good-at | When my strengths become weaknesses | Founder-fit assumptions |
+| canvas:love | My values | Founder-fit assumptions |
+| canvas:good-at | My biggest challenge | Founder-fit assumptions |
 | canvas:world-needs | Who else wins when I win? | Founder-fit assumptions |
 | canvas:advantage | (dropped) | |
 | canvas:cost | (dropped) | |
@@ -173,7 +173,9 @@ canvas, feed and `/stake`, playground files.
 
 - [ ] The canvas shows nine titled boxes under three numbered layers, in this order: Customer
       Segments, Problem, Solution / Go-to-market strategy, Offers & Pricing, How I'll know it's
-      working / Values, When my strengths become weaknesses, Who else wins when I win?
+      working / My values, My biggest challenge, Who else wins when I win? (founder renames
+      2026-10-23: "Values" → "My values"; "My biggest challenge" replaces "When my strengths
+      become weaknesses", same tag)
 - [ ] No Unfair Advantage, Cost Structure or Unique Value Proposition box; points tagged with those
       keys appear nowhere on the canvas and show no `canvas:` pill.
 - [ ] At 1440x900, a canvas with one card in every box fits without vertical page scroll.
