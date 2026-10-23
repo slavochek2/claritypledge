@@ -33,6 +33,8 @@ Blast radius: medium. Cost per reply, erasure provenance, and injection surface 
 
 1. **One budget, measured in tokens, covering the whole request:** fixed rules, metadata, escaping and data. Measure with the model's token counter or a stated conservative estimate (characters ÷ 3), and test Unicode and escaped input at the exact boundary.
 
+   **Build correction (/dev, 2026-10-23):** a plain characters ÷ 3 is not conservative for CJK or emoji, which tokenise at about one token per character or worse. The estimate used (`mirror-agent.ts` `estimateTokens`) is ASCII ÷ 3 rounded up, each other code point 1 token, each emoji (outside the BMP) 2.
+
    **Budget: 50,000 tokens (founder approved, 2026-10-22)**, 5× today's 10,000-token request. That is roughly 35,000 words, several hundred messages, for about 4 US cents per reply at today's price, 3.5× today's cost (the output side does not grow).
 2. **Selection, newest first, until the budget is spent:**
    - **In a mirror thread** (P1546): that thread first, newest first. If the thread alone exceeds the budget, the oldest replies are dropped and the model is told "showing the last N of M messages of this thread".

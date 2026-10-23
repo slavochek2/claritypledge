@@ -13,15 +13,37 @@ import type { ArtistEntry } from './artist-pool.ts';
 
 export const MIRROR_MODEL = 'gemini-3.8-flash';
 
-/** Upper bounds the reservation is computed from; the request enforces both. */
-export const MAX_IN_TOKENS = 10_000;
-export const MAX_OUT_TOKENS = 1_200; // thinking included (billed as output)
 /**
- * The quoted data is cut to this many characters, so even at one token per character (scripts with no
- * spaces) data plus the fixed rules stay under MAX_IN_TOKENS.
+ * P1547: ONE budget for the whole request (fixed rules, metadata, escaping and data), in tokens. The
+ * reservation is computed from it and the request is refused, never sent, past it.
  */
-export const DATA_CHAR_BUDGET = 6_000;
+export const BUDGET_TOKENS = 50_000;
+/** Kept as the reservation's input bound (P1520 name). */
+export const MAX_IN_TOKENS = BUDGET_TOKENS;
+export const MAX_OUT_TOKENS = 1_200; // thinking included (billed as output)
+/** A forwarded or Clarified thread is one item capped at 20% of the budget. */
+export const COPY_ITEM_TOKENS = Math.floor(BUDGET_TOKENS * 0.2);
 export const MAX_REPLY_CHARS = 4_000;
+/** A message is cut (with CUT_MARK) to fill what is left only if at least this much is left. */
+const MIN_CUT_TOKENS = 50;
+export const CUT_MARK = ' [... cut: too long to show in full]';
+
+/**
+ * Conservative token estimate, stated: ASCII at three characters per token (rounded up), every
+ * non-ASCII code point a whole token, and one outside the Basic Multilingual Plane (emoji) two. The
+ * spec's plain characters / 3 would undercount CJK and emoji, which tokenise at about one token per
+ * character or worse. Counted over the exact text sent, after escaping.
+ */
+export function estimateTokens(text: string): number {
+  let ascii = 0;
+  let other = 0;
+  for (const ch of text) {
+    const c = ch.codePointAt(0) ?? 0;
+    if (c < 128) ascii++;
+    else other += c > 0xffff ? 2 : 1;
+  }
+  return Math.ceil(ascii / 3) + other;
+}
 
 /** USD per 1M tokens: Gemini's paid-tier rates from 1 Jan 2027, the higher of its two schedules. */
 export const PRICE_IN_PER_M = 1.5;
@@ -80,6 +102,8 @@ export interface ContextItem {
   body?: string | null;
   at?: string | null;
   attachment?: string | null;
+  /** A main-chat thread root's reply count (P1547): shown as "N replies" when the thread is not quoted. */
+  replies?: number | null;
   quoted?: { name?: string | null; body?: string | null } | null;
   clarify?: {
     from?: string | null;
@@ -97,7 +121,12 @@ export interface BeginRun {
   owner_first_name: string | null;
   channel_title: string | null;
   question: { body: string } | null;
+  /** Oldest first, a bounded superset newest-first in SQL; for a thread question, the thread (P1546 scope). */
   context: ContextItem[];
+  /** P1547, thread questions only: the mirror's main chat (roots, never replies), oldest first. */
+  outside?: ContextItem[] | null;
+  /** P1547, thread questions only: how many messages the whole thread has. */
+  thread_total?: number | null;
   reserved_usd: number;
   /** Which attempt this is; completion and failure act only on their own attempt. */
   attempt: number;
@@ -108,10 +137,16 @@ export function quoteData(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 }
 
+/** What one item costs inside the DATA block: its line and the line break after it. */
+export function itemTokens(item: unknown): number {
+  return estimateTokens(quoteData(item) + '\n');
+}
+
 function clean(item: ContextItem): Record<string, unknown> {
   const out: Record<string, unknown> = { from: item.who === 'owner' ? 'owner' : item.who === 'mirror' ? 'you (the mirror)' : item.name ?? 'someone' };
   if (item.body) out.text = item.body;
   if (item.attachment) out.attached = item.attachment;
+  if (typeof item.replies === 'number' && item.replies > 0) out.thread = `${item.replies} ${item.replies === 1 ? 'reply' : 'replies'}`;
   if (item.quoted?.body) out.forwarded = { from: item.quoted.name ?? 'someone', text: item.quoted.body };
   if (item.clarify) {
     out.copied_for_clarify = {
@@ -124,9 +159,12 @@ function clean(item: ContextItem): Record<string, unknown> {
   return out;
 }
 
-/** Every string in `value`, at any depth, cut to `max` characters. */
+/** Every string in `value`, at any depth, cut to `max` code points (never splitting one), marked when cut. */
 function capStrings(value: unknown, max: number): unknown {
-  if (typeof value === 'string') return value.slice(0, max);
+  if (typeof value === 'string') {
+    const cps = Array.from(value);
+    return cps.length > max ? cps.slice(0, max).join('') + CUT_MARK : value;
+  }
   if (Array.isArray(value)) return value.map((v) => capStrings(v, max));
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, capStrings(v, max)]));
@@ -134,31 +172,83 @@ function capStrings(value: unknown, max: number): unknown {
   return value;
 }
 
-/**
- * Drop the OLDEST items until the quoted data fits `budget` (its serialized, escaped size). The newest item
- * (the request in a mirror chat) is never dropped; if it alone is too big, every string in it, nested copies and
- * thread entries included, is cut shorter until it fits.
- */
-export function fitContext(items: Record<string, unknown>[], budget = DATA_CHAR_BUDGET): Record<string, unknown>[] {
-  const kept = items.slice();
-  const size = () => kept.reduce((n, it) => n + quoteData(it).length + 1, 0);
-  while (kept.length > 1 && size() > budget) kept.shift();
-  const only = kept[0];
-  if (kept.length === 1 && only && size() > budget) {
-    for (let max = 1_000; max >= 0; max = max > 50 ? Math.floor(max / 2) : max - 10) {
-      const cut = capStrings(only, Math.max(0, max)) as Record<string, unknown>;
-      kept[0] = cut;
-      if (size() <= budget) break;
-    }
+function longestString(value: unknown): number {
+  if (typeof value === 'string') return Array.from(value).length;
+  if (Array.isArray(value)) return value.reduce((n: number, v) => Math.max(n, longestString(v)), 0);
+  if (value && typeof value === 'object') return Object.values(value).reduce((n: number, v) => Math.max(n, longestString(v)), 0);
+  return 0;
+}
+
+/** The item with its strings cut (marked) so it costs at most `tokens`, or null if even empty strings don't fit. */
+export function cutItem(item: Record<string, unknown>, tokens: number): Record<string, unknown> | null {
+  if (itemTokens(item) <= tokens) return item;
+  let lo = 0;
+  let hi = longestString(item);
+  if (itemTokens(capStrings(item, 0)) > tokens) return null;
+  while (lo < hi) { // the largest per-string length that still fits
+    const mid = Math.ceil((lo + hi) / 2);
+    if (itemTokens(capStrings(item, mid)) <= tokens) lo = mid;
+    else hi = mid - 1;
   }
-  return kept;
+  return capStrings(item, lo) as Record<string, unknown>;
 }
 
 /**
- * The whole request — fixed rules plus user turn — may never exceed this many characters. At the conservative
- * one token per character it stays inside MAX_IN_TOKENS; past it the request is refused and never sent.
+ * A copied (forwarded or Clarified) thread is one item of at most COPY_ITEM_TOKENS: past it, the oldest
+ * copied replies are dropped and the item says "showing the last N of M replies"; still too big, it is cut.
  */
-export const REQUEST_CHAR_LIMIT = MAX_IN_TOKENS - 500;
+export function capCopy(item: Record<string, unknown>): Record<string, unknown> {
+  const copy = item.copied_for_clarify as Record<string, unknown> | undefined;
+  if (!copy || itemTokens(item) <= COPY_ITEM_TOKENS) return item;
+  const thread = (copy.thread as unknown[] | undefined) ?? [];
+  const m = thread.length;
+  const { thread: _all, ...rest } = copy;
+  const withLast = (n: number) => ({ ...item, copied_for_clarify: { ...rest, ...(n > 0 ? { thread: thread.slice(m - n) } : {}), thread_note: `showing the last ${n} of ${m} replies` } });
+  // Each reply is measured once (its line plus a separator), newest first; re-measuring the whole item per
+  // dropped reply was quadratic and took seconds on long escaped threads (edge CPU limit).
+  let used = itemTokens(withLast(0));
+  let n = 0;
+  while (n < m) {
+    const cost = estimateTokens(quoteData(thread[m - 1 - n])) + 1;
+    if (used + cost > COPY_ITEM_TOKENS) break;
+    used += cost;
+    n++;
+  }
+  let out = withLast(n);
+  while (n > 0 && itemTokens(out) > COPY_ITEM_TOKENS) out = withLast(--n); // estimate slack: at most a step or two
+  return cutItem(out, COPY_ITEM_TOKENS) ?? out;
+}
+
+/**
+ * P1547 selection: take items NEWEST first while they fit `budget` tokens; the first one that does not fit
+ * is cut with a marker (if enough is left) and selection stops. `keepNewest`: the newest item (the request)
+ * is always kept, cut if it must be. Returns the kept items oldest first and the tokens they cost.
+ */
+export function selectNewestFirst(items: Record<string, unknown>[], budget: number, keepNewest = false): { kept: Record<string, unknown>[]; used: number } {
+  const kept: Record<string, unknown>[] = [];
+  let used = 0;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (!item) continue;
+    const it = capCopy(item);
+    const cost = itemTokens(it);
+    if (used + cost <= budget) {
+      kept.unshift(it);
+      used += cost;
+      continue;
+    }
+    const left = budget - used;
+    if (left >= MIN_CUT_TOKENS || (keepNewest && kept.length === 0)) {
+      const cut = cutItem(it, left);
+      if (cut) {
+        kept.unshift(cut);
+        used += itemTokens(cut);
+      }
+    }
+    break;
+  }
+  return { kept, used };
+}
 
 /** The request could not be fitted inside its bound; nothing was sent, so nothing is charged. */
 export class MirrorRequestTooLarge extends Error {
@@ -187,33 +277,54 @@ export function quoteField(value: string, max = 60): string {
   return quoteData(flat);
 }
 
+const userTurnOf = (data: Record<string, unknown>[], instruction: string) =>
+  `<<DATA>>\n${data.map((d) => quoteData(d) + '\n').join('')}<</DATA>>\n\n<<INSTRUCTION>>\n${instruction.trim()}`;
+
+/** The tokens the whole request costs: the rules plus the user turn, exactly as sent. */
+export function requestTokens(req: GeminiRequest): number {
+  const parts = [...req.systemInstruction.parts, ...req.contents.flatMap((c) => c.parts)];
+  return parts.reduce((n, p) => n + estimateTokens(p.text), 0);
+}
+
 /** The request body for one reply. The owner's request always comes last, after the quoted data. */
-export function buildMirrorRequest(run: BeginRun): GeminiRequest {
+export function buildMirrorRequest(run: BeginRun, budget = BUDGET_TOKENS): GeminiRequest {
   const owner = run.owner_first_name ? `Your owner's first name is ${quoteField(run.owner_first_name, 40)}.` : '';
   const name = run.mirror_name ? `Your owner named you ${quoteField(run.mirror_name)}.` : '';
+  const fixed = (instruction: string) => estimateTokens(MIRROR_RULES) + estimateTokens(userTurnOf([], instruction));
   let data: Record<string, unknown>[];
   let instruction: string;
   if (run.kind === 'ask') {
     const question = (run.question?.body ?? '').slice(0, 1_000);
-    data = fitContext(run.context.map(clean), DATA_CHAR_BUDGET - quoteData(question).length);
     instruction = `${owner} ${name} Your owner is in the channel ${quoteField(run.channel_title ?? 'a channel', 80)} and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
+    data = selectNewestFirst(run.context.map(clean), budget - fixed(instruction)).kept;
+  } else if (run.outside) {
+    // A question inside a mirror thread: the thread first, newest first; then the main chat.
+    const total = Math.max(run.thread_total ?? run.context.length, run.context.length);
+    const note = (n: number) => n < total ? ` Showing the last ${n} of ${total} messages of this thread.` : '';
+    const base = `${owner} ${name} Above is your private chat with your owner, oldest first: first their main chat (a thread there shows only its first message and its number of replies), then the thread they are asking in.`;
+    const tail = ' Reply to their last message, in that thread. If it is a message copied for clarify, help them understand the person who wrote it.';
+    // the longest note this thread can need is reserved before anything is chosen
+    const room = budget - fixed(base + note(total - 1) + tail);
+    const thread = selectNewestFirst(run.context.map(clean), room, true);
+    const outside = selectNewestFirst(run.outside.map(clean), room - thread.used);
+    data = [...outside.kept, ...thread.kept];
+    instruction = base + note(thread.kept.length) + tail;
   } else {
-    data = fitContext(run.context.map(clean));
     instruction = `${owner} ${name} Above is your private chat with your owner, oldest first. Reply to their last message. If it is a message copied for clarify, help them understand the person who wrote it.`;
+    data = selectNewestFirst(run.context.map(clean), budget - fixed(instruction), true).kept;
   }
-  const block = `<<DATA>>\n${data.map(quoteData).join('\n')}\n<</DATA>>`;
-  const userTurn = `${block}\n\n<<INSTRUCTION>>\n${instruction.trim()}`;
-  // The reservation assumes MAX_IN_TOKENS; a request that could exceed it is never sent.
-  if (MIRROR_RULES.length + userTurn.length > REQUEST_CHAR_LIMIT) throw new MirrorRequestTooLarge();
-  return {
+  const req: GeminiRequest = {
     systemInstruction: { parts: [{ text: MIRROR_RULES }] },
-    contents: [{ role: 'user', parts: [{ text: userTurn }] }],
+    contents: [{ role: 'user', parts: [{ text: userTurnOf(data, instruction) }] }],
     generationConfig: {
       maxOutputTokens: MAX_OUT_TOKENS,
       temperature: 0.7,
       thinkingConfig: { thinkingLevel: 'low' },
     },
   };
+  // The reservation assumes the budget; a request that could exceed it is never sent.
+  if (requestTokens(req) > budget) throw new MirrorRequestTooLarge();
+  return req;
 }
 
 // ── What comes back ──────────────────────────────────────────────────────────

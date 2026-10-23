@@ -1,14 +1,16 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  DATA_CHAR_BUDGET, MAX_IN_TOKENS, MAX_OUT_TOKENS, MIRROR_MODEL, MIRROR_RULES,
-  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, fitContext, parseReply, quoteData, quoteField, REQUEST_CHAR_LIMIT, MirrorRequestTooLarge,
+  BUDGET_TOKENS, MAX_IN_TOKENS, MAX_OUT_TOKENS, MIRROR_MODEL, MIRROR_RULES,
+  buildMirrorPortraitPrompt, buildMirrorRequest, costUsd, parseReply, quoteData, quoteField, requestTokens, selectNewestFirst, MirrorRequestTooLarge,
   reservePortraitUsd, reserveReplyUsd, resolveGender, type BeginRun,
 } from '../../supabase/functions/_shared/mirror-agent';
 import { ARTIST_POOL } from '../../supabase/functions/_shared/artist-pool';
 
-const MIGRATION = readFileSync(resolve(__dirname, '../../supabase/migrations/20261020213000_p1520_mirror_v2.sql'), 'utf8');
+import { newestMigrationDefining } from './helpers/newest-migration';
+
+// P1547: the limits are read from the NEWEST migration that defines _mirror_limits(), never a fixed file.
+const MIGRATION = readFileSync(newestMigrationDefining('FUNCTION public._mirror_limits()'), 'utf8');
 function sqlLimit(key: string): number {
   const m = MIGRATION.match(new RegExp(`'${key}',\\s*([0-9.]+)`));
   if (!m) throw new Error(`limit ${key} not in migration`);
@@ -18,23 +20,23 @@ function sqlLimit(key: string): number {
 function run(over: Partial<BeginRun> = {}): BeginRun {
   return {
     status: 'run', kind: 'reply', owner_id: 'user-id-1234', mirror_name: null, owner_first_name: 'Test',
-    channel_title: null, question: null, context: [{ who: 'owner', body: 'hello' }], reserved_usd: 0.03, ...over,
+    channel_title: null, question: null, context: [{ who: 'owner', body: 'hello' }], reserved_usd: 0.105, attempt: 1, ...over,
   };
 }
 
 describe('P1520 mirror: spend bounds', () => {
   it('the SQL reservation for a reply covers the worst-case call the code can make', () => {
-    expect(reserveReplyUsd()).toBeCloseTo(0.03, 6);
+    expect(reserveReplyUsd()).toBeCloseTo(0.105, 6); // P1547: the 50,000-token budget
     expect(sqlLimit('reply_max_usd')).toBeGreaterThanOrEqual(reserveReplyUsd());
   });
   it('the SQL reservation for a portrait covers two generations at the fallback price plus checks', () => {
     expect(sqlLimit('portrait_max_usd')).toBeGreaterThanOrEqual(reservePortraitUsd());
   });
-  it('the request caps output, and the data budget keeps input under MAX_IN_TOKENS even at 1 token/char', () => {
+  it('the request caps output, and its input bound is the one budget (P1547)', () => {
     const body = buildMirrorRequest(run());
     expect(body.generationConfig.maxOutputTokens).toBe(MAX_OUT_TOKENS);
-    // worst case: every data character a token, the English rules at 3 chars/token, 500 for the instruction
-    expect(DATA_CHAR_BUDGET + Math.ceil(MIRROR_RULES.length / 3) + 500).toBeLessThan(MAX_IN_TOKENS);
+    expect(MAX_IN_TOKENS).toBe(BUDGET_TOKENS);
+    expect(requestTokens(body)).toBeLessThanOrEqual(BUDGET_TOKENS);
   });
   it('costs: input and output (thinking included) at the reserved prices; no usage = null', () => {
     expect(costUsd({ promptTokenCount: 1_000_000, candidatesTokenCount: 0 })).toBeCloseTo(1.5, 6);
@@ -65,38 +67,35 @@ describe('P1520 mirror: what it sees', () => {
     expect(body.systemInstruction.parts[0]!.text).toBe(MIRROR_RULES);
     expect(body.contents[0]!.parts[0]!.text).not.toContain('You are a private mirror');
   });
-  it('fitContext drops the oldest first and always keeps the newest', () => {
+  it('selection drops the oldest first and always keeps the newest (P1547 replaces fitContext)', () => {
     const items = Array.from({ length: 50 }, (_, i) => ({ from: 'x', text: `m${i} ${'y'.repeat(400)}` }));
-    const kept = fitContext(items);
+    const { kept } = selectNewestFirst(items, 2_000);
     expect(kept.at(-1)!.text).toContain('m49');
     expect(kept[0]!.text).not.toContain('m0 ');
-    expect(kept.map(quoteData).join('\n').length).toBeLessThanOrEqual(DATA_CHAR_BUDGET);
   });
-  it('fitContext cuts a single oversized newest item instead of dropping it', () => {
-    const kept = fitContext([{ from: 'owner', text: 'z'.repeat(50_000) }]);
+  it('a single oversized newest item is cut, not dropped', () => {
+    const { kept, used } = selectNewestFirst([{ from: 'owner', text: 'z'.repeat(500_000) }], 5_000, true);
     expect(kept).toHaveLength(1);
-    expect(quoteData(kept[0]).length).toBeLessThanOrEqual(DATA_CHAR_BUDGET);
+    expect(used).toBeLessThanOrEqual(5_000);
   });
-  it('the WHOLE request stays in bound even when one item carries a long copy and a long thread (Codex #3)', () => {
-    const big = 'z'.repeat(1_000);
-    const clarify = { from: 'B', in: 'Test Org · General', body: big, thread: Array.from({ length: 10 }, () => ({ name: 'B', body: big.slice(0, 500) })) };
-    const many = Array.from({ length: 30 }, (_, i) => ({ who: 'owner' as const, body: `${i} ${big}`, clarify }));
-    const text = buildMirrorRequest(run({ context: many })).contents[0]!.parts[0]!.text;
-    expect(text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+  it('the WHOLE request stays in bound even when every item carries a long copy and a long thread (Codex #3)', () => {
+    const big = 'z'.repeat(4_000);
+    const clarify = { from: 'B', in: 'Test Org · General', body: big, thread: Array.from({ length: 100 }, () => ({ name: 'B', body: big })) };
+    const many = Array.from({ length: 300 }, (_, i) => ({ who: 'owner' as const, body: `${i} ${big}`, clarify }));
+    const req = buildMirrorRequest(run({ context: many }));
+    expect(requestTokens(req)).toBeLessThanOrEqual(BUDGET_TOKENS);
     const one = buildMirrorRequest(run({ context: [{ who: 'owner', body: big, clarify }] })).contents[0]!.parts[0]!.text;
-    expect(one.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
     expect(one).toContain('zzz'); // cut, not dropped
   });
-  it('rules + user turn never exceed the request bound, even when every character escapes to six (review round 2)', () => {
-    const angles = '<'.repeat(1_000);
-    const ctx = Array.from({ length: 30 }, () => ({ who: 'other' as const, name: 'B', body: angles, quoted: { name: 'C', body: angles } }));
+  it('rules + user turn never exceed the budget, even when every character escapes to six (review round 2)', () => {
+    const angles = '<'.repeat(4_000);
+    const ctx = Array.from({ length: 500 }, () => ({ who: 'other' as const, name: 'B', body: angles, quoted: { name: 'C', body: angles } }));
     const body = buildMirrorRequest(run({ kind: 'ask', channel_title: 'Test Org · General', question: { body: 'what does B mean?' }, context: ctx }));
-    expect(MIRROR_RULES.length + body.contents[0]!.parts[0]!.text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
-    expect(REQUEST_CHAR_LIMIT).toBeLessThan(MAX_IN_TOKENS); // one token per character still fits the reservation
+    expect(requestTokens(body)).toBeLessThanOrEqual(BUDGET_TOKENS);
   });
   it('the worst-case question (cut to 1,000 characters, all escaping to six) still fits; the typed refusal is only a backstop', () => {
-    const text = buildMirrorRequest(run({ kind: 'ask', question: { body: '<'.repeat(5_000) }, context: [] })).contents[0]!.parts[0]!.text;
-    expect(MIRROR_RULES.length + text.length).toBeLessThanOrEqual(REQUEST_CHAR_LIMIT);
+    const body = buildMirrorRequest(run({ kind: 'ask', question: { body: '<'.repeat(5_000) }, context: [] }));
+    expect(requestTokens(body)).toBeLessThanOrEqual(BUDGET_TOKENS);
     expect(new MirrorRequestTooLarge()).toBeInstanceOf(Error);
   });
   it('an ask names the channel and keeps the question after the data', () => {
