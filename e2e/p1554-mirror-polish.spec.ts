@@ -42,6 +42,9 @@ async function open(browser: Browser, user: TestUser, w: number, h: number): Pro
   return { page, errors, close: () => ctx.close() };
 }
 
+/** Screenshots only after open/close animations end (Radix runs ~200ms). */
+const settle = (page: Page) => page.waitForTimeout(500);
+
 async function insert(row: Record<string, unknown>): Promise<string> {
   const { data, error } = await supabaseAdmin.from('chat_messages').insert(row).select('id').single();
   if (error) throw new Error(`insert: ${error.message}`);
@@ -80,9 +83,11 @@ test('smoke: the empty mirror welcomes with one "Give me a name" button that ope
       const welcome = page.getByTestId('mirror-welcome');
       await expect(welcome).toBeVisible();
       await expect(welcome.getByRole('button')).toHaveCount(1);
+      await settle(page);
       await page.screenshot({ path: `test-results/p1554/welcome-${w}.png` });
       await welcome.getByRole('button', { name: 'Give me a name' }).click();
       await expect(page.getByRole('dialog').getByLabel(/^Name/)).toBeVisible();
+      await settle(page);
       await page.screenshot({ path: `test-results/p1554/rename-from-welcome-${w}.png` });
       expect(errors, 'no page errors').toEqual([]);
     } finally {
@@ -107,6 +112,8 @@ test('a share is quiet, the quote shows only for an older message, no footer, sq
       const radius = await adjacent.getByTestId('mirror-disc').evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
       expect(parseFloat(radius), `square mirror avatar, got ${radius}`).toBeLessThan(6);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no horizontal scroll').toBe(true);
+      await expect(page.getByText(/Loading point/)).toHaveCount(0);
+      await settle(page);
       await page.screenshot({ path: `test-results/p1554/chat-${w}.png`, fullPage: true });
       expect(errors, 'no page errors').toEqual([]);
     } finally {
@@ -120,9 +127,11 @@ test('the More menu has no Rename; the About window has Rename and centered butt
     const { page, errors, close } = await open(browser, seeded, w, h);
     try {
       await page.goto(`/home/c/${mirrorSeeded}`);
+      await expect(page.locator('[data-testid="message"]', { hasText: answerOlder })).toBeVisible();
       await page.getByRole('button', { name: 'More', exact: true }).click();
       await expect(page.getByRole('menuitem', { name: /^About / })).toBeVisible();
       await expect(page.getByRole('menuitem', { name: 'Rename' })).toHaveCount(0);
+      await settle(page);
       await page.screenshot({ path: `test-results/p1554/menu-${w}.png` });
       await page.getByRole('menuitem', { name: /^About / }).click();
       const panel = page.getByTestId('mirror-info');
@@ -139,6 +148,8 @@ test('the More menu has no Rename; the About window has Rename and centered butt
         return Math.abs((left + right) / 2 - (p.left + p.right) / 2);
       });
       expect(offset, `About buttons centered (offset ${offset}px)`).toBeLessThan(8);
+      await expect(page.getByRole('menu'), 'the More menu closes when About opens').toHaveCount(0);
+      await settle(page);
       await page.screenshot({ path: `test-results/p1554/about-${w}.png` });
       expect(errors, 'no page errors').toEqual([]);
     } finally {
