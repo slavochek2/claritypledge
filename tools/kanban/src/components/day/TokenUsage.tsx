@@ -4,7 +4,7 @@
 
 import type { DayTokens } from '../../lib/day'
 import { Legend, LineChart } from './charts'
-import { FAMILY_COLOUR, FAMILY_ORDER, fmtTokens, periodLabel, tokenReadings, totalOf, type Per } from './tokens'
+import { FAMILY_COLOUR, FAMILY_ORDER, fmtTokens, periodLabel, tokenReadings, tokensEmpty, totalOf, type Per } from './tokens'
 
 const WORDS = {
   title: 'Output written by models', // [FOUNDER DECISION: wording]
@@ -13,6 +13,8 @@ const WORDS = {
   ctxLabel: 'Average context per reply', // [FOUNDER DECISION: wording]
   ctxHint: 'bigger means longer sessions', // [FOUNDER DECISION: wording]
   vsLabel: (per: Per) => `Output written, last full ${per}`, // [FOUNDER DECISION: wording]
+  none: 'no usage yet', // [FOUNDER DECISION: wording]
+  noPeriod: (per: Per) => `no full ${per} yet`, // [FOUNDER DECISION: wording]
   projects: 'Where the output went, last 28 days', // [FOUNDER DECISION: wording]
 }
 
@@ -28,10 +30,11 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
     )
   }
   const list = per === 'week' ? tokens.weeks : tokens.months
-  if (list.length === 0 && tokens.projects_28d.length === 0) {
+  // same words as the source card; "empty" means empty in BOTH periods and the project list, never just this view
+  if (tokensEmpty(tokens)) {
     return (
       <div className="d-card d-pad d-tk-empty" data-tokens-empty>
-        <b>Token usage</b> <span className="d-prop">no usage in the local logs yet</span>
+        <b>Token usage</b> <span className="d-prop">{WORDS.none}</span>
       </div>
     )
   }
@@ -43,13 +46,22 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
     { name: 'All models', data: list.map((p) => M(totalOf(p))) },
     ...families.map((f) => ({ name: f, colour: FAMILY_COLOUR[f], data: list.map((p) => M(p.output[f] ?? 0)) })),
   ]
-  const usual = list.map((p, i) => (p.median4 ? ([i, M(p.median4)] as [number, number]) : null)).filter(Boolean) as [number, number][]
-  const outOf = (n: number | undefined) => (n === undefined ? dash : `${n} of ${r.length}`)
+  const usual = list.map((p, i) => (p.median4 != null ? ([i, M(p.median4)] as [number, number]) : null)).filter(Boolean) as [number, number][]
+  // only the tools with days in use are listed: no "Codex 0 of 7" when there is no Codex data
+  const toolDays = (['claude', 'codex'] as const)
+    .filter((t) => (r.days[t] ?? 0) > 0)
+    .map((t) => `${t === 'claude' ? 'Claude' : 'Codex'} ${r.days[t]} of ${r.length}`)
+  const daysKnown = r.days.claude !== undefined || r.days.codex !== undefined
   const vs =
-    r.vsUsual === null ? 'no baseline yet' : r.vsUsual === 0 ? 'same as usual' : `${r.vsUsual > 0 ? '+' : '−'}${Math.abs(r.vsUsual)}% vs usual`
+    r.usualZero ? (r.total === 0 ? 'same as usual' : 'usual is 0') : r.vsUsual === null ? 'no baseline yet' : r.vsUsual === 0 ? 'same as usual' : `${r.vsUsual > 0 ? '+' : '−'}${Math.abs(r.vsUsual)}% vs usual`
 
   return (
     <div data-tokens-pane>
+      {list.length === 0 && (
+        <div className="d-card d-pad d-tk-empty" data-tokens-no-period>
+          <span className="d-prop">{WORDS.noPeriod(per)}</span>
+        </div>
+      )}
       {list.length > 0 && (
         <div className="d-card d-chart">
           <div className="d-ct">
@@ -75,8 +87,7 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
       <div className="d-tk-reads">
         <div className="d-card d-pad d-tk-read" data-reading="days">
           <span className="d-n">{WORDS.daysLabel}</span>
-          <b>{r.last ? `Claude ${outOf(r.days.claude)}` : dash}</b>
-          <b>{r.last ? `Codex ${outOf(r.days.codex)}` : ''}</b>
+          {toolDays.length > 0 ? toolDays.map((t) => <b key={t}>{t}</b>) : <b>{r.last && daysKnown ? 'none' : dash}</b>}
         </div>
         <div className="d-card d-pad d-tk-read" data-reading="opus">
           <span className="d-n">{WORDS.opusLabel}</span>

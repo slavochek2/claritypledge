@@ -9,7 +9,7 @@ import { Legend, LineChart, SubscriptionsChart, SubscriptionsLegend } from './ch
 import { projectQuota, resetLabel, type QuotaLine } from './quota'
 import { Phrases } from './status'
 import { TokenUsage } from './TokenUsage'
-import { fmtTokens, tokenReadings } from './tokens'
+import { fmtTokens, tokenReadings, tokensEmpty } from './tokens'
 
 interface Props {
   report: DayReport
@@ -75,7 +75,7 @@ export function MonitoringTab(p: Props) {
         <button type="button" className="d-srcc" aria-pressed={src === 'tokens'} onClick={() => setSrc('tokens')}>
           <span className="d-n">Token usage</span>
           <span className="d-v">{lastTokens?.total != null ? fmtTokens(lastTokens.total) : '—'}</span>
-          <span className="d-s">{lastTokens?.total != null ? 'output, last full week' : tokens?.collected ? 'no usage yet' : 'not collected yet'}</span>
+          <span className="d-s">{lastTokens?.total != null ? 'output, last full week' : tokens?.collected ? (tokensEmpty(tokens) ? 'no usage yet' : 'no full week yet') : 'not collected yet'}</span>
         </button>
       </div>
       {src === 'gcloud' ? (

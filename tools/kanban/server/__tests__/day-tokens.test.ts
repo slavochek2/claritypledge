@@ -1,10 +1,12 @@
 // P1552: the tokens block in monitoring — parser tolerance, the pane's readings, and the pane in
 // its collected / not-collected states. Invented data only (fixtures/day-tokens.ts).
+import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { parseReport, type DayReport, type DayTokens } from '../../src/lib/day'
 import { TokenUsage } from '../../src/components/day/TokenUsage'
-import { fmtTokens, tokenReadings } from '../../src/components/day/tokens'
+import { MonitoringTab } from '../../src/components/day/MonitoringTab'
+import { fmtTokens, tokenReadings, tokensEmpty } from '../../src/components/day/tokens'
 import { synthReport } from './fixtures/day-fixture'
 import { SYNTH_TOKENS } from './fixtures/day-tokens'
 
@@ -125,9 +127,70 @@ describe('P1552 pane render', () => {
     }
   })
   it('Claude missing, Codex present: only the series that exist are listed', () => {
-    const codexOnly: DayTokens = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, output: { Codex: w.output.Codex ?? 0 + 1 } })) }
+    expect(html(SYNTH_TOKENS)).toContain('>Opus<') // control: the probe below can see an Opus legend entry
+    const codexOnly: DayTokens = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, output: { Codex: (w.output.Codex ?? 0) + 1 }, days: { claude: 0, codex: 3 } })) }
     const h = html(codexOnly)
-    expect(h).toContain('Codex')
+    expect(codexOnly.weeks[0].output.Codex).toBe(1) // precedence slip guard: (0) + 1, not 0 ?? (0 + 1)
+    expect(codexOnly.weeks[4].output.Codex).toBe(500_001)
+    expect(h).toContain('>Codex<')
     expect(h).not.toContain('>Opus<')
+    expect(h).not.toContain('>Sonnet<')
+  })
+  it('days reading lists only the tools with days in use: no "Codex 0 of 7"', () => {
+    const claudeOnly: DayTokens = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, days: { claude: 4, codex: 0 } })) }
+    const h = html(claudeOnly)
+    expect(h).toContain('Claude 4 of 7')
+    expect(h).not.toContain('Codex 0')
+    expect(h).not.toMatch(/Codex \d+ of/)
+    expect(html(SYNTH_TOKENS)).toMatch(/Codex 2 of 7/) // control
+  })
+  it('USUAL IS 0 — a real zero median is not "no baseline", and it still draws the usual line', () => {
+    const zero: DayTokens = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: 0 })) }
+    const r = tokenReadings(zero, 'week')
+    expect(r.usualZero).toBe(true)
+    expect(r.vsUsual).toBeNull()
+    const h = html(zero)
+    expect(h).toContain('usual is 0')
+    expect(h).not.toContain('no baseline yet')
+    expect(h).toContain('Usual (median of the 4 before)')
+    expect(tokenReadings(SYNTH_TOKENS, 'week').usualZero).toBe(false) // control
+    expect(html({ ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: undefined })) })).toContain('no baseline yet') // control: missing is not zero
+  })
+})
+
+describe('P1552 card and pane agree', () => {
+  const card = (t: DayTokens | undefined) => {
+    const base = synthReport()
+    const report = { ...base, monitoring: { ...base.monitoring, tokens: t } } as DayReport
+    const h = renderToStaticMarkup(createElement(MonitoringTab, { report, view: {} as never, readOnly: false, onRaise: async () => null, onUndoRaise: () => {} }))
+    return h.slice(h.indexOf('Token usage'), h.indexOf('</button>', h.indexOf('Token usage')))
+  }
+  const pane = (t: DayTokens, per: 'week' | 'month' = 'week') => renderToStaticMarkup(TokenUsage({ tokens: t, per }))
+  const EMPTY: DayTokens = { collected: true, weeks: [], months: [], projects_28d: [] }
+  const ONLY_PROJECTS: DayTokens = { ...EMPTY, as_of: '2026-10-22', projects_28d: SYNTH_TOKENS.projects_28d }
+
+  it('collected but empty: both say "no usage yet"', () => {
+    expect(tokensEmpty(EMPTY)).toBe(true)
+    expect(card(EMPTY)).toContain('no usage yet')
+    expect(pane(EMPTY)).toContain('no usage yet')
+  })
+  it('no completed week but 28-day projects: the card says "no full week yet" and the pane shows the projects, never "no usage"', () => {
+    expect(tokensEmpty(ONLY_PROJECTS)).toBe(false)
+    expect(card(ONLY_PROJECTS)).toContain('no full week yet')
+    expect(card(ONLY_PROJECTS)).not.toContain('no usage yet')
+    const h = pane(ONLY_PROJECTS)
+    expect(h).toContain('data-tokens-no-period')
+    expect(h).toContain('no full week yet')
+    expect(h).toContain('data-tokens-projects')
+    expect(h).not.toContain('no usage yet')
+    expect(h).not.toContain('<svg')
+  })
+  it('weeks exist but the month view has none: the pane says no full month, not "no usage"', () => {
+    const h = pane({ ...SYNTH_TOKENS, months: [] }, 'month')
+    expect(h).toContain('no full month yet')
+    expect(h).not.toContain('no usage yet')
+  })
+  it('data present: the card shows the last full week total', () => {
+    expect(card(SYNTH_TOKENS)).toContain('4.2M')
   })
 })
