@@ -57,7 +57,10 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'webdriver', { value: false, configurable: true });
   setVisibility('visible');
 });
-afterEach(() => setVisibility('visible'));
+afterEach(() => {
+  setVisibility('visible');
+  vi.unstubAllGlobals();
+});
 
 describe('P1532 offline pack resume', () => {
   it('one uninterrupted pack makes FULL_PACK_READS reads (the budget below is measured, not assumed)', async () => {
@@ -76,7 +79,7 @@ describe('P1532 offline pack resume', () => {
     hideAtRead = Number.POSITIVE_INFINITY;
     await runOfflinePack(undefined);
 
-    expect(reads, `reads across 5 interruptions + completion (one full pack is ${FULL_PACK_READS})`).toBeLessThanOrEqual(FULL_PACK_READS);
+    expect(reads, `reads across 5 interruptions + completion (one full pack is ${FULL_PACK_READS})`).toBe(FULL_PACK_READS);
   });
 
   it('a resumed run that sees the tab hide during its cache lookup starts no fetch', async () => {

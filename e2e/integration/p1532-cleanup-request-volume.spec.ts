@@ -23,10 +23,13 @@ function recordRequests(): { calls: Call[]; restore: () => void } {
   const calls: Call[] = [];
   const real = globalThis.fetch;
   globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const res = await real(input, init);
     const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
-    calls.push({ method, path: new URL(href).pathname, status: res.status });
+    // Recorded before the await: a request that rejects still counts, as status 0 (Gemini review).
+    const call: Call = { method, path: new URL(href).pathname, status: 0 };
+    calls.push(call);
+    const res = await real(input, init);
+    call.status = res.status;
     return res;
   };
   return { calls, restore: () => { globalThis.fetch = real; } };
