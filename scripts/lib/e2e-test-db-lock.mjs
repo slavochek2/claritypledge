@@ -17,9 +17,13 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { testRefForUrl, SELFHOSTED_TEST_REF } from './test-target.mjs';
 
 export const LOCK_WAIT_EXIT_CODE = 75; // EX_TEMPFAIL: try again later, not an app failure
 const LOCK_NAME = 'e2e-test-db.lock';
+// P1557: one lock per database. Hosted TEST keeps the name every session already uses; the
+// self-hosted server is a different database, so its runs never queue behind hosted ones.
+const SELFHOSTED_LOCK_NAME = 'e2e-test-db-selfhosted.lock';
 const DEFAULT_WAIT_MS = 10 * 60_000;
 const POLL_MS = 5_000;
 const REPORT_EVERY_MS = 30_000;
@@ -52,10 +56,11 @@ export function parseWaitMs(value) {
   return Number.isFinite(n) && n >= 0 ? n : DEFAULT_WAIT_MS;
 }
 
-export function lockDirFor(repoDir) {
+export function lockDirFor(repoDir, url, env = process.env) {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repoDir })
     .toString().trim();
-  return path.join(common, LOCK_NAME);
+  const name = testRefForUrl(url, env) === SELFHOSTED_TEST_REF ? SELFHOSTED_LOCK_NAME : LOCK_NAME;
+  return path.join(common, name);
 }
 
 function processStart(pid) {
@@ -210,7 +215,7 @@ export function probeTestDb(url, anonKey, { attempts = 3, timeoutMs = 8_000, gap
 export function guardTestDbRun({ repoDir, isTestDb, url, anonKey, env = process.env, argv = process.argv }) {
   const skip = lockSkipReason({ argv, env, isTestDb });
   if (skip) return { skipped: skip };
-  const dir = lockDirFor(repoDir);
+  const dir = lockDirFor(repoDir, url, env);
   const branch = (() => {
     try { return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoDir }).toString().trim(); } catch { return '?'; }
   })();

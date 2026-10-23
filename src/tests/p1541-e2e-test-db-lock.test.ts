@@ -192,3 +192,15 @@ describe('P1572: a TEST that refuses the request is configuration, not overload'
     expect(calls).toBe(3);
   });
 });
+
+// P1557: the lock protects one database. Hosted TEST keeps the shared lock every session already
+// uses (unchanged name, so older worktrees still coordinate with this one); the self-hosted server
+// is a different database and gets its own, so runs against it never queue behind hosted runs.
+it('lockDirFor keeps the shared hosted lock and gives the self-hosted server its own', () => {
+  const env = { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org' };
+  const hosted = lockDirFor(process.cwd(), 'https://ayibkeoyukulbsjpxgaw.supabase.co', env);
+  const self = lockDirFor(process.cwd(), 'https://test-db.example.org', env);
+  expect(hosted.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
+  expect(self.endsWith(path.join('.git', 'e2e-test-db-selfhosted.lock'))).toBe(true);
+  expect(lockDirFor(process.cwd())).toBe(hosted);
+});
