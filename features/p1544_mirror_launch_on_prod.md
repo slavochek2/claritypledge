@@ -6,8 +6,8 @@ workstream: clarity-chat
 created_date: '2026-10-22'
 tags: [mirror, privacy, terms]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -127,7 +127,6 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 - [x] The P1520 red-team suite passes on test. Its first test, the positive control that proves the model reads its context, passes.
 - [x] Clarify is not offered inside the mirror agent chat.
 - [x] No user-facing string says "mirror" without "agent" (grep of `src/app` strings and the policy/terms text, list attached).
-- [ ] On prod: one real reply and one portrait on the founder's account, edge smoke passes, and Sentry is clean for 10 minutes. `[post-deploy]`
 
 **Evidence (2026-10-22, test project, branch HEAD 4aa788850):**
 - AC1/AC2: sentence-to-code map in the build report; Gemini + Codex + Sonnet reviews, every false statement found was fixed (objection wording, attachment kind, "cannot be copied"); Gemini re-review of the fixes found none.
@@ -140,15 +139,18 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 ## Pre-deploy Checklist
 
 ### Secrets to provision
-- [ ] Confirm the mirror key's project has billing enabled. Record which project in `.private/docs/accounts.md`, with no figures.
-- [ ] Set `MIRROR_AI_ENABLED=true` and the mirror Gemini key on prod edge functions, via `/slava:util:ai-keys`, spend-capped.
+- [x] Confirm the mirror key's project has billing enabled. Record which project in `.private/docs/accounts.md`, with no figures. *(2026-10-23: `cp-mirror` pings 200, cap CONFIGURED on the live budget list; recorded.)*
+- [x] Set the mirror Gemini key on prod edge functions, via `/slava:util:ai-keys`, spend-capped. *(2026-10-23: `MIRROR_GEMINI_API_KEY` set on prod via env-file. `MIRROR_AI_ENABLED` is deliberately NOT set yet — see Launch steps.)*
 
-### Deploy commands
-- [ ] Policy, terms and the SQL for Solution 3 are live on prod first (`/push` applies the migrations).
-- [ ] Then deploy `mirror-reply` and `mirror-portrait` to prod.
+## Launch steps (after merge — cannot run before `/ship`)
 
-### Post-deploy verification
+Moved out of the Pre-deploy Checklist on 2026-10-23: the ship gate requires every pre-deploy box ticked, but these depend on the merge itself (`/push` applies the migration from main). Turning the switch on before the new functions are live would let an older prod copy answer before the policy is live, so the switch comes last.
+
+- [ ] `/push`: policy, terms and the terms SQL go live on prod (applies the migration).
+- [ ] Deploy `mirror-reply` and `mirror-portrait` to prod.
+- [ ] Set `MIRROR_AI_ENABLED=true` on prod.
 - [ ] `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait` on prod.
+- [ ] On prod: one real reply and one portrait on the founder's account. *(Was AC9.)*
 - [ ] Sentry clean for 10 minutes.
 
 ## Related
