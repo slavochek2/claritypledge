@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 220
+**Next ID:** 221
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2781,5 +2781,16 @@ After the P1546 migration the test project's REST API answered 503 (schema cache
 **due:** week
 
 supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts only 5001, 5100-5999 and 6050, but slots w11+ get 5000+N*100 (w14 = 6400), so every function call from those slots is CORS-blocked and e2e/p1300-terms-popup.spec.ts smoke fails on console errors. Extend the regex and src/tests/inbox205-cors-dev-ports.test.ts to every port scripts/lib/worktree-port.mjs hands out, then redeploy. Droppable if slots above w10 are retired. Found in P1544 QA, 2026-10-22.
+
+---
+
+## Fix p1512-chat-live smoke: group General channel missing from the chat list
+
+**ID:** INBOX-220
+**Date:** 2026-10-23
+**Status:** proposed
+**due:** week
+
+e2e/p1512-chat-live.spec.ts fails at line 198 on main: the group's General channel row never appears in user A's chat list, so the 14 serial tests after the smoke never run. Reproduced 2026-10-23 with main's app code (control run during P1554); P1543 (one community, online group hidden) is the first suspect. Fix via /reproduce then /fix; done when the file runs green, droppable if the file is retired. Until then the two P1554 Rename steps in that file (now via the About window) are unexercised.
 
 ---
