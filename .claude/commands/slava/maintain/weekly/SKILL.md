@@ -802,6 +802,18 @@ If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
 
 ---
 
+### 2.12.1 Token Usage (local Claude Code + Codex logs — near-zero model tokens)
+
+```bash
+OUT=$(mktemp -d) && python3 scripts/token-usage-refresh.py "$OUT"
+```
+
+The script parses the local logs (no model tokens, incremental) and prints one summary line. Surface it in the Evidence Picture as `TOKENS:` and paste it as-is. If it errors: `TOKENS: skipped (script error)`.
+
+Then refresh the dashboard page, following the recipe in `.private/docs/token-dashboard.md` (it holds the page link, so the link stays out of this public file). If that file is missing, report the summary line only. End the `TOKENS:` line with the dashboard link.
+
+---
+
 ### 2.14 Memory Hygiene (moved from /day 6b — weekly cadence, P900)
 
 Scan MEMORY.md for staleness:
