@@ -87,6 +87,26 @@ test database in parallel; nothing goes live before P1544 is live.
 [FOUNDER DECISION: the mirror's opening line in a new canvas thread, the upload control's label,
 and what the thread says about where the material goes.]
 
+## Box guide (v1, the drafting agent's brief)
+
+What each P1535 box means and what a good draft point looks like. The agent's prompt is built from
+this table; the founder edits it here first. Every point is a bet someone could disagree with.
+
+| Box | What it means | A good point | Not this |
+|---|---|---|---|
+| Customer Segments | The specific people who pay, narrow enough to find ten of them | "Café owners with 1-3 shops who do their own books" | "Small businesses" |
+| Problem | What hurts them today, in their words | "Every tax deadline turns into a panic" | A list of features |
+| Solution | What you do about it | "Receipts by chat, books done monthly" | A slogan |
+| Go-to-market strategy | Where these people are and how they first hear of you | "Two owner groups online plus one supplier's referrals" | "Social media" |
+| Offers & Pricing | What they buy and for how much | "2,500 baht a month per shop" | "Affordable" |
+| How I'll know it's working | A number and a date that would prove you wrong | "10 paying shops in three months" | "Growth" |
+| Values | **Something you give something up for.** Proof is a cost you keep paying for it (founder, 2026-10-23: a value is "something you sacrifice for"; e.g. honesty that costs you long discussions with strangers, and you have them anyway) | "Intellectual honesty: I correct myself in public even when it loses the argument" | A word with no cost behind it ("integrity") |
+| When my strengths become weaknesses | The trait that helps you and also hurts the business | "I'm precise, so I over-explain reports nobody reads" | A humble-brag |
+| Who else wins when I win? | Who benefits beyond you and the customer | "Their accountant at tax time" | "The world" |
+
+Material that shows no cost behind a value leaves Values empty and asks the owner the question
+("What do you keep doing even when it costs you?").
+
 ## Invariants
 
 - **Nothing invented.** Every point and story traces to the material or the owner's note. A box with
