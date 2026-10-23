@@ -5,8 +5,8 @@ rank: 64
 created_date: '2026-10-23'
 tags: [day, kanban, monitoring, tokens]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, finish, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
@@ -94,21 +94,21 @@ Build order matters because one contract joins three parts. `/dev` may split B i
 
 ## Done-When
 
-- [ ] After a `/day` run, the Monitoring tab has a Token usage source whose pane shows the output chart, the four readings and the 28-day project list, Claude and Codex as separate series.
-- [ ] A run recorded before this change opens; the pane reads "not collected yet" and every other pane is unchanged.
-- [ ] With the collector forced to fail or time out, `/day` finishes, the report still holds quotas and cloud, and the pane reads "not collected yet", never 0 (test output pasted).
-- [ ] The collector is its own row in the step registry; deleting it from `/day` makes the consistency check exit non-zero (mutation run, exit code pasted).
-- [ ] Parser tests cover: a valid block, malformed periods removed with the rest rendered, an old report, an unknown schema. A render test covers the pane in collected and not-collected states.
-- [ ] The widened ruling is reflected in the tab's header comment and the end-to-end test name, changed on purpose.
-- [ ] Test fixtures and screenshots use invented project names only, and the reports folder is shown to be outside every repo (path cited).
-- [ ] Visual QA per `.claude/rules/visual-qa.md` at 375px, 320px and desktop, by a separate reviewer, using an invented day folder.
+- [x] After a `/day` run, the Monitoring tab has a Token usage source whose pane shows the output chart, the four readings and the 28-day project list, Claude and Codex as separate series.
+- [x] A run recorded before this change opens; the pane reads "not collected yet" and every other pane is unchanged.
+- [x] With the collector forced to fail or time out, `/day` finishes, the report still holds quotas and cloud, and the pane reads "not collected yet", never 0 (test output pasted).
+- [x] The collector is its own row in the step registry; deleting it from `/day` makes the consistency check exit non-zero (mutation run, exit code pasted).
+- [x] Parser tests cover: a valid block, malformed periods removed with the rest rendered, an old report, an unknown schema. A render test covers the pane in collected and not-collected states.
+- [x] The widened ruling is reflected in the tab's header comment and the end-to-end test name, changed on purpose.
+- [x] Test fixtures and screenshots use invented project names only, and the reports folder is shown to be outside every repo (path cited).
+- [x] Visual QA per `.claude/rules/visual-qa.md` at 375px, 320px and desktop, by a separate reviewer, using an invented day folder.
 
 ## Acceptance Criteria
 
-- [ ] On the Kanban Day page, after `/day`, the Monitoring tab offers Token usage beside Google Cloud and Subscriptions.
-- [ ] From that pane alone I can answer: how much did the models write last period compared with my usual; which models did the work; on how many days did I use each tool; where did the output go in the last 28 days; and how big is my average reply context (bigger means longer sessions).
-- [ ] The week/month switch changes the period for the time-based readings.
-- [ ] When usage was not collected, the pane says so in words and the rest of the tab looks as before.
+- [x] On the Kanban Day page, after `/day`, the Monitoring tab offers Token usage beside Google Cloud and Subscriptions.
+- [x] From that pane alone I can answer: how much did the models write last period compared with my usual; which models did the work; on how many days did I use each tool; where did the output go in the last 28 days; and how big is my average reply context (bigger means longer sessions).
+- [x] The week/month switch changes the period for the time-based readings.
+- [x] When usage was not collected, the pane says so in words and the rest of the tab looks as before.
 
 ## UX Notes
 
@@ -150,3 +150,27 @@ Follow-up, after the pane is confirmed: retire the claude.ai page and the weekly
 - P1399 (Day report and Day page): the report schema, the parse rules and the "money and subscriptions only" ruling.
 - `scripts/token-usage-refresh.py`, `scripts/test-token-usage-refresh.py`, `/weekly` step 2.12.1: the current collector and its stopgap refresh.
 - Rulings: 2026-09-16 [process] (P1324), 2026-08-27 [process] (pp p48), 2026-08-09 [process] (P1031).
+
+## Evidence (2026-10-23, orchestrated session)
+
+- **Built inline** by a Sonnet builder subagent in w5, not through `/dev`. Commits: f845c68e1, 5612df3a6, 26cda69ea, e49e70d89, 85a7953f2, f2ef9d2c5, e2b33652c, ae1d418c4. The personal `/day` writer is in `~/.claude`, commits b426c68 and 40dfe08: step `disp.9t` and the merge into the single monitoring object in 9d.
+- **Tests:**
+  - vitest 602 passed.
+  - `scripts/test-token-usage-refresh.py`: all passed (46 checks), including a forced reduction failure and an unwritable block path. Both keep quota.json and the TOKENS line.
+  - Full Day e2e 163 passed, including the renamed ruling test (three source cards) and the narrow-width bounds assertions.
+  - `day-report-sections.test.sh`: 42 passed. Covers a killed collector, a stale pass id and a missing block; quotas and cloud stay intact and the pane reads not collected.
+  - Deletion mutation: `check-sync` exits 1 when `disp.9t` is removed from day.md.
+- **Real data:** the wrapper (as step 9t runs it) collected 13 weeks, 10 months and the top 5 projects as of 2026-10-23. A copy of the 2026-10-23 report with that block was rendered by this branch's Kanban. The first real `/day` run happens only after ship and the `~/.claude` push.
+- **Reports folder:** `~/.claude-day/reports`, in the home directory and outside every repo. Fixtures and QA screenshots use invented project names. A grep of the branch diff against the real names returned 0 hits; the one 22-hit match was the generic word "repo".
+- **Reviews:**
+  - Opus hostile reviews ×2, a Sonnet criteria review, and Codex ×3 (the last: no realistic new defects).
+  - Visual QA by a separate Opus reviewer at 320, 375 and desktop: the last round has no blocking defects.
+  - Gemini refused every payload with its credential-shape scan (exit 2), so Codex was the external reviewer.
+- **Set aside, minor:** small chart text on desktop, light x-axis labels, and the blue "Gemini: N calls" line reads like a link.
+- **Founder defaults applied (`[FOUNDER DECISION]` items):**
+  - Ruling widened to money, subscriptions and token usage.
+  - Collector stays in this repo.
+  - Runs every `/day`.
+  - Week is the default view.
+  - Wording drafted; marked `[FOUNDER DECISION: wording]` in TokenUsage.tsx.
+- **Changes after founder feedback:** stacked bars, Gemini call counts and days (Gemini output is not logged), a model-mix bar replaces Opus share, and top 5 projects.
