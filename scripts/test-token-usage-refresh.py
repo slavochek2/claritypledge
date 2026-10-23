@@ -140,13 +140,27 @@ with tempfile.TemporaryDirectory() as h:
                gem(D1 + 'T12:30:00Z', extra='vendor=codex', end='codex-run'),    # another vendor
                'payload line that is not a record, vendor=gemini | gemini-send',  # no "=== " prefix
                gem('garbage')])                                                   # no usable day
+    write(lg, [gem(D1 + 'T10:00:00Z'), gem(D1 + 'T11:00:00Z'), gem(D2 + 'T10:00:00Z'), gem(D1 + 'T12:00:00Z', end='REFUSED:SECRET'),
+               gem(D1 + 'T12:30:00Z', extra='vendor=codex', end='codex-run'), 'payload line that is not a record, vendor=gemini | gemini-send', gem('garbage'),
+               gem(D2 + 'T12:00:00Z').replace('/work/demo', '/work/REFUSED-notes')])  # REFUSED in a path is not a refusal
     g = tur.parse_gemini_calls(lg)
-    check('gemini: counts sent calls per day, skipping REFUSED, other vendors, payload lines and bad days', g == {D1: 2, D2: 1}, g)
+    check('gemini: counts sent calls per day, skipping REFUSED, other vendors, payload lines and bad days', g == {D1: 2, D2: 2}, g)
     check('gemini: a missing log is None, not an empty dict', tur.parse_gemini_calls(h + '/nope.log') is None, '')
-    gb = tur.reduce_tokens(rows, T, {'2026-10-06': 3, '2026-10-12': 1, '2026-10-13': 2})
+    gb = tur.reduce_tokens(rows, T, {'2026-09-30': 1, '2026-10-13': 2, '2026-10-14': 1})
     gw = {w['p']: w for w in gb['weeks']}
-    check('gemini: calls and days per week; a week without calls is 0', gw['2026-10-05']['gemini_calls'] == 3 and gw['2026-10-12']['gemini_calls'] == 3 and gw['2026-10-12']['days']['gemini'] == 2 and gw['2026-09-28']['gemini_calls'] == 0, gw['2026-10-12'])
+    check('gemini: calls and days per week from the first entry on', gw['2026-09-28']['gemini_calls'] == 1 and gw['2026-10-12']['gemini_calls'] == 3 and gw['2026-10-12']['days']['gemini'] == 2, gw['2026-10-12'])
+    check('gemini: a week after the first entry with no calls is 0 (present)', gw['2026-10-05']['gemini_calls'] == 0 and gw['2026-10-05']['days']['gemini'] == 0, gw['2026-10-05'])
+    early = tur.reduce_tokens(rows + [row('2026-08-24', 'claude', 'claude-opus-5', 'a', 1)], T, {'2026-09-30': 1, '2026-10-13': 2})
+    pre = [w for w in early['weeks'] if w['p'] < '2026-09-28']
+    check('gemini: periods ending before the log\'s first entry have no gemini fields (absent, not 0)', len(pre) >= 4 and all('gemini_calls' not in w and 'gemini' not in w['days'] for w in pre), pre[-1:])
+    gm = {m['p']: m for m in tur.reduce_tokens(rows, T, {'2026-10-02': 1, '2026-09-30': 1})['months']}
+    check('gemini: month boundary - September ends 09-30 so it holds the 09-30 call', gm['2026-09']['gemini_calls'] == 1 and 'gemini_calls' not in gm.get('2026-08', {}), gm.get('2026-09'))
     check('gemini: never in the output bars', all('Gemini' not in w['output'] for w in gb['weeks'] + gb['months']), '')
+    # C: a week with Gemini calls and no Claude/Codex usage still gets a row, zero output
+    only = {w['p']: w for w in tur.reduce_tokens(rows, T, {'2026-08-12': 5})['weeks']}
+    check('gemini: a week with calls but no Claude/Codex usage is kept with zero output', only['2026-08-10']['gemini_calls'] == 5 and only['2026-08-10']['output'] == {} and only['2026-08-10']['days']['claude'] == 0, only.get('2026-08-10'))
+    check('gemini: calls with no Claude/Codex rows at all still produce periods', any(w.get('gemini_calls') == 4 for w in tur.reduce_tokens([], T, {'2026-10-06': 4})['weeks']) and tur.reduce_tokens([], T, {'2026-10-06': 4})['as_of'] is None, '')
+    check('gemini: an empty (but present) log leaves every period without gemini fields', all('gemini_calls' not in w for w in tur.reduce_tokens(rows, T, {})['weeks']), '')
     nb = {w['p']: w for w in tur.reduce_tokens(rows, T, None)['weeks']}
     check('gemini: absent (not 0) when the log is missing', 'gemini_calls' not in nb['2026-10-12'] and 'gemini' not in nb['2026-10-12']['days'], nb['2026-10-12'])
 with tempfile.TemporaryDirectory() as h:  # end to end through the script, fake HOME

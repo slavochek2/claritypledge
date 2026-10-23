@@ -124,8 +124,8 @@ def family_of(tool, model):
 def parse_gemini_calls(path=DELEGATION_LOG):
     """{UTC day: sent Gemini calls} from the delegation log, or None when the log is missing.
 
-    One call = a line `=== <ts> | ... | vendor=gemini | ... | gemini-send`. A REFUSED line (the scan blocked
-    the send) ends in REFUSED, not gemini-send, and is skipped. Payload lines between records are ignored.
+    One call = a line `=== <ts> | ... | vendor=gemini | ... | gemini-send`. A refused send (the scan blocked
+    it) ends in REFUSED, not gemini-send, so the last-field check skips it. Payload lines between records are ignored.
     """
     try:
         f = open(path, errors='replace')
@@ -134,7 +134,7 @@ def parse_gemini_calls(path=DELEGATION_LOG):
     calls = {}
     with f:
         for line in f:
-            if not line.startswith('=== ') or 'REFUSED' in line:
+            if not line.startswith('=== '):
                 continue
             parts = [x.strip() for x in line.rstrip('\n').split(' | ')]
             if 'vendor=gemini' not in parts or parts[-1] != 'gemini-send':
@@ -151,14 +151,18 @@ def reduce_tokens(rows, today, gemini=None):
     `today` is the UTC date the run happens on; the period containing it is not complete and is left out.
     `gemini` is parse_gemini_calls()'s result: None (log missing) leaves Gemini out of the block entirely.
     """
-    if not rows:
+    if not rows and not gemini:
         return {'collected': True, 'as_of': None, 'weeks': [], 'months': [], 'projects_28d': []}
     day = lambda r: datetime.date.fromisoformat(r['day'])
     mon = lambda d: d - datetime.timedelta(days=d.weekday())
-    first, as_of = min(day(r) for r in rows), max(day(r) for r in rows)
+    gem_days = sorted(datetime.date.fromisoformat(d) for d in (gemini or {}))
+    # a period with only Gemini calls still gets a row (zero output), so the window starts at the earliest of either
+    first = min([day(r) for r in rows] + gem_days[:1])
+    as_of = max(day(r) for r in rows).isoformat() if rows else None
+    first_gem = gem_days[0] if gem_days else None
 
-    def periods(key, starts, step_back):
-        """starts: completed period starts, oldest first; key(date) -> period label."""
+    def periods(key, starts, end):
+        """starts: completed period starts, oldest first; key(date) -> period label; end(start) -> last day."""
         out = []
         for i, st in enumerate(starts):
             label = key(st)
@@ -172,7 +176,8 @@ def reduce_tokens(rows, today, gemini=None):
             ctx = round(sum(r['input'] + r['cache_write'] + r['cache_read'] for r in claude) / msgs) if msgs else None
             p = {'p': label, 'output': output,
                  'days': {t: len({r['day'] for r in mine if r['tool'] == t}) for t in ('claude', 'codex')}}
-            if gemini is not None:
+            # Gemini is absent (not 0) when the log is missing, or when the period ended before its first entry
+            if gemini is not None and first_gem is not None and end(st) >= first_gem:
                 g = {d: n for d, n in gemini.items() if key(datetime.date.fromisoformat(d)) == label}
                 p['days']['gemini'] = len(g)
                 p['gemini_calls'] = sum(g.values())
@@ -199,8 +204,9 @@ def reduce_tokens(rows, today, gemini=None):
         mo_starts.append(d)
         d = (d - datetime.timedelta(days=1)).replace(day=1)
     mo_starts.reverse()
-    weeks = periods(lambda x: mon(x).isoformat(), wk_starts, 7)[-WEEKS:]
-    months = periods(lambda x: x.isoformat()[:7], mo_starts, 0)[-MONTHS:]
+    month_end = lambda st: (st.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - datetime.timedelta(days=1)
+    weeks = periods(lambda x: mon(x).isoformat(), wk_starts, lambda st: st + datetime.timedelta(days=6))[-WEEKS:]
+    months = periods(lambda x: x.isoformat()[:7], mo_starts, month_end)[-MONTHS:]
 
     cutoff = today - datetime.timedelta(days=27)
     by_proj = {}
@@ -214,7 +220,7 @@ def reduce_tokens(rows, today, gemini=None):
     if rest:
         shown.append(('all others', rest))
     projects = [{'project': k, 'output': v, 'share': round(v / total, 4)} for k, v in shown if total]
-    return {'collected': True, 'as_of': as_of.isoformat(), 'weeks': weeks, 'months': months, 'projects_28d': projects}
+    return {'collected': True, 'as_of': as_of, 'weeks': weeks, 'months': months, 'projects_28d': projects}
 
 
 def write_json(path, obj):

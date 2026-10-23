@@ -49,7 +49,7 @@ export function TokenUsage({ tokens, per }: { tokens?: DayTokens; per: Per }) {
   }))
   const usualText =
     r.usualZero ? (r.total === 0 ? 'same as usual' : 'usual is 0') : r.ratio === null ? 'no baseline yet' : `${r.ratio.toFixed(1)}× usual`
-  const summary = r.total === null ? '' : [`${fmtTokens(r.total)} last full ${per}`, usualText, ...(r.spikeProject ? [`mostly ${r.spikeProject}`] : [])].join(' · ')
+  const summary = r.total === null ? '' : [`${fmtTokens(r.total)} last full ${per}`, usualText].join(' · ')
   // only the tools with days in use are listed: no "Codex 0 of 7" when there is no Codex data
   const toolDays = (['claude', 'codex', 'gemini'] as const).filter((t) => (r.days[t] ?? 0) > 0)
   const daysKnown = Object.values(r.days).some((v) => v !== undefined)

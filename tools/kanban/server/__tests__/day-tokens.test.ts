@@ -95,13 +95,30 @@ describe('P1552 readings', () => {
     expect(r.ctx).toBe(94_000)
     expect(r.length).toBe(7)
   })
-  it('spike: the top 28-day project is named only at a ratio of 1.5 or more', () => {
-    expect(tokenReadings(SYNTH_TOKENS, 'week').spikeProject).toBe('demo-site') // 2.3x
-    const calm = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: 4_000_000 })) }
-    expect(tokenReadings(calm, 'week').ratio).toBeCloseTo(1.05, 2)
-    expect(tokenReadings(calm, 'week').spikeProject).toBeNull()
-    const edge = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: 2_800_000 })) } // exactly 1.5x
-    expect(tokenReadings(edge, 'week').spikeProject).toBe('demo-site')
+  it('spike: the ratio is reported, and no project is blamed for it', () => {
+    expect(tokenReadings(SYNTH_TOKENS, 'week').ratio).toBeGreaterThan(1.5)
+    expect('spikeProject' in tokenReadings(SYNTH_TOKENS, 'week')).toBe(false)
+  })
+  it('shares: what the key leaves out is shown as Other, so the key reads 100%', () => {
+    const sum = (t: DayTokens) => tokenReadings(t, 'week').shares.reduce((a, s) => a + s.pct, 0)
+    // three equal families round to 33% each (99%): the missing 1% is Other
+    const thirds: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 100, Sonnet: 100, Codex: 100 }, days: { claude: 1 } }] }
+    const r = tokenReadings(thirds, 'week')
+    expect(r.shares.map((s) => [s.family, s.pct])).toEqual([['Opus', 33], ['Sonnet', 33], ['Codex', 33], ['Other', 1]])
+    expect(sum(thirds)).toBe(100)
+    // a family that rounds to 0% is folded into Other, with its real value
+    const tiny: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 98_000, Haiku: 400, Codex: 400, Sonnet: 1_200 }, days: { claude: 1 } }] }
+    const t = tokenReadings(tiny, 'week').shares
+    expect(t.map((s) => s.family)).toEqual(['Opus', 'Sonnet', 'Other'])
+    expect(t.find((s) => s.family === 'Other')?.value).toBe(800)
+    expect(sum(tiny)).toBe(100)
+    // an existing Other family absorbs the rest instead of a second Other row
+    const withOther: DayTokens = { ...SYNTH_TOKENS, weeks: [{ p: '2026-10-05', output: { Opus: 100, Sonnet: 100, Other: 100 }, days: { claude: 1 } }] }
+    expect(tokenReadings(withOther, 'week').shares.filter((s) => s.family === 'Other')).toHaveLength(1)
+    expect(sum(withOther)).toBe(100)
+    expect(sum(SYNTH_TOKENS)).toBe(100) // control: an already-whole key gains nothing
+    expect(tokenReadings(SYNTH_TOKENS, 'week').shares.map((s) => s.family)).not.toContain('Other')
+    expect(renderToStaticMarkup(TokenUsage({ tokens: thirds, per: 'week' }))).toContain('Other 1%')
   })
   it('largest mover: share now against the median share of the periods before', () => {
     const weeks = [
@@ -167,9 +184,10 @@ describe('P1552 pane render', () => {
     expect(h).toContain('title="demo-api-with-a-very-long-invented-name-that-truncates"')
     expect(h).not.toContain('data-tokens-not-collected')
   })
-  it('header carries the spike reading: total, ratio, and the top project at 1.5x or more', () => {
+  it('header carries the spike reading: total and ratio, never a project', () => {
     const h = html(SYNTH_TOKENS)
-    expect(h).toMatch(/data-tokens-summary[^>]*>4\.2M last full week · 2\.3× usual · mostly demo-site</)
+    expect(h).toMatch(/data-tokens-summary[^>]*>4\.2M last full week · 2\.3× usual</)
+    expect(h).not.toContain('mostly')
     const calm = { ...SYNTH_TOKENS, weeks: SYNTH_TOKENS.weeks.map((w) => ({ ...w, median4: 4_000_000 })) }
     const c = html(calm)
     expect(c).toMatch(/data-tokens-summary[^>]*>4\.2M last full week · 1\.1× usual</)

@@ -422,6 +422,7 @@ button.d-chip:hover { border-color: var(--amber); }
 }
 
 /* phones: keep the sticky header and the bottom bar short (≈640px-tall screens) */
+@container day (max-width: 559px) { .d-src { grid-template-columns: minmax(0, 1fr); } } /* three source cards stack until each has room (P1552) */
 @container day (max-width: 419px) {
   .d-src { grid-template-columns: minmax(0, 1fr); }
   .d-tl { display: none; }

@@ -52,8 +52,6 @@ export interface TokenReadings {
   ratio: number | null
   /** the usual level is 0 (a real median, not a missing one): a ratio against 0 is undefined */
   usualZero: boolean
-  /** the biggest 28-day project, named only when the period is a spike (ratio of 1.5 or more) */
-  spikeProject: string | null
   /** output share per family in the last period, in FAMILY_ORDER, zero families dropped */
   shares: { family: string; value: number; pct: number }[]
   /** the family whose share moved most against the median of the periods before it; null = no baseline or no move */
@@ -63,19 +61,26 @@ export interface TokenReadings {
   days: { claude?: number; codex?: number; gemini?: number }
 }
 
-export const SPIKE_RATIO = 1.5
-
 export function tokenReadings(t: DayTokens, per: Per): TokenReadings {
   const list = per === 'week' ? t.weeks : t.months
   const last = list.length ? list[list.length - 1] : null
   if (!last) {
-    return { last: null, length: 0, total: null, ratio: null, usualZero: false, spikeProject: null, shares: [], mover: null, geminiCalls: null, ctx: null, days: {} }
+    return { last: null, length: 0, total: null, ratio: null, usualZero: false, shares: [], mover: null, geminiCalls: null, ctx: null, days: {} }
   }
   const total = totalOf(last)
   const ratio = last.median4 != null && last.median4 > 0 ? total / last.median4 : null
-  const named = t.projects_28d.find((p) => p.project !== 'all others')
   const shares = FAMILY_ORDER.filter((f) => (last.output[f] ?? 0) > 0).map((f) => ({ family: f, value: last.output[f], pct: Math.round((last.output[f] / total) * 100) }))
     .filter((s) => s.pct > 0) // a family that rounds to 0% is left out of the key and the bar
+  // what the key leaves out (families that round to 0%, rounding itself) is shown as Other, so the key reads 100%
+  const rest = 100 - shares.reduce((a, s) => a + s.pct, 0)
+  if (rest > 0) {
+    const other = shares.find((s) => s.family === 'Other')
+    const left = total - shares.reduce((a, s) => a + s.value, 0)
+    if (other) {
+      other.pct += rest
+      other.value += left
+    } else shares.push({ family: 'Other', value: left, pct: rest })
+  }
   // largest mover: share now against the median share of up to four periods before (those with output)
   const prior = list.slice(-5, -1).filter((p) => totalOf(p) > 0)
   let mover: TokenReadings['mover'] = null
@@ -100,7 +105,6 @@ export function tokenReadings(t: DayTokens, per: Per): TokenReadings {
     total,
     ratio,
     usualZero: last.median4 === 0,
-    spikeProject: ratio !== null && ratio >= SPIKE_RATIO && named ? named.project : null,
     shares,
     mover,
     geminiCalls: last.gemini_calls ?? null,
