@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 56
 workstream: clarity-chat
 created_date: '2026-10-22'
 tags: [mirror, privacy, terms]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-23
 ---
 
 # P1544: Mirror on prod: honest policy, hard terms bump, server-side terms gate
@@ -18,7 +18,7 @@ exec_effort: high
 **Split 2026-10-22 after spec review.** Gemini 4 Argon and Codex both recommended splitting, and the founder decisions are preserved across all three:
 - **P1544** (this spec) switches the mirror on, at today's context.
 - **[P1546](p1546_threads_in_every_chat.md):** threads in direct messages and the mirror.
-- **[P1547](p1547_mirror_memory_token_budget.md):** the mirror reads far more.
+- **[P1547](../../p1547_mirror_memory_token_budget.md):** the mirror reads far more.
 
 Each ships on its own. P1536 needs P1544 and P1546.
 
@@ -155,4 +155,4 @@ Moved out of the Pre-deploy Checklist on 2026-10-23: the ship gate requires ever
 
 ## Related
 
-P1520 (mirror v2) · P1534 / P1537 (portrait) · P1512 (Clarity Chat policy) · [P1546](p1546_threads_in_every_chat.md) · [P1547](p1547_mirror_memory_token_budget.md) · P1536 (needs this) · `src/app/content/terms-changes.ts` · `docs/technical/metered-services.md`
+P1520 (mirror v2) · P1534 / P1537 (portrait) · P1512 (Clarity Chat policy) · [P1546](p1546_threads_in_every_chat.md) · [P1547](../../p1547_mirror_memory_token_budget.md) · P1536 (needs this) · `src/app/content/terms-changes.ts` · `docs/technical/metered-services.md`
