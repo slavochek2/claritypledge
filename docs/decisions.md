@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [product]: The pledge's follow-through is measured in chat, not by splitting sign-ups by source. UNTESTED
+
+**Context:** /day proposed counting event sign-ups apart from product sign-ups, so the funnel shows whether anyone joins for ClarityPledge itself. The founder answered that nobody signs up for the product yet because it does not deliver value yet, so a split would show roughly zero and teach nothing. People ask "so it is a paper you sign?", and the honest answer is that the pledge is a commitment device AND a measurement device, if follow-through can be seen. Letters made follow-through visible but cost too much to file; sharing a story or point in chat costs far less. The founder wants to reuse it for other events, such as a sales mastermind and hackathons.
+**Decision:** Record H-ChatFollowThrough (hypotheses.md, P1) as UNTESTED: the measure of the pledge is how many event joiners later share a story or point in chat, not how many sign up via the product. No sign-up split is built. Social hikes are explicitly out of scope for now: they run on WhatsApp, and the founder removed "Open chat" from event pages on the same day.
+**Falsifier:** across the first three non-hike events that use chat, fewer than 1 in 10 joiners share a story or point in chat within 14 days of the event.
+**Alternatives rejected:** splitting sign-ups by source now (it measures intent to use a product that does not deliver value yet, so it reads about zero whichever way the bet goes).
+**References:** hypotheses.md H-ChatFollowThrough · lean-canvas.md §UVP "Selling adoption, not the technique" (commitment device + measurement) · /day run 2026-10-23 story r2
+
+---
+
 ## 2026-10-23 [technical]: E2E test users are deleted server-side in batches of 50, guarded to the test project only (P1532)
 
 **Context:** e2e cleanup learned each foreign-key blocker by sending a delete it expected to fail: about 7 requests and one 409 error per user, multiplied across thousands of users and a sweeper with no limit. On the free plan that spends the shared request quota.

@@ -25,6 +25,7 @@ These apply to **new or materially-updated** hypotheses. Existing entries are **
 |----|-----------|-------|-----|------------|---------------------|
 | H-LetterAsProduct | Public Clarity Letter scales the flip async | Transform-triggered | P0 | — | **Transform fired legitimately** (the Transform-if is an OR; its *zero forwards* leg was true on 2026-06-02). **But the completions figure is false** — prod 2026-08-14: 28 deliveries / 17 recipients / 12 completed (43%), 4 predating the measurement. Both legs are false *now* (12 completions, 1 forward) ⇒ **grounds to revisit the retirement**. Never cite "0 async completions" as a standalone fact — see [§CORRECTED](hypotheses.md#corrected-the-completions-figure) below |
 | H-AbsentCounterparty | A problem written as one story + three separately-contestable claims, sent to a counterparty who was NOT in the room, produces a disagreement the sender judges worth having | Active | P1 | — | New 2026-08-31 — executes the successor handed off on 2026-08-12 and never landed. Instrument shipped (P1180, `/slava:problem:submit`); **zero rounds run.** Novel prediction recorded before test. **UNTESTED, n=0.** decisions.md 2026-08-28 [product] · 2026-08-31 [product] |
+| H-ChatFollowThrough | Event joiners who share a story or point in chat show the pledge being followed through | Active | P1 | — | New 2026-10-23. **UNTESTED, n=0.** Social hikes excluded (WhatsApp). decisions.md 2026-10-23 [product] |
 | H-WTP-Pain | WTP follows reliable *revelation* of important, otherwise-unspoken gaps — not *conversion* of an already-revealed one | Active | P0 | — | Reframed 2026-06-10 (revelation, not conversion). 28 sessions / zero cost named — re-read as: important+unspoken gaps not reliably surfaced. |
 | H-PairsReturn | Pairs recognize gap as costly and return | Active | P0 | — | 3 pairs run. Protocol works. No "holy shit" observed in transcripts. |
 | H-TopicDepthGate | Topic selection determines session value | Active | P1 | — | ~40% sessions failed due to topic inadequacy. |
@@ -476,6 +477,16 @@ Surviving differentiators, narrower than the docs previously implied: (1) **a nu
 **Transform if:** Filed content doesn't shape subsequent sessions — pairs always bring fresh topics regardless.
 **Status (2026-03-19):** Reframed by H-StoryFirst. Question shifts from "does filed content feed the FCO loop?" to "does story-first creation naturally produce content that feeds return?" The comprehension assessment creates a new trigger: author sees gap → wants to verify → schedules session.
 **Depends on:** H-PairsReturn (at least one facilitated pair).
+
+---
+
+#### H-ChatFollowThrough: Chat is where the pledge's follow-through becomes visible
+**Bet:** The pledge is a commitment device and also a measurement device, but only if follow-through can be seen. Event joiners (beyond social hikes, which run on WhatsApp) who later share a story or point in chat are following through. That rate measures the pledge, while sign-ups split by source would not, because nobody signs up for the product before it delivers value. Chat replaces the letter as the follow-through channel because it costs far less to file.
+**Test:** At the next three non-hike events that use chat (e.g. a sales mastermind or a hackathon), count joiners who share a story or point in chat within 14 days.
+**Transform if:** fewer than 1 in 10 joiners share a story or point in chat within 14 days, across those three events.
+**Novel prediction:** (pending) event joiners who never signed up for the product itself still post in chat. H-Stories-ColdStart and H-LetterAsProduct both predicted follow-through only from people already inside a pair or a letter.
+**Programme tag:** business
+**Status (2026-10-23):** UNTESTED, n=0. Founder framing from /day story r2. See [decisions.md](decisions.md) 2026-10-23 [product].
 
 ---
 
