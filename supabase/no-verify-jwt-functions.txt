@@ -1,0 +1,14 @@
+# Edge functions served WITHOUT gateway JWT verification (one name per line).
+# Single source of truth, read by:
+#   scripts/deploy-functions.sh                       (hosted: --no-verify-jwt)
+#   scripts/selfhosted/deploy-functions.sh            (copied next to the self-hosted router)
+#   supabase/selfhosted/functions-main/index.ts       (self-hosted per-function JWT policy, P1557)
+# Every function NOT listed requires a valid JWT. Adding a name here is a security decision.
+#
+# create-and-sign: reached by anonymous invitees before they have a Supabase account (since
+#   P1487 it validates the invitation and emails a sign-in link to the invited address; it never
+#   returns a session).
+# event-email-link: P1380, opened from an inbox with no session; its ticket is the credential
+#   (hashed, scoped to one page of one event, dies with the event).
+create-and-sign
+event-email-link

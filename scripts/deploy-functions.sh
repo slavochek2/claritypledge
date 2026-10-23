@@ -128,6 +128,18 @@ else
   fi
 fi
 
+# --- JWT policy list (P1557) ---
+# Fail closed on a missing list: silently deploying create-and-sign WITH jwt verification would
+# break anonymous invitees on the target, with no error at deploy time.
+NO_VERIFY_JWT_FILE="$PROJECT_DIR/supabase/no-verify-jwt-functions.txt"
+if [ ! -f "$NO_VERIFY_JWT_FILE" ]; then
+  echo "ERROR: $NO_VERIFY_JWT_FILE not found — nothing was deployed."
+  exit 1
+fi
+is_no_verify_jwt() {
+  grep -qxF "$1" < <(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$NO_VERIFY_JWT_FILE")
+}
+
 # --- Deploy ---
 echo "Deploying ${#FUNCTIONS[@]} function(s) to $ENV_NAME ($PROJECT_REF)..."
 DEPLOYED=()
@@ -142,7 +154,9 @@ for fn in "${FUNCTIONS[@]}"; do
   # P1380: event-email-link is opened from an inbox with no session; its ticket is the
   # credential (hashed, scoped to one page of one event, dies with the event).
   # All other functions require a valid JWT and must NOT use this flag.
-  if [ "$fn" = "create-and-sign" ] || [ "$fn" = "event-email-link" ]; then
+  # The list lives in supabase/no-verify-jwt-functions.txt (P1557: the self-hosted router
+  # reads the same file, so the two targets cannot drift).
+  if is_no_verify_jwt "$fn"; then
     DEPLOY_FLAGS="--no-verify-jwt"
   else
     DEPLOY_FLAGS=""

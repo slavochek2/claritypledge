@@ -92,6 +92,8 @@ STUB
   : > "$root/supabase/functions/_shared/cors.ts"
   : > "$root/supabase/functions/alpha-fn/index.ts"
   : > "$root/supabase/functions/create-and-sign/index.ts"
+  # P1557: deploy-functions.sh reads its open-function list from the repo and fails closed without it.
+  cp "$REPO_ROOT/supabase/no-verify-jwt-functions.txt" "$root/supabase/no-verify-jwt-functions.txt"
 
   printf 'VITE_SUPABASE_URL=https://stub.supabase.co\nSUPABASE_ACCESS_TOKEN=sbp_stub\nSUPABASE_TEST_FUNCTIONS_TOKEN=sbp_stub\n' \
     > "$root/.env.prod"

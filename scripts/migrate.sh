@@ -45,11 +45,14 @@ usage() {
   cat <<'USAGE'
 Usage: ./scripts/migrate.sh [--env local|test|prod] [--yes]
                             [--only <NNN_name.sql>... [--expect-sha <commit>]]
+       ./scripts/migrate.sh --env selfhosted [--list] [--allow-empty-ledger]
        ./scripts/migrate.sh -h | --help
 
   (no flags)          apply pending migrations to the test DB (.env.local)
   --env test|local    same as no flags
   --env prod          apply to prod (.env.prod); asks before applying
+  --env selfhosted    apply to the self-hosted TEST server (P1557) over an IAP SSH psql session;
+                      no Management API, no `supabase db push` (scripts/selfhosted/migrate.sh)
   --yes               non-interactive ack of the printed pending list (prod)
   --only FILE...      act on exactly these committed migration basenames (P1211)
   --expect-sha SHA    with --only: the commit the listed files must match (default HEAD)
@@ -67,6 +70,7 @@ usage_error() {
 }
 
 # --- Parse args ---
+ORIG_ARGS=("$@")   # kept for the selfhosted hand-over below (P1557)
 # while/case (not for+shift): flags must parse identically in any order —
 # the old for-loop misparsed "--yes --env prod" into ENV_NAME="--env".
 ENV_NAME="local"
@@ -74,6 +78,7 @@ YES_FLAG=false
 ONLY_MODE=false
 ONLY_FILES=()       # --only: basenames, the ONLY files this run may enumerate or apply
 EXPECT_SHA=""       # --only: the commit whose blobs the listed files must match
+SELFHOSTED_ONLY_FLAGS=()   # flags only --env selfhosted understands; anywhere else they stay "unknown"
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
@@ -104,13 +109,26 @@ while [ $# -gt 0 ]; do
       # Non-empty too: `--expect-sha ""` used to fall through to the HEAD default silently.
       [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#-}" = "$2" ] || usage_error "--expect-sha needs a commit."
       EXPECT_SHA="$2"; shift 2 ;;
+    --list|--allow-empty-ledger) SELFHOSTED_ONLY_FLAGS+=("$1"); shift ;;   # selfhosted only (P1557)
     *) usage_error "unknown argument '$1'." ;;
   esac
 done
 case "$ENV_NAME" in
-  local|test|prod) ;;
-  *) usage_error "unknown --env '$ENV_NAME' (expected local, test or prod)." ;;
+  local|test|prod|selfhosted) ;;
+  *) usage_error "unknown --env '$ENV_NAME' (expected local, test, prod or selfhosted)." ;;
 esac
+
+if [ "$ENV_NAME" != "selfhosted" ] && [ ${#SELFHOSTED_ONLY_FLAGS[@]} -gt 0 ]; then
+  usage_error "unknown argument '${SELFHOSTED_ONLY_FLAGS[0]}'."
+fi
+
+# --- Self-hosted target (P1557): hand over BEFORE any env file, token or project ref is read ---
+# Everything below this block talks to a hosted project (Management API, `supabase db push`).
+# `exec` means that code is unreachable in this mode, so a failure of the self-hosted path can
+# never fall through to hosted TEST. The target is fixed inside the child script.
+if [ "$ENV_NAME" = "selfhosted" ]; then
+  exec "$SCRIPT_DIR/selfhosted/migrate.sh" "${ORIG_ARGS[@]}"
+fi
 
 # shellcheck source=lib/prod-ledger.sh
 source "$SCRIPT_DIR/lib/prod-ledger.sh"
