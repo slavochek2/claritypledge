@@ -178,7 +178,7 @@ and what must not come back:
 
 - The "**How this works**" philosophy paragraph ("this is about time on the
   trail, not distance or finishing a route"). One clause does the same job:
-  *"We walk at the pace of the slowest person. If you would rather do a shorter day, turn back whenever you like."*
+  *the group paragraph in the series base (one group up to about 15, a brisk/relaxed split above).*
 - Section headers for their own sake — "**The direction**", "the full route, we
   won't necessarily do all of it", "Come if you're up for it".
 - **Entrance fees.** Do NOT mention a fee, an amount, or a range, even when
@@ -196,13 +196,19 @@ Facts stay; framing goes.
 within one session and silently dropped the reviewer quotes the series doc calls a rule that must
 not be undone. Fill the base from that file; do not reconstruct it from memory or from this skill.
 
-If the founder supplied a post-activity topic, add one line for it. If not, omit
-the section entirely — do not invent one.
+**After the hike — propose it, never skip it silently (founder 2026-10-23).** Fill the base's
+after-hike line: where everyone waits (the end point), an optional dinner, and optionally one
+evening event. Dinner default: Reform Kafé, Old City (https://maps.app.goo.gl/cbxDYrcWvEE11Skn9),
+around 18:30, unless the founder names another place. For the evening event, read the private
+"CM Events" Google Calendar for the hike date from 18:00 onward (the calendar
+`/slava:util:cm-events-update` publishes to; use the Google Calendar MCP, fallback: ask the founder)
+and offer at most two options in the review gate. Include one only when the founder picks it. No
+RSVP line: the founder runs a WhatsApp poll for dinner.
 
 **The terms line is mandatory and is not editorial.** It ships on every hike, in the founder's own
-framing (2026-09-07): the hike is free, unguided and unled; attendees are responsible for
-themselves; there is no schedule and no guarantee; goodwill is an intention, not an obligation.
-Keep it to the two sentences above — short enough to read, plain enough not to sound like a waiver
+framing (2026-09-07, revised 2026-10-23): free and unguided; volunteers at the front and back only
+coordinate, nobody guides; attendees are responsible for themselves; goodwill is an intention, not
+an obligation; no legal or "liable" wording. Keep it to the three short sentences in the base — short enough to read, plain enough not to sound like a waiver
 someone must sign. Do not soften it away, do not expand it into a legal notice, and do not let the
 150-word ceiling be the reason it gets cut: cut a highlight instead.
 
