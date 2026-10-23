@@ -115,6 +115,26 @@ Read back what the form will actually submit via `javascript_tool` (input `.valu
 2. The banner auto-generates in the background — wait a few seconds, then screenshot the live event page so the user can judge the banner themselves (a successful HTTP fetch does not prove the banner fits — a fallback stock image also loads fine). If they dislike it: the banner controls on the event page offer Regenerate and keyword search.
 3. Report: "Evidence produced: event live at `claritypledge.com/events/<slug>` [screenshot]. Awaiting your confirmation."
 
+**Banner from a real photo (a past event's group shot, not the auto-generated one):**
+
+- **People are the subject.** Crop the band that holds every face with headroom. A venue sign,
+  wall or ceiling is never the subject; cut it before you cut a person. The group fills the strip's
+  height (heads near the top, torsos to the bottom edge); pad the sides if needed, never the top or
+  bottom, so nobody ends up small.
+- **Two files.** The desktop strip is about 5.5:1 (the page shows it 256 px high, `object-cover`,
+  centred); the phone banner is about 2:1 (`banner_mobile_url`). Crop each from the original,
+  never one from the other.
+- **Look at each crop file before uploading** (open it with the image reader), then adjust the
+  offset and look again. Crop coordinates computed without looking are a guess.
+- **Do not let AI redraw the photo.** Image models subtly change real faces; crop and pad only.
+- **Look at it before calling it done:** screenshot the live event page at 1440 px and 1920 px
+  desktop widths and at a verified 375 px width (`.claude/rules/browser.md` — Viewport Resize) and check that every face
+  is whole. An upload returning 200 proves nothing about the crop.
+
+**Read before cropping** (the crop and blurred-padding commands): [social-hike.md](../../../../docs/events/series/social-hike.md)
+(§ Banner from a group photo). Incident 2026-10-23: a group-shot crop centred on the venue sign
+and shrank the people; caught by the founder, not by a check.
+
 ### 7. Further material
 
 - Next step: `/slava:events:promote-all` — fans the event out to your configured platforms.
