@@ -11,6 +11,7 @@ import {
   InfoIcon,
   CalendarDaysIcon,
   HeartPulseIcon,
+  FlagIcon,
 } from "lucide-react";
 
 /**
@@ -39,6 +40,7 @@ export const AUDIENCE_LINKS = [
   { to: "/builders", label: "For builders", Icon: TargetIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/hospitals", label: "For hospitals", Icon: HeartPulseIcon },
+  { to: "/change-leads", label: "Leading a change", Icon: FlagIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
   { to: "/coach", label: "For coaches", Icon: GraduationCapIcon },
 ] as const;
