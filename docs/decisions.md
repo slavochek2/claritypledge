@@ -8,6 +8,51 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [product]: Day Monitoring is money, subscriptions and token usage; token readings are activity, never productivity (P1552)
+
+**Context:** P1399 ruled Monitoring "money and subscriptions only". Token usage for Claude Code and Codex was on a separate claude.ai page, refreshed weekly by `/weekly`. The founder asked for it to live in Monitoring and to be updated by `/day` without spending model tokens.
+**Decision:**
+- The ruling is widened on purpose to money, subscriptions and token usage. The tab's header comment and the named e2e test were changed to match.
+- **Chart:** stacked bars of output per period by model family (Opus, Sonnet, Haiku, Fable, Codex), each with a dashed tick at the median of the 4 periods before. The founder found bars more telling than lines.
+- **Readings:**
+  - Days in use per tool (Claude, Codex, Gemini).
+  - "Which model does the work": one 100% bar over all families, with the biggest change against usual.
+  - Average context per reply.
+  - The top 5 projects over 28 days.
+- **Gemini:** shown as call counts and days only, because the delegation log records what was sent but not what Gemini wrote.
+- **Absent, never 0:** periods before the Gemini log began have no Gemini value.
+- **Wording:** counts are labelled as activity. No cost, productivity score, or comparison with other people.
+
+**Alternatives rejected:**
+- Keep the claude.ai page: a second place to look.
+- Embed that page: it needs a claude.ai login.
+- A new Kanban page: more navigation for one set of readings.
+- "Opus share of Claude output": too narrow once Codex and Gemini are in use.
+- Project attribution on a spike ("mostly X"): the 28-day list cannot say which project drove a given week.
+
+**Consequences:**
+- Retiring the claude.ai page and `/weekly` step 2.12.1 is a later founder call.
+- Gemini output volume would need `ask-model` to log response sizes.
+- The wording is a draft, marked `[FOUNDER DECISION: wording]` in `TokenUsage.tsx`.
+
+**References:** [p1552](../features/done/2026-06-10/p1552_token_usage_card_in_day_monitoring_tab.md)
+
+## 2026-10-23 [technical]: An optional section in a day-report object is merged by the one writer, accepted only from this pass, and may never cost its siblings (P1552)
+
+**Context:** the token block belongs inside the report's `monitoring` object, next to quotas and cloud. Recording a section replaces the whole section file, so a second writer would erase its siblings.
+**Decision:**
+- **Collector:** runs as its own registered step (`disp.9t`, a hard `cmd` step). Its wrapper always exits 0, with a 90 s timeout, under the Bash tool's 120 s default. Any failure writes `{collected:false}`.
+- **Writer:** the existing report step (9d) merges the block into the single monitoring object. It accepts the block only when it carries this pass's id; otherwise the block counts as not collected, so yesterday's numbers cannot pass as today's.
+- **Weekly script:** the collector guards both the reduction and the block write, so a failure there still produces `quota.json` and the TOKENS line.
+- **Parser:** validates real calendar periods (Monday week starts, months 01–12, days at most the period length), then sorts and de-duplicates. Model shares use largest-remainder rounding, so they sum to 100.
+
+**Alternatives rejected:**
+- A separate step recording the section itself: it replaces the whole section.
+- A wrapper timeout longer than the tool timeout: the call is killed before the fallback can write.
+
+**Consequences:** any future optional monitoring source follows the same pattern: its own collector step, merge by the one writer, a pass-id freshness check, and `collected:false` on any failure. The Kanban API server parses reports, so it must be restarted to pick up parser changes.
+**References:** [p1552](../features/done/2026-06-10/p1552_token_usage_card_in_day_monitoring_tab.md), `scripts/token-usage-refresh.py`, `tools/kanban/src/lib/day.ts`
+
 ## 2026-10-23 [product]: A canvas version and a separate canvas are different things; the header switcher lists versions only (P1515)
 
 **Context:** Founder UAT of the canvas page: the owner's header dropdown mixed other canvases into the version list, and a person a canvas was shared with saw no switcher because the "second version" was really a separate canvas.

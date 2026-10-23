@@ -432,6 +432,7 @@ Last updated: 2026-10-23
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1552** (Oct 23) Token usage pane in Day Monitoring: an optional section in the report is merged by the one writer and accepted only with this run's pass id. The collector wrapper's timeout must sit under the tool timeout. Restart the Kanban API to pick up parser changes.
 - **P1540** (Oct 26) Offline banner flapping — one failed fetch is suspicion; a second probe confirms. Stamp probes at send time.
 - **P1541** (Oct 22) One e2e run at a time against the shared TEST project — machine-wide lock in the git common dir, exit 75 = infra not app; a live holder is never evicted and an uninspectable one counts as alive (Codex); 2 workers measured
 - **P1519** (Oct 22) A session cannot end while its own slot is open — Stop-hook gate 4 + `git-ops.sh hold/park`; ownership = this transcript's writes bounded by the lock's `CLAIMED_AT`; "shipped" needs proof the branch made the commit (reflog), never ancestry alone; three review rounds each reproduced real holes — see decisions.md 2026-10-22 [technical]
