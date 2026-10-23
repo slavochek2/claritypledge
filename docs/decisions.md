@@ -8,6 +8,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [product]: Event pages carry no chat entry; event chats are reached from the inbox (P1551)
+
+**Context:** P1512 decision 31 gave the event page an "Open chat" button for the host and RSVPed members. On a live social hike page it sat directly under the title, above the WhatsApp group button the hike actually uses, so the page offered two places to talk and put the one nobody uses first. No hypothesis backed event chat.
+**Decision:** Remove "Open chat" from event pages for every viewer. Group pages keep theirs. An event's chat still exists and still enters the inbox 24 hours before the event, unchanged. The now-unused path helper was removed with it.
+**Alternatives rejected:** showing it only on events without a WhatsApp link (no event yet needs it; it can be added when chat earns a role at events, see H-ChatFollowThrough); keeping it as is.
+**Consequences:** If H-ChatFollowThrough makes chat the follow-through channel for non-hike events, a deliberate entry point comes back as its own decision, not by restoring this button. Signed-in browser check of the page is still owed (`/verify p1551` on prod after push).
+**Falsifier:** RSVPed members ask how to reach an event's chat, or event chats see fewer messages than before the removal.
+**References:** [p1551 spec](../features/done/2026-06-10/p1551_remove_open_chat_from_event_pages.md) · P1512 decision 31 · decisions.md 2026-10-23 [product] H-ChatFollowThrough
+
+---
+
 ## 2026-10-23 [product]: The pledge's follow-through is measured in chat, not by splitting sign-ups by source. UNTESTED
 
 **Context:** /day proposed counting event sign-ups apart from product sign-ups, so the funnel shows whether anyone joins for ClarityPledge itself. The founder answered that nobody signs up for the product yet because it does not deliver value yet, so a split would show roughly zero and teach nothing. People ask "so it is a paper you sign?", and the honest answer is that the pledge is a commitment device AND a measurement device, if follow-through can be seen. Letters made follow-through visible but cost too much to file; sharing a story or point in chat costs far less. The founder wants to reuse it for other events, such as a sales mastermind and hackathons.
