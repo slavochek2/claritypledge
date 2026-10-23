@@ -215,6 +215,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
                     author={m.authorId ? authors[m.authorId] : undefined}
                     authors={authors}
                     compact={g.compact}
+                    prevMessageId={messages[i - 1]?.id}
                     highlight={flashId === m.id}
                     stat={stats.get(m.id)}
                     actions={fullActions}

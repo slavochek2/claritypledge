@@ -107,7 +107,7 @@ export function MirrorGlyph({ className }: { className?: string }) {
 }
 
 /**
- * The mirror is not its owner: it wears its own mark, and a dashed ring that says "agent". Never the owner's photo or
+ * The mirror is not its owner: it wears its own mark (square, like every agent), and a dashed ring that says "agent". Never the owner's photo or
  * initials. With a generated portrait (P1520) the painting replaces the glyph, under the navy agent tint; until then,
  * or when the portrait fails to load, the soft blue disc with a reflection glyph. The portrait is the signed-in
  * owner's own mirror's (the only mirror anyone ever sees); `imageUrl` overrides it, `null` forces the glyph.
@@ -118,8 +118,8 @@ export function MirrorMark({ size = 'list', className, imageUrl }: { size?: keyo
   const [broken, setBroken] = useState<string | null>(null);
   const show = !!src && broken !== src;
   return (
-    <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-full outline-dashed outline-2 outline-offset-1 outline-blue-300', className)}>
-      <span data-testid="mirror-disc" className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
+    <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-sm outline-dashed outline-2 outline-offset-1 outline-blue-300', className)}>
+      <span data-testid="mirror-disc" className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
         {show ? (
           <>
             <img src={src} alt="" data-testid="mirror-portrait" className="h-full w-full object-cover" onError={() => setBroken(src)} />

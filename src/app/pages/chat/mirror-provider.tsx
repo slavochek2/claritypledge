@@ -224,6 +224,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           m.conversationId === mirrorIdRef.current &&
           (m.kind === 'message' || m.kind === 'clarify') &&
           !m.isDeleted &&
+          // A share (a point or story with no text) is filed quietly: the server makes no job for it either.
+          !(m.attachmentId && !(m.body ?? '').trim()) &&
           !asked.current.has(m.id)
         ) {
           requestReply(m.id);

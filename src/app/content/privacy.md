@@ -296,7 +296,7 @@ identifier.
   - **Who sees the answer.** Only you. Nothing is posted in the original chat, and an answer
     cannot be forwarded or Clarified in the app.
   - **Portrait.** Your mirror agent gets a painted portrait the first time you open it, and a
-    new one when you press New face. What is sent to make it describes an invented person in the
+    new one when you press New portrait. What is sent to make it describes an invented person in the
     style of an artist; nothing about you is in it. The image is stored at a public link.
   - **If you object.** If you do not want your words read by other members' mirror agents, you
     can delete your messages (a deleted message is not sent for later questions, but a copy

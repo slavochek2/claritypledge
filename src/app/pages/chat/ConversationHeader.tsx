@@ -6,7 +6,7 @@
  * (link to the live event page); the mirror always says whose mirror it is, also on a phone.
  */
 import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, Info, MoreHorizontal, Pencil, UserRound } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, Info, MoreHorizontal, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ export interface HeaderActions {
   onBlock: () => void;
   onUnblock: () => void;
   onRename: () => void;
-  /** P1520: the mirror's name opens its info panel (face, name, Rename, New face). */
+  /** P1520: the mirror's name opens its info panel (face, name, Rename, New portrait). */
   onMirrorInfo?: () => void;
 }
 
@@ -162,16 +162,10 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
             </DropdownMenuItem>
           )}
           {chat.kind === 'mirror' && actions.onMirrorInfo && (
-            // P1533: the panel (face, New face) is also reachable from the menu, not only by tapping the name.
+            // P1533: the panel (portrait, Rename, New portrait) is also reachable from the menu, not only by tapping the name.
             <DropdownMenuItem className="min-h-10" onSelect={actions.onMirrorInfo}>
               <Info className="mr-2 h-4 w-4" aria-hidden="true" />
               <span className="min-w-0 truncate">About {chat.title?.trim() || 'your mirror agent'}</span>
-            </DropdownMenuItem>
-          )}
-          {chat.kind === 'mirror' && (
-            <DropdownMenuItem className="min-h-10" onSelect={actions.onRename}>
-              <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
-              Rename
             </DropdownMenuItem>
           )}
           <DropdownMenuItem className="min-h-10" onSelect={actions.onArchive}>

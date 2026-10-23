@@ -1220,6 +1220,16 @@ describe('conversation', () => {
     await waitFor(() => expect(svc.blockUser).toHaveBeenCalledWith('p-dm1'));
   });
 
+  it('P1554 AC5: the mirror\'s welcome carries one "Give me a name" button that opens rename', async () => {
+    renderChat('/home/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [] });
+    const welcome = await screen.findByTestId('mirror-welcome');
+    expect(welcome).toHaveTextContent(/Sharing a point or story files it quietly/);
+    const buttons = within(welcome).getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    await userEvent.click(within(welcome).getByRole('button', { name: 'Give me a name' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/Its role/);
+  });
+
   it('names the mirror "<title> · <First>\'s mirror" in the header and the list, and Rename persists', async () => {
     svc.renameMirror.mockResolvedValue('Scratchpad');
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
@@ -1228,7 +1238,8 @@ describe('conversation', () => {
     expect(screen.getAllByTestId('row-title').map((n) => n.textContent)).toContain('Scratchpad');
     expect(screen.getByTestId('row-role')).toHaveTextContent("Your mirror agent ·");
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^About / }));
+    await userEvent.click(within(await screen.findByTestId('mirror-info')).getByRole('button', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
     const field = within(dialog).getByLabelText(/^Name/);
     expect(field).toHaveValue('Scratchpad');
@@ -2103,7 +2114,8 @@ describe('review round 3', () => {
       fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       await userEvent.click(screen.getByRole('button', { name: 'More' }));
-      await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: /^About / }));
+      await userEvent.click(within(await screen.findByTestId('mirror-info')).getByRole('button', { name: 'Rename' }));
       check(await screen.findByRole('dialog'));
     });
   });
@@ -2431,7 +2443,8 @@ describe('review round 6', () => {
     renderChat('/home/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
     const shown = (await screen.findByRole('heading', { name: "Your mirror agent" })).textContent;
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^About / }));
+    await userEvent.click(within(await screen.findByTestId('mirror-info')).getByRole('button', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog');
     expect(shown).toBe("Your mirror agent");
     expect(dialog).toHaveTextContent("Its role, “Your mirror agent”, always stays next to the name.");

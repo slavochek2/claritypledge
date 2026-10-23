@@ -59,6 +59,8 @@ interface Props {
   author: ChatAuthor | undefined;
   authors: Record<string, ChatAuthor>;
   compact: boolean;
+  /** The id of the message rendered directly above this one: the mirror's answer to it needs no quote. */
+  prevMessageId?: string;
   highlight: boolean;
   stat?: ThreadStats;
   actions: MessageActions;
@@ -297,7 +299,7 @@ function MirrorReplyState({ messageId, name }: { messageId: string; name: string
   );
 }
 
-export function MessageRow({ msg, mine, viewerId, author, authors, compact, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
+export function MessageRow({ msg, mine, viewerId, author, authors, compact, prevMessageId, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
   const local = isLocal(msg) ? msg : null;
   const server: ChatMessage | null = local ? null : msg;
   const live = !!server && !server.isDeleted;
@@ -540,7 +542,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
             <p className="text-[15px] italic leading-[22px] text-muted-foreground">Message deleted</p>
           ) : (
             <>
-              {server?.replyToId && <QuoteBlock replyToId={server.replyToId} actions={actions} authors={authors} />}
+              {server?.replyToId && !(agent && server.replyToId === prevMessageId) && <QuoteBlock replyToId={server.replyToId} actions={actions} authors={authors} />}
               {local?.replyToId && <QuoteBlock replyToId={local.replyToId} actions={actions} authors={authors} />}
               {draft !== null ? (
                 <div className="mt-1" data-testid="edit-message">
@@ -579,8 +581,6 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, high
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
               {msg.attachmentKind && msg.attachmentId && !(server && server.kind !== 'message') && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} />}
-              {/* The mirror's answer is a reading of other people, never a fact about them (P1520 risk table). */}
-              {agent && <p className="mt-0.5 text-xs text-muted-foreground" data-testid="mirror-reading">{mirrorDisplay}&apos;s reading. You decide what fits.</p>}
             </>
           )}
           {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}

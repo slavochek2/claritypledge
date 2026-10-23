@@ -37,6 +37,9 @@ import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import { Composer } from '@/app/pages/chat/Composer';
 import { matchMentions, mentionQuery, type MentionEntry } from '@/app/pages/chat/mention-picker';
 import { MirrorInfoDialog } from '@/app/pages/chat/MirrorInfoDialog';
+import { ConversationHeader, type HeaderActions } from '@/app/pages/chat/ConversationHeader';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const ME = 'user-id-me';
 const MIRROR_ID = 'conv-mirror-1';
@@ -105,13 +108,13 @@ beforeEach(() => {
 });
 
 describe('P1520 mirror reply rows', () => {
-  it('a reply renders as the mirror, says it is a reading, and offers only Reply', () => {
+  it('a reply renders as the mirror, with no reading footer, and offers only Reply', () => {
     wrap(row(msg({ id: 'agent-1', kind: 'agent', authorId: null, body: 'She may be tired.', replyToId: 'msg-1' })));
     const author = screen.getByTestId('mirror-author');
     expect(author).toHaveTextContent('Mira');
     expect(author).toHaveTextContent('Your mirror');
     expect(screen.queryByText('Deleted user')).not.toBeInTheDocument();
-    expect(screen.getByTestId('mirror-reading')).toHaveTextContent("Mira's reading");
+    expect(screen.queryByTestId('mirror-reading')).not.toBeInTheDocument(); // P1554: the footer is gone
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
     expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
     for (const name of ['Forward', 'Thread', /Clarify/, 'More actions']) {
@@ -252,7 +255,7 @@ describe('P1520 @ picker and private mode', () => {
 });
 
 describe('P1520 mirror info panel', () => {
-  it('shows the face, the name and role, Rename and New face, and no face (gender) choice (P1537)', () => {
+  it('shows the face, the name and role, Rename and New portrait, and no face (gender) choice (P1537)', () => {
     const newFace = vi.fn();
     const onRename = vi.fn();
     wrap(<MirrorInfoDialog chat={mirrorChat} onRename={onRename} onClose={vi.fn()} />, chatValue(),
@@ -262,15 +265,15 @@ describe('P1520 mirror info panel', () => {
     expect(panel).toHaveTextContent('Your mirror');
     expect(screen.getByTestId('mirror-credit')).toHaveTextContent('Test Artist');
     expect(within(panel).queryByRole('radiogroup')).not.toBeInTheDocument();
-    fireEvent.click(within(panel).getByRole('button', { name: 'New face' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'New portrait' }));
     expect(newFace).toHaveBeenCalled();
     fireEvent.click(within(panel).getByRole('button', { name: 'Rename' }));
     expect(onRename).toHaveBeenCalled();
   });
 
-  it('where the mirror cannot paint (prod), shows no New face and no face choice', () => {
+  it('where the mirror cannot paint (prod), shows no New portrait and no face choice', () => {
     wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />, chatValue(), mirrorValue({ enabled: false }));
-    expect(screen.queryByRole('button', { name: 'New face' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New portrait' })).not.toBeInTheDocument();
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
   });
@@ -577,5 +580,121 @@ describe('P1544 terms refusal is recoverable from the UI', () => {
   it('CONTROL: the mirror panel shows no terms alert on an idle portrait', () => {
     wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />, chatValue(), mirrorValue({ portraitStatus: 'idle' }));
     expect(screen.queryByTestId('mirror-terms')).not.toBeInTheDocument();
+  });
+});
+
+
+describe('P1554 mirror polish', () => {
+  function providerHarness() {
+    const listeners = new Set<(e: ChatEvent) => void>();
+    mirrorSvc.getMirrorAvailability.mockResolvedValue(true);
+    mirrorSvc.getMirrorProfile.mockResolvedValue({ conversationId: MIRROR_ID, portraitUrl: null, credit: null, gender: null });
+    mirrorSvc.requestMirrorReply.mockResolvedValue('done');
+    mirrorSvc.listMirrorJobs.mockResolvedValue(new Map());
+    render(
+      <ChatContext.Provider value={chatValue({ subscribe: (l) => { listeners.add(l); return () => listeners.delete(l); } })}>
+        <MirrorProvider enabled><span /></MirrorProvider>
+      </ChatContext.Provider>,
+    );
+    return { fire: (e: ChatEvent) => act(() => listeners.forEach((l) => l(e))) };
+  }
+
+  it('AC1: a share with no text asks for no reply; a share with a line of text does', async () => {
+    const { fire } = providerHarness();
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'share-1', body: null, attachmentKind: 'point', attachmentId: 'pt-1' }) } });
+    fire({ type: 'sent', message: msg({ id: 'share-2', body: '  ', attachmentKind: 'story', attachmentId: 'st-1' }) });
+    await act(async () => undefined);
+    expect(mirrorSvc.requestMirrorReply).not.toHaveBeenCalled();
+    fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'share-3', body: 'what do you make of this?', attachmentKind: 'point', attachmentId: 'pt-1' }) } });
+    await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('share-3'));
+    expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
+  });
+
+  it('AC1 (server): the new migration makes no job for a blank-text attachment and keeps the grants', () => {
+    const sql = readFileSync(resolve(__dirname, '../../supabase/migrations/20261023160000_p1554_mirror_quiet_shares.sql'), 'utf8');
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.mirror_request_reply(p_message uuid)');
+    expect(sql).toMatch(/v_msg\.attachment_id IS NOT NULL AND btrim\(coalesce\(v_msg\.body, ''\)\) = ''\s+THEN\s+RETURN;/);
+    expect(sql.indexOf('RETURN;')).toBeLessThan(sql.indexOf('INSERT INTO public.mirror_jobs'));
+    expect(sql).toContain('SECURITY DEFINER');
+    expect(sql).toContain("SET search_path = ''");
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.mirror_request_reply(uuid) FROM PUBLIC, anon, authenticated;');
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.mirror_request_reply(uuid) TO authenticated;');
+  });
+
+  it('AC2: no mirror answer shows "You decide what fits."', () => {
+    wrap(row(msg({ id: 'agent-2', kind: 'agent', authorId: null, body: 'Maybe.' })));
+    expect(screen.queryByText(/You decide what fits/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mirror-reading')).not.toBeInTheDocument();
+  });
+
+  it('AC3: the quote is hidden when the answer follows the message it answers, shown for an older one', async () => {
+    const answer = msg({ id: 'agent-3', kind: 'agent', authorId: null, body: 'A reading.', replyToId: 'msg-1' });
+    const asked = msg({ id: 'msg-1' });
+    const withPrev = (prev?: string) => (
+      <ul><MessageRow msg={answer} mine={false} viewerId={ME} author={undefined} authors={{}} compact={false} prevMessageId={prev} highlight={false} actions={{ ...actions, getLoaded: (id) => (id === 'msg-1' ? asked : undefined) }} /></ul>
+    );
+    const view = wrap(withPrev('msg-1'));
+    expect(screen.queryByTestId('reply-quote')).not.toBeInTheDocument();
+    view.unmount();
+    wrap(withPrev('msg-2'));
+    expect(await screen.findByTestId('reply-quote')).toBeInTheDocument();
+  });
+
+  it('AC3 control: an ordinary (non-agent) reply keeps its quote even when the target is directly above', async () => {
+    const reply = msg({ id: 'own-2', replyToId: 'msg-1' });
+    wrap(<ul><MessageRow msg={reply} mine viewerId={ME} author={undefined} authors={{}} compact={false} prevMessageId="msg-1" highlight={false} actions={{ ...actions, getLoaded: () => msg({ id: 'msg-1' }) }} /></ul>);
+    expect(await screen.findByTestId('reply-quote')).toBeInTheDocument();
+  });
+
+  it('AC4: editing an earlier own mirror message (an UPDATE) asks for no new reply', async () => {
+    const { fire } = providerHarness();
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    fire({ type: 'message', event: { type: 'UPDATE', message: msg({ id: 'old-1', body: 'edited', editedAt: new Date().toISOString() }) } });
+    await act(async () => undefined);
+    expect(mirrorSvc.requestMirrorReply).not.toHaveBeenCalled();
+  });
+
+  it('AC6: the three-dots menu has no Rename for the mirror; the About window has Rename and New portrait, centered', () => {
+    const actionsH: HeaderActions = { onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn(), onMirrorInfo: vi.fn() };
+    render(<MemoryRouter><ConversationHeader chat={mirrorChat} blocked={false} actions={actionsH} /></MemoryRouter>);
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    const menu = screen.getByRole('menu');
+    expect(within(menu).queryByRole('menuitem', { name: 'Rename' })).not.toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'About Mira' })).toBeInTheDocument(); // CONTROL: the menu did open
+  });
+
+  it('AC6: the About window keeps Rename and New portrait, centered, and never says "face"', () => {
+    wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />);
+    const panel = screen.getByTestId('mirror-info');
+    const rename = within(panel).getByRole('button', { name: 'Rename' });
+    expect(within(panel).getByRole('button', { name: 'New portrait' })).toBeInTheDocument();
+    expect(rename.parentElement!.className).toContain('sm:justify-center');
+    expect(rename.parentElement!.className).not.toContain('justify-end');
+    expect(panel).not.toHaveTextContent(/new face/i);
+  });
+
+  it('AC6: while painting, the overlay says "Painting a new portrait" and is square', () => {
+    wrap(<MirrorInfoDialog chat={mirrorChat} onRename={vi.fn()} onClose={vi.fn()} />, chatValue(), mirrorValue({ portraitStatus: 'painting' }));
+    const overlay = screen.getByRole('status', { name: 'Painting a new portrait' });
+    expect(overlay.className).toContain('rounded-sm');
+    expect(overlay.className).not.toContain('rounded-full');
+  });
+
+  it('AC7: the mirror avatar is square (disc and ring), not round', () => {
+    const { container } = render(<MirrorMark size="list" />);
+    const ring = container.firstElementChild as HTMLElement;
+    const disc = container.querySelector('[data-testid="mirror-disc"]') as HTMLElement;
+    for (const el of [ring, disc]) {
+      expect(el.className).toContain('rounded-sm');
+      expect(el.className).not.toContain('rounded-full');
+    }
+  });
+
+  it('AC7: the agent row wears the square mark in the message list', () => {
+    wrap(row(msg({ id: 'agent-4', kind: 'agent', authorId: null, body: 'Hi.' })));
+    expect(screen.getByTestId('mirror-disc').className).toContain('rounded-sm');
   });
 });

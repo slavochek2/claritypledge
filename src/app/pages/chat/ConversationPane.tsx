@@ -197,7 +197,16 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     summary.kind === 'dm'
       ? `No messages yet. Say hello${first ? ` to ${first}` : ''}.`
       : summary.kind === 'mirror'
-        ? 'Use Clarify on any message to send it here, or write to your mirror agent.'
+        ? (
+          <div className="flex flex-col items-center gap-3" data-testid="mirror-welcome">
+            <p>Use Clarify on any message to send it here. Sharing a point or story files it quietly; write a line about it and your mirror agent answers.</p>
+            {!summary.title && (
+              <Button variant="outline" className="min-h-10" data-testid="mirror-give-name" onClick={() => setRenaming(true)}>
+                Give me a name
+              </Button>
+            )}
+          </div>
+        )
         : 'No messages yet.';
 
   const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
