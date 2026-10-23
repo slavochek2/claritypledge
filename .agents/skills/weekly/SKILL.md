@@ -802,15 +802,15 @@ If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
 
 ---
 
-### 2.12.1 Token Usage (local Claude Code + Codex logs — near-zero model tokens)
+### 2.12.1 Token Usage (local Claude Code + Codex logs — near-zero model tokens, informational only; runs in background with 2.12/2.13)
 
 ```bash
-OUT=$(mktemp -d) && python3 scripts/token-usage-refresh.py "$OUT"
+python3 scripts/token-usage-refresh.py
 ```
 
-The script parses the local logs (no model tokens, incremental) and prints one summary line. Surface it in the Evidence Picture as `TOKENS:` and paste it as-is. If it errors: `TOKENS: skipped (script error)`.
+The script parses the local logs (no model tokens, incremental; the first run after a long gap can take a few minutes). It prints a `TOKENS:` line and a `Files:` line with the directory holding `token-usage-daily.json` and `quota.json`. The shell keeps no variables between calls, so read that printed path, never assume one. Paste the `TOKENS:` line into the Evidence Picture as-is. If the script errors: `TOKENS: skipped (script error: <last error line>)`, and do not retry the same call.
 
-Then refresh the dashboard page, following the recipe in `.private/docs/token-dashboard.md` (it holds the page link, so the link stays out of this public file). If that file is missing, report the summary line only. End the `TOKENS:` line with the dashboard link.
+Then refresh the dashboard page by the recipe in `.private/docs/token-dashboard.md` (it holds the page link, so the link stays out of this public file). The page is private to the founder, and the founder approved this standing weekly refresh on 2026-10-23, so it is the one outward write this otherwise read-only skill makes. End the `TOKENS:` line with the page link. If the recipe file is missing, append `(dashboard: skipped, recipe missing)`; if the recipe fails, append `(dashboard: refresh failed, <one line>)`. Token figures never feed ACTIONS.
 
 ---
 
@@ -911,6 +911,7 @@ STRATEGY:     [docs touched or "none"]
 SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
 ACTIVITY LOG: [N /status checks | WIP active >2 days: list or "none" | Recurring blockers: list or "none" | or "no log yet"]
 GCP SPEND:    [$XX/week, ~$XXX/mo | credits: ~$XX,XXX | flags: list or "none"]
+TOKENS:       [last full week's output tokens vs your 4-week median | weekly quota % | dashboard link — or "skipped"]
 PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
 CHRONIC:       [patterns appearing 2+ times — or "none"]
 PRODUCT PULSE: [what changed in lean-canvas/philosophy/README/CLAUDE.md — or "no changes (X weeks)"]
