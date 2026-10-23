@@ -249,3 +249,18 @@ P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1
 - **Visual review:** 5 of 5 reports (Opus critic once; Gemini 4 Argon twice per variant). Set aside: the New menu's private/public draft split (today's behaviour); card buttons ~34px (the shared production Details/Open class).
 - **Code review:** Gemini code review 1 of 2 runs delivered (second timed out, rerouted); Codex 2 of 2. Fixed: `?v=toString` crash; C2 sheet focus return; public-link respondents shown one row each with Results, as today.
 - **For the founder:** yellow breaks `.claude/rules/src.md` (needs an explicit exception); Prepare Letter moved behind "…"; inbox activity moved onto your sent letter's card; canvas delete; where the live-invite row lives; default tab.
+
+## Phase 2 record
+
+- **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.
+- **Reviews:**
+  - Spec: Codex 1 of 1, Gemini 4 Argon 1 of 1.
+  - Code: Codex 6 of 6 rounds, all real findings fixed except the open item below; Gemini 4 Argon 1 of 1, no findings.
+  - Visual on fixture screenshots: Gemini 4 Argon 2 of 2, Opus 1 of 1.
+- **Set aside, with reasons:**
+  - Menu wording and the private/public New items match today, which the founder asked to replicate.
+  - Draft Delete stays disabled with its reason, as today.
+  - Window-focus refresh: the page already polls every 15s and refreshes when the tab becomes visible.
+- **Open (known, not fixed):** after you open a canvas in this session, a later re-share of it is not marked unread until the page remounts (`artifacts-page.tsx` `opened` override; Codex round 6). Fix: drop the override once the server confirms the read.
+- **Not verified:** the TEST project was overloaded all afternoon (504/503, e2e gate exit 75). No e2e run and no signed-in real-data screenshots exist yet. 25+ e2e specs still drive the old /letters tab UI and need updating once TEST is healthy.
+- **Founder items:** + Canvas is hidden until P1536 builds canvas creation (label "New artifact" vs "New letter"?); shared rows have no "…" (add "Remove from my list"?); copy marked [FOUNDER DECISION] (share card line, empty states, "Loading more…", "Go to Letters" on the session-ended screen).
