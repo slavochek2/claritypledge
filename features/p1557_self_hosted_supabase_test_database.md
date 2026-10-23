@@ -45,154 +45,228 @@ running it by hand?
 
 ## Appetite
 
-**Blast radius:** high for development, none for users. Every session's testing moves to the new
-server. Production is not touched.
+**Blast radius:** high for development, none for users. Every session's testing, the migration
+tooling and the function-deploy tooling move to the new server. Production is not touched.
 
-**Reversibility:** high until the repoint, which is one env change plus the files that name the TEST
-ref. The hosted TEST project stays untouched and switchable-back throughout (P1538 kept its old env
-files backed up privately, the same pattern applies).
+**Reversibility:** high until the repoint. After the repoint, hosted TEST falls behind with every
+migration that reaches only the VM, so switching back needs the same catch-up P1538 did. The rollback
+is rehearsed before the repoint (Done-When).
 
-**Decision density:** a few founder calls, marked below.
+**Decision density:** two founder calls (below). Defaults are set, so the build does not wait on them.
+
+**Review history:** the first draft was reviewed by Gemini 4 Argon, Codex (gpt-6.1-sol, high) and
+Opus, 3 of 3 reports received on 2026-10-23. All three rejected it as written. Every load-bearing claim
+folded in below was re-checked by command (file and line cited where it lives in this repo).
 
 ## Solution
 
-1. **Server.** One Google Cloud VM running the official self-hosted Supabase Docker stack (Postgres,
-   auth, REST, realtime, storage, edge runtime, gateway). It lives in the same Google project as the
-   existing VMs, in the region nearest prod. `[FOUNDER DECISION: region. The default is Singapore,
-   the same as prod and Mira. Machine size: measured, not guessed. See Cost Budget.]`
-2. **Reachable over HTTPS on a hostname** so browser e2e, auth redirects and edge-function calls work
-   from the Mac and from worktree dev servers. Studio and Postgres are never exposed publicly.
-   `[FOUNDER DECISION: hostname]`
-3. **Schema and config parity with the hosted TEST project.** Apply the repo's migrations. Load the
-   auth settings, email templates and redirect list. Deploy every edge function with its
-   `verify_jwt` setting and secrets. Where self-hosted cannot match the hosted platform, list the gap.
-   Never paper over it.
-4. **Test-only identity.** Every guard that decides "this is TEST, not prod" recognises the new
-   server and nothing else new. That covers the URL check the e2e runner uses and the JWT-claim check
-   in the e2e purge function (`_e2e_purge_allowed`, which today matches project refs). Prod must
-   still be refused everywhere.
-5. **Prove, then repoint.** Run the suites against the new server **in parallel** with the hosted
-   TEST project, without switching anything. Repoint only after the founder approves the proof.
-6. **Recipe.** Once proven, the server gets a recipe in the pp recipe system (`scripts/recipes/`,
-   proof snapshot plus weekly drift check), the same pattern as Linked Helper and Mira. That covers
-   rebuild-from-zero steps, inputs, and what is restore-only.
-7. **Maintenance.** Daily: /day's existing TEST health check (`cp.testdb`) reads the new URL, plus
-   disk and container health. Weekly: drift against the proven recipe, plus whether the Supabase
-   images are behind. Patching: a documented update procedure (pull pinned image versions, re-prove
-   with a canary subset) that an agent can run and the founder never has to. Backups: test data is
-   disposable, so the recipe must rebuild the server from zero. A disk snapshot schedule is
-   optional. `[FOUNDER DECISION: snapshot yes/no. Small cost on credits.]`
+Three phases. Phase 1 and 2 run overnight on a branch, in parallel with hosted TEST, and change
+nothing any other session uses. Phase 3 follows the founder's approval.
+
+### Phase 1: Build the server (nothing repointed)
+
+1. **VM.** One Google Cloud VM in Singapore (same region as prod and Mira), in the existing Google
+   project, with a **dedicated service account that has no roles**. Start at 4 vCPU / 16 GB and an
+   SSD-backed disk. Supabase's Docker guidance recommends at least 4 cores / 8 GB, and the stack runs
+   about a dozen containers next to Postgres. Measure under load before downsizing. Region default:
+   Singapore. `[FOUNDER DECISION: region, if not Singapore]`
+2. **Stack.** The official Supabase Docker stack at a **pinned release**. Logflare/analytics and vector
+   are dropped. Logs go to Docker's rotating json-file driver with a size cap.
+3. **Front door.** A deny-by-default reverse proxy (Caddy) terminates HTTPS. It allows only
+   `/rest/v1/`, `/auth/v1/`, `/realtime/v1/`, `/storage/v1/` and `/functions/v1/`. Studio (`/`),
+   `/pg/` and every admin path are refused at the proxy, whatever their own auth says. Kong,
+   Postgres and the pooler bind to localhost only. The GCP firewall allows 80/443 only, and
+   administration goes over IAP SSH. Hostname default: `<vm-ip>.sslip.io`, which gives a real
+   Let's Encrypt certificate with no DNS change. `[FOUNDER DECISION: hostname, if a claritypledge.com
+   subdomain is wanted instead]`
+4. **Keys.** New JWT secret. Anon and service-role keys are minted with a **unique synthetic `ref`
+   claim** for this server (never a hosted ref, never empty). Every secret is generated fresh: none
+   from the upstream `.env.example`, and none copied from any hosted project.
+5. **Schema and data: the P1538 restore, not a migration replay.** The migration chain cannot build
+   from empty (decisions.md 2026-08-20 P1132; 2026-10-21 P1538, three duplicate version keys). Restore
+   a private schema-only dump of hosted TEST, using the documented P1538 procedure: grant reset and
+   replay, then objects outside `public` (storage buckets and policies, cron jobs, vault secrets,
+   realtime publication, the `auth.users` trigger). Then record migration history so the next normal
+   migration applies exactly once. The dump stays private and is never committed.
+6. **Platform config.** GoTrue env: site URL, redirect list including worktree ports, email
+   templates, SMTP, Google OAuth. `API_EXTERNAL_URL` and the functions' `SUPABASE_URL` resolve to the
+   public HTTPS origin, so `getPublicUrl()` returns a browser-usable address. Today the stack's default
+   returns `http://api-gw:8000/...` (Codex executed the SDK against it; 4 call sites in
+   `supabase/functions`). Vault secrets point their URLs at this server, not at a hosted ref.
+7. **Edge functions with per-function JWT policy.** The default Docker router has one global
+   `VERIFY_JWT`. The repo deploys `create-and-sign` and `event-email-link` without JWT verification and
+   the other 19 with it (`scripts/deploy-functions.sh:141-148`). The router must enforce exactly that
+   split. Turning verification off globally is not parity.
+
+### Phase 2: Make the tooling target it, then prove it (on the branch, nothing repointed)
+
+8. **Test identity guards become an exact allowlist of origins, not a widened rule.** Every place
+   that decides "this is TEST" accepts the hosted TEST origin(s) and this server's exact HTTPS origin.
+   It rejects other schemes, ports, embedded credentials and suffixes. The places: `isTestProjectUrl`
+   (`e2e/helpers/e2e-namespace.ts:22`), which also gates the P1541 one-run lock
+   (`playwright.config.ts:49`), the user pool and global teardown (`e2e/global-teardown.ts:20`). Also
+   the copied origin checks in `p1515`, `p1491`, `seed-p1508-canvas*.mjs` and `video-summary.mjs`
+   (substring check). **If the lock does not recognise the new server it silently switches off. That
+   is the overload that started this.**
+9. **Purge guard.** `_e2e_purge_allowed` adds the synthetic `ref` to its exact list in a new
+   migration. Prod cannot sign that claim, because only this server's secret can. Nothing that
+   accepts a missing ref, any non-prod ref, or a header.
+10. **Tooling has a self-hosted path, with no silent fallback to hosted.** That covers `migrate.sh` (it
+    calls the Management API at 5 points and `supabase db push` against the linked project), function
+    deploy, the secrets check, and `supabase-readonly-sql.py`. It also covers the 5 integration
+    specs that run SQL through `api.supabase.com` (p1491, p1515, p1222, p506, p520). For those,
+    use a direct database connection over the IAP tunnel, or a service-role SQL function that exists
+    only on this server.
+11. **Proof.** Run per test, one worker, on hosted TEST (when it is up) and on the new server, and
+    compare **pass, fail and skip** per test. A test that runs on hosted and skips on the new server
+    counts as a failure (p1222:383 and p506 skip when the Management API is absent). Before running,
+    declare the capabilities that must work: email sign-in and link consumption, Google sign-in
+    callback, a realtime change event plus refusal of an unauthorised subscription, storage bytes and
+    signed URLs, a cron tick that fires `pg_net` into a function with the expected effect, and vault
+    read across a restart.
+12. **Load proof, the failure that started this.** A full e2e run at 3 workers, plus 5 DDL
+    migrations applied one after another mid-run, plus a second concurrent session. A latency
+    probe (`check-test-db-latency.sh` style) runs every 10 s throughout. **Pass:** zero REST/auth 5xx,
+    p50 under 2 s, schema reload completing every time. CPU, memory, disk I/O and connections are
+    recorded. The baseline comes from the 2026-10-22/23 records. Hosted TEST is never deliberately
+    loaded to recreate it.
+13. **Security proof from outside.** Over public HTTPS, by hostname **and** by raw IP:
+    - Studio `/`, `/pg/`, Postgres and the pooler are refused.
+    - Every function except the two open ones refuses a request with no token, a bad token or an
+      expired token.
+    - A service-role key minted with a prod-style ref, an empty ref or an unknown ref is refused
+      by the purge guard.
+
+### Phase 3: Repoint, recipe and upkeep (after founder approval)
+
+14. **Repoint.** Env files, keychain, `.mcp.json`/`.codex/config.toml` (decide what agents use for
+    TEST reads, since the hosted MCP cannot reach self-hosted). Also the auth canary
+    workflow, `check-test-db-latency.sh`, and `vercel.json` CSP if previews must reach TEST
+    (`vercel.json:248` allows hosted Supabase domains only). Rules files change only through
+    `/slava:maintain:claude-md`. Hosted TEST stays alive but idle.
+15. **Recipe** in the pp recipe system (`scripts/recipes/`): rebuild from durable inputs, pinned
+    image versions, what is restore-only (the private dump, secrets), and a proof snapshot plus the
+    weekly drift check, as for Linked Helper and Mira.
+16. **Upkeep.**
+    - **Daily (/day):** `cp.testdb` reads this server. It also checks disk and WAL use (warn over
+      75%), container health and certificate expiry.
+    - **Weekly:** recipe drift, upstream images behind the pin, OS security updates.
+    - **Updates:** pull the next pinned release on a disposable clone first, run the proof subset,
+      then apply. Never downgrade an image across a data-format change. An agent runs this; the
+      founder never has to.
+    - **No disk snapshots:** test data is disposable and the recipe rebuilds from zero. The private
+      dump and secrets are kept off the VM.
 
 ## Invariants
 
-- **Production is never touched.** No prod data, no prod keys and no prod secrets ever reach this
-  server. Nothing in this work changes the prod project, its organisation or its plan.
-- **Every TEST/prod guard still refuses prod.** Widening a guard to accept the new server must not
-  widen it to anything else. Prove it with a control: the prod URL and prod-style claims are still
-  refused.
-- **The hosted TEST project keeps working until the founder approves the repoint.** Building in
-  parallel means no session's testing changes before that.
-- **Nothing is installed on the founder's Mac** without asking. Installing Docker and Supabase on
-  the new VM was approved by the founder on 2026-10-23.
+- **Production is never touched.** No prod data, keys or secrets reach this server. Nothing here
+  changes the prod project, its organisation or its plan.
+- **Positive identity only.** A guard admits TEST by an exact origin or an exact synthetic ref that
+  only this server's secret can sign. It never admits by absence, by "not prod", or by a
+  caller-controlled value.
+- **The one-run lock and teardown must recognise every TEST target.** A guard that returns "not TEST"
+  for a real TEST server turns off the lock and the cleanup without any error.
+- **No silent hosted fallback** in migrate, deploy or SQL tooling. A self-hosted call that fails
+  must fail, not quietly hit hosted TEST.
+- **Nothing changes for other sessions before the repoint.** Phases 1 and 2 live on the branch and
+  the VM.
+- **Nothing installed on the founder's Mac** without asking. Installing Docker and Supabase on the
+  new VM was approved by the founder on 2026-10-23.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Self-hosted behaves differently from hosted (edge runtime, auth config, realtime, platform-only extensions in 12 migrations) | MITIGATE | Parity checklist in step 3. Any suite that passes on hosted and fails on self-hosted is listed with its cause before the repoint decision |
-| The guards that recognise TEST by project ref (`_e2e_purge_allowed`, `isTestProjectUrl`, 35 tracked files naming the ref) fail closed or, worse, open | MITIGATE | Invariant 2, plus a control against prod. Change only the guards the suites need |
-| A public HTTPS endpoint exposes a database API | MITIGATE | Only the gateway is public. Studio and Postgres stay bound to the VM or reachable over IAP. Self-generated keys, never reused from any hosted project. The service-role key lives where the current TEST service-role key lives |
-| The repo's 464 migrations do not apply cleanly to an empty database | MITIGATE | First build step. If they don't, restore a schema dump of hosted TEST instead, and record why |
-| The VM itself becomes the next single point of failure | ACCEPT | The hosted TEST project remains the fallback until it is retired by a separate founder decision |
-| Credits run out or expire | DEFER | The amount and expiry are kept private. Read them before sizing. If credits cannot cover the VM, stop and report before repointing |
-| Login with Google on TEST (auth canary) needs OAuth client config | MITIGATE | Part of the parity checklist. If it can't be done, the canary stays on hosted TEST and that is recorded |
+| A restore looks clean while permissions are wrong (P1538: green restore, 299 wrong ACLs) | MITIGATE | Catalog comparison of owners, ACLs, default privileges, RLS policies and security-definer functions, plus behavioural checks as anon, owner, unrelated user and service role |
+| A capability works on hosted and silently not on self-hosted (realtime falls back to polling, cron no-ops on missing vault config) | MITIGATE | Declared capability list in step 11, each proven by its effect, not by a green suite |
+| Public endpoint abused: signup floods, function cost, storage uploads | MITIGATE | GoTrue and proxy rate limits, request-size limits, connection caps. TEST-specific SMTP and AI keys, never prod ones. VM service account without roles |
+| The VM becomes a single point of failure | ACCEPT | Recipe rebuild plus idle hosted TEST. Daily check catches an outage the next morning at worst; sessions notice sooner |
+| Credits do not cover the VM or expire mid-way | MITIGATE | Full monthly cost (VM, disk, IP, egress) plus runway across every consumer of the same credits, written privately before the repoint. A billing budget only alerts and does not cap, so the stop is a /day check on runway |
+| Google sign-in needs the new callback added in the Google console | ACCEPT | If only the founder can add it, that capability waits for the morning and is reported as waiting, not failed |
+| Self-hosted Supabase upgrades break data between releases | MITIGATE | Pinned release; upgrades on a disposable clone first |
 
 **Non-Goals**
-- Do NOT move production off hosted Supabase. That is a separate decision, not this spec.
+- Do NOT move production off hosted Supabase.
 - Do NOT upgrade, pause, downgrade or delete any Supabase project or organisation (P1530 owns that).
-- Do NOT change app code to suit self-hosting. A difference that needs app changes is a finding,
-  not a fix.
-- Do NOT retire the hosted TEST project in this spec.
+- Do NOT repair the from-zero migration replay (P1132 owns that).
+- Do NOT change app code (`src/`) to suit self-hosting. Test tooling, guards and edge-function
+  deployment are in scope. A difference that needs `src/` changes is a finding for the founder.
+- Do NOT retire hosted TEST.
 
 ## Cost Budget
 
-Compute Engine is a new metered service. Its row is added to the registry in
-`docs/technical/metered-services.md` in the same change, with prices read from the pricing page on
-the day, not from memory.
+Compute Engine is a new metered service. Its row is added to `docs/technical/metered-services.md` in
+the same change, with prices read from the pricing page on the day.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | n/a (no users) | n/a | unchanged from today: same suites, different host |
-| Egress (bytes) | n/a | Mac ↔ VM test traffic: measure one full run, then `bytes per run x runs per day` | measured on the first full run |
-| Log lines | n/a | container logs on the VM disk, rotated | n/a |
-| Service unit: VM hours × registry price | n/a | `1 VM x 730 h/month x hourly price for the chosen type` (filled in at sizing) | n/a |
+| Requests | n/a | n/a | same suites as today, different host |
+| Egress (bytes) | n/a | measured | `bytes per full run` measured on the first full run, x runs per day |
+| Log lines | n/a | container logs, capped by the json-file size limit | n/a |
+| VM + disk + IP | n/a | `(VM hourly + disk/730 + IP hourly) x 730 = monthly` for the chosen type | n/a |
 
-1. **Fits the limit today?** Paid from credits. The arithmetic against the remaining credit is kept
-   private (`.private/docs/usage/`).
-2. **Fits at 10x?** More sessions means a bigger machine type. That is a resize, not a redesign.
-3. **Out of pocket:** €0 while credits last. This must be true for the repoint to happen.
+1. **Fits today?** Paid from credits. The arithmetic and runway are kept private
+   (`.private/docs/usage/`).
+2. **At 10x:** a bigger machine first, then measurement. Contention may not scale with size.
+3. **Out of pocket:** €0 while credits cover it. Required for the repoint.
 
 ## Pre-deploy Checklist
 
-- [ ] New JWT secret, anon key and service-role key generated on the VM. The anon and service-role
-      keys are stored where the current TEST keys live (`.env.local` / keychain per
-      `docs/technical/credential-keyring.md`), and that map is updated.
-- [ ] Edge function secrets for TEST copied to the self-hosted edge runtime (names only in any
-      public file).
-- [ ] Postgres and dashboard passwords set and stored privately.
+- [ ] JWT secret and anon/service-role keys (with the synthetic ref) generated on the VM. Stored
+      where the current TEST keys live, per `docs/technical/credential-keyring.md`, and that map
+      updated.
+- [ ] Postgres, dashboard and SMTP passwords generated and stored privately.
+- [ ] TEST edge-function secrets set on the self-hosted runtime (names only in any public file).
+- [ ] Google OAuth client allows `https://<host>/auth/v1/callback`.
 
 ## Done-When
 
-- [ ] The VM serves Supabase over HTTPS at the chosen hostname. Studio and Postgres are not
-      reachable from the public internet: an outside probe is refused.
-- [ ] Every repo migration (or a documented schema restore) is applied. A schema diff against hosted
-      TEST shows no unexplained difference.
-- [ ] Every edge function is deployed and answers a health call.
-- [ ] The integration suites and a named e2e set pass against the new server, with the same results
-      as hosted TEST. Every difference is listed with its cause.
-- [ ] **Load proof:** a migration applied while a full e2e run is going does not take the API down.
-      This is the failure that started this, reproduced on hosted TEST on 2026-10-22/23.
-- [ ] Guard control: prod URL and prod claims are still refused by every widened guard. Pasted
-      output.
-- [ ] /day `cp.testdb` reads the new server (after the repoint) and flags it when it is down.
-      Proven by stopping the gateway once.
-- [ ] Recipe written and proven in the pp recipe system: rebuild from zero, inputs, a weekly drift
-      check, and an update procedure an agent can run.
-- [ ] Cost: registry row added, VM cost per month written privately, credits confirmed to cover it.
-- [ ] Founder approves the repoint. After it, no tracked file names the hosted TEST ref as the
-      active test target (history excepted).
+- [ ] Outside probe over hostname and raw IP: Studio, `/pg/`, Postgres and the pooler are refused.
+      Pasted output.
+- [ ] Restore done; catalog comparison of ACLs, owners, default privileges, RLS and security-definer
+      functions against hosted TEST shows no unexplained difference.
+- [ ] `migrate.sh --only <file>` applies one new migration to the new server exactly once and
+      records it. Prod targeting is unchanged (dry-run shown).
+- [ ] Function deploy works against the new server. The two open functions accept an unauthenticated
+      call, the other 19 refuse missing, bad and expired tokens.
+- [ ] Every declared capability in step 11 is proven by its effect.
+- [ ] Per-test comparison table (pass/fail/skip, hosted vs new). Every difference is resolved or
+      listed for the founder with its cause.
+- [ ] Load proof in step 12 passes, with probe output and resource numbers.
+- [ ] Guard controls: prod origin, http scheme, extra port, suffix, empty ref, unknown ref and
+      prod-style ref are each refused. The one-run lock engages against the new server.
+- [ ] Monthly cost and credit runway written privately; registry row added.
+- [ ] Rollback rehearsed once: env back to hosted TEST, one suite green, then forward again.
+- [ ] Founder approves the repoint. `[post-deploy]` after it, /day `cp.testdb` reads the new server
+      and flags it when it is down (proven by stopping the proxy once), and no tracked file names
+      hosted TEST as the active target.
+- [ ] Recipe proven in the pp recipe system, with the upkeep steps in step 16 wired into /day and the
+      weekly routine.
 
 ## Alternatives Considered
 
-- **Upgrade the hosted TEST organisation to paid and enlarge its compute.** Rejected by the founder:
-  a new out-of-pocket subscription for a test database.
-- **Move TEST back into the paid production organisation.** Rejected: test and prod would share
-  usage limits again, and test traffic caused most of the earlier over-limit usage (P1530).
-- **Point testing back at the old hosted TEST project.** Rejected: it has had no migrations since
-  2026-10-21 and is the same compute size.
-- **Move production off Supabase.** Out of scope. It is weeks of work, and today's outage was
-  capacity, not Supabase.
+- **Upgrade the hosted TEST organisation and enlarge compute.** Rejected by the founder: a new
+  out-of-pocket subscription for a test database.
+- **Move TEST back into the paid prod organisation.** Rejected: shared usage limits with prod, and
+  test traffic caused most of the earlier over-limit usage (P1530).
+- **Point testing back at the old hosted TEST project.** Rejected: no migrations since 2026-10-21,
+  same compute size.
+- **Replay all migrations from empty.** Rejected: known to fail (P1132, P1538).
+- **Move production off Supabase.** Out of scope: weeks of work, and the outage was capacity.
 
 ## Rollback Strategy
 
-Until the repoint, there is nothing to roll back. After it, restore the backed-up env files and
-revert the repoint commit. The hosted TEST project is unchanged and takes traffic again.
-
-## Open Questions
-
-1. Do Supabase's self-hosted images include every extension the migrations use (`pg_net`, vault,
-   `pg_cron`)? Unverified.
-2. How was hosted TEST's schema built in P1538: migrations from zero, or a dump? Unverified. It
-   decides step 3.
-3. Does any test depend on hosted-only features (platform logs, management API, project-ref
-   claims)? A grep at build start answers it.
+Before the repoint, there is nothing to roll back; the VM can be deleted. After it, restore the
+backed-up env files and revert the repoint commit. Any migration that reached only the VM is then
+applied to hosted TEST once, with `migrate.sh`, before suites run there. This is rehearsed before the
+repoint.
 
 ## Related
 
 - [P1546](../docs/decisions.md): 2026-10-22, the test project falls over on schema reload
-- [P1538](done/2026-06-10/p1538_rebuild_test_project_in_own_org.md): the TEST project in its own
-  organisation
-- [P1541](done/2026-06-10/p1541_test_db_capacity_guard_for_concurrent_e2e.md): e2e capacity lock
-- [P1532](p1550_p1532_full_e2e_run_user_count_proof.md): e2e user purge guard (by project ref)
+- [P1538](done/2026-06-10/p1538_rebuild_test_project_in_own_org.md): TEST rebuilt from a private dump
+- [P1541](done/2026-06-10/p1541_test_db_capacity_guard_for_concurrent_e2e.md): e2e one-run lock
+- [P1550](p1550_p1532_full_e2e_run_user_count_proof.md): e2e purge guard by project ref (P1532)
 - [P1530](p1530_supabase_log_ingestion_and_egress_before_restriction.md): Supabase org plan and quota
+- P1132: the migration chain does not build from empty
 - P1524 / P1525: /day TEST latency check and usage reader
