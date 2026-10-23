@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-22
+Last updated: 2026-10-23
 
 ---
 
@@ -437,6 +437,7 @@ Last updated: 2026-10-22
 - **P1525** (Oct 21) /day reads Supabase free-plan usage via Chrome — the public API has no org-usage endpoint; a grace banner is a problem even under threshold.
 - **P1514** (Oct 20) Retire the long spec pipeline — ten skills archived on 0-use evidence (90-day transcript search, control-checked); the build agent never stamped `dev` in `pipeline_ran`, so gate 2.5 caught it at ship and it was stamped by hand; review fixes needed the main session for rules files (subagents cannot edit `.claude/rules/`)
 - **P1523** (Oct 21) e2e cleanup stranded users whose stories sit in a sealed letter; a filtered log hid that the purge deleted 0
+- **P1532** (Oct 23) E2E cleanup in one request per 50 users, guarded to the test project; learning blockers by provoking failed deletes was the cost multiplier
 - **P1522** (Oct 21) Cut Supabase egress: the 'polling' was the offline pack's burst; e2e cleanup derives FK blockers from the error
 - **P1507** (Oct 16) Sensitive specs archived privately, never published — archive-spec replaces publish-spec; the backup job proves the copy, never runs repo code
 - **P1505** (Oct 16) End-of-build review gate — trigger at "done" in the Stop hook, not skill pointers: 76-80% of review asks were ad-hoc

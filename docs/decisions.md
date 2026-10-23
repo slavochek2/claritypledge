@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [technical]: E2E test users are deleted server-side in batches of 50, guarded to the test project only (P1532)
+
+**Context:** e2e cleanup learned each foreign-key blocker by sending a delete it expected to fail: about 7 requests and one 409 error per user, multiplied across thousands of users and a sweeper with no limit. On the free plan that spends the shared request quota.
+**Decision:** One server-side function deletes up to 50 e2e-namespace users per request, finding blockers from the catalog instead of provoking errors. It refuses unless the caller's JWT carries the test project ref and the service role, so it cannot run on prod. The guard accepts both the current and the previous test ref until the old project is paused. Each run records the users it created in a ledger and purges only those at teardown; workers reuse pooled users; the sweeper is bounded with no flags (limit, time budget, stop after 3 consecutive 5xx); the offline pack resumes where a hidden tab cut it instead of restarting.
+**Alternatives rejected:** keeping per-user client deletes with a fixed pre-clean list (it misses blockers nobody listed); an unbounded sweeper (it took the test project down at 17,500 leftovers).
+**Consequences:** deleting 100 users costs 3 requests with 0 errors (measured on test). A full e2e run at 3 workers held the shared test project at 97-99% CPU, so a full-run proof is deferred to P1550 and runs at one worker while TEST is shared. When the old test project is paused, drop its ref from the guard.
+**References:** [p1532 spec](../features/done/2026-06-10/p1532_e2e_cleanup_and_offline_pack_request_amplification.md) · P1550 · decisions.md 2026-10-21 (P1523)
+
+---
+
 ## 2026-10-22 [technical]: Offline is confirmed, not inferred from one failed request (P1540)
 
 **Context:** The offline banner flapped offline/online, including during magic-link sign-in. One thrown fetch flipped the whole app offline. The trigger was a VPN tunnel dropping individual requests while the network was fine.
