@@ -279,12 +279,16 @@ def main(out_dir):
     write_json(os.path.join(out_dir, 'token-usage-daily.json'), rows)
     # The tokens block is the optional part: whatever goes wrong reducing it (or reading the Gemini log) must
     # not cost quota.json or the TOKENS line, so it degrades to {collected:false} and the run goes on.
+    # The write is inside the guard too: a block file that cannot be written is the same non-event.
     try:
-        block = reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date(), parse_gemini_calls())
+        write_json(os.path.join(out_dir, 'tokens-block.json'),
+                   reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date(), parse_gemini_calls()))
     except Exception as e:
-        block = {'collected': False}
-        print('TOKENS block not built: %s: %s' % (type(e).__name__, str(e)[:200]), file=sys.stderr)
-    write_json(os.path.join(out_dir, 'tokens-block.json'), block)
+        print('TOKENS block not written: %s: %s' % (type(e).__name__, str(e)[:200]), file=sys.stderr)
+        try:
+            write_json(os.path.join(out_dir, 'tokens-block.json'), {'collected': False})
+        except Exception:
+            pass  # nothing more to do: the wrapper treats a block that is not fresh as not collected
 
     quota = []
     try:

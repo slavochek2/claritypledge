@@ -4,7 +4,7 @@
 // marker shows a reset. The chart measures its card, so it fills the width with true-size text.
 
 import { useLayoutEffect, useRef, useState } from 'react'
-import { fittingLabels, visibleStacks } from './tokens'
+import { clampX, fittingLabels, visibleStacks } from './tokens'
 import { groupResets, projectQuota, QUOTA_COLOURS, resetGroupLabel, WEEK_MS, type QuotaLine } from './quota'
 
 export interface Series {
@@ -208,7 +208,7 @@ export function StackedBars({ stacks, fmt, label, usualLabel }: { stacks: Stack[
                 )
               })}
               {totalShown[i] && (
-                <text x={cx(i)} y={Y(Math.max(s.total, s.usual ?? 0)) - (s.usual != null && s.usual >= s.total ? 9 : 5)} textAnchor="middle" fontSize="10" fontWeight="600" fill="#475569" data-bar-total>{fmt(s.total)}</text>
+                <text x={clampX(cx(i), fmt(s.total).length * 5.8 + 2, W)} y={Y(Math.max(s.total, s.usual ?? 0)) - (s.usual != null && s.usual >= s.total ? 9 : 5)} textAnchor="middle" fontSize="10" fontWeight="600" fill="#475569" data-bar-total>{fmt(s.total)}</text>
               )}
               {s.usual != null && (
                 <g data-usual={s.label}>
@@ -218,7 +218,7 @@ export function StackedBars({ stacks, fmt, label, usualLabel }: { stacks: Stack[
                 </g>
               )}
               {labelShown[i] && (
-                <text x={cx(i)} y={height - 8} textAnchor="middle" fontSize="13" fill="#64748b">{s.label}</text>
+                <text x={clampX(cx(i), s.label.length * 7 + 10, W)} y={height - 8} textAnchor="middle" fontSize="13" fill="#64748b">{s.label}</text>
               )}
             </g>
           )

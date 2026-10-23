@@ -189,5 +189,17 @@ with tempfile.TemporaryDirectory() as h:
     check('forced reduce failure: the daily file is still written', os.path.exists(out_dir + '/token-usage-daily.json'), '')
     check('forced reduce failure: the reason is reported on stderr', 'forced' in p.stderr, p.stderr[-200:])
 
+# 6. P1552 re-review: the block file itself cannot be written (a directory sits on its path)
+with tempfile.TemporaryDirectory() as h:
+    write(h + '/.claude/projects/-Users-x-Projects-public-demo/s1.jsonl', [claude_line('m1', 'r1', 5)])
+    write(h + '/.claude/.quota-cache.json', [json.dumps({'five_hour_pct': 10, 'seven_day_pct': 20})])
+    out_dir = os.path.join(h, '.claude', '.token-usage-out')
+    os.makedirs(os.path.join(out_dir, 'tokens-block.json'))  # occupied by a directory
+    rc, out = run(h)
+    check('unwritable block path: the run exits 0', rc == 0, out[-300:])
+    check('unwritable block path: quota.json is still written', os.path.exists(out_dir + '/quota.json'), '')
+    check('unwritable block path: the TOKENS line and Files line are still printed', 'TOKENS:' in out and 'Files:' in out, out[-200:])
+    check('unwritable block path: the reason is reported', 'TOKENS block not written' in out, out[-300:])
+
 print('\n%d failed' % len(failures) if failures else '\nall passed')
 sys.exit(1 if failures else 0)

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { parseReport, type DayReport, type DayTokens } from '../../src/lib/day'
 import { TokenUsage } from '../../src/components/day/TokenUsage'
 import { MonitoringTab } from '../../src/components/day/MonitoringTab'
-import { allocatePercent, FAMILY_COLOUR, fittingLabels, fmtTokens, visibleStacks, TOOL_COLOUR, tokenReadings, tokensEmpty } from '../../src/components/day/tokens'
+import { allocatePercent, clampX, FAMILY_COLOUR, fittingLabels, fmtTokens, visibleStacks, TOOL_COLOUR, tokenReadings, tokensEmpty } from '../../src/components/day/tokens'
 import { synthReport } from './fixtures/day-fixture'
 import { SYNTH_TOKENS } from './fixtures/day-tokens'
 
@@ -326,6 +326,29 @@ describe('P1552 pane render', () => {
     const legend = html(t).split('class="d-legend"')[1].split('</div>')[0]
     const names = [...legend.matchAll(/<\/i>([A-Za-z]+)</g)].map((m) => m[1])
     expect(names).toEqual(['Opus', 'Sonnet', 'Haiku', 'Fable', 'Other', 'Codex'])
+  })
+  it('caption: the current % is the one the key shows (largest remainder), not a separately rounded one', () => {
+    const wk = (p: string, o: Record<string, number>) => ({ p, output: o, days: { claude: 1 } })
+    const t: DayTokens = { ...SYNTH_TOKENS, weeks: [wk('2026-09-14', { Sonnet: 50, Codex: 50 }), wk('2026-09-21', { Sonnet: 50, Codex: 50 }), wk('2026-09-28', { Sonnet: 50, Codex: 50 }), wk('2026-10-05', { Opus: 100, Sonnet: 100, Codex: 100 })] }
+    const r = tokenReadings(t, 'week')
+    expect(r.shares.find((s) => s.family === 'Opus')?.pct).toBe(34)
+    expect(r.mover).toEqual({ family: 'Opus', from: 0, to: 34 })
+    const h = renderToStaticMarkup(TokenUsage({ tokens: t, per: 'week' }))
+    expect(h).toContain('Opus 34%')
+    expect(h).toContain('Opus 0% → 34%')
+    expect(h).not.toContain('→ 33%</span>') // the caption never contradicts the key's Opus 34%
+  })
+  it('clampX keeps a label inside the SVG at the right and left edges', () => {
+    expect(clampX(300, 50, 320)).toBe(294) // would end at 325: slides left
+    expect(clampX(10, 50, 320)).toBe(26) // would start at -15: slides right
+    expect(clampX(150, 50, 320)).toBe(150) // fits: untouched
+  })
+  it('the last x label and the last total are positioned inside the SVG', () => {
+    const h = html(SYNTH_TOKENS)
+    const W = 640
+    const xs = [...h.matchAll(/<text x="([\d.]+)"[^>]*(?:data-bar-total|y="232")[^>]*>([^<]+)</g)].map((m) => [+m[1], m[2]] as const)
+    expect(xs.length).toBeGreaterThan(0)
+    for (const [x, label] of xs) expect(x + (label.length * 7 + 10) / 2).toBeLessThanOrEqual(W)
   })
   it('x labels: the one that would touch the previous one is dropped, the last always shows', () => {
     // 5 Oct and 12 Oct at 33px apart with ~43px-wide labels: the last wins, its neighbour goes, the next one fits

@@ -59,6 +59,11 @@ export function fittingLabels(xs: number[], widths: number[]): boolean[] {
   return keep
 }
 
+/** Centre x for a text of `width` px so it stays inside [0, total]; a label at the right edge slides left. */
+export function clampX(x: number, width: number, total: number): number {
+  return Math.min(Math.max(x, width / 2 + 1), total - width / 2 - 1)
+}
+
 export const totalOf = (p: DayTokenPeriod) => Object.values(p.output).reduce((a, b) => a + b, 0)
 
 /** 4.2M / 380k / 12 — one rule everywhere, so a number never reads two ways. */
@@ -126,10 +131,10 @@ export function tokenReadings(t: DayTokens, per: Per): TokenReadings {
   if (total > 0 && prior.length >= 2) {
     let best = 0
     for (const f of FAMILY_ORDER) {
-      const now = (fam[f] ?? 0) / total
+      // the current % is the one the key shows (largest remainder), so caption and key never disagree
+      const to = shares.find((x) => x.family === f)?.pct ?? 0
       const usual = median(prior.map((p) => (familyOutputs(p.output)[f] ?? 0) / totalOf(p)))
-      const move = Math.abs(Math.round(now * 100) - Math.round(usual * 100))
-      const to = Math.round(now * 100)
+      const move = Math.abs(to - Math.round(usual * 100))
       const from = Math.round(usual * 100)
       // a tie goes to the family that gained share (when one family drops, another rises by as much)
       if (move > best || (move === best && move > 0 && to > from && mover !== null && mover.to < mover.from)) {

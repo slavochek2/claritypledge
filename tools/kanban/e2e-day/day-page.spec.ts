@@ -625,9 +625,11 @@ test.describe('monitoring, stats, reflection', () => {
         const ticks = [...svg.querySelectorAll('g[data-usual] line')].map(box)
         const totals = [...svg.querySelectorAll('[data-bar-total]')].map(box)
         const crowded = totals.some((a, i) => totals.slice(i + 1).some((b) => hit(a, b)))
-        return { labels, crowded, struck: totals.some((t) => ticks.some((k) => hit(t, k))) }
+        const frame = box(svg)
+        const inside = [...svg.querySelectorAll('g[data-bar] > text')].every((t) => { const b = box(t); return b.left >= frame.left && b.right <= frame.right })
+        return { labels, inside, crowded, struck: totals.some((t) => ticks.some((k) => hit(t, k))) }
       })
-      expect(clash, `${width}px`).toEqual({ labels: false, crowded: false, struck: false })
+      expect(clash, `${width}px`).toEqual({ labels: false, inside: true, crowded: false, struck: false })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${width}px page scroll`).toBe(true)
     }
   })
