@@ -439,6 +439,25 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/p/tom/canvas/q4_plan'));
     });
 
+    it('a failed mark-read brings the unread dot back and the next open retries', async () => {
+      const user = userEvent.setup();
+      const stay = (e: Event) => e.preventDefault();
+      document.addEventListener('click', stay, true);
+      try {
+        mocks.markDeliveryRead.mockRejectedValueOnce(new Error('x'));
+        renderPage('/artifacts?tab=shared');
+        await screen.findByText('Note from Mara');
+        const rowOf = () => rows().find(r => r.textContent?.includes('Note from Mara'))!;
+        await user.click(screen.getByRole('link', { name: 'Note from Mara' }));
+        await waitFor(() => expect(within(rowOf()).getByRole('img', { name: 'Unread' })).toBeInTheDocument());
+        await user.click(screen.getByRole('link', { name: 'Note from Mara' }));
+        expect(mocks.markDeliveryRead).toHaveBeenCalledTimes(2);
+        await waitFor(() => expect(within(rowOf()).queryByRole('img', { name: 'Unread' })).toBeNull());
+      } finally {
+        document.removeEventListener('click', stay, true);
+      }
+    });
+
     it('a read item opens without marking anything', async () => {
       const user = userEvent.setup();
       mocks.getAllReceivedLetters.mockResolvedValue([received({ read_at: ago(H) })]);
@@ -454,10 +473,34 @@ describe('Artifacts page', () => {
       mocks.invite.current = { sessionId: 's1', code: 'ABC', authorName: 'Zed', storyTitle: 'A story', closedAt: null };
       renderPage('/artifacts?tab=shared');
       const row = await screen.findByTestId('live-invite-row');
+      await screen.findByText('Note from Mara'); // the invite no longer waits for the lists
       expect(row).toHaveTextContent('Zed invited you to verify A story');
       expect(within(row).getByRole('button', { name: 'Join' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Shared with you, 3 unread' })).toBeInTheDocument();
       expect(row.compareDocumentPosition(rows()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    const openInvite = { sessionId: 's1', code: 'ABC', authorName: 'Zed', storyTitle: 'A story', closedAt: null };
+
+    it('still shows at the top while the Shared sources are loading', async () => {
+      mocks.invite.current = openInvite;
+      mocks.getAllReceivedLetters.mockReturnValue(new Promise(() => {}));
+      mocks.getInboxItems.mockReturnValue(new Promise(() => {}));
+      mocks.listSharedWithMe.mockReturnValue(new Promise(() => {}));
+      renderPage('/artifacts?tab=shared');
+      expect(await screen.findByTestId('live-invite-row')).toHaveTextContent('Zed invited you to verify A story');
+      expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+    });
+
+    it('still shows above the error and Retry when every Shared source fails', async () => {
+      mocks.invite.current = openInvite;
+      mocks.getAllReceivedLetters.mockRejectedValue(new Error('x'));
+      mocks.getInboxItems.mockRejectedValue(new Error('x'));
+      mocks.listSharedWithMe.mockRejectedValue(new Error('x'));
+      renderPage('/artifacts?tab=shared');
+      expect(await screen.findByText('Something went wrong loading what was shared with you.')).toBeInTheDocument();
+      expect(screen.getByTestId('live-invite-row')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     });
 
     it('is not drawn on Yours', async () => {

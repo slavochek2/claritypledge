@@ -142,9 +142,18 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
     else if (row.state === 'received-canvas' && row.ref.ownerId && row.ref.canvasName) {
       done = canvasService.markCanvasRead(row.ref.ownerId, row.ref.canvasName);
     }
-    done?.then(
+    if (!done) return;
+    done.then(
       () => window.dispatchEvent(new Event(ARTIFACTS_READ_EVENT)),
-      () => toast.error('Failed to mark as read'),
+      () => {
+        // Roll back: the unread state returns and the next open retries.
+        setOpened(prev => {
+          const next = new Set(prev);
+          next.delete(row.key);
+          return next;
+        });
+        toast.error('Failed to mark as read');
+      },
     );
   };
 
@@ -263,21 +272,26 @@ interface ListProps {
 function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onClearFilters, invite = null }: ListProps) {
   const refresh = () => { void onRefresh(); };
 
-  if (data.status === 'loading') {
-    return (
-      <div className="flex justify-center py-12" role="status" aria-label="Loading">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  // The live invite loads on its own: it shows in every state of the artifact sources, and the
+  // wrapper stays one element so the row never remounts as those sources settle.
+  const inviteRow = invite ? <LiveInviteRow invite={invite} /> : null;
 
-  if (data.status === 'error') {
+  if (data.status === 'loading' || data.status === 'error') {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
-          {tab === 'yours' ? 'Something went wrong loading your artifacts.' : 'Something went wrong loading what was shared with you.'}
-        </p>
-        <Button variant="outline" onClick={refresh} className="min-h-10">Retry</Button>
+      <div>
+        {inviteRow}
+        {data.status === 'loading' ? (
+          <div className="flex justify-center py-12" role="status" aria-label="Loading">
+            <ClarityLoader size="lg" />
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <p className="text-sm text-muted-foreground">
+              {tab === 'yours' ? 'Something went wrong loading your artifacts.' : 'Something went wrong loading what was shared with you.'}
+            </p>
+            <Button variant="outline" onClick={refresh} className="min-h-10">Retry</Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -286,6 +300,7 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
 
   return (
     <div>
+      {inviteRow}
       {data.partial && (
         <p role="status" className="flex flex-wrap items-center gap-x-3 pb-2 text-sm text-muted-foreground">
           Some items could not be loaded.
@@ -294,7 +309,6 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
           </button>
         </p>
       )}
-      {invite && <LiveInviteRow invite={invite} />}
       {data.pending && (
         // [FOUNDER DECISION: "Loading more…" copy is a placeholder.]
         <p role="status" className="pb-2 text-sm text-muted-foreground">Loading more…</p>
