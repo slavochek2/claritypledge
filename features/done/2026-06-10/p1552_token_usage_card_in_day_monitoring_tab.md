@@ -1,15 +1,15 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 64
 created_date: '2026-10-23'
 tags: [day, kanban, monitoring, tokens]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, finish, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-23
 ---
 
 # P1552: Token usage in the Day page Monitoring tab
