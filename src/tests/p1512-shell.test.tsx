@@ -30,6 +30,8 @@ vi.mock('@/app/contexts/live-session-context', async (importOriginal) => ({
 
 const mockUnread = vi.fn();
 vi.mock('@/app/hooks/useUnreadLetterCount', () => ({ useUnreadLetterCount: () => mockUnread() }));
+// P1545: the Artifacts badge is unread "Shared with you" (same shape, same values).
+vi.mock('@/app/hooks/useUnreadSharedCount', () => ({ useUnreadSharedCount: () => mockUnread() }));
 const mockPartnerCount = vi.fn();
 vi.mock('@/app/hooks/usePendingPartnerInvitationCount', () => ({
   usePendingPartnerInvitationCount: () => mockPartnerCount(),

@@ -32,7 +32,7 @@ vi.mock('@/app/data/api', () => ({
     data: { id: 'owner-1', name: 'Ana', avatarUrl: null, avatarColor: '#3b82f6', hasPledged: false },
   })),
 }));
-vi.mock('@/app/data/canvas-service', () => ({ canvasService: { getCanvas, getAudience, setPosition } }));
+vi.mock('@/app/data/canvas-service', () => ({ canvasService: { getCanvas, getAudience, setPosition, markCanvasRead: vi.fn(async () => undefined) } }));
 const getTags = vi.hoisted(() => vi.fn(async () => ['sales']));
 vi.mock('@/app/data/points-service', () => ({ pointsService: { getCanvasProjectTags: getTags } }));
 vi.mock('@/app/data/calibration-service', () => ({ calibrationService: { getEarsCount: vi.fn(async () => 0) } }));

@@ -31,6 +31,10 @@ vi.mock('@/app/contexts/live-session-context', () => ({
 vi.mock('@/app/hooks/useUnreadLetterCount', () => ({
   useUnreadLetterCount: () => ({ count: 0 }),
 }));
+// P1545: the shell's Artifacts badge reads unread "Shared with you" now.
+vi.mock('@/app/hooks/useUnreadSharedCount', () => ({
+  useUnreadSharedCount: () => ({ count: 0 }),
+}));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({
   useOpenLiveInvite: () => ({ invite: null }),
 }));

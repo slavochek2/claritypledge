@@ -84,7 +84,7 @@ const SHEET_CLASS =
   'data-[state=open]:!zoom-in-100 data-[state=open]:!slide-in-from-left-0 data-[state=open]:!slide-in-from-top-0 ' +
   'data-[state=closed]:!zoom-out-100 data-[state=closed]:!slide-out-to-left-0 data-[state=closed]:!slide-out-to-top-0 [&>*]:min-w-0';
 
-export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged }: {
+export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger = false, openSignal = 0 }: {
   /** the canvas's name (the part after canvas_) */
   name: string;
   visibility: CanvasVisibility;
@@ -96,6 +96,10 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   link: string;
   /** told after a share, unshare or access change the server confirmed, so the page re-reads */
   onChanged: () => void;
+  /** P1545: a list row opens the panel from its own "…" menu, so the button is drawn invisible (the popover still anchors to it). */
+  hideTrigger?: boolean;
+  /** P1545: opens the panel each time this number grows (0 = never). */
+  openSignal?: number;
 }) {
   const sheet = useIsSheet();
   const [open, setOpen] = useState(false);
@@ -159,6 +163,15 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     setOpen(true);
     void load();
   };
+
+  // P1545: a request from outside (the Artifacts row menu) opens the same panel the button does.
+  const lastSignal = useRef(openSignal);
+  useEffect(() => {
+    if (openSignal > lastSignal.current) openPanel();
+    lastSignal.current = openSignal;
+    // openPanel only resets state and calls load(), which is keyed on `name`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
 
   const change = async (key: string, run: () => Promise<void>, failure: string, onConfirmed?: () => void): Promise<boolean> => {
     setBusy(true);
@@ -309,11 +322,12 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
       type="button"
       onClick={sheet ? openPanel : undefined}
       aria-haspopup="dialog"
+      {...(hideTrigger ? { 'aria-hidden': true, tabIndex: -1 } : {})}
       data-testid="canvas-share-control"
       aria-label="Share"
       aria-describedby={stateId}
       title="Share"
-      className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full max-sm:order-3 bg-blue-600 px-3 py-2 sm:px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className={`${hideTrigger ? 'pointer-events-none invisible ' : ''}inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full max-sm:order-3 bg-blue-600 px-3 py-2 sm:px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
     >
       {/* Open to anyone with the link: a globe, never a lock (a lock says "restricted"). */}
       {shownAccess === 'link'

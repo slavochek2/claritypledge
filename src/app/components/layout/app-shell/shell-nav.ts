@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { useUnreadLetterCount } from '@/app/hooks/useUnreadLetterCount';
+import { useUnreadSharedCount } from '@/app/hooks/useUnreadSharedCount';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { usePendingPartnerInvitationCount } from '@/app/hooks/usePendingPartnerInvitationCount';
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from '@/app/hooks/useTonightsEvent';
@@ -87,7 +87,8 @@ export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: str
 export function useShellEntries(): ShellEntry[] {
   const { pathname } = useLocation();
   const { slug, isProfilePending } = useNavAuthState();
-  const { count: unreadLetterCount } = useUnreadLetterCount();
+  // P1545: the Artifacts badge is unread "Shared with you" (letters sent to you + canvases shared with you).
+  const { count: unreadShared } = useUnreadSharedCount();
   const { invite } = useOpenLiveInvite();
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
   // P1512: unread chats ride on the Chats entry (0 outside the chat provider).
@@ -106,8 +107,8 @@ export function useShellEntries(): ShellEntry[] {
     make('home', 'Home', HOME_PATH, HomeIcon),
     make('chats', 'Chats', CHATS_PATH, MessageSquareIcon, unreadChats, unreadChats === 1 ? 'unread chat' : 'unread chats'),
     make('groups', 'Groups', EVENTS_NAV_TO, LandmarkIcon),
-    // Badge is today's letters count until the Artifacts page defines "unread Shared with you".
-    make('artifacts', 'Artifacts', ARTIFACTS_PATH, ShapesIcon, unreadLetterCount + (invite ? 1 : 0)),
+    // The open live invite is a row at the top of Shared with you, so it counts there too.
+    make('artifacts', 'Artifacts', ARTIFACTS_PATH, ShapesIcon, unreadShared + (invite ? 1 : 0)),
     make('events', 'Events', EVENTS_LIST_TO, CalendarDaysIcon),
   ];
   if (isProfilePending) {

@@ -11,6 +11,7 @@ import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { loadAttachment, type Shareable } from '@/app/data/chat-ui-helpers';
 import type { ChatAttachmentKind } from '@/app/data/chat-mappers';
 import { Button } from '@/components/ui/button';
+import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
 
 type State = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready'; item: Shareable };
 
@@ -46,7 +47,13 @@ const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/4
  * `compact`: drawn inside a quote block (a forwarded or clarified message): the compact standard card, no vote buttons
  * and no Retry button (a quote can itself be a button, and buttons do not nest).
  */
-export function AttachmentCard({ kind, id, viewerId, compact = false }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
+export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
+  // P1545: canvases and letters have their own reader-judged card; points and stories keep the feed cards.
+  if (props.kind === 'canvas' || props.kind === 'letter') return <ArtifactAttachmentCard {...props} kind={props.kind} />;
+  return <FeedItemAttachmentCard {...props} />;
+}
+
+function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
   // One generation per card: every read takes the next number, and only the read holding the current

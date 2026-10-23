@@ -1372,6 +1372,39 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
   return (receivedCount ?? 0) + responsesCount + explainBackCount;
 }
 
+/**
+ * P1545: unread letters SENT TO the person (the letter half of Artifacts > Shared with you).
+ * Same rule as getUnreadLetterCount's first branch (self-sent deliveries excluded), without the
+ * sender-side activity branches: activity on your own letters belongs to Yours and no longer counts.
+ * Failures read as 0: this only feeds a badge.
+ */
+export async function getUnreadReceivedLetterCount(userId: string): Promise<number> {
+  log('getUnreadReceivedLetterCount:', userId);
+  const { data: ownLetters, error: errOwn } = await supabase
+    .from('clarity_letters')
+    .select('id')
+    .eq('sender_id', userId);
+  if (errOwn) {
+    logDbError('getUnreadReceivedLetterCount.ownLetters', errOwn);
+    return 0;
+  }
+  const ownLetterIds = ownLetters?.map(l => l.id) ?? [];
+  let query = supabase
+    .from('letter_deliveries')
+    .select('id', { count: 'exact', head: true })
+    .eq('receiver_profile_id', userId)
+    .is('read_at', null);
+  if (ownLetterIds.length > 0) {
+    query = query.not('letter_id', 'in', `(${ownLetterIds.join(',')})`);
+  }
+  const { count, error } = await query;
+  if (error) {
+    logDbError('getUnreadReceivedLetterCount.received', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 // ============================================================================
 // P699: Letter Results RPC
 // ============================================================================

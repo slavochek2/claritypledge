@@ -78,6 +78,7 @@ const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connection
 const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
 const LettersPage = lazy(() => import("@/app/pages/letters-page").then(m => ({ default: m.LettersPage })));
+const ArtifactsPage = lazy(() => import("@/app/pages/artifacts/artifacts-page").then(m => ({ default: m.ArtifactsPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
 const LetterReadingPage = lazy(() => import("@/app/pages/letter-reading-page").then(m => ({ default: m.LetterReadingPage })));
@@ -1050,13 +1051,13 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P1545: placeholder — renders today's Letters page until the Artifacts page replaces it. */}
+        {/* P1545 WP3: Artifacts — letters and canvases, tabs Yours / Shared with you. */}
         <Route
           path="/artifacts"
           element={
             <ClarityLandingLayout surface="product">
               <LazyRoute>
-                <LettersPage />
+                <ArtifactsPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

@@ -293,6 +293,14 @@ export function CanvasPage() {
   const current = sessionChecked && loaded && loaded.key === key ? loaded.data : null;
   const ready = current?.status === 'ready' ? current : null;
 
+  // P1545: opening a canvas someone shared with you marks it read (also what a chat share card leads to).
+  // Fire-and-forget; the server ignores the owner and link holders.
+  const readOwnerId = ready && !ready.isOwner ? ready.ownerId : null;
+  useEffect(() => {
+    if (!readOwnerId || !projectTag || !viewerId) return;
+    void canvasService.markCanvasRead(readOwnerId, projectTag).catch(() => undefined);
+  }, [readOwnerId, projectTag, viewerId]);
+
   // Founder, sixth round: disagreement found fast — in every box the most contested card comes
   // first (the smaller side biggest), then the rest in canvas order. Previous / Next follow it too.
   const boxes = ready ? sortBoxesByContest(groupPointsByBox(ready.points), ready.positions) : null;
