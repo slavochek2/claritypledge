@@ -32,7 +32,7 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
 
   test('nav shows "Letters" instead of "Docs"', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // P893: scope to the desktop nav — both the desktop nav and the
@@ -51,7 +51,7 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
   // P893: default tab is Inbox since P725 (was Drafts at P660 time).
   test('default tab is Inbox when no tab param', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Inbox tab should be active (P725 default)
@@ -61,7 +61,7 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
 
   test('tab switching updates URL param', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Switch to Published tab (P770 rename: Sent → Published; URL value stays "sent")
@@ -82,7 +82,7 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
 
   test('all three tabs render content areas', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Drafts tab panel should be visible by default
@@ -98,15 +98,15 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await expect(page.getByRole('tabpanel')).toBeVisible();
   });
 
-  test('/docs redirects to /letters?tab=drafts', async ({ page }) => {
+  test('/docs redirects to the Letters filter of Your artifacts', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/docs');
     await page.waitForLoadState('networkidle');
 
-    // Should redirect to /letters with drafts tab
-    await expect(page).toHaveURL(/\/letters/);
-    const draftsTab = page.getByRole('tab', { name: /Drafts/i });
-    await expect(draftsTab).toHaveAttribute('aria-selected', 'true');
+    // P1545: the old Letters list is now the Artifacts page (Yours tab, Letters chip)
+    await expect(page).toHaveURL(/\/artifacts\?tab=yours&type=letters/);
+    const yoursTab = page.getByRole('tab', { name: 'Yours' });
+    await expect(yoursTab).toHaveAttribute('aria-selected', 'true');
   });
 
   test('/d/:id redirects to /letters/drafts/:id', async ({ page }) => {
@@ -142,7 +142,7 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
   test('tab clicks add no Back steps: browser back leaves /letters, and forward returns to the last tab', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/feed');
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Navigate to Published (URL value stays "sent")

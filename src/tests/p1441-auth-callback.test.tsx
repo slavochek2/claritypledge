@@ -159,10 +159,10 @@ describe('P1441: auth callback', () => {
     expect(mockTrack).not.toHaveBeenCalledWith('login_complete', expect.anything());
   });
 
-  it('P1512: with nowhere explicit to go, a signed-in person lands on Home; an explicit redirect is kept', async () => {
+  it('P1545: with nowhere explicit to go, a signed-in person lands on Home, which is the feed; an explicit redirect is kept', async () => {
     renderCallback('/auth/callback?source=signup');
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true }));
-    expect(mockNavigate).not.toHaveBeenCalledWith('/feed', expect.anything());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/feed', { replace: true }));
+    expect(mockNavigate).not.toHaveBeenCalledWith('/home', expect.anything());
   });
 
   it('P1512: an explicit ?redirect= wins over the Home default', async () => {

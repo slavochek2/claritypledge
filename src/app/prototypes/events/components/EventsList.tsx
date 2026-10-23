@@ -7,6 +7,7 @@ import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
 import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
+import { ChiangMaiCard } from '@/app/components/events/chiang-mai-card';
 import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 
 type Tab = 'upcoming' | 'past';
@@ -129,6 +130,12 @@ export function EventsList({
   const showActions = isOrgScoped
     ? false
     : isLoggedIn && !isSeriesFiltered && !loading;
+
+  // P1545 decision 6: the Chiang Mai calendar card lives on the standalone Upcoming list only (never in a
+  // group, never in the embedded list, never on the webinar-series filter, never on Past). With events it
+  // sits below the list, one level quieter; with none it is the main element.
+  const showCmCard = !isOrgScoped && !embedded && !isSeriesFiltered && !loading && activeTab === 'upcoming';
+  const hasOurEvents = events.length > 0;
 
   // Host / Co-create. Two positions, one definition:
   //  - list has events → top row, RIGHT of the filters (filters change what you see,
@@ -268,6 +275,11 @@ export function EventsList({
               />
             ))}
           </div>
+          {showCmCard && (
+            <div className="mt-6">
+              <ChiangMaiCard quiet hasEvents />
+            </div>
+          )}
           </>
         ) : isOrgScoped ? (
           /* D6, second half: when an org has neither upcoming nor past events, ONE
@@ -319,7 +331,13 @@ export function EventsList({
             {showActions && <div className="mt-6 flex justify-center">{actionButtons}</div>}
           </div>
         ) : (
-          <div className="text-center py-16">
+          <>
+          {showCmCard && (
+            <div className="mb-6">
+              <ChiangMaiCard hasEvents={hasOurEvents} />
+            </div>
+          )}
+          <div className={showCmCard ? 'text-center py-8' : 'text-center py-16'}>
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
               <CalendarDays className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -340,14 +358,22 @@ export function EventsList({
               <div className="flex justify-center">{actionButtons}</div>
             ) : (
               !isSeriesFiltered && activeTab === 'upcoming' && !isLoggedIn && (
-                <Link to="/signup">
-                  <Button className="bg-blue-500 hover:bg-blue-700 text-white">
+                showCmCard ? (
+                  // Decision 6: with the Chiang Mai card as the main thing, hosting becomes a quiet link.
+                  <Link to="/signup" className="inline-flex min-h-10 items-center text-sm font-medium text-blue-600 hover:underline">
                     Sign Up to Host
-                  </Button>
-                </Link>
+                  </Link>
+                ) : (
+                  <Link to="/signup">
+                    <Button className="bg-blue-500 hover:bg-blue-700 text-white">
+                      Sign Up to Host
+                    </Button>
+                  </Link>
+                )
               )
             )}
           </div>
+          </>
         )}
       </div>
 

@@ -39,7 +39,7 @@ test.describe('P660: Accessibility', () => {
 
   test('tab bar uses ARIA tablist role', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Container has role="tablist"
@@ -49,7 +49,7 @@ test.describe('P660: Accessibility', () => {
 
   test('each tab has role="tab" with aria-selected', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const tabs = page.getByRole('tab');
@@ -70,7 +70,7 @@ test.describe('P660: Accessibility', () => {
 
   test('content area has role="tabpanel"', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const panel = page.getByRole('tabpanel');
@@ -79,7 +79,7 @@ test.describe('P660: Accessibility', () => {
 
   test('tabs have aria-controls linking to panel', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const activeTab = page.getByRole('tab', { name: /Drafts/i });
@@ -95,7 +95,7 @@ test.describe('P660: Accessibility', () => {
 
   test('arrow keys navigate between tabs', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Focus on the first tab
@@ -120,7 +120,7 @@ test.describe('P660: Accessibility', () => {
 
   test('Enter/Space activates a focused tab', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Focus on Drafts, arrow to Sent
@@ -137,7 +137,7 @@ test.describe('P660: Accessibility', () => {
 
   test('Home/End jump to first/last tab', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Focus on Sent tab
@@ -190,7 +190,7 @@ test.describe('P660: Accessibility', () => {
         .eq('id', deliveryId);
 
       await setTestSession(page, user.email);
-      await page.goto('/letters');
+      await page.goto('/artifacts');
       await page.waitForLoadState('networkidle');
 
       // Inbox tab should have aria-label mentioning unread count
@@ -235,7 +235,7 @@ test.describe('P660: Accessibility', () => {
       });
 
       await setTestSession(page, sender.email);
-      await page.goto('/letters?tab=sent');
+      await page.goto('/artifacts?tab=yours&type=letters');
       await page.waitForLoadState('networkidle');
 
       // Delivery status should be available as text (not icon-only)

@@ -23,6 +23,7 @@ import { readThrough } from "@/lib/offline-read-cache";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
+import { LettersRedirect, DocsRedirect } from "@/app/pages/artifacts/legacy-redirects";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -77,7 +78,6 @@ const BlogSubscribedPage = lazy(() => import("@/app/pages/blog-subscribed-page")
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
-const LettersPage = lazy(() => import("@/app/pages/letters-page").then(m => ({ default: m.LettersPage })));
 const ArtifactsPage = lazy(() => import("@/app/pages/artifacts/artifacts-page").then(m => ({ default: m.ArtifactsPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
 const LetterPreviewPage = lazy(() => import("@/app/pages/letter-preview-page").then(m => ({ default: m.LetterPreviewPage })));
@@ -104,7 +104,6 @@ const LandingWatch = lazy(() => import("@/app/tree/landing-lab/watch/LandingWatc
 const LandingDo = lazy(() => import("@/app/tree/landing-lab/do/LandingDo").then(m => ({ default: m.LandingDo })));
 const LandingWild = lazy(() => import("@/app/tree/landing-lab/wild/LandingWild").then(m => ({ default: m.LandingWild })));
 const LandingFirst = lazy(() => import("@/app/tree/landing-lab/first/LandingFirst").then(m => ({ default: m.LandingFirst })));
-const ArtifactsLab = lazy(() => import("@/app/tree/artifacts-lab/ArtifactsLab").then(m => ({ default: m.ArtifactsLab })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
 const ComparePositionsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-compare-positions-prototype").then(m => ({ default: m.ComparePositionsPrototype })));
@@ -1063,17 +1062,8 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P660: Letters — single nav item with three tabs */}
-        <Route
-          path="/letters"
-          element={
-            <ClarityLandingLayout surface="product">
-              <LazyRoute>
-                <LettersPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
+        {/* P1545: the Letters list moved into /artifacts; old tab URLs land in the matching tab */}
+        <Route path="/letters" element={<LettersRedirect />} />
 
         {/* P660: Draft detail (formerly doc detail) */}
         <Route
@@ -1088,7 +1078,7 @@ export default function ClarityPledgeApp() {
         />
 
         {/* P660: Legacy redirects */}
-        <Route path="/docs" element={<Navigate to="/letters?tab=drafts" replace />} />
+        <Route path="/docs" element={<DocsRedirect />} />
         <Route path="/d/:docId" element={<DocDetailRedirect />} />
 
         {/* P661: Letter composition orchestrator */}
@@ -1190,7 +1180,6 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/landing-do" element={<LazyRoute><LandingDo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/artifacts" element={<LazyRoute><ArtifactsLab /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/compare-positions" element={<LazyRoute><ComparePositionsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/host-controls" element={<LazyRoute><HostControlsPrototype /></LazyRoute>} />}

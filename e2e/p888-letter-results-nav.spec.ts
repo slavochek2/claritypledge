@@ -198,7 +198,7 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
 
       // Control: bottom nav DOES render for this user on a browse page —
       // makes the negative assertion below meaningful
-      await page.goto('/letters');
+      await page.goto('/artifacts');
       await page.waitForLoadState('networkidle');
       await expect(page.locator(BOTTOM_NAV)).toBeVisible({ timeout: 10000 });
 

@@ -476,7 +476,7 @@ export function DocDetailPage() {
             This doc doesn&apos;t exist or you don&apos;t have access.
           </p>
           <Link
-            to="/letters?tab=drafts"
+            to="/artifacts?tab=yours&type=letters"
             className="text-blue-600 hover:underline text-sm font-medium"
           >
             Back to Letters

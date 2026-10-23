@@ -333,7 +333,7 @@ test.describe('P699: Sender Results — Story Walk', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    const backLink = page.locator('a[href*="/letters"]').first();
+    const backLink = page.locator('a[href*="/artifacts"]').first();
     await expect(backLink).toBeVisible({ timeout: 10000 });
   });
 

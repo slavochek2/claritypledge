@@ -155,10 +155,10 @@ test.describe('P699: Inbox Progress Indicator', () => {
     });
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
-    expect(page.url()).toContain('/letters');
+    expect(page.url()).toContain('/artifacts');
 
     const criticalErrors = consoleErrors.filter(
       (e) =>
@@ -173,7 +173,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('in-progress letter shows "Step 1 of 3 completed" text', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Look for progress text pattern "1 of 3 steps" (P699 step-granular format)
@@ -185,7 +185,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('completed letter shows Results button', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     const resultsButton = page
@@ -199,7 +199,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
     page,
   }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     const resultsButton = page
@@ -220,7 +220,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('fresh letter (0 rated) shows Read button (no progress text)', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Fresh letter should have an "Open" button, not a progress indicator
@@ -236,7 +236,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('completed letter does not show "Step N of M" progress text', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // For the completed delivery (3 of 3), there should be NO "Step N of M" text
@@ -267,7 +267,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
     // Before fix: no step text on completed sender rows.
     // After fix:  "3 of 3 steps" appears under "receiver completed Letter Title" row.
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Sender inbox must show the step count for the completed recipient row.

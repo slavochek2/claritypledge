@@ -288,7 +288,7 @@ export function LetterComposePage() {
       <main className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">Doc not found or you don&apos;t have access.</p>
-          <Button variant="link" onClick={() => navigate('/docs')}>
+          <Button variant="link" onClick={() => navigate('/artifacts?tab=yours&type=letters')}>
             Back to Docs
           </Button>
         </div>

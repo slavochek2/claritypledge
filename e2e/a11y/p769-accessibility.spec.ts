@@ -98,7 +98,7 @@ test.describe('P769 a11y: SessionEndedScreen', () => {
           return { href, text };
         });
 
-        if (focused?.href?.includes('/letters') || focused?.text?.toLowerCase().includes('letter')) {
+        if (focused?.href?.includes('/artifacts') || focused?.text?.toLowerCase().includes('letter')) {
           ctaFocused = true;
           break;
         }
@@ -106,14 +106,14 @@ test.describe('P769 a11y: SessionEndedScreen', () => {
 
       expect(
         ctaFocused,
-        'CTA linking to /letters must be reachable via Tab from the ended screen'
+        'CTA linking to /artifacts must be reachable via Tab from the ended screen'
       ).toBe(true);
     } finally {
       await fixture.cleanup();
     }
   });
 
-  test('ended screen CTA is keyboard-activatable (Enter navigates to /letters)', async ({ page }) => {
+  test('ended screen CTA is keyboard-activatable (Enter navigates to /artifacts)', async ({ page }) => {
     const fixture = await navigateToEndedScreen(page);
     try {
       await page.waitForSelector('[role="heading"]', { timeout: 8_000 });
@@ -124,14 +124,14 @@ test.describe('P769 a11y: SessionEndedScreen', () => {
           const el = document.activeElement as HTMLAnchorElement;
           return el?.href ?? '';
         });
-        if (href.includes('/letters')) {
+        if (href.includes('/artifacts')) {
           await page.keyboard.press('Enter');
-          await page.waitForURL(/\/letters/, { timeout: 5_000 });
+          await page.waitForURL(/\/artifacts/, { timeout: 5_000 });
           break;
         }
       }
 
-      expect(page.url()).toContain('/letters');
+      expect(page.url()).toContain('/artifacts');
     } finally {
       await fixture.cleanup();
     }

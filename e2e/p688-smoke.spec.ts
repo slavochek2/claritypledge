@@ -92,7 +92,7 @@ test.describe('P688 Smoke — Letters Surfaces', () => {
     });
 
     await setTestSession(page, user.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
@@ -132,7 +132,7 @@ test.describe('P688 Smoke — Letters Surfaces', () => {
     });
 
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();

@@ -23,7 +23,7 @@ test.describe('P893 probe', () => {
 
   test('history entries per tab click', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const len0 = await page.evaluate(() => history.length);

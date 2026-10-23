@@ -95,7 +95,7 @@ test.describe('P731: Inbox letter arrival after send', () => {
 
   test('sent letter appears in recipient inbox without recipient having opened the link', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('P731 Test Letter')).toBeVisible({ timeout: 6000 });

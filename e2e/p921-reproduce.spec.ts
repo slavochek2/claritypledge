@@ -117,7 +117,7 @@ test.describe('P921-B: End Session then immediate navigation still writes sessio
 
       await endButton.click();
       // Navigate during the upload window — simulates clicking a nav link / closing.
-      await session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' });
+      await session.host.page.goto('/artifacts', { waitUntil: 'domcontentloaded' });
 
       // The partner is only notified via this DB write. It must survive the nav.
       await waitForDBStateKey(

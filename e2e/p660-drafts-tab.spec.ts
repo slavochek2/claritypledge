@@ -77,7 +77,7 @@ test.describe('P660: Drafts Tab', () => {
 
   test('drafts list shows [Edit] and [New Letter] buttons per draft row', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Verify [Edit] button exists for the doc with stories
@@ -93,7 +93,7 @@ test.describe('P660: Drafts Tab', () => {
 
   test('[Edit] navigates to /letters/drafts/:id', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Find the doc with stories and click Edit
@@ -115,7 +115,7 @@ test.describe('P660: Drafts Tab', () => {
 
   test('[New Letter] is disabled when draft has 0 stories', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Find the empty doc row
@@ -166,7 +166,7 @@ test.describe('P660: Drafts Tab', () => {
 
   test('[+ New] button creates a new draft', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Find the [+ New] button

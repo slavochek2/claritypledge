@@ -251,7 +251,7 @@ test.describe('P699: Receiver Results — Story Walk', () => {
 
   test('receiver navigating from inbox open button lands on results URL', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Find the "Open" or "Results" button for the completed letter
@@ -285,7 +285,7 @@ test.describe('P699: Receiver Results — Story Walk', () => {
     }
 
     // Back to Letters secondary link should exist
-    const backLink = page.locator('a[href*="/letters"]').first();
+    const backLink = page.locator('a[href*="/artifacts"]').first();
     await expect(backLink).toBeVisible({ timeout: 10000 });
   });
 

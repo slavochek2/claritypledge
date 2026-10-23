@@ -93,7 +93,7 @@ test.describe('P551: Accessibility — Doc list keyboard navigation', () => {
 
   test('doc list items are reachable via Tab key', async ({ page }) => {
     await setTestSession(page, fixtures.user.email);
-    await page.goto('/docs');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Tab through the page until we reach a doc item
@@ -113,7 +113,7 @@ test.describe('P551: Accessibility — Doc list keyboard navigation', () => {
 
   test('doc items can be activated with Enter key', async ({ page }) => {
     await setTestSession(page, fixtures.user.email);
-    await page.goto('/docs');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Find and click the doc (or focus + Enter)
@@ -145,7 +145,7 @@ test.describe('P551: Accessibility — Creation modal focus', () => {
 
   test('creation modal traps focus and Escape closes it', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/docs');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const createBtn = page.getByRole('button', { name: /new|create/i });
@@ -177,7 +177,7 @@ test.describe('P551: Accessibility — Creation modal focus', () => {
 
   test('creation modal has appropriate aria-label', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/docs');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const createBtn = page.getByRole('button', { name: /new|create/i });

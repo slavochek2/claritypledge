@@ -109,7 +109,7 @@ test.describe('P884: add-recipient UI submit — only the new recipient is email
     page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err.message}`));
 
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Open the ⋯ dropdown → "Add recipient(s)" (same path as p688)

@@ -117,7 +117,7 @@ test.describe('P769: Author ends from ActiveSessionBanner → partner sees ended
       });
 
       try {
-        await session.host.page.goto('/letters');
+        await session.host.page.goto('/artifacts');
         await session.host.page.waitForLoadState('networkidle');
 
         await session.host.page.evaluate(
@@ -390,7 +390,7 @@ test.describe('P769: Partner refreshes /letters after session ended → no Activ
         { code: dbSession.sessionCode, hostName: hostUser.name }
       );
 
-      await page.goto('/letters');
+      await page.goto('/artifacts');
       await page.waitForLoadState('networkidle');
 
       await page.waitForTimeout(1_500);
@@ -729,7 +729,7 @@ test.describe('P775: ActiveSessionBanner cleared pre-upload in confirmExitMeetin
       expect(storedAfterClick).toBeNull();
 
       // Navigate — simulates user clicking a nav link during the 5s upload wait.
-      await session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' });
+      await session.host.page.goto('/artifacts', { waitUntil: 'domcontentloaded' });
       const banner = session.host.page.locator('[data-testid="active-session-banner"]');
       await expect(banner).not.toBeVisible({ timeout: 1_000 });
 
@@ -763,7 +763,7 @@ test.describe('P775: ActiveSessionBanner cleared pre-upload in confirmExitMeetin
       );
       expect(storedAfterClick).toBeNull();
 
-      await session.guest.page.goto('/letters', { waitUntil: 'domcontentloaded' });
+      await session.guest.page.goto('/artifacts', { waitUntil: 'domcontentloaded' });
 
       const banner = session.guest.page.locator('[data-testid="active-session-banner"]');
       await expect(banner).not.toBeVisible({ timeout: 1_000 });

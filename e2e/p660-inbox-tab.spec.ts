@@ -99,7 +99,7 @@ test.describe('P660: Inbox Tab', () => {
 
   test('inbox shows received letters with [Open] action', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Should show a received letter item with [Open] button (P699: renamed from Read)
@@ -111,13 +111,13 @@ test.describe('P660: Inbox Tab', () => {
 
   test('inbox shows completed responses with [Results] action', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // If receiver has sent letters with completed responses, [Results] should appear
     // For this test, check the sender's inbox instead (they have a completed response)
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     const resultsButton = page.getByRole('button', { name: /Results/i }).or(
@@ -134,7 +134,7 @@ test.describe('P660: Inbox Tab', () => {
       .eq('id', deliveryToReceiverId);
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Find inbox items and check for bold/semibold styling on unread items
@@ -155,7 +155,7 @@ test.describe('P660: Inbox Tab', () => {
       .eq('id', deliveryToReceiverId);
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Inbox tab should show a badge count
@@ -175,7 +175,7 @@ test.describe('P660: Inbox Tab', () => {
       .eq('id', deliveryToReceiverId);
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Nav item should show badge count
@@ -207,7 +207,7 @@ test.describe('P660: Inbox Tab', () => {
       .eq('id', deliveryToReceiverId);
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Click [Open] on the received letter (P699: renamed from Read)
@@ -231,7 +231,7 @@ test.describe('P660: Inbox Tab', () => {
 
   test('empty state when no inbox items', async ({ page }) => {
     await setTestSession(page, emptyUser.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Should show empty state message

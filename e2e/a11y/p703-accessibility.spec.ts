@@ -91,7 +91,7 @@ test.describe('P703: Accessibility', () => {
 
   test('inbox invite row Join button is reachable via keyboard (Tab)', async ({ page }) => {
     await setTestSession(page, listener.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     // Invite row should be visible (fixture seeded an open invite)
@@ -133,7 +133,7 @@ test.describe('P703: Accessibility', () => {
 
   test('Join button in invite row has descriptive accessible name', async ({ page }) => {
     await setTestSession(page, listener.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     const joinButton = page.getByRole('link', { name: /join/i }).or(

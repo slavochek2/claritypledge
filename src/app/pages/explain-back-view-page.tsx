@@ -51,7 +51,7 @@ export function ExplainBackViewPage() {
       return;
     }
     if (!id) {
-      navigate('/letters', { replace: true });
+      navigate('/artifacts', { replace: true });
       return;
     }
 
@@ -61,7 +61,7 @@ export function ExplainBackViewPage() {
       const eb = await getExplainBackById(id);
       // Pair-private RLS returns null for non-participants → access gate.
       if (!eb) {
-        if (!cancelled) navigate('/letters', { replace: true });
+        if (!cancelled) navigate('/artifacts', { replace: true });
         return;
       }
       if (cancelled) return;
@@ -128,7 +128,7 @@ export function ExplainBackViewPage() {
   // letter card). Only a cold arrival goes to this explain-back's letter results page.
   const backFallback = explainBack
     ? `/letter/${explainBack.letter_id}/results?delivery=${explainBack.delivery_id}`
-    : '/letters';
+    : '/artifacts';
 
   if (loading || !explainBack) {
     return (

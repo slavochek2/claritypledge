@@ -486,7 +486,7 @@ test('P703 regression: inbox-based invite still visible in letters inbox tab', a
     inviteId = seeded.inviteId;
 
     await setTestSession(page, receiver.email);
-    await page.goto('/letters?tab=inbox');
+    await page.goto('/artifacts?tab=shared');
     await page.waitForLoadState('networkidle');
 
     const joinButton = page.getByRole('button', { name: 'Join' }).or(

@@ -902,7 +902,7 @@ export function LetterReadingPage() {
         </p>
         <div className="flex gap-3 mt-2">
           <Link
-            to="/letters"
+            to="/artifacts"
             className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-border hover:bg-gray-50 transition-colors rounded-md min-h-10"
           >
             Go to my letters

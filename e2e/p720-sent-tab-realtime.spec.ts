@@ -83,7 +83,7 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
 
   test('smoke: sent tab loads with letter and initial delivery status', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Switch to Sent tab if not already there
@@ -102,7 +102,7 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
 
     try {
       await setTestSession(senderPage, sender.email);
-      await senderPage.goto('/letters');
+      await senderPage.goto('/artifacts');
       await senderPage.waitForLoadState('networkidle');
 
       // Switch to Sent tab

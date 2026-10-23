@@ -2,16 +2,15 @@
  * @file artifacts-header.tsx
  * @description P1545 WP3: the Artifacts title row. Title, a search icon that expands IN PLACE (the title
  * and "New artifact" never move), and the New artifact menu (Letter private / public as today's draft
- * menu, then Canvas).
+ * menu, canvas creation arrives with P1536).
  */
 import { useEffect, useRef } from 'react';
-import { Globe, LayoutDashboard, Lock, Plus, Search, X } from 'lucide-react';
+import { Globe, Lock, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ContentVisibility } from '@/app/types';
@@ -95,18 +94,8 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
               <span className="text-xs text-muted-foreground">Visible on your profile</span>
             </span>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {/* [FOUNDER DECISION: copy] No canvas can be created from the app yet: a canvas is its owner's points
-              under a reserved `canvas_<name>` tag that only the service role writes, and an owner's canvas with
-              no points reads as not found. P1536 (a new mirror thread) is the creation flow; until it lands the
-              entry is visible and says so instead of leading to a dead page. */}
-          <DropdownMenuItem disabled className="min-h-12 items-start gap-3">
-            <LayoutDashboard className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">Canvas</span>
-              <span className="text-xs text-muted-foreground">Not available yet</span>
-            </span>
-          </DropdownMenuItem>
+          {/* P1536 adds canvas creation (a new mirror thread) to this menu. Until then there is no Canvas entry:
+              a disabled item would be a dead control. */}
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

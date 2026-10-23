@@ -761,8 +761,8 @@ export function AuthCallbackPage() {
 
       // Redirect after auth: validate redirect against allowed prefixes
       setStatus("Redirecting...");
-      // P1512: with nowhere explicit to go, a signed-in person lands on Home (their chats).
-      const finalRedirect = isSafeRedirectPath(redirectPath) ? redirectPath : '/home';
+      // P1545: Home is the feed; with nowhere explicit to go, a signed-in person lands there.
+      const finalRedirect = isSafeRedirectPath(redirectPath) ? redirectPath : '/feed';
       navigate(finalRedirect, { replace: true });
     };
 

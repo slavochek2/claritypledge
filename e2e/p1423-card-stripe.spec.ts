@@ -128,7 +128,7 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
   });
 
   test('letter drafts: grey stripe only; the private draft keeps its lock and muted background', async ({ page }) => {
-    await checkPage(page, 'letters-drafts', '/letters?tab=drafts', async () => {
+    await checkPage(page, 'letters-drafts', '/artifacts?tab=yours&type=letters', async () => {
       await expect(page.getByText(`Private letter ${tag}`)).toBeVisible({ timeout: 20000 });
     });
     // Private keeps the app's private treatment: the lock and the muted background stories use.

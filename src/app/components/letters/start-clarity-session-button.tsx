@@ -75,7 +75,7 @@ export function StartClaritySessionButton({
         story_id: storyId,
         session_id: session.id,
       });
-      navigate(`/live/${session.code}?returnTo=${encodeURIComponent('/letters?tab=inbox')}`);
+      navigate(`/live/${session.code}?returnTo=${encodeURIComponent('/artifacts?tab=shared')}`);
     } catch (err) {
       console.error('[P703] Failed to start letter-sourced session:', err);
       setCreating(false);

@@ -52,7 +52,7 @@ test.describe('P775 reproduce: banner race + joiner propagation', () => {
 
       // Immediately navigate to /letters to simulate the user clicking a bottom-nav
       // link during the 5s upload await. This is the race window.
-      await session.host.page.goto('/letters', { waitUntil: 'domcontentloaded' });
+      await session.host.page.goto('/artifacts', { waitUntil: 'domcontentloaded' });
 
       // The P775 fix clears localStorage BEFORE the 5s await. If it fires,
       // cp_active_session is already null by the time /letters mounts.

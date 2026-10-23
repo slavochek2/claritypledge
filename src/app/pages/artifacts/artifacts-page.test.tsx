@@ -191,14 +191,15 @@ describe('Artifacts page', () => {
     expect(screen.getByText('No matches for “trust”.')).toBeInTheDocument();
   });
 
-  it('New artifact offers both letters and a Canvas entry; a letter creates a draft', async () => {
+  it('New artifact offers the two letter drafts and no dead Canvas entry; a letter creates a draft', async () => {
     const user = userEvent.setup();
     mocks.createDoc.mockResolvedValue({ id: 'new-doc' });
     renderPage();
     await screen.findByText('Draft about trust');
     await user.click(screen.getByRole('button', { name: 'New artifact' }));
     expect(await screen.findByRole('menuitem', { name: /Letter \(public draft\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Canvas/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
+    expect(screen.queryByRole('menuitem', { name: /Canvas/ })).toBeNull(); // P1536 adds it; no disabled placeholder (P955)
     await user.click(screen.getByRole('menuitem', { name: /Letter \(private draft\)/ }));
     await waitFor(() => expect(mocks.createDoc).toHaveBeenCalledWith('private'));
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/letters/drafts/new-doc'));

@@ -66,7 +66,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
     <div className="space-y-3">
       {/* Back link. P1512: FocusHeader renders it in the shell's top bar; it returns to where the author came
           from (usually the Letters list) and only a cold arrival goes to the Drafts tab. */}
-      <FocusHeader fallback="/letters?tab=drafts" parentName="Letters" />
+      <FocusHeader fallback="/artifacts?tab=yours&type=letters" parentName="Letters" />
 
       {/* Title + action buttons row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">

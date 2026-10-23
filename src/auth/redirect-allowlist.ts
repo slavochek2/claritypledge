@@ -24,7 +24,7 @@
  * target BEFORE the router's OrgLegacyRedirect renders (P1193).
  */
 
-export const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point', '/chat', '/letter', '/letters', '/org', '/groups', '/sessions', '/docs', '/transcribe', '/story'];
+export const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point', '/chat', '/letter', '/letters', '/artifacts', '/org', '/groups', '/sessions', '/docs', '/transcribe', '/story'];
 
 const ROOT_RE = /^\/[a-z-]+$/;
 for (const root of ALLOWED_REDIRECT_PREFIXES) {

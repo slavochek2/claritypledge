@@ -34,10 +34,10 @@ test.describe('P938: nav freezes during lazy route transition', () => {
       });
 
       // Click the Letters nav link (desktop nav on Desktop Chrome viewport)
-      await page.locator('a[href="/letters"]').first().click();
+      await page.locator('a[href="/artifacts"]').first().click();
 
       // URL commits synchronously via pushState — this must pass immediately
-      await expect(page).toHaveURL('/letters');
+      await expect(page).toHaveURL('/artifacts');
 
       // BUG: Without the fix, React keeps the feed committed (startTransition +
       // already-revealed Suspense boundary) and never mounts the PageLoader fallback.

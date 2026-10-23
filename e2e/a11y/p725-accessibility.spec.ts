@@ -153,7 +153,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('inbox page: sender name link is keyboard focusable', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -206,7 +206,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('inbox page: sender name link has accessible text', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -232,7 +232,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('"New Draft" button is keyboard accessible on Inbox tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     let newDraftFocused = false;
@@ -262,7 +262,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('"New Draft" button accessible on Sent tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const sentTab = page.getByRole('tab', { name: /sent/i });
@@ -282,7 +282,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('"New Draft" button accessible on Drafts tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const draftsTab = page.getByRole('tab', { name: /drafts/i });
@@ -368,7 +368,7 @@ test.describe('P725: Accessibility — identity links and navigation', () => {
 
   test('inbox name link meets 40px minimum touch target height', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });

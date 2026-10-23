@@ -46,7 +46,7 @@ async function makePublicDoc(ownerId: string, title: string): Promise<string> {
 }
 
 async function openAddRecipientModal(page: import('@playwright/test').Page): Promise<void> {
-  await page.goto('/letters?tab=sent');
+  await page.goto('/artifacts?tab=yours&type=letters');
   await page.waitForLoadState('networkidle');
 
   // Open the ⋯ dropdown and click "Add recipient(s)"

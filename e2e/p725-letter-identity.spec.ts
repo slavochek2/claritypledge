@@ -207,7 +207,7 @@ test.describe('P725: Letter identity surfaces', () => {
     });
 
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     await expect(page).toHaveURL(/\/letters/);
@@ -222,7 +222,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('inbox tab: sender name is a link to /p/:slug', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -244,7 +244,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('inbox tap contract: name link navigates to profile, not letter', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -264,7 +264,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('inbox tap contract: clicking card body navigates to letter (not profile)', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -293,7 +293,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('inbox anonymous delivery: actor_slug null renders "Someone" without link', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const someoneText = page.getByText('Someone').first();
@@ -314,7 +314,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('sent tab: recipient name links to /p/:slug when slug present', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const sentTab = page.getByRole('tab', { name: /sent/i });
@@ -330,7 +330,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('sent tab tap contract: name link navigates to recipient profile', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const sentTab = page.getByRole('tab', { name: /sent/i });
@@ -350,7 +350,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('sent tab public link letter shows "Public link letter" placeholder', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const sentTab = page.getByRole('tab', { name: /sent/i });
@@ -449,7 +449,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('navigation: /letters default landing tab is Inbox', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -467,7 +467,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('navigation: "New Draft" button visible on Inbox tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });
@@ -484,7 +484,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('navigation: "New Draft" button visible on Sent tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const sentTab = page.getByRole('tab', { name: /sent/i });
@@ -501,7 +501,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('navigation: "New Draft" button visible on Drafts tab', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const draftsTab = page.getByRole('tab', { name: /drafts/i });
@@ -518,7 +518,7 @@ test.describe('P725: Letter identity surfaces', () => {
 
   test('navigation: tab order is Inbox → Sent → Drafts', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const tabs = page.getByRole('tab');
@@ -550,7 +550,7 @@ test.describe('P725: Letter identity surfaces', () => {
   // but the scenario is no longer reachable end-to-end. Defensive branch covered by unit tests.
   test.skip('null-slug sender: name renders as plain text without link in inbox', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     const inboxTab = page.getByRole('tab', { name: /inbox/i });

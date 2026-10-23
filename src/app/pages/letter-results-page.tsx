@@ -293,7 +293,7 @@ export function LetterResultsPage() {
     return (
       <main aria-label="Letter Results" className="min-h-screen bg-background pt-4">
         <div className="max-w-sm mx-auto px-4">
-          <FocusHeader fallback="/letters" />
+          <FocusHeader fallback="/artifacts" />
         </div>
         <ClarityPageLoader />
       </main>
@@ -307,7 +307,7 @@ export function LetterResultsPage() {
         <p className="text-sm text-muted-foreground">
           This letter doesn&apos;t exist or you don&apos;t have access.
         </p>
-        <Link to="/letters" className="text-sm text-blue-600 hover:underline">
+        <Link to="/artifacts" className="text-sm text-blue-600 hover:underline">
           Back to Letters
         </Link>
       </div>
@@ -318,7 +318,7 @@ export function LetterResultsPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-sm text-muted-foreground">No stories found in this letter.</p>
-        <Link to="/letters" className="text-sm text-blue-600 hover:underline">
+        <Link to="/artifacts" className="text-sm text-blue-600 hover:underline">
           Back to Letters
         </Link>
       </div>
@@ -340,7 +340,7 @@ export function LetterResultsPage() {
         {/* P888: persistent exit on every story of the walk — StoryWalk's own
             "Back to Letters" link renders only on the last story. P1364: it pops history
             (useGoBack) and reads "Back"; only a cold arrival goes to /letters. */}
-        <FocusHeader fallback="/letters" />
+        <FocusHeader fallback="/artifacts" />
         {otherParty ? (
           <LetterParticipantRow
             name={otherParty.name}
@@ -381,7 +381,7 @@ export function LetterResultsPage() {
             return params;
           }, { replace: true });
         }}
-        endSlot={<BottomBackButton fallback="/letters" testId="letter-results-bottom-back" className="mt-0" />}
+        endSlot={<BottomBackButton fallback="/artifacts" testId="letter-results-bottom-back" className="mt-0" />}
         onExplainBackSubmit={handleExplainBackSubmit}
         positionStoriesMap={positionStoriesMap}
         onPositionStorySaved={fetchData}

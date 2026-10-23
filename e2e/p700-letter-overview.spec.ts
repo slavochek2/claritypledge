@@ -428,7 +428,7 @@ test.describe('P700: Letter Overview', () => {
 
   test('sent-tab cards are collapsed by default on mount', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const expandedRecipientRows = page.locator(
@@ -443,7 +443,7 @@ test.describe('P700: Letter Overview', () => {
   test('[Open overview] button visible on desktop (1280px) sent-tab', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const overviewBtn = page
@@ -457,7 +457,7 @@ test.describe('P700: Letter Overview', () => {
   test('clicking [Open overview] navigates to /letter/:id/overview', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await setTestSession(page, sender.email);
-    await page.goto('/letters?tab=sent');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
     // P832 ToS dialog can appear for newly-created test users; dismiss before interacting.
     await dismissTermsDialog(page);

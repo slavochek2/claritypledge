@@ -75,7 +75,7 @@ export function LetterCompletionSummary({
         </div>
         <div className="flex gap-6 text-sm text-muted-foreground">
           <Link
-            to="/letters"
+            to="/artifacts"
             className="underline underline-offset-4 hover:text-foreground transition-colors"
             onClick={() => trackExit('letters')}
           >

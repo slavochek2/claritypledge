@@ -72,7 +72,7 @@ test.describe('P551: Doc list page (/docs)', () => {
 
   test('/docs loads for authenticated user', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Page should load without error — check for the heading or empty state
@@ -84,7 +84,7 @@ test.describe('P551: Doc list page (/docs)', () => {
 
   test('/docs shows empty state when user has no docs', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Should show some indication of no docs (empty state message or create prompt)
@@ -103,7 +103,7 @@ test.describe('P551: Doc list page (/docs)', () => {
     });
 
     try {
-      await page.goto('/letters?tab=drafts');
+      await page.goto('/artifacts?tab=yours&type=letters');
       await page.waitForLoadState('networkidle');
 
       // Should see the doc title in the list
@@ -132,7 +132,7 @@ test.describe('P551: Doc creation via modal', () => {
 
   test('clicking New button opens creation modal with title and visibility fields', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     // Click create button
@@ -157,7 +157,7 @@ test.describe('P551: Doc creation via modal', () => {
 
   test('creating a doc with title and private visibility navigates to doc page', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/letters?tab=drafts');
+    await page.goto('/artifacts?tab=yours&type=letters');
     await page.waitForLoadState('networkidle');
 
     const createBtn = page.getByRole('button', { name: /new draft/i }).first();

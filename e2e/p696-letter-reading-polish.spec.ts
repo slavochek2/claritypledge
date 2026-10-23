@@ -305,7 +305,7 @@ test.describe('P696: Letter reading flow polish & refactor', () => {
 
   test('drafts list shows point count alongside story count', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/letters');
+    await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // Find the draft entry for this doc

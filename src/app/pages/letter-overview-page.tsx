@@ -109,7 +109,7 @@ export function LetterOverviewPage() {
   }, [user, fetchData]);
 
   // P1364: Back returns to where the reader came from; a cold arrival goes to the Sent tab.
-  const BACK_FALLBACK = '/letters?tab=sent';
+  const BACK_FALLBACK = '/artifacts?tab=yours&type=letters';
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (!sessionChecked || pageState === 'loading') {

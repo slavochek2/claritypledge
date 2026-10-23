@@ -117,7 +117,7 @@ test.describe('P703 happy path — two-party letter-sourced session', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // Listener's inbox: invite badge or row should appear via realtime
-      await listenerPage.goto('/letters?tab=inbox');
+      await listenerPage.goto('/artifacts?tab=shared');
       await listenerPage.waitForLoadState('networkidle');
 
       // Wait for invite row to appear (realtime delivery from DB INSERT)
@@ -277,7 +277,7 @@ test.describe('P703 cancel path — facilitator closes room before listener join
       });
 
       // Listener views inbox — invite is visible
-      await listenerPage.goto('/letters?tab=inbox');
+      await listenerPage.goto('/artifacts?tab=shared');
       await listenerPage.waitForLoadState('networkidle');
 
       await waitForUIUpdate(
