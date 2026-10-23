@@ -16,10 +16,8 @@ import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
+import { CHANGE_LEADS_OG } from "@/app/content/change-leads-og";
 
-const TITLE = "Everyone agreed. Then nothing changed.";
-const DESCRIPTION =
-  "Clarity Pledge helps a team find out whether yes in the meeting meant the same thing to everyone, before the change quietly stalls.";
 
 const CAUSES: { icon: typeof EyeOffIcon; title: string; text: string }[] = [
   { icon: ShuffleIcon, title: "Different yeses", text: 'One person heard "try it when you like." Another heard "use it for every report." Both said yes.' },
@@ -31,13 +29,13 @@ type Status = "Built today" | "Being built";
 const STEPS: { title: string; status: Status; text: string }[] = [
   { title: "Agree on how you talk.", status: "Built today", text: "The team opts into the Clarity Meeting Principle and the Clarity Group terms. Each person says yes for themselves." },
   { title: "Turn the meeting into points.", status: "Being built", text: "After a meeting, each person's agent helps turn what was said into points, stories and letters." },
-  { title: "Answer each other.", status: "Built today", text: "People answer each other's points and letters in Clarity Chat. Gaps surface in writing, not in the hallway." },
+  { title: "Answer each other.", status: "Built today", text: "People answer each other's points in Clarity Chat, and each other's letters. Gaps surface in writing, not in the hallway." },
   { title: "Disagree openly, even with the rules.", status: "Built today", text: "If someone disagrees with the principle itself, that goes through the same check. Nothing is forced." },
 ];
 
 const RECORD = [
   "You see your own record: what you said yes to, and what you answered.",
-  "The team sees who answered. There is no list of who didn't, and no ranking.",
+  "What the team sees is still being designed. It will never be a list of who didn't, or a ranking.",
   "Nobody is enrolled by their manager. People opt in themselves.",
 ];
 
@@ -73,7 +71,7 @@ function StatusBadge({ status }: { status: Status }) {
     <span
       data-testid="status-badge"
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider border ${
-        built ? "bg-blue-500/10 border-blue-500/20 text-blue-700" : "bg-transparent border-border text-muted-foreground"
+        built ? "bg-blue-500/10 border-blue-500/20 text-blue-700" : "bg-transparent border-dashed border-foreground/40 text-foreground/75"
       }`}
     >
       {status}
@@ -102,7 +100,7 @@ export function ChangeLeadsPage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="bg-background text-foreground">
-        <SEO title={TITLE} description={DESCRIPTION} url="/change-leads" noIndex />
+        <SEO title={CHANGE_LEADS_OG.title} description={CHANGE_LEADS_OG.description} url="/change-leads" image={CHANGE_LEADS_OG.image} noIndex />
 
         {/* 1. Hero */}
         <section className="relative px-4 pt-20 pb-8 lg:pt-28 lg:pb-10">
@@ -110,10 +108,10 @@ export function ChangeLeadsPage() {
           <div className="container mx-auto max-w-4xl text-center">
             <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 text-[11px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em]">
               <FlagIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              For change, transformation and AI rollout leads
+              For change and AI rollout leads
             </div>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
-              Everyone agreed. <span className="text-blue-500">Then nothing changed.</span>
+              Everyone agreed. <span className="block text-blue-500">Then nothing changed.</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
               Clarity Pledge helps a team find out whether &ldquo;yes&rdquo; in the meeting meant the same thing to everyone, before the change quietly stalls.

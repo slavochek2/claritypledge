@@ -26,7 +26,7 @@ describe('P1558 /change-leads - content', () => {
   it('renders hero, then the sections in order', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Everyone agreed. Then nothing changed.');
-    expect(screen.getByText('For change, transformation and AI rollout leads')).toBeInTheDocument();
+    expect(screen.getByText('For change and AI rollout leads')).toBeInTheDocument();
     expect(screen.getByText(/whether .yes. in the meeting meant the same thing to everyone/)).toBeInTheDocument();
     const order = [
       'Yes is not the same as understood',

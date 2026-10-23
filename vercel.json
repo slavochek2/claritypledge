@@ -211,6 +211,17 @@
       "destination": "/api/og?path=/hospitals"
     },
     {
+      "source": "/change-leads",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/og?path=/change-leads"
+    },
+    {
       "source": "/((?!api|_next|.*\\..*).*)",
       "destination": "/index.html"
     }
