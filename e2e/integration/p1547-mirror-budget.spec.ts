@@ -151,15 +151,22 @@ test('an erase racing a starting job: the job is cancelled, or it started after 
   const q = await send(sB, mir, `race question ${RUN}`);
   const job = await requestReply(sB, q.id as string);
   // a "busy" start (the erase holds the context lock) is retried, as the client does
+  // bounded: at most MAX_STARTS attempts, exponential backoff (100 ms doubling, capped at 2 s) with jitter
+  const MAX_STARTS = 8;
+  let starts = 0;
   const start = (async () => {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < MAX_STARTS; i++) {
+      starts++;
       const b = await begin(job.job_id);
       if (b.status !== 'busy') return b;
-      await new Promise((r) => setTimeout(r, 300));
+      const backoff = Math.min(2_000, 100 * 2 ** i);
+      await new Promise((r) => setTimeout(r, backoff / 2 + Math.random() * (backoff / 2)));
     }
-    throw new Error('begin stayed busy');
+    throw new Error(`begin stayed busy for ${MAX_STARTS} attempts`);
   })();
   const [b] = await Promise.all([start, erase(sX)]);
+  expect(starts, 'the start was retried a bounded number of times').toBeLessThanOrEqual(MAX_STARTS);
+  expect(starts).toBeGreaterThanOrEqual(1);
   const after = await adminJob(job.job_id);
   if (after.state === 'cancelled') {
     expect(await complete(job.job_id, `late ${RUN}`), 'a cancelled job writes nothing').toBeNull();
@@ -175,9 +182,16 @@ test('an erase racing a starting job: the job is cancelled, or it started after 
 
 const NO_AI = 'the mirror is off on this project (MIRROR_AI_ENABLED and the mirror key are not set)';
 const PWNED = `PWNED${RUN.slice(0, 4).toUpperCase()}`;
+/** Skips only on a SUCCESSFUL answer that says the mirror is off; an error or a malformed answer fails. */
 async function aiOn(s: SignedIn): Promise<boolean> {
-  const { data } = await s.client.functions.invoke('mirror-reply', { body: { availability: true } });
-  return (data as { enabled?: boolean } | null)?.enabled === true;
+  const { data, error } = await s.client.functions.invoke('mirror-reply', { body: { availability: true } });
+  if (error) {
+    const res = (error as { context?: Response }).context;
+    throw new Error(`availability check failed: ${res?.status} ${res ? await res.text() : error.message}`);
+  }
+  const enabled = (data as { enabled?: unknown } | null)?.enabled;
+  if (typeof enabled !== 'boolean') throw new Error(`availability check returned no boolean: ${JSON.stringify(data)}`);
+  return enabled;
 }
 async function reply(s: SignedIn, messageId: string): Promise<string> {
   const { data, error } = await s.client.functions.invoke('mirror-reply', { body: { message_id: messageId } });

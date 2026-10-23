@@ -4,9 +4,11 @@ import { basename } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BUDGET_TOKENS, COPY_ITEM_TOKENS, CUT_MARK, MAX_OUT_TOKENS, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN,
-  buildMirrorRequest, estimateTokens, itemTokens, requestTokens, reserveReplyUsd, selectNewestFirst,
-  type BeginRun, type ContextItem,
+  buildMirrorRequest, estimateTokens, quoteData, itemTokens, requestTokens, reserveReplyUsd, selectNewestFirst,
+  MAX_RECOUNTS, MirrorRequestTooLarge, fitMirrorRequest, geminiTokenCounter, requestBytes, cutItem, capCopy,
+  type BeginRun, type ContextItem, type GeminiRequest,
 } from '../../supabase/functions/_shared/mirror-agent';
+import { vi } from 'vitest';
 import { newestMigrationDefining } from './helpers/newest-migration';
 
 function run(over: Partial<BeginRun> = {}): BeginRun {
@@ -34,9 +36,13 @@ describe('P1547: spend — code and SQL never drift', () => {
 });
 
 describe('P1547: the token estimate', () => {
-  it('ASCII at 3 chars per token, rounded up; BMP non-ASCII 1 each; emoji (astral) 2 each', () => {
+  it('letters/digits at 3 per token, rounded up; other ASCII 1 each; BMP non-ASCII 1 each; emoji (astral) 2 each', () => {
     expect(estimateTokens('abc')).toBe(1);
     expect(estimateTokens('abcd')).toBe(2);
+    expect(estimateTokens('a1B')).toBe(1);
+    expect(estimateTokens('!!!')).toBe(3);
+    expect(estimateTokens('a b')).toBe(2);
+    expect(estimateTokens('\\u003c')).toBe(3); // the escape of '<': backslash 1 + ceil(5 alnum / 3) 2
     expect(estimateTokens('漢字')).toBe(2);
     expect(estimateTokens('😀')).toBe(2);
     expect(estimateTokens('')).toBe(0);
@@ -66,7 +72,8 @@ describe('P1547: the request never exceeds the budget, at the exact boundary', (
       const past = buildMirrorRequest(run({ context: [{ who: 'owner', body: unit.repeat(lo + 1) }] }));
       expect(fixed).toBeLessThan(BUDGET_TOKENS);
       expect(requestTokens(at)).toBeLessThanOrEqual(BUDGET_TOKENS);
-      expect(requestTokens(at), 'the boundary is really reached').toBeGreaterThan(BUDGET_TOKENS - 10);
+      // one more repeat of the unit would not fit: the request is within one unit's cost of the budget
+      expect(requestTokens(at), 'the boundary is really reached').toBeGreaterThan(BUDGET_TOKENS - estimateTokens(quoteData(unit)) - 3);
       expect(requestTokens(past)).toBeLessThanOrEqual(BUDGET_TOKENS);
       expect(userText(past), 'one past the boundary is cut with a marker').toContain(CUT_MARK.trim());
       // the escaped text never opens or closes a block or forges the header
@@ -152,5 +159,91 @@ describe('P1547: building the request stays cheap on hostile input (edge CPU lim
     expect(requestTokens(req)).toBeLessThanOrEqual(BUDGET_TOKENS);
     // was ~11 s before capCopy measured each reply once (quadratic re-measure); ~0.3 s after
     expect(ms).toBeLessThan(3_000);
+  });
+  it('2,000 items (the SQL row cap), each a 100-reply hostile copy, also builds in bound', () => {
+    const ang = '<'.repeat(4_000);
+    const clarify = { from: 'B', in: 'X', body: ang, thread: Array.from({ length: 100 }, () => ({ name: 'B', body: ang })), thread_total: 400 };
+    const ctx: ContextItem[] = Array.from({ length: 2_000 }, () => ({ who: 'other', name: 'B', body: ang, clarify }));
+    const start = performance.now();
+    const req = buildMirrorRequest(run({ context: ctx }));
+    expect(requestTokens(req)).toBeLessThanOrEqual(BUDGET_TOKENS);
+    expect(performance.now() - start).toBeLessThan(3_000);
+  });
+});
+
+describe('P1547 review: cuts touch message text only', () => {
+  it('a cut never shortens or marks metadata (from, in, attached, thread_note)', () => {
+    const longName = 'N'.repeat(300);
+    const item = { from: longName, attached: 'point', text: 'z'.repeat(50_000), copied_for_clarify: { from: longName, in: 'Org '.repeat(50), text: 'q'.repeat(50_000) } };
+    // just room for the metadata plus a little text, so the per-string cut length is far below 300
+    const meta = itemTokens({ ...item, text: '', copied_for_clarify: { ...item.copied_for_clarify, text: '' } });
+    const cut = cutItem(item, meta + 2 * estimateTokens(CUT_MARK) + 30)!;
+    expect(cut).not.toBeNull();
+    expect(cut.from).toBe(longName);
+    expect(cut.attached).toBe('point');
+    const c = cut.copied_for_clarify as Record<string, string>;
+    expect(c.from).toBe(longName);
+    expect(c.in).toBe('Org '.repeat(50));
+    expect(String(cut.text)).toContain(CUT_MARK);
+    expect(JSON.stringify({ a: cut.from, b: c.from, d: c.in })).not.toContain(CUT_MARK.trim());
+  });
+  it('a forwarded message goes through the same 20% copy cap', () => {
+    const it0 = { from: 'B', forwarded: { from: 'C', text: '漢'.repeat(30_000) } };
+    const capped = capCopy(it0);
+    expect(itemTokens(capped)).toBeLessThanOrEqual(COPY_ITEM_TOKENS);
+    expect(JSON.stringify(capped)).toContain(CUT_MARK);
+  });
+  it('a copy SQL already trimmed says "last N of M" with the true total, even when it fits', () => {
+    const text = userText(buildMirrorRequest(run({ context: [{ who: 'owner', body: 'why?', clarify: { from: 'B', body: 'root', thread: [{ name: 'B', body: 'newest' }], thread_total: 250 } }] })));
+    expect(text).toContain('showing the last 1 of 250 replies');
+    expect(text).not.toContain('"thread_total"');
+  });
+});
+
+describe('P1547 review: the model counts the request before it is sent', () => {
+  const big: BeginRun = run({ context: Array.from({ length: 3_000 }, (_, i) => ({ who: 'owner' as const, body: `m${i} ${'x'.repeat(300)}` })) });
+  it('under budget by the model\'s count: sent as built, one count', async () => {
+    const count = vi.fn(async () => 1_000);
+    const r = await fitMirrorRequest(big, count);
+    expect(count).toHaveBeenCalledTimes(1);
+    expect(r.counted).toBe(true);
+  });
+  it('over by the model\'s count: the oldest data shrinks in proportion and is recounted', async () => {
+    const sizes: number[] = [];
+    const count = vi.fn(async (req: GeminiRequest) => { const n = Math.round(requestTokens(req) * 1.3); sizes.push(n); return n; });
+    const r = await fitMirrorRequest(big, count);
+    expect(r.tokens).toBeLessThanOrEqual(BUDGET_TOKENS);
+    expect(count.mock.calls.length).toBeGreaterThan(1);
+    expect(count.mock.calls.length).toBeLessThanOrEqual(1 + MAX_RECOUNTS);
+    const text = userText(r.request);
+    expect(text).toContain('m2999 '); // the newest stays
+  });
+  it('still over after the recounts: refused, never sent', async () => {
+    const count = vi.fn(async () => 10 * BUDGET_TOKENS);
+    await expect(fitMirrorRequest(big, count)).rejects.toBeInstanceOf(MirrorRequestTooLarge);
+    // recounted, never more than MAX_RECOUNTS times (a shrink below the fixed text refuses before counting)
+    expect(count.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(count.mock.calls.length).toBeLessThanOrEqual(1 + MAX_RECOUNTS);
+  });
+  it('counting failed: the UTF-8 byte bound stands in, and the request fits it', async () => {
+    const r = await fitMirrorRequest(big, async () => null);
+    expect(r.counted).toBe(false);
+    expect(requestBytes(r.request)).toBeLessThanOrEqual(BUDGET_TOKENS);
+  });
+  it('geminiTokenCounter: posts to countTokens with the key in a header, reads totalTokens; any failure is null', async () => {
+    const req = buildMirrorRequest(run());
+    const ok = vi.fn(async () => new Response(JSON.stringify({ totalTokens: 1234 }), { status: 200 }));
+    expect(await geminiTokenCounter('k', ok as unknown as typeof fetch)(req)).toBe(1234);
+    const [url, init] = ok.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/models\/gemini-3\.8-flash:countTokens$/);
+    expect(url).not.toContain('k=');
+    expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe('k');
+    expect(JSON.parse(String(init.body)).generateContentRequest.contents).toEqual(req.contents);
+    const err = vi.fn(async () => new Response('no', { status: 500 }));
+    expect(await geminiTokenCounter('k', err as unknown as typeof fetch)(req)).toBeNull();
+    const bad = vi.fn(async () => new Response(JSON.stringify({ totalTokens: 'x' }), { status: 200 }));
+    expect(await geminiTokenCounter('k', bad as unknown as typeof fetch)(req)).toBeNull();
+    const thrown = vi.fn(async () => { throw new Error('net'); });
+    expect(await geminiTokenCounter('k', thrown as unknown as typeof fetch)(req)).toBeNull();
   });
 });

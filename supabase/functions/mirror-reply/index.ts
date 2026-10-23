@@ -7,7 +7,7 @@
  *
  * Flow: mirror_request_reply (as the caller: proves ownership, creates or returns the one job for this
  * message) → _mirror_begin_job (service role: locks and reads the bounded context, reserves the spend,
- * marks it running) → one Gemini call → _mirror_complete_job (writes the agent row, settles the spend).
+ * marks it running) → a free countTokens check (P1547) → one Gemini call → _mirror_complete_job (writes the agent row, settles the spend).
  * The reply reaches the client through Realtime like any message; the response also carries it.
  *
  * Refuses (409 terms_not_accepted, P1544) unless the caller has accepted the current terms version.
@@ -23,7 +23,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
-import { MIRROR_MODEL, MirrorRequestTooLarge, buildMirrorRequest, parseReply, type BeginRun } from '../_shared/mirror-agent.ts';
+import { MIRROR_MODEL, MirrorRequestTooLarge, fitMirrorRequest, geminiTokenCounter, parseReply, type BeginRun, type buildMirrorRequest } from '../_shared/mirror-agent.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -97,7 +97,8 @@ Deno.serve(async (req: Request) => {
   // ── One model call ────────────────────────────────────────────────────────
   let request: ReturnType<typeof buildMirrorRequest>;
   try {
-    request = buildMirrorRequest(run);
+    // P1547: the estimate selects; Gemini's free countTokens decides (UTF-8 bytes if it fails).
+    request = (await fitMirrorRequest(run, geminiTokenCounter(MIRROR_GEMINI_API_KEY))).request;
   } catch (e) {
     // Refused before any call: released, never charged (P1520 review).
     await service.rpc('_mirror_fail_job', { p_job: job.job_id, p_code: e instanceof MirrorRequestTooLarge ? 'too_large' : 'build', p_actual_usd: null, p_attempt: run.attempt });

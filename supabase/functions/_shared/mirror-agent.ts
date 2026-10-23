@@ -29,20 +29,21 @@ const MIN_CUT_TOKENS = 50;
 export const CUT_MARK = ' [... cut: too long to show in full]';
 
 /**
- * Conservative token estimate, stated: ASCII at three characters per token (rounded up), every
- * non-ASCII code point a whole token, and one outside the Basic Multilingual Plane (emoji) two. The
- * spec's plain characters / 3 would undercount CJK and emoji, which tokenise at about one token per
- * character or worse. Counted over the exact text sent, after escaping.
+ * Token estimate used for SELECTION, stated: ASCII letters and digits at three per token (rounded up),
+ * every other ASCII character (punctuation, spaces, the escapes) a whole token, every non-ASCII code point
+ * a token, and one outside the Basic Multilingual Plane (emoji) two. It is an estimate, not a bound: the
+ * request is counted by the model's own counter before it is sent (fitMirrorRequest).
  */
 export function estimateTokens(text: string): number {
-  let ascii = 0;
+  let alnum = 0;
   let other = 0;
   for (const ch of text) {
     const c = ch.codePointAt(0) ?? 0;
-    if (c < 128) ascii++;
+    if ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122)) alnum++;
+    else if (c < 128) other++;
     else other += c > 0xffff ? 2 : 1;
   }
-  return Math.ceil(ascii / 3) + other;
+  return Math.ceil(alnum / 3) + other;
 }
 
 /** USD per 1M tokens: Gemini's paid-tier rates from 1 Jan 2027, the higher of its two schedules. */
@@ -110,6 +111,8 @@ export interface ContextItem {
     in?: string | null;
     body?: string | null;
     thread?: Array<{ name?: string | null; body?: string | null }> | null;
+    /** P1547: how many replies the copied thread had (SQL may offer only its newest). */
+    thread_total?: number | null;
   } | null;
 }
 
@@ -142,6 +145,9 @@ export function itemTokens(item: unknown): number {
   return estimateTokens(quoteData(item) + '\n');
 }
 
+/** Copied threads' true reply counts, kept off the quoted item itself (never sent as a field). */
+const TOTALS = new WeakMap<object, number>();
+
 function clean(item: ContextItem): Record<string, unknown> {
   const out: Record<string, unknown> = { from: item.who === 'owner' ? 'owner' : item.who === 'mirror' ? 'you (the mirror)' : item.name ?? 'someone' };
   if (item.body) out.text = item.body;
@@ -155,35 +161,42 @@ function clean(item: ContextItem): Record<string, unknown> {
       text: item.clarify.body ?? null,
       ...(item.clarify.thread?.length ? { thread: item.clarify.thread.map((t) => ({ from: t.name ?? 'someone', text: t.body ?? null })) } : {}),
     };
+    const shown = item.clarify.thread?.length ?? 0;
+    const total = Math.max(item.clarify.thread_total ?? shown, shown);
+    if (total > shown) TOTALS.set(out.copied_for_clarify as object, total);
   }
   return out;
 }
 
-/** Every string in `value`, at any depth, cut to `max` code points (never splitting one), marked when cut. */
-function capStrings(value: unknown, max: number): unknown {
+/**
+ * Every MESSAGE TEXT (a `text` value, at any depth) cut to `max` code points (never splitting one), marked
+ * when cut. Metadata (from, in, attached, thread, thread_note) is never cut and never marked.
+ */
+function capStrings(value: unknown, max: number, key = ''): unknown {
   if (typeof value === 'string') {
+    if (key !== 'text') return value;
     const cps = Array.from(value);
     return cps.length > max ? cps.slice(0, max).join('') + CUT_MARK : value;
   }
-  if (Array.isArray(value)) return value.map((v) => capStrings(v, max));
+  if (Array.isArray(value)) return value.map((v) => capStrings(v, max, key === 'thread' ? '' : key));
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, capStrings(v, max)]));
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, capStrings(v, max, k)]));
   }
   return value;
 }
 
-function longestString(value: unknown): number {
-  if (typeof value === 'string') return Array.from(value).length;
-  if (Array.isArray(value)) return value.reduce((n: number, v) => Math.max(n, longestString(v)), 0);
-  if (value && typeof value === 'object') return Object.values(value).reduce((n: number, v) => Math.max(n, longestString(v)), 0);
+function longestText(value: unknown, key = ''): number {
+  if (typeof value === 'string') return key === 'text' ? Array.from(value).length : 0;
+  if (Array.isArray(value)) return value.reduce((n: number, v) => Math.max(n, longestText(v)), 0);
+  if (value && typeof value === 'object') return Object.entries(value).reduce((n: number, [k, v]) => Math.max(n, longestText(v, k)), 0);
   return 0;
 }
 
-/** The item with its strings cut (marked) so it costs at most `tokens`, or null if even empty strings don't fit. */
+/** The item with its message texts cut (marked) so it costs at most `tokens`, or null if even empty strings don't fit. */
 export function cutItem(item: Record<string, unknown>, tokens: number): Record<string, unknown> | null {
   if (itemTokens(item) <= tokens) return item;
   let lo = 0;
-  let hi = longestString(item);
+  let hi = longestText(item);
   if (itemTokens(capStrings(item, 0)) > tokens) return null;
   while (lo < hi) { // the largest per-string length that still fits
     const mid = Math.ceil((lo + hi) / 2);
@@ -194,16 +207,23 @@ export function cutItem(item: Record<string, unknown>, tokens: number): Record<s
 }
 
 /**
- * A copied (forwarded or Clarified) thread is one item of at most COPY_ITEM_TOKENS: past it, the oldest
- * copied replies are dropped and the item says "showing the last N of M replies"; still too big, it is cut.
+ * A copied (Clarified) thread or a forwarded message is one item of at most COPY_ITEM_TOKENS: past it, the
+ * oldest copied replies are dropped; still too big, its texts are cut. Whenever fewer replies are shown than
+ * the thread had (here or already in SQL), the item says "showing the last N of M replies".
  */
 export function capCopy(item: Record<string, unknown>): Record<string, unknown> {
   const copy = item.copied_for_clarify as Record<string, unknown> | undefined;
-  if (!copy || itemTokens(item) <= COPY_ITEM_TOKENS) return item;
+  if (!copy) {
+    if (!item.forwarded || itemTokens(item) <= COPY_ITEM_TOKENS) return item;
+    return cutItem(item, COPY_ITEM_TOKENS) ?? item;
+  }
   const thread = (copy.thread as unknown[] | undefined) ?? [];
   const m = thread.length;
+  const total = Math.max(TOTALS.get(copy) ?? m, m);
+  if (total === m && itemTokens(item) <= COPY_ITEM_TOKENS) return item;
   const { thread: _all, ...rest } = copy;
-  const withLast = (n: number) => ({ ...item, copied_for_clarify: { ...rest, ...(n > 0 ? { thread: thread.slice(m - n) } : {}), thread_note: `showing the last ${n} of ${m} replies` } });
+  const withLast = (n: number) => ({ ...item, copied_for_clarify: { ...rest, ...(n > 0 ? { thread: thread.slice(m - n) } : {}), ...(n < total ? { thread_note: `showing the last ${n} of ${total} replies` } : {}) } });
+  if (itemTokens(withLast(m)) <= COPY_ITEM_TOKENS) return withLast(m);
   // Each reply is measured once (its line plus a separator), newest first; re-measuring the whole item per
   // dropped reply was quadratic and took seconds on long escaped threads (edge CPU limit).
   let used = itemTokens(withLast(0));
@@ -325,6 +345,62 @@ export function buildMirrorRequest(run: BeginRun, budget = BUDGET_TOKENS): Gemin
   // The reservation assumes the budget; a request that could exceed it is never sent.
   if (requestTokens(req) > budget) throw new MirrorRequestTooLarge();
   return req;
+}
+
+/** A token counter for the final request: the model's count, or null when counting failed. */
+export type TokenCounter = (req: GeminiRequest) => Promise<number | null>;
+
+/** UTF-8 bytes of the request text: a strict upper bound on its tokens (no tokenizer emits more tokens than bytes). */
+export function requestBytes(req: GeminiRequest): number {
+  const enc = new TextEncoder();
+  const parts = [...req.systemInstruction.parts, ...req.contents.flatMap((c) => c.parts)];
+  return parts.reduce((n, p) => n + enc.encode(p.text).length, 0);
+}
+
+export const MAX_RECOUNTS = 2;
+
+/**
+ * P1547 review: the estimate chooses, the model's counter decides. The built request is counted; over the
+ * budget, it is rebuilt with the data budget shrunk in proportion (the oldest selected data goes first) and
+ * counted again, at most MAX_RECOUNTS times; still over, MirrorRequestTooLarge (nothing sent, nothing
+ * charged). If counting fails, the strict bound (UTF-8 bytes) stands in for the count.
+ */
+export async function fitMirrorRequest(run: BeginRun, count: TokenCounter): Promise<{ request: GeminiRequest; tokens: number; counted: boolean }> {
+  let budget = BUDGET_TOKENS;
+  for (let attempt = 0; ; attempt++) {
+    const request = buildMirrorRequest(run, budget);
+    const n = await count(request);
+    const measured = n ?? requestBytes(request);
+    if (measured <= BUDGET_TOKENS) return { request, tokens: measured, counted: n !== null };
+    if (attempt >= MAX_RECOUNTS) throw new MirrorRequestTooLarge();
+    // shrink in proportion, with 5% headroom; always strictly smaller
+    budget = Math.min(budget - 1, Math.floor((budget * BUDGET_TOKENS * 0.95) / measured));
+  }
+}
+
+/** The Gemini countTokens call (free), with an injectable fetch. Any failure is null, never a throw. */
+export function geminiTokenCounter(apiKey: string, fetchFn: typeof fetch = fetch, timeoutMs = 10_000): TokenCounter {
+  return async (req) => {
+    try {
+      const res = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${MIRROR_MODEL}:countTokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({ generateContentRequest: { model: `models/${MIRROR_MODEL}`, systemInstruction: req.systemInstruction, contents: req.contents } }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) {
+        await res.body?.cancel();
+        // Visible on purpose: a silent fallback would shorten every reply to the byte bound unnoticed.
+        console.warn('mirror: countTokens failed, using the byte bound', { status: res.status });
+        return null;
+      }
+      const total = ((await res.json()) as { totalTokens?: unknown }).totalTokens;
+      return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : null;
+    } catch (e) {
+      console.warn('mirror: countTokens failed, using the byte bound', { error: (e as Error).name });
+      return null;
+    }
+  };
 }
 
 // ── What comes back ──────────────────────────────────────────────────────────
