@@ -146,12 +146,14 @@ Registry: the Gemini API row in `docs/technical/metered-services.md`, read 2026-
 
 Moved out of the Pre-deploy Checklist on 2026-10-23: the ship gate requires every pre-deploy box ticked, but these depend on the merge itself (`/push` applies the migration from main). Turning the switch on before the new functions are live would let an older prod copy answer before the policy is live, so the switch comes last.
 
-- [ ] `/push`: policy, terms and the terms SQL go live on prod (applies the migration).
-- [ ] Deploy `mirror-reply` and `mirror-portrait` to prod.
-- [ ] Set `MIRROR_AI_ENABLED=true` on prod.
-- [ ] `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait` on prod.
-- [ ] On prod: one real reply and one portrait on the founder's account. *(Was AC9.)*
-- [ ] Sentry clean for 10 minutes.
+- [x] `/push`: policy, terms and the terms SQL go live on prod (applies the migration).
+- [x] Deploy `mirror-reply` and `mirror-portrait` to prod.
+- [x] Set `MIRROR_AI_ENABLED=true` on prod.
+- [x] `node scripts/edge-function-smoke.mjs --only mirror-reply,mirror-portrait` on prod.
+- [x] On prod: one real reply and one portrait on the founder's account. *(Was AC9.)*
+- [x] Sentry clean for 10 minutes.
+
+*(2026-10-23: pushed with main; terms SQL on prod; both functions deployed; `MIRROR_AI_ENABLED=true` set in the dashboard (digest matches "true"); edge smoke 2/2; founder confirmed a real reply works; Sentry: no production issues in the last hour, control query returns older issues.)*
 
 ## Related
 
