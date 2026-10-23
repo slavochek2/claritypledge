@@ -38,6 +38,8 @@ import {
   createTestOrganization, createTestMembership, deleteTestOrganization, type TestOrganization,
 } from '../helpers/test-organization';
 import { createTestDoc, deleteTestLetter } from '../helpers/test-letter';
+// The single TEST-origin allowlist (P1557); a deny-one guard would pass any project that is not literally prod.
+import { TEST_PROJECT_REFS, isHostedTestUrl } from '../helpers/e2e-namespace';
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type Canvas = { points: Row[]; stories: Row[]; positions: Row[]; visibility: string | null; access: Row };
@@ -51,9 +53,6 @@ const CANVAS_TAG = `canvas_${NAME}`;
 const DAY = 86_400_000;
 
 const pointIdsCreated: string[] = [];
-// An allowlist of the test projects (a deny-one guard would pass any project that is not literally
-// prod). TEST moved projects (P1530); the old ref stays listed until it is retired.
-const TEST_PROJECT_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq'];
 const CANVAS_POINTS_TRIGGER = 'trg_p1515_canvas_points_are_private';
 const NAME_LEGACY = `${NAME}legacy`;
 
@@ -75,8 +74,9 @@ async function testDbQuery(sql: string): Promise<Array<Record<string, unknown>>>
   let url: globalThis.URL | null = null;
   try { url = new globalThis.URL(process.env.VITE_SUPABASE_URL ?? ''); } catch { /* refused below */ }
   const ref = url?.hostname.split('.')[0] ?? '';
-  if (!url || !TEST_PROJECT_REFS.includes(ref) || url.origin !== `https://${ref}.supabase.co`) {
-    throw new Error(`refusing to run raw SQL against ${ref || 'an unknown project'}: TEST only (${TEST_PROJECT_REFS.join(', ')})`);
+  // The Management API exists only for the hosted TEST projects (the self-hosted server has none: P1557 step 10).
+  if (!url || !isHostedTestUrl(url.origin)) {
+    throw new Error(`refusing to run raw SQL against ${ref || 'an unknown project'}: hosted TEST only (${TEST_PROJECT_REFS.join(', ')})`);
   }
   const token = readEnvLocal('SUPABASE_TEST_WRITE_TOKEN');
   if (!token) throw new Error('SUPABASE_TEST_WRITE_TOKEN missing from .env.local');

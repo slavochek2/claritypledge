@@ -37,6 +37,7 @@ import { homedir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { testRefForUrl, testTargetConfigError } from './lib/test-target.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -65,13 +66,11 @@ if (!URL_ || !SERVICE_KEY) {
 // denylist that cannot read its list would have to fail open or refuse every run. Test moved projects
 // (P1530); the old ref stays listed until it is retired. The URL is parsed, never split, so
 // `https://<test ref>.@<other host>` cannot pass.
-const TEST_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq']; // the test projects (db-access.md)
+const REF = testRefForUrl(URL_);
 let parsed;
 try { parsed = new URL(URL_); } catch { parsed = null; }
-const REF = parsed?.hostname.split('.')[0] ?? '';
-if (!parsed || !TEST_REFS.includes(REF) || parsed.origin !== `https://${REF}.supabase.co`
-    || parsed.username || parsed.password || parsed.pathname !== '/') {
-  console.error(`REFUSING: ${URL_} is not a test project URL (${TEST_REFS.join(', ')}). This script is test-only.`);
+if (!REF || parsed.pathname !== '/') {
+  console.error(`REFUSING: ${URL_} is not a test project URL (the hosted test projects or SELFHOSTED_TEST_ORIGIN). This script is test-only.${testTargetConfigError() ? ` ${testTargetConfigError()}` : ''}`);
   process.exit(1);
 }
 // The key must belong to the same project: a key exported in the shell beats .env.test.local. A

@@ -38,6 +38,7 @@ import { createClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { testRefForUrl, testTargetConfigError } from './lib/test-target.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -70,13 +71,11 @@ if (!URL_ || !SERVICE_KEY) {
 // An allowlist: anything but a test project's exact origin is refused (a URL is parsed, never split,
 // so `https://<test ref>.@<other host>` cannot pass). Test moved projects (P1530); the old ref stays
 // listed until it is retired.
-const TEST_REFS = ['ayibkeoyukulbsjpxgaw', 'gfjctyxqlwexxwsmkakq'];
+const REF = testRefForUrl(URL_);
 let parsed;
 try { parsed = new URL(URL_); } catch { parsed = null; }
-const REF = parsed?.hostname.split('.')[0] ?? '';
-if (!parsed || !TEST_REFS.includes(REF) || parsed.origin !== `https://${REF}.supabase.co`
-    || parsed.username || parsed.password || parsed.pathname !== '/') {
-  console.error(`REFUSING: ${URL_} is not a test project URL (${TEST_REFS.join(', ')}). This script is test-only.`);
+if (!REF || parsed.pathname !== '/') {
+  console.error(`REFUSING: ${URL_} is not a test project URL (the hosted test projects or SELFHOSTED_TEST_ORIGIN). This script is test-only.${testTargetConfigError() ? ` ${testTargetConfigError()}` : ''}`);
   process.exit(1);
 }
 // The key must belong to the same project: a key exported in the shell beats .env.test.local above.

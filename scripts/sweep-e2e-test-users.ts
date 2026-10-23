@@ -29,7 +29,7 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { E2E_EMAIL, TEST_PROJECT_REF, isTestProjectUrl } from '../e2e/helpers/e2e-namespace';
+import { E2E_EMAIL, TEST_PROJECT_REF, isTestProjectUrl, testTargetConfigError } from '../e2e/helpers/e2e-namespace';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.test.local') });
 
@@ -113,11 +113,17 @@ function transient(status: number): boolean {
   return status === 0 || status === 408 || status === 429 || status >= 500;
 }
 
+/** A refusal caused by a bad SELFHOSTED_TEST_ORIGIN must say so, not read like a wrong project. */
+const configNote = (): string => {
+  const err = testTargetConfigError(process.env);
+  return err ? `; ${err}` : '';
+};
+
 export async function sweepE2eTestUsers(opts: SweepOptions): Promise<SweepResult> {
   const log = opts.log ?? console.log;
   const now = opts.now ?? Date.now;
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
-    throw new Error(`sweep refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
+    throw new Error(`sweep refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF}, or the self-hosted origin)${configNote()}`);
   }
   const limit = opts.limit ?? SWEEP_DEFAULTS.limit;
   // Halved after a transient failure or a batch the server could not finish (deferred), never grown.
@@ -209,7 +215,7 @@ export async function purgeUserIds(
   const log = opts.log ?? console.log;
   const now = opts.now ?? Date.now;
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) {
-    throw new Error(`purge refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF})`);
+    throw new Error(`purge refused: VITE_SUPABASE_URL is not the test project (${TEST_PROJECT_REF}, or the self-hosted origin)${configNote()}`);
   }
   const maxFailures = opts.maxConsecutiveFailures ?? SWEEP_DEFAULTS.maxConsecutiveFailures;
   const pauseMs = opts.pauseMs ?? SWEEP_DEFAULTS.pauseMs;

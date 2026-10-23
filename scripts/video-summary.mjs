@@ -37,6 +37,7 @@ import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { promisify } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
+import { isTestProjectUrl, testTargetConfigError } from './lib/test-target.mjs';
 import {
   checkerPrompt,
   contentSha,
@@ -59,7 +60,6 @@ import {
 
 const execFileP = promisify(execFile);
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
-const TEST_REF = 'ayibkeoyukulbsjpxgaw';
 const ASK_MODEL = join(homedir(), '.agents/bin/ask-model'); // pinned: the checker binary is not configurable
 // A gate needs stable verdicts: at the wrapper's default (low) the same summary passed, then failed.
 const CHECKER_EFFORT = process.env.VIDEO_SUMMARY_CHECKER_EFFORT || 'high';
@@ -108,7 +108,8 @@ async function db(env) {
   const url = file.VITE_SUPABASE_URL;
   const key = file.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) die('test target needs VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.test.local');
-  if (!url.includes(TEST_REF)) die(`the test target must be the test project (${TEST_REF}); .env.test.local points at ${url} — refusing`);
+  // Exact origin, not a substring (a URL that merely contains a ref used to pass).
+  if (!isTestProjectUrl(url)) die(`the test target must be a test project (hosted TEST or SELFHOSTED_TEST_ORIGIN); .env.test.local points at ${url} — refusing${testTargetConfigError() ? `; ${testTargetConfigError()}` : ''}`);
   return { client: createClient(url, key, { auth: { persistSession: false } }), label: 'test' };
 }
 

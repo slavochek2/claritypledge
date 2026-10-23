@@ -22,6 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
+import { isHostedTestUrl } from '../helpers/e2e-namespace';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import {
   createTestDoc,
@@ -66,7 +67,6 @@ async function readDelivery(id: string) {
   return data!;
 }
 
-const TEST_PROJECT_REF = 'ayibkeoyukulbsjpxgaw';
 
 function readEnvLocal(name: string): string {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -86,7 +86,8 @@ function readEnvLocal(name: string): string {
  */
 async function testDbQuery(sql: string): Promise<unknown> {
   const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
-  if (ref !== TEST_PROJECT_REF) throw new Error(`refusing to run raw SQL against ${ref}: TEST only`);
+  // The Management API exists only for the hosted TEST projects (the self-hosted server has none: P1557 step 10).
+  if (!isHostedTestUrl(new URL(SUPABASE_URL).origin)) throw new Error(`refusing to run raw SQL against ${ref}: hosted TEST only`);
   const token = readEnvLocal('SUPABASE_TEST_WRITE_TOKEN');
   if (!token) throw new Error('SUPABASE_TEST_WRITE_TOKEN missing from .env.local');
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {

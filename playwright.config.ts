@@ -9,6 +9,7 @@ import { RUN_ID_ENV } from './e2e/helpers/run-ledger';
 import { worktreePort } from './scripts/lib/worktree-port.mjs';
 import { guardTestDbRun } from './scripts/lib/e2e-test-db-lock.mjs';
 import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
+import { testTargetConfigError } from './scripts/lib/test-target.mjs';
 
 // Load test environment variables from .env.test.local
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +46,11 @@ const PORT = getWorktreePort();
 // Taken here, in the main runner, because the config loads before the dev server starts; workers,
 // --list, --ui and CI skip it (a --ui run can therefore overlap a locked run). Released when this
 // process exits, after teardown. A TEST that refuses the request (bad key or URL) exits 1, not 75.
+// P1557: a malformed SELFHOSTED_TEST_ORIGIN would make a real TEST server read as "not TEST", which
+// silently switches this lock and the teardown sweep off. Fail loudly instead.
+const targetConfigError = testTargetConfigError(process.env);
+if (targetConfigError) throw new Error(`[P1557] ${targetConfigError}`);
+
 guardTestDbRun({
   repoDir: __dirname,
   isTestDb: isTestProjectUrl(process.env.VITE_SUPABASE_URL),
