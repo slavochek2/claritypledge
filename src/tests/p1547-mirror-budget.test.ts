@@ -225,10 +225,19 @@ describe('P1547 review: the model counts the request before it is sent', () => {
     expect(count.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(count.mock.calls.length).toBeLessThanOrEqual(1 + MAX_RECOUNTS);
   });
-  it('counting failed: the UTF-8 byte bound stands in, and the request fits it', async () => {
-    const r = await fitMirrorRequest(big, async () => null);
+  it('counting failed: not tried again, the UTF-8 byte bound decides, and the reply degrades instead of being refused', async () => {
+    const count = vi.fn(async () => null);
+    const r = await fitMirrorRequest(big, count);
+    expect(count).toHaveBeenCalledTimes(1);
     expect(r.counted).toBe(false);
     expect(requestBytes(r.request)).toBeLessThanOrEqual(BUDGET_TOKENS);
+    expect(userText(r.request)).toContain('m2999 '); // the newest stays
+  });
+  it('counting failed on an all-CJK context (3 bytes per character): still fits the byte bound, not refused', async () => {
+    const cjk: BeginRun = run({ context: Array.from({ length: 2_000 }, (_, i) => ({ who: 'owner' as const, body: `n${i} ${'漢'.repeat(300)}` })) });
+    const r = await fitMirrorRequest(cjk, async () => null);
+    expect(requestBytes(r.request)).toBeLessThanOrEqual(BUDGET_TOKENS);
+    expect(userText(r.request)).toContain('n1999 ');
   });
   it('geminiTokenCounter: posts to countTokens with the key in a header, reads totalTokens; any failure is null', async () => {
     const req = buildMirrorRequest(run());
@@ -245,5 +254,74 @@ describe('P1547 review: the model counts the request before it is sent', () => {
     expect(await geminiTokenCounter('k', bad as unknown as typeof fetch)(req)).toBeNull();
     const thrown = vi.fn(async () => { throw new Error('net'); });
     expect(await geminiTokenCounter('k', thrown as unknown as typeof fetch)(req)).toBeNull();
+  });
+  it('one counter per reply: after a failure it never calls or logs again (at most ONE warning per reply)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const err = vi.fn(async () => new Response('no', { status: 503 }));
+      const counter = geminiTokenCounter('k', err as unknown as typeof fetch);
+      const req = buildMirrorRequest(run());
+      expect(await counter(req)).toBeNull();
+      expect(await counter(req)).toBeNull();
+      expect(await counter(req)).toBeNull();
+      expect(err).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('P1547 review 2: an item that cannot fit its cap is omitted, never sent oversized', () => {
+  const hugeName = 'N!'.repeat(12_000); // metadata only: never cut, alone over the 20% cap
+  it('a forwarded message whose metadata alone passes the cap: capCopy omits it (site 1)', () => {
+    expect(capCopy({ from: hugeName, forwarded: { from: 'C', text: 'x' } })).toBeNull();
+  });
+  it('a Clarified copy whose metadata alone passes the cap: capCopy omits it (site 2)', () => {
+    expect(capCopy({ from: 'owner', copied_for_clarify: { from: hugeName, in: 'Org', text: 'x', thread: [{ from: 'B', text: 'y' }] } })).toBeNull();
+  });
+  it('selection skips the omitted copy and keeps going to older items', () => {
+    const r = selectNewestFirst([{ text: 'older' }, { from: hugeName, forwarded: { from: 'C', text: 'x' } }, { text: 'newest' }], BUDGET_TOKENS);
+    expect(r.omitted).toBe(1);
+    expect(r.kept.map((k) => k.text)).toEqual(['older', 'newest']);
+  });
+});
+
+describe('P1547 review 2: forwards keep the forwarded shape; SQL shapes', () => {
+  it('a mirror forward (quoted) is quoted as "forwarded", never as a clarify copy', () => {
+    const text = userText(buildMirrorRequest(run({ context: [{ who: 'owner', body: 'look', quoted: { name: 'C', body: 'fwd words' } }] })));
+    expect(text).toContain('"forwarded":{"from":"C","text":"fwd words"}');
+    expect(text).not.toContain('copied_for_clarify');
+  });
+  const ctxItemSql = readFileSync(newestMigrationDefining('FUNCTION public._mirror_context_item('), 'utf8');
+  const beginSql = readFileSync(newestMigrationDefining('FUNCTION public._mirror_begin_job('), 'utf8');
+  it('_mirror_context_item: forward rows go to quoted, clarify rows to clarify', () => {
+    expect(ctxItemSql).toMatch(/'quoted', CASE WHEN t\.kind = 'forward'/);
+    expect(ctxItemSql).toMatch(/'clarify', CASE WHEN t\.kind = 'clarify'/);
+  });
+  it('_mirror_begin_job never waits on a row an erase holds (SKIP LOCKED, both branches) and counts ask rows by what ask sends', () => {
+    const fn = beginSql.slice(beginSql.indexOf('FUNCTION public._mirror_begin_job('));
+    expect(fn.match(/ORDER BY m\.created_at, m\.id FOR SHARE SKIP LOCKED\) q;/g)?.length).toBe(2);
+    expect(fn).not.toMatch(/FOR SHARE;/);
+    expect(fn).toContain('_mirror_ask_row_chars(x)');
+  });
+});
+
+describe('P1547 review 3: the message being answered is never dropped', () => {
+  it('an oversized copy on the newest message drops the copy, keeps the question', () => {
+    const huge = 'N'.repeat(40_000);
+    const items = [
+      { from: 'owner', text: 'OLD question' },
+      { from: 'owner', text: 'CURRENT question', copied_for_clarify: { from: huge, in: huge, text: 'x' } },
+    ];
+    const { kept } = selectNewestFirst(items, 40_000, true);
+    const last = kept[kept.length - 1] as Record<string, unknown>;
+    expect(last.text).toBe('CURRENT question');
+    expect(last.copied_for_clarify).toBeUndefined();
+    expect(last.copy_note).toBeTruthy();
+  });
+  it('the SQL returns busy when the answered message cannot be locked, after BOTH lock passes', () => {
+    const sql = readFileSync(newestMigrationDefining('FUNCTION public._mirror_begin_job('), 'utf8');
+    expect(sql.match(/IF v_msg\.id = ANY\(v_ids \|\| v_out_ids\) AND NOT \(v_msg\.id = ANY\(v_locked\)\) THEN\s+RETURN jsonb_build_object\('status', 'busy'\)/g)?.length).toBe(2);
   });
 });

@@ -208,14 +208,15 @@ export function cutItem(item: Record<string, unknown>, tokens: number): Record<s
 
 /**
  * A copied (Clarified) thread or a forwarded message is one item of at most COPY_ITEM_TOKENS: past it, the
- * oldest copied replies are dropped; still too big, its texts are cut. Whenever fewer replies are shown than
+ * oldest copied replies are dropped; still too big, its texts are cut; if even its metadata cannot fit, it is
+ * omitted (null) — it never passes oversized. Whenever fewer replies are shown than
  * the thread had (here or already in SQL), the item says "showing the last N of M replies".
  */
-export function capCopy(item: Record<string, unknown>): Record<string, unknown> {
+export function capCopy(item: Record<string, unknown>): Record<string, unknown> | null {
   const copy = item.copied_for_clarify as Record<string, unknown> | undefined;
   if (!copy) {
     if (!item.forwarded || itemTokens(item) <= COPY_ITEM_TOKENS) return item;
-    return cutItem(item, COPY_ITEM_TOKENS) ?? item;
+    return cutItem(item, COPY_ITEM_TOKENS); // null (omitted) when even its metadata cannot fit: never the oversized original
   }
   const thread = (copy.thread as unknown[] | undefined) ?? [];
   const m = thread.length;
@@ -236,7 +237,7 @@ export function capCopy(item: Record<string, unknown>): Record<string, unknown> 
   }
   let out = withLast(n);
   while (n > 0 && itemTokens(out) > COPY_ITEM_TOKENS) out = withLast(--n); // estimate slack: at most a step or two
-  return cutItem(out, COPY_ITEM_TOKENS) ?? out;
+  return cutItem(out, COPY_ITEM_TOKENS); // null (omitted), never the oversized item
 }
 
 /**
@@ -244,13 +245,23 @@ export function capCopy(item: Record<string, unknown>): Record<string, unknown> 
  * is cut with a marker (if enough is left) and selection stops. `keepNewest`: the newest item (the request)
  * is always kept, cut if it must be. Returns the kept items oldest first and the tokens they cost.
  */
-export function selectNewestFirst(items: Record<string, unknown>[], budget: number, keepNewest = false): { kept: Record<string, unknown>[]; used: number } {
+export function selectNewestFirst(items: Record<string, unknown>[], budget: number, keepNewest = false): { kept: Record<string, unknown>[]; used: number; omitted: number } {
   const kept: Record<string, unknown>[] = [];
   let used = 0;
+  let omitted = 0;
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i];
     if (!item) continue;
-    const it = capCopy(item);
+    let it = capCopy(item);
+    if (!it && keepNewest && kept.length === 0) {
+      // The newest item is the message being answered: drop only its copy, never the question (review 3).
+      const { copied_for_clarify: _c, forwarded: _f, ...rest } = item;
+      it = { ...rest, copy_note: 'an attached copy was too large to show' };
+    }
+    if (!it) { // a copy whose metadata alone passes its cap: left out, never sent oversized
+      omitted++;
+      continue;
+    }
     const cost = itemTokens(it);
     if (used + cost <= budget) {
       kept.unshift(it);
@@ -267,7 +278,7 @@ export function selectNewestFirst(items: Record<string, unknown>[], budget: numb
     }
     break;
   }
-  return { kept, used };
+  return { kept, used, omitted };
 }
 
 /** The request could not be fitted inside its bound; nothing was sent, so nothing is charged. */
@@ -358,29 +369,57 @@ export function requestBytes(req: GeminiRequest): number {
 }
 
 export const MAX_RECOUNTS = 2;
+/** Rebuilds allowed under the byte bound once counting has failed (each converges toward it). */
+export const MAX_BYTE_SHRINKS = 6;
 
 /**
  * P1547 review: the estimate chooses, the model's counter decides. The built request is counted; over the
  * budget, it is rebuilt with the data budget shrunk in proportion (the oldest selected data goes first) and
  * counted again, at most MAX_RECOUNTS times; still over, MirrorRequestTooLarge (nothing sent, nothing
- * charged). If counting fails, the strict bound (UTF-8 bytes) stands in for the count.
+ * charged). Review 2: if counting fails it is not tried again for this reply; the strict bound (UTF-8 bytes)
+ * decides instead, and the data budget is scaled by estimate/bytes so the request degrades to a shorter
+ * context rather than being refused. Refused only if even the minimum (rules and the question) cannot fit.
  */
 export async function fitMirrorRequest(run: BeginRun, count: TokenCounter): Promise<{ request: GeminiRequest; tokens: number; counted: boolean }> {
   let budget = BUDGET_TOKENS;
-  for (let attempt = 0; ; attempt++) {
-    const request = buildMirrorRequest(run, budget);
-    const n = await count(request);
-    const measured = n ?? requestBytes(request);
-    if (measured <= BUDGET_TOKENS) return { request, tokens: measured, counted: n !== null };
-    if (attempt >= MAX_RECOUNTS) throw new MirrorRequestTooLarge();
-    // shrink in proportion, with 5% headroom; always strictly smaller
-    budget = Math.min(budget - 1, Math.floor((budget * BUDGET_TOKENS * 0.95) / measured));
+  let counting = true;
+  let counts = 0;
+  let shrinks = 0;
+  for (;;) {
+    const request = buildMirrorRequest(run, budget); // throws MirrorRequestTooLarge if the minimum cannot fit
+    if (counting) {
+      const n = await count(request);
+      counts++;
+      if (n !== null) {
+        if (n <= BUDGET_TOKENS) return { request, tokens: n, counted: true };
+        if (counts > MAX_RECOUNTS) throw new MirrorRequestTooLarge();
+        budget = Math.min(budget - 1, Math.floor((budget * BUDGET_TOKENS * 0.95) / n)); // 5% headroom
+        continue;
+      }
+      counting = false;
+    }
+    const bytes = requestBytes(request);
+    if (bytes <= BUDGET_TOKENS) return { request, tokens: bytes, counted: false };
+    if (shrinks++ >= MAX_BYTE_SHRINKS) throw new MirrorRequestTooLarge();
+    budget = Math.min(budget - 1, Math.floor((BUDGET_TOKENS * requestTokens(request) * 0.97) / bytes));
   }
 }
 
-/** The Gemini countTokens call (free), with an injectable fetch. Any failure is null, never a throw. */
+/**
+ * The Gemini countTokens call (free), with an injectable fetch. Any failure is null, never a throw. Make one
+ * counter per reply: after its first failure it never calls again and never logs again, so a reply costs at
+ * most ONE warning line (review 2 log budget).
+ */
 export function geminiTokenCounter(apiKey: string, fetchFn: typeof fetch = fetch, timeoutMs = 10_000): TokenCounter {
+  let failed = false;
+  const fail = (detail: Record<string, unknown>) => {
+    failed = true;
+    // Visible on purpose: a silent fallback would shorten every reply to the byte bound unnoticed.
+    console.warn('mirror: countTokens failed, using the byte bound', detail);
+    return null;
+  };
   return async (req) => {
+    if (failed) return null;
     try {
       const res = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${MIRROR_MODEL}:countTokens`, {
         method: 'POST',
@@ -390,15 +429,12 @@ export function geminiTokenCounter(apiKey: string, fetchFn: typeof fetch = fetch
       });
       if (!res.ok) {
         await res.body?.cancel();
-        // Visible on purpose: a silent fallback would shorten every reply to the byte bound unnoticed.
-        console.warn('mirror: countTokens failed, using the byte bound', { status: res.status });
-        return null;
+        return fail({ status: res.status });
       }
       const total = ((await res.json()) as { totalTokens?: unknown }).totalTokens;
-      return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : null;
+      return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : fail({ error: 'no totalTokens' });
     } catch (e) {
-      console.warn('mirror: countTokens failed, using the byte bound', { error: (e as Error).name });
-      return null;
+      return fail({ error: (e as Error).name });
     }
   };
 }

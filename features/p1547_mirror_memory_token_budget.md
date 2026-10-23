@@ -68,7 +68,7 @@ Registry: the Gemini API row, read 2026-10-21 (`gemini-3.8-flash`, $0.75 / $3.75
 | Tokens at **50k** | 50,000 × $0.75/1M + 1,200 × $3.75/1M = $0.0375 + $0.0045 = **$0.042** | 20 × $0.042 = **$0.84** | extended red-team: 7 tests + 4 new boundary/thread attacks = 11, ≤3 replies each = ≤33 × $0.042 = **≤$1.39** |
 | Tokens at 100k | 100,000 × $0.75/1M + $0.0045 = **$0.0795** | 20 × $0.0795 = $1.59 | ≤33 × $0.0795 = ≤$2.62 |
 | Reservation at 50k | ($0.075 + $0.009) × 1.25 = **$0.105** | — | — |
-| Supabase requests / logs per reply | 5 inside mirror-reply (auth, terms, request_reply, begin, complete) + the invoke = 6; ≤2 log lines. countTokens (Gemini, free) ≤3 calls | — | see below |
+| Supabase requests / logs per reply | 5 inside mirror-reply (auth, terms, request_reply, begin, complete) + the invoke = 6. Log lines ≤ 2 (mirror-reply's own, as P1544) + 1 (at most one countTokens warning: the counter stops after its first failure) = **≤3**. countTokens (Gemini, free) ≤3 calls | — | see below |
 
 **`e2e/integration/p1547-mirror-budget.spec.ts`, one run, Supabase requests (recounted in review, /dev 2026-10-23; helper costs are estimates from `e2e/helpers/`):**
 - 17 members × ~6 (create user ≈3, membership 1, sign-in 1, chat list 1) + 1 group lookup = **~103**
@@ -77,13 +77,16 @@ Registry: the Gemini API row, read 2026-10-21 (`gemini-3.8-flash`, $0.75 / $3.75
 - DB-only jobs: 7 + 6 + 10 + ≤12 (race: ≤8 starts) = **≤35**
 - model tests: 4 × (availability 2 + reply 6) + 1 mirror_ask = **33**
 - setup/cleanup: org 1 + chat purge ~4 + 17 user deletes × ~10 + org delete ~2 = **~177**
-- total: 103 + 167 + 16 + 35 + 33 + 177 = **~531 requests**, ≤8 edge log lines; Gemini: 4 replies, ≤4 × $0.042 = **≤$0.17** actual at today's price (reserved 4 × $0.105).
+- total: 103 + 167 + 16 + 35 + 33 + 177 = **~531 requests**, ≤4 replies × 3 = **≤12 edge log lines** (availability checks log nothing); Gemini: 4 replies, ≤4 × $0.042 = **≤$0.17** actual at today's price (reserved 4 × $0.105).
 
 **Fits today:** spend is bounded by the private daily caps; monthly ≤ 30 × the global daily cap. **At 10×:** the caps refuse further replies. Raising them is a founder call with figures in `.private/`. The figures are ceilings: a short conversation costs what it uses.
 
-## Known limitations (accepted, review round 1)
+## Known limitations (accepted, review rounds 1-2)
 
-- **Erasure over-includes.** derived_refs covers every row SQL *offered*, including rows the edge then trimmed for the budget. Erasing such an author clears answers that never actually saw their words. This is the safe direction.
+- **The 20% copy cap is an estimate.** Each copy is held to 20% of the budget by the local estimate only; the whole request is counted by the model (or the byte bound) before sending, so the total never passes 50,000, but one copy can come out somewhat over or under its 10,000.
+- **Skipped rows.** A row an erase (or an edit) is holding while a reply starts is skipped (`FOR SHARE SKIP LOCKED`), never waited for: that reply does not see it. Its derived_refs match exactly the rows read.
+
+- **Erasure over-includes.** derived_refs covers every row SQL *offered*, including rows the edge then trimmed for the budget. Erasing such an author clears answers that never actually saw their words, and the same holds for copied-thread entries SQL trimmed to 15,000 characters (refs come from the whole stored thread). This is the safe direction.
 - **Legacy copies.** Clarify copies made before P1547 hold the *oldest* 100 thread entries and no `thread_total`, so "last N of M" counts only what was stored. A thread entry without `author_ref` would stay outside derived_refs. No migration ever wrote one (P1512 introduced the copied thread and `author_ref` together), so this only matters for a hand-edited snapshot.
 - **Look-alike marker.** Anyone can type text that resembles the cut marker (`[... cut: too long to show in full]`). It sits inside quoted data and carries no authority, but the model cannot tell a real cut from a typed one.
 
