@@ -5,8 +5,9 @@ Zero model tokens: plain log parsing. Incremental: a SQLite cache keeps one row 
 message, and only log files whose size or mtime changed are re-read.
 
 Usage: token-usage-refresh.py [OUT_DIR]      (default OUT_DIR: ~/.claude/.token-usage-out)
-Writes OUT_DIR/token-usage-daily.json (day x tool x model x project) and OUT_DIR/quota.json, then
-prints the TOKENS summary line for the weekly report and a "Files:" line naming OUT_DIR.
+Writes OUT_DIR/token-usage-daily.json (day x tool x model x project), OUT_DIR/quota.json and
+OUT_DIR/tokens-block.json (P1552: the `tokens` block of the /day report's monitoring section, see
+reduce_tokens), then prints the TOKENS summary line for the weekly report and a "Files:" line naming OUT_DIR.
 
 Days are UTC dates taken from the log timestamps. Known limits: Codex sessions in
 ~/.codex/archived_sessions are not read; Claude.ai chats and API keys used by projects are not logs.
@@ -100,6 +101,90 @@ def parse_codex(path):
     return rows
 
 
+# ---- P1552: the `tokens` block of the day report's monitoring section ---------------------------
+# Shape (the parser in tools/kanban/src/lib/day.ts and the pane read this same contract):
+#   {collected, as_of, weeks:[PERIOD], months:[PERIOD], projects_28d:[{project, output, share}]}
+#   PERIOD = {p, output:{family: n}, median4?, days:{claude, codex}, ctx_per_reply?}
+# p is the Monday (week) or YYYY-MM (month), UTC. Only COMPLETED periods are listed. Counts are
+# activity (output written), never cost or productivity. Model share is computed by the pane.
+WEEKS, MONTHS, TOP_PROJECTS = 13, 10, 8
+FAMILIES = ('Opus', 'Sonnet', 'Haiku', 'Fable')
+
+
+def family_of(tool, model):
+    if tool == 'codex':
+        return 'Codex'
+    m = (model or '').lower()
+    return next((f for f in FAMILIES if f.lower() in m), 'Other')
+
+
+def reduce_tokens(rows, today):
+    """Reduce daily rows (dicts as written to token-usage-daily.json) to the tokens block.
+
+    `today` is the UTC date the run happens on; the period containing it is not complete and is left out.
+    """
+    if not rows:
+        return {'collected': True, 'as_of': None, 'weeks': [], 'months': [], 'projects_28d': []}
+    day = lambda r: datetime.date.fromisoformat(r['day'])
+    mon = lambda d: d - datetime.timedelta(days=d.weekday())
+    first, as_of = min(day(r) for r in rows), max(day(r) for r in rows)
+
+    def periods(key, starts, step_back):
+        """starts: completed period starts, oldest first; key(date) -> period label."""
+        out = []
+        for i, st in enumerate(starts):
+            label = key(st)
+            mine = [r for r in rows if key(day(r)) == label]
+            output = {}
+            for r in mine:
+                f = family_of(r['tool'], r['model'])
+                output[f] = output.get(f, 0) + r['output']
+            claude = [r for r in mine if r['tool'] == 'claude']
+            msgs = sum(r['messages'] for r in claude)
+            ctx = round(sum(r['input'] + r['cache_write'] + r['cache_read'] for r in claude) / msgs) if msgs else None
+            p = {'p': label, 'output': output,
+                 'days': {t: len({r['day'] for r in mine if r['tool'] == t}) for t in ('claude', 'codex')}}
+            if ctx is not None:
+                p['ctx_per_reply'] = ctx
+            out.append(p)
+        # median of the four periods before each one (zeros included), once at least two exist
+        tot = [sum(p['output'].values()) for p in out]
+        for i, p in enumerate(out):
+            prev = tot[max(0, i - 4):i]
+            if len(prev) >= 2:
+                p['median4'] = statistics.median(prev)
+        return out
+
+    this_mon = mon(today)
+    wk_starts, d = [], this_mon - datetime.timedelta(days=7)
+    while d >= mon(first) and len(wk_starts) < WEEKS + 4:  # 4 extra periods feed the first medians
+        wk_starts.append(d)
+        d -= datetime.timedelta(days=7)
+    wk_starts.reverse()
+    mo_starts, d = [], today.replace(day=1)
+    d = (d - datetime.timedelta(days=1)).replace(day=1)
+    while d >= first.replace(day=1) and len(mo_starts) < MONTHS + 4:
+        mo_starts.append(d)
+        d = (d - datetime.timedelta(days=1)).replace(day=1)
+    mo_starts.reverse()
+    weeks = periods(lambda x: mon(x).isoformat(), wk_starts, 7)[-WEEKS:]
+    months = periods(lambda x: x.isoformat()[:7], mo_starts, 0)[-MONTHS:]
+
+    cutoff = today - datetime.timedelta(days=27)
+    by_proj = {}
+    for r in rows:
+        if day(r) >= cutoff:
+            by_proj[r['project']] = by_proj.get(r['project'], 0) + r['output']
+    ranked = sorted(by_proj.items(), key=lambda kv: (-kv[1], kv[0]))
+    total = sum(v for _, v in ranked)
+    shown = ranked[:TOP_PROJECTS]
+    rest = sum(v for _, v in ranked[TOP_PROJECTS:])
+    if rest:
+        shown.append(('all others', rest))
+    projects = [{'project': k, 'output': v, 'share': round(v / total, 4)} for k, v in shown if total]
+    return {'collected': True, 'as_of': as_of.isoformat(), 'weeks': weeks, 'months': months, 'projects_28d': projects}
+
+
 def write_json(path, obj):
     tmp = '%s.%d.tmp' % (path, os.getpid())  # unique per run, so two concurrent runs cannot collide
     with open(tmp, 'w') as f:
@@ -154,6 +239,8 @@ def main(out_dir):
     rows = [dict(day=r[0], tool=r[1], model=r[2], project=r[3], input=r[4], output=r[5],
                  cache_write=r[6], cache_read=r[7], messages=r[8]) for r in cur]
     write_json(os.path.join(out_dir, 'token-usage-daily.json'), rows)
+    write_json(os.path.join(out_dir, 'tokens-block.json'),
+               reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date()))
 
     quota = []
     try:

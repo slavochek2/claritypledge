@@ -10,6 +10,8 @@ export interface Series {
   data: (number | null | undefined)[]
   dash?: boolean
   name?: string
+  /** P1552: stroke colour; the default slate stays for every existing chart */
+  colour?: string
 }
 
 interface Props {
@@ -114,13 +116,13 @@ export function LineChart({ xs, series, target, marker, fmt = (v) => String(v), 
         return (
           <g key={si}>
             {pts.length > 1 && (
-              <polyline points={pts.join(' ')} fill="none" stroke="#475569" strokeWidth="2.5" strokeDasharray={s.dash ? '5 5' : undefined} />
+              <polyline points={pts.join(' ')} fill="none" stroke={s.colour ?? '#475569'} strokeWidth="2.5" strokeDasharray={s.dash ? '5 5' : undefined} />
             )}
             {!s.dash &&
               s.data.map((v, i) =>
                 typeof v === 'number' ? (
-                  <circle key={i} cx={X(i)} cy={Y(v)} r="3.5" fill="#fff" stroke="#475569" strokeWidth="2">
-                    <title>{`${xs[i]}: ${fmt(v)}`}</title>
+                  <circle key={i} cx={X(i)} cy={Y(v)} r="3.5" fill="#fff" stroke={s.colour ?? '#475569'} strokeWidth="2">
+                    <title>{`${s.name ? `${s.name} ` : ''}${xs[i]}: ${fmt(v)}`}</title>
                   </circle>
                 ) : null,
               )}
@@ -131,12 +133,12 @@ export function LineChart({ xs, series, target, marker, fmt = (v) => String(v), 
   )
 }
 
-export function Legend({ items }: { items: { label: string; kind: 'solid' | 'dash' | 'target' }[] }) {
+export function Legend({ items }: { items: { label: string; kind: 'solid' | 'dash' | 'target'; colour?: string }[] }) {
   return (
     <div className="d-legend">
       {items.map((it) => (
         <span key={it.label}>
-          <i className={it.kind === 'solid' ? '' : it.kind === 'dash' ? 'dash' : 'tgt'} />
+          <i className={it.kind === 'solid' ? '' : it.kind === 'dash' ? 'dash' : 'tgt'} style={it.colour ? { background: it.colour } : undefined} />
           {it.label}
         </span>
       ))}

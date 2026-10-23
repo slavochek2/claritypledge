@@ -585,11 +585,25 @@ test.describe('earlier runs and warnings', () => {
 })
 
 test.describe('monitoring, stats, reflection', () => {
-  test('Monitoring is money and subscriptions only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
+  test('P1552 Token usage pane: chart, four readings, project list; the week/month switch changes the readings', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
-    // two overview cards; the old Systems / Claude / Codex cards are gone
-    await expect(page.locator('.d-srcc .d-n')).toHaveText(['Google Cloud', 'Subscriptions'])
+    await page.getByRole('button', { name: /^Token usage/ }).click()
+    const pane = page.locator('[data-tokens-pane]')
+    await expect(pane.locator('svg.d-svg')).toBeVisible()
+    await expect(pane.locator('[data-reading]')).toHaveCount(4)
+    await expect(pane.locator('[data-reading="vs"]')).toContainText('4.2M')
+    await expect(pane.locator('[data-tokens-projects] li')).toHaveCount(4)
+    await page.getByRole('tab', { name: 'Month' }).click()
+    await expect(pane.locator('[data-reading="vs"]')).toContainText('11M')
+  })
+
+  // P1552 widened the P1399 ruling on purpose: Monitoring is money, subscriptions and token usage.
+  test('Monitoring is money, subscriptions and token usage only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    // three overview cards; the old Systems / Claude / Codex cards are gone
+    await expect(page.locator('.d-srcc .d-n')).toHaveText(['Google Cloud', 'Subscriptions', 'Token usage'])
     await expect(page.locator('[data-systems]')).toHaveCount(0)
     await expect(page.locator('[data-money-checks]')).toHaveCount(0)
     await expect(page.locator('.d-main')).not.toContainText('Systems')

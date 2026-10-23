@@ -287,7 +287,7 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-toast { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); background: var(--fg); color: #fff; padding: 10px 16px; border-radius: var(--r); font-size: 14px; max-width: calc(100% - 32px); width: max-content; }
 
 /* monitoring */
-.d-src { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.d-src { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .d-sub1 { font-size: 13px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
 .d-kwhy { grid-column: 1 / -1; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .d-kwhy .d-go { margin-left: auto; color: var(--blue); font-weight: 600; white-space: nowrap; }
@@ -521,3 +521,19 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-under { padding: 2px 0 2px 24px; font-size: 13px; color: var(--fg2); justify-content: space-between; }
 .d-srow > .d-link { margin-left: auto; }
 .d-peoplebox { padding: 4px 16px 8px; }
+
+/* P1552 Token usage pane */
+.d-tk-empty { min-height: 120px; }
+.d-tk-reads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.d-tk-read { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.d-tk-read .d-n { font-size: 13px; font-weight: 600; color: var(--fg2); }
+.d-tk-read b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.d-tk-read .d-s { font-size: 12px; color: var(--fg3); }
+.d-tk-proj { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.d-tk-proj li { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) 4em; align-items: center; gap: 10px; min-height: 24px; font-size: 13px; }
+.d-tk-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-tk-bar { height: 8px; background: #e9eef5; border-radius: 4px; overflow: hidden; }
+.d-tk-bar i { display: block; height: 100%; background: var(--slate); border-radius: 4px; }
+.d-tk-proj li.other { color: var(--fg3); }
+.d-tk-val { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .d-tk-reads { grid-template-columns: minmax(0, 1fr); } }

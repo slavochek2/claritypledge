@@ -318,9 +318,40 @@ export function compareKeyCards(cloud: DayCloud) {
     a.id.localeCompare(b.id)
 }
 
+/**
+ * P1552: token usage, written by token-usage-refresh.py (reduce_tokens) and merged into the one
+ * monitoring object by the /day report-building step. Counts are activity (output written), never
+ * cost or productivity. Optional: a report without it renders "not collected yet", never 0.
+ */
+export interface DayTokenPeriod {
+  /** Monday (YYYY-MM-DD) for a week, YYYY-MM for a month; UTC */
+  p: string
+  /** output tokens per family (Opus, Sonnet, Haiku, Fable, Codex, Other); a family with no output is absent */
+  output: Record<string, number>
+  /** median output of the (up to) four periods before this one; absent with fewer than two earlier periods */
+  median4?: number
+  /** days with any usage, per tool; a field the report did not carry is absent */
+  days: { claude?: number; codex?: number }
+  /** Claude only: average context (input + cache) read per reply */
+  ctx_per_reply?: number
+}
+export interface DayTokenProject {
+  project: string
+  output: number
+  share: number
+}
+export interface DayTokens {
+  collected: boolean
+  as_of?: string
+  weeks: DayTokenPeriod[]
+  months: DayTokenPeriod[]
+  projects_28d: DayTokenProject[]
+}
+
 export interface DayMonitoring {
   quotas?: DayQuota[]
   cloud?: DayCloud
+  tokens?: DayTokens
 }
 
 export interface DayStats {
@@ -790,7 +821,50 @@ function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefin
     if (Array.isArray(c.budgets)) m.cloud.budgets = c.budgets.map(readBudget).filter((b): b is DayBudget => !!b)
     else delete m.cloud.budgets
   }
+  const tokens = readTokens(x.tokens)
+  if (tokens) m.tokens = tokens
   return m
+}
+
+const WEEK_P = /^\d{4}-\d{2}-\d{2}$/
+const MONTH_P = /^\d{4}-\d{2}$/
+const MAX_PROJECT_NAME = 60
+const nonNeg = (v: unknown) => (num(v) !== undefined && (v as number) >= 0 ? (v as number) : undefined)
+
+/** P1552: a malformed period or project row is removed and the rest renders; an unusable block is absent. */
+function readTokens(x: unknown): DayTokens | undefined {
+  if (!isObj(x)) return undefined
+  const period = (shape: RegExp) => (r: unknown): DayTokenPeriod | null => {
+    if (!isObj(r) || typeof r.p !== 'string' || !shape.test(r.p) || !isObj(r.output)) return null
+    const output: Record<string, number> = {}
+    for (const [k, v] of Object.entries(r.output)) {
+      const n = nonNeg(v)
+      if (n !== undefined && k.length <= 20) output[k] = n
+    }
+    const d = isObj(r.days) ? r.days : {}
+    const days: DayTokenPeriod['days'] = {}
+    for (const t of ['claude', 'codex'] as const) {
+      const n = nonNeg(d[t])
+      if (n !== undefined && Number.isInteger(n)) days[t] = n
+    }
+    const median4 = nonNeg(r.median4)
+    const ctx = nonNeg(r.ctx_per_reply)
+    return { p: r.p, output, days, ...(median4 !== undefined ? { median4 } : {}), ...(ctx !== undefined ? { ctx_per_reply: ctx } : {}) }
+  }
+  const list = <T,>(v: unknown, read: (r: unknown) => T | null): T[] => (Array.isArray(v) ? v.map(read).filter((r): r is T => r !== null) : [])
+  const asOf = isoDay(x.as_of)
+  return {
+    collected: x.collected === true,
+    ...(asOf ? { as_of: asOf } : {}),
+    weeks: list(x.weeks, period(WEEK_P)),
+    months: list(x.months, period(MONTH_P)),
+    projects_28d: list(x.projects_28d, (r): DayTokenProject | null => {
+      const name = isObj(r) ? scrubIds(oneLine(r.project, MAX_PROJECT_NAME)) : undefined
+      const output = isObj(r) ? nonNeg(r.output) : undefined
+      const share = isObj(r) ? nonNeg(r.share) : undefined
+      return name && output !== undefined && share !== undefined && share <= 1 ? { project: name, output, share } : null
+    }),
+  }
 }
 
 function readBudget(x: unknown): DayBudget | null {

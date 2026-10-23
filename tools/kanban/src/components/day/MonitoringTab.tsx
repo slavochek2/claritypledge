@@ -1,12 +1,15 @@
-// P1399: Monitoring — money and subscriptions only (every check lives in Daily report › Status).
-// Two overview cards (Google Cloud, Subscriptions); the selected one shows its detail below. A
-// budget raise is a decision that joins Start fixing.
+// P1399: Monitoring — every check lives in Daily report › Status.
+// P1552 widened the founder ruling on purpose: Monitoring is money, subscriptions and token usage
+// (was "money and subscriptions only"). Three overview cards (Google Cloud, Subscriptions, Token
+// usage); the selected one shows its detail below. A budget raise is a decision that joins Start fixing.
 
 import { useState } from 'react'
 import { capFactsKnown, capRatio, compareKeyCards, keyCard, type DayBudget, type DayCloud, type DayQuota, type DayReport, type DayView, type KeyState } from '../../lib/day'
 import { Legend, LineChart, SubscriptionsChart, SubscriptionsLegend } from './charts'
 import { projectQuota, resetLabel, type QuotaLine } from './quota'
 import { Phrases } from './status'
+import { TokenUsage } from './TokenUsage'
+import { fmtTokens, tokenReadings } from './tokens'
 
 interface Props {
   report: DayReport
@@ -39,8 +42,10 @@ export function MonitoringTab(p: Props) {
   const { report } = p
   const quotas = report.monitoring?.quotas ?? []
   const cloud = report.monitoring?.cloud
-  const [src, setSrc] = useState<'gcloud' | 'subs'>('gcloud')
-  const [per, setPer] = useState<'week' | 'month'>('week')
+  const tokens = report.monitoring?.tokens
+  const [src, setSrc] = useState<'gcloud' | 'subs' | 'tokens'>('gcloud')
+  const [per, setPer] = useState<'week' | 'month'>('week') // week by default (P1552 Q4); component state only (P1399)
+  const lastTokens = tokens?.collected ? tokenReadings(tokens, 'week') : null
 
   return (
     <>
@@ -67,6 +72,11 @@ export function MonitoringTab(p: Props) {
             </span>
           ))}
         </button>
+        <button type="button" className="d-srcc" aria-pressed={src === 'tokens'} onClick={() => setSrc('tokens')}>
+          <span className="d-n">Token usage</span>
+          <span className="d-v">{lastTokens?.total != null ? fmtTokens(lastTokens.total) : '—'}</span>
+          <span className="d-s">{lastTokens?.total != null ? 'output, last full week' : tokens?.collected ? 'no usage yet' : 'not collected yet'}</span>
+        </button>
       </div>
       {src === 'gcloud' ? (
         <>
@@ -75,6 +85,14 @@ export function MonitoringTab(p: Props) {
             {cloud?.collected && <Segs per={per} onPer={setPer} />}
           </div>
           <Cloud cloud={cloud} per={per} {...p} />
+        </>
+      ) : src === 'tokens' ? (
+        <>
+          <div className="d-dhead">
+            <h2>Token usage</h2>
+            {tokens?.collected && <Segs per={per} onPer={setPer} />}
+          </div>
+          <TokenUsage tokens={tokens} per={per} />
         </>
       ) : (
         <>

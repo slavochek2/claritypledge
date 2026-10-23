@@ -2,6 +2,7 @@
 // mockup's sample run: no real report content enters the repo, its tests or its screenshots
 // (spec Invariants; P1317 precedent). Used by the unit tests, the e2e suite and the QA shots.
 
+import { SYNTH_TOKENS } from './day-tokens'
 import type { DayStatement, DayReport, DayIssue, DayCheck } from '../../../src/lib/day'
 
 export const SECRET = 'FIXTURE-SECRET-DAY-91c2'
@@ -92,6 +93,7 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
     checks: CHECKS.map((c) => ({ ...c })),
     issues: ISSUES.map((i) => ({ ...i, options: i.options.map((o) => ({ ...o })) })),
     monitoring: {
+      tokens: SYNTH_TOKENS,
       quotas: [
         {
           id: 'claude', label: 'Claude', collected: true, remaining_pct: 60, resets_at: '2026-10-08T00:00:00Z', verdict: 'Runs out Tue', needs_attention: true,

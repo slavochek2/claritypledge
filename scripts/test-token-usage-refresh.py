@@ -94,5 +94,41 @@ with tempfile.TemporaryDirectory() as h:
     check('a changed file is re-read', '(1 log files re-read' in out, out)
     check('changed file adds its new message (30 + 11)', totals(h)['claude']['output'] == 41, totals(h))
 
+# 3. P1552: the tokens block, reduced from invented rows (pure function, fixed "today")
+import importlib.util
+spec = importlib.util.spec_from_file_location('tur', SCRIPT)
+tur = importlib.util.module_from_spec(spec); spec.loader.exec_module(tur)
+T = datetime.date(2026, 10, 23)  # a Friday; the current week (Mon 2026-10-19) and month are incomplete
+def row(day, tool, model, project, out, inp=10, cw=0, cr=90, msgs=2):
+    return dict(day=day, tool=tool, model=model, project=project, input=inp, output=out, cache_write=cw, cache_read=cr, messages=msgs)
+rows = [row('2026-09-28', 'claude', 'claude-opus-5', 'alpha', 100), row('2026-10-05', 'claude', 'claude-opus-5', 'alpha', 100),
+        row('2026-10-06', 'claude', 'claude-sonnet-5', 'beta', 50), row('2026-10-12', 'claude', 'claude-opus-5', 'alpha', 300),
+        row('2026-10-13', 'codex', 'gpt-x', 'beta', 40, inp=100, cr=0, msgs=1), row('2026-10-22', 'claude', 'claude-opus-5', 'alpha', 999)]
+b = tur.reduce_tokens(rows, T)
+wk = {w['p']: w for w in b['weeks']}
+check('block: collected, as_of is the latest log day', b['collected'] is True and b['as_of'] == '2026-10-22', b['as_of'])
+check('block: current incomplete week/month left out', '2026-10-19' not in wk and all(m['p'] != '2026-10' for m in b['months']), list(wk))
+check('block: week output split by family, codex separate', wk['2026-10-12']['output'] == {'Opus': 300, 'Codex': 40}, wk.get('2026-10-12'))
+gap = {w['p']: w for w in tur.reduce_tokens(rows + [row('2026-08-03', 'claude', 'claude-opus-5', 'a', 1)], T)['weeks']}
+check('block: week with no usage is a zero row, not a gap', gap['2026-08-31']['output'] == {} and gap['2026-08-31']['days'] == {'claude': 0, 'codex': 0}, gap.get('2026-08-31'))
+check('block: days in use counted per tool', wk['2026-10-12']['days'] == {'claude': 1, 'codex': 1}, wk['2026-10-12']['days'])
+check('block: ctx per reply is Claude only ((10+90)/2 msgs = 50)', wk['2026-10-05'].get('ctx_per_reply') == 50 and wk['2026-10-12']['ctx_per_reply'] == 50, wk['2026-10-12'])
+check('block: median4 absent with fewer than two earlier periods', 'median4' not in b['weeks'][0] and 'median4' not in b['weeks'][1], b['weeks'][:2])
+check('block: median4 is the median of earlier weeks (100, 150 -> 125 before 10-12)', wk['2026-10-12'].get('median4') == 125, wk['2026-10-12'])
+check('block: months list completed months only', [m['p'] for m in b['months']] == ['2026-09'], b['months'])
+pj = {x['project']: x for x in b['projects_28d']}
+check('block: 28-day projects ranked with shares', [x['project'] for x in b['projects_28d']] == ['alpha', 'beta'] and abs(sum(x['share'] for x in b['projects_28d']) - 1) < 1e-3, b['projects_28d'])
+check('block: 28-day window excludes older days', pj['alpha']['output'] == 100 + 100 + 300 + 999 and 'old' not in pj and tur.reduce_tokens(rows + [row('2026-09-01', 'claude', 'claude-opus-5', 'old', 5)], T)['projects_28d'][-1]['project'] != 'old', pj)
+many = [row('2026-10-%02d' % (i + 1), 'claude', 'claude-opus-5', 'p%d' % i, 100 + i) for i in range(11)]
+mp = tur.reduce_tokens(many, T)['projects_28d']
+check('block: top 8 plus "all others"', len(mp) == 9 and mp[-1]['project'] == 'all others', [x['project'] for x in mp])
+check('block: no rows gives collected true with empty lists', tur.reduce_tokens([], T)['weeks'] == [], '')
+check('block: unknown claude model lands in Other', tur.family_of('claude', 'claude-mystery') == 'Other' and tur.family_of('claude', 'claude-fable-5-1') == 'Fable', '')
+with tempfile.TemporaryDirectory() as h:
+    write(h + '/.claude/projects/-Users-x-Projects-public-demo/s1.jsonl', [claude_line('m1', 'r1', 5)])
+    rc, out = run(h)
+    blk = json.load(open(os.path.join(h, '.claude', '.token-usage-out', 'tokens-block.json')))
+    check('script writes tokens-block.json next to the daily file', rc == 0 and blk['collected'] is True and blk['as_of'] == D1, blk)
+
 print('\n%d failed' % len(failures) if failures else '\nall passed')
 sys.exit(1 if failures else 0)
