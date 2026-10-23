@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 69
 workstream: infrastructure
 created_date: '2026-10-23'
 tags: [e2e, tests, flaky, offline]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-23
 ---
 
 # P1560: Nine e2e failures — six stale tests, one slow-connection remount, two unconfirmed
