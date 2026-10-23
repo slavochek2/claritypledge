@@ -189,7 +189,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag); // the plain name: one version (the owner's other canvases are not listed here)
     for (const title of ['Customer Segments', 'Problem', 'Solution',
       'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
-      'Values', 'When my strengths become weaknesses', 'Who else wins when I win?']) {
+      'My values', 'My biggest challenge', 'Who else wins when I win?']) {
       await expect(page.getByRole('heading', { level: 3, name: title, exact: true })).toBeVisible();
     }
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(9);
@@ -685,7 +685,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await waitForCanvas(page);
     const love = page.getByTestId('canvas-box-canvas:love');
     await expect(love).toHaveAttribute('data-empty', 'true');
-    await expect(love.getByRole('heading', { name: 'Values' })).toBeVisible();
+    await expect(love.getByRole('heading', { name: 'My values' })).toBeVisible();
     await expect(love.locator(CARD)).toHaveCount(0);
     await expect(love.getByText('Empty', { exact: true })).toBeVisible(); // D3: the owner too, no call to action
 

@@ -22,8 +22,8 @@ export const CANVAS_BOXES = [
   { tag: 'canvas:channels', title: 'Go-to-market strategy' },
   { tag: 'canvas:revenue', title: 'Offers & Pricing' },
   { tag: 'canvas:metrics', title: "How I'll know it's working" },
-  { tag: 'canvas:love', title: 'Values' },
-  { tag: 'canvas:good-at', title: 'When my strengths become weaknesses' },
+  { tag: 'canvas:love', title: 'My values' },
+  { tag: 'canvas:good-at', title: 'My biggest challenge' },
   { tag: 'canvas:world-needs', title: 'Who else wins when I win?' },
 ] as const;
 
