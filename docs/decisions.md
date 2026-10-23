@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-24 [technical]: A provider that wraps the routes never changes its key or element type, and takes identity from the session (P1560)
+
+**Context:** On a slow connection a feed card was thrown away and rebuilt, and the P1420 test caught it. `ChatProvider` wraps the whole route tree and keyed its child by the user id, which was `null` while readiness was `pending`. So the session restoring on a page load, and every profile re-read, remounted every page. `MirrorProvider` did the same by switching between a fragment and a component. The first fix held the person through `pending` using the cached profile. Codex's adversarial review showed `AuthContext` keeps the previous person's profile while it fetches the next one, so after an account switch A's chats stayed visible to B.
+**Decision:** (1) A person is accepted, or held through `pending`, only while `session.user.id` equals the profile id. A mismatch means nobody. (2) The route-wrapping key changes only when a person leaves (A to nobody, A to B), tracked in state rather than refs mutated during render, so an abandoned concurrent render cannot bump it. (3) The mirror is a stable provider shell; the working engine is a sibling that mounts and unmounts, so switching it off runs the engine's own cleanups.
+**Alternatives rejected:** Keying on the cached profile (leaks across accounts). Keeping the engine mounted and inert behind a generation counter (two review rounds each found another await without a check).
+**Consequences:** Any new provider above `<Routes>` must keep a stable element type and key. A pre-existing leak, where a running mirror poll fires once after unmount, is filed as INBOX-221.
+**References:** [p1560](../features/done/2026-06-10/p1560_nine_e2e_failures_stale_tests_and_slow_remount.md), `src/app/pages/chat/chat-provider.tsx`, `src/app/pages/chat/mirror-provider.tsx`, `src/tests/p1560-chat-provider-keeps-page-on-pending.test.tsx`
+
 ## 2026-10-23 [technical]: The mirror agent reads a token budget, counted by the model, not a message count (P1547)
 
 **Context:** The mirror read the last 30 messages, each cut to 1,000 characters. The founder found that too little ("last 30 is very, very little") and approved a 50,000-token budget. Three review rounds (Gemini, Codex, an Opus adversary) found that a local estimate is not a cost bound: punctuation, base64 and escaped text run at about 1–2 characters per token, measured 22 tokens for about 40 such characters on the live API.

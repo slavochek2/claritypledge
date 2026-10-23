@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-23
+Last updated: 2026-10-24
 
 ---
 
@@ -83,6 +83,7 @@ Last updated: 2026-10-23
 - **P590** (Mar 26) Clarity Docs Design Fixes — change-request for P551; 5 raw-Tailwind button violations from subagent ignoring shadcn theme; visual QA skipped = design violations ship to UAT; creation popover replaces useless mutable dropdown
 
 ## Points & Stories
+- **P1535** (Oct 26) Clarity Canvas: nine boxes, core bet first, one screen — box renames are titles only; tags (and the SQL tag list pinned by a drift test) stay.
 - **P1415** (Oct 26) Cards open only via Details; home rail events-first, CA group only — whole-card tap caused accidental phone navigation
 - **P1424** (Oct 26) Nested quoted points/stories open only via their own Details on list cards — prototype A/B/C at 375px decided it; new-tab hosts need useOpenPath, not navigate
 - **P1420** (Oct 26) Clear position on a bad connection — a sent-but-unanswered write is UNKNOWN: settle by re-reading, never claim "not saved"
@@ -432,6 +433,7 @@ Last updated: 2026-10-23
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1560** (Oct 26) Nine e2e failures — six were stale tests; one was a whole-page remount from a route-wrapping provider's key; identity from the session, not the cached profile.
 - **P1552** (Oct 23) Token usage pane in Day Monitoring: an optional section in the report is merged by the one writer and accepted only with this run's pass id. The collector wrapper's timeout must sit under the tool timeout. Restart the Kanban API to pick up parser changes.
 - **P1540** (Oct 26) Offline banner flapping — one failed fetch is suspicion; a second probe confirms. Stamp probes at send time.
 - **P1541** (Oct 22) One e2e run at a time against the shared TEST project — machine-wide lock in the git common dir, exit 75 = infra not app; a live holder is never evicted and an uninspectable one counts as alive (Codex); 2 workers measured
