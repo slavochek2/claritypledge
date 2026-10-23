@@ -35,7 +35,7 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 test.describe('P273: Set position — auth gate (P396 two-state model)', () => {
   test.describe.configure({ timeout: 60000 });
 
-  test('unauthenticated user sees auth gate toast when clicking position button', async ({ page }) => {
+  test('unauthenticated user sees the sign-in toast when clicking a position button', async ({ page }) => {
     let storyOwner: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
     let pointId: string | null = null;
@@ -58,22 +58,17 @@ test.describe('P273: Set position — auth gate (P396 two-state model)', () => {
       await page.goto(`/story/${storyId}`);
       await page.waitForLoadState('networkidle');
 
-      // Click the first position button
-      const positionButton = page
-        .getByRole('button', { name: /strongly agree|agree|neutral|disagree|strongly disagree/i })
-        .first();
+      // Click the Agree segment by its test id: the old name-regex `.first()` now lands on a quote card
+      // (role=button) that precedes the position buttons in the page.
+      const positionButton = page.getByTestId('agree-group').first();
       await expect(positionButton).toBeVisible({ timeout: 10000 });
       await positionButton.click();
 
-      // MUST show the auth gate message: "Sign in to..."
-      await expect(
-        page.getByText(/sign in to/i)
-      ).toBeVisible({ timeout: 5000 });
-
-      // Must NOT show the old "Verify your email" message
-      await expect(
-        page.getByText(/verify your email/i)
-      ).not.toBeVisible({ timeout: 2000 }).catch(() => {});
+      // The story page still gates a signed-out position behind the sign-in toast (useVerificationGate)
+      await expect(page.getByText(/sign in to set a position/i)).toBeVisible({ timeout: 5000 });
+      // ...and nothing is recorded as the reader's position
+      await expect(positionButton).toHaveAttribute('aria-pressed', 'false');
+      await expect(page.getByText(/verify your email/i)).toHaveCount(0);
     } finally {
       if (pointId) await deleteTestPoint(pointId);
       if (storyId) await deleteTestStory(storyId);
@@ -137,7 +132,7 @@ test.describe('P273: Create story — auth gate (P396 two-state model)', () => {
     // The route guard should redirect unauthenticated users to /signup
     // This is the correct behavior: unauthenticated users cannot reach the create form at all.
     // The useVerificationGate is the secondary protection for in-page actions.
-    await expect(page).toHaveURL('/signup');
+    await expect(page).toHaveURL(/\/signup\?redirect=%2Fcreate$/);
   });
 
   test('authenticated (verified) user creates a story successfully (no gate toast)', async ({ page }) => {
@@ -155,7 +150,7 @@ test.describe('P273: Create story — auth gate (P396 two-state model)', () => {
       await expect(textArea).toBeVisible({ timeout: 10000 });
       await textArea.fill('Test story from verified user — p273 P396 update');
 
-      await page.getByRole('button', { name: /save|submit|create/i }).click();
+      await page.getByRole('button', { name: /^publish/i }).click();
 
       // Should navigate away from /create on success
       await expect(page).not.toHaveURL('/create', { timeout: 10000 });

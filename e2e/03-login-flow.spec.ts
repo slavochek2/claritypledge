@@ -122,8 +122,8 @@ test.describe('Login Flow', () => {
     await signupLink.click();
 
     // Should see signup form
-    await expect(page.locator('input#name')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole('heading', { name: /clarity pledge/i })).toBeVisible();
+    await expect(page.locator('input#signup-name')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /create account/i })).toBeVisible();
   });
 
   test('should validate email format', async ({ page }) => {
@@ -133,10 +133,8 @@ test.describe('Login Flow', () => {
     await page.getByRole('textbox', { name: /email/i }).fill('not-an-email');
     await page.getByRole('button', { name: /magic link/i }).click();
 
-    // HTML5 validation should prevent submission
+    // P1229 D15: the form is noValidate, so the app's own inline error shows (no browser tooltip/focus)
+    await expect(page.getByText('Please enter a valid email address')).toBeVisible();
     await expect(page).toHaveURL(/login/);
-
-    // Email field should still have focus
-    await expect(page.getByRole('textbox', { name: /email/i })).toBeFocused();
   });
 });

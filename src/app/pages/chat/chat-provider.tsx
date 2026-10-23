@@ -108,19 +108,45 @@ function patchRow(
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { state } = useHomeReadiness();
   const { pathname, search } = useLocation();
-  const userId = state === 'signed-in' && user ? user.id : null;
+  // P1560: the key below remounts the WHOLE app under this provider. A session/profile re-read flips
+  // the readiness to `pending` for a moment while the same person is still signed in (slow network:
+  // every few seconds), and dropping to `none` there remounted the page the reader was using.
+  //
+  // Identity comes from the authenticated SESSION, never from the cached profile: AuthContext keeps
+  // the previous person's profile in `user` while it fetches the next one's. A `pending` check may
+  // hold the held person only while the session still belongs to them; a different session drops it
+  // at once, so nobody sees the previous person's chats, outbox or mirror.
+  const sessionUserId = session?.user?.id ?? null;
+  // State, adjusted during render (React's documented pattern), not refs: a concurrent render that
+  // is abandoned (a transition that suspends) never commits its state, so it cannot bump the key.
+  const [identity, setIdentity] = useState<{ userId: string | null; epoch: number }>({ userId: null, epoch: 0 });
+  // A person is accepted ONLY when the session is theirs: signed in, or held through a `pending` check.
+  // Any mismatch or a missing session means nobody (a cached profile of the previous person, or a
+  // profile fetch for the next one that failed, must not bring the previous person back).
+  let next: string | null = null;
+  if (state === 'signed-in' && user && sessionUserId === user.id) next = user.id;
+  else if (state === 'pending' && identity.userId !== null && sessionUserId === identity.userId) next = identity.userId;
+  let current = identity;
+  if (next !== identity.userId) {
+    // Only a person LEAVING (signed out, or replaced by someone else) bumps the epoch, which is what
+    // the remount exists for. Nobody -> the first person (the session restoring on a page load)
+    // carries nothing over, so it keeps the key.
+    current = { userId: next, epoch: identity.userId !== null ? identity.epoch + 1 : identity.epoch };
+    setIdentity(current);
+  }
+  const userId = current.userId;
   const embedded = new URLSearchParams(search).get('embed') === 'true' || /^\/(live|transcribe)(\/|$)/.test(pathname);
 
   useEffect(() => {
     clearDraftsExcept(userId);
   }, [userId]);
 
-  // A different person (or none) is a different provider: nothing carries over.
+  // A different person is a different provider (key = epoch): nothing carries over.
   return (
-    <ChatProviderInner key={userId ?? 'none'} userId={userId} enabled={!embedded} listShown={pathname === '/home'}>
+    <ChatProviderInner key={current.epoch} userId={userId} enabled={!embedded} listShown={pathname === '/home'}>
       {/* P1520: the mirror's replies and face, for the same signed-in user */}
       <MirrorProvider enabled={!!userId && !embedded}>{children}</MirrorProvider>
     </ChatProviderInner>

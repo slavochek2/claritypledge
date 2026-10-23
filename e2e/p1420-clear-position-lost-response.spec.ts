@@ -32,14 +32,26 @@ const INDUCED_CONSOLE_ERRORS: RegExp[] = [
   /^Failed to remove position:/,
   /^\[db-error\] removePosition: .*Failed to fetch/,
 ];
+// P1540: the reachability probe (GET /auth/v1/health, sent without an apikey) answers 401. Chrome's
+// console line for it carries no URL, so it is tolerated only as many times as a 401 from that exact
+// path was actually seen on the network (see beforeEach) -- a 401 from any other request stays unexpected.
+const PROBE_401_CONSOLE = /^Failed to load resource: the server responded with a status of 401( \(.*\))?$/;
+let probe401Seen = 0;
+let probe401Logged = 0;
 let consoleErrors: string[] = [];
 let unexpectedConsoleErrors: string[] = [];
 
 test.beforeEach(async ({ page }) => {
   consoleErrors = [];
   unexpectedConsoleErrors = [];
+  probe401Seen = 0;
+  probe401Logged = 0;
+  page.on('response', (r) => {
+    if (r.status() === 401 && new URL(r.url()).pathname === '/auth/v1/health') probe401Seen++;
+  });
   const note = (text: string) => {
     consoleErrors.push(text);
+    if (PROBE_401_CONSOLE.test(text)) { probe401Logged++; return; } // judged in afterEach, once both counts are in
     if (!INDUCED_CONSOLE_ERRORS.some((r) => r.test(text))) unexpectedConsoleErrors.push(text);
   };
   page.on('console', (m) => { if (m.type() === 'error') note(m.text()); });
@@ -49,6 +61,8 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }, testInfo) => {
   void page; // the fixture is destructured only because Playwright requires it before testInfo
   if (consoleErrors.length) console.log(`[p1420 console] ${testInfo.title}:\n  ${consoleErrors.join('\n  ')}`);
+  // Console and response events can arrive in either order, so compare the totals at the end.
+  if (probe401Logged > probe401Seen) unexpectedConsoleErrors.push(`${probe401Logged - probe401Seen} 401 console line(s) not from /auth/v1/health`);
   expect(unexpectedConsoleErrors, 'console errors not induced by the test').toEqual([]);
 });
 

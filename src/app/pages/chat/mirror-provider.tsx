@@ -36,11 +36,19 @@ const AVAILABILITY_RETRY_MS = [1_000, 3_000, 9_000];
 
 export function MirrorProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const chat = useContext(ChatContext);
-  if (!enabled || !chat) return <>{children}</>;
-  return <MirrorProviderInner chat={chat}>{children}</MirrorProviderInner>;
+  const [value, setValue] = useState<MirrorContextValue | null>(null);
+  // P1560: a stable shell. The children sit under the same Provider element whether the mirror is on or
+  // off, so turning it on (the session restoring on a page load) does not remount the page. The engine
+  // is a SIBLING, never a wrapper: turning it off unmounts it, and its own cleanups and guards run.
+  return (
+    <>
+      <MirrorContext.Provider value={value}>{children}</MirrorContext.Provider>
+      {enabled && chat && <MirrorEngine chat={chat} onValue={setValue} />}
+    </>
+  );
 }
 
-function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; children: ReactNode }) {
+function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: MirrorContextValue | null) => void }) {
   const { subscribe, userId, resync } = chat;
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<MirrorProfile | null>(null);
@@ -254,7 +262,8 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
   const ask = useCallback(
     async (channelId: string, body: string) => {
       const row = await askMirror(channelId, body, crypto.randomUUID());
-      if (!asked.current.has(row.id)) requestReply(row.id);
+      // Switched off (or unmounted) while the question was in flight: it is stored, but no answer is requested from here.
+      if (mounted.current && !asked.current.has(row.id)) requestReply(row.id);
       return row;
     },
     [requestReply],
@@ -324,5 +333,9 @@ function MirrorProviderInner({ chat, children }: { chat: ChatContextValue; child
     () => ({ enabled, profile, portraitStatus, statusFor, requestReply, loadStatuses, ask, newFace, ensurePortrait: ensurePortraitSoon, setGender }),
     [enabled, profile, portraitStatus, statusFor, requestReply, loadStatuses, ask, newFace, ensurePortraitSoon, setGender],
   );
-  return <MirrorContext.Provider value={value}>{children}</MirrorContext.Provider>;
+  useEffect(() => {
+    onValue(value);
+  }, [onValue, value]);
+  useEffect(() => () => onValue(null), [onValue]);
+  return null;
 }

@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-10-23'
 tags: [e2e, tests, flaky, offline]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -63,9 +63,23 @@ Blast radius: tests only, except `:164`, which may touch the offline/reconnect p
 
 ## Done-When
 
-- [ ] All 9 tests pass on two consecutive runs against TEST
-- [ ] `p1420:164` passes by a code change, test assertions unchanged
-- [ ] Offline/reconnect unit tests still pass
+- [x] All 9 tests pass on two consecutive runs against TEST
+- [x] `p1420:164` passes by a code change, test assertions unchanged
+- [x] Offline/reconnect unit tests still pass
+
+## Outcome (2026-10-24)
+
+- `:164` root cause was not the P1540 re-read: `ChatProvider` keyed the whole route tree by user and
+  `MirrorProvider` switched element type, so the session restoring (and every `pending` profile re-read on a
+  slow connection) remounted the page. Fix: identity held through `pending` only while session user = profile
+  user; key bumps only when a person leaves; mirror is a stable provider shell with the engine as an
+  unmounting sibling. Blast radius was wider than the Appetite said (every route).
+- Three Codex adversarial rounds: round 1 found a cross-account chat exposure in the first fix (cached profile
+  A with session B), fixed by requiring session = profile. Unit `p1560-chat-provider-keeps-page-on-pending` (12).
+- Residual, pre-existing on main (engine code unchanged): a running job poll / portrait timer can fire once after
+  the mirror unmounts. Filed to the task inbox.
+- Evidence: 4 e2e files 16 passed / 2 pre-existing skips / 0 failed on consecutive runs at 2 workers; 39 unit
+  files 656 passed.
 
 ## Related
 
