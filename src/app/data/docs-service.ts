@@ -251,6 +251,93 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
   )
 `;
 
+async function fetchDocsByUser(userId: string, strict: boolean): Promise<ClarityDoc[]> {
+  log('getDocsByUser:', userId);
+
+  const { data, error } = await supabase
+    .from('clarity_docs')
+    .select('*')
+    .eq('owner_id', userId)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    if (strict) throwDbError('getDocsByUserOrThrow', error, 'Failed to load drafts');
+    logDbError('getDocsByUser', error);
+    return [];
+  }
+
+  // Count stories per doc separately to avoid nested select issues
+  const docs = (data ?? []).map((row: unknown) => mapDocFromDb(row as DbClarityDoc));
+
+  if (docs.length > 0) {
+    const docIds = docs.map((d) => d.id);
+
+    const [countResult, pointResult, sentResult] = await Promise.all([
+      supabase.from('doc_stories').select('doc_id').in('doc_id', docIds),
+      supabase
+        .from('doc_stories')
+        .select('doc_id, story:stories!inner(story_points(point_id))')
+        .in('doc_id', docIds),
+      supabase
+        .from('clarity_letters')
+        .select('source_doc_id')
+        .in('source_doc_id', docIds)
+        .neq('status', 'draft'),
+    ]);
+
+    // Strict readers (P1545 Artifacts) must not show wrong counts: a failed side query is a failed read.
+    if (strict) {
+      const sideError = countResult.error ?? pointResult.error;
+      if (sideError) throwDbError('getDocsByUserOrThrow', sideError, 'Failed to load drafts');
+    }
+
+    if (!countResult.error && countResult.data) {
+      const counts: Record<string, number> = {};
+      for (const row of countResult.data) {
+        counts[row.doc_id] = (counts[row.doc_id] || 0) + 1;
+      }
+      for (const doc of docs) {
+        doc.story_count = counts[doc.id] || 0;
+      }
+    }
+
+    if (!pointResult.error && pointResult.data) {
+      // Flatten to unique point IDs per doc
+      const pointCounts: Record<string, Set<string>> = {};
+      for (const row of pointResult.data as Array<{
+        doc_id: string;
+        story: { story_points: Array<{ point_id: string }> } | null;
+      }>) {
+        if (!pointCounts[row.doc_id]) pointCounts[row.doc_id] = new Set();
+        const storyPoints = row.story?.story_points ?? [];
+        for (const sp of storyPoints) {
+          pointCounts[row.doc_id].add(sp.point_id);
+        }
+      }
+      for (const doc of docs) {
+        doc.point_count = pointCounts[doc.id]?.size ?? 0;
+      }
+    }
+
+    if (sentResult.error) {
+      // Query failed — default conservatively: block deletion on all docs
+      // to prevent the UI guard from being bypassed. Server-side check in
+      // deleteDoc() is the defense-in-depth layer.
+      logDbError('getDocsByUser:sentLetters', sentResult.error);
+      for (const doc of docs) {
+        doc.has_sent_letters = true;
+      }
+    } else if (sentResult.data) {
+      const sentDocIds = new Set(sentResult.data.map((l) => l.source_doc_id));
+      for (const doc of docs) {
+        doc.has_sent_letters = sentDocIds.has(doc.id);
+      }
+    }
+  }
+
+  return docs;
+}
+
 export const docsService: DocsService = {
   // ============================================================================
   // CREATE
@@ -331,84 +418,13 @@ export const docsService: DocsService = {
     };
   },
 
-  async getDocsByUser(userId: string): Promise<ClarityDoc[]> {
-    log('getDocsByUser:', userId);
+  getDocsByUser(userId: string): Promise<ClarityDoc[]> {
+    return fetchDocsByUser(userId, false);
+  },
 
-    const { data, error } = await supabase
-      .from('clarity_docs')
-      .select('*')
-      .eq('owner_id', userId)
-      .order('updated_at', { ascending: false });
-
-    if (error) {
-      logDbError('getDocsByUser', error);
-      return [];
-    }
-
-    // Count stories per doc separately to avoid nested select issues
-    const docs = (data ?? []).map((row: unknown) => mapDocFromDb(row as DbClarityDoc));
-
-    if (docs.length > 0) {
-      const docIds = docs.map((d) => d.id);
-
-      const [countResult, pointResult, sentResult] = await Promise.all([
-        supabase.from('doc_stories').select('doc_id').in('doc_id', docIds),
-        supabase
-          .from('doc_stories')
-          .select('doc_id, story:stories!inner(story_points(point_id))')
-          .in('doc_id', docIds),
-        supabase
-          .from('clarity_letters')
-          .select('source_doc_id')
-          .in('source_doc_id', docIds)
-          .neq('status', 'draft'),
-      ]);
-
-      if (!countResult.error && countResult.data) {
-        const counts: Record<string, number> = {};
-        for (const row of countResult.data) {
-          counts[row.doc_id] = (counts[row.doc_id] || 0) + 1;
-        }
-        for (const doc of docs) {
-          doc.story_count = counts[doc.id] || 0;
-        }
-      }
-
-      if (!pointResult.error && pointResult.data) {
-        // Flatten to unique point IDs per doc
-        const pointCounts: Record<string, Set<string>> = {};
-        for (const row of pointResult.data as Array<{
-          doc_id: string;
-          story: { story_points: Array<{ point_id: string }> } | null;
-        }>) {
-          if (!pointCounts[row.doc_id]) pointCounts[row.doc_id] = new Set();
-          const storyPoints = row.story?.story_points ?? [];
-          for (const sp of storyPoints) {
-            pointCounts[row.doc_id].add(sp.point_id);
-          }
-        }
-        for (const doc of docs) {
-          doc.point_count = pointCounts[doc.id]?.size ?? 0;
-        }
-      }
-
-      if (sentResult.error) {
-        // Query failed — default conservatively: block deletion on all docs
-        // to prevent the UI guard from being bypassed. Server-side check in
-        // deleteDoc() is the defense-in-depth layer.
-        logDbError('getDocsByUser:sentLetters', sentResult.error);
-        for (const doc of docs) {
-          doc.has_sent_letters = true;
-        }
-      } else if (sentResult.data) {
-        const sentDocIds = new Set(sentResult.data.map((l) => l.source_doc_id));
-        for (const doc of docs) {
-          doc.has_sent_letters = sentDocIds.has(doc.id);
-        }
-      }
-    }
-
-    return docs;
+  /** P1545: like getDocsByUser, but a database error rejects instead of reading as "no drafts". */
+  getDocsByUserOrThrow(userId: string): Promise<ClarityDoc[]> {
+    return fetchDocsByUser(userId, true);
   },
 
   async getCompatibleStories(

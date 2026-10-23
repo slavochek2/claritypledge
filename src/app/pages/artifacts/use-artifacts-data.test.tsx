@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { ClarityDoc } from '@/app/types';
 
 const mocks = vi.hoisted(() => ({
-  getDocsByUser: vi.fn(),
+  getDocsByUserOrThrow: vi.fn(),
   getAllSentLettersOrThrow: vi.fn(),
   getDeliveriesForLettersOrThrow: vi.fn(),
   getInboxItems: vi.fn(),
@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   listMyCanvases: vi.fn(),
   listSharedWithMe: vi.fn(),
 }));
-vi.mock('@/app/data/docs-service', () => ({ docsService: { getDocsByUser: mocks.getDocsByUser } }));
+vi.mock('@/app/data/docs-service', () => ({ docsService: { getDocsByUserOrThrow: mocks.getDocsByUserOrThrow } }));
 vi.mock('@/app/data/letters-service', () => ({
   getAllSentLettersOrThrow: mocks.getAllSentLettersOrThrow,
   getDeliveriesForLettersOrThrow: mocks.getDeliveriesForLettersOrThrow,
@@ -33,7 +33,7 @@ const deferred = <T,>() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getDocsByUser.mockResolvedValue([]);
+  mocks.getDocsByUserOrThrow.mockResolvedValue([]);
   mocks.getAllSentLettersOrThrow.mockResolvedValue([]);
   mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
   mocks.getInboxItems.mockResolvedValue([]);
@@ -45,9 +45,9 @@ beforeEach(() => {
 describe('useArtifactsData ordering and failures', () => {
   it('an older response never overwrites a newer refresh', async () => {
     const older = deferred<ClarityDoc[]>();
-    mocks.getDocsByUser.mockReturnValueOnce(older.promise); // the first load is slow
+    mocks.getDocsByUserOrThrow.mockReturnValueOnce(older.promise); // the first load is slow
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    mocks.getDocsByUser.mockResolvedValueOnce([]); // the refresh after a delete answers first, empty
+    mocks.getDocsByUserOrThrow.mockResolvedValueOnce([]); // the refresh after a delete answers first, empty
     await act(async () => { await result.current.refresh(); });
     await waitFor(() => expect(result.current.yours.status).toBe('ready'));
     await act(async () => { older.resolve([doc]); await Promise.resolve(); });
@@ -67,5 +67,42 @@ describe('useArtifactsData ordering and failures', () => {
     expect(result.current.yours.rows[0].menu.map(a => a.id)).not.toContain('delete-letter');
     expect(result.current.yours.partial).toBe(true);
     expect(result.current.yours.status).toBe('ready');
+  });
+});
+
+describe('useArtifactsData polling', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('a failed drafts read after a good one keeps the drafts and marks the tab partial', async () => {
+    mocks.getDocsByUserOrThrow.mockResolvedValue([doc]);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    mocks.getDocsByUserOrThrow.mockRejectedValue(new Error('db down'));
+    await act(async () => { await result.current.refresh(); });
+    expect(result.current.yours.rows).toHaveLength(1);
+    expect(result.current.yours.partial).toBe(true);
+  });
+
+  it('a source slower than the poll interval still loads (the poll skips while it is in flight)', async () => {
+    vi.useFakeTimers();
+    const slow = deferred<ClarityDoc[]>();
+    mocks.getDocsByUserOrThrow.mockReturnValue(slow.promise);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(16_000); });
+    expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(1);
+    await act(async () => { slow.resolve([doc]); await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.yours.rows).toHaveLength(1);
+  });
+
+  it('an explicit refresh supersedes an in-flight request, and the stale response is dropped', async () => {
+    vi.useFakeTimers();
+    const stale = deferred<ClarityDoc[]>();
+    mocks.getDocsByUserOrThrow.mockReturnValueOnce(stale.promise);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    mocks.getDocsByUserOrThrow.mockResolvedValueOnce([]);
+    await act(async () => { await result.current.refresh(); });
+    expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(2);
+    await act(async () => { stale.resolve([doc]); await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.yours.rows).toHaveLength(0);
   });
 });

@@ -38,6 +38,11 @@ export interface DocsService {
   getDocsByUser(userId: string): Promise<ClarityDoc[]>;
 
   /**
+   * P1545: same as getDocsByUser, but rejects on a database error instead of returning [].
+   */
+  getDocsByUserOrThrow(userId: string): Promise<ClarityDoc[]>;
+
+  /**
    * Get user's own stories that are compatible with the doc's visibility,
    * excluding stories already linked to this doc.
    * Optionally filtered by search query (matches story content).

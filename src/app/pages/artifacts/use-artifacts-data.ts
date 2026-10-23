@@ -13,7 +13,8 @@
  * a failed quiet refresh keeps what is on screen and marks the tab "partial" (a small retry line).
  * The sent letters and their deliveries come from the throwing readers: an empty answer from the
  * tolerant ones could be a failure, and a letter whose recipients are unknown must never offer Delete.
- * Each source carries a request generation: only the newest request may write, so a slow older
+ * A poll tick skips a source whose previous load is still in flight (a slow source must be allowed to finish);
+ * an explicit refresh always starts a new request and supersedes it. Each source carries a request generation: only the newest request may write, so a slow older
  * response can never bring back a row a newer refresh already removed.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,6 +65,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   userRef.current = userId;
   // Newest request number per source: a response from an older request is dropped.
   const generation = useRef<Partial<Record<keyof Sources, number>>>({});
+  // Request number of the load still in flight per source (cleared when that newest request settles).
+  const inFlight = useRef<Partial<Record<keyof Sources, number>>>({});
   // Sources with data on screen (loaded at least once for this person): a later failure keeps that value.
   const [loaded, setLoaded] = useState<Partial<Record<keyof Sources, boolean>>>({});
 
@@ -72,14 +75,20 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
     return () => { mounted.current = false; };
   }, []);
 
-  const load = useCallback(async () => {
+  // `skipInFlight` is for the timer/focus poll: a source whose previous load has not answered yet is left alone,
+  // so a slow source is not restarted (and its answer discarded) every tick. An explicit load supersedes.
+  const load = useCallback(async (skipInFlight = false) => {
     const forUser = userId;
     const run = <K extends keyof Sources>(key: K, fn: () => Promise<NonNullable<Sources[K]>>) => {
+      if (skipInFlight && inFlight.current[key] !== undefined) return Promise.resolve();
       const mine = (generation.current[key] ?? 0) + 1;
       generation.current[key] = mine;
+      inFlight.current[key] = mine;
+      const done = () => { if (inFlight.current[key] === mine) inFlight.current = { ...inFlight.current, [key]: undefined }; };
       const current = () => mounted.current && userRef.current === forUser && generation.current[key] === mine;
       return fn().then(
         value => {
+          done();
           if (!current()) return;
           setLoaded(prev => (prev[key] ? prev : { ...prev, [key]: true }));
           setSources(prev => ({ ...prev, [key]: value }));
@@ -87,6 +96,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
           setSettled(prev => (prev[key] ? prev : { ...prev, [key]: true }));
         },
         () => {
+          done();
           if (!current()) return;
           // A failed read keeps the last good value (if any) and is flagged, so the tab can say items may be missing.
           setFailed(prev => (prev[key] ? prev : { ...prev, [key]: true }));
@@ -95,7 +105,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
       );
     };
     await Promise.all([
-      run('docs', () => docsService.getDocsByUser(forUser)),
+      run('docs', () => docsService.getDocsByUserOrThrow(forUser)),
       run('sent', () => loadSent(forUser)),
       run('myCanvases', () => canvasService.listMyCanvases()),
       run('received', () => getAllReceivedLetters(forUser)),
@@ -110,7 +120,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
     setFailed({});
     setSettled({});
     void load();
-    const tick = () => { if (document.visibilityState === 'visible') void load(); };
+    const tick = () => { if (document.visibilityState === 'visible') void load(true); };
     const interval = setInterval(tick, POLL_MS);
     document.addEventListener('visibilitychange', tick);
     return () => {
@@ -146,7 +156,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   return {
     yours: tabState(['docs', 'sent', 'myCanvases'], model.yours),
     shared: tabState(['received', 'sharedCanvases'], model.shared),
-    refresh: load,
+    refresh: () => load(),
   };
 }
 

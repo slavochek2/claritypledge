@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 
 const mocks = vi.hoisted(() => ({
-  getDocsByUser: vi.fn(),
+  getDocsByUserOrThrow: vi.fn(),
   deleteDoc: vi.fn(),
   createDoc: vi.fn(),
   getAllSentLettersOrThrow: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('@/auth', () => ({
   useAuth: () => ({ user: { id: 'me', slug: 'me' }, isLoading: false, sessionChecked: true }),
 }));
 vi.mock('@/app/data/docs-service', () => ({
-  docsService: { getDocsByUser: mocks.getDocsByUser, deleteDoc: mocks.deleteDoc, createDoc: mocks.createDoc },
+  docsService: { getDocsByUserOrThrow: mocks.getDocsByUserOrThrow, deleteDoc: mocks.deleteDoc, createDoc: mocks.createDoc },
 }));
 vi.mock('@/app/data/letters-service', () => ({
   getAllSentLettersOrThrow: mocks.getAllSentLettersOrThrow,
@@ -89,7 +89,7 @@ const rows = () => screen.queryAllByTestId('artifact-row');
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.invite.current = null;
-  mocks.getDocsByUser.mockResolvedValue([doc()]);
+  mocks.getDocsByUserOrThrow.mockResolvedValue([doc()]);
   mocks.getAllSentLettersOrThrow.mockResolvedValue([sentLetter]);
   mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery()] });
   mocks.listMyCanvases.mockResolvedValue([
@@ -335,7 +335,7 @@ describe('Artifacts page', () => {
 
     it('draft: Prepare letter + Delete, with today\'s guards', async () => {
       const user = userEvent.setup();
-      mocks.getDocsByUser.mockResolvedValue([doc({ story_count: 0, has_sent_letters: true })]);
+      mocks.getDocsByUserOrThrow.mockResolvedValue([doc({ story_count: 0, has_sent_letters: true })]);
       renderPage();
       await openMenu(user, 'Draft about trust');
       const prepare = await screen.findByRole('menuitem', { name: /Prepare letter/ });
@@ -354,10 +354,10 @@ describe('Artifacts page', () => {
       await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
       expect(await screen.findByText('Delete draft')).toBeInTheDocument();
       expect(mocks.deleteDoc).not.toHaveBeenCalled();
-      const calls = mocks.getDocsByUser.mock.calls.length;
+      const calls = mocks.getDocsByUserOrThrow.mock.calls.length;
       await user.click(screen.getByRole('button', { name: 'Delete' }));
       await waitFor(() => expect(mocks.deleteDoc).toHaveBeenCalledWith('d1'));
-      await waitFor(() => expect(mocks.getDocsByUser.mock.calls.length).toBeGreaterThan(calls));
+      await waitFor(() => expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBeGreaterThan(calls));
     });
 
     it('sent letter: no Delete item once shared; Add recipient(s) opens the modal', async () => {
@@ -501,14 +501,14 @@ describe('Artifacts page', () => {
 
   describe('loading, error and empty states', () => {
     it('shows a loader first', () => {
-      mocks.getDocsByUser.mockReturnValue(new Promise(() => {}));
+      mocks.getDocsByUserOrThrow.mockReturnValue(new Promise(() => {}));
       renderPage();
       expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
     });
 
     it('Yours error: message and Retry; Shared with you stays usable', async () => {
       const user = userEvent.setup();
-      mocks.getDocsByUser.mockRejectedValue(new Error('x'));
+      mocks.getDocsByUserOrThrow.mockRejectedValue(new Error('x'));
       mocks.getAllSentLettersOrThrow.mockRejectedValue(new Error('x'));
       mocks.listMyCanvases.mockRejectedValue(new Error('x'));
       renderPage();
@@ -516,7 +516,7 @@ describe('Artifacts page', () => {
       await user.click(screen.getByRole('tab', { name: /Shared with you/ }));
       expect(await screen.findByText('Note from Mara')).toBeInTheDocument();
       await user.click(screen.getByRole('tab', { name: 'Yours' }));
-      mocks.getDocsByUser.mockResolvedValue([doc()]);
+      mocks.getDocsByUserOrThrow.mockResolvedValue([doc()]);
       mocks.getAllSentLettersOrThrow.mockResolvedValue([]);
       mocks.listMyCanvases.mockResolvedValue([]);
       await user.click(screen.getByRole('button', { name: 'Retry' }));
@@ -533,7 +533,7 @@ describe('Artifacts page', () => {
 
     it('empty Yours and empty Shared with you each say so', async () => {
       const user = userEvent.setup();
-      mocks.getDocsByUser.mockResolvedValue([]);
+      mocks.getDocsByUserOrThrow.mockResolvedValue([]);
       mocks.getAllSentLettersOrThrow.mockResolvedValue([]);
       mocks.listMyCanvases.mockResolvedValue([]);
       mocks.getInboxItems.mockResolvedValue([]);
