@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 66
 workstream: clarity-chat
@@ -75,13 +75,13 @@ Registry: the Supabase Free plan row (test has its own organisation, P1538). No 
 
 ## Acceptance Criteria
 
-- [ ] Sending a point or story to the mirror with no text produces no mirror reply and no `mirror_jobs` row; adding a line of text does produce one.
-- [ ] No mirror answer shows "You decide what fits."
-- [ ] An answer to the message directly above shows no reply quote; an answer to an older message shows it.
-- [ ] Editing an earlier own message in the mirror creates no new reply.
-- [ ] The welcome message shows one "Give me a name" button that opens rename.
-- [ ] The three-dots menu has no Rename; the About window has Rename and "New portrait", centered.
-- [ ] The mirror agent avatar is square on every surface, and `AGENT` still shows wherever it did.
+- [x] Sending a point or story to the mirror with no text produces no mirror reply and no `mirror_jobs` row; adding a line of text does produce one.
+- [x] No mirror answer shows "You decide what fits."
+- [x] An answer to the message directly above shows no reply quote; an answer to an older message shows it.
+- [x] Editing an earlier own message in the mirror creates no new reply.
+- [x] The welcome message shows one "Give me a name" button that opens rename.
+- [x] The three-dots menu has no Rename; the About window has Rename and "New portrait", centered.
+- [x] The mirror agent avatar is square on every surface, and `AGENT` still shows wherever it did.
 
 ## Related
 
