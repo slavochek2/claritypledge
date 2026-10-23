@@ -8,7 +8,7 @@
 export type ChatKind = 'dm' | 'group' | 'event' | 'mirror';
 /** 'agent': the mirror's own reply (P1520), always in its owner's mirror, with no human author. */
 export type ChatMessageKind = 'message' | 'forward' | 'clarify' | 'agent';
-export type ChatAttachmentKind = 'point' | 'story';
+export type ChatAttachmentKind = 'point' | 'story' | 'canvas' | 'letter';
 
 /** Shown for an author that no longer exists (account erased). */
 export const DELETED_USER_NAME = 'Deleted user';
