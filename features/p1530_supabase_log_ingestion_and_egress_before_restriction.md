@@ -118,6 +118,11 @@ test project. Reversibility: config or code, git revert. Decision density: likel
   restriction (the notice stays until the org is under limits for several cycles, and there is no
   second grace period). Supabase support was asked (21 Oct). Decide on two signals: support's
   answer, and prod-only usage on 24–26 Oct. Do it before the Pro renewal date.
+- **Support answered (22 Oct):** the upgrade cleared the earlier grace-period state, so a downgrade
+  does not revive the 11 Nov restriction, provided the org stays within free limits. A new overage
+  after the downgrade can be restricted with no further grace period. The downgrade is self-serve
+  and immediate; unused Pro time becomes org credit, not a refund. The only remaining gate is
+  prod-only usage on 24–26 Oct: downgrade only if every metric projects under the free limits.
 
 ## Related
 
