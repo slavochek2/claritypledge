@@ -80,7 +80,7 @@ Up to about 15 people, we walk as one group, with someone at the back. If more c
 
 The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to finish by [END TIME]. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-[END POINT: "We finish where we started." for a loop, else the end point.] Wait at [CAFE NAME] with a drink until everyone is back, then we head to town. [Optional dinner at [TIME] at [PLACE], [ONE-LINE DESCRIPTION]. [Directions]([MAP_URL])] [Optional: "Still have energy? [EVENT] at [VENUE] from [TIME]. [Details]([URL])"]
+[END POINT: "We finish where we started, at [CAFE NAME]," for a loop, else the end point,] a good spot for a drink while the others come in. Carpools leave once everyone in them is back. Everyone else heads off when they like. [Optional dinner at [TIME] at [PLACE], [ONE-LINE DESCRIPTION]. [Directions]([MAP_URL])] [Optional: "Still have energy? [EVENT] at [VENUE] from [TIME]. [Details]([URL])"]
 
 *Not a commercial or guided hike: nobody charges, and volunteers at the front and back only help keep the group together. We are all adults looking after ourselves. I try to make it a good day for everyone, but I am not responsible for anyone.*
 
