@@ -179,7 +179,7 @@ carries a request-volume assertion. Closes INBOX-204's "no net new users per ful
       12:25:42-44 UTC (1 count + 2 purges), all 200, and no foreign-key error line in that window.
       The 23503 lines in the surrounding 30 min (17, every few minutes from 12:05) come from other
       sessions' e2e runs still on main's per-row cleanup, which is the pattern this spec removes.
-- [ ] One full e2e run leaves the e2e-namespace user count unchanged, within the teardown batch.
+- [x] One full e2e run leaves the e2e-namespace user count unchanged, within the teardown batch. **Deferred to P1550 by the founder, 2026-10-23.** Partial evidence: a 3-worker full run on the new TEST project was stopped at 387/4151 tests (it held TEST at 97-99% CPU); its ledger purge deleted 612 of 649 recorded users (37 already gone) in 13 requests, 0 failed, and the count returned to 58. A complete run at one worker takes about 33 h.
       Users created per run recorded before and after. *Evidence so far:* every run this session
       ended with the run ledger deleting all users it created (e.g. a 7-file sample: "created 35
       users; deleted 35 still alive, 1 request"); users created per run, see Cost Budget. **Open:**
