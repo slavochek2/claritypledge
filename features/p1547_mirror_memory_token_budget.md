@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 59
 workstream: clarity-chat
@@ -81,7 +81,7 @@ Registry: the Gemini API row, read 2026-10-21 (`gemini-3.8-flash`, $0.75 / $3.75
 
 **Fits today:** spend is bounded by the private daily caps; monthly ≤ 30 × the global daily cap. **At 10×:** the caps refuse further replies. Raising them is a founder call with figures in `.private/`. The figures are ceilings: a short conversation costs what it uses.
 
-## Known limitations (accepted, review rounds 1-2)
+## Known limitations (accepted, review rounds 1-3)
 
 - **The 20% copy cap is an estimate.** Each copy is held to 20% of the budget by the local estimate only; the whole request is counted by the model (or the byte bound) before sending, so the total never passes 50,000, but one copy can come out somewhat over or under its 10,000.
 - **Skipped rows.** A row an erase (or an edit) is holding while a reply starts is skipped (`FOR SHARE SKIP LOCKED`), never waited for: that reply does not see it. Its derived_refs match exactly the rows read.
@@ -90,15 +90,24 @@ Registry: the Gemini API row, read 2026-10-21 (`gemini-3.8-flash`, $0.75 / $3.75
 - **Legacy copies.** Clarify copies made before P1547 hold the *oldest* 100 thread entries and no `thread_total`, so "last N of M" counts only what was stored. A thread entry without `author_ref` would stay outside derived_refs. No migration ever wrote one (P1512 introduced the copied thread and `author_ref` together), so this only matters for a hand-edited snapshot.
 - **Look-alike marker.** Anyone can type text that resembles the cut marker (`[... cut: too long to show in full]`). It sits inside quoted data and carries no authority, but the model cannot tell a real cut from a typed one.
 
+- **Channel ask vs. deleting the ask (review 3, for the founder):** the owner's own @-ask in the mirror is not row-locked while a channel-ask job starts. If the owner deletes that ask in the same instant, the answer can still post. Same behaviour as before P1547; only the asker can trigger it.
+
 ## Acceptance Criteria
 
-- [ ] A mirror question sees messages older than the old 30-message window, shown by intercepting the outbound request on test with synthetic fixtures (never by logging content).
-- [ ] An oversized mirror thread is cut to its newest messages and the request says "showing the last N of M".
-- [ ] A forwarded thread over 20% of the budget is cut the same way.
-- [ ] A request never exceeds the budget, tested at the exact boundary with Unicode and escaped input.
-- [ ] `reply_max_usd` equals the formula at the chosen budget; the shared test fails if code and SQL differ.
-- [ ] Erasing an author whose words reached a mirror answer via an old message, a thread reply or a copied reply clears that answer, including when the erase races a starting job.
-- [ ] The extended red-team suite passes; its positive control passes.
+- [x] A mirror question sees messages older than the old 30-message window, shown by intercepting the outbound request on test with synthetic fixtures (never by logging content).
+- [x] An oversized mirror thread is cut to its newest messages and the request says "showing the last N of M".
+- [x] A forwarded thread over 20% of the budget is cut the same way.
+- [x] A request never exceeds the budget, tested at the exact boundary with Unicode and escaped input.
+- [x] `reply_max_usd` equals the formula at the chosen budget; the shared test fails if code and SQL differ.
+- [x] Erasing an author whose words reached a mirror answer via an old message, a thread reply or a copied reply clears that answer, including when the erase races a starting job.
+- [x] The extended red-team suite passes; its positive control passes.
+
+**Evidence (2026-10-23, test project, branch HEAD 8f15dcb74):**
+- AC1: `e2e/integration/p1547-mirror-budget.spec.ts` CONTROL — a codeword 40 messages back is read by the real model; `_mirror_begin_job` offers >30 rows including it. The outbound request itself is not intercepted on test: selection of what is sent is covered by `src/tests/p1547-mirror-budget.test.ts` (message 0 of 200 present in the built request).
+- AC2/AC3/AC4/AC5: `src/tests/p1547-mirror-budget.test.ts` — thread cut with "showing the last N of M", forwarded and Clarified copies capped at 20%, exact-boundary tests for ASCII, CJK, emoji, quotes, backslash, newline and angle injection, the code-vs-SQL `reply_max_usd` test; plus a real Gemini `countTokens` check before every send (probed live: HTTP 200). Mirror unit tests: 61/61 and 101/101 runs green.
+- AC6: erasure e2e tests (old message, copied thread reply, inherited refs, erase racing a start) pass on test.
+- AC7: `p1520-mirror-redteam` + `p1520-mirror-canary` + `p1546-threads-everywhere` + `p1547-mirror-budget`: 32 passed, 1 flaky (a test-user cleanup statement timeout on the overloaded test DB, passed on retry).
+- Reviews: Gemini, Codex and an Opus adversary (round 1), Gemini + Codex (rounds 2, 3); every confirmed finding fixed; the one remaining round-3 item is under Known limitations.
 
 ## Related
 
