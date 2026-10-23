@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 45
 workstream: clarity-canvas
 created_date: '2026-10-19'
 tags: [sharing, privacy, rls, canvas]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh
 driver: heuristic
+completed_at: 2026-10-23
 ---
 
 # P1515: Share an artifact with events and groups; everything inside follows
