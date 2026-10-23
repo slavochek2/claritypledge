@@ -110,7 +110,7 @@ Blast radius: high. Every signed-in screen's navigation, plus the letters surfac
 Phase 1:
 - [x] Variants reachable on one dev route, each at desktop, 375px and 320px, covering every state listed in Phase 1. Round 1 had A/B/C; after founder feedback, round 2 has B2 and C2 at `/tree/artifacts?v=b2|c2` (A/B/C were removed).
 - [x] Visual review reports received from Gemini 4 Argon and Opus (count stated), findings fixed or set aside with a reason.
-- [ ] The founder's pick and comments recorded under `## Resolved Decisions`.
+- [x] The founder's pick and comments recorded under `## Resolved Decisions`.
 
 Phase 2:
 - [ ] Signed in, Home opens the feed; Chats, Events, Artifacts and You are tabs on the phone and entries on desktop.
@@ -120,6 +120,23 @@ Phase 2:
 - [ ] Every old `/letters` tab URL lands on the matching Artifacts view.
 - [ ] Events list, signed out and empty: the Chiang Mai card is the main element and "Sign Up to Host" is a quiet link. With events: the card sits below the list. Taps record a Mixpanel event.
 - [ ] Screenshots at 1440, 375 and 320 pass `.claude/rules/visual-qa.md`, reviewed by a separate agent.
+
+## Resolved Decisions
+
+Founder, 2026-10-23, after round 2 (B2 cards vs C2 list + pane). Founder: "I think this time we know everything", so there is no round 3; Phase 2 builds the real page.
+
+1. **Layout: a list, one row per item** (not cards, not a preview pane). Scans fastest on a phone and matches Chats.
+2. **Type filter:** one row of chips under the header: All · Letters · Canvases. Default All. Combines with search.
+3. **Recipients do not expand under a row.** Tapping a sent letter opens its existing overview page; recipients, opened, results and add recipients live there.
+4. **Chats:** a share appears in that chat as a small card that opens the artifact. Artifacts is its one home; the chat only points to it (decision 5 above).
+
+Cleanup, from the same feedback:
+- **Search opens in place.** The title and the New artifact button stay; the field expands where the icon was.
+- **"…" sits top right of the row**, as elsewhere in the app. One fixed button per row at most; everything else in "…".
+- **Unread mark only on Shared with you.** Your own sent letter says "Tom replied" (or "2 replied") in words, no dot.
+- **One meta line per row**, nothing else: draft "Draft · edited 2h ago"; sent "Sent to 3 · 1 replied"; public link "Public link · 2 replied"; canvas "Edited 3d ago"; shared "From Mara · 1h ago". Dropped: stories/points counts, "Sealed", a second timestamp, "In your chat".
+- **Buttons, icons, colours follow `.claude/rules/src.md` and existing shared components.** The 🔒/🌐 icons are the ones points and stories already use. No new styles.
+- **Yellow Chiang Mai banner** stays as the founder asked, recorded as a deliberate exception to the no-yellow rule (founder brief, round 1).
 
 ## Phase 1 record
 
