@@ -72,15 +72,17 @@ Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we
 
 We aim for the full loop, but the mountain decides. There are many paths here, and when one does not work we take another. That is usually the best part of the day.
 
-We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like.
+Up to about 15 people, we walk as one group, with someone at the back. If more come, we warm up together for 20 minutes, then split at the water break into a brisk group and a relaxed group, each with a volunteer at the front and back. Prefer your own pace? Go ahead, with the route on your phone, and tell someone.
 
-**Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
+**Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash, and a charged phone with an offline map.
 
-The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total (I have blocked until [END TIME]), and we will most likely finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
+**Before Sunday, on wifi:** install AllTrails and Mapy.com, both free. We follow the route on AllTrails, from the link above. Signal drops on [most trails here / this trail], so as a backup open Offline maps in Mapy ([Android](https://play.google.com/store/apps/details?id=cz.seznam.mapy), [iPhone](https://apps.apple.com/app/id411411020)) and download [OFFLINE REGIONS, e.g. Chiang Mai and Mae Rim].
 
-Coffee or lunch after for anyone who feels like it.
+The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to finish by [END TIME]. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good day because I want to, not because I am responsible for it.*
+[END POINT: "We finish where we started." for a loop, else the end point.] Wait at [CAFE NAME] with a drink until everyone is back, then we head to town. [Optional dinner at [TIME] at [PLACE], [ONE-LINE DESCRIPTION]. [Directions]([MAP_URL])] [Optional: "Still have energy? [EVENT] at [VENUE] from [TIME]. [Details]([URL])"]
+
+*Not a commercial or guided hike: nobody charges, and volunteers at the front and back only help keep the group together. We are all adults looking after ourselves. I try to make it a good day for everyone, but I am not responsible for anyone.*
 
 *Photos: take as many as you like and share them in the group. I may use group photos to promote future hikes. If you would rather not appear, just tell me and I'll leave you out.*
 ```
@@ -101,13 +103,15 @@ Coffee or lunch after for anyone who feels like it.
   *"bring warm jacket because on higher altitude its usually a bit colder"*). Drop the
   clause on low trails.
 - **The photo line ships on every hike, right after the terms line.** Founder, 2026-10-04: *"people are welcome to take photos and videos and then send it in the group ... by participating in the hike, they allow for use of the photos for next hike promotion. And if they don't want it, they can let me know and I will opt them out."* It is the notice that makes using identifiable group photos in promotion (P1403) fair. Never ship a photo with an identifiable child, notice or not.
-- **The terms line ships on every hike and is not optional.** Free, unguided, unled; attendees
-  responsible for themselves; no schedule, no guarantees; goodwill stated as an intention rather
-  than an obligation. Founder's framing, 2026-09-07: *"out of goodwill I try to make sure people
+- **The terms line ships on every hike and is not optional.** Free, unguided; volunteers at the
+  front and back coordinate, nobody guides (founder 2026-10-23, after groups reached 27 sign-ups:
+  split into brisk and relaxed above 15, a lead and a sweep each); attendees responsible for
+  themselves; goodwill stated as an intention rather than an obligation. No legal or "liable"
+  wording: a page line is not a waiver, and it breaks the tone below. Founder's framing, 2026-09-07: *"out of goodwill I try to make sure people
   feel happy, but this is my personal ambition and not an official responsibility"* and
   *"I'm one of them, equal. We are all adults taking care of ourselves."* The equality clause
   is the load-bearing half — the line must read as a participant describing a walk, never as an
-  organiser disclaiming liability. Two sentences,
+  organiser disclaiming liability. Three short sentences,
   no more — it must read as a plain statement, not a waiver. If the 150-word ceiling bites, cut a
   highlight, never the terms.
 - **The WhatsApp invite link never appears in the description.** It is written to the
