@@ -48,9 +48,9 @@ event channel enters it 24h before the start, P1512 decision 30). Group pages ke
 
 ## Done-When
 
-- [ ] An event page shows no "Open chat" for the host or an RSVPed member (test + screenshot)
-- [ ] A group page still shows "Open chat" (existing p1512 org test passes)
-- [ ] The p1512 event-chat test asserts the button is absent (founder-approved spec change)
+- [x] An event page shows no "Open chat" for the host or an RSVPed member (unit test covers host + RSVPed + signed-out + non-RSVP; local screenshot is signed-out only, so the signed-in browser check moves to `/verify p1551` on prod after push — founder said ship 2026-10-23)
+- [x] A group page still shows "Open chat" (existing p1512 org test passes)
+- [x] The p1512 event-chat test asserts the button is absent (founder-approved spec change)
 
 ## Related
 

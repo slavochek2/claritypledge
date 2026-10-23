@@ -4,7 +4,7 @@
  */
 import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React from 'react';
 import type { EventWithHost } from '@/app/types';
 
@@ -84,8 +84,6 @@ vi.mock('@/app/prototypes/events/utils', () => ({
 
 import { EventDetail } from '@/app/prototypes/events/components/EventDetail';
 
-import { useNavigate } from 'react-router-dom';
-import { chatNav } from '@/app/pages/chat/chat-view-model';
 import { ChatContext } from '@/app/pages/chat/chat-state';
 import type { ChatContextValue } from '@/app/pages/chat/chat-state';
 
@@ -99,32 +97,22 @@ const event = {
 
 const eventChannel = { conversationId: 'conv-evt', kind: 'event', event: { id: 'event-1', slug: 'test-event', title: 'Test Event', datetime: FUTURE } };
 
-// The real navigation rule (chatNav), acting from wherever the page is.
-let goToChatReal: ChatContextValue['goToChat'] = () => 'none';
-function Nav() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  goToChatReal = (to, intent = 'open') => {
-    const plan = chatNav({ pathname: location.pathname, state: location.state }, to, intent);
-    if (plan.mode !== 'none') navigate(to, { replace: plan.mode === 'replace', state: plan.state });
-    return plan.mode;
-  };
-  return <div data-testid="state">{JSON.stringify(location.state)}</div>;
+function renderAt(chats: unknown[] = [eventChannel]) {
+  const ctx = { chats, refresh: vi.fn().mockResolvedValue(chats), goToChat: vi.fn() } as unknown as ChatContextValue;
+  render(
+    <ChatContext.Provider value={ctx}>
+      <MemoryRouter initialEntries={['/events/test-event']}>
+        <Routes>
+          <Route path="/events/:slug" element={<EventDetail />} />
+        </Routes>
+      </MemoryRouter>
+    </ChatContext.Provider>,
+  );
 }
 
-function renderAt(chats: unknown[] = [eventChannel], withChat = true) {
-  const ctx = { chats, refresh: vi.fn().mockResolvedValue(chats), goToChat: (to: string, intent?: 'open' | 'redirect' | 'follow') => goToChatReal(to, intent) } as unknown as ChatContextValue;
-  const page = (
-    <MemoryRouter initialEntries={['/events/test-event']}>
-      <Nav />
-      <Routes>
-        <Route path="/events/:slug" element={<EventDetail />} />
-        <Route path="/home/c/:id" element={<div>chat opened</div>} />
-        <Route path="/home" element={<div>home opened</div>} />
-      </Routes>
-    </MemoryRouter>
-  );
-  render(withChat ? <ChatContext.Provider value={ctx}>{page}</ChatContext.Provider> : page);
+function expectNoOpenChat() {
+  expect(screen.queryByText('Open chat')).toBeNull();
+  expect(screen.queryByTestId('event-open-chat')).toBeNull();
 }
 
 // P1551 (founder 2026-10-23): the event page no longer offers Open chat to anyone. Event chats stay
@@ -140,12 +128,12 @@ describe('P1551: event page has no Open chat', () => {
     mockUseAuth.mockReturnValue({ user: null, session: null });
     renderAt();
     await screen.findByText('Test Event');
-    expect(screen.queryByText('Open chat')).toBeNull();
+    expectNoOpenChat();
     cleanup();
     mockUseAuth.mockReturnValue({ user: { id: 'viewer' }, session: {} });
     renderAt();
     await screen.findByText('Test Event');
-    expect(screen.queryByText('Open chat')).toBeNull();
+    expectNoOpenChat();
   });
 
   it('is absent for an RSVPd viewer, even with the event channel in the chat list', async () => {
@@ -155,8 +143,7 @@ describe('P1551: event page has no Open chat', () => {
     await screen.findByText('Test Event');
     await waitFor(() => expect(mockIsUserRsvpd).toHaveBeenCalled());
     await act(async () => {});
-    expect(screen.queryByText('Open chat')).toBeNull();
-    expect(screen.queryByTestId('event-open-chat')).toBeNull();
+    expectNoOpenChat();
   });
 
   it('is absent for the host', async () => {
@@ -164,6 +151,6 @@ describe('P1551: event page has no Open chat', () => {
     renderAt();
     await screen.findByText('Test Event');
     await act(async () => {});
-    expect(screen.queryByText('Open chat')).toBeNull();
+    expectNoOpenChat();
   });
 });

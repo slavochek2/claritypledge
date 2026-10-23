@@ -134,12 +134,6 @@ export function groupChatPath(chats: ChatSummary[], orgId: string): string {
   return channel ? chatPath(channel.conversationId) : HOME;
 }
 
-/** An event's channel in Home, from the chat list; /home while the channel is not in the list (yet). */
-export function eventChatPath(chats: ChatSummary[], eventId: string): string {
-  const channel = chats.find((c) => c.kind === 'event' && c.event?.id === eventId);
-  return channel ? chatPath(channel.conversationId) : HOME;
-}
-
 export interface ChatRoute {
   conversationId: string | null;
   rootId: string | null;
