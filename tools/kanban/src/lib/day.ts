@@ -330,8 +330,10 @@ export interface DayTokenPeriod {
   output: Record<string, number>
   /** median output of the (up to) four periods before this one; absent with fewer than two earlier periods */
   median4?: number
-  /** days with any usage, per tool; a field the report did not carry is absent */
-  days: { claude?: number; codex?: number }
+  /** days with any usage, per tool; a field the report did not carry is absent (gemini: absent when its call log is missing) */
+  days: { claude?: number; codex?: number; gemini?: number }
+  /** Gemini calls sent; Gemini output tokens are not logged, so Gemini is never in `output` */
+  gemini_calls?: number
   /** Claude only: average context (input + cache) read per reply */
   ctx_per_reply?: number
 }
@@ -843,13 +845,19 @@ function readTokens(x: unknown): DayTokens | undefined {
     }
     const d = isObj(r.days) ? r.days : {}
     const days: DayTokenPeriod['days'] = {}
-    for (const t of ['claude', 'codex'] as const) {
+    for (const t of ['claude', 'codex', 'gemini'] as const) {
       const n = nonNeg(d[t])
       if (n !== undefined && Number.isInteger(n)) days[t] = n
     }
     const median4 = nonNeg(r.median4)
     const ctx = nonNeg(r.ctx_per_reply)
-    return { p: r.p, output, days, ...(median4 !== undefined ? { median4 } : {}), ...(ctx !== undefined ? { ctx_per_reply: ctx } : {}) }
+    const calls = nonNeg(r.gemini_calls)
+    return {
+      p: r.p, output, days,
+      ...(median4 !== undefined ? { median4 } : {}),
+      ...(ctx !== undefined ? { ctx_per_reply: ctx } : {}),
+      ...(calls !== undefined && Number.isInteger(calls) ? { gemini_calls: calls } : {}),
+    }
   }
   const list = <T,>(v: unknown, read: (r: unknown) => T | null): T[] => (Array.isArray(v) ? v.map(read).filter((r): r is T => r !== null) : [])
   const asOf = isoDay(x.as_of)

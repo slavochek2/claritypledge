@@ -121,7 +121,7 @@ check('block: 28-day projects ranked with shares', [x['project'] for x in b['pro
 check('block: 28-day window excludes older days', pj['alpha']['output'] == 100 + 100 + 300 + 999 and 'old' not in pj and tur.reduce_tokens(rows + [row('2026-09-01', 'claude', 'claude-opus-5', 'old', 5)], T)['projects_28d'][-1]['project'] != 'old', pj)
 many = [row('2026-10-%02d' % (i + 1), 'claude', 'claude-opus-5', 'p%d' % i, 100 + i) for i in range(11)]
 mp = tur.reduce_tokens(many, T)['projects_28d']
-check('block: top 8 plus "all others"', len(mp) == 9 and mp[-1]['project'] == 'all others', [x['project'] for x in mp])
+check('block: top 5 plus "all others"', len(mp) == 6 and mp[-1]['project'] == 'all others' and mp[0]['project'] == 'p10', [x['project'] for x in mp])
 check('block: no rows gives collected true with empty lists', tur.reduce_tokens([], T)['weeks'] == [], '')
 check('block: unknown claude model lands in Other', tur.family_of('claude', 'claude-mystery') == 'Other' and tur.family_of('claude', 'claude-fable-5-1') == 'Fable', '')
 with tempfile.TemporaryDirectory() as h:
@@ -129,6 +129,32 @@ with tempfile.TemporaryDirectory() as h:
     rc, out = run(h)
     blk = json.load(open(os.path.join(h, '.claude', '.token-usage-out', 'tokens-block.json')))
     check('script writes tokens-block.json next to the daily file', rc == 0 and blk['collected'] is True and blk['as_of'] == D1, blk)
+
+# 4. P1552 round 2: Gemini calls from the delegation log (synthetic lines only)
+def gem(ts, extra='vendor=gemini', end='gemini-send'):
+    return '=== %s | pid=1 | %s | model=gemini-x | cwd=/work/demo | bytes=10 | sha=abc | %s' % (ts, extra, end)
+with tempfile.TemporaryDirectory() as h:
+    lg = h + '/delegation.log'
+    write(lg, [gem(D1 + 'T10:00:00Z'), gem(D1 + 'T11:00:00Z'), gem(D2 + 'T10:00:00Z'),
+               gem(D1 + 'T12:00:00Z', end='REFUSED:SECRET'),                     # blocked by the scan: not a call
+               gem(D1 + 'T12:30:00Z', extra='vendor=codex', end='codex-run'),    # another vendor
+               'payload line that is not a record, vendor=gemini | gemini-send',  # no "=== " prefix
+               gem('garbage')])                                                   # no usable day
+    g = tur.parse_gemini_calls(lg)
+    check('gemini: counts sent calls per day, skipping REFUSED, other vendors, payload lines and bad days', g == {D1: 2, D2: 1}, g)
+    check('gemini: a missing log is None, not an empty dict', tur.parse_gemini_calls(h + '/nope.log') is None, '')
+    gb = tur.reduce_tokens(rows, T, {'2026-10-06': 3, '2026-10-12': 1, '2026-10-13': 2})
+    gw = {w['p']: w for w in gb['weeks']}
+    check('gemini: calls and days per week; a week without calls is 0', gw['2026-10-05']['gemini_calls'] == 3 and gw['2026-10-12']['gemini_calls'] == 3 and gw['2026-10-12']['days']['gemini'] == 2 and gw['2026-09-28']['gemini_calls'] == 0, gw['2026-10-12'])
+    check('gemini: never in the output bars', all('Gemini' not in w['output'] for w in gb['weeks'] + gb['months']), '')
+    nb = {w['p']: w for w in tur.reduce_tokens(rows, T, None)['weeks']}
+    check('gemini: absent (not 0) when the log is missing', 'gemini_calls' not in nb['2026-10-12'] and 'gemini' not in nb['2026-10-12']['days'], nb['2026-10-12'])
+with tempfile.TemporaryDirectory() as h:  # end to end through the script, fake HOME
+    write(h + '/.claude/projects/-Users-x-Projects-public-demo/s1.jsonl', [claude_line('m1', 'r1', 5)])
+    write(h + '/.agents/logs/delegation.log', [gem(D1 + 'T10:00:00Z')])
+    rc, out = run(h)
+    blk = json.load(open(os.path.join(h, '.claude', '.token-usage-out', 'tokens-block.json')))
+    check('gemini: the script reads HOME/.agents/logs/delegation.log into the block', rc == 0 and sum(w.get('gemini_calls', 0) for w in blk['weeks']) == 1, blk['weeks'][-2:])
 
 print('\n%d failed' % len(failures) if failures else '\nall passed')
 sys.exit(1 if failures else 0)

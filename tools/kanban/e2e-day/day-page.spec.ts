@@ -585,17 +585,23 @@ test.describe('earlier runs and warnings', () => {
 })
 
 test.describe('monitoring, stats, reflection', () => {
-  test('P1552 Token usage pane: chart, four readings, project list; the week/month switch changes the readings', async ({ page }) => {
+  test('P1552 Token usage pane: stacked bars, three readings, project list; the week/month switch changes the header; 375px shows 8 periods', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
     await page.getByRole('button', { name: /^Token usage/ }).click()
     const pane = page.locator('[data-tokens-pane]')
-    await expect(pane.locator('svg.d-svg')).toBeVisible()
-    await expect(pane.locator('[data-reading]')).toHaveCount(4)
-    await expect(pane.locator('[data-reading="vs"]')).toContainText('4.2M')
-    await expect(pane.locator('[data-tokens-projects] li')).toHaveCount(4)
+    await expect(pane.locator('svg[data-stacked-bars]')).toBeVisible()
+    await expect(pane.locator('[data-reading]')).toHaveCount(3)
+    await expect(pane.locator('[data-tokens-summary]')).toContainText('4.2M last full week')
+    await expect(pane.locator('[data-tokens-projects] li')).toHaveCount(6)
+    await expect(pane.locator('[data-gemini]')).toHaveText('Gemini: 4 calls')
     await page.getByRole('tab', { name: 'Month' }).click()
-    await expect(pane.locator('[data-reading="vs"]')).toContainText('11M')
+    await expect(pane.locator('[data-tokens-summary]')).toContainText('11M last full month')
+    await page.getByRole('tab', { name: 'Week' }).click()
+    await page.setViewportSize({ width: 375, height: 800 })
+    await expect(pane.locator('svg[data-stacked-bars]')).toHaveAttribute('data-stacked-bars', '8')
+    await expect(pane.locator('svg[data-stacked-bars]')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true) // no horizontal page scroll
   })
 
   // P1552 widened the P1399 ruling on purpose: Monitoring is money, subscriptions and token usage.

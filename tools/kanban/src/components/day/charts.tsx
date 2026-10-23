@@ -4,6 +4,7 @@
 // marker shows a reset. The chart measures its card, so it fills the width with true-size text.
 
 import { useLayoutEffect, useRef, useState } from 'react'
+import { visibleStacks } from './tokens'
 import { groupResets, projectQuota, QUOTA_COLOURS, resetGroupLabel, WEEK_MS, type QuotaLine } from './quota'
 
 export interface Series {
@@ -133,16 +134,94 @@ export function LineChart({ xs, series, target, marker, fmt = (v) => String(v), 
   )
 }
 
-export function Legend({ items }: { items: { label: string; kind: 'solid' | 'dash' | 'target'; colour?: string }[] }) {
+export function Legend({ items }: { items: { label: string; kind: 'solid' | 'dash' | 'target'; colour?: string; box?: boolean }[] }) {
   return (
     <div className="d-legend">
       {items.map((it) => (
         <span key={it.label}>
-          <i className={it.kind === 'solid' ? '' : it.kind === 'dash' ? 'dash' : 'tgt'} style={it.colour ? { background: it.colour } : undefined} />
+          <i className={`${it.kind === 'solid' ? '' : it.kind === 'dash' ? 'dash' : 'tgt'}${it.box ? ' box' : ''}`.trim()} style={it.colour ? { background: it.colour } : undefined} />
           {it.label}
         </span>
       ))}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------------------
+// P1552: stacked bars per period. Segments bottom to top in the order given, the total in small
+// text above each bar, the usual level as a short dashed tick across the bar. Narrow cards show
+// the last NARROW_BARS periods; a segment key with no output in what is shown is left out of the
+// bars and the legend.
+
+export interface Stack {
+  label: string
+  total: number
+  usual: number | null
+  segments: { key: string; value: number; colour: string }[]
+}
+
+const BM = { t: 24, r: 8, b: 30, l: 44 }
+
+export function StackedBars({ stacks, fmt, label, usualLabel }: { stacks: Stack[]; fmt: (v: number) => string; label: string; usualLabel: string }) {
+  const [ref, W] = useWidth()
+  const height = 240
+  const shown = visibleStacks(stacks, W)
+  const pw = W - BM.l - BM.r
+  const ph = height - BM.t - BM.b
+  const peak = Math.max(0, ...shown.map((s) => Math.max(s.total, s.usual ?? 0)))
+  const top = niceMax(peak)
+  const Y = (v: number) => BM.t + ph * (1 - v / top)
+  const slot = pw / Math.max(1, shown.length)
+  const bw = Math.min(40, slot * 0.7)
+  const cx = (i: number) => BM.l + slot * (i + 0.5)
+  const step = Math.max(1, Math.ceil(56 / slot))
+  const keys: { key: string; colour: string }[] = []
+  for (const s of shown) for (const g of s.segments) if (g.value > 0 && !keys.some((k) => k.key === g.key)) keys.push({ key: g.key, colour: g.colour })
+  const hasUsual = shown.some((s) => s.usual != null)
+  return (
+    <>
+      <svg ref={ref} viewBox={`0 0 ${W} ${height}`} width={W} height={height} role="img" aria-label={label} className="d-svg" data-stacked-bars={shown.length}>
+        {[0, top / 2, top].map((v) => (
+          <g key={v}>
+            <line x1={BM.l} x2={W - BM.r} y1={Y(v)} y2={Y(v)} stroke="#e2e8f0" />
+            <text x={BM.l - 8} y={Y(v) + 4} textAnchor="end" fontSize="13" fill="#64748b">{fmt(Math.round(v * 10) / 10)}</text>
+          </g>
+        ))}
+        {shown.map((s, i) => {
+          let acc = 0
+          return (
+            <g key={s.label + i} data-bar={s.label}>
+              {s.segments.filter((g) => g.value > 0).map((g) => {
+                const y0 = Y(acc)
+                acc += g.value
+                return (
+                  <rect key={g.key} x={cx(i) - bw / 2} y={Y(acc)} width={bw} height={Math.max(0, y0 - Y(acc))} fill={g.colour}>
+                    <title>{`${g.key} ${s.label}: ${fmt(g.value)}`}</title>
+                  </rect>
+                )
+              })}
+              <text x={cx(i)} y={Y(s.total) - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="#475569" data-bar-total>{fmt(s.total)}</text>
+              {s.usual != null && (
+                <g data-usual={s.label}>
+                  <line x1={cx(i) - bw / 2 - 3} x2={cx(i) + bw / 2 + 3} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#fff" strokeWidth="4" />
+                  <line x1={cx(i) - bw / 2 - 3} x2={cx(i) + bw / 2 + 3} y1={Y(s.usual)} y2={Y(s.usual)} stroke="#0f172a" strokeWidth="2" strokeDasharray="4 2" />
+                  <title>{`Usual ${s.label}: ${fmt(s.usual)}`}</title>
+                </g>
+              )}
+              {(i % step === 0 || i === shown.length - 1) && (
+                <text x={cx(i)} y={height - 8} textAnchor="middle" fontSize="13" fill="#64748b">{s.label}</text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      <Legend
+        items={[
+          ...keys.map((k) => ({ label: k.key, kind: 'solid' as const, colour: k.colour, box: true })),
+          ...(hasUsual ? [{ label: usualLabel, kind: 'dash' as const }] : []),
+        ]}
+      />
+    </>
   )
 }
 

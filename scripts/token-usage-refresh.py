@@ -104,10 +104,13 @@ def parse_codex(path):
 # ---- P1552: the `tokens` block of the day report's monitoring section ---------------------------
 # Shape (the parser in tools/kanban/src/lib/day.ts and the pane read this same contract):
 #   {collected, as_of, weeks:[PERIOD], months:[PERIOD], projects_28d:[{project, output, share}]}
-#   PERIOD = {p, output:{family: n}, median4?, days:{claude, codex}, ctx_per_reply?}
+#   PERIOD = {p, output:{family: n}, median4?, days:{claude, codex, gemini?}, ctx_per_reply?, gemini_calls?}
 # p is the Monday (week) or YYYY-MM (month), UTC. Only COMPLETED periods are listed. Counts are
 # activity (output written), never cost or productivity. Model share is computed by the pane.
-WEEKS, MONTHS, TOP_PROJECTS = 13, 10, 8
+# Gemini output tokens are NOT logged: Gemini is never in `output`; only sent calls are counted
+# (gemini_calls, days.gemini) from ~/.agents/logs/delegation.log, and both are ABSENT when that log is missing.
+WEEKS, MONTHS, TOP_PROJECTS = 13, 10, 5
+DELEGATION_LOG = os.path.join(HOME, '.agents', 'logs', 'delegation.log')
 FAMILIES = ('Opus', 'Sonnet', 'Haiku', 'Fable')
 
 
@@ -118,10 +121,35 @@ def family_of(tool, model):
     return next((f for f in FAMILIES if f.lower() in m), 'Other')
 
 
-def reduce_tokens(rows, today):
+def parse_gemini_calls(path=DELEGATION_LOG):
+    """{UTC day: sent Gemini calls} from the delegation log, or None when the log is missing.
+
+    One call = a line `=== <ts> | ... | vendor=gemini | ... | gemini-send`. A REFUSED line (the scan blocked
+    the send) ends in REFUSED, not gemini-send, and is skipped. Payload lines between records are ignored.
+    """
+    try:
+        f = open(path, errors='replace')
+    except OSError:
+        return None
+    calls = {}
+    with f:
+        for line in f:
+            if not line.startswith('=== ') or 'REFUSED' in line:
+                continue
+            parts = [x.strip() for x in line.rstrip('\n').split(' | ')]
+            if 'vendor=gemini' not in parts or parts[-1] != 'gemini-send':
+                continue
+            day = day_of(parts[0][4:].strip())
+            if day:
+                calls[day] = calls.get(day, 0) + 1
+    return calls
+
+
+def reduce_tokens(rows, today, gemini=None):
     """Reduce daily rows (dicts as written to token-usage-daily.json) to the tokens block.
 
     `today` is the UTC date the run happens on; the period containing it is not complete and is left out.
+    `gemini` is parse_gemini_calls()'s result: None (log missing) leaves Gemini out of the block entirely.
     """
     if not rows:
         return {'collected': True, 'as_of': None, 'weeks': [], 'months': [], 'projects_28d': []}
@@ -144,6 +172,10 @@ def reduce_tokens(rows, today):
             ctx = round(sum(r['input'] + r['cache_write'] + r['cache_read'] for r in claude) / msgs) if msgs else None
             p = {'p': label, 'output': output,
                  'days': {t: len({r['day'] for r in mine if r['tool'] == t}) for t in ('claude', 'codex')}}
+            if gemini is not None:
+                g = {d: n for d, n in gemini.items() if key(datetime.date.fromisoformat(d)) == label}
+                p['days']['gemini'] = len(g)
+                p['gemini_calls'] = sum(g.values())
             if ctx is not None:
                 p['ctx_per_reply'] = ctx
             out.append(p)
@@ -240,7 +272,7 @@ def main(out_dir):
                  cache_write=r[6], cache_read=r[7], messages=r[8]) for r in cur]
     write_json(os.path.join(out_dir, 'token-usage-daily.json'), rows)
     write_json(os.path.join(out_dir, 'tokens-block.json'),
-               reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date()))
+               reduce_tokens(rows, datetime.datetime.now(datetime.timezone.utc).date(), parse_gemini_calls()))
 
     quota = []
     try:

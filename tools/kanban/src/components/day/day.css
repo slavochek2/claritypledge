@@ -524,7 +524,7 @@ button.d-chip:hover { border-color: var(--amber); }
 
 /* P1552 Token usage pane */
 .d-tk-empty { min-height: 120px; }
-.d-tk-reads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.d-tk-reads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
 .d-tk-read { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .d-tk-read .d-n { font-size: 13px; font-weight: 600; color: var(--fg2); }
 .d-tk-read b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -537,3 +537,11 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-tk-proj li.other { color: var(--fg3); }
 .d-tk-val { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 720px) { .d-tk-reads { grid-template-columns: minmax(0, 1fr); } }
+.d-legend i.box { height: 10px; width: 10px; border-radius: 2px; vertical-align: -1px; }
+.d-tk-strip { display: flex; flex-direction: column; gap: 2px; }
+.d-tk-strip > div { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.d-tk-share { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: #e9eef5; margin: 4px 0; }
+.d-tk-share i { display: block; height: 100%; }
+.d-tk-sharekey { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--fg2); }
+.d-tk-sharekey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.d-tk-gem { font-size: 13px; font-weight: 600; margin-top: 4px; }
