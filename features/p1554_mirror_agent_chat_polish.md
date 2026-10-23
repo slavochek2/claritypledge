@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 66
 workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [mirror, chat, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
