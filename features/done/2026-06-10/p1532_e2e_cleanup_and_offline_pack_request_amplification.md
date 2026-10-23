@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 54
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [supabase, e2e, cost, egress]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1532-cleanup-request-volume.spec.ts
@@ -21,6 +20,7 @@ reproduce_artifact:
   surfaces_in_scope: [deleteTestUser, sweep-e2e-test-users-cli, global-teardown, createTestUser-minting, offline-pack-resume, measure-idle-requests]
   surfaces_deferred: []
   reproduced_at: 2026-10-21
+completed_at: 2026-10-23
 ---
 
 # P1532: E2E user cleanup and the offline pack still multiply Supabase requests after P1522/P1523
@@ -344,7 +344,7 @@ from ≈ 1,500 provoked error responses to 0. At 10x the tests, both scale linea
 one request per 50 users.
 
 1. **Fits the plan limit today?** It cannot be shown from public figures. The Supabase registry row
-   in [metered-services.md](../docs/technical/metered-services.md) has no log-ingestion number, and
+   in [metered-services.md](../../../docs/technical/metered-services.md) has no log-ingestion number, and
    account usage is private (`.private/docs/usage/`). What is measured is the direction and size:
    about 70% fewer requests per full run, no provoked error lines, and no listing egress.
 2. **Fits at 10x?** Per-run cost grows linearly with tests, as before, but the per-user constant
