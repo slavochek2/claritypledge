@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 221
+**Next ID:** 223
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2782,5 +2782,27 @@ supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts only 5001, 5100-5999 an
 **due:** week
 
 e2e/p1512-chat-live.spec.ts fails at line 198 on main: the group's General channel row never appears in user A's chat list, so the 14 serial tests after the smoke never run. Reproduced 2026-10-23 with main's app code (control run during P1554); P1543 (one community, online group hidden) is the first suspect. Fix via /reproduce then /fix; done when the file runs green, droppable if the file is retired. Until then the two P1554 Rename steps in that file (now via the About window) are unexercised.
+
+---
+
+## Mirror engine fires one request after it unmounts (job poll resync, portrait timer)
+
+**ID:** INBOX-221
+**Date:** 2026-10-23
+**Status:** proposed
+**due:** month
+
+Found by Codex in the P1560 review, 2026-10-24; pre-existing on main (engine code unchanged by P1560). In src/app/pages/chat/mirror-provider.tsx a job poll already in flight calls resync() when it resolves 'done' after the mirror is switched off, and the portrait timer calls refreshProfile() after unmount. Harmless extra requests, no cross-user exposure. Fix: cancel the portrait timer in cleanup and guard both callbacks on mounted.
+
+---
+
+## Visual nits on the canvas panel at 320px (from P1535 visual QA)
+
+**ID:** INBOX-222
+**Date:** 2026-10-23
+**Status:** proposed
+**due:** month
+
+From the P1535 visual QA, 2026-10-24: the owner name in the panel owner row truncates at 320px ('P1535 ...'); filter tabs Disagree/Unsure/Agree cramped with ~30px tap targets; Next button ~28px tall at 320. Pre-existing except the owner row, which P1535 moved above the card.
 
 ---
