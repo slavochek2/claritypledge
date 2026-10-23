@@ -3,12 +3,12 @@
  *
  * P1520 Mirror v2 in the real UI on the test project.
  *
- *  1. smoke: a mirror reply shows as the mirror (its name, "reading" caption, no Forward); tapping the mirror's
- *     name opens its panel with Rename (and New face where the mirror can paint). Needs no AI: the reply is seeded.
+ *  1. smoke: a mirror reply shows as the mirror (its name, no Forward; P1554 removed the "reading" caption); tapping the mirror's
+ *     name opens its panel with Rename (and New portrait where the mirror can paint). Needs no AI: the reply is seeded.
  *  2. AI: a message written in the mirror gets a reply in the same chat.
  *  3. AI, two browsers: @mirror in a group's channel — the asker sees the ask and the answer marked private; a second
  *     member of the same channel sees neither, also after the app re-reads.
- *  4. AI: New face paints a portrait (P1537: no face choice; gender is random).
+ *  4. AI: New portrait paints a portrait (P1537: no face choice; gender is random).
  *
  * Tests 2-4 call the real model and run only where the server says the mirror is on (MIRROR_AI_ENABLED and the
  * mirror's own key set on the test project). Elsewhere they are SKIPPED with that reason, never passed.
@@ -79,7 +79,7 @@ test('smoke: a mirror reply shows as the mirror, and the mirror\'s name opens it
     const reply = page.locator('[data-testid="message"]', { hasText: answer });
     await expect(reply).toBeVisible();
     await expect(reply.getByTestId('mirror-author')).toContainText('Your mirror');
-    await expect(reply.getByTestId('mirror-reading')).toBeVisible();
+    await expect(reply.getByTestId('mirror-reading')).toHaveCount(0); // P1554: no footer under answers
     await expect(reply.getByText('Deleted user')).toHaveCount(0);
     await reply.hover();
     await expect(reply.getByRole('button', { name: 'Reply', exact: true })).toBeVisible();
@@ -89,7 +89,7 @@ test('smoke: a mirror reply shows as the mirror, and the mirror\'s name opens it
     const panel = page.getByTestId('mirror-info');
     await expect(panel).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Rename' })).toBeVisible();
-    await expect(panel.getByRole('button', { name: 'New face' })).toHaveCount(aiOn ? 1 : 0);
+    await expect(panel.getByRole('button', { name: 'New portrait' })).toHaveCount(aiOn ? 1 : 0);
     expect(errors, 'no page errors').toEqual([]);
   } finally {
     await ctx.close();
@@ -200,7 +200,7 @@ test('AI: New face paints a portrait', async ({ browser }) => {
     await page.getByTestId('mirror-info-open').click();
     const panel = page.getByTestId('mirror-info');
     const before = (await supabaseAdmin.from('chat_conversations').select('portrait_url').eq('id', mirrorA).single()).data?.portrait_url ?? null;
-    await panel.getByRole('button', { name: 'New face' }).click();
+    await panel.getByRole('button', { name: 'New portrait' }).click();
     await expect(panel.getByTestId('mirror-portrait')).toBeVisible({ timeout: 120_000 });
     await expect.poll(async () => {
       const { data } = await supabaseAdmin.from('chat_conversations').select('portrait_url, portrait_credit').eq('id', mirrorA).single();

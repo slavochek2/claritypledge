@@ -60,6 +60,19 @@ Blast radius: one flow, the mirror chat UI plus one auto-reply rule. Reversibili
 - Do NOT change what the mirror reads or its token budget (P1547).
 - Do NOT change portrait generation itself, only the button label.
 
+## Cost Budget
+
+Registry: the Supabase Free plan row (test has its own organisation, P1538). No Gemini call is added; quiet shares remove calls.
+
+- **Per request, in the app:** `mirror_request_reply` gains one indexed `EXISTS` on `mirror_jobs.trigger_message_id`, inside the call that already exists. Same number of requests. A text-less share now makes **0** edge calls instead of 6 Supabase requests + 1 Gemini call (P1547 table), so spend only goes down.
+- **`e2e/integration/p1554-mirror-quiet-shares.spec.ts`, one run:** 1 user × ~6 (create ≈3, sign-in 1, chat list 1, mirror 1) + 3 points + sends 6 + clarify 1 + requests 6 + job counts 5 + 1 seeded job + 1 row read = **~29**, cleanup chat purge ~4 + 3 point deletes + user delete ~10 = **~17**; total **~46 requests**, 0 edge calls, 0 Gemini.
+- **`e2e/p1554-mirror-polish.spec.ts`, one run:** 2 users × ~6 = 12, 1 point, 5 seeded rows = **18** setup; 9 page opens (3 tests × 3 widths) × ~12 app requests (session, chat list, messages, profiles, mirror availability + profile) = **~108**, 9 Realtime connections, ≤9 availability edge calls (they log nothing); cleanup ~25. Total **~151 requests**, 0 Gemini.
+- **Fits today:** both files together ≈ 200 requests per run, far under the Free plan's request-free limits (egress 5 GB, 500,000 edge invocations / month): 100 runs a month ≈ 20,000 requests and ≤900 edge invocations. **At 10×** (1,000 runs) ≤9,000 edge invocations, still under 2% of the limit. No upgrade needed.
+
+## Known limitations
+
+- A body of only tabs or newlines is stored as written (`send_chat_message` trims spaces only), so the server would make a job for it. The client never asks (JavaScript `trim()` treats it as empty); only a direct API call reaches it, spending the caller's own budget.
+
 ## Acceptance Criteria
 
 - [ ] Sending a point or story to the mirror with no text produces no mirror reply and no `mirror_jobs` row; adding a line of text does produce one.

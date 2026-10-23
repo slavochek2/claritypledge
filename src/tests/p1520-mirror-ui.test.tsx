@@ -612,6 +612,23 @@ describe('P1554 mirror polish', () => {
     expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
   });
 
+  it('AC1 review fix: a Clarify of a shared point with no note still asks for a reply', async () => {
+    const { fire } = providerHarness();
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'clar-1', kind: 'clarify', body: null, attachmentKind: 'point', attachmentId: 'pt-1' }) } });
+    await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('clar-1'));
+  });
+
+  it('AC1 review fix (server): the quiet rule applies to plain messages only and returns an existing job first', () => {
+    const sql = readFileSync(resolve(__dirname, '../../supabase/migrations/20261023170000_p1554_review_fixes.sql'), 'utf8');
+    expect(sql).toMatch(/IF v_msg\.kind = 'message' AND v_msg\.attachment_id IS NOT NULL AND btrim\(coalesce\(v_msg\.body, ''\)\) = ''\s+AND NOT EXISTS \(SELECT 1 FROM public\.mirror_jobs j WHERE j\.trigger_message_id = v_msg\.id\) THEN\s+RETURN;/);
+    expect(sql.indexOf('RETURN;')).toBeLessThan(sql.indexOf('INSERT INTO public.mirror_jobs'));
+    expect(sql).toContain('SECURITY DEFINER');
+    expect(sql).toContain("SET search_path = ''");
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION public.mirror_request_reply(uuid) TO authenticated;');
+  });
+
   it('AC1 (server): the new migration makes no job for a blank-text attachment and keeps the grants', () => {
     const sql = readFileSync(resolve(__dirname, '../../supabase/migrations/20261023160000_p1554_mirror_quiet_shares.sql'), 'utf8');
     expect(sql).toContain('CREATE OR REPLACE FUNCTION public.mirror_request_reply(p_message uuid)');

@@ -555,8 +555,10 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await noHScroll(pageA, `mirror ${w}`);
     await shot('mirror', w);
     if (w !== 320) {
+      // P1554: Rename lives only in the About window, not in the More menu.
       await pageA.getByRole('button', { name: 'More', exact: true }).click();
-      await pageA.getByRole('menuitem', { name: 'Rename' }).click();
+      await pageA.getByRole('menuitem', { name: /^About / }).click();
+      await pageA.getByTestId('mirror-info').getByRole('button', { name: 'Rename' }).click();
       const rename = pageA.getByRole('dialog');
       await rename.getByLabel(/^Name/).fill(w === 1280 ? 'Scratchpad' : 'Thinking out loud');
       await pageA.waitForTimeout(500);
@@ -616,7 +618,8 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
     await pageA.goto(`/home/c/${mirrorId}`);
     await expect(pageA.getByRole('status', { name: 'Loading name' })).toHaveCount(0);
     await pageA.getByRole('button', { name: 'More', exact: true }).click();
-    await pageA.getByRole('menuitem', { name: 'Rename' }).click();
+    await pageA.getByRole('menuitem', { name: /^About / }).click();
+    await pageA.getByTestId('mirror-info').getByRole('button', { name: 'Rename' }).click();
     await pageA.getByRole('dialog').getByLabel(/^Name/).fill(LONG);
     await pageA.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
     const h1 = conversation(pageA).getByRole('heading', { name: `${LONG} · Alicetest's mirror` });

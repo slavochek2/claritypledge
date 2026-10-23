@@ -54,11 +54,10 @@ test('a share with no text creates no job; the same share with a line of text do
   expect(await requestReply(share.id)).toEqual([]);
   expect(await jobsFor(share.id)).toBe(0);
 
-  const blank = await send('   ', attach).catch(() => null);
-  if (blank) {
-    expect(await requestReply(blank.id)).toEqual([]);
-    expect(await jobsFor(blank.id)).toBe(0);
-  }
+  // send_chat_message trims the body, so spaces alone are a share too.
+  const blank = await send('   ', attach);
+  expect(await requestReply(blank.id)).toEqual([]);
+  expect(await jobsFor(blank.id)).toBe(0);
 
   const withText = await send(`what do you make of this ${RUN}`, attach);
   const rows = await requestReply(withText.id);
@@ -67,4 +66,26 @@ test('a share with no text creates no job; the same share with a line of text do
 
   const plain = await send(`plain ${RUN}`);
   expect(await requestReply(plain.id)).toHaveLength(1);
+});
+
+test('a Clarify of a shared point with no note still gets a job (review fix)', async () => {
+  const point = await createTestPoint(A.user.id);
+  pointIds.push(point.id);
+  // The source: a share in A's own mirror is the simplest message A can Clarify.
+  const source = await send(`source ${RUN}`, { p_attachment_kind: 'point', p_attachment_id: point.id });
+  const clar = await ok<Row>(sA.client.rpc('clarify_chat_message', { p_source: source.id }), 'clarify with no note');
+  const { data: stored } = await supabaseAdmin.from('chat_messages').select('kind, body, attachment_id').eq('id', clar.id).single();
+  expect(stored, 'precondition: the Clarify copies the attachment and has no body').toMatchObject({ kind: 'clarify', body: null, attachment_id: point.id });
+  expect(await requestReply(clar.id)).toHaveLength(1);
+  expect(await jobsFor(clar.id)).toBe(1);
+});
+
+test('a share that already had a job gets that job back, not nothing (review fix)', async () => {
+  const point = await createTestPoint(A.user.id);
+  pointIds.push(point.id);
+  const share = await send('', { p_attachment_kind: 'point', p_attachment_id: point.id });
+  // A job made before the quiet rule existed.
+  const { error } = await supabaseAdmin.from('mirror_jobs').insert({ owner_id: A.user.id, kind: 'reply', trigger_message_id: share.id });
+  if (error) throw new Error(`seed job: ${error.message}`);
+  expect(await requestReply(share.id)).toHaveLength(1);
 });
