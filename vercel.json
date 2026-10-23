@@ -95,50 +95,6 @@
       "has": [
         {
           "type": "host",
-          "value": "understandingpledge.com"
-        }
-      ],
-      "destination": "https://claritypledge.com/",
-      "permanent": true
-    },
-    {
-      "source": "/:path(.*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "understandingpledge.com"
-        }
-      ],
-      "destination": "https://claritypledge.com/:path",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.understandingpledge.com"
-        }
-      ],
-      "destination": "https://claritypledge.com/",
-      "permanent": true
-    },
-    {
-      "source": "/:path(.*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.understandingpledge.com"
-        }
-      ],
-      "destination": "https://claritypledge.com/:path",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
           "value": "www.claritypledge.com"
         }
       ],
