@@ -66,6 +66,7 @@ Steps 1-4 above (the engine) are unchanged; only the entry point and the input p
 - **+ Canvas** (the Artifacts page's create menu, P1545) and the event preparation's "Draft my
   canvas" step both open a **new thread with the owner's mirror** (threads in the mirror: P1546).
   The mirror opens the thread by asking for material: files, links, a note.
+  *P1545 (founder, 2026-10-23):* the Artifacts page shipped its **New artifact** menu with Letter only; Canvas was left out because no create path existed. This spec adds the **Canvas** item to that menu (`src/app/pages/artifacts/artifacts-header.tsx`). The label stays "New artifact".
 - **Upload in chat.** The composer gets an upload control next to the existing paperclip
   (`src/app/pages/chat/Composer.tsx:188`, today "Attach a point or story"), available in mirror
   threads. Files are converted to text (markdown) server-side and the originals are not kept
