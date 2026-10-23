@@ -17,14 +17,14 @@
       "generate-event-banner": "41f083b668ecc049e0583c5eeae56e4be1d84cd0bcd76e1069c2c941bafa7940",
       "generate-story-image-url": "6cc90db497ed645a6caa9363cd3ce82511229d8291a6f32bf89b7928d37aeba6",
       "mirror-portrait": "e44a59e8d66b03a9c0b422ce82bad7f373fa556d10b82a684bae6c740fc4504d",
-      "mirror-reply": "16ca15f6f5cd7f72b19397ee159cc73aeb7f51a50bfb0474476b2af2696a1e14",
-      "request-letter-response-signin": "0a748257589634ac51db961edc1b4218ba77c6dd0a7b3a775f485a1581aee7a8",
+      "mirror-reply": "e648de7433e14b194a9cbc28ea3adbb117dceb76899e93fcd0d880b642e4f6eb",
+      "request-letter-response-signin": "0b334dc1304ec6f2a9e52d58a55f7095f9e0034aeefb9638f316b3afe5f15b69",
       "send-agreement-emails": "3bb2f007d110645d573b01bc7c6a2bc2c2f9478dbfe614abb7c0b4aeaef5bb90",
       "send-event-emails": "1e80af07ff1d6ab97a07296a864262bd8bb41fb91de280431a570941be5e2db1",
       "send-letter-emails": "6f58cec055e02c301d239d0eeac57e7ab74618a97a69563c3d74dd16e1693eae",
       "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-10-23T07:57:11Z",
+    "functions_deployed_at": "2026-10-23T13:50:10Z",
     "migrations": [
       "20250101",
       "20250117",

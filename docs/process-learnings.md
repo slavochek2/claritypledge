@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 217
+**Next ID:** 220
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2748,5 +2748,38 @@ Today (P1542) any event without a series recipe gets the Clarity Night recipe, a
 **due:** month
 
 The branch holds 12 commits of letter-chat and letter-review prototypes. They were committed under the P1390 label, but P1390's spec is about room audio filling /live, so the two are unrelated. The branch has no worktree and is kept. Revisit it when the mirror agent (P1437) is extended to support letters; related to the P1431 letter chat. Droppable if P1437 settles on a different letter surface.
+
+---
+
+## 9 e2e failures repeat at every worker count (login, console-error, auth-gate)
+
+**ID:** INBOX-217
+**Date:** 2026-10-22
+**Status:** proposed
+**due:** week
+
+Seen 2026-10-22 during the P1541 measurement: 03-login-flow, p1351-header-contexts, p1420-clear-position-lost-response, p273-verification-gate gave the same 7 passed / 9 failed at 1, 2 and 3 workers against TEST, so not capacity. Includes the mirror-reply CORS console error. Next: /reproduce then /fix per spec file.
+
+---
+
+## Test project API times out reloading its schema after every migration
+
+**ID:** INBOX-218
+**Date:** 2026-10-22
+**Status:** proposed
+**due:** week
+
+After the P1546 migration the test project's REST API answered 503 (schema cache) for about an hour, and again after a re-apply; its schema-cache queries took up to 6.3 s against an 8 s role timeout. Measure one reload on a quiet project, then choose larger compute or a smaller reload; see decisions.md 2026-10-22 [process] "The test project's API falls over on schema reload". Drop it if the next two migrations apply without an outage. Re-run the p1512 read/write and p1520 canaries once it is healthy (they never reached an assertion during P1546).
+
+---
+
+## Edge-function CORS accepts dev ports for every worktree slot (w11+)
+
+**ID:** INBOX-219
+**Date:** 2026-10-22
+**Status:** proposed
+**due:** week
+
+supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts only 5001, 5100-5999 and 6050, but slots w11+ get 5000+N*100 (w14 = 6400), so every function call from those slots is CORS-blocked and e2e/p1300-terms-popup.spec.ts smoke fails on console errors. Extend the regex and src/tests/inbox205-cors-dev-ports.test.ts to every port scripts/lib/worktree-port.mjs hands out, then redeploy. Droppable if slots above w10 are retired. Found in P1544 QA, 2026-10-22.
 
 ---
