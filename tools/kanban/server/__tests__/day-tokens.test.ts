@@ -113,6 +113,15 @@ describe('P1552 readings', () => {
     expect(tokenReadings({ ...SYNTH_TOKENS, weeks: weeks.slice(-2) }, 'week').mover).toBeNull() // one earlier period is no baseline
     expect(tokenReadings({ ...SYNTH_TOKENS, weeks: weeks.slice(0, 4) }, 'week').mover).toBeNull() // no move at all
   })
+  it('a family that rounds to 0% is hidden from the share key and bar', () => {
+    const weeks = [{ p: '2026-10-05', output: { Opus: 9_990, Haiku: 10 }, days: { claude: 1 } }]
+    const r = tokenReadings({ ...SYNTH_TOKENS, weeks }, 'week')
+    expect(r.shares.map((s) => s.family)).toEqual(['Opus'])
+    const h = renderToStaticMarkup(TokenUsage({ tokens: { ...SYNTH_TOKENS, weeks }, per: 'week' }))
+    expect(h).not.toContain('Haiku 0%')
+    expect(h).toContain('Opus 100%')
+    expect(tokenReadings(SYNTH_TOKENS, 'week').shares).toHaveLength(3) // control: families above 0% stay
+  })
   it('month: switches the period, month length from the month', () => {
     const r = tokenReadings(SYNTH_TOKENS, 'month')
     expect(r.last?.p).toBe('2026-09')

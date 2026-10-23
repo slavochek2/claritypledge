@@ -75,6 +75,7 @@ export function tokenReadings(t: DayTokens, per: Per): TokenReadings {
   const ratio = last.median4 != null && last.median4 > 0 ? total / last.median4 : null
   const named = t.projects_28d.find((p) => p.project !== 'all others')
   const shares = FAMILY_ORDER.filter((f) => (last.output[f] ?? 0) > 0).map((f) => ({ family: f, value: last.output[f], pct: Math.round((last.output[f] / total) * 100) }))
+    .filter((s) => s.pct > 0) // a family that rounds to 0% is left out of the key and the bar
   // largest mover: share now against the median share of up to four periods before (those with output)
   const prior = list.slice(-5, -1).filter((p) => totalOf(p) > 0)
   let mover: TokenReadings['mover'] = null
