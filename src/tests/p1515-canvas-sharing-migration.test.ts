@@ -16,7 +16,7 @@
  * file in the last describe block, so a green run proves each check can fail.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CANVAS_BOX_TAGS } from '@/lib/canvas-boxes';
 
@@ -27,6 +27,7 @@ const RULING = '20261021110000_p1515_audience_decides_everything_inside.sql';
 const TARGETS = '20261021150000_p1515_canvas_share_targets.sql';
 const REVIEW = '20261021170000_p1515_review_fixes.sql';
 const NO_CUTOFF = '20261021240000_p1515_share_targets_no_cutoff.sql';
+const BOX_TAGS = '20261023213500_p1535_canvas_nine_box_tags.sql';
 const SEAL_BASE = '20260904120000_p1212_seal_rpc_story_author_name.sql';
 
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -50,7 +51,11 @@ function functions(sql: string): Array<{ name: string; header: string }> {
 
 describe('P1515: canvas box tags in SQL equal the TypeScript list', () => {
   it('lists exactly CANVAS_BOX_TAGS', () => {
-    expect(sqlBoxTags(read(SHARING)).sort()).toEqual([...CANVAS_BOX_TAGS].sort());
+    // The newest migration that defines the function is the live body (P1535 narrowed it to nine).
+    const live = readdirSync(MIG).filter(f => f.endsWith('.sql')).sort().reverse()
+      .find(f => /FUNCTION public\._canvas_box_tags\(\)/.test(stripComments(read(f))));
+    expect(live).toBe(BOX_TAGS);
+    expect(sqlBoxTags(read(live!)).sort()).toEqual([...CANVAS_BOX_TAGS].sort());
   });
 });
 

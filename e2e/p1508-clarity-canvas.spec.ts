@@ -653,8 +653,10 @@ test.describe('P1508: Clarity Canvas', () => {
       const [a, b] = [await problem.boundingBox(), await solution.boundingBox()];
       expect(a && b && Math.abs(a.x - b.x) < 2 && b.y > a.y).toBe(true); // stacked, same column
       const cards = problem.locator(CARD);
-      const [c1, c2] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
-      expect(c1 && c2 && Math.abs(c1.x - c2.x) < 2 && c2.y > c1.y).toBe(true); // cards stack too
+      // P1535: one card per box; it fills its box's column and stays inside the page.
+      await expect(cards).toHaveCount(1);
+      const c1 = await cards.first().boundingBox();
+      expect(c1 && a && c1.x >= a.x && c1.x + c1.width <= a.x + a.width + 1 && c1.x + c1.width <= width).toBe(true);
       // The pickers wrap under the owner and stay inside the page.
       const [owner, controls] = [await page.getByTestId('canvas-owner').boundingBox(), await page.getByTestId('canvas-controls').boundingBox()];
       expect(owner && controls && controls.y >= owner.y + owner.height - 1).toBe(true);
@@ -1030,6 +1032,7 @@ test.describe('P1535: one screen', () => {
         await insertPoint(owner.user.id, `${statement} (${box})`, [tag], sys(tag, box));
       }
       await page.setViewportSize({ width: 1440, height: 900 });
+      await setTestSession(page, owner.email); // P1515: a canvas is read by its audience; the owner is in it
       await page.goto(`/p/${owner.slug}/canvas/${tag}`);
       await waitForCanvas(page);
       await expect(page.locator(CARD)).toHaveCount(9);
