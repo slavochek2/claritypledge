@@ -145,6 +145,7 @@ Last updated: 2026-10-23
 
 ## Database / RLS / Migrations
 
+- **P1515** (Oct 23) Share a canvas with events, groups, people or a link; one canvas has many versions — everything flows through checked functions, a version is not a separate canvas, and a long branch with a main merge ships as one reconciled commit (merge-tree + --mark-landed), not a replay
 - **P1315** (fixed on prod Sep 15) A held-back contract migration lived uncommitted in a removed worktree while test's ledger kept its version, so prod never got it — recreate a lost migration under its ledger version with nothing new in it, and enumerate every writer of a protected table before adding a rule to one
 - **P1302** (fixed on prod Sep 14) `clarity_sessions` was readable — and writable — by anyone holding the publishable key, because the policy read "no named listener" as "public" and almost no row has one. Access is now identity, or the room code presented as a request header for an open room. **Client first, migration second**: the header must be deployed before the policy relies on it, or every account-less guest silently reads and writes zero rows. The spec was embargoed until the fix was live — and `publish-spec`'s own prod-check could never pass (it compared migration filenames against a manifest of versions), which is what a gate looks like when only its failure path was ever exercised
 - **P1303** (Sep 11) Room-code lookup RPC was anon-executable — the embargo stub is resolved as the spec by ship; patch prod before any push

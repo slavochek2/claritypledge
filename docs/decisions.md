@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-23 [product]: A canvas version and a separate canvas are different things; the header switcher lists versions only (P1515)
+
+**Context:** Founder UAT of the canvas page: the owner's header dropdown mixed other canvases into the version list, and a person a canvas was shared with saw no switcher because the "second version" was really a separate canvas.
+**Decision:** Versions of one canvas share its address and are picked by `?v=`; sharing covers every past and future version. A separate canvas has its own address `/p/<handle>/canvas/<name>` and never appears in the switcher, for owners too. With one version the header shows the plain name. Listing a person's canvases is the Artifacts page's job (P1545), not the canvas page's. Share-panel rows show only the essentials (person: name and @handle; event: title and date; group: name) — every person shared with gets the same access, so a per-row access line repeats.
+**Alternatives rejected:** keeping an owner-only picker of other canvases beside the version switcher (blurs the two concepts); a "My canvases" list on the profile now (would duplicate P1545).
+**Consequences:** Until P1545 ships, an owner reaches another canvas only by its address. Turning an existing canvas into a version of another is a data merge (recreate the version row; the canvas row is deleted), not a rename.
+**References:** [P1515 spec](../features/done/2026-06-10/p1515_artifact_sharing_events_and_groups.md) · P1545
+
+## 2026-10-23 [process]: A long-lived feature branch with a main merge inside it ships as one reconciled commit, not a 37-step replay (P1515)
+
+**Context:** `/ship p1515` cherry-picks each branch commit onto main. The branch had 37 commits over three days, one of them a merge of main, while main moved underneath (test-project switch, sign-in code, page head, deploy manifest). Nearly every replayed step conflicted, and taking the branch side at intermediate steps silently dropped main's newer lines (a session-recording exclusion was lost until caught). Intermediate states also fail the pre-commit tests, so the replay cannot finish cleanly.
+**Decision:** Compute the intended end state once — `git merge-tree --write-tree <main> <branch tip>` — write that tree into the current pick, let pre-commit test it, then record the remaining branch commits with `git-ops.sh ship pN --mark-landed <sha> <landed>`. Verify afterwards with `git diff <merge-tree result> HEAD`, which must show only the spec closure and deliberate exclusions. Never write a file a co-tenant has uncommitted edits in.
+**Alternatives rejected:** resolving every replayed step by hand (37 chances to drop main's work, each re-tested); `cherry-pick --abort` (banned mid-sequence).
+**Consequences:** Merging main into a feature branch is what makes the replay unworkable; prefer rebasing a long branch or shipping phases as they finish. UNTESTED as a general rule — falsifier: the next ship of a branch with a merge commit replays cleanly.
+**References:** `scripts/git-ops.sh` (`--mark-landed`), [.claude/rules/git.md](../.claude/rules/git.md)
+
 ## 2026-10-23 [product]: Event pages carry no chat entry; event chats are reached from the inbox (P1551)
 
 **Context:** P1512 decision 31 gave the event page an "Open chat" button for the host and RSVPed members. On a live social hike page it sat directly under the title, above the WhatsApp group button the hike actually uses, so the page offered two places to talk and put the one nobody uses first. No hypothesis backed event chat.
