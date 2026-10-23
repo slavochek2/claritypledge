@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -12,13 +12,13 @@ tags:
 workstream: clarity-canvas
 disclosure: public
 created_date: 2026-10-21
-delivery_stage: dev
 pipeline_ran: [change-request, dev]
+completed_at: 2026-10-23
 ---
 
 # P1535: Clarity Canvas, nine boxes, core bet first, one screen
 
-> **Redesign of:** [P1508: Clarity Canvas owner artifact](done/2026-06-10/p1508_clarity_canvas_owner_artifact.md)
+> **Redesign of:** [P1508: Clarity Canvas owner artifact](p1508_clarity_canvas_owner_artifact.md)
 > **What was wrong:** The eleven-box canvas opens with an Ikigai layer (What I love, What I'm good
 > at, What the world needs) and carries two lean-canvas boxes that founders fill with fluff (Unfair
 > Advantage, Cost Structure). Interviewing the founder box by box on his own sales mastermind canvas
