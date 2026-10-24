@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -102,8 +102,8 @@ beforeEach(() => {
   mocks.getAllReceivedLetters.mockResolvedValue([received()]);
   mocks.getInboxItems.mockResolvedValue([
     received({ delivery_id: 'from-mixed-list', title: 'Must not show twice' }),
-    // activity on my own letter: must not become a row in Shared with you
-    { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann' },
+    // activity on my own letter (already read here; unread activity has its own test): must not become a row in Shared with you
+    { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann', read_at: ago(H) },
   ]);
   mocks.listSharedWithMe.mockResolvedValue([
     { canvasId: 'c1', name: 'q4_plan', ownerId: 'o1', ownerName: 'Tom', ownerSlug: 'tom', ownerAvatarUrl: null, ownerAvatarColor: null, via: 'person', viaName: null, sharedAt: ago(H), unread: true },
@@ -123,6 +123,16 @@ describe('Artifacts page', () => {
     expect(metas).toEqual(['Draft · 2 stories, 3 points · 2h ago', 'Sent to 1 · 1 of 1 done · 1d ago', 'Edited 3d ago']);
     // one fixed button at most: none, the row link opens the item
     expect(screen.queryByRole('button', { name: /^(open|edit|results)/i })).toBeNull();
+  });
+
+  it('unread activity on a sent letter says "1 new from Ann" with the activity time, and the letter moves up', async () => {
+    mocks.getInboxItems.mockResolvedValue([
+      { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann', timestamp: ago(10 * 60_000), read_at: null },
+    ]);
+    renderPage();
+    await screen.findByText('Draft about trust');
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta')[0]?.textContent).toBe('Sent to 1 · 1 new from Ann · 10m ago'));
+    expect(rows().map(r => within(r).getByRole('heading').textContent)[0]).toBe('Hello Tom');
   });
 
   it('shows the unread count on the Shared with you tab, not on Yours', async () => {
@@ -363,15 +373,15 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBeGreaterThan(calls));
     });
 
-    it('sent letter: Delete letter is shown disabled with its reason once shared; Add recipient(s) opens the modal', async () => {
+    it('sent letter: Delete letter is shown disabled with its reason once shared; Add recipients opens the modal', async () => {
       const user = userEvent.setup();
       renderPage();
       await openMenu(user, 'Hello Tom');
-      await screen.findByRole('menuitem', { name: 'Add recipient(s)' });
+      await screen.findByRole('menuitem', { name: 'Add recipients' });
       expect(screen.getByRole('menuitem', { name: /Delete letter/ })).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByText("Can't delete — letter has been shared.")).toBeInTheDocument();
       expect(screen.queryByRole('menuitem', { name: /Copy public link/ })).toBeNull(); // private letter
-      await user.click(screen.getByRole('menuitem', { name: 'Add recipient(s)' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Add recipients' }));
       expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
     });
 
@@ -456,6 +466,31 @@ describe('Artifacts page', () => {
         await user.click(screen.getByRole('link', { name: 'Note from Mara' }));
         expect(mocks.markDeliveryRead).toHaveBeenCalledTimes(2);
         await waitFor(() => expect(within(rowOf()).queryByRole('img', { name: 'Unread' })).toBeNull());
+      } finally {
+        document.removeEventListener('click', stay, true);
+      }
+    });
+
+    it('once the server reports the item read, a later re-share shows unread again', async () => {
+      const user = userEvent.setup();
+      const stay = (e: Event) => e.preventDefault();
+      document.addEventListener('click', stay, true);
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      const canvasRow = () => rows().find(r => r.textContent?.includes('q4 plan'))!;
+      const refresh = async () => { await act(async () => { document.dispatchEvent(new Event('visibilitychange')); }); };
+      const sharedCanvas = (unread: boolean) => ({ canvasId: 'c1', name: 'q4_plan', ownerId: 'o1', ownerName: 'Tom', ownerSlug: 'tom', ownerAvatarUrl: null, ownerAvatarColor: null, via: 'person', viaName: null, sharedAt: ago(H), unread });
+      try {
+        renderPage('/artifacts?tab=shared');
+        await screen.findByText('q4 plan');
+        await user.click(screen.getByRole('link', { name: 'q4 plan' }));
+        expect(within(canvasRow()).queryByRole('img', { name: 'Unread' })).toBeNull();
+        mocks.listSharedWithMe.mockResolvedValue([sharedCanvas(false)]); // the server now reports it read
+        await refresh();
+        await waitFor(() => expect(mocks.listSharedWithMe).toHaveBeenCalledTimes(2));
+        expect(within(canvasRow()).queryByRole('img', { name: 'Unread' })).toBeNull();
+        mocks.listSharedWithMe.mockResolvedValue([sharedCanvas(true)]); // re-shared
+        await refresh();
+        await waitFor(() => expect(within(canvasRow()).getByRole('img', { name: 'Unread' })).toBeInTheDocument());
       } finally {
         document.removeEventListener('click', stay, true);
       }

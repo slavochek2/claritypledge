@@ -1656,9 +1656,10 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
 
   const { data, error } = await supabase.rpc('get_letter_overview', { p_letter_id: letterId });
 
+  // A failed read throws so the page can offer Retry; only a successful empty response means
+  // "not the author / not sealed" (null).
   if (error) {
-    logDbError('getLetterOverview', error);
-    return null;
+    throwDbError('getLetterOverview', error, `Failed to load letter overview: ${error.message}`);
   }
 
   // RPC returns TABLE — data is an array; null/empty = unauthorized or not found

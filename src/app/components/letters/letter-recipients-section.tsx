@@ -1,7 +1,7 @@
 /**
  * @file letter-recipients-section.tsx
  * @description P1545 Letters parity: the Recipients section of the letter overview page, the letter's
- * control page. Per person: status (Invited / Opened / In progress / done), "N of M steps", a "new"
+ * control page. Per person: status (Invited / Opened / In progress / Done), "N of M steps", a "new"
  * mark while they have unread explain-backs, and one whole-letter Results link. Public-link
  * respondents get one row each, the latest 10 plus "Show all". Actions: Add recipients, Preview,
  * Copy public link (public letters), and the Sealed date.
@@ -22,10 +22,9 @@ export interface LetterRecipientsSectionProps {
   /** Unread explain-backs per delivery id. */
   newByDelivery: Record<string, number>;
   sealedAt: string | null;
-  /** The person opened this delivery's results: the page clears their "new" mark. */
-  onResultsOpened: (deliveryId: string) => void;
   onAddRecipients: () => void;
-  onPreview: () => void;
+  /** Omitted when the letter has no source doc to preview: the button is not shown. */
+  onPreview?: () => void;
   onCopyPublicLink: () => void;
 }
 
@@ -34,14 +33,14 @@ function statusLabel(status: LetterDelivery['status']): string {
     case 'sent': return 'Invited';
     case 'opened': return 'Opened';
     case 'in_progress': return 'In progress';
-    case 'completed': return 'done';
+    case 'completed': return 'Done';
     default: return status;
   }
 }
 
 function PersonRow({
-  delivery, letterId, newCount, onResultsOpened,
-}: { delivery: LetterDelivery; letterId: string; newCount: number; onResultsOpened: (id: string) => void }) {
+  delivery, letterId, newCount,
+}: { delivery: LetterDelivery; letterId: string; newCount: number }) {
   const name = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
   const showSteps = delivery.status !== 'sent' && delivery.steps_completed !== undefined && delivery.total_steps !== undefined;
   const hasResults = delivery.status === 'completed' || (delivery.steps_completed ?? 0) > 0;
@@ -64,7 +63,6 @@ function PersonRow({
       {hasResults && (
         <Link
           to={`/letter/${letterId}/results?delivery=${delivery.id}`}
-          onClick={() => onResultsOpened(delivery.id)}
           className="ml-auto inline-flex min-h-10 items-center text-sm font-medium text-blue-600 hover:underline"
         >
           Results
@@ -75,18 +73,19 @@ function PersonRow({
 }
 
 export function LetterRecipientsSection({
-  letterId, isPublic, deliveries, newByDelivery, sealedAt, onResultsOpened, onAddRecipients, onPreview, onCopyPublicLink,
+  letterId, isPublic, deliveries, newByDelivery, sealedAt, onAddRecipients, onPreview, onCopyPublicLink,
 }: LetterRecipientsSectionProps) {
   const [showAll, setShowAll] = useState(false);
-  const byNewest = (a: LetterDelivery, b: LetterDelivery) => Date.parse(b.created_at) - Date.parse(a.created_at);
-  const recipients = deliveries.filter(d => d.receiver_email).sort(byNewest).reverse();
+  const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };
+  const byNewest = (a: LetterDelivery, b: LetterDelivery) => time(b.created_at) - time(a.created_at);
+  const recipients = deliveries.filter(d => d.receiver_email).sort(byNewest);
   const respondents = deliveries.filter(d => !d.receiver_email).sort(byNewest);
   const shownRespondents = showAll ? respondents : respondents.slice(0, RESPONDENT_PAGE);
   const sealed = sealedAt ? new Date(sealedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
   const empty = deliveries.length === 0;
 
   const row = (d: LetterDelivery) => (
-    <PersonRow key={d.id} delivery={d} letterId={letterId} newCount={newByDelivery[d.id] ?? 0} onResultsOpened={onResultsOpened} />
+    <PersonRow key={d.id} delivery={d} letterId={letterId} newCount={newByDelivery[d.id] ?? 0} />
   );
 
   return (
@@ -106,9 +105,9 @@ export function LetterRecipientsSection({
         <>
           <h3 className="mt-3 text-sm font-medium text-muted-foreground">Public link</h3>
           <ul className="divide-y divide-border/60" aria-label="Public link respondents">{shownRespondents.map(row)}</ul>
-          {!showAll && respondents.length > RESPONDENT_PAGE && (
-            <Button variant="ghost" className="mt-1 min-h-10 text-blue-600" onClick={() => setShowAll(true)}>
-              Show all ({respondents.length})
+          {respondents.length > RESPONDENT_PAGE && (
+            <Button variant="ghost" className="mt-1 min-h-10 text-blue-600" onClick={() => setShowAll(v => !v)}>
+              {showAll ? 'Show less' : `Show all (${respondents.length})`}
             </Button>
           )}
         </>
@@ -116,7 +115,7 @@ export function LetterRecipientsSection({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="outline" className="min-h-10" onClick={onAddRecipients}>Add recipients</Button>
-        <Button variant="outline" className="min-h-10" onClick={onPreview}>Preview</Button>
+        {onPreview && <Button variant="outline" className="min-h-10" onClick={onPreview}>Preview</Button>}
         {isPublic && <Button variant="outline" className="min-h-10" onClick={onCopyPublicLink}>Copy public link</Button>}
       </div>
     </section>

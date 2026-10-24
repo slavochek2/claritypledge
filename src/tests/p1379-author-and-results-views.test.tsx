@@ -89,7 +89,8 @@ describe('P1379 A4: CohortTable', () => {
     expect(screen.getByText('Their rating')).toBeInTheDocument();
     const cells = screen.getAllByTestId('cohort-rating-cell').map((c) => c.textContent);
     expect(cells).toEqual(['9', '2', '5']);
-    expect(container.textContent).not.toMatch(/→/);
+    // No "prediction → rating" pair (the "[open results →]" link, which a rated reader now has, is not one).
+    expect(container.textContent).not.toMatch(/[\d?]\s*→\s*[\d—]/);
     expect(container.textContent).not.toMatch(/\b8\b/);
     // Per-reader rows stay
     expect(screen.getByText('Reader One')).toBeInTheDocument();

@@ -19,6 +19,8 @@ import {
   uploadExplainBack,
   getProfileNames,
   getLetterPositionStories,
+  markDeliveryRead,
+  markExplainBackRead,
   type LetterPositionStory,
 } from '@/app/data/letters-service';
 import { pointsService } from '@/app/data/points-service';
@@ -221,6 +223,25 @@ export function LetterResultsPage() {
   useEffect(() => {
     if (user) fetchData();
   }, [user, fetchData]);
+
+  // P1545: the sender's "new" mark for this person (unread inbox item + unread explain-backs) clears
+  // once their results have rendered. Best effort: a failed mark is retried on the next load of the page.
+  const clearedDeliveryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (pageState !== 'ready' || resultsData?.perspective !== 'sender' || !deliveryId) return;
+    if (clearedDeliveryRef.current === deliveryId) return;
+    clearedDeliveryRef.current = deliveryId;
+    const target = deliveryId;
+    void (async () => {
+      try {
+        await markDeliveryRead(target);
+        const rows = await getExplainBacksForDelivery(target);
+        await Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id)));
+      } catch {
+        if (clearedDeliveryRef.current === target) clearedDeliveryRef.current = null;
+      }
+    })();
+  }, [pageState, resultsData, deliveryId]);
 
   // P705: Refetch on visibilitychange — user may have updated their position in another tab
   useEffect(() => {

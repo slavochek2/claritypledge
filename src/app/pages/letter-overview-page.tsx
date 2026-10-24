@@ -17,12 +17,10 @@ import { LetterRecipientsSection } from '@/app/components/letters/letter-recipie
 import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
 import {
   getDeliveriesForLettersOrThrow,
-  getExplainBacksForDelivery,
   getLetterOverview,
-  markExplainBackRead,
   getUnreadExplainBackCountsByDelivery,
-  markDeliveryRead,
 } from '@/app/data/letters-service';
+import { newCountForDelivery } from '@/app/utils/letter-new-activity';
 import { toast } from 'sonner';
 import type { LetterDelivery, LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
@@ -97,9 +95,15 @@ export function LetterOverviewPage() {
     }
   }, [pageState, payload, letterId]);
 
-  const fetchData = useCallback(async () => {
+  // Newest request wins: a slow older response (another letter, or an earlier refresh) is dropped.
+  const requestRef = useRef(0);
+
+  // `quiet` refreshes in place (the page stays on screen); the default shows the loading skeleton.
+  const fetchData = useCallback(async (quiet = false) => {
     if (!letterId || !user) return;
-    setPageState('loading');
+    const mine = ++requestRef.current;
+    const stale = () => requestRef.current !== mine;
+    if (!quiet) setPageState('loading');
     try {
       const [result, recipients] = await Promise.all([
         getLetterOverview(letterId),
@@ -108,19 +112,27 @@ export function LetterOverviewPage() {
           () => null,
         ),
       ]);
+      if (stale()) return;
       if (!result) {
-        // RPC returned null/empty — not author, or not sealed
+        // RPC answered with nothing — not author, or not sealed
         setPageState('not-authorized');
         return;
       }
       setRecipientsFailed(recipients === null);
       if (recipients) {
-        setDeliveries(recipients);
+        let counts: Record<string, number> = {};
         try {
-          setNewByDelivery((await getUnreadExplainBackCountsByDelivery(recipients.map((d) => d.id))) ?? {});
+          counts = (await getUnreadExplainBackCountsByDelivery(recipients.map((d) => d.id))) ?? {};
         } catch {
-          setNewByDelivery({});
+          counts = {};
         }
+        if (stale()) return;
+        setDeliveries(recipients);
+        // Unread explain-backs and unread activity (they started or finished: read_at still null) both mark "new".
+        setNewByDelivery(Object.fromEntries(recipients.map((d) => [
+          d.id,
+          newCountForDelivery(counts[d.id] ?? 0, (d.status === 'completed' || d.status === 'in_progress') && !d.read_at),
+        ])));
       }
       if (result.deliveries.length === 0) {
         setPayload(result);
@@ -130,12 +142,12 @@ export function LetterOverviewPage() {
       setPayload(result);
       setPageState('ready');
     } catch {
-      setPageState('error');
+      if (!stale()) setPageState('error');
     }
   }, [letterId, user]);
 
   useEffect(() => {
-    if (user) fetchData();
+    if (user) void fetchData();
   }, [user, fetchData]);
 
   // P1364: Back returns to where the reader came from; a cold arrival goes to the Sent tab.
@@ -158,7 +170,7 @@ export function LetterOverviewPage() {
         <FocusHeader fallback={BACK_FALLBACK} />
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">Could not load this letter overview.</p>
-          <Button variant="outline" onClick={fetchData}>Retry</Button>
+          <Button variant="outline" onClick={() => void fetchData()}>Retry</Button>
         </div>
       </div>
     );
@@ -183,15 +195,7 @@ export function LetterOverviewPage() {
   const isPublic = letter.mode === 'one-to-many';
   const hasCohort = payload.deliveries.length > 0;
 
-  const handleResultsOpened = (deliveryId: string) => {
-    setNewByDelivery((prev) => (prev[deliveryId] ? { ...prev, [deliveryId]: 0 } : prev));
-    // Opening their results is how the author sees what a person sent back: clear the unread
-    // explain-backs and the inbox row too, best effort (the mark returns on the next load if this fails).
-    void markDeliveryRead(deliveryId).catch(() => {});
-    void getExplainBacksForDelivery(deliveryId)
-      .then((rows) => Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id))))
-      .catch(() => {});
-  };
+  // The "new" mark is cleared by the results page once it has rendered, not by the click here.
   const handlePreview = () => {
     if (letter.source_doc_id) window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
   };
@@ -242,7 +246,7 @@ export function LetterOverviewPage() {
           <section>
             <h2 className="mb-1 text-base font-medium text-foreground">Recipients</h2>
             <p className="text-sm text-muted-foreground">Something went wrong loading the recipients.</p>
-            <Button variant="outline" className="mt-2 min-h-10" onClick={fetchData}>Retry</Button>
+            <Button variant="outline" className="mt-2 min-h-10" onClick={() => void fetchData()}>Retry</Button>
           </section>
         ) : (
           <LetterRecipientsSection
@@ -251,9 +255,8 @@ export function LetterOverviewPage() {
             deliveries={deliveries}
             newByDelivery={newByDelivery}
             sealedAt={letter.sealed_at ?? null}
-            onResultsOpened={handleResultsOpened}
             onAddRecipients={() => setAddOpen(true)}
-            onPreview={handlePreview}
+            onPreview={letter.source_doc_id ? handlePreview : undefined}
             onCopyPublicLink={() => void handleCopyPublicLink()}
           />
         )}
@@ -288,7 +291,7 @@ export function LetterOverviewPage() {
             letterId={letter.id}
             onRecipientAdded={() => {
               setAddOpen(false);
-              void fetchData();
+              void fetchData(true);
             }}
           />
         )}

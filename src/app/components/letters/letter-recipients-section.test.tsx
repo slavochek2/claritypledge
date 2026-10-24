@@ -17,7 +17,6 @@ function setup(over: Partial<LetterRecipientsSectionProps> = {}) {
     deliveries: [],
     newByDelivery: {},
     sealedAt: '2026-10-03T10:00:00Z',
-    onResultsOpened: vi.fn(),
     onAddRecipients: vi.fn(),
     onPreview: vi.fn(),
     onCopyPublicLink: vi.fn(),
@@ -54,7 +53,7 @@ describe('LetterRecipientsSection', () => {
     expect(row('Bob')).toHaveTextContent('Opened');
     expect(row('Cy')).toHaveTextContent('In progress');
     expect(row('Cy')).toHaveTextContent('2 of 5 steps');
-    expect(row('Di')).toHaveTextContent('done');
+    expect(row('Di')).toHaveTextContent('Done');
   });
 
   it('Results is one whole-letter link per person who has started or finished', () => {
@@ -70,15 +69,15 @@ describe('LetterRecipientsSection', () => {
     expect(within(screen.getByText('Di').closest('li')!).getByRole('link', { name: /Results/ })).toHaveAttribute('href', '/letter/l1/results?delivery=d');
   });
 
-  it('marks a person with unread explain-backs as new, and opening Results reports it', () => {
-    const p = setup({
+  it('marks a person with unread activity as new; clicking Results does not clear it (the results page does)', () => {
+    setup({
       deliveries: [delivery({ id: 'd', receiver_name: 'Di', status: 'completed' })],
       newByDelivery: { d: 2 },
     });
     const li = screen.getByText('Di').closest('li')!;
     expect(within(li).getByText('2 new')).toBeInTheDocument();
     fireEvent.click(within(li).getByRole('link', { name: /Results/ }));
-    expect(p.onResultsOpened).toHaveBeenCalledWith('d');
+    expect(within(li).getByText('2 new')).toBeInTheDocument();
   });
 
   it('links a registered recipient to their profile', () => {
@@ -98,8 +97,29 @@ describe('LetterRecipientsSection', () => {
     expect(screen.queryByText('Resp 0')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show all (12)' }));
     expect(screen.getAllByRole('listitem')).toHaveLength(12);
+    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(10);
+    expect(screen.getByRole('button', { name: 'Show all (12)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copy public link' }));
     expect(p.onCopyPublicLink).toHaveBeenCalled();
+  });
+
+  it('named recipients are newest first, like respondents; an unparseable date sorts last without breaking', () => {
+    setup({
+      deliveries: [
+        delivery({ id: 'a', receiver_name: 'Old', created_at: '2026-10-01T10:00:00Z' }),
+        delivery({ id: 'b', receiver_name: 'Bad', created_at: 'not a date' }),
+        delivery({ id: 'c', receiver_name: 'New', created_at: '2026-10-02T10:00:00Z' }),
+      ],
+    });
+    const names = screen.getAllByRole('listitem').map(li => li.textContent?.slice(0, 3));
+    expect(names).toEqual(['New', 'Old', 'Bad']);
+  });
+
+  it('Preview is hidden when the page has no preview handler (letter without a source doc)', () => {
+    setup({ onPreview: undefined });
+    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add recipients' })).toBeInTheDocument();
   });
 
   it('public link with no responses yet', () => {

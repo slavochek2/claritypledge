@@ -157,6 +157,20 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
     );
   };
 
+  // Drop a key from the override once the server reports that row read: a later re-share must show unread again.
+  const serverRows = data.shared.rows;
+  useEffect(() => {
+    if (opened.size === 0) return;
+    const serverRead = new Set(serverRows.filter(r => !r.unread).map(r => r.key));
+    const confirmed = [...opened].filter(k => serverRead.has(k));
+    if (confirmed.length === 0) return;
+    setOpened(prev => {
+      const next = new Set(prev);
+      for (const k of confirmed) next.delete(k);
+      return next;
+    });
+  }, [serverRows, opened]);
+
   const withOpened = useCallback(
     (rows: ArtifactRow[]) => rows.map(r => (opened.has(r.key) ? { ...r, unread: false } : r)),
     [opened],

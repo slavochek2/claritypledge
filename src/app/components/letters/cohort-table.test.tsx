@@ -21,13 +21,18 @@ const story = (points: OverviewStory['points'] = []): OverviewStory => ({
   story_id: 's1', position: 0, title: 'T', content: 'A story', hashtags: [], points,
 });
 
-function renderTable(s: OverviewStory, deliveries: OverviewDelivery[], responses: { delivery_id: string; point_id: string; position: 'agree' }[] = []) {
+function renderTable(
+  s: OverviewStory,
+  deliveries: OverviewDelivery[],
+  responses: { delivery_id: string; point_id: string; position: 'agree' }[] = [],
+  ratings: { delivery_id: string; story_id: string; listener_rating: number }[] = [],
+) {
   return render(
     <MemoryRouter>
       <CohortTable
         story={s}
         deliveries={deliveries}
-        ratings={[]}
+        ratings={ratings as never}
         predictions={[]}
         responses={responses as never}
         letterId="l1"
@@ -54,5 +59,11 @@ describe('CohortTable results link', () => {
   it('a recipient with a position keeps Results (unchanged)', () => {
     renderTable(story([{ id: 'p1', text: 'Point', hashtag: '', sort_order: 0 }]), [delivery()], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
     expect(screen.getByRole('link', { name: /open results/ })).toBeInTheDocument();
+  });
+
+  it('a recipient with a recorded rating for the story is not Waiting and gets the Results link', () => {
+    renderTable(story([{ id: 'p1', text: 'Point', hashtag: '', sort_order: 0 }]), [delivery()], [], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 7 }]);
+    expect(screen.getByRole('link', { name: /open results/ })).toHaveAttribute('href', '/letter/l1/results?delivery=dv1&story=s1');
+    expect(screen.queryByText(/Waiting/)).toBeNull();
   });
 });

@@ -16,6 +16,7 @@
  *  - An unread dot exists only on Shared with you.
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
+import { newCountForDelivery } from '@/app/utils/letter-new-activity';
 import { canvasPath } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
@@ -89,7 +90,7 @@ export interface ArtifactsSource {
   sharedCanvases: CanvasSharedWithMe[];
   /** The signed-in person's public handle: own canvas addresses are built with it. */
   userSlug: string | null;
-  /** Unread explain-backs per delivery id (the sender's "N new from <name>"). Absent = none. */
+  /** Unread explain-backs per delivery id; combined with unread sender activity in `inbox` ("N new from <name>"). Absent = none. */
   newByDelivery?: Record<string, number>;
 }
 
@@ -140,7 +141,7 @@ export function sentMeta(opts: {
   recipientCount: number;
   doneCount: number;
   newCount?: number;
-  /** Names of the people the new items are from. */
+  /** One name per delivery with something new ("someone" when unnamed): not deduplicated. */
   newFrom?: string[];
   sealedAt?: string | null;
 }): string {
@@ -150,7 +151,7 @@ export function sentMeta(opts: {
     const who = opts.newFrom ?? [];
     fact = `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
   } else if (opts.isPublic) {
-    fact = opts.doneCount > 0 ? `${opts.doneCount} done` : null;
+    fact = `${opts.doneCount} done`;
   } else if (opts.recipientCount > 0) {
     fact = `${Math.min(opts.doneCount, opts.recipientCount)} of ${opts.recipientCount} done`;
   }
@@ -268,26 +269,32 @@ export function sentRow(
   deliveries: LetterDelivery[],
   done: number,
   newByDelivery: Record<string, number> = {},
+  activityByDelivery: Record<string, string> = {},
 ): ArtifactRow {
   const isPublic = letter.mode === 'one-to-many';
   const recipientCount = deliveries.filter(d => d.receiver_email).length;
-  const withNew = deliveries.filter(d => (newByDelivery[d.id] ?? 0) > 0);
-  const newCount = withNew.reduce((n, d) => n + (newByDelivery[d.id] ?? 0), 0);
-  const newFrom = [...new Set(withNew.map(d => d.receiver_name?.trim() || 'someone'))];
+  const newOf = (d: LetterDelivery) => newCountForDelivery(newByDelivery[d.id] ?? 0, d.id in activityByDelivery);
+  const withNew = deliveries.filter(d => newOf(d) > 0);
+  const newCount = withNew.reduce((n, d) => n + newOf(d), 0);
+  const newFrom = withNew.map(d => d.receiver_name?.trim() || 'someone');
+  // While something is new the row's time is the latest unread activity, not the sealing.
+  const latestActivity = withNew.reduce((t, d) => Math.max(t, ms(activityByDelivery[d.id])), 0);
+  const base = letter.sealed_at ?? letter.created_at;
+  const shownAt = latestActivity > 0 ? new Date(latestActivity).toISOString() : base;
   return {
     key: `sent:${letter.id}`,
     kind: 'letter',
     tab: 'yours',
     state: 'sent',
     title: letter.doc_title,
-    meta: sentMeta({ isPublic, recipientCount, doneCount: done, newCount, newFrom, sealedAt: letter.sealed_at ?? letter.created_at }),
+    meta: sentMeta({ isPublic, recipientCount, doneCount: done, newCount, newFrom, sealedAt: shownAt }),
     visibility: isPublic ? 'public' : 'private',
     unread: false,
     href: `/letter/${letter.id}/overview`,
-    sortAt: ms(letter.sealed_at ?? letter.created_at),
+    sortAt: ms(shownAt),
     menu: [
-      { id: 'preview-letter', label: 'Preview letter' },
-      { id: 'add-recipients', label: 'Add recipient(s)' },
+      ...(letter.source_doc_id ? [{ id: 'preview-letter' as const, label: 'Preview letter' }] : []),
+      { id: 'add-recipients', label: 'Add recipients' },
       ...(isPublic ? [{ id: 'copy-public-link' as const, label: 'Copy public link' }] : []),
       // Any delivery (recipients and link respondents) means the letter was shared: Delete stays in the
       // menu, disabled with today's reason. The handler still maps DELIVERIES_EXIST from the server.
@@ -356,15 +363,26 @@ export function receivedCanvasRow(c: CanvasSharedWithMe): ArtifactRow {
   };
 }
 
+/** Latest unread sender-side activity time per delivery id (a recipient started, finished or responded). */
+export function unreadActivityByDelivery(inbox: InboxItem[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const i of senderActivityItems(inbox)) {
+    if (i.read_at) continue;
+    if (!(i.delivery_id in out) || ms(i.timestamp) > ms(out[i.delivery_id])) out[i.delivery_id] = i.timestamp;
+  }
+  return out;
+}
+
 const newestFirst = (a: ArtifactRow, b: ArtifactRow) => b.sortAt - a.sortAt;
 
 export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
   const replied = repliedCountByLetter(src.deliveriesByLetter, src.inbox);
   const sentCounts: Record<string, number> = {};
   for (const l of src.sentLetters) sentCounts[l.source_doc_id] = (sentCounts[l.source_doc_id] ?? 0) + 1;
+  const activity = unreadActivityByDelivery(src.inbox);
   const yours = [
     ...src.docs.map(d => draftRow(d, sentCounts[d.id] ?? 0)),
-    ...src.sentLetters.map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery)),
+    ...src.sentLetters.map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity)),
     ...src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)),
   ].sort(newestFirst);
   const shared = [

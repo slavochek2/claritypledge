@@ -126,9 +126,11 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
             // but point IDs are globally unique UUIDs so cross-story collision is impossible.
             // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
             // A recipient who finished always keeps Results, even when this story has no points
-            // (nothing to position, so there is no position to find).
+            // (nothing to position, so there is no position to find). A recorded rating for the story
+            // is a response too: the row never reads "Waiting" beside a rating.
             const hasAnyPositionInThisStory =
               d.completed_at !== null ||
+              rating !== undefined ||
               story.points.some((p) => responseMap.has(`${d.delivery_id}:${p.id}`));
             return (
               <tr

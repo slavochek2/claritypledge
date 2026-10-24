@@ -87,6 +87,17 @@ describe('useArtifactsData activity source', () => {
     expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
   });
 
+  it('an unread "responded" inbox item makes the sent letter new, with no explain-backs at all', async () => {
+    mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
+    mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
+    mocks.getInboxItems.mockResolvedValue([
+      { type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Tom', timestamp: new Date().toISOString(), read_at: null, completed_at: new Date().toISOString() },
+    ]);
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 1 new from Tom · /));
+  });
+
   it('a failing activity read degrades to no "new" part, never to an error', async () => {
     mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);

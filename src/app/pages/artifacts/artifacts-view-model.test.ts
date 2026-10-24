@@ -92,7 +92,7 @@ describe('meta strings (Resolved Decisions: one line)', () => {
 
   it('public link: "Public link · 4 done · 2d ago"', () => {
     expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 4, sealedAt: ago(2 * D) })).toBe('Public link · 4 done · 2d ago');
-    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 2d ago');
+    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 0 done · 2d ago');
   });
 
   it('received: "From Tom · 2 of 5 steps · 4d ago" and "From Anna · done · 4d ago"', () => {
@@ -148,7 +148,8 @@ describe('partition of the inbox', () => {
     const { yours } = buildArtifacts(source({
       sentLetters: [letter()],
       deliveriesByLetter: { l1: [delivery({ id: 'sd1' }), delivery({ id: 'x2' })] }, // deliveries lag: none completed yet
-      inbox: [sender, progress],
+      // Read items: unread sender activity now counts as "new" (own tests below); this one pins the done join.
+      inbox: [{ ...sender, read_at: ago(H) }, { ...progress, read_at: ago(H) }],
     }));
     expect(yours[0]?.meta).toBe('Sent to 2 · 1 of 2 done · 1d ago'); // only recipient_responded counts, "reading" does not
   });
@@ -168,6 +169,65 @@ describe('partition of the inbox', () => {
 });
 
 describe('rows', () => {
+  it('counts distinct deliveries, not names: two Toms are 2 people', () => {
+    const { yours } = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(H) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Tom' })] },
+      newByDelivery: { dv1: 1, dv2: 1 },
+    }));
+    expect(yours[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
+  });
+
+  it('one delivery with no name reads "from someone"', () => {
+    const { yours } = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(H) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: null })] },
+      newByDelivery: { dv1: 1 },
+    }));
+    expect(yours[0]?.meta).toBe('Sent to 1 · 1 new from someone · 1h ago');
+  });
+
+  it('an unread recipient_responded activity item is new, and its time replaces sealed_at in text and sort', () => {
+    const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', actor_name: 'Tom', timestamp: ago(10 * 60_000), read_at: null, completed_at: ago(10 * 60_000) });
+    const { yours } = buildArtifacts(source({
+      docs: [doc({ updated_at: ago(2 * H) })],
+      sentLetters: [letter({ sealed_at: ago(3 * D) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed' })] },
+      inbox: [responded],
+    }));
+    expect(yours[0]?.state).toBe('sent');
+    expect(yours[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 10m ago');
+  });
+
+  it('a read activity item is not new', () => {
+    const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', read_at: ago(H) });
+    const { yours } = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(3 * D) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', status: 'completed' })] },
+      inbox: [responded],
+    }));
+    expect(yours[0]?.meta).toBe('Sent to 1 · 1 of 1 done · 3d ago');
+  });
+
+  it('activity and explain-backs on one delivery are not double counted', () => {
+    const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', read_at: null, timestamp: ago(H) });
+    const { yours } = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(3 * D) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed' })] },
+      inbox: [responded],
+      newByDelivery: { dv1: 2 },
+    }));
+    expect(yours[0]?.meta).toBe('Sent to 1 · 2 new from Tom · 1h ago');
+  });
+
+  it('menu: "Add recipients"; Preview is hidden without a source doc', () => {
+    const withSrc = buildArtifacts(source({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } })).yours[0];
+    expect(withSrc?.menu.find(a => a.id === 'add-recipients')?.label).toBe('Add recipients');
+    expect(withSrc?.menu.some(a => a.id === 'preview-letter')).toBe(true);
+    const noSrc = buildArtifacts(source({ sentLetters: [letter({ source_doc_id: null })] })).yours[0];
+    expect(noSrc?.menu.some(a => a.id === 'preview-letter')).toBe(false);
+  });
+
   it('new explain-backs show as "N new from <name>" on the sent letter', () => {
     const { yours } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
