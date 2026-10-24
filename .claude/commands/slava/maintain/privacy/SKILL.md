@@ -129,6 +129,12 @@ A rewrite removes the direct identifier; it does not make the paragraph anonymou
 
 ---
 
+## Committed-but-unpushed figures
+
+This skill sees only staged files and the last commit. A figure found in an unpushed history range is classified by severity (Low needs a printed citation) and any rewrite is priced before it is offered, in `/push` step 3 (P1561): see `.claude/commands/slava/build/push.md`.
+
+---
+
 ## Notes
 
 - The pre-commit hook (section 17 of `scripts/pre-commit-checks.sh`, which runs `scripts/audit-privacy.sh`) catches shaped identifiers and names `.private/` already holds. This skill catches what it misses — see "Why this needs a reader" above.

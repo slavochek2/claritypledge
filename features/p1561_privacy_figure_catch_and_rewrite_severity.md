@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 69
 workstream: infrastructure
 created_date: '2026-10-24'
 tags: [privacy, pre-commit, push, figures]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -117,18 +117,18 @@ range).
 
 ## Done-When
 
-- [ ] Each of these synthetic sentences is reported, as a **separate** test assertion:
+- [x] Each of these synthetic sentences is reported, as a **separate** test assertion:
       "paying 20 a month for it", "it costs 20 out of pocket", "the 20/mo subscription",
       "the 49 monthly plan". The existing `$` plus "cap" control is still reported.
-- [ ] None of these is reported: "3 sessions a month", "pay 2 visits", "on 2026-10-24",
+- [x] None of these is reported: "3 sessions a month", "pay 2 visits", "on 2026-10-24",
       "about 15 people", "P1526 shipped", "retry 3 times before the subscription webhook fails".
-- [ ] Measured over all existing lines of `features/` and `docs/` with a command that prints only
+- [x] Measured over all existing lines of `features/` and `docs/` with a command that prints only
       counts and `path:line` (e.g. `grep -rn "" features/ docs/ | privacy_figure_scan | wc -l`),
       before and after. Every new hit is classified real-figure or noise by the implementer, without
       pasting its text. **Noise hits added ≤ 20**; above that, narrow the matcher.
-- [ ] `scripts/test-p1526-privacy-push-gates.sh` covers every sentence above and passes; a mutant that
+- [x] `scripts/test-p1526-privacy-push-gates.sh` covers every sentence above and passes; a mutant that
       drops the new matcher makes it fail (exit code pasted).
-- [ ] `/push` describes the severity step, both classes with their required citation, and the
+- [x] `/push` describes the severity step, both classes with their required citation, and the
       rewrite cost statement; `/maintain:privacy` points to it; both `.agents/skills/` mirrors synced.
 
 ## Alternatives Considered
@@ -151,3 +151,16 @@ depends on them.
 - P1162: the figure of the same class already public since 2026-09-08.
 - decisions.md: "Rebase the two contaminated branches myself", rejected because the branches belong to
   other sessions; and the gitleaks entry on history purges.
+
+## Evidence (2026-10-24)
+
+- Tests: `scripts/test-p1526-privacy-push-gates.sh` 62 passed, 0 failed, exit 0. Added cases: the four
+  must-catch sentences, "paying 19.99 a month", "spent 20 out of pocket"; quiet cases include a version
+  number and "retry 3 times before the subscription webhook fails".
+- Mutant (matcher C disabled): exit 1, 4 failed. Restored: exit 0.
+- Measured over all existing lines of `features/` and `docs/`: 206 hits before, 246 after. All 40 new
+  hits are money figures, mostly published offer prices; noise hits added: 0 (sampled by reading, text
+  not reproduced here).
+- Reviews: Gemini 4 Argon on the spec and on the diff. Folded in: wider spend-word forms, cents, and
+  the Low citation tightened to `git grep` on `origin/main` or the vendor's pricing-page URL. Accepted:
+  a number after its cadence word ("monthly 49"), hyphenated forms, and "plan to deploy 2/mo" warning.

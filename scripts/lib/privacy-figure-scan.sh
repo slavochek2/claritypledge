@@ -9,9 +9,12 @@
 # Output: `path:lineno` for each record that matches, NEVER the matched text (the text is the
 #         thing being kept out of logs). Exit 0 always: this is advisory, never a gate.
 #
-# Two matchers, both case-insensitive:
+# Three matchers, all case-insensitive:
 #   A. a usage/billing word within 60 chars of a number carrying a unit (GB MB TB % $ EUR-sign)
 #   B. a known token prefix followed by a body of 4+ token chars, or by a length ("40 chars")
+#   C. (P1561) a bare number (cents allowed) directly before a cadence/pocket phrase (per|a month/year, /mo, /yr,
+#      monthly, yearly, out of pocket) AND a spend word (pay*, cost*, pric*, subscription, plan,
+#      bill*, spend*/spent) within 60 chars. Dates, versions and P-numbers never count as the number.
 # Perl, not grep: BSD grep has no \b and its bracket expressions behave differently from GNU.
 
 privacy_figure_scan() {
@@ -28,6 +31,11 @@ privacy_figure_scan() {
     my $len = qr/(?:\b\d+[- ]?$lw\b|\b$lw\W{0,3}\d+\b)/;
     $hit = 1 if $t =~ /$pfx[A-Za-z0-9_-]{4,}/;
     $hit = 1 if $t =~ /$pfx.{0,60}$len/ || $t =~ /$len.{0,60}$pfx/;
+    my $num = qr/(?<![\w.\-:\/])\d[\d,]*(?:\.\d{2})?(?![\d]|[.\-\/]\d)/;
+    my $cad = qr/(?:(?:per\s+|a\s+|\/\s?)(?:month|mo|year|yr)\b|\b(?:monthly|yearly)\b|\bout of pocket\b)/i;
+    my $sw = qr/\b(?:pay(?:s|ing|ment)?|paid|cost(?:s|ing)?|pric(?:e|ed|ing)|subscription|plan|bill(?:s|ed|ing)?|spen(?:d|ds|ding|t))\b/i;
+    my $c = qr/$num\s{0,2}$cad/;
+    $hit = 1 if $t =~ /$c/ && ($t =~ /$sw.{0,60}$c/ || $t =~ /$c.{0,60}$sw/);
     print "$f:$n\n" if $hit;
   '
 }
