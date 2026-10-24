@@ -37,7 +37,7 @@ running it by hand?
 
 > Founder, verbatim: "why not running our own verison of suapbase if it open source?"
 
-> Founder, verbatim: "if i upgarde test i start payign and we are traped we went from 0 to 50 per month - and this is out of pociet"
+> Founder, 2026-10-23, paraphrased (the figure is kept private): upgrading hosted TEST starts a new monthly bill for a test database, paid out of pocket, and once paying there is no way back to free.
 
 > Founder, verbatim: "we also need to know how to mainitan, it , patch it etc.. which becoems part of /day routine to do it? or what?"
 
