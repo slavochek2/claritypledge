@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm ci --ignore-scripts --include=optional",
   "redirects": [
     {
       "source": "/hospital",
