@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 65
 workstream: events
 created_date: '2026-10-23'
 tags: [events, community, event-page]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-24
 ---
 
 # P1553: "Organized by" line on every community event
@@ -61,5 +61,5 @@ line.
 
 ## Related
 
-- [P1403](done/2026-06-10/p1403_social_hike_event_layout.md) hike layout, where the line comes from
+- [P1403](p1403_social_hike_event_layout.md) hike layout, where the line comes from
 - P1517 / P1518: the line's link and its "nothing else on the line" rule
