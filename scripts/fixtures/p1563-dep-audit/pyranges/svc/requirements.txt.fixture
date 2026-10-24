@@ -1,0 +1,2 @@
+# ranges, not exact pins: versions are not determinable
+requests>=2.0

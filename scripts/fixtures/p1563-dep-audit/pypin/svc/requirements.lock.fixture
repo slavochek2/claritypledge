@@ -1,0 +1,4 @@
+# exact pins with hashes
+requests==2.19.0 \
+    --hash=sha256:aa
+idna==2.7 ; python_version >= "3"

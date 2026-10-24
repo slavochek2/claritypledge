@@ -1,0 +1,3 @@
+# fixture-local: suppresses the npm-audit critical (GitHub also lists keyv 6.0.0 as malware) so the
+# test can prove the OSV MAL- path fires on its own. MAL- hits can never be excepted.
+app/package-lock.json keyv GHSA-3p9h-f68w-m6fx # fixture: isolate the OSV lookup from npm audit

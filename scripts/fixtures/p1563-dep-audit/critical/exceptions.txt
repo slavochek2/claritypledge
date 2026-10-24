@@ -1,0 +1,2 @@
+# fixture-local exceptions
+app/package-lock.json minimist GHSA-xvch-5gv4-984h # fixture: proves the exceptions file suppresses a listed critical

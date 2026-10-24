@@ -1,0 +1,6 @@
+# dep-audit exceptions (P1563). One entry per line:
+#   <manifest-relative-path> <package> <advisory-id> # reason (mandatory)
+# <manifest-relative-path> is relative to the scan root; <advisory-id> is the GHSA id (or numeric
+# npm advisory source) of a critical npm-audit finding, or the literal word `unchecked` to accept a
+# dependency source OSV has no ecosystem for (<package> is then the label dep-audit prints).
+# Malicious (MAL-) hits can never be excepted. See docs/technical/supply-chain.md.
