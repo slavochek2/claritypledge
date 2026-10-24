@@ -54,6 +54,11 @@ The founder approved A (widen the commit-time check) and C (rewrite-severity ste
 Blast radius: one advisory check (every commit sees its output) and two skill paragraphs.
 Reversibility: git revert. Decision density: zero; scope is decided above.
 
+**Review history:** reviewed 2026-10-24 by Gemini 4 Argon and Gemini 3.8 Flash, 2 of 2 reports
+received; both found the free-form matcher would flood prose and "same class" was a loophole. Both
+folded in after re-checking by command (the 144-line measurement; the privacy skill's step 1 scope).
+Codex and Opus not run: the two reviews converged and left no open disagreement.
+
 ## Invariants
 
 - **The figure check stays warn-only** (P1526; epistemic.md gate 7c). A broad figure regex blocking
@@ -68,32 +73,40 @@ Reversibility: git revert. Decision density: zero; scope is decided above.
 
 ## Solution
 
-**A. Widen the matcher** in `scripts/lib/privacy-figure-scan.sh`:
-- Add a third matcher for a bare number near spend phrasing, for example "per month", "/mo", "a month",
-  "per year", "out of pocket", "paying" / "pay", "subscription", "price" / "costs".
-- The implementing agent picks the exact phrase list and distance by measuring false positives against
-  the real repo. Run the matcher over every existing line in `features/` and `docs/` (not only added
-  lines) and report the hit count before and after. A large rise in hits on ordinary prose (dates,
-  counts, durations such as "3 times a month") is a reason to narrow, not to accept.
+**A. A third matcher** in `scripts/lib/privacy-figure-scan.sh`, structure pinned here (both reviews
+found a free-form phrase list floods prose; measured 2026-10-24: a bare number directly before
+"per/a month|year" already appears on 144 existing lines of `features/` and `docs/`):
+- A bare number matches only when it sits **within a few characters of a cadence or pocket phrase**
+  (`per month`, `a month`, `monthly`, `/mo`, `per year`, `a year`, `/yr`, `out of pocket`), **and**
+  the line also carries a spend word (`pay`/`paying`/`paid`, `costs?`, `price`, `subscription`, `plan`,
+  `bill`, `spend`) within 60 characters. No standalone `pay`, `price` or `costs` trigger.
+- ISO dates, versions (`v3`, `3.1`) and the number inside a P-number or INBOX id never count as the
+  bare number.
+- The implementing agent tunes the exact distances against the measurement in Done-When, not by taste.
 
-**C. Severity step before a rewrite is offered**, in `/maintain:privacy` and the `/push` paragraph on
-hard flags in committed but unpushed content:
+**C. Severity step before a rewrite is offered.** It runs where the rewrite decision lives: the `/push`
+paragraph on hard flags in committed but unpushed content. `/maintain:privacy` gains a one-paragraph
+pointer to it (that skill reviews staged files and the last commit only, so it never sees a history
+range).
 - When a figure is found only in history (the current text is already fixed), classify it before
-  offering options:
-  - **Low:** already public, equal to a published list price, or the same class as a figure already
-    on `origin/main`. Fix forward only and say so; no rewrite option.
-  - **Real account figure:** usage, balances, revenue, deal terms, unpublished caps. Offer numbered
-    options as today, rewrite included.
-- Whenever a rewrite is offered, state its cost first: how many commits get new IDs, and which live
-  branches contain the affected commit (`git branch --contains`). A co-tenant branch built on the
-  commit makes a rewrite a change to another session's work.
+  offering options. **Print the evidence for the class.**
+  - **Low**, only with one of two citations: (a) the **same figure** is already on `origin/main`,
+    cited as `file:line`; or (b) the text itself states it is a vendor's standard public tier or list
+    price, not a custom amount or a usage total. Fix forward only and say so; no rewrite option.
+  - **Everything else is a real account figure** (usage, balances, revenue, deal terms, caps not
+    already public). Numbered options as today, rewrite included.
+- Whenever a rewrite is offered, state its cost first: how many commits get new IDs
+  (`git rev-list --count <commit>^..HEAD`) and which branches and worktrees contain the commit
+  (`git branch -a --contains <commit>`, `git worktree list`). A co-tenant branch built on the commit
+  makes a rewrite a change to another session's work.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
 | The wider matcher warns on ordinary prose and gets ignored | MITIGATE | Measured false-positive count over the existing repo, reported in Done-When |
-| "Low" becomes a way to wave real figures through | MITIGATE | Invariant 4; the classification names its evidence (the public file:line or the published price) |
+| "Low" becomes a way to wave real figures through | MITIGATE | Invariant 4; Low needs a printed citation (same figure on origin/main, or a stated public list price); "same class" was removed after review |
+| Spelled-out numbers ("twenty-five per month") pass | ACCEPT | Rare in agent-written prose; push-time review remains |
 | Warn-only still lets a figure through if nobody reads the warning | ACCEPT | Gate 7c rules out blocking; the push-time review remains the backstop |
 
 **Non-Goals**
@@ -104,16 +117,19 @@ hard flags in committed but unpushed content:
 
 ## Done-When
 
-- [ ] A synthetic sentence of the missed shape (bare number plus "per month" plus "out of pocket") is
-      reported by the check, and the existing `$` plus "cap" control is still reported. Pasted output.
-- [ ] Ordinary numeric sentences ("3 sessions a month", "on 2026-10-24", "about 15 people") are not
-      reported. Pasted output.
-- [ ] The false-positive count over all existing lines in `features/` and `docs/`, before and after,
-      is pasted with a one-line judgement.
-- [ ] `scripts/test-p1526-privacy-push-gates.sh` covers the new must-catch and must-not-catch cases and
-      still passes; a mutant that drops the new matcher makes it fail (exit code pasted).
-- [ ] `/maintain:privacy` and `/push` describe the severity step, the two classes and the rewrite cost
-      statement; the `.agents/skills/` mirrors are synced.
+- [ ] Each of these synthetic sentences is reported, as a **separate** test assertion:
+      "paying 20 a month for it", "it costs 20 out of pocket", "the 20/mo subscription",
+      "the 49 monthly plan". The existing `$` plus "cap" control is still reported.
+- [ ] None of these is reported: "3 sessions a month", "pay 2 visits", "on 2026-10-24",
+      "about 15 people", "P1526 shipped", "retry 3 times before the subscription webhook fails".
+- [ ] Measured over all existing lines of `features/` and `docs/` with a command that prints only
+      counts and `path:line` (e.g. `grep -rn "" features/ docs/ | privacy_figure_scan | wc -l`),
+      before and after. Every new hit is classified real-figure or noise by the implementer, without
+      pasting its text. **Noise hits added ≤ 20**; above that, narrow the matcher.
+- [ ] `scripts/test-p1526-privacy-push-gates.sh` covers every sentence above and passes; a mutant that
+      drops the new matcher makes it fail (exit code pasted).
+- [ ] `/push` describes the severity step, both classes with their required citation, and the
+      rewrite cost statement; `/maintain:privacy` points to it; both `.agents/skills/` mirrors synced.
 
 ## Alternatives Considered
 
