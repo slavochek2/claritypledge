@@ -149,14 +149,18 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     prev.current = { first, last, height: el.scrollHeight, ready: true };
   }, [messages, status, viewerId, targetId]);
 
-  // Late-loading content (attachment cards, avatars) must not leave the reader short of the bottom.
+  // Late-loading content (attachment cards, avatars) must not leave the reader short of the bottom, and a resized
+  // window re-decides the jump-down button without waiting for a scroll.
   useEffect(() => {
     const box = content.current;
-    if (!box || typeof ResizeObserver === 'undefined') return;
+    const el = scroller.current;
+    if (!box || !el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => {
-      if (stick.current && scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
+      if (stick.current) el.scrollTop = el.scrollHeight;
+      else setAway(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight / 2);
     });
     ro.observe(box);
+    ro.observe(el);
     return () => ro.disconnect();
   }, [status]);
 

@@ -1252,6 +1252,28 @@ describe('conversation', () => {
     expect(within(welcome).getByTestId('mirror-disc')).toHaveAttribute('data-painting', 'true');
   });
 
+  it('P1554: a window resized while scrolled up re-decides the jump-down button without a scroll (review fix)', async () => {
+    const callbacks: (() => void)[] = [];
+    const before = globalThis.ResizeObserver;
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { callbacks.push(cb); } observe() {} unobserve() {} disconnect() {} });
+    try {
+      renderChat('/home/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j2' })] });
+      await screen.findByText('only line');
+      const scroller = screen.getByTestId('message-scroller');
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 3000 });
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 500 });
+      scroller.scrollTop = 2300; // 200px up of a 500px window: no button
+      fireEvent.scroll(scroller);
+      expect(screen.queryByTestId('jump-down')).toBeNull();
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 200 }); // the window shrinks
+      scroller.scrollTop = 2300;
+      act(() => callbacks.forEach((cb) => cb()));
+      expect(await screen.findByTestId('jump-down')).toBeInTheDocument();
+    } finally {
+      vi.stubGlobal('ResizeObserver', before);
+    }
+  });
+
   it('P1554: the jump-down button shows half a screen up from the bottom and takes the reader to the newest message', async () => {
     renderChat('/home/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j1' })] });
     await screen.findByText('only line');
