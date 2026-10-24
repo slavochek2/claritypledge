@@ -35,11 +35,13 @@ Blast radius: one flow, the mirror chat UI plus one auto-reply rule. Reversibili
 
 ## Solution
 
-1. **Shares stay quiet.** A point or story sent to the mirror with no text gets no automatic reply and costs nothing. The welcome message says that sharing files something and writing a line asks about it.
+1. **Shares stay quiet.** A point or story sent to the mirror with no text gets no automatic reply and costs nothing.
 2. **Remove the footer line** "<name>'s reading. You decide what fits." under every answer. It was copy approved in P1520, not a legal disclosure. The terms already disclose the AI (P1544).
 3. **Reply quote only when it helps.** The mirror's answer shows the "Reply to …" quote only when the message it answers is not the one directly above it.
 4. **Editing an old message never re-triggers a reply.** This keeps today's behaviour. Add a test.
-5. **Naming:** the mirror's first (welcome) message carries one inline button, **"Give me a name"**, which opens rename. The portrait keeps being generated the first time the mirror chat opens.
+5. **The mirror speaks first** (founder, 2026-10-24, replacing the welcome paragraph): its greeting is always the first message in its chat: "Hi, I'm your mirror agent. Want to give me a name? Or just tell me what's on your mind." While unnamed it carries one secondary **"Give me a name"** button that opens rename and stays until a name is set; once named it greets by name, with no button. The greeting is drawn by the app, not stored, so the mirror never reads it back and no migration or backfill is needed. No Clarify or sharing instructions.
+5b. **The portrait visibly paints.** It is still painted the first time the mirror chat opens (one image per person who opens it). Until it arrives the avatar pulses and the greeting says "Painting my portrait…"; the face then fades in.
+5c. **Jump down** (founder, 2026-10-24, Telegram-style): more than half a screen up from the bottom, or when something new arrived below, a round outlined-blue chevron button sits bottom right; it carries a count of what is new and replaces the old centred "New messages" pill. Every chat, not only the mirror.
 6. **One Rename:** remove Rename from the three-dots menu. It stays in the About window.
 7. **"New face" → "New portrait".**
 8. **About window buttons centered.**
@@ -79,7 +81,9 @@ Registry: the Supabase Free plan row (test has its own organisation, P1538). No 
 - [x] No mirror answer shows "You decide what fits."
 - [x] An answer to the message directly above shows no reply quote; an answer to an older message shows it.
 - [x] Editing an earlier own message in the mirror creates no new reply.
-- [x] The welcome message shows one "Give me a name" button that opens rename.
+- [x] The mirror's greeting is the first message, stays above later messages, has no Clarify instructions, and while unnamed shows one "Give me a name" button that opens rename; a named mirror greets by name with no button.
+- [x] While the first portrait is painting, the avatar pulses and the greeting says "Painting my portrait…".
+- [x] Scrolled more than half a screen up, a round jump-down button shows bottom right and takes the reader to the newest message; new messages below show as a count on it.
 - [x] The three-dots menu has no Rename; the About window has Rename and "New portrait", centered.
 - [x] The mirror agent avatar is square on every surface, and `AGENT` still shows wherever it did.
 

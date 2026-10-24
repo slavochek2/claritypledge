@@ -113,16 +113,23 @@ export function MirrorGlyph({ className }: { className?: string }) {
  * owner's own mirror's (the only mirror anyone ever sees); `imageUrl` overrides it, `null` forces the glyph.
  */
 export function MirrorMark({ size = 'list', className, imageUrl }: { size?: keyof typeof MIRROR_SIZE; className?: string; imageUrl?: string | null }) {
-  const own = useMirror()?.profile?.portraitUrl ?? null;
+  const mirror = useMirror();
+  const own = mirror?.profile?.portraitUrl ?? null;
   const src = imageUrl === undefined ? own : imageUrl;
   const [broken, setBroken] = useState<string | null>(null);
   const show = !!src && broken !== src;
+  // P1554: the first portrait is being painted: the glyph pulses until the face arrives, so it never pops in unexplained.
+  const painting = imageUrl === undefined && !show && mirror?.portraitStatus === 'painting';
   return (
     <span aria-hidden="true" className={cn('relative inline-flex shrink-0 rounded-sm outline-dashed outline-2 outline-offset-1 outline-blue-300', className)}>
-      <span data-testid="mirror-disc" className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-blue-100 text-blue-700', MIRROR_SIZE[size])}>
+      <span
+        data-testid="mirror-disc"
+        data-painting={painting || undefined}
+        className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-blue-100 text-blue-700', painting && 'animate-pulse', MIRROR_SIZE[size])}
+      >
         {show ? (
           <>
-            <img src={src} alt="" data-testid="mirror-portrait" className="h-full w-full object-cover" onError={() => setBroken(src)} />
+            <img src={src} alt="" data-testid="mirror-portrait" className="h-full w-full object-cover animate-in fade-in duration-500" onError={() => setBroken(src)} />
             {/* P1483's agent layer (founder, P1520: a navy tint, not a frame): the painting keeps its light and shade. */}
             <span data-testid="agent-tint" className="pointer-events-none absolute inset-0" style={AGENT_TINT_STYLE} />
           </>

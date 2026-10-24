@@ -3,17 +3,18 @@
  * @description P1512: the scrolling message stream shared by a conversation and a thread panel.
  *
  * Scroll rules: open at the bottom; follow new messages while the reader is at the bottom or the
- * message is their own; otherwise leave the scroll alone and offer a "New messages" pill; when an
+ * message is their own; otherwise leave the scroll alone. Once the reader is more than half a screen up, or something new
+ * arrived below, a round jump-down button sits bottom right, with a count of what is new (P1554); when an
  * earlier page loads, keep the same message under the reader's eye; a hit from search scrolls to
  * its message and flashes it.
  */
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
-import { Divider, InlineError, MessagesSkeleton } from './chat-kit';
+import { CountBadge, Divider, InlineError, MessagesSkeleton } from './chat-kit';
 import { MessageRow, type MessageActions } from './MessageRow';
 import { compareMessages, describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
@@ -43,14 +44,18 @@ interface Props {
    * time order among the channel's messages, marked private and without actions.
    */
   privateRows?: ChatMessage[];
+  /** P1554: shown above the first message, and in place of `empty`: the mirror's greeting. */
+  lead?: ReactNode;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const prev = useRef<{ first: string | null; last: string | null; height: number; ready: boolean }>({ first: null, last: null, height: 0, ready: false });
   const [newCount, setNewCount] = useState(0);
+  /** More than half a screen above the bottom: the jump-down button shows. */
+  const [away, setAway] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
   const jumpedTo = useRef<string | null>(null);
   /** The message under the reader's eye and where it sits, noted when an earlier page is requested. */
@@ -83,6 +88,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     if (el) el.scrollTop = el.scrollHeight;
     stick.current = true;
     setNewCount(0);
+    setAway(false);
   }, []);
 
   /** Scrolls to a message and flashes it; one that is not loaded yet is paged in first, or reported. */
@@ -166,6 +172,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     if (!el) return;
     const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
     stick.current = gap < BOTTOM_SLOP_PX;
+    const far = gap > el.clientHeight / 2;
+    if (far !== away) setAway(far);
     if (stick.current && newCount) setNewCount(0);
     if (el.scrollTop < TOP_LOAD_PX && hasMore && !loadingEarlier) void pageBack();
   };
@@ -197,7 +205,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
               </Button>
             </div>
           )}
-          {messages.length === 0 && <div className="px-6 py-12 text-center text-sm text-muted-foreground">{empty}</div>}
+          {lead && !hasMore && <div data-testid="message-lead">{lead}</div>}
+          {messages.length === 0 && !lead && <div className="px-6 py-12 text-center text-sm text-muted-foreground">{empty}</div>}
           <ul role="log" aria-live="polite" aria-relevant="additions" aria-label={label} className="flex flex-col gap-0.5">
             {messages.map((m, i) => {
               const g = grouping[i] ?? { dayBreak: false, compact: false };
@@ -228,13 +237,18 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
           </ul>
         </div>
       </div>
-      {newCount > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-          <Button variant="outline" className="pointer-events-auto min-h-10 rounded-full border-blue-200 bg-background text-blue-700 shadow-md hover:bg-blue-50" onClick={toBottom}>
-            <ArrowDown className="h-4 w-4" aria-hidden="true" />
-            New messages
-          </Button>
-        </div>
+      {(away || newCount > 0) && (
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={newCount > 0 ? `Jump to the newest message, ${newCount} new` : 'Jump to the newest message'}
+          data-testid="jump-down"
+          className="absolute bottom-3 right-3 h-11 w-11 rounded-full border-blue-200 bg-background text-blue-700 shadow-md hover:bg-blue-50 hover:text-blue-700"
+          onClick={toBottom}
+        >
+          <ChevronDown className="h-5 w-5" aria-hidden="true" />
+          <CountBadge n={newCount} label={`${newCount} new`} className="absolute -top-2 left-1/2 -translate-x-1/2" />
+        </Button>
       )}
     </div>
   );

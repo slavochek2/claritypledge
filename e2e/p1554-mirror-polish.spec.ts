@@ -3,9 +3,10 @@
  *
  * P1554 mirror chat polish in the real UI on the test project. Needs no AI: answers are seeded.
  *
- *  1. smoke: the empty mirror shows the welcome with one "Give me a name" button that opens Rename.
+ *  1. smoke: the empty mirror greets first, with one "Give me a name" button that opens Rename.
  *  2. a seeded chat: a quiet share has no answer; an answer to the message directly above shows no quote,
- *     an answer to an older message shows one; no "You decide what fits." footer; the mirror avatar is square.
+ *     an answer to an older message shows one; no "You decide what fits." footer; the mirror avatar is square;
+ *     scrolled up, the round jump-down button shows and takes the reader back to the newest message.
  *  3. the More menu has no Rename; the About window has Rename, buttons centered.
  *
  * Screenshots at 1280, 375 and 320 go to test-results/p1554/.
@@ -60,6 +61,8 @@ test.beforeAll(async () => {
   pointId = (await createTestPoint(seeded.user.id)).id;
 
   const base = { conversation_id: mirrorSeeded };
+  // Enough history that the chat is several screens long, for the jump-down button.
+  for (let i = 0; i < 30; i++) await insert({ ...base, author_id: seeded.user.id, body: `Earlier note ${i} ${RUN}`, kind: 'message' });
   const q1 = await insert({ ...base, author_id: seeded.user.id, body: firstQ, kind: 'message' });
   await insert({ ...base, author_id: seeded.user.id, body: null, kind: 'message', attachment_kind: 'point', attachment_id: pointId });
   const q2 = await insert({ ...base, author_id: seeded.user.id, body: secondQ, kind: 'message' });
@@ -75,13 +78,14 @@ test.afterAll(async () => {
   await deleteTestUser(seeded.user.id).catch(() => {});
 });
 
-test('smoke: the empty mirror welcomes with one "Give me a name" button that opens Rename', async ({ browser }) => {
+test('smoke: the empty mirror greets first, with one "Give me a name" button that opens Rename', async ({ browser }) => {
   for (const { w, h } of SIZES) {
     const { page, errors, close } = await open(browser, empty, w, h);
     try {
       await page.goto(`/home/c/${mirrorEmpty}`);
       const welcome = page.getByTestId('mirror-welcome');
       await expect(welcome).toBeVisible();
+      await expect(welcome).toContainText("Hi, I'm your mirror agent. Want to give me a name?");
       await expect(welcome.getByRole('button')).toHaveCount(1);
       await settle(page);
       await page.screenshot({ path: `test-results/p1554/welcome-${w}.png` });
@@ -115,6 +119,17 @@ test('a share is quiet, the quote shows only for an older message, no footer, sq
       await expect(page.getByText(/Loading point/)).toHaveCount(0);
       await settle(page);
       await page.screenshot({ path: `test-results/p1554/chat-${w}.png`, fullPage: true });
+      const scroller = page.getByTestId('message-scroller');
+      await expect(page.getByTestId('jump-down')).toHaveCount(0);
+      await scroller.evaluate((el) => { el.scrollTop = 0; });
+      const jump = page.getByRole('button', { name: 'Jump to the newest message' });
+      await expect(jump).toBeVisible();
+      await expect(page.getByTestId('mirror-welcome')).toBeVisible(); // the greeting is the first message
+      await settle(page);
+      await page.screenshot({ path: `test-results/p1554/jump-${w}.png` });
+      await jump.click();
+      await expect(older).toBeInViewport();
+      await expect(jump).toHaveCount(0);
       expect(errors, 'no page errors').toEqual([]);
     } finally {
       await close();

@@ -813,7 +813,7 @@ test('the offline strip and the active-session banner shrink the chat: the compo
   }
 });
 
-test('a long history opens at the bottom, pages back in place, and offers "New messages" when scrolled up', async () => {
+test('a long history opens at the bottom, pages back in place, and offers the jump-down button with a count when scrolled up', async () => {
   const convId = await dmConversationId();
   const old = Date.now() - 3 * 24 * 3600 * 1000;
   const rows = Array.from({ length: 70 }, (_, i) => ({
@@ -846,16 +846,16 @@ test('a long history opens at the bottom, pages back in place, and offers "New m
   const after = (await pageA.locator(`[data-testid="message"][data-msg="${anchorId}"]`).boundingBox())!.y;
   expect(Math.abs(after - before), 'the message under the reader stayed put').toBeLessThan(4);
 
-  // Scrolled up: a new message does not yank the view, it offers the pill.
+  // Scrolled up: a new message does not yank the view; the jump-down button counts it (P1554).
   await scroller.evaluate((el) => { el.scrollTop = 300; });
   await pageB.goto(`/home/c/${convId}`);
   await expect(composer(pageB)).toBeVisible();
   await sendText(pageB, 'pill probe');
-  const pill = pageA.getByRole('button', { name: 'New messages' });
+  const pill = pageA.getByRole('button', { name: 'Jump to the newest message, 1 new' });
   await live(pageA, () => baseExpect(pill).toBeVisible({ timeout: 6_000 }));
   expect(await gap()).toBeGreaterThan(50);
   await pill.click();
   await expect(messageWith(pageA, 'pill probe')).toBeVisible();
   expect(await gap()).toBeLessThan(5);
-  await expect(pill).toHaveCount(0);
+  await expect(pageA.getByTestId('jump-down')).toHaveCount(0);
 });

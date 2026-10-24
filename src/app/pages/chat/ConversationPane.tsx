@@ -197,16 +197,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     summary.kind === 'dm'
       ? `No messages yet. Say hello${first ? ` to ${first}` : ''}.`
       : summary.kind === 'mirror'
-        ? (
-          <div className="flex flex-col items-center gap-3" data-testid="mirror-welcome">
-            <p>Use Clarify on any message to send it here. Sharing a point or story files it quietly; write a line about it and your mirror agent answers.</p>
-            {!summary.title && (
-              <Button variant="outline" className="min-h-10" data-testid="mirror-give-name" onClick={() => setRenaming(true)}>
-                Give me a name
-              </Button>
-            )}
-          </div>
-        )
+        ? null
         : 'No messages yet.';
 
   const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
@@ -246,6 +237,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         label="Messages"
         targetId={target}
         empty={empty}
+        lead={summary.kind === 'mirror' ? <MirrorGreeting title={summary.title} onName={() => setRenaming(true)} /> : undefined}
         privateRows={channel && mirrorOn ? privateRows : undefined}
       />
       {blocked || unavailable || cannotSend ? (
@@ -397,6 +389,40 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           onClose={() => setBlocking(false)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * P1554: the mirror speaks first. Its greeting is always the first message in its chat (drawn here, never stored, so the
+ * mirror never reads it back), and while it has no name the greeting keeps the one "Give me a name" button.
+ */
+function MirrorGreeting({ title, onName }: { title: string | null | undefined; onName: () => void }) {
+  const painting = useMirror()?.portraitStatus === 'painting';
+  return (
+    <div className="mx-2 flex gap-2.5 px-2 pb-1.5 pt-2.5" data-testid="mirror-welcome">
+      <div className="w-9 shrink-0">
+        <MirrorMark size="md" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-baseline text-[15px] leading-6">
+          <span className="min-w-0 truncate font-semibold text-foreground">{title ?? mirrorRole()}</span>
+          {title && <span className="shrink-0 whitespace-pre text-xs text-muted-foreground"> · {mirrorRole()}</span>}
+        </div>
+        <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">
+          {title ? `Hi, I'm ${title}, your mirror agent. Tell me what's on your mind.` : "Hi, I'm your mirror agent. Want to give me a name? Or just tell me what's on your mind."}
+        </p>
+        {painting && (
+          <p role="status" className="mt-1 text-xs text-muted-foreground" data-testid="mirror-painting">
+            Painting my portrait…
+          </p>
+        )}
+        {!title && (
+          <Button variant="outline" className="mt-2 min-h-10" data-testid="mirror-give-name" onClick={onName}>
+            Give me a name
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

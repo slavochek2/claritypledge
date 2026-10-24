@@ -1220,14 +1220,54 @@ describe('conversation', () => {
     await waitFor(() => expect(svc.blockUser).toHaveBeenCalledWith('p-dm1'));
   });
 
-  it('P1554 AC5: the mirror\'s welcome carries one "Give me a name" button that opens rename', async () => {
-    renderChat('/home/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [] });
+  it('P1554 AC5: the mirror greets first, with one "Give me a name" button that opens rename, and the greeting stays', async () => {
+    renderChat('/home/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'my first line', { id: 'mfirst' })] });
     const welcome = await screen.findByTestId('mirror-welcome');
-    expect(welcome).toHaveTextContent(/Sharing a point or story files it quietly/);
-    const buttons = within(welcome).getAllByRole('button');
-    expect(buttons).toHaveLength(1);
+    expect(welcome).toHaveTextContent("Hi, I'm your mirror agent. Want to give me a name? Or just tell me what's on your mind.");
+    expect(welcome).not.toHaveTextContent(/Clarify|quietly/);
+    // the greeting is still there, above the person's first message
+    expect(welcome.compareDocumentPosition(await screen.findByText('my first line')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(welcome).getAllByRole('button')).toHaveLength(1);
     await userEvent.click(within(welcome).getByRole('button', { name: 'Give me a name' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent(/Its role/);
+  });
+
+  it('P1554: a named mirror greets by its name and has no naming button', async () => {
+    renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
+    const welcome = await screen.findByTestId('mirror-welcome');
+    expect(welcome).toHaveTextContent("Hi, I'm Scratchpad, your mirror agent. Tell me what's on your mind.");
+    expect(within(welcome).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('P1554: while the first portrait is painting, the greeting says so and the avatar pulses', async () => {
+    const value = {
+      enabled: true, profile: null, portraitStatus: 'painting', statusFor: () => undefined, requestReply: vi.fn(), loadStatuses: vi.fn(),
+      ask: vi.fn(), newFace: vi.fn(), ensurePortrait: vi.fn(), setGender: vi.fn(),
+    } as unknown as MirrorContextValue;
+    svc.getMyChats.mockResolvedValue([mirror('c-mirror')]);
+    svc.listMessages.mockResolvedValue([]);
+    render(treeFor('/home/c/c-mirror', value));
+    const welcome = await screen.findByTestId('mirror-welcome');
+    expect(within(welcome).getByRole('status')).toHaveTextContent('Painting my portrait…');
+    expect(within(welcome).getByTestId('mirror-disc')).toHaveAttribute('data-painting', 'true');
+  });
+
+  it('P1554: the jump-down button shows half a screen up from the bottom and takes the reader to the newest message', async () => {
+    renderChat('/home/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j1' })] });
+    await screen.findByText('only line');
+    const scroller = screen.getByTestId('message-scroller');
+    expect(screen.queryByTestId('jump-down')).toBeNull();
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 3000 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 500 });
+    scroller.scrollTop = 2200; // 300px up: more than half a screen
+    fireEvent.scroll(scroller);
+    const jump = await screen.findByRole('button', { name: 'Jump to the newest message' });
+    fireEvent.click(jump);
+    expect(scroller.scrollTop).toBe(3000);
+    expect(screen.queryByTestId('jump-down')).toBeNull();
+    scroller.scrollTop = 2300; // 200px up: less than half a screen, no button
+    fireEvent.scroll(scroller);
+    expect(screen.queryByTestId('jump-down')).toBeNull();
   });
 
   it('names the mirror "<title> · <First>\'s mirror" in the header and the list, and Rename persists', async () => {
