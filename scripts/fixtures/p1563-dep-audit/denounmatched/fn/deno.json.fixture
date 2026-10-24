@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "lp": "npm:left-pad@1.3.0",
+    "odd": "npm:is-odd@3.0.1"
+  }
+}

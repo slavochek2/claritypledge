@@ -1,1 +1,11 @@
-{"version": "4", "npm": {"left-pad@1.3.0": {"integrity": "sha512-x"}}}
+{
+  "version": "4",
+  "specifiers": {
+    "npm:left-pad@1.3.0": "1.3.0"
+  },
+  "npm": {
+    "left-pad@1.3.0": {
+      "integrity": "sha512-x"
+    }
+  }
+}

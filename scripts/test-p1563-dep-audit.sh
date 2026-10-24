@@ -62,7 +62,7 @@ has()  { if grep -qF -- "$2" <<<"$OUT"; then ok "$1: output has '$2'"; else bad 
 lacks(){ if grep -qF -- "$2" <<<"$OUT"; then bad "$1: output must not have '$2'"; else ok "$1: output lacks '$2'"; fi; }
 
 echo "0. fixture hygiene"
-NAMED="$(find "$FX_SRC" -type f \( -name package.json -o -name package-lock.json -o -name deno.lock -o -name 'requirements*.txt' -o -name 'requirements*.lock' \))"
+NAMED="$(find "$FX_SRC" -type f \( -name package.json -o -name package-lock.json -o -name deno.lock -o -name deno.json -o -name deno.jsonc -o -name import_map.json -o -name 'requirements*.txt' -o -name 'requirements*.lock' -o -name '*.in' -o -name pyproject.toml -o -name setup.cfg -o -name setup.py -o -name Pipfile \))"
 if [ -z "$NAMED" ]; then ok "committed fixture dir has no manifest-named files"; else bad "manifest-named fixture files committed:"; echo "$NAMED" | sed 's/^/       | /'; fi
 if [ -n "$(find "$FX" -type f -name package-lock.json)" ]; then ok "staging produced real-named manifests in the temp copy"; else bad "staging produced no package-lock.json"; fi
 
@@ -129,7 +129,7 @@ run --root "$FX/pyunhashed" --exceptions "$TMP/none.txt"
 rc "python exact pins without hashes" 2; has "python unhashed" "transitive dependencies not pinned"
 lacks "python unhashed" "RESULT: CLEAN"
 run --root "$FX/pynodeps" --exceptions "$TMP/none.txt"
-rc "python --no-deps with exact pins" 0; has "python --no-deps" "--no-deps with exact pins"
+rc "python --no-deps line (pip rejects it inside a requirements file)" 2; has "python --no-deps" "requirements directive: --no-deps"
 run --root "$FX/pycovered" --exceptions "$TMP/none.txt"
 rc "ranged requirements.txt/.in covered by a hash-locked lock" 0; has "python covered" "covered by hash-locked svc/requirements.lock"
 run --root "$FX/pyranges" --exceptions "$TMP/none.txt"
@@ -168,7 +168,7 @@ for d in "-r base.in" "--requirement base.in" "-c cons.txt" "--constraint cons.t
   lacks "requirements line '$d'" "RESULT: CLEAN"
 done
 req_case "option-only" 0 "--require-hashes"
-req_case "option-only" 0 "--no-deps"
+req_case "invalid in a requirements file" 2 "--no-deps"
 req_case "option-only" 0 "--only-binary :all:"
 req_case "official index" 0 "--index-url https://pypi.org/simple"
 req_case "official extra index" 0 "--extra-index-url=https://pypi.org/simple"
@@ -232,9 +232,10 @@ alone() {   # alone <label> <file name relative to the root> <file content>: the
 alone "deno.json" fn/deno.json '{"imports": {}}'
 alone "deno.jsonc" fn/deno.jsonc '{"imports": {}}'
 alone "import_map.json" fn/import_map.json '{"imports": {}}'
-has "import_map.json" "deno config with no deno.lock"
+has "import_map.json" "no deno.lock next to this config"
 alone "pyproject.toml" svc/pyproject.toml '[project]'
 alone "Pipfile" svc/Pipfile '[packages]'
+alone "setup.cfg" svc/setup.cfg '[metadata]'
 alone "setup.py" svc/setup.py 'from setuptools import setup'
 alone "requirements.in" svc/requirements.in 'requests'
 alone "constraints.txt" svc/constraints.txt 'requests==2.31.0'
@@ -243,11 +244,13 @@ alone "requirements/base.txt" svc/requirements/base.txt 'requests>=2'
 run --root "$FX/denocovered" --exceptions "$TMP/none.txt"
 rc "deno.json covered by deno.lock in the same dir" 0; has "deno.json covered" "covered by fn/deno.lock"
 run --root "$FX/denoancestor" --exceptions "$TMP/none.txt"
-rc "deno.json covered by deno.lock in an ancestor dir" 0; has "deno.json ancestor" "covered by deno.lock"
+rc "deno.json under an ancestor lock that no workspace lists (loose coverage is gone)" 2; has "deno.json ancestor" "no ancestor config lists it in a workspace"
+run --root "$FX/denoworkspace" --exceptions "$TMP/none.txt"
+rc "deno.json listed in an ancestor workspace, all imports in the lock" 0; has "deno workspace" "covered by deno.lock (all 1 remote import(s) listed)"
 
 echo "3f. npm lock rules (reviewer findings D, E, F)"
 run --root "$FX/nonregistry" --exceptions "$TMP/none.txt"
-rc "lock entry resolved outside the registry, no integrity" 2; has "non-registry" "not from https://registry.npmjs.org or without integrity"
+rc "lock entry resolved outside the registry, no integrity" 2; has "non-registry" "not the registry package they claim to be"
 has "non-registry" "node_modules/left-pad"
 run --root "$FX/nopkgjson" --exceptions "$TMP/none.txt"
 rc "package-lock.json without a sibling package.json" 2; has "no package.json" "lock has no sibling package.json"
@@ -276,6 +279,72 @@ run --root "$FX/critical" --exceptions "$TMP/wild1.txt"
 rc "wildcard exception line rejected (critical stays a finding)" 1; has "wildcard" "wildcard or unattributed entries are not allowed"
 run --root "$FX/clean" --exceptions "$TMP/wild1.txt"
 rc "wildcard exception line makes an otherwise clean run INCOMPLETE" 2
+
+echo "3h. python coverage needs a lock that names the input (pass-2 finding 1)"
+run --root "$FX/pyfamily" --exceptions "$TMP/none.txt"
+rc "independent requirements-dev.txt beside a hash-locked file" 2
+has "pyfamily" "svc/requirements-dev.txt"; has "pyfamily" "names requirements-dev.txt in its header"
+has "pyfamily" "covered by hash-locked svc/requirements.lock (its header names requirements.txt)"
+run --root "$FX/pydirective" --exceptions "$TMP/none.txt"
+rc "coverage does not erase a -r include in the covered input" 2; has "pydirective" "requirements directive: -r"
+has "pydirective" "covered by hash-locked"
+rm -rf "$TMP/unnamed"; mkdir -p "$TMP/unnamed"; cp "$FX/pyfamily/svc/requirements.txt" "$TMP/unnamed/"; sed 1d "$FX/pyfamily/svc/requirements.lock" > "$TMP/unnamed/requirements.lock"
+run --root "$TMP/unnamed" --exceptions "$TMP/none.txt"
+rc "a hash-locked file without a header naming the input covers nothing" 2; lacks "unnamed lock" "covered by hash-locked"
+
+echo "3i. deno coverage (pass-2 finding 2)"
+run --root "$FX/denounmatched" --exceptions "$TMP/none.txt"
+rc "deno.json import missing from its lock" 2; has "deno unmatched" "not listed in fn/deno.lock"; has "deno unmatched" "npm:is-odd@3.0.1"
+run --root "$FX/denomalunlisted" --exceptions "$TMP/none.txt"
+rc "unlisted malicious npm: import is a FINDING (config imports go to OSV)" 1; has "deno malicious import" "MALICIOUS keyv@6.0.0 (MAL-"
+run --root "$FX/denolockfalse" --exceptions "$TMP/none.txt"
+rc "deno.json with \"lock\": false" 2; has "lock false" 'lock disabled ("lock": false)'
+run --root "$FX/denonointegrity" --exceptions "$TMP/none.txt"
+rc "deno.lock npm entry without integrity" 2; has "no integrity" "deno.lock npm entry without integrity"
+run --root "$FX/denosrc" --exceptions "$TMP/none.txt"
+rc "ts source with remote imports, all listed in the lock" 0; has "denosrc" "all 2 remote import(s) listed in deno.lock"
+run --root "$FX/denosrc-nolock" --exceptions "$TMP/none.txt"
+rc "ts source with remote imports and no deno.lock or config" 2; has "denosrc-nolock" "with no deno.lock in this or an ancestor directory"
+has "denosrc-nolock" "supabase-js@2"
+run --root "$FX/denosrc-mal" --exceptions "$TMP/none.txt"
+rc "ts source importing a malicious npm: version" 1; has "denosrc-mal" "MALICIOUS keyv@6.0.0 (MAL-"
+run --root "$FX/denosrc-unmatched" --exceptions "$TMP/none.txt"
+rc "ts source import missing from the lock" 2; has "denosrc-unmatched" "npm:is-odd@3.0.1"
+
+echo "3j. npm lock entry identity, bundled and link entries (pass-2 findings 3 and 4)"
+run --root "$FX/nameswap" --exceptions "$TMP/none.txt"
+rc "left-pad@1.3.0 entry whose tarball is keyv-6.0.0" 2; has "nameswap" "resolved tarball is not left-pad@1.3.0"
+run --root "$FX/bundled" --exceptions "$TMP/none.txt"
+rc "inBundle entry is still looked up in OSV" 1; has "bundled" "MALICIOUS keyv@6.0.0 (MAL-"
+lacks "bundled" "node_modules/keyv (no resolved"
+run --root "$FX/linkout" --exceptions "$TMP/none.txt"
+rc "link entry pointing outside the scan root" 2; has "linkout" "link target outside the scan root"
+
+echo "3k. smaller findings (pass-2 finding 6)"
+rm -rf "$TMP/symfile"; mkdir -p "$TMP/symfile/app" "$TMP/symfile/real"
+cp "$FX/clean/app/"* "$TMP/symfile/app/"; mv "$TMP/symfile/app/package-lock.json" "$TMP/symfile/real/lock.json"
+ln -s ../real/lock.json "$TMP/symfile/app/package-lock.json"
+run --root "$TMP/symfile" --exceptions "$TMP/none.txt"
+rc "symlinked manifest file is reported" 2; has "symlinked manifest" "symlinked manifest not followed: app/package-lock.json"
+OUT="$(DEP_AUDIT_SELFTEST_CRASH=late "$AUDIT" --root "$FX/malicious" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+rc "crash after a finding was collected keeps the finding" 1; has "late crash" "FINDING: osv: MALICIOUS keyv@6.0.0"; has "late crash" "internal error: RuntimeError"
+rm -rf "$TMP/deep"; mkdir -p "$TMP/deep/app" "$TMP/deep/bad"
+cp "$FX/malicious/app/"* "$TMP/deep/bad/"
+python3 -I - "$TMP/deep/app" <<'EOF3'
+import json, sys
+d = sys.argv[1]
+node = {"version": "1.0.0"}
+for i in range(1200):
+    node = {"version": "1.0.0", "dependencies": {"p%d" % i: node}}
+json.dump({"name": "deep", "version": "1.0.0", "lockfileVersion": 1, "requires": True, "dependencies": {"root": node}}, open(d + "/package-lock.json", "w"))
+json.dump({"name": "deep", "version": "1.0.0", "dependencies": {"root": "1.0.0"}}, open(d + "/package.json", "w"))
+EOF3
+run --root "$TMP/deep" --exceptions "$TMP/none.txt"
+lacks "deep lock + malicious sibling" "internal error"; has "deep lock + malicious sibling" "MALICIOUS keyv@6.0.0"
+rc "1200-level nested v1 lock does not hide a sibling finding" 1
+mkdir -p "$TMP/relexc"; cp "$FX/critical/exceptions.txt" "$TMP/relexc/exceptions.txt"; cp -R "$FX/critical/app" "$TMP/relexc/app"
+OUT="$(cd "$TMP/relexc" && "$AUDIT" --root . --exceptions exceptions.txt 2>&1)"; RC=$?
+rc "relative --exceptions inside a relative --root" 0; has "relative exceptions" "exceptions file: exceptions.txt (present, 1 entry)"
 
 echo "4. exclusions"
 # defence in depth: even a real-named manifest placed INSIDE the excluded fixture path is skipped.
@@ -309,7 +378,7 @@ if [ -f "$ROOT/package-lock.json" ] && [ -f "$ROOT/package.json" ]; then
   # control first: the unmutated copy has no MAL- hit (otherwise the mutation proves nothing)
   run --root "$TMP/real-copy" --exceptions "$TMP/none.txt"
   lacks "real-copy control (unmutated)" "MALICIOUS"
-  lacks "real-copy control (unmutated)" "not from https://registry.npmjs.org"
+  lacks "real-copy control (unmutated)" "not the registry package they claim to be"
   # gate 7d for the registry-source rule: the real lock passes it, and a mutated entry trips it
   cp "$TMP/real-copy/app/package-lock.json" "$TMP/real-lock-orig.json"
   python3 -I - "$TMP/real-copy/app/package-lock.json" <<'EOF2'
@@ -320,7 +389,7 @@ d["packages"]["node_modules/keyv"]["resolved"] = "git+ssh://git@example.invalid/
 json.dump(d, open(p, "w"), indent=2)
 EOF2
   run --root "$TMP/real-copy" --exceptions "$TMP/none.txt"
-  has "real-copy resolved mutated" "not from https://registry.npmjs.org or without integrity"
+  has "real-copy resolved mutated" "not the registry package they claim to be"
   has "real-copy resolved mutated" "node_modules/keyv"
   cp "$TMP/real-lock-orig.json" "$TMP/real-copy/app/package-lock.json"
   python3 -I - "$TMP/real-copy/app/package-lock.json" <<'EOF'

@@ -8,28 +8,28 @@ compromised right now", independent of what any single `npm audit` run happens t
 
 ```bash
 ./scripts/dep-audit.sh                         # whole repository
-./scripts/dep-audit.sh --root path/to/dir      # any other tree
-./scripts/dep-audit.sh --exceptions FILE       # alternative exceptions file
+./scripts/dep-audit.sh --root DIR [--exceptions FILE]   # another tree / exceptions file
 ./scripts/test-p1563-dep-audit.sh              # the suite (needs network, about 80 seconds)
 ```
 
-It needs `python3` (stdlib only), `npm`, and network access to the npm registry (for `npm audit`)
-and `api.osv.dev`. Only package names and versions are sent to OSV.
+It needs `python3` (stdlib only), `npm`, and network access to the npm registry and `api.osv.dev`.
+Only package names and versions are sent to OSV.
 
 ## What it checks
 
 Manifests are discovered at run time and the exclusions are printed on every run: `node_modules`
 and `.git` at any depth; `.claude` (skill templates there are not installed or deployed, and
-`.claude/worktrees` holds other checkouts); and the test fixtures directory. Symlinked and
-unreadable directories met during discovery are listed as INCOMPLETE, never skipped silently.
+`.claude/worktrees` holds other checkouts); and the test fixtures directory. Symlinked directories
+and manifest files, and unreadable directories, are listed as INCOMPLETE, never skipped silently.
 
 | Surface | Checked how |
 |---|---|
-| `package-lock.json` (v1, v2, v3) | `npm audit` on the full tree (dev, optional, peer, whatever the caller's environment says), plus every locked version against OSV. Needs a sibling `package.json`. Every entry must come from `https://registry.npmjs.org` and carry `integrity`, otherwise INCOMPLETE |
-| `deno.lock` (v1 to v5) | npm entries and exact-version `esm.sh` / `unpkg` / `jsdelivr` npm URLs against OSV |
-| `deno.json`, `deno.jsonc`, `import_map.json` | covered by a `deno.lock` in the same or an ancestor directory, otherwise INCOMPLETE |
-| `requirements*.txt`, `*requirements*.txt`, `requirements/*.txt`, `requirements*.lock` | exact `==` pins against OSV (PyPI). CLEAN only when every line carries `--hash=`, or the file sets `--no-deps` with every line exact |
-| `pyproject.toml`, `Pipfile`, `setup.py`, `*.in`, `constraints*.txt` | never parsed: INCOMPLETE unless a fully hash-locked requirements file sits in the same directory. A ranged requirements file is covered the same way |
+| `package-lock.json` (v1, v2, v3) | `npm audit` on the full tree (dev, optional, peer; the caller's `NODE_ENV`, `npm_config_*` and npm config files are ignored), plus every locked version against OSV, bundled entries included. Needs a sibling `package.json`. Each registry entry's `resolved` tarball must be its own `name` and `version` under `https://registry.npmjs.org` and carry `integrity`; a `link` must stay inside the scan root. Otherwise INCOMPLETE |
+| `deno.lock` (v1 to v5) | npm entries (each needs `integrity`) and exact-version `esm.sh` / `unpkg` / `jsdelivr` npm URLs against OSV |
+| `deno.json`, `deno.jsonc`, `import_map.json` | covered only if its effective lock (`"lock": false` disables it; a `"lock"` path is honoured; an ancestor lock counts only through a `workspace` entry) lists every `npm:` / `jsr:` / URL import. Unlisted imports are INCOMPLETE and exact `npm:` ones still go to OSV |
+| `.ts` `.tsx` `.js` `.mjs` sources | imports starting `npm:`, `jsr:`, `https://esm.sh/`, `https://deno.land/`, `https://cdn.jsdelivr.net/`, `https://unpkg.com/` must be listed in the nearest `deno.lock` at or above them, else INCOMPLETE (one inventory line per directory) |
+| `requirements*.txt`, `*requirements*.txt`, `requirements/*.txt`, `requirements*.lock` | exact `==` pins against OSV (PyPI). CLEAN only when every line carries `--hash=` |
+| `pyproject.toml`, `Pipfile`, `setup.py`, `setup.cfg`, `*.in`, `constraints*.txt`, and ranged or unhashed requirements | INCOMPLETE unless a fully hash-locked file in the same directory names that input's file name in its header (uv and pip-compile write the command line there). A sibling that does not name it covers nothing, and coverage never hides the input's own `-r` / `-e` / index problems |
 | `package.json` | must have a sibling lock (or be listed in a workspace-root lock) |
 
 Versions are looked up with OSV's `/v1/querybatch`, in chunks of 1000, with a timeout. A malicious
@@ -45,15 +45,15 @@ Malicious hits can never be excepted.
 | 1 | FINDING | Any `MAL-` hit, or any `critical` in the full `npm audit` tree not in the exceptions file |
 | 2 | INCOMPLETE | Something could not be checked. Never reported as clean |
 
-FINDING wins over INCOMPLETE, and still lists the incomplete parts. INCOMPLETE covers: an OSV or
-`npm audit` error, timeout or non-200 (including a malformed answer); an unexpected crash of the
-script itself; an unparseable or unsupported manifest (yarn, pnpm, poetry and similar locks); a
-`package.json` with no lock; a lock whose entries do not come from the npm registry; Python
-requirements with ranges, without hashes (transitive dependencies not pinned), with an unfollowed
-`-r` / `-c` / `-e` / `-f` directive, or with a package index other than pypi.org; a dependency
-source OSV has no ecosystem for (`jsr:`, `deno.land`, esm.sh version ranges); a malformed exceptions
-file (wildcards are rejected: name the exact package and advisory id); and a scan root with no
-manifests at all.
+FINDING wins over INCOMPLETE and still lists the incomplete parts. INCOMPLETE covers: an OSV or
+`npm audit` error, timeout, non-200 or malformed answer; a crash of the script itself (findings
+already collected are printed and the exit is 1); an unparseable or unsupported manifest (yarn,
+pnpm, poetry and similar locks); a `package.json` with no lock; a lock entry that is not the
+registry package it claims to be; Python requirements with ranges, without hashes (transitive
+dependencies not pinned), with an unfollowed `-r` / `-c` / `-e` / `-f` directive, with `--no-deps`
+(pip rejects it in such a file), or with an index other than pypi.org; a dependency source OSV has
+no ecosystem for (`jsr:`, `deno.land`, esm.sh version ranges); a malformed exceptions file
+(wildcards are rejected: name the exact package and advisory id); and a scan root with no manifests.
 
 The output ends with a coverage inventory: each manifest, its format, how many exact versions were
 checked, `npm audit` counts by severity, and its outcome.
@@ -66,9 +66,8 @@ checked, `npm audit` counts by severity, and its outcome.
 <manifest-relative-path> <package> <advisory-id> # reason
 ```
 
-- The path is relative to the scan root.
-- For an `npm audit` critical, `<advisory-id>` is the GHSA id (or the numeric advisory source) the
-  script prints next to the finding.
+- The path is relative to the scan root. For an `npm audit` critical, `<advisory-id>` is the GHSA id
+  (or numeric advisory source) the script prints next to the finding.
 - For a source OSV cannot check, `<advisory-id>` is the word `unchecked` and `<package>` is the
   label the script printed (for example `deno.land/std@0.224.0`).
 - Unused entries are reported as stale so the file shrinks when advisories are fixed.
@@ -78,11 +77,9 @@ checked, `npm audit` counts by severity, and its outcome.
 - OSV has no ecosystem for JSR or `deno.land`; those entries are never silently passed, they are
   INCOMPLETE until explicitly accepted with `unchecked`.
 - `npm audit` and OSV both lag a new compromise. A clean result means "no advisory published yet".
-- `npm audit` always covers the full tree (dev, optional, peer): `NODE_ENV` and `npm_config_omit`
-  style variables are stripped from its environment.
 - The script reads lock files; it does not verify that a lock matches what is installed.
-- `pip install` lines inside a Dockerfile are not parsed. Those images are covered only through the
-  requirements files they install from, if any.
+- `pip install` lines inside a Dockerfile are not parsed; those images are covered only through the
+  requirements files they install from.
 - An `esm.sh` URL in `deno.lock` pins one package version, but the code esm.sh serves for it is a
   bundle that can include transitive code the lock does not list. The audit sees the pinned
   package, not what is bundled into it.
