@@ -1,0 +1,3 @@
+idna==3.8 \
+    --hash=sha256:dd44
+    # via requests

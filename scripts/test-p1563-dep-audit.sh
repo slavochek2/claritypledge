@@ -19,7 +19,14 @@
 #                      FINDING wins over INCOMPLETE but still lists it; empty root and a malformed
 #                      exceptions file are INCOMPLETE
 #   3. other formats — deno.lock and Python requirements (exact pins clean, ranges incomplete,
-#                      deno.land without an `unchecked` exception incomplete, with one clean)
+#                      deno.land without an `unchecked` exception incomplete, with one clean);
+#                      3b: every install-changing requirements directive (-r, -c, -e, -f, alternate
+#                      index) is INCOMPLETE, option-only lines and uv hash-locked files are not;
+#                      3c: NODE_ENV / npm_config_omit in the caller's environment cannot hide a
+#                      dev-only critical
+#   3d: a mock OSV (local HTTP stub) returning {"results":[null]}, wrong-length, non-JSON, a JSON
+#                      array or HTTP 500 is INCOMPLETE (exit 2), with controls proving the same mock
+#                      yields CLEAN and FINDING; an unexpected crash is INCOMPLETE, not exit 1
 #   4. exclusions    — a manifest placed inside the excluded fixture path, under .claude or under
 #                      node_modules is skipped (positive control: the same file elsewhere is
 #                      inventoried); the real-repo run prints the exclusion list
@@ -34,7 +41,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUDIT="$ROOT/scripts/dep-audit.sh"
 FX_SRC="$ROOT/scripts/fixtures/p1563-dep-audit"
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+TMP="$(mktemp -d)"; MOCK_PID=""
+trap '[ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null; rm -rf "$TMP"' EXIT
 # The committed fixtures carry NO real manifest names (GitHub's dependency graph would parse a
 # committed package-lock.json / requirements.lock / deno.lock and raise standing alerts on the known-bad
 # versions). Each case is copied into a fresh temp dir and the `.fixture` suffix is stripped there.
@@ -50,8 +58,8 @@ bad()  { echo "  FAIL $1"; fail=$((fail+1)); }
 : > "$TMP/none.txt"
 run()  { OUT="$("$AUDIT" "$@" 2>&1)"; RC=$?; }
 rc()   { if [ "$RC" = "$2" ]; then ok "$1: exit $RC"; else bad "$1: expected exit $2, got $RC"; echo "$OUT" | sed 's/^/       | /'; fi; }
-has()  { if printf '%s\n' "$OUT" | grep -qF -- "$2"; then ok "$1: output has '$2'"; else bad "$1: output lacks '$2'"; echo "$OUT" | sed 's/^/       | /'; fi; }
-lacks(){ if printf '%s\n' "$OUT" | grep -qF -- "$2"; then bad "$1: output must not have '$2'"; else ok "$1: output lacks '$2'"; fi; }
+has()  { if grep -qF -- "$2" <<<"$OUT"; then ok "$1: output has '$2'"; else bad "$1: output lacks '$2'"; echo "$OUT" | sed 's/^/       | /'; fi; }
+lacks(){ if grep -qF -- "$2" <<<"$OUT"; then bad "$1: output must not have '$2'"; else ok "$1: output lacks '$2'"; fi; }
 
 echo "0. fixture hygiene"
 NAMED="$(find "$FX_SRC" -type f \( -name package.json -o -name package-lock.json -o -name deno.lock -o -name 'requirements*.txt' -o -name 'requirements*.lock' \))"
@@ -63,9 +71,9 @@ run --root "$FX/clean" --exceptions "$TMP/none.txt"
 rc "(a) clean control" 0; has "(a) clean control" "RESULT: CLEAN"
 
 run --root "$FX/malicious" --exceptions "$FX/malicious/exceptions.txt"
-rc "(b) malicious (OSV only; npm-audit critical excepted)" 1
+rc "(b) malicious (npm-audit malware advisory listed in exceptions)" 1
 has "(b) malicious" "MALICIOUS keyv@6.0.0 (MAL-"
-lacks "(b) malicious" "npm audit CRITICAL"
+has "(b) malicious" "npm audit MALWARE advisory keyv"
 run --root "$FX/malicious" --exceptions "$TMP/none.txt"
 rc "(b) malicious (no exceptions)" 1; has "(b) malicious" "MALICIOUS keyv@6.0.0 (MAL-"
 
@@ -115,8 +123,15 @@ run --root "$TMP/does-not-exist" --exceptions "$TMP/none.txt"
 rc "nonexistent root" 2
 
 echo "3. other formats"
-run --root "$FX/pypin" --exceptions "$TMP/none.txt"
-rc "python exact pins" 0; has "python pins" "versions-checked=2"
+run --root "$FX/pyhash" --exceptions "$TMP/none.txt"
+rc "python fully hash-locked" 0; has "python hash-locked" "fully hash-locked"
+run --root "$FX/pyunhashed" --exceptions "$TMP/none.txt"
+rc "python exact pins without hashes" 2; has "python unhashed" "transitive dependencies not pinned"
+lacks "python unhashed" "RESULT: CLEAN"
+run --root "$FX/pynodeps" --exceptions "$TMP/none.txt"
+rc "python --no-deps with exact pins" 0; has "python --no-deps" "--no-deps with exact pins"
+run --root "$FX/pycovered" --exceptions "$TMP/none.txt"
+rc "ranged requirements.txt/.in covered by a hash-locked lock" 0; has "python covered" "covered by hash-locked svc/requirements.lock"
 run --root "$FX/pyranges" --exceptions "$TMP/none.txt"
 rc "python ranges" 2; has "python ranges" "without an exact =="
 run --root "$FX/deno" --exceptions "$TMP/none.txt"
@@ -126,6 +141,141 @@ run --root "$FX/deno" --exceptions "$TMP/unchecked.txt"
 rc "deno.lock with unchecked exception" 0; has "deno.lock" "accepted unchecked: deno.land/std@0.224.0"
 run --root "$FX/deno-ranges" --exceptions "$TMP/none.txt"
 rc "deno.lock esm.sh version range" 2; has "deno ranges" "version is a range"
+
+run --root "$FX/deno-v1" --exceptions "$TMP/none.txt"
+rc "deno.lock v1 (remote-only)" 0; has "deno.lock v1" "format=deno.lock (v1)"; has "deno.lock v1" "versions-checked=1"
+
+echo "3b. requirements directives (reviewer finding: -r base.in used to exit 0 CLEAN)"
+run --root "$FX/pyinclude" --exceptions "$TMP/none.txt"
+rc "requirements.txt with '-r base.in'" 2; has "-r include" "requirements directive: -r"
+lacks "-r include" "RESULT: CLEAN"
+run --root "$FX/pyhash" --exceptions "$TMP/none.txt"
+rc "uv --generate-hashes shape parses as exact pins" 0; has "uv hashes" "versions-checked=4"
+has "uv hashes" "fully hash-locked"
+lacks "uv hashes" "INCOMPLETE:"
+# every install-changing directive, and an alternate index, is INCOMPLETE; option-only lines are not
+req_case() {   # req_case <label> <expected exit> <directive line>
+  rm -rf "$TMP/req"; mkdir -p "$TMP/req/svc"
+  printf '%s\nidna==3.8 --hash=sha256:aa11\n' "$3" > "$TMP/req/svc/requirements.txt"
+  run --root "$TMP/req" --exceptions "$TMP/none.txt"
+  rc "requirements line '$3'" "$2"
+}
+for d in "-r base.in" "--requirement base.in" "-c cons.txt" "--constraint cons.txt" "-e ." "--editable ." \
+         "-f https://example.invalid/wheels" "--find-links https://example.invalid/wheels" \
+         "--index-url https://example.invalid/simple" "--extra-index-url=https://example.invalid/simple" \
+         "-i http://pypi.org/simple" "--index-url https://pypi.org:pw@example.invalid/simple" "--no-such-option"; do
+  req_case "directive" 2 "$d"
+  lacks "requirements line '$d'" "RESULT: CLEAN"
+done
+req_case "option-only" 0 "--require-hashes"
+req_case "option-only" 0 "--no-deps"
+req_case "option-only" 0 "--only-binary :all:"
+req_case "official index" 0 "--index-url https://pypi.org/simple"
+req_case "official extra index" 0 "--extra-index-url=https://pypi.org/simple"
+
+echo "3c. caller environment must not narrow the audit (reviewer finding: NODE_ENV=production hid a dev-only critical)"
+run --root "$FX/critical-dev" --exceptions "$TMP/none.txt"
+rc "dev-only critical, plain env" 1; has "dev-only critical" "npm audit CRITICAL minimist"
+OUT="$(NODE_ENV=production "$AUDIT" --root "$FX/critical-dev" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+rc "dev-only critical, NODE_ENV=production" 1; has "NODE_ENV=production" "npm audit CRITICAL minimist"
+OUT="$(npm_config_omit=dev "$AUDIT" --root "$FX/critical-dev" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+rc "dev-only critical, npm_config_omit=dev" 1; has "npm_config_omit=dev" "npm audit CRITICAL minimist"
+OUT="$(NPM_CONFIG_PRODUCTION=true npm_config_only=prod "$AUDIT" --root "$FX/critical-dev" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+rc "dev-only critical, npm_config_production/only" 1; has "production/only" "npm audit CRITICAL minimist"
+
+echo "3d. crashes and malformed OSV answers are INCOMPLETE, never FINDING (reviewer finding: {\"results\":[null]} exited 1)"
+cat > "$TMP/mock_osv.py" <<'PYEOF'
+# tiny OSV stand-in: answers every POST with the given status and body; writes its port to a file
+import sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+portfile, status, body = sys.argv[1], int(sys.argv[2]), sys.argv[3].encode()
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        self.send_response(status); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    def log_message(self, *a): pass
+srv = HTTPServer(("127.0.0.1", 0), H)
+open(portfile, "w").write(str(srv.server_port))
+srv.serve_forever()
+PYEOF
+mock_run() {   # mock_run <label> <expected exit> <status> <body>: clean fixture against a mock OSV
+  rm -f "$TMP/port"
+  python3 -I "$TMP/mock_osv.py" "$TMP/port" "$3" "$4" & MOCK_PID=$!
+  for _ in $(seq 1 50); do [ -s "$TMP/port" ] && break; sleep 0.1; done
+  if [ ! -s "$TMP/port" ]; then bad "$1: mock OSV did not start"; return; fi
+  OUT="$(DEP_AUDIT_OSV_URL="http://127.0.0.1:$(cat "$TMP/port")/v1/querybatch" "$AUDIT" --root "$FX/clean" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+  kill "$MOCK_PID" 2>/dev/null; wait "$MOCK_PID" 2>/dev/null; MOCK_PID=""
+  rc "$1" "$2"
+}
+# controls first: the mock itself must be able to produce CLEAN and FINDING (otherwise exit 2 proves nothing)
+mock_run "mock OSV: clean answer" 0 200 '{"results":[{}]}';                                  has "mock clean" "RESULT: CLEAN"
+mock_run "mock OSV: MAL- answer" 1 200 '{"results":[{"vulns":[{"id":"MAL-TEST-0001"}]}]}';   has "mock MAL" "MAL-TEST-0001"
+mock_run "mock OSV: results [null]" 2 200 '{"results":[null]}';                              has "mock null" "RESULT: INCOMPLETE"; lacks "mock null" "Traceback"
+mock_run "mock OSV: results []" 2 200 '{"results":[]}';                                      has "mock empty" "OSV lookup failed"
+mock_run "mock OSV: vulns is null" 2 200 '{"results":[{"vulns":5}]}';                        has "mock bad vulns" "RESULT: INCOMPLETE"
+mock_run "mock OSV: not JSON" 2 200 'garbage';                                               has "mock garbage" "RESULT: INCOMPLETE"
+mock_run "mock OSV: JSON array" 2 200 '[]';                                                  has "mock array" "RESULT: INCOMPLETE"
+mock_run "mock OSV: HTTP 500" 2 500 '{}';                                                    has "mock 500" "OSV lookup failed"
+OUT="$(DEP_AUDIT_SELFTEST_CRASH=1 "$AUDIT" --root "$FX/clean" --exceptions "$TMP/none.txt" 2>&1)"; RC=$?
+rc "unexpected crash (top-level guard)" 2; has "crash guard" "INCOMPLETE: internal error: RuntimeError"; lacks "crash guard" "Traceback"
+printf '\377\376 not utf-8\n' > "$TMP/binary-exceptions.txt"
+run --root "$FX/clean" --exceptions "$TMP/binary-exceptions.txt"
+rc "unreadable (non-UTF-8) exceptions file" 2; has "binary exceptions" "exceptions file: unreadable"
+
+echo "3e. undiscovered surfaces must not be silent (reviewer finding A)"
+alone() {   # alone <label> <file name relative to the root> <file content>: the file by itself in a fresh root
+  rm -rf "$TMP/alone"; mkdir -p "$TMP/alone/$(dirname "$2")"; printf '%s\n' "$3" > "$TMP/alone/$2"
+  run --root "$TMP/alone" --exceptions "$TMP/none.txt"
+  rc "$1 alone" 2; lacks "$1 alone" "RESULT: CLEAN"
+}
+alone "deno.json" fn/deno.json '{"imports": {}}'
+alone "deno.jsonc" fn/deno.jsonc '{"imports": {}}'
+alone "import_map.json" fn/import_map.json '{"imports": {}}'
+has "import_map.json" "deno config with no deno.lock"
+alone "pyproject.toml" svc/pyproject.toml '[project]'
+alone "Pipfile" svc/Pipfile '[packages]'
+alone "setup.py" svc/setup.py 'from setuptools import setup'
+alone "requirements.in" svc/requirements.in 'requests'
+alone "constraints.txt" svc/constraints.txt 'requests==2.31.0'
+alone "dev-requirements.txt" svc/dev-requirements.txt 'pytest>=7'
+alone "requirements/base.txt" svc/requirements/base.txt 'requests>=2'
+run --root "$FX/denocovered" --exceptions "$TMP/none.txt"
+rc "deno.json covered by deno.lock in the same dir" 0; has "deno.json covered" "covered by fn/deno.lock"
+run --root "$FX/denoancestor" --exceptions "$TMP/none.txt"
+rc "deno.json covered by deno.lock in an ancestor dir" 0; has "deno.json ancestor" "covered by deno.lock"
+
+echo "3f. npm lock rules (reviewer findings D, E, F)"
+run --root "$FX/nonregistry" --exceptions "$TMP/none.txt"
+rc "lock entry resolved outside the registry, no integrity" 2; has "non-registry" "not from https://registry.npmjs.org or without integrity"
+has "non-registry" "node_modules/left-pad"
+run --root "$FX/nopkgjson" --exceptions "$TMP/none.txt"
+rc "package-lock.json without a sibling package.json" 2; has "no package.json" "lock has no sibling package.json"
+run --root "$FX/lockv1" --exceptions "$TMP/none.txt"
+rc "lockfileVersion 1" 0; has "lockfileVersion 1" "package-lock.json (v1)"; has "lockfileVersion 1" "versions-checked=1"
+run --root "$FX/lockv99" --exceptions "$TMP/none.txt"
+rc "unsupported lockfileVersion 99" 2; has "lockfileVersion 99" "unsupported lockfileVersion 99"
+run --root "$FX/malicious" --exceptions "$FX/malicious/exceptions.txt"
+rc "npm-audit 'Malware in' advisory cannot be excepted" 1; has "malware exception" "FINDING: npm audit MALWARE advisory keyv"
+
+echo "3g. discovery problems and exception wildcards"
+rm -rf "$TMP/disc"; mkdir -p "$TMP/disc/real/app" "$TMP/disc/hidden"
+cp "$FX/clean/app/package.json" "$FX/clean/app/package-lock.json" "$TMP/disc/real/app/"
+ln -s "$TMP/disc/real" "$TMP/disc/linked"
+run --root "$TMP/disc" --exceptions "$TMP/none.txt"
+rc "symlinked directory is reported, not skipped" 2; has "symlink" "symlinked directory not followed: linked"
+rm -f "$TMP/disc/linked"
+chmod 000 "$TMP/disc/hidden"
+run --root "$TMP/disc" --exceptions "$TMP/none.txt"
+chmod 755 "$TMP/disc/hidden"
+rc "unreadable directory is reported, not skipped" 2; has "unreadable dir" "unreadable directory: hidden"
+run --root "$TMP/disc" --exceptions "$TMP/none.txt"
+rc "control: readable tree without the symlink or locked dir" 0
+printf 'app/package-lock.json ? unattributed # wildcard\n' > "$TMP/wild1.txt"
+run --root "$FX/critical" --exceptions "$TMP/wild1.txt"
+rc "wildcard exception line rejected (critical stays a finding)" 1; has "wildcard" "wildcard or unattributed entries are not allowed"
+run --root "$FX/clean" --exceptions "$TMP/wild1.txt"
+rc "wildcard exception line makes an otherwise clean run INCOMPLETE" 2
 
 echo "4. exclusions"
 # defence in depth: even a real-named manifest placed INSIDE the excluded fixture path is skipped.
@@ -149,8 +299,8 @@ has "real repo" "exclusions: node_modules, .git (any depth); .claude, .claude/wo
 has "real repo" "exclusions: node_modules"
 has "real repo" "scripts/fixtures/p1563-dep-audit"
 INV="$(printf '%s\n' "$OUT" | sed -n '/^COVERAGE INVENTORY/,/^SUMMARY/p')"
-if printf '%s\n' "$INV" | grep -qF "p1563-dep-audit"; then bad "real repo: fixture dir appears in the inventory"; else ok "real repo: fixture dir absent from the inventory"; fi
-if printf '%s\n' "$INV" | grep -qF ".claude/worktrees"; then bad "real repo: worktrees appear in the inventory"; else ok "real repo: .claude/worktrees absent from the inventory"; fi
+if grep -qF "p1563-dep-audit" <<<"$INV"; then bad "real repo: fixture dir appears in the inventory"; else ok "real repo: fixture dir absent from the inventory"; fi
+if grep -qF ".claude/worktrees" <<<"$INV"; then bad "real repo: worktrees appear in the inventory"; else ok "real repo: .claude/worktrees absent from the inventory"; fi
 if [ "$RC" = 0 ] || [ "$RC" = 1 ] || [ "$RC" = 2 ]; then ok "real repo: exit code is one of 0/1/2 ($RC)"; else bad "real repo: unexpected exit $RC"; fi
 
 echo "5. gate 7d: mutate a copy of the real lock"
@@ -159,6 +309,20 @@ if [ -f "$ROOT/package-lock.json" ] && [ -f "$ROOT/package.json" ]; then
   # control first: the unmutated copy has no MAL- hit (otherwise the mutation proves nothing)
   run --root "$TMP/real-copy" --exceptions "$TMP/none.txt"
   lacks "real-copy control (unmutated)" "MALICIOUS"
+  lacks "real-copy control (unmutated)" "not from https://registry.npmjs.org"
+  # gate 7d for the registry-source rule: the real lock passes it, and a mutated entry trips it
+  cp "$TMP/real-copy/app/package-lock.json" "$TMP/real-lock-orig.json"
+  python3 -I - "$TMP/real-copy/app/package-lock.json" <<'EOF2'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["packages"]["node_modules/keyv"]["resolved"] = "git+ssh://git@example.invalid/keyv.git#abc"
+json.dump(d, open(p, "w"), indent=2)
+EOF2
+  run --root "$TMP/real-copy" --exceptions "$TMP/none.txt"
+  has "real-copy resolved mutated" "not from https://registry.npmjs.org or without integrity"
+  has "real-copy resolved mutated" "node_modules/keyv"
+  cp "$TMP/real-lock-orig.json" "$TMP/real-copy/app/package-lock.json"
   python3 -I - "$TMP/real-copy/app/package-lock.json" <<'EOF'
 import json, sys
 p = sys.argv[1]
@@ -173,8 +337,8 @@ else
 fi
 
 echo "6. output safety"
-if printf '%s\n' "$D_OUT" | grep -qE '[<>|]'; then bad "lookup-failure output contains a redirect token"; else ok "lookup-failure output has no <, > or |"; fi
-if printf '%s\n' "$OUT" | grep -qE '[<>|]'; then bad "real-copy output contains a redirect token"; else ok "real-copy output has no <, > or |"; fi
+if grep -qE '[<>|]' <<<"$D_OUT"; then bad "lookup-failure output contains a redirect token"; else ok "lookup-failure output has no <, > or |"; fi
+if grep -qE '[<>|]' <<<"$OUT"; then bad "real-copy output contains a redirect token"; else ok "real-copy output has no <, > or |"; fi
 
 echo
 echo "passed: $pass  failed: $fail"

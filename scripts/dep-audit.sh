@@ -7,6 +7,8 @@
 # Environment:
 #   DEP_AUDIT_OSV_URL  OSV batch endpoint (default https://api.osv.dev/v1/querybatch); used by the
 #                      tests to simulate a lookup failure
+#   DEP_AUDIT_SELFTEST_CRASH  test-only: any non-empty value raises inside the script to prove the
+#                      top-level guard turns an unexpected crash into INCOMPLETE (exit 2)
 #
 # EXIT CODES (three distinct outcomes; INCOMPLETE is never reported or exited as clean)
 #   0  CLEAN       every discovered manifest was fully checked: no malicious (MAL-) advisory, and no
@@ -27,17 +29,36 @@
 #                                 other checkouts of this repo, not part of this tree)
 #     scripts/fixtures/p1563-dep-audit   this script's own test fixtures (they hold known-bad versions
 #                                 on purpose; also stored under non-manifest names, see the test)
-#   Formats:
-#     package-lock.json (lockfileVersion 1/2/3)  -> npm audit (full tree) + OSV (ecosystem npm)
-#     deno.lock (versions 2/3/4/5)               -> npm entries + exact esm.sh/unpkg/jsdelivr npm
+#   Formats and surfaces:
+#     package-lock.json (lockfileVersion 1/2/3)  -> npm audit (full tree, env-independent) + OSV
+#                                                   (npm). INCOMPLETE if an entry is not from
+#                                                   https://registry.npmjs.org or lacks integrity,
+#                                                   or if there is no sibling package.json.
+#     deno.lock (versions 1/2/3/4/5)             -> npm entries + exact esm.sh/unpkg/jsdelivr npm
 #                                                   URLs -> OSV (npm); jsr:/deno.land/other hosts
 #                                                   have no OSV ecosystem -> INCOMPLETE unless
 #                                                   accepted with an `unchecked` exception line
-#     requirements*.txt / requirements*.lock     -> exact `==` pins -> OSV (ecosystem PyPI);
-#                                                   any non-exact line -> INCOMPLETE
+#     deno.json, deno.jsonc, import_map.json     -> covered by a deno.lock in the same or an
+#                                                   ancestor directory, else INCOMPLETE
+#     requirements*.txt / *requirements*.txt / requirements/*.txt / requirements*.lock
+#                                                -> exact `==` pins -> OSV (PyPI). CLEAN only when
+#                                                   EVERY line carries --hash= (pip then refuses
+#                                                   anything unlisted) or the file sets --no-deps with
+#                                                   every line exact; exact pins alone are INCOMPLETE
+#                                                   (transitive dependencies not pinned). Any
+#                                                   include/constraint/editable/find-links directive,
+#                                                   or an index other than pypi.org, is INCOMPLETE.
+#     pyproject.toml, Pipfile, setup.py, *.in, constraints*.txt
+#                                                -> never parsed; INCOMPLETE unless a fully
+#                                                   hash-locked requirements file sits in the same
+#                                                   directory. A ranged requirements file is covered
+#                                                   the same way.
 #     package.json                               -> needs a sibling lock (or a workspace-root lock
 #                                                   that lists it); otherwise INCOMPLETE
 #     other lock formats (yarn.lock, pnpm-lock.yaml, poetry.lock, ...) -> unsupported -> INCOMPLETE
+#     symlinked or unreadable directories met during discovery        -> listed, INCOMPLETE
+#   An npm-audit advisory titled "Malware in ..." is treated like MAL-: FINDING, never excepted.
+#   Dockerfile `pip install` lines are NOT parsed (documented limit).
 #   Malicious advisory = OSV id starting `MAL-`. Source: the OSV schema's database-prefix table maps
 #   MAL to the OpenSSF "Malicious Packages Repository" (https://ossf.github.io/osv-schema/), and the
 #   live lookup in test-p1563-dep-audit.sh confirms keyv@6.0.0 returns MAL-2026-11524.
@@ -46,6 +67,8 @@
 #   A reason after `#` is mandatory. Applies to npm-audit criticals (package + GHSA id or numeric
 #   advisory source) and to `unchecked` entries (advisory-id literally `unchecked`). Never to MAL-.
 #
+# An unexpected crash (uncaught exception) is INCOMPLETE too: it prints `INCOMPLETE: internal error`
+# and exits 2, never 1.
 # Only package names and versions are sent to OSV. No credentials are read or sent.
 set -euo pipefail
 
@@ -57,7 +80,7 @@ command -v python3 >/dev/null || { echo "dep-audit: python3 not found" >&2; exit
 command -v npm >/dev/null || { echo "dep-audit: npm not found (cannot run npm audit)" >&2; exit 2; }
 
 PY=$(cat <<'PYEOF'
-import json, os, re, subprocess, sys, urllib.request, urllib.error
+import http.client, json, os, re, subprocess, sys, urllib.parse, urllib.request, urllib.error
 
 EXCLUDE_NAMES = ["node_modules", ".git"]                      # any depth
 EXCLUDE_RELPATHS = [".claude", ".claude/worktrees", "scripts/fixtures/p1563-dep-audit"]  # relative to root
@@ -77,6 +100,20 @@ EXACT_SEMVER = r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?"
 _print = print
 def print(*a, **k):
     _print(*[re.sub(r"[<>|]", lambda m_: {"<": "(", ">": ")", "|": "/"}[m_.group(0)], str(x)) for x in a], **k)
+
+
+def _internal_error(etype, value, tb):
+    # Top-level guard: an uncaught exception must never exit 1 (= FINDING) or print a traceback and
+    # leave a caller thinking the audit ran. It is INCOMPLETE, always.
+    try:
+        print("INCOMPLETE: internal error: %s" % etype.__name__)
+        print("RESULT: INCOMPLETE (exit 2) - not verified clean")
+        sys.stdout.flush()
+    finally:
+        os._exit(2)
+
+
+sys.excepthook = _internal_error
 
 
 def die(msg):
@@ -99,6 +136,8 @@ while i < len(args):
 if not os.path.isdir(root):
     die("scan root is not a directory: " + root_label)
 root = os.path.abspath(root)
+if os.environ.get("DEP_AUDIT_SELFTEST_CRASH"):   # test-only: proves the top-level guard exits 2
+    raise RuntimeError("selftest crash")
 
 
 class Manifest:
@@ -112,6 +151,7 @@ class Manifest:
         self.pkgs = set()      # (ecosystem, name, version)
         self.unchecked = []    # (label, why)
         self.criticals = []    # (package, [ids], title)
+        self.locked = False    # python: fully hash-locked (or --no-deps with exact pins)
 
 
 manifests = []
@@ -122,17 +162,23 @@ exc_problems = []
 exc_state = "absent"
 if os.path.isfile(exc_path):
     exc_state = "present"
-    with open(exc_path, encoding="utf-8") as fh:
-        for n, line in enumerate(fh, 1):
-            s = line.strip()
-            if not s or s.startswith("#"):
-                continue
-            left, _, reason = s.partition("#")
-            parts = left.split()
-            if len(parts) != 3 or not reason.strip():
-                exc_problems.append("line %d: expected '<path> <package> <advisory-id> # reason'" % n)
-                continue
-            exceptions[tuple(parts)] = reason.strip()
+    try:
+        with open(exc_path, encoding="utf-8") as fh:
+            for n, line in enumerate(fh, 1):
+                s = line.strip()
+                if not s or s.startswith("#"):
+                    continue
+                left, _, reason = s.partition("#")
+                parts = left.split()
+                if len(parts) != 3 or not reason.strip():
+                    exc_problems.append("line %d: expected '<path> <package> <advisory-id> # reason'" % n)
+                    continue
+                if parts[1] in ("?", "*") or parts[2] in ("?", "*", "unattributed"):
+                    exc_problems.append("line %d: wildcard or unattributed entries are not allowed; name the exact package and advisory id" % n)
+                    continue
+                exceptions[tuple(parts)] = reason.strip()
+    except (OSError, ValueError) as e:
+        exc_problems.append("unreadable: %s" % type(e).__name__)
 used_exceptions = set()
 
 
@@ -146,9 +192,30 @@ def excepted(rel, pkg, ids):
 
 
 # ---------- discovery ----------
+discovery_problems = []
+
+
+def kind_of(rel):
+    base = os.path.basename(rel); parent = os.path.basename(os.path.dirname(rel))
+    if base == "package-lock.json": return "npmlock"
+    if base == "package.json": return "pkgjson"
+    if base == "deno.lock": return "denolock"
+    if base in ("deno.json", "deno.jsonc", "import_map.json"): return "denocfg"
+    if base in UNSUPPORTED_LOCKS: return "unsupported"
+    if re.fullmatch(r".*requirements.*\.(txt|lock)", base, re.I) or (parent == "requirements" and base.endswith(".txt")):
+        return "pyreq"
+    if base in ("pyproject.toml", "Pipfile", "setup.py") or base.endswith(".in") or re.fullmatch(r"constraints.*\.txt", base, re.I):
+        return "pysrc"
+    return None
+
+
 def discover():
     found = []
-    for dirpath, dirnames, filenames in os.walk(root):
+
+    def onerr(e):
+        discovery_problems.append("unreadable directory: %s (%s)" % (os.path.relpath(str(e.filename), root), type(e).__name__))
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=onerr):
         rel_dir = os.path.relpath(dirpath, root)
         rel_dir = "" if rel_dir == "." else rel_dir
         keep = []
@@ -156,12 +223,15 @@ def discover():
             rd = (rel_dir + "/" + d) if rel_dir else d
             if d in EXCLUDE_NAMES or rd in EXCLUDE_RELPATHS:
                 continue
+            if os.path.islink(os.path.join(dirpath, d)):
+                discovery_problems.append("symlinked directory not followed: %s" % rd)
+                continue
             keep.append(d)
         dirnames[:] = keep
         for f in sorted(filenames):
-            if (f in ("package.json", "package-lock.json", "deno.lock") or f in UNSUPPORTED_LOCKS
-                    or re.fullmatch(r"requirements.*\.(txt|lock)", f)):
-                found.append((rel_dir + "/" + f) if rel_dir else f)
+            rel = (rel_dir + "/" + f) if rel_dir else f
+            if kind_of(rel):
+                found.append(rel)
     return found
 
 
@@ -171,13 +241,34 @@ def read_json(rel):
 
 
 # ---------- npm package-lock ----------
+NPM_REGISTRY = "https://registry.npmjs.org/"
+
+
+def registry_problem(key, ent):
+    """None if the lock entry is a registry package with integrity, else a short description."""
+    res = ent.get("resolved")
+    if not isinstance(res, str) or not res.startswith(NPM_REGISTRY):
+        host = re.match(r"([A-Za-z][A-Za-z0-9+.-]*://[^/@]*@?[^/]*)", res) if isinstance(res, str) else None
+        where = re.sub(r"//[^/@]*@", "//", host.group(1)) if host else "no resolved URL"
+        return "%s (%s)" % (key, where)
+    if not ent.get("integrity"):
+        return "%s (no integrity)" % key
+    return None
+
+
 def parse_package_lock(m):
     data = read_json(m.rel)
     lv = data.get("lockfileVersion")
     m.fmt = "package-lock.json (v%s)" % lv
+    bad_src = []
     if lv in (2, 3) and isinstance(data.get("packages"), dict):
         for key, ent in data["packages"].items():
             if key == "" or not isinstance(ent, dict) or ent.get("link"):
+                continue
+            if "node_modules/" not in key:      # a local workspace folder, not a registry package
+                m.notes.append("local workspace entry not looked up: %s" % key)
+                continue
+            if ent.get("inBundle"):
                 continue
             name = ent.get("name") or key.rsplit("node_modules/", 1)[-1]
             ver = ent.get("version")
@@ -185,52 +276,94 @@ def parse_package_lock(m):
                 m.incomplete.append("lock entry without an exact version: %s" % key)
                 continue
             m.pkgs.add(("npm", name, ver))
+            prob = registry_problem(key, ent)
+            if prob:
+                bad_src.append(prob)
     elif lv == 1 and isinstance(data.get("dependencies"), dict):
-        def walk(deps):
+        def walk(deps, prefix):
             for name, ent in deps.items():
                 ver = ent.get("version", "")
                 if re.fullmatch(EXACT_SEMVER, ver):
                     m.pkgs.add(("npm", name, ver))
+                    if not ent.get("bundled"):
+                        prob = registry_problem(prefix + name, ent)
+                        if prob:
+                            bad_src.append(prob)
                 else:
                     m.incomplete.append("lock entry without an exact version: %s@%s" % (name, ver))
-                walk(ent.get("dependencies", {}))
-        walk(data["dependencies"])
+                walk(ent.get("dependencies", {}), prefix + name + ">")
+        walk(data["dependencies"], "")
     else:
         m.incomplete.append("unsupported lockfileVersion %r" % (lv,))
+        return
+    if bad_src:
+        m.incomplete.append("%d lock entr%s not from %s or without integrity (OSV was asked about the registry package, not what is installed): %s%s" % (
+            len(bad_src), "y" if len(bad_src) == 1 else "ies", NPM_REGISTRY.rstrip("/"), "; ".join(bad_src[:5]),
+            " ..." if len(bad_src) > 5 else ""))
+    d = os.path.dirname(m.rel)
+    if ((d + "/package.json") if d else "package.json") not in all_rels:
+        m.incomplete.append("lock has no sibling package.json: npm audit would audit the parent tree, so it was not run")
         return
     run_npm_audit(m)
 
 
 def run_npm_audit(m):
     d = os.path.join(root, os.path.dirname(m.rel))
-    env = dict(os.environ, NPM_CONFIG_UPDATE_NOTIFIER="false", NPM_CONFIG_FUND="false")
+    # Full-tree audit regardless of the caller's environment: NODE_ENV=production or
+    # npm_config_omit=dev would silently drop dev-only criticals, so every variable that can
+    # narrow the audited tree is removed and the inclusion flags are explicit.
+    env = {k: v for k, v in os.environ.items()
+           if k.upper() != "NODE_ENV" and not re.match(
+               r"(?i)npm_config_(omit|production|only|also|include|dev|optional|workspace|workspaces|"
+               r"include_workspace_root|audit_level)$", k)}
+    env.update(NPM_CONFIG_UPDATE_NOTIFIER="false", NPM_CONFIG_FUND="false")
+    p = None
     try:
-        p = subprocess.run(["npm", "audit", "--json", "--package-lock-only"], cwd=d, env=env,
+        p = subprocess.run(["npm", "audit", "--json", "--package-lock-only",
+                            "--include=dev", "--include=optional", "--include=peer"], cwd=d, env=env,
                            capture_output=True, text=True, timeout=NPM_AUDIT_TIMEOUT)
         rep = json.loads(p.stdout)
     except subprocess.TimeoutExpired:
         m.incomplete.append("npm audit timed out after %ds" % NPM_AUDIT_TIMEOUT); return
-    except (ValueError, OSError):
-        m.incomplete.append("npm audit produced no parseable JSON (exit %s)" % getattr(p, "returncode", "?")); return
-    if "error" in rep or "metadata" not in rep:
-        err = rep.get("error", {})
-        m.incomplete.append("npm audit failed: %s" % (err.get("summary") or err.get("code") or "no metadata"))
-        return
-    counts = rep["metadata"].get("vulnerabilities", {})
-    m.audit_counts = counts
-    seen = set()
-    for name, v in rep.get("vulnerabilities", {}).items():
-        for via in v.get("via", []):
-            if isinstance(via, dict) and via.get("severity") == "critical":
+    except (ValueError, OSError, subprocess.SubprocessError):
+        m.incomplete.append("npm audit produced no parseable JSON (exit %s)" % (p.returncode if p is not None else "not run")); return
+    try:
+        if not isinstance(rep, dict):
+            raise TypeError("report is not an object")
+        if "error" in rep or "metadata" not in rep:
+            err = rep.get("error") or {}
+            msg = (err.get("summary") or err.get("code")) if isinstance(err, dict) else None
+            m.incomplete.append("npm audit failed: %s" % (msg or "no metadata"))
+            return
+        counts = rep["metadata"].get("vulnerabilities", {})
+        m.audit_counts = counts
+        malware = []
+        seen = set()
+        for name, v in (rep.get("vulnerabilities") or {}).items():
+            for via in v.get("via", []):
+                if not isinstance(via, dict):
+                    continue
+                title = str(via.get("title", ""))
                 ghsa = (via.get("url") or "").rstrip("/").rsplit("/", 1)[-1]
                 ids = [x for x in (ghsa, str(via.get("source", ""))) if x]
                 pkg = via.get("name") or name
                 key = (pkg, tuple(ids))
-                if key not in seen:
+                if key in seen:
+                    continue
+                if title.startswith("Malware in"):      # malicious package: like MAL-, never excepted
                     seen.add(key)
-                    m.criticals.append((pkg, ids, via.get("title", "")))
-    if counts.get("critical", 0) > 0 and not m.criticals:
-        m.criticals.append(("?", ["unattributed"], "critical reported without advisory detail"))
+                    malware.append((pkg, ids, title))
+                elif via.get("severity") == "critical":
+                    seen.add(key)
+                    m.criticals.append((pkg, ids, title))
+        if counts.get("critical", 0) > 0 and not m.criticals and not malware:
+            m.criticals.append(("?", ["unattributed"], "critical reported without advisory detail"))
+    except (AttributeError, TypeError, KeyError, IndexError, ValueError) as e:
+        m.audit_counts = None; m.criticals = []; malware = []
+        m.incomplete.append("npm audit output not understood (%s)" % type(e).__name__)
+        return
+    for pkg, ids, title in malware:
+        m.findings.append("npm audit MALWARE advisory %s %s %s" % (pkg, "/".join(ids), title))
     for pkg, ids, title in m.criticals:
         if not excepted(m.rel, pkg, ids):
             m.findings.append("npm audit CRITICAL %s %s %s" % (pkg, "/".join(ids), title))
@@ -311,21 +444,46 @@ def parse_deno_lock(m):
 
 
 # ---------- python requirements ----------
+# Option-only lines that add no packages and do not change where they come from.
+REQ_OK_OPTIONS = {"--require-hashes", "--only-binary", "--no-binary", "--prefer-binary", "--no-deps",
+                  "--hash", "--pre", "--trusted-host", "--no-index", "--use-pep517", "--no-use-pep517",
+                  "--no-build-isolation", "--no-emit-index-url", "--no-annotate"}
+REQ_INDEX_OPTIONS = {"--index-url", "-i", "--extra-index-url"}
+
+
 def parse_requirements(m):
     m.fmt = "requirements (exact pins)"
     with open(os.path.join(root, m.rel), encoding="utf-8") as fh:
         text = fh.read().replace("\\\n", " ")
     bad = 0
+    total = hashed = 0
+    no_deps = False
+    directives = []
     for raw in text.splitlines():
         s = raw.split(" #", 1)[0].strip()
         if not s or s.startswith("#"):
             continue
         if s.startswith("-"):
-            if s.split()[0] in ("-r", "--requirement", "-c", "--constraint", "-e", "--editable"):
-                m.notes.append("directive not followed: " + s.split()[0])
-                if s.split()[0] in ("-e", "--editable"):
-                    bad += 1
+            opt = re.split(r"[\s=]", s, maxsplit=1)[0]
+            arg = s[len(opt):].lstrip(" =")
+            if opt == "--no-deps":
+                no_deps = True
+            if opt in REQ_OK_OPTIONS:
+                continue
+            if opt in REQ_INDEX_OPTIONS:
+                try:
+                    u = urllib.parse.urlsplit(arg.split()[0]) if arg.split() else None
+                    official = bool(u and u.scheme == "https" and u.hostname == "pypi.org" and u.username is None)
+                except ValueError:
+                    official = False
+                if not official:
+                    directives.append("%s: index is not https://pypi.org, so OSV names may not be what is installed" % opt)
+                continue
+            directives.append("%s: install-changing directive not followed (includes/constraints/editable/find-links/unknown)" % opt)
             continue
+        total += 1
+        if re.search(r"(^|\s)--hash=\S+", s):
+            hashed += 1
         s = s.split(";", 1)[0].strip()
         s = re.split(r"\s--", s, maxsplit=1)[0].strip()
         mm = re.fullmatch(r"([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[^\]]*\])?\s*===?\s*([A-Za-z0-9.!+_-]+)", s)
@@ -334,8 +492,18 @@ def parse_requirements(m):
             m.pkgs.add(("PyPI", name, mm.group(2)))
         else:
             bad += 1
+    for d in sorted(set(directives)):
+        m.incomplete.append("requirements directive: " + d)
     if bad:
         m.incomplete.append("%d requirement line(s) without an exact == pin (ranges/URLs/bare names): versions not determinable" % bad)
+    if directives or bad or not total:
+        return
+    if hashed == total:
+        m.locked = True; m.notes.append("fully hash-locked: pip refuses anything unlisted")
+    elif no_deps:
+        m.locked = True; m.notes.append("--no-deps with exact pins on every line")
+    else:
+        m.incomplete.append("transitive dependencies not pinned: %d of %d requirement line(s) carry no --hash (exact pins alone do not stop pip resolving new transitive versions)" % (total - hashed, total))
 
 
 # ---------- package.json ----------
@@ -370,22 +538,53 @@ rels = discover()
 all_rels = set(rels)
 for rel in rels:
     base = os.path.basename(rel)
+    kind = kind_of(rel)
     m = Manifest(rel, base)
+    m.kind = kind
     manifests.append(m)
     try:
-        if base == "package-lock.json":
+        if kind == "npmlock":
             parse_package_lock(m)
-        elif base == "deno.lock":
+        elif kind == "denolock":
             parse_deno_lock(m)
-        elif base == "package.json":
+        elif kind == "pkgjson":
             check_package_json(m, all_rels)
-        elif base in UNSUPPORTED_LOCKS:
+        elif kind == "unsupported":
             m.fmt = base + " (unsupported)"
             m.incomplete.append("unsupported lock format: not checked")
-        else:
+        elif kind == "pyreq":
             parse_requirements(m)
-    except (ValueError, OSError, KeyError, TypeError, AttributeError) as e:
+        else:
+            pass   # denocfg / pysrc are resolved against the other manifests below
+    except (ValueError, OSError, KeyError, TypeError, AttributeError, IndexError) as e:
         m.incomplete.append("unparseable manifest (%s: %s)" % (type(e).__name__, e))
+
+# Coverage: an input file that does not itself pin everything is covered by a lock next to it
+# (python) or at or above it (deno), the same idea as package.json + package-lock.json.
+def dirname(rel):
+    return os.path.dirname(rel)
+
+
+for m in manifests:
+    if m.kind in ("pyreq", "pysrc") and not m.locked:
+        lock = next((o for o in manifests if o is not m and o.kind == "pyreq" and o.locked
+                     and dirname(o.rel) == dirname(m.rel)), None)
+        if lock:
+            m.incomplete = []
+            m.fmt = m.fmt if m.kind == "pyreq" else m.rel.rsplit("/", 1)[-1] + " (python input)"
+            m.notes.append("covered by hash-locked " + lock.rel)
+        elif m.kind == "pysrc":
+            m.fmt = m.rel.rsplit("/", 1)[-1] + " (python input)"
+            m.incomplete.append("python input with no fully hash-locked requirements file in the same directory: dependencies not pinned/checkable")
+    elif m.kind == "denocfg":
+        m.fmt = m.rel.rsplit("/", 1)[-1] + " (deno config)"
+        parts = dirname(m.rel).split("/") if dirname(m.rel) else []
+        cands = [("/".join(parts[:k]) + "/deno.lock") if k else "deno.lock" for k in range(len(parts), -1, -1)]
+        lock = next((c for c in cands if c in all_rels), None)
+        if lock:
+            m.notes.append("covered by " + lock)
+        else:
+            m.incomplete.append("deno config with no deno.lock in the same or an ancestor directory: imports not pinned/checkable")
 
 # `unchecked` entries: INCOMPLETE unless accepted by an exception line
 for m in manifests:
@@ -421,23 +620,29 @@ lookup_errors = []
 for start in range(0, len(queries), OSV_CHUNK):
     chunk = queries[start:start + OSV_CHUNK]
     try:
-        res = osv_post({"queries": [q(p) for p in chunk]}).get("results")
+        body = osv_post({"queries": [q(p) for p in chunk]})
+        res = body.get("results") if isinstance(body, dict) else None
         if not isinstance(res, list) or len(res) != len(chunk):
             raise RuntimeError("OSV returned %s results for %d queries" % (len(res) if isinstance(res, list) else "no", len(chunk)))
         for p, r in zip(chunk, res):
-            ids = {v["id"] for v in r.get("vulns", [])}
+            if not isinstance(r, dict):
+                raise RuntimeError("OSV result entry is not an object for %s@%s" % (p[1], p[2]))
+            ids = {v["id"] for v in (r.get("vulns") or [])}
             token, pages = r.get("next_page_token"), 0
             while token:
                 pages += 1
                 if pages > OSV_MAX_PAGES:
                     raise RuntimeError("OSV pagination exceeded %d pages for %s@%s" % (OSV_MAX_PAGES, p[1], p[2]))
                 r2 = osv_post({"queries": [q(p, token)]})["results"][0]
-                ids |= {v["id"] for v in r2.get("vulns", [])}
+                if not isinstance(r2, dict):
+                    raise RuntimeError("OSV page result is not an object for %s@%s" % (p[1], p[2]))
+                ids |= {v["id"] for v in (r2.get("vulns") or [])}
                 token = r2.get("next_page_token")
             hits = sorted(i for i in ids if i.startswith("MAL-"))
             if hits:
                 mal[p] = hits
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError, RuntimeError, ValueError, KeyError) as e:
+    except (urllib.error.URLError, urllib.error.HTTPError, http.client.HTTPException, OSError, RuntimeError,
+            ValueError, KeyError, IndexError, AttributeError, TypeError) as e:
         lookup_errors.append("OSV lookup failed for %d version(s): %s: %s" % (len(chunk), type(e).__name__, e))
         failed.update(chunk)
 
@@ -476,7 +681,7 @@ for m in manifests:
 
 findings = [(m.rel, f) for m in manifests for f in m.findings]
 incomplete = [(m.rel, f) for m in manifests for f in m.incomplete]
-global_inc = list(lookup_errors) + ["exceptions file: " + p for p in exc_problems]
+global_inc = list(lookup_errors) + ["exceptions file: " + p for p in exc_problems] + discovery_problems
 if not manifests:
     global_inc.append("no manifests found under the scan root (wrong --root?)")
 stale = sorted(set(exceptions) - used_exceptions)

@@ -1,0 +1,8 @@
+{
+  "name": "p1563-fixture-critical-dev",
+  "version": "0.0.0",
+  "private": true,
+  "devDependencies": {
+    "minimist": "1.2.5"
+  }
+}
