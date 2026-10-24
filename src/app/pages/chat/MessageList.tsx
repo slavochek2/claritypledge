@@ -83,6 +83,14 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     return loadEarlier();
   }, [loadEarlier]);
 
+  /** Where the reader is: following the bottom (clears the count), or far enough up for the jump-down button. */
+  const measure = useCallback((el: HTMLDivElement) => {
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stick.current = gap < BOTTOM_SLOP_PX;
+    if (stick.current) setNewCount(0);
+    setAway(gap > el.clientHeight / 2);
+  }, []);
+
   const toBottom = useCallback(() => {
     const el = scroller.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -157,12 +165,12 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     if (!box || !el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => {
       if (stick.current) el.scrollTop = el.scrollHeight;
-      else setAway(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight / 2);
+      else measure(el);
     });
     ro.observe(box);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [status]);
+  }, [status, measure]);
 
   // A search hit: page back until it is loaded, scroll to it, flash it.
   useEffect(() => {
@@ -174,11 +182,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const onScroll = () => {
     const el = scroller.current;
     if (!el) return;
-    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stick.current = gap < BOTTOM_SLOP_PX;
-    const far = gap > el.clientHeight / 2;
-    if (far !== away) setAway(far);
-    if (stick.current && newCount) setNewCount(0);
+    measure(el);
     if (el.scrollTop < TOP_LOAD_PX && hasMore && !loadingEarlier) void pageBack();
   };
 

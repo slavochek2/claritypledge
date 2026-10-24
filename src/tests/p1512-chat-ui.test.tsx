@@ -1269,6 +1269,9 @@ describe('conversation', () => {
       scroller.scrollTop = 2300;
       act(() => callbacks.forEach((cb) => cb()));
       expect(await screen.findByTestId('jump-down')).toBeInTheDocument();
+      Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 700 }); // grows until the bottom shows
+      act(() => callbacks.forEach((cb) => cb()));
+      await waitFor(() => expect(screen.queryByTestId('jump-down')).toBeNull());
     } finally {
       vi.stubGlobal('ResizeObserver', before);
     }
