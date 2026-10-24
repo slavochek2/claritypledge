@@ -109,7 +109,7 @@ A rewrite removes the direct identifier; it does not make the paragraph anonymou
    For soft flags — present to user and ask (name which resolution you'd pick).
 
    **Three resolutions, not two — pick by content type:**
-   - **Reframe (preferred for the founder's *own* personal-reason framing in a public strategy/goals doc):** rewrite to product-decision altitude — the *what/why of the decision*, not the personal circumstance behind it (e.g. "funds survival" → "funds the runway"; "need €2-3k to feel safe" → drop the personal figure, keep the decision). Keeps the fact in its **one CHARTER home**; no fragmentation. This beats moving when the sensitive part is the *framing*, not the fact.
+   - **Reframe (preferred for the founder's *own* personal-reason framing in a public strategy/goals doc):** rewrite to product-decision altitude — the *what/why of the decision*, not the personal circumstance behind it (e.g. "funds survival" → "funds the runway"; "need €2-3k to feel safe" → drop the personal figure, keep the decision). Keeps the fact in its **one CHARTER home**; no fragmentation. This beats moving when the sensitive part is the *framing*, not the fact. Also the resolution for dark framing of the product (soft flags): name what we want instead, and let the founder pick the words.
    - **Move to `.private/`:** for irreducibly-personal residue — names, exact personal finances, behavioral observations about identifiable people — that can't be reframed without losing the point.
    - **Redact:** delete outright if neither home fits.
 
