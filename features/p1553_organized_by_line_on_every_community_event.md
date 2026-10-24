@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-23'
 tags: [events, community, event-page]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -53,10 +53,11 @@ line.
 
 ## Acceptance Criteria
 
-- [ ] A non-hike event with a community shows "Organized by <name>" directly below the title, linking
-      to the community page (screenshot, desktop and 375px).
-- [ ] An event with no community shows no organizer line.
-- [ ] Hike pages look as before.
+- [x] A non-hike event with a community shows "Organized by <name>" directly below the title, linking
+      to the community page (screenshot, desktop and 375px). Verified on TEST, sales-mastermind-test,
+      1440px and 375px: "Organized by Clarity Practice Community · Chiang Mai" → /groups/cm, no overflow.
+- [x] An event with no community shows no organizer line. Unit test p1553 (b).
+- [x] Hike pages look as before. Unit test p1553 (c) plus the p1414/p1517 suites; not checked by screenshot.
 
 ## Related
 
