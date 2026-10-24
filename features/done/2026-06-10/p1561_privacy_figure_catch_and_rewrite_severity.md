@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 69
 workstream: infrastructure
 created_date: '2026-10-24'
 tags: [privacy, pre-commit, push, figures]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-24
 ---
 
 # P1561: Catch spend figures at commit time, and decide history rewrites by severity
