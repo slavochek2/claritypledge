@@ -265,6 +265,16 @@ Replaces the "Unread mark only on Shared with you" and "One meta line per row" b
 - **Live invite ("Join")** shown above both tabs.
 - **Kept:** "No recipients yet", Retry on error, the "Can't delete" message, private/public choice on New, Prepare letter guard (0 stories).
 
+### Orientation and overview redesign (founder, 2026-10-25, option A)
+
+Founder UAT: a tap on a letter in Yours sometimes edits (draft) and sometimes opens the overview (sent), with nothing on the row saying which; the letter overview has no hierarchy ("1 new" looks like a link, Results off to the right, equal white buttons, "open results" repeated, Back top and bottom); the same actions live in the row "…" and on the overview.
+
+- **Yours has headings:** Drafts, Sent, Canvases, in that order, each shown only when it has rows. A tap in Drafts always edits; a tap in Sent always opens the overview. Chips and search still filter within the headings.
+- **Letter overview, one hierarchy:** title and sealed date; one primary action **Add recipients**; Preview and Copy link in a "…" at the top right. Then the people list: each row is the person (name, status, "N of M steps", a dot when new) and the whole row opens their results. No separate Results link, no blue "new" text, no repeated "open results" above the stories. Stories follow below as detail. One Back (top, as on other focus pages).
+- **Row "…" on Artifacts keeps quick actions only:** sent letter: Copy public link (public only), Delete (disabled with reason once shared). Add recipients and Preview live on the overview.
+- **Canvas page:** shows Artifacts as the current section and has a Back button (today it sits under the profile layout, `/p/:handle/canvas/:projectTag`).
+- **Test data:** canvases shared with the founder's test account (one from a person, one via a group) on TEST only, so Shared with you and the chat card can be tried.
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.
