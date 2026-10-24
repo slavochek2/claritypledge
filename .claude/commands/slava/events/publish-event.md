@@ -126,6 +126,10 @@ Read back what the form will actually submit via `javascript_tool` (input `.valu
   never one from the other.
 - **Look at each crop file before uploading** (open it with the image reader), then adjust the
   offset and look again. Crop coordinates computed without looking are a guess.
+- **Uploading is founder-only.** The event page has no upload control for these files (the phone
+  banner is set only on the event row). The founder puts both files in the `event-banners` storage
+  bucket and sets `banner_url` and `banner_mobile_url` on the event row with the service key, on
+  TEST first. An operator stops here and hands the two files to the founder.
 - **Do not let AI redraw the photo.** Image models subtly change real faces; crop and pad only.
 - **Look at it before calling it done:** screenshot the live event page at 1440 px and 1920 px
   desktop widths and at a verified 375 px width (`.claude/rules/browser.md` — Viewport Resize) and check that every face
