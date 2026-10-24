@@ -35,14 +35,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      # P1563: no lifecycle scripts and no persisted checkout credential. The root postinstall
+      # (git hooks, Playwright browser) is not needed here; vitest needs none of the dependency install scripts.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --include=optional
 
       - name: Deterministic UI-gate DOM checks (P955)
         run: npx vitest run src/tests/p955-gate.test.ts

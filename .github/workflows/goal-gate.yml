@@ -55,6 +55,10 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0 # full history — merge-base and origin/main must be reachable
+          # P1563: do not leave the job token in .git/config while `npm ci` runs. The only later
+          # git network call is the `git fetch origin main` below, which is anonymous on this
+          # PUBLIC repo; if the repo ever goes private that step must authenticate explicitly.
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -100,9 +104,11 @@ jobs:
             echo "Goalified specs with a pin on main: $PINNED"
           fi
 
+      # P1563: scripts off. The CI tier runs tsc/vitest/shell only (no browser, see header); the
+      # root postinstall (git hooks, Playwright browser) is not needed.
       - name: Install dependencies
         if: steps.specs.outputs.pinned != ''
-        run: npm ci
+        run: npm ci --ignore-scripts --include=optional
 
       - name: Run the gate (trusted-base script, CI tier)
         if: steps.specs.outputs.pinned != ''
