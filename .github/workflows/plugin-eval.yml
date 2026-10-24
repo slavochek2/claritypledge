@@ -51,6 +51,9 @@ jobs:
       DISABLE_AUTOUPDATER: '1'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # P1563: no later step uses git with the job token; do not leave it in .git/config.
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
