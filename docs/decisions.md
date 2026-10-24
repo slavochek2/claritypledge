@@ -8,6 +8,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-25 [product]: H-ChatFollowThrough is rejected on the merits; chat posts are not the pledge's measure
+
+**Context:** /day story r2 (2026-10-24) proposed asking sales mastermind attendees to post one follow-through in chat a week after session 1, because H-ChatFollowThrough (recorded 2026-10-23) counts chat shares within 14 days. Shown the prediction in plain words, that people following through on the pledge show up as stories or points shared in chat, the founder said it makes no sense and asked for it to be removed.
+**Decision:** Retire H-ChatFollowThrough. It leaves §Active and the summary table and keeps one row in §Parked as "Rejected on the merits" (deductive, reasoning rather than field data), the same treatment as H-SalesProductAlignment on 2026-07-26. The reason: a chat post measures willingness to post, not follow-through. Someone can carry an agreement and never post, and a post costs nothing, so the count could not tell a kept pledge from a chatty room. No chat ask is added to the sales mastermind. The 2026-10-23 rejection of a sign-up split by source stands on its own reasoning and is not reopened.
+**Falsifier:** if a later count shows that the people who post in chat are mostly the same people seen carrying their agreements (for example, answering a Clarity Chat or a Clarity Letter when asked, as P1559 frames it), the proxy was sound and the bet should come back as a new entry.
+**Alternatives rejected:** keeping it as UNTESTED and running the count anyway (it costs one message, but a count that cannot separate the two cases teaches nothing whichever way it lands); deleting it without a trace (the precedent keeps a rejected bet as a row, so the next reader does not re-propose it).
+**Consequences:** P1559's Situation line and P1558's references still cite H-ChatFollowThrough. Both specs live on branches in other worktrees and are updated by their owners, not from here.
+**References:** hypotheses.md §Parked H-ChatFollowThrough · 2026-10-23 [product] (recorded it) · 2026-07-26 [product] H-SalesProductAlignment (precedent) · /day run 2026-10-24 story r2
+
+---
+
 ## 2026-10-24 [product]: The mirror speaks first, its portrait visibly paints, and every chat has a jump-down button (P1554)
 
 **Context:** On first open of the mirror, the founder found a paragraph of instructions, a lone "Give me a name" button that vanished after the first message, and a portrait that popped in 5 to 10 seconds later with no explanation. Separately, there was no way back to the newest message after scrolling up through history, unless something new had arrived.
