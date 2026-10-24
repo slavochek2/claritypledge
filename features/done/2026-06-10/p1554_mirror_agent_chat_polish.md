@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 66
 workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [mirror, chat, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
+completed_at: 2026-10-24
 ---
 
 # P1554: Mirror agent chat polish — quiet on shares, no repeated footer, square face, one naming step
@@ -89,4 +89,4 @@ Registry: the Supabase Free plan row (test has its own organisation, P1538). No 
 
 ## Related
 
-[P1520](done/2026-06-10/p1520_mirror_v2_mira_answers_and_has_a_face.md) · [P1544](done/2026-06-10/p1544_mirror_launch_on_prod.md) · [P1547](p1547_mirror_memory_token_budget.md) (builds after it ships) · [P1483](done/2026-06-10/p1483_agent_banner_navy_treatment.md) (agents are square)
+[P1520](p1520_mirror_v2_mira_answers_and_has_a_face.md) · [P1544](p1544_mirror_launch_on_prod.md) · [P1547](p1547_mirror_memory_token_budget.md) (builds after it ships) · [P1483](p1483_agent_banner_navy_treatment.md) (agents are square)
