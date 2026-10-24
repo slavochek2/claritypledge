@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "postinstall": "bash scripts/install-hooks.sh && if [ -z \"${CI:-}\" ] && [ -z \"${VERCEL:-}\" ]; then npx playwright install chromium; fi",
+    "postinstall": "bash scripts/install-hooks.sh && if [ -z \"${CI:-}\" ] && [ -z \"${VERCEL:-}\" ]; then npx playwright install chromium; else echo \"postinstall: CI or VERCEL is set, skipping the Playwright browser download (run: npx playwright install chromium)\"; fi",
     "predev": "bash scripts/check-worktree-env.sh",
     "dev": "vite",
     "build": "vite build",
