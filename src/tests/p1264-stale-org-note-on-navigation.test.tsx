@@ -29,6 +29,7 @@ vi.mock('@/app/data/events-service', () => ({
     isUserRsvpd: vi.fn().mockResolvedValue(false),
     isEventFull: () => false,
     getEventGroupChatUrl: vi.fn().mockResolvedValue(null),
+    getEventOrganizer: vi.fn().mockResolvedValue(null), // P1553: fetched for every event now
     getEventOrgFooterNote: (...a: unknown[]) => mockGetOrgFooterNote(...a),
     rsvpToEvent: vi.fn(),
     cancelRsvp: vi.fn(),

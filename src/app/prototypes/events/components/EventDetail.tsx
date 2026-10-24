@@ -278,7 +278,8 @@ export function EventDetail() {
     return () => { cancelled = true; };
   }, [hikeSeriesSlug]);
   useEffect(() => {
-    if (!hikeSeriesSlug || !eventId) {
+    // P1553: every event with a community shows its organizer line, not only hikes.
+    if (!eventId) {
       setOrganizer(null);
       return;
     }
@@ -291,7 +292,7 @@ export function EventDetail() {
         if (!cancelled) setOrganizer(null);
       });
     return () => { cancelled = true; };
-  }, [hikeSeriesSlug, eventId]);
+  }, [eventId]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -836,7 +837,7 @@ export function EventDetail() {
 
               {/* P1403 (founder 2026-10-04, AllTrails order): who organises it, then photos from
                   past hikes, then the stats row just below the photos. Each hides without data. */}
-              {hikeSeriesSlug && organizer && (
+              {organizer && (
                 <HikeOrganizerLine organizer={organizer} />
               )}
               {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={parseHikeDetails(event.hikeDetails)?.routeMapUrl} onOpenImage={openImage} />}
