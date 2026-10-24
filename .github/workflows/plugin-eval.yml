@@ -46,18 +46,21 @@ jobs:
   plugin-eval:
     name: plugin-eval
     runs-on: ubuntu-latest
+    env:
+      # P1563: the CLI must not replace the pinned version with a newer, unpinned one.
+      DISABLE_AUTOUPDATER: '1'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # P1563: exact version, install scripts OFF. The version is the newest release
       # that was at least 7 days old when pinned (2026-10-24). The package's own
       # postinstall only links a native binary into place; with scripts off the
       # supported fallback is its cli-wrapper.cjs (require.resolve + spawn), exposed
-      # below as a `claude` shim on PATH. Verified on node 20 and 22, linux x64.
+      # below as a `claude` shim on PATH. Verified on node 22, linux x64 (the package declares node >=22).
       # To bump: change CLAUDE_CODE_VERSION here only.
       - name: Install Claude Code CLI (exact version, scripts off)
         env:
@@ -69,9 +72,14 @@ jobs:
           # `claude` first on PATH for every later step, so child processes that the
           # eval harness spawns by name resolve to the wrapper too (a shell function
           # would only cover this one shell).
+          WRAPPER="$(npm root -g)/@anthropic-ai/claude-code/cli-wrapper.cjs"
+          if [ ! -f "$WRAPPER" ]; then
+            echo "::error::$WRAPPER not found; the scripts-off install path changed in this CLI version."
+            exit 1
+          fi
           SHIM_DIR="$RUNNER_TEMP/claude-shim"
           mkdir -p "$SHIM_DIR"
-          printf '#!/bin/sh\nexec node "%s" "$@"\n' "$(npm root -g)/@anthropic-ai/claude-code/cli-wrapper.cjs" > "$SHIM_DIR/claude"
+          printf '#!/bin/sh\nexec node "%s" "$@"\n' "$WRAPPER" > "$SHIM_DIR/claude"
           chmod +x "$SHIM_DIR/claude"
           echo "$SHIM_DIR" >> "$GITHUB_PATH"
           GOT="$("$SHIM_DIR/claude" --version)"
