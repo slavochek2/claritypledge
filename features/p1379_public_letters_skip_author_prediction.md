@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: week
 type: story
 rank: 15
 created_date: '2026-09-30'
