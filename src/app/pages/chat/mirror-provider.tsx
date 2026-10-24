@@ -66,10 +66,22 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
   const answered = useRef(new Set<string>());
   const portraitTried = useRef(false);
   const mounted = useRef(true);
+  /** Delayed re-reads (job polls, the portrait re-read): cancelled when the mirror is switched off. */
+  const timers = useRef(new Set<number>());
+  const later = useCallback((fn: () => void, ms: number) => {
+    const t = window.setTimeout(() => {
+      timers.current.delete(t);
+      fn();
+    }, ms);
+    timers.current.add(t);
+  }, []);
   useEffect(() => {
     mounted.current = true;
+    const pending = timers.current;
     return () => {
       mounted.current = false;
+      pending.forEach((t) => window.clearTimeout(t));
+      pending.clear();
     };
   }, []);
 
@@ -119,7 +131,7 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
     // `since` is when this client asked (or retried): a retried job restarts on the server, so its age
     // counts from the later of that and the job's creation. Clients cannot read the job's started_at.
     (id: string, since: number = Date.now()) => {
-      window.setTimeout(() => {
+      later(() => {
         if (!mounted.current || answered.current.has(id)) return;
         // A failed or empty read keeps polling, but not past the limit a slow job gets.
         const pollAgain = () => {
@@ -129,7 +141,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
         };
         listMirrorJobs([id]).then((jobs) => {
           const j = jobs.get(id);
-          if (answered.current.has(id)) return;
+          // Switched off while the poll was in flight: nothing more is read from here.
+          if (!mounted.current || answered.current.has(id)) return;
           if (!j) pollAgain();
           else if (j.state === 'done') {
             setStatus(id, undefined);
@@ -142,7 +155,7 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
         }, pollAgain);
       }, RECHECK_MS);
     },
-    [setStatus, resync],
+    [setStatus, resync, later],
   );
 
   /** Own mirror messages that arrived before the server said whether the mirror is on. */
@@ -294,7 +307,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
         setPortraitStatus('idle');
       } else if (state === 'running') {
         // Already being painted (another tab): read the result once it is likely there.
-        window.setTimeout(() => {
+        later(() => {
+          if (!mounted.current) return;
           void refreshProfile().then(() => mounted.current && setPortraitStatus('idle'));
         }, RECHECK_MS);
       } else if (state === 'capped') setPortraitStatus('capped');
@@ -308,7 +322,7 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
     } finally {
       painting.current = false;
     }
-  }, [refreshProfile]);
+  }, [refreshProfile, later]);
 
   const ensurePortrait = useCallback(() => {
     if (!enabledRef.current || portraitTried.current || !profile || profile.portraitUrl) return;

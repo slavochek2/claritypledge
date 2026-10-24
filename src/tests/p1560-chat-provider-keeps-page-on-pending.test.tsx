@@ -213,7 +213,8 @@ describe('P1560 ChatProvider and a transient pending check', () => {
 describe('P1560 MirrorProvider turned off', () => {
   afterEach(() => vi.useRealTimers());
 
-  const chatValue = { userId: 'u1', chats: [], subscribe: () => () => undefined, resync: () => undefined } as never;
+  const resync = vi.fn();
+  const chatValue = { userId: 'u1', chats: [], subscribe: () => () => undefined, resync } as never;
   let api: MirrorContextValue | null = null;
   function Grab() {
     api = useContext(MirrorContext);
@@ -304,5 +305,31 @@ describe('P1560 MirrorProvider turned off', () => {
     await act(async () => { d.resolve(undefined); await pending; });
     await flush();
     expect(api!.profile).toMatchObject({ gender: 'f' });
+  });
+
+  // P1564: requests the mirror made after it was switched off (found in the P1560 review).
+  it('a job poll in flight when the mirror is switched off asks for no resync', async () => {
+    const toggle = await mountMirror();
+    const poll = deferred<Map<string, unknown>>();
+    svc.requestMirrorReply.mockResolvedValue('running');
+    svc.listMirrorJobs.mockReturnValueOnce(poll.promise);
+    await act(async () => { api!.requestReply('m1'); await vi.advanceTimersByTimeAsync(10); });
+    await flush(20_000); // the recheck fires and its read is now in flight
+    expect(svc.listMirrorJobs).toHaveBeenCalledTimes(1);
+    resync.mockClear();
+    await toggle(false);
+    await act(async () => { poll.resolve(new Map([['m1', { state: 'done', createdAt: new Date().toISOString() }]])); });
+    await flush();
+    expect(resync).not.toHaveBeenCalled();
+  });
+
+  it('a portrait still being painted elsewhere is not re-read after the mirror is switched off', async () => {
+    svc.newMirrorFace.mockResolvedValue('running');
+    const toggle = await mountMirror();
+    await act(async () => { await api!.newFace(); });
+    svc.getMirrorProfile.mockClear();
+    await toggle(false);
+    await flush(60_000);
+    expect(svc.getMirrorProfile).not.toHaveBeenCalled();
   });
 });
