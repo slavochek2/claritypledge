@@ -24,10 +24,34 @@ jobs:
                            # concurrency group — for the 360-minute default
     steps:
       - name: Install pg_dump
+        # P1563: the repository key is checked against a pinned fingerprint before apt may trust it.
+        # Before: fetched, dearmored straight into the global trusted.gpg.d (trusting it for EVERY
+        # repository on the runner) and the repo URL was plain http. Now: https only, the exact set of
+        # primary-key fingerprints in the downloaded file must equal the one expected value (a wrong
+        # key OR an extra key fails the step), the key goes to a dedicated keyring, and only the pgdg
+        # source line references it through signed-by.
+        # The fingerprint is NOT taken from the downloaded file. Independent source: the copy of
+        # pgdg/apt.postgresql.org.asc in Debian's postgresql-common 293 source tree
+        # (sources.debian.org/data/main/p/postgresql-common/293/pgdg/apt.postgresql.org.asc),
+        # byte-identical to https://www.postgresql.org/media/keys/ACCC4CF8.asc, key 7FCC7D46ACCC4CF8
+        # "PostgreSQL Debian Repository" (4096-bit RSA, created 2011-10-13).
+        # Rotating the key = change the value below in a reviewed commit.
+        # scripts/test-p1563-apt-key.sh executes the marked block verbatim; keep the markers.
         run: |
+          set -euo pipefail
           sudo apt-get install -y gnupg curl
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
-          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          PGDG_ASC="$RUNNER_TEMP/pgdg.asc"
+          curl -fsSL --proto '=https' --tlsv1.2 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$PGDG_ASC"
+          # BEGIN pgdg-key-verify
+          PGDG_FPR="B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8"
+          GOT="$(gpg --batch --with-colons --import-options show-only --import "$PGDG_ASC" | awk -F: '$1=="pub"{p=1;next} $1=="sub"{p=0;next} $1=="fpr"&&p==1{print $10;p=0}' | sort)"
+          if [ "$GOT" != "$PGDG_FPR" ]; then
+            echo "::error::PostgreSQL apt key mismatch. Expected exactly one primary key ${PGDG_FPR}; file contains: ${GOT:-none}"
+            exit 1
+          fi
+          # END pgdg-key-verify
+          gpg --batch --dearmor < "$PGDG_ASC" | sudo tee /usr/share/keyrings/postgresql.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update && sudo apt-get install -y postgresql-client-17
 
       - name: Authenticate to GCP
