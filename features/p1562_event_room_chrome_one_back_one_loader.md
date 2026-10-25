@@ -53,7 +53,7 @@ exec_effort: high
 > "review and reuse our standard loading because sometimes it says loading events"
 > "Sometimes it's at the top, it's weird, it's weirdly jumping this clarity pledge loading"
 
-## Prerequisite: P1542 round 6 commit (SHA to be filled in when committed)
+## Prerequisite: P1542 round 6 commit (d91eed6c6 on feature/p1542-series-recipes)
 
 P1542 round 6 is not on `feature/p1542-series-recipes` HEAD yet. It is in the w4 working tree and still being fixed (round 6b). `/dev` starts from that commit, reads it, and reuses it rather than re-implementing it. **Commit:** `<SHA, fill in when P1542 round 6 is committed>`. Until then, everything in this list is a pending dependency, not shipped behaviour.
 
