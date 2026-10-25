@@ -29,7 +29,7 @@ and manifest files, and unreadable directories, are listed as INCOMPLETE, never 
 | `deno.json`, `deno.jsonc`, `import_map.json` | covered only if its effective lock (`"lock": false` disables it; a `"lock"` path is honoured; an ancestor lock counts only through a `workspace` entry) lists every `npm:` / `jsr:` / URL import. Unlisted imports are INCOMPLETE and exact `npm:` ones still go to OSV. An `importMap` path must stay inside the scan root, symlinks resolved, or it is not followed (INCOMPLETE) |
 | `.ts` `.tsx` `.js` `.mjs` sources | imports starting `npm:`, `jsr:`, `https://esm.sh/`, `https://deno.land/`, `https://cdn.jsdelivr.net/`, `https://unpkg.com/` must be listed in the nearest `deno.lock` at or above them, else INCOMPLETE (one inventory line per directory). A source file over 2 MiB is not scanned and is listed as INCOMPLETE |
 | `requirements*.txt`, `*requirements*.txt`, `requirements/*.txt`, `requirements*.lock` | exact `==` pins against OSV (PyPI). CLEAN only when every line carries `--hash=` |
-| `pyproject.toml`, `Pipfile`, `setup.py`, `setup.cfg`, `*.in`, `constraints*.txt`, and ranged or unhashed requirements | INCOMPLETE unless a fully hash-locked file in the same directory names that input on the compile command line in its header (uv and pip-compile write it there), by a path that resolves to the input from the lock's directory; the `-o` output is not an input. A sibling that does not name it covers nothing, and coverage never hides the input's own `-r` / `-c` / `-e` / `-f` / index problems: `*.in` and `constraints*.txt` are parsed like requirements files, and `index-url`, `extra-index-url`, `find-links` and index `url` keys in `pyproject.toml`, `Pipfile` and `setup.cfg` are checked |
+| `pyproject.toml`, `Pipfile`, `setup.py`, `setup.cfg`, `*.in`, `constraints*.txt`, and ranged or unhashed requirements | INCOMPLETE unless a fully hash-locked file in the same directory names that input on a compile command in its header (`pip-compile`, `pip compile`, `uv pip compile`, `piptools compile`; uv and pip-compile write it there; `\`-continued comment lines are joined first), by a path among the arguments after `compile` that resolves to the input from the lock's directory. Prose that merely mentions a tool and a file name covers nothing, and the `-o` output and `-c` / `-r` / override files are not inputs. A sibling that does not name it covers nothing, and coverage never hides the input's own `-r` / `-c` / `-e` / `-f` / index problems: `*.in` and `constraints*.txt` are parsed like requirements files, and `index-url`, `extra-index-url`, `find-links` and index `url` keys in `pyproject.toml`, `Pipfile` and `setup.cfg` are checked (every URL on the line, not the first), and any URL at all under a `[tool.uv]`, `[tool.uv.*]`, `[tool.pip*]` or `[[source]]` section, inline tables and multi-line arrays included, must be the official PyPI index |
 | `package.json` | must have a sibling lock (or be listed in a workspace-root lock) |
 
 Versions are looked up with OSV's `/v1/querybatch`, in chunks of 1000, with a timeout. A malicious
@@ -78,6 +78,9 @@ checked, `npm audit` counts by severity, and its outcome.
   INCOMPLETE until explicitly accepted with `unchecked`.
 - `npm audit` and OSV both lag a new compromise. A clean result means "no advisory published yet".
 - The script reads lock files; it does not verify that a lock matches what is installed.
+- Python index and source configuration is read only as lines inside those sections and as the
+  `index-url` / `extra-index-url` / `find-links` / index `url` keys. Other shapes (`setup.py` code,
+  multi-line `setup.cfg` values, dotted keys such as `tool.uv.index = ...` written outside a section) are not parsed.
 - `pip install` lines inside a Dockerfile are not parsed; those images are covered only through the
   requirements files they install from.
 - An `esm.sh` URL in `deno.lock` pins one package version, but the code esm.sh serves for it is a
@@ -117,7 +120,7 @@ committed `supabase/functions/deno.lock`. Source files import the bare names; `d
 image-codec modules stay exact-version URLs whose module content the lock hashes. The deploy bundler
 refuses a lock whose npm integrity or remote-module hash does not match
 (`scripts/test-p1563-edge-lock.sh` proves both, against the same bundler the CLI deploys with).
-`pre-commit-checks.sh` type-checks each staged function with its own `deno.json`.
+`pre-commit-checks.sh` type-checks every staged `.ts` file in a function directory (not only `index.ts`) together with that function's `index.ts`, each with the function's own `deno.json`; a staged `_shared` file, `deno.json(c)`, `import_map.json` or `deno.lock` re-checks every function.
 
 To bump a version: edit the shared `deno.json`, update the lock with
 `deno cache --config supabase/functions/deno.json supabase/functions/*/index.ts` (without `--frozen`,

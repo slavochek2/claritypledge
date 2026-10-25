@@ -410,18 +410,41 @@ rc "--output-file=requirements.txt is not a named input either" 2; lacks "output
 fresh; mk "$TMP/p3/svc/requirements.in" "requests"; pylock "# regenerate requirements.in by hand, nothing here was compiled from it"
 run --root "$TMP/p3" --exceptions "$TMP/none.txt"
 rc "prose that mentions the file name outside a compile command" 2; lacks "prose header" "covered by hash-locked"
+# Coverage comes from a real compile invocation only: a header that merely contains a tool word
+# (uv, pip) plus the file name is prose, however it is phrased.
+for h in "# Run uv or pip to install requirements.in after editing" \
+         "# Install pip before editing requirements.in" \
+         "# uv pip compile -c requirements.in --generate-hashes -o requirements.lock" \
+         "# uv pip compile --constraint=requirements.in other.in -o requirements.lock" \
+         "# uv pip compile -r requirements.in -o requirements.lock" \
+         "# uv pip compile other.in && cat requirements.in"; do
+  fresh; mk "$TMP/p3/svc/requirements.in" "requests"; pylock "$h"
+  run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+  rc "header '$h' does not cover requirements.in" 2; lacks "prose/constraint header '$h'" "covered by hash-locked"
+done
+for h in "# uv pip compile \\
+#    requirements.in \\
+#    -o requirements.lock" \
+         "# pip-compile --generate-hashes --output-file=requirements.lock requirements.in" \
+         "# pip compile requirements.in -o requirements.lock" \
+         "# python -m piptools compile requirements.in" \
+         "# uv pip compile --python-version 3.11 ./requirements.in --generate-hashes -o requirements.lock"; do
+  fresh; mk "$TMP/p3/svc/requirements.in" "requests"; pylock "$h"
+  run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+  rc "control: compile command covers requirements.in ($(head -1 <<<"$h"))" 0; has "compile header control" "covered by hash-locked svc/requirements.lock"
+done
 
 echo "  4. covered python inputs are still parsed for their own directives"
 for f in requirements.in constraints.txt; do
   for d in "-r hidden.in" "-c cons.txt" "-e ." "-f https://example.invalid/wheels" "--index-url https://example.invalid/simple" "--extra-index-url=https://example.invalid/simple"; do
     fresh; mk "$TMP/p3/svc/$f" "$d
 requests>=2"
-    pylock "# uv pip compile requirements.in -c constraints.txt --generate-hashes -o requirements.lock"
+    pylock "# uv pip compile $f --generate-hashes -o requirements.lock"
     run --root "$TMP/p3" --exceptions "$TMP/none.txt"
     rc "covered $f with '$d'" 2; has "covered $f '$d'" "requirements directive:"; lacks "covered $f '$d'" "RESULT: CLEAN"
   done
   fresh; mk "$TMP/p3/svc/$f" "--index-url https://pypi.org/simple
-requests>=2"; pylock "# uv pip compile requirements.in -c constraints.txt --generate-hashes -o requirements.lock"
+requests>=2"; pylock "# uv pip compile $f --generate-hashes -o requirements.lock"
   run --root "$TMP/p3" --exceptions "$TMP/none.txt"
   rc "control: covered $f with the official index" 0; has "control $f" "covered by hash-locked"
 done
@@ -448,6 +471,36 @@ dependencies = ["requests>=2"]'
 py_toml "control: a url key outside an index/source table is not an index" 0 pyproject.toml '[project.urls]
 Homepage = "https://example.invalid/home"
 url = "https://example.invalid/home"'
+# Every URL on a line counts, and an inline index table counts wherever it sits in a tool.uv / tool.pip
+# / source section; URLs in unrelated sections do not.
+py_toml "extra-index-url list: official first, foreign second" 2 pyproject.toml '[tool.uv]
+extra-index-url = ["https://pypi.org/simple", "https://evil.example/simple"]'
+has "multi-url line" "python input directive:"
+py_toml "inline index table under [tool.uv]" 2 pyproject.toml '[tool.uv]
+index = [{ url = "https://evil.example/simple" }]'
+has "inline index table" "python input directive:"
+py_toml "multi-line inline index table under [tool.uv]" 2 pyproject.toml '[tool.uv]
+index = [
+  { name = "x", url = "https://evil.example/simple" },
+]'
+py_toml "inline source under [tool.uv.sources]" 2 pyproject.toml '[tool.uv.sources]
+foo = { url = "https://evil.example/foo-1.0.whl" }'
+py_toml "foreign URL under [tool.pip]" 2 pyproject.toml '[tool.pip]
+index-url = "https://evil.example/simple"'
+py_toml "foreign URL in a Pipfile [[source]] inline table" 2 Pipfile '[[source]]
+name = "x"
+url = "https://pypi.org/simple"
+verify_ssl = true
+mirror = { url = "https://evil.example/simple" }'
+py_toml "control: extra-index-url list of official URLs only" 0 pyproject.toml '[tool.uv]
+extra-index-url = ["https://pypi.org/simple", "https://pypi.org/simple/"]'
+py_toml "control: inline official index table under [tool.uv]" 0 pyproject.toml '[tool.uv]
+index = [{ url = "https://pypi.org/simple" }]'
+py_toml "control: [project.urls] Homepage on github is not an index" 0 pyproject.toml '[project.urls]
+Homepage = "https://github.com/x/y"
+
+[tool.uv]
+dev-dependencies = ["pytest"]'
 
 echo "  5. deno.lock remote hashes and redirects"
 remote_lock() {   # remote_lock <remote json> <redirects json>

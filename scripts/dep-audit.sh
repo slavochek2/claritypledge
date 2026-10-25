@@ -845,28 +845,35 @@ def scan_python_input(m):
         sec = re.fullmatch(r"\[+\s*([^\]]+?)\s*\]+", s)
         if sec:
             section = sec.group(1).lower(); continue
+        urls = re.findall(r"https?://[^\s'\",\]}]+", s)   # every URL on the line, not the first
         kv = re.match(r"([A-Za-z_.-]+)\s*[=:]\s*(.*)$", s)
-        if not kv:
-            continue
-        key, val = kv.group(1).lower().replace("_", "-"), kv.group(2)
+        key = kv.group(1).lower().replace("_", "-") if kv else ""
+        flagged = False
         if key in ("find-links", "dependency-links"):
             found.add("python input directive: %s: find-links style sources are not followed" % key)
+            flagged = True
         elif key in ("index-url", "extra-index-url") or (key == "url" and re.search(r"(^|\.)(source|index)$", section)):
-            url = re.search(r"https?://[^\s'\",\]]+", val)
-            if not (url and official_index(url.group(0))):
+            if not urls or not all(official_index(u) for u in urls):
                 found.add("python input directive: %s: index is not https://pypi.org, so OSV names may not be what is installed" % key)
+            flagged = True
+        # Index/source configuration sections: any URL, in any shape (inline tables, lists, multi-line
+        # arrays), must be the official index. URLs in other sections ([project.urls]) are not indexes.
+        if not flagged and re.match(r"(tool\.uv(\.|$)|tool\.pip|source$)", section) and not all(official_index(u) for u in urls):
+            found.add("python input directive: [%s]: URL is not https://pypi.org, so OSV names may not be what is installed" % section)
     return sorted(found)
 
 
 def parse_requirements(m):
     m.fmt = "requirements (exact pins)"
     with open(os.path.join(root, m.rel), encoding="utf-8") as fh:
-        text = fh.read().replace("\\\n", " ")
+        raw_text = fh.read()
+    text = raw_text.replace("\\\n", " ")
     bad = 0
     total = hashed = 0
     directives = []
     head = []
-    for ln in text.splitlines():            # the leading comment block: where a lock names its sources
+    for ln in raw_text.splitlines():        # the leading comment block (raw lines, so header_inputs sees the
+        # line breaks of a continued compile command): where a lock names its sources
         if ln.strip() and not ln.lstrip().startswith("#"):
             break
         head.append(ln)
@@ -972,29 +979,59 @@ except Exception as e:
 # Python: an input that does not itself pin every line is covered only by a hash-locked lock in the
 # same directory whose header names that input (uv/pip-compile write the command, which lists its
 # sources). Coverage never erases the input's own directive/index/include problems.
-COMPILE_TOOLS = {"uv", "pip", "pip-compile", "pip-sync", "piptools"}
+# Option whose value is not a compiled input: the output file, and the files that only constrain, include
+# or override the compile (a constraint file is not what the lock was compiled from).
+NOT_INPUT_OPTS = {"-o", "--output-file", "-c", "--constraint", "-r", "--requirement",
+                  "-b", "--build-constraint", "--override", "--overrides"}
+COMMAND_BREAKS = {"&&", "||", ";", "|", "&"}
+
+
+def compile_commands(header):
+    """The header's comment text with backslash-continued lines joined, one string per logical line."""
+    cmds, buf = [], ""
+    for ln in header.splitlines():
+        c = ln.strip()
+        if c.startswith("#"):
+            c = c[1:].strip()
+        if c.endswith("\\"):
+            buf += c[:-1] + " "
+            continue
+        cmds.append(buf + c)
+        buf = ""
+    if buf:
+        cmds.append(buf)
+    return cmds
 
 
 def header_inputs(header, lockdir):
-    """Scan-root-relative paths named as inputs on the compile command line(s) of a lock header.
-    A command line is a header line that mentions a compile tool; each path-like token is resolved
-    against the lock's directory; the compile OUTPUT (-o / --output-file) is not an input."""
+    """Scan-root-relative paths named as inputs by a compile command in a lock header. Only a real compile
+    invocation counts (pip-compile, `pip compile`, `uv pip compile`, `piptools compile`); prose that merely
+    mentions a tool and a file name does not. Candidates are the arguments after `compile`, up to the end of
+    the command; the output and constraint/requirement/override files are not inputs."""
     out = set()
-    for ln in header.splitlines():
-        toks = [x.strip("'\"`(),;") for x in ln.lstrip().lstrip("#").split()]
-        if not any(x.rsplit("/", 1)[-1] in COMPILE_TOOLS for x in toks):
+    for ln in compile_commands(header):
+        toks = [x.strip("'\"`(),") for x in ln.split()]
+        start = None
+        for i, t in enumerate(toks):
+            base = t.rsplit("/", 1)[-1]
+            if base == "pip-compile" or (base == "compile" and i > 0 and toks[i - 1].rsplit("/", 1)[-1] in ("pip", "piptools")):
+                start = i + 1
+                break
+        if start is None:
             continue
         skip = False
-        for x in toks:
+        for x in toks[start:]:
+            if x in COMMAND_BREAKS:
+                break
             if skip:
                 skip = False; continue
-            if x in ("-o", "--output-file"):
+            if x in NOT_INPUT_OPTS:
                 skip = True; continue
             if x.startswith("-"):
                 key, _, val = x.partition("=")
-                if not val or key in ("-o", "--output-file"):
+                if not val or key in NOT_INPUT_OPTS:
                     continue
-                x = val                                  # --constraint=constraints.txt names an input
+                x = val                                  # --opt=value: only a path-like value can match a file
             if x and not x.startswith("/"):
                 out.add(os.path.normpath(os.path.join(lockdir, x)))
     return out
