@@ -38,17 +38,21 @@
 #                                                   under https://registry.npmjs.org, with integrity),
 #                                                   a link leaves the scan root, or there is no
 #                                                   sibling package.json.
-#     deno.lock (versions 1/2/3/4/5)             -> npm entries (integrity required) + exact
+#     deno.lock (versions 1/2/3/4/5)             -> remote values must be sha256, redirects must end at a
+#                                                   hashed remote entry, specifiers must resolve to a package
+#                                                   record; npm entries (integrity required) + exact
 #                                                   esm.sh/unpkg/jsdelivr npm URLs -> OSV (npm);
 #                                                   jsr:/deno.land/other hosts have no OSV ecosystem
 #                                                   -> INCOMPLETE unless accepted with `unchecked`
 #     deno.json, deno.jsonc, import_map.json    -> covered only if the config's effective lock
 #                                                   (`"lock": false` disables; a `"lock"` path is
 #                                                   honoured; an ancestor lock only via `workspace`)
-#                                                   lists every npm:/jsr:/URL import
+#                                                   lists every npm:/jsr:/URL import; an importMap
+#                                                   must stay inside the scan root (symlinks resolved)
 #     .ts/.tsx/.mts/.js/.mjs/.jsx sources       -> npm:/jsr:/esm.sh/deno.land/jsdelivr/unpkg
 #                                                   imports must be listed in the nearest deno.lock
-#                                                   at or above them, else INCOMPLETE (one line per dir)
+#                                                   at or above them, else INCOMPLETE (one line per dir);
+#                                                   a source file over 2 MiB is listed, not skipped
 #     requirements*.txt / *requirements*.txt / requirements/*.txt / requirements*.lock
 #                                                -> exact `==` pins -> OSV (PyPI). CLEAN only when
 #                                                   EVERY line carries --hash= (pip then refuses
@@ -58,10 +62,11 @@
 #                                                   pypi.org is INCOMPLETE.
 #     pyproject.toml, Pipfile, setup.py, setup.cfg, *.in, constraints*.txt, and ranged/unhashed
 #     requirements                               -> INCOMPLETE unless a fully hash-locked file in the
-#                                                   same directory names that input's file name in its
-#                                                   header comment (uv/pip-compile write the command).
+#                                                   same directory names that input on the compile
+#                                                   command line in its header (uv/pip-compile write it),
+#                                                   by a path that resolves to it from the lock's directory.
 #                                                   Coverage never erases the input's own directive,
-#                                                   index or include problems.
+#                                                   index or include problems (inputs are parsed for them).
 #     package.json                               -> needs a sibling lock (or a workspace-root lock
 #                                                   that lists it); otherwise INCOMPLETE
 #     other lock formats (yarn.lock, pnpm-lock.yaml, poetry.lock, ...) -> unsupported -> INCOMPLETE
@@ -453,6 +458,20 @@ def split_npm_key(key):
     return name, ver
 
 
+def spec_target(key, val):
+    """A lock specifier key and its value -> 'name@1.2.3' (peer-dependency suffix dropped), else None.
+    The value is '1.2.3' (v4/v5), 'npm:name@1.2.3' (v3) or 'name@1.2.3' (v2)."""
+    mm = re.match(r"(?:npm|jsr):/?((?:@[^/@]+/)?[^/@]+)(?:@|$)", str(key))
+    if not mm or not isinstance(val, str):
+        return None
+    name = mm.group(1)
+    v = re.sub(r"^(?:npm|jsr):/?", "", val)
+    if re.match(r"\d", v):
+        return "%s@%s" % (name, v.split("_", 1)[0])
+    sp = split_npm_key(v)
+    return "%s@%s" % sp if sp and sp[0] == name else None
+
+
 def remote_to_pkg(url):
     """Map a deno.lock `remote` URL to ('npm', name, ver) | ('unchecked', label, why)."""
     m_ = re.match(r"https?://([^/]+)/(.*)$", url)
@@ -485,7 +504,7 @@ def remote_to_pkg(url):
 class LockInfo:
     """What a deno.lock lists, in a version-independent shape."""
     def __init__(self):
-        self.specs = set()    # 'npm:name@range', 'jsr:@scope/name@range' (as written in imports)
+        self.specs = {}       # 'npm:name@range' / 'jsr:@scope/name@range' -> 'name@1.2.3', only when that package record exists
         self.npm = set()      # 'name@1.2.3'
         self.jsr = set()      # '@scope/name@1.2.3'
         self.remote = set()   # remote and redirect URLs
@@ -500,7 +519,7 @@ def parse_deno_lock(m):
     li = m.lockinfo = LockInfo()
     npm = jsr = remote = None
     specifiers = {}
-    redirects = data.get("redirects") or {}
+    redirects = {} if ver == "1" else (data.get("redirects") or {})
     if ver == "1":
         remote = data
         npm, jsr = {}, {}
@@ -517,8 +536,26 @@ def parse_deno_lock(m):
         specifiers = data.get("specifiers") or {}
     else:
         m.incomplete.append("unsupported deno.lock version %r" % ver); return
-    li.specs |= set(specifiers)
-    li.remote |= set(remote) | set(redirects)
+    if not isinstance(remote, dict) or not isinstance(redirects, dict) or not isinstance(specifiers, dict):
+        m.incomplete.append("deno.lock remote/redirects/specifiers are not objects"); return
+    li.remote |= set(remote)
+    bad_hash = [u for u, h in remote.items() if not (isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h))]
+    if bad_hash:
+        m.incomplete.append("%d deno.lock remote entr%s without a sha256 hash (the lock would not pin the module): %s%s" % (
+            len(bad_hash), "y" if len(bad_hash) == 1 else "ies", "; ".join(bad_hash[:5]), " ..." if len(bad_hash) > 5 else ""))
+    # a redirect is coverage only if following it (through further redirects) ends at a hashed remote entry
+    dead = []
+    for src, tgt in redirects.items():
+        seen, cur = {src}, tgt
+        while isinstance(cur, str) and cur not in remote and cur not in seen and cur in redirects:
+            seen.add(cur); cur = redirects[cur]
+        if isinstance(cur, str) and cur in remote:
+            li.remote.add(src)
+        else:
+            dead.append(src)
+    if dead:
+        m.incomplete.append("%d deno.lock redirect(s) end at no remote entry with a hash (target missing, loop or malformed target): %s%s" % (
+            len(dead), "; ".join(dead[:5]), " ..." if len(dead) > 5 else ""))
     for key, val in npm.items():
         sp = split_npm_key(key)
         if sp and re.fullmatch(EXACT_SEMVER, sp[1]):
@@ -531,6 +568,18 @@ def parse_deno_lock(m):
     for key in jsr:
         li.jsr.add(key)
         m.unchecked.append(("jsr:" + key, "no OSV ecosystem for jsr"))
+    # a specifier is coverage only if the version it resolves to has a package record in this lock
+    dangling = []
+    for key, val in specifiers.items():
+        resolved = spec_target(key, val)
+        have = li.npm if str(key).startswith("npm:") else li.jsr
+        if resolved and resolved in have:
+            li.specs[key] = resolved
+        else:
+            dangling.append("%s (%s)" % (key, resolved or "unparseable value"))
+    if dangling:
+        m.incomplete.append("%d deno.lock specifier(s) with no package record for the version they resolve to: %s%s" % (
+            len(dangling), "; ".join(dangling[:5]), " ..." if len(dangling) > 5 else ""))
     for url in remote:
         r = remote_to_pkg(url)
         if r[0] == "npm":
@@ -645,6 +694,17 @@ def lock_for_config(m, data):
     return None, ["no deno.lock next to this config, and no ancestor config lists it in a workspace"]
 
 
+REAL_ROOT = os.path.realpath(root)
+
+
+def inside_root(rel):
+    """Does this scan-root-relative path stay inside the scan root once symlinks are resolved?"""
+    try:
+        return os.path.commonpath([os.path.realpath(os.path.join(root, rel)), REAL_ROOT]) == REAL_ROOT
+    except ValueError:
+        return False
+
+
 def check_deno_config(m, lockinfo_of):
     m.fmt = os.path.basename(m.rel) + " (deno config)"
     data = load_jsonc(m.rel)
@@ -654,10 +714,13 @@ def check_deno_config(m, lockinfo_of):
     imp_map = data.get("importMap")
     if isinstance(imp_map, str):
         cand = os.path.normpath(os.path.join(dirname(m.rel), imp_map))
-        try:
-            specs += config_specs(load_jsonc(cand))
-        except (OSError, ValueError):
-            m.incomplete.append("importMap %s could not be read inside the scan root" % imp_map)
+        if not inside_root(cand):
+            m.incomplete.append("importMap %s resolves outside the scan root (or through a symlink that leaves it): not followed" % imp_map)
+        else:
+            try:
+                specs += config_specs(load_jsonc(cand))
+            except (OSError, ValueError):
+                m.incomplete.append("importMap %s could not be read inside the scan root" % imp_map)
     for sp in specs:
         pk = spec_pkg(sp)
         if pk:
@@ -694,6 +757,7 @@ def check_sources(lockinfo_of):
     for rel in srcfiles:
         try:
             if os.path.getsize(os.path.join(root, rel)) > SRC_MAX_BYTES:
+                discovery_problems.append("source file over 2 MiB not scanned for remote imports: %s" % rel)
                 continue
             with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as fh:
                 specs = set(SPEC_RE.findall(fh.read()))
@@ -736,6 +800,64 @@ REQ_OK_OPTIONS = {"--require-hashes", "--only-binary", "--no-binary", "--prefer-
 REQ_INDEX_OPTIONS = {"--index-url", "-i", "--extra-index-url"}
 
 
+def official_index(arg):
+    try:
+        u = urllib.parse.urlsplit(arg.split()[0]) if arg.split() else None
+        return bool(u and u.scheme == "https" and u.hostname == "pypi.org" and u.username is None)
+    except ValueError:
+        return False
+
+
+def option_problem(s):
+    """A requirements-syntax option line (starts with '-') -> why it is INCOMPLETE, or None if harmless."""
+    opt = re.split(r"[\s=]", s, maxsplit=1)[0]
+    arg = s[len(opt):].lstrip(" =")
+    if opt in REQ_OK_OPTIONS:
+        return None
+    if opt in REQ_INDEX_OPTIONS:
+        if official_index(arg):
+            return None
+        return "%s: index is not https://pypi.org, so OSV names may not be what is installed" % opt
+    return "%s: install-changing directive not followed (includes/constraints/editable/find-links/unknown)" % opt
+
+
+def scan_python_input(m):
+    """Directives in a python INPUT file (not a requirements lock): the same -r/-c/-e/-f/index rules for
+    requirement-syntax files (*.in, constraints*.txt); index / find-links keys for pyproject.toml,
+    Pipfile, setup.cfg and setup.py. Coverage by a lock never hides these."""
+    base = os.path.basename(m.rel)
+    with open(os.path.join(root, m.rel), encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    found = set()
+    if base.endswith(".in") or re.fullmatch(r"constraints.*\.txt", base, re.I):
+        for raw in text.replace("\\\n", " ").splitlines():
+            s = raw.split(" #", 1)[0].strip()
+            if s.startswith("-"):
+                why = option_problem(s)
+                if why:
+                    found.add("requirements directive: " + why)
+        return sorted(found)
+    section = ""
+    for raw in text.splitlines():
+        s = raw.strip()
+        if not s or s.startswith(("#", ";")):
+            continue
+        sec = re.fullmatch(r"\[+\s*([^\]]+?)\s*\]+", s)
+        if sec:
+            section = sec.group(1).lower(); continue
+        kv = re.match(r"([A-Za-z_.-]+)\s*[=:]\s*(.*)$", s)
+        if not kv:
+            continue
+        key, val = kv.group(1).lower().replace("_", "-"), kv.group(2)
+        if key in ("find-links", "dependency-links"):
+            found.add("python input directive: %s: find-links style sources are not followed" % key)
+        elif key in ("index-url", "extra-index-url") or (key == "url" and re.search(r"(^|\.)(source|index)$", section)):
+            url = re.search(r"https?://[^\s'\",\]]+", val)
+            if not (url and official_index(url.group(0))):
+                found.add("python input directive: %s: index is not https://pypi.org, so OSV names may not be what is installed" % key)
+    return sorted(found)
+
+
 def parse_requirements(m):
     m.fmt = "requirements (exact pins)"
     with open(os.path.join(root, m.rel), encoding="utf-8") as fh:
@@ -754,20 +876,9 @@ def parse_requirements(m):
         if not s or s.startswith("#"):
             continue
         if s.startswith("-"):
-            opt = re.split(r"[\s=]", s, maxsplit=1)[0]
-            arg = s[len(opt):].lstrip(" =")
-            if opt in REQ_OK_OPTIONS:
-                continue
-            if opt in REQ_INDEX_OPTIONS:
-                try:
-                    u = urllib.parse.urlsplit(arg.split()[0]) if arg.split() else None
-                    official = bool(u and u.scheme == "https" and u.hostname == "pypi.org" and u.username is None)
-                except ValueError:
-                    official = False
-                if not official:
-                    directives.append("%s: index is not https://pypi.org, so OSV names may not be what is installed" % opt)
-                continue
-            directives.append("%s: install-changing directive not followed (includes/constraints/editable/find-links/unknown)" % opt)
+            why = option_problem(s)
+            if why:
+                directives.append(why)
             continue
         total += 1
         if re.search(r"(^|\s)--hash=\S+", s):
@@ -861,21 +972,53 @@ except Exception as e:
 # Python: an input that does not itself pin every line is covered only by a hash-locked lock in the
 # same directory whose header names that input (uv/pip-compile write the command, which lists its
 # sources). Coverage never erases the input's own directive/index/include problems.
-def names_source(header, src_base):
-    return re.search(r"(?<![A-Za-z0-9_.-])" + re.escape(src_base) + r"(?![A-Za-z0-9_-]|\.[A-Za-z0-9])", header) is not None
+COMPILE_TOOLS = {"uv", "pip", "pip-compile", "pip-sync", "piptools"}
+
+
+def header_inputs(header, lockdir):
+    """Scan-root-relative paths named as inputs on the compile command line(s) of a lock header.
+    A command line is a header line that mentions a compile tool; each path-like token is resolved
+    against the lock's directory; the compile OUTPUT (-o / --output-file) is not an input."""
+    out = set()
+    for ln in header.splitlines():
+        toks = [x.strip("'\"`(),;") for x in ln.lstrip().lstrip("#").split()]
+        if not any(x.rsplit("/", 1)[-1] in COMPILE_TOOLS for x in toks):
+            continue
+        skip = False
+        for x in toks:
+            if skip:
+                skip = False; continue
+            if x in ("-o", "--output-file"):
+                skip = True; continue
+            if x.startswith("-"):
+                key, _, val = x.partition("=")
+                if not val or key in ("-o", "--output-file"):
+                    continue
+                x = val                                  # --constraint=constraints.txt names an input
+            if x and not x.startswith("/"):
+                out.add(os.path.normpath(os.path.join(lockdir, x)))
+    return out
+
+
+def names_source(header, src_rel, lockdir):
+    return src_rel in header_inputs(header, lockdir)
 
 
 for m in manifests:
     if m.kind == "pysrc":
         m.fmt = os.path.basename(m.rel) + " (python input)"
         m.coverable.append("python input: dependencies are not pinned/checkable from it alone")
+        try:
+            m.incomplete.extend(scan_python_input(m))
+        except OSError as e:
+            m.incomplete.append("python input unreadable (%s)" % type(e).__name__)
     if m.kind in ("pyreq", "pysrc") and m.coverable:
         lock = next((o for o in manifests if o is not m and o.kind == "pyreq" and o.locked
-                     and dirname(o.rel) == dirname(m.rel) and names_source(o.header, os.path.basename(m.rel))), None)
+                     and dirname(o.rel) == dirname(m.rel) and names_source(o.header, m.rel, dirname(o.rel))), None)
         if lock:
             m.notes.append("covered by hash-locked %s (its header names %s)" % (lock.rel, os.path.basename(m.rel)))
         else:
-            m.incomplete.extend(m.coverable + (["no fully hash-locked file in this directory names %s in its header (an independent file is never covered by a sibling)" % os.path.basename(m.rel)]))
+            m.incomplete.extend(m.coverable + (["no fully hash-locked file in this directory names %s in its header (a compile command line naming it by a path that resolves, from the lock's directory, to this file; an independent file is never covered by a sibling)" % os.path.basename(m.rel)]))
 
 # `unchecked` entries: INCOMPLETE unless accepted by an exception line
 for m in manifests:

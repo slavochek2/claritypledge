@@ -346,6 +346,162 @@ mkdir -p "$TMP/relexc"; cp "$FX/critical/exceptions.txt" "$TMP/relexc/exceptions
 OUT="$(cd "$TMP/relexc" && "$AUDIT" --root . --exceptions exceptions.txt 2>&1)"; RC=$?
 rc "relative --exceptions inside a relative --root" 0; has "relative exceptions" "exceptions file: exceptions.txt (present, 1 entry)"
 
+echo "3l. pass-3 false-CLEAN paths (reviewer findings 1 to 7); every negative has a positive control"
+H="$(printf '%064d' 0)"      # a well-formed sha256 for lock fixtures
+mk() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }     # mk <path> <content>
+fresh() { rm -rf "$TMP/p3"; mkdir -p "$TMP/p3"; }
+LOCK_OK='{"version":"4","specifiers":{"npm:left-pad@*":"1.3.0"},"npm":{"left-pad@1.3.0":{"integrity":"sha512-x"}}}'
+LOCK_DANGLING='{"version":"4","specifiers":{"npm:keyv@*":"6.0.0","npm:left-pad@*":"1.3.0"},"npm":{"left-pad@1.3.0":{"integrity":"sha512-x"}}}'
+
+echo "  1. a lock specifier with no package record is not coverage"
+fresh; mk "$TMP/p3/fn/deno.lock" "$LOCK_DANGLING"; mk "$TMP/p3/fn/deno.json" '{"imports":{"k":"npm:keyv@*"}}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "deno.json imports npm:keyv@* whose lock specifier has no npm record" 2; has "dangling specifier (config)" "not listed in fn/deno.lock"; has "dangling specifier (config)" "npm:keyv@*"
+has "dangling specifier (lock)" "no package record"; lacks "dangling specifier (config)" "RESULT: CLEAN"
+fresh; mk "$TMP/p3/fn/deno.lock" "$LOCK_DANGLING"; mk "$TMP/p3/fn/index.ts" "import k from 'npm:keyv@*'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "source imports npm:keyv@* whose lock specifier has no npm record" 2; has "dangling specifier (source)" "not listed in fn/deno.lock"
+fresh; mk "$TMP/p3/fn/deno.lock" "$LOCK_OK"; mk "$TMP/p3/fn/deno.json" '{"imports":{"lp":"npm:left-pad@*"}}'; mk "$TMP/p3/fn/index.ts" "import k from 'npm:left-pad@*'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: a specifier that resolves to a real npm record is covered" 0; has "specifier control" "covered by fn/deno.lock"
+fresh; mk "$TMP/p3/fn/deno.lock" '{"version":"3","packages":{"specifiers":{"npm:left-pad@*":"npm:left-pad@1.3.0"},"npm":{"left-pad@1.3.0":{"integrity":"sha512-x","dependencies":{}}}}}'; mk "$TMP/p3/fn/index.ts" "import k from 'npm:left-pad@*'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: lock v3 shape, resolved specifier" 0
+mk "$TMP/p3/fn/deno.lock" '{"version":"3","packages":{"specifiers":{"npm:left-pad@*":"npm:left-pad@9.9.9"},"npm":{"left-pad@1.3.0":{"integrity":"sha512-x","dependencies":{}}}}}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "lock v3 shape, specifier resolves to a version with no record" 2; has "v3 dangling" "not listed in fn/deno.lock"
+fresh; mk "$TMP/p3/fn/deno.lock" '{"version":"2","npm":{"specifiers":{"left-pad@*":"left-pad@1.3.0"},"packages":{"left-pad@1.3.0":{"integrity":"sha512-x","dependencies":{}}}}}'; mk "$TMP/p3/fn/index.ts" "import k from 'npm:left-pad@*'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: lock v2 shape, resolved specifier" 0
+mk "$TMP/p3/fn/deno.lock" '{"version":"2","npm":{"specifiers":{"left-pad@*":"left-pad@9.9.9"},"packages":{"left-pad@1.3.0":{"integrity":"sha512-x","dependencies":{}}}}}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "lock v2 shape, specifier resolves to a version with no record" 2; has "v2 dangling" "not listed in fn/deno.lock"
+
+echo "  2. a source file over 2 MiB is listed, not skipped"
+fresh; cp -R "$FX/clean/app" "$TMP/p3/app"; head -c 3145728 /dev/zero | tr '\0' ' ' > "$TMP/p3/app/big.js"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "3 MiB .js file" 2; has "oversize source" "over 2 MiB"; has "oversize source" "app/big.js"; lacks "oversize source" "RESULT: CLEAN"
+fresh; cp -R "$FX/clean/app" "$TMP/p3/app"; printf 'export const x = 1\n' > "$TMP/p3/app/small.js"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: a small .js file beside the same manifests" 0
+
+echo "  3 + 7. python lock coverage compares the resolved path, from the compile command only"
+pylock() {   # pylock <header line(s)>: a fully hash-locked svc/requirements.lock
+  mk "$TMP/p3/svc/requirements.lock" "$1
+idna==3.8 \\
+    --hash=sha256:dd44"
+}
+fresh; mk "$TMP/p3/svc/requirements.in" "requests"; pylock "# uv pip compile ../other/requirements.in --generate-hashes -o requirements.lock"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "lock header names ../other/requirements.in, not the local requirements.in" 2; lacks "other-dir header" "covered by hash-locked"
+has "other-dir header" "names requirements.in in its header"
+pylock "# uv pip compile ./requirements.in --generate-hashes -o requirements.lock"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: ./requirements.in resolves to the local file" 0; has "dot-slash header" "covered by hash-locked svc/requirements.lock"
+pylock "# uv pip compile ../svc/requirements.in --generate-hashes -o requirements.lock"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: ../svc/requirements.in resolves back to the local file" 0
+fresh; mk "$TMP/p3/svc/requirements.txt" "requests>=2"; pylock "# uv pip compile base.in --generate-hashes -o requirements.txt"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "a name that is only the compile OUTPUT (-o) is not a named input" 2; lacks "output token" "covered by hash-locked"
+pylock "# uv pip compile requirements.in --generate-hashes --output-file=requirements.txt"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "--output-file=requirements.txt is not a named input either" 2; lacks "output-file token" "covered by hash-locked"
+fresh; mk "$TMP/p3/svc/requirements.in" "requests"; pylock "# regenerate requirements.in by hand, nothing here was compiled from it"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "prose that mentions the file name outside a compile command" 2; lacks "prose header" "covered by hash-locked"
+
+echo "  4. covered python inputs are still parsed for their own directives"
+for f in requirements.in constraints.txt; do
+  for d in "-r hidden.in" "-c cons.txt" "-e ." "-f https://example.invalid/wheels" "--index-url https://example.invalid/simple" "--extra-index-url=https://example.invalid/simple"; do
+    fresh; mk "$TMP/p3/svc/$f" "$d
+requests>=2"
+    pylock "# uv pip compile requirements.in -c constraints.txt --generate-hashes -o requirements.lock"
+    run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+    rc "covered $f with '$d'" 2; has "covered $f '$d'" "requirements directive:"; lacks "covered $f '$d'" "RESULT: CLEAN"
+  done
+  fresh; mk "$TMP/p3/svc/$f" "--index-url https://pypi.org/simple
+requests>=2"; pylock "# uv pip compile requirements.in -c constraints.txt --generate-hashes -o requirements.lock"
+  run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+  rc "control: covered $f with the official index" 0; has "control $f" "covered by hash-locked"
+done
+py_toml() {   # py_toml <label> <expected exit> <file name> <content>: covered python project file
+  fresh; mk "$TMP/p3/svc/$3" "$4"; pylock "# uv pip compile $3 --generate-hashes -o requirements.lock"
+  run --root "$TMP/p3" --exceptions "$TMP/none.txt"; rc "$1" "$2"
+}
+py_toml "covered pyproject.toml with a foreign index-url" 2 pyproject.toml '[tool.uv]
+index-url = "https://example.invalid/simple"'
+has "pyproject index-url" "python input directive:"
+py_toml "covered pyproject.toml with a foreign [[tool.uv.index]]" 2 pyproject.toml '[[tool.uv.index]]
+url = "https://example.invalid/simple"'
+py_toml "covered pyproject.toml with find-links" 2 pyproject.toml '[tool.uv]
+find-links = ["https://example.invalid/wheels"]'
+py_toml "covered Pipfile with a foreign [[source]]" 2 Pipfile '[[source]]
+url = "https://example.invalid/simple"
+name = "x"'
+py_toml "covered setup.cfg with extra_index_url" 2 setup.cfg '[easy_install]
+extra_index_url = https://example.invalid/simple'
+py_toml "control: covered pyproject.toml with the official [[tool.uv.index]]" 0 pyproject.toml '[[tool.uv.index]]
+url = "https://pypi.org/simple"'
+py_toml "control: covered pyproject.toml with plain dependencies" 0 pyproject.toml '[project]
+dependencies = ["requests>=2"]'
+py_toml "control: a url key outside an index/source table is not an index" 0 pyproject.toml '[project.urls]
+Homepage = "https://example.invalid/home"
+url = "https://example.invalid/home"'
+
+echo "  5. deno.lock remote hashes and redirects"
+remote_lock() {   # remote_lock <remote json> <redirects json>
+  fresh; mk "$TMP/p3/fn/deno.lock" "{\"version\":\"4\",\"redirects\":$2,\"remote\":$1}"
+}
+JOSE='https://esm.sh/jose@5.2.0/es2022/jose.mjs'
+remote_lock "{\"$JOSE\":\"aa\"}" '{}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "remote value is not a sha256" 2; has "bad remote hash" "remote entry without a sha256"
+remote_lock "{\"$JOSE\":\"$H\"}" '{}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: remote value is a 64-hex sha256" 0
+remote_lock "{\"$JOSE\":\"${H}0\"}" '{}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "remote value of 65 hex digits" 2
+remote_lock "{\"$JOSE\":\"$H\"}" "{\"https://esm.sh/jose@^5\":\"$JOSE\"}"
+mk "$TMP/p3/fn/index.ts" "import j from 'https://esm.sh/jose@^5'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: redirect whose target is a hashed remote entry" 0; has "redirect control" "all 1 remote import(s) listed"
+remote_lock "{\"$JOSE\":\"$H\"}" "{\"https://esm.sh/jose@^5\":\"https://esm.sh/jose@5.9.9/es2022/jose.mjs\"}"
+mk "$TMP/p3/fn/index.ts" "import j from 'https://esm.sh/jose@^5'"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "redirect whose target has no remote entry" 2; has "dangling redirect" "redirect"; has "dangling redirect" "no remote entry"
+has "dangling redirect (importer)" "not listed in fn/deno.lock"
+remote_lock "{\"$JOSE\":\"$H\"}" "{\"https://esm.sh/jose@^5\":\"https://esm.sh/jose@5\",\"https://esm.sh/jose@5\":\"$JOSE\"}"
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "control: a two-step redirect chain ending in a hashed entry" 0
+remote_lock "{\"$JOSE\":\"$H\"}" '{"https://esm.sh/a@^1":"https://esm.sh/b@1","https://esm.sh/b@1":"https://esm.sh/a@^1"}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "redirect loop" 2; has "redirect loop" "redirect"
+remote_lock "{\"$JOSE\":\"$H\"}" '{"https://esm.sh/a@^1":5}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "redirect target that is not a string" 2
+fresh; mk "$TMP/p3/fn/deno.lock" '{"https://esm.sh/jose@5.2.0/es2022/jose.mjs":"aa"}'
+run --root "$TMP/p3" --exceptions "$TMP/none.txt"
+rc "lock v1: remote value is not a sha256" 2; has "v1 bad hash" "remote entry without a sha256"
+
+echo "  6. a deno.json importMap stays inside the scan root"
+fresh; mk "$TMP/p3/outside/map.json" '{"imports":{"lp":"npm:left-pad@1.3.0"}}'; mk "$TMP/p3/root/fn/deno.lock" "$LOCK_OK"
+mk "$TMP/p3/root/fn/deno.json" '{"importMap":"../../outside/map.json"}'
+run --root "$TMP/p3/root" --exceptions "$TMP/none.txt"
+rc "importMap ../../outside/map.json (outside the scan root)" 2; has "importMap outside" "importMap"; has "importMap outside" "outside the scan root"
+fresh; mk "$TMP/p3/outside/map.json" '{"imports":{"lp":"npm:left-pad@1.3.0"}}'; mk "$TMP/p3/root/fn/deno.lock" "$LOCK_OK"
+mk "$TMP/p3/root/fn/deno.json" '{"importMap":"./map.json"}'; ln -s ../../outside/map.json "$TMP/p3/root/fn/map.json"
+run --root "$TMP/p3/root" --exceptions "$TMP/none.txt"
+rc "importMap that is a symlink to a file outside the scan root" 2; has "importMap symlink" "outside the scan root"
+mk "$TMP/p3/root/real/map.json" '{"imports":{"lp":"npm:left-pad@*"}}'; rm "$TMP/p3/root/fn/map.json"
+mk "$TMP/p3/root/fn/deno.json" '{"importMap":"../real/map.json"}'
+run --root "$TMP/p3/root" --exceptions "$TMP/none.txt"
+rc "control: importMap inside the scan root, import listed in the lock" 0; has "importMap inside" "covered by fn/deno.lock"
+mk "$TMP/p3/root/fn/deno.json" '{"importMap":"/etc/hosts"}'
+run --root "$TMP/p3/root" --exceptions "$TMP/none.txt"
+rc "absolute importMap path" 2; has "importMap absolute" "outside the scan root"
+
 echo "4. exclusions"
 # defence in depth: even a real-named manifest placed INSIDE the excluded fixture path is skipped.
 # Positive control: the same manifest in a sibling directory IS inventoried.

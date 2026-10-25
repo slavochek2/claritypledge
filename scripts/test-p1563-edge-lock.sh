@@ -62,14 +62,42 @@ if [ -z "$MISSING" ]; then pass "every function dir has deno.json {importMap ../
 
 echo "== 2. remote https imports in sources are exact"
 find "$FN" -name '*.ts' -not -path '*/node_modules/*' | sort > "$TMP/ts.list"
-: > "$TMP/remote.list"
-while IFS= read -r f; do grep -HoE "(from |import\()\s*['\"](https?://|npm:|jsr:)[^'\"]+['\"]" "$f" >> "$TMP/remote.list" || true; done < "$TMP/ts.list"
+# Import detection runs over the WHOLE file, not line by line: a line-based grep missed side-effect
+# imports (import "x";), a specifier on the line after `from`, and a dynamic import( split over lines.
+cat > "$TMP/extract.js" <<'JSEOF'
+const fs = require("fs");
+const re = /\b(?:import|export)\b(?:[^'"`;]*?\bfrom)?\s*\(?\s*(['"])((?:https?:\/\/|npm:|jsr:)[^'"]+)\1/g;
+for (const f of fs.readFileSync(0, "utf8").split("\n").filter(Boolean)) {
+  const text = fs.readFileSync(f, "utf8");
+  for (const m of text.matchAll(re)) console.log(f + ":" + m[2]);
+}
+JSEOF
+extract() { node "$TMP/extract.js"; }
+EXACT_RE='@[0-9]+\.[0-9]+\.[0-9]+(/|$)'
+if extract < "$TMP/ts.list" > "$TMP/remote.list"; then :; else fail "import extractor crashed"; fi
 # remote specifier without an exact @x.y.z segment
-grep -vE "@[0-9]+\.[0-9]+\.[0-9]+([/'\"])" "$TMP/remote.list" > "$TMP/remote.inexact" || true
+grep -vE "$EXACT_RE" "$TMP/remote.list" > "$TMP/remote.inexact" || true
 if [ -s "$TMP/remote.inexact" ]; then fail "inexact remote import(s):"; sed 's/^/        /' "$TMP/remote.inexact" | head; else pass "all $(wc -l < "$TMP/remote.list" | tr -d ' ') remote imports carry an exact version"; fi
-# control: the detector must flag a range
-printf "x.ts:import a from 'https://esm.sh/foo@2'\n" | grep -vE "@[0-9]+\.[0-9]+\.[0-9]+([/'\"])" > "$TMP/ctl" || true
-if [ -s "$TMP/ctl" ]; then pass "control: a ranged specifier is flagged"; else fail "control: the exactness detector missed a ranged specifier"; fi
+# controls: every import shape must be CAUGHT (extracted) and, when ranged, FLAGGED. The old line-based
+# grep missed side.ts, nextline.ts and dyn.ts; each file below holds one shape with a ranged specifier.
+mkdir -p "$TMP/shapes"
+printf 'import "https://esm.sh/side@2";\n'                                             > "$TMP/shapes/side.ts"
+printf 'import {\n  a,\n  b,\n} from "https://esm.sh/multi@2";\n'                         > "$TMP/shapes/multi.ts"
+printf 'import x from\n  "https://esm.sh/nextline@2";\n'                              > "$TMP/shapes/nextline.ts"
+printf 'const m = await import(\n  "https://esm.sh/dyn@2"\n);\n'                      > "$TMP/shapes/dyn.ts"
+printf 'export * from "https://esm.sh/reexp@2";\n'                                     > "$TMP/shapes/reexp.ts"
+printf 'export { a } from "npm:named@2";\n'                                            > "$TMP/shapes/named.ts"
+printf 'import type { T } from "jsr:@s/typ@2";\n'                                      > "$TMP/shapes/type.ts"
+printf "import a from 'https://esm.sh/single@2'\n"                                      > "$TMP/shapes/single.ts"
+printf 'import a from "https://esm.sh/exact@1.2.3/x.js";\nimport b from "./local.ts";\nconst s = "https://esm.sh/not-an-import@2";\n' > "$TMP/shapes/exact.ts"
+ls "$TMP"/shapes/*.ts > "$TMP/shapes.list"
+extract < "$TMP/shapes.list" > "$TMP/shapes.out"
+for s in side multi nextline dyn reexp named type single; do
+  if grep -q "/$s\.ts:.*@2\$" "$TMP/shapes.out"; then pass "control: import shape '$s' is extracted"; else fail "control: import shape '$s' was NOT extracted"; fi
+done
+grep -vE "$EXACT_RE" "$TMP/shapes.out" > "$TMP/shapes.inexact" || true
+if [ "$(wc -l < "$TMP/shapes.inexact" | tr -d ' ')" = 8 ]; then pass "control: all 8 ranged shapes are flagged inexact"; else fail "control: expected 8 flagged shapes"; cat "$TMP/shapes.inexact"; fi
+if grep -q 'exact.ts:https://esm.sh/exact@1.2.3/x.js' "$TMP/shapes.out" && ! grep -q 'not-an-import\|local.ts' "$TMP/shapes.out"; then pass "control: an exact import is extracted, a string literal and a local import are not"; else fail "control: exact.ts extraction wrong"; cat "$TMP/shapes.out"; fi
 
 echo "== 3. lock completeness (deno check --frozen over every .ts, shared config)"
 export DENO_DIR="$TMP/denodir-warm"
