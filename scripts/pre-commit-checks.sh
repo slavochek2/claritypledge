@@ -2584,7 +2584,15 @@ if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
     DENO_ERRORS=0
     while IFS= read -r f; do
       [ -z "$f" ] && continue
-      if ! deno check "$f" > /dev/null 2>&1; then
+      # P1563: each function resolves its imports through its own deno.json (import map + lock). A bare
+      # `deno check "$f"` ignores them, so the remote-import graph it checks is not the one deployed.
+      # A function directory without one falls back to the shared supabase/functions/deno.json; a
+      # tree with neither keeps the plain check. The hook runs the MAIN checkout's copy of this file
+      # against every worktree, so this must work on both sides of the change that adds deno.json.
+      DENO_CFG="$(dirname "$f")/deno.json"
+      [ -f "$DENO_CFG" ] || DENO_CFG="supabase/functions/deno.json"
+      if [ -f "$DENO_CFG" ]; then DENO_CHECK=(deno check --config "$DENO_CFG" "$f"); else DENO_CHECK=(deno check "$f"); fi
+      if ! "${DENO_CHECK[@]}" > /dev/null 2>&1; then
         echo -e "${RED}  ✗ deno check failed: $f${NC}"
         DENO_ERRORS=$((DENO_ERRORS + 1))
       fi
