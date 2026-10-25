@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { LetterRecipientsSection, type LetterRecipientsSectionProps } from './letter-recipients-section';
@@ -132,6 +132,40 @@ describe('LetterRecipientsSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
     expect(screen.getAllByRole('listitem')).toHaveLength(10);
     expect(screen.getByRole('button', { name: 'Show all (12)' })).toBeInTheDocument();
+  });
+
+  describe('public-link respondents say when they finished', () => {
+    afterEach(() => vi.useRealTimers());
+    const respondent = (over: Partial<LetterDelivery>) =>
+      delivery({ receiver_email: null, receiver_name: null, status: 'completed', ...over });
+
+    it('Done · 2d ago, so identical "Anonymous" rows can be told apart', () => {
+      vi.useFakeTimers({ now: new Date('2026-10-25T12:00:00Z') });
+      setup({
+        isPublic: true,
+        deliveries: [
+          respondent({ id: 'r1', completed_at: '2026-10-23T12:00:00Z', created_at: '2026-10-23T11:00:00Z' }),
+          respondent({ id: 'r2', completed_at: '2026-10-25T09:00:00Z', created_at: '2026-10-25T08:00:00Z' }),
+        ],
+      });
+      const rows = screen.getAllByRole('listitem');
+      expect(rows.map(r => r.textContent)).toEqual(['AnonymousDone · 3h ago', 'AnonymousDone · 2d ago']); // newest first
+    });
+
+    it('CONTROLS: an unfinished respondent and a finished one with no time say nothing extra; a named recipient who finished stays "Done" alone', () => {
+      vi.useFakeTimers({ now: new Date('2026-10-25T12:00:00Z') });
+      setup({
+        isPublic: true,
+        deliveries: [
+          respondent({ id: 'r1', status: 'in_progress', completed_at: null, steps_completed: 1, total_steps: 4 }),
+          respondent({ id: 'r2', completed_at: null }),
+          delivery({ id: 'n1', receiver_name: 'Di', status: 'completed', completed_at: '2026-10-23T12:00:00Z' }),
+        ],
+      });
+      const text = (r: HTMLElement) => r.textContent;
+      const items = screen.getAllByRole('listitem');
+      expect(items.map(text).sort()).toEqual(['AnonymousDone', 'AnonymousIn progress · 1 of 4 steps', 'DiDone'].sort());
+    });
   });
 
   it('named recipients are newest first, like respondents; an unparseable date sorts last without breaking', () => {

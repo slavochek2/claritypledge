@@ -64,8 +64,11 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
           </h3>
         </div>
         {/* Visibility opens the meta line, so the title and the line below share one left edge. */}
-        <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-          {row.visibility && <InlineVisibilityIcon visibility={row.visibility} />}
+        {/* items-start: when the line wraps (320px) the icon stays with its FIRST line; mt-[3px] centres the 14px icon on the 20px line. */}
+        <div className="mt-0.5 flex items-start gap-1.5 text-sm leading-5 text-muted-foreground">
+          {row.visibility && (
+            <span className="mt-[3px] flex shrink-0"><InlineVisibilityIcon visibility={row.visibility} /></span>
+          )}
           <p data-testid="artifact-meta" className="min-w-0">{row.meta}</p>
         </div>
       </div>

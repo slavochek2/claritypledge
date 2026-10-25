@@ -863,6 +863,29 @@ describe('P1545: the canvas title', () => {
   });
 });
 
+describe('P1545: the share circle beside the byline on a phone', () => {
+  it('with one version the owner line fills the row (flex-1), so the circle sits on the same line, right-aligned', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(canvasView(true));
+    page();
+    await grid();
+    const owner = screen.getByTestId('canvas-owner');
+    expect(owner.className).toMatch(/max-sm:flex-1/);
+    expect(owner.className).not.toMatch(/max-sm:w-full/);
+    expect(owner.className).toMatch(/max-sm:order-1/);
+    expect(screen.getByTestId('share-control').parentElement!.className).toMatch(/max-sm:contents/); // the button joins the header row's flow
+  });
+
+  it('CONTROL: with a version switcher the owner keeps its own line, and the switcher takes the row beside Share', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(canvasView(true, { version: 'sales_v2', versions: [{ name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z' }, { name: 'sales', createdAt: '2026-10-01T10:00:00Z' }] }));
+    page();
+    await grid();
+    expect(screen.getByTestId('canvas-owner').className).toMatch(/max-sm:w-full/);
+    expect(screen.getByTestId('canvas-owner').className).not.toMatch(/max-sm:flex-1/);
+  });
+});
+
 describe('P1515 phase 5: the version switcher', () => {
   const V = (name: string, createdAt: string | null = '2026-10-01T10:00:00Z') => ({ name, createdAt });
   const two = { version: 'sales_v2', versions: [V('sales_v2', '2026-10-22T10:00:00Z'), V('sales', '2026-10-01T10:00:00Z')] };

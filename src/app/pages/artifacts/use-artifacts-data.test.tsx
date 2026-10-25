@@ -67,7 +67,7 @@ describe('useArtifactsData ordering and failures', () => {
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('rpc down'));
     await act(async () => { await result.current.refresh(); });
     expect(result.current.yours.rows).toHaveLength(1);
-    expect(result.current.yours.rows[0]?.menu.find(a => a.id === 'delete-letter')?.disabledReason).toBeTruthy();
+    expect(result.current.yours.rows[0]?.menu).toEqual([]); // the kept deliveries mean it was shared: no "…" (and no Delete)
     expect(result.current.yours.partial).toBe(true);
     expect(result.current.yours.status).toBe('ready');
   });

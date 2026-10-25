@@ -2,7 +2,7 @@
  * @file artifact-row-menu.tsx
  * @description P1545 WP3: the "…" menu on one Artifacts row, plus the dialogs its actions open.
  * Quick actions only (orientation redesign): Add recipients and Preview moved to the letter overview.
- * Handlers and guards are copied from today's drafts-tab.tsx and sent-tab.tsx; the canvas Share
+ * Handlers and guards are copied from today's drafts-tab.tsx (the sent-letter row offers only Delete); the canvas Share
  * opens the P1515 share panel (CanvasShareControl) anchored to the "…" button.
  */
 import { useRef, useState } from 'react';
@@ -80,15 +80,6 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
     }
   };
 
-  const handleCopyPublicLink = async () => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/letter/${row.ref.letterId}`);
-      toast.success('Link copied to clipboard');
-    } catch {
-      toast.error('Failed to copy link');
-    }
-  };
-
   const run = (id: RowAction['id']) => {
     switch (id) {
       case 'prepare-letter':
@@ -96,9 +87,6 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
         break;
       case 'delete-draft':
         setConfirm('draft');
-        break;
-      case 'copy-public-link':
-        void handleCopyPublicLink();
         break;
       case 'delete-letter':
         setConfirm('letter');

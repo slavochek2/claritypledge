@@ -594,7 +594,9 @@ export function CanvasPage() {
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base max-sm:contents md:text-lg" data-testid="canvas-byline">
             {ready ? (
               // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
-              <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 max-sm:w-full" data-testid="canvas-owner">
+              // Phones: with no version switcher the line fills the row, so the share circle sits beside it,
+              // right-aligned; with one, the owner keeps its own line and the switcher takes the row beside Share.
+              <span className={`ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 ${ready.versions.length >= 2 ? 'max-sm:w-full' : 'max-sm:flex-1'}`} data-testid="canvas-owner">
                 <GravatarAvatar
                   name={ready.owner.name}
                   photoUrl={ready.owner.photoUrl}

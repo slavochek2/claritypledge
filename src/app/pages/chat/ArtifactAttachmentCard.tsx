@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Mail } from 'lucide-react';
 import type { ChatArtifact } from '@/app/data/canvas-service';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import { cn } from '@/lib/utils';
@@ -84,7 +84,7 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
       </p>
     );
   }
-  const Icon = kind === 'canvas' ? LayoutGrid : FileText;
+  const Icon = kind === 'canvas' ? LayoutGrid : Mail; // the letter's envelope is the Artifacts list's too
   const title = (artifact.kind === 'canvas' ? canvasTitle(artifact.name) : artifact.title) || (kind === 'canvas' ? 'Untitled canvas' : 'Untitled letter');
   const body = (
     <>

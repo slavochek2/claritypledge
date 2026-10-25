@@ -1,18 +1,19 @@
 /**
  * @file cohort-table.tsx
- * @description P700: Per-story cohort table for the letter overview page.
- * Shows one row per delivery: Person · You → Them · per-point position · "Waiting" while nothing is in.
+ * @description P700: Per-story breakdown for the letter overview page, grouped by WHAT WAS ASKED, not by
+ * person, at every width (no matrix, so no truncated column headers and no point text repeated per person):
+ *   1. the story rating first, one compact line per recipient (24px avatar, name, then
+ *      "your guess 6 · their rating 8", or a plain "Waiting");
+ *   2. then each point once, as a small subheading (full text, wrapping), with one line per recipient
+ *      under it: name and Agree / Disagree / the position label, or "Waiting".
  * P1545: there is no per-row results link here; the person's row on the overview page opens their
  * whole-letter results, and the results walk reaches every story.
- * P1379: a one-to-many letter drops the "You → Them" prediction column. Above the rows
- * it shows a per-story summary (count · median · range), and each row shows the
- * reader's own rating under "Their rating". No gap anywhere.
- * Phones (< 640px): the matrix becomes a stacked list. Same markup, restyled: per recipient one block
- * (name, then one full-width "label ... value" line per column, the label read from each cell's
- * data-label); the header row is hidden. A story nobody has rated or answered shows only its
- * "No ratings yet" line.
+ * P1379: a one-to-many letter has no author prediction: the block is headed "Ratings", no "your guess"
+ * anywhere, and above it sits a per-story summary (count · median · range). A story nobody has rated or
+ * answered shows only its "No ratings yet" line.
  */
 
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { OverviewStory, OverviewDelivery, OverviewPrediction, OverviewRating, OverviewPointResponse } from '@/app/types';
 import type { LetterMode, PositionType } from '@/app/types';
@@ -24,13 +25,6 @@ import { analytics } from '@/lib/mixpanel';
 function trackEntityLinkClick(linkType: 'recipient') {
   analytics.track('letter_overview_entity_link_clicked', { link_type: linkType });
 }
-
-/**
- * A value cell. Phones: a full-width "label ... value" line, the label drawn from the cell's data-label;
- * from 640px: an ordinary table cell with no label (the header row carries it).
- */
-const LINE_CELL =
-  'flex items-baseline justify-between gap-4 py-1.5 text-right before:min-w-0 before:text-left before:text-muted-foreground before:content-[attr(data-label)] sm:table-cell sm:py-3 sm:pr-4 sm:text-left sm:before:content-none';
 
 // ============================================================================
 // TYPES
@@ -105,64 +99,48 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
     );
   }
 
+  const isDone = (d: OverviewDelivery) => d.completed_at !== null;
+  // A recipient who finished is never "Waiting" for a point they skipped; one who has not waits.
+  const waitingOrNone = (d: OverviewDelivery) =>
+    isDone(d)
+      ? <span className="text-muted-foreground">No response</span>
+      : <span className="text-muted-foreground">Waiting</span>;
+
   return (
-    <div className="sm:overflow-x-auto">
+    <div className="space-y-5" data-testid="cohort-breakdown">
       {summaryLine !== null && (
-        <p className="text-sm text-muted-foreground mb-2" data-testid="cohort-rating-summary">
+        <p className="text-sm text-muted-foreground -mb-2" data-testid="cohort-rating-summary">
           {summaryLine}
         </p>
       )}
-      <table className="block w-full text-sm sm:table">
-        <thead className="hidden sm:table-header-group">
-          <tr className="border-b border-border">
-            <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
-              Recipient
-            </th>
-            <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
-              {showsPredictions ? 'You → Them' : 'Their rating'}
-            </th>
-            {story.points.map((p) => (
-              <th
-                key={p.id}
-                scope="col"
-                className="py-3 pr-4 text-left font-medium text-muted-foreground max-w-[120px] truncate"
-                title={p.hashtag ? `${p.text} #${p.hashtag}` : p.text}
-              >
-                <Link to={`/point/${p.id}`} className="hover:underline">
-                  {p.text}
-                </Link>{p.hashtag && (
-                  <> <span aria-hidden="true" className="text-muted-foreground/70">#{p.hashtag}</span></>
-                )}
-              </th>
-            ))}
-            <th scope="col" className="py-3 text-left font-medium text-muted-foreground">
-              {/* status column — no header text */}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="block sm:table-row-group">
+
+      {/* 1. The story rating, one line per recipient. */}
+      <section>
+        <h3 className="text-sm font-medium text-foreground">{showsPredictions ? 'Story rating' : 'Ratings'}</h3>
+        <ul className="mt-1">
           {deliveries.map((d) => {
-            const prediction = getPrediction(d.delivery_id);
             const rating = getRating(d.delivery_id);
             const fullName = d.full_display_name || d.display_name;
-            // responseMap keys are `${delivery_id}:${point_id}` across ALL stories,
-            // but point IDs are globally unique UUIDs so cross-story collision is impossible.
-            // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
-            // A recipient who finished is never "Waiting", even when this story has no points
-            // (nothing to position, so there is no position to find). A recorded rating for the story
-            // is a response too: the row never reads "Waiting" beside a rating.
-            const hasAnyPositionInThisStory =
-              d.completed_at !== null ||
-              rating !== undefined ||
-              story.points.some((p) => responseMap.has(`${d.delivery_id}:${p.id}`));
+            // A recorded rating, a point answered, or a finished letter all mean they are no longer waiting;
+            // a person who answered something but left no rating reads "No rating", not "Waiting".
+            const hasAnyInThisStory =
+              isDone(d) || rating !== undefined || story.points.some((p) => responseMap.has(`${d.delivery_id}:${p.id}`));
+            let value: ReactNode;
+            if (rating !== undefined) {
+              if (showsPredictions) {
+                const prediction = getPrediction(d.delivery_id);
+                value = `your guess ${prediction !== undefined ? prediction : '?'} · their rating ${rating}`;
+              } else {
+                value = rating;
+              }
+            } else {
+              value = <span className="text-muted-foreground">{hasAnyInThisStory ? 'No rating' : 'Waiting'}</span>;
+            }
             return (
-              <tr
-                key={d.delivery_id}
-                className="block border-b border-border/50 py-2 transition-colors hover:bg-muted/30 sm:table-row sm:py-0"
-              >
-                {/* Person — P843: avatar + full name (parity with rest of app) */}
-                <td className="block py-1.5 sm:table-cell sm:py-3 sm:pr-4" data-testid="cohort-recipient-cell">
-                  <div className="flex items-center gap-2 min-w-0">
+              <li key={d.delivery_id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5 text-sm">
+                <div className="flex min-w-0 items-center gap-2 sm:w-48 sm:shrink-0" data-testid="cohort-recipient-cell">
+                  {/* ml-1: the pledge ring draws outside the 24px photo. */}
+                  <span className="ml-1 inline-flex shrink-0">
                     <PersonAvatar
                       person={{
                         name: fullName,
@@ -171,80 +149,64 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                         slug: d.profile_slug ?? undefined,
                       }}
                       size="sm"
+                      className="!h-6 !w-6 !text-[10px]"
                     />
-                    {d.profile_slug ? (
-                      <Link
-                        to={`/p/${d.profile_slug}`}
-                        className="font-medium hover:underline truncate"
-                        title={fullName}
-                        onClick={() => trackEntityLinkClick('recipient')}
-                      >
-                        {fullName}
-                      </Link>
-                    ) : (
-                      <span className="font-medium truncate" title={fullName}>
-                        {fullName}
-                      </span>
-                    )}
-                  </div>
-                </td>
-
-                {/* You → Them (one-to-one) / Their rating (one-to-many, P1379) */}
-                {showsPredictions ? (
-                  <td className={LINE_CELL} data-label="You → Them">
-                    {/* One element, so the phone line's flex layout keeps "6 → —" together on the right. */}
-                    <span>
-                      {prediction !== undefined ? prediction : '?'}{' '}→{' '}
-                      {rating !== undefined ? (
-                        rating
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </span>
-                  </td>
-                ) : (
-                  <td className={LINE_CELL} data-label="Their rating" data-testid="cohort-rating-cell">
-                    {rating !== undefined ? rating : <span className="text-muted-foreground">—</span>}
-                  </td>
-                )}
-
-                {/* Per-point positions */}
-                {story.points.map((p) => {
-                  const pos = getResponse(d.delivery_id, p.id);
-                  return pos ? (
-                    <td
-                      key={p.id}
-                      className={LINE_CELL}
-                      data-label={p.text}
+                  </span>
+                  {d.profile_slug ? (
+                    <Link
+                      to={`/p/${d.profile_slug}`}
+                      className="min-w-0 truncate font-medium hover:underline"
+                      title={fullName}
+                      onClick={() => trackEntityLinkClick('recipient')}
                     >
-                      {POSITION_SHORT_LABELS[pos]}
-                    </td>
+                      {fullName}
+                    </Link>
                   ) : (
-                    <td
-                      key={p.id}
-                      className={`${LINE_CELL} text-muted-foreground`}
-                      data-label={p.text}
-                      aria-label="No response"
-                    >
-                      <span aria-hidden="true">—</span>
-                    </td>
-                  );
-                })}
-
-                {/* End-of-row status: only while nothing is in. */}
-                {!hasAnyPositionInThisStory && (
-                  <td
-                    className="block py-1.5 text-muted-foreground sm:table-cell sm:whitespace-nowrap sm:py-3"
-                    aria-label="Waiting for response"
-                  >
-                    · Waiting
-                  </td>
-                )}
-              </tr>
+                    <span className="min-w-0 truncate font-medium" title={fullName}>
+                      {fullName}
+                    </span>
+                  )}
+                </div>
+                <span className="ml-auto text-right sm:ml-0 sm:text-left" data-testid="cohort-rating-cell">
+                  {value}
+                </span>
+              </li>
             );
           })}
-        </tbody>
-      </table>
+        </ul>
+      </section>
+
+      {/* 2. Each point once, then one line per recipient. */}
+      {story.points.map((p) => (
+        <section key={p.id}>
+          <h3 className="text-sm font-medium text-foreground">
+            <Link to={`/point/${p.id}`} className="hover:underline">
+              {p.text}
+            </Link>
+            {p.hashtag && (
+              <> <span aria-hidden="true" className="font-normal text-muted-foreground/70">#{p.hashtag}</span></>
+            )}
+          </h3>
+          <ul className="mt-1">
+            {deliveries.map((d) => {
+              const pos = getResponse(d.delivery_id, p.id);
+              const fullName = d.full_display_name || d.display_name;
+              return (
+                <li
+                  key={d.delivery_id}
+                  className="flex items-baseline justify-between gap-3 py-1 text-sm sm:justify-start"
+                  data-testid="cohort-point-line"
+                >
+                  <span className="min-w-0 truncate sm:w-48 sm:shrink-0" title={fullName}>{fullName}</span>
+                  <span className="shrink-0 text-right sm:text-left">
+                    {pos ? POSITION_SHORT_LABELS[pos] : waitingOrNone(d)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

@@ -33,7 +33,6 @@ export type ArtifactState = 'draft' | 'sent' | 'canvas' | 'received-letter' | 'r
 export type RowActionId =
   | 'prepare-letter'
   | 'delete-draft'
-  | 'copy-public-link'
   | 'delete-letter'
   | 'share-canvas';
 
@@ -286,18 +285,9 @@ export function sentRow(
     unread: false,
     href: `/letter/${letter.id}/overview`,
     sortAt: ms(shownAt),
-    // Quick actions only: Add recipients and Preview live on the overview page (a tap on the row).
-    menu: [
-      ...(isPublic ? [{ id: 'copy-public-link' as const, label: 'Copy public link' }] : []),
-      // Any delivery (recipients and link respondents) means the letter was shared: Delete stays in the
-      // menu, disabled with today's reason. The handler still maps DELIVERIES_EXIST from the server.
-      {
-        id: 'delete-letter' as const,
-        label: 'Delete letter',
-        danger: true,
-        ...(deliveries.length > 0 ? { disabledReason: "Can't delete — letter has been shared." } : {}),
-      },
-    ],
+    // Add recipients, Preview and Copy public link live on the overview page (a tap on the row). The row's "…" exists
+    // only for Delete, and only while nobody has the letter (0 deliveries, link respondents included): never disabled.
+    menu: deliveries.length === 0 ? [{ id: 'delete-letter' as const, label: 'Delete letter', danger: true }] : [],
     ref: { letterId: letter.id, isPublicLetter: isPublic },
   };
 }

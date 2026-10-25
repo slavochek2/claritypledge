@@ -276,6 +276,19 @@ describe('Artifacts page', () => {
     expect(icon.compareDocumentPosition(meta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('the visibility icon aligns with the FIRST line of a wrapping meta line (top-aligned with a small offset, not centred on the block)', async () => {
+    renderPage();
+    await screen.findByText('Draft about trust');
+    const row = rows()[0]!;
+    const line = within(row).getByTestId('artifact-meta').parentElement!;
+    expect(line.className).toMatch(/\bitems-start\b/);
+    expect(line.className).not.toMatch(/\bitems-center\b/);
+    expect(line.className).toMatch(/\bleading-5\b/); // a known line height, so the offset below is exact
+    const icon = within(row).getByRole('img', { name: /Only people you share with/ });
+    const holder = [...line.children].find(c => c.contains(icon))!;
+    expect(holder.className).toMatch(/\bmt-\[3px\]/); // (20px line - 14px icon) / 2
+  });
+
   it('letter and canvas discs share one pale tint and keep different icons', async () => {
     renderPage();
     await screen.findByText('Draft about trust');
@@ -473,45 +486,70 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBeGreaterThan(calls));
     });
 
-    it('private sent letter already shared: its only action would be a disabled Delete, so no "…" is drawn at all', async () => {
-      renderPage();
-      await screen.findByText('Hello Tom');
-      const row = rows().find(r => r.textContent?.includes('Hello Tom'))!;
-      expect(within(row).queryByRole('button', { name: /^Actions for/ })).toBeNull();
-      // CONTROLS: rows that do have an enabled action keep their "…"
-      expect(screen.getByRole('button', { name: 'Actions for Draft about trust' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Actions for Sales map' })).toBeInTheDocument();
-    });
-
-    it('private sent letter nobody has received keeps its "…" (Delete letter is enabled); Add recipients and Preview live on the overview', async () => {
-      const user = userEvent.setup();
-      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
-      renderPage();
-      await openMenu(user, 'Hello Tom');
-      expect(await screen.findByRole('menuitem', { name: /Delete letter/ })).not.toHaveAttribute('aria-disabled', 'true');
-      expect(screen.getAllByRole('menuitem')).toHaveLength(1); // private letter: no Copy public link
-      expect(screen.queryByRole('menuitem', { name: /Add recipients/ })).toBeNull();
-      expect(screen.queryByRole('menuitem', { name: /Preview/ })).toBeNull();
-    });
-
-    it('public sent letter: Copy public link then Delete letter', async () => {
-      const user = userEvent.setup();
+    it('a sent letter that anyone has (recipient or public-link respondent) has no "…"; drafts and canvases keep theirs', async () => {
+      const check = async () => {
+        await screen.findByText('Hello Tom');
+        const row = rows().find(r => r.textContent?.includes('Hello Tom'))!;
+        expect(within(row).queryByRole('button', { name: /^Actions for/ })).toBeNull();
+        // CONTROLS: rows that do have an enabled action keep their "…"
+        expect(screen.getByRole('button', { name: 'Actions for Draft about trust' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Actions for Sales map' })).toBeInTheDocument();
+      };
+      const shared = renderPage(); // default fixture: one recipient
+      await check();
+      shared.unmount();
       mocks.getAllSentLettersOrThrow.mockResolvedValue([{ ...sentLetter, mode: 'one-to-many' }]);
       mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery({ receiver_email: null })] });
       renderPage();
-      await openMenu(user, 'Hello Tom');
-      await screen.findByRole('menuitem', { name: 'Copy public link' });
-      expect(screen.getAllByRole('menuitem').map(i => i.textContent?.split('Can')[0])).toEqual(['Copy public link', 'Delete letter']);
-      expect(screen.getByText("Can't delete — letter has been shared.")).toBeInTheDocument(); // Delete stays, disabled, with its reason
+      await check(); // public with a respondent
     });
 
-    it('sent letter nobody has received: Delete letter is offered and asks first', async () => {
+    it('a sent letter nobody has: "…" holds only Delete letter, enabled; no Copy public link, Add recipients or Preview', async () => {
       const user = userEvent.setup();
       mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
       renderPage();
       await openMenu(user, 'Hello Tom');
       const del = await screen.findByRole('menuitem', { name: /Delete letter/ });
       expect(del).not.toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+      expect(screen.queryByRole('menuitem', { name: /Copy public link/ })).toBeNull();
+    });
+
+    it('a public sent letter nobody has answered yet: still only Delete letter (no Copy public link in the row)', async () => {
+      const user = userEvent.setup();
+      mocks.getAllSentLettersOrThrow.mockResolvedValue([{ ...sentLetter, mode: 'one-to-many' }]);
+      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
+      renderPage();
+      await openMenu(user, 'Hello Tom');
+      await screen.findByRole('menuitem', { name: /Delete letter/ });
+      expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+    });
+
+    it('Delete letter asks first (today\'s dialog), deletes only on confirm, then refreshes', async () => {
+      const user = userEvent.setup();
+      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
+      mocks.deleteLetter.mockResolvedValue(undefined);
+      renderPage();
+      await openMenu(user, 'Hello Tom');
+      await user.click(await screen.findByRole('menuitem', { name: /Delete letter/ }));
+      expect(await screen.findByText('Delete letter?')).toBeInTheDocument();
+      expect(screen.getByText('This will remove the published letter and its public link permanently.')).toBeInTheDocument();
+      expect(mocks.deleteLetter).not.toHaveBeenCalled();
+      const calls = mocks.getAllSentLettersOrThrow.mock.calls.length;
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(mocks.deleteLetter).toHaveBeenCalledWith('l1'));
+      await waitFor(() => expect(mocks.getAllSentLettersOrThrow.mock.calls.length).toBeGreaterThan(calls));
+    });
+
+    it('Delete letter cancelled: nothing is deleted', async () => {
+      const user = userEvent.setup();
+      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({});
+      renderPage();
+      await openMenu(user, 'Hello Tom');
+      await user.click(await screen.findByRole('menuitem', { name: /Delete letter/ }));
+      await screen.findByText('Delete letter?');
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(mocks.deleteLetter).not.toHaveBeenCalled();
     });
 
     it('canvas: Share opens the P1515 share panel for that canvas', async () => {

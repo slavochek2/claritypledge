@@ -54,7 +54,7 @@ describe('CohortTable status cell', () => {
 
   it('a recipient who has not finished and has no position still waits', () => {
     renderTable(story([]), [delivery()]);
-    expect(screen.getByText(/Waiting/)).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument();
   });
 
   it('a recipient with a position is not Waiting and gets no repeated link', () => {
@@ -63,9 +63,10 @@ describe('CohortTable status cell', () => {
     expect(screen.queryByText(/open results/i)).toBeNull();
   });
 
-  it('a recipient with a recorded rating for the story is not Waiting', () => {
+  it('a recipient with a recorded rating for the story: the rating line is answered; only the unanswered point still waits', () => {
     renderTable(story([POINT]), [delivery()], [], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 7 }]);
-    expect(screen.queryByText(/Waiting/)).toBeNull();
+    expect(screen.getByTestId('cohort-rating-cell')).toHaveTextContent('their rating 7');
+    expect(screen.getAllByText('Waiting')).toHaveLength(1); // the point line, not the rating line
     expect(screen.getByTestId('cohort-recipient-cell')).toBeInTheDocument();
   });
 
@@ -84,43 +85,113 @@ function renderPublic(s: OverviewStory, deliveries: OverviewDelivery[], ratings:
   );
 }
 
-describe('CohortTable on a phone (< 640px): a stacked list, the desktop table kept from 640px', () => {
+describe('CohortTable breakdown: grouped by what was asked, one layout at every width', () => {
   const POINT = { id: 'p1', text: 'Reviews work better on Monday', hashtag: '', sort_order: 0 };
+  const POINT2 = { id: 'p2', text: 'A short meeting beats a thorough one', hashtag: '', sort_order: 1 };
+  const ann = delivery({ delivery_id: 'a', display_name: 'Ann', full_display_name: 'Ann Example' });
+  const bob = delivery({ delivery_id: 'b', display_name: 'Bob', full_display_name: 'Bob Example' });
 
-  it('one-to-one: the table restyles in place; every value line carries its label and runs full width', () => {
-    renderTable(story([POINT]), [delivery()], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
-    const table = screen.getByRole('table');
-    expect(table.className).toMatch(/\bblock\b/);
-    expect(table.className).toMatch(/\bsm:table\b/); // desktop matrix from 640px
-    expect(table.querySelector('thead')!.className).toMatch(/\bhidden\b/);
-    expect(table.querySelector('thead')!.className).toMatch(/\bsm:table-header-group\b/);
-    const row = table.querySelector('tbody tr')!;
-    expect(row.className).toMatch(/\bblock\b/);
-    expect(row.className).toMatch(/\bsm:table-row\b/);
-    const lines = [...row.querySelectorAll('td[data-label]')] as HTMLElement[];
-    expect(lines.map(td => td.getAttribute('data-label'))).toEqual(['You → Them', 'Reviews work better on Monday']);
-    for (const td of lines) {
-      expect(td.className).toMatch(/\bflex\b/);
-      expect(td.className).toMatch(/\bjustify-between\b/); // "label ... value" on one full-width line
-      expect(td.className).toMatch(/before:content-\[attr\(data-label\)\]/); // the label
-      expect(td.className).toMatch(/\bsm:table-cell\b/);
-      expect(td.className).toMatch(/\bsm:before:content-none\b/); // no label on the desktop matrix
+  function renderBoth(over: { deliveries?: OverviewDelivery[]; mode?: 'one-to-one' | 'one-to-many'; ratings?: unknown[]; predictions?: unknown[]; responses?: unknown[] } = {}) {
+    return render(
+      <MemoryRouter>
+        <CohortTable
+          story={story([POINT, POINT2])}
+          deliveries={over.deliveries ?? [ann, bob]}
+          ratings={(over.ratings ?? []) as never}
+          predictions={(over.predictions ?? []) as never}
+          responses={(over.responses ?? []) as never}
+          letterMode={over.mode ?? 'one-to-one'}
+        />
+      </MemoryRouter>,
+    );
+  }
+
+  it('is not a table: no matrix, no truncated column headers, no "You → Them" notation', () => {
+    renderBoth({ ratings: [{ delivery_id: 'a', story_id: 's1', listener_rating: 8 }], predictions: [{ delivery_id: 'a', story_id: 's1', prediction: 6 }] });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('columnheader')).toBeNull();
+    expect(screen.queryByText('You → Them')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/[\d?]\s*→\s*[\d—]/);
+  });
+
+  it('one-to-one: "Story rating" first, one line per recipient in plain words', () => {
+    renderBoth({
+      ratings: [{ delivery_id: 'a', story_id: 's1', listener_rating: 8 }],
+      predictions: [{ delivery_id: 'a', story_id: 's1', prediction: 6 }],
+    });
+    const heading = screen.getByRole('heading', { name: 'Story rating' });
+    const cells = screen.getAllByTestId('cohort-rating-cell').map(c => c.textContent);
+    expect(cells).toEqual(['your guess 6 · their rating 8', 'Waiting']); // not answered: plain "Waiting"
+    const firstPoint = screen.getByRole('heading', { name: 'Reviews work better on Monday' });
+    expect(heading.compareDocumentPosition(firstPoint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // rating block first
+  });
+
+  it('every point text appears ONCE, as a subheading, however many recipients', () => {
+    renderBoth({ deliveries: [ann, bob, delivery({ delivery_id: 'c', display_name: 'Cy', full_display_name: 'Cy Example' })] });
+    expect(screen.getAllByText('Reviews work better on Monday')).toHaveLength(1);
+    expect(screen.getAllByText('A short meeting beats a thorough one')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Reviews work better on Monday' })).toHaveAttribute('href', '/point/p1');
+    // one compact line per recipient under each point
+    const lines = screen.getAllByTestId('cohort-point-line');
+    expect(lines).toHaveLength(3 * 2);
+  });
+
+  it('a point line is "name" then the position label, or plain "Waiting"', () => {
+    renderBoth({ responses: [{ delivery_id: 'a', point_id: 'p1', position: 'agree' }] });
+    const [first, second] = screen.getAllByTestId('cohort-point-line'); // point 1: Ann, Bob
+    expect(first).toHaveTextContent('Ann Example');
+    expect(first).toHaveTextContent('Agree');
+    expect(second).toHaveTextContent('Bob Example');
+    expect(second).toHaveTextContent('Waiting');
+  });
+
+  it('"Waiting" is a plain muted word: no leading dot, anywhere', () => {
+    renderBoth();
+    const waiting = screen.getAllByText('Waiting');
+    expect(waiting.length).toBeGreaterThan(0);
+    for (const w of waiting) {
+      expect(w.className).toContain('text-muted-foreground');
+      expect(w.textContent).toBe('Waiting');
     }
-    expect(lines[1]).toHaveTextContent('Agree');
+    expect(document.body.textContent).not.toContain('·  Waiting');
+    expect(document.body.textContent).not.toMatch(/·\s*Waiting/);
   });
 
-  it('a missing response keeps its label line and reads as a dash with an accessible name', () => {
-    renderTable(story([POINT]), [delivery()]);
-    const line = screen.getByLabelText('No response');
-    expect(line).toHaveAttribute('data-label', 'Reviews work better on Monday');
-    expect(line).toHaveTextContent('—');
+  it('a finished recipient who skipped a point reads "No response", not Waiting', () => {
+    renderBoth({ deliveries: [delivery({ delivery_id: 'a', completed_at: '2026-10-20T10:00:00Z' })], ratings: [{ delivery_id: 'a', story_id: 's1', listener_rating: 5 }] });
+    expect(screen.queryByText('Waiting')).toBeNull();
+    expect(screen.getAllByText('No response')).toHaveLength(2);
   });
 
-  it('one-to-many labels the rating line "Their rating"', () => {
-    renderPublic(story([POINT]), [delivery()], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 7 }]);
-    const cell = screen.getByTestId('cohort-rating-cell');
-    expect(cell).toHaveAttribute('data-label', 'Their rating');
-    expect(cell).toHaveTextContent('7');
+  it('the rating block carries the 24px avatar and the profile link; point lines stay plain text', () => {
+    renderBoth({ deliveries: [delivery({ delivery_id: 'a', full_display_name: 'Ann Example', profile_slug: 'ann-e' })] });
+    expect(screen.getAllByRole('link', { name: 'Ann Example' })).toHaveLength(1);
+    expect(screen.getAllByTestId('cohort-recipient-cell')).toHaveLength(1);
+    const avatar = screen.getByTestId('gravatar-avatar');
+    expect(avatar.className).toMatch(/!w-6/);
+    expect(avatar.className).toMatch(/!h-6/);
+  });
+
+  it('public letter: heading "Ratings", no "your guess" even when a prediction is stored', () => {
+    renderBoth({
+      mode: 'one-to-many',
+      ratings: [{ delivery_id: 'a', story_id: 's1', listener_rating: 7 }],
+      predictions: [{ delivery_id: null, story_id: 's1', prediction: 4 }],
+    });
+    expect(screen.getByRole('heading', { name: 'Ratings' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Story rating' })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/your guess/i);
+    expect(screen.getAllByTestId('cohort-rating-cell').map(c => c.textContent)).toEqual(['7', 'Waiting']);
+  });
+
+  it('a story with no points draws the rating block alone', () => {
+    render(
+      <MemoryRouter>
+        <CohortTable story={story([])} deliveries={[ann]} ratings={[{ delivery_id: 'a', story_id: 's1', listener_rating: 3 } as never]} predictions={[]} responses={[]} letterMode="one-to-one" />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole('heading')).toHaveLength(1);
+    expect(screen.queryByTestId('cohort-point-line')).toBeNull();
   });
 });
 
@@ -130,28 +201,28 @@ describe('CohortTable, public letter with nothing in for the story', () => {
   it('shows only "No ratings yet": no header, no placeholder recipient rows', () => {
     renderPublic(story([POINT]), [delivery({ display_name: 'Recipient', full_display_name: 'Recipient' }), delivery({ delivery_id: 'dv2' })]);
     expect(screen.getByText('No ratings yet')).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByTestId('cohort-rating-cell')).toBeNull();
     expect(screen.queryByText('Recipient')).toBeNull();
     expect(screen.queryByTestId('cohort-recipient-cell')).toBeNull();
-    expect(screen.queryByText('Their rating')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Ratings' })).toBeNull();
   });
 
-  it('CONTROL: once someone rated, the table and the summary return', () => {
+  it('CONTROL: once someone rated, the breakdown and the summary return', () => {
     renderPublic(story([POINT]), [delivery()], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 8 }]);
-    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ratings' })).toBeInTheDocument();
     expect(screen.getByTestId('cohort-recipient-cell')).toBeInTheDocument();
     expect(screen.queryByText('No ratings yet')).toBeNull();
   });
 
   it('CONTROL: a reader who answered a point but did not rate still gets their row', () => {
     renderPublic(story([POINT]), [delivery()], [], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
-    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ratings' })).toBeInTheDocument();
     expect(screen.getByText('Agree')).toBeInTheDocument();
   });
 
   it('CONTROL: a one-to-one letter keeps its rows while waiting (the Waiting state is the point there)', () => {
     renderTable(story([POINT]), [delivery()]);
-    expect(screen.getByRole('table')).toBeInTheDocument();
-    expect(screen.getByText(/Waiting/)).toBeInTheDocument();
+    expect(screen.getByTestId('cohort-recipient-cell')).toBeInTheDocument();
+    expect(screen.getAllByText('Waiting')).toHaveLength(2); // the rating line and the point line
   });
 });

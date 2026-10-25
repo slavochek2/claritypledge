@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { LetterDelivery } from '@/app/types';
+import { agoPhrase } from '@/app/pages/artifacts/artifacts-view-model';
 
 const RESPONDENT_PAGE = 10;
 
@@ -41,12 +42,15 @@ function PersonRow({
   delivery, letterId, isNew,
 }: { delivery: LetterDelivery; letterId: string; isNew: boolean }) {
   const name = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
+  const isRespondent = !delivery.receiver_email;
   // "N of M steps" is progress: it reads only while the person is in progress (Done says Done, nothing else).
   const showSteps = delivery.status === 'in_progress' && delivery.steps_completed !== undefined && delivery.total_steps !== undefined;
   const hasResults = delivery.status === 'completed' || (delivery.steps_completed ?? 0) > 0;
   const detail = [
     statusLabel(delivery.status),
     showSteps ? `${Math.min(delivery.steps_completed ?? 0, delivery.total_steps ?? 0)} of ${delivery.total_steps} steps` : null,
+    // Public-link respondents are all "Anonymous": when they finished tells the rows apart.
+    isRespondent && delivery.status === 'completed' ? agoPhrase(delivery.completed_at) : null,
   ].filter(Boolean).join(' · ');
   return (
     <li className={`relative flex min-h-12 items-center gap-3 px-1 py-2 text-sm ${hasResults ? 'transition-colors hover:bg-accent/50' : ''}`}>

@@ -320,15 +320,16 @@ describe('"…" menu guards (today\'s rules)', () => {
     expect(ok.at(-1)?.danger).toBe(true);
   });
 
-  it('sent letter: Copy public link only on public letters; Delete letter is disabled with its reason once any delivery exists', () => {
-    const priv = menu({ sentLetters: [letter()] });
-    expect(priv.map(a => a.id)).toEqual(['delete-letter']);
-    expect(priv.at(-1)?.disabledReason).toBeUndefined();
-    const pub = menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } });
-    expect(pub.map(a => a.id)).toEqual(['copy-public-link', 'delete-letter']);
-    expect(pub.at(-1)).toMatchObject({ danger: true, disabledReason: "Can't delete — letter has been shared." });
-    const sharedPrivate = menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } });
-    expect(sharedPrivate.at(-1)).toMatchObject({ id: 'delete-letter', disabledReason: "Can't delete — letter has been shared." });
+  it('sent letter: "…" holds only an enabled Delete letter, and only while nobody has it (0 deliveries); never Copy public link, never a disabled item', () => {
+    const none = menu({ sentLetters: [letter()] });
+    expect(none).toEqual([{ id: 'delete-letter', label: 'Delete letter', danger: true }]);
+    const publicNone = menu({ sentLetters: [letter({ mode: 'one-to-many' })] });
+    expect(publicNone.map(a => a.id)).toEqual(['delete-letter']); // public with no respondents yet: still no Copy link
+    // CONTROLS: any delivery (a recipient, or a public-link respondent) removes the menu
+    expect(menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } })).toEqual([]);
+    expect(menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } })).toEqual([]);
+    expect(menu({ docs: [doc()] }).length).toBeGreaterThan(0);
+    expect(menu({ myCanvases: [myCanvas()] }).length).toBeGreaterThan(0);
   });
 
   it('own canvas: Share only; shared items have no menu', () => {

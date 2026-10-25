@@ -261,7 +261,7 @@ Replaces the "Unread mark only on Shared with you" and "One meta line per row" b
   - received `From Tom · 2 of 5 steps · 4d ago` / `From Anna · done · 1w ago`. Vocabulary: "done" everywhere.
 - **Overview page = the letter's control page.** A Recipients section above the stories: per person status (Invited / Opened / In progress / done), "N of M steps", "new" mark, one whole-letter Results link (`/letter/:id/results?delivery=`). Public-link respondents one row each, latest 10 plus "Show all". Actions: Add recipients (`LetterReceiverModal`), Preview (new tab), Copy public link, Sealed date. A person's "new" mark clears when their results are opened.
 - **Bug:** a completed recipient must keep Results even when the stories have no points (`cohort-table.tsx:128,205`).
-- **Delete on a sent letter:** shown disabled with today's reason, not hidden.
+- **Delete on a sent letter:** ~~shown disabled with today's reason~~ superseded 2026-10-25 by the visual review: see "Row '…'" below.
 - **Live invite ("Join")** shown above both tabs.
 - **Kept:** "No recipients yet", Retry on error, the "Can't delete" message, private/public choice on New, Prepare letter guard (0 stories).
 
@@ -270,8 +270,9 @@ Replaces the "Unread mark only on Shared with you" and "One meta line per row" b
 Founder UAT: a tap on a letter in Yours sometimes edits (draft) and sometimes opens the overview (sent), with nothing on the row saying which; the letter overview has no hierarchy ("1 new" looks like a link, Results off to the right, equal white buttons, "open results" repeated, Back top and bottom); the same actions live in the row "…" and on the overview.
 
 - **Yours has headings:** Drafts, Sent, Canvases, in that order, each shown only when it has rows. A tap in Drafts always edits; a tap in Sent always opens the overview. Chips and search still filter within the headings.
-- **Letter overview, one hierarchy:** title and sealed date; one primary action **Add recipients**; Preview and Copy link in a "…" at the top right. Then the people list: each row is the person (name, status, "N of M steps", a dot when new) and the whole row opens their results. No separate Results link, no blue "new" text, no repeated "open results" above the stories. Stories follow below as detail. One Back (top, as on other focus pages).
-- **Row "…" on Artifacts keeps quick actions only:** sent letter: Copy public link (public only), Delete (disabled with reason once shared). Add recipients and Preview live on the overview.
+- **Letter overview, one hierarchy:** title and sealed date; one blue primary **Add recipients**, with Preview and (public only) Copy public link as visible outline buttons beside it (no "…": a one-item menu was a dead end, visual review 2026-10-25). Then the people list: each row is the person (name, status, "N of M steps", a dot when new) and the whole row opens their results. No separate Results link, no blue "new" text, no repeated "open results" above the stories. Stories follow below as detail. One Back (top, as on other focus pages).
+- **Row "…" on Artifacts only when it has a usable action** (visual review 2026-10-25): a sent letter shows "…" with Delete letter only while nobody has received it; once delivered (or a public letter has a respondent) the row has no "…". Copy link, Add recipients and Preview live on the overview only. No disabled items in row menus.
+- **Story breakdown on the overview groups by what was asked:** a "Story rating" block (one line per person: "your guess 6 · their rating 8"; public letters show "Ratings" with no guess, per P1379), then each point once with one line per person ("Agree", "Waiting", "No response"). No desktop matrix.
 - **Canvas page:** shows Artifacts as the current section and has a Back button (today it sits under the profile layout, `/p/:handle/canvas/:projectTag`).
 - **Test data:** canvases shared with the founder's test account (one from a person, one via a group) on TEST only, so Shared with you and the chat card can be tried.
 

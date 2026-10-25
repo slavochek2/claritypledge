@@ -81,11 +81,12 @@ function renderCohort(letterMode: 'one-to-one' | 'one-to-many' | undefined, rati
 }
 
 describe('P1379 A4: CohortTable', () => {
-  it('one-to-many: summary line above rows, "Their rating" column, no prediction even when stored', () => {
+  it('one-to-many: summary line above rows, a "Ratings" block (no "your guess"), no prediction even when stored', () => {
     const { container } = renderCohort('one-to-many');
     expect(screen.getByTestId('cohort-rating-summary')).toHaveTextContent('3 readers · median 5 · range 2–9');
     expect(screen.queryByText('You → Them')).not.toBeInTheDocument();
-    expect(screen.getByText('Their rating')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ratings' })).toBeInTheDocument();
+    expect(screen.queryByText(/your guess/i)).not.toBeInTheDocument();
     const cells = screen.getAllByTestId('cohort-rating-cell').map((c) => c.textContent);
     expect(cells).toEqual(['9', '2', '5']);
     // No "prediction → rating" pair (the "[open results →]" link, which a rated reader now has, is not one).
@@ -100,17 +101,18 @@ describe('P1379 A4: CohortTable', () => {
     expect(screen.getByTestId('cohort-rating-summary')).toHaveTextContent('No ratings yet');
   });
 
-  it('CONTROL one-to-one: "You → Them" column with prediction → rating, no summary line', () => {
+  it('CONTROL one-to-one: a "Story rating" block with "your guess 6 · their rating 9", no summary line', () => {
     renderCohort('one-to-one', RATINGS, [{ delivery_id: 'd1', story_id: 's1', prediction: 6 }]);
-    expect(screen.getByText('You → Them')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Story rating' })).toBeInTheDocument();
     expect(screen.queryByTestId('cohort-rating-summary')).not.toBeInTheDocument();
-    const row = screen.getByText('Reader One').closest('tr')!;
-    expect(within(row).getByText(/6\s*→\s*9/)).toBeInTheDocument();
+    const row = screen.getByText('Reader One').closest('li')!;
+    expect(within(row).getByText('your guess 6 · their rating 9')).toBeInTheDocument();
   });
 
-  it('letterMode unknown (failed mode read): fails closed — no prediction column', () => {
+  it('letterMode unknown (failed mode read): fails closed — no prediction in the block', () => {
     const { container } = renderCohort(undefined);
-    expect(screen.queryByText('You → Them')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Story rating' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/your guess/i)).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/\b8\b/);
   });
 });
