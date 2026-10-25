@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockInstance } from 'vitest';
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
@@ -25,8 +26,8 @@ vi.mock('@/app/data/letters-service', () => ({
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('@/app/components/layout/focus-header', () => ({ FocusHeader: () => <div /> }));
-vi.mock('@/app/components/layout/bottom-back-button', () => ({ BottomBackButton: () => <div /> }));
+vi.mock('@/app/components/layout/focus-header', () => ({ FocusHeader: () => <div data-testid="focus-header" /> }));
+vi.mock('@/app/components/layout/bottom-back-button', () => ({ BottomBackButton: () => <div data-testid="bottom-back" /> }));
 vi.mock('@/app/components/letters/letter-receiver-modal', () => ({
   LetterReceiverModal: ({ letterId, onRecipientAdded }: { letterId: string; onRecipientAdded?: () => void }) => (
     <div data-testid="receiver-modal">{letterId}<button onClick={onRecipientAdded}>mock-added</button></div>
@@ -71,22 +72,99 @@ beforeEach(() => {
   mocks.markExplainBackRead.mockResolvedValue(undefined);
 });
 
-describe('LetterOverviewPage Recipients section', () => {
-  it('shows Recipients above the stories, with status, a Results link and a completed person keeping Results on a pointless story', async () => {
+describe('LetterOverviewPage hierarchy', () => {
+  const opened: { open: MockInstance } = { open: vi.fn() as unknown as MockInstance };
+  beforeEach(() => {
+    opened.open = vi.spyOn(window, 'open').mockImplementation(() => null);
+  });
+
+  it('reads title and sealed date, then one primary Add recipients, then the people, then the stories', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
+    renderPage();
+    const section = await screen.findByTestId('letter-recipients');
+    const title = screen.getByRole('heading', { level: 1, name: 'Hello Tom' });
+    const date = screen.getByText(/Sealed Oct 3/);
+    const add = screen.getByRole('button', { name: 'Add recipients' });
+    const storyHeading = screen.getByRole('link', { name: 'A story' });
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(title, date)).toBe(true);
+    expect(follows(date, add)).toBe(true);
+    expect(follows(add, section)).toBe(true);
+    expect(follows(section, storyHeading)).toBe(true);
+    expect(section).not.toHaveTextContent(/Sealed/); // the date lives in the header now
+  });
+
+  it('Add recipients is the only primary control on the page', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
+    renderPage();
+    const add = await screen.findByRole('button', { name: 'Add recipients' });
+    expect(add.className).toContain('bg-primary');
+    const others = [...screen.getAllByRole('button'), ...screen.getAllByRole('link')].filter(el => el !== add);
+    expect(others.filter(el => /\bbg-(primary|blue-[5-9]00)\b/.test(el.className))).toEqual([]);
+    // Preview and Copy link are not drawn as buttons beside it
+    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
+  });
+
+  it('Preview and Copy public link sit behind one "…" at the top right', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    renderPage();
+    const more = await screen.findByRole('button', { name: 'More actions' });
+    expect(screen.getByRole('heading', { level: 1 }).parentElement!.parentElement).toContainElement(more); // same header row as the title
+    expect(more.className).toMatch(/\bh-10\b/);
+    expect(more.className).toMatch(/\bw-10\b/);
+    await user.click(more);
+    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Preview', 'Copy public link']);
+    await user.click(screen.getByRole('menuitem', { name: 'Preview' }));
+    expect(opened.open).toHaveBeenCalledWith('/letter/doc1/preview', '_blank', 'noopener,noreferrer');
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Copy public link' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/letter/l1`));
+  });
+
+  it('a private letter offers only Preview in the "…"; with no source doc and no public link there is no "…" at all', async () => {
+    const user = userEvent.setup();
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    const first = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Preview']);
+    first.unmount();
+    mocks.getLetterOverview.mockResolvedValue(payload({ source_doc_id: null }));
+    renderPage();
+    await screen.findByTestId('letter-recipients');
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+  });
+
+  it('the whole person row opens that person\'s results; no Results link, no "open results" anywhere', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
     expect(within(section).getByText('Di')).toBeInTheDocument();
-    expect(within(section).getByText('Done')).toBeInTheDocument();
-    expect(within(section).getByRole('link', { name: 'Results' })).toHaveAttribute('href', '/letter/l1/results?delivery=d1');
-    const storyHeading = screen.getByRole('link', { name: 'A story' });
-    expect(section.compareDocumentPosition(storyHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // the cohort table row for the completed person on a story with no points
-    expect(screen.getByRole('link', { name: /open results/ })).toBeInTheDocument();
+    expect(within(section).getByText(/Done/)).toBeInTheDocument();
+    expect(within(section).getByRole('link', { name: 'Di' })).toHaveAttribute('href', '/letter/l1/results?delivery=d1');
+    expect(screen.queryByRole('link', { name: /Results/ })).toBeNull();
+    expect(screen.queryByText(/open results/i)).toBeNull();
+    expect(screen.queryByText(/Results/)).toBeNull();
   });
 
-  it('with no recipients it still shows the section and its actions', async () => {
+  it('has one Back, at the top: no bottom Go back pill', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
+    renderPage();
+    await screen.findByTestId('letter-recipients');
+    expect(screen.getAllByTestId('focus-header')).toHaveLength(1);
+    expect(screen.queryByTestId('bottom-back')).toBeNull();
+  });
+
+  it('with no recipients it still shows the section, "No recipients yet" and Add recipients', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload());
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     renderPage();
@@ -95,14 +173,15 @@ describe('LetterOverviewPage Recipients section', () => {
     expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
   });
 
-  it('shows the new mark; clicking Results marks nothing read (the results page does, once rendered)', async () => {
+  it('shows the new mark as a dot; opening the person\'s results marks nothing read (the results page does, once rendered)', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ d1: 1 });
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
-    expect(within(section).getByText('1 new')).toBeInTheDocument();
-    fireEvent.click(within(section).getByRole('link', { name: 'Results' }));
+    expect(within(section).getByRole('img', { name: 'New' })).toBeInTheDocument();
+    expect(within(section).queryByText('1 new')).toBeNull();
+    fireEvent.click(within(section).getByRole('link', { name: 'Di' }));
     expect(mocks.markDeliveryRead).not.toHaveBeenCalled();
     expect(mocks.markExplainBackRead).not.toHaveBeenCalled();
   });
@@ -112,7 +191,7 @@ describe('LetterOverviewPage Recipients section', () => {
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: null })] });
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
-    expect(within(section).getByText('1 new')).toBeInTheDocument();
+    expect(within(section).getByRole('img', { name: 'New' })).toBeInTheDocument();
   });
 
   it('a read finished delivery is not new', async () => {
@@ -120,7 +199,7 @@ describe('LetterOverviewPage Recipients section', () => {
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: '2026-10-06T10:00:00Z' })] });
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
-    expect(within(section).queryByText(/new/)).toBeNull();
+    expect(within(section).queryByRole('img', { name: 'New' })).toBeNull();
   });
 
   it('a failed overview read shows Retry, not "Not authorized"; an empty answer is "Not authorized"', async () => {
@@ -169,21 +248,13 @@ describe('LetterOverviewPage Recipients section', () => {
     resolveSecond(payload());
   });
 
-  it('Preview is hidden when the letter has no source doc', async () => {
-    mocks.getLetterOverview.mockResolvedValue(payload({ source_doc_id: null }));
-    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
-    renderPage();
-    await screen.findByTestId('letter-recipients');
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
-  });
-
-  it('a public letter offers Copy public link; a failed recipients read says so with Retry', async () => {
+  it('a failed recipients read says so with Retry; after Retry a public letter offers its "…"', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }));
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('x'));
     renderPage();
     expect(await screen.findByText('Something went wrong loading the recipients.')).toBeInTheDocument();
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('button', { name: 'Copy public link' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 });

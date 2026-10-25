@@ -1,7 +1,9 @@
 /**
  * @file letter-overview-page.tsx
- * @description P700: Author-only cohort overview for a sent letter.
- * Shows stacked CohortTable components — one per story in the letter.
+ * @description P700: Author-only cohort overview for a sent letter; P1545: the letter's control page.
+ * One hierarchy: title and sealed date, ONE primary action (Add recipients), Preview and Copy public
+ * link behind a "…" at the top right, then the people list (each row opens that person's results),
+ * then one CohortTable per story as detail. One Back, at the top.
  *
  * Route: /letter/:id/overview
  */
@@ -10,8 +12,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
+import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CohortTable } from '@/app/components/letters/cohort-table';
 import { LetterRecipientsSection } from '@/app/components/letters/letter-recipients-section';
 import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
@@ -196,6 +199,7 @@ export function LetterOverviewPage() {
   const hasCohort = payload.deliveries.length > 0;
 
   // The "new" mark is cleared by the results page once it has rendered, not by the click here.
+  const sealed = letter.sealed_at ? new Date(letter.sealed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
   const handlePreview = () => {
     if (letter.source_doc_id) window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
   };
@@ -215,31 +219,55 @@ export function LetterOverviewPage() {
       <span className="sr-only">Waiting for response</span>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-10">
         <FocusHeader fallback={BACK_FALLBACK} />
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
-          <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
-          {/* P843: author identity with avatar + full name (parity with cohort rows) */}
-          <div className="mt-3 flex items-center gap-2" data-testid="letter-author-block">
-            <PersonAvatar
-              person={{
-                name: letter.sender.name,
-                avatarUrl: letter.sender.avatar_url ?? undefined,
-                hasPledged: letter.sender.has_pledged,
-                slug: letter.sender.slug ?? undefined,
-              }}
-              size="sm"
-            />
-            {letter.sender.slug ? (
-              <Link
-                to={`/p/${letter.sender.slug}`}
-                className="text-sm font-medium hover:underline"
-              >
-                {letter.sender.name}
-              </Link>
-            ) : (
-              <span className="text-sm font-medium">{letter.sender.name}</span>
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
+              <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
+              {sealed && <p className="mt-1 text-sm text-muted-foreground">Sealed {sealed}</p>}
+              {/* P843: author identity with avatar + full name (parity with cohort rows) */}
+              <div className="mt-3 flex items-center gap-2" data-testid="letter-author-block">
+                <PersonAvatar
+                  person={{
+                    name: letter.sender.name,
+                    avatarUrl: letter.sender.avatar_url ?? undefined,
+                    hasPledged: letter.sender.has_pledged,
+                    slug: letter.sender.slug ?? undefined,
+                  }}
+                  size="sm"
+                />
+                {letter.sender.slug ? (
+                  <Link
+                    to={`/p/${letter.sender.slug}`}
+                    className="text-sm font-medium hover:underline"
+                  >
+                    {letter.sender.name}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium">{letter.sender.name}</span>
+                )}
+              </div>
+            </div>
+            {(letter.source_doc_id || isPublic) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More actions"
+                    className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
+                  {letter.source_doc_id && <DropdownMenuItem className="min-h-10" onSelect={handlePreview}>Preview</DropdownMenuItem>}
+                  {isPublic && <DropdownMenuItem className="min-h-10" onSelect={() => void handleCopyPublicLink()}>Copy public link</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
+          {/* The page's one primary action. */}
+          <Button className="min-h-10" onClick={() => setAddOpen(true)}>Add recipients</Button>
         </div>
 
         {recipientsFailed ? (
@@ -254,10 +282,6 @@ export function LetterOverviewPage() {
             isPublic={isPublic}
             deliveries={deliveries}
             newByDelivery={newByDelivery}
-            sealedAt={letter.sealed_at ?? null}
-            onAddRecipients={() => setAddOpen(true)}
-            onPreview={letter.source_doc_id ? handlePreview : undefined}
-            onCopyPublicLink={() => void handleCopyPublicLink()}
           />
         )}
 
@@ -276,7 +300,6 @@ export function LetterOverviewPage() {
               ratings={ratings}
               predictions={predictions}
               responses={pointResponses}
-              letterId={letterId ?? ''}
               letterMode={letter.mode}
             />
           </section>
@@ -295,9 +318,6 @@ export function LetterOverviewPage() {
             }}
           />
         )}
-
-        {/* P1364 §3 — the same way out at the end of the page. */}
-        <BottomBackButton fallback={BACK_FALLBACK} testId="letter-overview-bottom-back" className="mt-0" />
       </div>
     </div>
   );

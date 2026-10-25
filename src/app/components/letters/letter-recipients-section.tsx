@@ -1,15 +1,16 @@
 /**
  * @file letter-recipients-section.tsx
- * @description P1545 Letters parity: the Recipients section of the letter overview page, the letter's
- * control page. Per person: status (Invited / Opened / In progress / Done), "N of M steps", a "new"
- * mark while they have unread explain-backs, and one whole-letter Results link. Public-link
- * respondents get one row each, the latest 10 plus "Show all". Actions: Add recipients, Preview,
- * Copy public link (public letters), and the Sealed date.
+ * @description P1545 Letters parity + orientation redesign: the people list of the letter overview page.
+ * One row per person: name, status (Invited / Opened / In progress / Done), "N of M steps", and a dot
+ * while they have something new. A person who has started or finished is a tap target as a whole row:
+ * it opens their whole-letter results (no separate Results link). Public-link respondents get one row
+ * each, the latest 10 plus "Show all".
  *
- * Presentational: the page owns the data and the handlers.
+ * Presentational: the page owns the data and the actions (Add recipients, Preview, Copy link).
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { LetterDelivery } from '@/app/types';
 
@@ -19,13 +20,8 @@ export interface LetterRecipientsSectionProps {
   letterId: string;
   isPublic: boolean;
   deliveries: LetterDelivery[];
-  /** Unread explain-backs per delivery id. */
+  /** Unread explain-backs / unread activity per delivery id; any value above 0 draws the dot. */
   newByDelivery: Record<string, number>;
-  sealedAt: string | null;
-  onAddRecipients: () => void;
-  /** Omitted when the letter has no source doc to preview: the button is not shown. */
-  onPreview?: () => void;
-  onCopyPublicLink: () => void;
 }
 
 function statusLabel(status: LetterDelivery['status']): string {
@@ -38,60 +34,64 @@ function statusLabel(status: LetterDelivery['status']): string {
   }
 }
 
+const NAME_CLASS = 'max-w-[24ch] truncate font-medium sm:max-w-[40ch]';
+const LINK_FOCUS = 'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
 function PersonRow({
-  delivery, letterId, newCount,
-}: { delivery: LetterDelivery; letterId: string; newCount: number }) {
+  delivery, letterId, isNew,
+}: { delivery: LetterDelivery; letterId: string; isNew: boolean }) {
   const name = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
   const showSteps = delivery.status !== 'sent' && delivery.steps_completed !== undefined && delivery.total_steps !== undefined;
   const hasResults = delivery.status === 'completed' || (delivery.steps_completed ?? 0) > 0;
+  const detail = [
+    statusLabel(delivery.status),
+    showSteps ? `${Math.min(delivery.steps_completed ?? 0, delivery.total_steps ?? 0)} of ${delivery.total_steps} steps` : null,
+  ].filter(Boolean).join(' · ');
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-      {delivery.receiver_slug ? (
-        <Link to={`/p/${delivery.receiver_slug}`} className="max-w-[24ch] truncate font-medium hover:underline sm:max-w-[40ch]" title={name}>
-          {name}
-        </Link>
-      ) : (
-        <span className="max-w-[24ch] truncate font-medium sm:max-w-[40ch]" title={name}>{name}</span>
-      )}
-      <span className="text-muted-foreground">{statusLabel(delivery.status)}</span>
-      {showSteps && (
-        <span className="text-muted-foreground">
-          {Math.min(delivery.steps_completed ?? 0, delivery.total_steps ?? 0)} of {delivery.total_steps} steps
-        </span>
-      )}
-      {newCount > 0 && <span className="text-xs font-medium text-blue-600">{newCount} new</span>}
-      {hasResults && (
-        <Link
-          to={`/letter/${letterId}/results?delivery=${delivery.id}`}
-          className="ml-auto inline-flex min-h-10 items-center text-sm font-medium text-blue-600 hover:underline"
-        >
-          Results
-        </Link>
-      )}
+    <li className={`relative flex min-h-12 items-center gap-3 px-1 py-2 text-sm ${hasResults ? 'transition-colors hover:bg-accent/50' : ''}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {hasResults ? (
+            // The link stretches over the whole row: a tap anywhere opens this person's results.
+            <Link
+              to={`/letter/${letterId}/results?delivery=${delivery.id}`}
+              className={`${NAME_CLASS} ${LINK_FOCUS} after:absolute after:inset-0 after:content-['']`}
+              title={name}
+            >
+              {name}
+            </Link>
+          ) : delivery.receiver_slug ? (
+            <Link to={`/p/${delivery.receiver_slug}`} className={`${NAME_CLASS} ${LINK_FOCUS} hover:underline`} title={name}>
+              {name}
+            </Link>
+          ) : (
+            <span className={NAME_CLASS} title={name}>{name}</span>
+          )}
+          {isNew && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" role="img" aria-label="New" />}
+        </div>
+        <p className="text-muted-foreground">{detail}</p>
+      </div>
+      {hasResults && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
     </li>
   );
 }
 
-export function LetterRecipientsSection({
-  letterId, isPublic, deliveries, newByDelivery, sealedAt, onAddRecipients, onPreview, onCopyPublicLink,
-}: LetterRecipientsSectionProps) {
+export function LetterRecipientsSection({ letterId, isPublic, deliveries, newByDelivery }: LetterRecipientsSectionProps) {
   const [showAll, setShowAll] = useState(false);
   const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };
   const byNewest = (a: LetterDelivery, b: LetterDelivery) => time(b.created_at) - time(a.created_at);
   const recipients = deliveries.filter(d => d.receiver_email).sort(byNewest);
   const respondents = deliveries.filter(d => !d.receiver_email).sort(byNewest);
   const shownRespondents = showAll ? respondents : respondents.slice(0, RESPONDENT_PAGE);
-  const sealed = sealedAt ? new Date(sealedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
   const empty = deliveries.length === 0;
 
   const row = (d: LetterDelivery) => (
-    <PersonRow key={d.id} delivery={d} letterId={letterId} newCount={newByDelivery[d.id] ?? 0} />
+    <PersonRow key={d.id} delivery={d} letterId={letterId} isNew={(newByDelivery[d.id] ?? 0) > 0} />
   );
 
   return (
     <section aria-labelledby="letter-recipients-heading" data-testid="letter-recipients">
       <h2 id="letter-recipients-heading" className="mb-1 text-base font-medium text-foreground">Recipients</h2>
-      {sealed && <p className="mb-2 text-sm text-muted-foreground">Sealed {sealed}</p>}
 
       {empty && (
         <p className="py-2 text-sm text-muted-foreground">{isPublic ? 'No responses yet' : 'No recipients yet'}</p>
@@ -112,12 +112,6 @@ export function LetterRecipientsSection({
           )}
         </>
       )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button variant="outline" className="min-h-10" onClick={onAddRecipients}>Add recipients</Button>
-        {onPreview && <Button variant="outline" className="min-h-10" onClick={onPreview}>Preview</Button>}
-        {isPublic && <Button variant="outline" className="min-h-10" onClick={onCopyPublicLink}>Copy public link</Button>}
-      </div>
     </section>
   );
 }

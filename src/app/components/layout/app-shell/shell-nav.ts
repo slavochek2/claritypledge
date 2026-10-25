@@ -25,6 +25,7 @@ import { usePendingPartnerInvitationCount } from '@/app/hooks/usePendingPartnerI
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from '@/app/hooks/useTonightsEvent';
 import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { useChatUnreadCount } from '@/app/pages/chat/chat-state';
+import { isCanvasPathname } from '@/lib/canvas-boxes';
 
 /** Where the signed-in home lives: the feed (P1545). `/` forwards here once the session has restored. */
 export const HOME_PATH = '/feed';
@@ -66,14 +67,15 @@ export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: str
       // longer light Groups (isEventsNavActive in nav-links still serves the top nav).
       return isUnder(pathname, EVENTS_NAV_TO);
     case 'artifacts':
-      return isUnder(pathname, ARTIFACTS_PATH);
+      // A canvas page (/p/:handle/canvas/:name) sits under a profile address but is an artifact, not a profile.
+      return isUnder(pathname, ARTIFACTS_PATH) || isCanvasPathname(pathname);
     case 'events':
       return isUnder(pathname, '/events');
     case 'partners':
       return !!slug && pathname === `/p/${slug}/partners`;
     case 'profile':
-      // /p/:slug/partners belongs to the Partners entry; every other /p/ page is a profile.
-      return (pathname.startsWith('/p/') && !pathname.endsWith('/partners')) || pathname === '/me';
+      // /p/:slug/partners belongs to the Partners entry and a canvas page to Artifacts; every other /p/ page is a profile.
+      return (pathname.startsWith('/p/') && !pathname.endsWith('/partners') && !isCanvasPathname(pathname)) || pathname === '/me';
   }
 }
 

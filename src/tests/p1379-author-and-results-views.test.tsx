@@ -74,7 +74,6 @@ function renderCohort(letterMode: 'one-to-one' | 'one-to-many' | undefined, rati
         ratings={ratings}
         predictions={predictions}
         responses={[]}
-        letterId="letter-1"
         letterMode={letterMode}
       />
     </BrowserRouter>

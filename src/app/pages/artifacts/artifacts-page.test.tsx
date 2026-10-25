@@ -45,10 +45,7 @@ vi.mock('@/app/data/canvas-service', () => ({
 }));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ invite: mocks.invite.current, loading: false }) }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-// The heavy modals are covered by their own tests; here only "did the row open them".
-vi.mock('@/app/components/letters/letter-receiver-modal', () => ({
-  LetterReceiverModal: ({ letterId }: { letterId: string }) => <div data-testid="receiver-modal">{letterId}</div>,
-}));
+// The share panel is covered by its own tests; here only "did the row open it".
 vi.mock('@/app/components/canvas/canvas-share-control', () => ({
   CanvasShareControl: ({ name, openSignal }: { name: string; openSignal?: number }) => (
     <div data-testid="share-control" data-name={name} data-signal={openSignal} />
@@ -125,14 +122,82 @@ describe('Artifacts page', () => {
     expect(screen.queryByRole('button', { name: /^(open|edit|results)/i })).toBeNull();
   });
 
-  it('unread activity on a sent letter says "1 new from Ann" with the activity time, and the letter moves up', async () => {
+  it('unread activity on a sent letter says "1 new from Ann" with the activity time, and the letter moves up within Sent', async () => {
     mocks.getInboxItems.mockResolvedValue([
       { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann', timestamp: ago(10 * 60_000), read_at: null },
     ]);
     renderPage();
     await screen.findByText('Draft about trust');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta')[0]?.textContent).toBe('Sent to 1 · 1 new from Ann · 10m ago'));
-    expect(rows().map(r => within(r).getByRole('heading').textContent)[0]).toBe('Hello Tom');
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('Sent to 1 · 1 new from Ann · 10m ago'));
+    // Headings keep the kinds apart: the draft stays under Drafts, the letter is first under Sent.
+    const sent = screen.getByRole('region', { name: 'Sent' });
+    expect(within(sent).getAllByTestId('artifact-row').map(r => within(r).getByRole('heading').textContent)[0]).toBe('Hello Tom');
+  });
+
+  describe('Yours headings', () => {
+    const headings = () => screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent);
+
+    it('shows Drafts, Sent, Canvases in that order, each with its own rows', async () => {
+      renderPage();
+      await screen.findByText('Draft about trust');
+      expect(headings()).toEqual(['Drafts', 'Sent', 'Canvases']);
+      expect(within(screen.getByRole('region', { name: 'Drafts' })).getAllByTestId('artifact-row')).toHaveLength(1);
+      expect(within(screen.getByRole('region', { name: 'Sent' })).getAllByTestId('artifact-row')).toHaveLength(1);
+      expect(within(screen.getByRole('region', { name: 'Canvases' })).getAllByTestId('artifact-row')).toHaveLength(1);
+    });
+
+    it('a heading with no rows is not drawn', async () => {
+      mocks.getDocsByUserOrThrow.mockResolvedValue([]);
+      renderPage();
+      await screen.findByText('Hello Tom');
+      expect(headings()).toEqual(['Sent', 'Canvases']);
+      expect(screen.queryByRole('region', { name: 'Drafts' })).toBeNull();
+    });
+
+    it('a canvas newer than the letter still sits under Canvases, below Sent', async () => {
+      mocks.listMyCanvases.mockResolvedValue([{ canvasId: null, name: 'fresh_one', generalAccess: 'restricted', hasAudience: false, lastEdit: ago(60_000) }]);
+      renderPage();
+      await screen.findByText('fresh one');
+      expect(rows().map(r => within(r).getByRole('heading').textContent)).toEqual(['Draft about trust', 'Hello Tom', 'fresh one']);
+    });
+
+    it('chips filter within the headings: Letters drops Canvases, Canvases drops Drafts and Sent', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText('Draft about trust');
+      await user.click(screen.getByRole('button', { name: 'Letters' }));
+      expect(headings()).toEqual(['Drafts', 'Sent']);
+      await user.click(screen.getByRole('button', { name: 'Canvases' }));
+      expect(headings()).toEqual(['Canvases']);
+    });
+
+    it('search keeps only the headings that still have a match', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByText('Draft about trust');
+      await user.click(screen.getByRole('button', { name: 'Search artifacts' }));
+      await user.type(screen.getByRole('searchbox'), 'hello');
+      expect(headings()).toEqual(['Sent']);
+      await user.clear(screen.getByRole('searchbox'));
+      await user.type(screen.getByRole('searchbox'), 'zzz');
+      expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+      expect(screen.getByText('No artifacts match “zzz”.')).toBeInTheDocument();
+    });
+
+    it('a tap in Drafts edits, a tap in Sent opens the overview, a tap in Canvases opens the canvas', async () => {
+      renderPage();
+      await screen.findByText('Draft about trust');
+      const link = (region: string, name: string) => within(screen.getByRole('region', { name: region })).getByRole('link', { name });
+      expect(link('Drafts', 'Draft about trust')).toHaveAttribute('href', '/letters/drafts/d1');
+      expect(link('Sent', 'Hello Tom')).toHaveAttribute('href', '/letter/l1/overview');
+      expect(link('Canvases', 'sales map')).toHaveAttribute('href', '/p/me/canvas/sales_map');
+    });
+
+    it('Shared with you stays one flat list without headings', async () => {
+      renderPage('/artifacts?tab=shared');
+      await screen.findByText('Note from Mara');
+      expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+    });
   });
 
   it('shows the unread count on the Shared with you tab, not on Yours', async () => {
@@ -373,16 +438,25 @@ describe('Artifacts page', () => {
       await waitFor(() => expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBeGreaterThan(calls));
     });
 
-    it('sent letter: Delete letter is shown disabled with its reason once shared; Add recipients opens the modal', async () => {
+    it('sent letter: quick actions only. Delete letter is shown disabled with its reason once shared; Add recipients and Preview live on the overview', async () => {
       const user = userEvent.setup();
       renderPage();
       await openMenu(user, 'Hello Tom');
-      await screen.findByRole('menuitem', { name: 'Add recipients' });
-      expect(screen.getByRole('menuitem', { name: /Delete letter/ })).toHaveAttribute('aria-disabled', 'true');
+      expect(await screen.findByRole('menuitem', { name: /Delete letter/ })).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByText("Can't delete — letter has been shared.")).toBeInTheDocument();
-      expect(screen.queryByRole('menuitem', { name: /Copy public link/ })).toBeNull(); // private letter
-      await user.click(screen.getByRole('menuitem', { name: 'Add recipients' }));
-      expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
+      expect(screen.getAllByRole('menuitem')).toHaveLength(1); // private letter: no Copy public link
+      expect(screen.queryByRole('menuitem', { name: /Add recipients/ })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: /Preview/ })).toBeNull();
+    });
+
+    it('public sent letter: Copy public link then Delete letter', async () => {
+      const user = userEvent.setup();
+      mocks.getAllSentLettersOrThrow.mockResolvedValue([{ ...sentLetter, mode: 'one-to-many' }]);
+      mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery({ receiver_email: null })] });
+      renderPage();
+      await openMenu(user, 'Hello Tom');
+      await screen.findByRole('menuitem', { name: 'Copy public link' });
+      expect(screen.getAllByRole('menuitem').map(i => i.textContent?.split('Can')[0])).toEqual(['Copy public link', 'Delete letter']);
     });
 
     it('sent letter nobody has received: Delete letter is offered and asks first', async () => {

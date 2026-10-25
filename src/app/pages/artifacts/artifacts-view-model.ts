@@ -29,12 +29,10 @@ export const ARTIFACT_TYPE_FILTERS: readonly ArtifactTypeFilter[] = ['all', 'let
 
 export type ArtifactState = 'draft' | 'sent' | 'canvas' | 'received-letter' | 'received-canvas';
 
-/** What the "…" menu can hold. The page maps each id to its handler; the model decides which apply. */
+/** What the "…" menu can hold (quick actions only). The page maps each id to its handler; the model decides which apply. */
 export type RowActionId =
   | 'prepare-letter'
   | 'delete-draft'
-  | 'preview-letter'
-  | 'add-recipients'
   | 'copy-public-link'
   | 'delete-letter'
   | 'share-canvas';
@@ -69,7 +67,6 @@ export interface ArtifactRow {
   ref: {
     docId?: string;
     letterId?: string;
-    sourceDocId?: string;
     deliveryId?: string;
     canvasName?: string;
     ownerId?: string;
@@ -292,9 +289,8 @@ export function sentRow(
     unread: false,
     href: `/letter/${letter.id}/overview`,
     sortAt: ms(shownAt),
+    // Quick actions only: Add recipients and Preview live on the overview page (a tap on the row).
     menu: [
-      ...(letter.source_doc_id ? [{ id: 'preview-letter' as const, label: 'Preview letter' }] : []),
-      { id: 'add-recipients', label: 'Add recipients' },
       ...(isPublic ? [{ id: 'copy-public-link' as const, label: 'Copy public link' }] : []),
       // Any delivery (recipients and link respondents) means the letter was shared: Delete stays in the
       // menu, disabled with today's reason. The handler still maps DELIVERIES_EXIST from the server.
@@ -305,7 +301,7 @@ export function sentRow(
         ...(deliveries.length > 0 ? { disabledReason: "Can't delete — letter has been shared." } : {}),
       },
     ],
-    ref: { letterId: letter.id, sourceDocId: letter.source_doc_id, isPublicLetter: isPublic },
+    ref: { letterId: letter.id, isPublicLetter: isPublic },
   };
 }
 
@@ -407,6 +403,31 @@ export function filterByQuery(rows: ArtifactRow[], query: string): ArtifactRow[]
   const q = query.trim().toLowerCase();
   if (!q) return rows;
   return rows.filter(r => r.title.toLowerCase().includes(q));
+}
+
+export type YoursSectionId = 'drafts' | 'sent' | 'canvases';
+
+export interface YoursSection {
+  id: YoursSectionId;
+  title: string;
+  rows: ArtifactRow[];
+}
+
+const YOURS_SECTIONS: readonly { id: YoursSectionId; title: string; state: ArtifactState }[] = [
+  { id: 'drafts', title: 'Drafts', state: 'draft' },
+  { id: 'sent', title: 'Sent', state: 'sent' },
+  { id: 'canvases', title: 'Canvases', state: 'canvas' },
+];
+
+/**
+ * Yours under its headings, in the order Drafts, Sent, Canvases (each row keeps its newest-first
+ * order). A heading with no rows is left out, so call this on the rows AFTER the chip and search
+ * filters: a tap under Drafts always edits, a tap under Sent always opens the overview.
+ */
+export function yoursSections(rows: ArtifactRow[]): YoursSection[] {
+  return YOURS_SECTIONS
+    .map(({ id, title, state }) => ({ id, title, rows: rows.filter(r => r.state === state) }))
+    .filter(section => section.rows.length > 0);
 }
 
 export function visibleRows(rows: ArtifactRow[], type: ArtifactTypeFilter, query: string): ArtifactRow[] {

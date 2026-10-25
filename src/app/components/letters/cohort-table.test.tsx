@@ -35,35 +35,43 @@ function renderTable(
         ratings={ratings as never}
         predictions={[]}
         responses={responses as never}
-        letterId="l1"
         letterMode="one-to-one"
       />
     </MemoryRouter>,
   );
 }
 
-describe('CohortTable results link', () => {
-  it('a completed recipient keeps Results when the story has no points', () => {
+describe('CohortTable status cell', () => {
+  // The person's row on the overview page opens their results; the per-story "[open results →]" link is gone.
+  const POINT = { id: 'p1', text: 'Point', hashtag: '', sort_order: 0 };
+
+  it('a completed recipient is never Waiting, even when the story has no points, and no per-story results link repeats', () => {
     renderTable(story([]), [delivery({ completed_at: '2026-10-20T10:00:00Z' })]);
-    const link = screen.getByRole('link', { name: /open results/ });
-    expect(link).toHaveAttribute('href', '/letter/l1/results?delivery=dv1&story=s1');
     expect(screen.queryByText(/Waiting/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /results/i })).toBeNull();
+    expect(screen.queryByText(/open results/i)).toBeNull();
   });
 
   it('a recipient who has not finished and has no position still waits', () => {
     renderTable(story([]), [delivery()]);
-    expect(screen.queryByRole('link', { name: /open results/ })).toBeNull();
     expect(screen.getByText(/Waiting/)).toBeInTheDocument();
   });
 
-  it('a recipient with a position keeps Results (unchanged)', () => {
-    renderTable(story([{ id: 'p1', text: 'Point', hashtag: '', sort_order: 0 }]), [delivery()], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
-    expect(screen.getByRole('link', { name: /open results/ })).toBeInTheDocument();
+  it('a recipient with a position is not Waiting and gets no repeated link', () => {
+    renderTable(story([POINT]), [delivery()], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
+    expect(screen.queryByText(/Waiting/)).toBeNull();
+    expect(screen.queryByText(/open results/i)).toBeNull();
   });
 
-  it('a recipient with a recorded rating for the story is not Waiting and gets the Results link', () => {
-    renderTable(story([{ id: 'p1', text: 'Point', hashtag: '', sort_order: 0 }]), [delivery()], [], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 7 }]);
-    expect(screen.getByRole('link', { name: /open results/ })).toHaveAttribute('href', '/letter/l1/results?delivery=dv1&story=s1');
+  it('a recipient with a recorded rating for the story is not Waiting', () => {
+    renderTable(story([POINT]), [delivery()], [], [{ delivery_id: 'dv1', story_id: 's1', listener_rating: 7 }]);
     expect(screen.queryByText(/Waiting/)).toBeNull();
+    expect(screen.getByTestId('cohort-recipient-cell')).toBeInTheDocument();
+  });
+
+  it('keeps the story detail: the recipient name and the positions stay', () => {
+    renderTable(story([POINT]), [delivery({ profile_slug: 'ann-e' })], [{ delivery_id: 'dv1', point_id: 'p1', position: 'agree' }]);
+    expect(screen.getByRole('link', { name: 'Ann Example' })).toHaveAttribute('href', '/p/ann-e');
+    expect(screen.getByRole('link', { name: 'Point' })).toHaveAttribute('href', '/point/p1');
   });
 });

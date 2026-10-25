@@ -1,7 +1,9 @@
 /**
  * @file cohort-table.tsx
  * @description P700: Per-story cohort table for the letter overview page.
- * Shows one row per delivery: Person · You → Them · per-point position · status link.
+ * Shows one row per delivery: Person · You → Them · per-point position · "Waiting" while nothing is in.
+ * P1545: there is no per-row results link here; the person's row on the overview page opens their
+ * whole-letter results, and the results walk reaches every story.
  * P1379: a one-to-many letter drops the "You → Them" prediction column. Above the rows
  * it shows a per-story summary (count · median · range), and each row shows the
  * reader's own rating under "Their rating". No gap anywhere.
@@ -15,7 +17,7 @@ import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
 
-function trackEntityLinkClick(linkType: 'recipient' | 'story_results') {
+function trackEntityLinkClick(linkType: 'recipient') {
   analytics.track('letter_overview_entity_link_clicked', { link_type: linkType });
 }
 
@@ -29,7 +31,6 @@ interface CohortTableProps {
   ratings: OverviewRating[];
   predictions: OverviewPrediction[];
   responses: OverviewPointResponse[];
-  letterId: string;
   /** P1379: only 'one-to-one' shows predictions; omitted/null fails closed. */
   letterMode?: LetterMode | null;
 }
@@ -38,7 +39,7 @@ interface CohortTableProps {
 // COMPONENT
 // ============================================================================
 
-export function CohortTable({ story, deliveries, ratings, predictions, responses, letterId, letterMode }: CohortTableProps) {
+export function CohortTable({ story, deliveries, ratings, predictions, responses, letterMode }: CohortTableProps) {
   const showsPredictions = letterUsesPredictions(letterMode);
 
   // Build per-delivery lookup maps
@@ -125,7 +126,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
             // responseMap keys are `${delivery_id}:${point_id}` across ALL stories,
             // but point IDs are globally unique UUIDs so cross-story collision is impossible.
             // TODO: if withdrawal state is ever added to letter_point_responses, filter it here.
-            // A recipient who finished always keeps Results, even when this story has no points
+            // A recipient who finished is never "Waiting", even when this story has no points
             // (nothing to position, so there is no position to find). A recorded rating for the story
             // is a response too: the row never reads "Waiting" beside a rating.
             const hasAnyPositionInThisStory =
@@ -205,18 +206,8 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                   );
                 })}
 
-                {/* End-of-row status */}
-                {hasAnyPositionInThisStory ? (
-                  <td className="py-3 sm:table-cell block">
-                    <Link
-                      to={`/letter/${letterId}/results?delivery=${d.delivery_id}&story=${story.story_id}`}
-                      className="text-sm text-blue-500 hover:text-blue-600 whitespace-nowrap"
-                      onClick={() => trackEntityLinkClick('story_results')}
-                    >
-                      [open results →]
-                    </Link>
-                  </td>
-                ) : (
+                {/* End-of-row status: only while nothing is in. */}
+                {!hasAnyPositionInThisStory && (
                   <td
                     className="py-3 sm:table-cell block text-muted-foreground whitespace-nowrap"
                     aria-label="Waiting for response"

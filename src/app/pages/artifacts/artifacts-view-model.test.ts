@@ -16,6 +16,7 @@ import {
   sharedMeta,
   unreadSharedCount,
   visibleRows,
+  yoursSections,
   type ArtifactsSource,
 } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -220,12 +221,12 @@ describe('rows', () => {
     expect(yours[0]?.meta).toBe('Sent to 1 · 2 new from Tom · 1h ago');
   });
 
-  it('menu: "Add recipients"; Preview is hidden without a source doc', () => {
+  it('menu keeps quick actions only: Add recipients and Preview live on the overview page', () => {
     const withSrc = buildArtifacts(source({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } })).yours[0];
-    expect(withSrc?.menu.find(a => a.id === 'add-recipients')?.label).toBe('Add recipients');
-    expect(withSrc?.menu.some(a => a.id === 'preview-letter')).toBe(true);
-    const noSrc = buildArtifacts(source({ sentLetters: [letter({ source_doc_id: null })] })).yours[0];
-    expect(noSrc?.menu.some(a => a.id === 'preview-letter')).toBe(false);
+    expect(withSrc?.menu.map(a => a.id)).not.toContain('add-recipients');
+    expect(withSrc?.menu.map(a => a.id)).not.toContain('preview-letter');
+    expect(withSrc?.menu.map(a => a.label)).not.toContain('Add recipients');
+    expect(withSrc?.menu.map(a => a.label)).not.toContain('Preview letter');
   });
 
   it('new explain-backs show as "N new from <name>" on the sent letter', () => {
@@ -312,10 +313,10 @@ describe('"…" menu guards (today\'s rules)', () => {
 
   it('sent letter: Copy public link only on public letters; Delete letter is disabled with its reason once any delivery exists', () => {
     const priv = menu({ sentLetters: [letter()] });
-    expect(priv.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'delete-letter']);
+    expect(priv.map(a => a.id)).toEqual(['delete-letter']);
     expect(priv.at(-1)?.disabledReason).toBeUndefined();
     const pub = menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } });
-    expect(pub.map(a => a.id)).toEqual(['preview-letter', 'add-recipients', 'copy-public-link', 'delete-letter']);
+    expect(pub.map(a => a.id)).toEqual(['copy-public-link', 'delete-letter']);
     expect(pub.at(-1)).toMatchObject({ danger: true, disabledReason: "Can't delete — letter has been shared." });
     const sharedPrivate = menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } });
     expect(sharedPrivate.at(-1)).toMatchObject({ id: 'delete-letter', disabledReason: "Can't delete — letter has been shared." });
@@ -354,6 +355,55 @@ describe('filters and search', () => {
   it('type and search combine', () => {
     expect(visibleRows(yours, 'canvases', 'review').map(r => r.kind)).toEqual(['canvas']);
     expect(visibleRows(yours, 'letters', 'review').map(r => r.title)).toEqual(['Quarterly Review']);
+  });
+});
+
+describe('Yours headings: Drafts, Sent, Canvases', () => {
+  const { yours } = buildArtifacts(source({
+    // Newest first overall would interleave the kinds: the headings must still group them.
+    docs: [doc({ id: 'dA', title: 'Older draft', updated_at: ago(5 * D) }), doc({ id: 'dB', title: 'Newer draft', updated_at: ago(H) })],
+    sentLetters: [letter({ id: 'l1', doc_title: 'Sent letter', sealed_at: ago(2 * H) })],
+    myCanvases: [myCanvas({ name: 'review_board', lastEdit: ago(30 * 60_000) })],
+  }));
+
+  it('groups in the order Drafts, Sent, Canvases, newest first inside each', () => {
+    const sections = yoursSections(yours);
+    expect(sections.map(s => s.title)).toEqual(['Drafts', 'Sent', 'Canvases']);
+    expect(sections.map(s => s.id)).toEqual(['drafts', 'sent', 'canvases']);
+    expect(sections[0]?.rows.map(r => r.title)).toEqual(['Newer draft', 'Older draft']);
+    expect(sections[1]?.rows.map(r => r.title)).toEqual(['Sent letter']);
+    expect(sections[2]?.rows.map(r => r.title)).toEqual(['review board']);
+  });
+
+  it('a heading with no rows is not returned', () => {
+    expect(yoursSections(yours.filter(r => r.state === 'draft')).map(s => s.title)).toEqual(['Drafts']);
+    expect(yoursSections(yours.filter(r => r.state !== 'sent')).map(s => s.title)).toEqual(['Drafts', 'Canvases']);
+    expect(yoursSections([])).toEqual([]);
+  });
+
+  it('chips and search filter inside the headings, and a heading whose rows are all filtered out disappears', () => {
+    expect(yoursSections(visibleRows(yours, 'letters', '')).map(s => s.title)).toEqual(['Drafts', 'Sent']);
+    expect(yoursSections(visibleRows(yours, 'canvases', '')).map(s => s.title)).toEqual(['Canvases']);
+    const searched = yoursSections(visibleRows(yours, 'all', 'newer'));
+    expect(searched.map(s => s.title)).toEqual(['Drafts']);
+    expect(searched[0]?.rows.map(r => r.title)).toEqual(['Newer draft']);
+    expect(yoursSections(visibleRows(yours, 'all', 'zzz'))).toEqual([]);
+  });
+
+  it('a tap in Drafts always edits and a tap in Sent always opens the overview', () => {
+    const sections = yoursSections(yours);
+    expect(sections[0]?.rows.every(r => r.href?.startsWith('/letters/drafts/'))).toBe(true);
+    expect(sections[1]?.rows.every(r => /^\/letter\/[^/]+\/overview$/.test(r.href ?? ''))).toBe(true);
+    expect(sections[2]?.rows.every(r => r.href === '/p/me/canvas/review_board')).toBe(true);
+  });
+
+  it('a draft that was already sent stays under Drafts; a public-link letter is under Sent', () => {
+    const built = buildArtifacts(source({
+      docs: [doc({ id: 'd9', title: 'Already sent', has_sent_letters: true })],
+      sentLetters: [letter({ id: 'l2', source_doc_id: 'd9', doc_title: 'Public one', mode: 'one-to-many' })],
+    }));
+    const sections = yoursSections(built.yours);
+    expect(sections.map(s => [s.title, s.rows.map(r => r.title)])).toEqual([['Drafts', ['Already sent']], ['Sent', ['Public one']]]);
   });
 });
 

@@ -4,7 +4,8 @@
  *
  * Tabs Yours / Shared with you (`?tab=yours|shared`, default yours, replace history), chips All ·
  * Letters · Canvases (`?type=`), title search across the current tab. One row per item; a tap opens
- * the item's existing page. The data and every rule live in artifacts-view-model.ts and
+ * the item's existing page. Yours sits under the headings Drafts, Sent, Canvases (each only when it
+ * has rows after the chip and search); Shared with you is one flat list. The data and every rule live in artifacts-view-model.ts and
  * use-artifacts-data.ts; this file is layout and wiring.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -31,6 +32,7 @@ import {
   parseType,
   unreadSharedCount,
   visibleRows,
+  yoursSections,
   type ArtifactRow,
   type ArtifactTab,
   type ArtifactTypeFilter,
@@ -324,14 +326,34 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
       )}
       {rows.length === 0 ? (
         data.pending ? null : <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
-      ) : (
-        <ul className="flex flex-col divide-y divide-border/60" aria-label={tab === 'yours' ? 'Your artifacts' : 'Shared with you'}>
-          {rows.map(row => (
-            <ArtifactListRow key={row.key} row={row} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
+      ) : tab === 'yours' ? (
+        // Yours under headings: a tap in Drafts always edits, a tap in Sent always opens the overview.
+        <div className="flex flex-col gap-2">
+          {yoursSections(rows).map(section => (
+            <section key={section.id} aria-labelledby={`artifacts-${section.id}-heading`}>
+              <h2 id={`artifacts-${section.id}-heading`} className="px-1 pb-1 pt-3 text-sm font-medium text-muted-foreground">
+                {section.title}
+              </h2>
+              <RowList label={section.title} rows={section.rows} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
+            </section>
           ))}
-        </ul>
+        </div>
+      ) : (
+        <RowList label="Shared with you" rows={rows} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
       )}
     </div>
+  );
+}
+
+function RowList({
+  label, rows, userSlug, onOpen, onChanged,
+}: { label: string; rows: ArtifactRow[]; userSlug: string | null; onOpen: (row: ArtifactRow) => void; onChanged: () => void }) {
+  return (
+    <ul className="flex flex-col divide-y divide-border/60" aria-label={label}>
+      {rows.map(row => (
+        <ArtifactListRow key={row.key} row={row} userSlug={userSlug} onOpen={onOpen} onChanged={onChanged} />
+      ))}
+    </ul>
   );
 }
 

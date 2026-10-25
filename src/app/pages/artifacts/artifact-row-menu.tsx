@@ -1,6 +1,7 @@
 /**
  * @file artifact-row-menu.tsx
  * @description P1545 WP3: the "…" menu on one Artifacts row, plus the dialogs its actions open.
+ * Quick actions only (orientation redesign): Add recipients and Preview moved to the letter overview.
  * Handlers and guards are copied from today's drafts-tab.tsx and sent-tab.tsx; the canvas Share
  * opens the P1515 share panel (CanvasShareControl) anchored to the "…" button.
  */
@@ -16,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
-import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
 import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
@@ -26,7 +26,7 @@ import { canvasTitle, type ArtifactRow, type RowAction } from './artifacts-view-
 interface Props {
   row: ArtifactRow;
   userSlug: string | null;
-  /** Called after anything that changes the list (delete, add recipient, share change). */
+  /** Called after anything that changes the list (delete, share change). */
   onChanged: () => void;
 }
 
@@ -34,7 +34,6 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<'draft' | 'letter' | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [recipientsOpen, setRecipientsOpen] = useState(false);
   const [shareSignal, setShareSignal] = useState(0);
   // Share opens AFTER the menu has closed: the menu hands focus back to its button as it closes, and that
   // focus move would dismiss the share popover if the popover were already open.
@@ -96,12 +95,6 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
         break;
       case 'delete-draft':
         setConfirm('draft');
-        break;
-      case 'preview-letter':
-        window.open(`/letter/${row.ref.sourceDocId}/preview`, '_blank', 'noopener,noreferrer');
-        break;
-      case 'add-recipients':
-        setRecipientsOpen(true);
         break;
       case 'copy-public-link':
         void handleCopyPublicLink();
@@ -180,19 +173,6 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
             openSignal={shareSignal}
           />
         </div>
-      )}
-
-      {recipientsOpen && row.ref.letterId && (
-        <LetterReceiverModal
-          mode="add-recipient"
-          open
-          onOpenChange={setRecipientsOpen}
-          letterId={row.ref.letterId}
-          onRecipientAdded={() => {
-            setRecipientsOpen(false);
-            onChanged();
-          }}
-        />
       )}
 
       <ConfirmDialog

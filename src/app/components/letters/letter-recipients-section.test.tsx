@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { LetterRecipientsSection, type LetterRecipientsSectionProps } from './letter-recipients-section';
@@ -16,10 +16,6 @@ function setup(over: Partial<LetterRecipientsSectionProps> = {}) {
     isPublic: false,
     deliveries: [],
     newByDelivery: {},
-    sealedAt: '2026-10-03T10:00:00Z',
-    onAddRecipients: vi.fn(),
-    onPreview: vi.fn(),
-    onCopyPublicLink: vi.fn(),
     ...over,
   };
   render(<MemoryRouter><LetterRecipientsSection {...props} /></MemoryRouter>);
@@ -27,15 +23,11 @@ function setup(over: Partial<LetterRecipientsSectionProps> = {}) {
 }
 
 describe('LetterRecipientsSection', () => {
-  it('says "No recipients yet" and still offers the actions', () => {
-    const p = setup();
+  it('says "No recipients yet" and draws no actions: Add recipients, Preview and Copy link belong to the page header', () => {
+    setup();
     expect(screen.getByText('No recipients yet')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add recipients' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
-    expect(p.onAddRecipients).toHaveBeenCalled();
-    expect(p.onPreview).toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
-    expect(screen.getByText(/Sealed Oct 3/)).toBeInTheDocument();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText(/Sealed/)).toBeNull();
   });
 
   it('shows each person with status words and steps', () => {
@@ -56,7 +48,7 @@ describe('LetterRecipientsSection', () => {
     expect(row('Di')).toHaveTextContent('Done');
   });
 
-  it('Results is one whole-letter link per person who has started or finished', () => {
+  it('the whole row of a person who started or finished opens their results; there is no separate Results link', () => {
     setup({
       deliveries: [
         delivery({ id: 'a', receiver_name: 'Ann', status: 'sent' }),
@@ -64,34 +56,58 @@ describe('LetterRecipientsSection', () => {
         delivery({ id: 'd', receiver_name: 'Di', status: 'completed' }),
       ],
     });
-    expect(within(screen.getByText('Ann').closest('li')!).queryByRole('link', { name: /Results/ })).toBeNull();
-    expect(within(screen.getByText('Cy').closest('li')!).getByRole('link', { name: /Results/ })).toHaveAttribute('href', '/letter/l1/results?delivery=c');
-    expect(within(screen.getByText('Di').closest('li')!).getByRole('link', { name: /Results/ })).toHaveAttribute('href', '/letter/l1/results?delivery=d');
+    expect(screen.queryByRole('link', { name: /Results/ })).toBeNull();
+    expect(screen.queryByText('Results')).toBeNull();
+    const cy = within(screen.getByText('Cy').closest('li')!).getByRole('link');
+    const di = within(screen.getByText('Di').closest('li')!).getByRole('link');
+    expect(cy).toHaveAttribute('href', '/letter/l1/results?delivery=c');
+    expect(di).toHaveAttribute('href', '/letter/l1/results?delivery=d');
+    // the link stretches over the row, so a tap anywhere on it opens the results
+    expect(cy.className).toContain("after:absolute");
+    expect(cy.className).toContain("after:inset-0");
+    expect(screen.getByText('Cy').closest('li')!.className).toContain('relative');
+    // a person who has not started has nothing to open
+    expect(within(screen.getByText('Ann').closest('li')!).queryByRole('link')).toBeNull();
   });
 
-  it('marks a person with unread activity as new; clicking Results does not clear it (the results page does)', () => {
+  it('a new mark is a dot with an accessible name, not blue text; opening the results does not clear it (the results page does)', () => {
     setup({
       deliveries: [delivery({ id: 'd', receiver_name: 'Di', status: 'completed' })],
       newByDelivery: { d: 2 },
     });
     const li = screen.getByText('Di').closest('li')!;
-    expect(within(li).getByText('2 new')).toBeInTheDocument();
-    fireEvent.click(within(li).getByRole('link', { name: /Results/ }));
-    expect(within(li).getByText('2 new')).toBeInTheDocument();
+    const dot = within(li).getByRole('img', { name: 'New' });
+    expect(dot.className).toContain('rounded-full');
+    expect(dot.textContent).toBe('');
+    expect(li.textContent).not.toMatch(/new/i);
+    expect(dot.className).toContain('bg-blue-600');
+    expect(li.querySelector('.text-blue-600, .text-blue-500')).toBeNull(); // no blue text
+    fireEvent.click(within(li).getByRole('link'));
+    expect(within(li).getByRole('img', { name: 'New' })).toBeInTheDocument();
   });
 
-  it('links a registered recipient to their profile', () => {
+  it('a person with nothing new has no dot', () => {
+    setup({ deliveries: [delivery({ id: 'd', receiver_name: 'Di', status: 'completed' })], newByDelivery: { d: 0 } });
+    expect(screen.queryByRole('img', { name: 'New' })).toBeNull();
+  });
+
+  it('every row is at least 40px tall so a tap lands', () => {
+    setup({ deliveries: [delivery({ status: 'completed' })] });
+    expect(screen.getByRole('listitem').className).toContain('min-h-12');
+  });
+
+  it('a recipient without results links to their profile when registered', () => {
     setup({ deliveries: [delivery({ receiver_slug: 'ann-e' })] });
     expect(screen.getByRole('link', { name: 'Ann' })).toHaveAttribute('href', '/p/ann-e');
   });
 
-  it('public link: one row per respondent, latest 10 then "Show all"; Copy public link offered', () => {
+  it('public link: one row per respondent, latest 10 then "Show all"', () => {
     const many = Array.from({ length: 12 }, (_, i) =>
       delivery({
         id: `r${i}`, receiver_email: null, receiver_name: `Resp ${i}`, status: 'completed',
         created_at: new Date(Date.UTC(2026, 9, 1, i)).toISOString(),
       }));
-    const p = setup({ isPublic: true, deliveries: many });
+    setup({ isPublic: true, deliveries: many });
     expect(screen.getAllByRole('listitem')).toHaveLength(10);
     expect(screen.getByText('Resp 11')).toBeInTheDocument(); // newest first
     expect(screen.queryByText('Resp 0')).toBeNull();
@@ -100,8 +116,6 @@ describe('LetterRecipientsSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
     expect(screen.getAllByRole('listitem')).toHaveLength(10);
     expect(screen.getByRole('button', { name: 'Show all (12)' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy public link' }));
-    expect(p.onCopyPublicLink).toHaveBeenCalled();
   });
 
   it('named recipients are newest first, like respondents; an unparseable date sorts last without breaking', () => {
@@ -114,12 +128,6 @@ describe('LetterRecipientsSection', () => {
     });
     const names = screen.getAllByRole('listitem').map(li => li.textContent?.slice(0, 3));
     expect(names).toEqual(['New', 'Old', 'Bad']);
-  });
-
-  it('Preview is hidden when the page has no preview handler (letter without a source doc)', () => {
-    setup({ onPreview: undefined });
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add recipients' })).toBeInTheDocument();
   });
 
   it('public link with no responses yet', () => {

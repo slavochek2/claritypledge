@@ -111,7 +111,7 @@ const SECTION_3_PAGES = [
   'explain-back-view-page.tsx',
   'agreement-page.tsx',
   'calibration-breakdown-page.tsx',
-  'letter-overview-page.tsx',
+  // letter-overview-page.tsx left this list (P1545, founder 2026-10-25): the overview has ONE Back, at the top.
   'letter-results-page.tsx',
   'stake-page.tsx',
   'transcribe-room-page.tsx',
@@ -149,5 +149,12 @@ describe('P1364 §3 — every detail page has the top Back and the bottom pill, 
       const src = readFileSync(resolve(process.cwd(), 'src/app/pages', file), 'utf8');
       expect(src).toMatch(/<BottomBackButton[^>]*className=\{CLEAR_BOTTOM_NAV\}/);
     }
+  });
+});
+
+describe('P1545 — the letter overview keeps a top Back and no bottom pill', () => {
+  it('letter-overview-page.tsx declares FocusHeader with a fallback and renders no BottomBackButton', () => {
+    expect(backActions('letter-overview-page.tsx', 'FocusHeader').length).toBeGreaterThan(0);
+    expect(backActions('letter-overview-page.tsx', 'BottomBackButton')).toEqual([]);
   });
 });

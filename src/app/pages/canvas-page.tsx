@@ -576,6 +576,8 @@ export function CanvasPage() {
 
   return (
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
+      {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
+      <FocusHeader fallback="/artifacts?tab=yours&type=canvases" />
       {ready && <SEO title={`${ready.ownerName} · #${ready.version ?? projectTag} — Clarity Pledge`} noIndex />}
       {/* R10: the name of the thing first, then whose it is and which one: "Clarity Canvas" on its
           own line; under it "by <owner>" and the canvas's name (the menu, when the owner has more
