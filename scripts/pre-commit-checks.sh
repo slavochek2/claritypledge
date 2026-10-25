@@ -2577,10 +2577,22 @@ if [ -n "$STAGED_EDGE_FNS" ]; then
 fi
 
 # Deno type check — staged edge function files
-STAGED_EDGE_FNS_DENO=$(echo "$STAGED_FILES" | grep -E '^supabase/functions/[^/]+/index\.ts$' | grep -v '_shared' || true)
+# P1563: any staged .ts inside a function directory (handler.ts, helpers, tests, not only index.ts) is
+# checked together with that function's index.ts, which is the entry point deno resolves it through.
+STAGED_EDGE_FNS_DENO=$(echo "$STAGED_FILES" | grep -E '^supabase/functions/[^/]+/.+\.ts$' | grep -v '^supabase/functions/_shared/' || true)
+if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
+  STAGED_EDGE_FNS_DENO=$(
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      printf '%s\n' "$f"
+      FN_INDEX="$(echo "$f" | cut -d/ -f1-3)/index.ts"
+      if [ -f "$FN_INDEX" ]; then printf '%s\n' "$FN_INDEX"; fi
+    done <<< "$STAGED_EDGE_FNS_DENO" | sort -u
+  )
+fi
 # P1563: shared code, an import map or the lock can break a function whose own index.ts is
 # untouched, so a staged change to any of them (deletions included) re-checks every function.
-if grep -qE '^supabase/functions/(_shared/.*\.ts|([^/]+/)?deno\.jsonc?|deno\.lock)$' <<< "$(git diff --cached --name-only 2>/dev/null)"; then
+if grep -qE '^supabase/functions/(_shared/.*\.ts|([^/]+/)?deno\.jsonc?|([^/]+/)?import_map\.json|deno\.lock)$' <<< "$(git diff --cached --name-only 2>/dev/null)"; then
   STAGED_EDGE_FNS_DENO=$(ls supabase/functions/*/index.ts 2>/dev/null | grep -v '^supabase/functions/_shared/' || true)
 fi
 if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
@@ -2594,7 +2606,7 @@ if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
       # A function directory without one falls back to the shared supabase/functions/deno.json; a
       # tree with neither keeps the plain check. The hook runs the MAIN checkout's copy of this file
       # against every worktree, so this must work on both sides of the change that adds deno.json.
-      DENO_CFG="$(dirname "$f")/deno.json"
+      DENO_CFG="$(echo "$f" | cut -d/ -f1-3)/deno.json"   # the function's directory, however deep the file sits
       [ -f "$DENO_CFG" ] || DENO_CFG="supabase/functions/deno.json"
       # --frozen: an import the lock does not already pin fails here, instead of deno quietly
       # rewriting the lock in the working tree and the commit passing without it.
