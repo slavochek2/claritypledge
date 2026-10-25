@@ -69,6 +69,10 @@ command -v gcloud >/dev/null 2>&1 || die "gcloud not found"
 [ -f "$ROUTER_SRC" ] || die "router source not found: $ROUTER_SRC"
 [ -f "$OPEN_LIST" ] || die "JWT policy list not found: $OPEN_LIST"
 [ -d "$FUNCTIONS_DIR" ] || die "functions dir not found: $FUNCTIONS_DIR"
+# A bare function name only: "../x" would copy a directory from outside supabase/functions.
+if [ -n "$FUNCTION_NAME" ] && ! [[ "$FUNCTION_NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  die "not a function name: $FUNCTION_NAME"
+fi
 if [ -n "$FUNCTION_NAME" ] && [ ! -d "$FUNCTIONS_DIR/$FUNCTION_NAME" ]; then
   die "function directory not found: $FUNCTIONS_DIR/$FUNCTION_NAME"
 fi
@@ -171,6 +175,8 @@ find "$STAGE/functions" -name '*.test.ts' -delete
 mkdir -p "$STAGE/functions/main"
 cp "$ROUTER_SRC" "$STAGE/functions/main/index.ts"
 cp "$OPEN_LIST" "$STAGE/functions/main/no-verify-jwt-functions.txt"
+# A full deploy marks itself so the VM prunes functions deleted or renamed in git (they stay routable otherwise).
+[ -n "$FUNCTION_NAME" ] || : > "$STAGE/functions/.full-deploy"
 
 TARBALL="$STAGE/functions.tgz"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE/functions" -czf "$TARBALL" .
@@ -186,7 +192,16 @@ W=$(mktemp -d)
 tar -xzf /tmp/cp-functions.tgz -C "$W"
 rm -f /tmp/cp-functions.tgz
 mkdir -p "$FUNCTIONS_VOL"
+if [ -f "$W/.full-deploy" ]; then
+  rm -f "$W/.full-deploy"
+  for d in "$FUNCTIONS_VOL"/*/; do
+    [ -d "$d" ] || continue
+    n=$(basename "$d")
+    [ -d "$W/$n" ] || { echo "pruned: $n"; rm -rf "${FUNCTIONS_VOL:?}/$n"; }
+  done
+fi
 for d in "$W"/*/; do
+  [ -d "$d" ] || continue
   n=$(basename "$d")
   rm -rf "${FUNCTIONS_VOL:?}/$n"
   cp -R "$d" "$FUNCTIONS_VOL/$n"
@@ -198,7 +213,13 @@ for i in $(seq 1 30); do
   [ "$(docker inspect -f '{{.State.Health.Status}}' supabase-edge-functions 2>/dev/null)" = healthy ] && break
   sleep 2
 done
-echo "functions container: $(docker inspect -f '{{.State.Health.Status}}' supabase-edge-functions)"
+health=$(docker inspect -f '{{.State.Health.Status}}' supabase-edge-functions 2>/dev/null || echo missing)
+echo "functions container: $health"
 ls "$FUNCTIONS_VOL" | tr '\n' ' '; echo
+if [ "$health" != healthy ]; then
+  docker logs --tail 30 supabase-edge-functions 2>&1 || true
+  echo "FAILED: functions container is $health after 60s" >&2
+  exit 1
+fi
 REMOTE
 echo "Deployed. Self-hosted only: no hosted project, Management API or deploy manifest was touched."

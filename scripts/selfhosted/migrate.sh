@@ -161,6 +161,16 @@ APPLIED_COUNT=0
 for BASE in "${PENDING[@]}"; do
   VER=$(pl_version_of "$BASE")
   NAME=$(pl_migration_name_of "$BASE")
+  # psql runs backslash commands from its input anywhere on a line (\! is a shell in the db
+  # container, \c switches database). A migration must be plain SQL: refuse one outside a string.
+  if ! python3 "$SCRIPT_DIR/lib/psql-meta-check.py" "$MIGRATIONS_DIR/$BASE" >&2; then
+    echo "  REFUSED $BASE: contains a psql backslash command; migrations must be plain SQL." >&2
+    exit 1
+  fi
+  # A file with its own BEGIN/COMMIT ends --single-transaction's outer transaction at its COMMIT,
+  # so a failure after that point is NOT rolled back. Report it as such, never as clean.
+  OWN_TXN=false
+  grep -qiE '(^|;)[[:space:]]*(BEGIN|COMMIT|ROLLBACK|ABORT|START[[:space:]]+TRANSACTION)([[:space:]]+(WORK|TRANSACTION))?[[:space:]]*;' "$MIGRATIONS_DIR/$BASE" && OWN_TXN=true
   {
     cat "$MIGRATIONS_DIR/$BASE"
     # Newline + terminating semicolon: a file ending in a comment or no final semicolon must not
@@ -169,10 +179,20 @@ for BASE in "${PENDING[@]}"; do
       "'${VER//\'/\'\'}'" "'${NAME//\'/\'\'}'"
   } > "$WORK/apply.sql"
   if remote_psql "--single-transaction" "$WORK/apply.sql" > "$WORK/apply.out" 2>&1; then
+    # The ledger row is the record of "applied": confirm it landed, whatever the exit code said.
+    printf "SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version = '%s';\n" "${VER//\'/\'\'}" > "$WORK/check.sql"
+    if [ "$(remote_psql "-tA" "$WORK/check.sql" 2>/dev/null | tr -d '[:space:]')" != 1 ]; then
+      echo "  FAILED $BASE: applied, but its ledger row is missing. Fix the ledger before the next run." >&2
+      exit 1
+    fi
     echo "  applied $BASE"
     APPLIED_COUNT=$((APPLIED_COUNT + 1))
   else
-    echo "  FAILED $BASE (rolled back: no schema change, no ledger row):"
+    if [ "$OWN_TXN" = true ]; then
+      echo "  FAILED $BASE (the file manages its own transaction: it MAY be partly applied; inspect before re-running):"
+    else
+      echo "  FAILED $BASE (rolled back: no schema change, no ledger row):"
+    fi
     head -c 1500 "$WORK/apply.out" | tr '<>|' '___'
     echo ""
     echo "Stopped at the first failure; later pending files were NOT attempted."

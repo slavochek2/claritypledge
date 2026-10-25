@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { isTestProjectUrl } from '../../scripts/sweep-e2e-test-users';
 import { lockSkipReason } from '../../scripts/lib/e2e-test-db-lock.mjs';
+import { testTargetConfigError } from '../../scripts/lib/test-target.mjs';
 
 const HOSTED = ['https://ayibkeoyukulbsjpxgaw.supabase.co', 'https://gfjctyxqlwexxwsmkakq.supabase.co'];
 const PROD = 'https://besjtuodziykmjidubzw.supabase.co';
@@ -43,6 +44,20 @@ describe('P1557 self-hosted TEST origin', () => {
     expect(isTestProjectUrl(SELF, withSelf)).toBe(true);
     expect(isTestProjectUrl(`${SELF}/`, withSelf)).toBe(true);
     expect(isTestProjectUrl(`${SELF}/rest/v1/profiles`, withSelf)).toBe(true);
+  });
+  // Review 2026-10-25 (Codex + Opus): a trailing DNS dot defeated the supabase.co check, and
+  // .supabase.in was never checked, so the env var could admit prod. Both must be refused.
+  it.each([
+    'https://besjtuodziykmjidubzw.supabase.co.',
+    'https://besjtuodziykmjidubzw.supabase.co..',
+    'https://besjtuodziykmjidubzw.supabase.in',
+    'https://besjtuodziykmjidubzw.supabase.com',
+    'https://test-db.example.org.',
+  ])('refuses %s as the self-hosted origin, and prod stays not TEST', (origin) => {
+    const env = { SELFHOSTED_TEST_ORIGIN: origin };
+    expect(testTargetConfigError(env)).not.toBeNull();
+    expect(isTestProjectUrl(origin, env)).toBe(false);
+    expect(isTestProjectUrl(`${origin}/rest/v1/profiles`, env)).toBe(false);
   });
   it('env unset or empty: not TEST', () => {
     expect(isTestProjectUrl(SELF, {})).toBe(false);

@@ -34,7 +34,10 @@ export function selfHostedOrigin(env = process.env) {
   if (u.protocol !== 'https:') return { state: 'malformed', reason: 'must be https' };
   if (u.username || u.password) return { state: 'malformed', reason: 'must not carry credentials' };
   if (u.port) return { state: 'malformed', reason: 'must not carry a port' };
-  if (u.hostname === 'supabase.co' || u.hostname.endsWith('.supabase.co')) {
+  // A trailing DNS dot is the same host to DNS but defeats a suffix check (review: prod admitted).
+  if (u.hostname.endsWith('.')) return { state: 'malformed', reason: 'must not end in a dot' };
+  // Any supabase.<tld> host (.co, .in, .com, ...) is hosted Supabase, and possibly prod.
+  if (u.hostname.split('.').includes('supabase')) {
     return { state: 'malformed', reason: 'must not be a hosted supabase.co project' };
   }
   if (raw !== u.origin) return { state: 'malformed', reason: `must be exactly ${u.origin} (no path, query or other spelling)` };

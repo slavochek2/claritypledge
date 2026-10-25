@@ -109,7 +109,8 @@ async function db(env) {
   const key = file.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) die('test target needs VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.test.local');
   // Exact origin, not a substring (a URL that merely contains a ref used to pass).
-  if (!isTestProjectUrl(url)) die(`the test target must be a test project (hosted TEST or SELFHOSTED_TEST_ORIGIN); .env.test.local points at ${url} — refusing${testTargetConfigError() ? `; ${testTargetConfigError()}` : ''}`);
+  // The allowlist reads the same file, so SELFHOSTED_TEST_ORIGIN set there counts and the shell cannot add one.
+  if (!isTestProjectUrl(url, file)) die(`the test target must be a test project (hosted TEST or SELFHOSTED_TEST_ORIGIN); .env.test.local points at ${url} — refusing${testTargetConfigError(file) ? `; ${testTargetConfigError(file)}` : ''}`);
   return { client: createClient(url, key, { auth: { persistSession: false } }), label: 'test' };
 }
 
