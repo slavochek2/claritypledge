@@ -2591,9 +2591,11 @@ if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
   )
 fi
 # P1563: shared code, an import map or the lock can break a function whose own index.ts is
-# untouched, so a staged change to any of them (deletions included) re-checks every function.
+# untouched, so a staged change to any of them (deletions included) re-checks every function,
+# in addition to (never instead of) the staged files above: a test file no index.ts imports would
+# otherwise drop out of the check.
 if grep -qE '^supabase/functions/(_shared/.*\.ts|([^/]+/)?deno\.jsonc?|([^/]+/)?import_map\.json|deno\.lock)$' <<< "$(git diff --cached --name-only 2>/dev/null)"; then
-  STAGED_EDGE_FNS_DENO=$(ls supabase/functions/*/index.ts 2>/dev/null | grep -v '^supabase/functions/_shared/' || true)
+  STAGED_EDGE_FNS_DENO=$( { printf '%s\n' "$STAGED_EDGE_FNS_DENO"; ls supabase/functions/*/index.ts 2>/dev/null; } | grep -v -e '^$' -e '^supabase/functions/_shared/' | sort -u || true)
 fi
 if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
   if command -v deno &> /dev/null; then
