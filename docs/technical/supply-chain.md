@@ -108,3 +108,50 @@ line in `.npmrc`).
 
 **Never** set `ignore-scripts=true` in a tracked `.npmrc`: developer installs would stop installing
 the git hooks, silently.
+
+## Edge functions (one locked graph)
+
+Every function under `supabase/functions/` has a `deno.json` that points at the shared import map
+(`supabase/functions/deno.json`, exact `npm:` versions of `@supabase/supabase-js` and `jose`) and the
+committed `supabase/functions/deno.lock`. Source files import the bare names; `deno.land/std` and the
+image-codec modules stay exact-version URLs whose module content the lock hashes. The deploy bundler
+refuses a lock whose npm integrity or remote-module hash does not match
+(`scripts/test-p1563-edge-lock.sh` proves both, against the same bundler the CLI deploys with).
+`pre-commit-checks.sh` type-checks each staged function with its own `deno.json`.
+
+To bump a version: edit the shared `deno.json`, update the lock with
+`deno cache --config supabase/functions/deno.json supabase/functions/*/index.ts` (without `--frozen`,
+which is what refuses changes), run `scripts/test-p1563-edge-lock.sh`, and commit both files. `deno.lock` is gitignored everywhere else; this one file is un-ignored on purpose.
+
+Not covered: the `.wasm` files the image-codec modules fetch at invocation time (not module imports,
+so no lock sees them); and a deploy run with Docker unavailable, where the CLI falls back to
+server-side bundling that has not been shown to enforce the lock.
+
+## Python services (hash-locked per image target)
+
+`services/transcribe` (GPU image, Python 3.11, linux x86_64) and `services/transcribe-room-batch`
+(slim image, Python 3.12) each keep their ranged dependencies in `requirements.in` (the only file a
+human edits) and install a fully hash-locked `requirements.txt` generated from it for the image's own
+interpreter and platform. Dockerfiles run `pip install --require-hashes`; base images are pinned by
+digest.
+
+```bash
+./scripts/lock-python-services.sh [transcribe|transcribe-room-batch|all]   # needs Docker
+```
+
+The script runs a digest-pinned `uv` image under `linux/amd64` (two packages are source-only and uv must
+run their `setup.py` on the target platform, not on the developer machine) and applies a release-age
+cutoff (`EXCLUDE_NEWER` in the script, the Python counterpart of `min-release-age`). Re-running it with
+the same inputs reproduces the lock byte for byte.
+
+**Source-only packages (the unavoidable sdists), all in `services/transcribe`:** `openai-whisper` and
+`docopt`. Their source archive is hash-checked like any wheel, but `setup.py` runs at image build. Their
+build tools (`pip`, `setuptools`, `wheel`) are hash-locked in `build-requirements.txt`, installed first,
+and the main install uses `--no-build-isolation`, so no unhashed build dependency is fetched. (This also
+replaces Ubuntu 22.04's pip 22.0.2, whose isolated build cannot read `openai-whisper`'s metadata.)
+
+**Hugging Face models** are pinned to a commit with pyannote's `"<repo>@<sha>"` form
+(`DIARIZATION_PIPELINE` in `diarizer.py`, `VAD_PIPELINE` in `vad.py`; `Pipeline.from_pretrained` in
+pyannote.audio 3.1 has no `revision` argument). Not pinned: models those pipelines' `config.yaml` names
+in turn (gated, so unreadable without a token), and Whisper's weights, which `openai-whisper` downloads
+from a URL carrying the file's sha256 and verifies itself.

@@ -4,3 +4,5 @@
 # npm advisory source) of a critical npm-audit finding, or the literal word `unchecked` to accept a
 # dependency source OSV has no ecosystem for (<package> is then the label dep-audit prints).
 # Malicious (MAL-) hits can never be excepted. See docs/technical/supply-chain.md.
+supabase/functions/deno.lock deno.land/std@0.168.0 unchecked # exact version; module content hash-locked in deno.lock; OSV has no deno.land ecosystem (P1563)
+supabase/functions/deno.lock deno.land/std@0.224.0 unchecked # exact version; module content hash-locked in deno.lock; OSV has no deno.land ecosystem (P1563)
