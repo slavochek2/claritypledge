@@ -12,8 +12,12 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
+
+// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
+test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 test.describe('P506: Hashtag backfill migration', () => {
   let testUser: TestUser;

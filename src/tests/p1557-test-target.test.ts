@@ -133,3 +133,20 @@ describe('P1557 purge guard migration', () => {
     expect(sql).not.toContain('besjtuodziykmjidubzw');
   });
 });
+
+describe('P1557 hosted-SQL lane', () => {
+  // Review: a new spec that skips on self-hosted but is missing from the hosted lane runs nowhere.
+  // Members are derived from the specs themselves, never typed here.
+  it('test:e2e:hosted-sql runs exactly the specs that gate raw SQL on notHostedSqlTarget', async () => {
+    const fs = await import('node:fs');
+    const dir = 'e2e/integration';
+    const skipping = fs.readdirSync(dir).filter((f) => f.endsWith('.spec.ts'))
+      .filter((f) => /\bnotHostedSqlTarget\(/.test(fs.readFileSync(`${dir}/${f}`, 'utf8')))
+      .map((f) => `${dir}/${f}`).sort();
+    expect(skipping).toContain('e2e/integration/p520-account-deletion.spec.ts');
+    expect(JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts['test:e2e:hosted-sql']).toBe('bash scripts/selfhosted/run-hosted-sql.sh');
+    const script = fs.readFileSync('scripts/selfhosted/run-hosted-sql.sh', 'utf8');
+    const listed = script.split(/\s+/).filter((w) => w.endsWith('.spec.ts')).sort();
+    expect(listed).toEqual(skipping);
+  });
+});

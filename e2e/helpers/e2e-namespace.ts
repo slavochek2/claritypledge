@@ -19,6 +19,17 @@ export {
   testRefForUrl,
   testTargetConfigError,
 } from '../../scripts/lib/test-target.mjs';
+import { isHostedTestUrl as hostedTestUrl } from '../../scripts/lib/test-target.mjs'; // local use; re-exported above
+
+/**
+ * P1557: raw SQL goes through the hosted Management API, which the self-hosted server does not have
+ * (and must not grow: a public SQL endpoint was reviewed and rejected). A spec that needs it skips
+ * on any other target, by name, and runs on hosted TEST via `npm run test:e2e:hosted-sql`.
+ */
+export const HOSTED_SQL_ONLY = 'raw SQL runs only on hosted TEST (Management API): npm run test:e2e:hosted-sql';
+export function notHostedSqlTarget(): boolean {
+  return !hostedTestUrl(process.env.VITE_SUPABASE_URL);
+}
 
 /** Mirrors generateTestEmail() in e2e/helpers/test-user.ts. */
 export const E2E_EMAIL = /^e2e-test-\d+-\d+@gmail\.com$/;

@@ -17,6 +17,7 @@
  * inside a transaction through the Management API and rolls it back.
  */
 import { test, expect } from '@playwright/test';
+import { notHostedSqlTarget } from '../helpers/e2e-namespace';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
@@ -78,7 +79,8 @@ async function managementQuery(sql: string): Promise<Record<string, unknown>[] |
     envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
   const token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
   // P1318: no fallback to the account-wide token — it reaches prod.
-  if (!token || !ref) return null;
+  // P1557: only hosted TEST has the Management API; elsewhere the SQL-backed checks skip by name.
+  if (!token || !ref || notHostedSqlTarget()) return null;
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

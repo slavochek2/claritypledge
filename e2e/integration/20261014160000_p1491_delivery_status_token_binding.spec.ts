@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
-import { isHostedTestUrl } from '../helpers/e2e-namespace';
+import { isHostedTestUrl, HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import {
   createTestDoc,
@@ -31,6 +31,9 @@ import {
   sealTestLetter,
   deleteTestLetter,
 } from '../helpers/test-letter';
+
+// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
+test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;

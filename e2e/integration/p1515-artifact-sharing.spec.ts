@@ -39,7 +39,10 @@ import {
 } from '../helpers/test-organization';
 import { createTestDoc, deleteTestLetter } from '../helpers/test-letter';
 // The single TEST-origin allowlist (P1557); a deny-one guard would pass any project that is not literally prod.
-import { TEST_PROJECT_REFS, isHostedTestUrl } from '../helpers/e2e-namespace';
+import { TEST_PROJECT_REFS, isHostedTestUrl, HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
+
+// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
+test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type Canvas = { points: Row[]; stories: Row[]; positions: Row[]; visibility: string | null; access: Row };
