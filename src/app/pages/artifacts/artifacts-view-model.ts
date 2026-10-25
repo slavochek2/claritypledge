@@ -17,7 +17,7 @@
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { newCountForDelivery } from '@/app/utils/letter-new-activity';
-import { canvasPath } from '@/lib/canvas-boxes';
+import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
@@ -121,11 +121,13 @@ function joinMeta(parts: (string | null | undefined | false)[]): string {
 }
 
 /**
- * "Draft · 3 stories, 5 points · 2h ago"; a draft already sent: "Draft · 3 stories, 5 points · sent 2×".
+ * "Draft · 3 stories, 5 points · 2h ago"; a draft already sent: "Draft · 3 stories, 5 points · used for 2 letters".
  */
 export function draftMeta(opts: { updatedAt: string; stories: number; points: number; sentCount?: number }): string {
   const counts = `${plural(opts.stories, 'story', 'stories')}, ${plural(opts.points, 'point', 'points')}`;
-  const tail = opts.sentCount && opts.sentCount > 0 ? `sent ${opts.sentCount}×` : agoPhrase(opts.updatedAt);
+  const tail = opts.sentCount && opts.sentCount > 0
+    ? `used for ${plural(opts.sentCount, 'letter', 'letters')}`
+    : agoPhrase(opts.updatedAt);
   return joinMeta(['Draft', counts, tail]);
 }
 
@@ -180,11 +182,6 @@ export function sharedMeta(fromName: string | null | undefined, at: string): str
 function capitalizeAgo(s: string): string {
   // "1h ago" stays as is; "just now" / "on Oct 3" read fine lower-case after the dot, except "just now".
   return s === 'just now' ? 'Just now' : s.startsWith('on ') ? capitalize(s) : s;
-}
-
-/** The title shown for a canvas: its hashtag-shaped name, underscores read as spaces. */
-export function canvasTitle(name: string): string {
-  return name.replace(/_/g, ' ');
 }
 
 // ---------------------------------------------------------------------------------------------

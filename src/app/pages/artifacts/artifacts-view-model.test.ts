@@ -21,6 +21,7 @@ import {
 } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
+import { canvasTitle } from '@/lib/canvas-boxes';
 
 const NOW = new Date('2026-10-23T12:00:00Z');
 const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
@@ -74,8 +75,16 @@ describe('meta strings (Resolved Decisions: one line)', () => {
     expect(draftMeta({ updatedAt: ago(2 * H), stories: 0, points: 0 })).toBe('Draft · 0 stories, 0 points · 2h ago');
   });
 
-  it('a draft already sent says how often instead of the time: "sent 2×"', () => {
-    expect(draftMeta({ updatedAt: ago(2 * H), stories: 3, points: 5, sentCount: 2 })).toBe('Draft · 3 stories, 5 points · sent 2×');
+  it('a draft already sent says how many letters it was used for instead of the time', () => {
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 3, points: 5, sentCount: 2 })).toBe('Draft · 3 stories, 5 points · used for 2 letters');
+    expect(draftMeta({ updatedAt: ago(2 * H), stories: 3, points: 5, sentCount: 1 })).toBe('Draft · 3 stories, 5 points · used for 1 letter');
+  });
+
+  it('canvasTitle: underscores read as spaces and the first letter is capitalised', () => {
+    expect(canvasTitle('hiring_plan_for_q1')).toBe('Hiring plan for q1');
+    expect(canvasTitle('q4_roadmap_draft')).toBe('Q4 roadmap draft');
+    expect(canvasTitle('Sales')).toBe('Sales');
+    expect(canvasTitle('')).toBe('');
   });
 
   it('sent: "Sent to 3 · 1 of 3 done · 2d ago"', () => {
@@ -243,7 +252,7 @@ describe('rows', () => {
       docs: [doc({ id: 'd9', story_count: 3, point_count: 5, has_sent_letters: true })],
       sentLetters: [letter({ id: 'l1' }), letter({ id: 'l2' })],
     }));
-    expect(yours.find(r => r.state === 'draft')?.meta).toBe('Draft · 3 stories, 5 points · sent 2×');
+    expect(yours.find(r => r.state === 'draft')?.meta).toBe('Draft · 3 stories, 5 points · used for 2 letters');
   });
 
   it('Yours holds drafts, sent letters and own canvases, newest first', () => {
@@ -293,8 +302,8 @@ describe('rows', () => {
     expect(buildArtifacts(source({ sharedCanvases: [sharedCanvas({ ownerSlug: null })] })).shared[0]?.href).toBeNull();
   });
 
-  it('canvas titles read underscores as spaces', () => {
-    expect(buildArtifacts(source({ myCanvases: [myCanvas({ name: 'sales_map' })] })).yours[0]?.title).toBe('sales map');
+  it('canvas titles read underscores as spaces and start with a capital', () => {
+    expect(buildArtifacts(source({ myCanvases: [myCanvas({ name: 'sales_map' })] })).yours[0]?.title).toBe('Sales map');
   });
 });
 
@@ -343,7 +352,7 @@ describe('filters and search', () => {
   });
 
   it('search is a case-insensitive title match, trimmed', () => {
-    expect(filterByQuery(yours, '  REVIEW ').map(r => r.title).sort()).toEqual(['Quarterly Review', 'review board']);
+    expect(filterByQuery(yours, '  REVIEW ').map(r => r.title).sort()).toEqual(['Quarterly Review', 'Review board']);
     expect(filterByQuery(yours, '')).toHaveLength(3);
     expect(filterByQuery(yours, 'nothing like it')).toEqual([]);
   });
@@ -372,7 +381,7 @@ describe('Yours headings: Drafts, Sent, Canvases', () => {
     expect(sections.map(s => s.id)).toEqual(['drafts', 'sent', 'canvases']);
     expect(sections[0]?.rows.map(r => r.title)).toEqual(['Newer draft', 'Older draft']);
     expect(sections[1]?.rows.map(r => r.title)).toEqual(['Sent letter']);
-    expect(sections[2]?.rows.map(r => r.title)).toEqual(['review board']);
+    expect(sections[2]?.rows.map(r => r.title)).toEqual(['Review board']);
   });
 
   it('a heading with no rows is not returned', () => {

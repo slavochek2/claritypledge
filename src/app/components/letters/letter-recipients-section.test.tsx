@@ -48,6 +48,22 @@ describe('LetterRecipientsSection', () => {
     expect(row('Di')).toHaveTextContent('Done');
   });
 
+  it('"N of M steps" shows only while in progress: Done says Done alone, Opened and Invited carry no steps', () => {
+    setup({
+      deliveries: [
+        delivery({ id: 'b', receiver_name: 'Bob', status: 'opened', steps_completed: 0, total_steps: 5 }),
+        delivery({ id: 'c', receiver_name: 'Cy', status: 'in_progress', steps_completed: 3, total_steps: 8 }),
+        delivery({ id: 'd', receiver_name: 'Di', status: 'completed', steps_completed: 3, total_steps: 8 }),
+      ],
+    });
+    const row = (name: string) => screen.getByText(name).closest('li') as HTMLElement;
+    expect(row('Cy')).toHaveTextContent('In progress · 3 of 8 steps');
+    expect(row('Di')).toHaveTextContent('Done');
+    expect(row('Di')).not.toHaveTextContent(/steps/);
+    expect(row('Di')).not.toHaveTextContent('·');
+    expect(row('Bob')).not.toHaveTextContent(/steps/);
+  });
+
   it('the whole row of a person who started or finished opens their results; there is no separate Results link', () => {
     setup({
       deliveries: [

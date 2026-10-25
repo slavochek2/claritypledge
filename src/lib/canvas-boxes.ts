@@ -65,6 +65,16 @@ export function isCanvasPathname(pathname: string): boolean {
   return /^\/p\/[^/]+\/canvas\/[^/]+\/?$/.test(pathname);
 }
 
+/**
+ * The title shown for a canvas everywhere (Artifacts rows, the canvas page, the chat share card):
+ * its hashtag-shaped name with underscores read as spaces and the first letter capitalised
+ * ("hiring_plan_for_q1" shows as "Hiring plan for q1").
+ */
+export function canvasTitle(name: string): string {
+  const spaced = name.replace(/_/g, ' ').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 /** The system tag a canvas named `name` is identified by (its address uses the name alone). */
 export function canvasTagFor(name: string): string {
   return `canvas_${name.toLowerCase()}`;

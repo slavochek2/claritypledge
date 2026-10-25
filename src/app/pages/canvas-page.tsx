@@ -11,8 +11,8 @@
  * one card per box fits one desktop screen (P1535). A box shows one card, then
  * "See all N", which opens the whole box in the panel (R2) — the grid never moves. A box card is text
  * to read plus its spread, with no buttons; the whole card opens the point. Above the grid:
- * "Clarity Canvas", then "by <owner>" and the canvas's name (a menu when the owner has several)
- * on the left, Compare on the right (R10). The panel (a side panel on desktop, a full-screen sheet
+ * the canvas's name as the title under a small "Clarity Canvas" label, then "by <owner>" (and a
+ * version menu when the canvas has several) on the left, Compare on the right (R10). The panel (a side panel on desktop, a full-screen sheet
  * below 1024px) holds either a box's list or the production point card showing the owner as their
  * profile does, the point page's "Filter by position" block, and Previous / Next through the
  * canvas. Opening a box or a point adds a history entry, so Back steps out one level.
@@ -73,7 +73,7 @@ import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control
 import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components/canvas/canvas-add-story-dialog';
 import { SharedIcon } from '@/app/components/canvas/canvas-audience';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
-import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, canvasTitle, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -579,11 +579,15 @@ export function CanvasPage() {
       {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
       <FocusHeader fallback="/artifacts?tab=yours&type=canvases" />
       {ready && <SEO title={`${ready.ownerName} · #${ready.version ?? projectTag} — Clarity Pledge`} noIndex />}
-      {/* R10: the name of the thing first, then whose it is and which one: "Clarity Canvas" on its
-          own line; under it "by <owner>" and the canvas's name (the menu, when the owner has more
-          than one), then Compare, wrapping under them when the row is too narrow. */}
+      {/* R10: the name of the thing first, then whose it is: the canvas's title under its small label;
+          under it "by <owner>" (and the version menu, when there is more than one), then Compare,
+          wrapping under them when the row is too narrow. */}
       <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
-        <h1 className="text-3xl font-bold text-foreground md:text-4xl">Clarity Canvas</h1>
+        {/* The canvas's own name is the title ("Hiring plan for q1", as in Artifacts and the chat card); "Clarity Canvas" is the small label above it. */}
+        <div>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" data-testid="canvas-eyebrow">Clarity Canvas</p>
+          <h1 className="break-words text-3xl font-bold text-foreground md:text-4xl" data-testid="canvas-title">{projectTag ? canvasTitle(projectTag) : 'Clarity Canvas'}</h1>
+        </div>
         {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
             "by <owner> · <canvas> · Compare with someone…", not across the page. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -614,14 +618,12 @@ export function CanvasPage() {
             ) : (
               current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
             )}
-            {ready && (
+            {ready && ready.versions.length >= 2 && (
               <span className="flex min-w-0 max-w-full items-center gap-2 max-sm:order-2 max-sm:flex-1 max-sm:flex-wrap" data-testid="canvas-project-slot">
                 <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
-                {/* The dropdown lists the versions of THIS canvas, for owner and readers alike; one version is just its name.
+                {/* The dropdown lists the versions of THIS canvas, for owner and readers alike; with one version the title above is the name.
                     Separate canvases are reached by their own address. */}
-                {ready.versions.length >= 2
-                  ? <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={v => setParams({ v, point: null, box: null }, true, false)} />
-                  : <span className="min-w-0 truncate font-medium text-foreground" data-testid="canvas-project-tag">{projectTag}</span>}
+                <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={v => setParams({ v, point: null, box: null }, true, false)} />
               </span>
             )}
           </div>

@@ -95,51 +95,58 @@ describe('LetterOverviewPage hierarchy', () => {
     expect(section).not.toHaveTextContent(/Sealed/); // the date lives in the header now
   });
 
-  it('Add recipients is the only primary control on the page', async () => {
+  it('Add recipients is the one blue primary (as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons next to it', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
     renderPage();
     const add = await screen.findByRole('button', { name: 'Add recipients' });
-    expect(add.className).toContain('bg-primary');
+    expect(add.className).toContain('bg-blue-500');
+    expect(add.className).toContain('text-white');
+    expect(add.className).toContain('hover:bg-blue-700');
+    expect(add.className).not.toContain('bg-primary');
+    const preview = screen.getByRole('button', { name: 'Preview' });
+    const copy = screen.getByRole('button', { name: 'Copy public link' });
+    for (const secondary of [preview, copy]) {
+      expect(secondary.className).toContain('border-input'); // the shared outline variant
+      expect(secondary.className).not.toMatch(/\bbg-(primary|blue-[5-9]00)\b/);
+      expect(secondary.className).toMatch(/\bmin-h-10\b/);
+      expect(secondary.parentElement).toBe(add.parentElement); // one row of actions
+    }
+    expect(add.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preview.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // the overview "…" menu is gone
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    // and nothing else on the page is a second primary
     const others = [...screen.getAllByRole('button'), ...screen.getAllByRole('link')].filter(el => el !== add);
     expect(others.filter(el => /\bbg-(primary|blue-[5-9]00)\b/.test(el.className))).toEqual([]);
-    // Preview and Copy link are not drawn as buttons beside it
-    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
   });
 
-  it('Preview and Copy public link sit behind one "…" at the top right', async () => {
+  it('Preview opens the draft in a new tab; Copy public link copies the public address', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     renderPage();
-    const more = await screen.findByRole('button', { name: 'More actions' });
-    expect(screen.getByRole('heading', { level: 1 }).parentElement!.parentElement).toContainElement(more); // same header row as the title
-    expect(more.className).toMatch(/\bh-10\b/);
-    expect(more.className).toMatch(/\bw-10\b/);
-    await user.click(more);
-    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Preview', 'Copy public link']);
-    await user.click(screen.getByRole('menuitem', { name: 'Preview' }));
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
     expect(opened.open).toHaveBeenCalledWith('/letter/doc1/preview', '_blank', 'noopener,noreferrer');
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Copy public link' }));
+    await user.click(screen.getByRole('button', { name: 'Copy public link' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/letter/l1`));
   });
 
-  it('a private letter offers only Preview in the "…"; with no source doc and no public link there is no "…" at all', async () => {
-    const user = userEvent.setup();
+  it('a private letter has Add recipients and Preview but no Copy public link; with no source doc, only Add recipients', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload());
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     const first = renderPage();
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Preview']);
+    await screen.findByRole('button', { name: 'Preview' });
+    expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
     first.unmount();
     mocks.getLetterOverview.mockResolvedValue(payload({ source_doc_id: null }));
     renderPage();
     await screen.findByTestId('letter-recipients');
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add recipients' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
   });
 
   it('the whole person row opens that person\'s results; no Results link, no "open results" anywhere', async () => {
@@ -248,13 +255,15 @@ describe('LetterOverviewPage hierarchy', () => {
     resolveSecond(payload());
   });
 
-  it('a failed recipients read says so with Retry; after Retry a public letter offers its "…"', async () => {
+  it('a failed recipients read says so with Retry; the page actions stay and the people list returns after Retry', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }));
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('x'));
     renderPage();
     expect(await screen.findByText('Something went wrong loading the recipients.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy public link' })).toBeInTheDocument();
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(await screen.findByTestId('letter-recipients')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy public link' })).toBeInTheDocument();
   });
 });

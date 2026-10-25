@@ -814,7 +814,8 @@ describe('P1515 phase 4: the header row', () => {
     page();
     await grid();
     expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
-    expect(screen.getByTestId('canvas-project-tag').tagName).toBe('SPAN');
+    expect(screen.getByTestId('canvas-title').tagName).toBe('H1'); // the name is the title now, not a second line under it
+    expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
     expect(screen.queryByTestId('share-control')).toBeNull();
     cleanup();
     auth.viewerId = 'owner-1';
@@ -824,7 +825,7 @@ describe('P1515 phase 4: the header row', () => {
     await grid();
     expect(screen.queryByTestId('canvas-project-picker')).toBeNull();
     expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
-    expect(screen.getByTestId('canvas-project-tag').tagName).toBe('SPAN');
+    expect(screen.getByTestId('canvas-title').tagName).toBe('H1');
     expect(getTags).not.toHaveBeenCalled(); // the page no longer reads the owner's canvas list
   });
 
@@ -842,6 +843,23 @@ describe('P1515 phase 4: the header row', () => {
     expect(screen.getByTestId('canvas-controls').className).toMatch(/max-sm:basis-full/); // and takes its own line, so the picker is not squeezed
     expect(screen.getByTestId('canvas-byline').className).toMatch(/max-sm:contents/);
     expect(screen.getByTestId('canvas-actions').className).toMatch(/max-sm:contents/);
+  });
+});
+
+describe('P1545: the canvas title', () => {
+  it('the canvas name, shown the way Artifacts shows it, is the H1; "Clarity Canvas" is a small uppercase label above it', async () => {
+    auth.viewerId = 'owner-1';
+    getCanvas.mockResolvedValue(canvasView(true));
+    page('/p/ana/canvas/hiring_plan_for_q1');
+    await grid();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Hiring plan for q1');
+    expect(h1).not.toHaveTextContent('hiring_plan_for_q1');
+    const eyebrow = screen.getByTestId('canvas-eyebrow');
+    expect(eyebrow).toHaveTextContent('Clarity Canvas');
+    expect(eyebrow.className).toMatch(/\buppercase\b/);
+    expect(eyebrow.tagName).not.toMatch(/^H\d$/);
+    expect(h1.compareDocumentPosition(eyebrow) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy(); // label comes first
   });
 });
 
@@ -871,7 +889,8 @@ describe('P1515 phase 5: the version switcher', () => {
     page();
     await grid();
     expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
-    expect(screen.getByTestId('canvas-project-tag')).toHaveTextContent('sales');
+    expect(screen.getByTestId('canvas-title')).toHaveTextContent('Sales');
+    expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
     cleanup();
     getCanvas.mockResolvedValue(canvasView(false));
     page();

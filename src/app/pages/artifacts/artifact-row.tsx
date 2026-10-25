@@ -1,7 +1,7 @@
 /**
  * @file artifact-row.tsx
  * @description P1545 WP3: one row of the Artifacts list. Type disc, title (the row's link), ONE meta
- * line, visibility icon on own items, unread dot on Shared with you only, "…" menu at the top right.
+ * line, visibility icon on own items, unread dot (Shared with you only) at the far right, "…" menu at the top right.
  * Nothing else is drawn: no recipients, no counts, no fixed button (a tap opens the item).
  */
 import { Link } from 'react-router-dom';
@@ -62,9 +62,6 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
               <span className={`${TITLE_CLASS} ${titleWeight}`}>{row.title}</span>
             )}
           </h3>
-          {row.unread && (
-            <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" role="img" aria-label="Unread" />
-          )}
         </div>
         {/* Visibility opens the meta line, so the title and the line below share one left edge. */}
         <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -72,6 +69,10 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
           <p data-testid="artifact-meta" className="min-w-0">{row.meta}</p>
         </div>
       </div>
+      {/* One place on every row: far right, vertically centred, before the "…" slot. */}
+      {row.unread && (
+        <span data-testid="artifact-unread-dot" className="h-2.5 w-2.5 shrink-0 self-center rounded-full bg-blue-600" role="img" aria-label="Unread" />
+      )}
       <ArtifactRowMenu row={row} userSlug={userSlug} onChanged={onChanged} />
     </li>
   );

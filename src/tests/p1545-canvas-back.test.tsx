@@ -100,6 +100,19 @@ describe('the shell counts canvas pages as Artifacts', () => {
     expect(isShellEntryActive('partners', canvas, 'ana')).toBe(false);
   });
 
+  it('a letter overview and its results highlight Artifacts, never Chats or Profile', () => {
+    for (const path of ['/letter/l1/overview', '/letter/l1/results', '/letter/l1/results/']) {
+      expect(isShellEntryActive('artifacts', path, 'ana')).toBe(true);
+      expect(isShellEntryActive('profile', path, 'ana')).toBe(false);
+    }
+  });
+
+  it("CONTROLS: a lookalike path and the recipient's reading page do not light Artifacts", () => {
+    expect(isShellEntryActive('artifacts', '/letter/l1/overview/extra', 'ana')).toBe(false);
+    expect(isShellEntryActive('artifacts', '/letters-x', 'ana')).toBe(false);
+    expect(isShellEntryActive('artifacts', '/letter/d1', 'ana')).toBe(false);
+  });
+
   it("someone else's canvas (a shared one) is Artifacts too, and a trailing slash or an encoded name still counts", () => {
     expect(isShellEntryActive('artifacts', '/p/tom/canvas/q4_plan', 'ana')).toBe(true);
     expect(isShellEntryActive('artifacts', '/p/tom/canvas/q4%20plan/', 'ana')).toBe(true);

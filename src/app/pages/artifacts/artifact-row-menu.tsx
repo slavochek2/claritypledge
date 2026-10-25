@@ -20,8 +20,8 @@ import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
-import { canvasPath } from '@/lib/canvas-boxes';
-import { canvasTitle, type ArtifactRow, type RowAction } from './artifacts-view-model';
+import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
+import type { ArtifactRow, RowAction } from './artifacts-view-model';
 
 interface Props {
   row: ArtifactRow;
@@ -39,7 +39,8 @@ export function ArtifactRowMenu({ row, userSlug, onChanged }: Props) {
   // focus move would dismiss the share popover if the popover were already open.
   const shareAfterClose = useRef(false);
 
-  if (row.menu.length === 0) return null;
+  // No enabled action means nothing to open: a menu holding only a disabled Delete is not drawn at all.
+  if (!row.menu.some(a => !a.disabledReason)) return null;
 
   const handleDeleteDraft = async () => {
     if (!row.ref.docId) return;

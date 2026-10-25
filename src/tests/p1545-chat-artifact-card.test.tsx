@@ -49,6 +49,7 @@ import { CanvasPage } from '@/app/pages/canvas-page';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import type { PointWithUserPosition } from '@/app/types';
 
+const rawNamed: ChatArtifact = { available: true, kind: 'canvas', id: 'cv2', name: 'q4_roadmap_draft', ownerId: 'owner-1', ownerName: 'Ana Petrova', ownerSlug: 'ana', isOwner: false };
 const canvas: ChatArtifact = { available: true, kind: 'canvas', id: 'cv1', name: 'Sales plan', ownerId: 'owner-1', ownerName: 'Ana Petrova', ownerSlug: 'ana', isOwner: false };
 const letter: ChatArtifact = { available: true, kind: 'letter', id: 'lt1', title: 'On our roadmap', senderId: 'owner-1', senderName: 'Ana Petrova', senderSlug: 'ana', isSender: false, deliveryId: 'dl1' };
 
@@ -79,6 +80,15 @@ describe('canvas card', () => {
     expect(link).toHaveAttribute('href', '/p/ana/canvas/Sales%20plan');
     expect(link.tagName).toBe('A');
     expect(svc.getChatArtifact).toHaveBeenCalledWith('canvas', 'cv1');
+  });
+
+  it('titles a canvas the way the Artifacts list does: underscores as spaces, first letter capitalised, address unchanged', async () => {
+    svc.getChatArtifact.mockResolvedValue(rawNamed);
+    card('canvas', 'cv2');
+    const link = await screen.findByTestId('attachment-canvas');
+    expect(link).toHaveTextContent('Q4 roadmap draft');
+    expect(link).not.toHaveTextContent('q4_roadmap_draft');
+    expect(link).toHaveAttribute('href', '/p/ana/canvas/q4_roadmap_draft');
   });
 
   it('says "You shared" to the owner', async () => {

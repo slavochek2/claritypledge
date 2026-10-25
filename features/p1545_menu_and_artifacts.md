@@ -255,7 +255,7 @@ P1512 (Home = chat list, now reversed for Home only) · P1543 (Events tab) · P1
 Replaces the "Unread mark only on Shared with you" and "One meta line per row" bullets above for letters. Reviews: Gemini 4 Argon, Codex, Opus, 3 of 3.
 
 - **Row grammar `[state] · [one fact] · [time]`:**
-  - draft `Draft · 3 stories, 5 points · 2h ago`; a draft already sent: `Draft · 3 stories, 5 points · sent 2×`;
+  - draft `Draft · 3 stories, 5 points · 2h ago`; a draft already sent: `Draft · 3 stories, 5 points · used for 2 letters` (was "sent 2×", changed after visual review 2026-10-25);
   - sent `Sent to 3 · 1 of 3 done · 2d ago`; while something is new: `Sent to 3 · 1 new from Tom · 1h ago` (words, no dot; decision 1A);
   - public link `Public link · 4 done · 2d ago`;
   - received `From Tom · 2 of 5 steps · 4d ago` / `From Anna · done · 1w ago`. Vocabulary: "done" everywhere.

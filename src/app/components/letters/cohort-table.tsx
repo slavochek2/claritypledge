@@ -7,6 +7,10 @@
  * P1379: a one-to-many letter drops the "You → Them" prediction column. Above the rows
  * it shows a per-story summary (count · median · range), and each row shows the
  * reader's own rating under "Their rating". No gap anywhere.
+ * Phones (< 640px): the matrix becomes a stacked list. Same markup, restyled: per recipient one block
+ * (name, then one full-width "label ... value" line per column, the label read from each cell's
+ * data-label); the header row is hidden. A story nobody has rated or answered shows only its
+ * "No ratings yet" line.
  */
 
 import { Link } from 'react-router-dom';
@@ -20,6 +24,13 @@ import { analytics } from '@/lib/mixpanel';
 function trackEntityLinkClick(linkType: 'recipient') {
   analytics.track('letter_overview_entity_link_clicked', { link_type: linkType });
 }
+
+/**
+ * A value cell. Phones: a full-width "label ... value" line, the label drawn from the cell's data-label;
+ * from 640px: an ordinary table cell with no label (the header row carries it).
+ */
+const LINE_CELL =
+  'flex items-baseline justify-between gap-4 py-1.5 text-right before:min-w-0 before:text-left before:text-muted-foreground before:content-[attr(data-label)] sm:table-cell sm:py-3 sm:pr-4 sm:text-left sm:before:content-none';
 
 // ============================================================================
 // TYPES
@@ -83,15 +94,26 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
     ? null
     : formatRatingSummary(summarizeRatings(deliveries.map((d) => ratingMap.get(d.delivery_id))));
 
+  // One-to-many with nothing in for this story: the summary line alone, no empty header or placeholder rows.
+  const nothingIn = !showsPredictions && !deliveries.some(d =>
+    ratingMap.has(d.delivery_id) || story.points.some(p => responseMap.has(`${d.delivery_id}:${p.id}`)));
+  if (nothingIn && summaryLine !== null) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="cohort-rating-summary">
+        {summaryLine}
+      </p>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto">
+    <div className="sm:overflow-x-auto">
       {summaryLine !== null && (
         <p className="text-sm text-muted-foreground mb-2" data-testid="cohort-rating-summary">
           {summaryLine}
         </p>
       )}
-      <table className="w-full text-sm">
-        <thead>
+      <table className="block w-full text-sm sm:table">
+        <thead className="hidden sm:table-header-group">
           <tr className="border-b border-border">
             <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
               Recipient
@@ -118,7 +140,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="block sm:table-row-group">
           {deliveries.map((d) => {
             const prediction = getPrediction(d.delivery_id);
             const rating = getRating(d.delivery_id);
@@ -136,10 +158,10 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
             return (
               <tr
                 key={d.delivery_id}
-                className="border-b border-border/50 hover:bg-muted/30 transition-colors sm:table-row block"
+                className="block border-b border-border/50 py-2 transition-colors hover:bg-muted/30 sm:table-row sm:py-0"
               >
                 {/* Person — P843: avatar + full name (parity with rest of app) */}
-                <td className="py-3 pr-4 sm:table-cell block" data-testid="cohort-recipient-cell">
+                <td className="block py-1.5 sm:table-cell sm:py-3 sm:pr-4" data-testid="cohort-recipient-cell">
                   <div className="flex items-center gap-2 min-w-0">
                     <PersonAvatar
                       person={{
@@ -169,16 +191,19 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
 
                 {/* You → Them (one-to-one) / Their rating (one-to-many, P1379) */}
                 {showsPredictions ? (
-                  <td className="py-3 pr-4 sm:table-cell block" data-label="You → Them">
-                    {prediction !== undefined ? prediction : '?'}{' '}→{' '}
-                    {rating !== undefined ? (
-                      rating
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                  <td className={LINE_CELL} data-label="You → Them">
+                    {/* One element, so the phone line's flex layout keeps "6 → —" together on the right. */}
+                    <span>
+                      {prediction !== undefined ? prediction : '?'}{' '}→{' '}
+                      {rating !== undefined ? (
+                        rating
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </span>
                   </td>
                 ) : (
-                  <td className="py-3 pr-4 sm:table-cell block" data-label="Their rating" data-testid="cohort-rating-cell">
+                  <td className={LINE_CELL} data-label="Their rating" data-testid="cohort-rating-cell">
                     {rating !== undefined ? rating : <span className="text-muted-foreground">—</span>}
                   </td>
                 )}
@@ -189,7 +214,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                   return pos ? (
                     <td
                       key={p.id}
-                      className="py-3 pr-4 sm:table-cell block"
+                      className={LINE_CELL}
                       data-label={p.text}
                     >
                       {POSITION_SHORT_LABELS[pos]}
@@ -197,7 +222,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                   ) : (
                     <td
                       key={p.id}
-                      className="py-3 pr-4 sm:table-cell block text-muted-foreground"
+                      className={`${LINE_CELL} text-muted-foreground`}
                       data-label={p.text}
                       aria-label="No response"
                     >
@@ -209,7 +234,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                 {/* End-of-row status: only while nothing is in. */}
                 {!hasAnyPositionInThisStory && (
                   <td
-                    className="py-3 sm:table-cell block text-muted-foreground whitespace-nowrap"
+                    className="block py-1.5 text-muted-foreground sm:table-cell sm:whitespace-nowrap sm:py-3"
                     aria-label="Waiting for response"
                   >
                     · Waiting

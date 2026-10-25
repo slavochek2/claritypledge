@@ -54,6 +54,9 @@ function isUnder(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+/** A sent letter's overview and a letter's results: both are reached from, and go back to, Artifacts. */
+const LETTER_ARTIFACT_PATH = /^\/letter\/[^/]+\/(overview|results)\/?$/;
+
 /** Active rule per entry. Pure, so it can be tested without rendering. */
 export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: string | null): boolean {
   switch (id) {
@@ -67,8 +70,9 @@ export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: str
       // longer light Groups (isEventsNavActive in nav-links still serves the top nav).
       return isUnder(pathname, EVENTS_NAV_TO);
     case 'artifacts':
-      // A canvas page (/p/:handle/canvas/:name) sits under a profile address but is an artifact, not a profile.
-      return isUnder(pathname, ARTIFACTS_PATH) || isCanvasPathname(pathname);
+      // A canvas page (/p/:handle/canvas/:name) sits under a profile address but is an artifact, not a profile;
+      // a letter's overview and results are its own pages, also artifacts.
+      return isUnder(pathname, ARTIFACTS_PATH) || isCanvasPathname(pathname) || LETTER_ARTIFACT_PATH.test(pathname);
     case 'events':
       return isUnder(pathname, '/events');
     case 'partners':

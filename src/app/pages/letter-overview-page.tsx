@@ -1,8 +1,8 @@
 /**
  * @file letter-overview-page.tsx
  * @description P700: Author-only cohort overview for a sent letter; P1545: the letter's control page.
- * One hierarchy: title and sealed date, ONE primary action (Add recipients), Preview and Copy public
- * link behind a "…" at the top right, then the people list (each row opens that person's results),
+ * One hierarchy: title and sealed date, ONE primary action (Add recipients, blue) with Preview and
+ * Copy public link as outline buttons beside it, then the people list (each row opens that person's results),
  * then one CohortTable per story as detail. One Back, at the top.
  *
  * Route: /letter/:id/overview
@@ -12,9 +12,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CohortTable } from '@/app/components/letters/cohort-table';
 import { LetterRecipientsSection } from '@/app/components/letters/letter-recipients-section';
 import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
@@ -220,7 +218,7 @@ export function LetterOverviewPage() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-10">
         <FocusHeader fallback={BACK_FALLBACK} />
         <div className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
+          <div>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
               <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
@@ -248,26 +246,17 @@ export function LetterOverviewPage() {
                 )}
               </div>
             </div>
-            {(letter.source_doc_id || isPublic) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
-                  {letter.source_doc_id && <DropdownMenuItem className="min-h-10" onSelect={handlePreview}>Preview</DropdownMenuItem>}
-                  {isPublic && <DropdownMenuItem className="min-h-10" onSelect={() => void handleCopyPublicLink()}>Copy public link</DropdownMenuItem>}
-                </DropdownMenuContent>
-              </DropdownMenu>
+          </div>
+          {/* Add recipients is the one primary (blue, as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons beside it. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="min-h-10 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setAddOpen(true)}>Add recipients</Button>
+            {letter.source_doc_id && (
+              <Button variant="outline" className="min-h-10" onClick={handlePreview}>Preview</Button>
+            )}
+            {isPublic && (
+              <Button variant="outline" className="min-h-10" onClick={() => void handleCopyPublicLink()}>Copy public link</Button>
             )}
           </div>
-          {/* The page's one primary action. */}
-          <Button className="min-h-10" onClick={() => setAddOpen(true)}>Add recipients</Button>
         </div>
 
         {recipientsFailed ? (

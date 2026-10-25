@@ -41,7 +41,8 @@ function PersonRow({
   delivery, letterId, isNew,
 }: { delivery: LetterDelivery; letterId: string; isNew: boolean }) {
   const name = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
-  const showSteps = delivery.status !== 'sent' && delivery.steps_completed !== undefined && delivery.total_steps !== undefined;
+  // "N of M steps" is progress: it reads only while the person is in progress (Done says Done, nothing else).
+  const showSteps = delivery.status === 'in_progress' && delivery.steps_completed !== undefined && delivery.total_steps !== undefined;
   const hasResults = delivery.status === 'completed' || (delivery.steps_completed ?? 0) > 0;
   const detail = [
     statusLabel(delivery.status),
