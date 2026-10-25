@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 223
+**Next ID:** 224
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2648,18 +2648,7 @@ supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts 5001, 5100-5799 and 580
 ---
 
 
-## Sentry: Error invoking postMessage, Java object is gone, on the Social Hike event page [day:d0e2fed3]
-
-**ID:** INBOX-207
-**Date:** 2026-10-21
-**Status:** proposed
-**due:** week
-
-Found by /day on 2026-10-21 (check: cp.sentry, severity: high).
-
-JAVASCRIPT-REACT-3W, first seen 17h ago, last seen 13h ago, 2 events, 0 users. Culprit: /events/social-hike-ban-mae-khi-loop-2026-10-25-1491d0. Message is typical of an Android WebView whose host object was torn down. https://22minds-llc.sentry.io/issues/JAVASCRIPT-REACT-3W
-
----
+<!-- cleared by /day 2026-10-24: "Sentry: Error invoking postMessage, Java object is gone, on the Social Hike event page [day:d0e2fed3]", check cp.sentry ran and reported ok -->
 
 ## /status: end with safe-to-close verdict and continue/compact/fresh recommendation
 
@@ -2804,5 +2793,16 @@ Found by Codex in the P1560 review, 2026-10-24; pre-existing on main (engine cod
 **due:** month
 
 From the P1535 visual QA, 2026-10-24: the owner name in the panel owner row truncates at 320px ('P1535 ...'); filter tabs Disagree/Unsure/Agree cramped with ~30px tap targets; Next button ~28px tall at 320. Pre-existing except the owner row, which P1535 moved above the card.
+
+---
+
+## Flaky under load: p1512-chat-ui menuOn context-menu test
+
+**ID:** INBOX-223
+**Date:** 2026-10-24
+**Status:** proposed
+**due:** week
+
+src/tests/p1512-chat-ui.test.tsx:3360 (menuOn, line 231 getElementError) failed once in the full pre-commit suite on 2026-10-24 (654 files passed, 1 failed) and passed 210/210 when the file ran alone. The commit touched only a /tree prototype no test imports. Same family as INBOX-124 and INBOX-167: a query that does not wait under full-suite load.
 
 ---
