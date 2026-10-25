@@ -1,0 +1,8 @@
+# Build tooling for the two source-only packages (openai-whisper, docopt). Hash-locked into
+# build-requirements.txt (./scripts/lock-python-services.sh transcribe) and installed FIRST, so the
+# source builds run with --no-build-isolation against hashed tools instead of whatever pip would fetch.
+# It also replaces Ubuntu 22.04's pip 22.0.2, whose isolated builds use setuptools 59.6 and cannot read
+# openai-whisper's pyproject metadata ("metadata for project name unknown").
+pip>=24
+setuptools>=70
+wheel>=0.43

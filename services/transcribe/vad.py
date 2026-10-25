@@ -19,6 +19,12 @@ from config import HF_TOKEN, GPU_ENABLED, MOCK_DIARIZATION
 
 logger = logging.getLogger(__name__)
 
+# P1563: pinned to an immutable Hugging Face commit (resolved 2026-10-25), via pyannote.audio 3.1's
+# "<repo>@<revision>" form (Pipeline.from_pretrained has no `revision` argument). The deployed token
+# gets a 403 on this gated repo today (P1242), so this does not change what runs; it stops a moved
+# branch head from changing it the day access is fixed. Nested models in its config are NOT pinned.
+VAD_PIPELINE = "pyannote/voice-activity-detection@8d678d7647d9c991934b2270b21fe390f9a8fea5"
+
 # If VAD strips audio below this ratio of the original, something is wrong
 MIN_SPEECH_RATIO = 0.05  # 5% — if less than 5% is speech, likely miscalibrated
 
@@ -90,7 +96,7 @@ def _detect_speech(wav_path: str) -> list[tuple[int, int]]:
     logger.info("Running pyannote VAD on %s...", wav_path)
 
     pipeline = Pipeline.from_pretrained(
-        "pyannote/voice-activity-detection",
+        VAD_PIPELINE,
         use_auth_token=HF_TOKEN,
     )
 

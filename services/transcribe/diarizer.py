@@ -26,6 +26,13 @@ class DiarSegment:
     end_ms: int
 
 
+# P1563: pinned to an immutable Hugging Face commit (resolved 2026-10-25). pyannote.audio 3.1's
+# Pipeline.from_pretrained has no `revision` argument; it reads "<repo>@<revision>" instead. A moved
+# branch head cannot change what production loads. Bump deliberately; the repo is gated (token needed
+# to read its config), and its config.yaml names two further models that are NOT pinned by this.
+DIARIZATION_PIPELINE = "pyannote/speaker-diarization-3.1@84fd25912480287da0247647c3d2b4853cb3ee5d"
+
+
 def _get_pipeline():
     """Load pyannote diarization pipeline (lazy singleton)."""
     global _pipeline
@@ -42,7 +49,7 @@ def _get_pipeline():
         logger.info("Loading pyannote diarization pipeline...")
         t0 = time.time()
         _pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
+            DIARIZATION_PIPELINE,
             use_auth_token=HF_TOKEN,
         )
 

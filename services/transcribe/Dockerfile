@@ -2,7 +2,9 @@
 # GPU-capable base image for production; works on CPU for local dev
 
 # Stage 1: Dependencies (cached layer)
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS deps
+# Base pinned by index digest (nvidia/cuda:12.1.0-runtime-ubuntu22.04 as resolved 2026-10-25; the amd64
+# manifest is selected from it). Bump deliberately: docker buildx imagetools inspect <tag>
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04@sha256:402700b179eb764da6d60d99fe106aa16c36874f7d7fb3e122251ff6aea8b2f7 AS deps
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -22,9 +24,16 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 WORKDIR /app
 
-# Install Python dependencies (cached unless requirements.txt changes)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (cached unless requirements.txt changes).
+# requirements.txt is the hash-locked file generated from requirements.in for Python 3.11 / linux x86_64
+# (scripts/lock-python-services.sh); --require-hashes makes pip refuse any package or file not listed.
+# python3.11 -m pip names the interpreter explicitly instead of trusting what `pip` resolves to.
+# build-requirements.txt (pip, setuptools, wheel; hash-locked) goes first: openai-whisper and docopt exist
+# only as source archives, and Ubuntu 22.04's pip 22.0.2 cannot build the former in an isolated env.
+# With the hashed tools installed, --no-build-isolation builds them without fetching unhashed build deps.
+COPY build-requirements.txt requirements.txt ./
+RUN python3.11 -m pip install --no-cache-dir --require-hashes -r build-requirements.txt \
+    && python3.11 -m pip install --no-cache-dir --require-hashes --no-build-isolation -r requirements.txt
 
 # Pre-download Whisper model at build time to avoid fragile runtime downloads.
 # Without this, every cold start downloads 1.5GB from HuggingFace CDN,

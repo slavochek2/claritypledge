@@ -1,0 +1,14 @@
+# Human-edited ranged dependencies. DO NOT install from this file: the image installs the
+# hash-locked requirements.txt generated from it (./scripts/lock-python-services.sh transcribe-room-batch).
+# Edit here, regenerate, commit both.
+
+# P1307: CPU-only room whole-recording pass. No torch, no Whisper, no pyannote — the engine
+# is Gemini per segment (P1237's ruling for the /live GPU worker is untouched).
+google-cloud-storage>=2.14.0
+supabase>=2.0.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# Testing
+pytest>=7.4.0
