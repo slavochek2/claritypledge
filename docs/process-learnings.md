@@ -2774,16 +2774,7 @@ e2e/p1512-chat-live.spec.ts fails at line 198 on main: the group's General chann
 
 ---
 
-## Mirror engine fires one request after it unmounts (job poll resync, portrait timer)
-
-**ID:** INBOX-221
-**Date:** 2026-10-23
-**Status:** proposed
-**due:** month
-
-Found by Codex in the P1560 review, 2026-10-24; pre-existing on main (engine code unchanged by P1560). In src/app/pages/chat/mirror-provider.tsx a job poll already in flight calls resync() when it resolves 'done' after the mirror is switched off, and the portrait timer calls refreshProfile() after unmount. Harmless extra requests, no cross-user exposure. Fix: cancel the portrait timer in cleanup and guard both callbacks on mounted.
-
----
+<!-- Resolved 2026-10-25: "Mirror engine fires one request after it unmounts" — fixed in P1564 -->
 
 ## Visual nits on the canvas panel at 320px (from P1535 visual QA)
 
