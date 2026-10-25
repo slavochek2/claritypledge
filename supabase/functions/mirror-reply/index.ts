@@ -20,7 +20,7 @@
  * the key. The key travels in the x-goog-api-key header, never in the URL.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import { MIRROR_MODEL, MirrorRequestTooLarge, fitMirrorRequest, geminiTokenCounter, parseReply, type BeginRun, type buildMirrorRequest } from '../_shared/mirror-agent.ts';

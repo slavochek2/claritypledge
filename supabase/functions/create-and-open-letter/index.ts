@@ -12,7 +12,7 @@
  * "already linked" branch and reads the letter by token, signed out.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { createHandler, type SignInEmail } from './handler.ts';

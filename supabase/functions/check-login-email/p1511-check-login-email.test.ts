@@ -1,6 +1,6 @@
 // Deno test, LIVE against the TEST project:
 //   set -a; . ./.env.test.local; set +a
-//   SUPABASE_URL=$VITE_SUPABASE_URL deno test --allow-env --allow-net supabase/functions/check-login-email/p1511-check-login-email.test.ts
+//   SUPABASE_URL=$VITE_SUPABASE_URL deno test --config supabase/functions/deno.json --allow-env --allow-net supabase/functions/check-login-email/p1511-check-login-email.test.ts
 // Skips when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are absent.
 //
 // P1511: the login form's account check, behind the P1225 per-IP limiter. Runs the real handler
@@ -8,7 +8,7 @@
 // x-forwarded-for address, so every IP bucket starts empty and the counts are exact. The client is
 // wrapped only to record which RPCs ran — "performs no lookup" is asserted on that record.
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { CHECK_LOGIN_EMAIL_LIMIT, FUNCTION_NAME, createHandler } from './handler.ts';
 import type { RpcClient } from '../_shared/mail-rate-limit.ts';
 

@@ -1,5 +1,5 @@
 // Deno test: run with
-//   deno test --allow-net --allow-env supabase/functions/generate-banner/entity-type-contract.test.ts
+//   deno test --config supabase/functions/deno.json --allow-net --allow-env supabase/functions/generate-banner/entity-type-contract.test.ts
 //
 // P1189. The e2e case `point: is not a client entity type (400)` in
 // e2e/integration/edge-fn-authz-regression.spec.ts calls the TEST project's DEPLOYED

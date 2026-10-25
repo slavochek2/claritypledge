@@ -1,7 +1,7 @@
 // Deno test, LIVE against the TEST project's database (Mailgun is stubbed — nothing is sent):
 //   set -a; . ./.env.test.local; set +a
 //   SUPABASE_URL=$VITE_SUPABASE_URL MAILGUN_API_KEY=stub \
-//     deno test --allow-env --allow-net supabase/functions/_shared/p1425-dispatch.test.ts
+//     deno test --config supabase/functions/deno.json --allow-env --allow-net supabase/functions/_shared/p1425-dispatch.test.ts
 // Skips when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are absent.
 //
 // P1425: the reminder for one event was sent 13 times. Each cron tick the feedback claim wrote
@@ -10,7 +10,7 @@
 // and the next tick sent the reminder again. These tests run the real per-row dispatch against
 // the real database for several ticks and count what reached "Mailgun".
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { cancelScheduledEmail, FEEDBACK_HOST_ID, type SupabaseClient } from './email-helpers.ts';
 import { DISPATCH_WINDOW_MS, dispatchReminder, dispatchRsvp, dueKinds, isErrorOutcome, type RsvpRow } from './event-dispatch.ts';
 import { claimMessage, claimToken, clearMessageIds, setMessageIds, writeBackMessage } from './rsvp-message-ids.ts';

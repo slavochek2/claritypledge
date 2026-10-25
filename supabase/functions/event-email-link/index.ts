@@ -26,7 +26,7 @@
  * the point is to land them signed in, in the room. A forwarded email works once, for whoever
  * presses first.
  */
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { hashTicket, isLinkPurpose, purposePath, ticketExpiry } from '../_shared/event-links.ts';

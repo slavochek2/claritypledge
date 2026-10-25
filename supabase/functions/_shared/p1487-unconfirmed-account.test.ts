@@ -1,6 +1,6 @@
 // Deno test, LIVE against the TEST project's auth server:
 //   set -a; . ./.env.test.local; set +a
-//   SUPABASE_URL=$VITE_SUPABASE_URL deno test --allow-env --allow-net supabase/functions/_shared/p1487-unconfirmed-account.test.ts
+//   SUPABASE_URL=$VITE_SUPABASE_URL deno test --config supabase/functions/deno.json --allow-env --allow-net supabase/functions/_shared/p1487-unconfirmed-account.test.ts
 // Skips when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY are absent.
 //
 // P1487: resetUnconfirmedAccount is called by every function that mints a sign-in link
@@ -8,7 +8,7 @@
 // does against the real auth server: an unconfirmed account keeps nothing its creator set once
 // the link is opened, and a confirmed account is left exactly as it was.
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { resetUnconfirmedAccount } from './unconfirmed-account.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL') ?? '';

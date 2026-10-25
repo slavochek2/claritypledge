@@ -1,4 +1,4 @@
-// Deno test: run with `deno test --allow-read supabase/functions/transcribe-slice/dedup.test.ts`
+// Deno test: run with `deno test --config supabase/functions/deno.json --allow-read supabase/functions/transcribe-slice/dedup.test.ts`
 //
 // P1236 Decision 4. Built test-first against the committed Finding-8 fixture
 // (`__fixtures__/p1236-boundary-slices.json`) rather than reasoned about, because the spec

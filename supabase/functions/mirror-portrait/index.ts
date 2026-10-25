@@ -12,7 +12,7 @@
  * one is going. The run then settles at what its calls cost at list price (P1534), never above that. OFF unless MIRROR_AI_ENABLED is "true" and the mirror's own key is set (test only).
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import { ownedBannerPath } from '../_shared/banner-path.ts';

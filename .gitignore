@@ -120,6 +120,8 @@ content/sifter/sessions/
 # Privacy-gate override (one-shot, created by human)
 .allow-pii-next-push
 deno.lock
+# P1563: the edge-function graph lock IS committed (supabase/functions/deno.json points at it)
+!supabase/functions/deno.lock
 
 # Ad-hoc diagnostic scripts (may contain local credential paths)
 tools/*

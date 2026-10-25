@@ -1,4 +1,4 @@
-// Deno test, no network: deno test supabase/functions/_shared/p1544-terms-gate.test.ts
+// Deno test, no network: deno test --config supabase/functions/deno.json supabase/functions/_shared/p1544-terms-gate.test.ts
 // P1544: the gate lets only a caller whose recorded acceptance is the current version through, and
 // fails closed on everything else (old version, no row, read error, empty value).
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';

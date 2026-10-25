@@ -29,7 +29,7 @@
  * Re-sends ("send the link again") go through the same path, so they spend the same allowance.
  */
 
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 import { setPendingTermsAcceptance } from '../_shared/pending-terms.ts';

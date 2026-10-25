@@ -1,4 +1,4 @@
-// Deno test: run with `deno test supabase/functions/gcs-signed-url/handler.test.ts`
+// Deno test: run with `deno test --config supabase/functions/deno.json supabase/functions/gcs-signed-url/handler.test.ts`
 //
 // P1223 (G6). Exercises every gate of handleGcsSignedUrl with fakes, including the failure
 // paths the pre-fix function did not have (400 on shape / type mismatch, 403 on

@@ -1,5 +1,5 @@
 // Deno test: run with
-//   deno test supabase/functions/_shared/p1453-artist-banner-run.test.ts
+//   deno test --config supabase/functions/deno.json supabase/functions/_shared/p1453-artist-banner-run.test.ts
 //
 // P1453: the Gemini calls respect one request-wide time budget (Supabase cuts a request at 150 s),
 // and a capped or refused key is reported so an operator run can stop.

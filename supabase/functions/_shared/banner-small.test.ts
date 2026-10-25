@@ -1,5 +1,5 @@
 // Deno test: run with
-//   deno test --allow-net --allow-env --allow-read supabase/functions/_shared/banner-small.test.ts
+//   deno test --config supabase/functions/deno.json --allow-net --allow-env --allow-read supabase/functions/_shared/banner-small.test.ts
 //
 // P1417: the edge functions that save a banner (generate-banner, generate-event-banner) also save
 // its small copy — 800px WebP at <path>.w800.webp, the path the app derives — and remove it with

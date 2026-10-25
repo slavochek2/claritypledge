@@ -7,7 +7,7 @@
  *
  * Auth: CRON_SECRET bearer token — no user JWT.
  */
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { type SupabaseClient } from '../_shared/email-helpers.ts';
 import {

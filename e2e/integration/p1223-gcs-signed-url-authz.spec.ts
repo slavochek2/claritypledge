@@ -9,7 +9,7 @@
  * pre-fix build the first two tests FAIL — that is the failure-path evidence, not a flake.
  *
  * Handler-level coverage with fakes (every branch, no deploy needed):
- *   deno test supabase/functions/gcs-signed-url/handler.test.ts
+ *   deno test --config supabase/functions/deno.json supabase/functions/gcs-signed-url/handler.test.ts
  *
  * Run: npx playwright test --project=integration e2e/integration/p1223-gcs-signed-url-authz.spec.ts
  */

@@ -1,4 +1,4 @@
-// Deno test: run with `deno test supabase/functions/transcribe-slice/handler.test.ts`
+// Deno test: run with `deno test --config supabase/functions/deno.json supabase/functions/transcribe-slice/handler.test.ts`
 //
 // P1236. Exercises every gate of handleTranscribeSlice with fakes.
 //

@@ -1,4 +1,4 @@
-// Deno test: run with `deno test supabase/functions/_shared/cors.test.ts`
+// Deno test: run with `deno test --config supabase/functions/deno.json supabase/functions/_shared/cors.test.ts`
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { resolveAllowedOrigin } from './cors.ts';
 

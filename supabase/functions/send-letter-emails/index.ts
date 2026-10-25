@@ -8,7 +8,7 @@
  * Cloned from send-agreement-emails, adapted for letter-specific copy and CTA.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';

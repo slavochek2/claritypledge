@@ -27,7 +27,7 @@
  * to be valid, before any account change, link or mail.
  */
 
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import {
   SIGNIN_MAIL_LIMITS,

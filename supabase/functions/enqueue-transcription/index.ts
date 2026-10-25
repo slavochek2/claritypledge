@@ -14,7 +14,7 @@
  * compared against the WEBHOOK_SECRET Supabase secret. Deployed with
  * --no-verify-jwt (pg_net carries no user JWT).
  */
-import { SignJWT, importPKCS8 } from 'https://esm.sh/jose@5';
+import { SignJWT, importPKCS8 } from 'jose';
 
 const GCP_PROJECT = 'gen-lang-client-0869694595';
 const LOCATION = 'us-east4';

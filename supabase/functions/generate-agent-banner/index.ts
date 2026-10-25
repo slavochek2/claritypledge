@@ -1,7 +1,7 @@
 // P1453: operator-only artist banners for agent profiles. Logic and its rationale: handler.ts.
 // Called by scripts/agent-banner.mjs (provisioning and the backfill), never by the website.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { createHandler, secretMatches } from './handler.ts';
 import {
   BANNER_BUCKET,

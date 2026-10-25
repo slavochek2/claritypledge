@@ -16,7 +16,7 @@
  *     dispatch-event-emails; see migration 20260907170000).
  *   - Task name = job id, so a duplicate trigger fire is deduplicated by Cloud Tasks.
  */
-import { SignJWT, importPKCS8 } from 'https://esm.sh/jose@5';
+import { SignJWT, importPKCS8 } from 'jose';
 
 const GCP_PROJECT = 'gen-lang-client-0869694595';
 const LOCATION = 'us-east4';

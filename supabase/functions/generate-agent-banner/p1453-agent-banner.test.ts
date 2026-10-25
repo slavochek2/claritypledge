@@ -1,5 +1,5 @@
 // Deno test: run with
-//   deno test supabase/functions/generate-agent-banner/p1453-agent-banner.test.ts
+//   deno test --config supabase/functions/deno.json supabase/functions/generate-agent-banner/p1453-agent-banner.test.ts
 //
 // P1453: the operator-only agent banner path. Who may call it, which profiles it serves, and that
 // it never replaces a banner unless asked.

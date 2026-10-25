@@ -1,4 +1,4 @@
-// Deno test: run with `deno test --allow-env supabase/functions/_shared/p1380-event-emails.test.ts`
+// Deno test: run with `deno test --config supabase/functions/deno.json --allow-env supabase/functions/_shared/p1380-event-emails.test.ts`
 // P1380: which events get which email, when, and what each button is.
 import { assert, assertEquals, assertFalse, assertStringIncludes } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { buildConfirmation, buildReminder, buildStartingSoon, type EventRow } from './email-helpers.ts';

@@ -1,5 +1,5 @@
 // Deno test: run with
-//   deno test supabase/functions/_shared/banner-path.test.ts
+//   deno test --config supabase/functions/deno.json supabase/functions/_shared/banner-path.test.ts
 //
 // P1454: cleanup may delete only a file inside the entity's own banner folder.
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';

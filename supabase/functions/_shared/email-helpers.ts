@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
 
 // ── Environment (callers pass these in via module-level constants) ─────────────

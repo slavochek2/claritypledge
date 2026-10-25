@@ -22,7 +22,7 @@
  * - story_verifications insert shape: migrations/20260412000001_p684_anon_rpc_auth_guard.sql line 101
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';

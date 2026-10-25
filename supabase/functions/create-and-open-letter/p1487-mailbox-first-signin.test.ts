@@ -1,7 +1,7 @@
 // Deno test, LIVE against the TEST project (the sign-in email is captured, never sent):
 //   set -a; . ./.env.test.local; set +a
 //   SUPABASE_URL=$VITE_SUPABASE_URL \
-//     deno test --allow-env --allow-net supabase/functions/create-and-open-letter/p1487-mailbox-first-signin.test.ts
+//     deno test --config supabase/functions/deno.json --allow-env --allow-net supabase/functions/create-and-open-letter/p1487-mailbox-first-signin.test.ts
 // Skips when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY are absent.
 //
 // P1487: holding an invitation token must never be enough to get a session or a confirmed
@@ -10,7 +10,7 @@
 // transport is replaced, so the test can read the link the recipient would receive.
 // Every fixture is created here under a unique address and removed afterwards.
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHandler, type SignInEmail } from './handler.ts';
 import { SERVER_CURRENT_TERMS_VERSION } from '../_shared/terms-version.ts';
 

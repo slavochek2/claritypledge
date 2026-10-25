@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { storeSmallCopy, scheduleSmallCopy, removeBannerAndSmallCopy } from '../_shared/banner-small.ts';
 import { ownedBannerPath } from '../_shared/banner-path.ts';
