@@ -2578,6 +2578,11 @@ fi
 
 # Deno type check — staged edge function files
 STAGED_EDGE_FNS_DENO=$(echo "$STAGED_FILES" | grep -E '^supabase/functions/[^/]+/index\.ts$' | grep -v '_shared' || true)
+# P1563: shared code, an import map or the lock can break a function whose own index.ts is
+# untouched, so a staged change to any of them (deletions included) re-checks every function.
+if grep -qE '^supabase/functions/(_shared/.*\.ts|([^/]+/)?deno\.jsonc?|deno\.lock)$' <<< "$(git diff --cached --name-only 2>/dev/null)"; then
+  STAGED_EDGE_FNS_DENO=$(ls supabase/functions/*/index.ts 2>/dev/null | grep -v '^supabase/functions/_shared/' || true)
+fi
 if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
   if command -v deno &> /dev/null; then
     echo ">>> Deno type check on staged edge functions..."
@@ -2591,14 +2596,17 @@ if [ -n "$STAGED_EDGE_FNS_DENO" ]; then
       # against every worktree, so this must work on both sides of the change that adds deno.json.
       DENO_CFG="$(dirname "$f")/deno.json"
       [ -f "$DENO_CFG" ] || DENO_CFG="supabase/functions/deno.json"
-      if [ -f "$DENO_CFG" ]; then DENO_CHECK=(deno check --config "$DENO_CFG" "$f"); else DENO_CHECK=(deno check "$f"); fi
-      if ! "${DENO_CHECK[@]}" > /dev/null 2>&1; then
+      # --frozen: an import the lock does not already pin fails here, instead of deno quietly
+      # rewriting the lock in the working tree and the commit passing without it.
+      if [ -f "$DENO_CFG" ]; then DENO_CHECK=(deno check --frozen --config "$DENO_CFG" "$f"); else DENO_CHECK=(deno check "$f"); fi
+      if ! DENO_OUT="$(NO_COLOR=1 "${DENO_CHECK[@]}" 2>&1)"; then
         echo -e "${RED}  ✗ deno check failed: $f${NC}"
+        printf '%s\n' "$DENO_OUT" | awk '!/^Download / && n++ < 15 { print "      " $0 }'
         DENO_ERRORS=$((DENO_ERRORS + 1))
       fi
     done <<< "$STAGED_EDGE_FNS_DENO"
     if [ "$DENO_ERRORS" -gt 0 ]; then
-      echo -e "${RED}✗ $DENO_ERRORS edge function(s) failed deno check — type errors above${NC}"
+      echo -e "${RED}✗ $DENO_ERRORS edge function(s) failed deno check — details above${NC}"
       ERRORS=$((ERRORS + 1))
     else
       echo -e "${GREEN}✓ Deno type check OK${NC}"
