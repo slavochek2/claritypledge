@@ -429,7 +429,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
     <PointCardShell
       // The canvas shows the owner row ABOVE the quoted box for everyone, the owner included
       // (founder), as a profile does for others. The owner reading their own: the row follows their vote at once, as the buttons do.
-      header={owner && <PointOwnerQuoteRow owner={isOwnView ? { ...owner, position: authedEffective } : owner} inList isAgent={owner.isAgent} identityPending={owner.identityPending ?? false} showEar={owner.ear !== undefined} menu={menu} />}
+      header={owner && <PointOwnerQuoteRow owner={isOwnView ? { ...owner, position: authedEffective } : owner} inList isAgent={owner.isAgent} identityPending={owner.identityPending ?? false} showEar={owner.ear !== undefined} menu={menu} wrapName />}
       quoted={!!owner}
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the

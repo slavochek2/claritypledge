@@ -395,6 +395,38 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-point-panel').getByRole('button', { name: `${fx.owner.name}'s profile` })).toContainText(/Disagrees/);
   });
 
+  test('P1569: at 320px the open point fits — owner name whole, every panel control at least 40px tall', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto(fx.url);
+    await waitForCanvas(page);
+    await page.getByTestId(`canvas-point-card-${fx.solutionPointId}`).click();
+    const panel = page.getByTestId('canvas-point-panel');
+    await expect(panel.getByTestId('canvas-panel-next')).toBeVisible();
+    const m = await panel.evaluate((root) => {
+      const r = (el: Element) => Math.round(el.getBoundingClientRect().height);
+      const clipped = [...root.querySelectorAll('*')].filter((el) => {
+        const cs = getComputedStyle(el);
+        return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && (cs.overflow === 'hidden' || cs.textOverflow === 'ellipsis');
+      }).map((el) => (el.textContent ?? '').trim().slice(0, 40));
+      const controls = [...root.querySelectorAll('button, a[href], [role="button"]')].filter((el) => (el as HTMLElement).offsetParent)
+        .map((el) => ({ text: ((el.textContent ?? '').trim() || el.getAttribute('aria-label') || '').slice(0, 30), h: r(el) }));
+      return { clipped, controls, overflowX: document.documentElement.scrollWidth > window.innerWidth };
+    });
+    console.log('P1569', JSON.stringify(m));
+    await page.screenshot({ path: test.info().outputPath('p1569-panel-320.png') });
+    expect(m.overflowX).toBe(false);
+    expect(m.clipped).toEqual([]);
+    expect(m.controls.filter((c) => c.h < 40)).toEqual([]);
+    // The story pill keeps its small look; the button around it is the full 44px tap target.
+    const toggles = await panel.getByTestId('story-toggle').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+    expect(toggles.length).toBeGreaterThan(0);
+    expect(toggles.filter((h) => h < 44)).toEqual([]);
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: width < 1000 ? 760 : 900 });
+      await page.screenshot({ path: test.info().outputPath(`p1569-panel-${width}.png`) });
+    }
+  });
+
   test('Previous and Next walk the canvas without closing the panel', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(fx.url);

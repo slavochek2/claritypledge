@@ -23,6 +23,7 @@ export function PointOwnerRow({
   avatar,
   badges,
   menu,
+  wrapName = false,
 }: {
   inList: boolean;
   isAgent: boolean;
@@ -34,6 +35,8 @@ export function PointOwnerRow({
   /** CP: EarBadge (people only) */
   badges?: ReactNode;
   menu?: ReactNode;
+  /** P1569 (the canvas panel, as narrow as 320px): the name wraps rather than truncating, and the badges wrap under it. */
+  wrapName?: boolean;
 }) {
   return (
     <div
@@ -43,13 +46,13 @@ export function PointOwnerRow({
     >
       <div className={inList ? 'flex min-w-0 items-center gap-1.5' : 'contents'}>
         {avatar}
-        <span className={inList ? 'inline-flex min-w-0 items-center gap-1.5' : 'inline-flex items-center gap-1.5'}>
+        <span className={inList ? `inline-flex min-w-0 items-center gap-1.5${wrapName ? ' flex-wrap' : ''}` : 'inline-flex items-center gap-1.5'}>
           {/* P1141 amendment: an agent account is named the same way on every surface;
               the raw stored `Agent · {Name}` used to leak through here. */}
           {isAgent ? (
             <AgentByline name={name} />
           ) : (
-            <span className={inList ? 'min-w-0 truncate font-medium' : 'font-medium'}>{name}</span>
+            <span className={inList ? (wrapName ? 'min-w-0 break-words font-medium' : 'min-w-0 truncate font-medium') : 'font-medium'}>{name}</span>
           )}
           {badges}
           {position

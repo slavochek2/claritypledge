@@ -28,7 +28,7 @@ export interface PointOwner {
 }
 
 /** The owner row above the quoted point (someone else reading). */
-export function PointOwnerQuoteRow({ owner, inList, isAgent, identityPending, showEar = true, menu }: {
+export function PointOwnerQuoteRow({ owner, inList, isAgent, identityPending, showEar = true, menu, wrapName }: {
   owner: PointOwner;
   inList: boolean;
   isAgent: boolean;
@@ -36,10 +36,13 @@ export function PointOwnerQuoteRow({ owner, inList, isAgent, identityPending, sh
   /** false while the caller is still reading the ear count */
   showEar?: boolean;
   menu?: ReactNode;
+  /** P1569: see PointOwnerRow */
+  wrapName?: boolean;
 }) {
   return (
     <PointOwnerRow
       inList={inList}
+      wrapName={wrapName}
       isAgent={isAgent}
       name={owner.name}
       position={owner.position}

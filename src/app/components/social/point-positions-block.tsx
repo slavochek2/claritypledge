@@ -356,11 +356,13 @@ function PositionHolderCard({
             ref={toggleRef}
             data-testid="story-toggle"
             onClick={e => { e.stopPropagation(); onToggle(); }}
-            className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
+            className="group/story-toggle ml-auto -my-[9px] flex shrink-0 items-center py-[9px]"
             aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
           >
-            {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
-            <span>1 story</span>
+            <span className="flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 group-hover/story-toggle:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors">
+              {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
+              <span>1 story</span>
+            </span>
           </button>
         )}
       </div>
@@ -538,11 +540,13 @@ function PositionlessStoryRow({
         <button
           data-testid="story-toggle"
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
+          className="group/story-toggle ml-auto -my-[9px] flex shrink-0 items-center py-[9px]"
           aria-label={isExpanded ? `Collapse story by ${story.authorName}` : `Expand story by ${story.authorName}`}
         >
-          {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
-          <span>1 story</span>
+          <span className="flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 group-hover/story-toggle:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors">
+            {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
+            <span>1 story</span>
+          </span>
         </button>
       </div>
     </div>
