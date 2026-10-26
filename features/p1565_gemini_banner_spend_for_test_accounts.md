@@ -66,7 +66,7 @@ Every story or event a test account creates on TEST costs one or more paid Gemin
 
 ## Fix Approach
 
-**Key on the environment, not the test-account flag.** Measured 2026-10-26 on TEST (`ai_rate_limits`): 196 `generate-banner` requests since February, only 5 from profiles flagged `is_test_account`. A flag guard would miss 97% of the waste. Billing for the shared non-prod key (October): €37 image generation, while prod's key spent €0.93 in total.
+**Key on the environment, not the test-account flag.** Measured 2026-10-26 on TEST (`ai_rate_limits`): 196 `generate-banner` requests since February, only 5 from profiles flagged `is_test_account`. A flag guard would miss 97% of the waste. Billing confirms it: the shared non-prod key's image spend is many times prod's (figures in `.private/`).
 
 One shared helper in `supabase/functions/_shared/` decides `isProdProject()` from `SUPABASE_URL` (prod ref `besjtuodziykmjidubzw`). It fails closed: anything unrecognized counts as non-prod, and needs no new secret. Every image-spend path calls it before any Gemini request (`generate-banner`, `generate-event-banner`, `mirror-portrait`, `generate-agent-banner` / `_shared/artist-banner-run.ts`). On non-prod they store or return a deterministic placeholder image through the same persistence path, so tests still exercise row updates. Keep the existing `reserveGeneration` rate limiting (decisions.md, P1453 entry). An explicit opt-in env (e.g. `ALLOW_NONPROD_IMAGE_GEN=1`) lets the deliberate `P1453_LIVE_GEN` integration run still generate.
 
