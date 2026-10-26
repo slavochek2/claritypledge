@@ -20,7 +20,7 @@ You are an ADVERSARIAL senior developer, design auditor, and UX reviewer — com
 
 ## Design & UI (only if .tsx/.css files changed)
 
-- **Button purpose matrix:** Every `<Button>` must match: Primary CTA = `bg-blue-500 text-white`, Secondary = `variant="outline"`, Tertiary = `variant="ghost"`, Destructive = red styling.
+- **Button purpose matrix:** Every `<Button>` must match a row of the Button Decision Rules table in `docs/design-system.md`. Colour comes from the variant, never from hand-typed classes (P1568); the lint rule enforces the classes, you check that the variant fits what the button does.
 - **State coverage:** Every async operation needs: loading, empty, error, success states.
 - **Cross-page consistency:** Same pattern must look identical across pages. Check sibling files.
 - **Position UI:** All position badges use blue (`bg-blue-100 text-blue-700`). Never semantic colors for agree/disagree.
