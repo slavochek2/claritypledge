@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 234
+**Next ID:** 235
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2907,5 +2907,16 @@ A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 20
 **due:** week
 
 On 2026-10-26 the F7 test in src/tests/p1512-chat-ui.test.tsx failed twice in a row at the same line inside the full pre-commit run while machine load was very high (15-minute average around 50), and passed alone (205/205) and on a third full run at lower load. It is a timing assumption (a synchronous getByText right after an awaited render), so it blocks unrelated commits whenever the machine is busy. Make the lookup awaited or raise its timeout. Droppable if it does not recur in a month.
+
+---
+
+## Pre-commit privacy spend scan passes silently in a worktree that is behind main
+
+**ID:** INBOX-234
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+The installed hook is main's pre-commit-checks.sh, but it sources scripts/lib/privacy-figure-scan.sh from the committing worktree's toplevel. A worktree behind main lacks privacy_spend_scan, the call fails with "command not found", and `|| true` turns that into a green check (seen 2026-10-26 committing P1566 from a worktree 51 commits behind). Done when the hook sources its libs from its own location or fails closed on a missing function; droppable if hooks stop sourcing worktree-relative libs.
 
 ---

@@ -605,6 +605,8 @@ Last updated: 2026-10-26
 - **P1528** (Oct 26) Agent avatars to media host as 256px immutable WebP — measure script counts only supabase.co; a broken move "passes"; check both hosts.
 
 - **P1531** (Oct 26) Metered-service cost gate — one owner doc, firing points only link; a gate copied into 5 files drifts, review caught it.
+
+- **P1566** (Oct 26) Code quality ratchet — before is HEAD or the range base, never a stored baseline; built on tsc, no new deps; staging-hop CI.
 ## Product & Docs
 
 - **P855** (Jun 26) Pledge v4 (number-first) — single-source necessary but NOT sufficient (prose paraphrases drift past exact-string discovery); /upgrade-oath = discovery + 3 gates; dispatched(stored)-vs-default(current) classification prevents grandfather false-flags
