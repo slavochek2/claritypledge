@@ -229,6 +229,21 @@ printf "import { x } from './x';\nexport const y = () => [x];\n" > src/cyc/y.ts;
 expect 0 "an existing cycle loses an edge" --range HEAD~1..HEAD --metrics cycles
 reset_to_base
 
+echo "== exact duplicates (range mode)"
+# block NAME — 12 lines of real code, enough for one duplicate window
+block() { node -e "console.log('export function $1(items: Array<{ id: string; total: number }>) {'); for (let i = 0; i < 10; i++) console.log('  const value' + i + ' = items.filter((item) => item.total > ' + i + ').length;'); console.log('  return value0 + value9;'); console.log('}')"; }
+mkdir -p src/dup
+block original > src/dup/one.ts
+git add -A && git commit -qm dup-base && git tag -f base >/dev/null
+block original | sed 's/function original/function pasted/' > src/dup/two.ts; git add src/dup/two.ts; git commit -qm dup-paste
+expect 1 "a pasted copy of an existing block" --range HEAD~1..HEAD --metrics duplicates
+expect_text "duplicate message names the other copy" "the same block is in src/dup/one.ts" --range HEAD~1..HEAD --metrics duplicates
+reset_to_base
+git mv src/dup/one.ts src/dup/moved.ts && git commit -qm dup-move
+expect 0 "moving a block to another file" --range HEAD~1..HEAD --metrics duplicates
+reset_to_base
+expect 2 "whole-graph metrics refuse staged mode" --staged --metrics duplicates
+
 echo "== nested guides"
 GUIDES="$REPO_ROOT/scripts/check-nested-guides.cjs"
 # expect_guides EXITCODE "label" [args] — the guide check against this scratch repo's index
