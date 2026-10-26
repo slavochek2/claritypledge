@@ -80,10 +80,10 @@ Scope: non-prod projects only. Prod's calls and costs are unchanged by construct
 | Requests (Supabase storage + DB) | 1 upload + 1 small-copy upload + 1 row update = 3 (before: the same 3, so the net change is 3 - 3 = **0**) | 3 x G (unchanged) | 3 x G (unchanged) |
 | Egress (bytes) | write 107 B + small copy 107 B = 214 B, then read 107 B x V (before: 878,428 B measured TEST banner x V) | 214 x G + 107 x V | 214 x G + 107 x V |
 | Log lines | before: 1 `<tag> attempt` line x 1–3 attempts = 1–3; after: 1 `console.warn` + 0 attempt lines = 1, so the net change is 1 - (1 to 3) = **0 to -2** | 1 x G (before: 1–3 x G) | 1 x G (before: 1–3 x G) |
-| Service unit x registry price | Gemini: 0 tokens x registry price = $0 (before: measured EUR 37.04 of non-prod image SKUs in October on `aikey-cp-batch-81413`, billing export) | 0 x G x price = $0 | 0 x G x price = $0 |
+| Service unit x registry price | Gemini: 0 tokens x registry price = $0 (before: measured non-prod image-SKU spend in October on `aikey-cp-batch-81413`, billing export; figure in `.private/`) | 0 x G x price = $0 | 0 x G x price = $0 |
 
 1. **Fits the plan limit today?** Fits. Monthly conversion, with named inputs: G_month = G per user x active users + G per hour x 730 + G per run x runs per month, and V_month likewise.
-   - Gemini row (price, no cap): G_month x 0 x price = $0 (before: EUR 37.04 measured in October).
+   - Gemini row (price, no cap): G_month x 0 x price = $0 (before: measured October spend, figure in `.private/`).
    - Supabase Free plan row (egress 5 GB): 214 B x G_month + 107 B x V_month, strictly less than before (878,428 B x V_month). Net traffic falls, so it is not over-limit by the registry rule.
    - Log ingestion row (no figure; dashboard): log lines = 1 x G_month, against 1–3 x G_month before. A net reduction, so no new log volume needs a limit check.
 2. **Fits at 10x?** Fits. Gemini: 10 x G_month x 0 = $0. Egress: 10 x (214 x G_month + 107 x V_month) B; even at G_month = V_month = 10,000 that is 10 x (2.14 MB + 1.07 MB) = 32.1 MB against 5 GB. Logs: 10 x G_month, still at most the pre-fix 1–3 x 10 x G_month.
