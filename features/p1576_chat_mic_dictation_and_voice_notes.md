@@ -47,7 +47,8 @@ The founder's "everywhere" covers these surfaces:
 |---|---|---|
 | Human 1:1 and group chats (`ConversationPane` → `Composer`) | yes | yes |
 | Thread replies (`ThreadPanel` → `Composer`) | yes | yes |
-| Mirror agent chat (UNVERIFIED that it renders through `ConversationPane`; `/dev` confirms) | yes | **no** |
+| Mirror agent chat (`kind === 'mirror'`, renders through `ConversationPane` → `Composer`; verified in review) | yes | **no** |
+| Private @mirror ask inside a human chat (`Composer` `privateTo` set, P1520) | yes | **no** — treated as Mirror |
 | Mirror landing-lab screen (`tree/landing-lab/first/MirrorScreen.tsx`, route is DEV-only today) | [FOUNDER DECISION: scope — include now, or when that landing goes live?] | no |
 | Editing a sent message (`MessageRow` textarea) | [FOUNDER DECISION: scope] | no |
 
@@ -63,13 +64,43 @@ The founder's "everywhere" covers these surfaces:
   no row), and the text is inserted at the cursor. The user edits it, then sends as normal.
 - **Batch only, one engine.** No live browser preview that Gemini later replaces (rejected below).
   Gemini detects the language itself, so mixed Russian and English works.
+- **Reuse existing capture code.** Don't build a third recorder: `src/hooks/use-audio-recorder.ts`
+  (MediaRecorder format pick) and `encodeWav` in `src/lib/audio/slice-recorder.ts` (16 kHz mono,
+  unit-tested; also fixes the iOS mp4 question by sending WAV).
+- **Failure keeps the clip.** If transcription fails (network, 429, 5xx, timeout), the recording
+  stays in memory with "Couldn't transcribe — Retry / Discard". ✓ is disabled while in flight, so a
+  double tap does nothing. The clip is never lost silently.
+- **Recording is bound to the chat it started in.** Switching chat (`draftKey` changes), hiding the
+  tab or an incoming phone call stops and discards the recording. A transcript that resolves after
+  a chat switch goes into the **originating** chat's draft, never the visible one.
+- **Abuse limits are mechanisms with tests:** the new function rejects clips over the max length
+  (server-side, by decoded duration) and limits requests per user per minute. Logged-in users only.
 - **First task in `/dev`:** measure the clip-to-text wait. Target: under 3 s for a 60 s clip. If it
   misses, the fallback is streaming Gemini, not a browser engine.
 
 ### B. Voice notes (human chats and threads only)
 
-- When the input is empty, the send slot (Send already only appears once there is text) shows a
-  round mic button. The WhatsApp/Telegram pattern, so the two never compete (P955).
+- When nothing is sendable, the send slot shows a round mic button. The condition is
+  `!sendable` from `Composer.tsx:91` (no text, **no staged attachment, no sendable quote**), never
+  "input text is empty". It is also hidden whenever `privateTo` is set. Mic and Send never show
+  together (P955).
+- **Storage and playback — architectural decision, blocks `/dev`.** Prod CSP is
+  `media-src 'self' https://storage.googleapis.com` (`vercel.json`). That blocks Supabase Storage
+  URLs and `blob:` playback, and decisions.md 2026-09 (P1336) rejected widening it to
+  `*.supabase.co`. The public-media GCS bucket is wrong for private DMs.
+  [FOUNDER DECISION: architecture — (a) private GCS bucket + short-lived signed URLs minted by an
+  edge function that checks chat membership (recommended: fits the existing CSP host, no policy
+  change), or (b) a ruled CSP exception adding `blob:` to `media-src` and serving audio via
+  authenticated fetch.] A unit test asserts the chosen audio URL shape passes the CSP, as P1336 did.
+- **Schema.** `chat_messages` (`20261019203000_p1512_clarity_chat.sql`) can't hold audio today:
+  `attachment_kind IN ('point','story')`, and `has_content` requires body/attachment/forward. The
+  migration adds an audio reference, duration and a separate `transcript` column (not `body`, which
+  dictation uses and which is capped at 4000 chars). It extends `chat_messages_deleted_is_empty`, and
+  makes delete and `erase_chat_data_for()` remove the stored audio object too.
+- **Transcript owner.** After the row is committed, the server transcribes it (one call, retry
+  bounded per metered rule 4). The client never does, so closing the tab can't strand it. The bubble
+  shows "Transcribing…", then the transcript, or "Transcript unavailable" after the retries fail. The
+  audio stays playable either way.
 - Tapping it turns the composer bar into a recorder: red dot, timer, 🗑 cancel, ➤ send. ➤ sends the
   audio immediately.
 - The message shows as an audio bubble with play/pause and duration. The transcript is produced
@@ -111,7 +142,7 @@ Text present → send slot becomes (➤). Mirror chat → send slot is only ever
 | Abuse of the transcription endpoint runs up cost | MITIGATE | Authenticated users only, per-clip length cap, per-user rate limit, on a budget-capped key |
 | Which Gemini key: the batch key `transcribe-slice` uses is meant for background work; dictation is interactive | MITIGATE | [FOUNDER DECISION: own capped key vs prod-interactive key]; never `GEMINI_API_KEY` by accident (see `transcribe-slice/index.ts` header) |
 | Stored voice is personal data | MITIGATE | Privacy and ToS line plus retention, per the founder decisions below |
-| Media served from a new Supabase bucket blocked by prod CSP (7 prior incidents) | MITIGATE | Store audio on GCS per the Public Media Host rule, or prove the CSP `media-src` covers it before ship |
+| Audio blocked by prod CSP `media-src` (7 prior prod-only CSP blocks) | MITIGATE | Storage architecture decision in Solution B, plus a unit test that parses `vercel.json` |
 | Mic permission denied | MITIGATE | Inline message, input stays usable |
 | Transcript wrong under a voice note | ACCEPT | The audio is right there to replay |
 
@@ -133,12 +164,22 @@ Text present → send slot becomes (➤). Mirror chat → send slot is only ever
       spoken words into the input, editable, without sending.
 - [ ] ✕ during recording discards the clip and leaves the existing draft untouched.
 - [ ] A 60 s mixed Russian/English clip comes back as text; wait measured and recorded (target < 3 s).
-- [ ] Works on desktop Chrome, iOS Safari and Android Chrome (real devices).
+- [ ] Works on desktop Chrome, iOS Safari and Android Chrome.
 - [ ] Mic denied → a clear message; typing still works.
 - [ ] Human chat, empty input: the round button records and sends a voice note; the other person
       sees an audio bubble, can play it, and can open its transcript.
 - [ ] Mirror chat never shows the voice-note button.
-- [ ] With text in the input, the send slot shows Send, never the voice-note button.
+- [ ] With text, a staged attachment or a sendable quote, the send slot shows Send, never the
+      voice-note button; with a private @mirror ask open, no voice-note button.
+- [ ] Transcription failure keeps the clip with Retry / Discard; a double ✓ sends one request.
+- [ ] Switching chat mid-recording discards it; a late transcript lands in the originating chat's
+      draft, not the visible one.
+- [ ] Server rejects an over-length clip and an over-rate request (Deno tests, shown failing first).
+- [ ] Voice notes play on prod's CSP (test parses `vercel.json`); a non-member can't fetch the audio.
+- [ ] Deleting a voice note, and account erasure, remove the audio object; the transcript shows
+      "Transcribing…" → text, or "Transcript unavailable".
+- [ ] Real-device check (iOS Safari, Android Chrome) is done by the founder at UAT; the agent
+      provides desktop and emulated evidence.
 - [ ] Privacy page and ToS state voice handling as decided below.
 
 ## Cost Budget
@@ -171,6 +212,15 @@ formulas.
 
 ## Open Questions
 
+**Questions 1–3, the storage architecture above and the key choice block `/dev`** (each sets a
+migration, a lifecycle rule or a limit). Gemini 3.5 Transcribe also needs its registry row in
+`docs/technical/metered-services.md` before the Cost Budget can get a verdict.
+
+0. [FOUNDER DECISION: UX] In an empty human chat the in-field dictation mic and the round
+   voice-note button sit side by side, with two mic icons that do different things (reviewer
+   concern: mis-taps on mobile). Options: different icons (e.g. a text-cursor mic for dictate), only
+   the voice-note button in human chats until text is typed, or accept as WhatsApp+keyboard users
+   already do.
 1. [FOUNDER DECISION: retention] Keep voice recordings forever, or delete after N days and keep the
    transcript?
 2. [FOUNDER DECISION: privacy] Wording for "voice messages are stored and transcribed by Google
