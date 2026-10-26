@@ -3,13 +3,13 @@
  * @description P1545 third pass: the controls on an Artifacts row's title line, and the dialogs they open.
  *
  * The whole row opens the item (artifact-row.tsx); these controls sit above that overlay, right-aligned and vertically
- * centred, and never trigger it. Primary is a small blue OUTLINE button. Every row of a kind lists the same "…" items.
+ * centred, and never trigger it. "…" always starts with Open (rows with a "…" have another visible action). Every action is quiet blue TEXT (no fill, no border), so the title stays the strongest thing on the row. Every row of a kind lists the same "…" items.
  *
  *   draft            Prepare letter · … (Delete draft)
  *   sent             + Add recipient · … (Copy link when public, Preview, Delete letter)
- *   received         › (quiet; no controls)
+ *   received         Open
  *   own canvas       Share · … (Copy link)
- *   shared canvas    ›
+ *   shared canvas    Open
  *
  * A control that is not possible right now stays focusable and clickable (aria-disabled, muted): hover or focus shows
  * its reason as a tooltip, a tap shows it as a toast. Nothing about it is written on the row.
@@ -19,7 +19,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -40,14 +40,14 @@ import { canvasCopyAddress } from '@/lib/canvas-copy-address';
 import { canvasService } from '@/app/data/canvas-service';
 import type { ArtifactRow } from './artifacts-view-model';
 
-/** The primary: a small blue outline button, 40px tall. */
+/** The row action: quiet blue text, 40px tap target (negative margin keeps the row tight). */
 const PRIMARY_CLASS =
-  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-blue-600 bg-background px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 ${CARD_FOCUS_RING}`;
+  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap -my-1 rounded-md px-2.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 ${CARD_FOCUS_RING}`;
 /** Not possible right now: muted, but still focusable and clickable (it answers with its reason). */
 const MUTED_CLASS =
-  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-400 ${CARD_FOCUS_RING}`;
+  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap -my-1 rounded-md px-2.5 text-sm font-medium text-slate-400 ${CARD_FOCUS_RING}`;
 const ICON_CLASS =
-  `flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${CARD_FOCUS_RING}`;
+  `-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${CARD_FOCUS_RING}`;
 
 interface MenuItem {
   id: string;
@@ -63,6 +63,8 @@ interface Props {
   userSlug: string | null;
   /** Called after anything that changes the list (delete, add recipient, share change). */
   onChanged: () => void;
+  /** Open pressed: the page clears the row's dot, as a click on the row does. */
+  onOpen?: () => void;
 }
 
 async function copy(text: string) {
@@ -74,7 +76,59 @@ async function copy(text: string) {
   }
 }
 
-export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
+/** One "…" item; a not-possible item stays selectable and answers with its reason. */
+function renderMenuItem(m: MenuItem) {
+  return (
+    <DropdownMenuItem
+      key={m.id}
+      aria-disabled={m.disabledReason ? 'true' : undefined}
+      onSelect={() => (m.disabledReason ? toast(m.disabledReason) : m.run())}
+      className={`min-h-10 flex-col items-start justify-center gap-0.5 ${
+        m.disabledReason ? 'opacity-60' : m.danger ? 'text-destructive focus:text-destructive' : ''
+      }`}
+    >
+      <span>{m.label}</span>
+      {m.disabledReason && <span className="max-w-[16rem] whitespace-normal text-xs text-muted-foreground">{m.disabledReason}</span>}
+    </DropdownMenuItem>
+  );
+}
+
+/** A canvas row's name, page address, and whether anyone else can open it yet. */
+function canvasFacts(ref: ArtifactRow['ref'], userSlug: string | null) {
+  const canvasName = ref.canvasName;
+  const canvasLink = canvasName && userSlug ? `${window.location.origin}${canvasPath(userSlug, canvasName)}` : null;
+  const canvasShared = !!ref.hasAudience || ref.generalAccess === 'link';
+  return { canvasName, canvasLink, canvasShared };
+}
+
+/** Open, as the row's one visible action (received letters, shared canvases). */
+function OpenAction({ href, label, onOpen }: { href?: string | null; label: string; onOpen?: () => void }) {
+  const navigate = useNavigate();
+  if (!href) return null;
+  return (
+    <button type="button" aria-label={label} className={PRIMARY_CLASS} onClick={() => { onOpen?.(); navigate(href); }}>
+      Open
+    </button>
+  );
+}
+
+/** Open, first in "…", for anyone who doesn't think to click the row itself. */
+function OpenMenuItem({ href, onOpen }: { href?: string | null; onOpen?: () => void }) {
+  const navigate = useNavigate();
+  if (!href) return null;
+  return (
+    <DropdownMenuItem className="min-h-10" onSelect={() => { onOpen?.(); navigate(href); }}>
+      <span>Open</span>
+    </DropdownMenuItem>
+  );
+}
+
+/** A line above the delete item, when anything (Open or a regular item) sits above it. */
+function needsSeparator(dangerCount: number, regularCount: number, hasOpen: boolean): boolean {
+  return dangerCount > 0 && (regularCount > 0 || hasOpen);
+}
+
+export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<'draft' | 'letter' | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -118,9 +172,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
     }
   };
 
-  const canvasName = ref.canvasName;
-  const canvasLink = canvasName && userSlug ? `${window.location.origin}${canvasPath(userSlug, canvasName)}` : null;
-  const canvasShared = !!ref.hasAudience || ref.generalAccess === 'link';
+  const { canvasName, canvasLink, canvasShared } = canvasFacts(ref, userSlug);
   /** A canvas open to anyone with the link needs the CURRENT token in the address (`#k=`): read it now, as the share panel does. */
   const copyCanvasLink = async () => {
     if (!canvasLink || !canvasName) return;
@@ -206,8 +258,9 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
       break;
     case 'received-letter':
     case 'received-canvas':
-      // Nothing to press: the whole row opens it. A quiet chevron says so.
-      return <ChevronRight data-testid="row-chevron" className="relative z-10 h-5 w-5 shrink-0 text-muted-foreground/70" aria-hidden="true" />;
+      // Nothing else to do here: a quiet Open, in the same place and style as every other row's action.
+      main = <OpenAction href={row.href} label={name('Open')} onOpen={onOpen} />;
+      break;
     case 'canvas':
       menu = [{
         id: 'copy-link',
@@ -244,19 +297,6 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
 
   const regular = menu.filter(m => !m.danger);
   const danger = menu.filter(m => m.danger);
-  const item = (m: MenuItem) => (
-    <DropdownMenuItem
-      key={m.id}
-      aria-disabled={m.disabledReason ? 'true' : undefined}
-      onSelect={() => (m.disabledReason ? toast(m.disabledReason) : m.run())}
-      className={`min-h-10 flex-col items-start justify-center gap-0.5 ${
-        m.disabledReason ? 'opacity-60' : m.danger ? 'text-destructive focus:text-destructive' : ''
-      }`}
-    >
-      <span>{m.label}</span>
-      {m.disabledReason && <span className="max-w-[16rem] whitespace-normal text-xs text-muted-foreground">{m.disabledReason}</span>}
-    </DropdownMenuItem>
-  );
 
   return (
     <>
@@ -271,9 +311,11 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
-              {regular.map(item)}
-              {danger.length > 0 && regular.length > 0 && <DropdownMenuSeparator />}
-              {danger.map(item)}
+              {/* Open first, for anyone who doesn't think to click the row itself. */}
+              <OpenMenuItem href={row.href} onOpen={onOpen} />
+              {regular.map(renderMenuItem)}
+              {needsSeparator(danger.length, regular.length, Boolean(row.href)) && <DropdownMenuSeparator />}
+              {danger.map(renderMenuItem)}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

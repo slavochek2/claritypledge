@@ -1221,7 +1221,7 @@ describe('conversation', () => {
   });
 
   it('P1554 AC5: the mirror greets first, with one "Give me a name" button that opens rename, and the greeting stays', async () => {
-    renderChat('/home/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'my first line', { id: 'mfirst' })] });
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'my first line', { id: 'mfirst' })] });
     const welcome = await screen.findByTestId('mirror-welcome');
     expect(welcome).toHaveTextContent("Hi, I'm your mirror agent. Want to give me a name? Or just tell me what's on your mind.");
     expect(welcome).not.toHaveTextContent(/Clarify|quietly/);
@@ -1233,7 +1233,7 @@ describe('conversation', () => {
   });
 
   it('P1554: a named mirror greets by its name and has no naming button', async () => {
-    renderChat('/home/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror', { title: 'Scratchpad' }), dmChat], { 'c-mirror': [] });
     const welcome = await screen.findByTestId('mirror-welcome');
     expect(welcome).toHaveTextContent("Hi, I'm Scratchpad, your mirror agent. Tell me what's on your mind.");
     expect(within(welcome).queryAllByRole('button')).toHaveLength(0);
@@ -1246,7 +1246,7 @@ describe('conversation', () => {
     } as unknown as MirrorContextValue;
     svc.getMyChats.mockResolvedValue([mirror('c-mirror')]);
     svc.listMessages.mockResolvedValue([]);
-    render(treeFor('/home/c/c-mirror', value));
+    render(treeFor('/chats/c/c-mirror', value));
     const welcome = await screen.findByTestId('mirror-welcome');
     expect(within(welcome).getByRole('status')).toHaveTextContent('Painting my portrait…');
     expect(within(welcome).getByTestId('mirror-disc')).toHaveAttribute('data-painting', 'true');
@@ -1257,7 +1257,7 @@ describe('conversation', () => {
     const before = globalThis.ResizeObserver;
     vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { callbacks.push(cb); } observe() {} unobserve() {} disconnect() {} });
     try {
-      renderChat('/home/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j2' })] });
+      renderChat('/chats/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j2' })] });
       await screen.findByText('only line');
       const scroller = screen.getByTestId('message-scroller');
       Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 3000 });
@@ -1278,7 +1278,7 @@ describe('conversation', () => {
   });
 
   it('P1554: the jump-down button shows half a screen up from the bottom and takes the reader to the newest message', async () => {
-    renderChat('/home/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j1' })] });
+    renderChat('/chats/c/dm1', [dmChat], { dm1: [msg('dm1', ME.id, 'only line', { id: 'j1' })] });
     await screen.findByText('only line');
     const scroller = screen.getByTestId('message-scroller');
     expect(screen.queryByTestId('jump-down')).toBeNull();

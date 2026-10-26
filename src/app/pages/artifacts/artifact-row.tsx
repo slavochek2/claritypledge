@@ -23,8 +23,8 @@ interface Props {
 
 export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
   const isNew = row.unread || row.hasNew;
-  // Bold only while something is new, with the dot before the title (like an unread chat).
-  const titleWeight = isNew ? 'font-semibold' : 'font-normal';
+  // The title is the strongest text on the row; bolder still while something is new, with the dot before it.
+  const titleWeight = isNew ? 'font-semibold' : 'font-medium';
   // A sent letter hands the overview who was new, so their marks still show there once.
   const linkState = row.state === 'sent' ? { newDeliveryIds: row.ref.newDeliveryIds ?? [] } : undefined;
   const titleClass = 'block truncate rounded-sm text-base leading-snug text-foreground focus-visible:outline-none';
@@ -34,7 +34,7 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
       data-kind={row.kind}
       data-unread={isNew ? 'true' : undefined}
       // The whole row opens the item: the title's link stretches over it; the controls are raised above (z-10).
-      className="relative rounded-lg px-2 py-3 transition-colors hover:bg-accent/50 active:bg-accent"
+      className="relative rounded-lg px-2 py-2.5 transition-colors hover:bg-accent/50 active:bg-accent"
     >
       <div className="flex items-center gap-2">
         {isNew && (
@@ -55,11 +55,11 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
             <span className={titleClass} title={row.title}>{row.title}</span>
           )}
         </h3>
-        <ArtifactRowActions row={row} userSlug={userSlug} onChanged={onChanged} />
+        <ArtifactRowActions row={row} userSlug={userSlug} onChanged={onChanged} onOpen={() => onOpen(row)} />
       </div>
       {/* The visibility icon opens the meta line. items-start: when the line wraps (320px) the icon stays with its
           FIRST line; mt-[3px] centres the 14px icon on the 20px line. */}
-      <div className="mt-0.5 flex items-start gap-1.5 text-sm leading-5 text-muted-foreground">
+      <div className="flex items-start gap-1.5 text-[13px] leading-5 text-muted-foreground">
         {row.visibility && (
           <span className="mt-[3px] flex shrink-0"><InlineVisibilityIcon visibility={row.visibility} /></span>
         )}

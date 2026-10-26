@@ -58,7 +58,7 @@ describe('draft editor: Delete draft moved in from the Artifacts row menu', () =
     renderPage();
     const del = await screen.findByRole('button', { name: 'Delete draft' });
     const prepare = screen.getByRole('button', { name: /Prepare letter/ });
-    expect(prepare.className).toContain('bg-blue-500');
+    expect(prepare.className).toContain('bg-blue-600');
     expect(del.className).not.toContain('bg-blue-');
     expect(prepare.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('No stories yet').compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

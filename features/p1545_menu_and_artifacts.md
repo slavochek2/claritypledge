@@ -320,6 +320,16 @@ Founder UAT on the second pass: buttons on their own line (white space on deskto
 - **Disabled reasons** (Prepare letter at 0 stories, Delete after delivery, Copy link on a private canvas): a muted control that still responds, giving a tooltip on desktop hover and a toast on tap; no reason text on the row.
 - **Dot:** one per row at most, placed before the title, with the title in bold while new, like an unread chat. Gone once opened. Tab and chip dots roll up from rows. Drafts and Mine never carry dots.
 
+### Quiet rows and one action rule (founder, 2026-10-26, fourth pass)
+
+Supersedes the third pass where they differ.
+
+- **The action rule:** every row shows exactly one visible action, the most common next step for that kind; everything else goes behind "…". Drafts **Prepare letter**; Sent **+ Add recipient**; Received **Open**; My canvas **Share**; Shared canvas **Open** (no "›" anywhere). New lists follow the same rule.
+- **"…" starts with Open** on every row that has one, for people who don't think to click the row. Then the regular items, then a separator and the delete item.
+- **Order:** visible action, then "…" at the far right edge (fixed position; delete is furthest from the main action).
+- **Weight:** row actions are quiet blue text (no fill, no border, 40px tap target); the only filled blue button on the page is New letter. Titles are medium weight (semibold + dot while new); the meta line is small grey; rows are tighter (py-2.5) with thin dividers.
+- **New letter** asks "Who can read it?": **Private**, only people you send it to; **Public**, anyone with the link.
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.

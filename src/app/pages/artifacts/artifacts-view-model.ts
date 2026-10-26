@@ -163,7 +163,8 @@ export function sentMeta(opts: {
   let fact: string | null = null;
   if (opts.newCount && opts.newCount > 0) {
     const who = opts.newFrom ?? [];
-    fact = opts.isPublic || who.length === 0 ? `${opts.newCount} new` : `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
+    // One recipient: the state already names them, so "To Tom · 1 new", never "To Tom · 1 new from Tom".
+    fact = opts.isPublic || who.length === 0 || names.length === 1 ? `${opts.newCount} new` : `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
   } else if (opts.isPublic) {
     fact = `${opts.doneCount} finished`;
   } else if (names.length > 0) {

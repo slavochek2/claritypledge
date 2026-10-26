@@ -379,7 +379,7 @@ function ListBody({ list, data, query, userSlug, onOpen, onRefresh, onClearSearc
       {rows.length === 0 ? (
         data.pending ? null : <EmptyLine list={list} total={data.rows.length} query={query} onClear={onClearSearch} />
       ) : (
-        <ul className="flex flex-col divide-y divide-border/60" aria-label={LIST_LABEL[list]}>
+        <ul className="flex flex-col divide-y divide-border" aria-label={LIST_LABEL[list]}>
           {rows.map(row => (
             <ArtifactListRow key={row.key} row={row} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
           ))}
@@ -438,7 +438,7 @@ function LiveInviteRow({ invite }: { invite: OpenLiveInvite }) {
         {' invited you to verify '}
         <span className="italic">{invite.storyTitle || 'a story'}</span>
       </p>
-      <Button size="sm" className="min-h-10 shrink-0 bg-blue-500 text-white hover:bg-blue-700" onClick={() => navigate(`/live/${invite.code}`)}>
+      <Button size="sm" className="min-h-10 shrink-0" onClick={() => navigate(`/live/${invite.code}`)}>
         Join
       </Button>
     </div>

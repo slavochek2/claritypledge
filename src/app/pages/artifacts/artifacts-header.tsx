@@ -2,11 +2,11 @@
  * @file artifacts-header.tsx
  * @description P1545 WP3: the Artifacts title row. Title, a search icon that expands IN PLACE (the title
  * and "New letter" never move), and, on the Letters tab only, the blue "New letter" button. A tap asks
- * "Who is it for?" (Specific people = a private draft, Anyone with the link = a public draft; the draft's
+ * "Who can read it?" (Private: only people you send it to; Public: anyone with the link; the draft's
  * visibility is set at creation and governs who can see its stories). Canvases show no New until P1536.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Globe, Lock, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { ContentVisibility } from '@/app/types';
@@ -75,7 +75,7 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
           aria-label="New letter"
           disabled={creating}
           onClick={() => setAskOpen(true)}
-          className="h-10 shrink-0 gap-1.5 bg-blue-500 px-2.5 text-white sm:px-3 hover:bg-blue-700"
+          className="h-10 shrink-0 gap-1.5 px-2.5 sm:px-3"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           {/* "New letter" from 360px up, "New" below. With the search field open the long label waits for sm and the
@@ -94,14 +94,16 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
           overlayClassName="data-[state=closed]:!animate-none"
         >
           <DialogHeader>
-            <DialogTitle>Who is it for?</DialogTitle>
+            <DialogTitle>Who can read it?</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <Button variant="outline" disabled={creating} className="min-h-12 justify-start" onClick={() => { setAskOpen(false); onCreateLetter('private'); }}>
-              Specific people
+            <Button variant="outline" disabled={creating} className="h-auto min-h-14 flex-col items-start justify-center gap-0.5 py-2" onClick={() => { setAskOpen(false); onCreateLetter('private'); }}>
+              <span className="flex items-center gap-2 font-semibold"><Lock className="h-4 w-4" aria-hidden="true" />Private</span>
+              <span className="pl-6 text-sm font-normal text-muted-foreground">Only people you send it to</span>
             </Button>
-            <Button variant="outline" disabled={creating} className="min-h-12 justify-start" onClick={() => { setAskOpen(false); onCreateLetter('public'); }}>
-              Anyone with the link
+            <Button variant="outline" disabled={creating} className="h-auto min-h-14 flex-col items-start justify-center gap-0.5 py-2" onClick={() => { setAskOpen(false); onCreateLetter('public'); }}>
+              <span className="flex items-center gap-2 font-semibold"><Globe className="h-4 w-4" aria-hidden="true" />Public</span>
+              <span className="pl-6 text-sm font-normal text-muted-foreground">Anyone with the link</span>
             </Button>
             <Button variant="ghost" className="min-h-11" onClick={() => setAskOpen(false)}>
               Cancel

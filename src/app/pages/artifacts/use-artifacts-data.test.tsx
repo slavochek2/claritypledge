@@ -84,7 +84,7 @@ describe('useArtifactsData activity source', () => {
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
     expect(mocks.getUnreadExplainBackCountsByDelivery).toHaveBeenCalledWith(['dv1']);
-    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 2 new from Tom · /);
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 2 new · /);
   });
 
   it('an unread finished delivery makes the sent letter new, with no explain-backs and no inbox at all', async () => {
@@ -93,7 +93,7 @@ describe('useArtifactsData activity source', () => {
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
     mocks.getInboxItems.mockRejectedValue(new Error('inbox down'));
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 1 new from Tom · /));
+    await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 1 new · /));
   });
 
   it('a failing activity read degrades to no "new" part, never to an error', async () => {

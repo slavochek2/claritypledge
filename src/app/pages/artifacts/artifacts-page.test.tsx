@@ -189,7 +189,7 @@ describe('Artifacts page: split by kind', () => {
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery({ completed_at: ago(10 * 60_000), read_at: null })] });
     renderPage('/artifacts?tab=letters&list=sent');
     await screen.findByText('Hello Tom');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['To Ann · 1 new from Ann · 10m ago']));
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['To Ann · 1 new · 10m ago']));
   });
 
   it('Sent lists letters with something new first, with the words and no row dot', async () => {
@@ -199,7 +199,7 @@ describe('Artifacts page: split by kind', () => {
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ dv1: 1 });
     renderPage('/artifacts?tab=letters&list=sent');
     await waitFor(() => expect(titles()).toEqual(['Hello Tom', 'Quiet newer']));
-    expect(screen.getAllByTestId('artifact-meta')[0]!.textContent).toMatch(/^To Ann · 1 new from Ann · /);
+    expect(screen.getAllByTestId('artifact-meta')[0]!.textContent).toMatch(/^To Ann · 1 new · /);
     expect(screen.queryAllByRole('img', { name: 'Unread' })).toHaveLength(0);
     expect(screen.getByTestId('list-dot-sent')).toBeInTheDocument();
   });
@@ -365,7 +365,7 @@ describe('Artifacts page: split by kind', () => {
       expect(screen.getByRole('tab', { name: 'Letters, new' })).toBeInTheDocument();
       expect(screen.getByTestId('tab-dot-letters')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-dot-canvases')).toBeNull();
-      expect(screen.getByTestId('artifact-meta').textContent).toMatch(/^To Ann · 1 new from Ann · /);
+      expect(screen.getByTestId('artifact-meta').textContent).toMatch(/^To Ann · 1 new · /);
       expect(within(rows()[0]!).queryByRole('img', { name: 'Unread' })).toBeNull();
     });
 
@@ -395,11 +395,11 @@ describe('Artifacts page: split by kind', () => {
     renderPage();
     await screen.findByText('Draft about trust');
     const weight = (r: HTMLElement) => within(r).getByRole('heading').className.match(/font-(normal|medium|semibold|bold)/)![0];
-    expect(rows().map(weight)).toEqual(['font-normal']);
+    expect(rows().map(weight)).toEqual(['font-medium']);
     await user().click(chip('Received'));
     const readRow = (await screen.findByText('Old note')).closest('[data-testid="artifact-row"]') as HTMLElement;
     const unreadRow = screen.getByText('Note from Mara').closest('[data-testid="artifact-row"]') as HTMLElement;
-    expect(weight(readRow)).toBe('font-normal');
+    expect(weight(readRow)).toBe('font-medium');
     expect(weight(unreadRow)).toBe('font-semibold');
   });
 
@@ -430,7 +430,7 @@ describe('Artifacts page: split by kind', () => {
     renderPage('/artifacts?tab=letters&list=sent');
     await screen.findByText('Hello Tom');
     await waitFor(() => expect(check()).toBe(1));
-    expect(screen.getByTestId('artifact-meta').textContent).toMatch(/^To Ann · 1 new from Ann · /);
+    expect(screen.getByTestId('artifact-meta').textContent).toMatch(/^To Ann · 1 new · /);
     cleanup();
     // Drafts and Mine never carry one
     renderPage();
@@ -540,19 +540,19 @@ describe('Artifacts page: split by kind', () => {
       expect(within(row).getByTestId('row-actions').parentElement).toBe(row.querySelector('h3')!.parentElement); // same line as the title
     });
 
-    it('draft: Prepare letter (blue outline) then … ; the menu has Delete draft', async () => {
+    it('draft: Prepare letter (quiet blue text) then … ; the menu has Delete draft', async () => {
       const u = user();
       renderPage();
       await screen.findByText('Draft about trust');
       const row = rows()[0]!;
       expect(buttons(row)).toEqual(['Prepare letter: Draft about trust', 'Actions for Draft about trust']);
       const primary = within(row).getByRole('button', { name: 'Prepare letter: Draft about trust' });
-      expect(primary.className).toContain('border-blue-600');
-      expect(primary.className).not.toMatch(/(^|\s)bg-blue-\d00(\s|$)/); // outline, never filled
+      expect(primary.className).toContain('text-blue-700');
+      expect(primary.className).not.toMatch(/(^|\s)(bg-blue-\d00|border)(\s|$)/); // quiet text: never filled, no border
       expect(primary.className).toMatch(/\bh-10\b/);
       expect(within(row).queryByRole('link', { name: /^Edit/ })).toBeNull();
       await openMenu(u, 'Draft about trust');
-      expect(await menuLabels()).toEqual(['Delete draft']);
+      expect(await menuLabels()).toEqual(['Open', 'Delete draft']);
     });
 
     it('draft: Prepare letter goes to the compose page', async () => {
@@ -623,7 +623,7 @@ describe('Artifacts page: split by kind', () => {
       expect(within(row).getByRole('link', { name: 'Hello Tom' })).toHaveAttribute('href', '/letter/l1/overview');
       expect(within(row).getByRole('button', { name: 'Add recipient: Hello Tom' }).textContent).toBe('+Add recipientAdd'); // "+ Add" below 400px
       await openMenu(u, 'Hello Tom');
-      expect(await menuLabels()).toEqual(['Preview', 'Delete letter']);
+      expect(await menuLabels()).toEqual(['Open', 'Preview', 'Delete letter']);
     });
 
     it('sent, public: the same + Add recipient; Copy link moves into the menu (Copy link, Preview, Delete letter)', async () => {
@@ -637,7 +637,7 @@ describe('Artifacts page: split by kind', () => {
       expect(buttons(row)).toEqual(['Add recipient: Hello Tom', 'Actions for Hello Tom']);
       expect(within(row).queryByRole('button', { name: /^Copy link/ })).toBeNull();
       await openMenu(u, 'Hello Tom');
-      expect(await menuLabels()).toEqual(['Copy link', 'Preview', 'Delete letter']);
+      expect(await menuLabels()).toEqual(['Open', 'Copy link', 'Preview', 'Delete letter']);
       await u.click(screen.getByRole('menuitem', { name: /Copy link/ }));
       await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/letter/l1`));
     });
@@ -685,7 +685,7 @@ describe('Artifacts page: split by kind', () => {
       expect(screen.queryByTestId('receiver-modal')).toBeNull();
     });
 
-    it('received: no buttons, only a quiet ›; the row opens the letter, or your results once finished, and says Finished', async () => {
+    it('received: a quiet Open; the row opens the letter, or your results once finished, and says Finished', async () => {
       mocks.getAllReceivedLetters.mockResolvedValue([
         received(),
         received({ delivery_id: 'rd2', letter_id: 'rl2', title: 'Finished note', completed_at: ago(H), read_at: ago(H) }),
@@ -693,13 +693,12 @@ describe('Artifacts page: split by kind', () => {
       renderPage('/artifacts?tab=letters&list=received');
       await screen.findByText('Note from Mara');
       for (const row of rows()) {
-        expect(within(row).queryAllByRole('button')).toHaveLength(0);
-        expect(within(row).getByTestId('row-chevron')).toBeInTheDocument();
+        expect(buttons(row)).toEqual([`Open: ${within(row).getByRole('link').textContent}`]);
       }
       expect(screen.getByRole('link', { name: 'Note from Mara' })).toHaveAttribute('href', '/letter/rd1');
       expect(screen.getByRole('link', { name: 'Finished note' })).toHaveAttribute('href', '/letter/rl2/results?delivery=rd2');
       expect(rows().find(r => r.textContent?.includes('Finished note'))!).toHaveTextContent('From Mara · Finished · ');
-      expect(screen.queryByRole('button', { name: /^(Open|Results)/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Results/ })).toBeNull(); // one word on every received row: Open, never Open vs Results
     });
 
     it('own canvas: Share (blue outline) then … ; the menu has Copy link, muted with a toast while the canvas is private', async () => {
@@ -763,12 +762,11 @@ describe('Artifacts page: split by kind', () => {
       expect(mocks.getAccess).not.toHaveBeenCalled();
     });
 
-    it('shared canvas: no buttons, a quiet ›, the row opens the canvas', async () => {
+    it('shared canvas: a quiet Open, the row opens the canvas', async () => {
       renderPage('/artifacts?tab=canvases&list=shared');
       await screen.findByText('Q4 plan');
       const row = rows()[0]!;
-      expect(within(row).queryAllByRole('button')).toHaveLength(0);
-      expect(within(row).getByTestId('row-chevron')).toBeInTheDocument();
+      expect(buttons(row)).toEqual(['Open: Q4 plan']);
       expect(within(row).getByRole('link', { name: 'Q4 plan' })).toHaveAttribute('href', '/p/tom/canvas/q4_plan');
     });
 
@@ -875,7 +873,7 @@ describe('Artifacts page: split by kind', () => {
       renderPage();
       await screen.findByText('Draft about trust');
       const btn = screen.getByRole('button', { name: 'New letter' });
-      expect(btn.className).toContain('bg-blue-500');
+      expect(btn.className).toContain('bg-blue-600');
       expect(btn.closest('header')).not.toBeNull();
       expect(screen.queryByRole('button', { name: 'New artifact' })).toBeNull();
       expect(screen.queryByText(/New artifact/)).toBeNull();
@@ -903,29 +901,29 @@ describe('Artifacts page: split by kind', () => {
       expect(screen.queryByRole('button', { name: /^New/ })).toBeNull();
     });
 
-    it('a tap asks "Who is it for?" with two choices; Specific people creates a private draft and opens it', async () => {
+    it('a tap asks "Who can read it?" with two choices; Private creates a private draft and opens it', async () => {
       const u = user();
       mocks.createDoc.mockResolvedValue({ id: 'new-doc' });
       renderPage();
       await screen.findByText('Draft about trust');
       await u.click(screen.getByRole('button', { name: 'New letter' }));
       const dialog = await screen.findByRole('dialog');
-      expect(within(dialog).getByText('Who is it for?')).toBeInTheDocument();
-      expect(within(dialog).getByRole('button', { name: 'Specific people' })).toBeInTheDocument();
-      expect(within(dialog).getByRole('button', { name: 'Anyone with the link' })).toBeInTheDocument();
+      expect(within(dialog).getByText('Who can read it?')).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /^Private\s*Only people you send it to$/ })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /^Public\s*Anyone with the link$/ })).toBeInTheDocument();
       expect(mocks.createDoc).not.toHaveBeenCalled();
-      await u.click(within(dialog).getByRole('button', { name: 'Specific people' }));
+      await u.click(within(dialog).getByRole('button', { name: /^Private\s*Only people you send it to$/ }));
       await waitFor(() => expect(mocks.createDoc).toHaveBeenCalledWith('private'));
       await waitFor(() => expect(loc()).toBe('/letters/drafts/new-doc'));
     });
 
-    it('Anyone with the link creates a public draft', async () => {
+    it('Public creates a public draft', async () => {
       const u = user();
       mocks.createDoc.mockResolvedValue({ id: 'pub-doc' });
       renderPage();
       await screen.findByText('Draft about trust');
       await u.click(screen.getByRole('button', { name: 'New letter' }));
-      await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Anyone with the link' }));
+      await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Public\s*Anyone with the link$/ }));
       await waitFor(() => expect(mocks.createDoc).toHaveBeenCalledWith('public'));
       await waitFor(() => expect(loc()).toBe('/letters/drafts/pub-doc'));
     });
@@ -946,7 +944,7 @@ describe('Artifacts page: split by kind', () => {
       renderPage();
       await screen.findByText('Draft about trust');
       await u.click(screen.getByRole('button', { name: 'New letter' }));
-      await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Specific people' }));
+      await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Private\s*Only people you send it to$/ }));
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't create draft."));
       expect(loc()).toBe('/artifacts');
       await waitFor(() => expect(screen.getByRole('button', { name: 'New letter' })).toBeEnabled());
