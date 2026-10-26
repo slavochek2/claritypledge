@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 71
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [gemini, cost, edge-functions, test-accounts]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 ---
 
 # P1565: Banner edge functions spend real Gemini image calls for test accounts
@@ -72,8 +72,16 @@ One shared helper in `supabase/functions/_shared/` decides `isProdProject()` fro
 
 ## Acceptance Criteria
 
-- [ ] On a non-prod project, any account creating a story or event gets a placeholder banner, and no Gemini request is made
-- [ ] `mirror-portrait` and `generate-agent-banner` make no Gemini image call on non-prod unless `ALLOW_NONPROD_IMAGE_GEN=1`
-- [ ] A real (non-test) prod user still gets a generated banner
-- [ ] The same guard covers `generate-event-banner` and `mirror-portrait`, or each is deferred with its own ticket
-- [ ] Regression test: `src/tests/p1565-*.test.ts`
+- [x] On a non-prod project, any account creating a story or event gets a placeholder banner, and no Gemini request is made
+- [x] `mirror-portrait` and `generate-agent-banner` make no Gemini image call on non-prod unless `ALLOW_NONPROD_IMAGE_GEN=1`
+- [x] A real (non-test) prod user still gets a generated banner
+- [x] The same guard covers `generate-event-banner` and `mirror-portrait`, or each is deferred with its own ticket
+- [x] Regression test: `src/tests/p1565-*.test.ts`
+
+## Evidence (2026-10-26)
+
+- **Red→green:** `src/tests/p1565-nonprod-image-guard.test.ts` passes 12/12. Control: with HEAD's unguarded `artist-banner-run.ts` swapped in, the 2 guard-order tests fail, so the test bites. Related suites: 26 files / 324 tests pass. `tsc --noEmit` is clean, and `deno check` passes on the four functions.
+- **Live on TEST, after deploying the four functions:** a throwaway user's `generate-banner` returned 200 in 1.6s and stored **107 bytes**, which is the placeholder PNG. No Gemini call. The user was deleted afterwards. The P1453 live suite (`P1453_LIVE_GEN=1`) passes 8/8.
+- **Prod unchanged:** the guard admits only host `besjtuodziykmjidubzw.supabase.co`. Recent prod `events.banner_url` values are built from the runtime `SUPABASE_URL` and use exactly that host. Confirm with one real prod generation after `/ship`.
+- **Review:** Gemini `gemini-4-argon` returned no findings. Its caller list was lost to a shell glob error, so every direct Gemini call site was enumerated by hand (`grep generativelanguage|responseModalities`). All image paths are guarded; the text-only `mirror-reply` and `transcribe-slice` are out of scope.
+- **Deploy-manifest stamp skipped** for the TEST deploy: stamping from main would record a SHA without this fix. `/ship` stamps it.
