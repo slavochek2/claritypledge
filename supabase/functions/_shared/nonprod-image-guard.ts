@@ -27,6 +27,14 @@ export function nonProdImageBlocked(): boolean {
   return !imageGenAllowed(env?.get('SUPABASE_URL'), { ALLOW_NONPROD_IMAGE_GEN: env?.get('ALLOW_NONPROD_IMAGE_GEN') });
 }
 
+/** Logs a skipped generation with the project host only (never keys, never the full URL). */
+export function warnNonProdImageSkipped(): void {
+  const raw = (globalThis as { Deno?: { env: { get(k: string): string | undefined } } }).Deno?.env.get('SUPABASE_URL');
+  let host = 'unset';
+  try { host = new URL(raw ?? '').hostname; } catch { /* unset or malformed */ }
+  console.warn('P1565: Gemini image generation skipped on non-prod project', { host });
+}
+
 /** Deterministic stand-in (64x27 flat grey PNG) that flows through the normal storage path. */
 export const PLACEHOLDER_IMAGE: { mimeType: string; data: string } = {
   mimeType: 'image/png',

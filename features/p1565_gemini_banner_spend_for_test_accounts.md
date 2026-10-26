@@ -70,6 +70,22 @@ Every story or event a test account creates on TEST costs one or more paid Gemin
 
 One shared helper in `supabase/functions/_shared/` decides `isProdProject()` from `SUPABASE_URL` (prod ref `besjtuodziykmjidubzw`). It fails closed: anything unrecognized counts as non-prod, and needs no new secret. Every image-spend path calls it before any Gemini request (`generate-banner`, `generate-event-banner`, `mirror-portrait`, `generate-agent-banner` / `_shared/artist-banner-run.ts`). On non-prod they store or return a deterministic placeholder image through the same persistence path, so tests still exercise row updates. Keep the existing `reserveGeneration` rate limiting (decisions.md, P1453 entry). An explicit opt-in env (e.g. `ALLOW_NONPROD_IMAGE_GEN=1`) lets the deliberate `P1453_LIVE_GEN` integration run still generate.
 
+## Cost Budget
+
+Scope: non-prod projects only. Prod's calls and costs are unchanged by construction: the guard admits exactly the prod host.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests (Gemini) | 0 on non-prod (was 1 image call x 1–3 fidelity attempts, plus 1 vision check per attempt, per banner or portrait) | 0 x generations/hour = 0 | 0 x banners generated per run = 0 |
+| Requests (Supabase storage + row update) | unchanged: 1 upload + 1 small copy + 1 row update per generation, same as before | same as before | same as before |
+| Egress (bytes) | 107 B placeholder + small copy per generation (was ~0.3–0.9 MB per real banner: a TEST banner measured 878,428 B) | lower than before | lower than before |
+| Log lines | +1 `console.warn` per blocked generation (1 x generations) | 1 x generations/hour | 1 x generations per run |
+| Service unit x registry price | Gemini: 0 tokens x registry price = $0 on non-prod. Measured October baseline before the fix: non-prod image SKUs on the shared key = EUR 37.04 (billing export, `aikey-cp-batch-81413`) | | |
+
+1. **Fits the plan limit today?** Fits. Gemini registry row: price with no cap. Projected non-prod monthly cost = generations per month x $0 = $0, against the measured EUR 37/month before the fix. Supabase Free plan: storage and egress per generation fall (107 B vs ~0.9 MB), so usage x runs per month only decreases.
+2. **Failure modes:** if `SUPABASE_URL` is unset or unrecognized, the guard fails closed: no spend, placeholder, warn line. A deliberate live run uses the function secret `ALLOW_NONPROD_IMAGE_GEN=1`, which must be unset afterwards (noted in `p1453-banner-functions.test.ts`).
+3. **Guard:** `supabase/functions/_shared/nonprod-image-guard.ts`; runtime-tested in `supabase/functions/_shared/p1565-nonprod-guard-runtime.test.ts`; spend watched by `ai-keys --sku-spikes` in /day.
+
 ## Acceptance Criteria
 
 - [x] On a non-prod project, any account creating a story or event gets a placeholder banner, and no Gemini request is made

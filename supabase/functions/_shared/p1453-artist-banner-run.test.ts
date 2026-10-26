@@ -6,6 +6,15 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { geminiGenerateImage, runArtistBanner, visionCheck } from './artist-banner-run.ts';
 
+// P1565: non-prod projects short-circuit Gemini; these tests exercise the real generation logic,
+// so opt in for this file and restore the previous value when it finishes.
+const PREV_OPT_IN = Deno.env.get('ALLOW_NONPROD_IMAGE_GEN');
+Deno.env.set('ALLOW_NONPROD_IMAGE_GEN', '1');
+globalThis.addEventListener('unload', () => {
+  if (PREV_OPT_IN === undefined) Deno.env.delete('ALLOW_NONPROD_IMAGE_GEN');
+  else Deno.env.set('ALLOW_NONPROD_IMAGE_GEN', PREV_OPT_IN);
+});
+
 function stubFetch(responses: Array<() => Response>) {
   const real = globalThis.fetch;
   let calls = 0;

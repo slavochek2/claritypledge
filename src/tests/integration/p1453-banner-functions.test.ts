@@ -11,6 +11,10 @@
  *   - a new user's own profile gets an artist banner with a bound credit; regenerate changes the
  *     artist; the credit reads back through the public path.
  *
+ * P1565: on TEST the banner functions now return a placeholder image instead of calling Gemini,
+ * unless the TEST project has the function secret ALLOW_NONPROD_IMAGE_GEN=1. For a deliberate live
+ * run set it, and UNSET it afterwards, or the Gemini spend leak returns.
+ *
  * Requires generate-banner and generate-agent-banner deployed to TEST.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
