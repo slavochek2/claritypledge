@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 73.0
 workstream: design-system
 created_date: '2026-10-26'
 tags: [design-system, buttons, lint]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-26
 ---
 
 # P1568: Blue is the default button, and a hand-coloured button cannot be committed
