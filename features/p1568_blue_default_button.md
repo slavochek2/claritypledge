@@ -28,7 +28,7 @@ driver: anomaly
 
 None of them covers one action inside a chat message, which is how the mirror greeting's "Give me a name" shipped gray-outlined on 2026-10-26.
 
-> Founder, verbatim (2026-10-26): "i'm fixing this fucking button things manually a hundred times my god what's going on we are clearly something is broken with our design system or review"
+> Founder (2026-10-26, paraphrased): the same button gets fixed by hand over and over; something is broken in the design system or in review.
 
 **Question:** make the correct button the default, and make a hand-coloured one fail before commit.
 
