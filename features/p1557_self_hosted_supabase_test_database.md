@@ -230,7 +230,9 @@ the same change, with prices read from the pricing page on the day.
 - [x] Restore done; catalog comparison of ACLs, owners, default privileges, RLS and security-definer
       functions against hosted TEST shows no unexplained difference. 2026-10-26: table, function, policy and
       migration lists differ only by two group-chat migrations another branch applied to hosted TEST
-      and has not shipped; every hash matches apart from those objects.
+      and has not shipped. Outside those objects, policies, table grants and owners hash
+      identically; 49 function grants and the default privileges hold the same entries in a
+      different order (diffed line by line, no grant missing or extra).
 - [x] `migrate.sh --only <file>` applies one new migration to the new server exactly once and
       records it. Prod targeting is unchanged (dry-run shown). 2026-10-26: `--env selfhosted`
       applied 20261023170000 once; a second run applied nothing.
