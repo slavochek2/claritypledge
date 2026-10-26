@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 76
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tests, flaky, pre-commit]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1573: P1512 chat-UI `menuOn` races the render under full-suite load
