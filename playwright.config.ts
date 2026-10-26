@@ -41,9 +41,10 @@ function getWorktreePort(): number {
 const PORT = getWorktreePort();
 
 // P1541: TEST is the smallest Supabase size and every session on this machine shares it. One run at
-// a time: a second run waits (bounded, exit 75 when the wait runs out) and says who holds the lock.
+// a time across this repository's worktrees: a second run waits (bounded, exit 75 when the wait runs out) and says who holds the lock.
 // Taken here, in the main runner, because the config loads before the dev server starts; workers,
-// --list, --ui and CI skip it. Released when this process exits, after teardown.
+// --list, --ui and CI skip it (a --ui run can therefore overlap a locked run). Released when this
+// process exits, after teardown. A TEST that refuses the request (bad key or URL) exits 1, not 75.
 guardTestDbRun({
   repoDir: __dirname,
   isTestDb: isTestProjectUrl(process.env.VITE_SUPABASE_URL),
@@ -104,7 +105,7 @@ const storageState = buildE2EStorageState(
  * - Parallel test execution with 2 workers (P1541: what the TEST project sustains)
  * - Screenshots on failure for debugging
  * - Automatic dev server startup
- * - Dynamic port based on worktree (5000 for main, 5N00 for worktree-N)
+ * - Dynamic port based on worktree (5001 for main, 5N00 for worktree-N; see scripts/lib/worktree-port.mjs)
  * - Override worker count: PLAYWRIGHT_WORKERS=N npm run test:e2e
  */
 

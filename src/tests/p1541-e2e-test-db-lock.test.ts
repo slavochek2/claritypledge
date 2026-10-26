@@ -176,3 +176,19 @@ it('lockDirFor puts the lock in the git common dir, shared by every worktree', (
   const d = lockDirFor(process.cwd());
   expect(d.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
 });
+
+describe('P1572: a TEST that refuses the request is configuration, not overload', () => {
+  it.each([401, 403, 404])('HTTP %i fails at once, marked config, without retrying', (code) => {
+    let calls = 0;
+    const r = probeTestDb('https://x.supabase.co', 'k', { get: () => { calls++; return code; }, gapMs: 0, attempts: 3 });
+    expect(r).toEqual({ ok: false, config: true, reason: `HTTP ${code}` });
+    expect(calls).toBe(1);
+  });
+  it.each([0, 408, 429, 503])('status %i is still treated as load and retried', (code) => {
+    let calls = 0;
+    const r = probeTestDb('https://x.supabase.co', 'k', { get: () => { calls++; return code; }, gapMs: 0, attempts: 3 });
+    expect(r.ok).toBe(false);
+    expect('config' in r).toBe(false);
+    expect(calls).toBe(3);
+  });
+});

@@ -10,7 +10,9 @@
  * taken at config load in the main runner only (workers, --list, --ui and CI skip it), and released
  * when that process exits, which is after global teardown and its user sweep.
  *
- * The lock is a directory (mkdir is atomic) in the git common dir, so every worktree shares it.
+ * The lock is a directory (mkdir is atomic) in the git common dir, so every worktree of this repository
+ * shares it. A separate clone of the repository has its own lock and is not held off (P1572: no such
+ * clone exists here; moving the lock would let old and new checkouts run at once during the switch).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -196,6 +198,8 @@ export function probeTestDb(url, anonKey, { attempts = 3, timeoutMs = 8_000, gap
     const t0 = Date.now();
     const status = get(`${url}/rest/v1/profiles?select=id&limit=1`, anonKey, timeoutMs);
     if (status >= 200 && status < 300) return { ok: true, ms: Date.now() - t0 };
+    // P1572: TEST answered and refused (wrong key or URL). That is configuration, not load: no retry.
+    if (status >= 400 && status < 500 && status !== 408 && status !== 429) return { ok: false, config: true, reason: `HTTP ${status}` };
     last = status ? `HTTP ${status}` : `no answer in ${timeoutMs / 1000}s`;
     if (i < attempts - 1) sleepSync(gapMs);
   }
@@ -228,6 +232,11 @@ export function guardTestDbRun({ repoDir, isTestDb, url, anonKey, env = process.
 
   // E2E_TEST_DB_PROBE_URL exists only to prove the overloaded path against a host that never answers.
   const probe = probeTestDb(env.E2E_TEST_DB_PROBE_URL || url, anonKey);
+  if (!probe.ok && probe.config) {
+    console.error(`[P1541] TEST database refused the request (${probe.reason}): check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. ` +
+      'A configuration error, not overload: fix it before running again.');
+    process.exit(1);
+  }
   if (!probe.ok) {
     console.error(`[P1541][infra] TEST database is overloaded (${probe.reason}); not running the suite. Not an app failure.`);
     process.exit(LOCK_WAIT_EXIT_CODE);
