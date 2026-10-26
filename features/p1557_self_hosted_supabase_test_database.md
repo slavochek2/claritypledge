@@ -227,10 +227,13 @@ the same change, with prices read from the pricing page on the day.
 - [x] Outside probe over hostname and raw IP: Studio, `/pg/`, Postgres and the pooler are refused.
       Pasted output. 2026-10-25: admin paths 404 by hostname, raw-IP TLS refused, ports 5432, 6543,
       8000, 3000, 8443, 4000 and 54321 closed.
-- [ ] Restore done; catalog comparison of ACLs, owners, default privileges, RLS and security-definer
-      functions against hosted TEST shows no unexplained difference.
-- [ ] `migrate.sh --only <file>` applies one new migration to the new server exactly once and
-      records it. Prod targeting is unchanged (dry-run shown).
+- [x] Restore done; catalog comparison of ACLs, owners, default privileges, RLS and security-definer
+      functions against hosted TEST shows no unexplained difference. 2026-10-26: table, function, policy and
+      migration lists differ only by two group-chat migrations another branch applied to hosted TEST
+      and has not shipped; every hash matches apart from those objects.
+- [x] `migrate.sh --only <file>` applies one new migration to the new server exactly once and
+      records it. Prod targeting is unchanged (dry-run shown). 2026-10-26: `--env selfhosted`
+      applied 20261023170000 once; a second run applied nothing.
 - [x] Function deploy works against the new server. The two open functions accept an unauthenticated
       call, the other 19 refuse missing, bad and expired tokens. 2026-10-25: 19 of 19 return 401 for
       none, garbage and a real expired token; the valid-token control passes the gate.
