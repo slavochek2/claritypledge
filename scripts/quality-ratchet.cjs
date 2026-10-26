@@ -26,6 +26,7 @@
 
 const { execFileSync } = require('child_process');
 const size = require('./lib/quality-ratchet/size.cjs');
+const cycles = require('./lib/quality-ratchet/cycles.cjs');
 const { snapshot } = require('./lib/quality-ratchet/snapshot.cjs');
 
 // Files the size metric judges. Tests are out of scope for v1 (see the P1566 stage 1 trial).
@@ -42,6 +43,7 @@ const EXEMPT = [
 // run in range/CI mode only (spec invariant: whole-graph gates are CI-only).
 const METRICS = {
   size: { kind: 'file', module: size },
+  cycles: { kind: 'tree', module: cycles },
 };
 const DEFAULT_STAGED = ['size'];
 const DEFAULT_RANGE = Object.keys(METRICS);

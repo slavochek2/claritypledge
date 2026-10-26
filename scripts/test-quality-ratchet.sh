@@ -205,6 +205,30 @@ expect 2 "unknown revision is a tool error, never a pass" --range nosuchref..HEA
 expect 2 "no mode is a tool error" --bogus
 reset_to_base
 
+echo "== import cycles (range mode)"
+cat > tsconfig.app.json <<'JSON'
+{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] }, "moduleResolution": "bundler", "module": "ESNext", "jsx": "react-jsx" }, "include": ["src"] }
+JSON
+mkdir -p src/cyc
+printf "import { b } from '@/cyc/b';\nexport const a = () => b;\n" > src/cyc/a.ts
+printf "export const b = 1;\n" > src/cyc/b.ts
+printf "import { y } from './y';\nexport const x = () => y;\n" > src/cyc/x.ts
+printf "import { z } from './z';\nimport { x } from './x';\nexport const y = () => [x, z];\n" > src/cyc/y.ts
+printf "export const z = 1;\n" > src/cyc/z.ts
+git add -A && git commit -qm cyc-base && git tag -f base >/dev/null
+printf "import { a } from './a';\nexport const b = () => a;\n" > src/cyc/b.ts; git add src/cyc/b.ts; git commit -qm cyc-new
+expect 1 "new runtime cycle through an @/ alias" --range HEAD~1..HEAD --metrics cycles
+reset_to_base
+printf "import type { a } from './a';\nexport const b = 1 as unknown as typeof a;\n" > src/cyc/b.ts; git add src/cyc/b.ts; git commit -qm cyc-type
+expect 0 "type-only import back is not a runtime cycle" --range HEAD~1..HEAD --metrics cycles
+reset_to_base
+git mv src/cyc/y.ts src/cyc/y2.ts && sed -i.bak "s#'./y'#'./y2'#" src/cyc/x.ts && rm -f src/cyc/x.ts.bak && git add src/cyc/x.ts && git commit -qm cyc-mv
+expect 0 "git mv of a file inside an existing cycle" --range HEAD~1..HEAD --metrics cycles
+reset_to_base
+printf "import { x } from './x';\nexport const y = () => [x];\n" > src/cyc/y.ts; git add src/cyc/y.ts; git commit -qm cyc-shrink
+expect 0 "an existing cycle loses an edge" --range HEAD~1..HEAD --metrics cycles
+reset_to_base
+
 echo "== nested guides"
 GUIDES="$REPO_ROOT/scripts/check-nested-guides.cjs"
 # expect_guides EXITCODE "label" [args] — the guide check against this scratch repo's index

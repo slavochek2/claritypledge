@@ -75,6 +75,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [technical]: CI blocks a new runtime import cycle, built on the TypeScript resolver rather than dependency-cruiser (P1566 stage 2)
+
+**Context:** With ES modules, a cycle means one module runs before the other has finished initialising, and the first use of the missing value crashes the page on load. That is the same "used before it exists" class `eslint.config.js` already guards inside a single file. The spec planned dependency-cruiser. Asked to approve the install, the founder asked for a security review and a reason in product terms.
+**Decision:** KEEP, built without a new dependency. `scripts/lib/quality-ratchet/cycles.cjs` resolves every `src/` import with `ts.resolveModuleName`, the resolver tsc itself uses, so `@/` aliases resolve exactly, over a snapshot read straight from git objects. It counts runtime edges only: `import type`, type-only specifiers and dynamic `import()` cannot cause a load-order crash. Finding IDs are cyclic edges (both ends in one strongly connected component): a new one fails, a shrinking or vanished cycle never does, base IDs are carried across renames, and a new cycle is reported once however many edges it has. CI-only (`--range` / `--ci`); pre-commit refuses it, because a staged-files run cannot see the graph.
+**Trial:** HEAD has 715 modules, 2,463 runtime edges and **0 cycles**. Because a probe that returns the same verdict everywhere may be blind, controls were run: a planted two-file cycle through both a relative path and an `@/` alias was caught, a planted type-only loop was correctly ignored, and the unresolved imports were all outside the snapshot (tests reaching into `e2e/`, `scripts/`, `api/`), assets, or one broken import (filed as an inbox item). History shows the value: sampling 24 commits across the past year found cycles at three different times (a live-mode view and its round summary, February to April; a prototype, February; a layout menu that imported a style constant from a page, September), each removed later by incidental refactors, with no recorded crash. Replaying the last 60 commits touching `src/` found 0 new cycles, so friction now is nil. Refactor trial on the September cycle: moving one 3-line constant into a layout module broke the three-file loop (3 cyclic edges to 0) and made the layout stop depending on a page. Judged better.
+**Falsifier:** if a year of CI runs blocks no cycle at all, the gate is cost without catch; withdraw it then.
+**Alternatives rejected:** dependency-cruiser@18.7.0 (18 direct dependencies for one rule we would use; folder-boundary rules are a spec non-goal); madge (same trade, plus its own resolver rather than tsc's); counting type-only imports (they are erased at build time, so they would block code that cannot crash).
+**Consequences:** About 3 s per CI run. Supply-chain weight added: none.
+**References:** [p1566](../features/p1566_continuous_code_quality_ratchet.md) · `scripts/lib/quality-ratchet/cycles.cjs` · `scripts/test-quality-ratchet.sh` (import cycles section)
+
+---
+
 ## 2026-10-26 [technical]: Code size and complexity are a ratchet, not a limit: an over-limit file or function may not get worse (P1566 stage 1)
 
 **Context:** Nothing in cp measured code shape. The largest files ran to 2,863 to 3,284 normalized lines and kept growing, and agents of every model write most of the code here, so any practice that depends on an agent invoking a skill does not bind. P1566's adoption protocol required a trial on the real tree before any gate was kept.
