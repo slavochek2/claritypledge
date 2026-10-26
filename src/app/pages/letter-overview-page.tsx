@@ -70,19 +70,17 @@ export function LetterOverviewPage() {
   const { id: letterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  // The list hands over who was new when Details was opened (the server already has them seen). Used ONCE: read into
-  // state here, cleared from the history entry below, and dropped per person once their results are opened.
+  // The list hands over who was new when Details was opened (the server already has them seen). It lives in this history
+  // entry, so it survives opening a person's results and coming Back; opening a person's results removes only THEIR id.
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set((location.state as { newDeliveryIds?: string[] } | null)?.newDeliveryIds ?? []),
   );
-  const handoffCleared = useRef(false);
-  useEffect(() => {
-    if (handoffCleared.current) return;
-    handoffCleared.current = true;
-    if ((location.state as { newDeliveryIds?: string[] } | null)?.newDeliveryIds) {
-      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    }
-  }, [location.pathname, location.search, location.state, navigate]);
+  const dropHandedOver = (id: string) => {
+    const remaining = [...handedOver].filter(x => x !== id);
+    setHandedOver(new Set(remaining));
+    // Replace this entry's state with what is left, before the results page is pushed on top of it.
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: { newDeliveryIds: remaining } });
+  };
   const { user, sessionChecked, isLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -289,7 +287,7 @@ export function LetterOverviewPage() {
             isPublic={isPublic}
             deliveries={deliveries}
             newByDelivery={shownNew}
-            onOpenResults={(id) => setHandedOver(prev => { const next = new Set(prev); next.delete(id); return next; })}
+            onOpenResults={dropHandedOver}
           />
         )}
 

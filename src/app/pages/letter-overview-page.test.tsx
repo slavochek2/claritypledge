@@ -251,22 +251,33 @@ describe('LetterOverviewPage hierarchy', () => {
     expect(within(again).queryByRole('img', { name: 'New' })).toBeNull();
   });
 
-  it('a page refresh or a later visit with the same history entry does not bring the dots back (the handoff is cleared from history state)', async () => {
-    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
-    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: null, last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z' })] });
-    let seen: unknown = 'unset';
-    function Probe() {
-      seen = useLocation().state;
-      return null;
+  it('two were new: opening A\'s results and pressing Back drops only A\'s mark, B\'s dot stays', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z'), ovDelivery('d2', '2026-10-05T11:00:00Z')]));
+    const seenDeliveries = [
+      dv({ id: 'd1', receiver_name: 'Di', receiver_email: 'di@example.com', read_at: null, last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z', created_at: '2026-10-04T10:00:00Z' }),
+      dv({ id: 'd2', receiver_name: 'Bo', receiver_email: 'bo@example.com', read_at: null, last_progress_at: '2026-10-05T11:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z', created_at: '2026-10-04T11:00:00Z' }),
+    ]; // the list already marked both seen on the server
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: seenDeliveries });
+    function Results() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate(-1)}>back-from-results</button>;
     }
     render(
-      <MemoryRouter initialEntries={[{ pathname: '/letter/l1/overview', state: { newDeliveryIds: ['d1'] } }]}>
-        <Probe />
-        <Routes><Route path="/letter/:id/overview" element={<LetterOverviewPage />} /></Routes>
+      <MemoryRouter initialEntries={[{ pathname: '/letter/l1/overview', state: { newDeliveryIds: ['d1', 'd2'] } }]}>
+        <Routes>
+          <Route path="/letter/:id/overview" element={<LetterOverviewPage />} />
+          <Route path="/letter/:id/results" element={<Results />} />
+        </Routes>
       </MemoryRouter>,
     );
-    await screen.findByTestId('letter-recipients');
-    await waitFor(() => expect(seen).toBeNull());
+    const section = await screen.findByTestId('letter-recipients');
+    expect(within(section).getAllByRole('img', { name: 'New' })).toHaveLength(2);
+    fireEvent.click(within(section).getByRole('link', { name: 'Di' }));
+    fireEvent.click(await screen.findByText('back-from-results'));
+    const again = await screen.findByTestId('letter-recipients');
+    const dots = within(again).getAllByRole('img', { name: 'New' });
+    expect(dots).toHaveLength(1);
+    expect(dots[0]!.closest('li')).toHaveTextContent('Bo');
   });
 
   it('a read finished delivery is not new', async () => {
