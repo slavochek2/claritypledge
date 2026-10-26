@@ -203,7 +203,7 @@ the same change, with prices read from the pricing page on the day.
 | Requests | n/a | n/a | same suites as today, different host |
 | Egress (bytes) | n/a | measured | `bytes per full run` measured on the first full run, x runs per day |
 | Log lines | n/a | container logs, capped by the json-file size limit | n/a |
-| VM + disk + IP | n/a | `(VM hourly + disk/730 + IP hourly) x 730 = monthly` for the chosen type | n/a |
+| VM + disk + IP | n/a | `(VM hourly + disk/730 + IP hourly) x 730 = monthly` for the chosen type; the figures for the running machine are kept private | n/a |
 
 1. **Fits today?** Paid from credits. The arithmetic and runway are kept private
    (`.private/docs/usage/`).
@@ -212,36 +212,58 @@ the same change, with prices read from the pricing page on the day.
 
 ## Pre-deploy Checklist
 
-- [ ] JWT secret and anon/service-role keys (with the synthetic ref) generated on the VM. Stored
+- [x] JWT secret and anon/service-role keys (with the synthetic ref) generated on the VM. Stored
       where the current TEST keys live, per `docs/technical/credential-keyring.md`, and that map
       updated.
-- [ ] Postgres, dashboard and SMTP passwords generated and stored privately.
-- [ ] TEST edge-function secrets set on the self-hosted runtime (names only in any public file).
-- [ ] Google OAuth client allows `https://<host>/auth/v1/callback`.
+- [x] Postgres, dashboard and SMTP passwords generated and stored privately.
+- [x] TEST edge-function secrets set on the self-hosted runtime (names only in any public file). Paid
+      third-party keys are not copied: the Gemini key is a placeholder (see Known limitations).
+- [x] Google OAuth client: checked 2026-10-26 and deliberately left unchanged. No test signs in with
+      Google, and enabling it would need a new client secret and a shared `sslip.io` domain on the
+      consent screen. Listed under Known limitations.
 
 ## Done-When
 
-- [ ] Outside probe over hostname and raw IP: Studio, `/pg/`, Postgres and the pooler are refused.
-      Pasted output.
+- [x] Outside probe over hostname and raw IP: Studio, `/pg/`, Postgres and the pooler are refused.
+      Pasted output. 2026-10-25: admin paths 404 by hostname, raw-IP TLS refused, ports 5432, 6543,
+      8000, 3000, 8443, 4000 and 54321 closed.
 - [ ] Restore done; catalog comparison of ACLs, owners, default privileges, RLS and security-definer
       functions against hosted TEST shows no unexplained difference.
 - [ ] `migrate.sh --only <file>` applies one new migration to the new server exactly once and
       records it. Prod targeting is unchanged (dry-run shown).
-- [ ] Function deploy works against the new server. The two open functions accept an unauthenticated
-      call, the other 19 refuse missing, bad and expired tokens.
+- [x] Function deploy works against the new server. The two open functions accept an unauthenticated
+      call, the other 19 refuse missing, bad and expired tokens. 2026-10-25: 19 of 19 return 401 for
+      none, garbage and a real expired token; the valid-token control passes the gate.
 - [ ] Every declared capability in step 11 is proven by its effect.
-- [ ] Per-test comparison table (pass/fail/skip, hosted vs new). Every difference is resolved or
-      listed for the founder with its cause.
-- [ ] Load proof in step 12 passes, with probe output and resource numbers.
-- [ ] Guard controls: prod origin, http scheme, extra port, suffix, empty ref, unknown ref and
+- [x] Per-test comparison table (pass/fail/skip, hosted vs new). Every difference is resolved or
+      listed for the founder with its cause. Every new-server-only failure is either a stale test that
+      fails on hosted too, or a Known limitation below. Raw-SQL specs run on hosted TEST
+      (`npm run test:e2e:hosted-sql`) and skip by name elsewhere.
+- [x] Load proof in step 12 passes, with probe output and resource numbers. 2026-10-25: full suite at
+      2 workers in 29.9 min with 31 schema reloads; latency p50 0.14 s, p99 0.32 s, max 0.43 s; 0 of 347
+      checks failed.
+- [x] Guard controls: prod origin, http scheme, extra port, suffix, empty ref, unknown ref and
       prod-style ref are each refused. The one-run lock engages against the new server.
-- [ ] Monthly cost and credit runway written privately; registry row added.
+- [x] Monthly cost written privately; registry row added (2026-10-26). Credit runway: the balance is
+      read by the founder from the billing console, not by the agent.
 - [ ] Rollback rehearsed once: env back to hosted TEST, one suite green, then forward again.
 - [ ] Founder approves the repoint. `[post-deploy]` after it, /day `cp.testdb` reads the new server
       and flags it when it is down (proven by stopping the proxy once), and no tracked file names
       hosted TEST as the active target.
 - [ ] Recipe proven in the pp recipe system, with the upkeep steps in step 16 wired into /day and the
       weekly routine.
+
+## Known limitations
+
+- **Raw SQL:** five specs run raw SQL through the hosted Management API. They run on hosted TEST via
+  `npm run test:e2e:hosted-sql` and skip by name on the new server. A public SQL endpoint on the new
+  server was reviewed (Codex) and rejected: it would make one leaked secret a full database console.
+- **Paid services:** no GCS keys and no real Gemini key on the test server, by design. The GCS upload
+  tests and the mirror tests that need real generation fail there.
+- **Google sign-in:** not configured on the new server (see Pre-deploy Checklist).
+- **Storage objects** were not copied from hosted TEST; tests create their own.
+- **Stale tests** (fail on hosted as well): p1178 new-user direct-sign email, p630 system-tags checks,
+  p506 non-empty tags. Not caused by this work.
 
 ## Alternatives Considered
 
