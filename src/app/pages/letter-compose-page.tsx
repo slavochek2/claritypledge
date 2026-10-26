@@ -33,6 +33,7 @@ import {
   sealGuardError,
 } from '@/app/utils/letter-prediction-policy';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
+import { ARTIFACTS_LETTERS_DRAFTS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'seal-confirm' | 'sealing' | 'confirmation';
 
@@ -288,7 +289,7 @@ export function LetterComposePage() {
       <main className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">Doc not found or you don&apos;t have access.</p>
-          <Button variant="link" onClick={() => navigate('/artifacts?tab=yours&type=letters')}>
+          <Button variant="link" onClick={() => navigate(ARTIFACTS_LETTERS_DRAFTS)}>
             Back to Docs
           </Button>
         </div>

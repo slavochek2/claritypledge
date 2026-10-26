@@ -1,18 +1,14 @@
 /**
  * @file artifacts-header.tsx
  * @description P1545 WP3: the Artifacts title row. Title, a search icon that expands IN PLACE (the title
- * and "New artifact" never move), and the New artifact menu (Letter private / public as today's draft
- * menu, canvas creation arrives with P1536).
+ * and "New letter" never move), and, on the Letters tab only, the blue "New letter" button. A tap asks
+ * "Who is it for?" (Specific people = a private draft, Anyone with the link = a public draft; the draft's
+ * visibility is set at creation and governs who can see its stories). Canvases show no New until P1536.
  */
-import { useEffect, useRef } from 'react';
-import { Globe, Lock, Plus, Search, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { ContentVisibility } from '@/app/types';
 
 const ICON_BUTTON =
@@ -24,12 +20,15 @@ interface Props {
   onOpenSearch: () => void;
   onCloseSearch: () => void;
   onQuery: (q: string) => void;
+  /** The Letters tab is showing: only then is there a New button. */
+  showNewLetter: boolean;
   creating: boolean;
   onCreateLetter: (visibility: ContentVisibility) => void;
 }
 
-export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch, onQuery, creating, onCreateLetter }: Props) {
+export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch, onQuery, showNewLetter, creating, onCreateLetter }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [askOpen, setAskOpen] = useState(false);
   useEffect(() => {
     if (searchOpen) inputRef.current?.focus();
   }, [searchOpen]);
@@ -71,34 +70,45 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
         )}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button aria-label="New artifact" className="h-10 shrink-0 gap-1.5 bg-blue-500 px-2.5 text-white sm:px-3 hover:bg-blue-700">
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">New artifact</span>
-            {/* At the narrowest widths, with the search field open, the label gives way to the "+" so the field keeps its width. */}
-            <span className={`sm:hidden ${searchOpen ? 'max-[340px]:hidden' : ''}`}>New</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" collisionPadding={16} className="w-72 max-w-[calc(100vw-32px)]">
-          <DropdownMenuItem disabled={creating} onSelect={() => onCreateLetter('private')} className="min-h-12 items-start gap-3">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">Letter (private draft)</span>
-              <span className="text-xs text-muted-foreground">Only people you share with can see this</span>
-            </span>
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={creating} onSelect={() => onCreateLetter('public')} className="min-h-12 items-start gap-3">
-            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">Letter (public draft)</span>
-              <span className="text-xs text-muted-foreground">Visible on your profile</span>
-            </span>
-          </DropdownMenuItem>
-          {/* P1536 adds canvas creation (a new mirror thread) to this menu. Until then there is no Canvas entry:
-              a disabled item would be a dead control. */}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {showNewLetter && (
+        <Button
+          aria-label="New letter"
+          disabled={creating}
+          onClick={() => setAskOpen(true)}
+          className="h-10 shrink-0 gap-1.5 bg-blue-500 px-2.5 text-white sm:px-3 hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {/* "New letter" from 360px up, "New" below. With the search field open the long label waits for sm and the
+              narrowest phones drop to the "+", so the field keeps its width. */}
+          <span className={searchOpen ? 'hidden sm:inline' : 'hidden min-[360px]:inline'}>New letter</span>
+          <span className={searchOpen ? 'sm:hidden max-[340px]:hidden' : 'min-[360px]:hidden'}>New</span>
+        </Button>
+      )}
+
+      {/* No close animation, as ConfirmDialog (a close that lands in a hidden tab would leave the page unclickable). */}
+      <Dialog open={askOpen} onOpenChange={setAskOpen}>
+        <DialogContent
+          hideCloseButton
+          aria-describedby={undefined}
+          className="w-[calc(100%-2rem)] max-w-sm rounded-xl shadow-xl sm:rounded-xl data-[state=closed]:!animate-none"
+          overlayClassName="data-[state=closed]:!animate-none"
+        >
+          <DialogHeader>
+            <DialogTitle>Who is it for?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" disabled={creating} className="min-h-12 justify-start" onClick={() => { setAskOpen(false); onCreateLetter('private'); }}>
+              Specific people
+            </Button>
+            <Button variant="outline" disabled={creating} className="min-h-12 justify-start" onClick={() => { setAskOpen(false); onCreateLetter('public'); }}>
+              Anyone with the link
+            </Button>
+            <Button variant="ghost" className="min-h-11" onClick={() => setAskOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

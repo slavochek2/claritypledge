@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type MockInstance } from 'vitest';
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
   getLetterOverview: vi.fn(),
@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   markDeliveryRead: vi.fn(),
   getExplainBacksForDelivery: vi.fn(),
   markExplainBackRead: vi.fn(),
+  deleteLetter: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
 }));
 
 vi.mock('@/auth', () => {
@@ -23,9 +26,10 @@ vi.mock('@/app/data/letters-service', () => ({
   markDeliveryRead: mocks.markDeliveryRead,
   getExplainBacksForDelivery: mocks.getExplainBacksForDelivery,
   markExplainBackRead: mocks.markExplainBackRead,
+  deleteLetter: mocks.deleteLetter,
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 vi.mock('@/app/components/layout/focus-header', () => ({ FocusHeader: () => <div data-testid="focus-header" /> }));
 vi.mock('@/app/components/layout/bottom-back-button', () => ({ BottomBackButton: () => <div data-testid="bottom-back" /> }));
 vi.mock('@/app/components/letters/letter-receiver-modal', () => ({
@@ -265,5 +269,101 @@ describe('LetterOverviewPage hierarchy', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByTestId('letter-recipients')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy public link' })).toBeInTheDocument();
+  });
+});
+
+describe('Delete letter lives on the overview, only while nobody has the letter (moved in from the Artifacts row menu)', () => {
+  function Where() {
+    const l = useLocation();
+    return <div data-testid="where">{l.pathname + l.search}</div>;
+  }
+  const renderWithExit = () =>
+    render(
+      <MemoryRouter initialEntries={['/letter/l1/overview']}>
+        <Routes>
+          <Route path="/letter/:id/overview" element={<LetterOverviewPage />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  it('a letter with no deliveries offers Delete letter: low weight, last on the page, never a second primary', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    renderPage();
+    const del = await screen.findByRole('button', { name: 'Delete letter' });
+    expect(del.className).toContain('text-destructive');
+    expect(del.className).not.toMatch(/(^|\s)bg-(primary|blue-\d00|destructive)(\s|$)/);
+    expect(del.className).toMatch(/\bmin-h-10\b/);
+    const section = screen.getByTestId('letter-recipients');
+    expect(section.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add recipients' }).className).toContain('bg-blue-500'); // still the one primary
+  });
+
+  it('is not offered once anyone has the letter: a recipient, or a public-link respondent', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
+    const first = renderPage();
+    await screen.findByTestId('letter-recipients');
+    expect(screen.queryByRole('button', { name: 'Delete letter' })).toBeNull();
+    first.unmount();
+    // a public letter whose only delivery has no email (a link respondent)
+    mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }, [ovDelivery('d2', null)]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ id: 'd2', receiver_email: null, status: 'in_progress' })] });
+    renderPage();
+    await screen.findByTestId('letter-recipients');
+    expect(screen.queryByRole('button', { name: 'Delete letter' })).toBeNull();
+  });
+
+  it('is not offered while the recipients could not be read (unknown is not "nobody")', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('x'));
+    renderPage();
+    await screen.findByText('Something went wrong loading the recipients.');
+    expect(screen.queryByRole('button', { name: 'Delete letter' })).toBeNull();
+  });
+
+  it('asks first, deletes only on confirm, then goes to Artifacts, Letters, Sent', async () => {
+    const user = userEvent.setup();
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    mocks.deleteLetter.mockResolvedValue(undefined);
+    renderWithExit();
+    await user.click(await screen.findByRole('button', { name: 'Delete letter' }));
+    expect(await screen.findByText('Delete letter?')).toBeInTheDocument();
+    expect(screen.getByText('This will remove the published letter and its public link permanently.')).toBeInTheDocument();
+    expect(mocks.deleteLetter).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mocks.deleteLetter).toHaveBeenCalledWith('l1'));
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('Letter deleted.');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/artifacts?tab=letters&list=sent'));
+  });
+
+  it('cancelled: nothing is deleted', async () => {
+    const user = userEvent.setup();
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    renderWithExit();
+    await user.click(await screen.findByRole('button', { name: 'Delete letter' }));
+    await screen.findByText('Delete letter?');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mocks.deleteLetter).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('where')).toBeNull();
+  });
+
+  it('the server refusing (someone received it meanwhile) stays on the page and says why; other failures say it could not be deleted', async () => {
+    const user = userEvent.setup();
+    mocks.getLetterOverview.mockResolvedValue(payload());
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
+    mocks.deleteLetter.mockRejectedValueOnce(new Error('DELIVERIES_EXIST'));
+    renderWithExit();
+    await user.click(await screen.findByRole('button', { name: 'Delete letter' }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("Can't delete — letter has been shared."));
+    expect(screen.queryByTestId('where')).toBeNull();
+    mocks.deleteLetter.mockRejectedValueOnce(new Error('boom'));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("Couldn't delete letter."));
+    expect(screen.queryByTestId('where')).toBeNull();
   });
 });

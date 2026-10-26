@@ -25,11 +25,11 @@ function renderAt(url: string) {
 describe('P1545 legacy Letters URLs land in the Artifacts page', () => {
   it.each([
     ['/letters', '/artifacts'],
-    ['/letters?tab=drafts', '/artifacts?tab=yours&type=letters'],
-    ['/letters?tab=sent', '/artifacts?tab=yours&type=letters'],
-    ['/letters?tab=inbox', '/artifacts?tab=shared'],
+    ['/letters?tab=drafts', '/artifacts?tab=letters&list=drafts'],
+    ['/letters?tab=sent', '/artifacts?tab=letters&list=sent'],
+    ['/letters?tab=inbox', '/artifacts?tab=letters&list=received'],
     ['/letters?tab=nonsense', '/artifacts'],
-    ['/docs', '/artifacts?tab=yours&type=letters'],
+    ['/docs', '/artifacts?tab=letters&list=drafts'],
   ])('%s -> %s', (from, to) => {
     renderAt(from);
     expect(screen.getByTestId('where').textContent).toBe(to);
@@ -41,7 +41,7 @@ describe('P1545 legacy Letters URLs land in the Artifacts page', () => {
   });
 
   it('maps pure strings', () => {
-    expect(legacyLettersTarget('?tab=inbox')).toBe('/artifacts?tab=shared');
+    expect(legacyLettersTarget('?tab=inbox')).toBe('/artifacts?tab=letters&list=received');
     expect(legacyLettersTarget('')).toBe('/artifacts');
   });
 });

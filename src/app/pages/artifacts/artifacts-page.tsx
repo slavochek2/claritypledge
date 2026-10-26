@@ -1,12 +1,12 @@
 /**
  * @file artifacts-page.tsx
- * @description P1545 WP3: the Artifacts page (route /artifacts). Letters and canvases in one list.
+ * @description P1545 WP3: the Artifacts page (route /artifacts), split by kind.
  *
- * Tabs Yours / Shared with you (`?tab=yours|shared`, default yours, replace history), chips All ·
- * Letters · Canvases (`?type=`), title search across the current tab. One row per item; a tap opens
- * the item's existing page. Yours sits under the headings Drafts, Sent, Canvases (each only when it
- * has rows after the chip and search); Shared with you is one flat list. The data and every rule live in artifacts-view-model.ts and
- * use-artifacts-data.ts; this file is layout and wiring.
+ * Tabs Letters | Canvases (`?tab=letters|canvases`, default letters, replace history); inside Letters a filter
+ * Drafts · Sent · Received (`&list=`, default drafts), inside Canvases Mine · Shared with me (default mine). One list
+ * at a time, title search across the current list. One row per item; a tap opens the item's existing page and its
+ * actions live there (no "…"). Old `tab=yours|shared&type=` links are rewritten in place. The data and every rule live in
+ * artifacts-view-model.ts and use-artifacts-data.ts; this file is layout and wiring.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -25,20 +25,37 @@ import { ARTIFACTS_READ_EVENT } from '@/app/hooks/useUnreadSharedCount';
 import type { ContentVisibility } from '@/app/types';
 import { ArtifactsHeader } from './artifacts-header';
 import { ArtifactListRow } from './artifact-row';
-import { useArtifactsData, type TabData } from './use-artifacts-data';
+import { useArtifactsData, type ListData } from './use-artifacts-data';
 import {
-  ARTIFACT_TYPE_FILTERS,
-  parseTab,
-  parseType,
-  unreadSharedCount,
-  visibleRows,
-  yoursSections,
+  ARTIFACT_TABS,
+  DEFAULT_LIST,
+  TAB_LISTS,
+  filterByQuery,
+  listHasDot,
+  resolveArtifactsLocation,
+  tabHasDot,
+  type ArtifactList,
   type ArtifactRow,
   type ArtifactTab,
-  type ArtifactTypeFilter,
+  type ArtifactsModel,
 } from './artifacts-view-model';
 
-const TYPE_LABEL: Record<ArtifactTypeFilter, string> = { all: 'All', letters: 'Letters', canvases: 'Canvases' };
+const TAB_LABEL: Record<ArtifactTab, string> = { letters: 'Letters', canvases: 'Canvases' };
+const LIST_LABEL: Record<ArtifactList, string> = {
+  drafts: 'Drafts',
+  sent: 'Sent',
+  received: 'Received',
+  mine: 'Mine',
+  shared: 'Shared with me',
+};
+// What a "no match" line calls the items of each list.
+const LIST_NOUN: Record<ArtifactList, string> = {
+  drafts: 'drafts',
+  sent: 'sent letters',
+  received: 'received letters',
+  mine: 'canvases',
+  shared: 'canvases shared with me',
+};
 
 const TAB_TRIGGER =
   'min-h-11 rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none';
@@ -47,8 +64,13 @@ export function ArtifactsPage() {
   const navigate = useNavigate();
   const { user, isLoading, sessionChecked } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = parseTab(searchParams.get('tab'));
-  const type = parseType(searchParams.get('type'));
+  const location = resolveArtifactsLocation(searchParams);
+
+  // An old `tab=yours|shared&type=` link is rewritten to the new scheme, replacing history. It already renders the
+  // right list (the location above reads it), so there is no flash.
+  useEffect(() => {
+    if (location.legacy) setSearchParams(location.canonical, { replace: true });
+  }, [location.legacy, location.canonical, setSearchParams]);
 
   useEffect(() => {
     if (!sessionChecked || isLoading) return;
@@ -62,8 +84,8 @@ export function ArtifactsPage() {
     <ArtifactsView
       userId={user.id}
       userSlug={user.slug ?? null}
-      tab={tab}
-      type={type}
+      tab={location.tab}
+      list={location.list}
       setParams={setSearchParams}
     />
   );
@@ -73,11 +95,11 @@ interface ViewProps {
   userId: string;
   userSlug: string | null;
   tab: ArtifactTab;
-  type: ArtifactTypeFilter;
+  list: ArtifactList;
   setParams: ReturnType<typeof useSearchParams>[1];
 }
 
-function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
+function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   const navigate = useNavigate();
   const { invite } = useOpenLiveInvite();
   const data = useArtifactsData(userId, userSlug);
@@ -87,17 +109,16 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
   // Keys opened on this page: the unread dot clears at once, before the server answers.
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
 
-  // URL writes REPLACE (as /feed, /stake and the old Letters page): Back leaves the page.
+  // URL writes REPLACE (as /feed, /stake and the old Letters page): Back leaves the page. The default list of a tab
+  // is the bare URL, so `/artifacts` stays the Letters / Drafts address.
   const update = useCallback(
-    (next: { tab?: ArtifactTab; type?: ArtifactTypeFilter }) => {
+    (next: { tab: ArtifactTab; list?: ArtifactList }) => {
       setParams(
         prev => {
           const params = new URLSearchParams(prev);
-          if (next.tab !== undefined) params.set('tab', next.tab);
-          if (next.type !== undefined) {
-            if (next.type === 'all') params.delete('type');
-            else params.set('type', next.type);
-          }
+          params.set('tab', next.tab);
+          if (next.list && next.list !== DEFAULT_LIST[next.tab]) params.set('list', next.list);
+          else params.delete('list');
           return params;
         },
         { replace: true },
@@ -108,19 +129,13 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
 
   // Radix fires onValueChange twice per click (focus + click); writing the same tab is a no-op below.
   const handleTab = (value: string) => {
-    const next = parseTab(value);
+    const next: ArtifactTab = value === 'canvases' ? 'canvases' : 'letters';
     if (next !== tab) update({ tab: next });
   };
 
   const closeSearch = () => {
     setSearchOpen(false);
     setQuery('');
-  };
-
-  // "Clear search" on a no-match state: drops the query and the type chip together.
-  const clearFilters = () => {
-    setQuery('');
-    update({ type: 'all' });
   };
 
   const handleCreateLetter = async (visibility: ContentVisibility) => {
@@ -160,7 +175,7 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
   };
 
   // Drop a key from the override once the server reports that row read: a later re-share must show unread again.
-  const serverRows = data.shared.rows;
+  const serverRows = useMemo(() => [...data.lists.received.rows, ...data.lists.shared.rows], [data.lists.received.rows, data.lists.shared.rows]);
   useEffect(() => {
     if (opened.size === 0) return;
     const serverRead = new Set(serverRows.filter(r => !r.unread).map(r => r.key));
@@ -177,17 +192,34 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
     (rows: ArtifactRow[]) => rows.map(r => (opened.has(r.key) ? { ...r, unread: false } : r)),
     [opened],
   );
-  const yours = useMemo(() => ({ ...data.yours, rows: withOpened(data.yours.rows) }), [data.yours, withOpened]);
-  const shared = useMemo(() => ({ ...data.shared, rows: withOpened(data.shared.rows) }), [data.shared, withOpened]);
-  const unread = unreadSharedCount(shared.rows) + (invite && !invite.closedAt ? 1 : 0);
-
-  const sharedAria = unread > 0 ? `Shared with you, ${unread} unread` : 'Shared with you';
+  const lists = useMemo<Record<ArtifactList, ListData>>(
+    () => ({
+      drafts: data.lists.drafts,
+      sent: data.lists.sent,
+      received: { ...data.lists.received, rows: withOpened(data.lists.received.rows) },
+      mine: data.lists.mine,
+      shared: { ...data.lists.shared, rows: withOpened(data.lists.shared.rows) },
+    }),
+    [data.lists, withOpened],
+  );
+  // The dots read the same rows the lists show, so an item opened here clears its dot, its chip's and its tab's at once.
+  // The live invite carries its own dot above the tabs and is not counted in either list.
+  const model = useMemo<ArtifactsModel>(
+    () => ({
+      drafts: lists.drafts.rows,
+      sent: lists.sent.rows,
+      received: lists.received.rows,
+      mine: lists.mine.rows,
+      shared: lists.shared.rows,
+    }),
+    [lists],
+  );
 
   return (
     <main aria-label="Artifacts" className="min-h-screen">
       {/* The bottom padding clears the phone tab bar (4rem) plus the home-indicator inset, with air to spare. */}
       <PageFrame size="reading" className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-8">
-        {/* Capped so the "…" at each row's right edge stays near the content on wide screens. */}
+        {/* Capped so the unread dot at each row's right edge stays near the content on wide screens. */}
         <div className="max-w-3xl">
         <ArtifactsHeader
           searchOpen={searchOpen}
@@ -195,6 +227,7 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
           onOpenSearch={() => setSearchOpen(true)}
           onCloseSearch={closeSearch}
           onQuery={setQuery}
+          showNewLetter={tab === 'letters'}
           creating={creating}
           onCreateLetter={visibility => void handleCreateLetter(visibility)}
         />
@@ -203,46 +236,39 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
         {invite && !invite.closedAt && <LiveInviteRow invite={invite} />}
 
         <Tabs value={tab} onValueChange={handleTab}>
-          {/* Not sticky: header, tabs and chips scroll together, as on Feed and Chats. */}
+          {/* Not sticky: header, tabs and filter scroll together, as on Feed and Chats. */}
           <div>
             <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">
-              <TabsTrigger value="yours" className={TAB_TRIGGER}>Yours</TabsTrigger>
-              <TabsTrigger value="shared" aria-label={sharedAria} className={`${TAB_TRIGGER} gap-2`}>
-                Shared with you
-                {/* Unread is a mark, not a count of items: a dot, as the nav badges mark it. */}
-                {unread > 0 && (
-                  <span data-testid="shared-unread-dot" aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                )}
-              </TabsTrigger>
+              {ARTIFACT_TABS.map(t => {
+                const dot = tabHasDot(t, model);
+                return (
+                  <TabsTrigger key={t} value={t} aria-label={dot ? `${TAB_LABEL[t]}, new` : TAB_LABEL[t]} className={`${TAB_TRIGGER} gap-2`}>
+                    {TAB_LABEL[t]}
+                    {dot && <Dot testId={`tab-dot-${t}`} />}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </div>
 
-          <TypeChips value={type} onChange={next => update({ type: next })} />
-
-          <TabsContent value="yours" className="mt-0">
-            <ArtifactList
-              tab="yours"
-              data={yours}
-              type={type}
-              query={query}
-              userSlug={userSlug}
-              onOpen={handleOpen}
-              onRefresh={data.refresh}
-              onClearFilters={clearFilters}
-            />
-          </TabsContent>
-          <TabsContent value="shared" className="mt-0">
-            <ArtifactList
-              tab="shared"
-              data={shared}
-              type={type}
-              query={query}
-              userSlug={userSlug}
-              onOpen={handleOpen}
-              onRefresh={data.refresh}
-              onClearFilters={clearFilters}
-            />
-          </TabsContent>
+          {ARTIFACT_TABS.map(t => (
+            <TabsContent key={t} value={t} className="mt-0">
+              <ListFilter
+                tab={t}
+                value={list}
+                model={model}
+                onChange={next => update({ tab: t, list: next })}
+              />
+              <ListBody
+                list={list}
+                data={lists[list]}
+                query={query}
+                onOpen={handleOpen}
+                onRefresh={data.refresh}
+                onClearSearch={() => setQuery('')}
+              />
+            </TabsContent>
+          ))}
         </Tabs>
         </div>
       </PageFrame>
@@ -250,24 +276,39 @@ function ArtifactsView({ userId, userSlug, tab, type, setParams }: ViewProps) {
   );
 }
 
-function TypeChips({ value, onChange }: { value: ArtifactTypeFilter; onChange: (v: ArtifactTypeFilter) => void }) {
+/** Unread is a mark, not a count of items: a dot, as the nav badges mark it. */
+function Dot({ testId }: { testId: string }) {
+  return <span data-testid={testId} aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />;
+}
+
+function dotLabel(list: ArtifactList): string {
+  return list === 'sent' ? `${LIST_LABEL[list]}, new activity` : `${LIST_LABEL[list]}, unread`;
+}
+
+/** The lists of the current tab, one at a time. */
+function ListFilter({
+  tab, value, model, onChange,
+}: { tab: ArtifactTab; value: ArtifactList; model: ArtifactsModel; onChange: (v: ArtifactList) => void }) {
   return (
-    <div role="group" aria-label="Filter by type" className="flex flex-wrap gap-2 py-3">
-      {ARTIFACT_TYPE_FILTERS.map(t => {
-        const on = t === value;
+    <div role="group" aria-label={`${TAB_LABEL[tab]} lists`} className="flex flex-wrap gap-2 py-3">
+      {TAB_LISTS[tab].map(l => {
+        const on = l === value;
+        const dot = listHasDot(l, model[l]);
         return (
           <button
-            key={t}
+            key={l}
             type="button"
             aria-pressed={on}
-            onClick={() => onChange(t)}
-            className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            aria-label={dot ? dotLabel(l) : undefined}
+            onClick={() => onChange(l)}
+            className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               on
                 ? 'border-blue-600 bg-blue-50 text-blue-700'
                 : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
-            {TYPE_LABEL[t]}
+            {LIST_LABEL[l]}
+            {dot && <Dot testId={`list-dot-${l}`} />}
           </button>
         );
       })}
@@ -276,17 +317,15 @@ function TypeChips({ value, onChange }: { value: ArtifactTypeFilter; onChange: (
 }
 
 interface ListProps {
-  tab: ArtifactTab;
-  data: TabData;
-  type: ArtifactTypeFilter;
+  list: ArtifactList;
+  data: ListData;
   query: string;
-  userSlug: string | null;
   onOpen: (row: ArtifactRow) => void;
   onRefresh: () => Promise<void>;
-  onClearFilters: () => void;
+  onClearSearch: () => void;
 }
 
-function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onClearFilters }: ListProps) {
+function ListBody({ list, data, query, onOpen, onRefresh, onClearSearch }: ListProps) {
   const refresh = () => { void onRefresh(); };
 
   if (data.status === 'loading' || data.status === 'error') {
@@ -299,7 +338,9 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-foreground">
-              {tab === 'yours' ? 'Something went wrong loading your artifacts.' : 'Something went wrong loading what was shared with you.'}
+              {list === 'received' || list === 'shared'
+                ? 'Something went wrong loading what was shared with you.'
+                : 'Something went wrong loading your artifacts.'}
             </p>
             <Button variant="outline" onClick={refresh} className="min-h-10">Retry</Button>
           </div>
@@ -308,7 +349,7 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
     );
   }
 
-  const rows = visibleRows(data.rows, type, query);
+  const rows = filterByQuery(data.rows, query);
 
   return (
     <div>
@@ -325,65 +366,51 @@ function ArtifactList({ tab, data, type, query, userSlug, onOpen, onRefresh, onC
         <p role="status" className="pb-2 text-sm text-muted-foreground">Loading more…</p>
       )}
       {rows.length === 0 ? (
-        data.pending ? null : <EmptyLine tab={tab} total={data.rows.length} type={type} query={query} onClear={onClearFilters} />
-      ) : tab === 'yours' ? (
-        // Yours under headings: a tap in Drafts always edits, a tap in Sent always opens the overview.
-        <div className="flex flex-col gap-2">
-          {yoursSections(rows).map(section => (
-            <section key={section.id} aria-labelledby={`artifacts-${section.id}-heading`}>
-              <h2 id={`artifacts-${section.id}-heading`} className="px-1 pb-1 pt-3 text-sm font-medium text-muted-foreground">
-                {section.title}
-              </h2>
-              <RowList label={section.title} rows={section.rows} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
-            </section>
-          ))}
-        </div>
+        data.pending ? null : <EmptyLine list={list} total={data.rows.length} query={query} onClear={onClearSearch} />
       ) : (
-        <RowList label="Shared with you" rows={rows} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
+        <ul className="flex flex-col divide-y divide-border/60" aria-label={LIST_LABEL[list]}>
+          {rows.map(row => (
+            <ArtifactListRow key={row.key} row={row} onOpen={onOpen} />
+          ))}
+        </ul>
       )}
     </div>
   );
 }
 
-function RowList({
-  label, rows, userSlug, onOpen, onChanged,
-}: { label: string; rows: ArtifactRow[]; userSlug: string | null; onOpen: (row: ArtifactRow) => void; onChanged: () => void }) {
-  return (
-    <ul className="flex flex-col divide-y divide-border/60" aria-label={label}>
-      {rows.map(row => (
-        <ArtifactListRow key={row.key} row={row} userSlug={userSlug} onOpen={onOpen} onChanged={onChanged} />
-      ))}
-    </ul>
-  );
-}
-
 /** [FOUNDER DECISION: all empty-state copy is a placeholder.] */
 function EmptyLine({
-  tab, total, type, query, onClear,
-}: { tab: ArtifactTab; total: number; type: ArtifactTypeFilter; query: string; onClear: () => void }) {
+  list, total, query, onClear,
+}: { list: ArtifactList; total: number; query: string; onClear: () => void }) {
   const box = 'flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground';
   const q = query.trim();
   if (q && total > 0) {
-    // Name the scope: the search covers this tab and this type only.
-    const noun = type === 'all' ? 'artifacts' : type;
-    const scope = tab === 'shared' ? ' shared with you' : '';
+    // Name the scope: the search covers this list only.
     return (
       <div className={box}>
-        <p>{`No ${noun}${scope} match “${q}”.`}</p>
+        <p>{`No ${LIST_NOUN[list]} match “${q}”.`}</p>
         <button type="button" onClick={onClear} className="inline-flex min-h-10 items-center rounded-sm px-2 font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           Clear search
         </button>
       </div>
     );
   }
-  if (total > 0 && type !== 'all') return <p className={box}>No {type} here yet.</p>;
-  if (tab === 'shared') return <p className={box}>Nothing has been shared with you yet.</p>;
-  return (
-    <p className={box}>
-      Nothing here yet. Use <span className="sm:hidden">New</span>
-      <span className="hidden sm:inline">New artifact</span> to start a letter.
-    </p>
-  );
+  switch (list) {
+    case 'received':
+    case 'shared':
+      return <p className={box}>Nothing has been shared with you yet.</p>;
+    case 'sent':
+      return <p className={box}>No letters sent yet.</p>;
+    case 'mine':
+      return <p className={box}>No canvases here yet.</p>;
+    case 'drafts':
+      return (
+        <p className={box}>
+          Nothing here yet. Use <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">New letter</span> to start a letter.
+        </p>
+      );
+  }
 }
 
 /** P703: the open live invite, above both tabs; it disappears when the session closes. */

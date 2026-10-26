@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { CohortTable } from '@/app/components/letters/cohort-table';
 import { LetterRecipientsSection } from '@/app/components/letters/letter-recipients-section';
 import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
+import { LetterDelete } from '@/app/components/letters/letter-delete';
 import {
   getDeliveriesForLettersOrThrow,
   getLetterOverview,
@@ -27,6 +28,7 @@ import type { LetterDelivery, LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
+import { ARTIFACTS_LETTERS_SENT } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 function snippet(text: string, max: number): string {
   const t = text.trim();
@@ -152,7 +154,7 @@ export function LetterOverviewPage() {
   }, [user, fetchData]);
 
   // P1364: Back returns to where the reader came from; a cold arrival goes to the Sent tab.
-  const BACK_FALLBACK = '/artifacts?tab=yours&type=letters';
+  const BACK_FALLBACK = ARTIFACTS_LETTERS_SENT;
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (!sessionChecked || pageState === 'loading') {
@@ -294,6 +296,10 @@ export function LetterOverviewPage() {
           </section>
           );
         })}
+
+        {/* P1545: Delete moved in from the Artifacts row menu. Only while nobody has the letter (no recipient, no public-link
+            respondent); unknown recipients are not "nobody". Last and low-weight: never a second primary. */}
+        {!recipientsFailed && deliveries.length === 0 && payload.deliveries.length === 0 && <LetterDelete letterId={letter.id} />}
 
         {addOpen && (
           <LetterReceiverModal

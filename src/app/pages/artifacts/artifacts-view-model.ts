@@ -1,19 +1,20 @@
 /**
  * @file artifacts-view-model.ts
  * @description P1545 WP3: the pure model behind the Artifacts page. Turns the letter and canvas
- * services' rows into one list of rows per tab, and holds every rule the page applies to them: the
- * one meta line, the Inbox partition, the type filter, the title search and the unread count.
+ * services' rows into one list of rows per list, and holds every rule the page applies to them: the
+ * one meta line, the Inbox partition, the title search, the dots and the URL state.
  *
  * Kept free of React and of the services so each rule is a plain function a unit test can pin.
  *
- * Rules (spec "Resolved Decisions" and "Spec review amendments"):
- *  - Yours = drafts + sent letters + own canvases. Shared with you = letters sent to you + canvases
- *    shared with you.
+ * Rules (spec "Resolved Decisions", "Spec review amendments" and "Split by kind"):
+ *  - Tabs by kind: Letters (Drafts, Sent, Received) and Canvases (Mine, Shared with me). One list at a time.
  *  - Inbox rows about activity on YOUR letters (completed, reading, responded) never become rows and
  *    never count as unread; they join onto the matching sent letter's "N of M done".
- *  - One meta line per row, `[state] · [one fact] · [time]` (Letters parity). Words, never a dot, for
+ *  - One meta line per row, `[state] · [one fact] · [time]` (Letters parity). Words, never a row dot, for
  *    activity on your own letters ("1 new from Tom"); "done" is the vocabulary everywhere.
- *  - An unread dot exists only on Shared with you.
+ *  - A row dot exists only on Received and Shared with me. The list chips and the tabs carry a dot too:
+ *    Sent while any sent letter has something new, a tab when one of its lists has a dot.
+ *  - No row menu: a tap opens the item and its actions live inside it.
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { newCountForDelivery } from '@/app/utils/letter-new-activity';
@@ -21,57 +22,45 @@ import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
-export type ArtifactTab = 'yours' | 'shared';
-export type ArtifactTypeFilter = 'all' | 'letters' | 'canvases';
+export type ArtifactTab = 'letters' | 'canvases';
+export type ArtifactList = 'drafts' | 'sent' | 'received' | 'mine' | 'shared';
 
-export const ARTIFACT_TABS: readonly ArtifactTab[] = ['yours', 'shared'];
-export const ARTIFACT_TYPE_FILTERS: readonly ArtifactTypeFilter[] = ['all', 'letters', 'canvases'];
+export const ARTIFACT_TABS: readonly ArtifactTab[] = ['letters', 'canvases'];
+/** The lists of each tab, in the order the filter shows them; the first is the default. */
+export const TAB_LISTS: Record<ArtifactTab, readonly ArtifactList[]> = {
+  letters: ['drafts', 'sent', 'received'],
+  canvases: ['mine', 'shared'],
+};
+
+export const DEFAULT_LIST: Record<ArtifactTab, ArtifactList> = { letters: 'drafts', canvases: 'mine' };
 
 export type ArtifactState = 'draft' | 'sent' | 'canvas' | 'received-letter' | 'received-canvas';
 
-/** What the "…" menu can hold (quick actions only). The page maps each id to its handler; the model decides which apply. */
-export type RowActionId =
-  | 'prepare-letter'
-  | 'delete-draft'
-  | 'delete-letter'
-  | 'share-canvas';
-
-export interface RowAction {
-  id: RowActionId;
-  label: string;
-  /** Shown under the label and the item is disabled (today's guards). */
-  disabledReason?: string;
-  /** Red, last, below a separator. */
-  danger?: boolean;
-}
-
 export interface ArtifactRow {
-  /** Unique across both tabs, e.g. `draft:<docId>`. */
+  /** Unique across all lists, e.g. `draft:<docId>`. */
   key: string;
   kind: 'letter' | 'canvas';
-  tab: ArtifactTab;
+  list: ArtifactList;
   state: ArtifactState;
   title: string;
   /** The ONE meta line. */
   meta: string;
   /** Own items only (null on Shared with you). */
   visibility: 'public' | 'private' | null;
-  /** Shared with you only; always false on Yours. */
+  /** Received and Shared with me only; always false elsewhere. */
   unread: boolean;
+  /** A sent letter with new activity from a recipient: lights the Sent chip, never a row dot. */
+  hasNew: boolean;
   /** Where a tap goes: the item's existing page. Null when it cannot be built (no handle yet). */
   href: string | null;
-  /** Newest first within a tab. */
+  /** Newest first within a list. */
   sortAt: number;
-  menu: RowAction[];
   ref: {
     docId?: string;
     letterId?: string;
     deliveryId?: string;
     canvasName?: string;
     ownerId?: string;
-    generalAccess?: 'restricted' | 'link';
-    hasAudience?: boolean;
-    isPublicLetter?: boolean;
   };
 }
 
@@ -90,10 +79,7 @@ export interface ArtifactsSource {
   newByDelivery?: Record<string, number>;
 }
 
-export interface ArtifactsModel {
-  yours: ArtifactRow[];
-  shared: ArtifactRow[];
-}
+export type ArtifactsModel = Record<ArtifactList, ArtifactRow[]>;
 
 // ---------------------------------------------------------------------------------------------
 // Meta line
@@ -110,6 +96,11 @@ export function agoPhrase(iso: string | null | undefined): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** A person in the meta line is a first name only ("Tom"), so the line stays on one row; no usable name reads "someone". */
+export function firstName(name: string | null | undefined): string {
+  return name?.trim().split(/\s+/)[0] || 'someone';
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -139,7 +130,7 @@ export function sentMeta(opts: {
   recipientCount: number;
   doneCount: number;
   newCount?: number;
-  /** One name per delivery with something new ("someone" when unnamed): not deduplicated. */
+  /** One first name per delivery with something new ("someone" when unnamed): not deduplicated, so two Toms are 2 people. */
   newFrom?: string[];
   sealedAt?: string | null;
 }): string {
@@ -158,7 +149,7 @@ export function sentMeta(opts: {
 
 /** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · done · 1w ago". */
 export function receivedLetterMeta(item: InboxItem): string {
-  const from = `From ${item.actor_name?.trim() || 'someone'}`;
+  const from = `From ${firstName(item.actor_name)}`;
   let fact: string | null = null;
   if (item.completed_at) fact = 'done';
   else if (item.total_steps !== undefined) fact = `${Math.min(item.steps_completed ?? 0, item.total_steps)} of ${item.total_steps} steps`;
@@ -174,7 +165,7 @@ export function canvasMeta(lastEdit: string | null): string {
 /** "From Mara · 1h ago". */
 export function sharedMeta(fromName: string | null | undefined, at: string): string {
   const ago = agoPhrase(at);
-  const from = `From ${fromName?.trim() || 'someone'}`;
+  const from = `From ${firstName(fromName)}`;
   return ago ? `${from} · ${capitalizeAgo(ago)}` : from;
 }
 
@@ -232,27 +223,15 @@ export function draftRow(doc: ClarityDoc, sentCount = 0): ArtifactRow {
   return {
     key: `draft:${doc.id}`,
     kind: 'letter',
-    tab: 'yours',
+    list: 'drafts',
     state: 'draft',
     title: doc.title,
     meta: draftMeta({ updatedAt: doc.updated_at, stories: doc.story_count, points: doc.point_count, sentCount }),
     visibility: doc.visibility === 'public' ? 'public' : 'private',
     unread: false,
+    hasNew: false,
     href: `/letters/drafts/${doc.id}`,
     sortAt: ms(doc.updated_at),
-    menu: [
-      {
-        id: 'prepare-letter',
-        label: 'Prepare letter',
-        disabledReason: doc.story_count === 0 ? 'Add at least one story first.' : undefined,
-      },
-      {
-        id: 'delete-draft',
-        label: 'Delete',
-        danger: true,
-        disabledReason: doc.has_sent_letters ? "Can't delete — letters were sent from this draft." : undefined,
-      },
-    ],
     ref: { docId: doc.id },
   };
 }
@@ -269,7 +248,7 @@ export function sentRow(
   const newOf = (d: LetterDelivery) => newCountForDelivery(newByDelivery[d.id] ?? 0, d.id in activityByDelivery);
   const withNew = deliveries.filter(d => newOf(d) > 0);
   const newCount = withNew.reduce((n, d) => n + newOf(d), 0);
-  const newFrom = withNew.map(d => d.receiver_name?.trim() || 'someone');
+  const newFrom = withNew.map(d => firstName(d.receiver_name));
   // While something is new the row's time is the latest unread activity, not the sealing.
   const latestActivity = withNew.reduce((t, d) => Math.max(t, ms(activityByDelivery[d.id])), 0);
   const base = letter.sealed_at ?? letter.created_at;
@@ -277,18 +256,16 @@ export function sentRow(
   return {
     key: `sent:${letter.id}`,
     kind: 'letter',
-    tab: 'yours',
+    list: 'sent',
     state: 'sent',
     title: letter.doc_title,
     meta: sentMeta({ isPublic, recipientCount, doneCount: done, newCount, newFrom, sealedAt: shownAt }),
     visibility: isPublic ? 'public' : 'private',
     unread: false,
+    hasNew: newCount > 0,
     href: `/letter/${letter.id}/overview`,
     sortAt: ms(shownAt),
-    // Add recipients, Preview and Copy public link live on the overview page (a tap on the row). The row's "…" exists
-    // only for Delete, and only while nobody has the letter (0 deliveries, link respondents included): never disabled.
-    menu: deliveries.length === 0 ? [{ id: 'delete-letter' as const, label: 'Delete letter', danger: true }] : [],
-    ref: { letterId: letter.id, isPublicLetter: isPublic },
+    ref: { letterId: letter.id },
   };
 }
 
@@ -296,16 +273,16 @@ export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null): ArtifactR
   return {
     key: `canvas:${c.name}`,
     kind: 'canvas',
-    tab: 'yours',
+    list: 'mine',
     state: 'canvas',
     title: canvasTitle(c.name),
     meta: canvasMeta(c.lastEdit),
     visibility: c.generalAccess === 'link' ? 'public' : 'private',
     unread: false,
+    hasNew: false,
     href: userSlug ? canvasPath(userSlug, c.name) : null,
     sortAt: ms(c.lastEdit),
-    menu: [{ id: 'share-canvas', label: 'Share' }],
-    ref: { canvasName: c.name, generalAccess: c.generalAccess, hasAudience: c.hasAudience },
+    ref: { canvasName: c.name },
   };
 }
 
@@ -313,18 +290,18 @@ export function receivedLetterRow(item: InboxItem): ArtifactRow {
   return {
     key: `received:${item.delivery_id}`,
     kind: 'letter',
-    tab: 'shared',
+    list: 'received',
     state: 'received-letter',
     title: item.title,
     meta: receivedLetterMeta(item),
     visibility: null,
     unread: !item.read_at,
+    hasNew: false,
     // A finished letter goes straight to its results; an open one to the reading flow (inbox-tab.tsx).
     href: item.completed_at
       ? `/letter/${item.letter_id}/results?delivery=${item.delivery_id}`
       : `/letter/${item.delivery_id}`,
     sortAt: ms(item.timestamp),
-    menu: [],
     ref: { deliveryId: item.delivery_id, letterId: item.letter_id },
   };
 }
@@ -333,15 +310,15 @@ export function receivedCanvasRow(c: CanvasSharedWithMe): ArtifactRow {
   return {
     key: `shared-canvas:${c.canvasId}`,
     kind: 'canvas',
-    tab: 'shared',
+    list: 'shared',
     state: 'received-canvas',
     title: canvasTitle(c.name),
     meta: sharedMeta(c.ownerName, c.sharedAt),
     visibility: null,
     unread: c.unread,
+    hasNew: false,
     href: c.ownerSlug ? canvasPath(c.ownerSlug, c.name) : null,
     sortAt: ms(c.sharedAt),
-    menu: [],
     ref: { canvasName: c.name, ownerId: c.ownerId },
   };
 }
@@ -363,27 +340,20 @@ export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
   const sentCounts: Record<string, number> = {};
   for (const l of src.sentLetters) sentCounts[l.source_doc_id] = (sentCounts[l.source_doc_id] ?? 0) + 1;
   const activity = unreadActivityByDelivery(src.inbox);
-  const yours = [
-    ...src.docs.map(d => draftRow(d, sentCounts[d.id] ?? 0)),
-    ...src.sentLetters.map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity)),
-    ...src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)),
-  ].sort(newestFirst);
-  const shared = [
-    ...receivedInboxItems(src.inbox).map(receivedLetterRow),
-    ...src.sharedCanvases.map(receivedCanvasRow),
-  ].sort(newestFirst);
-  return { yours, shared };
+  return {
+    drafts: src.docs.map(d => draftRow(d, sentCounts[d.id] ?? 0)).sort(newestFirst),
+    sent: src.sentLetters
+      .map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity))
+      .sort(newestFirst),
+    received: receivedInboxItems(src.inbox).map(receivedLetterRow).sort(newestFirst),
+    mine: src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)).sort(newestFirst),
+    shared: src.sharedCanvases.map(receivedCanvasRow).sort(newestFirst),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
-// Filters
+// Search and dots
 // ---------------------------------------------------------------------------------------------
-
-export function filterByType(rows: ArtifactRow[], type: ArtifactTypeFilter): ArtifactRow[] {
-  if (type === 'all') return rows;
-  const kind = type === 'letters' ? 'letter' : 'canvas';
-  return rows.filter(r => r.kind === kind);
-}
 
 /** Title search, case-insensitive, whitespace-trimmed. An empty query keeps every row. */
 export function filterByQuery(rows: ArtifactRow[], query: string): ArtifactRow[] {
@@ -392,48 +362,67 @@ export function filterByQuery(rows: ArtifactRow[], query: string): ArtifactRow[]
   return rows.filter(r => r.title.toLowerCase().includes(q));
 }
 
-export type YoursSectionId = 'drafts' | 'sent' | 'canvases';
-
-export interface YoursSection {
-  id: YoursSectionId;
-  title: string;
-  rows: ArtifactRow[];
-}
-
-const YOURS_SECTIONS: readonly { id: YoursSectionId; title: string; state: ArtifactState }[] = [
-  { id: 'drafts', title: 'Drafts', state: 'draft' },
-  { id: 'sent', title: 'Sent', state: 'sent' },
-  { id: 'canvases', title: 'Canvases', state: 'canvas' },
-];
-
 /**
- * Yours under its headings, in the order Drafts, Sent, Canvases (each row keeps its newest-first
- * order). A heading with no rows is left out, so call this on the rows AFTER the chip and search
- * filters: a tap under Drafts always edits, a tap under Sent always opens the overview.
+ * Whether a list's chip carries a dot: Received and Shared with me while a row is unread (minus keys the person has
+ * already opened on this page), Sent while a sent letter has something new. Drafts and Mine never do.
  */
-export function yoursSections(rows: ArtifactRow[]): YoursSection[] {
-  return YOURS_SECTIONS
-    .map(({ id, title, state }) => ({ id, title, rows: rows.filter(r => r.state === state) }))
-    .filter(section => section.rows.length > 0);
+export function listHasDot(list: ArtifactList, rows: ArtifactRow[], openedKeys: ReadonlySet<string> = new Set()): boolean {
+  if (list === 'received' || list === 'shared') return rows.some(r => r.unread && !openedKeys.has(r.key));
+  if (list === 'sent') return rows.some(r => r.hasNew);
+  return false;
 }
 
-export function visibleRows(rows: ArtifactRow[], type: ArtifactTypeFilter, query: string): ArtifactRow[] {
-  return filterByQuery(filterByType(rows, type), query);
-}
-
-/** Unread items in Shared with you (letters + canvases), minus keys the person has already opened here. */
-export function unreadSharedCount(shared: ArtifactRow[], openedKeys: ReadonlySet<string> = new Set()): number {
-  return shared.filter(r => r.unread && !openedKeys.has(r.key)).length;
+/** A tab carries a dot when one of its lists does. */
+export function tabHasDot(tab: ArtifactTab, model: ArtifactsModel, openedKeys: ReadonlySet<string> = new Set()): boolean {
+  return TAB_LISTS[tab].some(list => listHasDot(list, model[list], openedKeys));
 }
 
 // ---------------------------------------------------------------------------------------------
 // URL state
 // ---------------------------------------------------------------------------------------------
 
-export function parseTab(raw: string | null): ArtifactTab {
-  return raw === 'shared' ? 'shared' : 'yours';
+export interface ArtifactsLocation {
+  tab: ArtifactTab;
+  list: ArtifactList;
+  /** The URL used the old `tab=yours|shared` / `type=` scheme: the page rewrites it to `canonical`, replacing history. */
+  legacy: boolean;
+  /** The same URL in the current scheme (unrelated params kept). */
+  canonical: URLSearchParams;
 }
 
-export function parseType(raw: string | null): ArtifactTypeFilter {
-  return raw === 'letters' || raw === 'canvases' ? raw : 'all';
+function parseTab(raw: string | null): ArtifactTab {
+  return raw === 'canvases' ? 'canvases' : 'letters';
+}
+
+function parseList(tab: ArtifactTab, raw: string | null): ArtifactList {
+  const lists = TAB_LISTS[tab];
+  return lists.find(l => l === raw) ?? DEFAULT_LIST[tab];
+}
+
+/**
+ * Reads the tab and list from the URL: `?tab=letters|canvases` (default letters) and `&list=` (default: the tab's first).
+ * Old links keep working: `tab=yours` is Drafts (Mine with `type=canvases`), `tab=shared` is Received (Shared with me
+ * with `type=canvases`), and a bare `type=` follows the old default tab, yours.
+ */
+export function resolveArtifactsLocation(params: URLSearchParams): ArtifactsLocation {
+  const rawTab = params.get('tab');
+  const type = params.get('type');
+  const legacy = rawTab === 'yours' || rawTab === 'shared' || (rawTab === null && type !== null);
+  let tab: ArtifactTab;
+  let list: ArtifactList;
+  if (legacy) {
+    tab = type === 'canvases' ? 'canvases' : 'letters';
+    const incoming = rawTab === 'shared';
+    list = tab === 'canvases' ? (incoming ? 'shared' : 'mine') : (incoming ? 'received' : 'drafts');
+  } else {
+    tab = parseTab(rawTab);
+    list = parseList(tab, params.get('list'));
+  }
+  const canonical = new URLSearchParams(params);
+  if (legacy) {
+    canonical.set('tab', tab);
+    canonical.set('list', list);
+    canonical.delete('type');
+  }
+  return { tab, list, legacy, canonical };
 }

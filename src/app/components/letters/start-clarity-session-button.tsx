@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Video, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { analytics } from '@/lib/mixpanel';
+import { ARTIFACTS_LETTERS_RECEIVED } from '@/app/pages/artifacts/legacy-redirect-targets';
 import {
   createClaritySession,
   createLiveInvite,
@@ -75,7 +76,7 @@ export function StartClaritySessionButton({
         story_id: storyId,
         session_id: session.id,
       });
-      navigate(`/live/${session.code}?returnTo=${encodeURIComponent('/artifacts?tab=shared')}`);
+      navigate(`/live/${session.code}?returnTo=${encodeURIComponent(ARTIFACTS_LETTERS_RECEIVED)}`);
     } catch (err) {
       console.error('[P703] Failed to start letter-sourced session:', err);
       setCreating(false);

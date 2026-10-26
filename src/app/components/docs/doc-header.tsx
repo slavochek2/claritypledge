@@ -9,6 +9,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { toast } from 'sonner';
 import { docsService } from '@/app/data/docs-service';
 import type { ClarityDoc } from '@/app/types';
+import { ARTIFACTS_LETTERS_DRAFTS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 interface DocHeaderProps {
   doc: ClarityDoc;
@@ -66,7 +67,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
     <div className="space-y-3">
       {/* Back link. P1512: FocusHeader renders it in the shell's top bar; it returns to where the author came
           from (usually the Letters list) and only a cold arrival goes to the Drafts tab. */}
-      <FocusHeader fallback="/artifacts?tab=yours&type=letters" parentName="Letters" />
+      <FocusHeader fallback={ARTIFACTS_LETTERS_DRAFTS} parentName="Letters" />
 
       {/* Title + action buttons row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">

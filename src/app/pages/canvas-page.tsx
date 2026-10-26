@@ -74,6 +74,7 @@ import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components
 import { SharedIcon } from '@/app/components/canvas/canvas-audience';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, canvasTitle, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -577,7 +578,7 @@ export function CanvasPage() {
   return (
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
       {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
-      <FocusHeader fallback="/artifacts?tab=yours&type=canvases" />
+      <FocusHeader fallback={ARTIFACTS_CANVASES_MINE} />
       {ready && <SEO title={`${ready.ownerName} · #${ready.version ?? projectTag} — Clarity Pledge`} noIndex />}
       {/* R10: the name of the thing first, then whose it is: the canvas's title under its small label;
           under it "by <owner>" (and the version menu, when there is more than one), then Compare,

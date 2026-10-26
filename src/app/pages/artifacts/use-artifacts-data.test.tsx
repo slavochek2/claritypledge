@@ -52,9 +52,9 @@ describe('useArtifactsData ordering and failures', () => {
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     mocks.getDocsByUserOrThrow.mockResolvedValueOnce([]); // the refresh after a delete answers first, empty
     await act(async () => { await result.current.refresh(); });
-    await waitFor(() => expect(result.current.yours.status).toBe('ready'));
+    await waitFor(() => expect(result.current.lists.drafts.status).toBe('ready'));
     await act(async () => { older.resolve([doc]); await Promise.resolve(); });
-    expect(result.current.yours.rows).toHaveLength(0);
+    expect(result.current.lists.drafts.rows).toHaveLength(0);
   });
 
   it('a refresh that fails keeps the loaded sent letters and says some items are missing', async () => {
@@ -62,14 +62,14 @@ describe('useArtifactsData ordering and failures', () => {
     mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [{ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', status: 'pending' }] });
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
-    expect(result.current.yours.partial).toBe(false);
+    await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
+    expect(result.current.lists.sent.partial).toBe(false);
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('rpc down'));
     await act(async () => { await result.current.refresh(); });
-    expect(result.current.yours.rows).toHaveLength(1);
-    expect(result.current.yours.rows[0]?.menu).toEqual([]); // the kept deliveries mean it was shared: no "…" (and no Delete)
-    expect(result.current.yours.partial).toBe(true);
-    expect(result.current.yours.status).toBe('ready');
+    expect(result.current.lists.sent.rows).toHaveLength(1);
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 0 of 1 done/); // the kept deliveries are still what is shown
+    expect(result.current.lists.sent.partial).toBe(true);
+    expect(result.current.lists.sent.status).toBe('ready');
   });
 });
 
@@ -82,9 +82,9 @@ describe('useArtifactsData activity source', () => {
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ dv1: 2 });
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
     expect(mocks.getUnreadExplainBackCountsByDelivery).toHaveBeenCalledWith(['dv1']);
-    expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
   });
 
   it('an unread "responded" inbox item makes the sent letter new, with no explain-backs at all', async () => {
@@ -95,7 +95,7 @@ describe('useArtifactsData activity source', () => {
       { type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Tom', timestamp: new Date().toISOString(), read_at: null, completed_at: new Date().toISOString() },
     ]);
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 1 new from Tom · /));
+    await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 1 new from Tom · /));
   });
 
   it('a failing activity read degrades to no "new" part, never to an error', async () => {
@@ -103,9 +103,9 @@ describe('useArtifactsData activity source', () => {
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
     mocks.getUnreadExplainBackCountsByDelivery.mockRejectedValue(new Error('x'));
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
-    expect(result.current.yours.rows[0]?.meta).toMatch(/^Sent to 1 · 1 of 1 done/);
-    expect(result.current.yours.partial).toBe(false);
+    await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 1 of 1 done/);
+    expect(result.current.lists.sent.partial).toBe(false);
   });
 });
 
@@ -115,11 +115,11 @@ describe('useArtifactsData polling', () => {
   it('a failed drafts read after a good one keeps the drafts and marks the tab partial', async () => {
     mocks.getDocsByUserOrThrow.mockResolvedValue([doc]);
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
+    await waitFor(() => expect(result.current.lists.drafts.rows).toHaveLength(1));
     mocks.getDocsByUserOrThrow.mockRejectedValue(new Error('db down'));
     await act(async () => { await result.current.refresh(); });
-    expect(result.current.yours.rows).toHaveLength(1);
-    expect(result.current.yours.partial).toBe(true);
+    expect(result.current.lists.drafts.rows).toHaveLength(1);
+    expect(result.current.lists.drafts.partial).toBe(true);
   });
 
   it('a source slower than the poll interval still loads (the poll skips while it is in flight)', async () => {
@@ -130,7 +130,7 @@ describe('useArtifactsData polling', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(16_000); });
     expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(1);
     await act(async () => { slow.resolve([doc]); await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.yours.rows).toHaveLength(1);
+    expect(result.current.lists.drafts.rows).toHaveLength(1);
   });
 
   it('an explicit refresh supersedes an in-flight request, and the stale response is dropped', async () => {
@@ -142,30 +142,42 @@ describe('useArtifactsData polling', () => {
     await act(async () => { await result.current.refresh(); });
     expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(2);
     await act(async () => { stale.resolve([doc]); await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.yours.rows).toHaveLength(0);
+    expect(result.current.lists.drafts.rows).toHaveLength(0);
   });
 });
 
 describe('useArtifactsData progressive loading', () => {
-  it('shows loaded drafts while the sent letters are still pending, then settles', async () => {
+  it('each list settles on its own: loaded drafts show while the sent letters are still pending', async () => {
     const sent = deferred<never[]>();
     mocks.getDocsByUserOrThrow.mockResolvedValue([doc]);
     mocks.getAllSentLettersOrThrow.mockReturnValue(sent.promise);
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.yours.rows).toHaveLength(1));
-    expect(result.current.yours.status).toBe('ready');
-    expect(result.current.yours.pending).toBe(true);
+    await waitFor(() => expect(result.current.lists.drafts.rows).toHaveLength(1));
+    expect(result.current.lists.drafts.status).toBe('ready');
+    expect(result.current.lists.drafts.pending).toBe(false);
+    expect(result.current.lists.sent.status).toBe('loading');
+    expect(result.current.lists.sent.pending).toBe(true);
     await act(async () => { sent.resolve([]); await Promise.resolve(); });
-    await waitFor(() => expect(result.current.yours.pending).toBe(false));
-    expect(result.current.yours.rows).toHaveLength(1);
+    await waitFor(() => expect(result.current.lists.sent.pending).toBe(false));
+    expect(result.current.lists.sent.status).toBe('ready');
+    expect(result.current.lists.drafts.rows).toHaveLength(1);
   });
 
-  it('stays loading while no source of the tab has data yet', async () => {
+  it('stays loading while the source of the list has no data yet', async () => {
     const docs = deferred<ClarityDoc[]>();
     mocks.getDocsByUserOrThrow.mockReturnValue(docs.promise);
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.yours.status).toBe('loading');
-    expect(result.current.yours.pending).toBe(true);
+    expect(result.current.lists.drafts.status).toBe('loading');
+    expect(result.current.lists.drafts.pending).toBe(true);
+  });
+
+  it('a failed source is an error for its own list only', async () => {
+    mocks.getDocsByUserOrThrow.mockResolvedValue([doc]);
+    mocks.listSharedWithMe.mockRejectedValue(new Error('rls'));
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.lists.shared.status).toBe('error'));
+    expect(result.current.lists.drafts.status).toBe('ready');
+    expect(result.current.lists.mine.status).toBe('ready');
   });
 });

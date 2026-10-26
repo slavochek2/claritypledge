@@ -85,7 +85,7 @@ describe('P1223 — isSafeRedirectPath admits the documented happy paths', () =>
     '/docs',                              // docs-list-page
     '/me/calibration',                    // calibration-breakdown-page
     '/letters',                           // letters-page
-    '/artifacts?tab=shared',              // P1545: Artifacts page (old /letters links land here)
+    '/artifacts?tab=letters&list=received', // P1545: Artifacts page (old /letters links land here)
     '/sessions',                          // my-sessions-page
     '/live',                              // clarity-live-page
     '/live/ABC123',                       // sessionRedirectUrl

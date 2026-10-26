@@ -43,10 +43,12 @@ import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { DocHeader } from '@/app/components/docs/doc-header';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
+import { DocDeleteDraft } from '@/app/components/docs/doc-delete-draft';
 import { DocBlockControls } from '@/app/components/docs/doc-block-controls';
 import { isLeadPoint, toggleLead } from '@/app/utils/lead-toggle';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { ARTIFACTS_LETTERS_DRAFTS } from '@/app/pages/artifacts/legacy-redirect-targets';
 import type { ClarityDoc, DocStory, DocPointConfig, PointPosition, PositionType } from '@/app/types';
 
 // ---------------------------------------------------------------------------
@@ -476,7 +478,7 @@ export function DocDetailPage() {
             This doc doesn&apos;t exist or you don&apos;t have access.
           </p>
           <Link
-            to="/artifacts?tab=yours&type=letters"
+            to={ARTIFACTS_LETTERS_DRAFTS}
             className="text-blue-600 hover:underline text-sm font-medium"
           >
             Back to Letters
@@ -586,6 +588,8 @@ export function DocDetailPage() {
           </DndContext>
         )}
 
+        {/* P1545: Delete moved in from the Artifacts row menu. Last on the page and low-weight: never a second primary. */}
+        {isOwner && <DocDeleteDraft docId={doc.id} title={doc.title} hasSentLetters={doc.has_sent_letters} />}
       </div>
 
       {/* Story picker dialog */}

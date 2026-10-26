@@ -80,7 +80,7 @@ describe('canvas page Back', () => {
     expect(back).toBeInTheDocument();
     expect(back.className).toMatch(/min-h-1[01]/); // 40-44px target (FocusHeader)
     fireEvent.click(back);
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=yours&type=canvases'));
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=canvases'));
     expect(screen.getByText('artifacts page')).toBeInTheDocument();
   });
 

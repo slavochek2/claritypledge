@@ -383,6 +383,17 @@ export const docsService: DocsService = {
       return null;
     }
 
+    // Whether letters were sent from this doc (the draft editor's Delete guard). Same rule as getDocsByUser: if the
+    // query fails, assume yes so the UI guard blocks; deleteDoc() re-checks server-side.
+    const { data: sentLetters, error: sentError } = await supabase
+      .from('clarity_letters')
+      .select('id')
+      .eq('source_doc_id', docId)
+      .neq('status', 'draft')
+      .limit(1);
+    if (sentError) logDbError('getDoc.sentLetters', sentError);
+    const hasSentLetters = !!sentError || (sentLetters?.length ?? 0) > 0;
+
     // Fetch linked stories with author + points data, ordered by position
     const { data: storiesData, error: storiesError } = await supabase
       .from('doc_stories')
@@ -403,7 +414,7 @@ export const docsService: DocsService = {
       logDbError('getDoc.stories', storiesError);
       // Return doc without stories rather than failing entirely
       return {
-        doc: mapDocFromDb({ ...(docData as DbClarityDoc), story_count: 0 }),
+        doc: { ...mapDocFromDb({ ...(docData as DbClarityDoc), story_count: 0 }), has_sent_letters: hasSentLetters },
         stories: [],
       };
     }
@@ -413,7 +424,7 @@ export const docsService: DocsService = {
       .map((row: unknown) => mapDocStoryFromDb(row as DbDocStoryWithStory));
 
     return {
-      doc: mapDocFromDb({ ...(docData as DbClarityDoc), story_count: stories.length }),
+      doc: { ...mapDocFromDb({ ...(docData as DbClarityDoc), story_count: stories.length }), has_sent_letters: hasSentLetters },
       stories,
     };
   },

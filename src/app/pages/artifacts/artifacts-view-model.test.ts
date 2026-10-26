@@ -5,18 +5,16 @@ import {
   canvasMeta,
   draftMeta,
   filterByQuery,
-  filterByType,
-  parseTab,
-  parseType,
+  listHasDot,
+  resolveArtifactsLocation,
+  tabHasDot,
   receivedInboxItems,
   receivedLetterMeta,
   repliedCountByLetter,
   senderActivityItems,
   sentMeta,
   sharedMeta,
-  unreadSharedCount,
-  visibleRows,
-  yoursSections,
+  type ArtifactList,
   type ArtifactsSource,
 } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -100,6 +98,33 @@ describe('meta strings (Resolved Decisions: one line)', () => {
       .toBe('Sent to 3 · 3 new from 2 people · 1h ago');
   });
 
+  it('names in the meta line are first names only, so the line stays on one row', () => {
+    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 1, newFrom: ['Tom'], sealedAt: ago(H) }))
+      .toBe('Sent to 3 · 1 new from Tom · 1h ago');
+    expect(receivedLetterMeta(inboxItem({ actor_name: 'Vyacheslav Ladischenski', steps_completed: 2, total_steps: 5, timestamp: ago(4 * D) })))
+      .toBe('From Vyacheslav · 2 of 5 steps · 4d ago');
+    expect(receivedLetterMeta(inboxItem({ actor_name: '  Anna   Maria Lopez ', timestamp: ago(4 * D) }))).toBe('From Anna · 4d ago');
+    expect(sharedMeta('Mara Jones', ago(H))).toBe('From Mara · 1h ago');
+    // no usable name: the fallback stays "someone"
+    expect(receivedLetterMeta(inboxItem({ actor_name: '   ', timestamp: ago(4 * D) }))).toBe('From someone · 4d ago');
+    expect(sharedMeta('', ago(H))).toBe('From someone · 1h ago');
+  });
+
+  it('a sent letter\'s "N new from" uses the recipient\'s first name; two people sharing a first name are still 2 people', () => {
+    const one = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(H) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Vyacheslav Ladischenski' })] },
+      newByDelivery: { dv1: 1 },
+    }));
+    expect(one.sent[0]?.meta).toBe('Sent to 1 · 1 new from Vyacheslav · 1h ago');
+    const two = buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(H) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom Ash' }), delivery({ id: 'dv2', receiver_name: 'Tom Birch' })] },
+      newByDelivery: { dv1: 1, dv2: 1 },
+    }));
+    expect(two.sent[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
+  });
+
   it('public link: "Public link · 4 done · 2d ago"', () => {
     expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 4, sealedAt: ago(2 * D) })).toBe('Public link · 4 done · 2d ago');
     expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 0 done · 2d ago');
@@ -125,7 +150,7 @@ describe('meta strings (Resolved Decisions: one line)', () => {
   });
 
   it('rows never list recipients or say Sealed or replied', () => {
-    const { yours, shared } = buildArtifacts(source({
+    const lists = buildArtifacts(source({
       docs: [doc()],
       sentLetters: [letter()],
       deliveriesByLetter: { l1: [delivery({ status: 'completed' })] },
@@ -133,7 +158,7 @@ describe('meta strings (Resolved Decisions: one line)', () => {
       inbox: [inboxItem()],
       sharedCanvases: [sharedCanvas()],
     }));
-    for (const r of [...yours, ...shared]) expect(r.meta).not.toMatch(/Sealed|recipients completed|replied/i);
+    for (const r of Object.values(lists).flat()) expect(r.meta).not.toMatch(/Sealed|recipients completed|replied/i);
   });
 });
 
@@ -149,19 +174,19 @@ describe('partition of the inbox', () => {
     expect(senderActivityItems(inbox)).toEqual([sender, progress, link]);
   });
 
-  it('sender-side activity never appears in Shared with you', () => {
-    const { shared } = buildArtifacts(source({ inbox: [received, sender, progress, link] }));
-    expect(shared.map(r => r.ref.deliveryId)).toEqual(['rd1']);
+  it('sender-side activity never appears in Received', () => {
+    const { received: rows } = buildArtifacts(source({ inbox: [received, sender, progress, link] }));
+    expect(rows.map(r => r.ref.deliveryId)).toEqual(['rd1']);
   });
 
   it('sender-side activity joins onto the sent letter\'s "N of M done"', () => {
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter()],
       deliveriesByLetter: { l1: [delivery({ id: 'sd1' }), delivery({ id: 'x2' })] }, // deliveries lag: none completed yet
       // Read items: unread sender activity now counts as "new" (own tests below); this one pins the done join.
       inbox: [{ ...sender, read_at: ago(H) }, { ...progress, read_at: ago(H) }],
     }));
-    expect(yours[0]?.meta).toBe('Sent to 2 · 1 of 2 done · 1d ago'); // only recipient_responded counts, "reading" does not
+    expect(sent[0]?.meta).toBe('Sent to 2 · 1 of 2 done · 1d ago'); // only recipient_responded counts, "reading" does not
   });
 
   it('replied counts a delivery once when deliveries and inbox both report it', () => {
@@ -172,123 +197,147 @@ describe('partition of the inbox', () => {
     expect(counts).toEqual({ l1: 2 }); // sd1 (both sources) + sd3 (inbox link respondent)
   });
 
-  it('inbox activity never raises the unread count', () => {
-    const { shared } = buildArtifacts(source({ inbox: [sender, progress, link] }));
-    expect(unreadSharedCount(shared)).toBe(0);
+  it('inbox activity never lights the Received dot', () => {
+    const { received: rows } = buildArtifacts(source({ inbox: [sender, progress, link] }));
+    expect(listHasDot('received', rows)).toBe(false);
   });
 });
 
 describe('rows', () => {
   it('counts distinct deliveries, not names: two Toms are 2 people', () => {
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Tom' })] },
       newByDelivery: { dv1: 1, dv2: 1 },
     }));
-    expect(yours[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
+    expect(sent[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
   });
 
   it('one delivery with no name reads "from someone"', () => {
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: null })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(yours[0]?.meta).toBe('Sent to 1 · 1 new from someone · 1h ago');
+    expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from someone · 1h ago');
   });
 
   it('an unread recipient_responded activity item is new, and its time replaces sealed_at in text and sort', () => {
     const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', actor_name: 'Tom', timestamp: ago(10 * 60_000), read_at: null, completed_at: ago(10 * 60_000) });
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       docs: [doc({ updated_at: ago(2 * H) })],
       sentLetters: [letter({ sealed_at: ago(3 * D) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed' })] },
       inbox: [responded],
     }));
-    expect(yours[0]?.state).toBe('sent');
-    expect(yours[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 10m ago');
+    expect(sent[0]?.state).toBe('sent');
+    expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 10m ago');
   });
 
   it('a read activity item is not new', () => {
     const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', read_at: ago(H) });
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(3 * D) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', status: 'completed' })] },
       inbox: [responded],
     }));
-    expect(yours[0]?.meta).toBe('Sent to 1 · 1 of 1 done · 3d ago');
+    expect(sent[0]?.meta).toBe('Sent to 1 · 1 of 1 done · 3d ago');
   });
 
   it('activity and explain-backs on one delivery are not double counted', () => {
     const responded = inboxItem({ type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', read_at: null, timestamp: ago(H) });
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(3 * D) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed' })] },
       inbox: [responded],
       newByDelivery: { dv1: 2 },
     }));
-    expect(yours[0]?.meta).toBe('Sent to 1 · 2 new from Tom · 1h ago');
+    expect(sent[0]?.meta).toBe('Sent to 1 · 2 new from Tom · 1h ago');
   });
 
-  it('menu keeps quick actions only: Add recipients and Preview live on the overview page', () => {
-    const withSrc = buildArtifacts(source({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } })).yours[0];
-    expect(withSrc?.menu.map(a => a.id)).not.toContain('add-recipients');
-    expect(withSrc?.menu.map(a => a.id)).not.toContain('preview-letter');
-    expect(withSrc?.menu.map(a => a.label)).not.toContain('Add recipients');
-    expect(withSrc?.menu.map(a => a.label)).not.toContain('Preview letter');
+  it('rows carry no "…" menu: a tap opens the item and the actions live inside it', () => {
+    const lists = buildArtifacts(source({
+      docs: [doc()],
+      sentLetters: [letter()],
+      myCanvases: [myCanvas()],
+      inbox: [inboxItem()],
+      sharedCanvases: [sharedCanvas()],
+    }));
+    const rows = Object.values(lists).flat();
+    expect(rows).toHaveLength(5);
+    for (const r of rows) expect(r).not.toHaveProperty('menu');
   });
 
   it('new explain-backs show as "N new from <name>" on the sent letter', () => {
-    const { yours } = buildArtifacts(source({
+    const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Ann' })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(yours[0]?.meta).toBe('Sent to 2 · 1 new from Tom · 1h ago');
+    expect(sent[0]?.meta).toBe('Sent to 2 · 1 new from Tom · 1h ago');
   });
 
   it('a draft counts the letters sent from it', () => {
-    const { yours } = buildArtifacts(source({
+    const { drafts } = buildArtifacts(source({
       docs: [doc({ id: 'd9', story_count: 3, point_count: 5, has_sent_letters: true })],
       sentLetters: [letter({ id: 'l1' }), letter({ id: 'l2' })],
     }));
-    expect(yours.find(r => r.state === 'draft')?.meta).toBe('Draft · 3 stories, 5 points · used for 2 letters');
+    expect(drafts[0]?.meta).toBe('Draft · 3 stories, 5 points · used for 2 letters');
   });
 
-  it('Yours holds drafts, sent letters and own canvases, newest first', () => {
-    const { yours } = buildArtifacts(source({
-      docs: [doc({ updated_at: ago(2 * H) })],
-      sentLetters: [letter({ sealed_at: ago(D) })],
-      deliveriesByLetter: { l1: [delivery()] },
-      myCanvases: [myCanvas({ lastEdit: ago(3 * D) })],
+  it('each kind lands in its own list, newest first inside it', () => {
+    const lists = buildArtifacts(source({
+      docs: [doc({ id: 'dA', title: 'Older draft', updated_at: ago(5 * D) }), doc({ id: 'dB', title: 'Newer draft', updated_at: ago(H) })],
+      sentLetters: [letter({ id: 'l1', doc_title: 'Sent letter', sealed_at: ago(2 * H) })],
+      myCanvases: [myCanvas({ name: 'review_board', lastEdit: ago(30 * 60_000) }), myCanvas({ name: 'older_one', lastEdit: ago(3 * D) })],
+      inbox: [inboxItem({ delivery_id: 'rA', title: 'Old', timestamp: ago(3 * D) }), inboxItem({ delivery_id: 'rB', title: 'New', timestamp: ago(H) })],
+      sharedCanvases: [sharedCanvas({ canvasId: 'c1', sharedAt: ago(D) }), sharedCanvas({ canvasId: 'c2', name: 'newer_shared', sharedAt: ago(H) })],
     }));
-    expect(yours.map(r => r.state)).toEqual(['draft', 'sent', 'canvas']);
+    expect(lists.drafts.map(r => r.title)).toEqual(['Newer draft', 'Older draft']);
+    expect(lists.sent.map(r => r.title)).toEqual(['Sent letter']);
+    expect(lists.received.map(r => r.title)).toEqual(['New', 'Old']);
+    expect(lists.mine.map(r => r.title)).toEqual(['Review board', 'Older one']);
+    expect(lists.shared.map(r => r.title)).toEqual(['Newer shared', 'Q4 plan']);
+    for (const list of Object.keys(lists) as ArtifactList[]) {
+      expect(lists[list].every(r => r.list === list)).toBe(true);
+    }
   });
 
-  it('own items carry a visibility icon, shared items none; unread only on shared', () => {
-    const { yours, shared } = buildArtifacts(source({
+  it('a draft that was already sent stays in Drafts; a public-link letter is in Sent', () => {
+    const lists = buildArtifacts(source({
+      docs: [doc({ id: 'd9', title: 'Already sent', has_sent_letters: true })],
+      sentLetters: [letter({ id: 'l2', source_doc_id: 'd9', doc_title: 'Public one', mode: 'one-to-many' })],
+    }));
+    expect(lists.drafts.map(r => r.title)).toEqual(['Already sent']);
+    expect(lists.sent.map(r => r.title)).toEqual(['Public one']);
+  });
+
+  it('own items carry a visibility icon, received items none; unread only on received items', () => {
+    const lists = buildArtifacts(source({
       docs: [doc({ visibility: 'public' })],
       sentLetters: [letter({ mode: 'one-to-many' })],
       myCanvases: [myCanvas({ generalAccess: 'link' }), myCanvas({ name: 'private_one' })],
       inbox: [inboxItem()],
       sharedCanvases: [sharedCanvas()],
     }));
-    expect(yours.map(r => r.visibility)).toEqual(expect.arrayContaining(['public', 'private']));
-    expect(yours.every(r => r.visibility !== null && r.unread === false)).toBe(true);
-    expect(yours.find(r => r.ref.canvasName === 'sales_map')?.visibility).toBe('public');
-    expect(shared.every(r => r.visibility === null)).toBe(true);
-    expect(shared.every(r => r.unread)).toBe(true);
+    const own = [...lists.drafts, ...lists.sent, ...lists.mine];
+    const incoming = [...lists.received, ...lists.shared];
+    expect(own.map(r => r.visibility)).toEqual(expect.arrayContaining(['public', 'private']));
+    expect(own.every(r => r.visibility !== null && r.unread === false)).toBe(true);
+    expect(lists.mine.find(r => r.ref.canvasName === 'sales_map')?.visibility).toBe('public');
+    expect(incoming.every(r => r.visibility === null)).toBe(true);
+    expect(incoming.every(r => r.unread)).toBe(true);
   });
 
-  it('row tap targets are the items\' existing pages', () => {
-    const { yours, shared } = buildArtifacts(source({
+  it('row tap targets are the items\' existing pages: a draft edits, a sent letter opens its overview', () => {
+    const lists = buildArtifacts(source({
       docs: [doc()],
       sentLetters: [letter()],
       myCanvases: [myCanvas()],
       inbox: [inboxItem(), inboxItem({ delivery_id: 'rd2', letter_id: 'rl2', completed_at: ago(H), read_at: ago(H) })],
       sharedCanvases: [sharedCanvas()],
     }));
-    const hrefs = Object.fromEntries([...yours, ...shared].map(r => [r.key, r.href]));
+    const hrefs = Object.fromEntries(Object.values(lists).flat().map(r => [r.key, r.href]));
     expect(hrefs['draft:d1']).toBe('/letters/drafts/d1');
     expect(hrefs['sent:l1']).toBe('/letter/l1/overview');
     expect(hrefs['canvas:sales_map']).toBe('/p/me/canvas/sales_map');
@@ -298,148 +347,122 @@ describe('rows', () => {
   });
 
   it('a canvas address cannot be built without a handle', () => {
-    expect(buildArtifacts(source({ myCanvases: [myCanvas()], userSlug: null })).yours[0]?.href).toBeNull();
+    expect(buildArtifacts(source({ myCanvases: [myCanvas()], userSlug: null })).mine[0]?.href).toBeNull();
     expect(buildArtifacts(source({ sharedCanvases: [sharedCanvas({ ownerSlug: null })] })).shared[0]?.href).toBeNull();
   });
 
   it('canvas titles read underscores as spaces and start with a capital', () => {
-    expect(buildArtifacts(source({ myCanvases: [myCanvas({ name: 'sales_map' })] })).yours[0]?.title).toBe('Sales map');
+    expect(buildArtifacts(source({ myCanvases: [myCanvas({ name: 'sales_map' })] })).mine[0]?.title).toBe('Sales map');
   });
 });
 
-describe('"…" menu guards (today\'s rules)', () => {
-  const menu = (s: Partial<ArtifactsSource>) => buildArtifacts(source(s)).yours[0]?.menu ?? [];
-
-  it('draft: Prepare letter needs a story; Delete is blocked once letters were sent', () => {
-    expect(menu({ docs: [doc({ story_count: 0, has_sent_letters: true })] })).toEqual([
-      { id: 'prepare-letter', label: 'Prepare letter', disabledReason: 'Add at least one story first.' },
-      { id: 'delete-draft', label: 'Delete', danger: true, disabledReason: "Can't delete — letters were sent from this draft." },
-    ]);
-    const ok = menu({ docs: [doc()] });
-    expect(ok.every(a => !a.disabledReason)).toBe(true);
-    expect(ok.at(-1)?.danger).toBe(true);
-  });
-
-  it('sent letter: "…" holds only an enabled Delete letter, and only while nobody has it (0 deliveries); never Copy public link, never a disabled item', () => {
-    const none = menu({ sentLetters: [letter()] });
-    expect(none).toEqual([{ id: 'delete-letter', label: 'Delete letter', danger: true }]);
-    const publicNone = menu({ sentLetters: [letter({ mode: 'one-to-many' })] });
-    expect(publicNone.map(a => a.id)).toEqual(['delete-letter']); // public with no respondents yet: still no Copy link
-    // CONTROLS: any delivery (a recipient, or a public-link respondent) removes the menu
-    expect(menu({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery()] } })).toEqual([]);
-    expect(menu({ sentLetters: [letter({ mode: 'one-to-many' })], deliveriesByLetter: { l1: [delivery({ receiver_email: null })] } })).toEqual([]);
-    expect(menu({ docs: [doc()] }).length).toBeGreaterThan(0);
-    expect(menu({ myCanvases: [myCanvas()] }).length).toBeGreaterThan(0);
-  });
-
-  it('own canvas: Share only; shared items have no menu', () => {
-    expect(menu({ myCanvases: [myCanvas()] }).map(a => a.id)).toEqual(['share-canvas']);
-    const { shared } = buildArtifacts(source({ inbox: [inboxItem()], sharedCanvases: [sharedCanvas()] }));
-    expect(shared.every(r => r.menu.length === 0)).toBe(true);
-  });
-});
-
-describe('filters and search', () => {
-  const { yours } = buildArtifacts(source({
-    docs: [doc({ title: 'Quarterly Review' })],
-    sentLetters: [letter({ doc_title: 'Hello Tom' })],
-    myCanvases: [myCanvas({ name: 'review_board' })],
+describe('search', () => {
+  const { drafts } = buildArtifacts(source({
+    docs: [doc({ id: 'a', title: 'Quarterly Review' }), doc({ id: 'b', title: 'Review notes' }), doc({ id: 'c', title: 'Other' })],
   }));
 
-  it('type chips', () => {
-    expect(filterByType(yours, 'all')).toHaveLength(3);
-    expect(filterByType(yours, 'letters').map(r => r.kind)).toEqual(['letter', 'letter']);
-    expect(filterByType(yours, 'canvases').map(r => r.kind)).toEqual(['canvas']);
-  });
-
   it('search is a case-insensitive title match, trimmed', () => {
-    expect(filterByQuery(yours, '  REVIEW ').map(r => r.title).sort()).toEqual(['Quarterly Review', 'Review board']);
-    expect(filterByQuery(yours, '')).toHaveLength(3);
-    expect(filterByQuery(yours, 'nothing like it')).toEqual([]);
+    expect(filterByQuery(drafts, '  REVIEW ').map(r => r.title).sort()).toEqual(['Quarterly Review', 'Review notes']);
+    expect(filterByQuery(drafts, '')).toHaveLength(3);
+    expect(filterByQuery(drafts, 'nothing like it')).toEqual([]);
   });
 
   it('search matches titles only, not the meta line', () => {
-    expect(filterByQuery(yours, 'edited')).toEqual([]);
-  });
-
-  it('type and search combine', () => {
-    expect(visibleRows(yours, 'canvases', 'review').map(r => r.kind)).toEqual(['canvas']);
-    expect(visibleRows(yours, 'letters', 'review').map(r => r.title)).toEqual(['Quarterly Review']);
+    expect(filterByQuery(drafts, 'draft')).toEqual([]);
   });
 });
 
-describe('Yours headings: Drafts, Sent, Canvases', () => {
-  const { yours } = buildArtifacts(source({
-    // Newest first overall would interleave the kinds: the headings must still group them.
-    docs: [doc({ id: 'dA', title: 'Older draft', updated_at: ago(5 * D) }), doc({ id: 'dB', title: 'Newer draft', updated_at: ago(H) })],
-    sentLetters: [letter({ id: 'l1', doc_title: 'Sent letter', sealed_at: ago(2 * H) })],
-    myCanvases: [myCanvas({ name: 'review_board', lastEdit: ago(30 * 60_000) })],
-  }));
+describe('dots (Received and Shared with me while unread, Sent while new, tab when a list has one)', () => {
+  const unreadReceived = inboxItem();
+  const readReceived = inboxItem({ delivery_id: 'rd2', read_at: ago(H) });
+  const newSent = {
+    sentLetters: [letter({ sealed_at: ago(H) })],
+    deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' })] },
+    newByDelivery: { dv1: 1 },
+  };
 
-  it('groups in the order Drafts, Sent, Canvases, newest first inside each', () => {
-    const sections = yoursSections(yours);
-    expect(sections.map(s => s.title)).toEqual(['Drafts', 'Sent', 'Canvases']);
-    expect(sections.map(s => s.id)).toEqual(['drafts', 'sent', 'canvases']);
-    expect(sections[0]?.rows.map(r => r.title)).toEqual(['Newer draft', 'Older draft']);
-    expect(sections[1]?.rows.map(r => r.title)).toEqual(['Sent letter']);
-    expect(sections[2]?.rows.map(r => r.title)).toEqual(['Review board']);
-  });
-
-  it('a heading with no rows is not returned', () => {
-    expect(yoursSections(yours.filter(r => r.state === 'draft')).map(s => s.title)).toEqual(['Drafts']);
-    expect(yoursSections(yours.filter(r => r.state !== 'sent')).map(s => s.title)).toEqual(['Drafts', 'Canvases']);
-    expect(yoursSections([])).toEqual([]);
-  });
-
-  it('chips and search filter inside the headings, and a heading whose rows are all filtered out disappears', () => {
-    expect(yoursSections(visibleRows(yours, 'letters', '')).map(s => s.title)).toEqual(['Drafts', 'Sent']);
-    expect(yoursSections(visibleRows(yours, 'canvases', '')).map(s => s.title)).toEqual(['Canvases']);
-    const searched = yoursSections(visibleRows(yours, 'all', 'newer'));
-    expect(searched.map(s => s.title)).toEqual(['Drafts']);
-    expect(searched[0]?.rows.map(r => r.title)).toEqual(['Newer draft']);
-    expect(yoursSections(visibleRows(yours, 'all', 'zzz'))).toEqual([]);
-  });
-
-  it('a tap in Drafts always edits and a tap in Sent always opens the overview', () => {
-    const sections = yoursSections(yours);
-    expect(sections[0]?.rows.every(r => r.href?.startsWith('/letters/drafts/'))).toBe(true);
-    expect(sections[1]?.rows.every(r => /^\/letter\/[^/]+\/overview$/.test(r.href ?? ''))).toBe(true);
-    expect(sections[2]?.rows.every(r => r.href === '/p/me/canvas/review_board')).toBe(true);
-  });
-
-  it('a draft that was already sent stays under Drafts; a public-link letter is under Sent', () => {
-    const built = buildArtifacts(source({
-      docs: [doc({ id: 'd9', title: 'Already sent', has_sent_letters: true })],
-      sentLetters: [letter({ id: 'l2', source_doc_id: 'd9', doc_title: 'Public one', mode: 'one-to-many' })],
-    }));
-    const sections = yoursSections(built.yours);
-    expect(sections.map(s => [s.title, s.rows.map(r => r.title)])).toEqual([['Drafts', ['Already sent']], ['Sent', ['Public one']]]);
-  });
-});
-
-describe('unread rules', () => {
-  it('counts unread letters and canvases in Shared with you', () => {
-    const { shared } = buildArtifacts(source({
-      inbox: [inboxItem(), inboxItem({ delivery_id: 'rd2', read_at: ago(H) })],
-      sharedCanvases: [sharedCanvas(), sharedCanvas({ canvasId: 'c2', unread: false })],
-    }));
-    expect(unreadSharedCount(shared)).toBe(2);
+  it('Received and Shared with me carry a dot while any row is unread, and not when all are read', () => {
+    const unread = buildArtifacts(source({ inbox: [unreadReceived, readReceived], sharedCanvases: [sharedCanvas()] }));
+    expect(listHasDot('received', unread.received)).toBe(true);
+    expect(listHasDot('shared', unread.shared)).toBe(true);
+    const read = buildArtifacts(source({ inbox: [readReceived], sharedCanvases: [sharedCanvas({ unread: false })] }));
+    expect(listHasDot('received', read.received)).toBe(false);
+    expect(listHasDot('shared', read.shared)).toBe(false);
   });
 
   it('items opened on the page stop counting at once', () => {
-    const { shared } = buildArtifacts(source({ inbox: [inboxItem()], sharedCanvases: [sharedCanvas()] }));
-    expect(unreadSharedCount(shared, new Set(['received:rd1']))).toBe(1);
+    const { received } = buildArtifacts(source({ inbox: [unreadReceived, readReceived] }));
+    expect(listHasDot('received', received, new Set(['received:rd1']))).toBe(false);
+  });
+
+  it('Sent carries a dot while any sent letter has something new; the row says it in words', () => {
+    const withNew = buildArtifacts(source(newSent));
+    expect(withNew.sent[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 1h ago');
+    expect(withNew.sent[0]?.unread).toBe(false); // the row itself never gets the unread dot
+    expect(listHasDot('sent', withNew.sent)).toBe(true);
+    const quiet = buildArtifacts(source({ ...newSent, newByDelivery: {} }));
+    expect(listHasDot('sent', quiet.sent)).toBe(false);
+  });
+
+  it('Drafts, Mine never carry a dot', () => {
+    const lists = buildArtifacts(source({ docs: [doc()], myCanvases: [myCanvas()] }));
+    expect(listHasDot('drafts', lists.drafts)).toBe(false);
+    expect(listHasDot('mine', lists.mine)).toBe(false);
+  });
+
+  it('a tab carries a dot when one of its lists does', () => {
+    const letters = buildArtifacts(source({ inbox: [unreadReceived] }));
+    expect(tabHasDot('letters', letters)).toBe(true);
+    expect(tabHasDot('canvases', letters)).toBe(false);
+    const canvases = buildArtifacts(source({ sharedCanvases: [sharedCanvas()] }));
+    expect(tabHasDot('canvases', canvases)).toBe(true);
+    expect(tabHasDot('letters', canvases)).toBe(false);
+    const viaSent = buildArtifacts(source(newSent));
+    expect(tabHasDot('letters', viaSent)).toBe(true);
+    // the opened override reaches the tab too
+    expect(tabHasDot('letters', letters, new Set(['received:rd1']))).toBe(false);
+    expect(tabHasDot('letters', buildArtifacts(source()))).toBe(false);
   });
 });
 
 describe('url state', () => {
-  it('tab defaults to yours; type defaults to all; junk falls back', () => {
-    expect(parseTab(null)).toBe('yours');
-    expect(parseTab('shared')).toBe('shared');
-    expect(parseTab('inbox')).toBe('yours');
-    expect(parseType(null)).toBe('all');
-    expect(parseType('canvases')).toBe('canvases');
-    expect(parseType('letters')).toBe('letters');
-    expect(parseType('toString')).toBe('all');
+  const loc = (qs: string) => resolveArtifactsLocation(new URLSearchParams(qs));
+
+  it('tab defaults to letters and the list to the tab\'s first; junk falls back', () => {
+    expect(loc('')).toMatchObject({ tab: 'letters', list: 'drafts', legacy: false });
+    expect(loc('tab=letters&list=sent')).toMatchObject({ tab: 'letters', list: 'sent', legacy: false });
+    expect(loc('tab=letters&list=received')).toMatchObject({ tab: 'letters', list: 'received' });
+    expect(loc('tab=canvases')).toMatchObject({ tab: 'canvases', list: 'mine' });
+    expect(loc('tab=canvases&list=shared')).toMatchObject({ tab: 'canvases', list: 'shared' });
+    // a list that belongs to the other tab, or junk, falls back to the tab's default
+    expect(loc('tab=letters&list=mine')).toMatchObject({ tab: 'letters', list: 'drafts' });
+    expect(loc('tab=canvases&list=drafts')).toMatchObject({ tab: 'canvases', list: 'mine' });
+    expect(loc('tab=nonsense&list=toString')).toMatchObject({ tab: 'letters', list: 'drafts', legacy: false });
+  });
+
+  it.each([
+    ['tab=yours', 'letters', 'drafts'],
+    ['tab=yours&type=letters', 'letters', 'drafts'],
+    ['tab=yours&type=all', 'letters', 'drafts'],
+    ['tab=yours&type=canvases', 'canvases', 'mine'],
+    ['tab=shared', 'letters', 'received'],
+    ['tab=shared&type=letters', 'letters', 'received'],
+    ['tab=shared&type=canvases', 'canvases', 'shared'],
+    ['type=canvases', 'canvases', 'mine'],
+    ['type=letters', 'letters', 'drafts'],
+  ])('old link ?%s opens %s / %s and is flagged for a history-replacing rewrite', (qs, tab, list) => {
+    const r = loc(qs);
+    expect(r).toMatchObject({ tab, list, legacy: true });
+    expect(r.canonical.get('tab')).toBe(tab);
+    expect(r.canonical.get('list')).toBe(list);
+    expect(r.canonical.has('type')).toBe(false);
+  });
+
+  it('the rewrite keeps unrelated params', () => {
+    expect(loc('tab=shared&type=canvases&x=1').canonical.get('x')).toBe('1');
+  });
+
+  it('a stray type on a new-style link is ignored, not rewritten', () => {
+    expect(loc('tab=canvases&type=letters')).toMatchObject({ tab: 'canvases', list: 'mine', legacy: false });
   });
 });

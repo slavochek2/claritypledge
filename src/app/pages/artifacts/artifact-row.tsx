@@ -1,13 +1,12 @@
 /**
  * @file artifact-row.tsx
  * @description P1545 WP3: one row of the Artifacts list. Type disc, title (the row's link), ONE meta
- * line, visibility icon on own items, unread dot (Shared with you only) at the far right, "…" menu at the top right.
- * Nothing else is drawn: no recipients, no counts, no fixed button (a tap opens the item).
+ * line, visibility icon on own items, unread dot (Received and Shared with me only) at the far right.
+ * Nothing else is drawn: no recipients, no counts, no fixed button, no "…" (a tap opens the item and its actions live inside it).
  */
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Mail } from 'lucide-react';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
-import { ArtifactRowMenu } from './artifact-row-menu';
 import type { ArtifactRow as Row } from './artifacts-view-model';
 
 /** Letter and canvas carry equal weight: the same pale blue disc, told apart by the icon (solid blue is for actions). */
@@ -27,16 +26,14 @@ export function TypeDisc({ kind }: { kind: Row['kind'] }) {
 
 interface Props {
   row: Row;
-  userSlug: string | null;
   onOpen: (row: Row) => void;
-  onChanged: () => void;
 }
 
 const TITLE_CLASS =
   'line-clamp-2 break-words rounded-sm text-base leading-snug text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
-  // One weight for read titles on both tabs; heavier only while unread (with the dot).
+export function ArtifactListRow({ row, onOpen }: Props) {
+  // One weight for read titles in every list; heavier only while unread (with the dot).
   const titleWeight = row.unread ? 'font-semibold' : 'font-normal';
   return (
     <li
@@ -50,7 +47,7 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
         <div className="flex items-start gap-2">
           <h3 className="min-w-0">
             {row.href ? (
-              // The link stretches over the whole row; the "…" sits above it (z-10), so it never opens the item.
+              // The link stretches over the whole row.
               <Link
                 to={row.href}
                 onClick={() => onOpen(row)}
@@ -72,11 +69,10 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
           <p data-testid="artifact-meta" className="min-w-0">{row.meta}</p>
         </div>
       </div>
-      {/* One place on every row: far right, vertically centred, before the "…" slot. */}
+      {/* One place on every row: far right, vertically centred. */}
       {row.unread && (
         <span data-testid="artifact-unread-dot" className="h-2.5 w-2.5 shrink-0 self-center rounded-full bg-blue-600" role="img" aria-label="Unread" />
       )}
-      <ArtifactRowMenu row={row} userSlug={userSlug} onChanged={onChanged} />
     </li>
   );
 }

@@ -2,12 +2,12 @@
  * @file use-artifacts-data.ts
  * @description P1545 WP3: loads everything the Artifacts page lists and hands it to the view model.
  *
- * One hook for both tabs. Letters sent to you come from `getAllReceivedLetters` (paged, no 20-row cap);
- * `getInboxItems` (a capped mixed list) is read only for sender activity, which feeds the sent letters'
- * "N replied" in Yours. That read is a refinement: the deliveries already give the replied count, so it
- * belongs to neither tab's success rule. Each source settles on its own, so one slow or failing service
- * never blanks the other tab; a tab errors only when all of ITS sources failed, and says "some could not
- * be loaded" when only part did.
+ * One hook for every list (Drafts, Sent, Received, Mine, Shared with me). Letters sent to you come from
+ * `getAllReceivedLetters` (paged, no 20-row cap); `getInboxItems` (a capped mixed list) is read only for sender
+ * activity, which feeds the sent letters' "N new from" and done counts. That read is a refinement: the deliveries
+ * already give the done count, so it belongs to no list's success rule. Each source settles on its own, so one slow
+ * or failing service never blanks another list; a list errors only when its source failed and nothing was ever
+ * loaded for it, and says "some could not be loaded" when a later read failed.
  *
  * Refreshes quietly every 15 s while the tab is visible and on focus (today's inbox/sent behaviour):
  * a failed quiet refresh keeps what is on screen and marks the tab "partial" (a small retry line).
@@ -21,19 +21,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
 import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
-import { buildArtifacts, type ArtifactRow, type SentLetter } from './artifacts-view-model';
+import { buildArtifacts, type ArtifactList, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 
 const POLL_MS = 15_000;
 
-export type TabStatus = 'loading' | 'ready' | 'error';
+export type ListStatus = 'loading' | 'ready' | 'error';
 
-export interface TabData {
-  status: TabStatus;
+export interface ListData {
+  status: ListStatus;
   rows: ArtifactRow[];
-  /** Ready, but at least one source failed: the list may be missing items. */
+  /** Ready, but its source failed on a later read: the list may be missing items. */
   partial: boolean;
-  /** At least one source of this tab has not answered yet; rows already loaded are shown meanwhile. */
+  /** The source of this list has not answered yet; rows already loaded are shown meanwhile. */
   pending: boolean;
 }
 
@@ -67,7 +67,7 @@ async function loadSent(userId: string): Promise<NonNullable<Sources['sent']>> {
   return { letters, deliveries, newByDelivery };
 }
 
-export function useArtifactsData(userId: string, userSlug: string | null): TabDataResult {
+export function useArtifactsData(userId: string, userSlug: string | null): ArtifactsData {
   const [sources, setSources] = useState<Sources>(EMPTY);
   const [failed, setFailed] = useState<Failed>({});
   const [settled, setSettled] = useState<Partial<Record<keyof Sources, boolean>>>({});
@@ -156,7 +156,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
     [sources, userSlug],
   );
 
-  const tabState = (keys: (keyof Sources)[], rows: ArtifactRow[]): TabData => {
+  const listState = (keys: (keyof Sources)[], rows: ArtifactRow[]): ListData => {
     const pending = !keys.every(k => settled[k]);
     const anyLoaded = keys.some(k => loaded[k]);
     // Spinner only while there is nothing to show yet; once any source has rows, show them and keep the rest pending.
@@ -168,14 +168,18 @@ export function useArtifactsData(userId: string, userSlug: string | null): TabDa
   };
 
   return {
-    yours: tabState(['docs', 'sent', 'myCanvases'], model.yours),
-    shared: tabState(['received', 'sharedCanvases'], model.shared),
+    lists: {
+      drafts: listState(['docs'], model.drafts),
+      sent: listState(['sent'], model.sent),
+      received: listState(['received'], model.received),
+      mine: listState(['myCanvases'], model.mine),
+      shared: listState(['sharedCanvases'], model.shared),
+    },
     refresh: () => load(),
   };
 }
 
-export interface TabDataResult {
-  yours: TabData;
-  shared: TabData;
+export interface ArtifactsData {
+  lists: Record<ArtifactList, ListData>;
   refresh: () => Promise<void>;
 }

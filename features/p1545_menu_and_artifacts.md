@@ -276,6 +276,19 @@ Founder UAT: a tap on a letter in Yours sometimes edits (draft) and sometimes op
 - **Canvas page:** shows Artifacts as the current section and has a Back button (today it sits under the profile layout, `/p/:handle/canvas/:projectTag`).
 - **Test data:** canvases shared with the founder's test account (one from a person, one via a group) on TEST only, so Shared with you and the chat card can be tried.
 
+### Split by kind, actions inside (founder, 2026-10-26)
+
+Founder UAT on the headings build: with real draft counts Sent sits far below Drafts ("I scroll a hundred million times"); Canvases appears both as a chip and as a heading; the row "…" holds a different set on every row type (draft: Prepare letter + Delete; sent: Delete only; public: nothing) and repeats what the item itself already offers. Founder pick: split by kind. Supersedes "Yours has headings" and "Row '…' only when usable" above.
+
+- **Tabs by kind:** `Letters | Canvases` (`?tab=letters|canvases`, default letters). Inside Letters a filter `Drafts · Sent · Received` (`&list=drafts|sent|received`, default drafts); inside Canvases `Mine · Shared with me` (`&list=mine|shared`, default mine). One list at a time: no section headings, no All chip.
+- **Dots:** Received and Shared with me carry a dot while anything in them is unread; Sent carries a dot while any sent letter has something new ("1 new from Tom" stays on the row). A tab carries a dot when one of its lists does.
+- **No "…" on any row.** A tap always opens the item: draft → editor, sent → overview, received → the letter, canvas → canvas.
+- **Actions live inside the item:** draft editor: Prepare letter (exists) and Delete draft (moved in, same guard and confirm as today); letter overview: Add recipients, Preview, Copy public link, and Delete letter while nobody has received it; canvas page: Share (exists).
+- **New lives in the tab:** Letters shows "New letter"; a tap asks "Who is it for? Specific people / Anyone with the link" (the draft's visibility is set at creation and governs who can see its stories). Canvases shows no New until P1536 builds canvas creation. The header "New artifact" menu is removed.
+- **Search** covers the current list only.
+- **Old links keep working:** `/letters?tab=drafts|sent|inbox` → Letters Drafts / Sent / Received; `/artifacts?tab=yours[&type=letters]` → Letters Drafts; `?tab=yours&type=canvases` → Canvases Mine; `?tab=shared[&type=letters]` → Letters Received; `?tab=shared&type=canvases` → Canvases Shared with me.
+- **Review lens for this round:** realistic volume (25+ drafts) and consistency (the same kind of row behaves the same everywhere), not single screenshots.
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.
