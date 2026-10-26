@@ -19,6 +19,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0 # P1566: the quality ratchet compares against the range base
 
+      # fetch-depth: 0 already brings origin/main; fetched again explicitly so the ratchet's
+      # base never depends on checkout defaults (same step as closure-gate.yml).
       - name: Fetch base (origin/main)
         run: git fetch --no-tags --quiet origin main:refs/remotes/origin/main || git fetch --no-tags --quiet origin main
 

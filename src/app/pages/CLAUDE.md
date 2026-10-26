@@ -15,7 +15,7 @@ limit; see any file's numbers with `node scripts/quality-ratchet.cjs --measure <
   1. State and effects into a hook (`use-<thing>.ts`), returning what the page renders.
   2. A visible region into a component file next to the page (`<Page>Header.tsx`).
   3. Pure helpers (formatting, mapping) into a `.ts` file; `.tsx` files export
-     components only (react-refresh rule).
+     components only (react-refresh rule, docs/technical/architecture.md).
 - A long `useEffect` or handler: name the steps as functions outside the component and
   call them in order. Each branch you extract lowers the complexity number too.
 - Never cut a component in half at an arbitrary line to get under the limit: the second

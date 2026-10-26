@@ -160,16 +160,24 @@ fi
 #     INDEX blob with HEAD (never the working tree), staged files only; the whole-graph
 #     checks (cycles, duplicates) run in CI. The full output is printed on failure: each
 #     finding carries its value, limit and remedy, and a tail would drop the first ones.
-if [ -n "$STAGED_TS" ]; then
-    if RATCHET_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/quality-ratchet.cjs" --staged 2>&1)"; then
+# Trigger on every extension the ratchet judges, not ESLint's .ts/.tsx list (scope.cjs).
+STAGED_CODE=$(echo "$STAGED_FILES" | grep -iE '\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$' || true)
+if [ -n "$STAGED_CODE" ]; then
+    RATCHET_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/quality-ratchet.cjs" --staged 2>&1)"
+    RATCHET_RC=$?
+    if [ "$RATCHET_RC" -eq 0 ]; then
         echo -e ">>> Quality ratchet... ${GREEN}✓${NC} ${RATCHET_OUT#quality-ratchet: OK }"
-    else
+    elif [ "$RATCHET_RC" -eq 1 ]; then
         echo -e ">>> Quality ratchet... ${RED}✗ code shape regressed (P1566):${NC}"
+        echo "$RATCHET_OUT"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e ">>> Quality ratchet... ${RED}✗ could not run, blocking commit (exit $RATCHET_RC):${NC}"
         echo "$RATCHET_OUT"
         ERRORS=$((ERRORS + 1))
     fi
 else
-    echo -e ">>> Quality ratchet... ${GREEN}skipped (no .ts/.tsx staged)${NC}"
+    echo -e ">>> Quality ratchet... ${GREEN}skipped (no code files staged)${NC}"
 fi
 
 # 2c. Nested folder guides (P1566) — every CLAUDE.md under src/ stays at most 40 lines with

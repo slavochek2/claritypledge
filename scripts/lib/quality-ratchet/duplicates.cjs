@@ -14,16 +14,18 @@
 // them). The ratchet fails when a window occurs MORE often at the tip than at the base:
 // moving or renaming code keeps the count, a new copy raises it.
 
-const ts = require('typescript');
 const { normalizedLines } = require('./size.cjs');
+const { scope } = require('./scope.cjs');
 
 const WINDOW = 10;
 const SUBSTANTIVE = 7;
 
-const INCLUDE = [/^src\/.*\.(ts|tsx)$/, /^supabase\/functions\/.*\.ts$/];
-// Prototype folders copy production code by design (the stage 4 trial's only noise class).
-const EXCLUDE = [/\.test\.(ts|tsx)$/, /^src\/tests\//, /\.d\.ts$/, /^src\/app\/prototypes\//, /^src\/app\/pages\/prototypes\//, /^src\/app\/tree\//];
-const inScope = (p) => INCLUDE.some((r) => r.test(p)) && !EXCLUDE.some((r) => r.test(p));
+// The shared scope, plus the stage 4 trial's only noise class: prototypes copy
+// production code by design.
+const inScope = scope([
+  { glob: 'src/app/pages/prototypes/**', reason: 'prototype pages copy production code by design (P1566 stage 4 trial)' },
+  { glob: 'src/app/tree/**', reason: 'dev-gated /tree demos copy production code by design (P1566 stage 4 trial)' },
+]);
 
 const isImport = (l) => /^(import\b|export \* from|export \{[^}]*\} from|export type \{[^}]*\} from)/.test(l);
 const substantive = (l) => l.length >= 12 && /[A-Za-z]/.test(l);
@@ -40,8 +42,8 @@ function collect(files) {
   const text = new Map(); // file to normalized lines
   for (const [p, content] of files) {
     if (!inScope(p)) continue;
-    let lines;
-    try { lines = normalizedLines(content, p).filter((l) => !isImport(l)); } catch { continue; }
+    // A file that cannot be measured is a tool error (exit 2), never a silent skip.
+    const lines = normalizedLines(content, p).filter((l) => !isImport(l));
     text.set(p, lines);
     for (let i = 0; i + WINDOW <= lines.length; i++) {
       const w = lines.slice(i, i + WINDOW);
@@ -54,22 +56,26 @@ function collect(files) {
   return { windows, text };
 }
 
+const countIn = (locs, file) => locs.reduce((n, l) => n + (l.file === file ? 1 : 0), 0);
+
 // Violations for windows that occur more often at the tip, merged into one finding per
-// contiguous run of lines in a file, naming where else the block lives. Reported only in
-// files this change touched (the new copy), unless none of the copies is in one.
+// contiguous run of lines in a file, naming where else the block lives. A copy is
+// reported where it was ADDED: in a file whose own count of the window rose, so an
+// existing copy in a file the change merely touched is never blamed.
 function compare(base, tip, ctx = {}) {
-  const changed = ctx.changed || null;
+  const renames = ctx.renames || new Map();
   const fresh = new Map(); // file to Set(at)
-  const elsewhere = new Map(); // `${file}:${at}` to other locations
+  const detail = new Map(); // `${file}:${at}` to { others, now, was }
   for (const [id, locs] of tip.windows) {
     if (locs.length < 2) continue;
-    const before = (base.windows.get(id) || []).length;
-    if (locs.length <= before) continue;
-    const touched = changed ? locs.filter((l) => changed.has(l.file)) : [];
-    for (const l of touched.length ? touched : locs) {
+    // Base locations under their tip names, so a renamed file's old copy stays its own.
+    const baseLocs = (base.windows.get(id) || []).map((l) => ({ file: renames.get(l.file) || l.file, at: l.at }));
+    if (locs.length <= baseLocs.length) continue;
+    for (const l of locs) {
+      if (countIn(locs, l.file) <= countIn(baseLocs, l.file)) continue;
       if (!fresh.has(l.file)) fresh.set(l.file, new Set());
       fresh.get(l.file).add(l.at);
-      elsewhere.set(`${l.file}:${l.at}`, locs.filter((o) => o !== l));
+      detail.set(`${l.file}:${l.at}`, { others: locs.filter((o) => o !== l), now: locs.length, was: baseLocs.length });
     }
   }
   const out = [];
@@ -79,12 +85,14 @@ function compare(base, tip, ctx = {}) {
     let prev = start;
     const flush = () => {
       const lines = tip.text.get(file);
-      const others = [...new Set((elsewhere.get(`${file}:${start}`) || []).map((o) => o.file))];
+      const d = detail.get(`${file}:${start}`);
+      const others = [...new Set(d.others.map((o) => o.file))];
       out.push({
         metric: 'duplicates',
         file,
         line: 1,
-        message: `${prev - start + WINDOW} duplicated lines starting \`${lines[start].slice(0, 80)}\`; the same block is in ${others.join(', ')}.`,
+        message: `${prev - start + WINDOW} duplicated lines starting \`${lines[start].slice(0, 80)}\` now occur ${d.now} times `
+          + `(was ${d.was}; no new copy allowed of any ${WINDOW}-line block with ${SUBSTANTIVE}+ lines of code). Also in: ${others.join(', ')}.`,
         remedy: 'Extract the shared block into one function or component and call it from both places. '
           + 'If you moved code, delete the old copy in the same commit.',
       });

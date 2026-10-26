@@ -105,7 +105,10 @@ worse number. It prints measured value, limit and remedy. Rename handling: pair 
 deferred typecheck baseline ratchet (`scripts/typecheck-gate.sh` "Option B"; the open founder
 decision in decisions.md) can plug in as one more metric.
 
-Stages, ordered by signal per unit of judgment and install cost:
+Stages, ordered by signal per unit of judgment and install cost. **As built, the
+tool choices below were superseded** (Prettier, ESLint JSON output, dependency-cruiser and
+jscpd were replaced by the TypeScript compiler already in the repo, and no devDependency was
+added). The Trial Record states the deviations and the mechanism that shipped.
 
 1. **Size and complexity (pre-commit + CI, no new dependency).** ESLint's `max-lines` is a static
    threshold with no baseline, so it cannot ratchet on its own and is **not** turned on in
@@ -169,7 +172,8 @@ harness before relying on discovery (enforcement does not depend on it).
 ## Done-When
 
 - [ ] Each of the 4 stages has a recorded trial (raw counts, sample classification, one refactor
-      attempt, keep/tune/withdraw verdict) in this spec and a `docs/decisions.md` entry
+      attempt, keep/tune/withdraw verdict) in this spec and a `docs/decisions.md` entry (a stage
+      deferred under the last item records the deferral and its entry instead)
 - [ ] Every retained gate is proven on the real repo (gates 7, 7c, 7d), exit codes pasted:
       fails on a known-bad change, on a newly added disable directive, and on split laundering;
       passes on a commit that touches an over-limit file without growing it, and on a `git mv` of
@@ -207,7 +211,7 @@ Revert that commit. There are no baseline files to clean up.
 
 ## Related
 
-- [P1241](p1241_knip_configuration_and_triage.md): Knip config and triage, absorbed as stage 1
+- [P1241](p1241_knip_configuration_and_triage.md): Knip config and triage, the prerequisite for stage 3
 - [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md): AGENTS.md size cap and
   projection findings, which constrain layer C
 - decisions.md: tsconfig typecheck baseline/ratchet listed as an open founder decision (batch-run
@@ -233,3 +237,68 @@ Rejected: Gemini #7 (dependency-cruiser on a staged file misses cycles). It foll
 the given file, so a cycle through that file is still found; moot anyway because cycles are now
 CI-only. Gemini #10 (Windows symlinks): the root `AGENTS.md` is already a symlink; no Windows
 contributors.
+
+## Trial Record
+
+Run 2026-10-26 on the real tree, per section A. Full reasoning per stage is in
+`docs/decisions.md` (four entries dated 2026-10-26, "P1566 stage N").
+
+**Deviations from the Solution as written.** (1) Prettier is not installed, so stage 1
+normalizes with the TypeScript printer (comments stripped, blocks expanded, one statement
+per line). That is stronger against gaming, because Prettier keeps comments. (2) Stages 2
+and 4 are built on the TypeScript compiler already in the repo instead of
+dependency-cruiser and jscpd, after a security review the founder asked for (18 direct
+deps for one rule; an unauditable native binary or a `colors`-dependent 4.x). No
+devDependency was added. (3) Complexity is ESLint 9's classic count reimplemented on the TS
+AST (matched ESLint on 560 of 560 functions), not ESLint's JSON output, so one parse serves
+lines, functions and complexity, and an eslint-disable cannot silence it. (4) **CI flags,
+pre-commit blocks.** `test.yml` is not among `main`'s required checks and does not run on the
+`staging/*` hop, so the CI step reports a regression after it lands on `main`. Making it
+required on the hop is an open founder decision. (5) In a worktree, the installed git hook runs the **main
+checkout's** `pre-commit-checks.sh`, so the new pre-commit blocks take effect only after
+merge. Proofs below ran the worktree's copy explicitly.
+
+| Stage | Raw counts (HEAD) | Sample | Refactor trial | Friction (replay) | Verdict |
+|---|---|---|---|---|---|
+| 1 size / complexity | 702 files in scope; 47 over 400 lines; 122 functions over 80 lines, 135 over complexity 20 (703 / 48 / 123 / 137 after the JS family joined scope) | 61 findings classified, 60 real; 1 FP (in-file rename), fixed | `getUnreadLetterCount` complexity 24 to 9, 47 to 17 lines, 53/53 tests green, ratchet OK: better | 104 of 300 src commits (35%) after the review fixes; 0 laundering findings | **KEEP**, tuned: complexity 15 to 20, own-line function length, rename handling, tests out of scope |
+| 2 import cycles | 0 cycles; 673 modules, 2,102 runtime edges at the shipped scope (715 / 2,463 in the first trial; prototypes now exempt, `supabase/functions/_shared/` now in the graph). Controls: planted cycle caught via relative and `@/`; type-only loop ignored | 0 live findings; history: cycles at 3 points in the past year | September's 3-file cycle broken by moving one 3-line constant: better | 0 of 60 src commits | **KEEP** |
+| 3 unused code | not run | n/a | n/a | n/a | **DEFERRED** to after P1241 (backlog, no config) |
+| 4 exact duplicates | 662 windows, 294 regions, 72 of 650 files at the shipped scope | 22 regions (drawn before the scope tuning): 18 real, 4 noise (3 prototype copies, 1 type field list) | three identical time-ago helpers consolidated, 5 windows removed, none added: better | 1 of 60 src commits, real | **KEEP**, tuned: prototype folders out of scope, findings reported in touched files only |
+
+**Gate proofs on the real repo** (exit codes; worktree index, restored after each):
+
+| Proof | Exit |
+|---|---|
+| P1 `api.ts` (over limit) grows by one statement | 1 |
+| P2 new `// eslint-disable-next-line complexity` in `letters-service.ts` | 1 |
+| P3 `letters-service.ts` edited without growing | 0 |
+| P4 `git mv` of `letters-service.ts` | 0 |
+| P5 split laundering: a real function moved out of `api.ts`, same amount added back | 1 |
+| P6 the same extraction done as the message prescribes (import + re-export only) | 0 |
+| Worktree hook copy, `api.ts` growth staged: blocked by the ratchet alone (build, tests, ESLint green) | 1 |
+| CI command (`--ci`, push form) on a known-bad commit (size + cycle + duplicate) | 1, four findings |
+| CI command, pull_request form, same commit | 1 |
+| CI command on a known-good commit | 0 |
+| CI command, push with no usable before SHA | 2 (refuses an empty range) |
+| `check-nested-guides.cjs --rev HEAD` on a tree without the guides | 1 |
+| Hermetic canary `scripts/test-quality-ratchet.sh` | 0 (82/82 after two review rounds and a final check: every confirmed reviewer finding is a scenario, plus `--ci` push, PR, zero-SHA and force-push cases); each mutant (growth rule, laundering, cycles, duplicates, class-extends and JS-import fixes disabled) exits 1 |
+
+**Nested guide loading probe** (scratch repo, root token as control): Claude Code 2.1.310
+loads a nested `CLAUDE.md` on file access. Codex 0.162.1 loads a nested `AGENTS.md` only when
+started inside that folder (control from `sub/`: both tokens). Gemini CLI 0.55.1 reads
+neither name: its discovery looks for `GEMINI.md` only, and with `GEMINI.md` present it loads
+the root file at startup. On-access loading is unverified because the CLI's API key is
+rejected. So the gate message, which states value, limit and remedy, is the only channel
+that reaches every harness.
+
+**Review round** (`/finish`, 4 of 4 reviewers reported: Gemini, Codex, an Opus adversary,
+a Sonnet criteria reviewer). Every claim was reproduced by command before acting; each
+confirmed code defect was fixed and is now a canary scenario (list in the stage 1
+decisions entry), and each confirmed docs inaccuracy was corrected. **Known limitations, accepted:** laundering where every moved line is
+edited in transit; branches spread over immediately-invoked functions (decomposition, the
+remedy itself); a rename that rewrites every line in the same commit (judged as a new
+file); near-duplicates with one line in nine changed (exact profile by design); a `git mv`
+into an excluded path; a cycle through a folder outside `src/` and
+`supabase/functions/_shared/`; a top-level `await import()` (treated as lazy); a parameter
+shadowing an imported type's name can make the cycle check report a cycle the build would
+not have (errs toward flagging, never toward missing).

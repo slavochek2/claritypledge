@@ -20,25 +20,19 @@
 //       2 = the tool could not run (never reported as a pass).
 //
 // Metrics plug in through METRICS below. A `file` metric measures one blob and compares
-// before/after per file (size.cjs). A `tree` metric would collect finding IDs over a
-// materialized tree and fail on IDs new at TIP: that is the shape the deferred
-// typecheck baseline (typecheck-gate.sh "Option B") and the whole-graph stages take.
+// before/after per file (size.cjs). A `tree` metric collects findings over the whole
+// project at both commits and compares them (cycles.cjs, duplicates.cjs); it receives an
+// in-memory snapshot (path to content) read from git objects. A tool that needs files on
+// disk (Knip, tsc for the deferred typecheck-gate.sh "Option B") would first need the
+// runner to materialize each commit, e.g. with `git worktree add --detach`.
 
 const { execFileSync } = require('child_process');
 const size = require('./lib/quality-ratchet/size.cjs');
 const cycles = require('./lib/quality-ratchet/cycles.cjs');
 const duplicates = require('./lib/quality-ratchet/duplicates.cjs');
 const { snapshot } = require('./lib/quality-ratchet/snapshot.cjs');
-
-// Files the size metric judges. Tests are out of scope for v1 (see the P1566 stage 1 trial).
-const SCOPE = [/^src\/.*\.(ts|tsx)$/, /^supabase\/functions\/.*\.ts$/];
-const OUT_OF_SCOPE = [/\.test\.(ts|tsx)$/, /^src\/tests\//, /\.d\.ts$/];
-
-// Every exemption carries its reason (spec invariant: no silent exemptions). An entry
-// without one is a tool error, not a pass.
-const EXEMPT = [
-  { glob: 'src/app/prototypes/**', reason: 'throwaway prototypes, already excluded from ESLint (eslint.config.js ignores)' },
-];
+// Which files are judged, and every exclusion with its reason, lives in one place.
+const { inScope } = require('./lib/quality-ratchet/scope.cjs');
 
 // file metrics run anywhere; tree metrics read the whole project at two commits, so they
 // run in range/CI mode only (spec invariant: whole-graph gates are CI-only).
@@ -58,26 +52,6 @@ function die(msg) {
 
 function git(args, opts = {}) {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], ...opts });
-}
-
-function globToRegex(glob) {
-  let re = '';
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === '*' && glob[i + 1] === '*') { re += '.*'; i++; if (glob[i + 1] === '/') i++; }
-    else if (c === '*') re += '[^/]*';
-    else re += c.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-  }
-  return new RegExp(`^${re}$`);
-}
-
-for (const e of EXEMPT) {
-  if (!e.reason || !e.reason.trim()) die(`EXEMPT entry '${e.glob}' has no reason — every exemption must say why.`);
-}
-const EXEMPT_RE = EXEMPT.map((e) => globToRegex(e.glob));
-
-function inScope(p) {
-  return SCOPE.some((r) => r.test(p)) && !OUT_OF_SCOPE.some((r) => r.test(p)) && !EXEMPT_RE.some((r) => r.test(p));
 }
 
 // rev '' means the index.
@@ -109,13 +83,40 @@ function changes(diffArgs) {
   return list;
 }
 
-function fileMetricViolations(mod, list, beforeRev, afterRev) {
+// A rename that also cut the file hard falls below git's -M similarity and arrives as
+// delete + add. Pair them back into one rename BEFORE anything is measured, when most of
+// the new file's lines came from the deleted one, so the file is judged against its own
+// past (a shrink is not a "new oversize file") and its functions can be followed.
+function pairCutRenames(mod, list, beforeRev, afterRev) {
+  const adds = list.filter((c) => c.status === 'A' && inScope(c.path));
+  const dels = list.filter((c) => c.status === 'D' && inScope(c.oldPath));
+  if (adds.length === 0 || dels.length === 0) return list;
+  const dm = dels.map((c) => ({ c, movable: mod.measure(blob(beforeRev, c.oldPath), c.oldPath).movable }));
+  const replaced = new Map();
+  for (const a of adds) {
+    const am = mod.measure(blob(afterRev, a.path), a.path);
+    let best = null;
+    for (const d of dm) {
+      if (replaced.has(d.c)) continue;
+      const share = mod.containment(d.movable, am.movable);
+      if (share >= 0.5 && (!best || share > best.share)) best = { d, share };
+    }
+    if (best) replaced.set(best.d.c, a);
+  }
+  if (replaced.size === 0) return list;
+  const drop = new Set([...replaced.keys(), ...replaced.values()]);
+  return list.filter((c) => !drop.has(c)).concat([...replaced].map(([d, a]) => ({ status: 'R', oldPath: d.oldPath, path: a.path })));
+}
+
+function fileMetricViolations(mod, rawList, beforeRev, afterRev) {
+  const list = pairCutRenames(mod, rawList, beforeRev, afterRev);
   const violations = [];
   let checked = 0;
   let frozen = 0;
   const measured = [];
   const gone = []; // over-limit functions that left their file (by key) in this change
-  const addedPool = new Map(); // movable lines of files added in this change
+  const added = new Map(); // net-added movable lines across every file in this change
+  const ownAdded = new Map(); // path to that file's own net-added lines
 
   const leave = (fns, file) => {
     for (const f of fns) gone.push({ ...f, file });
@@ -134,10 +135,14 @@ function fileMetricViolations(mod, list, beforeRev, afterRev) {
     }
     if (!afterIn) continue;
     const after = mod.measure(afterText, c.path);
-    measured.push({ c, before: c.status === 'A' ? null : before, after, beforeText, afterText });
-    if (c.status === 'A') {
-      for (const l of mod.movableLines(afterText, c.path)) addedPool.set(l, (addedPool.get(l) || 0) + 1);
-    } else if (before) {
+    measured.push({ c, before: c.status === 'A' ? null : before, after });
+    // Lines this change added to the file (all of them for a new file). Code moved out of
+    // an over-limit file lands here whether the destination is new or already existed.
+    const net = mod.multiset(after.movable);
+    if (before) for (const l of before.movable) { const n = net.get(l) || 0; if (n > 0) net.set(l, n - 1); }
+    ownAdded.set(c.path, net);
+    for (const [l, n] of net) if (n > 0) added.set(l, (added.get(l) || 0) + n);
+    if (c.status !== 'A' && before) {
       // Over-limit functions present before but gone (by key) after are candidates for a move.
       const afterKeys = mod.multiset(mod.overFunctions(after).map((f) => f.key));
       const left = [];
@@ -149,12 +154,13 @@ function fileMetricViolations(mod, list, beforeRev, afterRev) {
     }
   }
 
-  // A "new" over-limit function is not new when one that was at least as large left
-  // in the same change: renamed in place (same file, any name) or moved (same name,
-  // another file). Renamed AND moved at once is not recognised; the message says to
-  // split the rename into its own commit.
+  // A "new" over-limit function is not new when one that was at least as large left in
+  // the same change AND shares most of its body: renamed in place (same file, any name)
+  // or moved (same name, another file). Without the body check, deleting one long
+  // function would license an unrelated new one. Renamed AND moved at once is not
+  // recognised; the message says to split the rename into its own commit.
   const functionsLeaving = (f, file) => {
-    const fits = (g) => g.lines >= f.lines && g.complexity >= f.complexity;
+    const fits = (g) => g.lines >= f.lines && g.complexity >= f.complexity && mod.containment(g.body, f.body) >= mod.SAME;
     let i = gone.findIndex((g) => g.file === file && fits(g));
     if (i < 0) i = gone.findIndex((g) => g.file !== file && g.name === f.name && fits(g));
     if (i < 0) return false;
@@ -167,16 +173,16 @@ function fileMetricViolations(mod, list, beforeRev, afterRev) {
     let movedOut = 0;
     if (m.before && m.before.lines > mod.LIMITS.fileLines) {
       frozen++;
-      if (addedPool.size > 0 && m.after.lines < m.before.lines + 1) {
-        const removed = mod.multiset(mod.movableLines(m.beforeText, m.c.oldPath));
-        for (const l of mod.movableLines(m.afterText, m.c.path)) {
-          const n = removed.get(l) || 0;
-          if (n > 0) removed.set(l, n - 1);
-        }
+      if (m.after.lines <= m.before.lines) {
+        // Lines removed from this file that this change added somewhere else = moved out.
+        const removed = mod.multiset(m.before.movable);
+        for (const l of m.after.movable) { const n = removed.get(l) || 0; if (n > 0) removed.set(l, n - 1); }
+        const own = ownAdded.get(m.c.path) || new Map();
         for (const [l, n] of removed) {
-          const avail = addedPool.get(l) || 0;
+          const avail = (added.get(l) || 0) - (own.get(l) || 0);
           const take = Math.min(n, avail);
-          if (take > 0) { movedOut += take; addedPool.set(l, avail - take); }
+          // Claimed lines leave the pool: one copy cannot pay for growth in two files.
+          if (take > 0) { movedOut += take; added.set(l, added.get(l) - take); }
         }
       }
     }
@@ -205,10 +211,12 @@ function report(results, label) {
   for (const v of all) {
     process.stdout.write(`  [${v.metric}] ${v.file}:${v.line}\n    ${v.message}\n    Fix: ${v.remedy}\n\n`);
   }
-  const L = size.LIMITS;
-  process.stdout.write(`  Limits: file ${L.fileLines} / function ${L.functionLines} normalized lines, complexity ${L.complexity} (ESLint classic). Normalized lines\n`
-    + '  exclude comments and blank lines and count one statement per line, so reformatting does not help.\n'
-    + '  See a file\'s numbers: node scripts/quality-ratchet.cjs --measure <file>\n');
+  if (all.some((v) => v.metric === 'size')) {
+    const L = size.LIMITS;
+    process.stdout.write(`  Limits: file ${L.fileLines} / function ${L.functionLines} normalized lines, complexity ${L.complexity} (ESLint classic). Normalized lines\n`
+      + '  exclude comments and blank lines and count one statement per line, so reformatting does not help.\n'
+      + '  See a file\'s numbers: node scripts/quality-ratchet.cjs --measure <file>\n');
+  }
   return 1;
 }
 
@@ -224,8 +232,9 @@ function ciRange() {
     try { git(['merge-base', '--is-ancestor', before, 'HEAD']); } catch { die(`before ${before} is not an ancestor of HEAD — refusing rather than judging an empty range.`); }
     return `${before}..HEAD`;
   }
+  const target = `origin/${process.env.GITHUB_BASE_REF || 'main'}`;
   let base;
-  try { base = git(['merge-base', 'origin/main', 'HEAD']).trim(); } catch { die('cannot compute merge-base with origin/main (is the checkout shallow?).'); }
+  try { base = git(['merge-base', target, 'HEAD']).trim(); } catch { die(`cannot compute merge-base with ${target} (is the checkout shallow, or the base branch not fetched?).`); }
   return `${base}..HEAD`;
 }
 
@@ -234,6 +243,7 @@ function main() {
   const mIdx = args.indexOf('--metrics');
   const staged = args.includes('--staged');
   const names = mIdx >= 0 ? (args[mIdx + 1] || '').split(',').filter(Boolean) : (staged ? DEFAULT_STAGED : DEFAULT_RANGE);
+  if (names.length === 0) die('--metrics needs at least one metric name; an empty list would judge nothing.');
   for (const n of names) if (!METRICS[n]) die(`unknown metric '${n}' (known: ${Object.keys(METRICS).join(', ')})`);
   if (staged && names.some((n) => METRICS[n].kind === 'tree')) die('whole-project metrics (kind: tree) run in --range/--ci mode only.');
 
@@ -264,6 +274,7 @@ function main() {
   } else {
     const range = args.includes('--ci') ? ciRange() : args[args.indexOf('--range') + 1];
     if (!range || !range.includes('..')) die('need --staged, --ci, --measure or --range BASE..TIP');
+    if (range.includes('...')) die('--range takes BASE..TIP (two dots); a three-dot range would judge the wrong commits.');
     const [b, t] = range.split('..');
     beforeRev = git(['rev-parse', '--verify', `${b}^{commit}`]).trim();
     afterRev = git(['rev-parse', '--verify', `${t}^{commit}`]).trim();

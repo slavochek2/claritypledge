@@ -50,8 +50,11 @@ function main() {
   }
   for (const g of guides) {
     const dir = g.slice(0, -'/CLAUDE.md'.length);
-    const lines = blob(files.get(g).sha).replace(/\n$/, '').split('\n').length;
-    if (lines > MAX_LINES) {
+    const text = blob(files.get(g).sha);
+    const lines = text.replace(/\n$/, '').split('\n').length;
+    if (!text.trim()) {
+      problems.push(`${g} is empty. Fix: write the folder guide (what the folder owns, how to split a file at the size limit, how to test).`);
+    } else if (lines > MAX_LINES) {
       problems.push(`${g} has ${lines} lines (limit ${MAX_LINES}). Fix: cut it to what an agent needs in this folder; link to docs/ for the rest.`);
     }
     const a = files.get(`${dir}/AGENTS.md`);

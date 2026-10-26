@@ -1,11 +1,11 @@
 # src/app/data — data access
 
-**Owns:** every read and write to Supabase from the app. Components and hooks call a
-service here; they never call `supabase.from(...)` themselves.
+**Owns:** every read and write to Supabase from the app. Components and hooks should call
+a service here rather than `supabase.from(...)` themselves (a few legacy pages still do).
 
 **Shape (see docs/technical/architecture.md, Service Layer Pattern):**
-- `{domain}-service.interface.ts` types, `-real.ts` Supabase, `-mock.ts` tests,
-  `{domain}-service.ts` the switch callers import.
+- `{domain}-service.interface.ts` types, `{domain}-service-real.ts` Supabase,
+  `{domain}-service-mock.ts` tests, `{domain}-service.ts` the switch callers import.
 - `api.ts` is the legacy catch-all. Do not add to it; it is over the size limit.
 - DB errors go through `logDbError` / `throwDbError` (`db-error-logger.ts`), never a bare
   `throw` after logging (ESLint P990 rule).
