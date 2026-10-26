@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 91
 workstream: infrastructure
@@ -11,6 +11,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-26
 ---
 
 # P1572: The e2e lock reports a bad key as an overloaded database, and overstates its reach
