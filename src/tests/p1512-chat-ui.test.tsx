@@ -954,7 +954,7 @@ describe('conversation', () => {
     const dmPanel = await screen.findByTestId('thread-panel');
     expect(await within(dmPanel).findByText('a reply in the dm thread')).toBeInTheDocument();
     expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/dm1/t/x');
-    fireEvent.contextMenu(within(screen.getByTestId('conversation')).getByText('plain dm message'));
+    fireEvent.contextMenu(await within(screen.getByTestId('conversation')).findByText('plain dm message'));
     expect(await screen.findByRole('menuitem', { name: 'Reply in thread' })).toBeInTheDocument();
   });
 
