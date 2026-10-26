@@ -21,7 +21,7 @@ function HomeProfileError({ onRetry }: { onRetry: () => void }) {
   return (
     <div role="alert" className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center">
       <p className="text-base text-foreground">We could not load your account. Check your connection and try again.</p>
-      <Button className="min-h-10 rounded-lg bg-blue-600 text-white hover:bg-blue-700" onClick={onRetry}>
+      <Button className="min-h-10 rounded-lg" onClick={onRetry}>
         Try again
       </Button>
       <Link to="/feed" className="text-sm text-blue-700 underline underline-offset-2">

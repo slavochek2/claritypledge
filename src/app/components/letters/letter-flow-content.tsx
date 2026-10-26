@@ -936,7 +936,7 @@ export function LetterFlowContent({
                   // "cant select again" strand). isSubmitting alone guards double-submit.
                   disabled={isSubmitting}
                   submitLabel="Continue"
-                  ctaClassName="bg-blue-600 hover:bg-blue-700 w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
+                  ctaClassName="w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
                 />
               </FixedBottomBar>
             ))}

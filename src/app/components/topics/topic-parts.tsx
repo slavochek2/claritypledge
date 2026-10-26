@@ -253,7 +253,7 @@ export function AddYourOwn({ onAdded, secondary = false }: { onAdded: () => Prom
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <Button type="button" variant={secondary ? 'outline' : 'default'} className={cn('min-h-11 self-start', secondary ? 'rounded-full' : 'bg-blue-500 text-white hover:bg-blue-700')} onClick={() => setOpen(true)}>
+      <Button type="button" variant={secondary ? 'outline' : 'default'} className={cn('min-h-11 self-start', secondary && 'rounded-full')} onClick={() => setOpen(true)}>
         <Plus className="mr-1 h-4 w-4" aria-hidden /> Suggest a topic
       </Button>
       <DialogContent className="sm:max-w-md">
@@ -308,7 +308,7 @@ export function AddYourOwn({ onAdded, secondary = false }: { onAdded: () => Prom
             {status === 'long' && <p className="text-sm text-red-600">Keep the expert suggestion under 240 characters.</p>}
             {status === 'limit' && <p className="text-sm text-red-600">You've added 5 topics today. Try again tomorrow.</p>}
             {status === 'error' && <p className="text-sm text-red-600">Not added. Try again in a moment.</p>}
-            <Button type="submit" className="min-h-11 self-end bg-blue-500 text-white hover:bg-blue-700">
+            <Button type="submit" className="min-h-11 self-end">
               {status === 'sending' ? 'Submitting…' : 'Submit'}
             </Button>
           </form>

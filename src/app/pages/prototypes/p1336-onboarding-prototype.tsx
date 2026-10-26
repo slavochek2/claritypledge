@@ -674,7 +674,7 @@ function MockRegisterStep({ onRegistered }: { onRegistered: (choice: PrepChoice)
         </div>
         <Button
           onClick={() => setOpen(true)}
-          className="w-full bg-blue-500 hover:bg-blue-700 text-white"
+          className="w-full"
           size="lg"
           data-testid="rsvp-button"
         >
@@ -733,7 +733,7 @@ function MockRegisterStep({ onRegistered }: { onRegistered: (choice: PrepChoice)
             {choice && (
               <Button
                 size="lg"
-                className="w-full bg-blue-500 hover:bg-blue-700 text-white"
+                className="w-full"
                 onClick={() => onRegistered(choice)}
                 data-testid="register-confirm"
               >
@@ -1496,6 +1496,7 @@ export function P1336OnboardingPrototype({ variant }: { variant?: 'c' | 'd' } = 
                         'h-12 min-w-0 rounded-full px-2 text-base',
                         // /meet's selected treatment: filled navy, semibold (meeting-terms-page ladder).
                         micSetup === value &&
+                          // eslint-disable-next-line no-restricted-syntax -- P1568: prototype's deliberate navy selected-state, not a primary button
                           'border-2 border-[#002B5C] bg-[#002B5C] font-semibold text-white hover:bg-[#002B5C] hover:text-white dark:border-blue-400 dark:bg-blue-400',
                       )}
                     >
@@ -1545,7 +1546,7 @@ export function P1336OnboardingPrototype({ variant }: { variant?: 'c' | 'd' } = 
                   </button>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-2" data-testid="research-answers">
-                  <Button onClick={() => { setMicAsked(true); window.scrollTo(0, 0); }} size="lg" className="h-12 min-w-0 rounded-full bg-blue-600 px-2 text-base text-white hover:bg-blue-700">
+                  <Button onClick={() => { setMicAsked(true); window.scrollTo(0, 0); }} size="lg" className="h-12 min-w-0 rounded-full px-2 text-base">
                     Yes, sure
                   </Button>
                   <Button onClick={() => { setMicSetup(null); next(); }} size="lg" variant="outline" className="h-12 min-w-0 rounded-full px-2 text-base">

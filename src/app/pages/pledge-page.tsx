@@ -123,7 +123,7 @@ export function PledgePage() {
             This pledge doesn't exist or has been removed.
           </p>
           <Link to="/">
-            <Button className="bg-blue-500 hover:bg-blue-700 text-white">
+            <Button>
               Go to Home
             </Button>
           </Link>

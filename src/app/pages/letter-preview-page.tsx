@@ -117,7 +117,7 @@ export function LetterPreviewPage() {
       </p>
       <Button
         size="sm"
-        className="ml-auto gap-1 bg-blue-500 hover:bg-blue-700 text-white"
+        className="ml-auto gap-1"
         onClick={() => closePreview(navigate)}
       >
         <X className="h-3.5 w-3.5" />
@@ -241,7 +241,6 @@ function LetterPreviewFlow({
         </p>
         <Button
           onClick={() => closePreview(navigate)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           Close preview
         </Button>

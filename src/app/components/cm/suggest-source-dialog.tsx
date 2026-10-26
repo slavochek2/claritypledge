@@ -153,7 +153,6 @@ export function SuggestSourceDialog() {
               <Button
                 type="submit"
                 disabled={phase === "saving"}
-                className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-700"
               >
                 {phase === "saving" ? "Sending…" : "Send"}
               </Button>

@@ -71,6 +71,19 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', {
         selector: 'ExpressionStatement[expression.callee.name="logDbError"] + ThrowStatement',
         message: 'P990: logDbError followed by a bare throw re-reports filtered noise to Sentry. Use throwDbError(context, error, message) instead.',
+      }, {
+        // P1568: Button colour comes from its variant. Flags string literals and
+        // template-literal quasis in a <Button className={...}> (incl. inside cn()/ternaries).
+        // Only pale HOVER tints (hover:bg-blue-50/100) are allowed; any static blue fill is not.
+        selector: 'JSXOpeningElement[name.name="Button"] > JSXAttribute[name.name="className"] :matches(Literal[value=/(?<!hover:)bg-blue-[0-9]|hover:bg-blue-(?!(50|100)([^0-9]|$))|bg-primary|bg-\\[#/], TemplateElement[value.raw=/(?<!hover:)bg-blue-[0-9]|hover:bg-blue-(?!(50|100)([^0-9]|$))|bg-primary|bg-\\[#/])',
+        message: 'Button colour comes from its variant (P1568): use the default (blue), outline, ghost, destructive or dark — see docs/design-system.md Button Decision Rules.',
+      }, {
+        // P1568: the same rule for shared class constants (PRIMARY_CLASS, *_BUTTON_CLASS, ...),
+        // which a <Button className={CONST}> would otherwise carry past the selector above.
+        // Solid fills only (static or hover, blue-400..900, bg-primary, arbitrary hex). Tints such as
+        // hover:bg-blue-600/10, bg-blue-50/60, dark: or focus: variants are outline treatments, not fills.
+        selector: 'VariableDeclarator[id.name=/^[A-Z][A-Z0-9_]*CLASS[A-Z0-9_]*$/] :matches(Literal[value=/(?<![:a-z-])bg-blue-[4-9]00(?![\\x2F0-9])|(?<![:a-z-])hover:bg-blue-[4-9]00(?![\\x2F0-9])|bg-primary|(?<![:a-z-])bg-\\[#/], TemplateElement[value.raw=/(?<![:a-z-])bg-blue-[4-9]00(?![\\x2F0-9])|(?<![:a-z-])hover:bg-blue-[4-9]00(?![\\x2F0-9])|bg-primary|(?<![:a-z-])bg-\\[#/])',
+        message: 'A shared class constant must not carry a button fill (P1568): Button colour comes from its variant — see docs/design-system.md Button Decision Rules.',
       }],
     },
   },

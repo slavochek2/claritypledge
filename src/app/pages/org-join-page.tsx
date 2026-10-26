@@ -292,7 +292,7 @@ export function OrgJoinPage() {
               onClick={handleAccept}
               disabled={accepting}
               size="lg"
-              className="min-h-11 w-full bg-blue-600 py-4 text-base font-semibold text-white hover:bg-blue-700 md:py-6 md:text-lg"
+              className="min-h-11 w-full py-4 text-base font-semibold md:py-6 md:text-lg"
             >
               {accepting ? "Joining…" : "Accept terms & join"}
             </Button>

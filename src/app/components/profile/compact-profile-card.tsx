@@ -106,13 +106,13 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
           // Owner viewing their own profile
           hasPledged ? (
             <Link to={`/p/${profile.slug}/pledge`}>
-              <Button className="w-full bg-blue-500 hover:bg-blue-700 text-white">
+              <Button className="w-full">
                 View My Pledge
               </Button>
             </Link>
           ) : (
             <Link to="/sign-pledge?prefill=true">
-              <Button className="w-full bg-blue-500 hover:bg-blue-700 text-white">
+              <Button className="w-full">
                 Take the Pledge
               </Button>
             </Link>

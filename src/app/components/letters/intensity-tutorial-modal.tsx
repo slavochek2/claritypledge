@@ -156,7 +156,7 @@ export function IntensityTutorialModal({ open, onProceed, dismissible = false, t
         <div className="flex justify-center mt-6">
           <Button
             onClick={handleProceed}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-12 h-12 text-base font-bold min-w-[220px]"
+            className="rounded-full px-12 h-12 text-base font-bold min-w-[220px]"
           >
             Continue
           </Button>

@@ -213,7 +213,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
             <div className="flex-shrink-0">
               <Button
                 size="sm"
-                className="bg-blue-500 hover:bg-blue-700 text-white min-h-11"
+                className="min-h-11"
                 onClick={() => navigate(`/live/${openInvite.code}`)}
               >
                 Join
@@ -276,7 +276,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
               <div className="flex-shrink-0 max-[399px]:basis-full max-[399px]:pl-5">
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-700 text-white min-h-11"
+                  className="min-h-11"
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >

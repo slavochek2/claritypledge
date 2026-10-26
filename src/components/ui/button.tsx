@@ -9,8 +9,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        // P1568: the default button is the one interactive blue (P1396). Never hand-type it.
+        // aria-disabled keeps the button focusable (letter-cover), so it must not darken on hover either.
+        default: "bg-blue-600 text-white shadow hover:bg-blue-700 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-blue-600",
+        // The old near-black look, for a button that must stay dark (e.g. on a dark brand surface).
+        dark: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:

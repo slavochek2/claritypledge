@@ -182,7 +182,7 @@ export function DesignAuditPage() {
           <div className="border-t pt-4">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Pledge Page CTAs</p>
             <div className="flex flex-wrap gap-3 items-center">
-              <Button className="min-h-11 px-8 bg-blue-600 hover:bg-blue-700">Accept This Pledge</Button>
+              <Button className="min-h-11 px-8">Accept This Pledge</Button>
               <Button variant="outline" className="min-h-11">Share</Button>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-[#0A66C2] bg-[#0A66C2]/10 rounded cursor-pointer">
                 LinkedIn

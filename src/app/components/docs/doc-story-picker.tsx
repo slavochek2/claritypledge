@@ -200,7 +200,6 @@ export function DocStoryPicker({
                       </div>
                       <Button
                         size="sm"
-                        className="bg-blue-500 hover:bg-blue-700 text-white"
                         disabled={addingStoryId === story.id}
                         onClick={() => handleAddStory(story.id)}
                       >

@@ -42,7 +42,7 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
         </div>
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{TERMS_CONSENT_LINE}</p>
-          <Button className="h-10 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={onDismiss} disabled={isLoading}>
+          <Button className="h-10 shrink-0" onClick={onDismiss} disabled={isLoading}>
             Accept
           </Button>
         </div>

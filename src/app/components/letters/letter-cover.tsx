@@ -109,8 +109,8 @@ export function LetterCover({
         onClick={handleOpen}
         aria-disabled={isDisabled}
         aria-describedby={HINT_ID}
-        className={`w-full max-w-sm bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-base min-h-14 gap-2 ${
-          isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-blue-600' : ''
+        className={`w-full max-w-sm rounded-full font-bold text-base min-h-14 gap-2 ${
+          isDisabled ? 'opacity-60 cursor-not-allowed' : ''
         }`}
         aria-busy={isAuthenticating}
         aria-label={isAuthenticating ? 'Opening the letter, please wait' : undefined}

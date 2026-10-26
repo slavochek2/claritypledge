@@ -207,7 +207,7 @@ describe('InboxTab — P695 completed letter button', () => {
 
     const button = container.querySelector('button');
     expect(button?.textContent).toContain('Open');
-    expect(button?.className).toContain('bg-blue-500');
+    expect(button?.className).toContain('bg-blue-600');
   });
 
   it('completed received item shows "Results" button with blue fill (matches sent-tab)', async () => {
@@ -217,7 +217,7 @@ describe('InboxTab — P695 completed letter button', () => {
 
     const button = container.querySelector('button');
     expect(button?.textContent).toContain('Results');
-    expect(button?.className).toContain('bg-blue-500');
+    expect(button?.className).toContain('bg-blue-600');
   });
 });
 

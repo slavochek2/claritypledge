@@ -98,7 +98,7 @@ export function LetterSealConfirmation({
 
             {/* Primary CTA */}
             <Button
-              className="w-full bg-blue-500 hover:bg-blue-700 text-white"
+              className="w-full"
               onClick={backToDoc}
             >
               Back to Doc

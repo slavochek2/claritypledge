@@ -30,7 +30,7 @@ function Rule({ n, title, why, children }: { n: number; title: string; why: stri
 }
 
 const Primary = ({ children }: { children: ReactNode }) => (
-  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5">{children}</Button>
+  <Button className="w-full py-2.5">{children}</Button>
 );
 
 const Body = () => (
@@ -58,8 +58,8 @@ export function DesignButtonsPage() {
         <Phone ok={false} label="Two filled buttons compete">
           <Body />
           <div className="flex gap-2">
-            <Button className="flex-1 bg-blue-600 text-white">Save</Button>
-            <Button className="flex-1 bg-gray-900 text-white">Save and share</Button>
+            <Button className="flex-1">Save</Button>
+            <Button variant="dark" className="flex-1">Save and share</Button>
           </div>
         </Phone>
       </Rule>
@@ -87,7 +87,7 @@ export function DesignButtonsPage() {
           <Body />
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1">Not now</Button>
-            <Button className="flex-1 bg-blue-600 text-white">Save</Button>
+            <Button className="flex-1">Save</Button>
           </div>
         </Phone>
       </Rule>
@@ -151,6 +151,22 @@ export function DesignButtonsPage() {
           <p className="font-semibold">Discard changes?</p>
           <Button variant="destructive" className="w-full">Discard</Button>
           <Button variant="ghost" className="w-full">Keep editing</Button>
+        </Phone>
+      </Rule>
+
+      <Rule n={8} title="One action inside a message: filled blue, auto width, under the text" why="It is the only action in that message, so it is the primary. Not full width: it belongs to the text above it.">
+        <Phone ok label="Blue button under the message">
+          <div className="space-y-2 rounded-2xl bg-muted p-3 text-sm">
+            <p>I can give you a name that fits how you write. Want one?</p>
+            <Button className="mt-2">Give me a name</Button>
+          </div>
+        </Phone>
+        <Phone ok={false} label="Gray outline, or full width">
+          <div className="space-y-2 rounded-2xl bg-muted p-3 text-sm">
+            <p>I can give you a name that fits how you write. Want one?</p>
+            <Button variant="outline" className="mt-2">Give me a name</Button>
+            <Button className="w-full">Give me a name</Button>
+          </div>
         </Phone>
       </Rule>
     </div>

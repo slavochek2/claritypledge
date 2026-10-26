@@ -410,7 +410,7 @@ export function CreateStoryPage() {
           <Button
             type="submit"
             disabled={isSaving || pointLoading || docLoading}
-            className="bg-blue-500 hover:bg-blue-700 text-white min-h-11"
+            className="min-h-11"
           >
             {isSaving ? (
               <>

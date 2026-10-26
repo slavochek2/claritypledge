@@ -418,7 +418,7 @@ function MirrorGreeting({ title, onName }: { title: string | null | undefined; o
           </p>
         )}
         {!title && (
-          <Button className="mt-2 min-h-10 bg-blue-600 text-white hover:bg-blue-700" data-testid="mirror-give-name" onClick={onName}>
+          <Button className="mt-2 min-h-10" data-testid="mirror-give-name" onClick={onName}>
             Give me a name
           </Button>
         )}

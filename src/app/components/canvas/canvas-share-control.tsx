@@ -572,7 +572,6 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
         confirmLabel="Share with link"
         cancelLabel="Cancel"
         variant="default"
-        confirmClassName="bg-blue-600 text-white hover:bg-blue-700"
         onConfirm={confirmLink}
       />
     </>

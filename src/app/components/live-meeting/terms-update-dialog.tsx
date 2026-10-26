@@ -87,7 +87,7 @@ export function TermsUpdateDialog({
           <Button variant="ghost" className="text-muted-foreground" onClick={onCancel} disabled={isLoading}>
             {cancelLabel}
           </Button>
-          <Button ref={acceptRef} className="bg-blue-600 hover:bg-blue-700" onClick={onAccept} disabled={isLoading}>
+          <Button ref={acceptRef} onClick={onAccept} disabled={isLoading}>
             {isLoading ? 'Saving...' : 'Agree and continue'}
           </Button>
         </DialogFooter>

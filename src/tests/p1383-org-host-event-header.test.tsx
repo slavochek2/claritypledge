@@ -31,14 +31,14 @@ describe('P1383 — Host event in the group header', () => {
 
   it('organizer: Invite drops to outline so Host event is the single primary (P955)', () => {
     renderHeader('organizer');
-    expect(screen.getByRole('button', { name: /invite/i }).className).not.toContain('bg-blue-500');
-    expect(screen.getByRole('link', { name: /host event/i }).className).toContain('bg-blue-500');
+    expect(screen.getByRole('button', { name: /invite/i }).className).not.toContain('bg-blue-600');
+    expect(screen.getByRole('link', { name: /host event/i }).className).toContain('bg-blue-600');
   });
 
   it('plain member sees no Host event and keeps a primary Invite', () => {
     renderHeader('member');
     expect(screen.queryByRole('link', { name: /host event/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /invite/i }).className).toContain('bg-blue-500');
+    expect(screen.getByRole('button', { name: /invite/i }).className).toContain('bg-blue-600');
   });
 
   it('visitor sees no Host event', () => {

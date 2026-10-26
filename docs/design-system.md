@@ -62,7 +62,7 @@ The **landing page** ([src/app/pages/landing-page.tsx](../src/app/pages/landing-
 **Examples:**
 ```tsx
 // Primary CTA button
-<Button className="bg-blue-500 hover:bg-blue-600">Sign Up</Button>
+<Button>Sign Up</Button>
 
 // Action pill
 <button className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full px-3 py-1.5 text-xs font-medium">
@@ -189,11 +189,12 @@ When showing content from multiple users in the same interface:
 Always use shadcn/ui `<Button>` component with variants. Don't create custom button styles inline.
 
 **Available variants** (from [src/components/ui/button.tsx](../src/components/ui/button.tsx)):
-- `default` - Primary action (dark gray by default, override with blue for CTAs)
+- `default` - Primary action: brand blue (`bg-blue-600`, hover `blue-700`). Never hand-type the colour; lint rejects it (P1568)
 - `outline` - Secondary action
 - `ghost` - Tertiary action
 - `destructive` - Delete, remove, disconnect
 - `link` - Text link style
+- `dark` - The old near-black look (`bg-primary`), only for a button that must stay dark (e.g. on a dark brand surface). Not a general alternative; rules 2 and 3 cover alternatives
 
 ##### Button Decision Rules (founder-approved)
 
@@ -201,24 +202,16 @@ One question decides every button: **what does it do?** Visual reference: `/tree
 
 | # | What it does | Style | Placement |
 |---|--------------|-------|-----------|
-| 1 | The step forward (Continue, Save, Send) | Filled `bg-blue-600`, full width | Bottom of the screen/card. **Only one per screen.** |
+| 1 | The step forward (Continue, Save, Send) | The default `<Button>` (filled blue; no hand-typed colour classes), full width | Bottom of the screen/card. **Only one per screen.** |
 | 2 | A real alternative (Edit, Save and share) | `variant="outline"` (white + border), full width | Directly under the primary |
 | 3 | Backing out (Cancel, Skip, Not now) | `variant="ghost"`, muted text, no box | Under the alternatives, last |
 | 4 | Going somewhere else (Learn more, See profile) | A link (`<a>`/`<Link>`), blue underlined text — never a button | Inline, where the reader needs it |
 | 5 | Losing something (Delete, Remove, Discard) | Red text (`variant="ghost"` + `text-red-600`), then a confirmation step | Last, small; never the biggest thing on screen |
 | 6 | Small actions on a card (Share, More) | Icon only, gray, 44px touch target | Card top-right |
 | 7 | Two buttons in a popup | Main action filled — **red if it loses something (rule 5), otherwise blue**; the other is ghost | Desktop: main on the right. Phone: stacked, main on top |
+| 8 | One action inside a message or inline content (Give me a name) | The default Button (filled blue), auto width — not full width | Under the text it belongs to |
 
 `variant="secondary"` (gray fill) is not in this table: it reads as disabled. Use outline instead.
-
-##### Button Hierarchy
-
-| Level | Use Case | Style | Example |
-|-------|----------|-------|---------|
-| **Primary CTA** | One main action per card/section | Full-width, `bg-blue-600`, `rounded-lg`, `py-2.5` | "Start a Clarity Session" |
-| **Secondary** | Supporting actions | Icon-only, gray, `rounded-full`, 44px touch target | Share, Open icons |
-| **Tertiary** | Less important actions | `variant="ghost"` or `variant="outline"` | Cancel, Skip |
-| **Destructive** | Dangerous actions | `variant="destructive"` or red styling | Delete, Remove |
 
 ##### Primary CTA Pattern
 
@@ -472,7 +465,6 @@ When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colo
 | Element Type | Stroke | Background | Text | When to use |
 |--------------|--------|------------|------|-------------|
 | **Primary button** | `#3b82f6` | `#3b82f6` | `#ffffff` | Main CTAs ("Continue →", "Start") |
-| **Secondary button** | `#e0e0e0` | `#ffffff` | `#1e1e1e` | Alternative actions ("Skip", "Back") |
 | **Your status/action** | `#bfdbfe` | `#eff6ff` | `#1e40af` | "You're speaking...", "You rated: 6/10" |
 | **Other person's status** | `#e0e0e0` | `#f5f5f5` | `#757575` | "Slava finished speaking" |
 | **Content/Quotes** | `#e0e0e0` | `#fafafa` | `#1e1e1e` | "You said:...", transcript boxes |
@@ -583,7 +575,7 @@ When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colo
 // ✅ CORRECT: Blue banner with action button (interactive)
 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-center justify-between">
   <p className="text-blue-700">Your session expires in 10 minutes</p>
-  <Button size="sm" className="bg-blue-500">Extend Session</Button>
+  <Button size="sm">Extend Session</Button>
 </div>
 ```
 
@@ -600,7 +592,7 @@ When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colo
 </button>
 
 // ✅ CORRECT: Use shadcn/ui Button
-<Button className="bg-blue-500 hover:bg-blue-600">Submit</Button>
+<Button>Submit</Button>
 ```
 
 #### ❌ Pixel Font Sizes
@@ -688,7 +680,7 @@ When reviewing existing components for compliance, check **every button** agains
 
 | Button Purpose | Required Style | Check |
 |----------------|----------------|-------|
-| Primary CTA (Submit, Create, RSVP, Sign Up) | `bg-blue-500 hover:bg-blue-600 text-white` | [ ] |
+| Primary CTA (Submit, Create, RSVP, Sign Up) | the default `<Button>` (no colour classes; lint-enforced, P1568) | [ ] |
 | Secondary action (Add to Calendar, Edit) | `variant="outline"` | [ ] |
 | Tertiary action (Cancel dialog, View Details) | `variant="ghost"` | [ ] |
 | Destructive (Delete, Cancel Event, Remove) | Red styling or `variant="destructive"` | [ ] |
@@ -704,7 +696,7 @@ When reviewing existing components for compliance, check **every button** agains
 | Past/Completed state | Disabled states render correctly |
 
 **Common Misses:**
-- Default `<Button>` without blue override (renders dark gray, not blue)
+- Hand-typed colour classes on a `<Button>` (`bg-blue-*`, `bg-primary`, `bg-[#…]`): the default is already blue and lint rejects it
 - Status text using green when it's not a success state
 - Missing user states in mock data (can't visually verify all scenarios)
 

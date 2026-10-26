@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 73.0
 workstream: design-system
 created_date: '2026-10-26'
 tags: [design-system, buttons, lint]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -75,12 +75,26 @@ None of them covers one action inside a chat message, which is how the mirror gr
 
 ## Done-When
 
-- [ ] `<Button>` with no variant renders `#2563eb`. A unit test asserts it, and is shown to fail when the variant is reverted.
-- [ ] The lint rule fails on a known-bad `<Button className="bg-blue-600">` and passes on the whole repo.
-- [ ] `docs/design-system.md` has one button table with rule 8. `/tree/design-buttons` shows example 8. `criteria/code.md` no longer names a colour.
-- [ ] Sweep counts are recorded: hand-blue removed, buttons kept on default, moved to dark, outline or ghost.
+- [x] `<Button>` with no variant renders `#2563eb`. A unit test asserts it, and is shown to fail when the variant is reverted.
+- [x] The lint rule fails on a known-bad `<Button className="bg-blue-600">` and passes on the whole repo.
+- [x] `docs/design-system.md` has one button table with rule 8. `/tree/design-buttons` shows example 8. `criteria/code.md` no longer names a colour.
+- [x] Sweep counts are recorded: hand-blue removed, buttons kept on default, moved to dark, outline or ghost.
+      407 Buttons (AST parse). Hand-blue removed ~125 (incl. shared constants). Previously black, now blue: 30, each the only forward action in its view or paired with an outline/ghost sibling. To outline 0, ghost 0, dark 0 in app (dark used once on /tree/design-buttons). Left with other colour: landing-v4 "Get started" (`bg-foreground`), `ANSWER_BUTTON_CLASS` outlined-blue (3 sites), letter-primary-cta outline/link branches. `src/app/prototypes/**` (lint-ignored) keeps ~19 hand-typed blue. Lint carve-out: pale tints `bg-blue-50`/`bg-blue-100` allowed on outline/ghost hover.
 - [ ] Screenshots at 375, 320 and desktop of the main flows show no unintended colour change: feed, a point, chat with the mirror greeting, events, settings, letters, the live session start. A separate visual-QA subagent reviews them.
 - [ ] Unit suite and pre-commit green.
+
+## Cost Budget
+
+Registry: the Supabase Free plan row (test has its own organisation, P1538). No Gemini call; no app code adds a request (a variant change is CSS only).
+
+- **`e2e/p1568-button-sweep.spec.ts`, one run:** setup 1 user × ~6 (create ≈3, sign-in 1, chat list 1, mirror 1) + 1 point = **~7**. Page opens: public 3 pages × 3 widths = 9 × ~3 anon requests = **~27**; signed-in 7 pages × 3 widths = 21 × ~12 app requests (session, profile, feed or chat list, messages) = **~252**; the black-fill check opens 10 pages × ~12 = **~120**. Mirror availability edge calls ≤ 4 (one per mirror open), Realtime connections ≤ 11. Cleanup: point delete 1 + user delete ~10 = **~11**. Total **~417 requests**, ≤ 4 edge calls, 0 Gemini.
+- **Fits today:** 100 runs a month ≈ 41,700 requests and ≤ 400 edge invocations, well inside the Free plan (500,000 edge invocations / month, 5 GB egress; requests themselves are unmetered). **At 10×** (1,000 runs): ≤ 4,000 edge invocations, under 1% of the limit. No upgrade needed.
+
+## Known limitations
+
+- The lint rule reads literals: a Button colour carried by a local variable, a function return or a prop (`className={fn()}`) is not flagged. Shared upper-case constants (`*CLASS*`) are flagged. The unit test and the reviewer checklist (`finish/criteria/code.md`) cover the rest.
+- `src/app/prototypes/**` is lint-ignored and keeps hand-typed blue.
+- Pre-existing button-rule breaks the sweep found on pages this change does not touch (Settings disabled Save, top-bar Tools, Live Join) are filed in the task inbox, not fixed here.
 
 ## Related
 

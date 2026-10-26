@@ -823,7 +823,6 @@ export function ProfilePageV2() {
                 setLoading(true);
                 window.location.reload();
               }}
-              className="bg-blue-500 hover:bg-blue-700 text-white"
             >
               Try Again
             </Button>
@@ -845,7 +844,7 @@ export function ProfilePageV2() {
             This profile doesn't exist or has been removed.
           </p>
           <Link to="/">
-            <Button className="bg-blue-500 hover:bg-blue-700 text-white">
+            <Button>
               Go to Home
             </Button>
           </Link>
@@ -892,7 +891,7 @@ export function ProfilePageV2() {
                 <Button
                   onClick={handleResendEmail}
                   disabled={isResending || resendSuccess}
-                  className="w-full bg-blue-500 hover:bg-blue-700 text-white"
+                  className="w-full"
                 >
                   {isResending ? 'Sending...' : resendSuccess ? '✓ Email Sent!' : 'Resend Verification Email'}
                 </Button>
@@ -1788,7 +1787,7 @@ function StoryCardFull({
                 />
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" onClick={handleEditCancel} disabled={isSaving}>Cancel</Button>
-                  <Button size="sm" onClick={handleEditSave} disabled={!editContent.trim() || isSaving} className="bg-blue-500 hover:bg-blue-700 text-white">
+                  <Button size="sm" onClick={handleEditSave} disabled={!editContent.trim() || isSaving}>
                     {isSaving ? <><Loader2 size={14} className="animate-spin mr-1" />Saving…</> : 'Save'}
                   </Button>
                 </div>

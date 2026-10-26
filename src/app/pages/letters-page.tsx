@@ -98,7 +98,7 @@ export function LettersPage() {
           actions={
             <Popover>
               <PopoverTrigger asChild>
-                <Button aria-label="New Draft" className="h-10 bg-blue-500 hover:bg-blue-700 text-white">
+                <Button aria-label="New Draft" className="h-10">
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">New Draft</span>
                   <span className="sm:hidden">New</span>

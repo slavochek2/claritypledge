@@ -527,7 +527,6 @@ export function DocDetailPage() {
                 </DropdownMenu>
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-700 text-white"
                   onClick={() => {
                     if (stories.length === 0) {
                       toast.error('Add stories before composing a letter');

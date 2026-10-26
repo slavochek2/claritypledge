@@ -341,7 +341,7 @@ export function SignPledgeForm({
         <div className="space-y-2">
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+            className="w-full font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
             size="lg"
             disabled={isSubmitting}
           >
