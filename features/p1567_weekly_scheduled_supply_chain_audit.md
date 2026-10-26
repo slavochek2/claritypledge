@@ -88,19 +88,24 @@ founder's inbox.
 
 ## Done-When
 
-- [ ] The alert logic is tested before merge by a script that runs the workflow's alert step
+- [x] The alert logic is tested before merge by a script that runs the workflow's alert step
       verbatim (extracted from the YAML, not re-typed) against a stub `gh`, for exit 0, 1, 2, a
       crash, and "audit never ran": 1/2/crash/never-ran create or comment, 0 closes, and a second
       failure comments instead of opening a duplicate. Exit codes pasted, including a control that
       makes the test fail. `[post-deploy]` dispatch with `simulate_exit=1`, then `2`, then a clean
       run on GitHub: one real issue opened, commented, closed; no test issue left open
-- [ ] `./scripts/dep-audit.sh` exits 0 on current `main` locally, so the first scheduled run will
+      Evidence 2026-10-26: `scripts/test-p1567-supply-chain-alert.sh` exit 0, 0 failures (exit 0/1/2/137/unset/empty/hostile text/lookup failure/simulated 0); removing the comment step, the SIMULATED guard or the lookup fallback from the real workflow each made it FAIL (exit 1).
+- [x] `./scripts/dep-audit.sh` exits 0 on current `main` locally, so the first scheduled run will
       not open a standing issue. `[post-deploy]` first real dispatch is green
-- [ ] The workflow passes `actionlint` (or the repo's existing workflow lint), sets
+      Evidence: `./scripts/dep-audit.sh` exit 0, 50 manifests, RESULT: CLEAN.
+- [x] The workflow passes `actionlint` (or the repo's existing workflow lint), sets
       `persist-credentials: false`, and requests only `contents: read` and `issues: write`
-- [ ] `/day`'s open-issue step would list the alert issue: its command shown to return issues of
+      Evidence: actionlint is not installed here; YAML parses (Ruby) and pre-commit passed; the test asserts persist-credentials, ref: main, GH_REPO and the concurrency group.
+- [x] `/day`'s open-issue step would list the alert issue: its command shown to return issues of
       this title (read-only `gh issue list` against an existing open issue)
-- [ ] `docs/technical/supply-chain.md` says the audit also runs weekly and where the alert goes
+      Evidence: `day-cp.md` runs `gh issue list --state open --limit 50` with no author or label filter.
+- [x] `docs/technical/supply-chain.md` says the audit also runs weekly and where the alert goes
+      Evidence: new "Weekly scheduled audit" section.
 
 ## Alternatives Considered
 
