@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 232
+**Next ID:** 234
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2898,3 +2898,14 @@ A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 20
 **due:** week
 
 `src/tests/p1512-chat-ui.test.tsx` "P1554: a window resized while scrolled up re-decides the jump-down button" times out at `findByTestId('jump-down')` (~line 1271) about 2 in 80 runs under the P1573 stress method (22 CPU burners + 8 concurrent runs). It passes alone. This is unlike P1570/P1573: the failure is inside an async wait, so it is not a synchronous-query race and not the test timeout. Unconfirmed hypothesis: `MessageList.tsx`'s ResizeObserver effect depends on `[status, measure]`, so the stubbed observer's callback list may be empty when the test fires the resize. Next: confirm by logging the stub's registered callbacks at fire time under stress, then fix the wait on the observer registration, not on a timeout. Found by P1573.
+
+## p1512-chat-ui F7 (Reply and Clarify never pending together) fails under full-suite load
+
+**ID:** INBOX-233
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+On 2026-10-26 the F7 test in src/tests/p1512-chat-ui.test.tsx failed twice in a row at the same line inside the full pre-commit run while machine load was very high (15-minute average around 50), and passed alone (205/205) and on a third full run at lower load. It is a timing assumption (a synchronous getByText right after an awaited render), so it blocks unrelated commits whenever the machine is busy. Make the lookup awaited or raise its timeout. Droppable if it does not recur in a month.
+
+---
