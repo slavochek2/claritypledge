@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tests, flaky, pre-commit]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1573: P1512 chat-UI `menuOn` races the render under full-suite load
@@ -55,7 +55,17 @@ Make `menuOn` async: `await screen.findByText(...)` before `fireEvent.contextMen
 
 ## Acceptance Criteria
 
-- [ ] A stress reproduction that fails before the fix is recorded (command plus output), or an honest statement that it couldn't be reproduced, with the attempts made
-- [ ] The same stress command passes after the fix, 5 rounds in a row
-- [ ] Control: removing the message's text (or the context-menu handler) still fails the test
-- [ ] INBOX-223 in `docs/process-learnings.md` is marked resolved, pointing to P1573
+- [x] A stress reproduction that fails before the fix is recorded (command plus output), or an honest statement that it couldn't be reproduced, with the attempts made
+- [x] The same stress command passes after the fix for this bug's tests: `menuOn`/F7 and the line-946 thread-panel query failed 0 times in 80 stress runs (2 batches x 5 rounds x 8). A separate P1554 jump-down flake (async `findByTestId('jump-down')` timeout, a different mechanism) still fails about 2 in 80 and is filed as INBOX-232, out of this spec's scope
+- [x] Control: removing the message's text (or the context-menu handler) still fails the test
+- [x] INBOX-223 in `docs/process-learnings.md` is marked resolved, pointing to P1573
+
+## Evidence
+
+Method (P1570): 22 `yes >/dev/null` CPU burners, 8 concurrent `npx vitest run src/tests/p1512-chat-ui.test.tsx`, burners killed after.
+
+- Before the fix, round 1: 7 of 8 runs 210/210; run 2 failed 1/210: `F7: Reply and Clarify are never pending together`, `TestingLibraryElementError: Unable to find an element with the text: a note to self` from `Object.getElementError` (the `menuOn` synchronous `getByText`). Root cause confirmed: the same failure as INBOX-223, reproduced.
+- Fix: `menuOn` is async (`await screen.findByText(...)`), all 28 call sites `await menuOn(...)`. One more sync query of the same shape, `within(panel).getByText('a reply in the thread')` right after `findByTestId('thread-panel')` in the thread-offer test, failed once under the same load (1 of 40 runs) and is now `await ...findByText`.
+- After the fix: 0 `menuOn`/F7 failures in 80 stress runs (2 batches of 5 rounds x 8). Two further flakes appeared in other tests and are NOT closed by this spec: `P1554: a window resized while scrolled up re-decides the jump-down button` (`findByTestId('jump-down')` times out at line 1271, 2 of 80 runs). The thread-panel failure above was the other.
+- Control: the F7 test data text changed to `a note to me` fails with `Unable to find an element with the text: a note to self`; restored, 1 passed.
+- `npx vitest run src/tests/p1512-chat-ui.test.tsx`: 210 passed. `npx tsc --noEmit`: exit 0. `npx eslint` on the test file: exit 0.

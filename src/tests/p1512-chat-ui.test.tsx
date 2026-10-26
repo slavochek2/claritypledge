@@ -228,7 +228,7 @@ function renderChat(path: Start, chats: ChatSummary[] | (() => Promise<ChatSumma
 const rowFor = (title: string | RegExp) => screen.getByText(title, { selector: '[data-testid="row-title"]' }).closest('li') as HTMLElement;
 const logOf = () => within(screen.getByRole('log', { name: 'Messages' }));
 const rowButton = (title: string) => within(rowFor(title)).getAllByRole('button')[0] as HTMLElement;
-const menuOn = (text: string | RegExp) => fireEvent.contextMenu(screen.getByText(text));
+const menuOn = async (text: string | RegExp) => fireEvent.contextMenu(await screen.findByText(text));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -909,13 +909,13 @@ describe('conversation', () => {
     renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs, mine] });
     await screen.findByText('my words');
 
-    menuOn('their words');
+    await menuOn('their words');
     expect(await screen.findByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    menuOn('my words');
+    await menuOn('my words');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
     svc.editMessage.mockResolvedValue({ ...mine, body: 'better words', editedAt: iso(0) });
     const field = await screen.findByLabelText('Edit message');
@@ -924,7 +924,7 @@ describe('conversation', () => {
     await waitFor(() => expect(svc.editMessage).toHaveBeenCalledWith('mine', 'better words'));
     expect(await screen.findByText('better words')).toBeInTheDocument();
 
-    menuOn('better words');
+    await menuOn('better words');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     svc.deleteMessage.mockResolvedValue({ ...mine, body: null, isDeleted: true, deletedAt: iso(0) });
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
@@ -939,11 +939,11 @@ describe('conversation', () => {
     const { unmount } = renderChat('/home/c/g1', [mirror(), group('g1', 'Builders')], { g1: [root, reply] });
     await screen.findByText('start a thread here');
     expect(await screen.findByTestId('replies-link')).toHaveTextContent('1 reply');
-    menuOn('start a thread here');
+    await menuOn('start a thread here');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
     expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/g1/t/root');
     const panel = await screen.findByTestId('thread-panel');
-    expect(within(panel).getByText('a reply in the thread')).toBeInTheDocument();
+    expect(await within(panel).findByText('a reply in the thread')).toBeInTheDocument();
     expect(within(panel).getByRole('textbox', { name: 'Reply in thread' })).toBeInTheDocument();
     unmount();
 
@@ -1048,7 +1048,7 @@ describe('conversation', () => {
     svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, 'answer', { id: 'a1', replyToId: 'q1' }));
     renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs] });
     await screen.findByText('quote me please');
-    menuOn('quote me please');
+    await menuOn('quote me please');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
     const bar = await screen.findByTestId('reply-bar');
     expect(bar).toHaveTextContent('Ada Lovelace');
@@ -1079,7 +1079,7 @@ describe('conversation', () => {
     svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, 'see this', { id: 'f2', kind: 'forward' }));
     renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
-    menuOn('worth forwarding');
+    await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Search chats'), { target: { value: 'build' } });
@@ -1096,7 +1096,7 @@ describe('conversation', () => {
     svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, 'because it is vague', { id: 'cl3' }));
     const { unmount } = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
-    menuOn('clarify this');
+    await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
     const pending = await screen.findByTestId('clarify-pending');
@@ -1115,7 +1115,7 @@ describe('conversation', () => {
     // Stage again, add a note, send: ONE clarify message carrying the note.
     const again = renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
-    menuOn('clarify this');
+    await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     await screen.findByTestId('clarify-pending');
     fireEvent.change(screen.getByRole('textbox', { name: 'Write to your mirror agent' }), { target: { value: 'because it is vague' } });
@@ -1131,7 +1131,7 @@ describe('conversation', () => {
     const own = msg('c-mirror', ME.id, 'a note to self', { id: 'n1' });
     renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [own] });
     await screen.findByText('a note to self');
-    menuOn('a note to self');
+    await menuOn('a note to self');
     expect(await screen.findByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Clarify' })).not.toBeInTheDocument();
   });
@@ -1572,7 +1572,7 @@ describe('review round 2 (continued)', () => {
     svc.forwardMessage.mockResolvedValue(msg('g1', ME.id, null, { id: 'fwd-ok', kind: 'forward' }));
     renderChat('/home/c/dm1', chats, { dm1: [theirs] });
     await screen.findByText('forward this one');
-    menuOn('forward this one');
+    await menuOn('forward this one');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByRole('button', { name: /Blocked Bob/ })).not.toBeInTheDocument();
@@ -2168,7 +2168,7 @@ describe('review round 3', () => {
       check(await screen.findByRole('dialog'));
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      menuOn('something');
+      await menuOn('something');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
       check(await screen.findByRole('dialog'));
       view.unmount();
@@ -2267,7 +2267,7 @@ describe('review round 4', () => {
     svc.forwardMessage.mockRejectedValueOnce(new Error('TypeError: Failed to fetch')).mockResolvedValue(msg('g1', ME.id, null, { id: 'f2', kind: 'forward' }));
     renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
-    menuOn('worth forwarding');
+    await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: /Builders/ }));
@@ -2354,7 +2354,7 @@ describe('review round 5', () => {
     svc.forwardMessage.mockRejectedValue(new Error('TypeError: Failed to fetch'));
     renderChat('/home/c/dm1', [mirror(), dmChat, group('g1', 'Builders'), group('g2', 'Readers')], { dm1: [theirs] });
     await screen.findByText('worth forwarding');
-    menuOn('worth forwarding');
+    await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     const dialog = await screen.findByRole('dialog');
     const pickAndSend = async (name: RegExp) => {
@@ -2437,7 +2437,7 @@ describe('review round 6', () => {
   const openForward = async (chats: ChatSummary[]) => {
     renderChat('/home/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'worth forwarding', { id: 'fw1' })] });
     await screen.findByText('worth forwarding');
-    menuOn('worth forwarding');
+    await menuOn('worth forwarding');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     return screen.findByRole('dialog');
   };
@@ -2553,7 +2553,7 @@ describe('nothing fake', () => {
     const chats = [mirror(), dm('dm1', 'Ada Lovelace', { isPartner: true }), group('g1', 'Builders'), eventChat('ev1', 'Friday Night', 5)];
     renderChat('/home/c/dm1', chats, { dm1: [msg('dm1', 'p-dm1', 'a normal message')] });
     await screen.findByText('a normal message');
-    menuOn('a normal message');
+    await menuOn('a normal message');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     await screen.findByRole('dialog');
     const text = document.body.textContent ?? '';
@@ -2573,7 +2573,7 @@ describe('Back goes back', () => {
   const nav = () => screen.getByTestId('loc').getAttribute('data-nav');
   const where = () => screen.getByTestId('loc').textContent;
   const openThread = async () => {
-    menuOn('start a thread here');
+    await menuOn('start a thread here');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
     await screen.findByTestId('thread-panel');
   };
@@ -2722,7 +2722,7 @@ describe('Back goes back', () => {
     await screen.findByText('start a thread here');
     await openThread();
     expect(where()).toBe('/home/c/g1/t/root');
-    menuOn('a second thread root');
+    await menuOn('a second thread root');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
     await waitFor(() => expect(where()).toBe('/home/c/g1/t/root2'));
     expect(nav()).toBe('REPLACE');
@@ -2804,7 +2804,7 @@ describe('Back goes back', () => {
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('clarify then switch');
-    menuOn('clarify then switch');
+    await menuOn('clarify then switch');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     await waitFor(() => expect(where()).toBe('/home/c/c-mirror'));
     fireEvent.click(rowButton('Builders · General'));
@@ -2817,7 +2817,7 @@ describe('Back goes back', () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl21', kind: 'clarify' }));
     renderChat({ entries: ['/feed', '/groups/cm', '/home/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
     await screen.findByText('clarify from group');
-    menuOn('clarify from group');
+    await menuOn('clarify from group');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     await waitFor(() => expect(where()).toBe('/home/c/c-mirror'));
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
@@ -2831,7 +2831,7 @@ describe('Back goes back', () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl22', kind: 'clarify' }));
     renderChat({ entries: ['/feed', '/home/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify once')] });
     await screen.findByText('clarify once');
-    menuOn('clarify once');
+    await menuOn('clarify once');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     expect(await screen.findByRole('textbox', { name: 'Write to your mirror agent' })).toHaveFocus();
     act(() => historyBack());
@@ -2959,14 +2959,14 @@ describe('message actions: toolbar and More', () => {
   it('a right-click opens the full list (no Mark as unread: that marks the whole chat, so it lives on the chat)', async () => {
     renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my channel post')] });
     await screen.findByText('my channel post');
-    menuOn('my channel post');
+    await menuOn('my channel post');
     expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify', 'Edit', 'Delete']);
   });
 
   it('no message menu offers Mark as unread (right-click on someone else\'s message), while the chat menus still do', async () => {
     renderChat('/home/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'not mine')] });
     await screen.findByText('not mine');
-    menuOn('not mine');
+    await menuOn('not mine');
     expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify']);
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
@@ -3008,7 +3008,7 @@ describe('message actions: toolbar and More', () => {
   describe('Clarify jumps to the mirror', () => {
     const nav = () => screen.getByTestId('loc').getAttribute('data-nav');
     const clarifyIt = async (text: string) => {
-      menuOn(text);
+      await menuOn(text);
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
       await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/home/c/c-mirror'));
     };
@@ -3042,7 +3042,7 @@ describe('message actions: toolbar and More', () => {
       svc.clarifyMessage.mockRejectedValue(new Error('chat clarify failed: chat: not available'));
       renderChat('/home/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')], 'c-mirror': [] });
       await screen.findByText('clarify fail');
-      menuOn('clarify fail');
+      await menuOn('clarify fail');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
       await screen.findByTestId('clarify-pending');
       const field = screen.getByRole('textbox', { name: 'Write to your mirror agent' });
@@ -3190,7 +3190,7 @@ describe('the mirror mark', () => {
     expect(header.querySelector('[data-testid="mirror-glyph"]')).not.toBeNull();
     expect(header.querySelector('img')).toBeNull();
     await screen.findByText('a note to self');
-    menuOn('a note to self');
+    await menuOn('a note to self');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
     const dialog = await screen.findByRole('dialog');
     const pickerRow = within(dialog).getByRole('button', { name: /mirror/i });
@@ -3249,7 +3249,7 @@ describe('freshness fixes', () => {
   it('a cold chat -> thread -> Mark as unread ends unread: nothing reads the chat on the way out', async () => {
     renderChat({ entries: ['/feed', '/home/c/g1'], index: 1 }, [mirror(), channel], { g1: [rootMsg] });
     await screen.findByText('start a thread here');
-    menuOn('start a thread here');
+    await menuOn('start a thread here');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply in thread' }));
     await screen.findByTestId('thread-panel');
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
@@ -3268,7 +3268,7 @@ describe('freshness fixes', () => {
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       fireEvent.click(rowButton('Ada Lovelace'));
       await screen.findByText('worth forwarding');
-      menuOn('worth forwarding');
+      await menuOn('worth forwarding');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Forward' }));
       const dialog = await screen.findByRole('dialog');
       fireEvent.click(within(dialog).getByRole('button', { name: /Builders/ }));
@@ -3357,7 +3357,7 @@ describe('a pending Clarify (review fixes)', () => {
     stageClarify('c-mirror', { message: src('stage first'), authorName: 'Ada Lovelace' });
     renderChat('/home/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self', { id: 'n9' })] });
     await screen.findByTestId('clarify-pending');
-    menuOn('a note to self');
+    await menuOn('a note to self');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
     expect(await screen.findByTestId('reply-pending')).toBeInTheDocument();
     expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();

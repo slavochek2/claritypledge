@@ -2791,10 +2791,12 @@ From the P1535 visual QA, 2026-10-24: the owner name in the panel owner row trun
 
 **ID:** INBOX-223
 **Date:** 2026-10-24
-**Status:** proposed
+**Status:** resolved
 **due:** week
 
 src/tests/p1512-chat-ui.test.tsx:3360 (menuOn, line 231 getElementError) failed once in the full pre-commit suite on 2026-10-24 (654 files passed, 1 failed) and passed 210/210 when the file ran alone. The commit touched only a /tree prototype no test imports. Same family as INBOX-124 and INBOX-167: a query that does not wait under full-suite load.
+
+Resolved by P1573 (`features/p1573_p1512_chat_ui_menuon_races_render_under_load.md`): `menuOn` is now async and waits for the message with `findByText`.
 
 ---
 
@@ -2885,3 +2887,14 @@ src/app/pages/landing-v4.tsx imports @/app/prototypes/shared/types and @/app/pro
 A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 2026-10-26 (an older copy, before P1564) claimed 1 HIGH and 3 MEDIUM. HIGH: switching accounts without a reload can carry the previous user's mirror state and in-flight loads across. MEDIUM: status loads requested before the availability check are dropped; loadStatuses resets the staleness clock of running jobs; New portrait releases its lock while a job is still running. None was verified against current main. Done when each is confirmed with a failing test and filed, or disproved; droppable if the provider is rewritten.
 
 ---
+
+---
+
+## Flaky under load: P1554 jump-down button test in p1512-chat-ui
+
+**ID:** INBOX-232
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+`src/tests/p1512-chat-ui.test.tsx` "P1554: a window resized while scrolled up re-decides the jump-down button" times out at `findByTestId('jump-down')` (~line 1271) about 2 in 80 runs under the P1573 stress method (22 CPU burners + 8 concurrent runs). It passes alone. This is unlike P1570/P1573: the failure is inside an async wait, so it is not a synchronous-query race and not the test timeout. Unconfirmed hypothesis: `MessageList.tsx`'s ResizeObserver effect depends on `[status, measure]`, so the stubbed observer's callback list may be empty when the test fires the resize. Next: confirm by logging the stub's registered callbacks at fire time under stress, then fix the wait on the observer registration, not on a timeout. Found by P1573.
