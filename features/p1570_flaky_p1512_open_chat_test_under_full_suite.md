@@ -56,6 +56,8 @@ Find what the button waits on. Await that state deterministically (e.g. wait for
 
 ## Acceptance Criteria
 
+- [x] Sibling `src/tests/p1512-shell.test.tsx` hit the same 5000ms full-suite timeout (passes 81/81 alone) — systemic fix: global `testTimeout: 15000` in `vite.config.ts`; full pre-commit suite passes
+
 - [x] A stress reproduction that fails before the fix is recorded (command plus failure output)
 - [x] The same stress command passes after the fix, 5 runs in a row
 - [x] Removing the "Open chat" button from the component still makes the test fail (control)

@@ -58,9 +58,10 @@ function Where() {
 
 const refresh = vi.fn();
 
-// The first render of the page tree in a worker is cold (module init + JIT); measured under 8 parallel
-// runs + CPU burners it exceeded findBy's default 1000ms and, in rare runs, the 5000ms test timeout (P1570). The wait stays an
-// assertion: a missing button still fails, just after 20s instead of 1s.
+// P1570: every service here is mocked to resolve immediately, so the delay is harness cost, not
+// app slowness: the first render in a worker is cold (module import + JIT). Under CPU contention it
+// exceeded findBy's 1000ms and, rarely, vitest's 5000ms test timeout. A missing button still fails,
+// after 20s instead of 1s. Each describe that uses this helper must raise its test timeout to match.
 const findOpenChat = () => screen.findByRole('button', { name: 'Open chat' }, { timeout: 20000 });
 
 function renderPage(chats: ChatSummary[] | null) {
@@ -144,7 +145,7 @@ describe('P1512 — group page "Open chat"', { timeout: 30000 }, () => {
   });
 });
 
-describe('P1512 — a late chat refresh never redirects someone who has already moved on', () => {
+describe('P1512 — a late chat refresh never redirects someone who has already moved on', { timeout: 30000 }, () => {
   function deferred<T>() {
     let resolve!: (v: T) => void;
     const promise = new Promise<T>(r => { resolve = r; });

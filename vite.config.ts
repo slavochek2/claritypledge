@@ -236,6 +236,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     pool: 'forks', // Prevents vi.mock() state leaking between test files
+    // P1570: under the full suite (650+ files in parallel forks) a cold first render can pass vitest's
+    // 5000ms default while the same test passes alone; 15s absorbs harness load, a real hang still fails.
+    testTimeout: 15000,
     setupFiles: './src/tests/setup.tsx',
     env: {
       // Prevent supabase.ts from throwing at module load in test environments.
