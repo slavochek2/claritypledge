@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 226
+**Next ID:** 232
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2817,5 +2817,71 @@ create-spec SKILL.md (Done-When section, "[post-deploy] is a CLAUSE") says a cri
 **due:** month
 
 P1567 (2026-10-26) found by Codex probe that an alert step whose gh calls infer the repo from the checkout cannot alert when the checkout failed, and that overlapping runs duplicate issues. edge-smoke.yml has none of GH_REPO, persist-credentials: false, concurrency. Check every .github/workflows file with `issues: write` and apply the P1567 fixes (decisions.md 2026-10-26 [technical]).
+
+---
+
+## Button rule breaks found by the P1568 visual sweep (pre-existing)
+
+**ID:** INBOX-226
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+Three button problems already on main, seen in the P1568 screenshot sweep, not caused by it. Settings shows a disabled blue Save Changes with No changes to save in the initial state (dead control, P955 rule), and at 320 the hint wraps under it. The top-bar Tools button is a tinted bordered button that matches no button rule and outweighs the page's real primary on Events and Live. On Live at phone width, Join next to the code input reads as plain gray text, not a button. Done when each follows the Button Decision Rules in docs/design-system.md; droppable if those pages are redesigned.
+
+---
+
+## pre-commit ESLint step re-stages working-tree content after --fix
+
+**ID:** INBOX-227
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+scripts/pre-commit-checks.sh section 2 runs `eslint --fix` on staged files and then `git add`s them, which stages the WORKING TREE copy, including any unstaged edit (a co-tenant's or your own) in those files. Same class as P1279. Found while building P1566, deferred there by its spec. Done when the fix runs on index blobs or the re-stage is removed; droppable if commits move entirely to worktrees.
+
+---
+
+## p1512-shell test fails under CPU load
+
+**ID:** INBOX-228
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+src/tests/p1512-shell.test.tsx ("signed out, the public menu is exactly as before") failed once in a pre-commit run while the machine was busy with other node jobs, and passed on the run before. Likely a timing-sensitive wait. Done when it is made deterministic; droppable if it does not recur in a month of hook runs.
+
+---
+
+## three different time-ago formats in the UI; the shared helper lives in a mock file
+
+**ID:** INBOX-229
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** month
+
+Relative times render differently by page: formatRelativeTime (src/lib/utils.ts, "5m ago"), formatTimeAgo (src/app/utils/format-time.ts, "5m"), and a "Today / Yesterday / 3d ago" helper copied three times (feed-story-card, StoryCardDetail, and exported from src/app/data/mock-profile-data.ts). Found by the P1566 duplicates trial. Done when one format is chosen (a founder call) and one helper serves it; droppable if the differing formats are intended.
+
+---
+
+## landing-v4.tsx imports two prototype modules that do not exist
+
+**ID:** INBOX-230
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** month
+
+src/app/pages/landing-v4.tsx imports @/app/prototypes/shared/types and @/app/prototypes/linkedin-like/components/shared; neither path exists. Found by the P1566 import-graph trial. Done when the imports are fixed or the page is deleted; droppable if the page is already unreachable dead code and is removed by other cleanup.
+
+---
+
+## Check Gemini's mirror-provider findings (unverified)
+
+**ID:** INBOX-231
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 2026-10-26 (an older copy, before P1564) claimed 1 HIGH and 3 MEDIUM. HIGH: switching accounts without a reload can carry the previous user's mirror state and in-flight loads across. MEDIUM: status loads requested before the availability check are dropped; loadStatuses resets the staleness clock of running jobs; New portrait releases its lock while a job is still running. None was verified against current main. Done when each is confirmed with a failing test and filed, or disproved; droppable if the provider is rewritten.
 
 ---
