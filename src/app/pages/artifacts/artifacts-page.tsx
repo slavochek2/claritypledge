@@ -9,7 +9,7 @@
  * artifacts-view-model.ts and use-artifacts-data.ts; this file is layout and wiring.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
@@ -64,6 +64,7 @@ export function ArtifactsPage() {
   const navigate = useNavigate();
   const { user, isLoading, sessionChecked } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const here = useLocation();
   const location = resolveArtifactsLocation(searchParams);
 
   // An old `tab=yours|shared&type=` link is rewritten to the new scheme, replacing history. It already renders the
@@ -74,8 +75,9 @@ export function ArtifactsPage() {
 
   useEffect(() => {
     if (!sessionChecked || isLoading) return;
-    if (!user) navigate('/login?redirect=/artifacts', { replace: true });
-  }, [user, isLoading, sessionChecked, navigate]);
+    // The whole address comes back after sign-in, so a link to Sent or Shared with me lands on that list.
+    if (!user) navigate(`/login?redirect=${encodeURIComponent(here.pathname + here.search)}`, { replace: true });
+  }, [user, isLoading, sessionChecked, navigate, here.pathname, here.search]);
 
   if (!sessionChecked || isLoading) return <ClarityPageLoader />;
   if (!user) return null;

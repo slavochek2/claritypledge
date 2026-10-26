@@ -4,8 +4,8 @@
  *
  * One hook for every list (Drafts, Sent, Received, Mine, Shared with me). Letters sent to you come from
  * `getAllReceivedLetters` (paged, no 20-row cap); `getInboxItems` (a capped mixed list) is read only for sender
- * activity, which feeds the sent letters' "N new from" and done counts. That read is a refinement: the deliveries
- * already give the done count, so it belongs to no list's success rule. Each source settles on its own, so one slow
+ * activity, which only tops up the sent letters' done counts. That read is a refinement: the deliveries already give
+ * the done count and what is new on a sent letter (started or finished and unread), so it belongs to no list's success rule. Each source settles on its own, so one slow
  * or failing service never blanks another list; a list errors only when its source failed and nothing was ever
  * loaded for it, and says "some could not be loaded" when a later read failed.
  *
@@ -152,8 +152,9 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
         myCanvases: sources.myCanvases ?? [],
         sharedCanvases: sources.sharedCanvases ?? [],
         userSlug,
+        userId,
       }),
-    [sources, userSlug],
+    [sources, userSlug, userId],
   );
 
   const listState = (keys: (keyof Sources)[], rows: ArtifactRow[]): ListData => {

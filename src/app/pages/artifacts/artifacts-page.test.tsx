@@ -17,11 +17,11 @@ const mocks = vi.hoisted(() => ({
   listSharedWithMe: vi.fn(),
   markCanvasRead: vi.fn(),
   invite: { current: null as null | Record<string, unknown> },
+  auth: { current: null as null | { user: { id: string; slug: string } | null; isLoading: boolean; sessionChecked: boolean } },
 }));
 
-vi.mock('@/auth', () => ({
-  useAuth: () => ({ user: { id: 'me', slug: 'me' }, isLoading: false, sessionChecked: true }),
-}));
+const signedIn = { user: { id: 'me', slug: 'me' }, isLoading: false, sessionChecked: true }; // stable ref: a new object per render would refetch forever
+vi.mock('@/auth', () => ({ useAuth: () => mocks.auth.current ?? signedIn }));
 vi.mock('@/app/data/docs-service', () => ({
   docsService: { getDocsByUserOrThrow: mocks.getDocsByUserOrThrow, createDoc: mocks.createDoc },
 }));
@@ -44,6 +44,7 @@ vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ in
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { toast } from 'sonner';
+import { isSafeRedirectPath } from '@/auth/redirect-allowlist';
 import { ArtifactsPage } from './artifacts-page';
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
@@ -53,7 +54,7 @@ const doc = (over: Partial<ClarityDoc> = {}) =>
   ({ id: 'd1', title: 'Draft about trust', visibility: 'private', updated_at: ago(2 * H), story_count: 2, point_count: 3, has_sent_letters: false, ...over }) as ClarityDoc;
 const sentLetter = { id: 'l1', source_doc_id: 'd9', sender_id: 'me', mode: 'one-to-one', status: 'sealed', sealed_at: ago(30 * H), created_at: ago(30 * H), doc_title: 'Hello Tom' };
 const delivery = (over: Partial<LetterDelivery> = {}) =>
-  ({ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', receiver_name: 'Ann', status: 'completed', ...over }) as LetterDelivery;
+  ({ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', receiver_name: 'Ann', status: 'completed', read_at: ago(H), ...over }) as LetterDelivery;
 const received = (over: Partial<InboxItem> = {}): InboxItem => ({
   type: 'received', delivery_id: 'rd1', letter_id: 'rl1', title: 'Note from Mara', actor_name: 'Mara', actor_slug: 'mara',
   timestamp: ago(H), read_at: null, completed_at: null, ...over,
@@ -81,6 +82,7 @@ const rows = () => screen.queryAllByTestId('artifact-row');
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.invite.current = null;
+  mocks.auth.current = null;
   mocks.getDocsByUserOrThrow.mockResolvedValue([doc()]);
   mocks.getAllSentLettersOrThrow.mockResolvedValue([sentLetter]);
   mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery()] });
@@ -121,7 +123,7 @@ describe('Artifacts page: split by kind', () => {
     expect(chip('Sent')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getAllByRole('button', { pressed: true }).map(b => b.textContent)).toEqual(['Drafts']);
     expect(titles()).toEqual(['Draft about trust']);
-    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Draft · 2 stories, 3 points · 2h ago']);
+    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['2 stories, 3 points · 2h ago']);
     expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
     expect(screen.queryByRole('tab', { name: /Yours|Shared with you/ })).toBeNull();
@@ -165,12 +167,37 @@ describe('Artifacts page: split by kind', () => {
   });
 
   it('unread activity on a sent letter says "1 new from Ann" with the activity time in the Sent list', async () => {
-    mocks.getInboxItems.mockResolvedValue([
-      { ...received(), type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Ann', timestamp: ago(10 * 60_000), read_at: null },
-    ]);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery({ completed_at: ago(10 * 60_000), read_at: null })] });
     renderPage('/artifacts?tab=letters&list=sent');
     await screen.findByText('Hello Tom');
     await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Sent to 1 · 1 new from Ann · 10m ago']));
+  });
+
+  it('Sent lists letters with something new first, with the words and no row dot', async () => {
+    const other = { ...sentLetter, id: 'l2', doc_title: 'Quiet newer', sealed_at: ago(2 * H), created_at: ago(2 * H) };
+    mocks.getAllSentLettersOrThrow.mockResolvedValue([other, sentLetter]);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [delivery()], l2: [delivery({ id: 'dv2', letter_id: 'l2' })] });
+    mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ dv1: 1 });
+    renderPage('/artifacts?tab=letters&list=sent');
+    await waitFor(() => expect(titles()).toEqual(['Hello Tom', 'Quiet newer']));
+    expect(screen.getAllByTestId('artifact-meta')[0]!.textContent).toMatch(/^Sent to 1 · 1 new from Ann · /);
+    expect(screen.queryAllByRole('img', { name: 'Unread' })).toHaveLength(0);
+    expect(screen.getByTestId('list-dot-sent')).toBeInTheDocument();
+  });
+
+  describe('signed out', () => {
+    it.each([
+      ['/artifacts', '%2Fartifacts'],
+      ['/artifacts?tab=letters&list=sent', '%2Fartifacts%3Ftab%3Dletters%26list%3Dsent'],
+      ['/artifacts?tab=canvases&list=shared', '%2Fartifacts%3Ftab%3Dcanvases%26list%3Dshared'],
+    ])('%s goes to login and carries the whole address back, URL-encoded', async (url, encoded) => {
+      mocks.auth.current = { user: null, isLoading: false, sessionChecked: true };
+      renderPage(url);
+      await waitFor(() => expect(loc()).toBe(`/login?redirect=${encoded}`));
+      const back = new URLSearchParams(loc()!.split('?')[1]).get('redirect');
+      expect(back).toBe(url);
+      expect(isSafeRedirectPath(back)).toBe(true); // the login page would accept it, not fall back to /feed
+    });
   });
 
   describe('tabs and filter write the URL', () => {
@@ -255,6 +282,47 @@ describe('Artifacts page: split by kind', () => {
       await screen.findByText('Sales map');
       expect(within(screen.getByRole('button', { name: 'Shared with me, unread' })).getByTestId('list-dot-shared')).toBeInTheDocument();
       expect(dotsIn(chip('Mine'))).toHaveLength(0);
+    });
+
+    it('the dots do not depend on which list is open: every tab and chip dot is the same whichever list the page opens on', async () => {
+      const urls = [
+        '/artifacts',
+        '/artifacts?tab=letters&list=sent',
+        '/artifacts?tab=letters&list=received',
+        '/artifacts?tab=canvases',
+        '/artifacts?tab=canvases&list=shared',
+      ];
+      for (const url of urls) {
+        renderPage(url);
+        // both tabs carry a dot on every list: unread received letters, and unread shared canvases
+        await screen.findByRole('tab', { name: 'Letters, new' });
+        await screen.findByRole('tab', { name: 'Canvases, new' });
+        // and the chips of the open tab carry theirs
+        if (url.includes('canvases')) {
+          expect(await screen.findByRole('button', { name: 'Shared with me, unread' })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Mine' })).toBeInTheDocument();
+        } else {
+          expect(await screen.findByRole('button', { name: 'Received, unread' })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Drafts' })).toBeInTheDocument();
+        }
+        cleanup();
+      }
+    });
+
+    it('on Mine, the Canvases tab and the Shared with me chip light up as soon as the shared canvases arrive, with no click', async () => {
+      let arrive: (rows: unknown[]) => void = () => {};
+      mocks.listSharedWithMe.mockReturnValue(new Promise(r => { arrive = r; }));
+      mocks.getAllReceivedLetters.mockResolvedValue([]);
+      renderPage('/artifacts?tab=canvases');
+      await screen.findByText('Sales map');
+      expect(screen.queryByTestId('tab-dot-canvases')).toBeNull(); // nothing is known yet
+      expect(screen.queryByTestId('list-dot-shared')).toBeNull();
+      await act(async () => {
+        arrive([{ canvasId: 'c1', name: 'q4_plan', ownerId: 'o1', ownerName: 'Tom', ownerSlug: 'tom', ownerAvatarUrl: null, ownerAvatarColor: null, via: 'person', viaName: null, sharedAt: ago(H), unread: true }]);
+      });
+      expect(await screen.findByTestId('tab-dot-canvases')).toBeInTheDocument();
+      expect(screen.getByTestId('list-dot-shared')).toBeInTheDocument();
+      expect(screen.getAllByTestId('artifact-row')).toHaveLength(1); // still on Mine
     });
 
     it('with nothing unread or new there are no dots anywhere', async () => {
@@ -343,7 +411,7 @@ describe('Artifacts page: split by kind', () => {
     await screen.findByText('Draft about trust');
     const row = rows()[0]!;
     const meta = within(row).getByTestId('artifact-meta');
-    expect(meta.textContent).toBe('Draft · 2 stories, 3 points · 2h ago');
+    expect(meta.textContent).toBe('2 stories, 3 points · 2h ago');
     const icon = within(row).getByRole('img', { name: /Only people you share with/ });
     expect(meta.parentElement).toContainElement(icon);
     expect(within(row).getByRole('heading')).not.toContainElement(icon);

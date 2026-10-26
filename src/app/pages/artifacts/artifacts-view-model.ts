@@ -9,7 +9,8 @@
  * Rules (spec "Resolved Decisions", "Spec review amendments" and "Split by kind"):
  *  - Tabs by kind: Letters (Drafts, Sent, Received) and Canvases (Mine, Shared with me). One list at a time.
  *  - Inbox rows about activity on YOUR letters (completed, reading, responded) never become rows and
- *    never count as unread; they join onto the matching sent letter's "N of M done".
+ *    never count as unread; they join onto the matching sent letter's "N of M done". What is NEW on a sent
+ *    letter comes from its deliveries (started or finished, still unread), never from the capped inbox.
  *  - One meta line per row, `[state] · [one fact] · [time]` (Letters parity). Words, never a row dot, for
  *    activity on your own letters ("1 new from Tom"); "done" is the vocabulary everywhere.
  *  - A row dot exists only on Received and Shared with me. The list chips and the tabs carry a dot too:
@@ -75,6 +76,8 @@ export interface ArtifactsSource {
   sharedCanvases: CanvasSharedWithMe[];
   /** The signed-in person's public handle: own canvas addresses are built with it. */
   userSlug: string | null;
+  /** The signed-in person's id: their own name in a meta line reads "you". */
+  userId?: string | null;
   /** Unread explain-backs per delivery id; combined with unread sender activity in `inbox` ("N new from <name>"). Absent = none. */
   newByDelivery?: Record<string, number>;
 }
@@ -98,9 +101,9 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** A person in the meta line is a first name only ("Tom"), so the line stays on one row; no usable name reads "someone". */
-export function firstName(name: string | null | undefined): string {
-  return name?.trim().split(/\s+/)[0] || 'someone';
+/** A person in the meta line: the full display name, "you" for the viewer, "someone" when there is no usable name. */
+export function personName(name: string | null | undefined, isViewer = false): string {
+  return isViewer ? 'you' : name?.trim() || 'someone';
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -111,14 +114,13 @@ function joinMeta(parts: (string | null | undefined | false)[]): string {
 }
 
 /**
- * "Draft · 3 stories, 5 points · 2h ago"; a draft already sent: "Draft · 3 stories, 5 points · used for 2 letters".
+ * "3 stories, 5 points · 2h ago" (the Drafts chip already says Draft); a draft already sent:
+ * "3 stories, 5 points · used for 2 letters · 2h ago". Always ends with the time.
  */
 export function draftMeta(opts: { updatedAt: string; stories: number; points: number; sentCount?: number }): string {
   const counts = `${plural(opts.stories, 'story', 'stories')}, ${plural(opts.points, 'point', 'points')}`;
-  const tail = opts.sentCount && opts.sentCount > 0
-    ? `used for ${plural(opts.sentCount, 'letter', 'letters')}`
-    : agoPhrase(opts.updatedAt);
-  return joinMeta(['Draft', counts, tail]);
+  const used = opts.sentCount && opts.sentCount > 0 ? `used for ${plural(opts.sentCount, 'letter', 'letters')}` : null;
+  return joinMeta([counts, used, agoPhrase(opts.updatedAt)]);
 }
 
 /**
@@ -147,9 +149,9 @@ export function sentMeta(opts: {
   return joinMeta([state, fact, agoPhrase(opts.sealedAt)]);
 }
 
-/** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · done · 1w ago". */
-export function receivedLetterMeta(item: InboxItem): string {
-  const from = `From ${firstName(item.actor_name)}`;
+/** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · done · 1w ago"; your own letter: "From you · …". */
+export function receivedLetterMeta(item: InboxItem, fromViewer = false): string {
+  const from = `From ${personName(item.actor_name, fromViewer)}`;
   let fact: string | null = null;
   if (item.completed_at) fact = 'done';
   else if (item.total_steps !== undefined) fact = `${Math.min(item.steps_completed ?? 0, item.total_steps)} of ${item.total_steps} steps`;
@@ -163,9 +165,9 @@ export function canvasMeta(lastEdit: string | null): string {
 }
 
 /** "From Mara · 1h ago". */
-export function sharedMeta(fromName: string | null | undefined, at: string): string {
+export function sharedMeta(fromName: string | null | undefined, at: string, fromViewer = false): string {
   const ago = agoPhrase(at);
-  const from = `From ${firstName(fromName)}`;
+  const from = `From ${personName(fromName, fromViewer)}`;
   return ago ? `${from} · ${capitalizeAgo(ago)}` : from;
 }
 
@@ -242,13 +244,14 @@ export function sentRow(
   done: number,
   newByDelivery: Record<string, number> = {},
   activityByDelivery: Record<string, string> = {},
+  viewerId: string | null = null,
 ): ArtifactRow {
   const isPublic = letter.mode === 'one-to-many';
   const recipientCount = deliveries.filter(d => d.receiver_email).length;
   const newOf = (d: LetterDelivery) => newCountForDelivery(newByDelivery[d.id] ?? 0, d.id in activityByDelivery);
   const withNew = deliveries.filter(d => newOf(d) > 0);
   const newCount = withNew.reduce((n, d) => n + newOf(d), 0);
-  const newFrom = withNew.map(d => firstName(d.receiver_name));
+  const newFrom = withNew.map(d => personName(d.receiver_name, !!viewerId && d.receiver_profile_id === viewerId));
   // While something is new the row's time is the latest unread activity, not the sealing.
   const latestActivity = withNew.reduce((t, d) => Math.max(t, ms(activityByDelivery[d.id])), 0);
   const base = letter.sealed_at ?? letter.created_at;
@@ -286,14 +289,14 @@ export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null): ArtifactR
   };
 }
 
-export function receivedLetterRow(item: InboxItem): ArtifactRow {
+export function receivedLetterRow(item: InboxItem, viewerSlug: string | null = null): ArtifactRow {
   return {
     key: `received:${item.delivery_id}`,
     kind: 'letter',
     list: 'received',
     state: 'received-letter',
     title: item.title,
-    meta: receivedLetterMeta(item),
+    meta: receivedLetterMeta(item, !!viewerSlug && item.actor_slug === viewerSlug),
     visibility: null,
     unread: !item.read_at,
     hasNew: false,
@@ -306,14 +309,14 @@ export function receivedLetterRow(item: InboxItem): ArtifactRow {
   };
 }
 
-export function receivedCanvasRow(c: CanvasSharedWithMe): ArtifactRow {
+export function receivedCanvasRow(c: CanvasSharedWithMe, viewerId: string | null = null): ArtifactRow {
   return {
     key: `shared-canvas:${c.canvasId}`,
     kind: 'canvas',
     list: 'shared',
     state: 'received-canvas',
     title: canvasTitle(c.name),
-    meta: sharedMeta(c.ownerName, c.sharedAt),
+    meta: sharedMeta(c.ownerName, c.sharedAt, !!viewerId && c.ownerId === viewerId),
     visibility: null,
     unread: c.unread,
     hasNew: false,
@@ -323,12 +326,25 @@ export function receivedCanvasRow(c: CanvasSharedWithMe): ArtifactRow {
   };
 }
 
-/** Latest unread sender-side activity time per delivery id (a recipient started, finished or responded). */
-export function unreadActivityByDelivery(inbox: InboxItem[]): Record<string, string> {
+/**
+ * Unread sender-side activity per delivery id, read from the deliveries themselves (get_deliveries_with_progress):
+ * the recipient started or finished (status in_progress / completed) and `read_at` is still null. The time is the
+ * completion, else the creation, as the inbox RPC reports it. Deliveries to the viewer themself never count (the
+ * RPC excludes them). Deriving this from the deliveries, not from the inbox, keeps it clear of that list's 20-row
+ * cap, which twenty newer received letters could fill.
+ */
+export function unreadActivityByDelivery(
+  deliveriesByLetter: Record<string, LetterDelivery[]>,
+  viewerId: string | null = null,
+): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const i of senderActivityItems(inbox)) {
-    if (i.read_at) continue;
-    if (!(i.delivery_id in out) || ms(i.timestamp) > ms(out[i.delivery_id])) out[i.delivery_id] = i.timestamp;
+  for (const deliveries of Object.values(deliveriesByLetter)) {
+    for (const d of deliveries) {
+      if (d.status !== 'in_progress' && d.status !== 'completed') continue;
+      if (d.read_at) continue;
+      if (viewerId && d.receiver_profile_id === viewerId) continue;
+      out[d.id] = d.completed_at ?? d.created_at;
+    }
   }
   return out;
 }
@@ -339,15 +355,17 @@ export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
   const replied = repliedCountByLetter(src.deliveriesByLetter, src.inbox);
   const sentCounts: Record<string, number> = {};
   for (const l of src.sentLetters) sentCounts[l.source_doc_id] = (sentCounts[l.source_doc_id] ?? 0) + 1;
-  const activity = unreadActivityByDelivery(src.inbox);
+  const activity = unreadActivityByDelivery(src.deliveriesByLetter, src.userId ?? null);
   return {
     drafts: src.docs.map(d => draftRow(d, sentCounts[d.id] ?? 0)).sort(newestFirst),
+    // Letters with something new first (newest activity first), then the rest newest first. The words "N new from …"
+    // stay on the row and there is no row dot, so the Sent chip's dot is explained by what sits at the top.
     sent: src.sentLetters
-      .map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity))
-      .sort(newestFirst),
-    received: receivedInboxItems(src.inbox).map(receivedLetterRow).sort(newestFirst),
+      .map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity, src.userId ?? null))
+      .sort((a, b) => Number(b.hasNew) - Number(a.hasNew) || newestFirst(a, b)),
+    received: receivedInboxItems(src.inbox).map(i => receivedLetterRow(i, src.userSlug)).sort(newestFirst),
     mine: src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)).sort(newestFirst),
-    shared: src.sharedCanvases.map(receivedCanvasRow).sort(newestFirst),
+    shared: src.sharedCanvases.map(c => receivedCanvasRow(c, src.userId ?? null)).sort(newestFirst),
   };
 }
 

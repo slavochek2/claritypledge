@@ -75,7 +75,7 @@ describe('useArtifactsData ordering and failures', () => {
 
 describe('useArtifactsData activity source', () => {
   const letter = { id: 'l1', source_doc_id: 'd9', sender_id: 'me', mode: 'one-to-one', status: 'sealed', sealed_at: new Date().toISOString(), created_at: new Date().toISOString(), doc_title: 'Hello Tom' };
-  const deliveries = { l1: [{ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', receiver_name: 'Tom', status: 'completed' }] };
+  const deliveries = { l1: [{ id: 'dv1', letter_id: 'l1', receiver_email: 'a@example.com', receiver_name: 'Tom', status: 'completed', completed_at: new Date().toISOString(), read_at: new Date().toISOString() }] };
 
   it('unread explain-backs become "N new from <name>" on the sent letter', async () => {
     mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
@@ -87,13 +87,11 @@ describe('useArtifactsData activity source', () => {
     expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
   });
 
-  it('an unread "responded" inbox item makes the sent letter new, with no explain-backs at all', async () => {
+  it('an unread finished delivery makes the sent letter new, with no explain-backs and no inbox at all', async () => {
     mocks.getAllSentLettersOrThrow.mockResolvedValue([letter]);
-    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue(deliveries);
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [{ ...deliveries.l1[0]!, read_at: null }] });
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
-    mocks.getInboxItems.mockResolvedValue([
-      { type: 'recipient_responded', delivery_id: 'dv1', letter_id: 'l1', title: 'Hello Tom', actor_name: 'Tom', timestamp: new Date().toISOString(), read_at: null, completed_at: new Date().toISOString() },
-    ]);
+    mocks.getInboxItems.mockRejectedValue(new Error('inbox down'));
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 1 new from Tom · /));
   });

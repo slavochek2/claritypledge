@@ -334,8 +334,10 @@ export function DocDetailPage() {
   }, [fetchDoc]);
 
   const isOwner = Boolean(user?.id && doc?.owner_id === user.id);
+  // updateDoc's mapped row cannot know whether letters were sent from the draft (it defaults has_sent_letters to
+  // false), so a rename merges into the loaded doc and keeps the guard getDoc computed.
   const handleDocUpdated = useCallback((updated: ClarityDoc) => {
-    setDoc(updated);
+    setDoc(prev => ({ ...updated, has_sent_letters: prev?.has_sent_letters ?? updated.has_sent_letters }));
   }, []);
 
   // -----------------------------------------------------------------------

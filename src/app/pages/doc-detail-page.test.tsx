@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({ getDoc: vi.fn(), user: { current: { id: 'me' } as { id: string } | null } }));
@@ -13,7 +14,16 @@ vi.mock('@/app/data/short-links', () => ({ resolveDocShortCode: (id: string) => 
 vi.mock('@/app/hooks/useVerificationGate', () => ({ useVerificationGate: () => ({ checkVerified: () => true }) }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('@/app/components/docs/doc-header', () => ({ DocHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div> }));
+// Stands in for the real header: a Rename button saves the way DocHeader does, handing back updateDoc's mapped row,
+// whose has_sent_letters is always false (the mapper cannot know it).
+vi.mock('@/app/components/docs/doc-header', () => ({
+  DocHeader: ({ doc, onDocUpdated, children }: { doc: Record<string, unknown>; onDocUpdated: (d: Record<string, unknown>) => void; children?: React.ReactNode }) => (
+    <div>
+      <button onClick={() => onDocUpdated({ ...doc, title: 'Renamed draft', has_sent_letters: false })}>Rename</button>
+      {children}
+    </div>
+  ),
+}));
 vi.mock('@/app/components/docs/doc-privacy-banner', () => ({ DocPrivacyBanner: () => null }));
 vi.mock('@/app/components/docs/doc-story-picker', () => ({ DocStoryPicker: () => null }));
 vi.mock('@/app/components/letters/letter-receiver-modal', () => ({ LetterReceiverModal: () => null }));
@@ -60,6 +70,21 @@ describe('draft editor: Delete draft moved in from the Artifacts row menu', () =
     renderPage();
     expect(await screen.findByRole('button', { name: 'Delete draft' })).toBeDisabled();
     expect(screen.getByText("Can't delete — letters were sent from this draft.")).toBeInTheDocument();
+  });
+
+  it('renaming the draft keeps the guard: Delete stays disabled with its reason (and a draft nothing was sent from stays deletable)', async () => {
+    mocks.getDoc.mockResolvedValue({ doc: doc({ has_sent_letters: true }), stories: [] });
+    const first = renderPage();
+    expect(await screen.findByRole('button', { name: 'Delete draft' })).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Rename' }));
+    expect(screen.getByRole('button', { name: 'Delete draft' })).toBeDisabled();
+    expect(screen.getByText("Can't delete — letters were sent from this draft.")).toBeInTheDocument();
+    first.unmount();
+    // and a draft nothing was sent from stays deletable after a rename
+    mocks.getDoc.mockResolvedValue({ doc: doc({ has_sent_letters: false }), stories: [] });
+    renderPage();
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Rename' }));
+    expect(screen.getByRole('button', { name: 'Delete draft' })).toBeEnabled();
   });
 
   it('someone who is not the owner never sees it', async () => {
