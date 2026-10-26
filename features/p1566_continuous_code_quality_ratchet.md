@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 72
 workstream: infrastructure
@@ -171,24 +171,25 @@ harness before relying on discovery (enforcement does not depend on it).
 
 ## Done-When
 
-- [ ] Each of the 4 stages has a recorded trial (raw counts, sample classification, one refactor
+- [x] Each of the 4 stages has a recorded trial (raw counts, sample classification, one refactor
       attempt, keep/tune/withdraw verdict) in this spec and a `docs/decisions.md` entry (a stage
       deferred under the last item records the deferral and its entry instead)
-- [ ] Every retained gate is proven on the real repo (gates 7, 7c, 7d), exit codes pasted:
+- [x] Every retained gate is proven on the real repo (gates 7, 7c, 7d), exit codes pasted:
       fails on a known-bad change, on a newly added disable directive, and on split laundering;
       passes on a commit that touches an over-limit file without growing it, and on a `git mv` of
       an over-limit file
-- [ ] Every retained gate runs in CI `test.yml`. Proven by running the exact CI command locally on
+- [x] Every retained gate runs in CI `test.yml`. Proven by running the exact CI command locally on
       a known-bad tree (exit code pasted). The first real PR run is the `[post-deploy]` re-check
       (a push needs founder approval)
-- [ ] Every gate's failure message names the measured value, the limit and the remedy
-- [ ] Pre-commit wall-clock on a fixed 3-file commit grows by ≤10 s: median of 5 runs before and
-      after, pasted
-- [ ] Nested guides exist in the hot folders, each ≤40 lines, each `AGENTS.md` a symlink to its
+- [x] Every gate's failure message names the measured value, the limit and the remedy
+- [x] Pre-commit wall-clock on a fixed 3-file commit grows by ≤10 s: median of 5 runs before and
+      after, pasted (method substituted under machine contention: the added blocks timed
+      directly, median 0.90 s of 5; see Trial Record, "Pre-commit wall-clock")
+- [x] Nested guides exist in the hot folders, each ≤40 lines, each `AGENTS.md` a symlink to its
       sibling `CLAUDE.md`, and a pre-commit check enforces both. Loading verified per harness
       (Claude Code, Codex, Gemini CLI) by a probe; a harness that doesn't load them is recorded,
       and the gate message then carries the remedy alone
-- [ ] Stage 3 status recorded: P1241 config landed and the Knip ratchet is wired, or stage 3 is
+- [x] Stage 3 status recorded: P1241 config landed and the Knip ratchet is wired, or stage 3 is
       explicitly deferred to after P1241
 
 ## Alternatives Considered
@@ -265,17 +266,21 @@ merge. Proofs below ran the worktree's copy explicitly.
 | 3 unused code | not run | n/a | n/a | n/a | **DEFERRED** to after P1241 (backlog, no config) |
 | 4 exact duplicates | 662 windows, 294 regions, 72 of 650 files at the shipped scope | 22 regions (drawn before the scope tuning): 18 real, 4 noise (3 prototype copies, 1 type field list) | three identical time-ago helpers consolidated, 5 windows removed, none added: better | 1 of 60 src commits, real | **KEEP**, tuned: prototype folders out of scope, findings reported in touched files only |
 
-**Gate proofs on the real repo** (exit codes; worktree index, restored after each):
+**Gate proofs on the real repo** (exit codes; worktree index, restored after each; re-run
+on the final, post-review code with identical results, plus P2b):
 
 | Proof | Exit |
 |---|---|
 | P1 `api.ts` (over limit) grows by one statement | 1 |
 | P2 new `// eslint-disable-next-line complexity` in `letters-service.ts` | 1 |
+| P2b new blanket `/* eslint-disable */` in `letters-service.ts` | 1 |
 | P3 `letters-service.ts` edited without growing | 0 |
 | P4 `git mv` of `letters-service.ts` | 0 |
 | P5 split laundering: a real function moved out of `api.ts`, same amount added back | 1 |
 | P6 the same extraction done as the message prescribes (import + re-export only) | 0 |
 | Worktree hook copy, `api.ts` growth staged: blocked by the ratchet alone (build, tests, ESLint green) | 1 |
+| Worktree hook copy (final), a new 401-line `.jsx` staged | 1, but **silently**: see below |
+| Block 2b alone under `set -e` after the fix, the same `.jsx` / a 1-line `.jsx` | finding printed, ERRORS=1 / pass; old block as control: dies with no output |
 | CI command (`--ci`, push form) on a known-bad commit (size + cycle + duplicate) | 1, four findings |
 | CI command, pull_request form, same commit | 1 |
 | CI command on a known-good commit | 0 |
@@ -302,3 +307,22 @@ into an excluded path; a cycle through a folder outside `src/` and
 `supabase/functions/_shared/`; a top-level `await import()` (treated as lazy); a parameter
 shadowing an imported type's name can make the cycle check report a cycle the build would
 not have (errs toward flagging, never toward missing).
+
+**Defect found by the final wiring proof, not by the review.** The fix round changed block
+2b to branch on the ratchet's exit code with a bare `RATCHET_OUT="$(...)"` then
+`RATCHET_RC=$?`. The hook runs under `set -e`, so the first regression ended the hook right
+there with no message at all: still blocked (fail-closed), but with no value, limit or
+remedy shown. Fixed with `RATCHET_RC=0; RATCHET_OUT="$(...)" || RATCHET_RC=$?` and proven
+both ways under `set -e`, with the old block as the control. The hermetic canary cannot
+see this class, because it drives the runner, not the hook; the manual proof is the only
+cover.
+
+**Pre-commit wall-clock.** Method substituted, stated plainly: the planned median of 5
+full-hook runs before and after could not be measured cleanly, because concurrent sessions
+were running their own hooks on the same machine. The same 3-file commit took 205 s on one
+"before" run and 753 s on another, and a CPU-timed unit test (`p1547-mirror-budget`) failed
+under that load. So the added work was timed directly instead: blocks 2b (ratchet) and 2c
+(guides) on the same fixed 3-file commit, 5 runs: 0.83, 0.89, **0.90 (median)**, 0.99,
+1.00 s. Block 2d runs only when the ratchet's own files are staged. The added wall-clock is
+therefore about 1 s, well inside the 10 s bound. A full-hook re-measure in a quiet window
+is offered, not required.
