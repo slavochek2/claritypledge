@@ -67,7 +67,7 @@ describe('useArtifactsData ordering and failures', () => {
     mocks.getDeliveriesForLettersOrThrow.mockRejectedValue(new Error('rpc down'));
     await act(async () => { await result.current.refresh(); });
     expect(result.current.lists.sent.rows).toHaveLength(1);
-    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 0 of 1 done/); // the kept deliveries are still what is shown
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To a@example\.com · /); // the kept deliveries are still what is shown
     expect(result.current.lists.sent.partial).toBe(true);
     expect(result.current.lists.sent.status).toBe('ready');
   });
@@ -84,7 +84,7 @@ describe('useArtifactsData activity source', () => {
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
     expect(mocks.getUnreadExplainBackCountsByDelivery).toHaveBeenCalledWith(['dv1']);
-    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 2 new from Tom · /);
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 2 new from Tom · /);
   });
 
   it('an unread finished delivery makes the sent letter new, with no explain-backs and no inbox at all', async () => {
@@ -93,7 +93,7 @@ describe('useArtifactsData activity source', () => {
     mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
     mocks.getInboxItems.mockRejectedValue(new Error('inbox down'));
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
-    await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 1 new from Tom · /));
+    await waitFor(() => expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 1 new from Tom · /));
   });
 
   it('a failing activity read degrades to no "new" part, never to an error', async () => {
@@ -102,7 +102,7 @@ describe('useArtifactsData activity source', () => {
     mocks.getUnreadExplainBackCountsByDelivery.mockRejectedValue(new Error('x'));
     const { result } = renderHook(() => useArtifactsData('me', 'me'));
     await waitFor(() => expect(result.current.lists.sent.rows).toHaveLength(1));
-    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^Sent to 1 · 1 of 1 done/);
+    expect(result.current.lists.sent.rows[0]?.meta).toMatch(/^To Tom · 1 of 1 finished · just now$/);
     expect(result.current.lists.sent.partial).toBe(false);
   });
 });

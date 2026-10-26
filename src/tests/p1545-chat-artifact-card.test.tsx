@@ -48,7 +48,6 @@ import { clearArtifactAttachmentCache } from '@/app/pages/chat/artifact-attachme
 import { CanvasPage } from '@/app/pages/canvas-page';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import type { PointWithUserPosition } from '@/app/types';
-import { TypeDisc } from '@/app/pages/artifacts/artifact-row';
 
 const rawNamed: ChatArtifact = { available: true, kind: 'canvas', id: 'cv2', name: 'q4_roadmap_draft', ownerId: 'owner-1', ownerName: 'Ana Petrova', ownerSlug: 'ana', isOwner: false };
 const canvas: ChatArtifact = { available: true, kind: 'canvas', id: 'cv1', name: 'Sales plan', ownerId: 'owner-1', ownerName: 'Ana Petrova', ownerSlug: 'ana', isOwner: false };
@@ -108,15 +107,11 @@ describe('canvas card', () => {
 });
 
 describe('letter card', () => {
-  it('draws the same envelope icon the Artifacts list uses for letters', async () => {
+  it('draws the envelope icon for a letter', async () => {
     svc.getChatArtifact.mockResolvedValue(letter);
-    const listDisc = render(<TypeDisc kind="letter" />);
-    const listIcon = listDisc.container.querySelector('svg')!.getAttribute('class')!.match(/lucide-[a-z-]+/)![0];
-    expect(listIcon).toBe('lucide-mail'); // CONTROL: the reference is what we think it is
-    listDisc.unmount();
     card('letter', 'lt1');
     const disc = await screen.findByTestId('attachment-letter-disc');
-    expect(disc.querySelector('svg')!.getAttribute('class')).toContain(listIcon);
+    expect(disc.querySelector('svg')!.getAttribute('class')).toContain('lucide-mail'); // the Artifacts list has no row icons any more
   });
 
   it('a recipient opens the letter', async () => {

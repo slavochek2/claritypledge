@@ -11,8 +11,8 @@
  *  - Inbox rows about activity on YOUR letters (completed, reading, responded) never become rows and
  *    never count as unread; they join onto the matching sent letter's "N of M done". What is NEW on a sent
  *    letter comes from its deliveries (started or finished, still unread), never from the capped inbox.
- *  - One meta line per row, `[state] · [one fact] · [time]` (Letters parity). Words, never a row dot, for
- *    activity on your own letters ("1 new from Tom"); "done" is the vocabulary everywhere.
+ *  - One meta line per row, `[state] · [one fact] · [time]`. A sent letter names who it went to ("To Anna, Tom",
+ *    "To Tom + 2 others"), then "N new" or, for a public link, "N finished"; a received letter says "Finished" once done.
  *  - A row dot exists only on Received and Shared with me. The list chips and the tabs carry a dot too:
  *    Sent while any sent letter has something new, a tab when one of its lists has a dot.
  *  - Rows carry their own buttons (the row body is not a link); every dot reads `unread` (received) or `hasNew` (sent).
@@ -65,10 +65,9 @@ export interface ArtifactRow {
     /** Sent letter: the draft it was sealed from (Preview), who it went to, and which of them are new. */
     sourceDocId?: string | null;
     isPublicLetter?: boolean;
-    deliveries?: LetterDelivery[];
+    /** How many deliveries it has, public-link respondents included (Delete letter needs 0). */
+    deliveryCount?: number;
     newDeliveryIds?: string[];
-    /** Unread explain-backs / unread progress per delivery id (any value above 0 draws the person's dot). */
-    newByDelivery?: Record<string, number>;
     deliveryId?: string;
     canvasName?: string;
     ownerId?: string;
@@ -137,36 +136,47 @@ export function draftMeta(opts: { updatedAt: string; stories: number; points: nu
 }
 
 /**
- * "Sent to 3 · 1 of 3 done · 2d ago"; while something is new: "Sent to 3 · 1 new from Tom · 1h ago";
- * public link: "Public link · 4 done · 2d ago".
+ * Who a private letter went to: "To Anna Test, Tom Test" (one or two names in full), "To Tom Test + 2 others" (three or
+ * more: the first name and a count), "No recipients yet". A public letter says "Public link".
+ * The fact slot holds the progress ("1 of 2 finished"; a public letter: "4 finished"), which gives way to the news while
+ * something is new ("1 new from Tom Test", "2 new from 2 people"; public: "1 new"). The time comes last:
+ * "To Anna Test, Tom Test · 1 of 2 finished · 2d ago", "Public link · 4 finished · 2d ago".
  */
 export function sentMeta(opts: {
   isPublic: boolean;
-  recipientCount: number;
+  /** One display name per recipient (a delivery with an email), in the order they were added. */
+  recipientNames: string[];
   doneCount: number;
   newCount?: number;
-  /** One first name per delivery with something new ("someone" when unnamed): not deduplicated, so two Toms are 2 people. */
+  /** One name per delivery with something new ("you" for the viewer): not deduplicated, so two Toms are 2 people. */
   newFrom?: string[];
   sealedAt?: string | null;
 }): string {
-  const state = opts.isPublic ? 'Public link' : opts.recipientCount > 0 ? `Sent to ${opts.recipientCount}` : 'No recipients yet';
+  const names = opts.recipientNames;
+  const state = opts.isPublic
+    ? 'Public link'
+    : names.length === 0
+      ? 'No recipients yet'
+      : names.length <= 2
+        ? `To ${names.join(', ')}`
+        : `To ${names[0]} + ${names.length - 1} others`;
   let fact: string | null = null;
   if (opts.newCount && opts.newCount > 0) {
     const who = opts.newFrom ?? [];
-    fact = `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
+    fact = opts.isPublic || who.length === 0 ? `${opts.newCount} new` : `${opts.newCount} new from ${who.length === 1 ? who[0] : `${who.length} people`}`;
   } else if (opts.isPublic) {
-    fact = `${opts.doneCount} done`;
-  } else if (opts.recipientCount > 0) {
-    fact = `${Math.min(opts.doneCount, opts.recipientCount)} of ${opts.recipientCount} done`;
+    fact = `${opts.doneCount} finished`;
+  } else if (names.length > 0) {
+    fact = `${Math.min(opts.doneCount, names.length)} of ${names.length} finished`;
   }
   return joinMeta([state, fact, agoPhrase(opts.sealedAt)]);
 }
 
-/** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · done · 1w ago"; your own letter: "From you · …". */
+/** "From Tom · 2 of 5 steps · 4d ago"; finished: "From Anna · Finished · 1w ago"; your own letter: "From you · …". */
 export function receivedLetterMeta(item: InboxItem, fromViewer = false): string {
   const from = `From ${personName(item.actor_name, fromViewer)}`;
   let fact: string | null = null;
-  if (item.completed_at) fact = 'done';
+  if (item.completed_at) fact = 'Finished';
   else if (item.total_steps !== undefined) fact = `${Math.min(item.steps_completed ?? 0, item.total_steps)} of ${item.total_steps} steps`;
   return joinMeta([from, fact, agoPhrase(item.timestamp)]);
 }
@@ -260,11 +270,13 @@ export function sentRow(
   viewerId: string | null = null,
 ): ArtifactRow {
   const isPublic = letter.mode === 'one-to-many';
-  const recipientCount = deliveries.filter(d => d.receiver_email).length;
+  const recipientNames = deliveries
+    .filter(d => d.receiver_email)
+    .map(d => personName(d.receiver_name?.trim() || d.receiver_email, !!viewerId && d.receiver_profile_id === viewerId));
   const newOf = (d: LetterDelivery) => newCountForDelivery(newByDelivery[d.id] ?? 0, d.id in activityByDelivery);
   const withNew = deliveries.filter(d => newOf(d) > 0);
   const newCount = withNew.reduce((n, d) => n + newOf(d), 0);
-  const newFrom = withNew.map(d => personName(d.receiver_name, !!viewerId && d.receiver_profile_id === viewerId));
+  const newFrom = withNew.map(d => personName(d.receiver_name?.trim() || d.receiver_email, !!viewerId && d.receiver_profile_id === viewerId));
   // While something is new the row's time is the latest unread activity, not the sealing.
   const latestActivity = withNew.reduce((t, d) => Math.max(t, ms(activityByDelivery[d.id])), 0);
   const base = letter.sealed_at ?? letter.created_at;
@@ -275,7 +287,7 @@ export function sentRow(
     list: 'sent',
     state: 'sent',
     title: letter.doc_title,
-    meta: sentMeta({ isPublic, recipientCount, doneCount: done, newCount, newFrom, sealedAt: shownAt }),
+    meta: sentMeta({ isPublic, recipientNames, doneCount: done, newCount, newFrom, sealedAt: shownAt }),
     visibility: isPublic ? 'public' : 'private',
     unread: false,
     hasNew: newCount > 0,
@@ -285,9 +297,8 @@ export function sentRow(
       letterId: letter.id,
       sourceDocId: letter.source_doc_id ?? null,
       isPublicLetter: isPublic,
-      deliveries,
+      deliveryCount: deliveries.length,
       newDeliveryIds: withNew.map(d => d.id),
-      newByDelivery: Object.fromEntries(deliveries.map(d => [d.id, newOf(d)])),
     },
   };
 }

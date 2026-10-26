@@ -86,22 +86,32 @@ describe('meta strings (Resolved Decisions: one line)', () => {
     expect(canvasTitle('')).toBe('');
   });
 
-  it('sent: "Sent to 3 · 1 of 3 done · 2d ago"', () => {
-    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, sealedAt: ago(2 * D) })).toBe('Sent to 3 · 1 of 3 done · 2d ago');
-    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Sent to 3 · 0 of 3 done · 2d ago');
-    expect(sentMeta({ isPublic: false, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('No recipients yet · 2d ago');
+  it('sent names who it went to: one or two in full, three or more as the first name + N others', () => {
+    const meta = (recipientNames: string[], extra: Record<string, unknown> = {}) =>
+      sentMeta({ isPublic: false, recipientNames, doneCount: 0, sealedAt: ago(2 * D), ...extra });
+    expect(meta(['Anna Test'])).toBe('To Anna Test · 0 of 1 finished · 2d ago');
+    expect(meta(['Anna Test', 'Tom Test'])).toBe('To Anna Test, Tom Test · 0 of 2 finished · 2d ago');
+    expect(meta(['Tom Test', 'Anna Test', 'Bo Lee'])).toBe('To Tom Test + 2 others · 0 of 3 finished · 2d ago');
+    expect(meta(['A', 'B', 'C', 'D', 'E'])).toBe('To A + 4 others · 0 of 5 finished · 2d ago');
+    expect(meta([])).toBe('No recipients yet · 2d ago');
+    expect(meta(['Anna Test', 'Tom Test'], { doneCount: 1 })).toBe('To Anna Test, Tom Test · 1 of 2 finished · 2d ago');
+    expect(meta(['Anna Test'], { doneCount: 3 })).toBe('To Anna Test · 1 of 1 finished · 2d ago'); // never above the number of people
   });
 
-  it('sent while something is new: "Sent to 3 · 1 new from Tom · 1h ago" (words, no dot)', () => {
-    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 1, newFrom: ['Tom'], sealedAt: ago(H) }))
-      .toBe('Sent to 3 · 1 new from Tom · 1h ago');
-    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 3, newFrom: ['Tom', 'Anna'], sealedAt: ago(H) }))
-      .toBe('Sent to 3 · 3 new from 2 people · 1h ago');
+  it('sent while something is new: "N new from X" takes the progress slot, the time still last', () => {
+    expect(sentMeta({ isPublic: false, recipientNames: ['Anna Test', 'Tom Test'], doneCount: 1, newCount: 1, newFrom: ['Tom Test'], sealedAt: ago(H) }))
+      .toBe('To Anna Test, Tom Test · 1 new from Tom Test · 1h ago');
+    expect(sentMeta({ isPublic: false, recipientNames: ['Tom Test', 'A', 'B'], doneCount: 1, newCount: 3, newFrom: ['Tom Test', 'A'], sealedAt: ago(H) }))
+      .toBe('To Tom Test + 2 others · 3 new from 2 people · 1h ago');
+  });
+
+  it('public link: "Public link · 4 finished · 2d ago"; while something is new "N new" takes the slot', () => {
+    expect(sentMeta({ isPublic: true, recipientNames: [], doneCount: 4, sealedAt: ago(2 * D) })).toBe('Public link · 4 finished · 2d ago');
+    expect(sentMeta({ isPublic: true, recipientNames: [], doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 0 finished · 2d ago');
+    expect(sentMeta({ isPublic: true, recipientNames: [], doneCount: 4, newCount: 1, sealedAt: ago(2 * D) })).toBe('Public link · 1 new · 2d ago');
   });
 
   it('names are the full display name, however long ("Clarity Agent" is not "Clarity")', () => {
-    expect(sentMeta({ isPublic: false, recipientCount: 3, doneCount: 1, newCount: 1, newFrom: ['Clarity Agent'], sealedAt: ago(H) }))
-      .toBe('Sent to 3 · 1 new from Clarity Agent · 1h ago');
     expect(receivedLetterMeta(inboxItem({ actor_name: 'Vyacheslav Ladischenski', steps_completed: 2, total_steps: 5, timestamp: ago(4 * D) })))
       .toBe('From Vyacheslav Ladischenski · 2 of 5 steps · 4d ago');
     expect(sharedMeta('Mara Jones', ago(H))).toBe('From Mara Jones · 1h ago');
@@ -122,39 +132,37 @@ describe('meta strings (Resolved Decisions: one line)', () => {
     expect(shared[0]?.meta).toBe('From you · 30m ago');
   });
 
-  it('a sent letter\'s "N new from" uses the full name, "you" for a delivery to the viewer, and still counts deliveries not names', () => {
+  it('a sent letter names recipients in full, "you" for a delivery to the viewer', () => {
     const one = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Clarity Agent' })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(one.sent[0]?.meta).toBe('Sent to 1 · 1 new from Clarity Agent · 1h ago');
+    expect(one.sent[0]?.meta).toBe('To Clarity Agent · 1 new from Clarity Agent · 1h ago');
     const self = buildArtifacts(source({
       userId: 'me-id',
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Me Myself', receiver_profile_id: 'me-id' })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(self.sent[0]?.meta).toBe('Sent to 1 · 1 new from you · 1h ago');
-    const two = buildArtifacts(source({
+    expect(self.sent[0]?.meta).toBe('To you · 1 new from you · 1h ago');
+    const many = buildArtifacts(source({
       userId: 'me-id',
       sentLetters: [letter({ sealed_at: ago(H) })],
-      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom Ash' }), delivery({ id: 'dv2', receiver_name: 'Me Myself', receiver_profile_id: 'me-id' })] },
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom Ash' }), delivery({ id: 'dv2', receiver_name: 'Me Myself', receiver_profile_id: 'me-id' }), delivery({ id: 'dv3', receiver_name: null, receiver_email: 'x@example.com' })] },
       newByDelivery: { dv1: 1, dv2: 1 },
     }));
-    expect(two.sent[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
+    expect(many.sent[0]?.meta).toBe('To Tom Ash + 2 others · 2 new from 2 people · 1h ago');
+    // a recipient with no name is shown by email
+    const byEmail = buildArtifacts(source({ sentLetters: [letter()], deliveriesByLetter: { l1: [delivery({ receiver_name: null, receiver_email: 'x@example.com' })] } }));
+    expect(byEmail.sent[0]?.meta).toMatch(/^To x@example\.com · /);
   });
 
-  it('public link: "Public link · 4 done · 2d ago"', () => {
-    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 4, sealedAt: ago(2 * D) })).toBe('Public link · 4 done · 2d ago');
-    expect(sentMeta({ isPublic: true, recipientCount: 0, doneCount: 0, sealedAt: ago(2 * D) })).toBe('Public link · 0 done · 2d ago');
-  });
-
-  it('received: "From Tom · 2 of 5 steps · 4d ago" and "From Anna · done · 4d ago"', () => {
+  it('received: "From Tom · 2 of 5 steps · 4d ago" and "From Anna · Finished · 4d ago"', () => {
     expect(receivedLetterMeta(inboxItem({ actor_name: 'Tom', steps_completed: 2, total_steps: 5, timestamp: ago(4 * D) })))
       .toBe('From Tom · 2 of 5 steps · 4d ago');
     expect(receivedLetterMeta(inboxItem({ actor_name: 'Anna', completed_at: ago(D), steps_completed: 5, total_steps: 5, timestamp: ago(4 * D) })))
-      .toBe('From Anna · done · 4d ago');
+      .toBe('From Anna · Finished · 4d ago');
     expect(receivedLetterMeta(inboxItem({ actor_name: 'Tom', timestamp: ago(4 * D) }))).toBe('From Tom · 4d ago');
   });
 
@@ -206,7 +214,7 @@ describe('partition of the inbox', () => {
       // Read items: unread sender activity now counts as "new" (own tests below); this one pins the done join.
       inbox: [{ ...sender, read_at: ago(H) }, { ...progress, read_at: ago(H) }],
     }));
-    expect(sent[0]?.meta).toBe('Sent to 2 · 1 of 2 done · 1d ago'); // only recipient_responded counts, "reading" does not
+    expect(sent[0]?.meta).toBe('To Ann, Ann · 1 of 2 finished · 1d ago'); // only recipient_responded counts, "reading" does not
   });
 
   it('replied counts a delivery once when deliveries and inbox both report it', () => {
@@ -224,22 +232,22 @@ describe('partition of the inbox', () => {
 });
 
 describe('rows', () => {
-  it('counts distinct deliveries, not names: two Toms are 2 people', () => {
+  it('counts every delivery as a recipient: two Toms are two names', () => {
     const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Tom' })] },
       newByDelivery: { dv1: 1, dv2: 1 },
     }));
-    expect(sent[0]?.meta).toBe('Sent to 2 · 2 new from 2 people · 1h ago');
+    expect(sent[0]?.meta).toBe('To Tom, Tom · 2 new from 2 people · 1h ago');
   });
 
-  it('one delivery with no name reads "from someone"', () => {
+  it('a recipient with no name is shown by their email', () => {
     const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(H) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: null })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from someone · 1h ago');
+    expect(sent[0]?.meta).toBe('To a@example.com · 1 new from a@example.com · 1h ago');
   });
 
   it('a delivery the recipient finished and the sender has not read is new, and its time replaces sealed_at in text and sort', () => {
@@ -248,7 +256,7 @@ describe('rows', () => {
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed', completed_at: ago(10 * 60_000), read_at: null })] },
     }));
     expect(sent[0]?.state).toBe('sent');
-    expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 10m ago');
+    expect(sent[0]?.meta).toBe('To Tom · 1 new from Tom · 10m ago');
   });
 
   it('a recipient who has only started counts too (status in_progress, unread); one who has not started, or whose activity was read, does not', () => {
@@ -256,11 +264,11 @@ describe('rows', () => {
       sentLetters: [letter({ sealed_at: ago(3 * D) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', created_at: ago(2 * H), ...d })] },
     })).sent[0]?.meta;
-    expect(meta({ status: 'in_progress', read_at: null })).toBe('Sent to 1 · 1 new from Tom · 2h ago');
-    expect(meta({ status: 'sent', read_at: null })).toBe('Sent to 1 · 0 of 1 done · 3d ago');
-    expect(meta({ status: 'opened', read_at: null })).toBe('Sent to 1 · 0 of 1 done · 3d ago');
-    expect(meta({ status: 'completed', read_at: ago(H) })).toBe('Sent to 1 · 1 of 1 done · 3d ago');
-    expect(meta({ status: 'in_progress', read_at: ago(H) })).toBe('Sent to 1 · 0 of 1 done · 3d ago');
+    expect(meta({ status: 'in_progress', read_at: null })).toBe('To Tom · 1 new from Tom · 2h ago');
+    expect(meta({ status: 'sent', read_at: null })).toBe('To Tom · 0 of 1 finished · 3d ago');
+    expect(meta({ status: 'opened', read_at: null })).toBe('To Tom · 0 of 1 finished · 3d ago');
+    expect(meta({ status: 'completed', read_at: ago(H) })).toBe('To Tom · 1 of 1 finished · 3d ago');
+    expect(meta({ status: 'in_progress', read_at: ago(H) })).toBe('To Tom · 0 of 1 finished · 3d ago');
   });
 
   it('a public-link respondent (no profile) with unread activity makes a public letter new', () => {
@@ -268,7 +276,7 @@ describe('rows', () => {
       sentLetters: [letter({ mode: 'one-to-many', sealed_at: ago(3 * D) })],
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_email: null, receiver_name: 'Visitor', receiver_profile_id: null, status: 'completed', completed_at: ago(H), read_at: null })] },
     }));
-    expect(sent[0]?.meta).toBe('Public link · 1 new from Visitor · 1h ago');
+    expect(sent[0]?.meta).toBe('Public link · 1 new · 1h ago');
   });
 
   it('a delivery to the viewer themself is never "new" (the inbox RPC excludes it too)', () => {
@@ -278,7 +286,7 @@ describe('rows', () => {
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_profile_id: 'me-id', status: 'completed', completed_at: ago(H), read_at: null })] },
     }));
     expect(sent[0]?.hasNew).toBe(false);
-    expect(sent[0]?.meta).toBe('Sent to 1 · 1 of 1 done · 3d ago');
+    expect(sent[0]?.meta).toBe('To you · 1 of 1 finished · 3d ago');
   });
 
   it('"new" comes from the deliveries alone: twenty newer received letters in the inbox cannot hide it, and neither can an empty inbox', () => {
@@ -290,7 +298,7 @@ describe('rows', () => {
     for (const inbox of [flood, []]) {
       const { sent } = buildArtifacts(source({ ...base, inbox }));
       expect(sent[0]?.hasNew).toBe(true);
-      expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 1d ago');
+      expect(sent[0]?.meta).toBe('To Tom · 1 new from Tom · 1d ago');
     }
   });
 
@@ -300,11 +308,11 @@ describe('rows', () => {
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'in_progress', read_at: ago(2 * D), ...d })] },
     })).sent[0]?.meta;
     // opened two days ago, progressed an hour ago, the sender never looked
-    expect(meta({ last_progress_at: ago(H), sender_seen_at: null })).toBe('Sent to 1 · 1 new from Tom · 1h ago');
+    expect(meta({ last_progress_at: ago(H), sender_seen_at: null })).toBe('To Tom · 1 new from Tom · 1h ago');
     // the sender looked after the progress: nothing new
-    expect(meta({ last_progress_at: ago(H), sender_seen_at: ago(10 * 60_000) })).toBe('Sent to 1 · 0 of 1 done · 3d ago');
+    expect(meta({ last_progress_at: ago(H), sender_seen_at: ago(10 * 60_000) })).toBe('To Tom · 0 of 1 finished · 3d ago');
     // the sender looked, then the recipient did more
-    expect(meta({ last_progress_at: ago(10 * 60_000), sender_seen_at: ago(H) })).toBe('Sent to 1 · 1 new from Tom · 10m ago');
+    expect(meta({ last_progress_at: ago(10 * 60_000), sender_seen_at: ago(H) })).toBe('To Tom · 1 new from Tom · 10m ago');
   });
 
   it('a sent row carries what its buttons and its expansion need', () => {
@@ -314,8 +322,8 @@ describe('rows', () => {
       sentLetters: [letter({ id: 'l1', source_doc_id: 'd9', mode: 'one-to-many' })],
       deliveriesByLetter: { l1: [d] },
     }));
-    expect(sent[0]?.ref).toMatchObject({ letterId: 'l1', sourceDocId: 'd9', isPublicLetter: true, newDeliveryIds: ['dv1'], newByDelivery: { dv1: 1 } });
-    expect(sent[0]?.ref.deliveries).toEqual([d]);
+    expect(sent[0]?.ref).toMatchObject({ letterId: 'l1', sourceDocId: 'd9', isPublicLetter: true, newDeliveryIds: ['dv1'], deliveryCount: 1 });
+    expect(sent[0]?.ref.deliveryCount).toBe(1);
     expect(drafts[0]?.ref).toMatchObject({ docId: 'd7', storyCount: 0, hasSentLetters: true });
     const { mine } = buildArtifacts(source({ myCanvases: [myCanvas({ generalAccess: 'link', hasAudience: true })] }));
     expect(mine[0]?.ref).toMatchObject({ canvasName: 'sales_map', generalAccess: 'link', hasAudience: true });
@@ -327,7 +335,7 @@ describe('rows', () => {
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'completed', completed_at: ago(H), read_at: null })] },
       newByDelivery: { dv1: 2 },
     }));
-    expect(sent[0]?.meta).toBe('Sent to 1 · 2 new from Tom · 1h ago');
+    expect(sent[0]?.meta).toBe('To Tom · 2 new from Tom · 1h ago');
   });
 
   it('rows carry no "…" menu: a tap opens the item and the actions live inside it', () => {
@@ -349,7 +357,7 @@ describe('rows', () => {
       deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom' }), delivery({ id: 'dv2', receiver_name: 'Ann' })] },
       newByDelivery: { dv1: 1 },
     }));
-    expect(sent[0]?.meta).toBe('Sent to 2 · 1 new from Tom · 1h ago');
+    expect(sent[0]?.meta).toBe('To Tom, Ann · 1 new from Tom · 1h ago');
   });
 
   it('a draft counts the letters sent from it', () => {
@@ -376,7 +384,7 @@ describe('rows', () => {
     expect(sent.map(r => r.title)).toEqual(['New recent activity', 'New but old letter', 'Quiet newer', 'Quiet older']);
     expect(sent.map(r => r.hasNew)).toEqual([true, true, false, false]);
     expect(sent.every(r => r.unread === false)).toBe(true); // still no row dot
-    expect(sent[0]?.meta).toBe('Sent to 1 · 1 new from Bo · 10m ago'); // the words stay
+    expect(sent[0]?.meta).toBe('To Bo · 1 new from Bo · 10m ago'); // the words stay
   });
 
   it('each kind lands in its own list, newest first inside it', () => {
@@ -491,7 +499,7 @@ describe('dots (Received and Shared with me while unread, Sent while new, tab wh
 
   it('Sent carries a dot while any sent letter has something new; the row says it in words', () => {
     const withNew = buildArtifacts(source(newSent));
-    expect(withNew.sent[0]?.meta).toBe('Sent to 1 · 1 new from Tom · 1h ago');
+    expect(withNew.sent[0]?.meta).toBe('To Tom · 1 new from Tom · 1h ago');
     expect(withNew.sent[0]?.unread).toBe(false); // the row itself never gets the unread dot
     expect(listHasDot('sent', withNew.sent)).toBe(true);
     const quiet = buildArtifacts(source({ ...newSent, newByDelivery: {} }));

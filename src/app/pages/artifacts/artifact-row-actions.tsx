@@ -1,25 +1,25 @@
 /**
  * @file artifact-row-actions.tsx
- * @description P1545 second pass: the action line of one Artifacts row, and the dialogs its actions open.
+ * @description P1545 third pass: the controls on an Artifacts row's title line, and the dialogs they open.
  *
- * Left to right: "…", then the secondary button, then the primary, which sits far right. The row body is not a link:
- * only these buttons act. Primary is a small blue OUTLINE button (never filled in a list); secondary is the cards'
- * outlined Details style. Every row of a kind lists the same "…" items; one not possible right now is shown disabled
- * with its reason as a second line (phones have no hover).
+ * The whole row opens the item (artifact-row.tsx); these controls sit above that overlay, right-aligned and vertically
+ * centred, and never trigger it. Primary is a small blue OUTLINE button. Every row of a kind lists the same "…" items.
  *
- *   draft            … Delete draft · Edit · Prepare letter
- *   sent, private    … Preview, Delete letter · Details · Add recipient
- *   sent, public     … Preview, Delete letter · Details · Copy link
- *   received         Open (Results once done)
- *   own canvas       … Share, Copy link · Open
- *   shared canvas    Open
+ *   draft            Prepare letter · … (Delete draft)
+ *   sent             + Add recipient · … (Copy link when public, Preview, Delete letter)
+ *   received         › (quiet; no controls)
+ *   own canvas       Share · … (Copy link)
+ *   shared canvas    ›
  *
- * Handlers and guards are the ones the old row menu had (docs-service deleteDoc, letters-service deleteLetter, the
- * P1515 share panel anchored to the "…" button); Add recipient opens the overview's own dialog.
+ * A control that is not possible right now stays focusable and clickable (aria-disabled, muted): hover or focus shows
+ * its reason as a tooltip, a tap shows it as a toast. Nothing about it is written on the row.
+ *
+ * Handlers and guards are the old row menu's (docs-service deleteDoc, letters-service deleteLetter); Add recipient opens
+ * the overview's own dialog; Share opens the canvas page's own share panel (CanvasShareControl).
  */
-import { useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { MoreHorizontal, Pencil } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -29,9 +29,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
 import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-modal';
-import { CARD_FOCUS_RING, DETAILS_BUTTON_CLASS } from '@/app/components/shared/card-action-classes';
+import { CARD_FOCUS_RING } from '@/app/components/shared/card-action-classes';
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
@@ -39,15 +40,17 @@ import type { ArtifactRow } from './artifacts-view-model';
 
 /** The primary: a small blue outline button, 40px tall. */
 const PRIMARY_CLASS =
-  `inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-blue-600 bg-background px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:pointer-events-none disabled:opacity-50 ${CARD_FOCUS_RING}`;
-const SECONDARY_CLASS = `${DETAILS_BUTTON_CLASS} disabled:pointer-events-none disabled:opacity-50`;
+  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-blue-600 bg-background px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 ${CARD_FOCUS_RING}`;
+/** Not possible right now: muted, but still focusable and clickable (it answers with its reason). */
+const MUTED_CLASS =
+  `inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-400 ${CARD_FOCUS_RING}`;
 const ICON_CLASS =
   `flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${CARD_FOCUS_RING}`;
 
 interface MenuItem {
   id: string;
   label: string;
-  /** Shown under the label and the item is disabled. */
+  /** Not possible right now: the item answers with this instead of acting. */
   disabledReason?: string;
   danger?: boolean;
   run: () => void;
@@ -56,8 +59,6 @@ interface MenuItem {
 interface Props {
   row: ArtifactRow;
   userSlug: string | null;
-  /** A button that opens the item was used (Details, Open): the page clears the row's dot. */
-  onOpen: (row: ArtifactRow) => void;
   /** Called after anything that changes the list (delete, add recipient, share change). */
   onChanged: () => void;
 }
@@ -71,15 +72,12 @@ async function copy(text: string) {
   }
 }
 
-export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) {
+export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<'draft' | 'letter' | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [shareSignal, setShareSignal] = useState(0);
-  // Share opens AFTER the menu has closed: the menu hands focus back to its button as it closes, and that
-  // focus move would dismiss the share popover if the popover were already open.
-  const shareAfterClose = useRef(false);
 
   const name = (label: string) => `${label}: ${row.title}`;
   const { ref } = row;
@@ -118,29 +116,40 @@ export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) 
     }
   };
 
-  const openLink = (label: string, className: string, state?: unknown) =>
-    row.href ? (
-      <Link to={row.href} state={state} aria-label={name(label)} className={className} onClick={() => onOpen(row)}>
-        {label}
-      </Link>
-    ) : (
-      <button type="button" disabled aria-label={name(label)} className={className}>{label}</button>
-    );
-
   const canvasName = ref.canvasName;
   const canvasLink = canvasName && userSlug ? `${window.location.origin}${canvasPath(userSlug, canvasName)}` : null;
   const canvasShared = !!ref.hasAudience || ref.generalAccess === 'link';
   const publicLetterLink = ref.letterId ? `${window.location.origin}/letter/${ref.letterId}` : null;
 
+  /** A labelled outline control; with a reason it is muted, aria-disabled, and answers with that reason. */
+  const control = (label: string, short: string | null, onClick: () => void, reason?: string): ReactNode => {
+    const text = short ? (
+      <>
+        <span className="hidden min-[400px]:inline">{label}</span>
+        <span className="min-[400px]:hidden">{short}</span>
+      </>
+    ) : label;
+    if (reason) {
+      return (
+        <MobileTooltip content={reason}>
+          <button type="button" aria-disabled="true" aria-label={name(label)} className={MUTED_CLASS} onClick={() => toast(reason)}>
+            {text}
+          </button>
+        </MobileTooltip>
+      );
+    }
+    return (
+      <button type="button" aria-label={name(label)} className={PRIMARY_CLASS} onClick={onClick}>
+        {text}
+      </button>
+    );
+  };
+
   let menu: MenuItem[] = [];
-  let secondary: ReactNode = null;
-  let primary: ReactNode = null;
-  /** Why the primary is disabled, shown under the line. */
-  let primaryReason: string | undefined;
+  let main: ReactNode = null;
 
   switch (row.state) {
-    case 'draft': {
-      const noStories = (ref.storyCount ?? 0) === 0;
+    case 'draft':
       menu = [{
         id: 'delete-draft',
         label: 'Delete draft',
@@ -148,30 +157,16 @@ export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) 
         disabledReason: ref.hasSentLetters ? "Can't delete — letters were sent from this draft." : undefined,
         run: () => setConfirm('draft'),
       }];
-      secondary = (
-        <Link to={row.href ?? '#'} aria-label={name('Edit')} className={SECONDARY_CLASS}>
-          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-          Edit
-        </Link>
-      );
-      primaryReason = noStories ? 'Add at least one story first.' : undefined;
-      primary = (
-        <button
-          type="button"
-          disabled={noStories}
-          aria-label={name('Prepare letter')}
-          className={PRIMARY_CLASS}
-          onClick={() => navigate(`/letter/${ref.docId}/compose`)}
-        >
-          Prepare letter
-        </button>
+      main = control(
+        'Prepare letter',
+        'Prepare',
+        () => navigate(`/letter/${ref.docId}/compose`),
+        (ref.storyCount ?? 0) === 0 ? 'Add at least one story first.' : undefined,
       );
       break;
-    }
-    case 'sent': {
-      const isPublic = !!ref.isPublicLetter;
-      const hasDeliveries = (ref.deliveries?.length ?? 0) > 0;
+    case 'sent':
       menu = [
+        ...(ref.isPublicLetter ? [{ id: 'copy-link', label: 'Copy link', run: () => { if (publicLetterLink) void copy(publicLetterLink); } }] : []),
         {
           id: 'preview',
           label: 'Preview',
@@ -182,39 +177,53 @@ export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) 
           id: 'delete-letter',
           label: 'Delete letter',
           danger: true,
-          disabledReason: hasDeliveries ? "Can't delete — letter has been shared." : undefined,
+          disabledReason: (ref.deliveryCount ?? 0) > 0 ? "Can't delete — letter has been shared." : undefined,
           run: () => setConfirm('letter'),
         },
       ];
-      secondary = openLink('Details', SECONDARY_CLASS, { newDeliveryIds: ref.newDeliveryIds ?? [] });
-      primary = isPublic ? (
-        <button type="button" aria-label={name('Copy link')} className={PRIMARY_CLASS} onClick={() => publicLetterLink && void copy(publicLetterLink)}>
-          Copy link
-        </button>
-      ) : (
+      main = (
         <button type="button" aria-label={name('Add recipient')} className={PRIMARY_CLASS} onClick={() => setAddOpen(true)}>
-          Add recipient
+          <span aria-hidden="true">+</span>
+          <span className="hidden min-[400px]:inline">Add recipient</span>
+          <span className="min-[400px]:hidden">Add</span>
         </button>
       );
       break;
-    }
     case 'received-letter':
-      primary = openLink(row.href && /\/results\?/.test(row.href) ? 'Results' : 'Open', PRIMARY_CLASS);
-      break;
-    case 'canvas':
-      menu = [
-        { id: 'share', label: 'Share', run: () => { shareAfterClose.current = true; } },
-        {
-          id: 'copy-link',
-          label: 'Copy link',
-          disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
-          run: () => { if (canvasLink) void copy(canvasLink); },
-        },
-      ];
-      primary = openLink('Open', PRIMARY_CLASS);
-      break;
     case 'received-canvas':
-      primary = openLink('Open', PRIMARY_CLASS);
+      // Nothing to press: the whole row opens it. A quiet chevron says so.
+      return <ChevronRight data-testid="row-chevron" className="relative z-10 h-5 w-5 shrink-0 text-muted-foreground/70" aria-hidden="true" />;
+    case 'canvas':
+      menu = [{
+        id: 'copy-link',
+        label: 'Copy link',
+        disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
+        run: () => { if (canvasLink) void copy(canvasLink); },
+      }];
+      main = (
+        // The canvas page's own share panel, anchored to this button (its own trigger stays hidden).
+        <div className="relative">
+          <button type="button" aria-label={name('Share')} className={PRIMARY_CLASS} onClick={() => setShareSignal(n => n + 1)}>
+            Share
+          </button>
+          {canvasName && canvasLink && (
+            // pointer-events-none: this box only anchors the panel under the button; it must never take clicks.
+            <div className="pointer-events-none absolute left-0 top-0">
+              <CanvasShareControl
+                name={canvasName}
+                displayTitle={canvasTitle(canvasName)}
+                visibility={canvasShared ? 'shared' : 'private'}
+                generalAccess={ref.generalAccess ?? 'restricted'}
+                entries={null}
+                link={canvasLink}
+                onChanged={onChanged}
+                hideTrigger
+                openSignal={shareSignal}
+              />
+            </div>
+          )}
+        </div>
+      );
       break;
   }
 
@@ -223,9 +232,11 @@ export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) 
   const item = (m: MenuItem) => (
     <DropdownMenuItem
       key={m.id}
-      disabled={!!m.disabledReason}
-      onSelect={() => m.run()}
-      className={`min-h-10 flex-col items-start justify-center gap-0.5 ${m.danger && !m.disabledReason ? 'text-destructive focus:text-destructive' : ''}`}
+      aria-disabled={m.disabledReason ? 'true' : undefined}
+      onSelect={() => (m.disabledReason ? toast(m.disabledReason) : m.run())}
+      className={`min-h-10 flex-col items-start justify-center gap-0.5 ${
+        m.disabledReason ? 'opacity-60' : m.danger ? 'text-destructive focus:text-destructive' : ''
+      }`}
     >
       <span>{m.label}</span>
       {m.disabledReason && <span className="max-w-[16rem] whitespace-normal text-xs text-muted-foreground">{m.disabledReason}</span>}
@@ -234,54 +245,24 @@ export function ArtifactRowActions({ row, userSlug, onOpen, onChanged }: Props) 
 
   return (
     <>
-      <div data-testid="row-actions" className="mt-2 flex flex-wrap items-center justify-end gap-2">
+      {/* Raised above the row's overlay link, so a press here never opens the item. */}
+      <div data-testid="row-actions" className="relative z-10 flex shrink-0 items-center gap-1.5">
+        {main}
         {menu.length > 0 && (
-          <div className="relative">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" aria-label={`Actions for ${row.title}`} className={ICON_CLASS}>
-                  <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                side="bottom"
-                sideOffset={4}
-                className="min-w-[12rem]"
-                onCloseAutoFocus={e => {
-                  if (!shareAfterClose.current) return;
-                  shareAfterClose.current = false;
-                  e.preventDefault();
-                  setShareSignal(n => n + 1);
-                }}
-              >
-                {regular.map(item)}
-                {danger.length > 0 && regular.length > 0 && <DropdownMenuSeparator />}
-                {danger.map(item)}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {row.state === 'canvas' && canvasName && userSlug && canvasLink && (
-              // pointer-events-none: this box sits over the "…" button only to anchor the panel; it must never take its clicks.
-              <div className="pointer-events-none absolute left-0 top-0">
-                <CanvasShareControl
-                  name={canvasName}
-                  displayTitle={canvasTitle(canvasName)}
-                  visibility={canvasShared ? 'shared' : 'private'}
-                  generalAccess={ref.generalAccess ?? 'restricted'}
-                  entries={null}
-                  link={canvasLink}
-                  onChanged={onChanged}
-                  hideTrigger
-                  openSignal={shareSignal}
-                />
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label={`Actions for ${row.title}`} className={ICON_CLASS}>
+                <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
+              {regular.map(item)}
+              {danger.length > 0 && regular.length > 0 && <DropdownMenuSeparator />}
+              {danger.map(item)}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-        {secondary}
-        {primary}
       </div>
-      {primaryReason && <p className="mt-1 text-right text-xs text-muted-foreground">{primaryReason}</p>}
 
       <ConfirmDialog
         open={confirm === 'draft'}

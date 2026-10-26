@@ -306,6 +306,20 @@ Founder UAT on the split-by-kind build: rows had no call to action ("the list is
 - **Dots like chat:** a dot on any row with something new (Sent included, replacing decision 1A's words-only), cleared when the item is opened. Requires a sender-side "seen" mark separate from the recipient's read mark (today one `read_at` serves both, so a recipient opening the letter hides the sender's later news).
 - **Label:** "Add recipients" becomes "Add recipient" everywhere.
 
+### One-line rows (founder UAT + Gemini 4 Argon design review, 2026-10-26, third pass)
+
+Founder UAT on the second pass: buttons on their own line (white space on desktop, 4-line rows on phones), the missing whole-row hover, a confusing Sent expansion ("Recipients" un-indented, "Done", a lone "›", two dots), Open vs Results on Received, and Add recipient vs Copy link on Sent although both letter kinds take recipients. The founder delegated the rest to a design review. Supersedes "Row actions on the list" above except the same-menu-per-kind rule.
+
+- **The whole row opens the item** (draft → editor, sent → overview, received → the letter, or your results once finished, canvas → canvas), with a full-row hover tint on desktop and a press tint on phones. Controls inside the row stop the row's click.
+- **Controls sit on the title's line, right-aligned, vertically centred**, on phone and desktop:
+  - Drafts: **Prepare letter** (blue outline) · `…` (Delete draft).
+  - Sent, private and public alike: **+ Add recipient** ("+ Add" below 400px) · `…` (Copy link when public, Preview, Delete letter).
+  - Received: a quiet `›`. My canvas: **Share** · `…` (Copy link). Shared canvas: `›`.
+- **No row icons** (the tab already says what the list holds). **No Sent expansion.** The meta line names who it went to, then the progress, then the time: `To Anna Test, Tom Test · 1 of 2 finished · Jun 26`, `To Tom Test + 2 others · 1 of 3 finished · …`, `Public link · 4 finished · Jun 22`. While something is new it takes the progress slot: `… · 1 new from Tom Test · …` (`2 new from 2 people`), public `Public link · 1 new · …`.
+- **Received meta** says `Finished` once you completed it; no Open/Results button.
+- **Disabled reasons** (Prepare letter at 0 stories, Delete after delivery, Copy link on a private canvas): a muted control that still responds, giving a tooltip on desktop hover and a toast on tap; no reason text on the row.
+- **Dot:** one per row at most, placed before the title, with the title in bold while new, like an unread chat. Gone once opened. Tab and chip dots roll up from rows. Drafts and Mine never carry dots.
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.
