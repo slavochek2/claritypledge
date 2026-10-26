@@ -1137,6 +1137,9 @@ echo "$LINT_N"
 echo "=== TEST ==="
 TEST_OUT="$(npm test -- --run 2>&1)"; TEST_RC=$?
 printf '%s\n' "$TEST_OUT" | tail -5
+# A failed run names its failures. The step's output is deleted afterwards, so without this
+# a flake reads "1 failed" and can never be handed to a fix (2026-10-26).
+if [ "$TEST_RC" -ne 0 ]; then echo "--- failed tests ---"; printf '%s\n' "$TEST_OUT" | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^ *(FAIL|×) ' | sort -u | head -40; fi
 TESTS_PASSED="$(printf '%s\n' "$TEST_OUT" | sed -n 's/^ *Tests  *\([0-9][0-9]*\) passed.*/\1/p' | tail -1)"
 if [ "$LINT_RC" -eq 0 ] && [ "$TEST_RC" -eq 0 ]; then echo "CHECK cp.baseline ok ${TESTS_PASSED:-all} tests pass, lint clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else echo "CHECK cp.baseline problem lint exit $LINT_RC with $LINT_N error lines, tests exit $TEST_RC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
