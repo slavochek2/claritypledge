@@ -88,10 +88,8 @@ The founder's "everywhere" covers these surfaces:
   `media-src 'self' https://storage.googleapis.com` (`vercel.json`). That blocks Supabase Storage
   URLs and `blob:` playback, and decisions.md 2026-09 (P1336) rejected widening it to
   `*.supabase.co`. The public-media GCS bucket is wrong for private DMs.
-  [FOUNDER DECISION: architecture — (a) private GCS bucket + short-lived signed URLs minted by an
-  edge function that checks chat membership (recommended: fits the existing CSP host, no policy
-  change), or (b) a ruled CSP exception adding `blob:` to `media-src` and serving audio via
-  authenticated fetch.] A unit test asserts the chosen audio URL shape passes the CSP, as P1336 did.
+  **Decided (founder, 2026-10-26):** a private GCS bucket, with short-lived signed URLs minted by
+  an edge function that checks chat membership. It fits the existing CSP host with no policy change. A unit test asserts the chosen audio URL shape passes the CSP, as P1336 did.
 - **Schema.** `chat_messages` (`20261019203000_p1512_clarity_chat.sql`) can't hold audio today:
   `attachment_kind IN ('point','story')`, and `has_content` requires body/attachment/forward. The
   migration adds an audio reference, duration and a separate `transcript` column (not `body`, which
@@ -140,7 +138,7 @@ Text present → send slot becomes (➤). Mirror chat → send slot is only ever
 | Wait after ✓ feels slow | MITIGATE | Measured first, 3 s target, streaming fallback |
 | iOS Safari records mp4/aac, Chrome webm/opus | MITIGATE | `/dev` verifies Gemini accepts both, or converts to WAV client-side as `transcribe-slice` does |
 | Abuse of the transcription endpoint runs up cost | MITIGATE | Authenticated users only, per-clip length cap, per-user rate limit, on a budget-capped key |
-| Which Gemini key: the batch key `transcribe-slice` uses is meant for background work; dictation is interactive | MITIGATE | [FOUNDER DECISION: own capped key vs prod-interactive key]; never `GEMINI_API_KEY` by accident (see `transcribe-slice/index.ts` header) |
+| Which Gemini key: the batch key `transcribe-slice` uses is meant for background work; dictation is interactive | MITIGATE | Decided: its own budget-capped key under a distinct secret name (issued via `/slava:util:ai-keys`); never `GEMINI_API_KEY` (see `transcribe-slice/index.ts` header) |
 | Stored voice is personal data | MITIGATE | Privacy and ToS line plus retention, per the founder decisions below |
 | Audio blocked by prod CSP `media-src` (7 prior prod-only CSP blocks) | MITIGATE | Storage architecture decision in Solution B, plus a unit test that parses `vercel.json` |
 | Mic permission denied | MITIGATE | Inline message, input stays usable |
@@ -212,22 +210,31 @@ formulas.
 
 ## Open Questions
 
-**Questions 1–3, the storage architecture above and the key choice block `/dev`** (each sets a
-migration, a lifecycle rule or a limit). Gemini 3.5 Transcribe also needs its registry row in
-`docs/technical/metered-services.md` before the Cost Budget can get a verdict.
+Gemini 3.5 Transcribe still needs its registry row in `docs/technical/metered-services.md` before
+the Cost Budget can get a verdict (first `/dev` task, alongside the latency measurement).
 
 0. [FOUNDER DECISION: UX] In an empty human chat the in-field dictation mic and the round
    voice-note button sit side by side, with two mic icons that do different things (reviewer
    concern: mis-taps on mobile). Options: different icons (e.g. a text-cursor mic for dictate), only
    the voice-note button in human chats until text is typed, or accept as WhatsApp+keyboard users
    already do.
-1. [FOUNDER DECISION: retention] Keep voice recordings forever, or delete after N days and keep the
-   transcript?
-2. [FOUNDER DECISION: privacy] Wording for "voice messages are stored and transcribed by Google
-   Gemini" in privacy and ToS.
-3. [FOUNDER DECISION: limits] Max voice-note length (2 min? 5 min?) and max dictation clip length.
-4. [FOUNDER DECISION: confirm] Mirror gets dictation only, no voice notes (recommended).
-5. Logged-out visitors: the mic is hidden for them (recommended, for cost), or shown?
+1. [FOUNDER DECISION: privacy] Exact wording in privacy and ToS ("voice messages are stored for 30
+   days and transcribed by Google Gemini; transcripts are kept").
+2. Logged-out visitors: mic hidden (current spec behaviour, for cost) unless the founder says
+   otherwise.
+
+## Resolved Decisions
+
+Founder, 2026-10-26 ("yes to all" on the recommended options):
+
+- **Storage:** private GCS bucket + short-lived signed URLs minted after a chat-membership check.
+  No CSP change.
+- **Retention:** voice-note audio is deleted after **30 days**; the transcript is kept. Enforced by a
+  bucket lifecycle rule plus the row's audio reference being cleared (bubble shows "Audio expired"
+  with the transcript).
+- **Limits:** voice note max **2 min**, dictation clip max **3 min**, enforced server-side.
+- **Key:** its own budget-capped Gemini key for this feature, under a distinct secret name.
+- **Mirror:** dictation only, no voice notes (incl. private @mirror asks).
 
 ## Related
 
