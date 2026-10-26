@@ -308,7 +308,7 @@ expect 0 "range mode, no regression" --range HEAD~1..HEAD --metrics size
 gen 1 extra >> src/app/data/big.ts; git add src/app/data/big.ts; git commit -qm grow
 expect 1 "range mode sees a committed regression" --range HEAD~1..HEAD --metrics size
 expect 2 "unknown revision is a tool error, never a pass" --range nosuchref..HEAD
-# --ci: the range comes from the GitHub event (the exact command test.yml runs).
+# --ci: the range comes from the GitHub event (the exact command quality-ratchet.yml runs).
 LAST="$(git rev-parse HEAD~1)"
 GROWN="$(git rev-parse HEAD)"
 ci() { env GITHUB_EVENT_NAME="$1" GITHUB_REF="$2" PUSH_BEFORE="$3" node "$RATCHET" --ci --metrics size >/dev/null 2>&1; echo $?; }
@@ -318,8 +318,14 @@ check_ci "$(ci push refs/heads/main 0000000000000000000000000000000000000000)" 2
 check_ci "$(ci push refs/heads/main "$(git rev-parse base)")" 1 "--ci push from an older ancestor still judges the whole range"
 git update-ref refs/remotes/origin/main "$LAST"
 check_ci "$(ci pull_request refs/pull/1/merge "")" 1 "--ci pull_request judges merge-base(origin/main)..HEAD"
+check_ci "$(ci push refs/heads/staging/p1 0000000000000000000000000000000000000000)" 1 "--ci push to staging/** judges merge-base(origin/main)..HEAD, even on a new branch"
+# A force-updated staging/pN: its previous tip is no ancestor of HEAD and must be ignored.
+STALE="$(git commit-tree "$(git rev-parse HEAD^{tree})" -m stale-staging-tip)"
+check_ci "$(ci push refs/heads/staging/p1 "$STALE")" 1 "--ci force-updated staging/** still judges merge-base(origin/main)..HEAD and sees the regression"
 git update-ref refs/remotes/origin/main "$GROWN"
 check_ci "$(ci pull_request refs/pull/1/merge "")" 0 "--ci pull_request with nothing new since origin/main"
+check_ci "$(ci push refs/heads/staging/p1 "$LAST")" 0 "--ci push to staging/** with nothing new since origin/main"
+check_ci "$(ci push refs/heads/staging/p1 "$STALE")" 0 "--ci force-updated staging/** with nothing new since origin/main passes"
 git update-ref -d refs/remotes/origin/main
 check_ci "$(ci pull_request refs/pull/1/merge "")" 2 "--ci pull_request without origin/main refuses (shallow or unfetched)"
 git checkout -q --detach "$LAST" 2>/dev/null

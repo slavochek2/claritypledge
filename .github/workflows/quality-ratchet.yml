@@ -1,0 +1,79 @@
+# Quality ratchet — server-side half of P1566. Check context: `quality-ratchet`.
+#
+# Blocks a change that makes code shape worse (a file or function grows past its limit,
+# a new suppression comment, a new import cycle, a new copy-paste), never pre-existing
+# debt. The pre-commit hook runs the per-file half; this job runs every metric registered
+# in the runner's METRICS, including the whole-project ones only CI can run.
+#
+# Load-bearing design notes:
+#  - It runs on staging/** so it judges commits BEFORE they become main (Vercel deploys
+#    main the moment it moves). Required checks bind to the commit SHA, so a green run on
+#    staging/pN satisfies the ruleset when the same SHAs are promoted. Once `quality-ratchet`
+#    is a required status check on main, a push whose net change makes code shape worse,
+#    measured from origin/main at the staging run, cannot be promoted.
+#  - That verdict is per push, not per commit, and it is not re-judged if main moves before
+#    the promote (Codex review 2026-10-26): a push that grows a file another push just shrank
+#    can stay green. Per-commit blocking is pre-commit's job, and the push-to-main run below
+#    (before..after) still turns red on it, after the fact.
+#  - Own workflow, own job name, so requiring it never makes the unit tests in test.yml a
+#    push blocker too.
+#  - "Before" is computed from the event, never a committed baseline: a push to main judges
+#    before..after; a staging push or a PR judges merge-base(origin/main)..HEAD. Exit 2
+#    means the range could not be computed — red, never a silent pass.
+#  - BLOCKING, never continue-on-error. permissions: contents: read only.
+#
+# Known limitation, stated not solved: the runner comes from the pushed commit, so a push
+# that edits the ratchet can weaken it — the same as test.yml. The hermetic canary
+# (scripts/test-quality-ratchet.sh) runs here first, so an edit that stops the runner
+# detecting regressions turns this check red rather than green.
+
+name: quality-ratchet
+
+on:
+  push:
+    branches: [main, 'staging/**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-ratchet:
+    name: quality-ratchet
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # a hung fetch or parse fails in minutes, not the 6-hour default
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the range base must be reachable
+
+      # fetch-depth: 0 already brings origin/main; fetched again explicitly so the base
+      # never depends on checkout defaults (same step as closure-gate.yml).
+      - name: Fetch base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # The ratchet parses code with the repo's own typescript; no lifecycle scripts needed (P1563).
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --include=optional
+
+      # Proves the runner still catches regressions before trusting its verdict (about 30 s).
+      - name: Ratchet canary (P1566)
+        run: bash scripts/test-quality-ratchet.sh
+
+      - name: Quality ratchet (P1566)
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: node scripts/quality-ratchet.cjs --ci
+
+      - name: Nested folder guides (P1566)
+        run: node scripts/check-nested-guides.cjs --rev HEAD

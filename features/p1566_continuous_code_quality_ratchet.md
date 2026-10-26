@@ -57,8 +57,8 @@ invoke a skill?
 ## Invariants
 
 - **Enforcement never depends on an agent invoking a skill, reading a doc, or being a particular
-  model.** Every retained gate runs in CI (`.github/workflows/test.yml`, the required path to
-  `main`). File-local gates also run in `scripts/pre-commit-checks.sh` for early feedback.
+  model.** Every retained gate runs in CI (`.github/workflows/quality-ratchet.yml`, on the
+  `staging/*` hop that every push to `main` passes through). File-local gates also run in `scripts/pre-commit-checks.sh` for early feedback.
   Whole-graph gates (Knip, cycles, duplicates) are **CI-only**, because a staged-files run cannot
   see the graph. Skills and guides may *explain* a gate. They must never be the only thing that
   *enforces* it.
@@ -178,8 +178,11 @@ harness before relying on discovery (enforcement does not depend on it).
       fails on a known-bad change, on a newly added disable directive, and on split laundering;
       passes on a commit that touches an over-limit file without growing it, and on a `git mv` of
       an over-limit file
-- [x] Every retained gate runs in CI `test.yml`. Proven by running the exact CI command locally on
-      a known-bad tree (exit code pasted). The first real PR run is the `[post-deploy]` re-check
+- [x] Every retained gate runs in CI: its own workflow `quality-ratchet.yml` (job
+      `quality-ratchet`, on `main`, `staging/**` and PRs to `main`), so it judges commits before
+      they become `main`. Proven by running the exact CI command locally on a known-bad tree (exit
+      code pasted), and in staging mode on the real repo: this branch exits 0, the same branch plus
+      3 lines in `clarity-live-page.tsx` exits 1. The first real PR run is the `[post-deploy]` re-check
       (a push needs founder approval)
 - [x] Every gate's failure message names the measured value, the limit and the remedy
 - [x] Pre-commit wall-clock on a fixed 3-file commit grows by ≤10 s: median of 5 runs before and
@@ -252,10 +255,12 @@ dependency-cruiser and jscpd, after a security review the founder asked for (18 
 deps for one rule; an unauditable native binary or a `colors`-dependent 4.x). No
 devDependency was added. (3) Complexity is ESLint 9's classic count reimplemented on the TS
 AST (matched ESLint on 560 of 560 functions), not ESLint's JSON output, so one parse serves
-lines, functions and complexity, and an eslint-disable cannot silence it. (4) **CI flags,
-pre-commit blocks.** `test.yml` is not among `main`'s required checks and does not run on the
-`staging/*` hop, so the CI step reports a regression after it lands on `main`. Making it
-required on the hop is an open founder decision. (5) In a worktree, the installed git hook runs the **main
+lines, functions and complexity, and an eslint-disable cannot silence it. (4) **CI judges on the staging hop.** The
+founder chose (2026-10-26) to judge before `main`, not after: the gates moved out of `test.yml`
+into their own workflow, `quality-ratchet.yml`, which also runs on `staging/**`. Its own job name
+means requiring it never makes the unit tests a push blocker. It refuses a promote once
+`quality-ratchet` is added to the `main-privacy-gate` ruleset's required checks, a founder-only
+setting; until then it shows red on the hop without refusing. (5) In a worktree, the installed git hook runs the **main
 checkout's** `pre-commit-checks.sh`, so the new pre-commit blocks take effect only after
 merge. Proofs below ran the worktree's copy explicitly.
 
@@ -286,7 +291,7 @@ on the final, post-review code with identical results, plus P2b):
 | CI command on a known-good commit | 0 |
 | CI command, push with no usable before SHA | 2 (refuses an empty range) |
 | `check-nested-guides.cjs --rev HEAD` on a tree without the guides | 1 |
-| Hermetic canary `scripts/test-quality-ratchet.sh` | 0 (82/82 after two review rounds and a final check: every confirmed reviewer finding is a scenario, plus `--ci` push, PR, zero-SHA and force-push cases); each mutant (growth rule, laundering, cycles, duplicates, class-extends and JS-import fixes disabled) exits 1 |
+| Hermetic canary `scripts/test-quality-ratchet.sh` | 0 (86/86 after three review rounds and a final check: every confirmed reviewer finding is a scenario, plus `--ci` push, staging push (new and force-updated), PR, zero-SHA and force-push cases; CI runs it before the ratchet itself); each mutant (growth rule, laundering, cycles, duplicates, class-extends and JS-import fixes disabled) exits 1 |
 
 **Nested guide loading probe** (scratch repo, root token as control): Claude Code 2.1.310
 loads a nested `CLAUDE.md` on file access. Codex 0.162.1 loads a nested `AGENTS.md` only when
@@ -306,7 +311,18 @@ file); near-duplicates with one line in nine changed (exact profile by design); 
 into an excluded path; a cycle through a folder outside `src/` and
 `supabase/functions/_shared/`; a top-level `await import()` (treated as lazy); a parameter
 shadowing an imported type's name can make the cycle check report a cycle the build would
-not have (errs toward flagging, never toward missing).
+not have (errs toward flagging, never toward missing); the staging verdict is per push and is
+not re-judged if `main` moves before the promote, so a push regrowing a file another push just
+shrank can stay green there (pre-commit judges each commit, and the push-to-`main` run still
+turns red on it).
+
+**Review round 3 (CI placement, 2 of 2 reviewers reported: Gemini, Codex).** Fixed: job
+timeout; CI runs the canary before trusting the runner; force-updated staging cases added;
+the workflow comment's "cannot reach production" overclaim corrected. Set aside: a stale
+staging base (moot, since the ruleset forbids non-fast-forward pushes to `main`, so any promoted
+SHA contains the base it was judged against or a newer one); a concurrency group (a cancelled
+run would leave a required check cancelled; no sibling gate workflow cancels); a canary trigger
+on the workflow file (the canary exercises the runner, not the YAML).
 
 **Defect found by the final wiring proof, not by the review.** The fix round changed block
 2b to branch on the ratchet's exit code with a bare `RATCHET_OUT="$(...)"` then
