@@ -8,6 +8,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [product]: The sales mastermind is measured by return, a changed canvas, and fewer explain-back tries
+
+**Context:** The chat-post proxy was retired the day before (2026-10-25 [product], H-ChatFollowThrough), leaving the mastermind with only the founder's judgement and "owners return with their canvas changed" in goals.md 3a. /day story r2 (2026-10-26) asked to pick a measure before the first session. The founder's words: "its about people learning faster.. its a soft thing.. if people feel they need mastermind".
+**Decision:** Three counts sit beside the founder's judgement: owners come back to session 2 without being chased (they feel they need it), their canvas changed between the sessions, and they need fewer explain-back tries to reach a high score in session 2 than in session 1 (they learned faster). The third is new and costs nothing: the loop already has the owner score each paraphrase 0-10 until it is high, so the number of tries per canvas is in the session record. `UNTESTED`.
+**Falsifier:** for owners who return, session-2 tries are not lower than session-1 tries. Then explain-back does not get easier with practice in this format, and "learning faster" is not what the evening produces.
+**Alternatives rejected:** return plus canvas change only, the prior signal (it says whether people value the evening, not whether they got better at it); a chat post (retired 2026-10-25, it measures willingness to post).
+**Consequences:** goals.md 3a's Signal line carries the three counts. The run-of-show in events/sales-mastermind.md is unchanged: the scores are already taken, and only the tally is new. Research-programme ledger row L5 is unchanged; its prediction is about who returns, which the first count already reads.
+**References:** goals.md 3a · decisions.md 2026-10-25 [product] · events/sales-mastermind.md "The loop" · /day run 2026-10-26 story r2
+
+---
+
 ## 2026-10-26 [technical]: Scheduled-alert workflows must not depend on their own checkout, and must serialize (P1567)
 
 **Context:** P1567 added a weekly `dep-audit.sh` run that opens a GitHub issue on FINDING or INCOMPLETE, copying the find-or-append pattern in `edge-smoke.yml`. Codex review reproduced four defects in the first version: `gh` inferred the repo from the checkout, so a failed checkout (the case "audit never ran" exists for) also failed the alert; two overlapping runs could both create the issue; a manual dispatch on another branch audited that branch and could close the alert about `main`; a simulated clean run closed a real alert. Gemini added that a transient `gh issue list` failure aborts the step under `-eo pipefail` before the alert is created.
