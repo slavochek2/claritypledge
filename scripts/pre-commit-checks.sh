@@ -154,6 +154,44 @@ else
     echo -e ">>> ESLint... ${GREEN}skipped (no .ts/.tsx staged)${NC}"
 fi
 
+# 2b. Quality ratchet (P1566) — blocks a staged change that makes code shape worse: an
+#     over-limit file growing, a new file or function over a limit, a function getting
+#     longer or more complex once over one. Never blocks pre-existing debt. Compares the
+#     INDEX blob with HEAD (never the working tree), staged files only; the whole-graph
+#     checks (cycles, duplicates) run in CI. The full output is printed on failure: each
+#     finding carries its value, limit and remedy, and a tail would drop the first ones.
+if [ -n "$STAGED_TS" ]; then
+    if RATCHET_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/quality-ratchet.cjs" --staged 2>&1)"; then
+        echo -e ">>> Quality ratchet... ${GREEN}✓${NC} ${RATCHET_OUT#quality-ratchet: OK }"
+    else
+        echo -e ">>> Quality ratchet... ${RED}✗ code shape regressed (P1566):${NC}"
+        echo "$RATCHET_OUT"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e ">>> Quality ratchet... ${GREEN}skipped (no .ts/.tsx staged)${NC}"
+fi
+
+# 2c. Nested folder guides (P1566) — every CLAUDE.md under src/ stays at most 40 lines with
+#     an AGENTS.md symlink beside it, and the hot folders keep theirs. Reads the index.
+if GUIDES_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/check-nested-guides.cjs" 2>&1)"; then
+    echo -e ">>> Nested guides... ${GREEN}✓${NC}"
+else
+    echo -e ">>> Nested guides... ${RED}✗${NC}"
+    echo "$GUIDES_OUT"
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 2d. Quality ratchet canary (P1566) — runs when the ratchet, its metrics, the guide check
+#     or the canary is staged. Proves every rule still fails its regression and passes the
+#     ordinary workflow beside it (a non-growing edit, a git mv, an extraction, a rename).
+RATCHET_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(quality-ratchet\.cjs|check-nested-guides\.cjs|test-quality-ratchet\.sh|lib/quality-ratchet/)' || true)
+if [ -n "$RATCHET_STAGED" ]; then
+    if ! run_quiet "Quality ratchet canary (P1566)" bash scripts/test-quality-ratchet.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # 3. Build
 if [ -n "$BUILD_AFFECTING" ]; then
     if ! run_quiet "Build" npm run build; then

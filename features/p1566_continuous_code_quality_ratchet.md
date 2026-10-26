@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 72
 workstream: infrastructure
 created_date: '2026-10-26'
 tags: [code-quality, lint, tooling, multi-agent]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high

@@ -17,6 +17,10 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
+          fetch-depth: 0 # P1566: the quality ratchet compares against the range base
+
+      - name: Fetch base (origin/main)
+        run: git fetch --no-tags --quiet origin main:refs/remotes/origin/main || git fetch --no-tags --quiet origin main
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -36,6 +40,19 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # P1566: blocks a change that makes code shape worse, never pre-existing debt. Runs
+      # every metric registered in the runner's METRICS: the per-file size check (also run at
+      # pre-commit) and the whole-project checks only CI can run. "Before" is the event
+      # range's base, computed here, never a committed baseline: push to main judges
+      # before..after, a PR judges merge-base..HEAD.
+      - name: Quality ratchet (P1566)
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: node scripts/quality-ratchet.cjs --ci
+
+      - name: Nested folder guides (P1566)
+        run: node scripts/check-nested-guides.cjs --rev HEAD
 
       - name: Unit tests
         run: npm test -- --run
