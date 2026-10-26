@@ -72,19 +72,21 @@ One shared helper in `supabase/functions/_shared/` decides `isProdProject()` fro
 
 ## Cost Budget
 
-Scope: non-prod projects only. Prod's calls and costs are unchanged by construction: the guard admits exactly the prod host.
+Scope: non-prod projects only. Prod's calls and costs are unchanged by construction: the guard admits exactly the prod host. Named inputs: **G** = banner or portrait generations (per user, per hour, or per run); **V** = views of a generated banner.
 
-| Measure | Per user | Per hour | Per test run |
+| Measure | Per user (one generation) | Per hour | Per test run |
 |---|---|---|---|
-| Requests (Gemini) | 0 on non-prod (was 1 image call x 1–3 fidelity attempts, plus 1 vision check per attempt, per banner or portrait) | 0 x generations/hour = 0 | 0 x banners generated per run = 0 |
-| Requests (Supabase storage + row update) | unchanged: 1 upload + 1 small copy + 1 row update per generation, same as before | same as before | same as before |
-| Egress (bytes) | 107 B placeholder + small copy per generation (was ~0.3–0.9 MB per real banner: a TEST banner measured 878,428 B) | lower than before | lower than before |
-| Log lines | +1 `console.warn` per blocked generation (1 x generations) | 1 x generations/hour | 1 x generations per run |
-| Service unit x registry price | Gemini: 0 tokens x registry price = $0 on non-prod. Measured October baseline before the fix: non-prod image SKUs on the shared key = EUR 37.04 (billing export, `aikey-cp-batch-81413`) | | |
+| Requests (Gemini) | before: 1 image call x up to 3 attempts + 1 vision check x up to 3 = up to 6; after: 0 x 6 = **0** | 0 x G = 0 | 0 x G = 0 |
+| Requests (Supabase storage + DB) | 1 upload + 1 small-copy upload + 1 row update = 3 (before: the same 3, so the net change is 3 - 3 = **0**) | 3 x G (unchanged) | 3 x G (unchanged) |
+| Egress (bytes) | write 107 B + small copy 107 B = 214 B, then read 107 B x V (before: 878,428 B measured TEST banner x V) | 214 x G + 107 x V | 214 x G + 107 x V |
+| Log lines | +1 `console.warn` x 1 = 1 | 1 x G | 1 x G |
+| Service unit x registry price | Gemini: 0 tokens x registry price = $0 (before: measured EUR 37.04 of non-prod image SKUs in October on `aikey-cp-batch-81413`, billing export) | 0 x G x price = $0 | 0 x G x price = $0 |
 
-1. **Fits the plan limit today?** Fits. Gemini registry row: price with no cap. Projected non-prod monthly cost = generations per month x $0 = $0, against the measured EUR 37/month before the fix. Supabase Free plan: storage and egress per generation fall (107 B vs ~0.9 MB), so usage x runs per month only decreases.
-2. **Failure modes:** if `SUPABASE_URL` is unset or unrecognized, the guard fails closed: no spend, placeholder, warn line. A deliberate live run uses the function secret `ALLOW_NONPROD_IMAGE_GEN=1`, which must be unset afterwards (noted in `p1453-banner-functions.test.ts`).
-3. **Guard:** `supabase/functions/_shared/nonprod-image-guard.ts`; runtime-tested in `supabase/functions/_shared/p1565-nonprod-guard-runtime.test.ts`; spend watched by `ai-keys --sku-spikes` in /day.
+1. **Fits the plan limit today?** Fits. Gemini row (price, no cap): projected non-prod monthly cost = G per month x 0 x price = $0. Supabase Free plan row (egress 5 GB, storage 1 GB): monthly egress = 214 B x G per month + 107 B x V per month, which is strictly less than before (878,428 B x V). The design reduces net traffic, so it is not over-limit by the registry rule.
+2. **Fits at 10x?** Fits. Gemini: 10 x G x 0 = $0. Egress: 10 x (214 x G + 107 x V) B. Even at G = V = 10,000 per month that is 10 x (2.14 MB + 1.07 MB) = 32.1 MB, against 5 GB.
+3. **Upgrade needed:** none.
+
+Failure modes: if `SUPABASE_URL` is unset or unrecognized, the guard fails closed: no spend, placeholder, one warn line (counted above). A deliberate live run uses the function secret `ALLOW_NONPROD_IMAGE_GEN=1`, which must be unset afterwards (noted in `p1453-banner-functions.test.ts`). Guard: `supabase/functions/_shared/nonprod-image-guard.ts`, runtime-tested in `p1565-nonprod-guard-runtime.test.ts`; spend watched by `ai-keys --sku-spikes` in /day.
 
 ## Acceptance Criteria
 
