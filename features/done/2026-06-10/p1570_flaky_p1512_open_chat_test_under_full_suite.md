@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 74
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tests, flaky, pre-commit]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-10-26
 ---
 
 # P1570: P1512 "Open chat" test times out under the full suite, blocking unrelated commits
