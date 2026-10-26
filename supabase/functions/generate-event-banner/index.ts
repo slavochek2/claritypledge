@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { storeSmallCopy, scheduleSmallCopy, removeBannerAndSmallCopy } from '../_shared/banner-small.ts';
 import { ownedBannerPath } from '../_shared/banner-path.ts';
+import { nonProdImageBlocked, PLACEHOLDER_IMAGE } from '../_shared/nonprod-image-guard.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -139,6 +140,8 @@ interface GeminiInlineData {
 }
 
 async function generateImage(prompt: string): Promise<GeminiInlineData | null> {
+  // P1565: non-prod projects never reach Gemini; the placeholder takes the normal storage path.
+  if (nonProdImageBlocked()) return PLACEHOLDER_IMAGE;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { responseModalities: ['IMAGE'] },

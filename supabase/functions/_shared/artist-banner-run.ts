@@ -22,6 +22,7 @@ import {
   type VisionVerdict,
 } from './artist-banner.ts';
 import type { ArtistEntry } from './artist-pool.ts';
+import { nonProdImageBlocked, PLACEHOLDER_IMAGE } from './nonprod-image-guard.ts';
 
 export const IMAGE_MODEL_PRIMARY = 'gemini-3.1-flash-image-preview';
 export const IMAGE_MODEL_FALLBACK = 'gemini-3-pro-image-preview';
@@ -63,6 +64,8 @@ export async function geminiGenerateImage(
     onBillableCall?: (model: string) => void;
   } = {},
 ): Promise<GeneratedImage | null> {
+  // P1565: non-prod projects never reach Gemini; the placeholder takes the normal storage path.
+  if (nonProdImageBlocked()) return PLACEHOLDER_IMAGE;
   const generationConfig: Record<string, unknown> = { responseModalities: ['IMAGE'] };
   if (opts.aspectRatio) generationConfig.imageConfig = { aspectRatio: opts.aspectRatio };
   const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig });
@@ -217,6 +220,17 @@ export async function runArtistBanner(opts: {
     if (status === 429 || status === 403) opts.onKeyBlocked?.();
   };
   const entry = pickArtist(cryptoRng, { excludeArtist: opts.excludeArtist });
+  // P1565: non-prod projects never reach Gemini (image or vision). The rate-limit hook still runs
+  // once, so reservation semantics match a real first attempt; the credit stays valid.
+  if (nonProdImageBlocked()) {
+    const go = await opts.onGenerate?.(1);
+    if (go === false) return null;
+    return {
+      entry,
+      best: { image: PLACEHOLDER_IMAGE, luma: null, ink: 'cream', vision: 'unchecked', attempt: 1 },
+      generations: 1,
+    };
+  }
   let generations = 0;
   const result = await generateArtistBanner(entry, opts.keywords, cryptoRng, {
     onGenerate: async (attempt) => {
