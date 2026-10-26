@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [gemini, cost, edge-functions, test-accounts]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 ---
 
 # P1565: Banner edge functions spend real Gemini image calls for test accounts
