@@ -22,7 +22,7 @@ privacy_figure_scan() {
     chomp;
     next unless /^([^:]+):(\d+):(.*)$/;
     my ($f, $n, $t) = ($1, $2, $3);
-    my $unit = qr/(?:\d[\d.,]*\s*(?:[KMGT]i?B|%)|(?:\$|\xE2\x82\xAC)\s*\d|\d[\d.,]*\s*(?:USD|EUR|\xE2\x82\xAC))/i;
+    my $unit = qr/(?:\d[\d.,]*\s*(?:[KMGT]i?B|%)|(?:\$|\xE2\x82\xAC|\b(?:USD|EUR)\s?)\s*\d|\d[\d.,]*\s*(?:USD|EUR|\xE2\x82\xAC))/i;
     my $word = qr/\b(?:egress|bandwidth|usage|quota|logs?|storage|volume|database size|disk|spend|spent|bill(?:ing|ed)?|invoice|cap|budget|credits?)\b/i;
     my $hit = 0;
     $hit = 1 if $t =~ /$word.{0,60}$unit/ || $t =~ /$unit.{0,60}$word/;
@@ -37,6 +37,27 @@ privacy_figure_scan() {
     my $c = qr/$num\s{0,2}$cad/;
     $hit = 1 if $t =~ /$c/ && ($t =~ /$sw.{0,60}$c/ || $t =~ /$c.{0,60}$sw/);
     print "$f:$n\n" if $hit;
+  '
+}
+
+# privacy_spend_scan < records   -> `path:lineno` for our OWN measured spend: a nonzero currency
+# amount (either order: "EUR 37", "37 EUR", "€37", "$37") within 80 chars of an own-account word
+# (measured, billed, billing export, invoice, spent, we pay, out of pocket, balance).
+# BLOCKING in pre-commit, unlike privacy_figure_scan. Incident 2026-10-26 (P1565): an agent wrote
+# the measured non-prod Gemini bill into a spec; the warn-only matcher missed "EUR 37.04" and the
+# figure fanned out into a co-tenant branch before the push-time review saw it, so it could no
+# longer be rewritten and the founder had to decide. Narrow on purpose (epistemic.md gate 7c):
+# over the 300 prior commits to features/ and docs/ it hit 5 lines, all real leaks, and no
+# public price or plan limit. Zero amounts ("$0", "€0") never count.
+privacy_spend_scan() {
+  perl -ne '
+    chomp;
+    next unless /^([^:]+):(\d+):(.*)$/;
+    my ($f, $n, $t) = ($1, $2, $3);
+    my $nz = qr/(?!0(?:\.0+)?(?![\d.]))/;
+    my $amt = qr/(?:(?:\$|\xE2\x82\xAC|\b(?:EUR|USD)\s?)$nz\d[\d,]*(?:\.\d+)?|\b$nz\d[\d,]*(?:\.\d+)?\s?(?:EUR|USD|\xE2\x82\xAC)(?![A-Za-z]))/;
+    my $own = qr/\b(?:measured|billed|billing (?:export|for)|invoiced?|our bill|the bill|we (?:pay|paid|spend|spent)|spent|out of pocket|actual(?:ly)? (?:spend|cost|bill)|(?:credit|account) balance|credits? (?:left|remaining))\b/i;
+    print "$f:$n\n" if $t =~ /$own.{0,80}$amt/ || $t =~ /$amt.{0,80}$own/;
   '
 }
 

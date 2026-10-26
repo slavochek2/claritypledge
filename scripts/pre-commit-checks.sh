@@ -2279,6 +2279,17 @@ FIGURE_SCAN_LIB="$(git rev-parse --show-toplevel)/scripts/lib/privacy-figure-sca
 if [ -f "$FIGURE_SCAN_LIB" ]; then
     # shellcheck source=lib/privacy-figure-scan.sh
     source "$FIGURE_SCAN_LIB"
+    # Own measured spend BLOCKS (P1565 incident, 2026-10-26): caught here, before the commit can
+    # fan out into other branches, the fix is a one-line edit; caught at push time it is a
+    # history rewrite or a founder decision. See privacy_spend_scan for the measured hit rate.
+    SPEND_HITS=$(privacy_figure_added_lines features/ docs/ .claude/ CLAUDE.md README.md content/ | privacy_spend_scan || true)
+    if [ -n "$SPEND_HITS" ]; then
+        echo -e "${RED}✗ Our own measured spend in new public lines (blocking):${NC}"
+        echo "$SPEND_HITS" | sed 's/^/  /'
+        echo -e "${RED}  Move each amount to .private/ (e.g. .private/docs/usage/) and write${NC}"
+        echo -e "${RED}  'figure in .private/' in its place; keep the lesson, drop the number.${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
     FIGURE_HITS=$(privacy_figure_added_lines features/ docs/ | privacy_figure_scan || true)
     if [ -n "$FIGURE_HITS" ]; then
         echo -e "${YELLOW}⚠ Possible account usage/billing figures or token shapes in new lines:${NC}"
