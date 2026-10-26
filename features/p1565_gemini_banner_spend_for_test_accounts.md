@@ -66,11 +66,14 @@ Every story or event a test account creates on TEST costs one or more paid Gemin
 
 ## Fix Approach
 
-Before calling Gemini, a shared helper returns a placeholder when the caller's profile has `is_test_account` set or the environment isn't prod. Every image-spend function uses it. Keep the existing `reserveGeneration` rate limiting (decisions.md, P1453 entry).
+**Key on the environment, not the test-account flag.** Measured 2026-10-26 on TEST (`ai_rate_limits`): 196 `generate-banner` requests since February, only 5 from profiles flagged `is_test_account`. A flag guard would miss 97% of the waste. Billing for the shared non-prod key (October): €37 image generation, while prod's key spent €0.93 in total.
+
+One shared helper in `supabase/functions/_shared/` decides `isProdProject()` from `SUPABASE_URL` (prod ref `besjtuodziykmjidubzw`). It fails closed: anything unrecognized counts as non-prod, and needs no new secret. Every image-spend path calls it before any Gemini request (`generate-banner`, `generate-event-banner`, `mirror-portrait`, `generate-agent-banner` / `_shared/artist-banner-run.ts`). On non-prod they store or return a deterministic placeholder image through the same persistence path, so tests still exercise row updates. Keep the existing `reserveGeneration` rate limiting (decisions.md, P1453 entry). An explicit opt-in env (e.g. `ALLOW_NONPROD_IMAGE_GEN=1`) lets the deliberate `P1453_LIVE_GEN` integration run still generate.
 
 ## Acceptance Criteria
 
-- [ ] A test account creating a story or event on TEST gets a placeholder banner, and no Gemini request is made
+- [ ] On a non-prod project, any account creating a story or event gets a placeholder banner, and no Gemini request is made
+- [ ] `mirror-portrait` and `generate-agent-banner` make no Gemini image call on non-prod unless `ALLOW_NONPROD_IMAGE_GEN=1`
 - [ ] A real (non-test) prod user still gets a generated banner
 - [ ] The same guard covers `generate-event-banner` and `mirror-portrait`, or each is deferred with its own ticket
 - [ ] Regression test: `src/tests/p1565-*.test.ts`
