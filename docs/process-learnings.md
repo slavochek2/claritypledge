@@ -2903,7 +2903,7 @@ A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 20
 
 **ID:** INBOX-233
 **Date:** 2026-10-26
-**Status:** proposed
+**Status:** resolved: duplicate of INBOX-223, fixed by P1573 (shipped 16:54; the failing run had 205 tests in the file, i.e. a copy predating the fix, which has 210)
 **due:** week
 
 On 2026-10-26 the F7 test in src/tests/p1512-chat-ui.test.tsx failed twice in a row at the same line inside the full pre-commit run while machine load was very high (15-minute average around 50), and passed alone (205/205) and on a third full run at lower load. It is a timing assumption (a synchronous getByText right after an awaited render), so it blocks unrelated commits whenever the machine is busy. Make the lookup awaited or raise its timeout. Droppable if it does not recur in a month.
