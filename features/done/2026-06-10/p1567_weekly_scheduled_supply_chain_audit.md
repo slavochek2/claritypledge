@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 73
 workstream: infrastructure
 created_date: '2026-10-26'
 tags: [security, supply-chain, monitoring, ci]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-26
 ---
 
 # P1567: Weekly scheduled supply-chain audit
@@ -20,7 +20,7 @@ driver: heuristic
 
 **Situation:** `scripts/dep-audit.sh` audits every dependency manifest and lock in the repo against
 OSV and `npm audit`, and exits 0 CLEAN / 1 FINDING / 2 INCOMPLETE
-([supply-chain.md](../docs/technical/supply-chain.md)). It runs only when someone types it.
+([supply-chain.md](../../../docs/technical/supply-chain.md)). It runs only when someone types it.
 **Complication:** A package we already lock can be flagged malicious days after we locked it. The
 lock does not change, so no commit, push or pre-commit check ever re-runs the audit, and nobody
 finds out.
