@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [process]: `/ship` should resolve the decisions-log conflict where both sides only added entries at the top (Status: proposed)
+
+**Context:** Shipping P1566 (7 commits, 51 behind main) stopped four times in a row on `docs/decisions.md`, because the log is newest-first and both main and the branch wrote at the top. This log records the same class at least five times before (2026-08-28, 09-01, 09-03, 09-11, 10-02); once, a take-one-side loop dropped 59 entries with every gate green (P1236). Found by the P1566 `/kdd`, checked by two critics, approved by the founder.
+**Decision:** Build P1575: a resolver arm in `git-ops.sh ship` that resolves only the pure two-prepend shape against the common ancestor (main's new entries, then the branch's), proves every entry heading from both sides survived, and stops for a human on any other shape, including an edited or retitled entry (the fourth P1566 conflict).
+**Alternatives rejected:** `.gitattributes` `merge=union` (applies to every merge and silently keeps both versions of an edited entry). Squash-before-ship (2026-10-02, P1347) is related, not a substitute: it still leaves one conflict to resolve and exists only as a decision, not a gate.
+**Consequences:** Until P1575 lands, a ship of a branch that is behind main and wrote decisions stops once per such commit; resolve by keeping both blocks, never one side. Also found: the 2026-08-28 entry's citation `git-ops.sh:2763` for a manifest special case is stale; the manifest path only prints guidance. P1575 corrects it.
+**References:** [p1575](../features/p1575_ship_resolves_decisions_log_prepend_conflicts.md) · [p1566](../features/done/2026-06-10/p1566_continuous_code_quality_ratchet.md)
+
+---
+
 ## 2026-10-26 [technical]: Non-prod Supabase projects never call Gemini for images; the guard keys on the project host (P1565)
 
 **Context:** Story and event creation auto-generates AI banners, and TEST holds a live Gemini key, so every e2e and manual test paid for real images. Of the generation requests logged on TEST since February, only 5 of 196 came from accounts flagged `is_test_account`. A flag-based guard would have missed 97%.
