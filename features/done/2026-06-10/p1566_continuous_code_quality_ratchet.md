@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 72
 workstream: infrastructure
 created_date: '2026-10-26'
 tags: [code-quality, lint, tooling, multi-agent]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-26
 ---
 
 # P1566: Code quality ratchets up continuously, whichever agent writes the code
@@ -122,7 +122,7 @@ added). The Trial Record states the deviations and the mechanism that shipped.
    spaghetti-busters' numbers.
 2. **Import cycles: dependency-cruiser (CI-only),** cycle rule only, compared against the
    merge-base set of cycles. Folder-boundary rules are a non-goal.
-3. **Unused code: Knip (CI-only).** **Depends on [P1241](p1241_knip_configuration_and_triage.md)'s
+3. **Unused code: Knip (CI-only).** **Depends on [P1241](../../p1241_knip_configuration_and_triage.md)'s
    config landing first.** P1241 is still in backlog with no config, and its triage stays there.
    Ratchet: compare whole-project finding IDs against the merge-base. That catches a commit that
    orphans an export in an untouched file.
@@ -215,8 +215,8 @@ Revert that commit. There are no baseline files to clean up.
 
 ## Related
 
-- [P1241](p1241_knip_configuration_and_triage.md): Knip config and triage, the prerequisite for stage 3
-- [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md): AGENTS.md size cap and
+- [P1241](../../p1241_knip_configuration_and_triage.md): Knip config and triage, the prerequisite for stage 3
+- [P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md): AGENTS.md size cap and
   projection findings, which constrain layer C
 - decisions.md: tsconfig typecheck baseline/ratchet listed as an open founder decision (batch-run
   entry). Same ratchet shape, so align the mechanism if both proceed
