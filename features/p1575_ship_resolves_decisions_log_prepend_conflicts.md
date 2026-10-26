@@ -61,7 +61,9 @@ The 4th P1566 conflict is the shape that must stop: a later branch commit retitl
 | Risk | Label | Note |
 |---|---|---|
 | A shape that looks like two prepends hides an edit to an existing entry | MITIGATE | Compare against stage 1 byte for byte below the new blocks; the heading-set check is a second, independent signal |
-| Two sides add an entry with the same heading | MITIGATE | The heading check counts occurrences, not presence; both copies survive |
+| Two sides add an entry with the same heading | MITIGATE | Stops for a human: which copy is right is a judgment call (changed in review from "keep both") |
+| The branch's entry is already on main: a stacked branch replays a commit that shipped under another SHA, or main has since restated it (proposed to accepted) | MITIGATE | Stops when any branch entry's title, ignoring a `(Status: ...)` suffix, is already on main (Opus review, reproduced end to end) |
+| `--resume` after a human hand-edited the log without staging it | MITIGATE | The arm never runs on the resumed pick; it would rebuild from the index and erase the edit (Opus review) |
 | No common ancestor (stage 1 absent) | MITIGATE | Treated as "other shape": stop |
 | Entry order inside the day gets main-first even when the branch's decision came earlier | ACCEPT | The log is newest-first by date, not by minute; the 2026-08-28 resolution used the same order |
 
@@ -90,3 +92,17 @@ Revert the commit. The arm only adds a resolution path; with it gone, every conf
 
 - P1566 (shipped 2026-10-26): the ship that produced the evidence
 - P1236, P1347: the prior incidents named in Problem
+
+## Review Record
+
+`/finish`, 4 of 4 reviewers reported: Gemini, Codex, an Opus adversary, a Sonnet criteria reviewer. Every claim was reproduced before acting. Fixed, each now a canary case:
+- A block without a final newline glued the branch's heading onto main's last line, and the heading check (counted before joining) missed it. Found by Gemini, Codex and the criteria reviewer; the check now reads the bytes that would be written.
+- The branch's entry already on main (stacked branches, or main restated it): duplicated or brought back a superseded copy. Opus, reproduced end to end.
+- `--resume` overwrote a human's unstaged hand edit. Opus, reproduced end to end.
+- An unclosed code fence in a new entry would hide the branch's entries when rendered (Codex).
+- A resolver crash printed a Python traceback with `<module>` into ship output (criteria reviewer, Opus); `git add` output could leak the same way (Gemini).
+- The duplicate-heading count accepted one surviving copy (criteria reviewer).
+- New canaries for a commit refused after resolving (pause, no skip, `--resume` lands it once) and for `--resume` over a hand edit (all reviewers named the gap).
+
+**Known limitations, accepted:** the heading check proves no entry heading was lost; body text is guaranteed by construction (the result holds every line of both sides, in order), not by an independent check. A pick that conflicts on the spec file and the log together stops for a human. Same-title entries on both sides stop rather than resolve.
+
