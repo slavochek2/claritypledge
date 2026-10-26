@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tests, flaky, pre-commit]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1570: P1512 "Open chat" test times out under the full suite, blocking unrelated commits
