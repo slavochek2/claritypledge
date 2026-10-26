@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [technical]: Blue is the default Button, and a hand-coloured Button cannot be committed (P1568)
+
+**Context:** `<Button>` with no variant rendered near-black (`--primary`), so the one interactive blue (`#2563eb`, P1396) existed only where an author hand-typed `bg-blue-600`. The rules lived in four places that disagreed (two tables in design-system.md, a colour table, and `finish/criteria/code.md` still naming blue-500), and none covered one action inside a message. The founder kept correcting button colours by hand ("i'm fixing this fucking button things manually a hundred times"); the trigger was the mirror greeting's "Give me a name" shipping gray-outlined.
+**Decision:** [FOUNDER DECISION, 2026-10-26: "you do it", option A] The default Button variant is the brand blue; a new `dark` variant keeps the old look for buttons that must stay dark; `--primary` is untouched. One button table in design-system.md, plus rule 8 (one action inside a message or inline content: default blue, auto width). An ESLint `no-restricted-syntax` rule rejects blue, `bg-primary` and hex fills in a Button `className`, and solid fills in shared `*CLASS*` constants; a unit test fails if the default stops being blue. Reviewers check the variant against the table instead of a restated colour.
+**Alternatives rejected:** docs-only clean-up (advice already existed and the miss happened anyway); changing `--primary` to blue (shadcn components and form elements read it, 2026-03-17 ruling); adding `eslint-plugin-react` (a new dependency, held for a founder decision).
+**Consequences:** About 125 hand-typed blue overrides removed; 30 formerly black buttons now blue, each the single forward action in its view. Known limits: the rule reads literals and upper-case constants, so a colour passed through a function or prop is not caught; `src/app/prototypes/**` is lint-ignored. Pre-existing breaks seen in the sweep (Settings disabled Save, top-bar Tools, Live Join) are in the task inbox. Supersedes the 2026-03-17 "CTA color is bg-blue-500" ruling for Button.
+**References:** [P1568](../features/done/2026-06-10/p1568_blue_default_button.md) · design-system.md § Button Decision Rules · `src/components/ui/button.tsx` · `eslint.config.js` · 2026-10-02 P1396 · 2026-03-17 [technical]
+
+---
+
 ## 2026-10-26 [product]: The sales mastermind is measured by return, a changed canvas, and fewer explain-back tries
 
 **Context:** The chat-post proxy was retired the day before (2026-10-25 [product], H-ChatFollowThrough), leaving the mastermind with only the founder's judgement and "owners return with their canvas changed" in goals.md 3a. /day story r2 (2026-10-26) asked to pick a measure before the first session. The founder's words: "its about people learning faster.. its a soft thing.. if people feel they need mastermind".
