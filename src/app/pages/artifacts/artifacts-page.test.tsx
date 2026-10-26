@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   getUnreadExplainBackCountsByDelivery: vi.fn(),
   listMyCanvases: vi.fn(),
   listSharedWithMe: vi.fn(),
+  getAccess: vi.fn(),
   markCanvasRead: vi.fn(),
   invite: { current: null as null | Record<string, unknown> },
   auth: { current: null as null | { user: { id: string; slug: string } | null; isLoading: boolean; sessionChecked: boolean } },
@@ -42,6 +43,7 @@ vi.mock('@/app/data/canvas-service', () => ({
   canvasService: {
     listMyCanvases: mocks.listMyCanvases,
     listSharedWithMe: mocks.listSharedWithMe,
+    getAccess: mocks.getAccess,
     markCanvasRead: mocks.markCanvasRead,
   },
 }));
@@ -725,14 +727,40 @@ describe('Artifacts page: split by kind', () => {
       expect(loc()).toBe('/artifacts?tab=canvases'); // the row did not open
     });
 
-    it('own canvas that is shared: Copy link copies its address', async () => {
+    it('own canvas open to anyone with the link: Copy link fetches the current token and copies an address that carries #k=', async () => {
       const u = user();
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      mocks.getAccess.mockResolvedValue({ entries: [], generalAccess: 'link', linkToken: 'tok123' });
       renderPage('/artifacts?tab=canvases'); // the fixture canvas has link access
       await openMenu(u, 'Sales map');
       await u.click(await screen.findByRole('menuitem', { name: /Copy link/ }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/p/me/canvas/sales_map#k=tok123`));
+      expect(mocks.getAccess).toHaveBeenCalledWith('sales_map');
+    });
+
+    it('a link-public canvas whose token cannot be read copies nothing and says so', async () => {
+      const u = user();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      mocks.getAccess.mockRejectedValue(new Error('rpc down'));
+      renderPage('/artifacts?tab=canvases');
+      await openMenu(u, 'Sales map');
+      await u.click(await screen.findByRole('menuitem', { name: /Copy link/ }));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to copy link'));
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('a shared (restricted) canvas copies the plain address without asking for a token', async () => {
+      const u = user();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      mocks.listMyCanvases.mockResolvedValue([{ canvasId: null, name: 'sales_map', generalAccess: 'restricted', hasAudience: true, lastEdit: ago(H) }]);
+      renderPage('/artifacts?tab=canvases');
+      await openMenu(u, 'Sales map');
+      await u.click(await screen.findByRole('menuitem', { name: /Copy link/ }));
       await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/p/me/canvas/sales_map`));
+      expect(mocks.getAccess).not.toHaveBeenCalled();
     });
 
     it('shared canvas: no buttons, a quiet ›, the row opens the canvas', async () => {

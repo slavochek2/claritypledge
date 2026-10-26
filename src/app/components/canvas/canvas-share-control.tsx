@@ -31,6 +31,7 @@ import {
 } from '@/app/data/canvas-service';
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
+import { canvasCopyAddress } from '@/lib/canvas-copy-address';
 
 /** "Copied" shows this long, then the button reads "Copy link" again. */
 const COPIED_MS = 2000;
@@ -246,7 +247,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   // The address "Copy link" would copy. While the canvas is open to anyone with the link, the address carries the
   // token in its FRAGMENT (`#k=`, never sent to a server); if the token is not known (the panel has not read it, or the read failed) there is NO address to
   // copy: a tokenless address would not open the canvas for the people it is sent to.
-  const copyTarget = access === 'link' ? (panel?.linkToken ? `${link}#k=${panel.linkToken}` : null) : link;
+  const copyTarget = canvasCopyAddress(link, access, panel?.linkToken);
   const copyLink = async () => {
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     const settle = (value: { ok: boolean; target: string }) => {

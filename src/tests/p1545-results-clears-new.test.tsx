@@ -50,7 +50,8 @@ const results = (perspective: 'sender' | 'receiver') => ({
   senderName: 'Alice', receiverName: 'Bob',
 });
 
-const renderPage = () => render(<MemoryRouter><LetterResultsPage /></MemoryRouter>);
+const page = () => <MemoryRouter><LetterResultsPage /></MemoryRouter>;
+const renderPage = () => render(page());
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -69,6 +70,36 @@ describe('results page clears the sender\'s "new" for that delivery', () => {
     await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledWith('d1'));
     await waitFor(() => expect(svc.markExplainBackRead).toHaveBeenCalledTimes(1));
     expect(svc.markExplainBackRead).toHaveBeenCalledWith('eb1');
+  });
+
+  it('switching from one person to another clears only the person whose results actually rendered: B stays unread while its load fails', async () => {
+    const view = renderPage();
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledWith('d1'));
+    svc.markDeliverySeenBySender.mockClear();
+    svc.markExplainBackRead.mockClear();
+    svc.getExplainBacksForDelivery.mockClear();
+    svc.getLetterResults.mockRejectedValue(new Error('B failed to load'));
+    nav.search = 'delivery=d2&story=s1';
+    view.rerender(page());
+    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+    expect(svc.getLetterResults).toHaveBeenLastCalledWith('letter-1', 'd2');
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled();
+    expect(svc.getExplainBacksForDelivery).not.toHaveBeenCalledWith('d2');
+    expect(svc.markExplainBackRead).not.toHaveBeenCalled();
+  });
+
+  it('switching from A to B clears B once B\'s own results have rendered (and never B before)', async () => {
+    const view = renderPage();
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledWith('d1'));
+    svc.markDeliverySeenBySender.mockClear();
+    let resolveB: (v: unknown) => void = () => {};
+    svc.getLetterResults.mockImplementation(() => new Promise(r => { resolveB = r; }));
+    nav.search = 'delivery=d2&story=s1';
+    view.rerender(page());
+    await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled(); // A's results are still on screen, B's are loading
+    await act(async () => { resolveB(results('sender')); });
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledWith('d2'));
   });
 
   it('not before the page has rendered (results still loading)', async () => {

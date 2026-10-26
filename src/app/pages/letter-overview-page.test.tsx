@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type MockInstance } from 'vitest';
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
   getLetterOverview: vi.fn(),
@@ -226,6 +226,47 @@ describe('LetterOverviewPage hierarchy', () => {
       </MemoryRouter>,
     );
     expect(within(await screen.findByTestId('letter-recipients')).getByRole('img', { name: 'New' })).toBeInTheDocument();
+  });
+
+  it('the handed-over marks are used once: after opening that person\'s results, Back shows no dot (the server already has them seen)', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: null, last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z' })] });
+    function Results() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate(-1)}>back-from-results</button>;
+    }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/letter/l1/overview', state: { newDeliveryIds: ['d1'] } }]}>
+        <Routes>
+          <Route path="/letter/:id/overview" element={<LetterOverviewPage />} />
+          <Route path="/letter/:id/results" element={<Results />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const section = await screen.findByTestId('letter-recipients');
+    expect(within(section).getByRole('img', { name: 'New' })).toBeInTheDocument(); // shown once
+    fireEvent.click(within(section).getByRole('link', { name: 'Di' }));
+    fireEvent.click(await screen.findByText('back-from-results'));
+    const again = await screen.findByTestId('letter-recipients');
+    expect(within(again).queryByRole('img', { name: 'New' })).toBeNull();
+  });
+
+  it('a page refresh or a later visit with the same history entry does not bring the dots back (the handoff is cleared from history state)', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: null, last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z' })] });
+    let seen: unknown = 'unset';
+    function Probe() {
+      seen = useLocation().state;
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/letter/l1/overview', state: { newDeliveryIds: ['d1'] } }]}>
+        <Probe />
+        <Routes><Route path="/letter/:id/overview" element={<LetterOverviewPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId('letter-recipients');
+    await waitFor(() => expect(seen).toBeNull());
   });
 
   it('a read finished delivery is not new', async () => {

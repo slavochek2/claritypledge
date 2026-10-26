@@ -154,6 +154,9 @@ export function LetterResultsPage() {
 
   const [pageState, setPageState] = useState<PageState>('loading');
   const [resultsData, setResultsData] = useState<LetterResultsData | null>(null);
+  // Which delivery the results on screen are FOR. The URL's delivery can move on (A to B) while A's results are still
+  // shown and B's are loading, so anything keyed to "these results" must compare against this, not the URL.
+  const [loadedDeliveryId, setLoadedDeliveryId] = useState<string | undefined>(undefined);
   const [storyItems, setStoryItems] = useState<StoryWalkItem[]>([]);
   // P705: Viewer's live positions from point_positions (mutable on this page).
   // Only read via functional update (prev) in handleResultsPositionChange — hence _ prefix.
@@ -205,6 +208,7 @@ export function LetterResultsPage() {
         : new Map<string, LetterPositionStory>();
 
       setResultsData(result);
+      setLoadedDeliveryId(deliveryId);
       setViewerPositions(livePositions);
       setExplainBacksByStory(ebByStory);
       setPositionStoriesMap(posStories);
@@ -229,6 +233,7 @@ export function LetterResultsPage() {
   const clearedDeliveryRef = useRef<string | null>(null);
   useEffect(() => {
     if (pageState !== 'ready' || resultsData?.perspective !== 'sender' || !deliveryId) return;
+    if (loadedDeliveryId !== deliveryId) return; // the results on screen are another person's
     if (clearedDeliveryRef.current === deliveryId) return;
     clearedDeliveryRef.current = deliveryId;
     const target = deliveryId;
@@ -241,7 +246,7 @@ export function LetterResultsPage() {
         if (clearedDeliveryRef.current === target) clearedDeliveryRef.current = null;
       }
     })();
-  }, [pageState, resultsData, deliveryId]);
+  }, [pageState, resultsData, deliveryId, loadedDeliveryId]);
 
   // P705: Refetch on visibilitychange — user may have updated their position in another tab
   useEffect(() => {

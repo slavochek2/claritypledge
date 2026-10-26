@@ -36,6 +36,8 @@ import { CARD_FOCUS_RING } from '@/app/components/shared/card-action-classes';
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
+import { canvasCopyAddress } from '@/lib/canvas-copy-address';
+import { canvasService } from '@/app/data/canvas-service';
 import type { ArtifactRow } from './artifacts-view-model';
 
 /** The primary: a small blue outline button, 40px tall. */
@@ -119,6 +121,19 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
   const canvasName = ref.canvasName;
   const canvasLink = canvasName && userSlug ? `${window.location.origin}${canvasPath(userSlug, canvasName)}` : null;
   const canvasShared = !!ref.hasAudience || ref.generalAccess === 'link';
+  /** A canvas open to anyone with the link needs the CURRENT token in the address (`#k=`): read it now, as the share panel does. */
+  const copyCanvasLink = async () => {
+    if (!canvasLink || !canvasName) return;
+    try {
+      const access = ref.generalAccess ?? 'restricted';
+      const token = access === 'link' ? (await canvasService.getAccess(canvasName)).linkToken : null;
+      const address = canvasCopyAddress(canvasLink, access, token);
+      if (!address) throw new Error('no link token');
+      await copy(address);
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
   const publicLetterLink = ref.letterId ? `${window.location.origin}/letter/${ref.letterId}` : null;
 
   /** A labelled outline control; with a reason it is muted, aria-disabled, and answers with that reason. */
@@ -198,7 +213,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged }: Props) {
         id: 'copy-link',
         label: 'Copy link',
         disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
-        run: () => { if (canvasLink) void copy(canvasLink); },
+        run: () => { void copyCanvasLink(); },
       }];
       main = (
         // The canvas page's own share panel, anchored to this button (its own trigger stays hidden).

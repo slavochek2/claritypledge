@@ -23,6 +23,8 @@ export interface LetterRecipientsSectionProps {
   deliveries: LetterDelivery[];
   /** Unread explain-backs / unread activity per delivery id; any value above 0 draws the dot. */
   newByDelivery: Record<string, number>;
+  /** A person's results were opened from this list (their handed-over mark can go). */
+  onOpenResults?: (deliveryId: string) => void;
 }
 
 function statusLabel(status: LetterDelivery['status']): string {
@@ -39,8 +41,8 @@ const NAME_CLASS = 'max-w-[24ch] truncate font-medium sm:max-w-[40ch]';
 const LINK_FOCUS = 'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 function PersonRow({
-  delivery, letterId, isNew,
-}: { delivery: LetterDelivery; letterId: string; isNew: boolean }) {
+  delivery, letterId, isNew, onOpenResults,
+}: { delivery: LetterDelivery; letterId: string; isNew: boolean; onOpenResults?: (deliveryId: string) => void }) {
   const name = delivery.receiver_name || delivery.receiver_email || 'Anonymous';
   const isRespondent = !delivery.receiver_email;
   // "N of M steps" is progress: it reads only while the person is in progress (Done says Done, nothing else).
@@ -60,6 +62,7 @@ function PersonRow({
             // The link stretches over the whole row: a tap anywhere opens this person's results.
             <Link
               to={`/letter/${letterId}/results?delivery=${delivery.id}`}
+              onClick={() => onOpenResults?.(delivery.id)}
               className={`${NAME_CLASS} ${LINK_FOCUS} after:absolute after:inset-0 after:content-['']`}
               title={name}
             >
@@ -81,7 +84,7 @@ function PersonRow({
   );
 }
 
-export function LetterRecipientsSection({ letterId, isPublic, deliveries, newByDelivery }: LetterRecipientsSectionProps) {
+export function LetterRecipientsSection({ letterId, isPublic, deliveries, newByDelivery, onOpenResults }: LetterRecipientsSectionProps) {
   const [showAll, setShowAll] = useState(false);
   const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };
   const byNewest = (a: LetterDelivery, b: LetterDelivery) => time(b.created_at) - time(a.created_at);
@@ -91,7 +94,7 @@ export function LetterRecipientsSection({ letterId, isPublic, deliveries, newByD
   const empty = deliveries.length === 0;
 
   const row = (d: LetterDelivery) => (
-    <PersonRow key={d.id} delivery={d} letterId={letterId} isNew={(newByDelivery[d.id] ?? 0) > 0} />
+    <PersonRow key={d.id} delivery={d} letterId={letterId} isNew={(newByDelivery[d.id] ?? 0) > 0} onOpenResults={onOpenResults} />
   );
 
   return (

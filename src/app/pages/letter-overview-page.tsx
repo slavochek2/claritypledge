@@ -69,7 +69,20 @@ type PageState = 'loading' | 'error' | 'not-authorized' | 'empty' | 'ready';
 export function LetterOverviewPage() {
   const { id: letterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { state: navState } = useLocation();
+  const location = useLocation();
+  // The list hands over who was new when Details was opened (the server already has them seen). Used ONCE: read into
+  // state here, cleared from the history entry below, and dropped per person once their results are opened.
+  const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
+    () => new Set((location.state as { newDeliveryIds?: string[] } | null)?.newDeliveryIds ?? []),
+  );
+  const handoffCleared = useRef(false);
+  useEffect(() => {
+    if (handoffCleared.current) return;
+    handoffCleared.current = true;
+    if ((location.state as { newDeliveryIds?: string[] } | null)?.newDeliveryIds) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
   const { user, sessionChecked, isLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -196,10 +209,8 @@ export function LetterOverviewPage() {
 
   // ── Success ─────────────────────────────────────────────────────────────────
   const { letter, stories, predictions, ratings, pointResponses } = payload;
-  // Opening Details on the list clears the letter's "new" before this page reads it; the list hands over who WAS new so
-  // their marks still show here once (they clear for good when that person's results are opened).
-  const handedOver: string[] = (navState as { newDeliveryIds?: string[] } | null)?.newDeliveryIds ?? [];
-  const shownNew = { ...newByDelivery, ...Object.fromEntries(handedOver.map(id => [id, Math.max(1, newByDelivery[id] ?? 0)])) };
+  // Marks handed over from the list show once, on top of what the server says is new.
+  const shownNew = { ...newByDelivery, ...Object.fromEntries([...handedOver].map(id => [id, Math.max(1, newByDelivery[id] ?? 0)])) };
   const isPublic = letter.mode === 'one-to-many';
   const hasCohort = payload.deliveries.length > 0;
 
@@ -278,6 +289,7 @@ export function LetterOverviewPage() {
             isPublic={isPublic}
             deliveries={deliveries}
             newByDelivery={shownNew}
+            onOpenResults={(id) => setHandedOver(prev => { const next = new Set(prev); next.delete(id); return next; })}
           />
         )}
 
