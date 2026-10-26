@@ -158,3 +158,7 @@ replaces Ubuntu 22.04's pip 22.0.2, whose isolated build cannot read `openai-whi
 pyannote.audio 3.1 has no `revision` argument). Not pinned: models those pipelines' `config.yaml` names
 in turn (gated, so unreadable without a token), and Whisper's weights, which `openai-whisper` downloads
 from a URL carrying the file's sha256 and verifies itself.
+
+## Weekly scheduled audit
+
+`.github/workflows/supply-chain-audit.yml` runs `scripts/dep-audit.sh` on `main` every Monday 06:17 UTC (and on `workflow_dispatch`; `simulate_exit` exercises the alert path without running the audit). Exit 0 closes the alert; exit 1, 2, a crash, a timeout or an audit that never ran opens or comments on the issue `Supply-chain audit: FINDING or INCOMPLETE on main`. The body holds only the status word and the run URL (public repo; details stay in the run log). `/day` lists open issues, so it shows there. Test: `scripts/test-p1567-supply-chain-alert.sh`.

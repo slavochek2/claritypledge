@@ -1,0 +1,108 @@
+name: Supply-chain audit (weekly)
+
+# P1567. Re-runs scripts/dep-audit.sh weekly against main. A package we already lock can be
+# flagged malicious days after we locked it; the lock does not change, so no commit-time check
+# ever re-runs the audit. Alert route: find-or-append GitHub issue (consumed by /day), same
+# pattern as edge-smoke.yml.
+#
+# The repo is public: the issue body carries ONLY a fixed status word and the run URL. Audit
+# output (package names, advisory ids) stays in the run log. Only a recorded exit 0 is clean;
+# a crash, timeout, cancel or never-started audit is reported as INCOMPLETE.
+# scripts/test-p1567-supply-chain-alert.sh extracts the alert block below verbatim and tests it.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Monday 06:17 UTC, before the founder's /day
+  workflow_dispatch:
+    inputs:
+      simulate_exit:
+        description: 'Skip the audit and record this exit code (1 or 2) to exercise the alert path. A simulated 0 never closes an issue; run without this input to close it'
+        required: false
+        default: ''
+
+# One run at a time: two overlapping runs could both find no issue and both create one.
+concurrency:
+  group: supply-chain-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  supply-chain-audit:
+    runs-on: ubuntu-latest
+    # Generous next to the audit step's 10, so a slow audit cannot use up the alert step's time.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main # a dispatch from another branch must not report on (or close the alert about) that branch
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      # Records the exit code to a step output; the job is failed by the last step, after the
+      # alert has run. If this step is killed (timeout, cancel) no code is recorded.
+      - name: Run dependency audit
+        id: audit
+        timeout-minutes: 10
+        shell: bash
+        env:
+          SIMULATE_EXIT: ${{ github.event.inputs.simulate_exit }}
+        run: |
+          set +e
+          if [ -n "$SIMULATE_EXIT" ]; then
+            case "$SIMULATE_EXIT" in
+              0|1|2) code="$SIMULATE_EXIT" ;;
+              *) code=2 ;;
+            esac
+            echo "simulated exit $code (audit skipped)"
+          else
+            ./scripts/dep-audit.sh
+            code=$?
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open, update or close the alert issue
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }} # gh must not depend on the checkout, which may have failed
+          AUDIT_CODE: ${{ steps.audit.outputs.code }}
+          SIMULATED: ${{ github.event.inputs.simulate_exit != '' && github.event.inputs.simulate_exit != null }}
+        run: |
+          # BEGIN alert-block
+          TITLE="Supply-chain audit: FINDING or INCOMPLETE on main"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          case "${AUDIT_CODE:-}" in
+            0) STATUS="CLEAN" ;;
+            1) STATUS="FINDING (exit 1)" ;;
+            2) STATUS="INCOMPLETE (exit 2)" ;;
+            *) STATUS="INCOMPLETE (audit did not finish)" ;;
+          esac
+          existing=$(gh issue list --state open --author app/github-actions --limit 100 --json number,title \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty') \
+            || existing="" # a failed lookup must not stop the alert; a rare duplicate beats a missed one
+          if [ "$STATUS" = "CLEAN" ]; then
+            # A simulated clean run audited nothing, so it never closes a real alert.
+            if [ -n "$existing" ] && [ "${SIMULATED:-false}" != "true" ]; then
+              gh issue close "$existing" --comment "Recovered: audit CLEAN. Run: $RUN_URL"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Supply-chain audit: $STATUS. Run: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --body "Supply-chain audit: $STATUS. Run: $RUN_URL"
+          fi
+          # END alert-block
+
+      # Red job on a non-clean audit so the Actions tab shows it too.
+      - name: Fail the job unless the audit was clean
+        if: always() && steps.audit.outputs.code != '0'
+        run: |
+          echo "audit did not record exit 0; see the audit step log"
+          exit 1
