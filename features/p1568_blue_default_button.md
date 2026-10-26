@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 73.0
 workstream: design-system
@@ -80,8 +80,8 @@ None of them covers one action inside a chat message, which is how the mirror gr
 - [x] `docs/design-system.md` has one button table with rule 8. `/tree/design-buttons` shows example 8. `criteria/code.md` no longer names a colour.
 - [x] Sweep counts are recorded: hand-blue removed, buttons kept on default, moved to dark, outline or ghost.
       407 Buttons (AST parse). Hand-blue removed ~125 (incl. shared constants). Previously black, now blue: 30, each the only forward action in its view or paired with an outline/ghost sibling. To outline 0, ghost 0, dark 0 in app (dark used once on /tree/design-buttons). Left with other colour: landing-v4 "Get started" (`bg-foreground`), `ANSWER_BUTTON_CLASS` outlined-blue (3 sites), letter-primary-cta outline/link branches. `src/app/prototypes/**` (lint-ignored) keeps ~19 hand-typed blue. Lint carve-out: pale tints `bg-blue-50`/`bg-blue-100` allowed on outline/ghost hover.
-- [ ] Screenshots at 375, 320 and desktop of the main flows show no unintended colour change: feed, a point, chat with the mirror greeting, events, settings, letters, the live session start. A separate visual-QA subagent reviews them.
-- [ ] Unit suite and pre-commit green.
+- [x] Screenshots at 375, 320 and desktop of the main flows show no unintended colour change: feed, a point, chat with the mirror greeting, events, settings, letters, the live session start. A separate visual-QA subagent reviews them. Done 2026-10-26: `e2e/p1568-button-sweep.spec.ts` 7/7 (10 pages × 3 widths, plus a check that no Button keeps the old black fill, with a control on /tree/design-buttons). Two visual-QA passes (2 of 2 reported): no new rule break from this change; pre-existing breaks filed to the task inbox. The point page at 320 was re-captured alone after the sweep caught the app's offline screen under machine load.
+- [x] Unit suite and pre-commit green (commit 2114bc93d passed the full pre-commit run).
 
 ## Cost Budget
 
