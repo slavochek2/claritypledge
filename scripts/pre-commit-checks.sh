@@ -163,8 +163,10 @@ fi
 # Trigger on every extension the ratchet judges, not ESLint's .ts/.tsx list (scope.cjs).
 STAGED_CODE=$(echo "$STAGED_FILES" | grep -iE '\.(ts|tsx|js|jsx|mts|cts|mjs|cjs)$' || true)
 if [ -n "$STAGED_CODE" ]; then
-    RATCHET_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/quality-ratchet.cjs" --staged 2>&1)"
-    RATCHET_RC=$?
+    # `|| RATCHET_RC=$?` and never a bare assignment: this hook runs under `set -e`, which
+    # would end it right here, silently, on the first regression.
+    RATCHET_RC=0
+    RATCHET_OUT="$(node "$(git rev-parse --show-toplevel)/scripts/quality-ratchet.cjs" --staged 2>&1)" || RATCHET_RC=$?
     if [ "$RATCHET_RC" -eq 0 ]; then
         echo -e ">>> Quality ratchet... ${GREEN}✓${NC} ${RATCHET_OUT#quality-ratchet: OK }"
     elif [ "$RATCHET_RC" -eq 1 ]; then
