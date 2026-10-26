@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 225
+**Next ID:** 226
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2806,5 +2806,16 @@ src/tests/p1512-chat-ui.test.tsx:3360 (menuOn, line 231 getElementError) failed 
 **due:** week
 
 create-spec SKILL.md (Done-When section, "[post-deploy] is a CLAUSE") says a criterion with no pre-deploy half "is a deploy step: put it in ## Pre-deploy Checklist, which gate 3.5 owns". Gate 3.5 fails on any unticked box there, and a step that needs the merged code (push, redeploy, image rebuild, prod smoke) cannot be ticked before the merge. Hit on 2026-10-26: five such items blocked /ship until moved to a "Post-deploy verification" section, the convention 15 shipped specs already use. Fix: point that sentence at a Post-deploy verification section (not gated by /ship), keep Pre-deploy Checklist for steps applied before the merge. Skill file edit, lands on main.
+
+---
+
+## Alert workflows copied from edge-smoke.yml lack GH_REPO, persist-credentials: false and a concurrency group
+
+**ID:** INBOX-225
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** month
+
+P1567 (2026-10-26) found by Codex probe that an alert step whose gh calls infer the repo from the checkout cannot alert when the checkout failed, and that overlapping runs duplicate issues. edge-smoke.yml has none of GH_REPO, persist-credentials: false, concurrency. Check every .github/workflows file with `issues: write` and apply the P1567 fixes (decisions.md 2026-10-26 [technical]).
 
 ---

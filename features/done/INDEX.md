@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-24
+Last updated: 2026-10-26
 
 ---
 
@@ -433,6 +433,7 @@ Last updated: 2026-10-24
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1567** (Oct 26) Weekly scheduled supply-chain audit — alert step must not depend on the checkout (`GH_REPO`), runs serialized (`concurrency`), audits `main` whatever ref was dispatched, and a simulated clean run never closes a real alert; Codex found all four by probing, the copied pattern (`edge-smoke.yml`) shares two
 - **P1560** (Oct 26) Nine e2e failures — six were stale tests; one was a whole-page remount from a route-wrapping provider's key; identity from the session, not the cached profile.
 - **P1552** (Oct 23) Token usage pane in Day Monitoring: an optional section in the report is merged by the one writer and accepted only with this run's pass id. The collector wrapper's timeout must sit under the tool timeout. Restart the Kanban API to pick up parser changes.
 - **P1540** (Oct 26) Offline banner flapping — one failed fetch is suspicion; a second probe confirms. Stamp probes at send time.

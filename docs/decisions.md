@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [technical]: Scheduled-alert workflows must not depend on their own checkout, and must serialize (P1567)
+
+**Context:** P1567 added a weekly `dep-audit.sh` run that opens a GitHub issue on FINDING or INCOMPLETE, copying the find-or-append pattern in `edge-smoke.yml`. Codex review reproduced four defects in the first version: `gh` inferred the repo from the checkout, so a failed checkout (the case "audit never ran" exists for) also failed the alert; two overlapping runs could both create the issue; a manual dispatch on another branch audited that branch and could close the alert about `main`; a simulated clean run closed a real alert. Gemini added that a transient `gh issue list` failure aborts the step under `-eo pipefail` before the alert is created.
+**Decision:** The alert step sets `GH_REPO: ${{ github.repository }}`, the workflow has a `concurrency` group with `cancel-in-progress: false`, checkout pins `ref: main`, a simulated clean run never closes, and a failed lookup falls through to create (a rare duplicate beats a missed alert). Each is covered in `scripts/test-p1567-supply-chain-alert.sh`, which extracts the alert block from the YAML verbatim and was shown to fail when each fix is removed.
+**Alternatives rejected:** a separate completion-triggered reporting job for timeouts (a 25-minute job budget next to the 10-minute audit step covers the realistic case); paginating past 100 open bot issues (exotic).
+**Consequences:** `edge-smoke.yml`, the pattern this copied, has no `GH_REPO`, no `persist-credentials: false` and no concurrency group; other alert workflows have not been checked. Filed to the task inbox rather than fixed here.
+**References:** [p1567](../features/done/2026-06-10/p1567_weekly_scheduled_supply_chain_audit.md) · `.github/workflows/supply-chain-audit.yml` · decisions.md 2026-08-09 [process] (monitoring is a scheduled workflow)
+
 ## 2026-10-25 [product]: H-ChatFollowThrough is rejected on the merits; chat posts are not the pledge's measure
 
 **Context:** /day story r2 (2026-10-24) proposed asking sales mastermind attendees to post one follow-through in chat a week after session 1, because H-ChatFollowThrough (recorded 2026-10-23) counts chat shares within 14 days. Shown the prediction in plain words, that people following through on the pledge show up as stories or points shared in chat, the founder said it makes no sense and asked for it to be removed.
