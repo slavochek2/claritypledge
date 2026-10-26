@@ -39,7 +39,7 @@ PING_MODEL="models/gemini-3.1-flash-image-preview"   # what generate-banner actu
 # Reason: .env.local's GEMINI_API_KEY is what local agent tooling (gen-image, gen-poster,
 # story-to-image, gen-agent-avatar) spends, and the two-project split exists precisely so that
 # tooling does NOT share a fuse with the user-facing banner functions. Local tooling therefore
-# holds the `cp-batch` key while prod holds `cp-prod-interactive`, and a check that compared
+# holds the `cp-test` key (pp P89; was `cp-batch`) while prod holds `cp-prod-interactive`, and a check that compared
 # .env.local against prod would report a permanent, expected KEY_DIGEST_MISMATCH.
 KEY_NAME="cp-prod-interactive"
 SECRET_NAME="GEMINI_API_KEY"
@@ -145,7 +145,7 @@ command -v curl >/dev/null 2>&1 || die_cannot_run "curl is not available"
 # Two reasons, both learned the hard way:
 #   * $GEMINI_API_KEY from the ambient shell is the exact defect this spec exists to fix
 #     (`ai-keys --ping-prod` pinged it and had therefore never checked a deployed key at all);
-#   * .env.local now holds the `cp-batch` key by design, so falling back to it would report
+#   * .env.local now holds the `cp-test` key by design (pp P89), so falling back to it would report
 #     KEY_DIGEST_MISMATCH — a real-looking finding with no real cause — every time the registry
 #     happened to be unreachable. A monitor that cries wolf on its own outage is worse than one
 #     that says plainly it could not run.

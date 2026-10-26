@@ -8,6 +8,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-26 [technical]: Non-prod Supabase projects never call Gemini for images; the guard keys on the project host (P1565)
+
+**Context:** Story and event creation auto-generates AI banners, and TEST holds a live Gemini key, so every e2e and manual test paid for real images. Of the generation requests logged on TEST since February, only 5 of 196 came from accounts flagged `is_test_account`. A flag-based guard would have missed 97%.
+
+**Decision:** One helper in `supabase/functions/_shared/nonprod-image-guard.ts` admits image generation only when `SUPABASE_URL`'s host is prod's. Anything else, including an unset URL, gets a 107-byte placeholder through the normal storage path (it fails closed), logs one warning, and releases rather than charges a portrait reservation. `ALLOW_NONPROD_IMAGE_GEN=1` opts back in for a deliberate live run and must be unset after it.
+
+**Alternatives rejected:** keying on `is_test_account` (misses most of the waste, above); removing the TEST key (breaks the whole banner path in tests instead of exercising it); a new prod/non-prod secret (one more thing to drift; the host is already authoritative).
+
+**Consequences:** Reviewers caught two defects the implementer missed. The blocked path charged a portrait's full reservation, which would have tripped test accounts' caps. And the existing Deno suite broke (8 failures) because its environment is non-prod. Both are fixed, with runtime Deno tests proven to fail on a removed guard. Text and audio Gemini paths (`mirror-reply`, `transcribe-slice`) are out of scope.
+
+**References:** [p1565](../features/done/2026-06-10/p1565_gemini_banner_spend_for_test_accounts.md) · P1453 · `docs/technical/metered-services.md`
+
+## 2026-10-26 [process]: One capped Gemini key per consumer; one-day spikes surface in /day
+
+**Context:** One shared key was used by the prod transcription batch, TEST, local dev, review tooling and a private enrichment job. Month-to-date spend per key could not say which consumer spent what, and a single day of grounded search went unseen. A cost model in a private doc assumed a free tier that a moving model alias had silently left.
+
+**Decision:** Each consumer gets its own budget-capped key via `ai-keys --issue`, and a consumer-to-key map lives in the private infra docs. `ai-keys --sku-spikes` (any SKU at EUR 10 or more in one day, last 3 days) runs in /day, and a failed check reads "unmeasurable", never "clean". Model ids that drive cost are pinned, not `-latest` aliases.
+
+**Alternatives rejected:** keeping the shared key with tighter caps (still no attribution); reading spend only per month (the spike was invisible at that grain).
+
+**Consequences:** TEST's own edge secrets still need setting to the new test key by hand, because no available token can write secrets in the TEST organisation. Spend figures stay in the private log.
+
+**Details private:** .private/docs/decisions.md 2026-10-26 "One capped Gemini key per consumer"
+
+## 2026-10-26 [process]: Full-suite flakes are fixed by cause class, not test by test (P1570, P1573)
+
+**Context:** Three different P1512 tests blocked unrelated commits in one day. Each passed alone and failed under the parallel full suite.
+
+**Decision:** Two cause classes, two fixes. A test exceeding vitest's 5s limit under load gets a global `testTimeout: 15000` (`vite.config.ts`), so a real hang still fails. A synchronous query racing an async render becomes a `findBy*` wait, so a missing element still fails. Both are proven with a stress reproduction (CPU burners plus parallel runs) that fails before the fix, and a control that still fails on a real defect. A one-off retry to get a commit through is reported, never silent.
+
+**Alternatives rejected:** raising the global `findBy` timeout (slows tests that wait on purpose for absence); retrying until green (hides the class).
+
+**Consequences:** A third class, an async wait that never resolves under load (P1554 jump-down), is open as INBOX-232 with a hypothesis.
+
+**References:** [p1570](../features/done/2026-06-10/p1570_flaky_p1512_open_chat_test_under_full_suite.md) · p1573 · INBOX-223 · INBOX-232
+
 ## 2026-10-26 [technical]: Blue is the default Button, and a hand-coloured Button cannot be committed (P1568)
 
 **Context:** `<Button>` with no variant rendered near-black (`--primary`), so the one interactive blue (`#2563eb`, P1396) existed only where an author hand-typed `bg-blue-600`. The rules lived in four places that disagreed (two tables in design-system.md, a colour table, and `finish/criteria/code.md` still naming blue-500), and none covered one action inside a message. The founder kept correcting button colours by hand ("i'm fixing this fucking button things manually a hundred times"); the trigger was the mirror greeting's "Give me a name" shipping gray-outlined.
