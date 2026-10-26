@@ -19,7 +19,7 @@ import {
   uploadExplainBack,
   getProfileNames,
   getLetterPositionStories,
-  markDeliveryRead,
+  markDeliverySeenBySender,
   markExplainBackRead,
   type LetterPositionStory,
 } from '@/app/data/letters-service';
@@ -224,7 +224,7 @@ export function LetterResultsPage() {
     if (user) fetchData();
   }, [user, fetchData]);
 
-  // P1545: the sender's "new" mark for this person (unread inbox item + unread explain-backs) clears
+  // P1545: the sender's "new" mark for this person (the sender's seen mark + unread explain-backs) clears
   // once their results have rendered. Best effort: a failed mark is retried on the next load of the page.
   const clearedDeliveryRef = useRef<string | null>(null);
   useEffect(() => {
@@ -234,7 +234,7 @@ export function LetterResultsPage() {
     const target = deliveryId;
     void (async () => {
       try {
-        await markDeliveryRead(target);
+        await markDeliverySeenBySender(target);
         const rows = await getExplainBacksForDelivery(target);
         await Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id)));
       } catch {

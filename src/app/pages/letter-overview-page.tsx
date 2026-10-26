@@ -1,7 +1,7 @@
 /**
  * @file letter-overview-page.tsx
  * @description P700: Author-only cohort overview for a sent letter; P1545: the letter's control page.
- * One hierarchy: title and sealed date, ONE primary action (Add recipients, blue) with Preview and
+ * One hierarchy: title and sealed date, ONE primary action (Add recipient, blue) with Preview and
  * Copy public link as outline buttons beside it, then the people list (each row opens that person's results),
  * then one CohortTable per story as detail. One Back, at the top.
  *
@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
   getLetterOverview,
   getUnreadExplainBackCountsByDelivery,
 } from '@/app/data/letters-service';
-import { newCountForDelivery } from '@/app/utils/letter-new-activity';
+import { hasNewSenderProgress, newCountForDelivery } from '@/app/utils/letter-new-activity';
 import { toast } from 'sonner';
 import type { LetterDelivery, LetterOverviewPayload } from '@/app/types';
 import { stripHashtags } from '@/lib/utils';
@@ -69,6 +69,7 @@ type PageState = 'loading' | 'error' | 'not-authorized' | 'empty' | 'ready';
 export function LetterOverviewPage() {
   const { id: letterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { state: navState } = useLocation();
   const { user, sessionChecked, isLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -134,7 +135,7 @@ export function LetterOverviewPage() {
         // Unread explain-backs and unread activity (they started or finished: read_at still null) both mark "new".
         setNewByDelivery(Object.fromEntries(recipients.map((d) => [
           d.id,
-          newCountForDelivery(counts[d.id] ?? 0, (d.status === 'completed' || d.status === 'in_progress') && !d.read_at),
+          newCountForDelivery(counts[d.id] ?? 0, hasNewSenderProgress(d)),
         ])));
       }
       if (result.deliveries.length === 0) {
@@ -195,6 +196,10 @@ export function LetterOverviewPage() {
 
   // ── Success ─────────────────────────────────────────────────────────────────
   const { letter, stories, predictions, ratings, pointResponses } = payload;
+  // Opening Details on the list clears the letter's "new" before this page reads it; the list hands over who WAS new so
+  // their marks still show here once (they clear for good when that person's results are opened).
+  const handedOver: string[] = (navState as { newDeliveryIds?: string[] } | null)?.newDeliveryIds ?? [];
+  const shownNew = { ...newByDelivery, ...Object.fromEntries(handedOver.map(id => [id, Math.max(1, newByDelivery[id] ?? 0)])) };
   const isPublic = letter.mode === 'one-to-many';
   const hasCohort = payload.deliveries.length > 0;
 
@@ -249,9 +254,9 @@ export function LetterOverviewPage() {
               </div>
             </div>
           </div>
-          {/* Add recipients is the one primary (blue, as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons beside it. */}
+          {/* Add recipient is the one primary (blue, as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons beside it. */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button className="min-h-10 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setAddOpen(true)}>Add recipients</Button>
+            <Button className="min-h-10 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setAddOpen(true)}>Add recipient</Button>
             {letter.source_doc_id && (
               <Button variant="outline" className="min-h-10" onClick={handlePreview}>Preview</Button>
             )}
@@ -272,7 +277,7 @@ export function LetterOverviewPage() {
             letterId={letter.id}
             isPublic={isPublic}
             deliveries={deliveries}
-            newByDelivery={newByDelivery}
+            newByDelivery={shownNew}
           />
         )}
 

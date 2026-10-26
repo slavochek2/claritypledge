@@ -986,6 +986,32 @@ export async function markDeliveryRead(deliveryId: string): Promise<void> {
 }
 
 /**
+ * P1545: the SENDER has looked at this delivery (sets letter_deliveries.sender_seen_at; sender-only). Separate from
+ * the recipient's read mark, so a recipient opening the letter no longer hides their later progress from the sender.
+ * Before the 20261026100000 migration is applied the function does not exist; the old shared mark stands in so an
+ * unmigrated database behaves as before.
+ */
+export async function markDeliverySeenBySender(deliveryId: string): Promise<void> {
+  log('markDeliverySeenBySender:', deliveryId);
+
+  const { error } = await supabase.rpc('mark_delivery_seen_by_sender', { p_delivery_id: deliveryId });
+  if (!error) return;
+  if (error.code === 'PGRST202' || error.code === '42883') return markDeliveryRead(deliveryId);
+  throwDbError('markDeliverySeenBySender', error, `Failed to mark as seen: ${error.message}`);
+}
+
+/**
+ * P1545: clear everything "new" the sender has on one delivery: the sender's seen mark and the unread explain-backs.
+ * Used when a sent letter's row is opened from the list; the results page does the same with the explain-backs it
+ * already holds.
+ */
+export async function clearSenderNewForDelivery(deliveryId: string): Promise<void> {
+  await markDeliverySeenBySender(deliveryId);
+  const rows = await getExplainBacksForDelivery(deliveryId);
+  await Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id)));
+}
+
+/**
  * P770: Delete a sealed letter with zero deliveries.
  * Server-side guard re-checks delivery count before deleting — client-side
  * gate can be stale if deliveries arrived after the tab loaded.

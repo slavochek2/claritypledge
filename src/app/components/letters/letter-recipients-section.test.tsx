@@ -23,7 +23,7 @@ function setup(over: Partial<LetterRecipientsSectionProps> = {}) {
 }
 
 describe('LetterRecipientsSection', () => {
-  it('says "No recipients yet" and draws no actions: Add recipients, Preview and Copy link belong to the page header', () => {
+  it('says "No recipients yet" and draws no actions: Add recipient, Preview and Copy link belong to the page header', () => {
     setup();
     expect(screen.getByText('No recipients yet')).toBeInTheDocument();
     expect(screen.queryByRole('button')).toBeNull();

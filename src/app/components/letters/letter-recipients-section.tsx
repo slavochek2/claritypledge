@@ -6,7 +6,7 @@
  * it opens their whole-letter results (no separate Results link). Public-link respondents get one row
  * each, the latest 10 plus "Show all".
  *
- * Presentational: the page owns the data and the actions (Add recipients, Preview, Copy link).
+ * Presentational: the page owns the data and the actions (Add recipient, Preview, Copy link).
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';

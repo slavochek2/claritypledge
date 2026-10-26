@@ -15,10 +15,10 @@
  *    activity on your own letters ("1 new from Tom"); "done" is the vocabulary everywhere.
  *  - A row dot exists only on Received and Shared with me. The list chips and the tabs carry a dot too:
  *    Sent while any sent letter has something new, a tab when one of its lists has a dot.
- *  - No row menu: a tap opens the item and its actions live inside it.
+ *  - Rows carry their own buttons (the row body is not a link); every dot reads `unread` (received) or `hasNew` (sent).
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
-import { newCountForDelivery } from '@/app/utils/letter-new-activity';
+import { hasNewSenderProgress, newCountForDelivery } from '@/app/utils/letter-new-activity';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
@@ -58,10 +58,23 @@ export interface ArtifactRow {
   sortAt: number;
   ref: {
     docId?: string;
+    /** Draft: stories in it (Prepare letter needs one) and whether letters were sent from it (Delete is blocked). */
+    storyCount?: number;
+    hasSentLetters?: boolean;
     letterId?: string;
+    /** Sent letter: the draft it was sealed from (Preview), who it went to, and which of them are new. */
+    sourceDocId?: string | null;
+    isPublicLetter?: boolean;
+    deliveries?: LetterDelivery[];
+    newDeliveryIds?: string[];
+    /** Unread explain-backs / unread progress per delivery id (any value above 0 draws the person's dot). */
+    newByDelivery?: Record<string, number>;
     deliveryId?: string;
     canvasName?: string;
     ownerId?: string;
+    /** Own canvas: its sharing (Copy link needs it shared). */
+    generalAccess?: 'restricted' | 'link';
+    hasAudience?: boolean;
   };
 }
 
@@ -234,7 +247,7 @@ export function draftRow(doc: ClarityDoc, sentCount = 0): ArtifactRow {
     hasNew: false,
     href: `/letters/drafts/${doc.id}`,
     sortAt: ms(doc.updated_at),
-    ref: { docId: doc.id },
+    ref: { docId: doc.id, storyCount: doc.story_count, hasSentLetters: doc.has_sent_letters },
   };
 }
 
@@ -268,7 +281,14 @@ export function sentRow(
     hasNew: newCount > 0,
     href: `/letter/${letter.id}/overview`,
     sortAt: ms(shownAt),
-    ref: { letterId: letter.id },
+    ref: {
+      letterId: letter.id,
+      sourceDocId: letter.source_doc_id ?? null,
+      isPublicLetter: isPublic,
+      deliveries,
+      newDeliveryIds: withNew.map(d => d.id),
+      newByDelivery: Object.fromEntries(deliveries.map(d => [d.id, newOf(d)])),
+    },
   };
 }
 
@@ -285,7 +305,7 @@ export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null): ArtifactR
     hasNew: false,
     href: userSlug ? canvasPath(userSlug, c.name) : null,
     sortAt: ms(c.lastEdit),
-    ref: { canvasName: c.name },
+    ref: { canvasName: c.name, generalAccess: c.generalAccess, hasAudience: c.hasAudience },
   };
 }
 
@@ -328,8 +348,8 @@ export function receivedCanvasRow(c: CanvasSharedWithMe, viewerId: string | null
 
 /**
  * Unread sender-side activity per delivery id, read from the deliveries themselves (get_deliveries_with_progress):
- * the recipient started or finished (status in_progress / completed) and `read_at` is still null. The time is the
- * completion, else the creation, as the inbox RPC reports it. Deliveries to the viewer themself never count (the
+ * the recipient started or finished and the sender has not seen the latest of it (the sender's own mark, not the
+ * recipient's `read_at`; see hasNewSenderProgress). The time is the latest progress. Deliveries to the viewer themself never count (the
  * RPC excludes them). Deriving this from the deliveries, not from the inbox, keeps it clear of that list's 20-row
  * cap, which twenty newer received letters could fill.
  */
@@ -340,10 +360,9 @@ export function unreadActivityByDelivery(
   const out: Record<string, string> = {};
   for (const deliveries of Object.values(deliveriesByLetter)) {
     for (const d of deliveries) {
-      if (d.status !== 'in_progress' && d.status !== 'completed') continue;
-      if (d.read_at) continue;
+      if (!hasNewSenderProgress(d)) continue;
       if (viewerId && d.receiver_profile_id === viewerId) continue;
-      out[d.id] = d.completed_at ?? d.created_at;
+      out[d.id] = d.last_progress_at ?? d.completed_at ?? d.created_at;
     }
   }
   return out;

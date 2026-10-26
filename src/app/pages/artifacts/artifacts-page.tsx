@@ -4,8 +4,8 @@
  *
  * Tabs Letters | Canvases (`?tab=letters|canvases`, default letters, replace history); inside Letters a filter
  * Drafts · Sent · Received (`&list=`, default drafts), inside Canvases Mine · Shared with me (default mine). One list
- * at a time, title search across the current list. One row per item; a tap opens the item's existing page and its
- * actions live there (no "…"). Old `tab=yours|shared&type=` links are rewritten in place. The data and every rule live in
+ * at a time, title search across the current list. One row per item; the row body is not a link, its buttons act (a "…", a
+ * secondary and a primary; see artifact-row-actions.tsx) and a sent row opens in place to show who it went to. Old `tab=yours|shared&type=` links are rewritten in place. The data and every rule live in
  * artifacts-view-model.ts and use-artifacts-data.ts; this file is layout and wiring.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageFrame } from '@/app/components/layout/page-header';
 import { docsService } from '@/app/data/docs-service';
-import { markDeliveryRead } from '@/app/data/letters-service';
+import { clearSenderNewForDelivery, markDeliveryRead } from '@/app/data/letters-service';
 import { canvasService } from '@/app/data/canvas-service';
 import { useOpenLiveInvite, type OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { ARTIFACTS_READ_EVENT } from '@/app/hooks/useUnreadSharedCount';
@@ -151,13 +151,17 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
     }
   };
 
-  // Opening an unread item marks it read (letters: the delivery; canvases: the artifact read state),
+  // Opening an item with something new marks it read (received letters: the delivery; canvases: the artifact read state;
+  // sent letters: the sender's seen mark and the explain-backs on each new delivery),
   // then tells the nav badge to re-read. The navigation itself is the row link's.
   const handleOpen = (row: ArtifactRow) => {
-    if (!row.unread || opened.has(row.key)) return;
+    if (!(row.unread || row.hasNew) || opened.has(row.key)) return;
     setOpened(prev => new Set(prev).add(row.key));
     let done: Promise<void> | null = null;
-    if (row.state === 'received-letter' && row.ref.deliveryId) done = markDeliveryRead(row.ref.deliveryId);
+    if (row.state === 'sent') {
+      // Details: clear the sender's "new" on every delivery that has some (the overview is handed who they were).
+      done = Promise.all((row.ref.newDeliveryIds ?? []).map(id => clearSenderNewForDelivery(id))).then(() => undefined);
+    } else if (row.state === 'received-letter' && row.ref.deliveryId) done = markDeliveryRead(row.ref.deliveryId);
     else if (row.state === 'received-canvas' && row.ref.ownerId && row.ref.canvasName) {
       done = canvasService.markCanvasRead(row.ref.ownerId, row.ref.canvasName);
     }
@@ -177,10 +181,13 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   };
 
   // Drop a key from the override once the server reports that row read: a later re-share must show unread again.
-  const serverRows = useMemo(() => [...data.lists.received.rows, ...data.lists.shared.rows], [data.lists.received.rows, data.lists.shared.rows]);
+  const serverRows = useMemo(
+    () => [...data.lists.sent.rows, ...data.lists.received.rows, ...data.lists.shared.rows],
+    [data.lists.sent.rows, data.lists.received.rows, data.lists.shared.rows],
+  );
   useEffect(() => {
     if (opened.size === 0) return;
-    const serverRead = new Set(serverRows.filter(r => !r.unread).map(r => r.key));
+    const serverRead = new Set(serverRows.filter(r => !r.unread && !r.hasNew).map(r => r.key));
     const confirmed = [...opened].filter(k => serverRead.has(k));
     if (confirmed.length === 0) return;
     setOpened(prev => {
@@ -191,13 +198,13 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   }, [serverRows, opened]);
 
   const withOpened = useCallback(
-    (rows: ArtifactRow[]) => rows.map(r => (opened.has(r.key) ? { ...r, unread: false } : r)),
+    (rows: ArtifactRow[]) => rows.map(r => (opened.has(r.key) ? { ...r, unread: false, hasNew: false } : r)),
     [opened],
   );
   const lists = useMemo<Record<ArtifactList, ListData>>(
     () => ({
       drafts: data.lists.drafts,
-      sent: data.lists.sent,
+      sent: { ...data.lists.sent, rows: withOpened(data.lists.sent.rows) },
       received: { ...data.lists.received, rows: withOpened(data.lists.received.rows) },
       mine: data.lists.mine,
       shared: { ...data.lists.shared, rows: withOpened(data.lists.shared.rows) },
@@ -265,6 +272,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
                 list={list}
                 data={lists[list]}
                 query={query}
+                userSlug={userSlug}
                 onOpen={handleOpen}
                 onRefresh={data.refresh}
                 onClearSearch={() => setQuery('')}
@@ -322,12 +330,13 @@ interface ListProps {
   list: ArtifactList;
   data: ListData;
   query: string;
+  userSlug: string | null;
   onOpen: (row: ArtifactRow) => void;
   onRefresh: () => Promise<void>;
   onClearSearch: () => void;
 }
 
-function ListBody({ list, data, query, onOpen, onRefresh, onClearSearch }: ListProps) {
+function ListBody({ list, data, query, userSlug, onOpen, onRefresh, onClearSearch }: ListProps) {
   const refresh = () => { void onRefresh(); };
 
   if (data.status === 'loading' || data.status === 'error') {
@@ -372,7 +381,7 @@ function ListBody({ list, data, query, onOpen, onRefresh, onClearSearch }: ListP
       ) : (
         <ul className="flex flex-col divide-y divide-border/60" aria-label={LIST_LABEL[list]}>
           {rows.map(row => (
-            <ArtifactListRow key={row.key} row={row} onOpen={onOpen} />
+            <ArtifactListRow key={row.key} row={row} userSlug={userSlug} onOpen={onOpen} onChanged={refresh} />
           ))}
         </ul>
       )}

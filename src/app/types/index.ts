@@ -1626,6 +1626,14 @@ export interface LetterDelivery {
   completed_at: string | null;
   read_at: string | null;
   created_at: string;
+  /**
+   * P1545: when the SENDER last looked at this delivery (mark_delivery_seen_by_sender). Separate from `read_at`,
+   * which the recipient's open also sets. Only the sender's reader (get_deliveries_with_progress) returns it;
+   * absent before the 20261026100000 migration is applied.
+   */
+  sender_seen_at?: string | null;
+  /** P1545: latest progress on this delivery (completion, newest point response or explain-back, or the open once started). */
+  last_progress_at?: string | null;
   /** P699 Phase 2: stories_rated + points_positioned (present when loaded via get_deliveries_with_progress) */
   steps_completed?: number;
   /** P699 Phase 2: total_stories + total_points (present when loaded via get_deliveries_with_progress) */

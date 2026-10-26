@@ -82,14 +82,14 @@ describe('LetterOverviewPage hierarchy', () => {
     opened.open = vi.spyOn(window, 'open').mockImplementation(() => null);
   });
 
-  it('reads title and sealed date, then one primary Add recipients, then the people, then the stories', async () => {
+  it('reads title and sealed date, then one primary Add recipient, then the people, then the stories', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
     const title = screen.getByRole('heading', { level: 1, name: 'Hello Tom' });
     const date = screen.getByText(/Sealed Oct 3/);
-    const add = screen.getByRole('button', { name: 'Add recipients' });
+    const add = screen.getByRole('button', { name: 'Add recipient' });
     const storyHeading = screen.getByRole('link', { name: 'A story' });
     const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     expect(follows(title, date)).toBe(true);
@@ -99,11 +99,11 @@ describe('LetterOverviewPage hierarchy', () => {
     expect(section).not.toHaveTextContent(/Sealed/); // the date lives in the header now
   });
 
-  it('Add recipients is the one blue primary (as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons next to it', async () => {
+  it('Add recipient is the one blue primary (as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons next to it', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload({ mode: 'one-to-many' }, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv()] });
     renderPage();
-    const add = await screen.findByRole('button', { name: 'Add recipients' });
+    const add = await screen.findByRole('button', { name: 'Add recipient' });
     expect(add.className).toContain('bg-blue-500');
     expect(add.className).toContain('text-white');
     expect(add.className).toContain('hover:bg-blue-700');
@@ -138,7 +138,7 @@ describe('LetterOverviewPage hierarchy', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/letter/l1`));
   });
 
-  it('a private letter has Add recipients and Preview but no Copy public link; with no source doc, only Add recipients', async () => {
+  it('a private letter has Add recipient and Preview but no Copy public link; with no source doc, only Add recipient', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload());
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     const first = renderPage();
@@ -148,7 +148,7 @@ describe('LetterOverviewPage hierarchy', () => {
     mocks.getLetterOverview.mockResolvedValue(payload({ source_doc_id: null }));
     renderPage();
     await screen.findByTestId('letter-recipients');
-    expect(screen.getByRole('button', { name: 'Add recipients' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add recipient' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Preview' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Copy public link' })).toBeNull();
   });
@@ -175,12 +175,12 @@ describe('LetterOverviewPage hierarchy', () => {
     expect(screen.queryByTestId('bottom-back')).toBeNull();
   });
 
-  it('with no recipients it still shows the section, "No recipients yet" and Add recipients', async () => {
+  it('with no recipients it still shows the section, "No recipients yet" and Add recipient', async () => {
     mocks.getLetterOverview.mockResolvedValue(payload());
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     renderPage();
     expect(await screen.findByText('No recipients yet')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add recipients' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipient' }));
     expect(await screen.findByTestId('receiver-modal')).toHaveTextContent('l1');
   });
 
@@ -203,6 +203,29 @@ describe('LetterOverviewPage hierarchy', () => {
     renderPage();
     const section = await screen.findByTestId('letter-recipients');
     expect(within(section).getByRole('img', { name: 'New' })).toBeInTheDocument();
+  });
+
+  it('uses the sender\'s own seen mark: a recipient who opened the letter still shows later progress as new, until the sender has looked', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: '2026-10-04T10:00:00Z', last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: null })] });
+    const first = renderPage();
+    expect(within(await screen.findByTestId('letter-recipients')).getByRole('img', { name: 'New' })).toBeInTheDocument();
+    first.unmount();
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: '2026-10-04T10:00:00Z', last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z' })] });
+    renderPage();
+    const section = await screen.findByTestId('letter-recipients');
+    expect(within(section).queryByRole('img', { name: 'New' })).toBeNull();
+  });
+
+  it('people the list says were new when Details was opened still show their mark once', async () => {
+    mocks.getLetterOverview.mockResolvedValue(payload({}, [ovDelivery('d1', '2026-10-05T10:00:00Z')]));
+    mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [dv({ read_at: null, last_progress_at: '2026-10-05T10:00:00Z', sender_seen_at: '2026-10-06T10:00:00Z' })] }); // already cleared on the server
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/letter/l1/overview', state: { newDeliveryIds: ['d1'] } }]}>
+        <Routes><Route path="/letter/:id/overview" element={<LetterOverviewPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(within(await screen.findByTestId('letter-recipients')).getByRole('img', { name: 'New' })).toBeInTheDocument();
   });
 
   it('a read finished delivery is not new', async () => {
@@ -245,11 +268,11 @@ describe('LetterOverviewPage hierarchy', () => {
     expect(screen.queryByText('First letter')).toBeNull();
   });
 
-  it('after Add recipients succeeds the page refreshes in place, without the full-page skeleton', async () => {
+  it('after Add recipient succeeds the page refreshes in place, without the full-page skeleton', async () => {
     mocks.getLetterOverview.mockResolvedValueOnce(payload());
     mocks.getDeliveriesForLettersOrThrow.mockResolvedValue({ l1: [] });
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Add recipients' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add recipient' }));
     let resolveSecond: (v: unknown) => void = () => {};
     mocks.getLetterOverview.mockImplementationOnce(() => new Promise(r => { resolveSecond = r; }));
     fireEvent.click(await screen.findByText('mock-added'));
@@ -297,7 +320,7 @@ describe('Delete letter lives on the overview, only while nobody has the letter 
     expect(del.className).toMatch(/\bmin-h-10\b/);
     const section = screen.getByTestId('letter-recipients');
     expect(section.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add recipients' }).className).toContain('bg-blue-500'); // still the one primary
+    expect(screen.getByRole('button', { name: 'Add recipient' }).className).toContain('bg-blue-500'); // still the one primary
   });
 
   it('is not offered once anyone has the letter: a recipient, or a public-link respondent', async () => {

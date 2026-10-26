@@ -1,6 +1,6 @@
 /**
  * @file p1545-results-clears-new.test.tsx
- * @description P1545: a person's "new" mark (unread inbox item + unread explain-backs) is cleared when the
+ * @description P1545: a person's "new" mark (the sender's seen mark + unread explain-backs) is cleared when the
  * sender's results page for that delivery has actually rendered, not when a link to it is clicked.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -34,7 +34,7 @@ const svc = vi.hoisted(() => ({
   uploadExplainBack: vi.fn(),
   getProfileNames: vi.fn(),
   getLetterPositionStories: vi.fn(),
-  markDeliveryRead: vi.fn(),
+  markDeliverySeenBySender: vi.fn(),
   markExplainBackRead: vi.fn(),
 }));
 vi.mock('@/app/data/letters-service', () => svc);
@@ -59,14 +59,14 @@ beforeEach(() => {
   svc.getExplainBacksForDelivery.mockResolvedValue([{ id: 'eb1', recorder_id: 'rcv', story_id: 's1', author_read_at: null }, { id: 'eb2', recorder_id: 'rcv', story_id: 's2', author_read_at: 'x' }]);
   svc.getProfileNames.mockResolvedValue({});
   svc.getLetterPositionStories.mockResolvedValue(new Map());
-  svc.markDeliveryRead.mockResolvedValue(undefined);
+  svc.markDeliverySeenBySender.mockResolvedValue(undefined);
   svc.markExplainBackRead.mockResolvedValue(undefined);
 });
 
 describe('results page clears the sender\'s "new" for that delivery', () => {
   it('once rendered: marks the delivery and only its unread explain-backs read', async () => {
     renderPage();
-    await waitFor(() => expect(svc.markDeliveryRead).toHaveBeenCalledWith('d1'));
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledWith('d1'));
     await waitFor(() => expect(svc.markExplainBackRead).toHaveBeenCalledTimes(1));
     expect(svc.markExplainBackRead).toHaveBeenCalledWith('eb1');
   });
@@ -75,21 +75,21 @@ describe('results page clears the sender\'s "new" for that delivery', () => {
     svc.getLetterResults.mockReturnValue(new Promise(() => {}));
     renderPage();
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-    expect(svc.markDeliveryRead).not.toHaveBeenCalled();
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled();
   });
 
   it('not when the results are not found', async () => {
     svc.getLetterResults.mockResolvedValue(null);
     renderPage();
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-    expect(svc.markDeliveryRead).not.toHaveBeenCalled();
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled();
   });
 
   it('never for the receiver\'s own results', async () => {
     svc.getLetterResults.mockResolvedValue(results('receiver'));
     renderPage();
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-    expect(svc.markDeliveryRead).not.toHaveBeenCalled();
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled();
     expect(svc.markExplainBackRead).not.toHaveBeenCalled();
   });
 
@@ -98,15 +98,15 @@ describe('results page clears the sender\'s "new" for that delivery', () => {
     svc.getDeliveriesForLetter.mockResolvedValue([]);
     renderPage();
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-    expect(svc.markDeliveryRead).not.toHaveBeenCalled();
+    expect(svc.markDeliverySeenBySender).not.toHaveBeenCalled();
   });
 
   it('a failed mark is retried on the next render of the page (refetch), not lost', async () => {
-    svc.markDeliveryRead.mockRejectedValueOnce(new Error('x'));
+    svc.markDeliverySeenBySender.mockRejectedValueOnce(new Error('x'));
     renderPage();
-    await waitFor(() => expect(svc.markDeliveryRead).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledTimes(1));
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
-    await waitFor(() => expect(svc.markDeliveryRead).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(svc.markDeliverySeenBySender).toHaveBeenCalledTimes(2));
   });
 });

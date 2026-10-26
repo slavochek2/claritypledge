@@ -289,6 +289,23 @@ Founder UAT on the headings build: with real draft counts Sent sits far below Dr
 - **Old links keep working:** `/letters?tab=drafts|sent|inbox` → Letters Drafts / Sent / Received; `/artifacts?tab=yours[&type=letters]` → Letters Drafts; `?tab=yours&type=canvases` → Canvases Mine; `?tab=shared[&type=letters]` → Letters Received; `?tab=shared&type=canvases` → Canvases Shared with me.
 - **Review lens for this round:** realistic volume (25+ drafts) and consistency (the same kind of row behaves the same everywhere), not single screenshots.
 
+### Row actions on the list (founder, 2026-10-26, second pass)
+
+Founder UAT on the split-by-kind build: rows had no call to action ("the list is just a list"), a tap meant different things per list, Sent no longer showed who a letter went to, and a dot on the Sent chip had no matching row. Supersedes "No '…' on any row" and the row-tap rule above; the tabs, filters and inside-the-item actions stay.
+
+- **Tapping the row body does nothing.** Only buttons act (same rule as cards: "Details" opens, the card does not).
+- **Each row: "…" then secondary then primary, primary far right.** On phones the action line sits under the meta text, right-aligned. Primary is a small blue outline button, never a filled one in a list.
+  - Draft: `…` (Delete draft) · `✎ Edit` · **Prepare letter** (disabled with its reason at 0 stories).
+  - Sent, private: `…` (Preview, Delete letter) · `Details` (overview) · **Add recipient**.
+  - Sent, public: `…` (Preview, Delete letter) · `Details` · **Copy link**.
+  - Received: **Open** (Results once done), no `…`.
+  - My canvas: `…` (Share, Copy link) · **Open**.
+  - Shared canvas: **Open**, no `…`.
+- **Same menu per kind:** every row of a kind lists the same items; one not possible right now is shown disabled with its reason (Delete after someone received; Copy link on a private canvas).
+- **Sent rows expand** with ▸ on the left to show each person and their status in place (as the old Letters page did); › on a person opens their results.
+- **Dots like chat:** a dot on any row with something new (Sent included, replacing decision 1A's words-only), cleared when the item is opened. Requires a sender-side "seen" mark separate from the recipient's read mark (today one `read_at` serves both, so a recipient opening the letter hides the sender's later news).
+- **Label:** "Add recipients" becomes "Add recipient" everywhere.
+
 ## Phase 2 record
 
 - **Built** in 5 work packages plus 5 review-fix rounds (Sonnet builders, Opus orchestrating). Migrations `20261023100000_p1545_artifacts_data` and `20261023110000_p1545_chat_letter_delivery_id`, applied to TEST only.

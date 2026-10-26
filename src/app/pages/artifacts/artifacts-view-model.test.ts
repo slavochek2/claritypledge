@@ -294,6 +294,33 @@ describe('rows', () => {
     }
   });
 
+  it('the sender\'s own seen mark decides: a recipient who opened the letter (read_at set) still shows later progress as new', () => {
+    const meta = (d: Partial<LetterDelivery>) => buildArtifacts(source({
+      sentLetters: [letter({ sealed_at: ago(3 * D) })],
+      deliveriesByLetter: { l1: [delivery({ id: 'dv1', receiver_name: 'Tom', status: 'in_progress', read_at: ago(2 * D), ...d })] },
+    })).sent[0]?.meta;
+    // opened two days ago, progressed an hour ago, the sender never looked
+    expect(meta({ last_progress_at: ago(H), sender_seen_at: null })).toBe('Sent to 1 · 1 new from Tom · 1h ago');
+    // the sender looked after the progress: nothing new
+    expect(meta({ last_progress_at: ago(H), sender_seen_at: ago(10 * 60_000) })).toBe('Sent to 1 · 0 of 1 done · 3d ago');
+    // the sender looked, then the recipient did more
+    expect(meta({ last_progress_at: ago(10 * 60_000), sender_seen_at: ago(H) })).toBe('Sent to 1 · 1 new from Tom · 10m ago');
+  });
+
+  it('a sent row carries what its buttons and its expansion need', () => {
+    const d = delivery({ id: 'dv1', status: 'completed', completed_at: ago(H), last_progress_at: ago(H), sender_seen_at: null });
+    const { sent, drafts } = buildArtifacts(source({
+      docs: [doc({ id: 'd7', story_count: 0, has_sent_letters: true })],
+      sentLetters: [letter({ id: 'l1', source_doc_id: 'd9', mode: 'one-to-many' })],
+      deliveriesByLetter: { l1: [d] },
+    }));
+    expect(sent[0]?.ref).toMatchObject({ letterId: 'l1', sourceDocId: 'd9', isPublicLetter: true, newDeliveryIds: ['dv1'], newByDelivery: { dv1: 1 } });
+    expect(sent[0]?.ref.deliveries).toEqual([d]);
+    expect(drafts[0]?.ref).toMatchObject({ docId: 'd7', storyCount: 0, hasSentLetters: true });
+    const { mine } = buildArtifacts(source({ myCanvases: [myCanvas({ generalAccess: 'link', hasAudience: true })] }));
+    expect(mine[0]?.ref).toMatchObject({ canvasName: 'sales_map', generalAccess: 'link', hasAudience: true });
+  });
+
   it('activity and explain-backs on one delivery are not double counted', () => {
     const { sent } = buildArtifacts(source({
       sentLetters: [letter({ sealed_at: ago(3 * D) })],
@@ -313,7 +340,7 @@ describe('rows', () => {
     }));
     const rows = Object.values(lists).flat();
     expect(rows).toHaveLength(5);
-    for (const r of rows) expect(r).not.toHaveProperty('menu');
+    for (const r of rows) expect(r).not.toHaveProperty('menu'); // the buttons are decided by the row component from the row's ref
   });
 
   it('new explain-backs show as "N new from <name>" on the sent letter', () => {
