@@ -66,6 +66,11 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   // calls cannot produce "Java object is gone". ANCHORED like the pattern above, so an app
   // error that wraps this message ("Failed to save: Error invoking ...") still reports.
   /^Error invoking postMessage: Java object is gone$/,
+  // Facebook's iOS in-app browser: its injected sendDataToNative (called from its own
+  // processLargestContentfulPaintEvent) reads window.webkit.messageHandlers, which is absent
+  // in that WebView (JAVASCRIPT-REACT-3Z). Zero application frames; our source never touches
+  // window.webkit. ANCHORED, with or without the "TypeError: " prefix Sentry also tests.
+  /^(TypeError: )?undefined is not an object \(evaluating 'window\.webkit\.messageHandlers'\)$/,
 ];
 
 /**

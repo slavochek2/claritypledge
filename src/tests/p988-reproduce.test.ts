@@ -47,6 +47,24 @@ describe("p988 gap 1: injected third-party errors are dropped before Sentry", ()
     ).toBe(true);
   });
 
+  // Sentry's ignoreErrors tests both the bare value and "Type: value", so both forms are pinned.
+  it("drops the Facebook iOS in-app browser bridge throw (JAVASCRIPT-REACT-3Z)", () => {
+    const value = "undefined is not an object (evaluating 'window.webkit.messageHandlers')";
+    expect(isIgnoredMessage(value)).toBe(true);
+    expect(isIgnoredMessage(`TypeError: ${value}`)).toBe(true);
+  });
+
+  it("does NOT drop an application error that wraps the iOS bridge message, or another undefined access", () => {
+    expect(
+      isIgnoredMessage(
+        "Failed to load event: undefined is not an object (evaluating 'window.webkit.messageHandlers')"
+      )
+    ).toBe(false);
+    expect(
+      isIgnoredMessage("TypeError: undefined is not an object (evaluating 'event.location.lat')")
+    ).toBe(false);
+  });
+
   it("does NOT drop a real postMessage failure of our own", () => {
     expect(
       isIgnoredMessage("Failed to execute 'postMessage' on 'Window': invalid target origin")
