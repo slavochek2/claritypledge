@@ -58,6 +58,11 @@ function Where() {
 
 const refresh = vi.fn();
 
+// The first render of the page tree in a worker is cold (module init + JIT); measured under 8 parallel
+// runs + CPU burners it exceeded findBy's default 1000ms and, in rare runs, the 5000ms test timeout (P1570). The wait stays an
+// assertion: a missing button still fails, just after 20s instead of 1s.
+const findOpenChat = () => screen.findByRole('button', { name: 'Open chat' }, { timeout: 20000 });
+
 function renderPage(chats: ChatSummary[] | null) {
   const ctx = chats === null ? null : ({ chats, refresh } as unknown as ChatContextValue);
   return render(
@@ -82,10 +87,10 @@ beforeEach(() => {
   svc.getMyMembership.mockResolvedValue({ role: 'member', termsVersion: 1, acceptedAt: '2026-01-01' });
 });
 
-describe('P1512 — group page "Open chat"', () => {
+describe('P1512 — group page "Open chat"', { timeout: 30000 }, () => {
   it('a member sees an outline Open chat next to Manage membership, and it opens the group\'s General channel', async () => {
     renderPage([channel('c-other', 'org-9'), channel('c-builders', 'org-1')]);
-    const button = await screen.findByRole('button', { name: 'Open chat' });
+    const button = await findOpenChat();
     expect(screen.getByRole('button', { name: /manage membership/i })).toBeInTheDocument();
     // Secondary: the outline variant, never a second primary.
     expect(button.className).toContain('border');
@@ -97,7 +102,7 @@ describe('P1512 — group page "Open chat"', () => {
   it('right after joining, the channel is not in the list yet: it reads the list again and opens the channel', async () => {
     refresh.mockResolvedValue([channel('c-other', 'org-9'), channel('c-builders', 'org-1')]);
     renderPage([channel('c-other', 'org-9')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
     expect(refresh).toHaveBeenCalledTimes(1);
   });
@@ -105,20 +110,20 @@ describe('P1512 — group page "Open chat"', () => {
   it('it goes to Home only when the list read again still lacks the channel (or the read failed)', async () => {
     refresh.mockResolvedValue([channel('c-other', 'org-9')]);
     const { unmount } = renderPage([channel('c-other', 'org-9')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     expect(await screen.findByTestId('where')).toHaveTextContent(/^\/home$/);
     expect(refresh).toHaveBeenCalledTimes(1);
     unmount();
 
     refresh.mockResolvedValue(null);
     renderPage([]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     expect(await screen.findByTestId('where')).toHaveTextContent(/^\/home$/);
   });
 
   it('a channel already in the list opens without reading the list again', async () => {
     renderPage([channel('c-builders', 'org-1')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -166,7 +171,7 @@ describe('P1512 — a late chat refresh never redirects someone who has already 
     const late = deferred<ChatSummary[] | null>();
     refresh.mockReturnValue(late.promise);
     renderWithExit([channel('c-other', 'org-9')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     fireEvent.click(screen.getByText('leave'));
     expect(await screen.findByTestId('where')).toHaveTextContent('/elsewhere');
     late.resolve([channel('c-builders', 'org-1')]);
@@ -178,7 +183,7 @@ describe('P1512 — a late chat refresh never redirects someone who has already 
     const late = deferred<ChatSummary[] | null>();
     refresh.mockReturnValue(late.promise);
     renderWithExit([channel('c-other', 'org-9')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     fireEvent.click(screen.getByText('other group'));
     late.resolve([channel('c-builders', 'org-1')]);
     await new Promise(r => setTimeout(r, 50));
@@ -190,7 +195,7 @@ describe('P1512 — a late chat refresh never redirects someone who has already 
     const late = deferred<ChatSummary[] | null>();
     refresh.mockReturnValue(late.promise);
     renderWithExit([channel('c-other', 'org-9')]);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    fireEvent.click(await findOpenChat());
     late.resolve([channel('c-builders', 'org-1')]);
     expect(await screen.findByTestId('where')).toHaveTextContent('/home/c/c-builders');
   });

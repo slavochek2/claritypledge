@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 74
 severity: low
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [tests, flaky, pre-commit]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1570: P1512 "Open chat" test times out under the full suite, blocking unrelated commits
@@ -56,6 +56,19 @@ Find what the button waits on. Await that state deterministically (e.g. wait for
 
 ## Acceptance Criteria
 
-- [ ] A stress reproduction that fails before the fix is recorded (command plus failure output)
-- [ ] The same stress command passes after the fix, 5 runs in a row
-- [ ] Removing the "Open chat" button from the component still makes the test fail (control)
+- [x] A stress reproduction that fails before the fix is recorded (command plus failure output)
+- [x] The same stress command passes after the fix, 5 runs in a row
+- [x] Removing the "Open chat" button from the component still makes the test fail (control)
+
+## Evidence
+
+Root cause (confirmed): the first test of the file renders the page tree cold in a fresh worker (module init, JIT). Under load that exceeded `findByRole`'s 1000ms default; in rare runs also the 5000ms test timeout. Only the first test ("a member sees an outline Open chat...") fails; the page's async loads are not the cause.
+
+Stress command (22 `yes` CPU burners + 8 concurrent `npx vitest run src/tests/p1512-org-open-chat.test.tsx`, 11-core machine):
+- Before fix: 8 of 8 runs failed, `TestingLibraryElementError: Unable to find role="button" and name "Open chat"`, `Tests 1 failed | 8 passed (9)`.
+- After first fix (findBy 8000ms only): 1 failure in ~20 stress rounds, `Error: Test timed out in 5000ms`. So the 5000ms test timeout also had to be raised.
+- Final fix (`findOpenChat` helper with 20000ms, describe timeout 30000ms): 14 consecutive stress rounds (8 runs each), all `Tests 9 passed (9)`, zero FAIL.
+
+Control: renamed the button text to `Open chatX` in `org-header.tsx:243`; test failed with `Unable to find role="button" and name "Open chat"` (after 20s). Component restored; `git diff -- src/app` empty.
+
+`npx vitest run src/tests/p1512-org-open-chat.test.tsx`: 9 passed. `npx tsc --noEmit`: no output (clean).
