@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 224
+**Next ID:** 225
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2795,5 +2795,16 @@ From the P1535 visual QA, 2026-10-24: the owner name in the panel owner row trun
 **due:** week
 
 src/tests/p1512-chat-ui.test.tsx:3360 (menuOn, line 231 getElementError) failed once in the full pre-commit suite on 2026-10-24 (654 files passed, 1 failed) and passed 210/210 when the file ran alone. The commit touched only a /tree prototype no test imports. Same family as INBOX-124 and INBOX-167: a query that does not wait under full-suite load.
+
+---
+
+## create-spec tells authors to put post-merge-only steps in the Pre-deploy Checklist, which ship gate 3.5 then blocks forever
+
+**ID:** INBOX-224
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** week
+
+create-spec SKILL.md (Done-When section, "[post-deploy] is a CLAUSE") says a criterion with no pre-deploy half "is a deploy step: put it in ## Pre-deploy Checklist, which gate 3.5 owns". Gate 3.5 fails on any unticked box there, and a step that needs the merged code (push, redeploy, image rebuild, prod smoke) cannot be ticked before the merge. Hit on 2026-10-26: five such items blocked /ship until moved to a "Post-deploy verification" section, the convention 15 shipped specs already use. Fix: point that sentence at a Post-deploy verification section (not gated by /ship), keep Pre-deploy Checklist for steps applied before the merge. Skill file edit, lands on main.
 
 ---
