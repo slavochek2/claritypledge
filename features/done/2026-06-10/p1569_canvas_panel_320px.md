@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 91
 workstream: product
@@ -11,6 +11,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-10-26
 ---
 
 # P1569: Canvas panel at 320px — owner name cut off, story button too small to tap
