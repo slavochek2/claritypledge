@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 71
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [gemini, cost, edge-functions, test-accounts]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
+completed_at: 2026-10-26
 ---
 
 # P1565: Banner edge functions spend real Gemini image calls for test accounts
