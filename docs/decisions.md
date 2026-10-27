@@ -8,6 +8,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [process]: Agents tidy finished worktrees and branches themselves; shipping records what it shipped (P1450)
+
+**Context:** One morning showed 18 worktrees and 30 branches, about a third of them already shipped. The session-start strandings report printed `git worktree remove …` / `git branch -D …` as advice, sessions relayed it to the founder, and nobody owned the cleanup. Founder: *"I want it to be out of the loop … clearly I should not be executing some commands."* Measured the same day, every after-the-fact "has this landed?" check was wrong. Patch-id (`classify_ref`) kept all 11 shipped branches. A subject match is fooled by two commits sharing a subject but 382 lines apart. A whole-branch reverse-apply against main failed on all 11, because main had kept editing those files after the ship.
+
+**Decision:**
+- **Ship records what it shipped.** It appends a durable shipped-tips line (pN, branch, shipped tip, main after landing) that outlives the journal. The line stops at the first commit that never landed, and is honoured only for a matching branch.
+- **`git-ops.sh tidy` gives every slot, unmanaged worktree and slot-less branch one verdict.** Remove and park run automatically. Everything else becomes a plain yes/no line, never a shell command.
+- **Strict rules:**
+  - Untracked files are never disposable; only git-ignored output is. A symlinked `node_modules` is the single exception.
+  - Slots defer to the existing 12h liveness verdict. Non-slot worktrees also need a git-dir idle test, no process with its cwd inside, and no fresh non-regenerable file.
+  - A valid hold blocks removal.
+  - A branch checked out in another worktree is never deleted.
+  - Every deleted tip is pinned under `refs/recovery/` before deletion.
+- **Reversal.** This reverses P1450's own 2026-10-09 non-goal ("no auto-removal without founder approval").
+
+**Alternatives rejected:**
+- **A source-extension allowlist inside regenerable-named directories.** The re-review reproduced deletion of a hand-written `.js` file the list missed, so any list just moves the hole.
+- **A text-only recovery log.** Git GC reclaims the logged commits, so restore fails.
+- **A tidy-specific 6h idle window.** It removed a slot `git-ops status` called LIVE.
+
+**Consequences:**
+- **One-time ASK backlog.** Branches shipped before the record existed get asked about once.
+- **A branch that edits `git-ops.sh` cannot ship directly.** Its code lands first through `commit-to-main`, then the branch is rebuilt to carry only the spec; replaying the old commits onto main's final code only conflicts.
+- **Known gaps filed:** ship's own teardown ignores holds and pins no recovery ref; park does not apply the embargo check. Both pre-date this work.
+- **Agent shell trap:** in zsh, `"$B:scripts/…"` applies the `:s` modifier and silently prints a commit. Write `"${B}:${f}"`.
+
+**References:** [p1450](../features/done/2026-06-10/p1450_worktree_lifecycle_slots_reclaim_and_ship_cleans_up.md) · `scripts/git-ops.sh` (`tidy`, `ship_record_shipped_tip`) · `scripts/lib/worktree-changes.sh` · `scripts/pipeline-strandings.sh` · P1326 · P1381 · P1519
+
+---
+
 ## 2026-10-27 [product]: Outreach parks until there is something specific to sell; the sales mastermind tests the features, not willingness to pay. Founder decision, UNTESTED
 
 **Context:** /day story r2 asked to contact five prospects a week. Working out what to offer them, the founder found the recorded model (2026-09-21, 2026-10-16) was a free first session with a champion's team and a paid workshop plus coaching afterwards: *"free conflict mediation... but why?"*. Running free sessions to convince people with no clear paid next step is free consulting, demotivating, and not a product. The offer that does look like a product: a team uses Clarity Chat for stuck and important conversations, important meetings are transcribed into its channel, skipping the check-back is visible, and the founder supports when the team gets stuck, paid monthly and agreed before the first session.
