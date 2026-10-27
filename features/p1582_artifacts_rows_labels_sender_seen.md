@@ -11,8 +11,8 @@ tags:
   - redesign
   - p1545
 created_date: 2026-10-27
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P1582: Artifacts rows read as one list, full action labels on phones, the sender's own "seen" mark
