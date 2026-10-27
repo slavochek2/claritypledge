@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 76
 workstream: infrastructure
 created_date: '2026-10-26'
 tags: [git-ops, ship, decisions-log, merge-conflicts]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-27
 ---
 
 # P1575: `/ship` resolves the decisions-log conflict where both sides only added entries at the top
