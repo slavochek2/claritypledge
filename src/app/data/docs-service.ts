@@ -20,6 +20,7 @@ import type {
   PointSummary,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { fetchDocsByUser, mapDocFromDb } from './docs-by-user';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -87,25 +88,6 @@ interface DbStoryWithAuthor {
     ears_count: number | null;
     has_pledged: boolean | null;
   } | null;
-}
-
-/**
- * Transform DB doc row to ClarityDoc. story_count comes from a computed column
- * or must be set by the caller. has_sent_letters defaults to false; caller
- * overwrites after the clarity_letters check in getDocsByUser.
- */
-function mapDocFromDb(row: DbClarityDoc & { story_count?: number }): ClarityDoc {
-  return {
-    id: row.id,
-    owner_id: row.owner_id,
-    title: row.title,
-    visibility: row.visibility,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    story_count: row.story_count ?? 0,
-    point_count: 0,
-    has_sent_letters: false,
-  };
 }
 
 /**
@@ -250,93 +232,6 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
     )
   )
 `;
-
-async function fetchDocsByUser(userId: string, strict: boolean): Promise<ClarityDoc[]> {
-  log('getDocsByUser:', userId);
-
-  const { data, error } = await supabase
-    .from('clarity_docs')
-    .select('*')
-    .eq('owner_id', userId)
-    .order('updated_at', { ascending: false });
-
-  if (error) {
-    if (strict) throwDbError('getDocsByUserOrThrow', error, 'Failed to load drafts');
-    logDbError('getDocsByUser', error);
-    return [];
-  }
-
-  // Count stories per doc separately to avoid nested select issues
-  const docs = (data ?? []).map((row: unknown) => mapDocFromDb(row as DbClarityDoc));
-
-  if (docs.length > 0) {
-    const docIds = docs.map((d) => d.id);
-
-    const [countResult, pointResult, sentResult] = await Promise.all([
-      supabase.from('doc_stories').select('doc_id').in('doc_id', docIds),
-      supabase
-        .from('doc_stories')
-        .select('doc_id, story:stories!inner(story_points(point_id))')
-        .in('doc_id', docIds),
-      supabase
-        .from('clarity_letters')
-        .select('source_doc_id')
-        .in('source_doc_id', docIds)
-        .neq('status', 'draft'),
-    ]);
-
-    // Strict readers (P1545 Artifacts) must not show wrong counts: a failed side query is a failed read.
-    if (strict) {
-      const sideError = countResult.error ?? pointResult.error;
-      if (sideError) throwDbError('getDocsByUserOrThrow', sideError, 'Failed to load drafts');
-    }
-
-    if (!countResult.error && countResult.data) {
-      const counts: Record<string, number> = {};
-      for (const row of countResult.data) {
-        counts[row.doc_id] = (counts[row.doc_id] || 0) + 1;
-      }
-      for (const doc of docs) {
-        doc.story_count = counts[doc.id] || 0;
-      }
-    }
-
-    if (!pointResult.error && pointResult.data) {
-      // Flatten to unique point IDs per doc
-      const pointCounts: Record<string, Set<string>> = {};
-      for (const row of pointResult.data as Array<{
-        doc_id: string;
-        story: { story_points: Array<{ point_id: string }> } | null;
-      }>) {
-        if (!pointCounts[row.doc_id]) pointCounts[row.doc_id] = new Set();
-        const storyPoints = row.story?.story_points ?? [];
-        for (const sp of storyPoints) {
-          pointCounts[row.doc_id].add(sp.point_id);
-        }
-      }
-      for (const doc of docs) {
-        doc.point_count = pointCounts[doc.id]?.size ?? 0;
-      }
-    }
-
-    if (sentResult.error) {
-      // Query failed — default conservatively: block deletion on all docs
-      // to prevent the UI guard from being bypassed. Server-side check in
-      // deleteDoc() is the defense-in-depth layer.
-      logDbError('getDocsByUser:sentLetters', sentResult.error);
-      for (const doc of docs) {
-        doc.has_sent_letters = true;
-      }
-    } else if (sentResult.data) {
-      const sentDocIds = new Set(sentResult.data.map((l) => l.source_doc_id));
-      for (const doc of docs) {
-        doc.has_sent_letters = sentDocIds.has(doc.id);
-      }
-    }
-  }
-
-  return docs;
-}
 
 export const docsService: DocsService = {
   // ============================================================================

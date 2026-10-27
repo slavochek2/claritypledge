@@ -60,18 +60,11 @@ function OverviewSkeleton() {
   );
 }
 
-// ============================================================================
-// PAGE
-// ============================================================================
-
-type PageState = 'loading' | 'error' | 'not-authorized' | 'empty' | 'ready';
-
-export function LetterOverviewPage() {
-  const { id: letterId } = useParams<{ id: string }>();
+/** The list hands over who was new when Details was opened (the server already has them seen). It lives in this history
+ * entry, so it survives opening a person's results and coming Back; opening a person's results removes only THEIR id. */
+function useHandedOverNew() {
   const navigate = useNavigate();
   const location = useLocation();
-  // The list hands over who was new when Details was opened (the server already has them seen). It lives in this history
-  // entry, so it survives opening a person's results and coming Back; opening a person's results removes only THEIR id.
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set((location.state as { newDeliveryIds?: string[] } | null)?.newDeliveryIds ?? []),
   );
@@ -81,6 +74,85 @@ export function LetterOverviewPage() {
     // Replace this entry's state with what is left, before the results page is pushed on top of it.
     navigate(`${location.pathname}${location.search}`, { replace: true, state: { newDeliveryIds: remaining } });
   };
+  return { handedOver, dropHandedOver };
+}
+
+/** Title, sealed date and author, then the ONE primary (Add recipient) with Preview and Copy public link beside it. */
+function LetterOverviewHeader({ letter, isPublic, onAddRecipient }: {
+  letter: LetterOverviewPayload['letter'];
+  isPublic: boolean;
+  onAddRecipient: () => void;
+}) {
+  // The "new" mark is cleared by the results page once it has rendered, not by the click here.
+  const sealed = letter.sealed_at ? new Date(letter.sealed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+  const handlePreview = () => {
+    if (letter.source_doc_id) window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
+  };
+  const handleCopyPublicLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/letter/${letter.id}`);
+      toast.success('Link copied to clipboard');
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
+          <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
+          {sealed && <p className="mt-1 text-sm text-muted-foreground">Sealed {sealed}</p>}
+          {/* P843: author identity with avatar + full name (parity with cohort rows) */}
+          <div className="mt-3 flex items-center gap-2" data-testid="letter-author-block">
+            <PersonAvatar
+              person={{
+                name: letter.sender.name,
+                avatarUrl: letter.sender.avatar_url ?? undefined,
+                hasPledged: letter.sender.has_pledged,
+                slug: letter.sender.slug ?? undefined,
+              }}
+              size="sm"
+            />
+            {letter.sender.slug ? (
+              <Link
+                to={`/p/${letter.sender.slug}`}
+                className="text-sm font-medium hover:underline"
+              >
+                {letter.sender.name}
+              </Link>
+            ) : (
+              <span className="text-sm font-medium">{letter.sender.name}</span>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* Add recipient is the one primary (blue, as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons beside it. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* eslint-disable-next-line no-restricted-syntax -- P1579: P1545's test pins bg-blue-500 while P1568 bans hand-typed colours; founder decides which wins */}
+        <Button className="min-h-10 bg-blue-500 text-white hover:bg-blue-700" onClick={onAddRecipient}>Add recipient</Button>
+        {letter.source_doc_id && (
+          <Button variant="outline" className="min-h-10" onClick={handlePreview}>Preview</Button>
+        )}
+        {isPublic && (
+          <Button variant="outline" className="min-h-10" onClick={() => void handleCopyPublicLink()}>Copy public link</Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// PAGE
+// ============================================================================
+
+type PageState = 'loading' | 'error' | 'not-authorized' | 'empty' | 'ready';
+
+export function LetterOverviewPage() {
+  const { id: letterId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { handedOver, dropHandedOver } = useHandedOverNew();
   const { user, sessionChecked, isLoading } = useAuth();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -212,20 +284,6 @@ export function LetterOverviewPage() {
   const isPublic = letter.mode === 'one-to-many';
   const hasCohort = payload.deliveries.length > 0;
 
-  // The "new" mark is cleared by the results page once it has rendered, not by the click here.
-  const sealed = letter.sealed_at ? new Date(letter.sealed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
-  const handlePreview = () => {
-    if (letter.source_doc_id) window.open(`/letter/${letter.source_doc_id}/preview`, '_blank', 'noopener,noreferrer');
-  };
-  const handleCopyPublicLink = async () => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/letter/${letter.id}`);
-      toast.success('Link copied to clipboard');
-    } catch {
-      toast.error('Failed to copy link');
-    }
-  };
-
   return (
     <div className="animate-fade-in">
       {/* Page-level sr-only labels — accessible names for repeated muted cells (P700) */}
@@ -233,47 +291,7 @@ export function LetterOverviewPage() {
       <span className="sr-only">Waiting for response</span>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-10">
         <FocusHeader fallback={BACK_FALLBACK} />
-        <div className="space-y-4">
-          <div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
-              <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
-              {sealed && <p className="mt-1 text-sm text-muted-foreground">Sealed {sealed}</p>}
-              {/* P843: author identity with avatar + full name (parity with cohort rows) */}
-              <div className="mt-3 flex items-center gap-2" data-testid="letter-author-block">
-                <PersonAvatar
-                  person={{
-                    name: letter.sender.name,
-                    avatarUrl: letter.sender.avatar_url ?? undefined,
-                    hasPledged: letter.sender.has_pledged,
-                    slug: letter.sender.slug ?? undefined,
-                  }}
-                  size="sm"
-                />
-                {letter.sender.slug ? (
-                  <Link
-                    to={`/p/${letter.sender.slug}`}
-                    className="text-sm font-medium hover:underline"
-                  >
-                    {letter.sender.name}
-                  </Link>
-                ) : (
-                  <span className="text-sm font-medium">{letter.sender.name}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          {/* Add recipient is the one primary (blue, as "+ New" on Artifacts); Preview and Copy public link are visible outline buttons beside it. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button className="min-h-10 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setAddOpen(true)}>Add recipient</Button>
-            {letter.source_doc_id && (
-              <Button variant="outline" className="min-h-10" onClick={handlePreview}>Preview</Button>
-            )}
-            {isPublic && (
-              <Button variant="outline" className="min-h-10" onClick={() => void handleCopyPublicLink()}>Copy public link</Button>
-            )}
-          </div>
-        </div>
+        <LetterOverviewHeader letter={letter} isPublic={isPublic} onAddRecipient={() => setAddOpen(true)} />
 
         {recipientsFailed ? (
           <section>

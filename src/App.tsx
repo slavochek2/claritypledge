@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useParams, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { lazy, Suspense, Component, ReactNode, useState, useEffect } from "react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { isChunkErrorMessage } from "@/lib/chunk-error";
@@ -23,6 +23,7 @@ import { readThrough } from "@/lib/offline-read-cache";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
+import { ChatRedirect, DocDetailRedirect, FeedTagRedirect } from "@/app/routes/legacy-redirects";
 import { LettersRedirect, DocsRedirect } from "@/app/pages/artifacts/legacy-redirects";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
@@ -138,13 +139,6 @@ const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ d
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
 const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ default: m.OffersPage })));
 
-/** P486: Redirect /chat → /create, forwarding all query params via useSearchParams */
-function ChatRedirect() {
-  const [searchParams] = useSearchParams();
-  const qs = searchParams.toString();
-  return <Navigate to={qs ? `/create?${qs}` : '/create'} replace />;
-}
-
 /**
  * P1193: /org* → /groups*, permanently. The Clarity Organization → Clarity Group
  * rename moved the route; this keeps every already-shared link alive.
@@ -163,17 +157,6 @@ function OrgLegacyRedirect() {
   const location = useLocation();
   const rest = location.pathname.replace(/^\/org/, "");
   return <Navigate to={`/groups${rest}${location.search}${location.hash}`} replace />;
-}
-
-/** P660: Redirect /d/:docId → /letters/drafts/:docId */
-function DocDetailRedirect() {
-  const { docId } = useParams();
-  return <Navigate to={`/letters/drafts/${docId}`} replace />;
-}
-
-function FeedTagRedirect() {
-  const { tag } = useParams();
-  return <Navigate to={`/feed?tag=${encodeURIComponent(tag || '')}&sort=oldest&version=latest`} replace />;
 }
 
 /** P1364: the feed/stake Back cache must never outlive the viewer it was filled for. */
@@ -363,6 +346,26 @@ function ErrorFallback() {
   );
 }
 
+// Redirect routes for old URLs. A plain function (not a component) returning a fragment of <Route>s, so
+// the route table sees the Route elements directly; route ranking makes their position in the table irrelevant.
+function legacyRedirectRoutes() {
+  return (
+    <>
+      {/* P1545: chats lived at /home until Home became the feed; keep old links working. */}
+      <Route path="/home/*" element={<HomeLegacyRedirect />} />
+      {/* P1545: the Letters list moved into /artifacts; old tab URLs land in the matching tab */}
+      <Route path="/letters" element={<LettersRedirect />} />
+      {/* P660: Legacy redirects */}
+      <Route path="/docs" element={<DocsRedirect />} />
+      <Route path="/d/:docId" element={<DocDetailRedirect />} />
+      {/* P1193: the pre-rename paths, kept alive permanently. See OrgLegacyRedirect —
+          shared invite links carry ?from= attribution and must not lose it. */}
+      <Route path="/org" element={<OrgLegacyRedirect />} />
+      <Route path="/org/*" element={<OrgLegacyRedirect />} />
+    </>
+  );
+}
+
 export default function ClarityPledgeApp() {
   return (
     <HelmetProvider>
@@ -410,8 +413,8 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P1545: chats lived at /home until Home became the feed; keep old links working. */}
-        <Route path="/home/*" element={<HomeLegacyRedirect />} />
+        {/* Old URLs kept alive (see legacyRedirectRoutes): /home/*, /letters, /docs, /d/:docId, /org* */}
+        {legacyRedirectRoutes()}
 
         {/* P1392: the build-the-right-thing landing, formerly "/" for anonymous visitors. */}
         <Route
@@ -1062,9 +1065,6 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P1545: the Letters list moved into /artifacts; old tab URLs land in the matching tab */}
-        <Route path="/letters" element={<LettersRedirect />} />
-
         {/* P660: Draft detail (formerly doc detail) */}
         <Route
           path="/letters/drafts/:docId"
@@ -1077,9 +1077,6 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P660: Legacy redirects */}
-        <Route path="/docs" element={<DocsRedirect />} />
-        <Route path="/d/:docId" element={<DocDetailRedirect />} />
 
         {/* P661: Letter composition orchestrator */}
         <Route
@@ -1236,10 +1233,6 @@ export default function ClarityPledgeApp() {
         <Route path="/groups/:slug" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Group Terms IS the join (focus page). */}
         <Route path="/groups/:slug/join" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
-        {/* P1193: the pre-rename paths, kept alive permanently. See OrgLegacyRedirect —
-            shared invite links carry ?from= attribution and must not lose it. */}
-        <Route path="/org" element={<OrgLegacyRedirect />} />
-        <Route path="/org/*" element={<OrgLegacyRedirect />} />
 
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />

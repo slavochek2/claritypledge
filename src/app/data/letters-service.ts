@@ -19,38 +19,26 @@ import type {
   DeliveryStatus,
   InboxItem,
   PositionType,
-  ExplainBackRow,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { predictionsForMode } from '@/app/utils/letter-prediction-policy';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { DELIVERY_COLUMNS } from './letter-delivery-columns';
+import { requireAuth } from './letters-require-auth';
+import { mapInboxRow } from './letters-received';
 
-// Debug logging - only in development
-const DEBUG = import.meta.env.DEV;
-// eslint-disable-next-line no-console -- gated by DEBUG (import.meta.env.DEV); dev-only diagnostic (P1200)
-const log = (...args: unknown[]) => DEBUG && console.log('[letters-service]', ...args);
+import { log } from './letters-log';
 
-/**
- * Get the authenticated user ID or throw.
- * Uses getSession() (reads from client storage, no network) instead of getUser()
- * (hits /auth/v1/user on every call). P692: getUser() caused 27+ pending auth
- * requests on SentTab load, blocking all data queries indefinitely.
- */
-async function requireAuth(): Promise<string> {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-  if (error || !session?.user) {
-    Sentry.captureMessage('letters-service: not authenticated', {
-      level: 'error',
-      extra: { authError: error?.message },
-    });
-    throw new Error('Not authenticated');
-  }
-  return session.user.id;
-}
+// Split out of this file by question; re-exported so callers and test mocks keep this path.
+export { getDeliveriesForLetters, getDeliveriesForLettersOrThrow } from './letters-deliveries-batch';
+export { getAllSentLetters, getAllSentLettersOrThrow } from './letters-sent-list';
+export {
+  RECEIVED_LETTERS_PAGE_SIZE,
+  RECEIVED_LETTERS_MAX_PAGES,
+  getAllReceivedLetters,
+  getUnreadReceivedLetterCount,
+} from './letters-received';
+export { markDeliveryRead, markDeliverySeenBySender, clearSenderNewForDelivery } from './letters-sender-seen';
 
 // ============================================================================
 // CREATE
@@ -634,60 +622,6 @@ export async function getDeliveriesForLetter(letterId: string): Promise<LetterDe
 }
 
 /**
- * P692: Batch fetch deliveries for multiple letters in one query.
- * Replaces N individual getDeliveriesForLetter() calls in SentTab.
- * Returns a map keyed by letter_id; missing letters get an empty array.
- */
-export async function getDeliveriesForLetters(
-  letterIds: string[]
-): Promise<Record<string, LetterDelivery[]>> {
-  if (letterIds.length === 0) return {};
-  await requireAuth();
-  log('getDeliveriesForLetters:', letterIds.length, 'letters');
-
-  try {
-    return await fetchDeliveriesGrouped(letterIds);
-  } catch (error) {
-    logDbError('getDeliveriesForLetters', error as PostgrestError);
-    return Object.fromEntries(letterIds.map((id) => [id, []]));
-  }
-}
-
-/**
- * P1545: same read, but a database error rejects instead of reading as "no recipients". The Artifacts
- * page uses it so a failed read never replaces what it already shows, and never offers Delete letter
- * for a letter whose recipients are unknown.
- */
-export async function getDeliveriesForLettersOrThrow(
-  letterIds: string[]
-): Promise<Record<string, LetterDelivery[]>> {
-  if (letterIds.length === 0) return {};
-  await requireAuth();
-  log('getDeliveriesForLettersOrThrow:', letterIds.length, 'letters');
-  try {
-    return await fetchDeliveriesGrouped(letterIds);
-  } catch (error) {
-    throwDbError('getDeliveriesForLettersOrThrow', error as PostgrestError, 'Failed to load deliveries');
-  }
-}
-
-async function fetchDeliveriesGrouped(letterIds: string[]): Promise<Record<string, LetterDelivery[]>> {
-  // P699 Phase 2: use get_deliveries_with_progress to include steps_completed + total_steps
-  const { data, error } = await supabase
-    .rpc('get_deliveries_with_progress', { p_letter_ids: letterIds });
-  if (error) throw error;
-
-  const deliveries = (data ?? []) as LetterDelivery[];
-  const grouped: Record<string, LetterDelivery[]> = Object.fromEntries(
-    letterIds.map((id) => [id, []])
-  );
-  for (const delivery of deliveries) {
-    grouped[delivery.letter_id]?.push(delivery);
-  }
-  return grouped;
-}
-
-/**
  * Update delivery status (e.g., opened, in_progress, completed).
  */
 export async function updateDeliveryStatus(
@@ -837,72 +771,6 @@ export async function getReceivedLetters(userId: string): Promise<LetterDelivery
 // ============================================================================
 
 /**
- * P660 AD5: Get all sealed letters sent by a user (across all docs).
- * Joins clarity_docs to get the source doc title.
- */
-export async function getAllSentLetters(senderId: string): Promise<
-  Array<ClarityLetter & { doc_title: string }>
-> {
-  await requireAuth();
-  log('getAllSentLetters:', senderId);
-
-  try {
-    return await fetchSentLetters(senderId);
-  } catch (error) {
-    logDbError('getAllSentLetters', error as PostgrestError);
-    return [];
-  }
-}
-
-/** P1545: same read, but a database error rejects instead of reading as "no sent letters". */
-export async function getAllSentLettersOrThrow(senderId: string): Promise<
-  Array<ClarityLetter & { doc_title: string }>
-> {
-  await requireAuth();
-  log('getAllSentLettersOrThrow:', senderId);
-  try {
-    return await fetchSentLetters(senderId);
-  } catch (error) {
-    throwDbError('getAllSentLettersOrThrow', error as PostgrestError, 'Failed to load sent letters');
-  }
-}
-
-async function fetchSentLetters(senderId: string): Promise<Array<ClarityLetter & { doc_title: string }>> {
-  const { data, error } = await supabase
-    .from('clarity_letters')
-    .select('*, clarity_docs!inner(title)')
-    .eq('sender_id', senderId)
-    .eq('status', 'sealed')
-    .order('sealed_at', { ascending: false });
-
-  if (error) throw error;
-
-  return (data ?? []).map((row: Record<string, unknown>) => ({
-    ...row,
-    doc_title: (row.clarity_docs as { title: string })?.title ?? 'Untitled',
-    clarity_docs: undefined,
-  })) as Array<ClarityLetter & { doc_title: string }>;
-}
-
-function mapInboxRow(row: Record<string, unknown>): InboxItem {
-  return {
-    type: row['type'] as InboxItem['type'],
-    delivery_id: row['delivery_id'] as string,
-    letter_id: row['letter_id'] as string,
-    title: (row['title'] as string) ?? 'Untitled',
-    actor_name: (row['actor_name'] as string) ?? 'Someone',
-    actor_slug: (row['actor_slug'] as string | null) ?? null,
-    timestamp: row['timestamp'] as string,
-    read_at: (row['read_at'] as string | null) ?? null,
-    completed_at: (row['completed_at'] as string | null) ?? null,
-    stories_rated: row['stories_rated'] != null ? Number(row['stories_rated']) : undefined,
-    total_stories: row['total_stories'] != null ? Number(row['total_stories']) : undefined,
-    steps_completed: row['steps_completed'] != null ? Number(row['steps_completed']) : undefined,
-    total_steps: row['total_steps'] != null ? Number(row['total_steps']) : undefined,
-  };
-}
-
-/**
  * P660 AD6 / P690: Get inbox items combining received letters + responses to my letters.
  * Uses SECURITY DEFINER RPC to bypass clarity_docs SELECT RLS that would
  * drop receiver rows when the source doc is private (not owner/public).
@@ -927,88 +795,6 @@ export async function getInboxItems(userId: string): Promise<InboxItem[]> {
   const rows = (data as Array<Record<string, unknown>>) ?? [];
 
   return rows.slice(0, 20).map(mapInboxRow);
-}
-
-/** P1545: rows per get_received_letters_page call (the RPC clamps at 200). */
-export const RECEIVED_LETTERS_PAGE_SIZE = 100;
-/**
- * P1545: the walk stops after this many pages, so a pathological inbox cannot loop forever. 50 x 100 =
- * 5,000 letters delivered to one person, newest first; anything older is not listed.
- */
-export const RECEIVED_LETTERS_MAX_PAGES = 50;
-
-/**
- * P1545 (Codex finding): EVERY letter delivered to the person, newest first, for Shared with you.
- * get_inbox_items cannot serve this: it trims a MIXED list (letters to me + activity on my letters) to 20
- * rows server side, so received letters fell off behind sender activity. This pages
- * get_received_letters_page by (timestamp, delivery id) until a short page, up to RECEIVED_LETTERS_MAX_PAGES.
- * Throws on a failed page, like getInboxItems: a failed read is not an empty inbox.
- */
-export async function getAllReceivedLetters(userId: string): Promise<InboxItem[]> {
-  await requireAuth();
-  log('getAllReceivedLetters:', userId);
-
-  const items: InboxItem[] = [];
-  let beforeTs: string | null = null;
-  let beforeId: string | null = null;
-  for (let page = 0; page < RECEIVED_LETTERS_MAX_PAGES; page++) {
-    const { data, error } = await supabase.rpc('get_received_letters_page', {
-      p_limit: RECEIVED_LETTERS_PAGE_SIZE,
-      p_before_ts: beforeTs,
-      p_before_id: beforeId,
-    });
-    if (error) {
-      throwDbError('getAllReceivedLetters', error, `Failed to load received letters: ${error.message}`);
-    }
-    const rows = (data as Array<Record<string, unknown>>) ?? [];
-    for (const row of rows) items.push(mapInboxRow(row));
-    const last = rows[rows.length - 1];
-    if (!last || rows.length < RECEIVED_LETTERS_PAGE_SIZE) break;
-    beforeTs = last['timestamp'] as string;
-    beforeId = last['delivery_id'] as string;
-  }
-  return items;
-}
-
-/**
- * P660: Mark an inbox delivery as read (calls RPC).
- */
-export async function markDeliveryRead(deliveryId: string): Promise<void> {
-  log('markDeliveryRead:', deliveryId);
-
-  const { error } = await supabase.rpc('mark_inbox_item_read', {
-    p_delivery_id: deliveryId,
-  });
-
-  if (error) {
-    throwDbError('markDeliveryRead', error, `Failed to mark as read: ${error.message}`);
-  }
-}
-
-/**
- * P1545: the SENDER has looked at this delivery (sets letter_deliveries.sender_seen_at; sender-only). Separate from
- * the recipient's read mark, so a recipient opening the letter no longer hides their later progress from the sender.
- * Before the 20261026100000 migration is applied the function does not exist; the old shared mark stands in so an
- * unmigrated database behaves as before.
- */
-export async function markDeliverySeenBySender(deliveryId: string): Promise<void> {
-  log('markDeliverySeenBySender:', deliveryId);
-
-  const { error } = await supabase.rpc('mark_delivery_seen_by_sender', { p_delivery_id: deliveryId });
-  if (!error) return;
-  if (error.code === 'PGRST202' || error.code === '42883') return markDeliveryRead(deliveryId);
-  throwDbError('markDeliverySeenBySender', error, `Failed to mark as seen: ${error.message}`);
-}
-
-/**
- * P1545: clear everything "new" the sender has on one delivery: the sender's seen mark and the unread explain-backs.
- * Used when a sent letter's row is opened from the list; the results page does the same with the explain-backs it
- * already holds.
- */
-export async function clearSenderNewForDelivery(deliveryId: string): Promise<void> {
-  await markDeliverySeenBySender(deliveryId);
-  const rows = await getExplainBacksForDelivery(deliveryId);
-  await Promise.all(rows.filter((r) => !r.author_read_at).map((r) => markExplainBackRead(r.id)));
 }
 
 /**
@@ -1199,7 +985,6 @@ export async function confirmLetterResponse(
 
   return { ok: true };
 }
-
 
 interface RatingEntry { storyId: string; rating: number }
 interface PositionEntry { pointId: string; position: number | string }
@@ -1483,39 +1268,6 @@ export async function getUnreadLetterCount(userId: string): Promise<number> {
   }
 
   return (receivedCount ?? 0) + responsesCount + explainBackCount;
-}
-
-/**
- * P1545: unread letters SENT TO the person (the letter half of Artifacts > Shared with you).
- * Same rule as getUnreadLetterCount's first branch (self-sent deliveries excluded), without the
- * sender-side activity branches: activity on your own letters belongs to Yours and no longer counts.
- * Failures read as 0: this only feeds a badge.
- */
-export async function getUnreadReceivedLetterCount(userId: string): Promise<number> {
-  log('getUnreadReceivedLetterCount:', userId);
-  const { data: ownLetters, error: errOwn } = await supabase
-    .from('clarity_letters')
-    .select('id')
-    .eq('sender_id', userId);
-  if (errOwn) {
-    logDbError('getUnreadReceivedLetterCount.ownLetters', errOwn);
-    return 0;
-  }
-  const ownLetterIds = ownLetters?.map(l => l.id) ?? [];
-  let query = supabase
-    .from('letter_deliveries')
-    .select('id', { count: 'exact', head: true })
-    .eq('receiver_profile_id', userId)
-    .is('read_at', null);
-  if (ownLetterIds.length > 0) {
-    query = query.not('letter_id', 'in', `(${ownLetterIds.join(',')})`);
-  }
-  const { count, error } = await query;
-  if (error) {
-    logDbError('getUnreadReceivedLetterCount.received', error);
-    return 0;
-  }
-  return count ?? 0;
 }
 
 // ============================================================================
@@ -1886,189 +1638,16 @@ export async function findLetterPreloadForStory(args: {
   };
 }
 
-// ============================================================================
-// P904: Async letter verification — explain-backs
-// ============================================================================
-
-const EXPLAIN_BACK_SELECT =
-  'id, letter_id, story_id, delivery_id, recorder_id, medium, audio_storage_path, text_fallback, author_read_at, created_at';
-
-/**
- * P904: Record an explain-back for one (story × delivery).
- *
- * Audio: requests a size-bounded, receiver-only signed PUT URL from the new
- * `explain-back-signed-url` edge function (in-process V4 signer — it CAN sign
- * x-goog-content-length-range, unlike the ml-training signer, P812), PUTs the blob to
- * the private GCS bucket, then inserts the row. Text: inserts directly, no GCS.
- * `letter_id` is required to satisfy the composite FK to letter_story_snapshots.
- */
-export async function uploadExplainBack(params: {
-  deliveryId: string;
-  storyId: string;
-  letterId: string;
-  medium: 'audio' | 'text';
-  blob?: Blob;
-  text?: string;
-}): Promise<ExplainBackRow | null> {
-  const { deliveryId, storyId, letterId, medium } = params;
-  const recorderId = await requireAuth();
-  log('uploadExplainBack:', { deliveryId, storyId, medium });
-
-  let audioStoragePath: string | null = null;
-  let textFallback: string | null = null;
-
-  if (medium === 'audio') {
-    if (!params.blob) throw new Error('uploadExplainBack: audio medium requires a blob');
-    const contentType = params.blob.type || 'audio/webm';
-
-    // 1. Receiver-only signed upload URL (membership checked server-side).
-    const { data: signed, error: signError } = await supabase.functions.invoke('explain-back-signed-url', {
-      body: { mode: 'upload', deliveryId, storyId, contentType },
-    });
-    if (signError || !signed?.signedUrl) {
-      throwDbError('uploadExplainBack.sign', signError ?? new Error('no signed URL'), 'Could not start the upload. Please try again.');
-    }
-
-    // 2. PUT the blob. The signed URL commits to Content-Type AND the size range —
-    //    both headers must be sent verbatim or GCS rejects with MalformedSecurityHeader.
-    const putResponse = await fetch(signed.signedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-        'x-goog-content-length-range': signed.contentLengthRange ?? '1,5242880',
-      },
-      body: params.blob,
-    });
-    if (!putResponse.ok) {
-      const detail = await putResponse.text().catch(() => '');
-      throwDbError('uploadExplainBack.put', new Error(`${putResponse.status} ${detail.slice(0, 300)}`), 'Upload failed. Please try again.');
-    }
-    audioStoragePath = signed.storagePath as string;
-  } else {
-    if (!params.text?.trim()) throw new Error('uploadExplainBack: text medium requires non-empty text');
-    textFallback = params.text.trim();
-  }
-
-  const { data, error } = await supabase
-    .from('story_explain_backs')
-    .insert({
-      letter_id: letterId,
-      story_id: storyId,
-      delivery_id: deliveryId,
-      recorder_id: recorderId,
-      medium,
-      audio_storage_path: audioStoragePath,
-      text_fallback: textFallback,
-    })
-    .select(EXPLAIN_BACK_SELECT)
-    .single();
-
-  if (error) {
-    // [P904 v0 ACCEPTED] If the GCS PUT (step 2) succeeded but this INSERT fails,
-    // the audio object is orphaned (no row points at it). This is bounded and
-    // self-healing: the object key is deterministic ({deliveryId}/{storyId}.webm),
-    // so a re-record overwrites it, and the thrown error surfaces in the capture
-    // UI to prompt that retry. The orphan only persists if the receiver abandons
-    // this one story. We do NOT reorder to INSERT-before-upload: that trades the
-    // invisible orphan for a user-visible broken row (medium='audio', path=null
-    // → broken player on the view page). Revisit if corpus hygiene needs a sweep.
-    throwDbError('uploadExplainBack.insert', error, 'Could not save your explanation. Please try again.');
-  }
-  return data as ExplainBackRow;
-}
-
-/** P904: Fetch all explain-backs for a delivery (pair-private RLS gates access). */
-export async function getExplainBacksForDelivery(deliveryId: string): Promise<ExplainBackRow[]> {
-  const { data, error } = await supabase
-    .from('story_explain_backs')
-    .select(EXPLAIN_BACK_SELECT)
-    .eq('delivery_id', deliveryId);
-  if (error) {
-    logDbError('getExplainBacksForDelivery', error);
-    return [];
-  }
-  return (data ?? []) as ExplainBackRow[];
-}
-
-/**
- * P904: Story title for the explain-back view's context line. Reads the immutable
- * snapshot's point_config (participant-readable via letter_story_snapshots RLS).
- */
-export async function getSnapshotStoryTitle(letterId: string, storyId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('letter_story_snapshots')
-    .select('point_config')
-    .eq('letter_id', letterId)
-    .eq('story_id', storyId)
-    .maybeSingle();
-  if (error || !data) return null;
-  const cfg = data.point_config as { storyTitle?: string } | null;
-  return cfg?.storyTitle ?? null;
-}
-
-/** P904: Fetch a single explain-back by id (used by the view focus page). */
-export async function getExplainBackById(explainBackId: string): Promise<ExplainBackRow | null> {
-  const { data, error } = await supabase
-    .from('story_explain_backs')
-    .select(EXPLAIN_BACK_SELECT)
-    .eq('id', explainBackId)
-    .maybeSingle();
-  if (error) {
-    logDbError('getExplainBackById', error);
-    return null;
-  }
-  return (data as ExplainBackRow) ?? null;
-}
-
-/**
- * P904: Mark an explain-back read. Sender-only — routed through the
- * mark_explain_back_read SECURITY DEFINER RPC, never a raw client UPDATE
- * (the receiver holds UPDATE on content columns but NOT on author_read_at).
- */
-export async function markExplainBackRead(explainBackId: string): Promise<void> {
-  const { error } = await supabase.rpc('mark_explain_back_read', { p_id: explainBackId });
-  if (error) logDbError('markExplainBackRead', error);
-}
-
-/**
- * P904: Get a short-TTL signed playback URL for an audio explain-back.
- * The edge function enforces the pair-membership check before signing.
- */
-export async function getExplainBackSignedUrl(explainBackId: string): Promise<string | null> {
-  const { data, error } = await supabase.functions.invoke('explain-back-signed-url', {
-    body: { mode: 'playback', explainBackId },
-  });
-  if (error || !data?.signedUrl) {
-    logDbError('getExplainBackSignedUrl', error ?? new Error('no signed URL'));
-    return null;
-  }
-  return data.signedUrl as string;
-}
-
-/**
- * P904: Count unread explain-backs per delivery for the inbox "N new from <name>" signal.
- * Client-side group (WARN-2) — RLS returns only rows the viewer (a participant) may read.
- */
-export async function getUnreadExplainBackCountsByDelivery(
-  deliveryIds: string[]
-): Promise<Record<string, number>> {
-  if (deliveryIds.length === 0) return {};
-  const { data, error } = await supabase
-    .from('story_explain_backs')
-    .select('delivery_id')
-    .in('delivery_id', deliveryIds)
-    .is('author_read_at', null);
-  if (error) {
-    logDbError('getUnreadExplainBackCountsByDelivery', error);
-    return {};
-  }
-  const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const id = (row as { delivery_id: string }).delivery_id;
-    counts[id] = (counts[id] ?? 0) + 1;
-  }
-  return counts;
-}
+// P904 explain-backs live in letters-explain-backs.ts; re-exported here so callers and mocks keep this path.
+export {
+  uploadExplainBack,
+  getExplainBacksForDelivery,
+  getSnapshotStoryTitle,
+  getExplainBackById,
+  markExplainBackRead,
+  getExplainBackSignedUrl,
+  getUnreadExplainBackCountsByDelivery,
+} from './letters-explain-backs';
 
 /** R3b: Viewer's existing stories keyed by point_id — for the "1 story by Name →" filled state.
  * story_points has no author_id — resolve via stories.user_id then join to story_points. */

@@ -32,31 +32,10 @@ import {
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
+import { shortDate, useIsSheet, useOpenSignal, hiddenTriggerProps, hiddenTriggerClass } from './canvas-share-helpers';
 
 /** "Copied" shows this long, then the button reads "Copy link" again. */
 const COPIED_MS = 2000;
-const SHEET_QUERY = '(max-width: 639px)';
-
-function shortDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-/** Below 640px the panel is a bottom sheet; above, a popover under the button. */
-function useIsSheet(): boolean {
-  const read = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(SHEET_QUERY).matches;
-  const [sheet, setSheet] = useState(read);
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia(SHEET_QUERY);
-    const on = () => setSheet(mq.matches);
-    on();
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return sheet;
-}
-
 interface Option {
   kind: 'person' | 'event' | 'group';
   id: string;
@@ -85,7 +64,7 @@ const SHEET_CLASS =
   'data-[state=open]:!zoom-in-100 data-[state=open]:!slide-in-from-left-0 data-[state=open]:!slide-in-from-top-0 ' +
   'data-[state=closed]:!zoom-out-100 data-[state=closed]:!slide-out-to-left-0 data-[state=closed]:!slide-out-to-top-0 [&>*]:min-w-0';
 
-export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger = false, openSignal = 0, displayTitle }: {
+interface CanvasShareControlProps {
   /** the canvas's name (the part after canvas_) */
   name: string;
   visibility: CanvasVisibility;
@@ -103,7 +82,9 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   openSignal?: number;
   /** P1545: the heading shown in the panel (e.g. "sales map"); every read and write still uses `name`. Defaults to `name`. */
   displayTitle?: string;
-}) {
+}
+
+export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger, openSignal, displayTitle }: CanvasShareControlProps) {
   const sheet = useIsSheet();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<{ entries: AudienceEntry[]; generalAccess: CanvasGeneralAccess; linkToken: string | null; targets: ShareTargets } | null>(null);
@@ -168,13 +149,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   };
 
   // P1545: a request from outside (the Artifacts row menu) opens the same panel the button does.
-  const lastSignal = useRef(openSignal);
-  useEffect(() => {
-    if (openSignal > lastSignal.current) openPanel();
-    lastSignal.current = openSignal;
-    // openPanel only resets state and calls load(), which is keyed on `name`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSignal]);
+  useOpenSignal(openSignal, openPanel);
 
   const change = async (key: string, run: () => Promise<void>, failure: string, onConfirmed?: () => void): Promise<boolean> => {
     setBusy(true);
@@ -319,18 +294,19 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     if (listOpen) { e.preventDefault(); setListDismissed(true); setActiveKey(null); }
   };
   const shownAccess = access;
+  const panelTitle = displayTitle ?? name;
 
   const button = (
     <button
       type="button"
       onClick={sheet ? openPanel : undefined}
       aria-haspopup="dialog"
-      {...(hideTrigger ? { 'aria-hidden': true, tabIndex: -1 } : {})}
+      {...hiddenTriggerProps(hideTrigger)}
       data-testid="canvas-share-control"
       aria-label="Share"
       aria-describedby={stateId}
       title="Share"
-      className={`${hideTrigger ? 'pointer-events-none invisible ' : ''}inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full max-sm:order-3 bg-blue-600 px-3 py-2 sm:px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
+      className={`${hiddenTriggerClass(hideTrigger)}inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full max-sm:order-3 bg-blue-600 px-3 py-2 sm:px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
     >
       {/* Open to anyone with the link: a globe, never a lock (a lock says "restricted"). */}
       {shownAccess === 'link'
@@ -347,8 +323,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
       {/* The header stays put: only the body scrolls, and the footer stays pinned under it. */}
       <div className="flex shrink-0 items-start justify-between gap-2 px-4 pb-2 pt-4" data-testid="canvas-share-header">
         {sheet
-          ? <DialogTitle className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{displayTitle ?? name}</DialogTitle>
-          : <h2 id={titleId} className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{displayTitle ?? name}</h2>}
+          ? <DialogTitle className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{panelTitle}</DialogTitle>
+          : <h2 id={titleId} className="min-w-0 break-words text-base font-semibold text-foreground" data-testid="canvas-share-title">{panelTitle}</h2>}
         <button
           type="button"
           onClick={() => setOpen(false)}

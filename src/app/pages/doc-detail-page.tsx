@@ -249,6 +249,24 @@ function SortableStoryCard({
 // DocDetailPage
 // ---------------------------------------------------------------------------
 
+function DocNotFound() {
+  return (
+    <main className="min-h-screen flex items-center justify-center p-4">
+      <div className="text-center space-y-4">
+        <p className="text-muted-foreground">
+          This doc doesn&apos;t exist or you don&apos;t have access.
+        </p>
+        <Link
+          to={ARTIFACTS_LETTERS_DRAFTS}
+          className="text-blue-600 hover:underline text-sm font-medium"
+        >
+          Back to Letters
+        </Link>
+      </div>
+    </main>
+  );
+}
+
 export function DocDetailPage() {
   const { docId: rawDocId } = useParams<{ docId: string }>();
   const docId = rawDocId ? resolveDocShortCode(rawDocId) : undefined;
@@ -473,21 +491,7 @@ export function DocDetailPage() {
 
   // Not found / unauthorized
   if (fetchState === 'not-found' || !doc) {
-    return (
-      <main className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <p className="text-muted-foreground">
-            This doc doesn&apos;t exist or you don&apos;t have access.
-          </p>
-          <Link
-            to={ARTIFACTS_LETTERS_DRAFTS}
-            className="text-blue-600 hover:underline text-sm font-medium"
-          >
-            Back to Letters
-          </Link>
-        </div>
-      </main>
-    );
+    return <DocNotFound />;
   }
 
   const sortableIds = stories.map((s) => `story-${s.story_id}`);

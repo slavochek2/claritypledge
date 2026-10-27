@@ -4,6 +4,7 @@
  */
 
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
+import { parseChatRoute } from './chat-route';
 import { isChatUnread, type ChatMessage, type ChatSummary } from '@/app/data/chat-mappers';
 
 export type ChatTab = 'inbox' | 'unread' | 'partners' | 'channels';
@@ -134,15 +135,8 @@ export function groupChatPath(chats: ChatSummary[], orgId: string): string {
   return channel ? chatPath(channel.conversationId) : HOME;
 }
 
-export interface ChatRoute {
-  conversationId: string | null;
-  rootId: string | null;
-}
-
-export function parseChatRoute(pathname: string): ChatRoute {
-  const m = /^\/chats\/c\/([^/]+)(?:\/t\/([^/]+))?\/?$/.exec(pathname);
-  return { conversationId: m?.[1] ?? null, rootId: m?.[2] ?? null };
-}
+export type { ChatRoute } from './chat-route';
+export { parseChatRoute };
 
 // ---------------------------------------------------------------------------
 // Titles

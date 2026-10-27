@@ -133,12 +133,69 @@ function needsSeparator(dangerCount: number, regularCount: number, hasOpen: bool
   return dangerCount > 0 && (regularCount > 0 || hasOpen);
 }
 
+/** The row's "…" menu: Open first, then the regular items, then the delete item under a line. Nothing when empty. */
+function RowMenu({ row, menu, onOpen }: { row: ArtifactRow; menu: MenuItem[]; onOpen?: () => void }) {
+  if (menu.length === 0) return null;
+  const regular = menu.filter(m => !m.danger);
+  const danger = menu.filter(m => m.danger);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={`Actions for ${row.title}`} className={ICON_CLASS}>
+          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
+        {/* Open first, for anyone who doesn't think to click the row itself. */}
+        <OpenMenuItem href={row.href} onOpen={onOpen} state={openState(row)} />
+        {regular.map(renderMenuItem)}
+        {needsSeparator(danger.length, regular.length, Boolean(row.href)) && <DropdownMenuSeparator />}
+        {danger.map(renderMenuItem)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Share on an own canvas row: the canvas page's own share panel, anchored to this button (its own trigger stays hidden). */
+function CanvasShareAction({ label, canvasName, canvasLink, shared, generalAccess, onChanged }: {
+  label: string;
+  canvasName: string | null | undefined;
+  canvasLink: string | null;
+  shared: boolean;
+  generalAccess: ArtifactRow['ref']['generalAccess'];
+  onChanged: () => void;
+}) {
+  const [shareSignal, setShareSignal] = useState(0);
+  return (
+    <div className="relative">
+      <button type="button" aria-label={label} className={PRIMARY_CLASS} onClick={() => setShareSignal(n => n + 1)}>
+        Share
+      </button>
+      {canvasName && canvasLink && (
+        // pointer-events-none: this box only anchors the panel under the button; it must never take clicks.
+        <div className="pointer-events-none absolute left-0 top-0">
+          <CanvasShareControl
+            name={canvasName}
+            displayTitle={canvasTitle(canvasName)}
+            visibility={shared ? 'shared' : 'private'}
+            generalAccess={generalAccess ?? 'restricted'}
+            entries={null}
+            link={canvasLink}
+            onChanged={onChanged}
+            hideTrigger
+            openSignal={shareSignal}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<'draft' | 'letter' | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [shareSignal, setShareSignal] = useState(0);
 
   const name = (label: string) => `${label}: ${row.title}`;
   const { ref } = row;
@@ -273,57 +330,16 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
         disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
         run: () => { void copyCanvasLink(); },
       }];
-      main = (
-        // The canvas page's own share panel, anchored to this button (its own trigger stays hidden).
-        <div className="relative">
-          <button type="button" aria-label={name('Share')} className={PRIMARY_CLASS} onClick={() => setShareSignal(n => n + 1)}>
-            Share
-          </button>
-          {canvasName && canvasLink && (
-            // pointer-events-none: this box only anchors the panel under the button; it must never take clicks.
-            <div className="pointer-events-none absolute left-0 top-0">
-              <CanvasShareControl
-                name={canvasName}
-                displayTitle={canvasTitle(canvasName)}
-                visibility={canvasShared ? 'shared' : 'private'}
-                generalAccess={ref.generalAccess ?? 'restricted'}
-                entries={null}
-                link={canvasLink}
-                onChanged={onChanged}
-                hideTrigger
-                openSignal={shareSignal}
-              />
-            </div>
-          )}
-        </div>
-      );
+      main = <CanvasShareAction label={name('Share')} canvasName={canvasName} canvasLink={canvasLink} shared={canvasShared} generalAccess={ref.generalAccess} onChanged={onChanged} />;
       break;
   }
-
-  const regular = menu.filter(m => !m.danger);
-  const danger = menu.filter(m => m.danger);
 
   return (
     <>
       {/* Raised above the row's overlay link, so a press here never opens the item. */}
       <div data-testid="row-actions" className="relative z-10 flex shrink-0 items-center gap-1.5">
         {main}
-        {menu.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`Actions for ${row.title}`} className={ICON_CLASS}>
-                <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
-              {/* Open first, for anyone who doesn't think to click the row itself. */}
-              <OpenMenuItem href={row.href} onOpen={onOpen} state={openState(row)} />
-              {regular.map(renderMenuItem)}
-              {needsSeparator(danger.length, regular.length, Boolean(row.href)) && <DropdownMenuSeparator />}
-              {danger.map(renderMenuItem)}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <RowMenu row={row} menu={menu} onOpen={onOpen} />
       </div>
 
       <ConfirmDialog

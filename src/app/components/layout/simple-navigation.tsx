@@ -258,6 +258,29 @@ function OpenAppCta({ className, onNavigate }: { className: string; onNavigate?:
   );
 }
 
+/** The nav's badge counts: unread letters plus an open live invite, unread chats, and (P885) incoming partner invitations. */
+function useNavBadgeCounts() {
+  const { count: unreadLetterCount } = useUnreadLetterCount();
+  const { invite } = useOpenLiveInvite();
+  const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
+  const unreadChats = useChatUnreadCount();
+  const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
+  return { lettersBadgeCount, unreadChats, partnerInviteCount };
+}
+
+/** P844: an event detail page is exactly one segment after `/events/`, minus the reserved aliases. */
+function isEventDetailPath(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  return (
+    segments.length === 2 &&
+    segments[0] === 'events' &&
+    segments[1] !== 'new' &&
+    segments[1] !== 'list' &&
+    segments[1] !== 'webinar' &&
+    segments[1] !== 'experiment' // P957: canonical registration redirect, not an event detail
+  );
+}
+
 /**
  * `publicSite`: a signed-in member reading the public website (the layout decides, see isPublicSitePath).
  * The nav is the visitor's nav, except that the right side offers "Log out" and "Open app" instead of
@@ -291,12 +314,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
     hasSession,
     isProfilePending,
   } = useNavAuthState();
-  const { count: unreadLetterCount } = useUnreadLetterCount();
-  const { invite } = useOpenLiveInvite();
-  const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
-  const unreadChats = useChatUnreadCount();
-  // P885: badge count for the Partners nav entry (incoming pending invitations)
-  const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
+  const { lettersBadgeCount, unreadChats, partnerInviteCount } = useNavBadgeCounts();
   // P1433: decided once here — the button, and (for someone not registered) the marketing CTA
   // it replaces, so the header never shows two primaries (P955).
   const todaysEvent = useTonightsEvent();
@@ -304,17 +322,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
   // P844: Hide the "Start a Clarity Session" CTA on event detail pages so it doesn't compete with the RSVP primary action.
   // Match: exactly one segment after `/events/` and not the reserved `new` / `list` aliases.
   // Show CTA on: `/events`, `/events/new`, `/events/list`, `/events/:slug/confirm`, `/events/:slug/edit`, and all non-event routes.
-  const isEventDetailPage = (() => {
-    const segments = location.pathname.split('/').filter(Boolean);
-    return (
-      segments.length === 2 &&
-      segments[0] === 'events' &&
-      segments[1] !== 'new' &&
-      segments[1] !== 'list' &&
-      segments[1] !== 'webinar' &&
-      segments[1] !== 'experiment' // P957: canonical registration redirect, not an event detail
-    );
-  })();
+  const isEventDetailPage = isEventDetailPath(location.pathname);
   // P1087: same reasoning as P844 above, applied to the pricing page. The nav's blue "Book
   // a free alignment audit" is a second, equally loud primary sitting directly above a page
   // whose whole job is the €295 buy button — and it routes to a FREE call, so it undercuts

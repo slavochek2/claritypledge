@@ -73,8 +73,12 @@ import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control
 import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components/canvas/canvas-add-story-dialog';
 import { SharedIcon } from '@/app/components/canvas/canvas-audience';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
-import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, canvasTitle, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
+import { CanvasPageTitle } from './canvas/canvas-page-title';
+import { CanvasVersionSlot } from './canvas/canvas-version-slot';
+import { PILL } from './canvas/canvas-pill-classes';
+import { useMarkCanvasRead, ownerPhoneWidth } from './canvas/canvas-page-read';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -296,11 +300,7 @@ export function CanvasPage() {
 
   // P1545: opening a canvas someone shared with you marks it read (also what a chat share card leads to).
   // Fire-and-forget; the server ignores the owner and link holders.
-  const readOwnerId = ready && !ready.isOwner ? ready.ownerId : null;
-  useEffect(() => {
-    if (!readOwnerId || !projectTag || !viewerId) return;
-    void canvasService.markCanvasRead(readOwnerId, projectTag).catch(() => undefined);
-  }, [readOwnerId, projectTag, viewerId]);
+  useMarkCanvasRead(ready, projectTag, viewerId);
 
   // Founder, sixth round: disagreement found fast — in every box the most contested card comes
   // first (the smaller side biggest), then the rest in canvas order. Previous / Next follow it too.
@@ -585,10 +585,7 @@ export function CanvasPage() {
           wrapping under them when the row is too narrow. */}
       <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
         {/* The canvas's own name is the title ("Hiring plan for q1", as in Artifacts and the chat card); "Clarity Canvas" is the small label above it. */}
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" data-testid="canvas-eyebrow">Clarity Canvas</p>
-          <h1 className="break-words text-3xl font-bold text-foreground md:text-4xl" data-testid="canvas-title">{projectTag ? canvasTitle(projectTag) : 'Clarity Canvas'}</h1>
-        </div>
+        <CanvasPageTitle projectTag={projectTag} />
         {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
             "by <owner> · <canvas> · Compare with someone…", not across the page. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -597,7 +594,7 @@ export function CanvasPage() {
               // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
               // Phones: with no version switcher the line fills the row, so the share circle sits beside it,
               // right-aligned; with one, the owner keeps its own line and the switcher takes the row beside Share.
-              <span className={`ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 ${ready.versions.length >= 2 ? 'max-sm:w-full' : 'max-sm:flex-1'}`} data-testid="canvas-owner">
+              <span className={`ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 ${ownerPhoneWidth(ready.versions.length)}`} data-testid="canvas-owner">
                 <GravatarAvatar
                   name={ready.owner.name}
                   photoUrl={ready.owner.photoUrl}
@@ -621,14 +618,7 @@ export function CanvasPage() {
             ) : (
               current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
             )}
-            {ready && ready.versions.length >= 2 && (
-              <span className="flex min-w-0 max-w-full items-center gap-2 max-sm:order-2 max-sm:flex-1 max-sm:flex-wrap" data-testid="canvas-project-slot">
-                <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
-                {/* The dropdown lists the versions of THIS canvas, for owner and readers alike; with one version the title above is the name.
-                    Separate canvases are reached by their own address. */}
-                <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={v => setParams({ v, point: null, box: null }, true, false)} />
-              </span>
-            )}
+            {ready && <CanvasVersionSlot versions={ready.versions} version={ready.version} onPick={v => setParams({ v, point: null, box: null }, true, false)} />}
           </div>
           {/* P1515: Share sits immediately right of Compare, in the same row. */}
           {ready && (
@@ -943,36 +933,6 @@ function peopleOf(
     }
   }
   return people;
-}
-
-/** Filled grey pills with a chevron, so a menu never looks like one of the white canvas cards. */
-const PILL = 'relative inline-flex h-10 min-w-0 max-w-full items-center rounded-full text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-500';
-const SELECT = 'h-full min-w-0 max-w-[12rem] max-sm:max-w-none max-sm:flex-1 cursor-pointer appearance-none truncate rounded-full bg-transparent pr-8 text-base font-medium focus:outline-none md:text-sm';
-
-/** P1515 phase 5: the canvas's versions, newest first with a date, for everyone the canvas admits. Same outline pill as the
- *  canvas picker; choosing one puts it in the address (`?v=`). */
-function VersionSwitcher({ versions, open, onPick }: { versions: CanvasVersion[]; open: string; onPick: (version: string) => void }) {
-  const dateOf = (iso: string | null) => {
-    const d = iso ? new Date(iso) : null;
-    return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  };
-  return (
-    <label className={`${PILL} border border-foreground/40 bg-muted text-foreground hover:bg-muted/70 max-sm:w-full`} data-testid="canvas-version-picker">
-      <select
-        aria-label="Version"
-        value={open}
-        onChange={e => onPick(e.target.value)}
-        className={`${SELECT.replace('max-w-[12rem]', 'max-w-[20rem]')} pl-3`}
-        data-testid="canvas-version-select"
-      >
-        {versions.map(v => {
-          const date = dateOf(v.createdAt);
-          return <option key={v.name} value={v.name}>{date ? `${v.name} · ${date}` : v.name}</option>;
-        })}
-      </select>
-      <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
-    </label>
-  );
 }
 
 /** Who to compare with — the compare page's person picker in small (R14: no link to the full page). */
