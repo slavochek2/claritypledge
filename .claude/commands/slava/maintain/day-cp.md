@@ -269,16 +269,18 @@ echo "=== SELF-HOSTED TEST DATABASE (P1557) ==="
 # Stopgap, knowingly (.claude/rules/skills.md, recurring checks). End state: a scheduled workflow
 # for reachability and certificate (filed in the task inbox); disk and WAL need a gcloud login no
 # workflow holds, so they stay here until one does.
-TESTDB_HEALTH="$(git rev-parse --show-toplevel)/scripts/selfhosted/health.sh"
-if [ ! -x "$TESTDB_HEALTH" ]; then echo "CHECK cp.selfhosted skipped the self-hosted test server is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+TESTDB_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || TESTDB_ROOT=""
+TESTDB_HEALTH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/selfhosted/health.sh}"
+if [ -z "$TESTDB_ROOT" ]; then echo "CHECK cp.selfhosted unproven not run inside a checkout of this repository" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ ! -x "$TESTDB_HEALTH" ]; then echo "CHECK cp.selfhosted skipped the self-hosted test server is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
-  TESTDB_OUT="$("$TESTDB_HEALTH" 2>&1)"; TESTDB_RC=$?
+  TESTDB_RC=0; TESTDB_OUT="$("$TESTDB_HEALTH" 2>&1)" || TESTDB_RC=$?
   echo "$TESTDB_OUT"
-  TESTDB_SUMMARY="$(echo "$TESTDB_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-78)"
+  TESTDB_SUMMARY="$(printf '%s' "$TESTDB_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-70)"; TESTDB_SUMMARY="${TESTDB_SUMMARY:-no output}"
   case "$TESTDB_RC" in
     0) echo "CHECK cp.selfhosted ok $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
     1) echo "CHECK cp.selfhosted problem $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
-    *) echo "CHECK cp.selfhosted unproven some checks could not run: $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    *) echo "CHECK cp.selfhosted unproven $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
   esac
 fi
 
