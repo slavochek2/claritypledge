@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [product]: List rows carry one visible action; everything else lives in "…", which starts with Open (P1545)
+
+**Context:** On the Artifacts page, rows showed a mix of outline buttons, chevrons and menus, so they blurred together and some rows (Received) had no visible action at all. New letter asked "who is it for", which is not the choice the user is actually making.
+**Decision:** Each list row shows exactly one quiet blue text action (the next step: Prepare letter, + Add recipient, Share, or Open) and a "…" menu at the far right. "…" starts with Open, then the other items, then a separator and delete. The whole row also opens. Button colours come only from the Button variant (P1568). New letter asks "Who can read it?": Private (only people you send it to) or Public (anyone with the link).
+**Alternatives rejected:** a chevron with no label (people don't know a row opens); several visible buttons per row (no hierarchy); hiding row actions on phones; skipping the New letter question (Gemini 4 Argon suggestion; privacy is a choice the writer must make).
+**Consequences:** New list surfaces follow the same rule; the rule is written in the P1545 spec ("Quiet rows and one action rule"). Not yet tested with users (UNTESTED; falsifier: users still miss how to open a row, or tap "…" looking for the main action).
+**References:** [p1545](../features/p1545_menu_and_artifacts.md) · [design-system.md](design-system.md) Button Decision Rules
+
+---
+
 ## 2026-10-26 [process]: `/ship` resolves the decisions-log conflict where both sides only added entries at the top (P1575)
 
 **Context:** Shipping P1566 (7 commits, 51 behind main) stopped four times in a row on `docs/decisions.md`, because the log is newest-first and both main and the branch wrote at the top. This log records the same class at least five times before (2026-08-28, 09-01, 09-03, 09-11, 10-02); once, a take-one-side loop dropped 59 entries with every gate green (P1236). Found by the P1566 `/kdd`, checked by two critics, approved by the founder.
