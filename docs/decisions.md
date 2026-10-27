@@ -18,6 +18,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [process]: The claude.ai export skill polls for the ready email for 20 minutes and opens single-use links one at a time
+
+**Context:** On 2026-10-27 the agent stopped polling at minute 4 and told the founder to come back later, because an "export in progress" email said the export takes "a few hours, up to 12". The ready email arrived 3.7 and 4.0 minutes after two triggers (06:39:08Z to 06:43:18Z, 07:02:58Z to 07:06:42Z). The skill already said "poll every 60s", so the failure was reading boilerplate as evidence. Separately, four single-use category links opened back to back (~4s apart, no check between) produced no zips, and the last page read "Expired link". The cause was not isolated. On the next export the same categories opened one at a time, each checked, all landed.
+**Decision:** `claude-sync-download` v2.1.0. Step 2 polls every ~60s for up to 20 minutes, asks nothing in between, and names the boilerplate email as non-evidence. Step 3 is inline: re-`touch` a marker before each link, open one category via the authenticated Chrome tab, require a zip newer than the marker with stable size before the next link, and stop (never re-navigate) on a spent link. Step 4 waits until the newest zip is over 2 minutes old, because the importer skips younger files. The generated shell script is reference-only: it opens every manifest URL (including categories the importer does not know) with `open`, which can spend the single-use links.
+**Alternatives rejected:** Moving the poll into a script (the mailbox is reachable only through an MCP). Opening all links in one batch with a final check (a failure then shows after every link is spent, which is what happened). Adding `artifact_data` and `claude_code_cloud` to the importer now (their contents were never opened; left unspent for the founder to decide).
+**Consequences:** UNTESTED end to end: v2.1.0 has been reviewed three rounds (two external models, one subagent; one external reviewer's model identity was accepted but not served-verified) but not run since the edit. Falsifier: the next export. If the ready email takes over 20 minutes, or a zip lands under a name or place the marker check misses, revisit Steps 2 and 3. Open: whether Gmail polling needs a metered-services registry row (it is read-only, unbilled, about 22 calls per export).
+**References:** [claude-sync-download.md](../.claude/commands/slava/script/claude-sync-download.md) · [claude-sync-download.sh](../scripts/generated/claude-sync-download.sh)
+
+---
+
 ## 2026-10-26 [process]: `/ship` resolves the decisions-log conflict where both sides only added entries at the top (P1575)
 
 **Context:** Shipping P1566 (7 commits, 51 behind main) stopped four times in a row on `docs/decisions.md`, because the log is newest-first and both main and the branch wrote at the top. This log records the same class at least five times before (2026-08-28, 09-01, 09-03, 09-11, 10-02); once, a take-one-side loop dropped 59 entries with every gate green (P1236). Found by the P1566 `/kdd`, checked by two critics, approved by the founder.
