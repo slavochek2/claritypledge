@@ -71,6 +71,7 @@ These apply to **new or materially-updated** hypotheses. Existing entries are **
 | H-ObserverTransfer | Watching two people from opposite sides verify each other's understanding corrects the audience's picture of the other side more than watching them debate | Active | P2 | — | New 2026-10-22, founder conversation. Tests the observer step the theory-of-change cascade assumes and never states. **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
 | H-TruthTracking | On contested questions that have a checkable answer, verification moves the people who were wrong toward the answer more than it moves the people who were right. Verification as error correction, not convergence | Active | P1 (scientific) | — | New 2026-10-22, founder conversation. The cheapest test of hard-core K7 (truth-measurement layer). **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
 | H-CalibrationPredicts | A person's listening-calibration track record predicts whether their next "I understood" is true, so it is a local trust signal for whose "got it" to rely on, inside a team, not a general credibility score | Active | P1 | — | New 2026-10-22, founder conversation. Turns the trust/hierarchy chain into a testable link. **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
+| H-CompartmentsShrink | Verified understanding of a rival epistemology makes a person more fallibilist in other domains too | Active | P2 (scientific) | — | New 2026-10-27, founder conjecture; a76 |
 | H-AccountingLayer | Misunderstanding-harm goes unfixed in institutions because they can't *attribute/account for* it (no metric/owner/budget), not because they can't see it — so CP could be an accounting layer that makes it countable | Blocked | P2 | H-LegibilityVsCost | New 2026-07-21 — counter recorded: absence may be correct triage. Test = find countable "corpses" (aviation CRM). **UNTESTED.** |
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
@@ -666,6 +667,24 @@ Surviving differentiators, narrower than the docs previously implied: (1) **a nu
 **Scope of use:** **in-team only.** A public reputation score (Stage 3, Verified Listener Score) waits until this corroborates **and** the Goodhart test shows the score survives being visible.
 
 **Status (2026-10-22):** New. **UNTESTED, n=0.** See [decisions.md](decisions.md) 2026-10-22 [product].
+
+---
+
+#### H-CompartmentsShrink: Verified understanding of a rival epistemology spreads fallibilism across domains
+
+> **Programme tag:** `scientific` · **Core-adjacent: no (belt).**
+
+**Bet (2026-10-27, UNTESTED, n=0, founder conjecture):** recursively verified understanding of rival epistemologies shrinks dogmatic compartments. A person who restates a rival epistemology to its holder's satisfaction becomes more fallibilist in *other* domains too, not only on the topic discussed. Example from the source: a fallibilist about science who holds faith in a separate compartment (the Plantinga case).
+
+**Why it is distinct:** H-TruthTracking tests movement toward a checkable answer on the topic itself. H-CalibrationPredicts tests a trust signal inside a team. This one tests **transfer across domains**, which [theory-of-change.md](theory-of-change.md) lists as untested ("Conversational calibration → general metacognition").
+
+**Test:** stance scores (how open to revision, 0–10) in 3–4 domains before and after a person verifiably restates a rival epistemology at a high speaker-given score, against matched controls who discuss it without verification.
+
+**Novel prediction, recorded 2026-10-27 before any test.** Openness rises in the domains that were *not* discussed, and more in the verified arm than in the control. No predecessor framing predicts movement outside the topic discussed. The rival account, *comprehension is necessary but not sufficient and stays local*, predicts no change in the undiscussed domains. *Corroboration status: pending.*
+
+**Transform if:** across two runs, the undiscussed domains do not move more in the verified arm ⟹ comprehension stays local, and "spreads fallibilism" must be withdrawn from public writing (a76).
+
+**Status (2026-10-27):** New. **UNTESTED, n=0.** See [decisions.md](decisions.md) 2026-10-27 [product].
 
 ---
 

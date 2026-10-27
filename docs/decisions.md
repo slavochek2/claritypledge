@@ -8,6 +8,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [product]: Fallibilism-spread conjecture recorded (H-CompartmentsShrink); "community organizers spread fallibilism" kept as a candidate umbrella pitch, not the lead. UNTESTED
+
+**Context:** /claude-conversations-to-cp (run 2026-10-27) surfaced two founder notes from the conversation "Epistemology frameworks and Popper" (2026-10-27): "hypothesis new? or add to list: recursively verified understanding of rival epistemologies shrinks dogmatic compartments", and a landing "we don't have yet": *ClarityPledge is an instrument to help community organizers spread fallibilism as a communicative tradition.* The founder confirmed both (option 1, option 2A). Same turn, the founder noted that nobody calls themselves a community organizer who spreads fallibilism, so the sentence is mission-level, and asked whether change leads are such organizers.
+**Decision:** (1) Add H-CompartmentsShrink to hypotheses.md §P2, programme tag `scientific`, `UNTESTED`, n=0. (2) Add the sentence to lean-canvas §UVP as a `[FALLBACK]` umbrella layer under the 2026-07-20 page-lead. It does not change the page-lead or `active-market-focus`. Change leads are named as its first concrete instance (the active focus's internal champion is someone whose job is spreading a working norm). Facilitators, practice-community leads and L&D are unverified candidates.
+**Falsifier:** (1) stance scores in domains other than the one discussed do not move more after a person verifiably restates a rival epistemology at a high speaker-given score than for matched controls. (2) in champion conversations, change leads do not recognize "spreading a way of working" as their job in their own words, so the umbrella names nobody's job.
+**Alternatives rejected:** make the sentence the page-lead (option 2B: untested, and it would displace a lead whose own falsifier has not been read); leave the conjecture unrecorded until tested (retired axis, epistemic gate 8).
+**Consequences:** a76 carries the narrative. The private outreach notes on change leads are not touched from here.
+**References:** hypotheses.md H-CompartmentsShrink · lean-canvas.md §Unique Value Proposition · content/articles/a76_popper-had-the-doctrine-not-the-practice.md
+
+---
+
 ## 2026-10-27 [product]: List rows carry one visible action; everything else lives in "…", which starts with Open (P1545)
 
 **Context:** On the Artifacts page, rows showed a mix of outline buttons, chevrons and menus, so they blurred together and some rows (Received) had no visible action at all. New letter asked "who is it for", which is not the choice the user is actually making.
