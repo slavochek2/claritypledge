@@ -19,6 +19,7 @@ import { createTestOrganization, createTestMembership, deleteTestOrganization, t
 import { createTestEvent, deleteTestEvent, type TestEvent } from '../../../e2e/helpers/test-event';
 import { createTestDoc, createTestLetter } from '../../../e2e/helpers/test-letter';
 import { signIn, purgeChatFor } from '../../../e2e/helpers/test-chat';
+import { hasNewSenderProgress } from '../../app/utils/letter-new-activity';
 
  
 type Row = Record<string, any>;
@@ -449,5 +450,43 @@ describe('P1545 WP1: an empty, never-opened channel counts unread 1 (Inbox eligi
     const gc = (await groupConv(G.id))!;
     const row = await myChat(cX, r => r.conversation_id === gc);
     expect(row!.unread_count, 'X never opened G and it holds messages').toBeGreaterThan(1);
+  });
+});
+
+describe('P1545: the sender has their own seen mark, so later progress is new again', () => {
+  it('only the sender can set it; progress after it makes the delivery new again', async () => {
+    const doc = await createTestDoc(O.user.id, `P1545 seen ${RUN}`);
+    docIds.push(doc.id);
+    const letter = await createTestLetter(O.user.id, doc.id);
+    letterIds.push(letter.id);
+    await ok(cO, 'seal_and_send_letter', {
+      p_letter_id: letter.id, p_predictions: [],
+      p_deliveries: [{ receiver_profile_id: P.user.id, receiver_name: 'P' }], p_responses_mode: 'invite',
+    }, 'seal to P');
+    const { data: d } = await supabaseAdmin.from('letter_deliveries').select('id').eq('letter_id', letter.id).single();
+    const id = d!.id as string;
+    const mine = async () => (await ok<Row[]>(cO, 'get_deliveries_with_progress', { p_letter_ids: [letter.id] }, 'O reads')).find(r => r.id === id)!;
+
+    // P opens and starts: new for O, and the recipient's own read mark does not hide it.
+    const opened = new Date(Date.now() - 60_000).toISOString();
+    await supabaseAdmin.from('letter_deliveries').update({ status: 'in_progress', opened_at: opened, read_at: opened }).eq('id', id);
+    const before = await mine();
+    expect(before.sender_seen_at).toBeNull();
+    expect(hasNewSenderProgress(before)).toBe(true);
+
+    // Nobody but the sender can write the mark.
+    for (const c of [cP, cX]) {
+      const { error } = await c.rpc('mark_delivery_seen_by_sender', { p_delivery_id: id });
+      expect(error?.code).toBe('42501');
+    }
+    await ok(cO, 'mark_delivery_seen_by_sender', { p_delivery_id: id }, 'O looks');
+    const seen = await mine();
+    expect(seen.sender_seen_at).not.toBeNull();
+    expect(hasNewSenderProgress(seen)).toBe(false);
+
+    // P finishes later: new again for O.
+    await new Promise(r => setTimeout(r, 1100));
+    await supabaseAdmin.from('letter_deliveries').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id);
+    expect(hasNewSenderProgress(await mine())).toBe(true);
   });
 });

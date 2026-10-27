@@ -251,13 +251,9 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
   const publicLetterLink = ref.letterId ? `${window.location.origin}/letter/${ref.letterId}` : null;
 
   /** A labelled outline control; with a reason it is muted, aria-disabled, and answers with that reason. */
-  const control = (label: string, short: string | null, onClick: () => void, reason?: string): ReactNode => {
-    const text = short ? (
-      <>
-        <span className="hidden min-[400px]:inline">{label}</span>
-        <span className="min-[400px]:hidden">{short}</span>
-      </>
-    ) : label;
+  // Full labels at every width: "+ Add" and "Prepare" alone did not say what they do (founder, phone UAT).
+  const control = (label: string, onClick: () => void, reason?: string): ReactNode => {
+    const text = label;
     if (reason) {
       return (
         <MobileTooltip content={reason}>
@@ -288,7 +284,6 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
       }];
       main = control(
         'Prepare letter',
-        'Prepare',
         () => navigate(`/letter/${ref.docId}/compose`),
         (ref.storyCount ?? 0) === 0 ? 'Add at least one story first.' : undefined,
       );
@@ -313,8 +308,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
       main = (
         <button type="button" aria-label={name('Add recipient')} className={PRIMARY_CLASS} onClick={() => setAddOpen(true)}>
           <span aria-hidden="true">+</span>
-          <span className="hidden min-[400px]:inline">Add recipient</span>
-          <span className="min-[400px]:hidden">Add</span>
+          <span>Add recipient</span>
         </button>
       );
       break;

@@ -621,7 +621,7 @@ describe('Artifacts page: split by kind', () => {
       const row = rows()[0]!;
       expect(buttons(row)).toEqual(['Add recipient: Hello Tom', 'Actions for Hello Tom']);
       expect(within(row).getByRole('link', { name: 'Hello Tom' })).toHaveAttribute('href', '/letter/l1/overview');
-      expect(within(row).getByRole('button', { name: 'Add recipient: Hello Tom' }).textContent).toBe('+Add recipientAdd'); // "+ Add" below 400px
+      expect(within(row).getByRole('button', { name: 'Add recipient: Hello Tom' }).textContent).toBe('+Add recipient'); // full label at every width (founder)
       await openMenu(u, 'Hello Tom');
       expect(await menuLabels()).toEqual(['Open', 'Preview', 'Delete letter']);
     });
