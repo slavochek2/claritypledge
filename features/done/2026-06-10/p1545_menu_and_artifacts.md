@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 57
 workstream: clarity-chat
 created_date: '2026-10-22'
 tags: [navigation, artifacts, chat, events]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-27
 ---
 
 # P1545: Feed home again, Chats and Artifacts in the menu, one Inbox rule, Chiang Mai card on Events
