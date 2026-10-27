@@ -278,7 +278,10 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
 
   // the newest earlier report that carried a fault remembers who owned it then
   const before = [...inp.earlier].sort((a, b) => b.started_at.localeCompare(a.started_at))
-  const prevOwner = (fp: string): LoopOwner | undefined => before.map((r) => r.loops?.cards[fp]?.owner).find(Boolean)
+  // Only the immediately previous run counts: a fault absent there was fixed, and its return is a
+  // new fault that inherits no earlier owner or alarm.
+  const prevCard = (fp: string): DayLoop | undefined => before[0]?.loops?.cards?.[fp]
+  const prevOwner = (fp: string): LoopOwner | undefined => prevCard(fp)?.owner
 
   const cards: Record<string, DayLoop> = {}
   const waits: { fp: string; owner: string }[] = []
@@ -301,6 +304,13 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
         card.escalated = { why: owner.state === 'gone' ? 'gone' : 'idle', ...(owner.idle_days !== undefined ? { days: owner.idle_days } : {}) }
       }
       if (owner.kind === 'spec' && owner.state === 'live' && SUPPRESS_WHEN_OWNED.has(v.check ?? '')) card.suppressed = true
+    }
+    // git unreadable this run: an escalation already raised stands, rather than quietly reverting
+    // to an unasked wait because the evidence for it could not be re-read
+    if (!inp.git.ok) {
+      const last = prevCard(v.fp)
+      if (last?.owner && !card.owner) card.owner = last.owner // yesterday's owner, so tomorrow can tell if it went
+      if (hasWait && !card.escalated && last?.escalated && last.owner) card.escalated = last.escalated
     }
     if (Object.keys(card).length) cards[v.fp] = card
   }

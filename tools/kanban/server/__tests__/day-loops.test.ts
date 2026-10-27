@@ -90,15 +90,20 @@ describe('A: the agent loop closes', () => {
   })
 
   it('a check whose connection is down is not fixed, though its card moved to the connection row', () => {
-    const report = clone(R27)
-    const c = report.checks.find((x) => x.id === 'disp.8a') as DayReport['checks'][number]
-    c.status = 'problem'
-    c.connection = 'beeper'
-    report.connections = [...report.connections.filter((x) => x.id !== 'beeper'), { id: 'beeper', label: 'Beeper', state: 'failed' }]
-    report.issues = report.issues.filter((i) => i.fp !== 'check:disp.8a' && i.check !== 'disp.8a')
-    run(report, NO_GIT)
-    const by = new Map((report.loops?.resolved ?? []).map((r) => [r.fp, r.outcome]))
-    expect(by.get('check:disp.8a')).not.toBe('fixed')
+    // the check filed a detailed finding of its own, so only the connection state decides
+    const setup = (state: 'ok' | 'failed') => {
+      const report = clone(R27)
+      const c = report.checks.find((x) => x.id === 'disp.8a') as DayReport['checks'][number]
+      c.status = 'problem'
+      c.connection = 'beeper'
+      report.connections = [...report.connections.filter((x) => x.id !== 'beeper'), { id: 'beeper', label: 'Beeper', state }]
+      report.issues = report.issues.filter((i) => i.fp !== 'check:disp.8a' && i.check !== 'disp.8a')
+      report.issues.push({ ...(clone(report.issues[0]) as DayIssue), fp: 'disp.8a:beeper:other', check: 'disp.8a', title: 'another Beeper fault' })
+      run(report, NO_GIT)
+      return new Map((report.loops?.resolved ?? []).map((r) => [r.fp, r.outcome]))
+    }
+    expect(setup('ok').get('check:disp.8a')).toBe('fixed') // control: healthy connection proves it
+    expect(setup('failed').get('check:disp.8a')).not.toBe('fixed')
   })
 
   it('a check still in problem that filed no detailed finding this pass does not prove the old fault fixed', () => {
@@ -142,6 +147,7 @@ describe('A: the agent loop closes', () => {
     const fresh = view.issues.find((i) => i.fp === 'cp.testdb:testdb:slow')
     expect(fresh && isAgentWork(fresh)).toBe(true)
     const order = view.issues.map((i) => i.fp)
+    expect(order.indexOf('check:disp.8a')).toBeGreaterThanOrEqual(0)
     expect(order.indexOf('check:disp.8a')).toBeLessThan(order.indexOf('cp.testdb:testdb:slow'))
   })
 
@@ -211,6 +217,10 @@ describe('B: an issue shows its owner, matched on exact tokens only', () => {
     const report = clone(R27)
     run(report, { ok: true, branches: [branch('fix/e2e-40-retries', '2026-10-26T09:00:00Z', ['raise retries to 40'])], specs: [] })
     expect(report.loops?.cards?.['cp.sentry:sentry:javascript-react-40']?.owner).toBeUndefined()
+    // control: the card exists, and a branch carrying both words does own it
+    const ctl = clone(R27)
+    run(ctl, { ok: true, branches: [branch('fix/sentry-40-read-error', '2026-10-26T09:00:00Z')], specs: [] })
+    expect(ctl.loops?.cards?.['cp.sentry:sentry:javascript-react-40']?.owner).toBeDefined()
   })
 
   it('an owned card offers no Send; a stale owner does not take the Send away', () => {
@@ -242,6 +252,12 @@ describe('B: an issue shows its owner, matched on exact tokens only', () => {
     i.obstacle = 'this regressed after P1442 shipped'
     run(report, { ok: true, branches: [], specs: [{ pnum: 'p1442', open: true, text: '' }] })
     expect(report.loops?.cards?.['cp.health:pipeline:none-overdue']?.owner).toBeUndefined()
+    // control: the same P-number in the headline does own it
+    const ctl = clone(R27)
+    const c = ctl.issues.find((x) => x.fp === 'cp.health:pipeline:none-overdue') as DayIssue
+    c.title = `${c.title} (P1442)`
+    run(ctl, { ok: true, branches: [], specs: [{ pnum: 'p1442', open: true, text: '' }] })
+    expect(ctl.loops?.cards?.['cp.health:pipeline:none-overdue']?.owner).toBeDefined()
   })
 
   it('an open spec owns the issue whose fingerprint its text names, and a closed spec does not', () => {
@@ -297,6 +313,11 @@ describe('C: waiting becomes automatic, with a staleness alarm', () => {
     const waits = out.lines.filter((l) => l.outcome === 'waiting')
     expect(waits.map((l) => l.fp).sort()).toEqual([waitFp, 'cp.tablegrants:tablegrants:group-chat-opens'].sort())
     expect(waits.every((l) => l.owner === 'feature/p1542-series-recipes')).toBe(true)
+    // a second render of the same pass, with the first render's lines in the ledger, adds no wait
+    const again = r27WithCause()
+    const recorded = parseOutcomes(out.lines.map((l) => JSON.stringify({ ...l, at: '2026-10-27T06:01:00.000Z' })).join('\n'))
+    const second = run(again, { ok: true, branches: [chatBranch('2026-10-26T08:00:00Z')], specs: [] }, { outcomes: recorded })
+    expect(second.lines.filter((l) => l.outcome === 'waiting')).toEqual([])
   })
 
   it('an owner with no commit in 7 days escalates to a normal card that asks what now', () => {
@@ -331,9 +352,64 @@ describe('C: waiting becomes automatic, with a staleness alarm', () => {
     expect(i?.loop?.waiting).toBeFalsy()
   })
 
-  it('an escalated card stays on the page even when an owner is found on a git failure', () => {
+  it('an escalated card stays on the page when the next run hits a git failure', () => {
+    const before = r27WithCause()
+    run(before, { ok: true, branches: [chatBranch('2026-10-26T08:00:00Z')], specs: [] })
+    const gone = { ...r27WithCause(), started_at: '2026-10-27T07:00:00Z' }
+    run(gone, { ok: true, branches: [], specs: [] }, { earlier: [before] })
+    expect(gone.loops?.cards?.[waitFp]?.escalated).toBeDefined() // precondition: it escalated
+    const report = { ...r27WithCause(), started_at: '2026-10-27T08:00:00Z' }
+    run(report, { ok: false, branches: [], specs: [] }, { earlier: [before, gone] })
+    expect(buildView(report, [], []).issues.some((x) => x.fp === waitFp)).toBe(true)
+    const card = buildView(report, [], []).issues.find((x) => x.fp === waitFp)
+    expect(card?.options.some((o) => o.id === 'wait')).toBe(false) // still escalated: no quiet wait offered
+  })
+
+  it('an escalation cleared by a later run is not revived by a git failure after it', () => {
+    const before = r27WithCause()
+    run(before, { ok: true, branches: [chatBranch('2026-10-26T08:00:00Z')], specs: [] })
+    const gone = { ...r27WithCause(), started_at: '2026-10-27T06:30:00Z' }
+    run(gone, { ok: true, branches: [], specs: [] }, { earlier: [before] })
+    const back = { ...r27WithCause(), started_at: '2026-10-27T07:00:00Z' }
+    run(back, { ok: true, branches: [chatBranch('2026-10-27T06:30:00Z')], specs: [] }, { earlier: [before, gone] })
+    expect(back.loops?.cards?.[waitFp]?.escalated).toBeUndefined() // precondition: the owner recovered
+    const report = { ...r27WithCause(), started_at: '2026-10-27T08:00:00Z' }
+    run(report, { ok: false, branches: [], specs: [] }, { earlier: [before, gone, back] })
+    expect(report.loops?.cards?.[waitFp]?.escalated).toBeUndefined()
+  })
+
+  it('a fault that was fixed and comes back is new: no earlier owner or alarm attaches to it', () => {
+    const before = r27WithCause()
+    run(before, { ok: true, branches: [chatBranch('2026-10-26T08:00:00Z')], specs: [] })
+    const gone = { ...r27WithCause(), started_at: '2026-10-27T06:30:00Z' }
+    run(gone, { ok: true, branches: [], specs: [] }, { earlier: [before] })
+    expect(gone.loops?.cards?.[waitFp]?.escalated).toBeDefined() // precondition
+    const fixed = { ...r27WithCause(), started_at: '2026-10-27T07:00:00Z' }
+    fixed.issues = fixed.issues.filter((x) => x.fp !== waitFp)
+    run(fixed, { ok: true, branches: [], specs: [] }, { earlier: [before, gone] })
+    for (const git of [{ ok: false, branches: [], specs: [] }, { ok: true, branches: [], specs: [] }] as GitFacts[]) {
+      const report = { ...r27WithCause(), started_at: '2026-10-27T08:00:00Z' }
+      run(report, git, { earlier: [before, gone, fixed] })
+      expect(report.loops?.cards?.[waitFp]?.escalated).toBeUndefined()
+      expect(report.loops?.cards?.[waitFp]?.owner).toBeUndefined()
+    }
+  })
+
+  it('a git failure carries yesterday\'s owner, so a branch gone by the next readable run still escalates', () => {
+    const d1 = r27WithCause()
+    run(d1, { ok: true, branches: [chatBranch('2026-10-26T08:00:00Z')], specs: [] })
+    const d2 = { ...r27WithCause(), started_at: '2026-10-28T05:00:00Z' }
+    run(d2, { ok: false, branches: [], specs: [] }, { earlier: [d1] })
+    expect(d2.loops?.cards?.[waitFp]?.owner?.ref).toBe('feature/p1542-series-recipes')
+    const d3 = { ...r27WithCause(), started_at: '2026-10-29T05:00:00Z' }
+    run(d3, { ok: true, branches: [], specs: [] }, { earlier: [d1, d2] })
+    expect(d3.loops?.cards?.[waitFp]?.escalated).toMatchObject({ why: 'gone' })
+  })
+
+  it('a git failure finds no owner, so the wait card stays a normal card on the page', () => {
     const report = r27WithCause()
     run(report, { ok: false, branches: [], specs: [] })
+    expect(report.loops?.cards?.[waitFp]?.owner).toBeUndefined()
     expect(buildView(report, [], []).issues.some((x) => x.fp === waitFp)).toBe(true)
   })
 })
@@ -395,11 +471,14 @@ describe('the renderer wires the loops in', () => {
       writeFileSync(join(day, 'reports', 'old.json'), JSON.stringify(R26))
       writeFileSync(join(day, 'decisions.jsonl'), RECEIPTS_TEXT)
       const ledger = join(root, 'ledger')
-      writeFileSync(ledger, `pass_id=${R27.pass_id}\nstarted_at=${R27.started_at}\nstate=open\n`)
+      // one check that ran clean: the send made on 10-26 for its fault must come back as fixed
+      writeFileSync(ledger, `pass_id=${R27.pass_id}\nstarted_at=${R27.started_at}\nstate=open\nCHECK\tcp.signups\tok\tcp.w2c\t-\tcmd\tno unconfirmed signups\n`)
       let lines: unknown[] = []
       const code = run(['--ledger', ledger, '--day-dir', day, '--phase', 'start', '--print', 'none', '--repo', 'none'], { out: () => {}, err: () => {}, outcomes: (l) => (lines = l) })
       expect(code).toBe(0)
-      expect(Array.isArray(lines)).toBe(true)
+      expect(lines.length).toBeGreaterThan(0)
+      expect(lines.every((l) => (l as { kind?: string }).kind === 'outcome')).toBe(true)
+      expect(lines.some((l) => (l as { fp?: string; outcome?: string }).fp === 'cp.signups:signups:unconfirmed' && (l as { outcome?: string }).outcome === 'fixed')).toBe(true)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
