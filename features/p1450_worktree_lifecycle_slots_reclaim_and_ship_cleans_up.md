@@ -40,37 +40,47 @@ Measured the same day: `git cherry` flagged 10 of 12 shipped or backup branches 
 
 ## Appetite
 
-Blast radius: medium. These are shared tools (`git-ops.sh`, the activity hook, `worktree-changes.sh`, `/day`) that every concurrent session goes through, and a wrong removal destroys uncommitted work. Reversibility: git revert for the code, but a wrongly removed worktree's uncommitted files are not recoverable. Decision density: one founder call (the park threshold, below).
+Blast radius: medium. These are shared tools (`git-ops.sh`, the activity hook, `worktree-changes.sh`, `/day`) that every concurrent session goes through, and a wrong removal destroys uncommitted work. Reversibility: git revert for the code, but a wrongly removed worktree's uncommitted files are not recoverable. Decision density: none — park threshold set at 7 days (reversible).
 
 ## Invariants
 
 - **Nothing destructive trusts the liveness verdict alone** (decisions.md 2026-09-17, P1326). Removal still requires *both* no user changes *and* not LIVE.
 - **A session writing in a slot keeps it LIVE even when its lock PID is dead.** w4 on 2026-10-09 is the regression case.
+- **A valid `.hold` (P1519) blocks every automatic removal and park.**
+- **Nothing is deleted without a recovery record written first** (name and tip SHA; detached HEADs pinned as a ref).
 - Prod migrations apply only from a commit on main (decisions.md 2026-10-09, P1448). Embargoed fixes follow the branch-born-spec route there, not a feature-branch apply.
 
 ## Solution
 
 1. **Reads stop counting as activity.** Only Write, Edit, NotebookEdit, a Bash command whose cwd is the slot, or a git write against the slot (commit, add, index change) stamps `.activity`. A Bash command that only names the slot path in a read (`cat`, `grep`, `ls`, `git log`, `git status`) does not.
-2. **Regenerable output is exempt at any depth, ignored or not.** This covers `test-results/`, `playwright-report/`, `dist/`, `coverage/` and `node_modules/`, matching the existing `__pycache__` rule (P1381). Also gitignore `node_modules/` at any depth.
+2. **Regenerable output is exempt at any depth, ignored or not.** This covers `test-results/`, `playwright-report/`, `dist/`, `coverage/` and `node_modules/`, including a *symlinked* `node_modules` at any depth. The top-level rule is at `worktree-changes.sh:52`, and `node_modules/` with a trailing slash in `.gitignore` does not match a symlink. This matches the existing `__pycache__` rule (P1381).
 3. **Ship's journal resolves the spec by P-number.** It stops trusting the stored path, so a renamed spec does not strand a resume. `--resume` with all commits landed and the spec in `done/` converges to cleanup. Related: P1198, the other resume defect.
-4. **Agents clean up; the founder answers only yes/no questions (revised 2026-10-27).** Each stranded slot, unmanaged worktree (including `scratchpad/` worktrees other sessions left in `/private/tmp`) and slot-less branch gets exactly one verdict, and the agent executes the safe ones itself:
-   - *remove* — automatic when ALL hold: not LIVE; no uncommitted or untracked files beyond the regenerable set (item 2); and every branch commit is on main. "On main" is a content check, never `git cherry` alone: a commit counts as landed if its patch-id matches, OR its exact subject is on main, OR every file it touches is identical on main. Before deleting, the branch name and tip SHA are appended to a private recovery log.
-   - *park* (worktree removed, branch kept) — automatic past the park threshold, same no-changes rule.
-   - *ask* — anything holding files that exist nowhere else, or commits not on main by the content check. The founder gets one plain-language yes/no line per item (what it is, what would be lost). **Never a shell command.**
-   - A branch fully contained in another live branch → *remove worktree, keep branch*.
-5. **The strandings report names the agent's action, not a command.** `pipeline-strandings.sh` stops printing `inspect, then: git worktree remove …` / `remove with: … git branch -D …` as advice. It prints the verdict, and the session that sees it runs the cleanup command (item 4) — or, for *ask*, relays the yes/no line.
-6. **Park threshold** for a slot with no write activity: [FOUNDER DECISION: 7 days proposed. A shorter window clears clutter sooner, while a longer one protects slow prototypes.]
+4. **Ship records what it shipped.** On a successful ship, `git-ops.sh ship` appends one line per shipped branch to a durable shipped-tips record (never deleted with the journal): P-number, branch, the branch tip it shipped, main's SHA after landing. This is the only exact "landed" signal for a squashed or reconciled ship. Every after-the-fact oracle was measured wrong on 2026-10-27: patch-id kept all 11 shipped branches, a subject match is fooled by `c431d2ec0`/`eb56d6e3b` (same subject, 382-line difference; `git-ops.sh:1355-1369`), and a whole-branch reverse-apply against main failed on all 11 because main had kept editing those files.
+5. **Agents clean up; the founder answers only yes/no questions (revised 2026-10-27).** One command, run by agents, never by the founder. It gives each stranded slot, unmanaged worktree (including `scratchpad/` worktrees in `/private/tmp`) and slot-less branch exactly one verdict:
+   - *remove*, which runs automatically. It is allowed only when ALL hold:
+     - (a) the branch tip equals, or is an ancestor of, a tip in the shipped-tips record, OR `classify_ref` (`git-ops.sh:1484`) says MERGED;
+     - (b) the worktree is idle by the git-dir test in `sweep_merged_agent_worktrees` (`git-ops.sh:726`): no write to its `index`, `HEAD` or `logs/HEAD` within the idle window. This works for slots and unmanaged worktrees alike, and an unreadable git dir counts as LIVE;
+     - (c) there are no uncommitted or untracked files beyond the regenerable set (item 2);
+     - (d) the slot has no valid `.hold` (P1519).
+
+     Before anything is deleted, the name and tip SHA go to the private recovery log, and a detached HEAD is pinned under `refs/recovery/<name>`. Removal reuses `teardown_worktree_if_clean` (`git-ops.sh:755`).
+   - *park* (remove the worktree, keep the branch) runs automatically for a slot with no write activity for 7 days, under the same rules (b)-(d). The branch survives, so parking is fully reversible.
+   - *ask* covers everything else: untracked files that exist nowhere else, commits with no shipped-tip record that `classify_ref` keeps, `backup/*` refs, and detached worktrees with commits not on main. Each item reaches the founder as one plain-language yes/no line saying what it is and what would be lost, with the evidence. **Never a shell command.** On "yes" the agent runs the removal through the same logged path.
+   - A branch fully contained in another live branch gets *remove worktree, keep branch*.
+6. **The strandings report names the agent's action, not a command.** `pipeline-strandings.sh` stops printing `inspect, then: git worktree remove …` and `remove with: … git branch -D …`. It prints the verdict. The session that sees it runs item 5's command, or relays the *ask* lines. Its open-spec test is also fixed: `! ls features/pN_*.md features/*/pN_*.md` (lines 197 and 318) exits non-zero whenever either glob misses, so an open spec reads as closed and the old report advised `git branch -D` on a live branch (reproduced 2026-10-27).
+7. **Park threshold: 7 days** (decided by the agent, 2026-10-27). The founder asked to be kept out of reversible calls, and parking keeps the branch.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A real session working only through reads goes ORPHAN and gets proposed for removal | MITIGATE | Removal still needs the no-changes check, and /day only *proposes* an action. A pure-read session has nothing to lose in the worktree. |
-| Classifying a Bash command as read-vs-write is heuristic | ACCEPT | Ambiguous commands count as writes (fail toward LIVE). Only clear reads are excluded. |
+| A session that only reads looks idle and its worktree gets removed | MITIGATE | Idle is measured on the worktree's own git dir (index/HEAD/reflog), so a session that changes git state stays live. A session that never changes git state has nothing in the worktree to lose. Untracked files block removal. |
+| Classifying a Bash command as read-vs-write is heuristic | MITIGATE | Any `git` command naming the slot counts as a write unless it is on an explicit read allowlist (`log`, `status`, `diff`, `show`, `rev-parse`). Ambiguous commands count as writes. |
+| Branches shipped before the shipped-tips record existed have no record | ACCEPT | They go to *ask* once, batched. It is a one-time backlog. |
 | Parking removes a worktree whose owner returns | ACCEPT | The branch is kept, and `git-ops claim` re-creates the slot. |
 
 **Non-Goals**
-- Do NOT auto-remove anything that fails the *remove* conditions in item 4 — those go to the founder as a yes/no line. (Replaces the 2026-10-09 non-goal "no auto-removal without founder approval", reversed by the founder on 2026-10-27.)
+- Do NOT auto-remove anything that fails the *remove* conditions in item 5 — those go to the founder as a yes/no line. (Replaces the 2026-10-09 non-goal "no auto-removal without founder approval", reversed by the founder on 2026-10-27.)
 - Do NOT change the lock/nonce ownership model.
 - Do NOT touch embargo flow or `publish-spec` (INBOX-155 tracks the stub gap).
 
@@ -80,10 +90,18 @@ Blast radius: medium. These are shared tools (`git-ops.sh`, the activity hook, `
 - [ ] A slot with a dead lock PID and a fresh write still reads LIVE (the w4 case, canary)
 - [ ] A slot whose only extras are nested `tools/kanban/test-results/` is removed by ship (canary)
 - [ ] `ship pN --resume` converges when the spec was renamed after the journal was written (canary reproducing p1448)
-- [ ] /day shows one proposed action per stranded slot and executes it on approval. A contained-branch slot is proposed for remove-keep-branch.
-- [ ] Shipped-but-squashed branches (P1515 and P1389 shapes: patch-ids differ, subjects or file contents on main) classify as *remove*; a worktree whose only unique content is an untracked file (base-p1562 tests, the w17 P1572 spec) classifies as *ask* (canary, both halves pasted)
-- [ ] A *remove* writes the branch name and tip SHA to the private recovery log before deleting, and the branch is restorable from it (canary)
-- [ ] The strandings report contains no `git worktree remove` / `git branch -D` advice; a session start with a removable stranding leaves it removed without founder input
+- [ ] Scratch-repo canary, both halves pasted, covering these fixtures:
+  - a squash-shipped branch with a shipped-tips record → *remove*;
+  - the same branch with one commit added after the ship → *ask*;
+  - a subject collision like `c431d2ec0` with no record → *ask*;
+  - a reverted-then-not-relanded commit → *ask*;
+  - an untracked-only worktree, the base-p1562 and w17 shapes → *ask*;
+  - a detached worktree holding a unique commit → *ask*, or pinned under `refs/recovery/` before removal;
+  - a slot with a valid `.hold` → never removed;
+  - a worktree whose git dir was written inside the idle window → never removed.
+- [ ] A ship writes its shipped-tips line, and the line survives the journal's deletion (canary)
+- [ ] A *remove* writes name and tip SHA to the private recovery log before deleting, and the branch is restorable from it (canary)
+- [ ] `pipeline-strandings.sh` output contains no `git worktree remove` / `git branch -D` text, and an open spec in a `features/` subfolder plus a done copy no longer reads as closed (canary for the lines 197 and 318 glob bug)
 - [ ] Every new refusal and gate is run against the documented ship, claim and abandon workflows, and they still pass (epistemic gate 7c)
 
 ## Related
