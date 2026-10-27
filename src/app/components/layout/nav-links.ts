@@ -36,11 +36,12 @@ import {
 // so it never shows a self-link).
 export const AUDIENCE_LINKS = [
   // P1351 order (founder): builders, hiring, co-founders, coaches. P1506 adds hospitals after hiring.
+  // P1558: change managers leads the list.
   // P1392: the builders landing left "/" (now the feed) for /builders.
+  { to: "/change-managers", label: "For change managers", Icon: FlagIcon },
   { to: "/builders", label: "For builders", Icon: TargetIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/hospitals", label: "For hospitals", Icon: HeartPulseIcon },
-  { to: "/change-leads", label: "Leading a change", Icon: FlagIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
   { to: "/coach", label: "For coaches", Icon: GraduationCapIcon },
 ] as const;

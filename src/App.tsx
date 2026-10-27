@@ -24,6 +24,7 @@ import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
 import { ChatRedirect, DocDetailRedirect, FeedTagRedirect } from "@/app/routes/legacy-redirects";
+import { LANDING_REDIRECTS } from "@/app/routes/landing-redirects";
 import { LettersRedirect, DocsRedirect } from "@/app/pages/artifacts/legacy-redirects";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
@@ -133,7 +134,7 @@ const AdminTopicsPage = lazy(() => import("@/app/pages/admin-topics-page").then(
 const TopicsPage = lazy(() => import("@/app/pages/topics-page").then(m => ({ default: m.TopicsPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
-const ChangeLeadsPage = lazy(() => import("@/app/pages/change-leads-page").then(m => ({ default: m.ChangeLeadsPage })));
+const ChangeManagersPage = lazy(() => import("@/app/pages/change-managers-page").then(m => ({ default: m.ChangeManagersPage })));
 const HospitalsPage = lazy(() => import("@/app/pages/hospitals-page").then(m => ({ default: m.HospitalsPage })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
@@ -459,17 +460,18 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
-        <Route path="/hospital" element={<Navigate to="/hospitals" replace />} />
 
-        {/* P1558: change-leads use-case page (noindex; listed in the Use cases menu). */}
+        {/* P1558: change-managers use-case page (noindex; listed in the Use cases menu). /change-leads was its first name. */}
         <Route
-          path="/change-leads"
+          path="/change-managers"
           element={
             <ClarityLandingLayout surface="public">
-              <LazyRoute><ChangeLeadsPage /></LazyRoute>
+              <LazyRoute><ChangeManagersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
+        {/* /hospital, /change-leads, /program, /offers → canonical routes */}
+        {LANDING_REDIRECTS.map(([from, to]) => <Route key={from} path={from} element={<Navigate to={to} replace />} />)}
         {/* Offer page — canonical URL is /pricing (P1087, UAT round 5). It was /program,
             with /pricing redirecting here; the direction is now reversed. "Pricing" is the
             word people scan a nav for, and it matches both the new nav item and the page's
@@ -483,8 +485,6 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
-        <Route path="/program" element={<Navigate to="/pricing" replace />} />
-        <Route path="/offers" element={<Navigate to="/pricing" replace />} />
 
         <Route
           path="/login"

@@ -211,7 +211,7 @@
       "destination": "/api/og?path=/hospitals"
     },
     {
-      "source": "/change-leads",
+      "source": "/change-managers",
       "has": [
         {
           "type": "header",
@@ -219,7 +219,7 @@
           "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
         }
       ],
-      "destination": "/api/og?path=/change-leads"
+      "destination": "/api/og?path=/change-managers"
     },
     {
       "source": "/((?!api|_next|.*\\..*).*)",
@@ -232,7 +232,7 @@
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     },
     {
-      "source": "/change-leads",
+      "source": "/change-managers",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     },
     {

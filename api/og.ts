@@ -1,6 +1,6 @@
 import { getThumbnailUrl } from '../src/lib/video.js';
 import { HOSPITALS_OG } from '../src/app/content/hospitals-og.js';
-import { CHANGE_LEADS_OG } from '../src/app/content/change-leads-og.js';
+import { CHANGE_MANAGERS_OG } from '../src/app/content/change-managers-og.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Vercel Serverless Function — serves dynamic OG meta tags to bot crawlers.
@@ -377,8 +377,8 @@ const STATIC_ROUTES: Array<{ pattern: RegExp; og: OgData }> = [
     og: { ...HOSPITALS_OG, url: `${BASE_URL}/hospitals`, type: 'website', noIndex: true },
   },
   {
-    pattern: /^\/change-leads\/?$/,
-    og: { ...CHANGE_LEADS_OG, url: `${BASE_URL}/change-leads`, type: 'website', noIndex: true },
+    pattern: /^\/change-(?:managers|leads)\/?$/,
+    og: { ...CHANGE_MANAGERS_OG, url: `${BASE_URL}/change-managers`, type: 'website', noIndex: true },
   },
 ];
 

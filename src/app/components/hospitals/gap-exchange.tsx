@@ -21,6 +21,7 @@ import { MicIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { EXCHANGE_COPY } from "@/app/content/hospitals-exchange";
+import { HOSPITAL_CAST, type ExchangeCast } from "@/app/content/exchange-casts";
 
 /** Illustrated, not photographs: generic colleagues, nobody real. */
 const AVATAR = { doctor: "/hospitals/colleague-a.jpg", nurse: "/hospitals/colleague-b.jpg" } as const;
@@ -43,26 +44,26 @@ function Heading() {
   );
 }
 
-function Transcript({ className }: { className?: string }) {
+function Transcript({ className, cast }: { className?: string; cast: ExchangeCast }) {
   return (
     <ol className={className}>
-      <li>The nurse sends {DOCTOR} a voice message explaining something.</li>
-      <li>Nurse: {EXCHANGE_COPY.m1}</li>
-      <li>{DOCTOR}: {EXCHANGE_COPY.m2}</li>
-      <li>Nurse: {EXCHANGE_COPY.m3}</li>
+      <li>{cast.intro}</li>
+      <li>{cast.meLabel}: {EXCHANGE_COPY.m1}</li>
+      <li>{cast.other}: {EXCHANGE_COPY.m2}</li>
+      <li>{cast.meLabel}: {EXCHANGE_COPY.m3}</li>
       <li>{EXCHANGE_COPY.verified}</li>
       <li>{EXCHANGE_COPY.revealed}</li>
-      <li>{EXCHANGE_COPY.close}</li>
+      <li>{cast.close}</li>
     </ol>
   );
 }
 
 /** The fallback when the animated chat throws: same sequence, visible. */
-export function GapExchangeStatic() {
+export function GapExchangeStatic({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
   return (
     <div data-testid="gap-exchange-static" className="container mx-auto max-w-md">
       <Heading />
-      <Transcript className="list-decimal pl-5 space-y-2 text-foreground/80" />
+      <Transcript cast={cast} className="list-decimal pl-5 space-y-2 text-foreground/80" />
     </div>
   );
 }
@@ -106,7 +107,7 @@ function SystemNote({ children }: { children: ReactNode }) {
   );
 }
 
-export function GapExchange() {
+export function GapExchange({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.35 });
@@ -149,14 +150,14 @@ export function GapExchange() {
   return (
     <div data-testid="gap-exchange" ref={ref} className="container mx-auto max-w-xl">
       <Heading />
-      <Transcript className="sr-only" />
+      <Transcript cast={cast} className="sr-only" />
       <div aria-hidden="true" data-testid="exchange-visual" data-phase={phase}>
         <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
             <img src={AVATAR.doctor} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="min-w-0 text-left">
-              <p className="text-sm font-semibold leading-tight">{DOCTOR}</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">Ward doctor</p>
+              <p className="text-sm font-semibold leading-tight">{cast.other}</p>
+              <p className="text-[11px] text-muted-foreground leading-snug">{cast.otherRole}</p>
             </div>
           </div>
           <div className="bg-[#efeae2] px-3 py-4 flex flex-col gap-2">
@@ -166,7 +167,7 @@ export function GapExchange() {
             <motion.div {...fade(phase >= 4)}><Bubble mine time="09:41">{EXCHANGE_COPY.m3}</Bubble></motion.div>
             <motion.div className="flex flex-col" {...fade(phase >= 5)}><SystemNote><b>{EXCHANGE_COPY.verified}</b></SystemNote></motion.div>
             <motion.div className="flex flex-col" {...fade(phase >= 6)}><SystemNote>{EXCHANGE_COPY.revealed}</SystemNote></motion.div>
-            <motion.div className="flex flex-col" {...fade(phase >= 7)}><SystemNote>{EXCHANGE_COPY.close}</SystemNote></motion.div>
+            <motion.div className="flex flex-col" {...fade(phase >= 7)}><SystemNote>{cast.close}</SystemNote></motion.div>
           </div>
         </div>
       </div>
@@ -174,7 +175,7 @@ export function GapExchange() {
   );
 }
 
-export class ExchangeBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export class ExchangeBoundary extends Component<{ children: ReactNode; cast?: ExchangeCast }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
@@ -184,15 +185,15 @@ export class ExchangeBoundary extends Component<{ children: ReactNode }, { faile
     Sentry.captureException(error, { tags: { surface: "hospitals-exchange" } });
   }
   render() {
-    return this.state.failed ? <GapExchangeStatic /> : this.props.children;
+    return this.state.failed ? <GapExchangeStatic cast={this.props.cast} /> : this.props.children;
   }
 }
 
 /** The exchange with its static fallback. */
-export function GapExchangeSection() {
+export function GapExchangeSection({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
   return (
-    <ExchangeBoundary>
-      <GapExchange />
+    <ExchangeBoundary cast={cast}>
+      <GapExchange cast={cast} />
     </ExchangeBoundary>
   );
 }

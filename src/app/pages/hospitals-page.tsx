@@ -11,25 +11,30 @@
  * /intro, appears in the hero and the closing section; the hero adds the /builders quiet
  * "or Take the Pledge" link, the pledger strip and the scroll cue.
  *
- * Reveal / CountUpPercent / RefSup are duplicated from program-page.tsx, as
- * build-right-thing-landing.tsx already does (see its header): extracting them would edit
- * the frozen landings, which is the follow-up spec's call.
+ * Reveal, RefSup, References and the why / Group Terms / team-norm sections are shared with
+ * /change-managers (src/app/components/landing/). CountUpPercent is still duplicated from
+ * program-page.tsx, as build-right-thing-landing.tsx already does.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BrainIcon, CalendarIcon, EyeOffIcon, HeartPulseIcon, UsersIcon } from "lucide-react";
-import { motion, MotionConfig, useInView, useReducedMotion, animate, type Variants } from "framer-motion";
+import { CalendarIcon, HeartPulseIcon } from "lucide-react";
+import { motion, MotionConfig } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { SectionHeader } from "@/app/components/landing/section-header";
-import { CertificateFrame, CertificateOathBody } from "@/app/components/agreements/certificate-frame";
-import { TemplateStamp } from "@/app/components/agreements/template-stamp";
-import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
-import { HospitalIcon, PeopleStrip, type HospitalIconName } from "@/app/components/hospitals/hospital-icons";
+import { HospitalIcon, type HospitalIconName } from "@/app/components/hospitals/hospital-icons";
+import { CountUpPercent } from "@/app/components/landing/count-up-percent";
 import { GapExchangeSection } from "@/app/components/hospitals/gap-exchange";
 import { HOSPITALS_OG } from "@/app/content/hospitals-og";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
+import { Reveal } from "@/app/components/landing/reveal";
+import { RefSup as RefSupLink } from "@/app/components/landing/ref-sup";
+import { ReferencesList } from "@/app/components/landing/references-list";
+import { WhyNobodyVerifiesSection, type ReasonSource } from "@/app/components/landing/why-nobody-verifies";
+import { GroupTermsSection } from "@/app/components/landing/group-terms-section";
+import { TeamNormSection } from "@/app/components/landing/team-norm-section";
+import { SECTION, MUTED, STAGGER_CONTAINER, STAGGER_ITEM, VIEWPORT_ONCE } from "@/app/components/landing/landing-motion";
 
 const REFERENCES = [
   {
@@ -60,68 +65,12 @@ const VALUES: { icon: HospitalIconName; text: string }[] = [
   { icon: "stay", text: "Lower staff turnover" },
 ];
 
-// Why almost nobody verifies — the /builders trio, shortened. Hierarchy and read-back (the
-// brochure's "why gaps stay invisible") lead: it is the reason a hospital reader recognises.
-const REASONS: { icon: typeof EyeOffIcon; title: string; text: string; ref: 2 | 3 | 4 }[] = [
-  { icon: UsersIcon, title: "Hierarchy", text: "Asking how much someone really understood feels awkward, especially across seniority. Read-back covers clinical orders, not everyday talk.", ref: 2 },
-  { icon: EyeOffIcon, title: "Illusion of transparency", text: "We think our meaning is obvious. People tapping a song expect half of listeners to name it; 2.5% do.", ref: 3 },
-  { icon: BrainIcon, title: "Curse of knowledge", text: "Once you know something, it is hard to feel what the other person is missing.", ref: 4 },
-];
+// Which reference number each reason cites (reading order: the stat is 1).
+const REASON_REF: Record<ReasonSource, 2 | 3 | 4> = { ha: 2, newton: 3, camerer: 4 };
 
-const PATH = [
-  { title: "See the cost", text: "Where gaps cost the most.", strip: { blue: [], questions: [1, 3] } },
-  { title: "Find champions", text: "People who naturally reveal gaps.", strip: { blue: [1] } },
-  { title: "Spread", text: "In important meetings, with a simple structure.", strip: { blue: [1, 2, 3] } },
-  { title: "Norm", text: "Verifying before important decisions is expected.", strip: { blue: [0, 1, 2, 3, 4] } },
-  { title: "Maintain", text: "New staff onboard fast, digitally.", strip: { blue: [0, 1, 2, 3, 4], plus: true } },
-];
 
-// ── Motion (presi port via framer-motion), duplicated from program-page (see header).
-const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
-const STAGGER_ITEM: Variants = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } };
-// The path steps light up one after another, slower than the tiles: the norm spreading.
-const PATH_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.3 } } };
-const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
-const SECTION = "px-4 py-20 lg:py-28 border-t border-border";
-
-function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={VIEWPORT_ONCE}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-/** 0 → target on scroll-in. Starts at the real target so a page whose JS never animates
- *  still shows the right number (see program-page.tsx). */
-function CountUpPercent({ target }: { target: number }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.2 });
-  const [val, setVal] = useState(target);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return <span ref={ref}>{val}%</span>;
-}
-
-/** Citation superscript → the References list (the standard landing pattern). */
 function RefSup({ n }: { n: 1 | 2 | 3 | 4 }) {
-  return (
-    <sup className="ml-0.5">
-      <a href="#references" aria-label={`Reference ${n}: ${REFERENCES[n - 1].label}`} className="inline-block px-2 py-5 -mx-2 -my-5 text-blue-600 hover:text-blue-700">
-        {n}
-      </a>
-    </sup>
-  );
+  return <RefSupLink n={n} label={REFERENCES[n - 1].label} />;
 }
 
 function PrimaryCTA({ location }: { location: "hero" | "closing" }) {
@@ -134,44 +83,6 @@ function PrimaryCTA({ location }: { location: "hero" | "closing" }) {
       <CalendarIcon className="w-5 h-5 shrink-0" />
       <span className="whitespace-nowrap">Book a 15-min discovery call</span>
     </Link>
-  );
-}
-
-/** Workshop-impact-fades vs team-norm chart, with a text alternative. */
-function NormChart() {
-  // MotionConfig's reducedMotion only skips transforms; pathLength would still animate, so skip it here.
-  const reduce = useReducedMotion();
-  const draw = (duration: number, delay = 0) => ({
-    initial: reduce ? false : { pathLength: 0 },
-    whileInView: { pathLength: 1 },
-    viewport: VIEWPORT_ONCE,
-    transition: { duration, delay, ease: "easeInOut" as const },
-  });
-  // Each label appears as its line arrives, so it never names empty space.
-  const label = (delay: number) => ({
-    initial: reduce ? false : { opacity: 0 },
-    whileInView: { opacity: 1 },
-    viewport: VIEWPORT_ONCE,
-    transition: { duration: 0.4, delay },
-  });
-  return (
-    <figure className="w-full max-w-md mx-auto">
-      <svg viewBox="-6 0 206 62" className="w-full h-auto" role="img" aria-labelledby="norm-chart-desc">
-        <line x1="8" y1="48" x2="196" y2="48" stroke="#e5e7eb" />
-        <line x1="9" y1="4" x2="9" y2="48" stroke="#e5e7eb" />
-        {/* The lines draw left to right on scroll-in: the workshop spikes and fades, then the norm climbs. */}
-        <motion.path d="M8 46 C30 46 34 12 46 12 C60 12 66 42 110 45 L196 46" fill="none" stroke="#9ca3af" strokeWidth="2.2" {...draw(1.4)} />
-        <motion.path d="M8 46 C50 44 80 32 110 22 C140 13 170 11 196 10" fill="none" stroke="#2563eb" strokeWidth="2.6" {...draw(1.6, 0.5)} />
-        <motion.text x="52" y="9" fontSize="9" fill="#4b5563" {...label(0.4)}>One-off workshop</motion.text>
-        <motion.text x="196" y="26" textAnchor="end" fontSize="9" fill="#2563eb" fontWeight="700" {...label(1.8)}>Team norm</motion.text>
-        <text x="196" y="58" textAnchor="end" fontSize="8.5" fill="#6b7280">Time</text>
-        <text x="5" y="47" fontSize="8.5" fill="#6b7280" transform="rotate(-90 5 47)">Adoption</text>
-      </svg>
-      <figcaption id="norm-chart-desc" className="sr-only">
-        Chart of how widely the practice is adopted over time: after a one-off workshop, use peaks and then fades back to
-        near zero; as a team norm, use rises steadily and stays high.
-      </figcaption>
-    </figure>
   );
 }
 
@@ -193,7 +104,6 @@ export function HospitalsPage() {
   useEffect(() => {
     analytics.track("landing_page_viewed", { variant: "hospitals" });
   }, []);
-  const coa = COA_VERSIONS[CURRENT_COA_VERSION];
 
   return (
     <MotionConfig reducedMotion="user">
@@ -241,29 +151,11 @@ export function HospitalsPage() {
           </Reveal>
         </section>
 
-        {/* 3. Why almost nobody verifies — the /builders section, three icon cards. */}
-        <section className={SECTION}>
-          <div className="container mx-auto max-w-4xl">
-            <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">Why almost nobody <span className="text-blue-500">verifies</span> understanding</span>} />
-            </Reveal>
-            <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {REASONS.map((r) => (
-                <motion.li key={r.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <r.icon className="w-8 h-8 text-blue-600 mb-3" aria-hidden="true" />
-                  <h3 className="text-lg font-bold mb-2">{r.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {r.text}
-                    <RefSup n={r.ref} />
-                  </p>
-                </motion.li>
-              ))}
-            </motion.ul>
-          </div>
-        </section>
+        {/* 3. Why almost nobody verifies — shared with /change-managers. */}
+        <WhyNobodyVerifiesSection cite={(src) => <RefSup n={REASON_REF[src]} />} />
 
         {/* 4. The exchange — auto-playing chat, as the Maya chat on /builders. */}
-        <section className={`${SECTION} bg-muted/30`}>
+        <section className={`${SECTION} ${MUTED}`}>
           <GapExchangeSection />
         </section>
 
@@ -275,49 +167,11 @@ export function HospitalsPage() {
           </div>
         </section>
 
-        {/* 6. The norm in writing — the Clarity Group Terms specimen, as on /builders.
-            Body is the shared oath via COA_VERSIONS, byte-identical to /groups/:slug/join.
-            No Accept button: a live action on a marketing page is a dead control (P955).
-            Heading is the norm itself, moved down from the hero. */}
-        <section className={`${SECTION} bg-muted/30 overflow-hidden`}>
-          <Reveal className="container mx-auto max-w-3xl">
-            <SectionHeader title={<span className="inline-block text-balance">Make it <span className="text-blue-500">normal</span> to ask how well we understand each other</span>} />
-            <div className="relative">
-              <CertificateFrame ariaLabel="Clarity Group Terms" title={coa.title} kicker="A commitment to every member" epigraph="We all crave being understood. Let's commit to listen.">
-                <CertificateOathBody sections={[coa.yourRight, coa.myPromise, coa.exception]} />
-              </CertificateFrame>
-              <TemplateStamp animate />
-            </div>
-          </Reveal>
-        </section>
+        {/* 6. The norm in writing — shared Group Terms specimen. */}
+        <GroupTermsSection muted />
 
-        {/* 7. How it becomes a norm — the workshop-fades chart is the reason for the path,
-            so "how it's different" is this section's opening, not a section of its own.
-            The steps light up one after another as the norm spreads. */}
-        <section className={SECTION}>
-          <div className="container mx-auto max-w-5xl">
-            <Reveal className="text-center">
-              <SectionHeader
-                title={<span className="inline-block text-balance">How revealing gaps becomes a <span className="text-blue-500">team norm</span></span>}
-              />
-              <NormChart />
-            </Reveal>
-            <motion.ol className="mt-12 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4" variants={PATH_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {PATH.map((p, i) => (
-                <motion.li key={p.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-4 lg:p-5 shadow-sm flex lg:flex-col items-start lg:items-center gap-4 lg:gap-0 text-left lg:text-center">
-                  {/* Desktop: strip above the number. Mobile: number left, strip under the text. */}
-                  <div className="hidden lg:block w-28"><PeopleStrip {...p.strip} /></div>
-                  <div className="lg:my-3 w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0">{i + 1}</div>
-                  <span className="min-w-0 flex-1">
-                    <b className="block">{p.title}</b>
-                    <span className="text-sm text-muted-foreground">{p.text}</span>
-                    <span className="block lg:hidden w-32 mt-2"><PeopleStrip {...p.strip} /></span>
-                  </span>
-                </motion.li>
-              ))}
-            </motion.ol>
-          </div>
-        </section>
+        {/* 7. How it becomes a norm — shared with /change-managers. */}
+        <TeamNormSection />
 
         {/* Founder credibility — the shared section, byte-identical to /builders, /coach, /founder. */}
         <FounderCredibility />
@@ -336,21 +190,7 @@ export function HospitalsPage() {
         </section>
 
         {/* 9. References */}
-        <section id="references" className="px-4 py-10 border-t border-border scroll-mt-16">
-          <div className="container mx-auto max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">References</p>
-            <ol className="text-xs text-muted-foreground space-y-1.5">
-              {REFERENCES.map((r) => (
-                <li key={r.n} className="flex gap-1.5">
-                  <span className="shrink-0">{r.n}.</span>
-                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2">
-                    {r.label}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
+        <ReferencesList references={REFERENCES} />
       </div>
     </MotionConfig>
   );
