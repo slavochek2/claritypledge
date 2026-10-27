@@ -2443,6 +2443,60 @@ resolve_ship_sprint_dir() {
   fi
 }
 
+# ----------------------------------------------------------------------------
+# Durable records (P1450): shipped tips and the recovery log
+# ----------------------------------------------------------------------------
+#
+# Both live in the git COMMON dir (`<repo>/.git/`), not in .claude/worktrees/: that tree is
+# where slots, journals and scratch state are created and removed, and a record whose job is
+# to outlive them must not share its fate. The git dir is never published and is shared by
+# every worktree of the repo.
+#
+#   cp-shipped-tips    one tab-separated line per shipped branch:
+#                        ISO-time  pN  branch  shipped-branch-tip  main-sha-after-landing
+#                      Appended by `ship` on success, never deleted with the journal. It is the
+#                      only EXACT "landed" signal for a squashed or reconciled ship: every
+#                      after-the-fact oracle (patch-id, subject match, whole-branch reverse
+#                      apply) was measured wrong on 2026-10-27.
+#   cp-recovery-log    one tab-separated line per thing `tidy` is about to delete:
+#                        ISO-time  kind  name  branch  tip-sha  path  reason
+#                      Written, and read back, BEFORE the deletion. `git branch NAME TIP`
+#                      restores a removed branch from it.
+cp_common_dir() { git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null; }
+shipped_tips_file() { local d; d="$(cp_common_dir)" || return 1; [[ -n "$d" ]] && printf '%s/cp-shipped-tips\n' "$d"; }
+recovery_log_file() { local d; d="$(cp_common_dir)" || return 1; [[ -n "$d" ]] && printf '%s/cp-recovery-log\n' "$d"; }
+
+# ship_record_shipped_tip <pN> <branch> <main sha>
+# The tip is the last commit of the journal's LANDED prefix (up to, not including, the first
+# entry without a landed_sha or marked withheld): the journal is the plan the ship executed,
+# and only a landed commit may vouch for its ancestors. Never fails
+# the ship: main already holds the work by the time this runs, so a warning is the right
+# severity for a record that could not be written.
+ship_record_shipped_tip() {
+  local pn="$1" branch="$2" main_sha="$3" tips tip
+  tips="$(shipped_tips_file)" || { echo "ship: WARNING: could not locate the git dir; shipped-tips record NOT written for $pn" >&2; return 0; }
+  tip="$(python3 - "$SHIP_JOURNAL_DIR/${pn}.json" <<'PY' 2>/dev/null || true
+import json, sys
+c = json.load(open(sys.argv[1])).get("commits") or []
+# Only what PROVABLY reached main: stop at the first entry with no landed_sha or marked
+# withheld. Taking c[-1] let a skipped/never-landed entry vouch for every ancestor.
+tip = ""
+for e in c:
+    if not e.get("landed_sha") or e.get("withheld"):
+        break
+    tip = e["source_sha"]
+print(tip)
+PY
+)"
+  if [[ -z "$tip" ]]; then
+    echo "ship: WARNING: journal for $pn names no commits; shipped-tips record NOT written" >&2
+    return 0
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(iso_now)" "$pn" "$branch" "$tip" "$main_sha" >> "$tips" \
+    || echo "ship: WARNING: could not append to $tips; shipped-tips record NOT written for $pn" >&2
+  return 0
+}
+
 # Initialize a fresh journal with the source_sha list from `git log main..branch`.
 # spec_file is stored so --resume can find the spec even after spec_closed=true
 # (the spec has already been moved out of features/).
@@ -4103,6 +4157,7 @@ cmd_ship() {
   # read inside the post-lock seed block. Resume path always leaves these as "".
   local need_seed=0
   local branch_spec_file=""
+  local resume_done_copy=""   # P1450: set by the resume path when the spec already sits in done/
   # P1255: set when the spec carries `disclosure: embargo`. Suppresses the spec
   # seed, the spec-close git mv, and Phase 3 teardown — the branch and worktree
   # must survive so the spec stays branch-born until `archive-spec` runs.
@@ -4419,6 +4474,28 @@ cmd_ship() {
     spec_file="$(ship_journal_str "$pn" "spec_file")"
     [[ -n "$branch" ]] || die "ship: journal $journal missing source_branch"
     [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
+    # P1450: the stored path is a hint, not an authority. A spec renamed (or already closed
+    # into done/ under a new name) after the journal was written stranded `--resume` with
+    # "spec file missing" although every commit had landed (p1448, 2026-10-09). Resolve by
+    # P-number when the stored path is gone: an open spec anywhere in features/ wins; else a
+    # copy already in done/ means the close happened, so Phase 2 has nothing left to do.
+    if [[ ! -f "$REPO_ROOT/$spec_file" ]]; then
+      local _resolved="" _done_copy=""
+      _resolved="$(resolve_ship_spec "$pn" 2>/dev/null)" || _resolved=""
+      if [[ -n "$_resolved" ]]; then
+        spec_file="$_resolved"
+      else
+        _done_copy="$( cd "$REPO_ROOT" && ls features/done/*/"${pn}"_*.md 2>/dev/null | sort | head -n1 )" || _done_copy=""
+        if [[ -n "$_done_copy" ]]; then
+          # NOT marked spec_closed: a spec that was moved but never re-based or committed
+          # (the P1094 crash window, canary TT) also sits in done/ with the flag unset, and
+          # Phase 2 must still finish it. Phase 2 adopts this path as its destination.
+          resume_done_copy="$_done_copy"
+          echo "ship: $pn's spec is already at $_done_copy (journal named a path that no longer exists); resuming from there." >&2
+        fi
+        # Neither: leave the stored path; Phase 2 refuses with its own message.
+      fi
+    fi
   fi
 
   # --- Closure gate, normal branch route (P1246) ----------------------------
@@ -5188,6 +5265,9 @@ The branch is authoritative for shipped migrations. Compare each file with
     spec_base="$(basename "$spec_file")"
     spec_dest="${sprint_dir}/${spec_base}"
 
+    if [[ ! -f "$REPO_ROOT/$spec_file" && ! -f "$REPO_ROOT/$spec_dest" && -n "$resume_done_copy" ]]; then
+      spec_dest="$resume_done_copy"   # P1450: renamed after the journal was written; it is already where it belongs
+    fi
     if [[ -f "$REPO_ROOT/$spec_file" ]]; then
       ( cd "$REPO_ROOT" && git mv "$spec_file" "$spec_dest" ) || die "ship: git mv failed"
     elif [[ ! -f "$REPO_ROOT/$spec_dest" ]]; then
@@ -5348,6 +5428,13 @@ The branch is authoritative for shipped migrations. Compare each file with
   local _hop_sha
   _hop_sha="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
 
+  # P1450: a durable record of what this ship landed, written before the journal that
+  # holds the same facts is deleted. Skipped for an embargoed spec: its branch still holds
+  # withheld content that did NOT land, so "this tip shipped" would be false.
+  if (( ship_embargoed == 0 && EMB_MODE == 0 )); then
+    ship_record_shipped_tip "$pn" "$branch" "$_hop_sha"
+  fi
+
   # Release lock and clean up journal.
   release_main_lock
   trap - EXIT
@@ -5437,6 +5524,17 @@ SUBCOMMANDS (P787 extensions — T03/T04/T05)
                                slot lockfile. Remote refs are reported, never auto-deleted.
                                --base picks the ref to judge against (default main);
                                --no-remote skips the origin round-trip. (P1260)
+
+  tidy [--apply] [--confirm NAME]... [--all]
+                               (P1450) One verdict per worktree and slot-less branch:
+                               REMOVE / PARK / REMOVE_WORKTREE_KEEP_BRANCH / ASK / KEEP.
+                               Dry run by default. --apply executes the first three,
+                               after writing the recovery log (git common dir,
+                               cp-recovery-log); a detached HEAD is pinned under
+                               refs/recovery/. ASK items are never touched unless the
+                               founder said yes and the agent passes --confirm NAME.
+                               Removal needs: tip landed (cp-shipped-tips record or the
+                               gc oracle), idle git dir, no user changes, no valid .hold.
 
   abandon <slot> [--nonce <v>] Remove slot's lockfile AND worktree (branch preserved).
                                Ownership check for LIVE locks (same as release: --nonce
@@ -6560,6 +6658,504 @@ cmd_push_docs() {
 }
 
 # ----------------------------------------------------------------------------
+# Subcommand: tidy (P1450)
+# ----------------------------------------------------------------------------
+#
+# Cleanup that agents run and the founder never types. Every worktree (slots, agent-*
+# worktrees, and unmanaged ones anywhere in `git worktree list`, including scratchpads) and
+# every slot-less local branch gets exactly one verdict:
+#
+#   REMOVE                       worktree and branch are provably finished
+#   PARK                         worktree removed, branch kept (idle, unlanded, clean)
+#   REMOVE_WORKTREE_KEEP_BRANCH  the branch is fully contained in another local branch
+#   ASK                          unique content, or anything not provable: one plain line
+#   KEEP                         live, held, in flight (printed with --all)
+#
+# A REMOVE needs ALL of:
+#   (a) landed: the branch tip equals, or is an ancestor of, a tip in cp-shipped-tips, OR
+#       classify_ref (gc's three-signal oracle: patch + subject + no revert) says MERGED;
+#   (b) idle: no write to the worktree's git dir (index, HEAD, logs/HEAD) inside
+#       TIDY_IDLE_MIN, and for a slot no fresher .lock/.activity. An unreadable git dir
+#       counts as LIVE, so a failure to look can never read as "idle";
+#   (c) no uncommitted or untracked files beyond the regenerable set (worktree-changes.sh);
+#   (d) no valid .hold (P1519).
+# Both oracles are individually wrong on this repo (decisions.md 2026-09-05; the c431d2ec0
+# subject collision), which is why the shipped-tips record exists and why everything that
+# fails any test goes to ASK, never to REMOVE. A wrong ASK costs a question; a wrong REMOVE
+# destroys work.
+#
+# The idle test is the git-dir test sweep_merged_agent_worktrees uses (P1381), and it works
+# only if THIS command does not refresh it: every probe runs with GIT_OPTIONAL_LOCKS=0 so a
+# `git status` cannot rewrite an index and keep a dead worktree "live" for the next run.
+#
+# Nothing is deleted before the recovery log (cp-recovery-log in the git common dir) holds
+# a line naming it with its tip SHA, read back; a log that cannot be written means NO
+# deletion. A detached HEAD is pinned under refs/recovery/<name> first. ASK items are
+# deleted only by --confirm NAME, after the founder said yes, through the same logged path.
+#
+#   tidy                     dry run: print verdicts
+#   tidy --apply             execute REMOVE / PARK / REMOVE_WORKTREE_KEEP_BRANCH
+#   tidy --confirm NAME      (repeatable) also remove the named ASK item; needs --apply
+#   tidy --all               include KEEP lines
+# Output: VERDICT TAB name TAB plain-English text. No line contains a shell command.
+# S2 (strict principle): tidy never judges liveness more eagerly than the slot classifier does. The
+# idle window is the LONGER of the sweep's window and the slot LIVE window (LOCK_TTL_SECONDS, 12h),
+# and a slot whose lock the classifier calls LIVE is never touched (tidy_slot_live).
+TIDY_IDLE_MIN="${TIDY_IDLE_MIN:-$(( LOCK_TTL_SECONDS / 60 > AGENT_WT_IDLE_MIN ? LOCK_TTL_SECONDS / 60 : AGENT_WT_IDLE_MIN ))}"
+TIDY_PARK_DAYS="${TIDY_PARK_DAYS:-7}"
+
+# Parallel arrays, one entry per judged item (bash 3.2: no associative arrays).
+TD_VERDICT=(); TD_NAME=(); TD_TEXT=(); TD_KIND=(); TD_PATH=(); TD_BRANCH=(); TD_TIP=(); TD_ACT=(); TD_DIRTY=()
+# act = what a CONFIRMED ask actually does (remove: worktree + branch; worktree: worktree only, the
+# branch is kept; park: the same, marked parked). Approval never widens the judged action.
+# dirty = the user-change lines the judgement saw; a forced removal re-reads them first.
+tidy_add() {  # verdict name text kind path branch tip [act] [dirty]
+  TD_VERDICT+=("$1"); TD_NAME+=("$2"); TD_TEXT+=("$(printf '%s' "$3" | tr '\t\n' '  ')")
+  TD_KIND+=("$4"); TD_PATH+=("$5"); TD_BRANCH+=("$6"); TD_TIP+=("$7"); TD_ACT+=("${8:-remove}"); TD_DIRTY+=("${9:-}")
+}
+
+# path TAB head TAB branch-or-dash TAB locked(0/1), one line per worktree.
+tidy_list_worktrees() {
+  git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | awk -v RS= -F'\n' '{
+    p=""; h=""; b="-"; l=0
+    for (i=1; i<=NF; i++) {
+      if ($i ~ /^worktree /) p=substr($i,10)
+      else if ($i ~ /^HEAD /) h=substr($i,6)
+      else if ($i ~ /^branch /) { b=substr($i,8); sub(/^refs\/heads\//,"",b) }
+      else if ($i ~ /^locked/) l=1
+    }
+    printf "%s\t%s\t%s\t%d\n", p, h, b, l
+  }'
+}
+
+# Process working directories, read once per probe round (lsof is ~0.2s). Unset TIDY_CWD_SET to
+# force a fresh read (the execute phase does). Returns non-zero when the list cannot be read.
+tidy_cwd_load() {
+  command -v lsof >/dev/null 2>&1 || return 1
+  TIDY_CWD_OUT="$(lsof -a -d cwd -Fn 2>/dev/null)"
+  [[ -n "$TIDY_CWD_OUT" ]] || return 1      # a working lsof lists at least this process
+  TIDY_CWD_SET=1
+}
+# 0 when some process has its cwd inside <worktree>, OR when that cannot be determined (a
+# session reading files or running a dev server writes nothing to the git dir; fail LIVE).
+tidy_cwd_inside() {
+  local wt="$1" real
+  real="$(cd "$wt" 2>/dev/null && pwd -P)" || return 0
+  [[ -n "${TIDY_CWD_SET:-}" ]] || tidy_cwd_load || return 0
+  printf '%s\n' "$TIDY_CWD_OUT" | awk -v r="$real" -v w="$wt" '
+    substr($0,1,1)=="n" { p=substr($0,2); if (p==r || index(p,r"/")==1 || p==w || index(p,w"/")==1) f=1 }
+    END { exit !f }'
+}
+# 0 when a non-regenerable file inside the worktree was modified within <minutes>, or when the
+# tree cannot be fully read.
+tidy_fresh_files() {
+  local wt="$1" min="$2" out
+  out="$(find "$wt" \( -name .git -o -name node_modules -o -name dist -o -name coverage -o -name test-results \
+       -o -name playwright-report -o -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune \
+       -o -type f ! -name '.lock*' ! -name '.activity*' -mmin "-$min" -print 2>/dev/null)" || return 0
+  [[ -n "$out" ]]
+}
+
+# 0 when NOTHING wrote to or works in the worktree inside <minutes>; 1 when live OR unreadable.
+# LIVE signals: git-dir mtimes, .lock/.activity, a process whose cwd is inside it, a
+# non-regenerable file modified in the window (P1450 review: reading, a dev server, or editing
+# without staging never touches the git dir).
+tidy_idle_for() {
+  local wt="$1" min="$2" gd f seen=0
+  gd="$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  [[ -d "$gd" && -r "$gd" && -x "$gd" ]] || return 1
+  for f in "$gd/index" "$gd/HEAD" "$gd/logs/HEAD"; do
+    [[ -e "$f" ]] || continue
+    [[ -r "$f" ]] || return 1
+    seen=1
+    [[ -z "$(find "$f" -mmin "-$min" 2>/dev/null)" ]] || return 1
+  done
+  (( seen == 1 )) || return 1
+  for f in "$wt/.lock" "$wt/.activity"; do
+    [[ -e "$f" ]] || continue
+    [[ -z "$(find "$f" -mmin "-$min" 2>/dev/null)" ]] || return 1
+  done
+  if tidy_cwd_inside "$wt"; then return 1; fi
+  if tidy_fresh_files "$wt" "$min"; then return 1; fi
+  return 0
+}
+
+# 0 when <worktree> is a slot whose lock the existing classifier (the one `status`, adopt and abandon
+# use) calls LIVE. A slot without a readable lock is not LIVE by this test; the idle checks decide.
+tidy_slot_live() {
+  local wt="$1"
+  [[ "$(basename "$wt")" =~ ^w[0-9]+$ && -f "$wt/.lock" ]] || return 1
+  load_lockfile "$wt/.lock" || return 0       # unreadable lock: fail LIVE
+  [[ "$(classify_lock_state)" == "LIVE" ]]
+}
+
+# 0 when a .hold blocks removal. Delegates to the one classifier the startup report and the
+# Stop hook share. Anything it cannot answer counts as a hold: the fail-safe direction.
+tidy_hold_blocks() {
+  local wt="$1" slot line hold
+  [[ -e "$wt/.hold" ]] || return 1
+  slot="$(basename "$wt")"
+  [[ "$slot" =~ ^w[0-9]+$ && -f "$REPO_ROOT/scripts/pipeline-strandings.sh" ]] || return 0
+  line="$( cd "$REPO_ROOT" && bash scripts/pipeline-strandings.sh --slot "$slot" 2>/dev/null | head -1 )" || line=""
+  hold="$(printf '%s' "$line" | awk -F'\t' '{ print $6 }')"
+  case "$hold" in none|expired|stale) return 1 ;; esac
+  return 0
+}
+
+# Prints WHY <sha> counts as landed, or nothing. <branch> (optional) is the branch being judged:
+# a shipped-tips line vouches only for ITS OWN branch, and only when the main sha it recorded is
+# on main now. Without a branch (a detached worktree) no record is trusted; the oracle decides.
+tidy_landed_evidence() {
+  local sha="$1" br="${2:-}" tips t rb ms cls n
+  tips="$(shipped_tips_file)" || tips=""
+  if [[ -n "$br" && -n "$tips" && -f "$tips" ]]; then
+    while IFS=$'\t' read -r _ _ rb t ms; do
+      [[ -n "$t" && "$rb" == "$br" && -n "$ms" ]] || continue
+      git -C "$REPO_ROOT" merge-base --is-ancestor "$ms" main 2>/dev/null || continue
+      if [[ "$t" == "$sha" ]]; then echo "its tip is exactly the commit ship recorded as shipped"; return 0; fi
+      if git -C "$REPO_ROOT" cat-file -e "${t}^{commit}" 2>/dev/null \
+         && git -C "$REPO_ROOT" merge-base --is-ancestor "$sha" "$t" 2>/dev/null; then
+        echo "all its commits are inside a tip ship recorded as shipped"; return 0
+      fi
+    done < "$tips"
+  fi
+  # The oracle costs ~4 git calls per commit. A branch this far ahead of main is not "already
+  # on main" by any reading, and walking it would blow the session-start report's time budget,
+  # so it is NOT judged landed here (the fail-safe direction: it becomes an ASK).
+  n="$(git -C "$REPO_ROOT" rev-list --count "main..$sha" 2>/dev/null || echo 9999)"
+  (( n <= 40 )) || return 0
+  cls="$(classify_ref "$sha" main 2>/dev/null)" || cls=""
+  [[ "$cls" == "MERGED" ]] && echo "every commit is already on main (patch, subject and no revert all agree)"
+  return 0
+}
+
+# Plain-English reason an unlanded tip is not provably shipped (ASK evidence).
+tidy_unlanded_evidence() {
+  local br="$1" tip="$2" tips t n subj cls late=""
+  tips="$(shipped_tips_file)" || tips=""
+  if [[ -n "$tips" && -f "$tips" ]]; then
+    while IFS=$'\t' read -r _ _ rb t _; do
+      [[ -n "$t" && "$rb" == "$br" ]] || continue
+      if git -C "$REPO_ROOT" cat-file -e "${t}^{commit}" 2>/dev/null && git -C "$REPO_ROOT" merge-base --is-ancestor "$t" "$tip" 2>/dev/null; then
+        n="$(git -C "$REPO_ROOT" rev-list --count "$t..$tip" 2>/dev/null || echo '?')"
+        subj="$(git -C "$REPO_ROOT" log --format=%s -n 2 "$t..$tip" 2>/dev/null | cut -c1-60 | paste -sd ';' - )"
+        late="it was shipped, then $n commit$([[ "$n" == 1 ]] || echo s) were added that are on no shipped record (${subj})"
+      fi
+    done < "$tips"
+  fi
+  if [[ -n "$late" ]]; then echo "$late"; return 0; fi
+  n="$(git -C "$REPO_ROOT" rev-list --count "main..$tip" 2>/dev/null || echo '?')"
+  subj="$(git -C "$REPO_ROOT" log --format=%s -n 2 "main..$tip" 2>/dev/null | cut -c1-60 | paste -sd ';' - )"
+  cls=""
+  [[ "$n" =~ ^[0-9]+$ ]] && (( n <= 40 )) && { cls="$(classify_ref "$tip" main 2>/dev/null)" || cls=""; }
+  if [[ "$cls" == *reverted-by* ]]; then
+    echo "$n commit$([[ "$n" == 1 ]] || echo s) (${subj}) landed on main once but a later revert removed it and it has not come back, and no ship recorded it"
+  else
+    echo "$n commit$([[ "$n" == 1 ]] || echo s) (${subj}) whose content is not on main and that no ship recorded; a commit on main with the same subject does not count as the same change"
+  fi
+}
+
+# A first-few-names summary of the user changes in a worktree: "a, b, c and 2 more".
+tidy_change_summary() {
+  local wt="$1" lines n
+  lines="$(worktree_user_change_lines "$wt" | sed -e 's/^...//' -e 's|/$||')"
+  n="$(printf '%s\n' "$lines" | grep -c . || true)"
+  printf '%s\n' "$lines" | head -n 4 | paste -sd ',' - | sed 's/,/, /g'
+  (( n > 4 )) && printf ' and %d more' "$((n - 4))"
+  return 0
+}
+
+# S3: 0 when branch <br> is checked out in any worktree other than <exclude> (listed, even if its
+# directory is missing: the safe direction). A branch checked out anywhere is never deleted.
+tidy_branch_elsewhere() {  # branch [exclude-path]
+  local br="$1" ex="${2:-}" wt h b l
+  [[ -n "$br" ]] || return 1
+  while IFS=$'\t' read -r wt h b l; do
+    [[ "$b" == "$br" ]] || continue
+    [[ -n "$ex" && "$wt" == "$ex" ]] && continue
+    return 0
+  done < <(tidy_list_worktrees)
+  return 1
+}
+
+tidy_parked_marker() { printf '%s/.parked/%s' "$WORKTREES_DIR" "${1//\//__}"; }
+
+tidy_judge_worktree() {  # path head branch locked cur
+  local wt="$1" head="$2" br="$3" locked="$4" cur="$5" name tip ev dirty n other ot
+  name="$(basename "$wt")"; [[ "$br" == "-" ]] && br=""
+  if [[ "$locked" == "1" ]]; then tidy_add KEEP "$name" "worktree is locked with git worktree lock" worktree "$wt" "$br" "$head"; return; fi
+  if [[ -n "$cur" && "$(cd "$wt" 2>/dev/null && pwd -P)" == "$cur" ]]; then
+    tidy_add KEEP "$name" "this is the worktree the command is running from" worktree "$wt" "$br" "$head"; return
+  fi
+  if [[ ! -d "$wt" ]]; then tidy_add KEEP "$name" "directory is missing (git can prune the record)" worktree "$wt" "$br" "$head"; return; fi
+  if tidy_slot_live "$wt"; then
+    tidy_add KEEP "$name" "slot is LIVE by the slot liveness classifier (the same verdict git-ops status shows)" worktree "$wt" "$br" "$head"; return
+  fi
+  if [[ -z "$head" ]] || ! tidy_idle_for "$wt" "$TIDY_IDLE_MIN"; then
+    tidy_add KEEP "$name" "live or unreadable: something wrote to its git dir in the last $((TIDY_IDLE_MIN / 60)) hours, or it could not be read" worktree "$wt" "$br" "$head"; return
+  fi
+  if tidy_hold_blocks "$wt"; then tidy_add KEEP "$name" "held by its owner (.hold)" worktree "$wt" "$br" "$head"; return; fi
+  tip="$head"
+  ev="$(tidy_landed_evidence "$tip" "$br")"
+  dirty="$(worktree_user_change_lines "$wt")"
+  if [[ -n "$ev" ]]; then
+    if [[ -n "$dirty" ]]; then
+      tidy_add ASK "$name" "${br:+branch $br is already shipped, but }worktree $name holds files that exist nowhere else and would be lost: $(tidy_change_summary "$wt"). Delete them anyway?" worktree "$wt" "$br" "$tip" remove "$dirty"
+    elif [[ -n "$br" ]] && tidy_branch_elsewhere "$br" "$wt"; then
+      tidy_add REMOVE_WORKTREE_KEEP_BRANCH "$name" "branch $br is shipped, but it is also checked out in another worktree; this worktree is removed and the branch stays" worktree "$wt" "$br" "$tip" worktree ""
+    else
+      tidy_add REMOVE "$name" "${br:+branch $br: }$ev; worktree idle and clean" worktree "$wt" "$br" "$tip" remove ""
+    fi
+    return
+  fi
+  if [[ -z "$br" ]]; then
+    tidy_add ASK "$name" "detached worktree $name holds commit ${tip:0:9} that is on no branch and not on main; removing it would lose that commit unless you want it gone. Remove it?" worktree "$wt" "" "$tip" remove "$dirty"
+    return
+  fi
+  if [[ -n "$dirty" ]]; then
+    # Saying yes removes the worktree (and the files in it), never the unshipped branch.
+    tidy_add ASK "$name" "branch $br is not shipped and worktree $name also holds uncommitted or untracked files ($(tidy_change_summary "$wt")); removing it would lose them (the branch is kept). Remove it?" worktree "$wt" "$br" "$tip" worktree "$dirty"
+    return
+  fi
+  # Fully contained in another local branch: the worktree adds nothing the other branch lacks.
+  other=""
+  while IFS= read -r ob; do
+    [[ -n "$ob" && "$ob" != "$br" && "$ob" != main && "$ob" != master && "$ob" != backup/* ]] || continue
+    # "Another LIVE branch": it must be checked out in a worktree, or the worktree may be the
+    # only place anyone is working on this line.
+    printf '%s' "${TIDY_CHECKED_OUT:-}" | grep -qxF -- "$ob" || continue
+    ot="$(git -C "$REPO_ROOT" rev-parse -q --verify "refs/heads/$ob" 2>/dev/null)" || continue
+    [[ "$ot" != "$tip" ]] || continue
+    if git -C "$REPO_ROOT" merge-base --is-ancestor "$tip" "$ot" 2>/dev/null; then other="$ob"; break; fi
+  done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)
+  if [[ -n "$other" ]]; then
+    tidy_add REMOVE_WORKTREE_KEEP_BRANCH "$name" "branch $br is fully contained in branch $other (checked out in its own worktree); this worktree is redundant and the branch stays" worktree "$wt" "$br" "$tip" worktree ""
+    return
+  fi
+  if ! tidy_idle_for "$wt" "$((TIDY_PARK_DAYS * 1440))"; then
+    n="$(git -C "$REPO_ROOT" rev-list --count "main..$tip" 2>/dev/null || echo '?')"
+    tidy_add KEEP "$name" "in flight: branch $br has $n commits not on main, idle less than $TIDY_PARK_DAYS days" worktree "$wt" "$br" "$tip"
+    return
+  fi
+  if [[ -n "$(git -C "$REPO_ROOT" diff --name-only "main...$tip" -- features/ 2>/dev/null)" ]]; then
+    tidy_add ASK "$name" "branch $br has been idle $TIDY_PARK_DAYS days or more and carries spec edits that exist only on the branch; parking its worktree would hide them from the board. Park it anyway?" worktree "$wt" "$br" "$tip" park ""
+    return
+  fi
+  tidy_add PARK "$name" "branch $br is unshipped but its worktree has been idle $TIDY_PARK_DAYS days or more and is clean; the branch is kept" worktree "$wt" "$br" "$tip" park ""
+}
+
+tidy_judge_branch() {  # branch (checked out nowhere)
+  local br="$1" tip ev reflog marker
+  tip="$(git -C "$REPO_ROOT" rev-parse -q --verify "refs/heads/$br" 2>/dev/null)" || return 0
+  if [[ "$br" == backup/* ]]; then
+    tidy_add ASK "$br" "backup branch $br (${tip:0:9}) is a safety copy of someone's earlier work; deleting it removes that copy. Delete it?" branch "" "$br" "$tip"; return
+  fi
+  reflog="$(cp_common_dir)/logs/refs/heads/$br"
+  if [[ -e "$reflog" && -n "$(find "$reflog" -mmin "-$TIDY_IDLE_MIN" 2>/dev/null)" ]]; then
+    tidy_add KEEP "$br" "branch was created or moved in the last $((TIDY_IDLE_MIN / 60)) hours" branch "" "$br" "$tip"; return
+  fi
+  ev="$(tidy_landed_evidence "$tip" "$br")"
+  if [[ -n "$ev" ]]; then
+    tidy_add REMOVE "$br" "branch has no worktree and $ev" branch "" "$br" "$tip"; return
+  fi
+  marker="$(tidy_parked_marker "$br")"
+  if [[ -f "$marker" && "$(sed -n 's/^HEAD=//p' "$marker" | head -1)" == "$tip" ]]; then
+    tidy_add KEEP "$br" "parked on purpose; unshipped work kept on the branch" branch "" "$br" "$tip"; return
+  fi
+  tidy_add ASK "$br" "branch $br has no worktree and holds $(tidy_unlanded_evidence "$br" "$tip"). Delete the branch?" branch "" "$br" "$tip"
+}
+
+# --- execution ---------------------------------------------------------------------------
+# The recovery line is written AND read back before anything is deleted.
+tidy_log_recovery() {  # kind name branch tip path reason
+  local log line
+  log="$(recovery_log_file)" || return 1
+  line="$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s' "$(iso_now)" "$1" "$2" "$3" "$4" "$5" "$6" | tr '\n' ' ')"
+  printf '%s\n' "$line" >> "$log" 2>/dev/null || return 1
+  [[ "$(tail -n 1 "$log" 2>/dev/null)" == "$line" ]]
+}
+
+# Pin <tip> under refs/recovery/<kind>-<key>-<hash>-<sha12>. The key is the FULL path or branch
+# name (never a basename: two scratch worktrees both called "base" must not overwrite each
+# other's pin), hashed in as well, and the sha is in the name so a reused name pins both tips.
+# A reflog is not a recovery source: `reflog expire` + `gc` pruned a deleted tip in testing.
+tidy_pin_recovery() {  # kind key tip
+  local kind="$1" key="$2" tip="$3" clean ref
+  # S5: the ref name must satisfy git check-ref-format. Collapse runs of dots (no `..`), strip leading
+  # dots, a trailing `.lock` and trailing dots; `@{` cannot survive the character whitelist.
+  clean="$(printf '%s' "$key" | tr -c 'A-Za-z0-9._-' '_' | sed -e 's/\.\{2,\}/./g' -e 's/^[._-]*//' -e 's/\.lock$//' -e 's/\.*$//' | tail -c 80 | sed -e 's/^[._-]*//')"
+  [[ -n "$clean" ]] || clean=x
+  ref="refs/recovery/${kind}-${clean}-$(printf '%s' "$key" | cksum | cut -d' ' -f1)-${tip:0:12}"
+  git check-ref-format "$ref" 2>/dev/null || return 1
+  git -C "$REPO_ROOT" update-ref "$ref" "$tip" 2>/dev/null || return 1
+  [[ "$(git -C "$REPO_ROOT" rev-parse -q --verify "$ref" 2>/dev/null)" == "$tip" ]]
+}
+
+tidy_worktree_listed() { git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $1"; }
+
+# $1 index  $2 mode: remove | park | worktree | confirm
+# confirm = the founder said yes to an ASK: it runs the action the ASK described (TD_ACT) with
+# the safety checks of the forced path. Approval never widens the action (a "Park it anyway?"
+# yes used to delete the branch).
+tidy_execute() {
+  local i="$1" mode="$2" name wt br tip kind reason act force=0 now
+  name="${TD_NAME[$i]}"; wt="${TD_PATH[$i]}"; br="${TD_BRANCH[$i]}"; tip="${TD_TIP[$i]}"; kind="${TD_KIND[$i]}"
+  reason="${TD_TEXT[$i]}"
+  act="$mode"
+  if [[ "$mode" == "confirm" ]]; then force=1; act="${TD_ACT[$i]:-remove}"; fi
+  # S3: re-read at execution time; the judgement may be old. A branch checked out anywhere else is kept.
+  if [[ -n "$br" && "$act" == "remove" ]] && tidy_branch_elsewhere "$br" "$([[ "$kind" == worktree ]] && echo "$wt")"; then
+    if [[ "$kind" == "worktree" ]]; then act="keepbranch"
+    else printf 'SKIPPED\t%s\t%s\n' "$name" "branch $br is checked out in a worktree, so it was not deleted"; return 0; fi
+  fi
+  if [[ "$kind" == "worktree" ]]; then
+    # The judgement is minutes old, and confirm may be much older. Re-read what it rested on.
+    unset TIDY_CWD_SET
+    if [[ -d "$wt" ]] && tidy_slot_live "$wt"; then
+      printf 'SKIPPED\t%s\t%s\n' "$name" "the slot became LIVE after it was judged"; return 0
+    fi
+    if [[ -d "$wt" ]] && ! tidy_idle_for "$wt" "$TIDY_IDLE_MIN"; then
+      printf 'SKIPPED\t%s\t%s\n' "$name" "the worktree became active after it was judged"; return 0
+    fi
+    if (( force == 1 )); then
+      now="$(worktree_user_change_lines "$wt")"
+      if [[ "$now" != "${TD_DIRTY[$i]-}" ]]; then
+        printf 'SKIPPED\t%s\t%s\n' "$name" "its uncommitted files changed after you were shown them, so nothing was deleted; run tidy again"; return 0
+      fi
+    fi
+  fi
+  if ! tidy_log_recovery "$mode" "$name" "$br" "$tip" "$wt" "$reason"; then
+    printf 'SKIPPED\t%s\t%s\n' "$name" "the recovery log could not be written, so nothing was deleted"; return 0
+  fi
+  if [[ "$kind" == "worktree" ]]; then
+    if ! tidy_pin_recovery wt "$wt" "$tip"; then
+      printf 'SKIPPED\t%s\t%s\n' "$name" "the worktree's HEAD could not be pinned under refs/recovery, so nothing was deleted"; return 0
+    fi
+  fi
+  if [[ -n "$br" && "$act" == "remove" ]] && ! tidy_pin_recovery br "$br" "$tip"; then
+    printf 'SKIPPED\t%s\t%s\n' "$name" "the branch tip could not be pinned under refs/recovery, so nothing was deleted"; return 0
+  fi
+  if [[ "$kind" == "worktree" ]]; then
+    if (( force == 1 )); then
+      reap_worktree_servers "$wt"
+      ( cd "$REPO_ROOT" && git worktree remove --force "$wt" ) >/dev/null 2>&1 || true
+    else
+      teardown_worktree_if_clean "$wt" "tidy" >/dev/null 2>&1 || true
+    fi
+    ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
+    if [[ -d "$wt" ]] || tidy_worktree_listed "$wt"; then
+      printf 'SKIPPED\t%s\t%s\n' "$name" "the worktree could not be removed (it changed since it was judged)"; return 0
+    fi
+  fi
+  if [[ -n "$br" && "$act" == "remove" ]]; then
+    # Compare-and-swap on the tip that was judged: a commit made since moves the ref and
+    # the delete refuses, exactly as ship's Phase 3 does (P1198).
+    if git -C "$REPO_ROOT" update-ref -d "refs/heads/$br" "$tip" 2>/dev/null; then
+      rm -f "$(tidy_parked_marker "$br")" 2>/dev/null || true
+    else
+      printf 'SKIPPED\t%s\t%s\n' "$name" "branch $br moved after it was judged; worktree handled, branch kept"; return 0
+    fi
+  elif [[ -n "$br" && "$act" != "keepbranch" ]]; then
+    mkdir -p "$WORKTREES_DIR/.parked"
+    {
+      echo "BRANCH=$br"
+      echo "SLOT=$name"
+      echo "PARKED_AT=$(iso_now)"
+      echo "PARKED_BY=tidy"
+      echo "HEAD=$tip"
+    } > "$(tidy_parked_marker "$br")"
+  fi
+  printf 'DONE\t%s\t%s\n' "$name" "$act: ${br:+branch $br, }tip ${tip:0:9} written to the recovery log first"
+}
+
+# 0 when confirm key <key> names item <i>: its display name, its full path, or a worktree's basename.
+tidy_key_matches() {
+  local i="$1" key="$2"
+  [[ "$key" == "${TD_NAME[$i]}" || "$key" == "${TD_PATH[$i]}" ]] && return 0
+  [[ "${TD_KIND[$i]}" == "worktree" && "$key" == "$(basename "${TD_PATH[$i]}")" ]] && return 0
+  return 1
+}
+
+cmd_tidy() {
+  local apply=0 show_all=0 confirm=() arg
+  while [[ $# -gt 0 ]]; do
+    arg="$1"
+    case "$arg" in
+      --apply) apply=1; shift ;;
+      --all) show_all=1; shift ;;
+      --confirm) [[ $# -ge 2 ]] || { echo "git-ops tidy: --confirm needs a name" >&2; exit 2; }; confirm+=("$2"); shift 2 ;;
+      --confirm=*) confirm+=("${arg#--confirm=}"); shift ;;
+      *) echo "usage: git-ops tidy [--apply] [--confirm NAME]... [--all]" >&2; exit 2 ;;
+    esac
+  done
+  if (( ${#confirm[@]} > 0 && apply == 0 )); then echo "git-ops tidy: --confirm acts only together with --apply" >&2; exit 2; fi
+  # Probes must not write: see the header. Exported so every nested git call inherits it.
+  export GIT_OPTIONAL_LOCKS=0
+
+  build_revert_index main
+  trap cleanup_revert_index RETURN
+
+  local cur="" wt head br locked held="" b i v found j k n
+  cur="$(git rev-parse --show-toplevel 2>/dev/null || true)"; [[ -n "$cur" ]] && cur="$(cd "$cur" && pwd -P)"
+  # Branches checked out in a live directory, known BEFORE judging (REMOVE_WORKTREE_KEEP_BRANCH
+  # needs the containing branch to be one of them) — includes the main checkout's branch.
+  TIDY_CHECKED_OUT=""
+  while IFS=$'\t' read -r wt head br locked; do
+    [[ -n "$wt" && -d "$wt" && "$br" != "-" ]] && TIDY_CHECKED_OUT+="$br"$'\n'
+  done < <(tidy_list_worktrees)
+  unset TIDY_CWD_SET
+  while IFS=$'\t' read -r wt head br locked; do
+    [[ -n "$wt" && "$wt" != "$REPO_ROOT" ]] || continue
+    [[ -d "$wt" ]] && [[ "$br" != "-" ]] && held+="$br"$'\n'
+    tidy_judge_worktree "$wt" "$head" "$br" "$locked" "$cur"
+  done < <(tidy_list_worktrees)
+  while IFS= read -r b; do
+    [[ -n "$b" && "$b" != main && "$b" != master ]] || continue
+    printf '%s' "$held" | grep -qxF -- "$b" && continue
+    tidy_judge_branch "$b"
+  done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)
+
+  # Two items can share a display name (two scratch worktrees both called "base"). Show the
+  # path for those, so the founder's answer can name exactly one.
+  for i in "${!TD_NAME[@]}"; do
+    n=0
+    for j in "${!TD_NAME[@]}"; do [[ "${TD_NAME[$j]}" == "${TD_NAME[$i]}" ]] && n=$((n + 1)); done
+    (( n > 1 )) && [[ "${TD_KIND[$i]}" == "worktree" ]] && TD_NAME[$i]="${TD_PATH[$i]}"
+  done
+
+  for v in REMOVE PARK REMOVE_WORKTREE_KEEP_BRANCH ASK KEEP; do
+    [[ "$v" == KEEP && $show_all -eq 0 ]] && continue
+    for i in "${!TD_VERDICT[@]}"; do
+      [[ "${TD_VERDICT[$i]}" == "$v" ]] && printf '%s\t%s\t%s\n' "$v" "${TD_NAME[$i]}" "${TD_TEXT[$i]}"
+    done
+  done
+
+  (( apply == 1 )) || return 0
+  # A confirm key that names more than one item acts on none of them.
+  for b in ${confirm[@]+"${confirm[@]}"}; do
+    k=0
+    for i in "${!TD_VERDICT[@]}"; do tidy_key_matches "$i" "$b" && k=$((k + 1)); done
+    if (( k > 1 )); then
+      echo "git-ops tidy: --confirm '$b' matches $k items; nothing was changed. Use the full path shown in the list." >&2
+      exit 2
+    fi
+  done
+  for i in "${!TD_VERDICT[@]}"; do
+    case "${TD_VERDICT[$i]}" in
+      REMOVE) tidy_execute "$i" remove ;;
+      PARK) tidy_execute "$i" park ;;
+      REMOVE_WORKTREE_KEEP_BRANCH) tidy_execute "$i" worktree ;;
+      ASK)
+        found=0
+        for b in ${confirm[@]+"${confirm[@]}"}; do tidy_key_matches "$i" "$b" && found=1; done
+        (( found == 1 )) && tidy_execute "$i" confirm
+        ;;
+    esac
+  done
+  return 0
+}
+
+# ----------------------------------------------------------------------------
 # Subcommands: hold, park (P1519)
 # ----------------------------------------------------------------------------
 #
@@ -6752,6 +7348,7 @@ main() {
     heartbeat)       cmd_heartbeat "$@" ;;
     activity)        cmd_activity "$@" ;;
     gc)              cmd_gc "$@" ;;
+    tidy)            cmd_tidy "$@" ;;
     abandon)         cmd_abandon "$@" ;;
     reconcile)       cmd_reconcile "$@" ;;
     commit-to-main)  cmd_commit_to_main "$@" ;;

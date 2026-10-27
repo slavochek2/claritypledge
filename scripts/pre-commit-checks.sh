@@ -308,7 +308,7 @@ echo ""
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,
 # adversarial eval cannot wipe a sandbox file.
-WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|lib/worktree-changes|pipeline-strandings|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight|test-git-ops-adopt|test-lock-state-parity|test-p1326-worktree-liveness)|\.claude/hooks/heartbeat-worktree-slot)\.sh$' || true)
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|lib/worktree-changes|pipeline-strandings|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight|test-git-ops-adopt|test-lock-state-parity|test-p1326-worktree-liveness|test-p1450-[a-z-]+)|\.claude/hooks/heartbeat-worktree-slot)\.sh$' || true)
 if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
         ERRORS=$((ERRORS + 1))
@@ -339,6 +339,17 @@ if [ -n "$WORKTREE_SETUP_STAGED" ]; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
+    # P1450: reads stop counting as activity (hook), the regenerable exemption holds at any
+    # depth, and the strandings report advises no shell cleanup. Each canary asserts both
+    # halves (the read/exempt case and its write/real-work control).
+    for _p1450 in "activity-hook:Activity hook counts writes only" "regenerable:Regenerable exemption at any depth" "strandings:Strandings report: no cleanup commands, open-spec glob"; do
+        _p1450_f="scripts/test-p1450-${_p1450%%:*}.sh"
+        if [ -f "$_p1450_f" ]; then
+            if ! run_quiet "${_p1450#*:} (P1450)" bash "$_p1450_f"; then
+                ERRORS=$((ERRORS + 1))
+            fi
+        fi
+    done
 else
     echo ">>> Worktree setup canary skipped (no worktree-setup scripts staged)"
 fi
@@ -423,7 +434,7 @@ fi
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|test-p1279-commit-to-main-index-race|lib/ship-reap|test-decisions-merge)\.sh$|^scripts/lib/decisions-merge\.py$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|test-p1279-commit-to-main-index-race|test-p1450-[a-z-]+|lib/ship-reap|test-decisions-merge)\.sh$|^scripts/lib/decisions-merge\.py$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
     # P1575 — ship's decisions-log resolver: every shape it must leave for a human, plus
     # the refusal of a merge that would lose an entry heading.
@@ -471,6 +482,19 @@ if [ -n "$GIT_OPS_STAGED" ]; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
+    # P1450 — tidy decides what is DELETED without asking the founder, so a wrong REMOVE
+    # destroys work. The canary runs every verdict shape from 2026-10-27 (squash-shipped, a
+    # commit added after the ship, a subject collision, a revert, untracked-only, detached,
+    # held, fresh) and asserts nothing outside REMOVE/PARK is ever touched. The ship record
+    # canary proves the shipped-tips line is written and that --resume survives a renamed spec.
+    for _p1450 in "tidy:git-ops.sh tidy verdicts and recovery log" "ship-record:git-ops.sh ship records shipped tips, resume survives a rename"; do
+        _p1450_f="scripts/test-p1450-${_p1450%%:*}.sh"
+        if [ -f "$_p1450_f" ]; then
+            if ! run_quiet "${_p1450#*:} (P1450)" bash "$_p1450_f"; then
+                ERRORS=$((ERRORS + 1))
+            fi
+        fi
+    done
 else
     echo ">>> git-ops.sh extensions canary skipped (no git-ops scripts staged)"
 fi

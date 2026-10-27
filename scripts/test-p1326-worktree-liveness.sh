@@ -112,22 +112,22 @@ fire "$FAKE" "{\"session_id\":\"real-session-uuid\",\"cwd\":\"$FAKE\",\"tool_nam
 [[ "$(state_of "$S")" == "LIVE" ]] && pass "1b: Edit with cwd on MAIN, file in slot -> LIVE" || fail "1b: cwd on main, in-slot file_path -> $(state_of "$S")"
 
 age "$S"
-fire "$FAKE" "{\"session_id\":\"real-session-uuid\",\"cwd\":\"$FAKE\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd .claude/worktrees/$S && git status\"}}"
-[[ "$(state_of "$S")" == "LIVE" ]] && pass "1c: Bash 'cd <slot> && …' from main -> LIVE" || fail "1c: Bash cd into slot from main -> $(state_of "$S")"
+fire "$FAKE" "{\"session_id\":\"real-session-uuid\",\"cwd\":\"$FAKE\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd .claude/worktrees/$S && git commit -qm x\"}}"
+[[ "$(state_of "$S")" == "LIVE" ]] && pass "1c: Bash 'cd <slot> && git commit' from main -> LIVE" || fail "1c: Bash cd into slot from main -> $(state_of "$S")"
 
 age "$S"
-fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Grep\",\"tool_input\":{\"pattern\":\"x\",\"path\":\".claude/worktrees/$S/src\"}}"
-[[ "$(state_of "$S")" == "LIVE" ]] && pass "1d: Grep with a RELATIVE in-slot path from main -> LIVE" || fail "1d: relative path field -> $(state_of "$S")"
+fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\".claude/worktrees/$S/src/x.ts\"}}"
+[[ "$(state_of "$S")" == "LIVE" ]] && pass "1d: Edit with a RELATIVE in-slot file_path from main -> LIVE" || fail "1d: relative path field -> $(state_of "$S")"
 
 age "$S"
-fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd .claude/worktrees/\\\"$S\\\" && ls\"}}"
+fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd .claude/worktrees/\\\"$S\\\" && touch f\"}}"
 [[ "$(state_of "$S")" == "LIVE" ]] && pass "1e: Bash with the slot component quoted (cd .claude/worktrees/\"wN\") -> LIVE" || fail "1e: quoted slot component -> $(state_of "$S")"
 
 for form in "./.claude/worktrees/$S" "\$CLAUDE_PROJECT_DIR/.claude/worktrees/$S" "$FAKE/.claude/worktrees/$S/"; do
   age "$S"
-  cmdjson="$(python3 -c 'import json,sys;print(json.dumps({"session_id":"x","cwd":sys.argv[1],"tool_name":"Bash","tool_input":{"command":"ls "+sys.argv[2]}}))' "$FAKE" "$form")"
+  cmdjson="$(python3 -c 'import json,sys;print(json.dumps({"session_id":"x","cwd":sys.argv[1],"tool_name":"Bash","tool_input":{"command":"touch "+sys.argv[2]+"/f"}}))' "$FAKE" "$form")"
   fire "$FAKE" "$cmdjson"
-  [[ "$(state_of "$S")" == "LIVE" ]] && pass "1f: Bash 'ls $form' from main -> LIVE" || fail "1f: 'ls $form' -> $(state_of "$S")"
+  [[ "$(state_of "$S")" == "LIVE" ]] && pass "1f: Bash 'touch $form/f' from main -> LIVE" || fail "1f: 'touch $form/f' -> $(state_of "$S")"
 done
 
 echo "--- 2. control: activity elsewhere does not mark the slot ---"
@@ -226,7 +226,7 @@ out="$(report)"   # aged + dirty
   || fail "5a: dirty slot reported as: $out"
 
 rm -f "$SP/uncommitted-migration.sql"; age "$S"
-fire "$SP" "{\"session_id\":\"s\",\"cwd\":\"$SP\",\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$SP/seed.txt\"}}"
+fire "$SP" "{\"session_id\":\"s\",\"cwd\":\"$SP\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$SP/seed.txt\"}}"
 out="$(report)"   # LIVE + clean
 [[ "$out" != *"READY TO SHIP"*"$S"* && "$out" == *"IN FLIGHT"*"$S"* ]] && pass "5b: LIVE slot -> IN FLIGHT, not READY TO SHIP" \
   || fail "5b: live slot reported as: $out"
@@ -245,8 +245,11 @@ out="$(report)"
 [[ "$out" == *"STRANDED WORKTREE $S"*"NOT removable yet"* && "$out" != *"remove with:"* ]] && pass "6a: dirty slot of a closed spec gets no 'remove --force' hint" || fail "6a: remove hint printed for dirty slot: $out"
 rm -f "$SP/late.txt"; age "$S"
 out="$(report)"
-[[ "$out" == *"STRANDED WORKTREE"*"$S"*"remove with:"* ]] && pass "6b: control — clean aged slot of a closed spec still gets the hint" \
-  || fail "6b: control — stranded hint vanished: $out"
+# P1450: the report no longer carries a removal command at all; the clean slot is still
+# reported STRANDED, without the "NOT removable yet" hold, and defers to tidy's verdict.
+[[ "$out" == *"STRANDED WORKTREE"*"$S"* && "$out" != *"NOT removable yet"* && "$out" != *"remove with:"* && "$out" != *"git worktree remove"* ]] \
+  && pass "6b: control — clean aged slot of a closed spec is still reported STRANDED (no hold, no shell command)" \
+  || fail "6b: control — stranded report wrong: $out"
 rm -rf "$FAKE/features"
 
 ensure_slot

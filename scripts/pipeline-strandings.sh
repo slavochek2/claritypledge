@@ -178,6 +178,21 @@ code_commit_counts() {
   echo "$landed $unlanded"
 }
 
+# Is pN's spec still OPEN, i.e. present in features/ outside done/, archive/ and uat/?
+# P1450: this was `! ls features/pN_*.md features/*/pN_*.md`, which exits non-zero when EITHER
+# glob matches nothing, so a spec living in only one of the two layouts read as closed and the
+# old report advised deleting a live branch (reproduced 2026-10-27). Each candidate is tested
+# on its own; an unmatched glob stays a literal string that -e rejects.
+spec_is_open() {
+  local f
+  for f in features/"${1}"_*.md features/*/"${1}"_*.md; do
+    [[ -e "$f" ]] || continue
+    case "$f" in features/done/*|features/archive/*|features/uat/*) continue ;; esac
+    return 0
+  done
+  return 1
+}
+
 # classify_slot <wt> — one state for a slot this session owns:
 #   CLOSED_CHECKED_OUT  spec already in features/done/, worktree still here
 #   SHIPPED_UNCLOSED    every code commit is already on main/origin/main, spec still open
@@ -193,8 +208,7 @@ classify_slot() {
   local wt="$1" br pn landed unlanded om_landed om_unlanded n_commits c direct=0
   br="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
   pn="$(printf '%s' "$br" | $GREP -oE 'p[0-9]+' | head -1)"
-  if [[ -n "$pn" ]] && ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 && \
-     ! ls features/"${pn}"_*.md features/*/"${pn}"_*.md >/dev/null 2>&1; then
+  if [[ -n "$pn" ]] && ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 && ! spec_is_open "$pn"; then
     printf 'CLOSED_CHECKED_OUT\t%s is closed in features/done/ but %s is still checked out\n' "$pn" "$br"; return
   fi
   if worktree_has_user_changes "$wt"; then
@@ -293,7 +307,7 @@ while IFS= read -r wt; do
     last="?"; [[ -n "$gd" ]] && last="$(mtime_of "$gd/index")"
     what="${br:-?}"; [[ "$what" == "HEAD" ]] && what="detached"
     findings+=("UNMANAGED WORKTREE ${wt}  — ${what}, index last written ${last}; no slot lock, so no guard sees it
-                    inspect, then:  git worktree remove ${wt}   (add --force only once nothing in it is needed)")
+                    cleanup is decided by the CLEANUP VERDICTS below")
     continue
   fi
 
@@ -314,14 +328,15 @@ while IFS= read -r wt; do
 
   # Spec already in features/done/ while its worktree is still live: the work
   # shipped and Phase 3 cleanup did not run (or ran against a different branch).
-  if ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 && \
-     ! ls features/"${pn}"_*.md features/*/"${pn}"_*.md >/dev/null 2>&1; then
+  if ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 && ! spec_is_open "$pn"; then
+    # P1450: no removal command here. Whether the slot may go is tidy's verdict (below), and
+    # the session applies it itself; the founder is never the one typing it.
     if [[ -n "$hold" ]]; then
       findings+=("STRANDED WORKTREE ${slot}  — ${pn} is already closed in features/done/, but ${br} is still checked out
                     NOT removable yet: ${hold}${hsuf}")
     else
       findings+=("STRANDED WORKTREE ${slot}  — ${pn} is already closed in features/done/, but ${br} is still checked out
-                    remove with:    git worktree remove --force ${wt#$REPO_ROOT/} && git branch -D ${br}${hsuf}")
+                    cleanup is decided by the CLEANUP VERDICTS below${hsuf}")
     fi
     continue
   fi
@@ -366,13 +381,53 @@ while IFS= read -r br; do
   findings+=("BRANCH, NO SLOT   ${br}  — a feature branch with no worktree (P781); commits here are easy to lose")
 done < <(git branch --format='%(refname:short)' 2>/dev/null | $GREP -E '^(feature|fix)/' || true)
 
+# ── 4. Cleanup verdicts (P1450) ───────────────────────────────────────────────
+# The report used to tell the reading session to run `git worktree remove` / `git branch -D`,
+# and sessions relayed that to the founder, who is not meant to be in the loop. The verdicts
+# come from `git-ops.sh tidy` (dry run, read-only): REMOVE/PARK lines are executed by the
+# session with `tidy --apply`, and only the ASK lines reach the founder, as yes/no questions.
+tidy_lines=()
+if [[ -x scripts/git-ops.sh ]]; then
+  # Bounded: the SessionStart hook that runs this has a 20s budget, and a report that hangs
+  # the session start is worse than one that says it skipped the verdicts.
+  _tidy_out="$(mktemp 2>/dev/null)" || _tidy_out=""
+  if [[ -n "$_tidy_out" ]]; then
+    # Own process group (job control), so a timeout can signal tidy AND the git/find/lsof
+    # children it spawned. `kill -9 $pid` alone orphaned them and leaked tidy's temp
+    # revert-index (it never got to run its cleanup trap).
+    {   # braces + 2>/dev/null: job control would otherwise print "Terminated" into the report
+    set -m
+    bash scripts/git-ops.sh tidy >"$_tidy_out" 2>/dev/null &
+    _tidy_pid=$!; _ticks=0
+    set +m
+    while kill -0 "$_tidy_pid" 2>/dev/null; do
+      if (( _ticks >= ${P1450_TIDY_BUDGET_TICKS:-60} )); then
+        kill -TERM -- "-$_tidy_pid" 2>/dev/null || kill -TERM "$_tidy_pid" 2>/dev/null || true
+        for _g in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$_tidy_pid" 2>/dev/null || break; sleep 0.1; done
+        kill -KILL -- "-$_tidy_pid" 2>/dev/null || kill -KILL "$_tidy_pid" 2>/dev/null || true
+        { wait "$_tidy_pid"; } 2>/dev/null || true
+        tidy_lines+=("(cleanup verdicts skipped: git-ops.sh tidy did not finish in its time budget; run it directly)")
+        : > "$_tidy_out"; break
+      fi
+      sleep 0.2; _ticks=$((_ticks + 1))
+    done
+    } 2>/dev/null
+    while IFS=$'\t' read -r _tv _tn _tt; do
+      [[ -n "$_tv" ]] || continue
+      case "$_tv" in REMOVE|PARK|REMOVE_WORKTREE_KEEP_BRANCH|ASK) tidy_lines+=("$(printf '%-27s %s  %s' "$_tv" "$_tn" "$_tt")") ;; esac
+    done < "$_tidy_out"
+    rm -f "$_tidy_out"
+  fi
+fi
+
 # ── Report ──────────────────────────────────────────────────────────────────
 # bash 3.2: ${#arr[@]} on an empty array under `set -u` is fine, but ${arr[@]}
 # is not — guard every expansion with a count check.
 _n_find=${#findings[@]}
 _n_flight=${#inflight[@]}
+_n_tidy=${#tidy_lines[@]}
 
-if [[ "$_n_find" -eq 0 ]] && { [[ "$SHOW_ALL" -eq 0 ]] || [[ "$_n_flight" -eq 0 ]]; }; then
+if [[ "$_n_find" -eq 0 && "$_n_tidy" -eq 0 ]] && { [[ "$SHOW_ALL" -eq 0 ]] || [[ "$_n_flight" -eq 0 ]]; }; then
   exit 0
 fi
 
@@ -386,6 +441,14 @@ if [[ "$SHOW_ALL" -eq 1 && "$_n_flight" -gt 0 ]]; then
   for f in "${inflight[@]}"; do
     echo "  $f"
   done
+fi
+if [[ "$_n_tidy" -gt 0 ]]; then
+  echo "  CLEANUP VERDICTS (git-ops.sh tidy; nothing below has been done yet)"
+  for f in "${tidy_lines[@]}"; do
+    echo "    $f"
+  done
+  echo "  This session runs ./scripts/git-ops.sh tidy --apply for the REMOVE, PARK and REMOVE_WORKTREE_KEEP_BRANCH lines"
+  echo "  (each is logged to the recovery log first). The founder is asked only the ASK lines, as yes/no questions."
 fi
 echo ""
 
