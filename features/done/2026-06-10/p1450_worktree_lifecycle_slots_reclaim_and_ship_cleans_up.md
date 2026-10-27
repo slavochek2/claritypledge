@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 26
 workstream: infrastructure
 created_date: '2026-10-09'
 tags: [worktrees, git-ops, ship, day]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-27
 ---
 
 # P1450: Worktree lifecycle: finished slots get removed, and /day can act on stranded ones
