@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 67
 workstream: clarity-canvas
 created_date: '2026-10-27'
 tags: [canvas, sales-mastermind]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-27
 ---
 
 # P1581: Rename two Clarity Canvas boxes
