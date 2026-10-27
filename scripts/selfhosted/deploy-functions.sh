@@ -31,6 +31,8 @@ ZONE="asia-southeast1-a"
 EXPECTED_URL="https://136-85-1-126.sslip.io"
 STACK_DIR="/opt/supabase/docker"
 FUNCTIONS_VOL="$STACK_DIR/volumes/functions"
+# One upload path per run, so two deploys at once never extract each other's bundle (review).
+REMOTE_TGZ="/tmp/cp-functions-$$-$(date +%s).tgz"
 SECRETS_DIR="$HOME/.config/cp-selfhosted-test"
 MAC_ENV="$SECRETS_DIR/env"
 MAC_FN_ENV="$SECRETS_DIR/functions.env"
@@ -65,7 +67,10 @@ done
 [ -f "$MAC_ENV" ] || die "$MAC_ENV not found: cannot confirm the target identity. Nothing was deployed."
 mac_url="$(grep '^SUPABASE_URL=' "$MAC_ENV" | head -1 | cut -d= -f2- | tr -d '"'"'" || true)"
 [ "$mac_url" = "$EXPECTED_URL" ] || die "SUPABASE_URL in $MAC_ENV is not $EXPECTED_URL (found: ${mac_url:-empty}). Refusing; nothing was deployed."
+# Homebrew installs gcloud outside the default PATH of non-login shells.
+command -v gcloud >/dev/null 2>&1 || PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
 command -v gcloud >/dev/null 2>&1 || die "gcloud not found"
+gcloud auth print-access-token >/dev/null 2>&1 || die "gcloud login expired: run 'gcloud auth login', then re-run. Nothing was deployed."
 [ -f "$ROUTER_SRC" ] || die "router source not found: $ROUTER_SRC"
 [ -f "$OPEN_LIST" ] || die "JWT policy list not found: $OPEN_LIST"
 [ -d "$FUNCTIONS_DIR" ] || die "functions dir not found: $FUNCTIONS_DIR"
@@ -84,7 +89,7 @@ vm_scp() { gcloud compute scp "${GCLOUD_COMMON[@]}" "$1" "$VM:$2" 2> >(grep -v -
 # Run a script read from stdin as root on the VM. Callers use QUOTED heredocs, so nothing in the
 # remote script is expanded locally; the two path constants are prepended instead.
 vm_run() {
-  { printf 'STACK_DIR=%q\nFUNCTIONS_VOL=%q\n' "$STACK_DIR" "$FUNCTIONS_VOL"; cat; } |
+  { printf 'STACK_DIR=%q\nFUNCTIONS_VOL=%q\nREMOTE_TGZ=%q\n' "$STACK_DIR" "$FUNCTIONS_VOL" "$REMOTE_TGZ"; cat; } |
     gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command 'sudo bash -s' \
       2> >(grep -v -i -E 'numpy|increasing_the_tcp|^WARNING:|^$' >&2)
 }
@@ -181,7 +186,7 @@ cp "$OPEN_LIST" "$STAGE/functions/main/no-verify-jwt-functions.txt"
 TARBALL="$STAGE/functions.tgz"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE/functions" -czf "$TARBALL" .
 echo "Deploying ${#copy_set[@]} function dir(s) + router to $VM ($EXPECTED_URL)..."
-vm_scp "$TARBALL" "/tmp/cp-functions.tgz"
+vm_scp "$TARBALL" "$REMOTE_TGZ"
 
 vm_run <<'REMOTE'
 set -euo pipefail
@@ -189,8 +194,8 @@ cd "$STACK_DIR"
 [ -f functions.env ] || { echo "functions.env missing: run scripts/selfhosted/deploy-functions.sh --setup" >&2; exit 1; }
 grep -q 'functions.env' docker-compose.override.yml || { echo "override has no functions env_file: run --setup" >&2; exit 1; }
 W=$(mktemp -d)
-tar -xzf /tmp/cp-functions.tgz -C "$W"
-rm -f /tmp/cp-functions.tgz
+tar -xzf "$REMOTE_TGZ" -C "$W"
+rm -f "$REMOTE_TGZ"
 mkdir -p "$FUNCTIONS_VOL"
 if [ -f "$W/.full-deploy" ]; then
   rm -f "$W/.full-deploy"

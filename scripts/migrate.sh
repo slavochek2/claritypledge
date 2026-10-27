@@ -130,6 +130,50 @@ if [ "$ENV_NAME" = "selfhosted" ]; then
   exec "$SCRIPT_DIR/selfhosted/migrate.sh" "${ORIG_ARGS[@]}"
 fi
 
+# --- Both TEST databases (P1557 switch): one door, both sides, never half silently ---
+# TEST is two databases while the switch runs: hosted TEST and the self-hosted server. A change
+# applied to one only makes the other fail tests for a reason nobody can see. So a test run:
+#   1. checks the self-hosted side can be reached BEFORE anything is applied anywhere,
+#   2. applies to hosted TEST (this same script, inner run),
+#   3. applies the same files to self-hosted.
+# A failure at 3 is reported as HALF-APPLIED with the one command that finishes it; that command
+# is safe to re-run (the self-hosted ledger skips what it already has). One run at a time.
+# Hosted TEST only, with a warning naming the follow-up: --only (applies exactly the listed files,
+# which the self-hosted path does not support) and a scripts copy without the self-hosted script
+# (the hermetic tests of the hosted path run on such a copy).
+if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_MIGRATE_INNER_HOSTED:-}" ] \
+   && { [ "$ONLY_MODE" = true ] || [ ! -x "$SCRIPT_DIR/selfhosted/migrate.sh" ]; }; then
+  echo "WARNING: hosted TEST only this run; self-hosted TEST is NOT updated. Afterwards run: ./scripts/migrate.sh --env selfhosted" >&2
+  CP_MIGRATE_INNER_HOSTED=1
+fi
+if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_MIGRATE_INNER_HOSTED:-}" ]; then
+  LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo /tmp)/cp-test-migrate.lock"
+  mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST migration is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
+  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+  echo ">>> [1/3] Checking the self-hosted TEST server can be reached (nothing applied yet)..."
+  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --list; then
+    echo "ERROR: self-hosted TEST is not reachable (often: gcloud login expired, run 'gcloud auth login')." >&2
+    echo "Nothing was applied to either database." >&2
+    exit 1
+  fi
+  echo ">>> [2/3] Applying to hosted TEST..."
+  INNER_ARGS=(--env "$ENV_NAME"); [ "$YES_FLAG" = true ] && INNER_ARGS+=(--yes)
+  if ! CP_MIGRATE_INNER_HOSTED=1 "$SCRIPT_DIR/migrate.sh" "${INNER_ARGS[@]}"; then
+    echo "ERROR: hosted TEST apply failed; self-hosted was not touched. Fix, then re-run ./scripts/migrate.sh" >&2
+    exit 1
+  fi
+  echo ">>> [3/3] Applying to self-hosted TEST..."
+  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted; then
+    echo "============================================================" >&2
+    echo "HALF-APPLIED: hosted TEST has the new migrations, self-hosted does NOT." >&2
+    echo "Finish it with:  ./scripts/migrate.sh --env selfhosted" >&2
+    echo "============================================================" >&2
+    exit 1
+  fi
+  echo "Done: both TEST databases are up to date."
+  exit 0
+fi
+
 # shellcheck source=lib/prod-ledger.sh
 source "$SCRIPT_DIR/lib/prod-ledger.sh"
 

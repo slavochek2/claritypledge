@@ -32,6 +32,37 @@ for arg in "$@"; do
   prev_arg="$arg"
 done
 
+# --- Both TEST databases (P1557 switch): same one door as migrate.sh ---
+# Reach the self-hosted server first (read-only migration listing; the secrets check fails by design
+# because paid keys are never copied there), deploy to hosted TEST (inner run), then deploy the same functions to self-hosted. A failure at the last step is HALF-DEPLOYED.
+if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_DEPLOY_INNER_HOSTED:-}" ] && [ ! -x "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ]; then
+  echo "WARNING: hosted TEST only this run; self-hosted TEST is NOT updated. Afterwards run: scripts/selfhosted/deploy-functions.sh" >&2
+  CP_DEPLOY_INNER_HOSTED=1
+fi
+if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_DEPLOY_INNER_HOSTED:-}" ]; then
+  LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir)/cp-test-deploy.lock"
+  mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST deploy is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
+  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+  echo "[1/3] Checking the self-hosted TEST server can be reached (nothing deployed yet)..."
+  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --list >/dev/null; then
+    echo "ERROR: self-hosted TEST is not reachable (often: gcloud login expired). Nothing was deployed." >&2
+    exit 1
+  fi
+  echo "[2/3] Deploying to hosted TEST..."
+  if ! CP_DEPLOY_INNER_HOSTED=1 "$SCRIPT_DIR/deploy-functions.sh" "$@"; then
+    echo "ERROR: hosted TEST deploy failed; self-hosted was not touched." >&2
+    exit 1
+  fi
+  echo "[3/3] Deploying to self-hosted TEST..."
+  if ! "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ${FUNCTION_NAME:+"$FUNCTION_NAME"}; then
+    echo "HALF-DEPLOYED: hosted TEST has the new functions, self-hosted does NOT." >&2
+    echo "Finish it with: scripts/selfhosted/deploy-functions.sh ${FUNCTION_NAME}" >&2
+    exit 1
+  fi
+  echo "Done: functions deployed to both TEST targets."
+  exit 0
+fi
+
 # --- Determine project ref ---
 if [ "$ENV_NAME" = "prod" ]; then
   ENV_FILE="$PROJECT_DIR/.env.prod"
