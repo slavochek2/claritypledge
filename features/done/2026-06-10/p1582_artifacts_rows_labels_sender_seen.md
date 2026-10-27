@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 disclosure: public
 drafted_by: opus
@@ -11,13 +11,13 @@ tags:
   - redesign
   - p1545
 created_date: 2026-10-27
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-10-27
 ---
 
 # P1582: Artifacts rows read as one list, full action labels on phones, the sender's own "seen" mark
 
-> **Redesign of:** [P1545: Feed home again, Chats and Artifacts in the menu, one Inbox rule, Chiang Mai card on Events](done/2026-06-10/p1545_menu_and_artifacts.md)
+> **Redesign of:** [P1545: Feed home again, Chats and Artifacts in the menu, one Inbox rule, Chiang Mai card on Events](p1545_menu_and_artifacts.md)
 > **What was wrong:** the founder tested P1545 on a phone after it went live. Each row was rounded and also carried the list's top divider, so every divider bent down at both ends and the rows read as broken half-cards. Below 400px the row's one action shrank to "+ Add" and "Prepare", which do not say what they do. And a sender never saw a recipient's later progress as new, because the old shared read mark is written once, when the recipient first opens the letter.
 
 ## Operating Mode
