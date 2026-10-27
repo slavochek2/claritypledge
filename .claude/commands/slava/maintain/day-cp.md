@@ -265,6 +265,22 @@ elif [ -z "$BACKUP_AGE" ]; then echo "CHECK cp.backup unproven no dated backup c
 elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
+echo "=== SELF-HOSTED TEST DATABASE (P1557) ==="
+# Stopgap, knowingly (.claude/rules/skills.md, recurring checks): reachability and certificate also
+# run on a schedule; disk and WAL need a gcloud login no workflow holds, so they are read here.
+TESTDB_HEALTH="$(git rev-parse --show-toplevel)/scripts/selfhosted/health.sh"
+if [ ! -x "$TESTDB_HEALTH" ]; then echo "CHECK cp.selfhosted skipped the self-hosted test server is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else
+  TESTDB_OUT="$("$TESTDB_HEALTH" 2>&1)"; TESTDB_RC=$?
+  echo "$TESTDB_OUT"
+  TESTDB_SUMMARY="$(echo "$TESTDB_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-78)"
+  case "$TESTDB_RC" in
+    0) echo "CHECK cp.selfhosted ok $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    1) echo "CHECK cp.selfhosted problem $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    *) echo "CHECK cp.selfhosted unproven some checks could not run: $TESTDB_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  esac
+fi
+
 echo "=== GEMINI PROD KEY (P1162) ==="
 # The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
 # in the shell, which is no ClarityPledge secret — it has exited 2 since it shipped and its coverage
