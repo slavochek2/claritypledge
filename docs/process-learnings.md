@@ -1381,6 +1381,8 @@ pauses and resumes it, close every tab and confirm the transcript reaches Sessio
 ratio are all owed there). Done when those clauses carry measured results. Anything that fails
 becomes a `/create-bug`, not an edit to the closed spec.
 
+Reviewed 2026-10-27 (weekly): keep (verified) — P1307 pushed, but its 22 [post-deploy] clauses carry no measured two-phone prod results
+
 ---
 
 ## The P160 /live E2E suite fails 13 tests for a reason unrelated to its subject
@@ -1428,6 +1430,8 @@ Reviewed 2026-10-21 (monthly): keep — not re-checked
 **due:** week
 
 `e2e/integration/p506-backfill-hashtags.spec.ts` asserts a story inserted with a hand-set tag keeps it after the backfill, but `trg_stories_extract_hashtags` (BEFORE INSERT OR UPDATE OF content) rewrites `tags` from the content on every insert, so the tag is gone before the backfill runs. Surfaced 2026-09-15 once P1214 let the backfill actually run (it had been failing on a 401). Done when the test seeds that row without the trigger overwriting it, or the assertion is removed because the trigger now owns `tags`; droppable if P506's backfill test is retired.
+
+Reviewed 2026-10-27 (weekly): keep (verified) — e2e/integration/p506-backfill-hashtags.spec.ts:170 test still present, unfixed
 
 ---
 
@@ -1487,18 +1491,10 @@ the box cannot be ticked before the merge. P1216 deadlocked its own ship that wa
 The documented pattern is to tick what was verified to the limit checkable pre-deploy and track
 the live re-check here, which is what this entry is.
 
----
-
-## Fix P1307 race: Open on the capture bar right after Continue bounces back to /meet
-
-**ID:** INBOX-80
-**Date:** 2026-09-16
-**Status:** proposed
-**due:** week
-
-Pre-existing, found during P1323: EventRoomReady's Continue awaits capture.startCapture() and only then navigates to /events/:slug/meet, but the capture bar renders as soon as capture runs (still on /ready), so an Open tap in that window reaches /transcribe/:code and is overtaken by the late /meet navigation; an identical Playwright probe bounced 4 of 8 on base a6d71c798 and 2 of 8 on the P1323 branch. Done when the bar's Open cannot be overtaken (e.g. skip the /meet navigate if the location already changed) and the /meet-URL wait in e2e/p1323-links-menu-surfaces.spec.ts reachCapturing is removed with that test still passing; droppable if the ready-to-meet flow is redesigned so Continue no longer navigates after an await.
+Reviewed 2026-10-27 (weekly): keep (unverified) — P1324 closed; no recorded full /day pass with every step; ledger not checked
 
 ---
+
 
 <!-- Resolved 2026-09-22: fixed and shipped as P1344 (features/done). -->
 
@@ -1515,6 +1511,8 @@ Event #1 (Clarity Night #1, 2026-09-18) ran and its results, attendee frictions 
 
 **Done when:** the step exists in the event process and event #2's debrief lands in the repo without a conversation sync having to find it.
 
+Reviewed 2026-10-27 (weekly): keep (verified) — no 48h debrief step in docs/events; may be moot while public nights are paused (decisions 2026-10-07)
+
 ---
 
 ## Forced-verdict pass on the 42 backlog specs created before 2026-06-23
@@ -1525,6 +1523,8 @@ Event #1 (Clarity Night #1, 2026-09-18) ran and its results, attendee frictions 
 **due:** week
 
 The /prioritize run of 2026-09-21 fitted today/week/in-progress but could not age-test backlog: git last-touch reads 2026-09-08 on every spec (the P1255 disclosure backfill), so the 90-day untouched test is blind. Use created_date instead. 42 backlog specs are older than 90 days by created_date; each needs keep or close-with-reason. Also the inbox itself (75 public + 24 private) was not triaged in that run.
+
+Reviewed 2026-10-27 (weekly): keep (unverified) — 175 backlog specs older than 90 days; the keep/close pass has not run
 
 ---
 
@@ -1569,6 +1569,8 @@ Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 
 The worktree migration procedure (apply via main's migrate.sh, commit main's manifest with commit-to-main, and also copy it into the worktree) puts the manifest on both main and the feature branch, so /ship's cherry-pick conflicts on it for every commit that touched it — 3 of 5 commits on P1349 (2026-09-22), each resolved by hand with main's copy. Done when a branch with migrations ships with zero manifest conflicts: either the worktree copy is never committed, or git-ops.sh ship auto-resolves the manifest to main's version.
 
+Reviewed 2026-10-27 (weekly): keep (verified) — git-ops.sh manifest-only conflict still prints a manual hint, no auto-resolve
+
 ---
 
 <!-- Resolved 2026-10-16: "Fix p887-reproduce.test.ts failing whenever scripts/lib/__pycache__ exists" — see decisions.md 2026-10-16 [process] -->
@@ -1582,6 +1584,8 @@ The worktree migration procedure (apply via main's migrate.sh, commit main's man
 
 P1358 R3 made Gemini 3.8 the default story writer with the threshold pre-registered and the model labelled on probation; the benchmark itself has not run, because the ikigai run had not reached story-draft. At the next story-draft: for two arguers, have Gemini and Opus each write every story, one Sonnet checker grade both sets blind to authorship, and the founder pick a favourite per pair blind. Keep Gemini only if its checker failure rate is no worse than Opus's by more than one story and the founder prefers Opus in no more than half the pairs; otherwise writers move to Opus. Record the result in P1358 and drop the probation label. Droppable if the story stage stops using per-arguer writers at all.
 
+Reviewed 2026-10-27 (weekly): keep (unverified) — P1358 benchmark pre-registered, no result recorded
+
 ---
 
 ## Run codex-review on the two P1358 commits (Codex was quota-walled during the review gate)
@@ -1592,6 +1596,8 @@ P1358 R3 made Gemini 3.8 the default story writer with the threshold pre-registe
 **due:** week
 
 P1358 shipped with two of three reviewers delivered: Opus and Gemini both reported and their findings are fixed, but codex-review exited 1 on its usage limit, which its wrapper flags as a failed run rather than a clean review. Run codex-review over the two commits (the implementation, swept into the video-facade commit, and the fix commit) once the limit resets, and file anything real as a follow-up change rather than reopening the spec. Droppable once a later Codex review covers the same disagreement-pipeline files.
+
+Reviewed 2026-10-27 (weekly): keep (unverified) — P1358 spec says Codex NOT DELIVERED; later codex runs not searched
 
 ---
 
@@ -1604,6 +1610,8 @@ P1358 shipped with two of three reviewers delivered: Opus and Gemini both report
 **due:** week
 
 P1367 shipped with this Done-When unobserved: draft mode now creates `.private/events/<run-slug>/improvements.md` before its first founder question and appends every page correction in the same turn. It can only be seen on a real draft. At the next Clarity Night page draft, list the folder before the first question and count lines against corrections given. Droppable once one draft shows the file filled.
+
+Reviewed 2026-10-27 (weekly): keep (unverified) — improvements.md is 0 bytes; may never fire while public nights are paused
 
 ---
 
@@ -1618,6 +1626,8 @@ P1367 shipped with this Done-When unobserved: draft mode now creates `.private/e
 
 P1366 proved a non-modal Radix DropdownMenu lets the tap that closes it also fire what is underneath (card navigation, a position write); the card menu was switched to modal with actions deferred to onCloseAutoFocus. src/app/components/shared/share-dropdown.tsx still uses modal={false}. Reproduce with an outside-tap test; fix the same way if it leaks, drop this if nothing under it is clickable.
 
+Reviewed 2026-10-27 (weekly): keep (verified) — share-dropdown moved to src/app/components/profile/; still modal={false}; outside-tap repro not run
+
 ---
 
 ## Own profile Points tab keeps a story after it is edited or deleted in the Stories tab
@@ -1629,6 +1639,8 @@ P1366 proved a non-modal Radix DropdownMenu lets the tap that closes it also fir
 
 Pre-existing on main, found in P1366 review: StoryCardFull's onDelete and onUpdate change only realStories, so after deleting your story the Points tab still shows the Your story expander (and no + Add a story) until reload; after an edit it shows the old text. Fix by updating the points' linked stories and viewerStoryCountMap too, or refetching. Drop if profile-page-v2 is replaced first.
 
+Reviewed 2026-10-27 (weekly): keep (verified) — profile-page-v2.tsx:1332-1333 onDelete/onUpdate still skip viewerStoryCountMap
+
 ---
 
 ## Triage the 15 e2e tests that already fail on main in the card-footer specs
@@ -1639,6 +1651,8 @@ Pre-existing on main, found in P1366 review: StoryCardFull's onDelete and onUpda
 **due:** week
 
 Measured in P1366 with a baseline worktree at the base commit: 15 tests fail on main and on the branch alike, across e2e/a11y/p465-accessibility.spec.ts (10), p1296-stake-navigation.spec.ts (2), p456-story-cta-footer.spec.ts, p465-point-card-footer.spec.ts and p699-letter-results-sender.spec.ts. Causes seen: page.waitForLoadState('networkidle') timeouts (p465 uses it 20 times), fetch failed in setup, assertions on the pre-P1366 design (edit/delete icon buttons now inside the card menu). Rewrite, or delete tests the layout spec now covers. Done when the six specs pass twice in a row.
+
+Reviewed 2026-10-27 (weekly): keep (unverified) — named specs still use networkidle (20 and 11 hits); not run
 
 ---
 
@@ -1751,6 +1765,8 @@ Accepted, not fixed (decide fix vs. keep):
 - /finish LOWs: letter instant read does not kick in behind a captive portal; currentBuildId returns '' silently; removal dialog repeats the offline check instead of the shared guard; viewerId: undefined semantics.
 - Earlier known gaps: embedded point card vote revert outside the feed; use-active-session uses the app-wide failure signal; edit/delete/image writes show generic errors offline.
 
+Reviewed 2026-10-27 (weekly): keep (unverified) — Offline strip implemented; post-deploy rechecks and LOW items not checked
+
 ---
 
 
@@ -1780,38 +1796,6 @@ Before building: write the success signal up front (e.g. N visitors reach the le
 
 ---
 
-## Publish Clarity Night #3 (Tue 2026-10-20) before CN#2 runs
-
-**ID:** INBOX-113
-**Date:** 2026-10-02
-**Status:** proposed
-**due:** week
-
-Decided 2026-10-02, not published. The date exists only in the P1337 spec text; there is no
-event page on prod.
-
-Blocked on two founder values:
-- the title (naming is a founder call; "Clarity Night #3 — you choose the topic" was proposed)
-- the series WhatsApp invite link, which is not stored anywhere — the clarity-night entry in
-  the private channels file holds promotion channels, not the event's own attendee chat. It
-  lives in a private table readable only by the host and registered attendees.
-
-Everything else is ready: Tue 2026-10-20 18:30 Asia/Bangkok, Zuzalu library (4Seas Nimman,
-Building F, 20 Nimmanhaemin Soi 15), 120 min, org cm, preparation ON with the statement tag
-left EMPTY until the room's votes pick the topic after CN#2, description drafted linking to
-/topics for the vote.
-
-Why it matters before 2026-10-06: the closing sequence at CN#2 is meant to let people register
-for the next night on the spot, which needs the page to exist. The previous "we'll email you"
-path already failed once — 13 RSVPs, zero sends.
-
-Also worth doing while publishing: store the series event defaults (group chat url, preparation,
-org, duration, timezone, location) in the private channels file so this is never asked again.
-Founder 2026-10-02: "for our clarity nights its a setting... its always same group chat link for
-this series, no need to ask (if it changes i update)." Making publish-event READ that block is a
-skill-file change and needs separate approval.
-
----
 
 <!-- Resolved 2026-10-16: ST1 video switched to the founder clip and verified playing on /feed (1280x720, 84.4 s, currentTime advancing, no media error) -->
 
@@ -2787,19 +2771,6 @@ From the P1535 visual QA, 2026-10-24: the owner name in the panel owner row trun
 
 ---
 
-## Flaky under load: p1512-chat-ui menuOn context-menu test
-
-**ID:** INBOX-223
-**Date:** 2026-10-24
-**Status:** resolved
-**due:** week
-
-src/tests/p1512-chat-ui.test.tsx:3360 (menuOn, line 231 getElementError) failed once in the full pre-commit suite on 2026-10-24 (654 files passed, 1 failed) and passed 210/210 when the file ran alone. The commit touched only a /tree prototype no test imports. Same family as INBOX-124 and INBOX-167: a query that does not wait under full-suite load.
-
-Resolved by P1573 (`features/p1573_p1512_chat_ui_menuon_races_render_under_load.md`): `menuOn` is now async and waits for the message with `findByText`.
-
----
-
 ## create-spec tells authors to put post-merge-only steps in the Pre-deploy Checklist, which ship gate 3.5 then blocks forever
 
 **ID:** INBOX-224
@@ -2898,17 +2869,6 @@ A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 20
 **due:** week
 
 `src/tests/p1512-chat-ui.test.tsx` "P1554: a window resized while scrolled up re-decides the jump-down button" times out at `findByTestId('jump-down')` (~line 1271) about 2 in 80 runs under the P1573 stress method (22 CPU burners + 8 concurrent runs). It passes alone. This is unlike P1570/P1573: the failure is inside an async wait, so it is not a synchronous-query race and not the test timeout. Unconfirmed hypothesis: `MessageList.tsx`'s ResizeObserver effect depends on `[status, measure]`, so the stubbed observer's callback list may be empty when the test fires the resize. Next: confirm by logging the stub's registered callbacks at fire time under stress, then fix the wait on the observer registration, not on a timeout. Found by P1573.
-
-## p1512-chat-ui F7 (Reply and Clarify never pending together) fails under full-suite load
-
-**ID:** INBOX-233
-**Date:** 2026-10-26
-**Status:** resolved: duplicate of INBOX-223, fixed by P1573 (shipped 16:54; the failing run had 205 tests in the file, i.e. a copy predating the fix, which has 210)
-**due:** week
-
-On 2026-10-26 the F7 test in src/tests/p1512-chat-ui.test.tsx failed twice in a row at the same line inside the full pre-commit run while machine load was very high (15-minute average around 50), and passed alone (205/205) and on a third full run at lower load. It is a timing assumption (a synchronous getByText right after an awaited render), so it blocks unrelated commits whenever the machine is busy. Make the lookup awaited or raise its timeout. Droppable if it does not recur in a month.
-
----
 
 ## Pre-commit privacy spend scan passes silently in a worktree that is behind main
 
