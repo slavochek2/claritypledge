@@ -1,5 +1,5 @@
 ---
-status: qa
+status: rejected
 type: task
 disclosure: public
 rank: 90
@@ -15,6 +15,8 @@ exec_model: opus
 exec_effort: high
 driver: heuristic
 ---
+
+> **Closed 2026-10-27, superseded by P1515** (sharing an artifact with events and groups, shipped). Founder decision in the /day triage of 2026-10-27. The parked implementation is kept as tag `archive/p1181-community-scoped-letters`, not merged.
 
 # P1181: Community-scoped visibility for stories, points and letters
 
@@ -244,4 +246,4 @@ public link letter. Their actual cause is unestablished — worth a `/fix`, not 
 - `docs/decisions.md` 2026-08-28 [product] — spec (ii) of three
 - `docs/definitions.md` §Story Visibility Model, §Clarity Organization
 - **Blocks the first event** and P1182's member-only mode; gives P1320 its community audience. Track A in
-  [docs/problem-board-process.md](../docs/problem-board-process.md), rewritten 2026-09-15.
+  [docs/problem-board-process.md](../../../docs/problem-board-process.md), rewritten 2026-09-15.
