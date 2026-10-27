@@ -245,13 +245,11 @@ test.describe('P699: Inbox Progress Indicator', () => {
     // P1545: a finished received letter's row links straight to its results (no separate Results button).
     const resultsButton = page.locator(`[data-testid="artifact-row"] a[href*="/results?delivery=${completedDeliveryId}"]`);
 
-    if (await resultsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      // Find the parent container of the results button
-      const container = resultsButton.locator('..');
-      const stepText = container.locator('text=/step\\s+3\\s+of\\s+3/i');
-      // Completed items shouldn't show step text — they're done
-      await expect(stepText).not.toBeVisible({ timeout: 2000 }).catch(() => {});
-    }
+    // The row must exist; a missing row is a failure, not a skip.
+    await expect(resultsButton).toBeVisible({ timeout: 10000 });
+    const row = page.locator('[data-testid="artifact-row"]').filter({ has: resultsButton });
+    // Completed items show "done", never step progress.
+    await expect(row).not.toContainText(/\d+\s+of\s+\d+\s+steps?/i);
   });
 
   // ── 6. Sender: progress and completion on the letter's own page ───────────

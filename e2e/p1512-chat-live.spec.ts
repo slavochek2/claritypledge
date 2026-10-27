@@ -362,7 +362,9 @@ test('Clarify copies the message into A mirror only', async () => {
   await expect(conversation(pageA).getByRole('heading', { name: /Alicetest.*'s mirror|Your mirror/ })).toBeVisible();
   const pending = pageA.getByTestId('clarify-pending');
   await expect(pending).toContainText('reply from B');
-  expect((await supabaseAdmin.from('chat_messages').select('id').eq('kind', 'clarify').eq('author_id', a.user.id)).data ?? []).toHaveLength(0);
+  const staged = await supabaseAdmin.from('chat_messages').select('id').eq('kind', 'clarify').eq('author_id', a.user.id);
+  expect(staged.error, 'the staged-Clarify read itself must succeed').toBeNull();
+  expect(staged.data).toHaveLength(0);
   await conversation(pageA).getByTestId('composer').getByRole('button', { name: 'Send' }).click();
   await expect(pageA.getByTestId('clarified-card')).toContainText('reply from B');
   await expect(pageA.getByTestId('clarified-card')).toContainText(/Sent to .+ to clarify/);
