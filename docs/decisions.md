@@ -8,6 +8,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [product]: Outreach parks until there is something specific to sell; the sales mastermind tests the features, not willingness to pay. Founder decision, UNTESTED
+
+**Context:** /day story r2 asked to contact five prospects a week. Working out what to offer them, the founder found the recorded model (2026-09-21, 2026-10-16) was a free first session with a champion's team and a paid workshop plus coaching afterwards: *"free conflict mediation... but why?"*. Running free sessions to convince people with no clear paid next step is free consulting, demotivating, and not a product. The offer that does look like a product: a team uses Clarity Chat for stuck and important conversations, important meetings are transcribed into its channel, skipping the check-back is visible, and the founder supports when the team gets stuck, paid monthly and agreed before the first session.
+**Decision:** Outreach (goals.md 3c, 4) is parked until there is a specific package to sell. The sales mastermind tests whether the features work and how to shape them; it is explicitly **not** a willingness-to-pay test (founder: the attendees will not pay; *"this is cheap testing of my features and shaping of them, not selling"*). After session 1 the founder reflects whether to start outreach. Session 2 is announced at session 1's close; sign-ups and show-ups are its measure. The package is written before outreach reopens, variables open (private draft). The 2026-10-16 free-first pilot price is superseded **by founder choice, not falsified**.
+**Alternatives rejected:** keep a small priced-offer lane to ~5 organisations now (Codex, Gemini: it would test buying); a paid continuation ask inside the mastermind (agent: the attendees are not buyers, founder domain knowledge); continuing free first sessions (free consulting with no paid step).
+**Review:** Gemini (gemini-3.8-flash, served verified) and Codex (gpt-6.1-sol, accepted-only) red-teamed the proposal: 2 of 2 reported. Both: the mastermind cannot validate the mid-size-org buyer or willingness to pay, and an open-ended pause risks sliding. Kept: label the mastermind as a feature test, and a fixed reflection point (after session 1). Not kept: the parallel sales lane. The mid-size-org champion buyer stays untested, not disproven.
+**Consequences:** goals.md headline and items 3a, 3b+ (write the package), 3c, 4 updated; item 4 is struck through but its's "5 conversations with 0 bookings" stopping rule is kept for reopening, so the /day pipeline target still parses. **Falsifier for "the features are ready to sell":** after session 1, attendees did not use the canvas, the mirror or the chat without the founder driving every step.
+**References:** goals.md · decisions.md 2026-09-21 [product], 2026-10-16 · .private/docs/business/offer-package.md
+
+---
+
 ## 2026-10-27 [technical]: The /day board decides "fixed" and "owned" itself, from evidence, and remembers one run back (P1578)
 
 **Context:** Day-board issues repeated for weeks (one since 2026-10-04) because "send to agent" receipts never reached a terminal state, a fix sitting on an unshipped branch was invisible to the card, "wait for the in-flight work" was asked 15 times and answered the same way 15 times, and token usage was collected but hidden by an API process that predated the feature.
