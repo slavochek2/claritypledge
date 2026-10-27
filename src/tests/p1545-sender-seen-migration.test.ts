@@ -50,4 +50,9 @@ describe('P1545 sender-seen migration', () => {
   it('back-fills the new mark from the old shared one, so switching on lights no past letter as new', () => {
     expect(sql).toMatch(/UPDATE public\.letter_deliveries\s+SET sender_seen_at = read_at\s+WHERE sender_seen_at IS NULL AND read_at IS NOT NULL;/);
   });
+
+  it('the follow-up marks everything seen today as seen at switch-on, so progress after the first open does not light up', () => {
+    const fix = readFileSync(resolve(__dirname, '../../supabase/migrations/20261027150100_p1545_sender_seen_backfill_fix.sql'), 'utf8');
+    expect(fix).toMatch(/SET sender_seen_at = now\(\)\s+WHERE read_at IS NOT NULL\s+AND \(sender_seen_at IS NULL OR sender_seen_at = read_at\);/);
+  });
 });
