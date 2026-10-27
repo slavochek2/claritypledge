@@ -635,11 +635,11 @@ test.describe('monitoring, stats, reflection', () => {
   })
 
   // P1552 widened the P1399 ruling on purpose: Monitoring is money, subscriptions and token usage.
-  test('Monitoring is money, subscriptions and token usage only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
+  test('Monitoring is money, subscriptions, token usage and Supabase (P1578) only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
-    // three overview cards; the old Systems / Claude / Codex cards are gone
-    await expect(page.locator('.d-srcc .d-n')).toHaveText(['Google Cloud', 'Subscriptions', 'Token usage'])
+    // four overview cards (P1578 added Supabase); the old Systems / Claude / Codex cards are gone
+    await expect(page.locator('.d-srcc .d-n')).toHaveText(['Google Cloud', 'Subscriptions', 'Token usage', 'Supabase'])
     await expect(page.locator('[data-systems]')).toHaveCount(0)
     await expect(page.locator('[data-money-checks]')).toHaveCount(0)
     await expect(page.locator('.d-main')).not.toContainText('Systems')
@@ -681,8 +681,8 @@ test.describe('monitoring, stats, reflection', () => {
     await collapseSidebar(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
     const tiles = page.locator('.d-srcc')
-    await expect(tiles).toHaveCount(3) // P1552: Google Cloud, Subscriptions, Token usage
-    for (const i of [0, 1, 2]) expect((await rectOf(tiles.nth(i), 'card')).width).toBeGreaterThanOrEqual(240)
+    await expect(tiles).toHaveCount(4) // P1552: Google Cloud, Subscriptions, Token usage; P1578: Supabase
+    for (const i of [0, 1, 2, 3]) expect((await rectOf(tiles.nth(i), 'card')).width).toBeGreaterThanOrEqual(240)
     const title = tiles.filter({ hasText: 'Subscriptions' }).locator('.d-n')
     expect(await title.evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length })).toBe(1)
     await expect(tiles.first().locator('.d-v')).toHaveText('€70 / €400')
@@ -3615,4 +3615,66 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
       expect(over).toBeLessThanOrEqual(0)
     })
   }
+})
+
+test.describe('P1578: loops and the Supabase source', () => {
+  /** The latest synthetic run with the runner's annotations written in, as scripts/day-loops.ts would. */
+  function annotate(): { sentFp: string; waitFp: string } {
+    seedDay(DAY_E2E_DIR, 'default')
+    const path = join(DAY_E2E_DIR, 'reports', `${LATEST_ID}.json`)
+    const r = JSON.parse(readFileSync(path, 'utf-8')) as DayReport
+    const agentCard = r.issues.find((i) => i.options.some((o) => o.agent)) as DayReport['issues'][number]
+    const other = r.issues.find((i) => i !== agentCard && !i.options.some((o) => o.agent)) as DayReport['issues'][number]
+    other.options = [{ id: 'wait', label: 'Wait for the in-flight work', recommended: true }, ...other.options.filter((o) => o.id === 'park')]
+    r.loops = {
+      git: 'ok',
+      resolved: [],
+      cards: {
+        [agentCard.fp]: { sent: { outcome: 'still-open', at: '2026-10-03T06:30:55.411Z', run_id: 'r-1', sent_id: 's1', attempts: 3 } },
+        [other.fp]: { owner: { kind: 'branch', ref: 'fix/in-flight-x', label: 'fix/in-flight-x', state: 'live', last_commit_at: '2026-10-03T09:00:00Z', idle_days: 1 }, waiting: true },
+      },
+    }
+    r.monitoring = {
+      ...(r.monitoring ?? {}),
+      supabase: {
+        collected: true,
+        shared_org: true,
+        orgs: [{ id: 'org-a', metrics: [{ label: 'Log_Ingestion', used: '1.65', used_unit: 'GB', limit: '1', limit_unit: 'GB', pct: 165, over: true }, { label: 'Egress', used: '1.5', used_unit: 'GB', limit: '5', limit_unit: 'GB', pct: 30, over: false }] }],
+        testdb: { collected: true, state: 'ok', median_ms: 900, limit_ms: 2000 },
+      },
+    }
+    writeFileSync(path, JSON.stringify(r))
+    return { sentFp: agentCard.fp, waitFp: other.fp }
+  }
+
+  test('a re-raised card says the agent was sent and it is not fixed; waiting work is collapsed with no question', async ({ page }) => {
+    const { sentFp, waitFp } = annotate()
+    await page.goto('/')
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await expect(page.locator('.day-root')).toBeVisible()
+    const v = await runView(page)
+    expect(v.view.issues.some((i) => i.fp === waitFp)).toBe(false)
+    const sent = v.view.issues.find((i) => i.fp === sentFp) as ViewIssue & { loop?: { sent?: { outcome: string } } }
+    // an agent was sent and it did not work: the board says so, and Start fixing does not send it unasked
+    expect(sent.loop?.sent?.outcome).toBe('still-open')
+    await expect(page.getByRole('button', { name: /^Start fixing$/ })).toHaveAttribute('data-send-count', String(agentOf(v).filter((i) => i.fp !== sentFp).length))
+    await listRow(page, sentFp).click()
+    await expect(page.locator('[data-loop="sent"]')).toContainText('not fixed')
+    const waiting = page.locator('[data-waiting-list]')
+    await expect(waiting).toBeVisible()
+    await waiting.getByRole('button').click()
+    await expect(page.locator(`[data-waiting="${waitFp}"]`)).toContainText('Waiting on fix/in-flight-x')
+  })
+
+  test('Monitoring has a Supabase source: per-metric usage, test-database answer time, one shared-quota line', async ({ page }) => {
+    annotate()
+    await page.goto('/')
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Supabase/ }).click()
+    await expect(page.locator('[data-supabase-row="Log Ingestion"]')).toContainText('1.65 GB of 1 GB · 165%')
+    await expect(page.locator('[data-supabase-row="Egress"]')).toContainText('30%')
+    await expect(page.locator('[data-supabase-testdb]')).toContainText('900 ms')
+    await expect(page.locator('[data-supabase-shared]')).toContainText('share one organisation')
+  })
 })

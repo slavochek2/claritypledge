@@ -85,6 +85,8 @@ test project. Reversibility: config or code, git revert. Decision density: likel
 - [ ] The top mechanism is fixed, or handed to the founder as a decision with the numbers.
 - [ ] /day's `cp.quota` (P1525) shows the trend after the fix, recorded here with the date.
 
+day-owns: cp.quota:quota:clarity-movement-prod:log-ingestion
+
 ## Findings 2026-10-21 (figures in `.private/docs/usage/p1530-2026-10-21.md`)
 
 - **The test project is most of the overrun.** Split by project, the 21 Sep–21 Oct cycle shows

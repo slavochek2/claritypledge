@@ -77,12 +77,18 @@ Five parts, each independently shippable.
 
 ## Done-When
 
-- [ ] A fixture test built from the real 10-26 report, its ledger lines and the 10-27 report: every item sent on 10-26 gets a terminal outcome in the 10-27 annotations, and none is re-offered Send with no history
-- [ ] With w16 present, the Sentry 3Z card names `fix/sentry-3z-fb-ios-bridge` as owner; Sentry 40 is not linked to it
-- [ ] The access-rules card renders as "waiting on <owner>" with no question; a fixture with an owner idle >7 days renders as an escalated card
-- [ ] The Monitoring tab shows a Supabase source with per-metric usage and test-DB latency; no `cp.quota` card while P1530 is open
+- [x] A fixture test built from the real 10-26 report, its ledger lines and the 10-27 report: every item sent on 10-26 gets a terminal outcome in the 10-27 annotations, and none is re-offered Send with no history
+  Evidence: `server/__tests__/day-loops.test.ts` (fixtures `day-p1578/`: real 10-26 report, real receipts, real 10-27 report, scrubbed): all 27 option items sent on 10-26 resolve (84 fixed / 6 still-open on the full real ledger smoke run); still-open cards are not agent work and carry `loop.sent`. 28 tests pass.
+- [x] With w16 present, the Sentry 3Z card names `fix/sentry-3z-fb-ios-bridge` as owner; Sentry 40 is not linked to it
+  Evidence: same file: `fix/sentry-3z-fb-ios-bridge` is the owner of 3Z (unshipped, live); 40 has none; a bare `40` branch without the word sentry is not an owner.
+- [x] The access-rules card renders as "waiting on <owner>" with no question; a fixture with an owner idle >7 days renders as an escalated card
+  Evidence: same file, section C: live owner gives `waiting` (collapsed, no question, never sent, ledger line once); idle 11 days gives `escalated`, `wait` option removed. Real-data note: the 10-27 rls card carries no `cause`, so it finds no owner until the finding carries `--cause table:group-chat-opens` (day-cp.md now says so); the tablegrants card resolves to the P1542 branch on the real repo.
+- [x] The Monitoring tab shows a Supabase source with per-metric usage and test-DB latency; no `cp.quota` card while P1530 is open
+  Evidence: `day-supabase.test.ts` + e2e `P1578` (Supabase source: metrics, test-DB ms, shared line); `day-report-sections.test.sh` 9d builder (45 pass, mutated-day.md control fails). cp.quota card: owned by P1530 via `day-owns:` line, `view.owned`, no card; real-repo smoke run showed `suppressed: true`.
 - [ ] `dev:server` runs in watch mode; after restarting the pp board once, Token usage shows the 10-19 week (manual check, screenshot)
-- [ ] Existing day test suites (`tools/kanban` unit + e2e-day, `~/.claude/scripts/day-*.test.*`) pass
+  Partial evidence, box left open (manual screenshot pending): `package.json` dev:server is `tsx watch server/api.ts`, asserted by `day-dev-server.test.ts`.
+- [x] Existing day test suites (`tools/kanban` unit + e2e-day, `~/.claude/scripts/day-*.test.*`) pass
+  Evidence: kanban vitest 644 passed (32 files); day e2e 165 passed; day-step 126, day-gates 141, day-file-findings 22, day-pass-guard 58, day-report-sections 45, day-p1442-budgets all passed; test-p1525-usage-parse 40.
 
 ## Alternatives Considered
 

@@ -1,0 +1,798 @@
+{
+ "schema": 2,
+ "pass_id": "2026-10-26T05:56:02Z-4418",
+ "started_at": "2026-10-26T05:56:02Z",
+ "state": "complete",
+ "connections": [],
+ "checks": [
+  {
+   "id": "disp.credits",
+   "label": "Google Cloud credits",
+   "status": "ok"
+  },
+  {
+   "id": "disp.budgets",
+   "label": "Google Cloud budgets",
+   "status": "ok"
+  },
+  {
+   "id": "disp.aikeys",
+   "label": "AI keys",
+   "status": "ok"
+  },
+  {
+   "id": "disp.mirror",
+   "label": "Off-laptop backups",
+   "status": "problem"
+  },
+  {
+   "id": "disp.uncommitted",
+   "label": "Uncommitted work",
+   "status": "problem"
+  },
+  {
+   "id": "disp.dsh",
+   "label": "dsh key",
+   "status": "ok"
+  },
+  {
+   "id": "disp.lhcodex",
+   "label": "LinkedIn machine Codex",
+   "status": "ok"
+  },
+  {
+   "id": "disp.calendar",
+   "label": "Events calendar refresh",
+   "status": "problem"
+  },
+  {
+   "id": "disp.replies",
+   "label": "Replies to your event posts",
+   "status": "not-run"
+  },
+  {
+   "id": "disp.triage",
+   "label": "Chat digest",
+   "status": "problem"
+  },
+  {
+   "id": "disp.codex",
+   "label": "Codex quota",
+   "status": "ok"
+  },
+  {
+   "id": "disp.8a",
+   "label": "Beeper token pre-flight",
+   "status": "problem"
+  },
+  {
+   "id": "cp.smoke",
+   "label": "Prod smoke test",
+   "status": "ok"
+  },
+  {
+   "id": "cp.blog",
+   "label": "Blog",
+   "status": "ok"
+  },
+  {
+   "id": "cp.backup",
+   "label": "Database backup",
+   "status": "ok"
+  },
+  {
+   "id": "cp.gemini",
+   "label": "Gemini production key",
+   "status": "ok"
+  },
+  {
+   "id": "cp.gemini-batch",
+   "label": "Gemini batch key",
+   "status": "ok"
+  },
+  {
+   "id": "cp.cost",
+   "label": "Cloud cost leak check",
+   "status": "ok"
+  },
+  {
+   "id": "cp.signups",
+   "label": "Unconfirmed sign-ups",
+   "status": "problem"
+  },
+  {
+   "id": "cp.sources",
+   "label": "Calendar source suggestions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.sessions",
+   "label": "Live sessions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.transcribe",
+   "label": "Transcription jobs",
+   "status": "ok"
+  },
+  {
+   "id": "cp.email",
+   "label": "Event email sending",
+   "status": "ok"
+  },
+  {
+   "id": "cp.testdb",
+   "label": "Test database response time",
+   "status": "ok"
+  },
+  {
+   "id": "cp.quota",
+   "label": "Supabase free-plan usage",
+   "status": "ok"
+  },
+  {
+   "id": "cp.tokens",
+   "label": "Supabase access keys: expiry and full-access",
+   "status": "ok"
+  },
+  {
+   "id": "cp.sentry",
+   "label": "Sentry errors",
+   "status": "problem"
+  },
+  {
+   "id": "cp.mixpanel",
+   "label": "User analytics",
+   "status": "ok"
+  },
+  {
+   "id": "cp.baseline",
+   "label": "Tests and lint",
+   "status": "problem"
+  },
+  {
+   "id": "cp.ops",
+   "label": "Ops alerts (GitHub)",
+   "status": "problem"
+  },
+  {
+   "id": "cp.rls",
+   "label": "Database access rules",
+   "status": "problem"
+  },
+  {
+   "id": "cp.grants",
+   "label": "Database function permissions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.tablegrants",
+   "label": "Database table and column permissions",
+   "status": "problem"
+  },
+  {
+   "id": "cp.floor",
+   "label": "Database privilege floor",
+   "status": "ok"
+  },
+  {
+   "id": "cp.video",
+   "label": "Story video summaries",
+   "status": "ok"
+  }
+ ],
+ "issues": [
+  {
+   "fp": "disp.0d:day:previous-pass-incomplete",
+   "topic": "Personal",
+   "title": "Yesterday's daily run storepo-02ed before updating your events calendar",
+   "point_a": "The run looked finished, but the calendar step never harepo-02ened.",
+   "obstacle": "There is no sign the calendar received anything during that run.",
+   "point_b": "Today's run updates the calendar and confirms it worked.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-06"
+  },
+  {
+   "fp": "disp.0d:day:calendar-stale",
+   "topic": "Personal",
+   "title": "Your events calendar has not been updated for about 49 hours",
+   "point_a": "Events from the last two days may be missing, so you could miss one worth going to.",
+   "obstacle": "The connection to your chat arepo-02 has lapsed, so new events cannot be collected.",
+   "point_b": "The chat arepo-02 is reconnected and the calendar fills in the missing events.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "cp.sentry:sentry:javascript-react-3z",
+   "topic": "Product errors",
+   "title": "An error harepo-02ened once on the Ban Mae Khi loop hike event page",
+   "point_a": "No user was affected by the error.",
+   "obstacle": "The page expects a feature only available inside certain phone arepo-02s, not ordinary browsers.",
+   "point_b": "The page works the same in every browser and the error is closed.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.sentry",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "cp.signups:signups:unconfirmed",
+   "topic": "Email & sessions",
+   "title": "A person who signed up this week never confirmed their email",
+   "point_a": "You may be losing a new user right at the door.",
+   "obstacle": "They have not clicked the link in the confirmation email.",
+   "point_b": "Someone contacts them, or they are marked as handled.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.signups",
+   "first_seen": "2026-10-04"
+  },
+  {
+   "fp": "cp.baseline:baseline:flaky-test",
+   "topic": "Code",
+   "title": "1 of 7698 automatic checks failed once, then passed",
+   "point_a": "A check that sometimes fails for no reason can hide real breakage for your users.",
+   "obstacle": "It is unknown which check it was, because the first run did not record it.",
+   "point_b": "The unreliable check is found and either fixed or set aside.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.baseline",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "cp.rls:rls:new-policies",
+   "topic": "Database",
+   "title": "The test database has a new chat table rule that the live site's setup does not include",
+   "point_a": "A rule letting people read their own group chat opens exists on the test database only.",
+   "obstacle": "Nothing in the site's recorded setup creates that table, so the change probably comes from unfinished chat work and would be lost or break at release.",
+   "point_b": "The chat table and its rule are part of the official setup, or they are removed from test.",
+   "options": [
+    {
+     "id": "apply",
+     "label": "Apply it to prod now"
+    },
+    {
+     "id": "wait",
+     "label": "Wait for the in-flight fix",
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.rls",
+   "first_seen": "2026-10-04",
+   "needs_yes": true
+  },
+  {
+   "fp": "cp.tablegrants:tablegrants:group-chat-opens",
+   "topic": "Database",
+   "title": "An unofficial test table can be reached by visitors and signed-in users",
+   "point_a": "The group chat opens table on test is open to anyone, logged in or not, while the live site is clean.",
+   "obstacle": "The table was never written into the official setup, so nobody chose who should see it.",
+   "point_b": "The table is created properly with deliberate access rules before it reaches real users.",
+   "options": [
+    {
+     "id": "apply",
+     "label": "Apply it to prod now"
+    },
+    {
+     "id": "wait",
+     "label": "Wait for the in-flight fix",
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.tablegrants",
+   "first_seen": "2026-10-26",
+   "needs_yes": true,
+   "cause": "table:group-chat-opens"
+  },
+  {
+   "fp": "cp.ops:ops:issue-26",
+   "topic": "Servers & blog",
+   "title": "1 person signed up but is stuck before getting in",
+   "point_a": "An alert is open about one new user who could not finish joining.",
+   "obstacle": "They never confirmed their email, so they cannot use the product yet.",
+   "point_b": "You reach out and help them in, or mark them as handled so the alert stops.",
+   "options": [
+    {
+     "id": "followup",
+     "label": "Follow up with them",
+     "recommended": true
+    },
+    {
+     "id": "ack",
+     "label": "Add id to the ack file"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.ops",
+   "first_seen": "2026-10-25",
+   "needs_yes": true
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-01",
+   "topic": "Backups & mirror",
+   "title": "Your Claude settings have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest changes to how your assistant works would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and these settings are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-02",
+   "topic": "Backups & mirror",
+   "title": "Your personal notes (repo-02) have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest personal notes and decisions would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and your notes are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-03",
+   "topic": "Backups & mirror",
+   "title": "Your repo-03 work has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work in this project would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this project is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-04",
+   "topic": "Backups & mirror",
+   "title": "Your repo-04 work has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work in this project would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this project is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-05",
+   "topic": "Backups & mirror",
+   "title": "Your repo-05 work has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work on your events tool would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this project is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-06",
+   "topic": "Backups & mirror",
+   "title": "Your repo-06 work has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work in this project would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this project is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-07",
+   "topic": "Backups & mirror",
+   "title": "Your saved Claude conversations have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest saved conversations would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and the conversations are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-08",
+   "topic": "Backups & mirror",
+   "title": "Your private Clarity Pledge notes have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest private business notes would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and these notes are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-09",
+   "topic": "Backups & mirror",
+   "title": "Your repo-09 setup has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest changes to your agent setup would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this setup is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-10",
+   "topic": "Backups & mirror",
+   "title": "Your repo-10 shortcuts have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest changes to your shortcuts would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and the shortcuts are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-11",
+   "topic": "Backups & mirror",
+   "title": "Your repo-11 notes have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest notes would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and these notes are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-12",
+   "topic": "Backups & mirror",
+   "title": "Your repo-12 files have no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work on these files would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and these files are safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-13",
+   "topic": "Backups & mirror",
+   "title": "Your personal archive (repo-02-archive) has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest additions to your archive would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and the archive is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.mirror:mirror:repo-stale:repo-14",
+   "topic": "Backups & mirror",
+   "title": "Your repo-14 work has no backup off this laptop",
+   "point_a": "If the laptop died now, the newest work in this project would be gone.",
+   "obstacle": "Backups have failed for 38 hours across all 14 projects, so the backup job itself seems storepo-02ed.",
+   "point_b": "Backups run again and this project is safely stored elsewhere.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.mirror",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.uncommitted:uncommitted:repo-stale:repo-15",
+   "topic": "Backups & mirror",
+   "title": "2 files in side-project-a have sat unsaved for 4 days",
+   "point_a": "This work is not saved in the project history or backed up anywhere.",
+   "obstacle": "Nobody has decided whether these files matter.",
+   "point_b": "Each file is kept properly, thrown away, or marked as not needed.",
+   "options": [
+    {
+     "id": "fix",
+     "label": "Triage it now",
+     "recommended": true
+    },
+    {
+     "id": "later",
+     "label": "Not now"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.uncommitted",
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "disp.uncommitted:uncommitted:repo-stale:repo-16",
+   "topic": "Backups & mirror",
+   "title": "2 files in side-project-b have sat unsaved for 4 days",
+   "point_a": "This work is not saved in the project history or backed up anywhere.",
+   "obstacle": "Nobody has decided whether these files matter.",
+   "point_b": "Each file is kept properly, thrown away, or marked as not needed.",
+   "options": [
+    {
+     "id": "fix",
+     "label": "Triage it now",
+     "recommended": true
+    },
+    {
+     "id": "later",
+     "label": "Not now"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.uncommitted",
+   "first_seen": "2026-10-07"
+  },
+  {
+   "fp": "disp.calendar:calendar:not-verified",
+   "topic": "Events calendar",
+   "title": "Today's run skirepo-02ed updating your CM Events calendar",
+   "point_a": "Events posted in the last two days are not on your calendar.",
+   "obstacle": "The chat arepo-02 is closed or logged out, and the three other event sites also failed to update.",
+   "point_b": "Once reconnected, the calendar update runs and confirms it worked.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.calendar",
+   "first_seen": "2026-10-09"
+  },
+  {
+   "fp": "disp.triage:triage:digest-stale",
+   "topic": "Events calendar",
+   "title": "You are not getting your daily summary of chat messages",
+   "point_a": "Mentions and requests for help could be going unanswered; the newest summary is two days old.",
+   "obstacle": "The chat arepo-02 on this laptop is closed or logged out, so no new summary could be made.",
+   "point_b": "The chat arepo-02 is reconnected and today's summary is ready.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.triage",
+   "first_seen": "2026-10-04"
+  },
+  {
+   "fp": "check:disp.8a",
+   "topic": "Daily run",
+   "title": "The check of your chat arepo-02 login failed",
+   "point_a": "The daily run could not confirm it can still read your chat messages.",
+   "obstacle": "Nobody has found out why it failed yet.",
+   "point_b": "Tomorrow's run confirms the login works.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true,
+     "why": "Finding the cause is routine agent work."
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.8a",
+   "first_seen": "2026-10-12"
+  }
+ ]
+}

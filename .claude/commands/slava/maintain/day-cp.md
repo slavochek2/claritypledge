@@ -700,6 +700,8 @@ echo -e "\n=== SUPABASE TEST DB + FREE-PLAN QUOTA ==="
 TESTDB_OUT=$("$(git rev-parse --show-toplevel)/scripts/check-test-db-latency.sh" 2>&1); echo "$TESTDB_OUT"
 TESTDB_LINE=$(printf '%s\n' "$TESTDB_OUT" | sed -n 's/^TESTDB: //p' | tail -1)
 echo "CHECK cp.testdb ${TESTDB_LINE:-not-run the test database check printed no result}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+# P1578: Step 9d shows the latency in Monitoring > Supabase; it reads this file (fresh within 6 hours).
+printf '%s\n' "$TESTDB_OUT" > /tmp/day-supabase-testdb.txt
 # cp.quota (free-plan usage, the organisation note) is read from the dashboard in step cp.w2q below.
 
 echo -e "\n=== FUNNEL CSV ==="
@@ -858,6 +860,9 @@ Usage page through the signed-in Chrome session. Load the Chrome tools with Tool
    `get_page_text`, write the text to a temp file and run the parser (exit 0 ok, 1 problem, 2 not-run):
    `python3 "$(git rev-parse --show-toplevel)/scripts/supabase-usage-parse.py" "$TMP"`. Its `USAGE:` line
    is the detail; `ROW` lines name each metric; `BANNER:` and `PROJECTS:` are context.
+   Keep every organisation's parser output for Monitoring (P1578): start the wave with `: > /tmp/day-supabase-usage.txt`,
+   then per organisation `{ echo "ORG <the slug>"; python3 .../supabase-usage-parse.py --units "$TMP"; } >> /tmp/day-supabase-usage.txt`. Step 9d turns it
+   into the Supabase source of the Monitoring tab; an organisation that gave no rows shows there as "not read today", never as fine.
 3. Record the check, worst organisation winning: `problem` over `not-run` over `ok`. **Every organisation
    with projects must be read**: if any one gave no rows, the check is `not-run` (unless another is
    `problem`) and the detail names it, because a quiet organisation must never hide an unreadable one:
@@ -1271,6 +1276,8 @@ Since P1399 the reading rules below decide **findings**, not printed lines — w
 both findings `--cause table:<the table, lowercased with dashes>`. The board keeps them as two cards
 (each its own fault key and decision) but shows them together and says they share a cause. Use a
 cause key the same way wherever one fault shows under two checks; never merge the fault keys.
+
+**The cause is also how the board finds an owner (P1578).** Every RLS or table-grant finding that names a table carries `--cause table:<table>` (the 2026-10-27 RLS card did not, so no owner could be found for it). The board matches that slug, as consecutive words, against unshipped branch names and commit subjects, and a P-number written in a finding against open specs and branches; a spec claims a fault with a line `day-owns: <fingerprint>`. Exact tokens only, never similar wording.
 
 Known-open backlog counts stay what they were — **not** findings, and not re-litigated daily. Every
 security finding stays `--store private` (it names live, unpatched objects).

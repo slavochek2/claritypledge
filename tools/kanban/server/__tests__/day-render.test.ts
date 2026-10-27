@@ -120,7 +120,7 @@ const reportPath = (w: World, pass = PASS) => join(w.dayDir, 'reports', `${fileI
 function render(w: World, phase: 'start' | 'end' | 'issues', extra: string[] = []) {
   let out = ''
   let err = ''
-  const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9052', ...extra], {
+  const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9052', '--repo', 'none', ...extra], {
     out: (s) => (out += s),
     err: (s) => (err += s),
   })

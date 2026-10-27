@@ -21,7 +21,9 @@
 //     `incomplete`, so a killed pass never reads as in progress forever.
 //   - The fingerprint of a finding is `<check>:<fault key>`, never the title, so a decision made
 //     on one run still matches the same fault on the next.
-//   - Only the founder parks: the renderer never writes decisions.jsonl and never recommends Park.
+//   - Only the founder parks: the renderer never writes a decision to decisions.jsonl and never recommends Park.
+//     (P1578: it does append `outcome` lines, which are not decisions: what became of a send, and that a
+//     card is waiting. Append-only, once each, under the same lock as the board.)
 //   - P1489: a finding on a check the list marks `needs_yes` (a prod migration or deploy) is a
 //     founder card; one that came without its own options gets the prod-change options, never
 //     "Give to the agent". `--phase issues` builds mid-pass: a step not reached yet is not "didn't run".
@@ -36,6 +38,7 @@
 // Pure functions are exported for the tests; `run` does the I/O, and `main` only wires it to the
 // process.
 
+import { execFileSync } from 'child_process'
 import { createHash } from 'crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
@@ -49,7 +52,10 @@ import {
   buildView,
   isAgentWork,
   parseDecisions,
+  parseLaunches,
+  parseOutcomes,
   parseReport,
+  type OutcomeLine,
   traceOf,
   type CheckStatus,
   type DayCheck,
@@ -62,6 +68,8 @@ import {
 } from '../src/lib/day'
 import { checkStatus } from '../src/components/day/statusWords'
 import { defaultGoalsFile, readGoals } from './day-goals'
+import { applyLoops, readGitFacts, type LoopInputs } from './day-loops'
+import { appendDecisionLines, readDecisionsText } from '../server/dayStore'
 
 // ---------------------------------------------------------------------------------------
 // Vocabulary shared with src/lib/day.ts's reader. A value outside these is not written.
@@ -640,6 +648,8 @@ export interface RenderInputs {
   goals?: DayReport['goals']
   /** P1468 Decided 7: goals.md's `**Goal:**` line, parsed now; omitted = none */
   goal?: string
+  /** P1578: the sends, ledger and local git the loops are worked out from; omitted = no annotations */
+  loops?: LoopInputs
 }
 
 const runProblem = (label: string, detail: string): Omit<DayCheck, 'id'> => ({ label, status: 'problem', detail, group: RUN_GROUP })
@@ -649,7 +659,7 @@ export function buildReport(inp: RenderInputs): DayReport {
 }
 
 /** The report, and how many plain-language rows matched no card (counted, never silently dropped). */
-export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number; plainRejected: number } {
+export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number; plainRejected: number; outcomeLines: OutcomeLine[] } {
   const { ledger, registries, phase } = inp
   const { checks, misplaced } = buildChecks({ ledger, registries, phase, pendingFrom: inp.pendingFrom })
   const extra: DayCheck[] = []
@@ -706,7 +716,9 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   if (inp.goals) report.goals = inp.goals
   if (inp.goal) report.goal = inp.goal
   const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
-  return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected }
+  // P1578: after the plain overlay, so every card the board will show is annotated
+  const outcomeLines = inp.loops ? applyLoops(report, inp.loops).lines : []
+  return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected, outcomeLines }
 }
 
 /** Problems (fixed vocabulary) that stop the report from being written; empty = it validates. */
@@ -775,6 +787,7 @@ export function renderCard(report: DayReport, view: DayView, opts: CardOptions):
     urgent && `${urgent} urgent`,
     checkOutcomes(view.counts),
     view.parked.length && `${view.parked.length} parked`,
+    view.waiting.length && `${view.waiting.length} waiting on in-flight work`,
   ].filter(Boolean)
   const L = [header(report, opts.timeZone), counts.join(' · ')]
   const shown = view.issues.slice(0, CARD_ISSUES)
@@ -964,8 +977,8 @@ export function closeKilledRuns(dayDir: string, passId: string): number {
 // ---------------------------------------------------------------------------------------
 // The command.
 
-interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; pendingFrom?: string; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string; goals: string }
-const USAGE = 'usage: --phase start|end|issues [--pending-from STEP] [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH]'
+interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; pendingFrom?: string; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string; goals: string; repo?: string }
+const USAGE = 'usage: --phase start|end|issues [--pending-from STEP] [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL] [--goals PATH] [--repo PATH|none]'
 
 export function parseArgs(argv: string[]): Args | null {
   const a: Partial<Args> = {
@@ -987,6 +1000,7 @@ export function parseArgs(argv: string[]): Args | null {
       case '--now': if (!isoDay(v)) return null; a.now = v; break
       case '--kanban-url': a.kanbanUrl = v; break
       case '--goals': a.goals = v; break
+      case '--repo': a.repo = v; break
       case '--pending-from': if (!ID.test(v)) return null; a.pendingFrom = v; break
       default: return null
     }
@@ -996,7 +1010,12 @@ export function parseArgs(argv: string[]): Args | null {
   return a.phase ? (a as Args) : null
 }
 
-export interface IO { out: (s: string) => void; err: (s: string) => void }
+export interface IO {
+  out: (s: string) => void
+  err: (s: string) => void
+  /** P1578: the outcome lines this render adds; the caller appends them (the append is async) */
+  outcomes?: (lines: OutcomeLine[]) => void
+}
 
 export function run(argv: string[], io: IO): number {
   const say = (msg: string) => io.err(`day-render: ${msg}\n`)
@@ -1046,7 +1065,8 @@ export function run(argv: string[], io: IO): number {
   }
   // P1468: goals are read at render time — no /day data section; a broken goals.md snapshots []
   const { goals, goal } = readGoals(args.goals)
-  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now, goals, goal })
+  const loops = loopInputs(args, earlier)
+  const { report, plainUnmatched, plainRejected, outcomeLines } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now, goals, goal, loops })
   const problems = validateReport(report)
   if (problems.length) {
     say(`the report would not validate (${problems.slice(0, 5).join(',')})`)
@@ -1063,6 +1083,7 @@ export function run(argv: string[], io: IO): number {
     return 1
   }
   say(`report written (${report.state})`)
+  if (outcomeLines.length) io.outcomes?.(outcomeLines)
   if (plainUnmatched) say(`${plural(plainUnmatched, 'plain-language row')} matched no issue`)
   if (plainRejected) say(`${plural(plainRejected, 'plain-language row')} ${plainRejected === 1 ? 'was' : 'were'} not applied`)
 
@@ -1074,8 +1095,46 @@ export function run(argv: string[], io: IO): number {
   return 0
 }
 
+/** The sends, outcome lines and local git the loops need. A git failure is "owner unknown", never an error. */
+function loopInputs(args: Args, earlier: DayReport[]): LoopInputs {
+  let text = ''
+  try {
+    text = readFileSync(join(args.dayDir, 'decisions.jsonl'), 'utf-8')
+  } catch {
+    /* no ledger yet: nothing was sent */
+  }
+  const repo = args.repo ?? repoRoot()
+  return {
+    receipts: parseLaunches(text),
+    outcomes: parseOutcomes(text),
+    earlier,
+    git: repo === 'none' || !repo ? { ok: repo === 'none', branches: [], specs: [] } : readGitFacts(repo),
+    now: new Date(args.now),
+  }
+}
+
+function repoRoot(): string | undefined {
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf-8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || undefined
+  } catch {
+    return undefined
+  }
+}
+
 function main() {
-  process.exitCode = run(process.argv.slice(2), { out: (s) => process.stdout.write(s), err: (s) => process.stderr.write(s) })
+  const pending: OutcomeLine[] = []
+  const argv = process.argv.slice(2)
+  process.exitCode = run(argv, { out: (s) => process.stdout.write(s), err: (s) => process.stderr.write(s), outcomes: (l) => pending.push(...l) })
+  const dir = parseArgs(argv)?.dayDir
+  if (!pending.length || !dir) return
+  // append-only, once each (the lines were filtered against the file), under the board's own lock
+  appendDecisionLines(dir, (existing) => {
+    const have = new Set(parseOutcomes(readDecisionsText(dir)).map((o) => `${o.outcome}|${o.outcome === 'waiting' ? o.run_id : o.sent_id}|${o.fp}`))
+    void existing
+    return pending.filter((o) => !have.has(`${o.outcome}|${o.outcome === 'waiting' ? o.run_id : o.sent_id}|${o.fp}`))
+  })
+    .then((w) => process.stderr.write(`day-render: ${plural(w.length, 'outcome line')} recorded\n`))
+    .catch(() => process.stderr.write('day-render: could not record outcome lines\n'))
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main()

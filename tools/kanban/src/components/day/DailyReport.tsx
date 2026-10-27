@@ -6,6 +6,7 @@
 // from a card into the statements never moves the page.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { loopNotices, waitingText } from './loops'
 import { OWN, cardDetail, connectionBroken, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, needsYou, type AgentHeader } from './statusWords'
@@ -231,6 +232,7 @@ export function DailyReport(p: Props) {
           <div className="d-mdmain">
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
+            <Waiting view={view} />
             {p.statement && p.afterStatement}
             {/* every founder card parked: there is no card view to open, so Parked sits under the statement (Codex re-review).
                 Bring back from there asks for the card view, as the parked row does, so the returned card opens (review) */}
@@ -607,6 +609,11 @@ function IssueCard(p: Props) {
       <article className="d-card d-focus" data-issue={issue.fp}>
         {head}
         <StateLine st={st} readOnly={readOnly} />
+        {loopNotices(issue.loop).map((n) => (
+          <div className={`d-loop ${n.kind}`} key={n.kind} data-loop={n.kind}>
+            {n.text}
+          </div>
+        ))}
         <h2>{issue.title}</h2>
         {/* P1445 F: a field that only restates the title (or a field above it) is not shown */}
         {(detail.point_a || detail.obstacle || detail.point_b) && (
@@ -768,6 +775,28 @@ function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: 
                 Bring back
               </button>
             )}
+          </div>
+        ))}
+    </div>
+  )
+}
+
+/** P1578 C: what only waits on in-flight work. One collapsed row each, no question, never sent. */
+function Waiting({ view }: { view: DayView }) {
+  const [open, setOpen] = useState(false)
+  if (!view.waiting.length) return null
+  return (
+    <div className="d-card d-waiting" data-waiting-list>
+      <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="d-tri">▶</span>Waiting on in-flight work ({view.waiting.length})
+      </button>
+      {open &&
+        view.waiting.map((x) => (
+          <div className="d-row" key={x.fp} data-waiting={x.fp}>
+            <span className="d-tx">
+              <span className="d-ptitle">{x.title}</span>
+              <span className="d-w">{waitingText(x.loop)}</span>
+            </span>
           </div>
         ))}
     </div>

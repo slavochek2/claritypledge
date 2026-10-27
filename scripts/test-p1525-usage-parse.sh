@@ -46,6 +46,13 @@ expect "a non-Usage page with a ratio is not-run, never ok" 2 not-run "$TMPF"
 printf 'Usage Summary\n\nEgress\n\n6.99 / 10 GB\n' > "$TMPF"
 expect "69.9 percent stays under a 70 threshold" 0 ok "$TMPF"
 has   "the row says under, matching the decision" "ROW Egress 6.99 10 69 under"
+# P1578: --units names the unit each side was printed in, so Monitoring can show "900 MB of 1 GB".
+printf 'Usage Summary\n\nEgress\n\n900 MB / 1 GB (90%%)\n\nMonthly Active Users\n\n4,210 / 50,000\n' > "$TMPF"
+expect "units flag keeps the verdict" 1 problem "$TMPF" --units
+has   "MB / GB units named" "UNITS Egress MB GB"
+has   "a unitless row says so" "UNITS Monthly_Active_Users - -"
+expect "without the flag the output has no UNITS line" 1 problem "$TMPF"
+hasnt "no UNITS line by default" "UNITS"
 expect "under-threshold page is ok" 0 ok $F/usage-under.txt
 hasnt "no banner on the quiet page" "BANNER"
 expect "non-usage page is not-run" 2 not-run $F/not-usage.txt

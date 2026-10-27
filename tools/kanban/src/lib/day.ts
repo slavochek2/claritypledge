@@ -145,6 +145,84 @@ export interface DayIssue {
   technical?: { title: string; point_a: string; obstacle: string; point_b: string }
 }
 
+// ---------------------------------------------------------------------------------------
+// P1578: the loops. The /day runner (scripts/day-loops.ts) works out, when it assembles the report,
+// what became of every send, who owns every issue, and what is only waiting on in-flight work. It
+// writes the result as optional annotations; this file only reads and renders them, so a report
+// from before P1578 reads exactly as it did.
+
+/** What the next run found of an issue an agent was sent for. */
+export type LoopOutcome = 'fixed' | 'still-open' | 'never-started'
+export const LOOP_OUTCOMES: LoopOutcome[] = ['fixed', 'still-open', 'never-started']
+/** An owner idle for longer than this has stopped moving: a wait on it escalates (spec C). */
+export const OWNER_STALE_DAYS = 7
+
+export interface LoopResolved {
+  fp: string
+  outcome: LoopOutcome
+  /** the launch that carried it, and the run it was sent from */
+  sent_id: string
+  sent_at: string
+  run_id: string
+}
+
+export interface LoopOwner {
+  kind: 'spec' | 'branch'
+  /** `P1530` or a branch name: the token that matched */
+  ref: string
+  label: string
+  /** live: moved within OWNER_STALE_DAYS · stale: no commit since · gone: it was an owner on an earlier run and is not found now */
+  state: 'live' | 'stale' | 'gone'
+  /** ISO date the owner began (its first commit, or the spec's created date) */
+  since?: string
+  last_commit_at?: string
+  idle_days?: number
+  /** a branch with commits main does not have: the fix exists and has not shipped */
+  unshipped?: boolean
+}
+
+export interface LoopSent {
+  /** fixed is never here: a fixed fault has no card */
+  outcome: 'still-open' | 'never-started'
+  at: string
+  run_id: string
+  sent_id: string
+  /** sends since the fault was last fixed */
+  attempts?: number
+}
+
+export interface DayLoop {
+  sent?: LoopSent
+  owner?: LoopOwner
+  /** the only sensible answer is to wait on a live owner: shown collapsed, with no question */
+  waiting?: boolean
+  /** the owner stopped moving or is gone: a normal card again, asking what now */
+  escalated?: { why: 'idle' | 'gone'; days?: number }
+  /** an open spec owns it: no card is raised; Monitoring shows the owner */
+  suppressed?: boolean
+}
+
+export interface DayLoops {
+  /** `failed` when local git could not be read: every owner is then unknown, never a blocker */
+  git?: 'ok' | 'failed'
+  resolved: LoopResolved[]
+  cards: Record<string, DayLoop>
+}
+
+/** One line of the ledger the runner appends: what became of a send, or that a card is waiting. */
+export interface OutcomeLine {
+  kind: 'outcome'
+  outcome: LoopOutcome | 'waiting'
+  fp: string
+  run_id: string
+  /** fixed / still-open / never-started: the launch and the run it was sent from */
+  sent_id?: string
+  for_run?: string
+  /** waiting: what it waits on */
+  owner?: string
+  at?: string
+}
+
 /**
  * P1445 C: "Agent on Slava" — the writer's own entity, like an arguer in the Disagreement Pipeline:
  * its own position (its prediction of where the founder stands, never his answer), its own short
@@ -350,10 +428,44 @@ export interface DayTokens {
   projects_28d: DayTokenProject[]
 }
 
+/** P1578 D: one metric of the Supabase free plan, as the dashboard reader printed it. */
+export interface DaySupabaseMetric {
+  label: string
+  used: string
+  used_unit?: string
+  limit: string
+  limit_unit?: string
+  pct: number
+  over: boolean
+}
+export interface DaySupabaseOrg {
+  id: string
+  metrics: DaySupabaseMetric[]
+  banner?: string
+  projects?: string[]
+}
+export interface DaySupabaseTestDb {
+  collected: boolean
+  state: 'ok' | 'problem' | 'not-run'
+  median_ms?: number
+  samples_ms?: number[]
+  limit_ms?: number
+  detail?: string
+}
+export interface DaySupabase {
+  /** false = the dashboard was not read this run: shown as "not read today", never as fine */
+  collected: boolean
+  orgs: DaySupabaseOrg[]
+  /** test and prod projects sit in one organisation, so they share one quota */
+  shared_org?: boolean
+  testdb?: DaySupabaseTestDb
+}
+
 export interface DayMonitoring {
   quotas?: DayQuota[]
   cloud?: DayCloud
   tokens?: DayTokens
+  supabase?: DaySupabase
 }
 
 export interface DayStats {
@@ -431,6 +543,8 @@ export interface DayReport {
    * snapshotted with them. Absent = the file has none, or a run from before the line existed.
    */
   goal?: string
+  /** P1578: what became of the sends, who owns what, what only waits. Absent in older reports. */
+  loops?: DayLoops
 }
 
 /**
@@ -519,6 +633,8 @@ export interface IssueView extends DayIssue {
   same_cause?: string[]
   /** the decision made on THIS run, if any (latest line wins) */
   decision?: DayDecision
+  /** P1578: what the runner found out about its send history and owner */
+  loop?: DayLoop
 }
 
 export interface ParkedView extends IssueView {
@@ -540,6 +656,10 @@ export interface ConnectionView extends DayConnection {
 export interface DayView {
   issues: IssueView[]
   parked: ParkedView[]
+  /** P1578: collapsed "waiting on <owner>": no question, never sent */
+  waiting: IssueView[]
+  /** P1578: owned by an open spec, so no card is raised (Monitoring names the owner) */
+  owned: IssueView[]
   checks: CheckView[]
   connections: ConnectionView[]
   counts: { total: number; worked: number; problem: number; unproven: number; skipped: number; to_issues: number }
@@ -701,6 +821,65 @@ function readIssue(x: unknown): DayIssue | null {
   return it
 }
 
+/** P1578: the loop annotations. A row that is not exactly what the runner writes is dropped, never trusted. */
+const REF = /^[A-Za-z0-9][A-Za-z0-9._/#+-]{0,119}$/
+function readOwner(x: unknown): LoopOwner | undefined {
+  if (!isObj(x) || (x.kind !== 'spec' && x.kind !== 'branch') || typeof x.ref !== 'string' || !REF.test(x.ref)) return undefined
+  if (x.state !== 'live' && x.state !== 'stale' && x.state !== 'gone') return undefined
+  const o: LoopOwner = { kind: x.kind, ref: x.ref, label: oneLine(x.label, 160) ?? x.ref, state: x.state }
+  const since = isoDay(x.since)
+  if (since) o.since = since
+  const last = isoDay(x.last_commit_at)
+  if (last) o.last_commit_at = last
+  const idle = num(x.idle_days)
+  if (idle !== undefined && idle >= 0) o.idle_days = Math.floor(idle)
+  if (x.unshipped === true) o.unshipped = true
+  return o
+}
+
+function readLoopSent(x: unknown): LoopSent | undefined {
+  if (!isObj(x) || (x.outcome !== 'still-open' && x.outcome !== 'never-started') || !isoDay(x.at)) return undefined
+  if (typeof x.run_id !== 'string' || !ID.test(x.run_id) || typeof x.sent_id !== 'string' || !ID.test(x.sent_id)) return undefined
+  const s: LoopSent = { outcome: x.outcome, at: x.at as string, run_id: x.run_id, sent_id: x.sent_id }
+  const n = num(x.attempts)
+  if (n !== undefined && n >= 1) s.attempts = Math.floor(n)
+  return s
+}
+
+function readLoops(x: unknown): DayLoops | undefined {
+  if (!isObj(x)) return undefined
+  const resolved: LoopResolved[] = []
+  if (Array.isArray(x.resolved)) {
+    for (const r of x.resolved) {
+      if (!isObj(r) || typeof r.fp !== 'string' || !FP.test(r.fp) || !LOOP_OUTCOMES.includes(r.outcome as LoopOutcome)) continue
+      if (typeof r.sent_id !== 'string' || !ID.test(r.sent_id) || !isoDay(r.sent_at) || typeof r.run_id !== 'string' || !ID.test(r.run_id)) continue
+      resolved.push({ fp: r.fp, outcome: r.outcome as LoopOutcome, sent_id: r.sent_id, sent_at: r.sent_at as string, run_id: r.run_id })
+    }
+  }
+  const cards: Record<string, DayLoop> = {}
+  if (isObj(x.cards)) {
+    for (const [fp, c] of Object.entries(x.cards)) {
+      if (!FP.test(fp) || !isObj(c)) continue
+      const card: DayLoop = {}
+      const sent = readLoopSent(c.sent)
+      if (sent) card.sent = sent
+      const owner = readOwner(c.owner)
+      if (owner) card.owner = owner
+      if (c.waiting === true && owner) card.waiting = true
+      if (isObj(c.escalated) && (c.escalated.why === 'idle' || c.escalated.why === 'gone')) {
+        card.escalated = { why: c.escalated.why }
+        const d = num(c.escalated.days)
+        if (d !== undefined && d >= 0) card.escalated.days = Math.floor(d)
+      }
+      if (c.suppressed === true && owner) card.suppressed = true
+      if (Object.keys(card).length) cards[fp] = card
+    }
+  }
+  const loops: DayLoops = { resolved, cards }
+  if (x.git === 'ok' || x.git === 'failed') loops.git = x.git
+  return loops
+}
+
 function readPerson(x: unknown): DayPerson | null {
   if (!isObj(x) || typeof x.id !== 'string' || !ID.test(x.id) || !str(x.name)) return null
   const p: DayPerson = { id: x.id, name: x.name as string }
@@ -825,7 +1004,49 @@ function readMonitoring(x: unknown, startedAt?: string): DayMonitoring | undefin
   }
   const tokens = readTokens(x.tokens)
   if (tokens) m.tokens = tokens
+  const supabase = readSupabase(x.supabase)
+  if (supabase) m.supabase = supabase
   return m
+}
+
+/** P1578 D: the Supabase source. A row that is not exactly what the builder writes is dropped. */
+const nonNeg = (v: unknown) => (num(v) !== undefined && (v as number) >= 0 ? (v as number) : undefined)
+function readSupabase(x: unknown): DaySupabase | undefined {
+  if (!isObj(x)) return undefined
+  const unit = (v: unknown) => (typeof v === 'string' && /^[A-Za-z]{1,4}$/.test(v) ? v : undefined)
+  const orgs: DaySupabaseOrg[] = []
+  for (const o of Array.isArray(x.orgs) ? x.orgs : []) {
+    if (!isObj(o) || typeof o.id !== 'string' || !ID.test(o.id)) continue
+    const metrics: DaySupabaseMetric[] = []
+    for (const m of Array.isArray(o.metrics) ? o.metrics : []) {
+      const label = isObj(m) ? oneLine(m.label, 60) : undefined
+      const used = isObj(m) ? oneLine(m.used, 20) : undefined
+      const limit = isObj(m) ? oneLine(m.limit, 20) : undefined
+      if (!isObj(m) || !label || !used || !limit || num(m.pct) === undefined || (m.pct as number) < 0) continue
+      metrics.push({ label, used, limit, pct: Math.floor(m.pct as number), over: m.over === true, ...(unit(m.used_unit) ? { used_unit: unit(m.used_unit) } : {}), ...(unit(m.limit_unit) ? { limit_unit: unit(m.limit_unit) } : {}) })
+    }
+    const org: DaySupabaseOrg = { id: o.id, metrics }
+    const banner = oneLine(o.banner, 120)
+    if (banner) org.banner = banner
+    if (Array.isArray(o.projects)) org.projects = o.projects.map((p) => oneLine(p, 60)).filter((p): p is string => !!p).slice(0, 6)
+    orgs.push(org)
+  }
+  const sb: DaySupabase = { collected: x.collected === true && orgs.some((o) => o.metrics.length > 0), orgs }
+  if (x.shared_org === true) sb.shared_org = true
+  if (isObj(x.testdb)) {
+    const t = x.testdb
+    const state = t.state === 'ok' || t.state === 'problem' ? t.state : 'not-run'
+    const td: DaySupabaseTestDb = { collected: t.collected === true && state !== 'not-run', state }
+    const ms = nonNeg(t.median_ms)
+    if (ms !== undefined) td.median_ms = ms
+    const lim = nonNeg(t.limit_ms)
+    if (lim !== undefined) td.limit_ms = lim
+    if (Array.isArray(t.samples_ms)) td.samples_ms = t.samples_ms.filter((v): v is number => nonNeg(v) !== undefined).slice(0, 5)
+    const detail = oneLine(t.detail, 120)
+    if (detail) td.detail = detail
+    sb.testdb = td
+  }
+  return sb
 }
 
 /** A real calendar date (2026-02-30 is not), as a UTC date; null otherwise. */
@@ -844,7 +1065,6 @@ function periodDays(p: string, kind: 'week' | 'month'): number | null {
   return m && +m[2] >= 1 && +m[2] <= 12 ? new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate() : null
 }
 const MAX_PROJECT_NAME = 60
-const nonNeg = (v: unknown) => (num(v) !== undefined && (v as number) >= 0 ? (v as number) : undefined)
 
 /** P1552: a malformed period or project row is removed and the rest renders; an unusable block is absent. */
 function readTokens(x: unknown): DayTokens | undefined {
@@ -977,6 +1197,8 @@ export function parseReport(raw: unknown): ParsedReport {
   // the first MAX_GOALS valid rows, in order; rows past the cap are not malformed, so not counted
   if (Array.isArray(raw.goals)) report.goals = rows(raw.goals, readGoal, (g) => g.id, drop).slice(0, MAX_GOALS)
   if (str(raw.goal)) report.goal = clipGoal(raw.goal as string)
+  const loops = readLoops(raw.loops)
+  if (loops) report.loops = loops
   if (isObj(raw.reflection)) {
     report.reflection = { statements: rows(raw.reflection.statements, readStatement, (s) => s.id, drop) }
     if (str(raw.reflection.model)) report.reflection.model = raw.reflection.model as string
@@ -1070,6 +1292,8 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
       const o = JSON.parse(raw) as Obj
       // A launch receipt (Phase C, written by the server's Start fixing route) is not a decision.
       if (o.kind === 'sent') continue
+      // P1578: what the runner found out about a send (or that a card waits) is not a decision either.
+      if (o.kind === 'outcome') continue
       if (o.kind === 'story_done' || o.kind === 'story_resend') {
         const m = readStoryMarker(o)
         if (m) markers.push(m)
@@ -1089,6 +1313,28 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
     }
   }
   return { lines, badLines, markers }
+}
+
+/** P1578: the outcome lines of decisions.jsonl, in file order. Anything that is not exactly one is skipped. */
+export function parseOutcomes(text: string): OutcomeLine[] {
+  const out: OutcomeLine[] = []
+  for (const raw of text.split('\n')) {
+    if (!raw.includes('"outcome"')) continue
+    try {
+      const o = JSON.parse(raw) as Obj
+      if (o.kind !== 'outcome' || typeof o.fp !== 'string' || !FP.test(o.fp) || typeof o.run_id !== 'string' || !ID.test(o.run_id)) continue
+      if (o.outcome !== 'waiting' && !LOOP_OUTCOMES.includes(o.outcome as LoopOutcome)) continue
+      const l: OutcomeLine = { kind: 'outcome', outcome: o.outcome as OutcomeLine['outcome'], fp: o.fp, run_id: o.run_id }
+      if (typeof o.sent_id === 'string' && ID.test(o.sent_id)) l.sent_id = o.sent_id
+      if (typeof o.for_run === 'string' && ID.test(o.for_run)) l.for_run = o.for_run
+      if (typeof o.owner === 'string' && o.owner.length <= 160) l.owner = o.owner
+      if (isoDay(o.at)) l.at = o.at as string
+      out.push(l)
+    } catch {
+      // an unreadable line is counted by parseDecisions
+    }
+  }
+  return out
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1340,14 +1586,49 @@ function synthesise(c: DayCheck): DayIssue {
   }
 }
 
+/**
+ * P1578: what the runner found out about a card changes what it may offer. This is the one place it
+ * does, so the page, Start fixing and the decision check all see the same options.
+ *  - escalated: the owner stopped moving or is gone, so "wait" is no longer an answer; the card
+ *    asks what now and recommends finding out why (agent work, but never auto-sent on a prod change).
+ *  - owned by a live owner: no Send (an agent working beside the owner is the collision the owner
+ *    exists to avoid); with nothing else to choose, "leave it with <owner>" is the answer.
+ */
+export function loopOptions(options: DayOption[], loop: DayLoop | undefined): DayOption[] {
+  if (!loop?.owner) return options
+  const clear = (o: DayOption): DayOption => {
+    const { recommended: _r, why: _w, ...rest } = o
+    return rest
+  }
+  if (loop.escalated) {
+    const kept = options.filter((o) => o.id !== 'wait').map(clear)
+    const unblock: DayOption = {
+      id: 'unblock',
+      label: loop.owner.state === 'gone' ? `Find out what happened to ${loop.owner.label}` : `Find out why ${loop.owner.label} stopped`,
+      agent: true,
+      recommended: true,
+    }
+    return [unblock, ...kept]
+  }
+  if (loop.owner.state !== 'live') return options
+  const kept = options.filter((o) => !o.agent)
+  const live = kept.filter((o) => o.id !== PARK)
+  if (!live.length) return [{ id: 'leave', label: `Leave it with ${loop.owner.label}`, recommended: true }, ...kept]
+  return kept.some((o) => o.recommended && o.id !== PARK) ? kept : kept.map((o) => (o === live[0] ? { ...o, recommended: true } : o))
+}
+
 function toView(issue: DayIssue, report: DayReport, checks: Map<string, DayCheck>, synthetic: boolean): IssueView {
   const check = issue.check ? checks.get(issue.check) : undefined
   const deadlineSoon = !!issue.deadline && Date.parse(issue.deadline) - Date.parse(report.started_at) <= 72 * HOUR
   const notProven = !!check && (check.status === 'not-run' || check.status === 'unproven')
-  let recommended = issue.options.findIndex((o) => o.recommended && o.id !== PARK)
-  if (recommended < 0) recommended = issue.options.findIndex((o) => o.id !== PARK)
+  const loop = report.loops?.cards[issue.fp]
+  const options = loopOptions(issue.options, loop)
+  let recommended = options.findIndex((o) => o.recommended && o.id !== PARK)
+  if (recommended < 0) recommended = options.findIndex((o) => o.id !== PARK)
   return {
     ...issue,
+    options,
+    ...(loop ? { loop } : {}),
     synthetic,
     urgent: deadlineSoon || notProven,
     important: synthetic ? check?.severity === 'high' : issue.important === true && check?.severity !== 'normal',
@@ -1430,8 +1711,11 @@ export function groupByCause(sorted: IssueView[]): void {
 }
 
 /** Rule 7 comparator over IssueView. */
+/** P1578: a card re-raised after an agent attempt is new information, so it sits above a fresh one of its tier */
+const reRaised = (i: IssueView) => (i.loop?.sent?.outcome === 'still-open' ? 0 : 1)
+
 export function compareIssues(a: IssueView, b: IssueView): number {
-  return rank(a) - rank(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
+  return rank(a) - rank(b) || reRaised(a) - reRaised(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1476,6 +1760,8 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
 
   const issues: IssueView[] = []
   const parked: ParkedView[] = []
+  const waiting: IssueView[] = []
+  const owned: IssueView[] = []
   for (const issue of allIssues(report)) {
     const now = thisRun.get(key('option', issue.fp))
     const before = earlier.get(key('option', issue.fp))
@@ -1497,12 +1783,18 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
       issues.push(issue)
     } else if (!now && prior?.option_id === PARK) {
       parked.push({ ...issue, parked: { at: prior.at, run_id: prior.run_id, text: prior.text } })
+    } else if (issue.loop?.waiting) {
+      waiting.push(issue)
+    } else if (issue.loop?.suppressed) {
+      owned.push(issue)
     } else {
       issues.push(issue)
     }
   }
   issues.sort(compareIssues)
   parked.sort(compareIssues)
+  waiting.sort(compareIssues)
+  owned.sort(compareIssues)
   groupByCause(issues)
 
   const broken = new Map(report.connections.filter((c) => connectionBroken(c.state)).map((c) => [c.id, c]))
@@ -1527,6 +1819,8 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
   return {
     issues,
     parked,
+    waiting,
+    owned,
     checks,
     connections,
     counts: {
@@ -1563,6 +1857,9 @@ function effective(issue: IssueView): { option_id: string; text?: string; is_que
 export function isAgentWork(issue: IssueView): boolean {
   // P1489 Invariant: a prod migration or deploy is never sent without the founder's answer.
   if (issue.needs_yes) return false
+  // P1578: an agent was sent for this and it is still here. Sending the same thing again unasked is
+  // the loop this spec closes; the founder can still choose it.
+  if (issue.loop?.sent?.outcome === 'still-open') return false
   return issue.options[issue.recommended_index]?.agent === true
 }
 

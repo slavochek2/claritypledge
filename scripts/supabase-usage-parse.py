@@ -58,23 +58,26 @@ def parse(text):
         limit = scaled(m.group(3), m.group(4), m.group(2))
         if limit <= 0:
             continue
-        rows.append((label, m.group(1), m.group(3), int(used / limit * 100), used / limit * 100))
+        rows.append((label, m.group(1), m.group(3), int(used / limit * 100), used / limit * 100, m.group(2) or "-", m.group(4) or "-"))
     return rows, banner, projects
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--warn-pct", type=float, default=float(os.environ.get("QUOTA_WARN_PCT", "70")))
+    ap.add_argument("--units", action="store_true", help="also print a UNITS line per row (P1578)")
     ap.add_argument("file", nargs="?")
     a = ap.parse_args()
     text = open(a.file, encoding="utf-8").read() if a.file else sys.stdin.read()
     rows, banner, projects = parse(text)
     if "Usage Summary" not in text:
         rows = []  # a wrong page with an "x / y" line must not read as healthy usage
-    for label, used, limit, pct, exact in rows:
+    for label, used, limit, pct, exact, _uu, _lu in rows:
         # pct is truncated for display; the last field is the decision, made on the exact value.
         print("ROW %s %s %s %d %s" % (label.replace(" ", "_"), used, limit, pct,
                                       "over" if exact >= a.warn_pct else "under"))
+        if a.units:
+            print("UNITS %s %s %s" % (label.replace(" ", "_"), _uu, _lu))
     if banner:
         print("BANNER: " + banner)
     if projects:

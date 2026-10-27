@@ -1,0 +1,561 @@
+{
+ "schema": 2,
+ "pass_id": "2026-10-27T05:16:27Z-58408",
+ "started_at": "2026-10-27T05:16:27Z",
+ "state": "complete",
+ "connections": [],
+ "checks": [
+  {
+   "id": "disp.credits",
+   "label": "Google Cloud credits",
+   "status": "ok"
+  },
+  {
+   "id": "disp.budgets",
+   "label": "Google Cloud budgets",
+   "status": "ok"
+  },
+  {
+   "id": "disp.aikeys",
+   "label": "AI keys",
+   "status": "ok"
+  },
+  {
+   "id": "disp.mirror",
+   "label": "Off-laptop backups",
+   "status": "ok"
+  },
+  {
+   "id": "disp.uncommitted",
+   "label": "Uncommitted work",
+   "status": "ok"
+  },
+  {
+   "id": "disp.dsh",
+   "label": "dsh key",
+   "status": "ok"
+  },
+  {
+   "id": "disp.lhcodex",
+   "label": "LinkedIn machine Codex",
+   "status": "ok"
+  },
+  {
+   "id": "disp.calendar",
+   "label": "Events calendar refresh",
+   "status": "problem"
+  },
+  {
+   "id": "disp.replies",
+   "label": "Replies to your event posts",
+   "status": "not-run"
+  },
+  {
+   "id": "disp.triage",
+   "label": "Chat digest",
+   "status": "problem"
+  },
+  {
+   "id": "disp.codex",
+   "label": "Codex quota",
+   "status": "ok"
+  },
+  {
+   "id": "disp.8a",
+   "label": "Beeper token pre-flight",
+   "status": "problem"
+  },
+  {
+   "id": "cp.smoke",
+   "label": "Prod smoke test",
+   "status": "not-run"
+  },
+  {
+   "id": "cp.blog",
+   "label": "Blog",
+   "status": "ok"
+  },
+  {
+   "id": "cp.backup",
+   "label": "Database backup",
+   "status": "ok"
+  },
+  {
+   "id": "cp.selfhosted",
+   "label": "Self-hosted test database",
+   "status": "skipped"
+  },
+  {
+   "id": "cp.gemini",
+   "label": "Gemini production key",
+   "status": "ok"
+  },
+  {
+   "id": "cp.gemini-batch",
+   "label": "Gemini batch key",
+   "status": "ok"
+  },
+  {
+   "id": "cp.cost",
+   "label": "Cloud cost leak check",
+   "status": "ok"
+  },
+  {
+   "id": "cp.signups",
+   "label": "Unconfirmed sign-ups",
+   "status": "ok"
+  },
+  {
+   "id": "cp.sources",
+   "label": "Calendar source suggestions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.sessions",
+   "label": "Live sessions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.transcribe",
+   "label": "Transcription jobs",
+   "status": "ok"
+  },
+  {
+   "id": "cp.email",
+   "label": "Event email sending",
+   "status": "ok"
+  },
+  {
+   "id": "cp.testdb",
+   "label": "Test database response time",
+   "status": "problem"
+  },
+  {
+   "id": "cp.quota",
+   "label": "Supabase free-plan usage",
+   "status": "problem"
+  },
+  {
+   "id": "cp.tokens",
+   "label": "Supabase access keys: expiry and full-access",
+   "status": "ok"
+  },
+  {
+   "id": "cp.sentry",
+   "label": "Sentry errors",
+   "status": "problem"
+  },
+  {
+   "id": "cp.mixpanel",
+   "label": "User analytics",
+   "status": "skipped"
+  },
+  {
+   "id": "cp.baseline",
+   "label": "Tests and lint",
+   "status": "ok"
+  },
+  {
+   "id": "cp.ops",
+   "label": "Ops alerts (GitHub)",
+   "status": "problem"
+  },
+  {
+   "id": "cp.rls",
+   "label": "Database access rules",
+   "status": "problem"
+  },
+  {
+   "id": "cp.grants",
+   "label": "Database function permissions",
+   "status": "ok"
+  },
+  {
+   "id": "cp.tablegrants",
+   "label": "Database table and column permissions",
+   "status": "problem"
+  },
+  {
+   "id": "cp.floor",
+   "label": "Database privilege floor",
+   "status": "ok"
+  },
+  {
+   "id": "cp.video",
+   "label": "Story video summaries",
+   "status": "ok"
+  }
+ ],
+ "issues": [
+  {
+   "fp": "disp.0d:day:previous-pass-incomplete",
+   "topic": "Personal",
+   "title": "Your last morning run finished without updating the calendar",
+   "point_a": "The run marked itself done, but the calendar was never updated.",
+   "obstacle": "The calendar step did not do its update in that run, and why is not yet known.",
+   "point_b": "Every morning run ends with the calendar updated and checked.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-06"
+  },
+  {
+   "fp": "disp.0d:day:calendar-stale",
+   "topic": "Personal",
+   "title": "Your CM Events calendar is out of date",
+   "point_a": "Its last successful update is too old, so events you might go to could be missing.",
+   "obstacle": "Your Beeper login has expired or cannot be confirmed and Beeper Desktop may be closed, so today's run could not update it either.",
+   "point_b": "Beeper is reconnected and the calendar is updated and checked.",
+   "options": [
+    {
+     "id": "reconnect",
+     "label": "I'll reconnect Beeper (/mcp, open Beeper Desktop) and re-run the calendar",
+     "recommended": true
+    },
+    {
+     "id": "later",
+     "label": "Not now"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-26"
+  },
+  {
+   "fp": "cp.sentry:sentry:javascript-react-40",
+   "topic": "Product errors",
+   "title": "A browser read error hit the Ban Mae Khi Loop social hike page (2026-10-25)",
+   "point_a": "It harepo-02ened once and no affected users were counted.",
+   "obstacle": "With a single occurrence, the cause is unknown.",
+   "point_b": "It never comes back, or you know why it harepo-02ened.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.sentry",
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.smoke:smoke:not-run",
+   "topic": "Servers & blog",
+   "title": "The daily check that the live site works for visitors could not finish",
+   "point_a": "The check's connection was cut partway through, so today you have no confirmation that visitors can use the site.",
+   "obstacle": "Your VPN carries the check's traffic and the site opens normally when visited directly (200), so the fault is probably on your machine, not the site; not yet confirmed.",
+   "point_b": "The check runs to the end with every part passing.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.smoke",
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.testdb:testdb:slow",
+   "topic": "Database",
+   "title": "The test database is slow to answer",
+   "point_a": "Reads took 1639, 2874 and 2923 milliseconds, a typical 2874 against a 2 second target.",
+   "obstacle": "Nobody has looked into why; the test server runs on the machine in Asia.",
+   "point_b": "A typical read answers in under 2 seconds.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.testdb",
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.quota:quota:clarity-movement-prod:log-ingestion",
+   "topic": "Database",
+   "title": "The live site's log storage is over the free plan's limit",
+   "point_a": "You used 1.65 GB of the 1 GB allowance, 0.65 GB over; everything else is well within limits (1.56 of 5 GB sent out, 4402 of 50000 monthly users).",
+   "obstacle": "No charge yet, but billing starts when the grace period ends at the start of 2027; the figures were read by eye from 1 organisation's page.",
+   "point_b": "Before 2027, logs are back under 1 GB or you have chosen to pay for a bigger plan.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.quota",
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.rls:rls:new-policies",
+   "topic": "Database",
+   "title": "A permission no saved change accounts for arepo-02eared on the test database",
+   "point_a": "On test, signed-in users can now read their own group chat opens; the live site has no such rule.",
+   "obstacle": "Nothing on record creates it; it probably comes from chat work still in progress, but that is unconfirmed.",
+   "point_b": "The rule is either part of the chat work's saved changes or written into the record of expected permissions.",
+   "options": [
+    {
+     "id": "wait",
+     "label": "Wait for the in-flight chat work to land its migration",
+     "recommended": true,
+     "why": "Test-only and scoped to the caller's own rows, so no prod exposure"
+    },
+    {
+     "id": "baseline",
+     "label": "Record it in the baseline now"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.rls",
+   "first_seen": "2026-10-04",
+   "needs_yes": true
+  },
+  {
+   "fp": "cp.tablegrants:tablegrants:group-chat-opens",
+   "topic": "Database",
+   "title": "A test table nobody recorded is open to visitors or signed-in users",
+   "point_a": "The table holding group chat opens exists only on the test database, and no saved change creates it.",
+   "obstacle": "It is the same unrecorded chat table behind the new read permission, so both wait on the same unfinished work.",
+   "point_b": "The chat work's saved changes create the table and set who can reach it.",
+   "options": [
+    {
+     "id": "wait",
+     "label": "Wait for the in-flight chat work to land its migration",
+     "recommended": true,
+     "why": "Test only, prod not affected"
+    },
+    {
+     "id": "apply",
+     "label": "Apply a fix to prod now"
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.tablegrants",
+   "first_seen": "2026-10-26",
+   "needs_yes": true,
+   "cause": "table:group-chat-opens"
+  },
+  {
+   "fp": "cp.branch:stash:present",
+   "topic": "ClarityPledge",
+   "title": "Set-aside work from the P1542 series recipes feature is still waiting",
+   "point_a": "Changes from that work were put aside just before a merge and never picked up again.",
+   "obstacle": "Set-aside work does not arepo-02ear in the usual list of changes, so it is easy to forget.",
+   "point_b": "You decide: the work goes back onto its feature or is thrown away.",
+   "options": [
+    {
+     "id": "apply",
+     "label": "Apply them on their branch"
+    },
+    {
+     "id": "drop",
+     "label": "Drop them"
+    },
+    {
+     "id": "keep",
+     "label": "Keep them for now",
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.health:pipeline:none-overdue",
+   "topic": "ClarityPledge",
+   "title": "A placeholder card was filed by mistake",
+   "point_a": "A test entry named x was filed in the daily report.",
+   "obstacle": "The check tool has no way to withdraw a filed entry.",
+   "point_b": "The entry is drorepo-02ed when findings are filed.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.weekly:weekly:action:2.5:unparseable-inbox",
+   "topic": "Weekly review",
+   "title": "Your list of deferred tasks has unreadable parts and entries nobody has reviewed",
+   "point_a": "3 sections cannot be read and 15 weekly tasks have never been judged keep or close; 168 public and 124 private items are open.",
+   "obstacle": "This week's review did not check each entry against the actual work, so no verdicts were given.",
+   "point_b": "Every section reads cleanly and those first 15 tasks each carry a checked decision.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "cp.weekly:weekly:action:2.4.6:stale-backup-branches",
+   "topic": "Weekly review",
+   "title": "Leftover copies of finished and unfinished work are piling up",
+   "point_a": "4 finished pieces of work still have copies, and many unfinished ones are kept, the oldest at 35 days (community letters) and 27 days (landing page lab).",
+   "obstacle": "Automatic cleanup only removes finished work older than 30 days, so nothing has been removed yet.",
+   "point_b": "Finished copies are deleted and each kept piece is either completed or put away.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "disp.triage:triage:digest-stale",
+   "topic": "Events calendar",
+   "title": "Today's summary of your chats was not made",
+   "point_a": "The newest summary is yesterday's; nothing in it was addressed to you, only one group request for help.",
+   "obstacle": "Beeper Desktop is closed or its login cannot be confirmed, so your messages cannot be read.",
+   "point_b": "Beeper is reconnected and today's summary is waiting for you.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.triage",
+   "first_seen": "2026-10-04"
+  },
+  {
+   "fp": "disp.calendar:calendar:todo-today-cache",
+   "topic": "Events calendar",
+   "title": "New Chiang Mai events from Todo.Today may be missing from your calendar",
+   "point_a": "Its refresh was due today, but nothing new came in.",
+   "obstacle": "The fetch reported success yet saved nothing, so the failure was hidden; Todo.Today may have changed how it shares events.",
+   "point_b": "Todo.Today events come in again and the calendar is checked to show them.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.calendar",
+   "first_seen": "2026-10-27"
+  },
+  {
+   "fp": "check:disp.8a",
+   "topic": "Daily run",
+   "title": "The morning run could not confirm your Beeper connection works",
+   "point_a": "The check made before reading your chats failed, so anything that depends on your chats could not run.",
+   "obstacle": "Nobody has written up why it failed yet.",
+   "point_b": "The Beeper connection check passes on the next morning run.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true,
+     "why": "Finding the cause is routine agent work."
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "disp.8a",
+   "first_seen": "2026-10-12"
+  },
+  {
+   "fp": "check:cp.ops",
+   "topic": "Servers & blog",
+   "title": "1 alert about your running systems is open on GitHub",
+   "point_a": "It is still open, so whatever it flagged has not been confirmed fixed.",
+   "obstacle": "Nobody has looked into what caused it yet.",
+   "point_b": "The alert is explained and closed, and the next daily check finds none open.",
+   "options": [
+    {
+     "id": "agent",
+     "label": "Give to the agent",
+     "agent": true,
+     "recommended": true,
+     "why": "Finding the cause is routine agent work."
+    },
+    {
+     "id": "park",
+     "label": "Park: stop asking until I bring it back"
+    }
+   ],
+   "check": "cp.ops",
+   "first_seen": "2026-10-27",
+   "needs_yes": true
+  }
+ ]
+}

@@ -10,6 +10,7 @@ import { projectQuota, resetLabel, type QuotaLine } from './quota'
 import { Phrases } from './status'
 import { TokenUsage } from './TokenUsage'
 import { fmtTokens, tokenReadings, tokensEmpty } from './tokens'
+import { supabaseGauges } from './freePlan'
 
 interface Props {
   report: DayReport
@@ -43,9 +44,11 @@ export function MonitoringTab(p: Props) {
   const quotas = report.monitoring?.quotas ?? []
   const cloud = report.monitoring?.cloud
   const tokens = report.monitoring?.tokens
-  const [src, setSrc] = useState<'gcloud' | 'subs' | 'tokens'>('gcloud')
+  const [src, setSrc] = useState<'gcloud' | 'subs' | 'tokens' | 'supabase'>('gcloud')
   const [per, setPer] = useState<'week' | 'month'>('week') // week by default (P1552 Q4); component state only (P1399)
   const lastTokens = tokens?.collected ? tokenReadings(tokens, 'week') : null
+  const sb = supabaseGauges(report.monitoring?.supabase, p.view.owned)
+  const sbTop = sb.rows.reduce<(typeof sb.rows)[number] | null>((m, r) => (!m || r.pct > m.pct ? r : m), null)
 
   return (
     <>
@@ -77,6 +80,11 @@ export function MonitoringTab(p: Props) {
           <span className="d-v">{lastTokens?.total != null ? fmtTokens(lastTokens.total) : '—'}</span>
           <span className="d-s">{lastTokens?.total != null ? 'output, last full week' : tokens?.collected ? (tokensEmpty(tokens) ? 'no usage yet' : 'no full week yet') : 'not collected yet'}</span>
         </button>
+        <button type="button" className="d-srcc" aria-pressed={src === 'supabase'} onClick={() => setSrc('supabase')} data-src="supabase">
+          <span className="d-n">Supabase</span>
+          <span className="d-v">{sb.read && sbTop ? `${sbTop.pct}%` : '—'}</span>
+          <span className="d-s">{sb.read && sbTop ? `${sbTop.label}, highest of the free plan` : 'not read today'}</span>
+        </button>
       </div>
       {src === 'gcloud' ? (
         <>
@@ -85,6 +93,13 @@ export function MonitoringTab(p: Props) {
             {cloud?.collected && <Segs per={per} onPer={setPer} />}
           </div>
           <Cloud cloud={cloud} per={per} {...p} />
+        </>
+      ) : src === 'supabase' ? (
+        <>
+          <div className="d-dhead">
+            <h2>Supabase</h2>
+          </div>
+          <Supabase g={sb} />
         </>
       ) : src === 'tokens' ? (
         <>
@@ -464,5 +479,40 @@ function Subscriptions({ quotas, history, runStartedAt }: { quotas: DayQuota[]; 
           </div>
         ))}
     </>
+  )
+}
+
+/** P1578 D: the free-plan metrics (used, limit, %), the test database's answer time, and the shared-quota line. */
+function Supabase({ g }: { g: ReturnType<typeof supabaseGauges> }) {
+  return (
+    <div className="d-card d-pad" data-supabase>
+      {!g.read ? (
+        <div data-supabase-unread>
+          <b>Free-plan usage</b> <span className="d-prop">not read today</span>
+        </div>
+      ) : (
+        <>
+          {g.banner && <div className="d-loop sent">{g.banner}</div>}
+          {g.rows.map((r) => (
+            <div className="d-row" key={r.label} data-supabase-row={r.label}>
+              <span className="d-tx">
+                <span className="d-ptitle">{r.label}</span>
+                <span className="d-w">
+                  {r.text} · {r.pct}%{r.over ? ' · over the warning line' : ''}
+                  {r.owner ? ` · owned by ${r.owner}` : ''}
+                </span>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+      <div className="d-row" data-supabase-testdb={g.testdb.state}>
+        <span className="d-tx">
+          <span className="d-ptitle">Test database answer time</span>
+          <span className="d-w">{g.testdb.text}</span>
+        </span>
+      </div>
+      {g.sharedLine && <div className="d-w" data-supabase-shared>{g.sharedLine}</div>}
+    </div>
   )
 }

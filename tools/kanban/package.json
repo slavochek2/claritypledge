@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "./scripts/run-once.sh",
     "dev:client": "vite",
-    "dev:server": "tsx server/api.ts",
+    "dev:server": "tsx watch server/api.ts",
     "build": "vite build",
     "lint": "echo 'No linting configured for kanban'",
     "test": "vitest run",

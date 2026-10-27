@@ -231,10 +231,10 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-l { font-weight: 600; overflow-wrap: anywhere; }
 .d-rec { display: inline-block; font-size: 12px; font-weight: 600; color: var(--fg2); background: #fff; border: 1px solid var(--line2); padding: 0 8px; border-radius: 99px; margin-left: 6px; }
 .d-ftxt { display: block; margin: 0 14px 12px 44px; width: calc(100% - 58px); font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 60px; resize: vertical; background: #fff; color: var(--fg); }
-.d-parked { overflow: hidden; }
+.d-parked, .d-waiting { overflow: hidden; }
 .d-fold { width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 14px; }
-.d-parked .d-row { border-top: 1px solid var(--line); font-size: 14px; }
-.d-parked .d-tx { display: flex; flex-direction: column; }
+.d-parked .d-row, .d-waiting .d-row { border-top: 1px solid var(--line); font-size: 14px; }
+.d-parked .d-tx, .d-waiting .d-tx { display: flex; flex-direction: column; }
 
 /* Phase D: agent line, cause tag, fit and risk, technical detail, the custom answer */
 .d-issues > * { min-width: 0; }
@@ -546,3 +546,8 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-tk-sharekey { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--fg2); }
 .d-tk-sharekey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
 .d-tk-gem { font-size: 13px; font-weight: 600; margin-top: 4px; }
+
+/* P1578: what the runner found out about a card: the send history, the owner, the staleness alarm */
+.d-loop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; background: var(--bg2, #f3f4f6); color: var(--fg2); }
+.d-loop.sent { background: var(--amber-50); color: var(--amber-800); font-weight: 600; }
+.d-loop.escalated { background: var(--amber-50); color: var(--amber-800); font-weight: 600; border: 1px solid var(--amber); }
