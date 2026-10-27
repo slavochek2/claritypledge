@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 7.1.0
+version: 7.2.0
 ---
 
 # /push
@@ -63,6 +63,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
 - Apply to **prod** the migrations the pushed SHA carries → **yes, automatically** (P1211, founder decision D1 = A, 2026-09-21). Typing `/push` authorizes exactly the set `check-schema-ready.sh` names for the SHA being pushed — step 2.5 before the push, step 6 after it — and nothing else. The macOS keychain dialog is the physical confirmation. Never ask "apply migrations?"; never apply a file C1 did not name.
+- Fix a code-shape (quality ratchet) regression in the push range → **yes, automatically** (P1579, step 2.2). Never ask which model, whether to fix, or how. The founder asked for this path to be streamlined: *"I run push on Sonnet, then I switch to Opus because I'm not clear, then you explain to me something, then I need to make decisions. No, it has to be streamlined."*
 
 ### Bystander dirty files — resolved automatically, never asked (P1287, 2026-09-09)
 
@@ -187,7 +188,7 @@ git status --short
 - **Branch ≠ main** → STOP: "On `<branch>`, not main. /push is main-only; use `/ship` for feature branches."
 - **Behind > 0** → STOP: report the ahead/behind counts and let the **user** resolve. Do NOT run `git pull --rebase` yourself — rebasing the shared `main` checkout can collide with a co-tenant `/ship` mid-cherry-pick (git.md). State the counts; the rebase is the user's call.
 - **Clean working tree AND ahead = 0** → nothing to do. Report "Already at origin/main." and exit.
-- **Clean working tree, ahead > 0** → skip step 2 (already committed); go to step 3.
+- **Clean working tree, ahead > 0** → skip step 2 (already committed); go to step 2.2.
 
 ### 2. Commit outstanding work (only if the tree is dirty)
 
@@ -201,6 +202,49 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
    ```
 3. Stage **only paths you modified in this session**, by explicit path. Never `git add .` / `-A`. This repo runs concurrent worktree sessions and `git.md` calls staging-everything *"the #1 cause of wrong-files-in-wrong-commit"* — `/push` does not get an exemption from that. The `MINE` set from the classifier above **is** that list; everything else is left alone and reported. Do not ask the user to adjudicate it.
 4. `/push` runs on the shared main checkout, so commit through `./scripts/git-ops.sh commit-to-main --message "..." --files <explicit paths>` (`.claude/rules/git.md` — corrected 2026-08-20: a hand-run `git add` + `git commit -- <files>` is NOT safe there even bystander-checked; `commit-to-main` holds a lock across the whole staging+commit sequence, which is the actual guarantee needed). Use the user's message (or a descriptive `chore:`/`docs:`/`fix:` summary of the staged files) plus the commit trailers your session was given (the `Co-Authored-By:` model line + `Claude-Session:` link from your session's git instructions). **Use the running session's model in the trailer — do not hardcode a model name** (a Sonnet `/push` must not stamp Opus authorship).
+
+### 2.2. Code shape before anything reaches prod (P1579) — every time
+
+The `quality-ratchet` required check refuses a push whose range makes a large file grow or a
+function longer or more tangled (P1566). The local runner gives the same verdict CI does (measured
+2026-10-27: 16 findings locally and 16 in CI over the same range), so judge it **here**, before
+step 2.5 applies migrations to prod and before any `push-on` is spent. On 2026-10-27 the order was
+the other way round: two migrations reached prod, a staging run burned, then the push was refused.
+
+```bash
+git fetch origin main
+node scripts/quality-ratchet.cjs --range origin/main..HEAD > /tmp/ratchet.out 2>&1; echo "rc=$?"
+```
+
+- **rc 0** → continue to step 2.5. Say nothing.
+- **rc 2** → STOP, relay the output. The runner could not judge; nothing here resolves that.
+- **rc 1** → run the fix lane below. Tell the founder in ONE line what is happening ("N code-shape
+  findings in the push range; fixing them in pN, then continuing the push") and do not ask anything.
+
+**Fix lane: one attempt, no questions.**
+
+1. `./scripts/next-p-number.sh`, then claim a worktree: `./scripts/git-ops.sh claim pN ratchet-fix`
+   (capture the nonce with the sentinel pattern in `git.md`). Write `features/pN_ratchet_fix.md`
+   in it (`type: task`, `driver: anomaly`, `intent: cold-start`, Problem = the findings, Done-When =
+   the four checks in step 3).
+2. Spawn **one** fixer: `Agent` with `subagent_type: general-purpose` and **`model: opus`**. Pin the
+   model whatever this session runs on; the session model does not matter here. Give it the worktree root,
+   `/tmp/ratchet.out`, and these rules: extraction only (helpers, sub-components, sibling modules),
+   no behaviour or UI change, keep every exported name and import path working, follow each folder's
+   nested `CLAUDE.md`, never edit the ratchet, its limits or any test, no `git commit`. It writes its
+   report to a file and returns the path (`skills.md`: a background subagent's text is lost).
+3. Verify it yourself in the worktree. Never take the fixer's word for it (`epistemic.md` gate 9).
+   Commit its files there (a worktree index is private), then:
+   `node scripts/quality-ratchet.cjs --range origin/main..HEAD` exit 0 · `npx tsc --noEmit` exit 0 ·
+   `npx vitest run` green · `npx eslint` on the changed files clean.
+4. Review with `/slava:build:finish` (the standing review: Gemini always, more reviewers by stakes).
+   Fix what it confirms.
+5. `/ship pN`. Its gate 3.8 re-judges the branch's own commits. Then **restart `/push` from step 1**:
+   HEAD moved, and the privacy stamp and schema check must cover the new SHA.
+
+**STOP** (relay the remaining findings, keep the worktree) only when the one attempt leaves the
+ratchet red, or a check in step 3 fails twice. Never raise a limit, add an exception or edit a test
+to get through, and never re-spawn a second fixer to retry the same findings.
 
 ### 2.5. Schema before code (P1211) — every time, even with a clean tree
 

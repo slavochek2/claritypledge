@@ -15,6 +15,7 @@
 #         and 2.7 when scripts/lib/admin-close.sh finds it eligible (P1444)
 #   3.5   pre-deploy checklist has no unchecked "- [ ]" items
 #   3.65  every deferral phrase names a P-number (inline or in branch commits)
+#   3.8   quality ratchet over the branch's own commits (P1579)
 #
 # Output contract: no >, <, or | at word boundaries (shell-safety.md P783).
 
@@ -88,7 +89,7 @@ fi
 
 # Every gate id this script implements. --only is validated against this list
 # so a typo cannot silently disable everything.
-KNOWN_GATES="2.5 2.7 3.5 3.65"
+KNOWN_GATES="2.5 2.7 3.5 3.65 3.8"
 
 # gate_enabled <id> — true when --only was not given, or names this gate.
 gate_enabled() {
@@ -134,6 +135,9 @@ fail=0
 # copy is stale until /ship completes — features.md, fix 60f4f4b). Fall back to
 # main disk when no feature branch exists (spec-only / already-merged path).
 feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+')"
+# Gate 3.8 judges CODE on the branch, independent of where the spec text is read
+# from, so it keeps the branch even when --spec-file blanks feature_branch below.
+ratchet_branch="$feature_branch"
 spec_content=""
 spec_source=""
 
@@ -861,6 +865,46 @@ if [[ -n "$spec_content" ]]; then
   fi
 fi
 
+fi
+
+# ── Gate 3.8: quality ratchet over the branch (P1579) ───────────────────────
+# /ship cherry-picks, and a cherry-pick never runs the pre-commit hook, so a branch
+# whose commits predate the ratchet (P1566) or skipped it reached main unjudged and
+# failed only at the push's required check (2026-10-27: 16 findings, 44 commits).
+# Judge the branch's own commits here, while it is still open: merge-base..branch.
+# A spec with no feature branch has no range of its own and skips. A repo with no
+# ratchet installed skips by name (the hermetic ship fixtures; in this repo a deleted
+# runner already blocks every commit through pre-commit). Any other non-zero exit
+# fails closed: exit 1 counts as "worse" only when the runner printed its own verdict
+# line, because node also exits 1 when the runner cannot even load. Ratchet output is
+# printed with < > | replaced, per this script's output contract (P783).
+
+if gate_enabled "3.8"; then
+if [[ -z "$ratchet_branch" ]]; then
+  echo "[GATE 3.8] SKIP: no feature branch, nothing of its own to judge"
+elif [[ ! -f "$REPO_ROOT/scripts/quality-ratchet.cjs" ]]; then
+  echo "[GATE 3.8] SKIP: no quality ratchet in this repo (scripts/quality-ratchet.cjs absent)"
+else
+  ratchet_base="$(cd "$REPO_ROOT" && git merge-base main "$ratchet_branch" 2>/dev/null || true)"
+  if [[ -z "$ratchet_base" ]]; then
+    echo "[GATE 3.8] FAIL: no merge-base between main and ${ratchet_branch}, cannot judge the branch"
+    fail=1
+  else
+    ratchet_rc=0
+    ratchet_out="$(cd "$REPO_ROOT" && node scripts/quality-ratchet.cjs --range "${ratchet_base}..${ratchet_branch}" 2>&1)" || ratchet_rc=$?
+    if [[ "$ratchet_rc" -eq 0 ]]; then
+      echo "[GATE 3.8] PASS: quality ratchet clean over ${ratchet_branch}"
+    else
+      if [[ "$ratchet_rc" -eq 1 ]] && printf '%s\n' "$ratchet_out" | $GREP -qE '^quality-ratchet: FAIL'; then
+        echo "[GATE 3.8] FAIL: ${ratchet_branch} makes code shape worse (P1566); fix on the branch before shipping:"
+      else
+        echo "[GATE 3.8] FAIL: quality ratchet could not run (exit ${ratchet_rc}), refusing rather than passing:"
+      fi
+      printf '%s\n' "$ratchet_out" | tr '<>|' '[]/' | sed 's/^/    /'
+      fail=1
+    fi
+  fi
+fi
 fi
 
 # ── Result ──────────────────────────────────────────────────────────────────
