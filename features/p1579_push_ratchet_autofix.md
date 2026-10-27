@@ -45,19 +45,19 @@ Reversibility: high. Decision density: none open; the founder asked for it resol
    file or sibling modules), so this push goes through.
 2. **`/ship` checks the ratchet over the branch range before it cherry-picks** and refuses with the
    findings, so the failure shows while the branch is still open, not after it is on main.
-3. **`/push` runs the same check locally before it asks for `push-on`** (the local run over
-   `origin/main..HEAD` produced the identical 16 findings CI did). On failure it does not stop: it
-   claims a worktree, spawns ONE fixer subagent pinned to Opus (whatever model the session runs),
-   verifies the result itself (ratchet clean, typecheck, unit tests), gets one Gemini review, ships
-   the fix to main through `/ship`, and continues the push. The founder is asked only for `push-on`,
-   as before.
+3. **`/push` runs the same check locally, before it touches prod or asks for `push-on`** (the local
+   run over `origin/main..HEAD` produced the identical 16 findings CI did). It only checks: a red
+   verdict is a STOP naming whose commits it came from. Founder ruling, 2026-10-27: *"On push it's
+   too late. On push it's like a check."* The refactor belongs where the code was built (the
+   per-commit hook while building, gate 3.8 before merge). An auto-fix lane inside `/push` was
+   drafted, reviewed, and removed on that ruling.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
 | A refactor changes behaviour | MITIGATE | Extraction only; typecheck + unit + affected e2e must pass; Gemini + Opus review |
-| The autofix loops on a finding it cannot fix | MITIGATE | One fix attempt, then STOP with the findings; never retry silently |
+| Gate 3.8 skips a branch /ship will cherry-pick | MITIGATE | Resolves feature/ and fix/ like git-ops; >1 match FAILS; canary covers both |
 | Raising the limits or an allowlist as the "fix" | AVOID | Never edit the ratchet's limits or baseline to pass |
 
 Non-goal: changing the ratchet itself, or making cherry-pick run hooks.
@@ -67,5 +67,5 @@ Non-goal: changing the ratchet itself, or making cherry-pick run hooks.
 - [ ] `node scripts/quality-ratchet.cjs --range origin/main..HEAD` exits 0 on the branch
 - [ ] `npx tsc --noEmit` and the unit suite pass; the P1545 e2e specs pass
 - [ ] `/ship` refuses a branch with a ratchet regression, shown by a run against a known-bad range
-- [ ] `/push` names the ratchet pre-check and the autofix lane, ahead of the `push-on` ask
+- [ ] `/push` runs the ratchet as a check-only step 2.2, ahead of migrations and the `push-on` ask
 - [ ] Reviewed by Gemini and one Opus reviewer; findings resolved or recorded

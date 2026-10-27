@@ -63,7 +63,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
 - Apply to **prod** the migrations the pushed SHA carries → **yes, automatically** (P1211, founder decision D1 = A, 2026-09-21). Typing `/push` authorizes exactly the set `check-schema-ready.sh` names for the SHA being pushed — step 2.5 before the push, step 6 after it — and nothing else. The macOS keychain dialog is the physical confirmation. Never ask "apply migrations?"; never apply a file C1 did not name.
-- Fix a code-shape (quality ratchet) regression in the push range → **yes, automatically** (P1579, step 2.2). Never ask which model, whether to fix, or how. The founder asked for this path to be streamlined: *"I run push on Sonnet, then I switch to Opus because I'm not clear, then you explain to me something, then I need to make decisions. No, it has to be streamlined."*
+- Check code shape before anything reaches prod, and fix it if it slipped through → **yes, automatically** (P1579, step 2.2). Never ask which model, whether to fix, or how. The fix lane is the exception; build time and `/ship` are where code shape is normally fixed.
 
 ### Bystander dirty files — resolved automatically, never asked (P1287, 2026-09-09)
 
@@ -219,7 +219,11 @@ node scripts/quality-ratchet.cjs --range origin/main..HEAD > "$RATCHET_OUT" 2>&1
 
 - **rc 0** → continue to step 2.5. Say nothing.
 - **rc 2** → STOP, relay the output. The runner could not judge; nothing here resolves that.
-- **rc 1** → run the fix lane below. Tell the founder in ONE line what is happening, naming whose
+- **rc 1** → this should be **rare**: the per-commit hook judges code while it is built, and
+  `/ship`'s gate 3.8 judges the branch before it reaches main, so the fix normally happens there.
+  Push is the backstop that catches what slipped, and it **fixes** rather than stops, because a
+  push that only stops leaves the work blocked until someone remembers (founder, 2026-10-27: *"if
+  you make it check only, then things start to slip"*). Run the fix lane below. Tell the founder in ONE line what is happening, naming whose
   commits the findings come from (`git log --format=%s origin/main..HEAD -- <finding files>`, the
   P-numbers in those subjects): "N code-shape findings from p1545 in the push range; fixing them in
   pN, then continuing the push". Do not ask anything. The findings may be a co-tenant's shipped work;
@@ -254,6 +258,9 @@ node scripts/quality-ratchet.cjs --range origin/main..HEAD > "$RATCHET_OUT" 2>&1
    HEAD moved, and the privacy stamp and schema check must cover the new SHA. **The fix lane runs at
    most once per `/push`:** if step 2.2 returns rc 1 again after a fix shipped in this run, that is a
    STOP with the remaining findings, never a second worktree or a second fixer.
+
+6. **File how it slipped.** `/note` one entry naming the commits and why the build-time hook and
+   gate 3.8 did not catch them. Every firing of this lane is a gap in an earlier check.
 
 **STOP** (relay the remaining findings, keep the worktree) only when the one attempt leaves the
 ratchet red, or a check in step 3 fails twice. Never raise a limit, add an exception or edit a test
