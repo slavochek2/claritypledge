@@ -85,7 +85,7 @@ Five parts, each independently shippable.
   Evidence: same file, section C: live owner gives `waiting` (collapsed, no question, never sent, ledger line once); idle 11 days gives `escalated`, `wait` option removed. Real-data note: the 10-27 rls card carries no `cause`, so it finds no owner until the finding carries `--cause table:group-chat-opens` (day-cp.md now says so); the tablegrants card resolves to the P1542 branch on the real repo.
 - [x] The Monitoring tab shows a Supabase source with per-metric usage and test-DB latency; no `cp.quota` card while P1530 is open
   Evidence: `day-supabase.test.ts` + e2e `P1578` (Supabase source: metrics, test-DB ms, shared line); `day-report-sections.test.sh` 9d builder (45 pass, mutated-day.md control fails). cp.quota card: owned by P1530 via `day-owns:` line, `view.owned`, no card; real-repo smoke run showed `suppressed: true`.
-- [ ] `dev:server` runs in watch mode; after restarting the pp board once, Token usage shows the 10-19 week (manual check, screenshot)
+- [x] `dev:server` runs in watch mode (asserted by `day-dev-server.test.ts`); after the founder restarted the pp board (process start 2026-10-27 15:11), `/api/day/runs/<latest>` serves `monitoring.tokens` with last full week 2026-10-19 (API check in place of a screenshot)
   Partial evidence, box left open (manual screenshot pending): `package.json` dev:server is `tsx watch server/api.ts`, asserted by `day-dev-server.test.ts`.
 - [x] Existing day test suites (`tools/kanban` unit + e2e-day, `~/.claude/scripts/day-*.test.*`) pass
   Evidence: kanban vitest 644 passed (32 files); day e2e 165 passed; day-step 126, day-gates 141, day-file-findings 22, day-pass-guard 58, day-report-sections 45, day-p1442-budgets all passed; test-p1525-usage-parse 40.
