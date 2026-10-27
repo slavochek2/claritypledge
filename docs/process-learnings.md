@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 239
+**Next ID:** 243
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2922,5 +2922,49 @@ Found during P1557, not caused by it. scripts/test-p1399-day-registry.sh fails o
 **due:** week
 
 Found during P1557, fails on hosted and self-hosted alike. e2e/integration/p964-db-schema.spec.ts signs in with caller.password, but TestUser (e2e/helpers/test-user.ts) has no password field, so the sign-in silently fails and the RPC runs as anon: "permission denied for function get_letter_position_stories". Grants are correct (authenticated may execute). A test change, so it needs the founder's OK (tests.md). Likely fix: sign in with TEST_PASSWORD and assert the sign-in succeeded.
+
+---
+
+## Spec: keep processed canvas material after Publish, then the talking canvas
+
+**ID:** INBOX-239
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** month
+
+Founder ask from P1536: keep each owner's processed canvas material (text extracted from uploads and links, never the files) privately after Publish, so later canvas versions reason over everything they gave. Later step: the canvas becomes an agent that explains itself to readers and onboards them. P1536 deletes the extracted text at Publish today; its retention hook carries the founder-decision marker. Done when a spec exists via /create-spec; droppable if the founder decides material should never outlive a draft.
+
+---
+
+## Investigate flaky _shared/banner-small.test.ts
+
+**ID:** INBOX-240
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+supabase/functions/_shared/banner-small.test.ts failed 4 tests in 1 of 9 full Deno runs during P1576 (2026-10-27); the P1576 branch never touched that file. Done when the flake is reproduced and fixed, or shown to be environment-only and the test made deterministic.
+
+---
+
+## Room shows a false You're offline when the access-check chain is slow
+
+**ID:** INBOX-241
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+A cold event room load runs the gate's access reads one after another under a single 4.5s uncached deadline (UNCACHED_DEADLINE_MS in offline-read-cache.ts). On a slow network the whole chain passes the deadline, the page shows You're offline for about 0.4s, then retries with a fresh loader (seen in P1562 frame sampling with REST held 0.7 to 1.5s; an unheld TEST load took about 4.7s to reach /meet). Options: a per-request deadline, or keep the loader up while the chain is still getting answers. Fold into the app-wide loading spec; drop if that spec covers it.
+
+---
+
+## Ship teardown should honour holds and pin a recovery ref before removing a slot
+
+**ID:** INBOX-242
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+From the P1450 final review (2026-10-27): the shared teardown used by ship, park and archive-spec ignores a valid hold, writes no recovery record before removing a slot, and a forced removal blocked by ignored output can leave a half-deleted slot with its bookkeeping gone. Align it with the P1450 tidy invariants. Droppable if teardown is replaced by the tidy removal path.
 
 ---
