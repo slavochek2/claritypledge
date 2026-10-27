@@ -61,10 +61,12 @@ test.describe('P551: Doc list page (/docs)', () => {
   let auth: TestAuthContext;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 DocList' });
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     // Clean up any docs created by this user
     await supabaseAdmin.from('clarity_docs').delete().eq('owner_id', auth.user.user.id);
     await auth.cleanup();
@@ -123,10 +125,12 @@ test.describe('P551: Doc creation via modal', () => {
   let auth: TestAuthContext;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 DocCreate' });
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('clarity_docs').delete().eq('owner_id', auth.user.user.id);
     await auth.cleanup();
   });
@@ -174,6 +178,7 @@ test.describe('P551: Doc detail page (/d/:docId)', () => {
   let storyId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 DocDetail' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -193,6 +198,7 @@ test.describe('P551: Doc detail page (/d/:docId)', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     await deleteDocFixture(docId);
     await deleteTestStory(storyId);
@@ -244,6 +250,7 @@ test.describe('P551: Rename doc title inline', () => {
   let docId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 Rename' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -254,6 +261,7 @@ test.describe('P551: Rename doc title inline', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await deleteDocFixture(docId);
     await auth.cleanup();
   });
@@ -298,6 +306,7 @@ test.describe('P551: Add story inline (write new story)', () => {
   let docId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 AddStory' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -308,6 +317,7 @@ test.describe('P551: Add story inline (write new story)', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     // Clean up stories created during test
     const { data: docStories } = await supabaseAdmin
@@ -364,6 +374,7 @@ test.describe('P551: Add existing story via selector', () => {
   let existingStoryId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 SelectStory' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -382,6 +393,7 @@ test.describe('P551: Add existing story via selector', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     await deleteDocFixture(docId);
     await deleteTestStory(existingStoryId);
@@ -429,6 +441,7 @@ test.describe('P551: Remove story from doc', () => {
   let storyId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 RemoveStory' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -448,6 +461,7 @@ test.describe('P551: Remove story from doc', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     await deleteDocFixture(docId);
     await deleteTestStory(storyId);
@@ -490,10 +504,12 @@ test.describe('P551: Delete doc', () => {
   let auth: TestAuthContext;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 DeleteDoc' });
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await auth.cleanup();
   });
 
@@ -541,6 +557,7 @@ test.describe('P551: Private doc not accessible by non-owner', () => {
   let privateDocId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     ownerAuth = await getTestAuthContext('host', browser, { name: 'P551 PrivOwner' });
     otherAuth = await getTestAuthContext('host', browser, { name: 'P551 PrivOther' });
 
@@ -552,6 +569,7 @@ test.describe('P551: Private doc not accessible by non-owner', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await deleteDocFixture(privateDocId);
     await ownerAuth.cleanup();
     await otherAuth.cleanup();
@@ -591,10 +609,12 @@ test.describe('P551: Navigation — Artifacts link in nav', () => {
   let auth: TestAuthContext;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 Nav' });
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await auth.cleanup();
   });
 
@@ -631,6 +651,7 @@ test.describe('P551: Visibility indicators on story cards', () => {
   let privateStoryId: string;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     auth = await getTestAuthContext('host', browser, { name: 'P551 VisInd' });
 
     const doc = await createDocFixture(auth.user.user.id, {
@@ -658,6 +679,7 @@ test.describe('P551: Visibility indicators on story cards', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docId);
     await deleteDocFixture(docId);
     await deleteTestStory(publicStoryId);

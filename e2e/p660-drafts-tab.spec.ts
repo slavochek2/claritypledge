@@ -29,6 +29,7 @@ test.describe('P660: Drafts Tab', () => {
   let storyId: string;
 
   test.beforeAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     user = await createTestUser({ name: 'P660 Drafts Tab User' });
 
     // Create a doc with a story
@@ -66,6 +67,7 @@ test.describe('P660: Drafts Tab', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     if (docEmptyId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docEmptyId);
     if (docWithStoriesId) {
       await supabaseAdmin.from('doc_stories').delete().eq('doc_id', docWithStoriesId);

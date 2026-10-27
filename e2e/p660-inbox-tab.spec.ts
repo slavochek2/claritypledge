@@ -41,6 +41,7 @@ test.describe('P660: Inbox Tab', () => {
   let receiverDocId: string;
 
   test.beforeAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     sender = await createTestUser({ name: 'P660 Inbox Sender' });
     receiver = await createTestUser({ name: 'P660 Inbox Receiver' });
     emptyUser = await createTestUser({ name: 'P660 Inbox Empty' });
@@ -87,6 +88,7 @@ test.describe('P660: Inbox Tab', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     // Clean up in reverse dependency order
     if (receiverLetterId) await deleteTestLetter(receiverLetterId);
     if (receiverDocId) await supabaseAdmin.from('clarity_docs').delete().eq('id', receiverDocId);

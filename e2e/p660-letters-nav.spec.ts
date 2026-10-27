@@ -23,10 +23,12 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
   let user: TestUser;
 
   test.beforeAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     user = await createTestUser({ name: 'P660 Nav Test User' });
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // P1580: hooks run under the 30s config timeout; TEST user setup/teardown exceeded it (see report)
     if (user?.user?.id) await deleteTestUser(user.user.id);
   });
 
