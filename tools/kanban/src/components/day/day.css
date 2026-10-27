@@ -551,3 +551,6 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-loop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 18px; background: var(--bg2, #f3f4f6); color: var(--fg2); }
 .d-loop.sent { background: var(--amber-50); color: var(--amber-800); font-weight: 600; }
 .d-loop.escalated { background: var(--amber-50); color: var(--amber-800); font-weight: 600; border: 1px solid var(--amber); }
+
+/* P1578: when token usage was last collected — quiet, under the card's subtitle */
+.d-asof { opacity: 0.6; font-size: 0.85em; }

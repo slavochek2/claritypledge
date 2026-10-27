@@ -588,6 +588,7 @@ test.describe('monitoring, stats, reflection', () => {
   test('P1552 Token usage pane: stacked bars, three readings, project list; the week/month switch changes the header; 375px shows 8 periods', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await expect(page.getByRole('button', { name: /^Token usage/ })).toContainText(/updated \d{1,2} [A-Z][a-z]{2}/) // P1578: when it was last collected
     await page.getByRole('button', { name: /^Token usage/ }).click()
     const pane = page.locator('[data-tokens-pane]')
     await expect(pane.locator('svg[data-stacked-bars]')).toBeVisible()

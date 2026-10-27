@@ -79,6 +79,7 @@ export function MonitoringTab(p: Props) {
           <span className="d-n">Token usage</span>
           <span className="d-v">{lastTokens?.total != null ? fmtTokens(lastTokens.total) : '—'}</span>
           <span className="d-s">{lastTokens?.total != null ? 'output, last full week' : tokens?.collected ? (tokensEmpty(tokens) ? 'no usage yet' : 'no full week yet') : 'not collected yet'}</span>
+          {tokens?.collected && tokens.as_of && <span className="d-s d-asof">updated {new Date(`${tokens.as_of}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</span>}
         </button>
         <button type="button" className="d-srcc" aria-pressed={src === 'supabase'} onClick={() => setSrc('supabase')} data-src="supabase">
           <span className="d-n">Supabase</span>
