@@ -10,39 +10,24 @@
  */
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CalendarIcon, CheckIcon, EyeOffIcon, FlagIcon, MessagesSquareIcon, ShuffleIcon } from "lucide-react";
+import { CalendarIcon, FileTextIcon, FlagIcon, LifeBuoyIcon, MessagesSquareIcon } from "lucide-react";
 import { motion, MotionConfig, type Variants } from "framer-motion";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/social-proof";
 import { CHANGE_LEADS_OG } from "@/app/content/change-leads-og";
+import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
+import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
+import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
+import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 
-
-const CAUSES: { icon: typeof EyeOffIcon; title: string; text: string }[] = [
-  { icon: ShuffleIcon, title: "Different yeses", text: 'One person heard "try it when you like." Another heard "use it for every report." Both said yes.' },
-  { icon: MessagesSquareIcon, title: "Nobody checks", text: 'Asking "what did you understand?" feels awkward. So nobody asks.' },
-  { icon: EyeOffIcon, title: "Silence looks like agreement", text: "Doubts don't get raised in the meeting. They show up later, when people simply don't do it." },
-];
 
 type Status = "Built today" | "Being built";
-const STEPS: { title: string; status: Status; text: string }[] = [
-  { title: "Agree on how you talk.", status: "Built today", text: "The team opts into a short set of meeting rules, the Clarity Meeting Principle. Each person says yes for themselves." },
-  { title: "Turn the meeting into points.", status: "Being built", text: "After a meeting, you can ask your own agent to draft points and letters from it. You review every draft, and nothing is sent until you send it." },
-  { title: "Answer each other.", status: "Built today", text: "People answer each other's points in Clarity Chat, and each other's letters. Gaps surface in writing, not in the hallway." },
-  { title: "Disagree openly, even with the rules.", status: "Built today", text: "If someone disagrees with the principle itself, that goes through the same check. Nothing is forced." },
-];
-
-const RECORD = [
-  "Nobody, including your manager, gets a list of who didn't answer. No ranking, no score.",
-  "You see your own follow-through: what you said yes to, and what you answered.",
-  "Nobody is enrolled by their manager. People opt in themselves.",
-];
-
-const COSTS = [
-  { title: "AI rollouts", text: "Licences bought, launch announced. Three months on, a few early adopters use it." },
-  { title: "Digital transformation", text: "The new process is signed off. The old spreadsheet is still the one people trust." },
-  { title: "Reorganisations", text: "New roles are agreed. Everyone still means something different by them." },
+const GETS: { icon: typeof FileTextIcon; title: string; text: string; status: Status }[] = [
+  { icon: MessagesSquareIcon, title: "Check back before you agree", text: "In Clarity Chat, people explain back what they heard before they say yes or no.", status: "Built today" },
+  { icon: FileTextIcon, title: "Every important meeting, written down", text: "Transcripts of important meetings land in the team's channel, so the context is always there.", status: "Being built" },
+  { icon: LifeBuoyIcon, title: "Help when the team gets stuck", text: "The founder joins when a conversation stalls.", status: "Built today" },
 ];
 
 const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -114,7 +99,7 @@ export function ChangeLeadsPage() {
               Everyone agreed. <span className="block text-blue-500">Then nothing changed.</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-              Clarity Pledge helps a team find out whether &ldquo;yes&rdquo; in the meeting meant the same thing to everyone, before the change quietly stalls.
+              AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.
             </p>
             <div className="mt-10 flex flex-col items-center gap-3">
               <PrimaryCTA location="hero" />
@@ -127,95 +112,67 @@ export function ChangeLeadsPage() {
             </div>
             <PledgerAvatarStack className="pt-2" />
           </div>
-          <ScrollIndicator label="Why it stalls" targetId="why-it-stalls" className="pt-6" />
+          <ScrollIndicator label="What nobody said" targetId="what-nobody-said" className="pt-6" />
         </section>
 
-        {/* 2. Why it stalls */}
-        <section id="why-it-stalls" className={`${SECTION} bg-muted/30 scroll-mt-16`}>
-          <div className="container mx-auto max-w-4xl">
-            <Reveal>
-              <SectionHeader
-                title={<span className="inline-block text-balance">Yes is not the same as <span className="text-blue-500">understood</span></span>}
-                subtitle="Everyone agreed to use the new AI assistant. Three weeks later, two people do."
-              />
-            </Reveal>
-            <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {CAUSES.map((c) => (
-                <motion.li key={c.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <c.icon className="w-8 h-8 text-blue-600 mb-3" aria-hidden="true" />
-                  <h3 className="text-lg font-bold mb-2">{c.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{c.text}</p>
-                </motion.li>
-              ))}
-            </motion.ul>
-          </div>
+        {/* 2. HardTruthChat, wrapped as on /hiring */}
+        <section id="what-nobody-said" className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border scroll-mt-16">
+          <HardTruthChat
+            variant="they-withheld"
+            heading="What your team didn't say in the rollout meeting."
+            contact="Marco"
+            subtitle="on your team"
+            received="From Monday we all use the AI assistant for weekly reports. Any questions?"
+            honest={`"I don't see how it fits my reports. If I ask now, it sounds like I'm resisting."`}
+            sent="Sounds good 👍"
+            consequence="3 weeks later · 2 of 12 people use it · nobody said why"
+            thoughtTitle="Why didn't Marco ask?"
+            thoughtBody={`"Everyone else nodded."`}
+          />
         </section>
 
-        {/* 3. How a yes becomes a follow-through */}
+        {/* 3. MisunderstandingVenn */}
+        <section className="px-4 py-20 lg:py-28 border-t border-border">
+          <Reveal className="container mx-auto max-w-4xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 mb-3">The root cause</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-10">
+              The illusion of <span className="text-blue-500">shared understanding</span>
+            </h2>
+            <MisunderstandingVenn />
+          </Reveal>
+        </section>
+
+        {/* 4. How the platform works */}
+        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
+          <HowPlatformWorks />
+        </section>
+
+        {/* 5. What your team gets */}
         <section className={SECTION}>
           <div className="container mx-auto max-w-4xl">
             <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">How a yes becomes a <span className="text-blue-500">follow-through</span></span>} />
+              <SectionHeader title={<span className="inline-block text-balance">What your team <span className="text-blue-500">gets</span></span>} />
             </Reveal>
-            <p className="-mt-6 mb-8 text-sm text-foreground/75 text-center text-balance">
-              Steps marked &ldquo;Being built&rdquo; are not available yet. Today, teams write points and letters themselves.
-            </p>
-            <motion.ol className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {STEPS.map((s, i) => (
-                <motion.li key={s.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-5 shadow-sm flex gap-4 text-left">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0">{i + 1}</div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold">{s.title}</h3>
-                    <div className="mt-1 mb-2"><StatusBadge status={s.status} /></div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s.text}</p>
-                  </div>
-                </motion.li>
-              ))}
-            </motion.ol>
-          </div>
-        </section>
-
-        {/* 4. Follow-through you can praise */}
-        <section className={`${SECTION} bg-muted/30`}>
-          <div className="container mx-auto max-w-3xl">
-            <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">Follow-through you can <span className="text-blue-500">praise</span></span>} />
-              <div className="flex justify-center -mt-8 mb-8">
-                <StatusBadge status="Being built" />
-              </div>
-            </Reveal>
-            <motion.ul className="space-y-3" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {RECORD.map((t) => (
-                <motion.li key={t} variants={STAGGER_ITEM} className="flex gap-3 text-left">
-                  <CheckIcon className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>{t}</span>
+            <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
+              {GETS.map((g) => (
+                <motion.li key={g.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <g.icon className="w-8 h-8 text-blue-600 mb-3" aria-hidden="true" />
+                  <h3 className="text-lg font-bold mb-2">{g.title}</h3>
+                  <div className="mb-2"><StatusBadge status={g.status} /></div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{g.text}</p>
                 </motion.li>
               ))}
             </motion.ul>
-            <p className="mt-8 text-lg font-semibold text-center text-balance">
-              Change spreads when people see each other following through.
+            <p className="mt-6 text-sm text-foreground/75 text-center text-balance">
+              Steps marked &ldquo;Being built&rdquo; are not available yet.
             </p>
           </div>
         </section>
 
-        {/* 5. Where a stalled yes costs the most */}
-        <section className={SECTION}>
-          <div className="container mx-auto max-w-4xl">
-            <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">Where a stalled yes costs the <span className="text-blue-500">most</span></span>} />
-            </Reveal>
-            <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
-              {COSTS.map((c) => (
-                <motion.li key={c.title} variants={STAGGER_ITEM} className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h3 className="text-lg font-bold mb-2">{c.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{c.text}</p>
-                </motion.li>
-              ))}
-            </motion.ul>
-          </div>
-        </section>
+        {/* 6. Founder credibility, shared */}
+        <FounderCredibility />
 
-        {/* 6. Closing CTA */}
+        {/* 7. Closing CTA */}
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-4xl text-center">

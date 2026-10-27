@@ -12,6 +12,9 @@ vi.mock('@/app/components/landing/social-proof', () => ({
   PledgerAvatarStack: () => <div data-testid="pledgers" />,
   ScrollIndicator: ({ label }: { label: string }) => <button type="button">{label}</button>,
 }));
+vi.mock('@/app/components/landing/misunderstanding-venn', () => ({ MisunderstandingVenn: () => <div data-testid="venn" /> }));
+vi.mock('@/app/components/landing/how-platform-works', () => ({ HowPlatformWorks: () => <section data-testid="how"><h2>How it works</h2></section> }));
+vi.mock('@/app/components/landing/founder-credibility', () => ({ FounderCredibility: () => <section data-testid="founder"><h2>Paid for the lesson</h2></section> }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { ChangeLeadsPage } from '@/app/pages/change-leads-page';
@@ -23,32 +26,34 @@ function renderPage() {
 beforeEach(() => track.mockClear());
 
 describe('P1558 /change-leads - content', () => {
-  it('renders hero, then the sections in order', () => {
+  it('renders hero, shared sections, gets-cards and closing in order', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Everyone agreed. Then nothing changed.');
     expect(screen.getByText('For change leads')).toBeInTheDocument();
-    expect(screen.getByText(/whether .yes. in the meeting meant the same thing to everyone/)).toBeInTheDocument();
-    const order = [
-      'Yes is not the same as understood',
-      'How a yes becomes a follow-through',
-      'Follow-through you can praise',
-      'Where a stalled yes costs the most',
-      'Find out what your team’s yes meant',
-    ];
+    expect(screen.getByText('AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.')).toBeInTheDocument();
+    expect(screen.getByText(/What your team didn.t say in the rollout meeting/)).toBeInTheDocument();
+    expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();
+    expect(screen.getByTestId('venn')).toBeInTheDocument();
+    expect(screen.getByTestId('how')).toBeInTheDocument();
+    expect(screen.getByTestId('founder')).toBeInTheDocument();
     const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(h2).toEqual(order);
-    for (const t of ['Different yeses', 'Nobody checks', 'Silence looks like agreement', 'AI rollouts', 'Digital transformation', 'Reorganisations'])
-      expect(screen.getByRole('heading', { level: 3, name: t })).toBeInTheDocument();
+    const tail = ['The illusion of shared understanding', 'How it works', 'What your team gets', 'Paid for the lesson', 'Find out what your team’s yes meant'];
+    expect(h2.slice(-5)).toEqual(tail);
     expect(screen.getByText('Fifteen minutes on the change you’re leading and where it’s stuck.')).toBeInTheDocument();
   });
 
-  it('has Built today / Being built badges on the right steps and the section', () => {
+  it('has three gets-cards with the right badges', () => {
     renderPage();
-    const badges = screen.getAllByTestId('status-badge').map((b) => b.textContent);
-    // Four steps (built, being built, built, built) plus the "praise" section badge.
-    expect(badges).toEqual(['Built today', 'Being built', 'Built today', 'Built today', 'Being built']);
-    const step2 = screen.getByRole('heading', { level: 3, name: 'Turn the meeting into points.' }).parentElement!;
-    expect(within(step2).getByText('Being built')).toBeInTheDocument();
+    const cards: [string, string][] = [
+      ['Check back before you agree', 'Built today'],
+      ['Every important meeting, written down', 'Being built'],
+      ['Help when the team gets stuck', 'Built today'],
+    ];
+    for (const [title, badge] of cards) {
+      const card = screen.getByRole('heading', { level: 3, name: title }).parentElement!;
+      expect(within(card).getByTestId('status-badge').textContent).toBe(badge);
+    }
+    expect(screen.getAllByTestId('status-badge')).toHaveLength(3);
     expect(screen.getByText(/Steps marked .Being built. are not available yet/)).toBeInTheDocument();
   });
 
@@ -59,6 +64,7 @@ describe('P1558 /change-leads - content', () => {
     expect(text).not.toMatch(/\d+\s?%/);
     expect(document.getElementById('references')).toBeNull();
     expect(text).not.toMatch(/who didn.t follow/i);
+    expect(text).not.toMatch(/who didn.t/i);
     expect(text).not.toMatch(/[–—]/);
   });
 
@@ -69,7 +75,7 @@ describe('P1558 /change-leads - content', () => {
     for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
     expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Why it stalls']);
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['What nobody said']);
   });
 });
 
