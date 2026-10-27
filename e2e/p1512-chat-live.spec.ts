@@ -196,7 +196,9 @@ test('smoke: Home is the chat list with the mirror and the group General channel
   await expect(pageA.getByTestId('chat-list')).toBeVisible();
   await expect(row(pageA, 'mirror')).toBeVisible();
   await expect(row(pageA, `${ORG_NAME} · General`)).toBeVisible();
-  await expect(pageA.getByText('Message someone from your groups or events')).toBeVisible();
+  // The one-line hint shows only when there is no chat besides the mirror (ChatList.tsx hasOtherChat; unit test
+  // p1512-chat-ui). A has the group General channel, so the hint is absent here.
+  await expect(pageA.getByTestId('no-dm-hint')).toHaveCount(0);
   await expect(pageA.getByTestId('no-chat-selected')).toBeVisible();
   const text = (await pageA.locator('body').innerText()).toLowerCase();
   expect(text).not.toMatch(/coming soon|placeholder|prototype/);
@@ -217,11 +219,12 @@ test('A finds B by search, starts a 1:1 and B sees it live with an unread badge'
   await sendText(pageA, 'hello from A');
   await expect(messageWith(pageA, 'hello from A')).toBeVisible();
 
-  // B: the chat appears in the list, bold with a count, and Home carries the badge. No reload.
+  // B: the chat appears in the list, bold with a count, and the Chats nav entry carries the badge. No reload.
   await live(pageB, () => baseExpect(row(pageB, A_NAME)).toBeVisible({ timeout: 6_000 }));
   await expect(row(pageB, A_NAME)).toContainText('hello from A');
   await expect(row(pageB, A_NAME).getByLabel('1 unread')).toBeVisible();
-  await expect(pageB.getByRole('link', { name: /^Home, \d+ unread/ })).toBeVisible();
+  // P1545: the nav's chat entry is "Chats" (Home is the feed); its label carries the count (shell-nav.ts).
+  await expect(pageB.getByRole('link', { name: /^Chats, \d+ unread chats?$/ })).toBeVisible();
 
   await row(pageB, A_NAME).getByRole('button').first().click();
   await expect(messageWith(pageB, 'hello from A')).toBeVisible();
@@ -323,7 +326,7 @@ test('opening a thread or another chat does not remount the page: the conversati
   await pageA.getByRole('tab', { name: 'Inbox' }).click();
 });
 
-test('1:1s have no threads; A forwards the channel post into the 1:1 and B sees it', async () => {
+test('1:1s have threads too (P1546); A forwards the channel post into the 1:1 and B sees it', async () => {
   const general = `${ORG_NAME} · General`;
   await row(pageA, general).getByRole('button').first().click();
 
@@ -344,18 +347,23 @@ test('1:1s have no threads; A forwards the channel post into the 1:1 and B sees 
   await expect(fwd).toContainText('Forwarded from');
   await expect(fwd).toContainText('channel post from A');
 
-  // The 1:1 offers no thread action.
+  // P1546: every chat has threads, so the 1:1 offers the thread action (it used to be channels only).
   await messageWith(pageB, 'see this').click({ button: 'right' });
-  await expect(pageB.getByRole('menuitem', { name: 'Reply in thread', exact: true })).toHaveCount(0);
+  await expect(pageB.getByRole('menuitem', { name: 'Reply in thread', exact: true })).toHaveCount(1);
   await pageB.keyboard.press('Escape');
 });
 
 test('Clarify copies the message into A mirror only', async () => {
   await row(pageA, B_NAME).getByRole('button').first().click();
   await menuOn(pageA, 'reply from B', 'Clarify');
-  // Clarify opens the mirror itself (no toast), with the cursor in the composer for a note.
+  // Clarify opens the mirror itself (no toast), with the cursor in the composer for a note. The message is STAGED
+  // above the composer (use-message-actions.tsx: "Nothing is sent yet"): nothing is stored until Send.
   await expect(pageA.getByRole('textbox', { name: 'Write to your mirror' })).toBeFocused();
   await expect(conversation(pageA).getByRole('heading', { name: /Alicetest.*'s mirror|Your mirror/ })).toBeVisible();
+  const pending = pageA.getByTestId('clarify-pending');
+  await expect(pending).toContainText('reply from B');
+  expect((await supabaseAdmin.from('chat_messages').select('id').eq('kind', 'clarify').eq('author_id', a.user.id)).data ?? []).toHaveLength(0);
+  await conversation(pageA).getByTestId('composer').getByRole('button', { name: 'Send' }).click();
   await expect(pageA.getByTestId('clarified-card')).toContainText('reply from B');
   await expect(pageA.getByTestId('clarified-card')).toContainText(/Sent to .+ to clarify/);
   await expect(pageA.getByTestId('clarified-card')).toContainText(`to clarify · from your chat with ${B_NAME}`);

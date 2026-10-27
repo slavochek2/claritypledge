@@ -121,6 +121,8 @@ test.describe('P660: Drafts Tab', () => {
     await setTestSession(page, user.email);
     await page.goto(`/letters/drafts/${docWithStoriesId}`);
     await page.waitForLoadState('networkidle');
+    // The draft page has rendered (otherwise every "not visible" below passes on a blank page)
+    await expect(page.getByRole('button', { name: 'Prepare letter' })).toBeVisible({ timeout: 10000 });
 
     // Should NOT contain "Sent Letters" section
     await expect(page.getByText('Sent Letters')).not.toBeVisible();
@@ -131,8 +133,9 @@ test.describe('P660: Drafts Tab', () => {
     // Should NOT contain "Received Letters" section
     await expect(page.getByText('Received Letters')).not.toBeVisible();
 
-    // Should NOT contain share button
-    await expect(page.getByRole('button', { name: /Share/i })).not.toBeVisible();
+    // Should NOT contain a draft-level share button. P1545: each story card carries its own "Share story"
+    // control (StoryCardDetail), which is not letter sharing, so match the draft-level names only.
+    await expect(page.getByRole('button', { name: /^Share( letter| doc| draft)?$/i })).toHaveCount(0);
   });
 
   test('back from a draft opened off the Drafts list returns to Artifacts > Letters > Drafts', async ({ page }) => {

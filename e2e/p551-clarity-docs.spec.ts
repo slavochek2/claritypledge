@@ -263,16 +263,15 @@ test.describe('P551: Rename doc title inline', () => {
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    const titleElement = page.getByText('Original Doc Name');
+    // P1545: the owner's title is a button (aria-label "Edit title: <title>") on the draft page.
+    const titleElement = page.getByRole('button', { name: 'Edit title: Original Doc Name' });
     await expect(titleElement).toBeVisible({ timeout: 10000 });
 
-    // Click to enable editing (could be a click or double-click depending on implementation)
+    // Click to enable editing
     await titleElement.click();
 
-    // Should show an input or contenteditable element
-    const editableInput = page.locator(
-      'input[value="Original Doc Name"], [contenteditable="true"]'
-    );
+    // Should show a text input (found by its label, not by its value: clearing it changes the value)
+    const editableInput = page.getByRole('textbox', { name: 'Edit doc title' });
     await expect(editableInput).toBeVisible({ timeout: 5000 });
 
     // Type new name
@@ -284,7 +283,9 @@ test.describe('P551: Rename doc title inline', () => {
     await page.waitForTimeout(1000);
 
     // Verify name changed
-    await expect(page.getByText('Renamed Doc')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Edit title: Renamed Doc' })).toBeVisible({ timeout: 5000 });
+    const { data: renamed } = await supabaseAdmin.from('clarity_docs').select('title').eq('id', docId).single();
+    expect(renamed?.title, 'the new title is saved').toBe('Renamed Doc');
   });
 });
 
@@ -320,24 +321,33 @@ test.describe('P551: Add story inline (write new story)', () => {
     await auth.cleanup();
   });
 
+  // P1545: the draft page has no inline "write a story" box. Compose > "Share a story" opens the Share a Story page
+  // for this draft (/create?docId=), and saving there links the new story to the draft.
   test('user can write a new story and add it to the doc', async () => {
     const page = await auth.context.newPage();
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Look for the "Write a story" / "Add story" input area at the bottom
-    const addStoryArea = page.getByRole('textbox', { name: /story|write/i })
-      .or(page.locator('textarea'))
-      .first();
-    await expect(addStoryArea).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('menuitem', { name: 'Share a story' }).click();
+    await expect(page).toHaveURL(new RegExp(`/create\\?docId=${docId}`), { timeout: 10000 });
 
+    const addStoryArea = page.getByRole('textbox', { name: 'Your story' });
+    await expect(addStoryArea).toBeVisible({ timeout: 10000 });
     await addStoryArea.fill('When we discussed the budget last Tuesday, I felt unheard.');
 
-    // Submit the new story
-    const submitBtn = page.getByRole('button', { name: /add|submit|save/i }).first();
-    await submitBtn.click();
+    // A private draft saves the story privately; the save links it to the draft
+    await page.getByRole('button', { name: /Save Private Story|Publish Public Story/ }).click();
+    await page.waitForURL(/\/story\//, { timeout: 15000 });
 
-    // The story should appear on the doc page
+    const { data: linked } = await supabaseAdmin
+      .from('doc_stories')
+      .select('story_id')
+      .eq('doc_id', docId);
+    expect(linked?.length, 'the new story is linked to the draft').toBe(1);
+
+    // The story appears on the draft page
+    await page.goto(`/letters/drafts/${docId}`);
     await expect(
       page.getByText('When we discussed the budget last Tuesday, I felt unheard.')
     ).toBeVisible({ timeout: 10000 });
@@ -383,29 +393,29 @@ test.describe('P551: Add existing story via selector', () => {
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
 
-    // Look for "Select from existing stories" or similar button/link
-    const selectBtn = page.getByRole('button', { name: /select|existing|choose/i })
-      .or(page.getByText(/select.*existing|choose.*stor/i))
-      .first();
-    await expect(selectBtn).toBeVisible({ timeout: 10000 });
-    await selectBtn.click();
+    // P1545: Compose > "Select a story" opens the "Select your story" dialog
+    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('menuitem', { name: 'Select a story' }).click();
+    const picker = page.getByRole('dialog', { name: 'Select your story' });
+    await expect(picker).toBeVisible({ timeout: 10000 });
 
-    // Story picker/list should appear showing the pre-existing story
+    // Story picker shows the pre-existing story
+    await expect(
+      picker.getByText('I believe that trust requires consistent follow-through.')
+    ).toBeVisible({ timeout: 10000 });
+
+    // Click the Add button next to the story (the dialog stays open for adding more)
+    await picker.getByRole('button', { name: /add/i }).first().click();
+    await expect(picker.getByText('I believe that trust requires consistent follow-through.')).toHaveCount(0, { timeout: 10000 });
+    await page.keyboard.press('Escape');
+    await expect(picker).toBeHidden();
+
+    // The story is now in the doc: on the page and in the DB
     await expect(
       page.getByText('I believe that trust requires consistent follow-through.')
     ).toBeVisible({ timeout: 10000 });
-
-    // Click the Add button next to the story
-    const addBtn = page.getByRole('button', { name: /add/i }).first();
-    await addBtn.click();
-
-    // Wait for it to be added
-    await page.waitForTimeout(1000);
-
-    // The story should now be in the doc
-    await expect(
-      page.getByText('I believe that trust requires consistent follow-through.')
-    ).toBeVisible({ timeout: 5000 });
+    const { data: linked } = await supabaseAdmin.from('doc_stories').select('story_id').eq('doc_id', docId);
+    expect(linked?.map((r) => r.story_id)).toEqual([existingStoryId]);
   });
 });
 
@@ -444,7 +454,7 @@ test.describe('P551: Remove story from doc', () => {
     await auth.cleanup();
   });
 
-  test('user can remove a story from the doc via card menu', async () => {
+  test('user can remove a story from the doc via the story remove control', async () => {
     const page = await auth.context.newPage();
     await page.goto(`/d/${docId}`);
     await page.waitForLoadState('networkidle');
@@ -454,18 +464,8 @@ test.describe('P551: Remove story from doc', () => {
       page.getByText('This story will be removed from the doc.')
     ).toBeVisible({ timeout: 10000 });
 
-    // Open the card menu (... button)
-    const menuBtn = page.locator('[data-testid="story-card-menu"], button[aria-label*="menu" i]')
-      .or(page.getByRole('button', { name: /more|options|menu/i }))
-      .first();
-    await menuBtn.click();
-
-    // Click "Remove from doc" in the menu
-    const removeOption = page.getByRole('menuitem', { name: /remove/i })
-      .or(page.getByText(/remove from doc/i))
-      .first();
-    await expect(removeOption).toBeVisible({ timeout: 5000 });
-    await removeOption.click();
+    // P1545: the story card has a "Remove from this doc" control (no card menu)
+    await page.getByRole('button', { name: 'Remove from this doc' }).click();
 
     // Story should be removed from doc (but still exists in DB)
     await expect(
@@ -508,29 +508,18 @@ test.describe('P551: Delete doc', () => {
     await page.goto(`/d/${doc.id}`);
     await page.waitForLoadState('networkidle');
 
-    // Find delete action — could be in a menu or a button
-    // Try doc-level menu first
-    const docMenu = page.getByRole('button', { name: /menu|more|options/i })
-      .or(page.locator('[data-testid="doc-menu"]'))
-      .first();
-    await docMenu.click();
-
-    const deleteOption = page.getByRole('menuitem', { name: /delete/i })
-      .or(page.getByText(/delete doc/i))
-      .first();
-    await expect(deleteOption).toBeVisible({ timeout: 5000 });
-    await deleteOption.click();
+    // P1545: "Delete draft" sits at the bottom of the draft page and asks for confirmation
+    await page.getByRole('button', { name: 'Delete draft' }).click();
 
     // Confirmation dialog should appear
-    const confirmDialog = page.getByRole('dialog');
+    const confirmDialog = page.getByRole('dialog', { name: 'Delete draft' });
     await expect(confirmDialog).toBeVisible({ timeout: 5000 });
 
     // Confirm deletion
-    const confirmBtn = confirmDialog.getByRole('button', { name: /delete|confirm|yes/i });
-    await confirmBtn.click();
+    await confirmDialog.getByRole('button', { name: /^delete$/i }).click();
 
-    // Should redirect to /docs after deletion
-    await page.waitForURL(/\/docs/, { timeout: 10000 });
+    // Lands on Artifacts > Letters > Drafts after deletion
+    await page.waitForURL(/\/artifacts\?tab=letters&list=drafts/, { timeout: 10000 });
 
     // Verify doc is gone from DB
     const { data } = await supabaseAdmin
@@ -685,13 +674,9 @@ test.describe('P551: Visibility indicators on story cards', () => {
     await expect(page.getByText('This is a public story.')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('This is a private story.')).toBeVisible({ timeout: 10000 });
 
-    // Look for visibility icons — lock icon for private, globe for public
-    // These are P586 visual indicators (lock/globe SVGs or aria-labels)
-    const visibilityIcons = page.locator(
-      '[aria-label*="private" i], [aria-label*="public" i], ' +
-      '[data-testid="visibility-icon"], .visibility-indicator'
-    );
-    // At minimum 2 indicators (one per story card)
-    await expect(visibilityIcons.first()).toBeVisible({ timeout: 5000 });
+    // P586 visual indicators: a globe (public) and a lock (private) icon per story card, named by their tooltip
+    // (src/app/components/shared/visibility-badge.tsx). The page banner is text, not an img, so these are the cards'.
+    await expect(page.getByRole('img', { name: 'Visible to everyone' })).toHaveCount(1, { timeout: 5000 });
+    await expect(page.getByRole('img', { name: 'Only people you share with can see this.' })).toHaveCount(1);
   });
 });

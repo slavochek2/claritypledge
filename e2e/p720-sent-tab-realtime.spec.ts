@@ -36,6 +36,10 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
   let delivery: TestDelivery;
 
   test.beforeAll(async () => {
+    // A hook runs under the config's 30s, not this describe's 60s (the baseline logged "beforeAll hook timeout of
+    // 30000ms exceeded" on this file, see the P1580 report). Each createTestUser took 10-20s on the shared TEST
+    // DB (log gaps between "Creating test user" lines), and this setup makes two users plus stories and letters.
+    test.setTimeout(120_000);
     sender = await createTestUser({ name: 'P720 Sender' });
     receiver = await createTestUser({ name: 'P720 Receiver' });
 
@@ -70,6 +74,7 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // the baseline logged an afterAll hook timeout of 30000ms here (two user deletes + letters on the shared TEST DB)
     await deleteTestLetter(letterId);
     await deleteTestStory(storyId);
     const { error } = await supabaseAdmin

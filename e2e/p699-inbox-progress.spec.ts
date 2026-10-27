@@ -40,6 +40,10 @@ test.describe('P699: Inbox Progress Indicator', () => {
   let freshDeliveryId: string;
 
   test.beforeAll(async () => {
+    // A hook runs under the config's 30s, not this describe's 60s (the baseline logged "beforeAll hook timeout of
+    // 30000ms exceeded" on this file, see the P1580 report). Each createTestUser took 10-20s on the shared TEST
+    // DB (log gaps between "Creating test user" lines), and this setup makes two users plus stories and letters.
+    test.setTimeout(120_000);
     sender = await createTestUser({ name: 'P699 Inbox Prog Sender' });
     receiver = await createTestUser({ name: 'P699 Inbox Prog Receiver' });
 
@@ -135,6 +139,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
   });
 
   test.afterAll(async () => {
+    test.setTimeout(120_000); // the baseline logged an afterAll hook timeout of 30000ms here (two user deletes + letters on the shared TEST DB)
     if (inProgressLetterId) await deleteTestLetter(inProgressLetterId);
     if (completedLetterId) await deleteTestLetter(completedLetterId);
     if (freshLetterId) await deleteTestLetter(freshLetterId);
@@ -249,23 +254,31 @@ test.describe('P699: Inbox Progress Indicator', () => {
     }
   });
 
-  // ── 6. Sender: completed recipient row shows step count ───────────────────
+  // ── 6. Sender: progress and completion on the letter's own page ───────────
 
-  test('CANARY(p699): sender inbox shows step count on completed recipient row', async ({
+  test('CANARY(p699): sender sees step progress for an in-progress recipient and Done for a finished one', async ({
     page,
   }) => {
-    // Bug: recipient_responded rows excluded from step-count render gate in inbox-tab.tsx.
-    // Fix: remove type gate; rely on field presence (steps_completed + total_steps).
-    //
-    // Before fix: no step text on completed sender rows.
-    // After fix:  "3 of 3 steps" appears under "receiver completed Letter Title" row.
+    // Bug (P699): the sender's view dropped a recipient's progress/completion.
+    // P1545: activity on your own letters left the inbox. It lives on the sent letter now: the Sent row says
+    // "N new from..." / "N of M finished", and the letter's Recipients section (the row opens it) carries the
+    // per-person status: "In progress · N of M steps" while someone is part-way, "Done" once finished
+    // (letter-recipients-section.tsx: steps read only while in progress).
     await setTestSession(page, sender.email);
-    await page.goto('/artifacts?tab=letters&list=received');
-    await page.waitForLoadState('networkidle');
 
-    // Sender inbox must show the step count for the completed recipient row.
-    // completedDeliveryId has stories_rated=3, 3 story snapshots, 0 point responses → "3 of 3 steps".
-    const stepText = page.locator('text=/3\\s+of\\s+3\\s+steps/i').first();
-    await expect(stepText).toBeVisible({ timeout: 10000 });
+    await page.goto(`/letter/${inProgressLetterId}/overview`);
+    await page.waitForLoadState('networkidle');
+    const inProgress = page.getByTestId('letter-recipients').getByRole('listitem');
+    await expect(inProgress).toContainText('In progress', { timeout: 10000 });
+    await expect(inProgress).toContainText('1 of 3 steps');
+
+    await page.goto(`/letter/${completedLetterId}/overview`);
+    await page.waitForLoadState('networkidle');
+    const done = page.getByTestId('letter-recipients').getByRole('listitem');
+    await expect(done).toContainText('Done', { timeout: 10000 });
+    await expect(done.getByRole('link')).toHaveAttribute(
+      'href',
+      `/letter/${completedLetterId}/results?delivery=${completedDeliveryId}`,
+    );
   });
 });
