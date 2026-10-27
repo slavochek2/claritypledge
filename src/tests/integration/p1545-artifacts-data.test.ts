@@ -378,6 +378,34 @@ describe('P1545 WP1: letters post into the 1:1 for registered recipients only', 
   });
 });
 
+describe('P1545 WP1: sharing with an event posts into its channel', () => {
+  it('posts one message in the event channel, none on a re-share; an attendee sees it unread via the event and opening it clears that', async () => {
+    const ev = await createTestEvent(H.user.id, new Date(Date.now() + 5 * 24 * HOUR), { title: `P1545 share event ${RUN}` });
+    events.push(ev);
+    // The owner may share only with an event they host or attend (P1515 _canvas_event_admits).
+    for (const u of [O, Q]) {
+      const r = await supabaseAdmin.from('event_rsvps').insert({ event_id: ev.id, profile_id: u.user.id });
+      expect(r.error).toBeNull();
+    }
+
+    await ok(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: ev.id }, 'share with event');
+    // An earlier test deletes the canvas, so this share may create a new row: read its id now.
+    const { data: cv } = await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', NAME).single();
+    const id = cv!.id;
+    const { data: conv } = await supabaseAdmin.from('chat_conversations').select('id').eq('kind', 'event').eq('event_id', ev.id).single();
+    expect(await artifactMessages(conv!.id, 'canvas', id)).toHaveLength(1);
+    await ok(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: ev.id }, 're-share with event');
+    expect(await artifactMessages(conv!.id, 'canvas', id), 're-share posts nothing').toHaveLength(1);
+
+    const row = (await ok<Row[]>(cQ, 'list_canvases_shared_with_me', undefined, 'Q shared')).find(x => x.canvas_id === id);
+    expect(row, 'listed for the attendee').toBeDefined();
+    expect(row!.unread).toBe(true);
+    await ok(cQ, 'mark_canvas_read', { p_owner: O.user.id, p_name: NAME }, 'Q opens');
+    const after = (await ok<Row[]>(cQ, 'list_canvases_shared_with_me', undefined, 'Q shared')).find(x => x.canvas_id === id);
+    expect(after!.unread).toBe(false);
+  });
+});
+
 describe('P1545 WP1: an empty, never-opened channel counts unread 1 (Inbox eligibility)', () => {
   it('an empty joined group is unread 1, mark_chat_read on the empty channel clears it', async () => {
     const first = await myChat(cZ, r => r.kind === 'group' && r.org_id === G2.id);

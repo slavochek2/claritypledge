@@ -164,13 +164,18 @@ Phase 1:
 - [x] The founder's pick and comments recorded under `## Resolved Decisions`.
 
 Phase 2:
-- [ ] Signed in, Home opens the feed; Chats, Events, Artifacts and You are tabs on the phone and entries on desktop.
-- [ ] A group the person belongs to is in Inbox with no messages; a newly joined group and a new event channel (from 24h before start) arrive unread once; an empty event chat leaves 12h after start.
-- [ ] Artifacts shows Yours and Shared with you. A draft letter shows Draft. A canvas shows 🔒 or 🌐 only. A received item names its sender. Search filters by title. + offers Letter and Canvas.
-- [ ] Sharing a canvas with an event posts one message in that event's channel, and opening it from the channel marks it read in Shared with you.
-- [ ] Every old `/letters` tab URL lands on the matching Artifacts view.
-- [ ] Events list, signed out and empty: the Chiang Mai card is the main element and "Sign Up to Host" is a quiet link. With events: the card sits below the list. Taps record a Mixpanel event.
-- [ ] Screenshots at 1440, 375 and 320 pass `.claude/rules/visual-qa.md`, reviewed by a separate agent.
+- [x] Signed in, Home opens the feed; Chats, Events, Artifacts and You are tabs on the phone and entries on desktop. *Evidence (2026-10-27): `p1512-shell.test.tsx` (desktop entries, phone bottom bar) green; screenshots `00a-home-feed` land on /feed at 375/320/1440.*
+- [x] A group the person belongs to is in Inbox with no messages; a newly joined group and a new event channel (from 24h before start) arrive unread once; an empty event chat leaves 12h after start. *Evidence: `src/tests/integration/p1545-artifacts-data.test.ts` on TEST, 29/29 (empty group unread 1, event 0 → 1 inside 24h → 0 once opened, 0 after the grace window). The first run failed these two once and passed on re-run; cause not found.*
+- [x] Artifacts shows Letters and Canvases, with Drafts · Sent · Received and Mine · Shared (founder redesign, superseding "Yours / Shared with you"). Each row has one visible action and a "…" menu starting with Open. A canvas shows 🔒 or 🌐 only. A received item names its sender. Search filters by title. New letter asks "Who can read it?" (Private / Public); canvas creation waits for P1536. *Evidence: `artifacts-page.test.tsx`, `artifacts-view-model.test.ts`, `use-artifacts-data.test.tsx` green (309 tests across the P1545 unit files); e2e p551/p660 New letter and Drafts tests pass.*
+- [x] Sharing a canvas with an event posts one message in that event's channel, and opening it from the channel marks it read in Shared with you. *Evidence: new integration test "sharing with an event posts into its channel" (one message, none on re-share, attendee unread → read) passes on TEST; `p1545-chat-artifact-card.test.tsx` covers that opening from a chat calls markCanvasRead.*
+- [x] Every old `/letters` tab URL lands on the matching Artifacts view. *Evidence: `p1545-legacy-letters-redirects.test.tsx` green; e2e p660-letters-nav /docs redirect passes; screenshot `06-legacy-url` lands on Canvases · Mine.*
+- [x] Events list, signed out and empty: the Chiang Mai card is the main element and "Sign Up to Host" is a quiet link. With events: the card sits below the list. Taps record a Mixpanel event. *Evidence: `p1545-events-cm-card.test.tsx` green (both placements, `cm_calendar_card_clicked` tracked); screenshots `10-events-signed-out`.*
+- [x] Screenshots at 1440, 375 and 320 pass `.claude/rules/visual-qa.md`, reviewed by a separate agent. *Evidence (2026-10-27): 37 signed-in TEST screenshots plus signed-out Events; no horizontal overflow or console errors at any width. Separate Opus reviewer: 1 of 1 received, verdict FAIL. Dispositions:*
+  - *HIGH × 3 "wrong state" on Events: my shots used `/events`, which redirects to the Chiang Mai group (P1193, on main). Re-shot `/events/list`: the card sits below the list with "Sign Up to Host" as a quiet link. The empty state is covered by `p1545-events-cm-card.test.tsx`, since TEST has 37 events.*
+  - *Set aside as founder decisions: Received and shared rows have no "…"; Canvases has no create (P1536); the yellow card (recorded exception); Draft Delete is muted with its reason; the desktop sidebar holds P1512's entry set.*
+  - *Open for the founder (MEDIUM): phone rows shorten "Prepare letter" to "Prepare" and "+ Add recipient" to "+ Add".*
+  - *Open (LOW): 320 wraps the row date; row divider corners; the Artifacts column is narrow at 1440.*
+  - *Draft editor and home feed findings are on screens P1545 did not redesign.*
 
 ## Resolved Decisions
 

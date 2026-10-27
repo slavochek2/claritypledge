@@ -82,7 +82,7 @@ const received = (over: Partial<InboxItem> = {}): InboxItem => ({
 function LocationProbe() {
   const loc = useLocation();
   const nav = useNavigationType();
-  return <div data-testid="loc" data-nav={nav}>{loc.pathname + loc.search}</div>;
+  return <div data-testid="loc" data-nav={nav} data-state={JSON.stringify(loc.state ?? null)}>{loc.pathname + loc.search}</div>;
 }
 
 function renderPage(url = '/artifacts') {
@@ -982,6 +982,17 @@ describe('Artifacts page: split by kind', () => {
       } finally {
         document.removeEventListener('click', stay, true);
       }
+    });
+
+    it('… → Open on a sent row hands the overview who was new, like the title link (Codex review)', async () => {
+      const u = user();
+      mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({ dv1: 1 });
+      renderPage('/artifacts?tab=letters&list=sent');
+      await screen.findByTestId('list-dot-sent');
+      await u.click(within(rows()[0]!).getByRole('button', { name: 'Actions for Hello Tom' }));
+      await u.click(await screen.findByRole('menuitem', { name: 'Open' }));
+      expect(mocks.clearSenderNew).toHaveBeenCalledWith('dv1');
+      expect(await screen.findByText('/letter/l1/overview')).toHaveAttribute('data-state', JSON.stringify({ newDeliveryIds: ['dv1'] }));
     });
 
     it('a sent row with nothing new opens without clearing anything', async () => {

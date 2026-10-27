@@ -113,14 +113,19 @@ function OpenAction({ href, label, onOpen }: { href?: string | null; label: stri
 }
 
 /** Open, first in "…", for anyone who doesn't think to click the row itself. */
-function OpenMenuItem({ href, onOpen }: { href?: string | null; onOpen?: () => void }) {
+function OpenMenuItem({ href, onOpen, state }: { href?: string | null; onOpen?: () => void; state?: unknown }) {
   const navigate = useNavigate();
   if (!href) return null;
   return (
-    <DropdownMenuItem className="min-h-10" onSelect={() => { onOpen?.(); navigate(href); }}>
+    <DropdownMenuItem className="min-h-10" onSelect={() => { onOpen?.(); navigate(href, { state }); }}>
       <span>Open</span>
     </DropdownMenuItem>
   );
+}
+
+/** Same hand-off as the title link: the overview needs who was new before onOpen clears it. */
+function openState(row: Props['row']) {
+  return row.state === 'sent' ? { newDeliveryIds: row.ref.newDeliveryIds ?? [] } : undefined;
 }
 
 /** A line above the delete item, when anything (Open or a regular item) sits above it. */
@@ -312,7 +317,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="bottom" sideOffset={4} className="min-w-[12rem]">
               {/* Open first, for anyone who doesn't think to click the row itself. */}
-              <OpenMenuItem href={row.href} onOpen={onOpen} />
+              <OpenMenuItem href={row.href} onOpen={onOpen} state={openState(row)} />
               {regular.map(renderMenuItem)}
               {needsSeparator(danger.length, regular.length, Boolean(row.href)) && <DropdownMenuSeparator />}
               {danger.map(renderMenuItem)}
