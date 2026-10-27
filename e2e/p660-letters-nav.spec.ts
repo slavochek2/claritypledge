@@ -3,9 +3,9 @@
  * @description E2E tests for P660: Navigation rename and tab switching
  *
  * Tests:
- * - Nav shows "Letters" instead of "Docs"
- * - Default tab is Drafts
- * - Tab switching (Drafts / Sent / Inbox) updates URL
+ * - Nav shows "Artifacts" instead of "Docs"
+ * - Default tab is Letters, list Drafts
+ * - Tab switching (Letters / Canvases) and the list chips update the URL
  * - Legacy redirects: /docs -> /letters?tab=drafts, /d/:id -> /letters/drafts/:id
  */
 
@@ -30,83 +30,73 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     if (user?.user?.id) await deleteTestUser(user.user.id);
   });
 
-  test('nav shows "Letters" instead of "Docs"', async ({ page }) => {
+  test('nav shows "Artifacts" and not "Docs"', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
     // P893: scope to the desktop nav — both the desktop nav and the
-    // mobile bottom nav render "Letters", so an unscoped locator('nav')
+    // mobile bottom nav render the entry, so an unscoped locator('nav')
     // violates strict mode once both are hydrated.
-    // P1512: for a signed-in person the desktop navigation is the sidebar (data-nav="sidebar"),
-    // which replaced the top nav; it lists Letters as a link to /letters.
+    // P1512: for a signed-in person the desktop navigation is the sidebar (data-nav="sidebar").
+    // P1545: its Letters entry became Artifacts (/artifacts).
     const mainNav = page.locator('nav[data-nav="sidebar"]');
-    await expect(mainNav.getByRole('link', { name: /Letters/ })).toBeVisible();
+    await expect(mainNav.getByRole('link', { name: /Artifacts/ })).toBeVisible();
 
     // "Docs" should not appear in either nav
     const docsLink = page.locator('nav').getByText('Docs', { exact: true });
     await expect(docsLink).not.toBeVisible();
   });
 
-  // P893: default tab is Inbox since P725 (was Drafts at P660 time).
-  test('default tab is Inbox when no tab param', async ({ page }) => {
+  // P1545: the default is the Letters tab (was Inbox since P725).
+  test('default tab is Letters when no tab param', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
-    // Inbox tab should be active (P725 default)
-    const inboxTab = page.getByRole('tab', { name: /Inbox/i });
-    await expect(inboxTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Letters' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Drafts', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  // P1545: Drafts / Published / Inbox tabs became Letters | Canvases tabs, with Drafts · Sent · Received lists.
   test('tab switching updates URL param', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
-    // Switch to Published tab (P770 rename: Sent → Published; URL value stays "sent")
-    const publishedTab = page.getByRole('tab', { name: /Published/i });
-    await publishedTab.click();
-    await expect(page).toHaveURL(/[?&]tab=sent/);
+    await page.getByRole('tab', { name: 'Canvases' }).click();
+    await expect(page).toHaveURL(/[?&]tab=canvases/);
 
-    // Switch to Inbox tab
-    const inboxTab = page.getByRole('tab', { name: /Inbox/i });
-    await inboxTab.click();
-    await expect(page).toHaveURL(/[?&]tab=inbox/);
+    await page.getByRole('tab', { name: 'Letters' }).click();
+    await expect(page).toHaveURL(/[?&]tab=letters/);
 
-    // Switch back to Drafts
-    const draftsTab = page.getByRole('tab', { name: /Drafts/i });
-    await draftsTab.click();
-    await expect(page).toHaveURL(/[?&]tab=drafts/);
+    // The list chips are written to the URL too
+    await page.getByRole('button', { name: /^Sent/ }).click();
+    await expect(page).toHaveURL(/[?&]list=sent/);
   });
 
-  test('all three tabs render content areas', async ({ page }) => {
+  test('both tabs render content areas', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
-    // Drafts tab panel should be visible by default
-    const draftsPanel = page.getByRole('tabpanel');
-    await expect(draftsPanel).toBeVisible();
-
-    // Switch to Published — panel should update
-    await page.getByRole('tab', { name: /Published/i }).click();
+    // Letters panel should be visible by default
     await expect(page.getByRole('tabpanel')).toBeVisible();
 
-    // Switch to Inbox — panel should update
-    await page.getByRole('tab', { name: /Inbox/i }).click();
+    // Switch to Canvases — panel should update
+    await page.getByRole('tab', { name: 'Canvases' }).click();
     await expect(page.getByRole('tabpanel')).toBeVisible();
   });
 
-  test('/docs redirects to the Letters filter of Your artifacts', async ({ page }) => {
+  test('/docs redirects to Artifacts > Letters > Drafts', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/docs');
     await page.waitForLoadState('networkidle');
 
-    // P1545: the old Letters list is now the Artifacts page (Yours tab, Letters chip)
-    await expect(page).toHaveURL(/\/artifacts\?tab=yours&type=letters/);
-    const yoursTab = page.getByRole('tab', { name: 'Yours' });
-    await expect(yoursTab).toHaveAttribute('aria-selected', 'true');
+    // P1545: the old Letters list is now the Artifacts page (Letters tab, Drafts list)
+    await expect(page).toHaveURL(/\/artifacts\?tab=letters&list=drafts/);
+    await expect(page.getByRole('tab', { name: 'Letters' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Drafts', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('/d/:id redirects to /letters/drafts/:id', async ({ page }) => {
@@ -137,21 +127,17 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
   });
 
   // P1364 (founder-approved scope): tab clicks REPLACE, as on /feed and /stake, so browser
-  // Back leaves /letters in one step instead of walking back through the tabs. This test used
-  // to assert the opposite (Back → Sent → Drafts); that behaviour was deliberately removed.
-  test('tab clicks add no Back steps: browser back leaves /letters, and forward returns to the last tab', async ({ page }) => {
+  // Back leaves the page in one step instead of walking back through the tabs. P1545 keeps this
+  // for the Artifacts page (tabs and chips both replace).
+  test('tab clicks add no Back steps: browser back leaves /artifacts, and forward returns to the last tab', async ({ page }) => {
     await setTestSession(page, user.email);
     await page.goto('/feed');
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Navigate to Published (URL value stays "sent")
-    await page.getByRole('tab', { name: /Published/i }).click();
-    await expect(page).toHaveURL(/[?&]tab=sent/);
-
-    // Navigate to Inbox
-    await page.getByRole('tab', { name: /Inbox/i }).click();
-    await expect(page).toHaveURL(/[?&]tab=inbox/);
+    // Navigate to Canvases
+    await page.getByRole('tab', { name: 'Canvases' }).click();
+    await expect(page).toHaveURL(/[?&]tab=canvases/);
 
     // One Back leaves the page
     await page.goBack();
@@ -159,6 +145,6 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
 
     // Forward returns to the tab the reader left on
     await page.goForward();
-    await expect(page).toHaveURL(/[?&]tab=inbox/);
+    await expect(page).toHaveURL(/[?&]tab=canvases/);
   });
 });

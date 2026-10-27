@@ -320,7 +320,7 @@ test('opening a thread or another chat does not remount the page: the conversati
   await expect(pageA.getByRole('status', { name: 'Loading messages' })).toHaveCount(0);
   await pageA.keyboard.press('Escape');
   await expect(pageA.getByRole('tab', { name: 'Channels' })).toHaveAttribute('aria-selected', 'true');
-  await pageA.getByRole('tab', { name: 'All' }).click();
+  await pageA.getByRole('tab', { name: 'Inbox' }).click();
 });
 
 test('1:1s have no threads; A forwards the channel post into the 1:1 and B sees it', async () => {

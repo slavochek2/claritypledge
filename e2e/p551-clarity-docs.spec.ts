@@ -72,24 +72,25 @@ test.describe('P551: Doc list page (/docs)', () => {
 
   test('/docs loads for authenticated user', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
     // Page should load without error — check for the heading or empty state
     await expect(page.locator('body')).toBeVisible();
-    // Should show "Your Docs" heading or similar
-    const heading = page.getByRole('heading', { name: /clarity letters/i });
+    // P1545: the page is Artifacts now (was "Clarity Letters")
+    const heading = page.getByRole('heading', { name: /^artifacts$/i });
     await expect(heading).toBeVisible({ timeout: 10000 });
   });
 
   test('/docs shows empty state when user has no docs', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
     // Should show some indication of no docs (empty state message or create prompt)
     // The exact text depends on implementation — check for create button at minimum
-    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
+    // P1545: the "New draft" button is now the "New letter" button.
+    const createBtn = page.getByRole('button', { name: /^new letter$/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 10000 });
   });
 
@@ -103,7 +104,7 @@ test.describe('P551: Doc list page (/docs)', () => {
     });
 
     try {
-      await page.goto('/artifacts?tab=yours&type=letters');
+      await page.goto('/artifacts?tab=letters&list=drafts');
       await page.waitForLoadState('networkidle');
 
       // Should see the doc title in the list
@@ -130,55 +131,36 @@ test.describe('P551: Doc creation via modal', () => {
     await auth.cleanup();
   });
 
-  test('clicking New button opens creation modal with title and visibility fields', async () => {
+  test('clicking New letter asks who can read it (Private / Public)', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
     // Click create button
-    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
+    const createBtn = page.getByRole('button', { name: /^new letter$/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 10000 });
     await createBtn.click();
 
-    // Modal should appear with title input and visibility options
-    const dialog = page.getByRole('dialog');
+    // P1545: creation asks "Who can read it?" up front, not a title+visibility form.
+    const dialog = page.getByRole('dialog', { name: 'Who can read it?' });
     await expect(dialog).toBeVisible({ timeout: 5000 });
-
-    // Title input
-    const titleInput = dialog.locator('input[type="text"], input[name*="title"], [placeholder*="title" i]');
-    await expect(titleInput).toBeVisible();
-
-    // Visibility options (radio buttons or toggle)
-    const privateOption = dialog.getByText(/private/i);
-    await expect(privateOption).toBeVisible();
-    const publicOption = dialog.getByText(/public/i);
-    await expect(publicOption).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Private/ })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Public/ })).toBeVisible();
   });
 
-  test('creating a doc with title and private visibility navigates to doc page', async () => {
+  test('creating a private letter draft from the dialog navigates to the draft page', async () => {
     const page = await auth.context.newPage();
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    const createBtn = page.getByRole('button', { name: /new draft/i }).first();
+    const createBtn = page.getByRole('button', { name: /^new letter$/i }).first();
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
     await createBtn.click();
 
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await page.getByRole('dialog', { name: 'Who can read it?' }).getByRole('button', { name: /^Private/ }).click();
 
-    // Fill title
-    const titleInput = dialog.locator('input[type="text"], input[name*="title"], [placeholder*="title" i]');
-    await titleInput.fill('My Private Therapy Notes');
-
-    // Submit (private should be default)
-    const submitBtn = dialog.getByRole('button', { name: /create/i });
-    await submitBtn.click();
-
-    // Should navigate to the new doc page (/d/:docId)
-    await page.waitForURL(/\/d\//, { timeout: 10000 });
-
-    // Doc title should be visible on the page
-    await expect(page.getByText('My Private Therapy Notes')).toBeVisible({ timeout: 10000 });
+    // Should navigate to the new draft page (/letters/drafts/:docId)
+    await page.waitForURL(/\/letters\/drafts\//, { timeout: 10000 });
   });
 });
 
@@ -616,7 +598,7 @@ test.describe('P551: Private doc not accessible by non-owner', () => {
 // Navigation
 // ===========================================================================
 
-test.describe('P551: Navigation — Docs link in nav', () => {
+test.describe('P551: Navigation — Artifacts link in nav', () => {
   let auth: TestAuthContext;
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
@@ -627,25 +609,25 @@ test.describe('P551: Navigation — Docs link in nav', () => {
     await auth.cleanup();
   });
 
-  test('desktop nav shows Letters link', async () => {
+  test('desktop nav shows Artifacts link', async () => {
     const page = await auth.context.newPage();
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // P660 (944d1171) replaced the "Docs" nav entry with "Letters"
-    // (src/app/components/layout/simple-navigation.tsx:233).
-    const docsLink = page.getByRole('link', { name: /letters/i }).first();
+    // P660 replaced "Docs" with "Letters"; P1545 renamed it "Artifacts"
+    // (src/app/components/layout/simple-navigation.tsx).
+    const docsLink = page.getByRole('link', { name: /artifacts/i }).first();
     await expect(docsLink).toBeVisible({ timeout: 10000 });
   });
 
-  test('clicking Letters link navigates to /letters', async () => {
+  test('clicking Artifacts link navigates to /artifacts', async () => {
     const page = await auth.context.newPage();
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const docsLink = page.getByRole('link', { name: /letters/i }).first();
+    const docsLink = page.getByRole('link', { name: /artifacts/i }).first();
     await docsLink.click();
-    await page.waitForURL(/\/letters/, { timeout: 10000 });
+    await page.waitForURL(/\/artifacts/, { timeout: 10000 });
   });
 });
 

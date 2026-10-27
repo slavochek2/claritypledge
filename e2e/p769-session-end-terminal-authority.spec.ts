@@ -319,11 +319,11 @@ test.describe('P769: Partner lands on /live after session ended → ended screen
         });
         await expect(newSessionButton).not.toBeVisible({ timeout: 2_000 });
 
-        // P921: match the SessionEndedScreen's exact "Go to Letters" CTA — a bare
-        // /letters/i also matches the BottomNav "Letters" link (shown by design on
+        // P921: match the SessionEndedScreen's exact "Go to Artifacts" CTA — a bare
+        // /artifacts/i also matches the BottomNav "Artifacts" link (shown by design on
         // the ended screen), a strict-mode ambiguity rather than the CTA under test.
-        const lettersCta = partnerPage.getByRole('link', { name: /go to letters/i });
-        await expect(lettersCta).toBeVisible({ timeout: 5_000 });
+        const artifactsCta = partnerPage.getByRole('link', { name: /go to artifacts/i });
+        await expect(artifactsCta).toBeVisible({ timeout: 5_000 });
       } finally {
         await partnerPage.close();
         await partnerAuth.cleanup();

@@ -3,9 +3,9 @@
  * @description E2E tests for P660: Drafts tab behavior
  *
  * Tests:
- * - Drafts list shows [Edit] and [New Letter] buttons
- * - [Edit] navigates to /letters/drafts/:id
- * - [New Letter] disabled when draft has 0 stories
+ * - Drafts list (Artifacts > Yours) shows an open link and a Prepare letter action per row
+ * - Opening a draft navigates to /letters/drafts/:id
+ * - Prepare letter disabled when draft has 0 stories
  * - Draft detail has no letter tracking sections
  * - Back button labeled "Letters" returns to Drafts tab
  */
@@ -75,57 +75,46 @@ test.describe('P660: Drafts Tab', () => {
     if (user?.user?.id) await deleteTestUser(user.user.id);
   });
 
-  test('drafts list shows [Edit] and [New Letter] buttons per draft row', async ({ page }) => {
+  // P1545: the Drafts tab is now Artifacts > Yours (Letters chip). A draft row has no [Edit] / [New Letter]
+  // buttons: the row title is the link that opens the draft, and "Prepare letter" is the row's visible action.
+  test('drafts list shows an open link and a "Prepare letter" action per draft row', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Verify [Edit] button exists for the doc with stories
-    const editButtons = page.getByRole('button', { name: /Edit/i });
-    const editCount = await editButtons.count();
-    expect(editCount).toBeGreaterThanOrEqual(1);
+    const row = page.getByTestId('artifact-row').filter({ hasText: 'Drafts Tab Test Doc With Story' });
+    await expect(row).toBeVisible({ timeout: 10000 });
 
-    // Verify [New Letter] button exists
-    const newLetterButtons = page.getByRole('button', { name: /New Letter/i });
-    const newLetterCount = await newLetterButtons.count();
-    expect(newLetterCount).toBeGreaterThanOrEqual(1);
+    // Opening the draft: the title link
+    await expect(row.getByRole('link', { name: 'Drafts Tab Test Doc With Story' })).toBeVisible();
+
+    // [New Letter] became the row's one visible action, "Prepare letter"; "…" holds Open first
+    await expect(row.getByRole('button', { name: /Prepare letter/i })).toBeVisible();
+    await row.getByRole('button', { name: /Actions for Drafts Tab Test Doc With Story/ }).click();
+    await expect(page.getByRole('menuitem', { name: 'Open' })).toBeVisible();
   });
 
-  test('[Edit] navigates to /letters/drafts/:id', async ({ page }) => {
+  test('opening a draft navigates to /letters/drafts/:id', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Find the doc with stories and click Edit
-    const docRow = page.getByText('Drafts Tab Test Doc With Story').locator('..');
-    const editButton = docRow.getByRole('button', { name: /Edit/i }).first();
-
-    // If the edit button is a link, click it directly
-    // Otherwise it might be within the parent row
-    if (await editButton.isVisible()) {
-      await editButton.click();
-    } else {
-      // Fallback: find any edit button and click it
-      await page.getByRole('button', { name: /Edit/i }).first().click();
-    }
+    await page.getByRole('link', { name: 'Drafts Tab Test Doc With Story' }).click();
 
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/letters\/drafts\//);
   });
 
-  test('[New Letter] is disabled when draft has 0 stories', async ({ page }) => {
+  test('"Prepare letter" is disabled when draft has 0 stories', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Find the empty doc row
-    const emptyDocRow = page.getByText('Drafts Tab Empty Doc').locator('..');
-    const newLetterButton = emptyDocRow.getByRole('button', { name: /New Letter/i });
+    const row = page.getByTestId('artifact-row').filter({ hasText: 'Drafts Tab Empty Doc' });
+    await expect(row).toBeVisible({ timeout: 10000 });
 
-    // The button should be disabled for docs with 0 stories
-    if (await newLetterButton.isVisible()) {
-      await expect(newLetterButton).toBeDisabled();
-    }
+    // The action should be disabled (aria-disabled) for docs with 0 stories
+    await expect(row.getByRole('button', { name: /Prepare letter/i })).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('draft detail page has no letter tracking sections', async ({ page }) => {
@@ -146,31 +135,33 @@ test.describe('P660: Drafts Tab', () => {
     await expect(page.getByRole('button', { name: /Share/i })).not.toBeVisible();
   });
 
-  test('back button labeled "Letters" returns to Drafts tab', async ({ page }) => {
+  test('back from a draft opened off the Drafts list returns to Artifacts > Letters > Drafts', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto(`/letters/drafts/${docWithStoriesId}`);
+    await page.goto('/artifacts?tab=letters&list=drafts');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('link', { name: 'Drafts Tab Test Doc With Story' }).click();
+    await expect(page).toHaveURL(/\/letters\/drafts\//);
+
+    // Back pops to where the author came from (the list), so it reads "Back"; only a cold arrival names "Letters"
+    // (setTestSession lands on another page first, so a direct goto here is never cold).
+    const backButton = page.getByRole('button', { name: /^go back$/i });
+    await expect(backButton).toBeVisible();
+    await backButton.click();
     await page.waitForLoadState('networkidle');
 
-    // Find the back button/link with "Letters" label
-    const backLink = page.getByText('Letters').first();
-    await expect(backLink).toBeVisible();
-
-    await backLink.click();
-    await page.waitForLoadState('networkidle');
-
-    // Should return to Letters page with Drafts tab active
-    await expect(page).toHaveURL(/\/letters/);
-    const draftsTab = page.getByRole('tab', { name: /Drafts/i });
-    await expect(draftsTab).toHaveAttribute('aria-selected', 'true');
+    // Should return to the Artifacts page: Letters tab, Drafts list
+    await expect(page).toHaveURL(/\/artifacts\?tab=letters&list=drafts/);
+    await expect(page.getByRole('tab', { name: 'Letters' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('button', { name: 'Drafts', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('[+ New] button creates a new draft', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/artifacts?tab=yours&type=letters');
+    await page.goto('/artifacts?tab=letters&list=drafts');
     await page.waitForLoadState('networkidle');
 
-    // Find the [+ New] button
-    const newButton = page.getByRole('button', { name: /New/i }).first();
+    // Find the New letter button (P1545: was [+ New])
+    const newButton = page.getByRole('button', { name: /^New letter$/i }).first();
     await expect(newButton).toBeVisible();
   });
 });

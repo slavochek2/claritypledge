@@ -169,11 +169,11 @@ test.describe('P921-C: cold /live/{code} to an already-ended session shows Sessi
         await expect(endedHeading).toBeVisible({ timeout: 8_000 });
 
         // SessionEndedScreen's escape hatch (distinguishes it from PartnerLeftScreen).
-        // Match the exact "Go to Letters" CTA — /letters/i alone also matches the
-        // BottomNav "Letters" link (intentionally shown on the ended screen,
+        // Match the exact "Go to Artifacts" CTA — /artifacts/i alone also matches the
+        // BottomNav "Artifacts" link (intentionally shown on the ended screen,
         // bottom-nav.tsx), which is a strict-mode ambiguity, not the CTA under test.
-        const lettersCta = partnerPage.getByRole('link', { name: /go to letters/i });
-        await expect(lettersCta).toBeVisible({ timeout: 3_000 });
+        const artifactsCta = partnerPage.getByRole('link', { name: /go to artifacts/i });
+        await expect(artifactsCta).toBeVisible({ timeout: 3_000 });
       } finally {
         await partnerPage.close();
         await partnerAuth.cleanup();

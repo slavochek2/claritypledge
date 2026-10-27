@@ -83,16 +83,12 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
 
   test('smoke: sent tab loads with letter and initial delivery status', async ({ page }) => {
     await setTestSession(page, sender.email);
-    await page.goto('/artifacts');
+    await page.goto('/artifacts?tab=letters&list=sent');
     await page.waitForLoadState('networkidle');
 
-    // Switch to Sent tab if not already there
-    const sentTab = page.getByRole('tab', { name: /sent/i });
-    if (await sentTab.isVisible()) {
-      await sentTab.click();
-    }
-
-    await expect(page.getByText('P720 Realtime Test Doc')).toBeVisible({ timeout: 10_000 });
+    // P1545: sent letters are rows on Artifacts > Letters > Sent (the draft with the same title lives under Drafts).
+    const row = page.getByTestId('artifact-row').filter({ hasText: 'P720 Realtime Test Doc' });
+    await expect(row.getByTestId('artifact-meta')).toHaveText(/0 of 1 finished/, { timeout: 10_000 });
   });
 
   test('sent tab updates status in real-time when delivery transitions to completed (CANARY — fails before fix)', async ({ browser }) => {
@@ -102,20 +98,12 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
 
     try {
       await setTestSession(senderPage, sender.email);
-      await senderPage.goto('/artifacts');
+      await senderPage.goto('/artifacts?tab=letters&list=sent');
       await senderPage.waitForLoadState('networkidle');
 
-      // Switch to Sent tab
-      const sentTab = senderPage.getByRole('tab', { name: /sent/i });
-      if (await sentTab.isVisible()) {
-        await sentTab.click();
-        await senderPage.waitForLoadState('networkidle');
-      }
-
-      // Confirm initial state: 0 of 1 completed
-      await expect(
-        senderPage.getByText(/0 of 1 recipients? completed/i)
-      ).toBeVisible({ timeout: 10_000 });
+      // P1545: the sent letter is a row on Letters > Sent; its meta says "0 of 1 finished" until someone replies.
+      const row = senderPage.getByTestId('artifact-row').filter({ hasText: 'P720 Realtime Test Doc' });
+      await expect(row.getByTestId('artifact-meta')).toHaveText(/0 of 1 finished/, { timeout: 10_000 });
 
       // Simulate recipient completing the letter — update delivery in DB directly
       // (Equivalent to recipient going through all steps and submitting)
@@ -132,9 +120,7 @@ test.describe('P720: Sent tab real-time delivery status updates', () => {
       // Sent tab should update WITHOUT a page refresh within 20 seconds.
       // Fix (P720): sent-tab.tsx polls every 15s — the status change becomes
       // visible within one poll cycle. 20s gives the poller a full cycle + margin.
-      await expect(
-        senderPage.getByText(/1 of 1 recipients? completed/i)
-      ).toBeVisible({ timeout: 20_000 });
+      await expect(row.getByTestId('artifact-meta')).toHaveText(/1 new|1 of 1 finished/, { timeout: 20_000 });
     } finally {
       await senderContext.close();
     }

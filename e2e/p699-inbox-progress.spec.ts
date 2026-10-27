@@ -155,7 +155,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
     });
 
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
     expect(page.url()).toContain('/artifacts');
@@ -173,7 +173,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('in-progress letter shows "Step 1 of 3 completed" text', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
     // Look for progress text pattern "1 of 3 steps" (P699 step-granular format)
@@ -183,29 +183,25 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   // ── 3. Completed: Results button navigates to results URL ─────────────────
 
-  test('completed letter shows Results button', async ({ page }) => {
+  test('completed letter row links to its results', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
-    const resultsButton = page
-      .getByRole('button', { name: /results/i })
-      .or(page.getByRole('link', { name: /results/i }))
-      .first();
+    // P1545: a finished received letter's row links straight to its results (no separate Results button).
+    const resultsButton = page.locator(`[data-testid="artifact-row"] a[href*="/results?delivery=${completedDeliveryId}"]`);
     await expect(resultsButton).toBeVisible({ timeout: 10000 });
   });
 
-  test('clicking Results button navigates to results URL with delivery param', async ({
+  test('opening a completed letter row navigates to results URL with delivery param', async ({
     page,
   }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
-    const resultsButton = page
-      .getByRole('button', { name: /results/i })
-      .or(page.getByRole('link', { name: /results/i }))
-      .first();
+    // P1545: a finished received letter's row links straight to its results (no separate Results button).
+    const resultsButton = page.locator(`[data-testid="artifact-row"] a[href*="/results?delivery=${completedDeliveryId}"]`);
 
     if (await resultsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       await resultsButton.click();
@@ -220,13 +216,12 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('fresh letter (0 rated) shows Read button (no progress text)', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
     // Fresh letter should have an "Open" button, not a progress indicator
-    const readButton = page
-      .getByRole('button', { name: /^open$/i })
-      .or(page.getByRole('link', { name: /^open$/i }));
+    // P1545: the row title link opens the reading flow (no separate Open button).
+    const readButton = page.locator(`[data-testid="artifact-row"] a[href="/letter/${freshDeliveryId}"]`);
 
     const count = await readButton.count();
     expect(count).toBeGreaterThanOrEqual(1);
@@ -236,16 +231,14 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
   test('completed letter does not show "Step N of M" progress text', async ({ page }) => {
     await setTestSession(page, receiver.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
     // For the completed delivery (3 of 3), there should be NO "Step N of M" text
     // (it's done — progress display is only for in-progress items)
     // This is tested by verifying the "Results" button exists without step text adjacent
-    const resultsButton = page
-      .getByRole('button', { name: /results/i })
-      .or(page.getByRole('link', { name: /results/i }))
-      .first();
+    // P1545: a finished received letter's row links straight to its results (no separate Results button).
+    const resultsButton = page.locator(`[data-testid="artifact-row"] a[href*="/results?delivery=${completedDeliveryId}"]`);
 
     if (await resultsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       // Find the parent container of the results button
@@ -267,7 +260,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
     // Before fix: no step text on completed sender rows.
     // After fix:  "3 of 3 steps" appears under "receiver completed Letter Title" row.
     await setTestSession(page, sender.email);
-    await page.goto('/artifacts?tab=shared');
+    await page.goto('/artifacts?tab=letters&list=received');
     await page.waitForLoadState('networkidle');
 
     // Sender inbox must show the step count for the completed recipient row.
