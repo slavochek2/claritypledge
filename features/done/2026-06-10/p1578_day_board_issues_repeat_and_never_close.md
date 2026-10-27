@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 79
 workstream: infrastructure
 created_date: '2026-10-27'
 tags: [day, kanban, monitoring, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-27
 ---
 
 # P1578: Day board issues repeat every morning and never close
