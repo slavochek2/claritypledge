@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+superseded_by: p1582
 rank: 57
 workstream: clarity-chat
 created_date: '2026-10-22'
