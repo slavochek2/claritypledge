@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 80
 workstream: infrastructure
 created_date: '2026-10-27'
 tags: [push, ship, quality-ratchet, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: incident
+completed_at: 2026-10-27
 ---
 
 # P1579: Code-shape regressions are fixed before the push, not discovered by it
