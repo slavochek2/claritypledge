@@ -266,8 +266,9 @@ elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database 
 else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== SELF-HOSTED TEST DATABASE (P1557) ==="
-# Stopgap, knowingly (.claude/rules/skills.md, recurring checks): reachability and certificate also
-# run on a schedule; disk and WAL need a gcloud login no workflow holds, so they are read here.
+# Stopgap, knowingly (.claude/rules/skills.md, recurring checks). End state: a scheduled workflow
+# for reachability and certificate (filed in the task inbox); disk and WAL need a gcloud login no
+# workflow holds, so they stay here until one does.
 TESTDB_HEALTH="$(git rev-parse --show-toplevel)/scripts/selfhosted/health.sh"
 if [ ! -x "$TESTDB_HEALTH" ]; then echo "CHECK cp.selfhosted skipped the self-hosted test server is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
