@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 235
+**Next ID:** 239
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2918,5 +2918,49 @@ On 2026-10-26 the F7 test in src/tests/p1512-chat-ui.test.tsx failed twice in a 
 **due:** week
 
 The installed hook is main's pre-commit-checks.sh, but it sources scripts/lib/privacy-figure-scan.sh from the committing worktree's toplevel. A worktree behind main lacks privacy_spend_scan, the call fails with "command not found", and `|| true` turns that into a green check (seen 2026-10-26 committing P1566 from a worktree 51 commits behind). Done when the hook sources its libs from its own location or fails closed on a missing function; droppable if hooks stop sourcing worktree-relative libs.
+
+---
+
+## Show a point's author on its details page once owners can supersede via the mirror
+
+**ID:** INBOX-235
+**Date:** 2026-10-26
+**Status:** proposed
+**due:** month
+
+P1536 lets the mirror link a reworded canvas point to its predecessor (supersede) at Publish. Authorship is what grants that right to redirect readers, so readers should be able to see who did it: add "First posted by ..." on the point details page when owner supersede ships. Founder 2026-10-26: not now, later. Not needed while only the founder supersedes.
+
+---
+
+## Run the self-hosted test server's reachability and certificate checks on a schedule
+
+**ID:** INBOX-236
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+P1557. scripts/selfhosted/health.sh checks reachability and certificate over public HTTPS, no credentials. Move those two into a scheduled GitHub workflow that opens an issue on failure. Until then /day's cp.selfhosted check reads them, a knowing stopgap per .claude/rules/skills.md (recurring checks). Disk and WAL need a gcloud login no workflow holds, so they stay in /day.
+
+---
+
+## Fix two checks already failing on main: day registry control and decisions.md dead links
+
+**ID:** INBOX-237
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+Found during P1557, not caused by it. scripts/test-p1399-day-registry.sh fails on main: "weekly/SKILL.md has no recommending line with --risk". docs/decisions.md on main has 5 dead links to the p1566 and p1575 specs, which now live under features/done/. Any branch that merges main trips the doc-link ratchet on these.
+
+---
+
+## Fix the p964 schema test: it signs in with a password field test users no longer have
+
+**ID:** INBOX-238
+**Date:** 2026-10-27
+**Status:** proposed
+**due:** week
+
+Found during P1557, fails on hosted and self-hosted alike. e2e/integration/p964-db-schema.spec.ts signs in with caller.password, but TestUser (e2e/helpers/test-user.ts) has no password field, so the sign-in silently fails and the RPC runs as anon: "permission denied for function get_letter_position_stories". Grants are correct (authenticated may execute). A test change, so it needs the founder's OK (tests.md). Likely fix: sign in with TEST_PASSWORD and assert the sign-in succeeded.
 
 ---
