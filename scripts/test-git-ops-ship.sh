@@ -150,6 +150,8 @@ cp "$REPO_ROOT/scripts/lib/admin-close.sh" "$SCRATCH/main/scripts/lib/admin-clos
 # P1326: ship's worktree teardown consults the dirty-tree helper, and git-ops fails
 # CLOSED (treats every worktree as holding work) when it is absent.
 cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$SCRATCH/main/scripts/lib/worktree-changes.sh"
+# P1575: ship resolves the decisions-log two-prepend conflict through this resolver.
+cp "$REPO_ROOT/scripts/lib/decisions-merge.py" "$SCRATCH/main/scripts/lib/decisions-merge.py"
 chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
 
 : > "$SCRATCH/main/features/done/2026-04-22/.gitkeep"
@@ -161,7 +163,7 @@ chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-o
   git config user.name canary
   git config commit.gpgsign false
   echo "seed" > README.md
-  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh scripts/lib/admin-close.sh scripts/lib/worktree-changes.sh features/done/2026-04-22/.gitkeep
+  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh scripts/lib/admin-close.sh scripts/lib/worktree-changes.sh scripts/lib/decisions-merge.py features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
 ) >/dev/null
@@ -4100,6 +4102,219 @@ if [[ -n "$AD_FAILS" ]]; then
 fi
 
 # -----------------------------------------------------------------------------
+# AE (P1575). docs/decisions.md is newest-first, so a branch that wrote decisions
+# conflicts at the top on every such commit once main has gained its own. ship
+# resolves ONLY the two-prepend shape (every entry kept, main's first) and stops
+# for a human on every other shape.
+# -----------------------------------------------------------------------------
+
+ae_entry() { printf '## %s\n\n**Decision:** %s\n\n---\n\n' "$1" "$2"; }
+ae_spec() {
+  cat > "$SCRATCH/main/features/$1_demo.md" <<SPECEOF
+---
+status: qa
+pipeline_ran: [fix]
+type: task
+rank: 1
+tags: [demo]
+---
+# $1: decisions-log conflict
+
+Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
+SPECEOF
+  ( cd "$SCRATCH/main" && git add "features/$1_demo.md" && git commit -qm "chore: add $1 spec" ) >/dev/null
+}
+ae_cleanup() {
+  ( cd "$SCRATCH/main" && git cherry-pick --abort 2>/dev/null || true
+    git checkout -q main 2>/dev/null || true
+    git branch -D "feature/$1-demo" 2>/dev/null || true
+    rm -f ".claude/worktrees/.ship-journal/$1.json" ) >/dev/null 2>&1 || true
+}
+# Seed the shared log on main.
+(
+  cd "$SCRATCH/main" && mkdir -p docs
+  { printf '# Decisions Log\n\nNewest entries at top.\n\n---\n\n'
+    ae_entry "2026-01-01 [process]: Shared one" "a"; } > docs/decisions.md
+  git add docs/decisions.md && git commit -qm "seed decisions log"
+) >/dev/null
+
+# AE-a: two branch commits each prepend an entry; main prepends one after the branch
+# point. Both picks conflict; both must resolve, and every entry must survive.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p186-demo
+  for n in 1 2; do
+    { head -6 docs/decisions.md; ae_entry "2026-02-0$n [technical]: Branch $n" "b$n"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+    git add docs/decisions.md && git commit -qm "p186: commit $n"
+  done
+  git checkout -q main
+  { head -6 docs/decisions.md; ae_entry "2026-02-09 [product]: Main co-tenant" "m"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  git add docs/decisions.md && git commit -qm "co-tenant decision on main"
+) >/dev/null
+ae_spec p186
+AEa_RC=0
+AEa_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p186 2>&1)" || AEa_RC=$?
+if [[ $AEa_RC -ne 0 ]]; then
+  echo "$AEa_OUT" >&2
+  fail "AE-a: ship stopped on a two-prepend decisions-log conflict it should resolve"
+fi
+AEa_HEADS="$(cd "$SCRATCH/main" && grep '^## ' docs/decisions.md | sed 's/:.*//' | tr '\n' ' ')"
+if [[ "$AEa_HEADS" != "## 2026-02-09 [product] ## 2026-02-02 [technical] ## 2026-02-01 [technical] ## 2026-01-01 [process] " ]]; then
+  fail "AE-a: landed log lost or misordered an entry: $AEa_HEADS"
+fi
+if [[ "$(echo "$AEa_OUT" | grep -c 'resolved docs/decisions.md')" != "2" ]]; then
+  echo "$AEa_OUT" >&2
+  fail "AE-a: expected two logged auto-resolutions"
+fi
+if [[ "$(cd "$SCRATCH/main" && git log --oneline main | grep -c 'p186: commit')" != "2" ]]; then
+  fail "AE-a: not every branch commit landed"
+fi
+pass "AE-a: two-prepend decisions-log conflicts resolve, every entry kept, main's first"
+
+# AE-b: the branch retitles an existing entry (the 4th P1566 conflict). Must stop.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p187-demo
+  { head -6 docs/decisions.md; ae_entry "2026-03-01 [technical]: Branch new" "x"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  sed -i.bak 's/^## 2026-02-09 \[product\]: Main co-tenant$/## 2026-02-09 [product]: Main co-tenant, retitled/' docs/decisions.md && rm -f docs/decisions.md.bak
+  git add docs/decisions.md && git commit -qm "p187: retitle"
+  git checkout -q main
+  { head -6 docs/decisions.md; ae_entry "2026-03-02 [product]: Main later" "m2"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  git add docs/decisions.md && git commit -qm "co-tenant decision on main, again"
+) >/dev/null
+ae_spec p187
+AEb_RC=0
+AEb_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p187 2>&1)" || AEb_RC=$?
+if [[ $AEb_RC -eq 0 ]]; then
+  echo "$AEb_OUT" >&2
+  fail "AE-b: ship auto-resolved a conflict where the branch retitled an existing entry"
+fi
+if ! echo "$AEb_OUT" | grep -q 'not auto-resolved'; then
+  echo "$AEb_OUT" >&2
+  fail "AE-b: the stop did not say why the log was left for a human"
+fi
+if ! ( cd "$SCRATCH/main" && git diff --name-only --diff-filter=U | grep -qx docs/decisions.md ); then
+  fail "AE-b: the conflict was not left in place for a human"
+fi
+ae_cleanup p187
+pass "AE-b: a retitled entry stops for a human, conflict left in place"
+
+# AE-c: decisions.md conflicts together with another file. Must stop (only a
+# decisions-log-only conflict is eligible).
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p188-demo
+  { head -6 docs/decisions.md; ae_entry "2026-04-01 [technical]: Branch new" "x"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  echo "branch" > p188-data.txt
+  git add docs/decisions.md p188-data.txt && git commit -qm "p188: two files"
+  git checkout -q main
+  { head -6 docs/decisions.md; ae_entry "2026-04-02 [product]: Main" "m"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  echo "main" > p188-data.txt
+  git add docs/decisions.md p188-data.txt && git commit -qm "main: two files"
+) >/dev/null
+ae_spec p188
+AEc_RC=0
+AEc_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p188 2>&1)" || AEc_RC=$?
+if [[ $AEc_RC -eq 0 ]]; then
+  echo "$AEc_OUT" >&2
+  fail "AE-c: ship resolved a conflict that also spans another file"
+fi
+if echo "$AEc_OUT" | grep -q 'resolved docs/decisions.md'; then
+  fail "AE-c: the resolver ran although another file was also in conflict"
+fi
+ae_cleanup p188
+pass "AE-c: a decisions-log conflict alongside another conflicted file stops"
+
+# AE-d: the resolution is staged but the commit fails (a pre-commit hook). ship must
+# stop with the pick paused and the resolution staged, never --skip; --resume lands it
+# exactly once.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p189-demo
+  { head -6 docs/decisions.md; ae_entry "2026-05-01 [technical]: Branch hookfail" "x"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  git add docs/decisions.md && git commit -qm "p189: decision"
+  git checkout -q main
+  { head -6 docs/decisions.md; ae_entry "2026-05-02 [product]: Main hookfail" "m"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  git add docs/decisions.md && git commit -qm "main: decision before p189"
+) >/dev/null
+ae_spec p189
+printf '#!/bin/sh\n[ -f "$(git rev-parse --git-dir)/ae-fail" ] && { echo "ae hook refused" >&2; exit 1; }\nexit 0\n' > "$SCRATCH/main/.git/hooks/pre-commit"
+chmod +x "$SCRATCH/main/.git/hooks/pre-commit"
+: > "$SCRATCH/main/.git/ae-fail"
+AEd_RC=0
+AEd_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p189 2>&1)" || AEd_RC=$?
+if [[ $AEd_RC -eq 0 ]]; then
+  echo "$AEd_OUT" >&2
+  fail "AE-d: ship reported success although the commit hook refused"
+fi
+if ! echo "$AEd_OUT" | grep -q 'resolved and staged, but the commit failed'; then
+  echo "$AEd_OUT" >&2
+  fail "AE-d: the stop did not say the resolution was staged"
+fi
+if [[ ! -f "$SCRATCH/main/.git/CHERRY_PICK_HEAD" ]] || ( cd "$SCRATCH/main" && git diff --name-only --diff-filter=U | grep -q . ); then
+  fail "AE-d: the pick is not paused with the resolution staged"
+fi
+rm -f "$SCRATCH/main/.git/ae-fail"
+AEd2_RC=0
+AEd2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p189 --resume 2>&1)" || AEd2_RC=$?
+rm -f "$SCRATCH/main/.git/hooks/pre-commit"
+if [[ $AEd2_RC -ne 0 ]]; then
+  echo "$AEd2_OUT" >&2
+  fail "AE-d: --resume did not land the staged resolution"
+fi
+for h in "Branch hookfail" "Main hookfail"; do
+  if [[ "$(cd "$SCRATCH/main" && grep -c "^## .*: $h\$" docs/decisions.md)" != "1" ]]; then
+    fail "AE-d: entry '$h' is not on main exactly once after --resume"
+  fi
+done
+pass "AE-d: a commit refused after resolving pauses the pick (no skip); --resume lands it once"
+
+# AE-e: --resume after a human hand-edited the log without staging it. The resolver
+# must NOT run (it would rebuild from the index and erase the edit); the edit survives.
+(
+  cd "$SCRATCH/main"
+  git checkout -q -b feature/p196-demo
+  { head -6 docs/decisions.md; ae_entry "2026-06-01 [technical]: Branch handedit" "x"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  echo "branch" > p196-data.txt
+  git add docs/decisions.md p196-data.txt && git commit -qm "p196: two files"
+  git checkout -q main
+  { head -6 docs/decisions.md; ae_entry "2026-06-02 [product]: Main handedit" "m"; tail -n +7 docs/decisions.md; } > d.tmp && mv d.tmp docs/decisions.md
+  echo "main" > p196-data.txt
+  git add docs/decisions.md p196-data.txt && git commit -qm "main: two files before p196"
+) >/dev/null
+ae_spec p196
+scratch_review_stamp p196
+AEe0_OUT="$(cd "$SCRATCH/main" && bash "$GIT_OPS" ship p196 2>&1)" || true
+AEe0_U="$(cd "$SCRATCH/main" && git diff --name-only --diff-filter=U | sort | tr '\n' ' ')"
+if [[ "$AEe0_U" != "docs/decisions.md p196-data.txt " ]]; then
+  echo "$AEe0_OUT" >&2
+  fail "AE-e: fixture did not stop on both files (unmerged: '$AEe0_U')"
+fi
+(
+  cd "$SCRATCH/main"
+  echo "resolved" > p196-data.txt && git add p196-data.txt
+  { head -6 docs/decisions.md | sed '/^[<=>]\{7\}/d'; printf 'HUMAN NOTE: hand resolution\n\n'; git show :2:docs/decisions.md | tail -n +7; } > d.tmp && mv d.tmp docs/decisions.md
+) >/dev/null
+AEe_RC=0
+AEe_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p196 --resume 2>&1)" || AEe_RC=$?
+if echo "$AEe_OUT" | grep -q 'resolved docs/decisions.md'; then
+  fail "AE-e: the resolver ran on --resume over a human's unstaged edit"
+fi
+if ! grep -q 'HUMAN NOTE' "$SCRATCH/main/docs/decisions.md"; then
+  fail "AE-e: the human's unstaged edit was overwritten"
+fi
+if [[ $AEe_RC -eq 0 ]]; then
+  fail "AE-e: --resume landed while the log was still unmerged"
+fi
+ae_cleanup p196
+pass "AE-e: --resume never auto-resolves over a human's unstaged edit"
+
+# -----------------------------------------------------------------------------
 # R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
 #     the file, so every canary's output is inside it.
 # -----------------------------------------------------------------------------
@@ -4136,4 +4351,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, AD, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, AD, AE, R2) hold"

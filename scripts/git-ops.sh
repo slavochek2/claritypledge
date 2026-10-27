@@ -5072,6 +5072,46 @@ The branch is authoritative for shipped migrations. Compare each file with
           continue
         fi
       fi
+      # P1575: docs/decisions.md is newest-first, so a branch that wrote a decision
+      # conflicts at the top with every decision main gained since — once per such
+      # commit. Resolve ONLY the shape where both sides just added whole entries above
+      # the common ancestor's text, keeping every entry (main's first); the resolver
+      # leaves every other shape untouched and it falls through to the diagnostic below.
+      # Never one side: P1236 lost 59 entries that way (decisions.md 2026-09-11).
+      # A missing resolver is not an error, just the old behaviour: stop for a human.
+      # Never on --resume of a paused pick: a human has been in this conflict and may
+      # have hand-edited the file without staging it; the resolver rebuilds from the
+      # index stages and would overwrite that edit unrecoverably (P1082's rule).
+      if (( _resume_continue == 0 )) && [[ "$_conflict_lines" == "UU docs/decisions.md" && -f "$REPO_ROOT/scripts/lib/decisions-merge.py" ]]; then
+        local _dm_out _dm_rc=0
+        _dm_out="$( cd "$REPO_ROOT" && python3 scripts/lib/decisions-merge.py docs/decisions.md 2>&1 )" || _dm_rc=$?
+        # Trust the index, not the exit code: an empty or broken resolver can exit 0
+        # having done nothing (found by this canary's control run).
+        if (( _dm_rc == 0 )) && [[ -n "$( cd "$REPO_ROOT" && git diff --name-only --diff-filter=U 2>/dev/null )" ]]; then
+          _dm_rc=1
+          _dm_out="the resolver exited 0 but the conflict is still open"
+        fi
+        if (( _dm_rc == 0 )); then
+          set +e
+          cherry_out=$( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit 2>&1 )
+          cherry_rc=$?
+          set -e
+          if (( cherry_rc == 0 )); then
+            echo "ship: ${_dm_out#decisions-merge: }" >&2
+            landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+            ship_record_landed "$pn" "$sha" "$landed"
+            if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
+              sleep "${SHIP_DEBUG_SLEEP_SECS}"
+            fi
+            continue
+          fi
+          # The resolution is staged but the commit failed (a hook, most likely). Never
+          # --skip here: that would drop the branch commit. Leave it for a human.
+          echo "ship: docs/decisions.md was resolved and staged, but the commit failed; see below" >&2
+        else
+          echo "ship: docs/decisions.md not auto-resolved: ${_dm_out#decisions-merge: }" >&2
+        fi
+      fi
       {
         echo "ship: cherry-pick $sha failed — conflict or unresolved state"
         echo "#CP_DIAGNOSTIC_BEGIN"

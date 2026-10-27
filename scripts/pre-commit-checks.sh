@@ -423,8 +423,13 @@ fi
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|test-p1279-commit-to-main-index-race|lib/ship-reap)\.sh$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|test-p1279-commit-to-main-index-race|lib/ship-reap|test-decisions-merge)\.sh$|^scripts/lib/decisions-merge\.py$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
+    # P1575 — ship's decisions-log resolver: every shape it must leave for a human, plus
+    # the refusal of a merge that would lose an entry heading.
+    if ! run_quiet "decisions-log resolver canary (P1575)" bash scripts/test-decisions-merge.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
     if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
         ERRORS=$((ERRORS + 1))
     fi
