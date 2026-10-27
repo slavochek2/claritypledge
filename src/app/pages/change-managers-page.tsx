@@ -116,7 +116,7 @@ export function ChangeManagersPage() {
             received="From Monday we all use the AI assistant for weekly reports. Any questions?"
             honest={`"I don't see how it fits my reports. If I ask now, it sounds like I'm resisting."`}
             sent="Sounds good 👍"
-            consequence="3 weeks later · 2 of 12 people use it · nobody said why"
+            consequence="3 weeks later · the rollout stalled · nobody said why"
             thoughtTitle="Why didn't Marco ask?"
             thoughtBody={`"Everyone else nodded."`}
           />
@@ -131,7 +131,7 @@ export function ChangeManagersPage() {
                 <CountUpPercent target={28} />
               </p>
               <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-                of managers responsible for executing strategy could name three of their company&rsquo;s priorities.<RefSup n={1} label={REFERENCES[0].label} />
+                of executives and middle managers responsible for executing strategy could list three of their company&rsquo;s strategic priorities.<RefSup n={1} label={REFERENCES[0].label} />
               </p>
             </div>
           </Reveal>

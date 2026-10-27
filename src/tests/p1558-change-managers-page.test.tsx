@@ -19,6 +19,8 @@ vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => trac
 
 import { ChangeManagersPage } from '@/app/pages/change-managers-page';
 import { CHANGE_MANAGERS_OG } from '@/app/content/change-managers-og';
+import { LANDING_REDIRECTS } from '@/app/routes/landing-redirects';
+import { TEAM_CAST, HOSPITAL_CAST } from '@/app/content/exchange-casts';
 
 function renderPage() {
   return render(<MemoryRouter><ChangeManagersPage /></MemoryRouter>);
@@ -64,7 +66,7 @@ describe('P1558 /change-managers - content', () => {
     const { container } = renderPage();
     const stat = screen.getByTestId('stat-card');
     expect(stat).toHaveTextContent('28%');
-    expect(stat).toHaveTextContent(/managers responsible for executing strategy could name three of their company.s priorities/);
+    expect(stat).toHaveTextContent(/of executives and middle managers responsible for executing strategy could list three of their company.s strategic priorities/);
     expect(within(stat).getByRole('link', { name: /Reference 1: Sull, Sull & Yoder \(2018\)/ })).toHaveAttribute('href', '#references');
     const text = container.textContent ?? '';
     expect(text).not.toMatch(/patient|hospital|nurse|\bward\b|clinical|\bstaff\b|Dr\. /i);
@@ -125,16 +127,41 @@ describe('P1558 /change-managers - route, nav, preview', () => {
     expect(read('src/app/components/layout/nav-links.ts')).toContain('{ to: "/change-managers", label: "For change managers"');
   });
 
-  it('the redirect shape lands on the page', () => {
-    render(
-      <MemoryRouter initialEntries={['/change-leads']}>
-        <Routes>
-          <Route path="/change-managers" element={<div>landed</div>} />
-          <Route path="/change-leads" element={<Navigate to="/change-managers" replace />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    expect(screen.getByText('landed')).toBeInTheDocument();
+  it('every landing redirect in the real list lands on its canonical route', () => {
+    expect(LANDING_REDIRECTS).toEqual([
+      ['/hospital', '/hospitals'],
+      ['/change-leads', '/change-managers'],
+      ['/program', '/pricing'],
+      ['/offers', '/pricing'],
+    ]);
+    for (const [from, to] of LANDING_REDIRECTS) {
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[from]}>
+          <Routes>
+            <Route path={to} element={<div>landed {to}</div>} />
+            {LANDING_REDIRECTS.map(([f, t]) => <Route key={f} path={f} element={<Navigate to={t} replace />} />)}
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByText(`landed ${to}`)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('vercel.json redirects /change-leads server-side, so crawlers on old links reach the OG rewrite', () => {
+    const v = JSON.parse(read('vercel.json'));
+    expect(v.redirects).toContainEqual({ source: '/change-leads', destination: '/change-managers', permanent: false });
+    const r = v.rewrites.find((x: { source: string }) => x.source === '/change-managers');
+    const ua = new RegExp(r.has.find((h: { key: string }) => h.key === 'user-agent').value);
+    for (const bot of ['WhatsApp/2.23.20.0 A', 'LinkedInBot/1.0 (compatible; Mozilla/5.0)', 'facebookexternalhit/1.1', 'TelegramBot (like TwitterBot)']) expect(ua.test(bot)).toBe(true);
+    expect(ua.test('Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(false);
+  });
+
+  it('the shared exchange reports its own analytics event on this page', () => {
+    expect(TEAM_CAST.viewEvent).toBe('change_managers_exchange_viewed');
+    expect(HOSPITAL_CAST.viewEvent).toBe('hospitals_exchange_viewed');
+    expect(read('src/app/pages/change-managers-page.tsx')).toContain('<GapExchangeSection cast={TEAM_CAST} />');
+    expect(read('src/app/components/hospitals/gap-exchange.tsx')).toContain('analytics.track(cast.viewEvent)');
   });
 
   it('vercel.json sends noindex header and bot OG rewrite for /change-managers', () => {

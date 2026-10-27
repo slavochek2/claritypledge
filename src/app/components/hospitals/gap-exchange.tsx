@@ -120,8 +120,8 @@ export function GapExchange({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
   useEffect(() => {
     if (!inView || tracked.current) return;
     tracked.current = true;
-    analytics.track("hospitals_exchange_viewed");
-  }, [inView]);
+    analytics.track(cast.viewEvent);
+  }, [inView, cast.viewEvent]);
 
   useEffect(() => {
     if (reduce) {

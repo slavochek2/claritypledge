@@ -7,6 +7,11 @@
       "permanent": false
     },
     {
+      "source": "/change-leads",
+      "destination": "/change-managers",
+      "permanent": false
+    },
+    {
       "source": "/presi",
       "destination": "/presi/",
       "permanent": false
