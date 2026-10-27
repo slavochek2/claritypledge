@@ -237,7 +237,8 @@ node scripts/quality-ratchet.cjs --range origin/main..HEAD > "$RATCHET_OUT" 2>&1
    in it (`type: task`, `driver: anomaly`, `intent: cold-start`, `disclosure: public`,
    `pipeline_ran: [create-spec, fix]`, Problem = the findings, Done-When = the four checks in step 3).
    `/ship`'s gate 2.5 needs `fix` in `pipeline_ran` and every Done-When box ticked, so tick each box
-   with its evidence in step 3, as it passes.
+   with its evidence in step 3, as it passes. Commit the spec now, before the fixer starts, so it
+   never shows in step 3's `git status` as a file the fixer's list does not name.
 2. Spawn **one** fixer: `Agent` with `subagent_type: general-purpose` and **`model: opus`**. Pin the
    model whatever this session runs on; the session model does not matter here. Give it the worktree root,
    the `$RATCHET_OUT` path, and these rules: extraction only (helpers, sub-components, sibling modules),
@@ -252,15 +253,15 @@ node scripts/quality-ratchet.cjs --range origin/main..HEAD > "$RATCHET_OUT" 2>&1
    `node scripts/quality-ratchet.cjs --range origin/main..HEAD` exit 0 · `./scripts/typecheck-gate.sh`
    exit 0 (never a bare `npx tsc --noEmit`: the root tsconfig has `files: []`, so it checks nothing
    and always passes) · `npx vitest run` green · `npx eslint` on the changed files clean.
+   Tick the spec's Done-When boxes with that evidence and commit the spec.
 4. Review with `/slava:build:finish` (the standing review: Gemini always, more reviewers by stakes).
-   Fix what it confirms.
-5. `/ship pN`. Its gate 3.8 re-judges the branch's own commits. Then **restart `/push` from step 1**:
+   Fix what it confirms and commit each fix on the branch.
+5. **File how it slipped.** `/note` one entry naming the commits and why the build-time hook and
+   gate 3.8 did not catch them. Every firing of this lane is a gap in an earlier check.
+6. `/ship pN`. Its gate 3.8 re-judges the branch's own commits. Then **restart `/push` from step 1**:
    HEAD moved, and the privacy stamp and schema check must cover the new SHA. **The fix lane runs at
    most once per `/push`:** if step 2.2 returns rc 1 again after a fix shipped in this run, that is a
    STOP with the remaining findings, never a second worktree or a second fixer.
-
-6. **File how it slipped.** `/note` one entry naming the commits and why the build-time hook and
-   gate 3.8 did not catch them. Every firing of this lane is a gap in an earlier check.
 
 **STOP** (relay the remaining findings, keep the worktree) only when the one attempt leaves the
 ratchet red, or a check in step 3 fails twice. Never raise a limit, add an exception or edit a test
