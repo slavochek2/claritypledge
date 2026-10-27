@@ -19,15 +19,14 @@ import { ScrollIndicator, PledgerAvatarStack } from "@/app/components/landing/so
 import { CHANGE_LEADS_OG } from "@/app/content/change-leads-og";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
-import { HowPlatformWorks } from "@/app/components/landing/how-platform-works";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 
 
 type Status = "Built today" | "Being built";
 const GETS: { icon: typeof FileTextIcon; title: string; text: string; status: Status }[] = [
-  { icon: MessagesSquareIcon, title: "Check back before you agree", text: "In Clarity Chat, people explain back what they heard before they say yes or no.", status: "Built today" },
-  { icon: FileTextIcon, title: "Every important meeting, written down", text: "Transcripts of important meetings land in the team's channel, so the context is always there.", status: "Being built" },
-  { icon: LifeBuoyIcon, title: "Help when the team gets stuck", text: "The founder joins when a conversation stalls.", status: "Built today" },
+  { icon: FileTextIcon, title: "1. Write the meeting down", text: "With everyone's OK, the transcript of an important meeting goes to the team's channel.", status: "Being built" },
+  { icon: MessagesSquareIcon, title: "2. Check back before you agree", text: "In Clarity Chat, people explain back what they heard before they say yes or no.", status: "Built today" },
+  { icon: LifeBuoyIcon, title: "3. Call in help when it's stuck", text: "When the team asks, the founder joins to unstick the conversation.", status: "Built today" },
 ];
 
 const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -142,16 +141,11 @@ export function ChangeLeadsPage() {
           </Reveal>
         </section>
 
-        {/* 4. How the platform works */}
-        <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
-          <HowPlatformWorks />
-        </section>
-
         {/* 5. What your team gets */}
         <section className={SECTION}>
           <div className="container mx-auto max-w-4xl">
             <Reveal>
-              <SectionHeader title={<span className="inline-block text-balance">What your team <span className="text-blue-500">gets</span></span>} />
+              <SectionHeader title={<span className="inline-block text-balance">How it works for your <span className="text-blue-500">team</span></span>} />
             </Reveal>
             <motion.ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left" variants={STAGGER_CONTAINER} initial="hidden" whileInView="show" viewport={VIEWPORT_ONCE}>
               {GETS.map((g) => (
@@ -164,7 +158,7 @@ export function ChangeLeadsPage() {
               ))}
             </motion.ul>
             <p className="mt-6 text-sm text-foreground/75 text-center text-balance">
-              Steps marked &ldquo;Being built&rdquo; are not available yet.
+              Items marked &ldquo;Being built&rdquo; are not available yet.
             </p>
           </div>
         </section>

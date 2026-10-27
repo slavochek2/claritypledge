@@ -13,7 +13,6 @@ vi.mock('@/app/components/landing/social-proof', () => ({
   ScrollIndicator: ({ label }: { label: string }) => <button type="button">{label}</button>,
 }));
 vi.mock('@/app/components/landing/misunderstanding-venn', () => ({ MisunderstandingVenn: () => <div data-testid="venn" /> }));
-vi.mock('@/app/components/landing/how-platform-works', () => ({ HowPlatformWorks: () => <section data-testid="how"><h2>How it works</h2></section> }));
 vi.mock('@/app/components/landing/founder-credibility', () => ({ FounderCredibility: () => <section data-testid="founder"><h2>Paid for the lesson</h2></section> }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
@@ -34,27 +33,27 @@ describe('P1558 /change-leads - content', () => {
     expect(screen.getByText(/What your team didn.t say in the rollout meeting/)).toBeInTheDocument();
     expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();
     expect(screen.getByTestId('venn')).toBeInTheDocument();
-    expect(screen.getByTestId('how')).toBeInTheDocument();
+    expect(screen.queryByText('How the platform works')).not.toBeInTheDocument();
     expect(screen.getByTestId('founder')).toBeInTheDocument();
     const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    const tail = ['The illusion of shared understanding', 'How it works', 'What your team gets', 'Paid for the lesson', 'Find out what your team’s yes meant'];
-    expect(h2.slice(-5)).toEqual(tail);
+    const tail = ['The illusion of shared understanding', 'How it works for your team', 'Paid for the lesson', 'Find out what your team’s yes meant'];
+    expect(h2.slice(-4)).toEqual(tail);
     expect(screen.getByText('Fifteen minutes on the change you’re leading and where it’s stuck.')).toBeInTheDocument();
   });
 
   it('has three gets-cards with the right badges', () => {
     renderPage();
     const cards: [string, string][] = [
-      ['Check back before you agree', 'Built today'],
-      ['Every important meeting, written down', 'Being built'],
-      ['Help when the team gets stuck', 'Built today'],
+      ['1. Write the meeting down', 'Being built'],
+      ['2. Check back before you agree', 'Built today'],
+      ['3. Call in help when it\'s stuck', 'Built today'],
     ];
     for (const [title, badge] of cards) {
       const card = screen.getByRole('heading', { level: 3, name: title }).parentElement!;
       expect(within(card).getByTestId('status-badge').textContent).toBe(badge);
     }
     expect(screen.getAllByTestId('status-badge')).toHaveLength(3);
-    expect(screen.getByText(/Steps marked .Being built. are not available yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Items marked .Being built. are not available yet/)).toBeInTheDocument();
   });
 
   it('has no statistics, no References, and no shaming phrasing', () => {
