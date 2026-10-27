@@ -23,8 +23,8 @@ export const CANVAS_BOXES = [
   { tag: 'canvas:revenue', title: 'Offers & Pricing' },
   { tag: 'canvas:metrics', title: "How I'll know it's working" },
   { tag: 'canvas:love', title: 'My values' },
-  { tag: 'canvas:good-at', title: 'My biggest challenge' },
-  { tag: 'canvas:world-needs', title: 'Who else wins when I win?' },
+  { tag: 'canvas:good-at', title: 'My current biggest challenge' },
+  { tag: 'canvas:world-needs', title: "Hypotheses I've falsified" },
 ] as const;
 
 export type CanvasBoxTag = (typeof CANVAS_BOXES)[number]['tag'];

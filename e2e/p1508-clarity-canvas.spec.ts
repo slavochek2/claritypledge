@@ -189,7 +189,7 @@ test.describe('P1508: Clarity Canvas', () => {
     await expect(page.getByTestId('canvas-project-tag')).toHaveText(fx.tag); // the plain name: one version (the owner's other canvases are not listed here)
     for (const title of ['Customer Segments', 'Problem', 'Solution',
       'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
-      'My values', 'My biggest challenge', 'Who else wins when I win?']) {
+      'My values', 'My current biggest challenge', "Hypotheses I've falsified"]) {
       await expect(page.getByRole('heading', { level: 3, name: title, exact: true })).toBeVisible();
     }
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(9);
