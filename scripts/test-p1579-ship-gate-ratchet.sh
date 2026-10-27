@@ -5,9 +5,12 @@
 # not synthetic fixtures (epistemic.md gate 7d):
 #   bad   branch = the P1545 tip the 2026-10-27 push was refused on, main = its base
 #   good  branch = one docs-only commit on top of main
+#   fix   the same bad history on a fix/ branch (/ship ships those too)
+#   two   a feature/ and a fix/ branch for one pN: FAIL, never guess
 #   none  no feature branch at all: SKIP, never FAIL and never a silent PASS
 #   broken ratchet cannot load: must FAIL as "could not run", never as a pass
-#   absent  no ratchet in the repo at all: SKIP by name
+#   missing runner deleted from disk while main carries it: FAIL
+#   absent  main carries no ratchet at all: SKIP by name
 # Output contract: no redirect tokens in status lines (shell-safety.md).
 set -eu
 
@@ -41,14 +44,21 @@ check() {  # check NAME EXPECTED_RC EXPECTED_WORD
 
 git branch -q -f main "$BAD_BASE"
 git branch -q -f feature/p999791-canary "$BAD_TIP"
-check "bad branch (P1545 history)" 1 FAIL
+check "bad branch (P1545 history)" 1 "FAIL: feature/p999791-canary makes code shape worse"
 
 git branch -q -f main "${GOOD_TIP}^"
 git branch -q -f feature/p999791-canary "$GOOD_TIP"
 check "good branch (docs only)" 0 PASS
 
-git branch -q -D feature/p999791-canary
+git branch -q -m feature/p999791-canary fix/p999791-canary
+git branch -q -f main "$BAD_BASE"
+git branch -q -f fix/p999791-canary "$BAD_TIP"
+check "bad fix/ branch" 1 "FAIL: fix/p999791-canary makes code shape worse"
+git branch -q -f feature/p999791-canary "$BAD_TIP"
+check "two branches for one pN" 1 "FAIL: several branches"
+git branch -q -D feature/p999791-canary fix/p999791-canary
 check "no feature branch" 0 SKIP
+git branch -q -f main "${GOOD_TIP}^"
 
 git branch -q -f feature/p999791-canary "$GOOD_TIP"
 mv scripts/lib/quality-ratchet/size.cjs scripts/lib/quality-ratchet/size.cjs.off
@@ -56,10 +66,15 @@ check "ratchet cannot load (node exits 1)" 1 "FAIL: quality ratchet could not ru
 mv scripts/lib/quality-ratchet/size.cjs.off scripts/lib/quality-ratchet/size.cjs
 
 mv scripts/quality-ratchet.cjs scripts/quality-ratchet.cjs.off
-check "no ratchet in repo" 0 SKIP
+check "runner missing on disk, main has it" 1 "FAIL: main carries the quality ratchet"
+git rm -q --cached scripts/quality-ratchet.cjs
+git -c user.email=c@example.invalid -c user.name=canary commit -q -m "canary: no ratchet"
+git branch -q -f main HEAD
+git branch -q -f feature/p999791-canary HEAD
+check "main carries no ratchet" 0 SKIP
 
 if [[ "$fails" -ne 0 ]]; then
   echo "test-p1579-ship-gate-ratchet: ${fails} case(s) failed"
   exit 1
 fi
-echo "test-p1579-ship-gate-ratchet: all 5 cases passed"
+echo "test-p1579-ship-gate-ratchet: all 8 cases passed"

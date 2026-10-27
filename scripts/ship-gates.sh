@@ -135,9 +135,13 @@ fail=0
 # copy is stale until /ship completes — features.md, fix 60f4f4b). Fall back to
 # main disk when no feature branch exists (spec-only / already-merged path).
 feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+')"
-# Gate 3.8 judges CODE on the branch, independent of where the spec text is read
-# from, so it keeps the branch even when --spec-file blanks feature_branch below.
-ratchet_branch="$feature_branch"
+# Gate 3.8 judges CODE on the branch /ship will cherry-pick, independent of where
+# the spec text is read from, so it resolves its own branch with git-ops.sh's
+# resolve_ship_branch patterns (feature/ AND fix/), not feature_branch above.
+ratchet_branches="$(cd "$REPO_ROOT" && git for-each-ref --format='%(refname:short)' \
+  "refs/heads/feature/${pn}-*" "refs/heads/fix/${pn}-*" 2>/dev/null || true)"
+ratchet_branch_count="$(printf '%s\n' "$ratchet_branches" | $GREP -c . || true)"
+ratchet_branch="$(printf '%s\n' "$ratchet_branches" | head -1)"
 spec_content=""
 spec_source=""
 
@@ -872,18 +876,26 @@ fi
 # whose commits predate the ratchet (P1566) or skipped it reached main unjudged and
 # failed only at the push's required check (2026-10-27: 16 findings, 44 commits).
 # Judge the branch's own commits here, while it is still open: merge-base..branch.
-# A spec with no feature branch has no range of its own and skips. A repo with no
-# ratchet installed skips by name (the hermetic ship fixtures; in this repo a deleted
-# runner already blocks every commit through pre-commit). Any other non-zero exit
+# A spec with no feature branch has no range of its own and skips. A main with no
+# ratchet committed skips by name (the hermetic ship fixtures); a runner missing from
+# disk while main carries it FAILS. Any other non-zero exit
 # fails closed: exit 1 counts as "worse" only when the runner printed its own verdict
 # line, because node also exits 1 when the runner cannot even load. Ratchet output is
 # printed with < > | replaced, per this script's output contract (P783).
 
 if gate_enabled "3.8"; then
-if [[ -z "$ratchet_branch" ]]; then
-  echo "[GATE 3.8] SKIP: no feature branch, nothing of its own to judge"
+if [[ "${ratchet_branch_count:-0}" -gt 1 ]]; then
+  echo "[GATE 3.8] FAIL: several branches match ${pn} ($(printf '%s ' $ratchet_branches)), cannot tell which one ships"
+  fail=1
+elif [[ -z "$ratchet_branch" ]]; then
+  echo "[GATE 3.8] SKIP: no feature/ or fix/ branch, nothing of its own to judge"
+elif ! (cd "$REPO_ROOT" && git cat-file -e "main:scripts/quality-ratchet.cjs") 2>/dev/null; then
+  # Keyed on main's COMMITTED tree, never the working tree: a runner deleted or
+  # missing on disk while main carries it is a FAIL below, not a skip.
+  echo "[GATE 3.8] SKIP: main carries no quality ratchet (scripts/quality-ratchet.cjs not in main)"
 elif [[ ! -f "$REPO_ROOT/scripts/quality-ratchet.cjs" ]]; then
-  echo "[GATE 3.8] SKIP: no quality ratchet in this repo (scripts/quality-ratchet.cjs absent)"
+  echo "[GATE 3.8] FAIL: main carries the quality ratchet but this checkout has no runner, refusing rather than passing"
+  fail=1
 else
   ratchet_base="$(cd "$REPO_ROOT" && git merge-base main "$ratchet_branch" 2>/dev/null || true)"
   if [[ -z "$ratchet_base" ]]; then

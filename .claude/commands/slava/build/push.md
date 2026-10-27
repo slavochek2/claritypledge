@@ -213,34 +213,47 @@ the other way round: two migrations reached prod, a staging run burned, then the
 
 ```bash
 git fetch origin main
-node scripts/quality-ratchet.cjs --range origin/main..HEAD > /tmp/ratchet.out 2>&1; echo "rc=$?"
+RATCHET_OUT="$(mktemp -t push-ratchet)"   # never a fixed /tmp name: concurrent /push runs share /tmp
+node scripts/quality-ratchet.cjs --range origin/main..HEAD > "$RATCHET_OUT" 2>&1; echo "rc=$? out=$RATCHET_OUT"
 ```
 
 - **rc 0** → continue to step 2.5. Say nothing.
 - **rc 2** → STOP, relay the output. The runner could not judge; nothing here resolves that.
-- **rc 1** → run the fix lane below. Tell the founder in ONE line what is happening ("N code-shape
-  findings in the push range; fixing them in pN, then continuing the push") and do not ask anything.
+- **rc 1** → run the fix lane below. Tell the founder in ONE line what is happening, naming whose
+  commits the findings come from (`git log --format=%s origin/main..HEAD -- <finding files>`, the
+  P-numbers in those subjects): "N code-shape findings from p1545 in the push range; fixing them in
+  pN, then continuing the push". Do not ask anything. The findings may be a co-tenant's shipped work;
+  fixing them is still right, because the push cannot land while they stand, and the notice is what
+  keeps that visible.
 
 **Fix lane: one attempt, no questions.**
 
 1. `./scripts/next-p-number.sh`, then claim a worktree: `./scripts/git-ops.sh claim pN ratchet-fix`
    (capture the nonce with the sentinel pattern in `git.md`). Write `features/pN_ratchet_fix.md`
-   in it (`type: task`, `driver: anomaly`, `intent: cold-start`, Problem = the findings, Done-When =
-   the four checks in step 3).
+   in it (`type: task`, `driver: anomaly`, `intent: cold-start`, `disclosure: public`,
+   `pipeline_ran: [create-spec, fix]`, Problem = the findings, Done-When = the four checks in step 3).
+   `/ship`'s gate 2.5 needs `fix` in `pipeline_ran` and every Done-When box ticked, so tick each box
+   with its evidence in step 3, as it passes.
 2. Spawn **one** fixer: `Agent` with `subagent_type: general-purpose` and **`model: opus`**. Pin the
    model whatever this session runs on; the session model does not matter here. Give it the worktree root,
-   `/tmp/ratchet.out`, and these rules: extraction only (helpers, sub-components, sibling modules),
+   the `$RATCHET_OUT` path, and these rules: extraction only (helpers, sub-components, sibling modules),
    no behaviour or UI change, keep every exported name and import path working, follow each folder's
    nested `CLAUDE.md`, never edit the ratchet, its limits or any test, no `git commit`. It writes its
-   report to a file and returns the path (`skills.md`: a background subagent's text is lost).
+   report to `<scratchpad>/pN-fixer-report.md` and returns only that path (`skills.md`: a background
+   subagent's text is lost). The report must list **every path it created or modified**, one per
+   line; step 3 stages exactly that list (`git add -- <paths>`), and a file in `git status` that the
+   list does not name is a STOP, not something to stage.
 3. Verify it yourself in the worktree. Never take the fixer's word for it (`epistemic.md` gate 9).
    Commit its files there (a worktree index is private), then:
-   `node scripts/quality-ratchet.cjs --range origin/main..HEAD` exit 0 · `npx tsc --noEmit` exit 0 ·
-   `npx vitest run` green · `npx eslint` on the changed files clean.
+   `node scripts/quality-ratchet.cjs --range origin/main..HEAD` exit 0 · `./scripts/typecheck-gate.sh`
+   exit 0 (never a bare `npx tsc --noEmit`: the root tsconfig has `files: []`, so it checks nothing
+   and always passes) · `npx vitest run` green · `npx eslint` on the changed files clean.
 4. Review with `/slava:build:finish` (the standing review: Gemini always, more reviewers by stakes).
    Fix what it confirms.
 5. `/ship pN`. Its gate 3.8 re-judges the branch's own commits. Then **restart `/push` from step 1**:
-   HEAD moved, and the privacy stamp and schema check must cover the new SHA.
+   HEAD moved, and the privacy stamp and schema check must cover the new SHA. **The fix lane runs at
+   most once per `/push`:** if step 2.2 returns rc 1 again after a fix shipped in this run, that is a
+   STOP with the remaining findings, never a second worktree or a second fixer.
 
 **STOP** (relay the remaining findings, keep the worktree) only when the one attempt leaves the
 ratchet red, or a check in step 3 fails twice. Never raise a limit, add an exception or edit a test
