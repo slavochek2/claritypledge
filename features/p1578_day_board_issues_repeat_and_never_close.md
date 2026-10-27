@@ -23,7 +23,7 @@ driver: anomaly
 **Situation:** Each /day run writes a report (`~/.claude-day/reports/`) and the pp kanban Day page renders it; the founder's clicks go to `decisions.jsonl`. Measured over the last 9 runs (2026-10-15..27):
 
 1. **No loop closes.** Every "send to agent" receipt ends at `pending → started` (12 of the last 12, and no receipt in the whole ledger reaches a terminal success state). Nothing records whether the agent fixed anything, so the next run re-raises the same issue as if nothing happened. Recurring for weeks with stable fingerprints: Beeper connection check (`check:disp.8a`, since 10-12), events calendar not verified (since 10-09), test-DB access rules (`cp.rls:rls:new-policies`, since 10-04).
-2. **One bug, one new card per Sentry ID.** Sentry issues 3W, 3X, 3Y, 3Z, 40 are one bug class on the social-hike page; each arrives as a new card. A fix exists on `fix/sentry-3z-fb-ios-bridge` (worktree w16, 2026-10-26) and never shipped. It has no P-number, so neither the pipeline nor the board links "fix exists, unshipped" to the card.
+2. **A fix exists and the board does not know.** Sentry issues on the social-hike page arrive near-daily (3W, 3X, 3Y, 3Z, 40). They are *distinct* errors, not one bug (3Z is a missing WebKit bridge, 40 a file-read failure; verified from the report's `technical` field). A fix for 3Z exists on `fix/sentry-3z-fb-ios-bridge` (worktree w16, 2026-10-26) and never shipped. It has no P-number, so neither the pipeline nor the board links "fix exists, unshipped" to the card.
 3. **Questions with one answer.** "Wait for the in-flight work" was offered 15 times and chosen 15 of 15. The access-rules card has said "wait for the in-flight fix" for 23 days, which means the in-flight work is itself stuck. Nobody is told that.
 4. **Supabase is a daily card, not a monitoring source.** The Monitoring tab shows Google Cloud, Subscriptions and Token usage. Supabase free-plan usage appears only as a problem card (`cp.quota`), re-raised daily for an overrun that already has an owner (P1530). Card titles alternate "test" and "prod", but both projects share one organisation and one quota (decisions.md 2026-10-21).
 5. **Token usage is collected but not shown.** The 10-27 report carries `monitoring.tokens` including the last full week (10-19). The board's API process has been running since 2026-10-17; token support shipped 10-23; `dev:server` is `tsx server/api.ts` with no watch, so the old process drops the block. Every server-side board change is invisible until someone restarts the board by hand, and nothing says so.
@@ -40,15 +40,17 @@ Blast radius: medium. The daily driver for both repos, but the board is read-onl
 
 Five parts, each independently shippable.
 
+**Where this runs:** parts A to C are computed by the /day runner when it assembles the report (it already runs the checks and can read `decisions.jsonl`), and written into the report as per-issue annotations. The board only renders them. No git or ledger analysis happens on a board request.
+
 **A. Close the agent loop.** A sent item carries its issue fingerprints. The next /day run resolves each sent fingerprint to one of: *fixed* (the check now passes or the issue is absent), *still open after an agent was sent* (show "agent sent <date>, not fixed" on the card instead of re-offering the same Send), or *agent never started*. Record the outcome in the ledger as a terminal line. A card re-raised after an agent attempt is ranked above a fresh one, because a failed fix is new information.
 
-**B. Owned issues show their owner.** When an issue maps to an open spec or an unshipped branch (P-number, or branch name/commit referencing the fault key, e.g. a Sentry ID), the card shows "owned by <spec/branch>, <age>" and offers no Send. Sentry issues sharing a culprit/page group into one card listing all IDs. Branches without a P-number count as owners (they are what w16 is).
+**B. Owned issues show their owner.** When an issue maps to an open spec or an unshipped branch (P-number, or branch name/commit referencing the fault key, e.g. a Sentry ID), the card shows "owned by <spec/branch>, <age>" and offers no Send. Matching is exact-token only: a P-number, or the issue's own fault key token (e.g. Sentry short ID `3z`) appearing in a branch name or commit subject. Branches without a P-number count as owners, because that is exactly the stranded case (w16). No grouping of distinct Sentry issues.
 
 **C. "Wait" becomes automatic, with a staleness alarm.** When the only sensible option is waiting on in-flight work, the board records the wait itself and shows the card collapsed as "waiting on <owner>". Escalate to a normal card, with the question "this in-flight work has not moved in N days, what now?", when the owner has had no commit in 7 days or its branch/worktree is gone. Applies to every check that currently emits a `wait` option.
 
 **D. Supabase in Monitoring.** Add a Supabase source to the Monitoring tab: the organisation's free-plan metrics (per metric: used, limit, %) from the existing dashboard reader, the test-DB response time, and one line naming that test and prod share one quota. The `cp.quota` card is raised only when a metric crosses the threshold **and** no open spec owns it (part B). Otherwise the gauge shows the state plus "owned by P1530". The reader's `not-run` stays visible as "not read today", never as ok.
 
-**E. Stale server is visible.** The board's API restarts itself when its server code changes (watch mode), and the Day page shows a banner when the running process is older than the newest server-side commit, as a backstop for any run mode that does not watch.
+**E. Server reloads its own code.** The board's API runs in watch mode, so a server-side change takes effect without a manual restart. (A stale-process banner was considered and cut: with watch on, it would be dead code.)
 
 ## Risks / Non-Goals
 
@@ -58,6 +60,8 @@ Five parts, each independently shippable.
 | Fuzzy owner matching links the wrong spec | MITIGATE | Match only on exact fault key / Sentry ID / P-number in branch name or commit subject; no text similarity |
 | Auto-wait hides real stuck work | MITIGATE | 7-day staleness escalation (C) |
 | Watch mode restarts the API mid-request | ACCEPT | Local, single-user tool; a reload recovers |
+| Watch restart during an agent launch leaves a `pending` receipt | MITIGATE | Part A treats a `pending` with no `started` after the next run as "agent never started", so it cannot block re-offering |
+| Owner staleness reads local git only (no fetch) | ACCEPT | Every owner here is a local branch/worktree; a git failure marks owner unknown, never blocks the report |
 | Supabase reader still depends on signed-in Chrome | ACCEPT | Ruled 2026-10-21: no org-usage API exists |
 
 **Non-Goals**
@@ -73,11 +77,11 @@ Five parts, each independently shippable.
 
 ## Done-When
 
-- [ ] Replaying the 10-26 → 10-27 report pair: every item sent on 10-26 shows a terminal outcome on 10-27, and none is offered Send again with no history
-- [ ] Sentry 3W–40 render as one card that names the unshipped `fix/sentry-3z-fb-ios-bridge` branch as owner
+- [ ] A fixture test built from the real 10-26 report, its ledger lines and the 10-27 report: every item sent on 10-26 gets a terminal outcome in the 10-27 annotations, and none is re-offered Send with no history
+- [ ] With w16 present, the Sentry 3Z card names `fix/sentry-3z-fb-ios-bridge` as owner; Sentry 40 is not linked to it
 - [ ] The access-rules card renders as "waiting on <owner>" with no question; a fixture with an owner idle >7 days renders as an escalated card
 - [ ] The Monitoring tab shows a Supabase source with per-metric usage and test-DB latency; no `cp.quota` card while P1530 is open
-- [ ] Token usage shows the 10-19 week on the running board; editing a server file restarts the API; a deliberately stale process shows the banner
+- [ ] `dev:server` runs in watch mode; after restarting the pp board once, Token usage shows the 10-19 week (manual check, screenshot)
 - [ ] Existing day test suites (`tools/kanban` unit + e2e-day, `~/.claude/scripts/day-*.test.*`) pass
 
 ## Alternatives Considered
