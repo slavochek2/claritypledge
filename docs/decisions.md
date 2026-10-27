@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-27 [technical]: The /day board decides "fixed" and "owned" itself, from evidence, and remembers one run back (P1578)
+
+**Context:** Day-board issues repeated for weeks (one since 2026-10-04) because "send to agent" receipts never reached a terminal state, a fix sitting on an unshipped branch was invisible to the card, "wait for the in-flight work" was asked 15 times and answered the same way 15 times, and token usage was collected but hidden by an API process that predated the feature.
+**Decision:** The /day runner (`tools/kanban/scripts/day-render.ts` + `day-loops.ts`) annotates each report with `loops`: per sent fingerprint a terminal outcome, written once to `decisions.jsonl` as `kind: "outcome"`. **Absence proves a fix only when** the check ran `ok`, or ran `problem` and still filed at least one detailed finding, and its connection is not broken (a broken connection moves the card to the connection row, which is not a fix). Ownership is exact-token only: a P-number in the card's identity or headline (never its explanation), a Sentry short id plus the word sentry in an **unmerged** branch name or subject, or an open spec carrying `day-owns: <fingerprint>`. A live owner turns a wait card into "waiting on <owner>" with no question; no commit in 7 days, or the owner gone, escalates it. Owner and escalation carry from the **immediately previous run only**: on a git-unreadable run they are kept, and a fault absent from the previous run is new and inherits nothing. Supabase usage is a Monitoring source (still the dashboard reader, per 2026-10-21), and `dev:server` runs `tsx watch`.
+**Alternatives rejected:** suppressing repeated cards after N days (hides stuck work instead of naming its owner); agents self-reporting completion (the next run's check is the oracle, independent of the agent under test); grouping Sentry issues by page (3Z and 40 are different errors, verified from the report); fuzzy text matching for owners; a stale-server banner on top of watch mode.
+**Consequences:** The first live render appends roughly 90 outcome lines once. A rls/table-grants finding needs `--cause` to be matchable (`day-cp.md`). Older readers count `outcome` lines as unreadable. The 7-day staleness threshold is an agent default the founder may change.
+**References:** [p1578](../features/done/2026-06-10/p1578_day_board_issues_repeat_and_never_close.md) · decisions.md 2026-10-21 (Supabase reader)
+
+---
+
+## 2026-10-27 [process]: A green test added in review is unproven until its guard is removed and it fails (P1578)
+
+**Context:** P1578's build arrived with 37 passing tests. Codex mutation-tested them: half passed with the code they claimed to cover removed (a renderer test asserting an empty list is a list; a connection-guard test masked by a second guard; "records once" that never rendered twice; an escalation test with no escalation). Repairing them surfaced four real logic bugs. Separately, the first Gemini code round was right on 1 of 5 claims; two were refuted by reading three lines of code.
+**Decision:** Every test written or repaired in a review round is mutation-checked: delete the guard it names, confirm it fails, restore. A test that passes before the fix exists is treated as suspect, not as good news (it caught a fixture lacking the case under test, and two fixtures sharing one `started_at`). Reviewer claims are verified against code before any change.
+**Alternatives rejected:** counting reviewers as the control (redundancy did not catch these; running the code did).
+**Consequences:** Codex's mutation habit is the most valuable review lens on test-heavy diffs; keep it in the loop when tests are the deliverable.
+**References:** [p1578](../features/done/2026-06-10/p1578_day_board_issues_repeat_and_never_close.md) · `.claude/rules/epistemic.md` gate 7
+
+---
+
 ## 2026-10-27 [product]: Fallibilism-spread conjecture recorded (H-CompartmentsShrink); "community organizers spread fallibilism" kept as a candidate umbrella pitch, not the lead. UNTESTED
 
 **Context:** /claude-conversations-to-cp (run 2026-10-27) surfaced two founder notes from the conversation "Epistemology frameworks and Popper" (2026-10-27): "hypothesis new? or add to list: recursively verified understanding of rival epistemologies shrinks dogmatic compartments", and a landing "we don't have yet": *ClarityPledge is an instrument to help community organizers spread fallibilism as a communicative tradition.* The founder confirmed both (option 1, option 2A). Same turn, the founder noted that nobody calls themselves a community organizer who spreads fallibilism, so the sentence is mission-level, and asked whether change leads are such organizers.

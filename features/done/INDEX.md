@@ -433,6 +433,7 @@ Last updated: 2026-10-27
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1578** (Oct 27) Day board closes its loops — "fixed" needs a check that ran and enumerated (connection up, a detailed finding); owners are exact tokens on unmerged branches; carry state one run back only; half the build's tests passed with their guard deleted until mutation-checked.
 - **P1567** (Oct 26) Weekly scheduled supply-chain audit — alert step must not depend on the checkout (`GH_REPO`), runs serialized (`concurrency`), audits `main` whatever ref was dispatched, and a simulated clean run never closes a real alert; Codex found all four by probing, the copied pattern (`edge-smoke.yml`) shares two
 - **P1560** (Oct 26) Nine e2e failures — six were stale tests; one was a whole-page remount from a route-wrapping provider's key; identity from the session, not the cached profile.
 - **P1564** (Oct 26) Mirror stops requesting after switch-off — every delayed re-read goes through one tracked-timer helper cleared on unmount; guard promise callbacks on mounted too.
