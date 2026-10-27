@@ -22,11 +22,11 @@ import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 
 
-type Status = "Built today" | "Being built";
+type Status = "Built today" | "Available now" | "Being built";
 const GETS: { icon: typeof FileTextIcon; title: string; text: string; status: Status }[] = [
   { icon: FileTextIcon, title: "1. Write the meeting down", text: "With everyone's OK, the transcript of an important meeting goes to the team's channel.", status: "Being built" },
-  { icon: MessagesSquareIcon, title: "2. Check back before you agree", text: "In Clarity Chat, people explain back what they heard before they say yes or no.", status: "Built today" },
-  { icon: LifeBuoyIcon, title: "3. Call in help when it's stuck", text: "When the team asks, the founder joins to unstick the conversation.", status: "Built today" },
+  { icon: MessagesSquareIcon, title: "2. Check you understood", text: "In Clarity Chat, ask your own agent what a message means before you say yes or no.", status: "Built today" },
+  { icon: LifeBuoyIcon, title: "3. Call in help when it's stuck", text: "When the team asks, the founder joins to unstick the conversation.", status: "Available now" },
 ];
 
 const STAGGER_CONTAINER: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -50,7 +50,7 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
 
 /** Small, quiet status badge. "Being built" is outlined so it reads as not-yet. */
 function StatusBadge({ status }: { status: Status }) {
-  const built = status === "Built today";
+  const built = status !== "Being built";
   return (
     <span
       data-testid="status-badge"

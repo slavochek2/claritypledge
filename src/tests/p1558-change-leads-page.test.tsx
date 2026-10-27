@@ -34,6 +34,8 @@ describe('P1558 /change-leads - content', () => {
     expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();
     expect(screen.getByTestId('venn')).toBeInTheDocument();
     expect(screen.queryByText('How the platform works')).not.toBeInTheDocument();
+    // the hero scroll cue targets the chat story section
+    expect(document.getElementById('what-nobody-said')).toContainElement(screen.getByText('Sounds good 👍'));
     expect(screen.getByTestId('founder')).toBeInTheDocument();
     const h2 = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     const tail = ['The illusion of shared understanding', 'How it works for your team', 'Paid for the lesson', 'Find out what your team’s yes meant'];
@@ -45,8 +47,8 @@ describe('P1558 /change-leads - content', () => {
     renderPage();
     const cards: [string, string][] = [
       ['1. Write the meeting down', 'Being built'],
-      ['2. Check back before you agree', 'Built today'],
-      ['3. Call in help when it\'s stuck', 'Built today'],
+      ['2. Check you understood', 'Built today'],
+      ['3. Call in help when it\'s stuck', 'Available now'],
     ];
     for (const [title, badge] of cards) {
       const card = screen.getByRole('heading', { level: 3, name: title }).parentElement!;
