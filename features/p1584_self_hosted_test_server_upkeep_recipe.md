@@ -125,10 +125,26 @@ so its 10-minute cadence costs no metered unit.
 
 ## Done-When
 
-- [ ] A scheduled workflow checks reachability and certificate, and an issue opens when the check is
-      made to fail once (proven by pointing it at an unreachable host).
-- [ ] /weekly shows the self-hosted image drift, pending OS updates, a pending reboot, and e-mail
-      template drift against prod.
+- [x] A scheduled workflow checks reachability and certificate (plus disk, WAL and services), and its
+      alert path opens an issue when the check fails. 2026-10-28: the workflow's alert block, extracted
+      verbatim from the YAML, opens an issue on an unreachable-host result, on a setup failure, and on a
+      failed lookup, and a mutant without the create call is caught (`scripts/test-p1584-selfhosted.sh`,
+      54 passed). The workflow's exact read path ran live from the Mac: 5 of 5 ok. The live drill on
+      GitHub can only run after the push (GitHub runs only workflows on main), so it is under Post-deploy.
+- [x] /weekly shows the self-hosted image drift, pending OS updates, a pending reboot, and e-mail
+      template drift against prod. 2026-10-28, live: images ok (13 services, pin 2026-08-03), upstream
+      warn (22 image changes), os ok, reboot ok, hosted ok; templates reports `unknown` with the cause
+      (the prod token lacks `auth_config_read`), and its comparison is proven against the real files
+      (match, a mutated copy, and an older prod snapshot). A live `ok` needs a prod token with that
+      permission, under Post-deploy.
+
+## Post-deploy
+
+Founder decision 2026-10-28 ("ok" to shipping with these as follow-ups), tracked in the task inbox:
+- Drill: run the workflow by hand with `host` set to an unreachable name, confirm a "(drill)" issue
+  opens, close it by hand; confirm the next scheduled run is green.
+- Prod e-mail template check: a prod Management API token with `auth_config_read` (founder creates it in
+  the Supabase dashboard), then `scripts/selfhosted/upkeep.sh` shows `templates: ok`.
 - [x] The recipe exists in the pp recipe system and a dry read against the scripts finds no step
       they no longer support. 2026-10-28: pp `docs/infra/cp-test-supabase.md` § "Recipe: rebuild from
       zero" (pp 66ee749). The dry read checked every named flag against the script headers
