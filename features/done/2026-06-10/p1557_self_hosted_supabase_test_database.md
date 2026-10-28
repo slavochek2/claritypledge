@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 67
 workstream: infrastructure
 created_date: '2026-10-23'
 tags: [supabase, test-db, self-hosted, gcp]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-28
 ---
 
 # P1557: Run the TEST database as self-hosted Supabase on a Google Cloud server
@@ -306,10 +306,10 @@ repoint.
 
 ## Related
 
-- [P1546](../docs/decisions.md): 2026-10-22, the test project falls over on schema reload
-- [P1538](done/2026-06-10/p1538_rebuild_test_project_in_own_org.md): TEST rebuilt from a private dump
-- [P1541](done/2026-06-10/p1541_test_db_capacity_guard_for_concurrent_e2e.md): e2e one-run lock
-- [P1550](p1550_p1532_full_e2e_run_user_count_proof.md): e2e purge guard by project ref (P1532)
-- [P1530](p1530_supabase_log_ingestion_and_egress_before_restriction.md): Supabase org plan and quota
+- [P1546](../../../docs/decisions.md): 2026-10-22, the test project falls over on schema reload
+- [P1538](p1538_rebuild_test_project_in_own_org.md): TEST rebuilt from a private dump
+- [P1541](p1541_test_db_capacity_guard_for_concurrent_e2e.md): e2e one-run lock
+- [P1550](../../p1550_p1532_full_e2e_run_user_count_proof.md): e2e purge guard by project ref (P1532)
+- [P1530](../../p1530_supabase_log_ingestion_and_egress_before_restriction.md): Supabase org plan and quota
 - P1132: the migration chain does not build from empty
 - P1524 / P1525: /day TEST latency check and usage reader
