@@ -41,9 +41,9 @@ Decision density: low; one founder call below.
 
 1. **Scheduled workflow** for reachability and certificate days left, over public HTTPS, opening a
    GitHub issue on failure, the same alert route as the other scheduled checks.
-2. **/day keeps disk and WAL** (`cp.selfhosted`) until a workflow can hold a gcloud credential.
-   [FOUNDER DECISION: give a GitHub workflow a narrowly scoped GCP service account for disk and WAL,
-   or keep them in /day.]
+2. **Disk and WAL move into the scheduled workflow** through a narrowly scoped GCP service account
+   that can only read the VM's health (founder decision 2026-10-28: "ok yes"). /day's
+   `cp.selfhosted` then reads the workflow's result instead of probing over SSH.
 3. **Weekly drift report** in /weekly: running image tags against the pinned stack version, pending
    OS security updates on the VM, whether a reboot is pending after an unattended upgrade
    (`/var/run/reboot-required`; unattended upgrades install security fixes daily but never reboot),
@@ -53,6 +53,11 @@ Decision density: low; one founder call below.
    functions (including the shared import map), load the vault, flip the env, point hand-started dev
    servers at it (`.env.development.local`), set up Google sign-in, set up the founder-only mail
    relay and the prod e-mail templates, roll back.
+5. **Hosted TEST stays as the warm fallback** (founder, 2026-10-28). `migrate.sh` and
+   `deploy-functions.sh` keep it current, so switching back is one `flip-test-env.py hosted`. Free
+   projects pause after inactivity, and a paused project fails the hosted leg of every TEST migrate
+   while self-hosted, now the real target, sits behind it. The weekly report flags a paused hosted
+   project. Re-decide at 2026-12-01: keep, or retire it and make TEST migrations self-hosted only.
 
 ## Risks / Non-Goals
 
