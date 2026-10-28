@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 75
 workstream: events
 created_date: '2026-10-26'
 tags: [events, social-hike, select-hike, publish-run]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -37,7 +37,7 @@ On top of that, the founder had to answer late arrivals and logistics questions 
 
 - **Blast radius:** one series, skill and doc text only.
 - **Reversibility:** git revert.
-- **Decision density:** low. Only the wording of the third template remains open.
+- **Decision density:** low. Only the wording of the co-organizer/welcomer message (Message 4) remains open.
 
 ## Founder decisions (2026-10-26/27)
 
@@ -61,7 +61,7 @@ On top of that, the founder had to answer late arrivals and logistics questions 
 - **Word budget.** New clauses replace existing text, never add to it.
 - **Fees stay out of the description** (founder, 2026-10-28: "Entrance fees … let it out. It's not important."). The existing never-state-a-fee rule is unchanged. The paid-entry check only informs the founder's choice of venue at selection time.
 
-**Series base doc, new "Roles above 15" section**
+**Hike notes: a separate file, `docs/events/series/social-hike-roles.md`** (founder 2026-10-28: separate, not part of the skill text). The series base links to it in one line.
 - The four roles, one line each: co-organizer (answers questions, late-arrival contact), welcomer, lead, sweep.
 - The founder's two messages, verbatim except `{name}` and `{registered}` (source: founder, 2026-10-27):
 
@@ -119,7 +119,7 @@ On top of that, the founder had to answer late arrivals and logistics questions 
 > Thanks!
 > Slava
 
-- A third short template for the co-organizer and welcomer in the same voice, marked `[FOUNDER DECISION: wording]` until approved.
+- A fourth short template (Message 4) for the co-organizer and welcomer in the same voice, marked `[FOUNDER DECISION: wording]` until approved.
 
 ## Risks / Non-Goals
 
@@ -142,7 +142,8 @@ On top of that, the founder had to answer late arrivals and logistics questions 
 - [ ] A `select-hike` dry run opens dinner candidates on the way back as tabs, and its handoff block carries `Regroup:`, `Entry:` and `Dinner:`.
 - [ ] A `publish-run` dry run reads those lines and produces a description naming the regroup point and dinner, within the founder's chosen word ceiling.
 - [ ] A venue the check finds paid is shown to the founder as `PAID ENTRY: <source>` at selection; the published description still states no fee.
-- [ ] The series base has a "Roles above 15" section with the four roles, the founder's two messages and the transport-lead template, with no personal names or phone numbers.
+- [ ] Message 4's wording is approved by the founder and its `[FOUNDER DECISION]` marker removed.
+- [ ] `docs/events/series/social-hike-roles.md` exists with the four roles, the founder's two messages and the transport-lead template, with no personal names or phone numbers.
 - [ ] The changes are reviewed by Gemini and a second Opus pass, and each finding is verified by command before it is folded in.
 
 ## Related

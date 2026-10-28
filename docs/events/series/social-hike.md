@@ -168,6 +168,10 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
   speak; end the description with the terms.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.
 
+**Roles and messages for hikes above 15 people** (co-organizer, welcomer, lead, sweep, transport
+lead) live in [social-hike-roles.md](social-hike-roles.md). They are sent by hand in WhatsApp,
+never published in the description.
+
 ## Social Hike skin — the event page format (P1403)
 
 Every Social Hike publishes in this skin; `publish-run` step 8d sets it. The founder named it on

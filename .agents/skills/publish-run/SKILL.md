@@ -198,8 +198,12 @@ not be undone. Fill the base from that file; do not reconstruct it from memory o
 
 **After the hike — propose it, never skip it silently (founder 2026-10-23).** Fill the base's
 after-hike line: where everyone waits (the end point), an optional dinner, and optionally one
-evening event. Dinner default: Reform Kafé, Old City (https://maps.app.goo.gl/cbxDYrcWvEE11Skn9),
-around 18:30, unless the founder names another place. For the evening event, read the private
+evening event. Dinner: use the `Dinner:` line from `select-hike`'s handoff when it names a place
+(P1571: a restaurant on the way back). Only when it says `skipped`/`none found`, or the handoff is
+absent, fall back to the default: Reform Kafé, Old City (https://maps.app.goo.gl/cbxDYrcWvEE11Skn9),
+around 18:30, unless the founder names another place. When the handoff has a `Regroup:` stop, replace
+"split at the water break" in the base's group paragraph with "split, and meet again at <stop>".
+Change nothing else in that paragraph. Never publish the `Entry:` line. For the evening event, read the private
 "CM Events" Google Calendar for the hike date from 18:00 onward (the calendar
 `/slava:util:cm-events-update` publishes to; use the Google Calendar MCP, fallback: ask the founder)
 and offer at most two options in the review gate. Include one only when the founder picks it. No

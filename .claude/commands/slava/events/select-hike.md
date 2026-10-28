@@ -172,6 +172,11 @@ stated shape (distance/difficulty/route type), rating and review count high enou
 drive time reasonable, and — when the founder asked for a cafe at the end — a plausible cafe
 near the finish (confirmed in step 4, not assumed here).
 
+**Prefer a regroup point (P1571).** Between otherwise comparable trails, rank higher the one with a
+named mid-route stop: a viewpoint, waterfall, lake, or a cafe open at that hour. Above 15 people the
+brisk and relaxed groups wait and merge there, so it is a real plus, never a hard filter. Name the
+stop in the step 4 index line (`regroup: <name> ~<km>`), or `regroup: none found`.
+
 **A trail with no qualifying cafe is not a candidate.** Step 5's cafe gate is a precondition of
 the offer, not a follow-up to it: run it against each shortlisted trail BEFORE any tab opens,
 and drop the trails that fail. The founder should never be shown a hike whose meeting point
@@ -272,6 +277,25 @@ Maps page and use that exact string. `publish-run` step 4 explains why: a name G
 resolve sends people to the wrong side of a mountain, and this is the one field where being
 wrong costs someone their morning.
 
+**Paid-entry check — for the founder's eyes only (P1571).** Run it on **every cafe you offer,
+before the index is posted**, and on each trail's regroup stop before step 4's index, so the founder
+sees it while choosing: append `· PAID ENTRY <amount> (<source>)`, `· free (<source>)` or
+`· entry unknown` to that place's index line. For each place, read its Google Maps reviews and AllTrails comments for an entry fee
+(`entrance`, `ticket`, `fee`, `baht`, `ค่าเข้า`). Report one of `PAID ENTRY: <amount if stated> —
+<source>`, `free — <source>`, or `unknown`. Unknown is not free. This informs the founder's choice
+only: **the description still never states a fee** (series base rule, unchanged by P1571). Found
+because a 25-person hike met at a farm with a 100 THB entry and people stood at the gate unsure
+whether to go in.
+
+### 5b. Dinner on the way back — open it like the cafes
+
+The founder closes the hike with an optional dinner. Prefer a restaurant **on the drive back to the
+city, or near the trailhead**, open at the expected finish time plus about 30 minutes (from the
+step 2 duration). Search Google Maps along that corridor, open 2–4 candidates as tabs (one tab
+each, never a chat list), and post a numbered index: name, rating, review count, hours that day,
+and minutes off the route. The founder picks or skips. If nothing fits, say so; `publish-run`
+then proposes its city default.
+
 ### 6. Photo for the banner — ask here, once
 
 > *"next time i guess i can be asked automatically for a photo — or reminded, to upload one?"* — founder, 2026-08-31
@@ -328,6 +352,9 @@ Gallery: <N photos, M videos added to series_photos | skipped>
 Status:  <trail-status verdict, checked_on, and any finding publish-run must disclose>
 Walk:    <measured minutes cafe → access point, and which coordinate was used>
 Hours:   <the cafe's hours on the event's weekday, as Google states them>
+Regroup: <mid-route stop name and rough km | none found>
+Entry:   <per venue: PAID ENTRY <amount> — <source> | free — <source> | unknown>  (founder only, never published)
+Dinner:  <restaurant name — maps pin url, hours that day | skipped | none found>
 Excluded this run: <name (reason)>, ...
 ```
 
