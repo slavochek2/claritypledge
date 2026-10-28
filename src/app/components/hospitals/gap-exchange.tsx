@@ -23,8 +23,6 @@ import { SectionHeader } from "@/app/components/landing/section-header";
 import { EXCHANGE_COPY } from "@/app/content/hospitals-exchange";
 import { HOSPITAL_CAST, type ExchangeCast } from "@/app/content/exchange-casts";
 
-/** Illustrated, not photographs: generic colleagues, nobody real. */
-const AVATAR = { doctor: "/hospitals/colleague-a.jpg", nurse: "/hospitals/colleague-b.jpg" } as const;
 export const DOCTOR = "Dr. Mai";
 
 /** 0 idle · 1 voice note · 2 question · 3 doctor's 8 · 4 nurse's 4 · 5 verified · 6 3 seconds · 7 how to close. */
@@ -68,10 +66,10 @@ export function GapExchangeStatic({ cast = HOSPITAL_CAST }: { cast?: ExchangeCas
   );
 }
 
-function Bubble({ mine, time, children }: { mine: boolean; time: string; children: ReactNode }) {
+function Bubble({ mine, time, avatar, children }: { mine: boolean; time: string; avatar: string; children: ReactNode }) {
   return (
     <div className={`flex gap-2 items-end ${mine ? "justify-end" : ""}`}>
-      {!mine && <img src={AVATAR.doctor} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />}
+      {!mine && <img src={avatar} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />}
       <div className={`max-w-[80%] rounded-lg px-3 py-2 text-[15px] leading-snug shadow-sm text-[#111b21] ${mine ? "bg-[#d9fdd3] rounded-tr-sm" : "bg-white rounded-tl-sm"}`}>
         {children}
         <span className="block text-right text-[10px] text-[#54656f] mt-0.5">
@@ -83,10 +81,10 @@ function Bubble({ mine, time, children }: { mine: boolean; time: string; childre
   );
 }
 
-function VoiceNote() {
+function VoiceNote({ avatar }: { avatar: string }) {
   return (
     <span className="flex items-center gap-2 min-w-[9.5rem] sm:min-w-[11rem]">
-      <img src={AVATAR.nurse} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />
+      <img src={avatar} alt="" width={28} height={28} loading="lazy" className="w-7 h-7 rounded-full object-cover shrink-0" />
       <MicIcon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
       <span className="flex items-end gap-[2px] h-5 flex-1">
         {[3, 6, 9, 5, 12, 8, 4, 10, 7, 13, 6, 9, 4, 8, 5, 11, 6, 3].map((h, i) => (
@@ -154,17 +152,17 @@ export function GapExchange({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
       <div aria-hidden="true" data-testid="exchange-visual" data-phase={phase}>
         <div className="mx-auto max-w-md rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border">
-            <img src={AVATAR.doctor} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
+            <img src={cast.avatars.other} alt="" width={36} height={36} loading="lazy" className="w-9 h-9 rounded-full object-cover shrink-0" />
             <div className="min-w-0 text-left">
               <p className="text-sm font-semibold leading-tight">{cast.other}</p>
               <p className="text-[11px] text-muted-foreground leading-snug">{cast.otherRole}</p>
             </div>
           </div>
           <div className="bg-[#efeae2] px-3 py-4 flex flex-col gap-2">
-            <motion.div {...fade(phase >= 1)}><Bubble mine time="09:40"><VoiceNote /></Bubble></motion.div>
-            <motion.div {...fade(phase >= 2)}><Bubble mine time="09:41">{EXCHANGE_COPY.m1}</Bubble></motion.div>
-            <motion.div {...fade(phase >= 3)}><Bubble mine={false} time="09:41">{EXCHANGE_COPY.m2}</Bubble></motion.div>
-            <motion.div {...fade(phase >= 4)}><Bubble mine time="09:41">{EXCHANGE_COPY.m3}</Bubble></motion.div>
+            <motion.div {...fade(phase >= 1)}><Bubble mine time="09:40" avatar={cast.avatars.other}><VoiceNote avatar={cast.avatars.me} /></Bubble></motion.div>
+            <motion.div {...fade(phase >= 2)}><Bubble mine time="09:41" avatar={cast.avatars.other}>{EXCHANGE_COPY.m1}</Bubble></motion.div>
+            <motion.div {...fade(phase >= 3)}><Bubble mine={false} time="09:41" avatar={cast.avatars.other}>{EXCHANGE_COPY.m2}</Bubble></motion.div>
+            <motion.div {...fade(phase >= 4)}><Bubble mine time="09:41" avatar={cast.avatars.other}>{EXCHANGE_COPY.m3}</Bubble></motion.div>
             <motion.div className="flex flex-col" {...fade(phase >= 5)}><SystemNote><b>{EXCHANGE_COPY.verified}</b></SystemNote></motion.div>
             <motion.div className="flex flex-col" {...fade(phase >= 6)}><SystemNote>{EXCHANGE_COPY.revealed}</SystemNote></motion.div>
             <motion.div className="flex flex-col" {...fade(phase >= 7)}><SystemNote>{cast.close}</SystemNote></motion.div>

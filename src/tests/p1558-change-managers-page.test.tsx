@@ -157,6 +157,14 @@ describe('P1558 /change-managers - route, nav, preview', () => {
     expect(ua.test('Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(false);
   });
 
+  it('the exchange shows office teammates, never the hospital doctor and nurse', () => {
+    const { container } = renderPage();
+    const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') ?? '');
+    expect(srcs).toContain('/change-managers/teammate-a.jpg');
+    expect(srcs).toContain('/change-managers/teammate-b.jpg');
+    expect(srcs.filter((x) => x.startsWith('/hospitals/'))).toEqual([]);
+  });
+
   it('the shared exchange reports its own analytics event on this page', () => {
     expect(TEAM_CAST.viewEvent).toBe('change_managers_exchange_viewed');
     expect(HOSPITAL_CAST.viewEvent).toBe('hospitals_exchange_viewed');
