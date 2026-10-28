@@ -13,7 +13,7 @@ exec_model: opus
 exec_effort: low
 ---
 
-# P1587: Ticked checklists in event descriptions
+# P1588: Ticked checklists in event descriptions
 
 ## Problem
 

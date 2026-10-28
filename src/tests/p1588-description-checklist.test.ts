@@ -1,6 +1,6 @@
 /**
- * @file p1587-description-checklist.test.ts
- * @description P1587: a ticked task list ("- [x] …") in an event description renders as list items
+ * @file p1588-description-checklist.test.ts
+ * @description P1588: a ticked task list ("- [x] …") in an event description renders as list items
  * that start with a checked, disabled checkbox, which the `.event-description` checklist rules style
  * as an indented, bullet-free, tight checklist. Ordinary bullet lists are untouched.
  */
@@ -18,7 +18,7 @@ const render = (md: string) => {
 
 const ITEM = "li:has(> input[type='checkbox'], > p:first-child > input[type='checkbox'])";
 
-describe('P1587 description checklist', () => {
+describe('P1588 description checklist', () => {
   it('a ticked task list renders checked, disabled checkboxes the item rule matches', () => {
     const items = [...render('- [x] You own it.\n- [x] You sell it.').querySelectorAll('li')];
     expect(items).toHaveLength(2);
