@@ -38,11 +38,16 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
   const [markingRead, setMarkingRead] = useState<string | null>(null);
   // P904: unread explain-back counts per delivery (sender-side "N new from <name>").
   const [explainBackCounts, setExplainBackCounts] = useState<Record<string, number>>({});
+  // P1586: Retry (and the poll) re-read while an earlier read may still be out; only the latest read
+  // may write, answer or error. Unmount (and a user/callback change) also supersede the read in flight.
+  const latestRead = useRef(0);
 
   const fetchItems = useCallback(async () => {
+    const read = ++latestRead.current;
     setFetchState((prev) => prev === 'idle' ? 'loading' : prev);
     try {
       const result = await getInboxItems(userId);
+      if (read !== latestRead.current) return;
       setItems(result);
       setFetchState('done');
       // Set the moment the LIST is on screen — not at the end of the try. The
@@ -62,12 +67,14 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
         const senderDeliveryIds = result
           .filter((item) => item.type !== 'received')
           .map((item) => item.delivery_id);
-        setExplainBackCounts(await getUnreadExplainBackCountsByDelivery(senderDeliveryIds));
+        const counts = await getUnreadExplainBackCountsByDelivery(senderDeliveryIds);
+        if (read === latestRead.current) setExplainBackCounts(counts);
       } catch {
         // Already reported by the service layer's logDbError; nothing user-facing
         // to add, and the previous counts stay on screen.
       }
     } catch {
+      if (read !== latestRead.current) return;
       // P1011: a poll failure is usually transient — a stale token after the
       // machine wakes, or a dropped connection (JAVASCRIPT-REACT-2F). The next
       // tick normally succeeds unaided, so don't tear down a good render.
@@ -100,6 +107,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      latestRead.current += 1;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };

@@ -51,3 +51,70 @@ describe('P1586 section deadline: review, picker, pledgers', () => {
     expect(screen.getByTestId(testId)).toBeTruthy();
   });
 });
+
+// A stalled read that settles after Retry (or after the search changed) must not overwrite the newer
+// read, on its answer or its error path.
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+const flush = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
+const story = (id: string) => ({ id, content: `Story ${id}`, createdAt: '2026-01-01T00:00:00Z', visibility: 'public' });
+// mockResolvedValue (not Once) for the newer read: the picker re-reads once after its first answer
+// (hasAnyStories changes the read's identity), and that re-read must see the same newer data.
+const picker = () => <DocStoryPicker docId="doc-id-1" docVisibility="public" open onOpenChange={() => {}} onStoryAdded={() => {}} />;
+
+describe('P1586 story picker: only the latest read may write', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  it('a stalled first read that ANSWERS after Retry does not replace the newer stories', async () => {
+    const first = deferred<unknown[]>();
+    vi.mocked(docsService.getCompatibleStories).mockReturnValueOnce(first.promise as never).mockResolvedValue([story('new')] as never);
+    render(picker());
+    await flush();
+    await act(async () => { await vi.advanceTimersByTimeAsync(DEADLINE_MS); });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+    expect(screen.getByText('Story new')).toBeTruthy();
+
+    first.resolve([story('old')]);
+    await flush();
+    expect(screen.getByText('Story new')).toBeTruthy();
+    expect(screen.queryByText('Story old')).toBeNull();
+  });
+
+  it('a stalled first read that REJECTS after Retry does not turn the newer stories into an error', async () => {
+    const first = deferred<unknown[]>();
+    vi.mocked(docsService.getCompatibleStories).mockReturnValueOnce(first.promise as never).mockResolvedValue([story('new')] as never);
+    render(picker());
+    await flush();
+    await act(async () => { await vi.advanceTimersByTimeAsync(DEADLINE_MS); });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+
+    first.reject(new Error('late failure'));
+    await flush();
+    expect(screen.getByText('Story new')).toBeTruthy();
+    expect(screen.getByText('1 story matches')).toBeTruthy();
+  });
+
+  it('an answer for the previous query does not land on the new query', async () => {
+    const forEmpty = deferred<unknown[]>();
+    vi.mocked(docsService.getCompatibleStories)
+      .mockReturnValueOnce(forEmpty.promise as never)
+      .mockResolvedValueOnce([story('match')] as never);
+    render(picker());
+    await flush();
+    fireEvent.change(screen.getByLabelText('Search your stories'), { target: { value: 'mat' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+    expect(screen.getByText('Story match')).toBeTruthy();
+
+    forEmpty.resolve([story('unrelated')]);
+    await flush();
+    expect(screen.getByText('Story match')).toBeTruthy();
+    expect(screen.queryByText('Story unrelated')).toBeNull();
+  });
+});

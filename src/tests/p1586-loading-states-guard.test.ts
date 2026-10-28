@@ -28,7 +28,8 @@
  *      `animate-spin` string with no JSX element around it fails (a spinner class stored in a
  *      constant escapes the control check, so it has to be explained).
  *   4. null-while-loading — a ROUTED component renders nothing: `return null` under ANY guard
- *      (or none), or `return flag ? null : ...`. Every loading-flag spelling is covered by
+ *      (or none), or `return flag ? null : ...`. Parentheses are unwrapped (`return (null)`, a
+ *      parenthesised null arm), and a concise arrow body counts (`const Page = () => null`). Every loading-flag spelling is covered by
  *      construction (`loading`, `arrivalGate === null`, `!ready`, `!event`, `navigate(); return null`)
  *      because the flag is not inspected. A genuine "nothing to show" (a signed-out redirect that runs
  *      in an effect, an unreachable fall-through) is not a wait, and says so in the allowlist.
@@ -43,8 +44,12 @@
  *   6. page-loader-in-frame — `<ClarityPageLoader />` (or ClarityContentLoader / ClarityBootLoader,
  *      under any alias) nested inside another JSX element or an attribute value. The page loader is
  *      a page gate (decisions.md 2026-04-11): it may only be (part of) a component's whole return,
- *      as an early return, a ternary arm, a bare arrow body or inside a fragment. A frame that draws
- *      nothing (a Back-only header, a bare wrapper) is allowlisted with that reason.
+ *      as an early return, a ternary arm, a bare arrow body or inside a fragment whose other children
+ *      draw nothing (a redirect, another loader, whitespace). A fragment with a drawn sibling is a
+ *      frame. Not frames: the loader's own `<ClarityPageLoader></ClarityPageLoader>` element, and
+ *      the `fallback` of a `<Suspense>` (Suspense paints nothing itself; where the Suspense sits is
+ *      judged instead). A frame that draws nothing (a Back-only header, a bare wrapper) is
+ *      allowlisted with that reason.
  *
  * The scan is the AST (same approach as p1364-back-drift-guard), so comments never count. Test
  * files and src/tests are excluded. Everything under src/app/prototypes/events/ is scanned.
@@ -373,6 +378,18 @@ function insideJsx(node: ts.Node): boolean {
   return false;
 }
 
+const unparen = (e: ts.Expression): ts.Expression => (ts.isParenthesizedExpression(e) ? unparen(e.expression) : e);
+
+/** `null`, or a ternary with a null arm, under any number of parentheses. */
+function isBlankRender(expression: ts.Expression): boolean {
+  const e = unparen(expression);
+  if (e.kind === ts.SyntaxKind.NullKeyword) return true;
+  return (
+    ts.isConditionalExpression(e) &&
+    (unparen(e.whenTrue).kind === ts.SyntaxKind.NullKeyword || unparen(e.whenFalse).kind === ts.SyntaxKind.NullKeyword)
+  );
+}
+
 /**
  * Name of the component whose render `node` belongs to: the NEAREST enclosing function must itself
  * be the component (`function X`, `const X = () =>`, `const X = memo(() => ...)`, or a class's
@@ -433,16 +450,60 @@ function importedNames(sf: ts.SourceFile): { loader: Set<string>; pageLoader: Se
   return out;
 }
 
+/** The children of a fragment that put something on screen, other than the branch holding the loader. */
+function drawnSibling(fragment: ts.JsxFragment, holder: ts.Node, sf: ts.SourceFile, loaders: ReadonlySet<string>): boolean {
+  const paintsNothing = (tag: string) => tag === 'Navigate' || loaders.has(tag);
+  // Every JSX element under `n` is a redirect, a page loader or screen-reader-only text (and there is at least one).
+  const onlyInert = (n: ts.Node): boolean => {
+    let seen = false;
+    let inert = true;
+    const walk = (c: ts.Node) => {
+      if (ts.isJsxElement(c) || ts.isJsxSelfClosingElement(c) || ts.isJsxFragment(c)) {
+        if (ts.isJsxFragment(c)) { ts.forEachChild(c, walk); return; }
+        seen = true;
+        const open = ts.isJsxElement(c) ? c.openingElement : c;
+        if (!paintsNothing(open.tagName.getText(sf)) && !insideSrOnly(open, sf)) inert = false;
+        return;
+      }
+      ts.forEachChild(c, walk);
+    };
+    walk(n);
+    return seen && inert;
+  };
+  return fragment.children.some((child) => {
+    if (child === holder) return false;
+    if (ts.isJsxText(child)) return child.text.trim().length > 0;
+    if (ts.isJsxExpression(child)) return child.expression !== undefined && !onlyInert(child);
+    return !onlyInert(child);
+  });
+}
+
 /**
- * Is this page loader nested inside another JSX element (a frame already on screen)? Walking up, the
- * only things allowed between it and the component's render are parentheses, a ternary / `&&` / `||`
- * arm, and a fragment: i.e. it is (part of) the whole return. A JsxElement ancestor, including an
- * attribute value such as `fallback={...}`, means something else is drawn around it.
+ * Is this page loader nested inside a frame that is already on screen? Walking up from its own element,
+ * the only things allowed between it and the component's render are parentheses, a ternary / `&&` / `||`
+ * arm, a fragment with no drawn sibling, and the `fallback` of a Suspense (which paints nothing, so the
+ * walk continues from the Suspense). A JsxElement ancestor, an attribute value such as `fallback={...}`
+ * on anything else, or a fragment with a drawn sibling, means something else is drawn around it.
  */
-function isNestedInFrame(node: ts.Node): boolean {
-  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
-    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxAttribute(n)) return true;
+function isNestedInFrame(node: ts.Node, sf: ts.SourceFile, loaders: ReadonlySet<string>): boolean {
+  // An opening element's parent is its own JsxElement: that is the loader, not a frame around it.
+  let prev: ts.Node = ts.isJsxOpeningElement(node) ? node.parent : node;
+  for (let n: ts.Node | undefined = prev.parent; n; prev = n, n = n.parent) {
     if (ts.isFunctionLike(n) || ts.isReturnStatement(n) || ts.isSourceFile(n)) return false;
+    if (ts.isJsxAttribute(n)) {
+      const owner = n.parent.parent; // JsxAttributes -> opening / self-closing element
+      const tag = owner.tagName.getText(sf);
+      if (n.name.getText(sf) !== 'fallback' || (tag !== 'Suspense' && tag !== 'React.Suspense')) return true;
+      // Continue from the Suspense element itself.
+      prev = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
+      n = prev;
+      continue;
+    }
+    if (ts.isJsxFragment(n)) {
+      if (drawnSibling(n, prev, sf, loaders)) return true;
+      continue;
+    }
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) return true;
   }
   return false;
 }
@@ -531,16 +592,14 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
 
     // 4. a routed component renders nothing: `return null` (under any guard, or none) or a ternary with a
     // null arm. A route that has nothing to paint must say why in the allowlist; a wait must not be blank.
-    if (opts.routedNames && ts.isReturnStatement(node) && node.expression) {
-      const e = node.expression;
-      const blank =
-        e.kind === ts.SyntaxKind.NullKeyword ||
-        (ts.isConditionalExpression(e) &&
-          (e.whenTrue.kind === ts.SyntaxKind.NullKeyword || e.whenFalse.kind === ts.SyntaxKind.NullKeyword));
-      if (blank) {
-        const name = enclosingComponentName(node);
+    // Parentheses are unwrapped; a concise arrow body is a return too.
+    const rendered =
+      ts.isReturnStatement(node) ? node.expression : ts.isArrowFunction(node) && !ts.isBlock(node.body) ? node.body : undefined;
+    if (opts.routedNames && rendered) {
+      if (isBlankRender(rendered)) {
+        const name = enclosingComponentName(rendered);
         if (opts.routedNames === '*' ? name !== undefined : name !== undefined && opts.routedNames.has(name)) {
-          add('null-while-loading', node);
+          add('null-while-loading', rendered.parent);
         }
       }
     }
@@ -552,7 +611,7 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
 
     // 6. the page loader drawn inside a frame that is already on screen
     if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
-      if (names.pageLoader.has(node.tagName.getText(sf)) && isNestedInFrame(node)) add('page-loader-in-frame', node);
+      if (names.pageLoader.has(node.tagName.getText(sf)) && isNestedInFrame(node, sf, names.pageLoader)) add('page-loader-in-frame', node);
     }
 
     ts.forEachChild(node, visit);
@@ -875,6 +934,37 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`function Page() { const v = useMemo(() => { if (x) return null; return 1; }, []); return <div/>; }`, ROUTED)).toEqual([]);
   });
 
+  it('4 parentheses are unwrapped and a concise arrow body counts (bypasses closed)', () => {
+    // bad: a parenthesised null, a parenthesised ternary null arm, concise arrow bodies that render nothing
+    expect(kinds(`function Page() { if (loading) return (null); return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (loading) return ((null)); return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { return (loading ? (null) : <div/>); }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { return loading ? <div/> : (null); }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`const Page = () => null;`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`const Page = () => (null);`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`const Page = () => (loading ? null : <div/>);`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`const Page = memo(() => null);`, ROUTED)).toEqual(['null-while-loading']);
+    // good: parenthesised JSX, concise arrow bodies that draw, a loader, a callback's null, a helper that is not routed
+    expect(kinds(`function Page() { if (loading) return (<ClarityPageLoader />); return (<div/>); }`, ROUTED)).toEqual([]);
+    expect(kinds(`const Page = () => (loading ? <ClarityPageLoader /> : <div/>);`, ROUTED)).toEqual([]);
+    expect(kinds(`const Page = () => <div/>;`, ROUTED)).toEqual([]);
+    expect(kinds(`function Page() { const v = useMemo(() => null, []); return <div/>; }`, ROUTED)).toEqual([]);
+    expect(kinds(`function Page() { return <div>{items.map((i) => null)}</div>; }`, ROUTED)).toEqual([]);
+    expect(kinds(`const Helper = () => null;`, ROUTED)).toEqual([]);
+    expect(kinds(`const Page = () => null;`)).toEqual([]);
+  });
+
+  it('4 on the real file: the loader of EventArrivingPage turned into `return (null)` fails the scan', () => {
+    const f = 'src/app/prototypes/events/arrival/EventArrivingPage.tsx';
+    const opts: DetectOptions = { routedNames: new Set(['EventArrivingPage']) };
+    const real = readFileSync(join(process.cwd(), f), 'utf8');
+    expect(real).toContain('if (loading) return <ClarityPageLoader />;');
+    expect(findLoadingDrift(f, real, opts).map(x => x.kind)).not.toContain('null-while-loading');
+    const mutated = real.replace('if (loading) return <ClarityPageLoader />;', 'if (loading) return (null);');
+    expect(mutated).not.toBe(real);
+    expect(findLoadingDrift(f, mutated, opts).map(x => x.kind)).toEqual(['null-while-loading']);
+  });
+
   it('5 flags animate-pulse, passes animate-pulse-subtle-green and look-alikes', () => {
     expect(kinds(`const A = () => <div className="h-4 animate-pulse bg-muted" />;`)).toEqual(['animate-pulse']);
     expect(kinds(`const A = () => <div className={cn('a', \`animate-pulse \${x}\`)} />;`)).toEqual(['animate-pulse']);
@@ -906,7 +996,8 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
       'page-loader-in-frame',
     ]);
     expect(kinds(`function Page() { return <Layout><ClarityPageLoader /></Layout>; }`)).toEqual(['page-loader-in-frame']);
-    expect(kinds(`function Page() { return <Suspense fallback={<ClarityPageLoader />}><List/></Suspense>; }`)).toEqual(['page-loader-in-frame']);
+    // a fallback on anything but a Suspense is a frame around the loader
+    expect(kinds(`function Page() { return <Boundary fallback={<ClarityPageLoader />}><List/></Boundary>; }`)).toEqual(['page-loader-in-frame']);
     // the shell's content loader and the boot loader are page loaders too
     expect(kinds(`function Page() { return <div><ClarityContentLoader /></div>; }`)).toEqual(['page-loader-in-frame']);
     expect(kinds(`function Page() { return <div><ClarityBootLoader /></div>; }`)).toEqual(['page-loader-in-frame']);
@@ -917,6 +1008,49 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(
       kinds(`import { ClarityPageLoader as Wait } from '@/components/ui/clarity-loader';\nfunction Page() { if (x) return <Wait />; return <main/>; }`)
     ).toEqual([]);
+  });
+
+  it('6 a fragment with drawn siblings is a frame; a loader-only fragment is not (bypass closed)', () => {
+    // bad: drawn elements, text, and a conditional list beside the loader, on either side of it
+    expect(kinds(`function Page() { return <><h1>Title</h1><ClarityPageLoader /></>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <><ClarityPageLoader /><List/></>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return (<><h1/><p/><ClarityPageLoader /></>); }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <>Saving<ClarityPageLoader /></>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <>{title}<ClarityPageLoader /></>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <><Header/>{loading ? <ClarityPageLoader /> : <List/>}</>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <>{x && <Banner/>}<ClarityPageLoader /></>; }`)).toEqual(['page-loader-in-frame']);
+    // good: the loader alone, a redirect beside it, whitespace and comments, a ternary arm in a loader-only fragment
+    expect(kinds(`function Page() { return <><ClarityPageLoader /></>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <>\n  <ClarityPageLoader />\n</>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <>{/* why */}<ClarityPageLoader /></>; }`)).toEqual([]);
+    // screen-reader-only text beside the loader draws nothing (letter-response-confirm-page), visible text does
+    expect(kinds(`function Page() { return <><ClarityPageLoader />{saving && (<p role="status" className="sr-only">Saving</p>)}</>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <><ClarityPageLoader /><p className="sr-only">Saving</p></>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <><ClarityPageLoader />{saving && (<p role="status">Saving</p>)}</>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <><Navigate to="/x" replace />{wait && <ClarityPageLoader />}</>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <>{loading ? <ClarityPageLoader /> : <List/>}</>; }`)).toEqual([]);
+    // a nested fragment is judged by its own siblings, and by the outer ones
+    expect(kinds(`function Page() { return <><><h1/><ClarityPageLoader /></></>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <><h1/><><ClarityPageLoader /></></>; }`)).toEqual(['page-loader-in-frame']);
+  });
+
+  it('6 the loader\'s own element and a Suspense fallback are not frames (false positives closed)', () => {
+    // good: a loader written with a closing tag, and a Suspense fallback (Suspense paints nothing)
+    expect(kinds(`function Page() { return <ClarityPageLoader></ClarityPageLoader>; }`)).toEqual([]);
+    expect(kinds(`function Page() { if (x) return <ClarityPageLoader></ClarityPageLoader>; return <main/>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <Suspense fallback={<ClarityPageLoader />}><List/></Suspense>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return <React.Suspense fallback={<ClarityPageLoader />}><List/></React.Suspense>; }`)).toEqual([]);
+    // bad: the same loader inside a drawn frame still fails, with a closing tag or around a Suspense
+    expect(kinds(`function Page() { return <div><ClarityPageLoader></ClarityPageLoader></div>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <div><Suspense fallback={<ClarityPageLoader />}><List/></Suspense></div>; }`)).toEqual([
+      'page-loader-in-frame',
+    ]);
+    expect(kinds(`function Page() { return <><h1/><Suspense fallback={<ClarityPageLoader />}><List/></Suspense></>; }`)).toEqual([
+      'page-loader-in-frame',
+    ]);
+    // bad: a non-fallback attribute on a Suspense, and a fallback on another component
+    expect(kinds(`function Page() { return <Suspense name={<ClarityPageLoader />}><List/></Suspense>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <Boundary fallback={<ClarityPageLoader />}><List/></Boundary>; }`)).toEqual(['page-loader-in-frame']);
   });
 });
 

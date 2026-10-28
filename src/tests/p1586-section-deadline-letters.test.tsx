@@ -53,3 +53,57 @@ describe('P1586 letters tabs: a stalled read reaches a readable line', () => {
     expect(screen.getByTestId('letter-list-skeleton')).toBeTruthy();
   });
 });
+
+// A stalled first read that settles AFTER Retry's read must not overwrite the newer state, on either
+// its answer or its error path (the reviewer saw drafts flip a successful Retry back to error).
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+const flush = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+const raceTabs = [
+  ['inbox', () => <InboxTab userId="user-id-1" />, getInboxItems, 'No letters or responses yet.'],
+  ['sent', () => <SentTab userId="user-id-1" />, getAllSentLetters, 'No published letters yet.'],
+  ['drafts', () => <DraftsTab userId="user-id-1" />, docsService.getDocsByUser, 'No drafts yet.'],
+] as const;
+
+describe('P1586 letters tabs: only the latest read may write', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  it.each(raceTabs)('%s: a stalled first read that REJECTS after Retry keeps the newer state', async (_n, ui, read, emptyText) => {
+    const first = deferred<unknown[]>();
+    vi.mocked(read as () => unknown).mockReturnValueOnce(first.promise as never).mockResolvedValueOnce([] as never);
+    render(<MemoryRouter>{ui()}</MemoryRouter>);
+    await flush();
+    await act(async () => { await vi.advanceTimersByTimeAsync(DEADLINE_MS); });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+    expect(screen.getByText(emptyText)).toBeTruthy();
+
+    first.reject(new Error('late failure'));
+    await flush();
+    expect(screen.getByText(emptyText)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('drafts: a stalled first read that ANSWERS after Retry does not replace the newer list', async () => {
+    const doc = (title: string) => ({ id: title, title, visibility: 'private', story_count: 0, point_count: 0, updated_at: new Date().toISOString(), has_sent_letters: false });
+    const first = deferred<unknown[]>();
+    vi.mocked(docsService.getDocsByUser).mockReturnValueOnce(first.promise as never).mockResolvedValueOnce([doc('Newer draft')] as never);
+    render(<MemoryRouter><DraftsTab userId="user-id-1" /></MemoryRouter>);
+    await flush();
+    await act(async () => { await vi.advanceTimersByTimeAsync(DEADLINE_MS); });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+    expect(screen.getByText('Newer draft')).toBeTruthy();
+
+    first.resolve([doc('Older draft')]);
+    await flush();
+    expect(screen.getByText('Newer draft')).toBeTruthy();
+    expect(screen.queryByText('Older draft')).toBeNull();
+  });
+});

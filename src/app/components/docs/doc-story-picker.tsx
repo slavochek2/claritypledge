@@ -61,6 +61,9 @@ export function DocStoryPicker({
   const [addingStoryId, setAddingStoryId] = useState<string | null>(null);
   const [hasAnyStories, setHasAnyStories] = useState<boolean | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // P1586: Retry, a new search and closing the dialog each supersede the read in flight, so a stalled
+  // read can neither overwrite a newer one (answer or error) nor answer for a previous query.
+  const latestRead = useRef(0);
 
   // Debounce search input by 200ms
   useEffect(() => {
@@ -72,9 +75,11 @@ export function DocStoryPicker({
 
   // Fetch compatible stories when dialog opens or debounced query changes
   const fetchStories = useCallback(async () => {
+    const read = ++latestRead.current;
     setFetchState('loading');
     try {
       const results = await docsService.getCompatibleStories(docId, debouncedQuery || undefined);
+      if (read !== latestRead.current) return;
       setStories(results);
       // On first load with no search, record whether user has any stories at all
       if (hasAnyStories === null && !debouncedQuery) {
@@ -82,6 +87,7 @@ export function DocStoryPicker({
       }
       setFetchState('done');
     } catch {
+      if (read !== latestRead.current) return;
       setFetchState('error');
     }
   }, [docId, debouncedQuery, hasAnyStories]);
@@ -97,6 +103,7 @@ export function DocStoryPicker({
   // Reset state when dialog closes + refetch doc if stories were added
   useEffect(() => {
     if (!open) {
+      latestRead.current += 1;
       if (addedCountRef.current > 0) {
         onStoryAdded();
         addedCountRef.current = 0;

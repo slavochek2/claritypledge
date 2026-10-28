@@ -4,7 +4,7 @@
  * Shows user's drafts with [Edit Draft] and [Send as Letter] actions.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -44,13 +44,20 @@ export function DraftsTab({ userId }: DraftsTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<ClarityDoc | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // P1586: Retry re-reads while a stalled first read is still out; only the latest read may write,
+  // answer or error. Unmount (and a user change) also supersede the read in flight.
+  const latestRead = useRef(0);
+
   const fetchDocs = useCallback(async () => {
+    const read = ++latestRead.current;
     setFetchState('loading');
     try {
       const result = await docsService.getDocsByUser(userId);
+      if (read !== latestRead.current) return;
       setDocs(result);
       setFetchState('done');
     } catch {
+      if (read !== latestRead.current) return;
       toast.error('Failed to load drafts');
       setFetchState('error');
     }
@@ -58,6 +65,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
 
   useEffect(() => {
     fetchDocs();
+    return () => { latestRead.current += 1; };
   }, [fetchDocs]);
 
   const handleCreate = async (visibility: ContentVisibility) => {

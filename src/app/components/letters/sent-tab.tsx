@@ -405,19 +405,26 @@ export function SentTab({ userId }: SentTabProps) {
   const [cards, setCards] = useState<LetterCardData[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'error'>('loading');
   const allTerminalRef = useRef(false);
+  // P1586: Retry (and the poll) re-read while an earlier read may still be out; only the latest read
+  // may write, answer or error. Unmount (and a user change) also supersede the read in flight.
+  const latestRead = useRef(0);
 
   const fetchData = useCallback(async () => {
+    const read = ++latestRead.current;
     try {
       const letters = await getAllSentLetters(userId);
+      if (read !== latestRead.current) return;
       if (letters.length === 0) {
         setCards([]);
         setFetchState('done');
         return;
       }
       const deliveriesByLetter = await getDeliveriesForLetters(letters.map((l) => l.id));
+      if (read !== latestRead.current) return;
       setCards(letters.map((letter) => ({ letter, deliveries: deliveriesByLetter[letter.id] ?? [] })));
       setFetchState('done');
     } catch {
+      if (read !== latestRead.current) return;
       toast.error('Failed to load sent letters');
       setFetchState('error');
     }
@@ -445,6 +452,7 @@ export function SentTab({ userId }: SentTabProps) {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      latestRead.current += 1;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };
