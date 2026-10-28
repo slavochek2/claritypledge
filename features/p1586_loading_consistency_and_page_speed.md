@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 80
 workstream: foundation
 created_date: '2026-10-28'
 tags: [loading, consistency, ux, skeleton]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
