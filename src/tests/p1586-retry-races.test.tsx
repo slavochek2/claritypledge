@@ -94,4 +94,33 @@ describe('P1586 retry races', () => {
     await flush();
     expect(screen.getByTestId('pledger-count').textContent).toBe('2');
   });
+
+  // A rejected read is unknown, not "nothing there": Retry shows at once, never the empty state.
+  it('pledgers: a rejected first read shows Retry immediately, not an empty grid, and Retry recovers', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(getVerifiedProfilesPage)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ profiles: [profile('a')], total: 1 } as never);
+    render(<MemoryRouter><ClarityPledgersPage /></MemoryRouter>);
+    await flush();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.queryByTestId('pledger-count')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+    expect(screen.getByTestId('pledger-count').textContent).toBe('1');
+  });
+
+  it('review mode: a rejected read shows Retry immediately, not the ideas, and Retry recovers', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(getLiveTurns)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce([turn('t1')] as never);
+    render(review('session-id-1'));
+    await flush();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.queryByText(/Flags Raised/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await flush();
+    expect(screen.getByText('Flags Raised (1)')).toBeTruthy();
+  });
 });

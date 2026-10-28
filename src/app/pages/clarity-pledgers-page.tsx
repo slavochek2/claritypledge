@@ -20,6 +20,8 @@ export function ClarityPledgersPage() {
   const [verifiedProfiles, setVerifiedProfiles] = useState<Profile[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // P1586: a failed first read is unknown, not "no pledgers": it shows Retry, never the empty grid.
+  const [failed, setFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const hasTrackedPageView = useRef(false);
   // P1586: bumped by the section wait's Retry; the first-page read below runs again.
@@ -30,6 +32,8 @@ export function ClarityPledgersPage() {
     // A stalled first read can answer after Retry; only the latest read may write.
     let cancelled = false;
     const fetchProfiles = async () => {
+      setLoading(true);
+      setFailed(false);
       try {
         const { profiles, total } = await getVerifiedProfilesPage(0);
         if (cancelled) return;
@@ -45,6 +49,7 @@ export function ClarityPledgersPage() {
         }
       } catch (error) {
         console.error("Failed to fetch verified profiles", error);
+        if (!cancelled) setFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -101,8 +106,8 @@ export function ClarityPledgersPage() {
 
 
         {/* Pledgers Grid */}
-        {loading ? (
-          <SectionWait onRetry={() => setAttempt((n) => n + 1)}>
+        {loading || failed ? (
+          <SectionWait failed={failed} onRetry={() => setAttempt((n) => n + 1)}>
             <PledgersSkeleton />
           </SectionWait>
         ) : verifiedProfiles.length > 0 ? (

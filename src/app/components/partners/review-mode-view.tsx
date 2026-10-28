@@ -39,6 +39,8 @@ interface ReviewModeViewProps {
 function useReviewTurns(sessionId: string) {
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // A failed read is unknown, not an empty session: the section shows Retry (P1586).
+  const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -46,11 +48,13 @@ function useReviewTurns(sessionId: string) {
     let cancelled = false;
     const loadTurns = async () => {
       setIsLoading(true);
+      setFailed(false);
       try {
         const loadedTurns = await getLiveTurns(sessionId);
         if (!cancelled) setTurns(loadedTurns);
       } catch (err) {
         console.error('[Review] Failed to load turns:', err);
+        if (!cancelled) setFailed(true);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -59,7 +63,7 @@ function useReviewTurns(sessionId: string) {
     return () => { cancelled = true; };
   }, [sessionId, attempt]);
 
-  return { turns, isLoading, retry: () => setAttempt((n) => n + 1) };
+  return { turns, isLoading, failed, retry: () => setAttempt((n) => n + 1) };
 }
 
 export function ReviewModeView({
@@ -69,7 +73,7 @@ export function ReviewModeView({
   partnerName,
   onToggleMode,
 }: ReviewModeViewProps) {
-  const { turns, isLoading, retry } = useReviewTurns(session.id);
+  const { turns, isLoading, failed, retry } = useReviewTurns(session.id);
 
   const understoodPercent =
     liveState.ideasDiscussed > 0
@@ -132,8 +136,8 @@ export function ReviewModeView({
           Ideas Discussed
         </h2>
 
-        {isLoading ? (
-          <SectionWait onRetry={retry}>
+        {isLoading || failed ? (
+          <SectionWait failed={failed} onRetry={retry}>
             <ReviewIdeasSkeleton />
           </SectionWait>
         ) : liveState.ideasDiscussed === 0 ? (
