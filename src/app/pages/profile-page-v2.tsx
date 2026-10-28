@@ -7,6 +7,7 @@
  * Route: /p/:id
  * Access: Public (all users with confirmed emails)
  */
+import { ProfileContentSkeleton } from "./profile-content-skeleton";
 import { useEffect, useState, useRef, useMemo, useCallback, useId } from "react";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 import { useParams, Link, useNavigate, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
@@ -1299,11 +1300,7 @@ export function ProfilePageV2() {
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
             {contentLoading ? (
-              <div className="space-y-4 animate-pulse transition-opacity duration-300" data-testid="profile-content-skeleton">
-                <div className="h-24 bg-muted rounded-lg" />
-                <div className="h-24 bg-muted rounded-lg" />
-                <div className="h-24 bg-muted rounded-lg" />
-              </div>
+              <ProfileContentSkeleton />
             ) : contentTab === 'stories' ? (
               userStories.length === 0 ? (
                 <div className="bg-card rounded-lg p-8 text-center">

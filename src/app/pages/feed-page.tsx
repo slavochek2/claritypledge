@@ -8,6 +8,7 @@
  * Accessible to both authenticated and anonymous users (public content only).
  */
 
+import { FeedTagRow } from './feed-tag-row';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ChevronDown } from 'lucide-react';
@@ -38,10 +39,10 @@ import {
   writeListReturnCache,
 } from '@/lib/list-return-cache';
 
-type FeedTab = 'points' | 'stories';
-
 /** P1392: the feed is the homepage now — the tag cloud shows the most-used few, the rest behind "More tags". */
 const TAG_CLOUD_LIMIT = 5;
+
+type FeedTab = 'points' | 'stories';
 
 
 
@@ -566,40 +567,15 @@ export function FeedPage() {
           )}
         </div>
 
-        {/* P1406: while loading, hold the tag row's height so the tabs don't jump down. */}
-        {loading && <div aria-hidden className="mb-4 h-6 w-2/3 rounded-full bg-muted animate-pulse" data-testid="tag-cloud-placeholder" />}
-
-        {/* Tag cloud (only when we have tags and not loading) */}
-        {!loading && tagCloud.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {(showAllTags ? tagCloud : tagCloud.slice(0, TAG_CLOUD_LIMIT)).map((tag) => {
-              const isActive = activeTags.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  role="checkbox"
-                  aria-checked={isActive}
-                  onClick={() => handleTagCloudClick(tag)}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm transition-colors cursor-pointer ${
-                    isActive
-                      ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300'
-                      : 'bg-muted text-muted-foreground hover:bg-blue-50 hover:text-blue-600'
-                  }`}
-                >
-                  #{tag}
-                </button>
-              );
-            })}
-            {tagCloud.length > TAG_CLOUD_LIMIT && (
-              <button
-                onClick={() => setShowAllTags((v) => !v)}
-                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm text-blue-600 hover:underline"
-              >
-                {showAllTags ? 'Fewer tags' : `More tags (${tagCloud.length - TAG_CLOUD_LIMIT})`}
-              </button>
-            )}
-          </div>
-        )}
+        <FeedTagRow
+          loading={loading}
+          tagCloud={tagCloud}
+          limit={TAG_CLOUD_LIMIT}
+          activeTags={activeTags}
+          showAllTags={showAllTags}
+          onToggleShowAll={() => setShowAllTags((v) => !v)}
+          onTagClick={handleTagCloudClick}
+        />
 
         {/* Active tag filter pills (multi-tag) */}
         {activeTags.length > 0 && (

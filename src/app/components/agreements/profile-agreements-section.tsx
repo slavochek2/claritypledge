@@ -5,6 +5,7 @@
  * visitor-is-party, visitor-no-public.
  */
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementRow } from './agreement-row';
@@ -23,12 +24,12 @@ function AgreementsSkeleton() {
   return (
     <ul aria-label="Loading agreements" aria-busy="true" className="space-y-2">
       {[1, 2].map((i) => (
-        <li key={i} className="flex items-center gap-3 px-4 py-3 rounded-lg animate-pulse">
+        <li key={i} className="flex items-center gap-3 px-4 py-3 rounded-lg">
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-muted rounded w-1/3" />
-            <div className="h-3 bg-muted rounded w-1/4" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-1/4" />
           </div>
-          <div className="h-5 bg-muted rounded w-16" />
+          <Skeleton className="h-5 w-16" />
         </li>
       ))}
     </ul>

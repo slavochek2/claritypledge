@@ -6,6 +6,7 @@
  * uncollapse and then click on play"). No pin icon: across the app the pin marks a Point.
  * Renders nothing on any failure; the feed never waits on it.
  */
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon, PlayIcon } from "lucide-react";
 import { storiesService } from "@/app/data/stories-service";
@@ -66,7 +67,7 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
 
   // P1406: hold the bar's place while it loads so the cards below don't jump; a failed
   // load (failed=true) collapses to nothing.
-  if (!story) return failed ? null : <div data-testid="pinned-story-placeholder" aria-hidden className="h-[70px] rounded-lg border border-blue-100 bg-blue-50/60 animate-pulse" />;
+  if (!story) return failed ? null : <Skeleton data-testid="pinned-story-placeholder" className="h-[70px] rounded-lg border border-blue-100 bg-blue-50/60" />;
   // Only a playable story video earns a play button (story cards play YouTube; a hosted MP4,
   // as on test's st1, renders as the picture). A play button that cannot play would mislead.
   const thumb = getThumbnailUrl(story.videoUrl);

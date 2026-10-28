@@ -13,6 +13,7 @@
  * - Author can add points (inline form) and unlink points (with undo toast)
  * - justCreated flow shows educational empty state with expanded form
  */
+import { StoryDetailSkeleton } from './story-detail-skeleton';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { extractHashtags } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -1180,23 +1181,7 @@ export function StoryDetailPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
         <FocusHeader onBack={handleBack} />
-        <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-muted rounded-full" />
-              <div className="flex-1">
-                <div className="h-4 bg-muted rounded w-32 mb-2" />
-                <div className="h-3 bg-muted rounded w-24" />
-              </div>
-            </div>
-            <div className="h-6 bg-muted rounded w-3/4 mb-3" />
-            <div className="space-y-2">
-              <div className="h-4 bg-muted rounded w-full" />
-              <div className="h-4 bg-muted rounded w-5/6" />
-              <div className="h-4 bg-muted rounded w-2/3" />
-            </div>
-          </div>
-        </div>
+        <StoryDetailSkeleton />
       </div>
     );
   }

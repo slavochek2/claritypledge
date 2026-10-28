@@ -3,6 +3,7 @@
  * @description P1512: the chat's dialogs — confirm, forward, attach and rename the mirror. All are
  * shadcn Dialogs: focus is trapped, Escape closes, and focus returns to the control that opened them.
  */
+import { Skeleton } from '@/components/ui/skeleton';
 import { ShareableCard } from './ShareableCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Forward, Search } from 'lucide-react';
@@ -280,7 +281,7 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
           {state.status === 'loading' && (
             <div role="status" aria-busy="true" aria-label="Loading your points and stories" className="space-y-2 p-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+                <Skeleton key={i} className="h-16 rounded-xl" />
               ))}
             </div>
           )}

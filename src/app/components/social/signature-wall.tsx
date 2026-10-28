@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles } from "@/app/data/api";
@@ -61,29 +62,29 @@ export function SignatureWall() {
             {[...Array(6)].map((_, index) => (
               <div
                 key={index}
-                className="bg-card border border-border p-6 rounded-lg animate-pulse"
+                className="bg-card border border-border p-6 rounded-lg"
               >
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-muted flex-shrink-0" />
+                  <Skeleton className="w-16 h-16 rounded-full flex-shrink-0" />
                   <div className="flex-1">
-                    <div className="h-5 bg-muted rounded w-3/4 mb-2" />
-                    <div className="h-4 bg-muted rounded w-1/2" />
+                    <Skeleton className="h-5 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
                 </div>
-                <div className="h-4 bg-muted rounded w-full mb-2" />
-                <div className="h-4 bg-muted rounded w-2/3 mb-4" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-2/3 mb-4" />
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                   <div>
-                    <div className="h-8 bg-muted rounded w-8 mb-1" />
-                    <div className="h-3 bg-muted rounded w-16" />
+                    <Skeleton className="h-8 w-8 mb-1" />
+                    <Skeleton className="h-3 w-16" />
                   </div>
                   <div>
-                    <div className="h-8 bg-muted rounded w-8 mb-1" />
-                    <div className="h-3 bg-muted rounded w-12" />
+                    <Skeleton className="h-8 w-8 mb-1" />
+                    <Skeleton className="h-3 w-12" />
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-border">
-                  <div className="h-3 bg-muted rounded w-32" />
+                  <Skeleton className="h-3 w-32" />
                 </div>
               </div>
             ))}

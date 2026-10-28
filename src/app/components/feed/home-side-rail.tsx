@@ -10,6 +10,7 @@
  * Nothing here is a filled button — the page's one primary action stays the header CTA (P955).
  * Any failure degrades to a short line; the feed never waits on, or breaks because of, this.
  */
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDaysIcon, LandmarkIcon } from "lucide-react";
@@ -99,7 +100,7 @@ function useHomeHighlights() {
  *  obvious there is more (the myCNX "swipeable rows" pattern; no swiping inside a card). */
 function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; row?: boolean }) {
   const { user } = useAuth();
-  if (events === null) return <div className="h-[400px] w-full max-w-sm rounded-xl bg-muted animate-pulse" />;
+  if (events === null) return <Skeleton className="h-[400px] w-full max-w-sm rounded-xl" />;
   if (events === "error") return <p className="text-sm text-muted-foreground">Couldn't load events.</p>;
   if (events.length === 0) return <p className="text-sm text-muted-foreground">No events scheduled yet.</p>;
   const cards = events.map((e) => (
@@ -125,7 +126,7 @@ function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
   if (groups === null)
     return (
       <div className="space-y-2" aria-hidden data-testid="groups-placeholder">
-        <div className="h-[58px] rounded-lg border border-border bg-muted animate-pulse" />
+        <Skeleton className="h-[58px] rounded-lg border border-border" />
       </div>
     );
   if (groups === "error" || groups.length === 0) return null;

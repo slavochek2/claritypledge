@@ -7,6 +7,7 @@
  *
  * P115: Logged-in dropdown uses "sandwich" pattern - public links on top, separator, account actions below.
  */
+import { Skeleton } from "@/components/ui/skeleton";
 import { isCanvasPathname } from '@/lib/canvas-boxes';
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -66,7 +67,7 @@ function NavSlotPlaceholder({ icon: Icon, label }: { icon: typeof UserIcon; labe
 function AvatarSlotPlaceholder() {
   return (
     <div aria-hidden="true" data-nav-slot-placeholder="avatar" className="p-2">
-      <div className="h-10 w-10 bg-muted rounded-full animate-pulse" />
+      <Skeleton className="h-10 w-10 rounded-full" />
     </div>
   );
 }
@@ -598,16 +599,16 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
             {!sessionChecked ? (
               /* Phase 1: session check in flight (~10ms) — full skeleton to prevent logged-out flash */
               compact ? (
-                <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                <Skeleton className="h-9 w-9 rounded-full" />
               ) : (
                 <>
-                  <div className="animate-pulse flex items-center gap-3 transition-opacity duration-150">
-                    <div className="h-10 w-[88px] bg-muted rounded-md" />
-                    <div className="h-10 w-[80px] bg-muted rounded-md" />
-                    <div className="h-10 w-[80px] bg-muted rounded-md" />
+                  <div className="flex items-center gap-3 transition-opacity duration-150">
+                    <Skeleton className="h-10 w-[88px] rounded-md" />
+                    <Skeleton className="h-10 w-[80px] rounded-md" />
+                    <Skeleton className="h-10 w-[80px] rounded-md" />
                   </div>
                   {/* Avatar/hamburger skeleton */}
-                  <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
                 </>
               )
             ) : hasSession && isLoading && !isProfilePending ? (
@@ -615,14 +616,14 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
                  or the profile last resolved unverified / failed): pre-P1421 behaviour, because
                  this session may still resolve to the logged-out layout. */
               compact ? (
-                <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                <Skeleton className="h-9 w-9 rounded-full" />
               ) : (
                 <div className="flex items-center gap-3 transition-opacity duration-150">
                   <StaticNavLinks />
                   {/* My Profile slot: skeleton until profile resolves */}
-                  <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
+                  <Skeleton className="h-10 w-[88px] rounded-md" />
                   {/* Avatar skeleton */}
-                  <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
                 </div>
               )
             ) : publicSiteSignedIn ? (
@@ -789,7 +790,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
           {!sessionChecked ? (
             /* Phase 1: session check in flight — skeleton to prevent logged-out flash */
             <div className="lg:hidden p-2">
-              <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
+              <Skeleton className="h-8 w-8 rounded-full" />
             </div>
           ) : (
             <div className="lg:hidden flex items-center gap-2">
@@ -828,7 +829,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
                   ) : isProfilePending ? (
                     /* P1421: the avatar's 40px box, not the 24px hamburger — Tools beside it
                        stays put when the profile lands. */
-                    <div className="w-10 h-10 bg-muted rounded-full animate-pulse" aria-hidden="true" />
+                    <Skeleton className="w-10 h-10 rounded-full" />
                   ) : showUserMenu && user && !publicSite ? (
                     <GravatarAvatar
                       name={user.name}

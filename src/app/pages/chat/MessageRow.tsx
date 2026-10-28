@@ -8,6 +8,7 @@
  * what the toolbar does not (Edit, Delete: your own messages), so nothing is offered twice. Mark as
  * unread is not here: it marks the whole chat, so it lives on the chat (list row, header menu).
  */
+import { AuthorNameSkeleton, QuoteSkeleton, UnlinkedAuthorMark } from './MessageRowPlaceholders';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -76,7 +77,7 @@ interface Props {
 function AuthorName({ author, authorId, pending, className }: { author: ChatAuthor | undefined; authorId: string | null; pending: boolean; className?: string }) {
   if (!authorId) return <span className={cn('font-semibold text-muted-foreground', className)}>Deleted user</span>;
   // The profile is still on its way: a quiet bar, never a flash of "Unknown".
-  if (pending) return <span role="status" aria-label="Loading name" className="inline-block h-3.5 w-24 animate-pulse rounded bg-muted align-middle" />;
+  if (pending) return <AuthorNameSkeleton />;
   const name = author?.name ?? 'Unknown member';
   if (!author?.slug) return <span className={cn('font-semibold', className)}>{name}</span>;
   return (
@@ -108,7 +109,7 @@ function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; action
     };
   }, [replyToId, lookup, loaded, version]);
   const quoted = loaded ?? fetched;
-  if (quoted === undefined) return <div className="my-1 h-9 max-w-md animate-pulse rounded-lg bg-muted/50" aria-hidden="true" />;
+  if (quoted === undefined) return <QuoteSkeleton />;
   const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown member' : '') : 'Deleted user';
   const text = quoted === null ? 'Original message not available' : quoted.isDeleted ? 'Original message deleted' : messageSummary(quoted);
   const jumpable = !!quoted && !quoted.isDeleted;
@@ -506,14 +507,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
                 <PersonMark person={author} size="md" />
               </Link>
             ) : (
-              authorPending ? (
-                <span aria-hidden="true" className="block h-9 w-9 animate-pulse rounded-full bg-muted" />
-              ) : (
-                <PersonMark
-                  person={author ? { name: author.name, avatarColor: author.avatarColor, avatarUrl: author.avatarUrl } : authorId ? { name: 'Unknown member', unknown: true } : { name: 'Deleted user', deleted: true }}
-                  size="md"
-                />
-              )
+              <UnlinkedAuthorMark author={author} authorId={authorId} pending={authorPending} />
             ))}
         </div>
         <div className="min-w-0 flex-1">

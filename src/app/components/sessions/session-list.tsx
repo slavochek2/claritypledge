@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle2, XCircle, ChevronRight, MicIcon } from 'lucide-react';
 import type { SessionSummary } from '@/app/data/sessions-service';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -34,13 +35,13 @@ function SessionSkeleton() {
   return (
     <ul aria-label="Loading sessions" aria-busy="true" className="space-y-2">
       {[1, 2, 3].map((i) => (
-        <li key={i} className="flex items-center gap-3 px-4 py-4 rounded-lg animate-pulse">
-          <div className="w-8 h-8 rounded-full bg-muted flex-shrink-0" />
+        <li key={i} className="flex items-center gap-3 px-4 py-4 rounded-lg">
+          <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-muted rounded w-1/3" />
-            <div className="h-3 bg-muted rounded w-1/4" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-1/4" />
           </div>
-          <div className="h-4 bg-muted rounded w-12" />
+          <Skeleton className="h-4 w-12" />
         </li>
       ))}
     </ul>

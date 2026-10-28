@@ -6,6 +6,7 @@
  * After the user submits the form, it triggers the authentication flow (sending a magic link)
  * and shows a success message, instructing them to check their email to verify their pledge.
  */
+import { Skeleton } from "@/components/ui/skeleton";
 import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -100,13 +101,13 @@ export function SignPledgePage() {
         {/* Social Proof - Compact Avatar Row */}
         {!socialProofLoaded ? (
           // Skeleton placeholder - prevents layout shift
-          <div className="flex flex-col items-center gap-3 mb-4 animate-pulse" aria-hidden="true">
+          <div className="flex flex-col items-center gap-3 mb-4" aria-hidden="true">
             <div className="flex items-center -space-x-2">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-muted" />
+                <Skeleton key={i} className="w-8 h-8 rounded-full border-2 border-white" />
               ))}
             </div>
-            <div className="h-4 w-48 bg-muted rounded" />
+            <Skeleton className="h-4 w-48" />
           </div>
         ) : totalCount > 0 && champions.length > 0 ? (
           <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">

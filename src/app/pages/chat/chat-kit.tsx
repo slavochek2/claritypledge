@@ -4,6 +4,7 @@
  * the positioned message menu and the loading / error blocks. Gray chrome; blue-600 only for the
  * unread badge, selection and the one primary action per view.
  */
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, Lock, User, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -283,11 +284,11 @@ export function ListSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading chats" className="divide-y">
       {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="flex animate-pulse items-center gap-3 px-3 py-3">
-          <div className="h-12 w-12 shrink-0 rounded-full bg-muted" />
+        <div key={i} className="flex items-center gap-3 px-3 py-3">
+          <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-4 w-1/3 rounded bg-muted" />
-            <div className="h-3.5 w-3/4 rounded bg-muted" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3.5 w-3/4" />
           </div>
         </div>
       ))}
@@ -300,11 +301,11 @@ export function MessagesSkeleton() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading messages" className="space-y-4 px-4 py-4">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="flex animate-pulse gap-3">
-          <div className="h-9 w-9 shrink-0 rounded-full bg-muted" />
+        <div key={i} className="flex gap-3">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3.5 w-1/4 rounded bg-muted" />
-            <div className="h-4 w-4/5 rounded bg-muted" />
+            <Skeleton className="h-3.5 w-1/4" />
+            <Skeleton className="h-4 w-4/5" />
           </div>
         </div>
       ))}

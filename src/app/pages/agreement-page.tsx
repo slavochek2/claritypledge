@@ -11,6 +11,7 @@
  *   'terminated' → TerminatedView (muted certificate + history notice)
  */
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Loader2, LockIcon } from 'lucide-react';
@@ -406,19 +407,19 @@ function LoadingSkeleton({ backFallback }: { backFallback: string }) {
     <CertificatePageShell className="py-8">
       {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
       <FocusHeader fallback={backFallback} />
-      <div className="rounded-lg border border-border overflow-hidden animate-pulse">
+      <div className="rounded-lg border border-border overflow-hidden">
         <div className="p-8 space-y-4">
-          <div className="h-6 bg-muted rounded w-3/5 mx-auto" />
-          <div className="h-4 bg-muted rounded w-2/5 mx-auto" />
+          <Skeleton className="h-6 w-3/5 mx-auto" />
+          <Skeleton className="h-4 w-2/5 mx-auto" />
           <div className="space-y-2 mt-6">
-            <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-5/6" />
-            <div className="h-4 bg-muted rounded w-4/5" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-4/5" />
           </div>
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <div className="h-10 bg-muted rounded w-28" />
-            <div className="h-10 bg-muted rounded w-10 rounded-full" />
-            <div className="h-10 bg-muted rounded w-28" />
+            <Skeleton className="h-10 w-28" />
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-10 w-28" />
           </div>
         </div>
       </div>

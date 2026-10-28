@@ -6,6 +6,7 @@
  * Visitors see only what filterAgreementsForViewer permits.
  */
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -25,14 +26,14 @@ import { analytics } from '@/lib/mixpanel';
 function PageSkeleton() {
   return (
     <PageFrame size="reading">
-      <div className="animate-pulse">
+      <div>
         <div className="mb-4 flex min-h-14 items-center justify-between">
-          <div className="h-8 bg-muted rounded w-32" />
-          <div className="h-10 bg-muted rounded-md w-32" />
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-10 rounded-md w-32" />
         </div>
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-muted rounded-lg" />
+            <Skeleton key={i} className="h-14 rounded-lg" />
           ))}
         </div>
       </div>

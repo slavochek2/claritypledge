@@ -36,6 +36,7 @@
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
 
+import { CanvasBoxPlaceholder, CanvasLoadError, CanvasOwnerSkeleton } from './canvas-page-placeholders';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
@@ -616,7 +617,7 @@ export function CanvasPage() {
                 </span>
               </span>
             ) : (
-              current?.status !== 'error' && <span className="h-8 w-48 animate-pulse rounded bg-muted" aria-hidden />
+              current?.status !== 'error' && <CanvasOwnerSkeleton />
             )}
             {ready && <CanvasVersionSlot versions={ready.versions} version={ready.version} onPick={v => setParams({ v, point: null, box: null }, true, false)} />}
           </div>
@@ -673,17 +674,7 @@ export function CanvasPage() {
       </header>
 
       {current?.status === 'error' ? (
-        // The stake page's error pattern (message + Retry), one for the whole page.
-        <div role="alert" className="py-12 text-center">
-          <p className="mb-4 text-muted-foreground">Could not load this canvas.</p>
-          <button
-            type="button"
-            onClick={() => void read(key)}
-            className="min-h-11 font-medium text-blue-600 transition-colors hover:text-blue-700"
-          >
-            Retry
-          </button>
-        </div>
+        <CanvasLoadError onRetry={() => void read(key)} />
       ) : (
         <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} />
       )}
@@ -879,10 +870,8 @@ function CanvasBox({ tag, title, points, renderCard, onMore }: {
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
         <h3 id={headingId} className={`text-sm font-semibold ${titleColour}`}>{title}</h3>
       </div>
-      {points === null ? (
-        <div className="h-24 animate-pulse rounded-md bg-background" aria-hidden />
-      ) : empty ? (
-        <p className="text-sm text-foreground/60">Empty</p>
+      {points === null || empty ? (
+        <CanvasBoxPlaceholder empty={empty} />
       ) : (
         <div className="flex flex-col gap-2" data-testid="canvas-box-list">
           {points.slice(0, BOX_LIMIT).map(point => renderCard(point))}

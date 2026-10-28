@@ -3,6 +3,7 @@
  * @description P126: Create Story page — auth-gated form with visibility control.
  * Route: /create
  */
+import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -16,7 +17,7 @@ import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { useDocContext } from '@/app/hooks/use-doc-context';
 import { Loader2Icon, Lock, Globe } from 'lucide-react';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { DocPrivacyBanner } from '@/app/components/docs/doc-privacy-banner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -274,15 +275,7 @@ export function CreateStoryPage() {
   };
 
   // Loading state while checking auth
-  if (authLoading) {
-    return (
-      <div className="container mx-auto px-4 py-16 max-w-2xl">
-        <div className="flex items-center justify-center">
-          <ClarityLoader size="lg" />
-        </div>
-      </div>
-    );
-  }
+  if (authLoading) return <ClarityPageLoader />;
 
   // Don't render if not authenticated (redirect will happen)
   if (!session) {
@@ -305,7 +298,7 @@ export function CreateStoryPage() {
           className="mb-4"
         >
           {pointLoading ? (
-            <div className="animate-pulse bg-muted rounded h-[48px]" />
+            <Skeleton className="h-[48px]" />
           ) : pointText && pointLoadedId ? (
             <ChatContextHeader
               pointId={pointLoadedId}

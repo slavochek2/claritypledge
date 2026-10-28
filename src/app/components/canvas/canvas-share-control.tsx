@@ -19,6 +19,7 @@
  * A failed change leaves the list as it was: the list only ever changes to what the server confirmed.
  * Copy is [FOUNDER DECISION] (spec UI Contract).
  */
+import { CanvasShareFallback } from './canvas-share-fallback';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, CalendarDays, Globe, Link2, Loader2, Lock, Users, X, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -417,13 +418,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
         )}
       </div>
 
-      {loadError ? (
-        <div role="alert" className="py-2 text-center text-sm">
-          <p className="mb-2 text-muted-foreground">Could not load who this canvas is shared with.</p>
-          <button type="button" onClick={() => void load()} className="min-h-10 font-medium text-blue-600 hover:text-blue-700">Retry</button>
-        </div>
-      ) : !panel ? (
-        <div className="h-24 animate-pulse rounded-md bg-muted" aria-hidden />
+      {loadError || !panel ? (
+        <CanvasShareFallback loadError={loadError} onRetry={() => void load()} />
       ) : (
         <>
           <section className="flex flex-col gap-2" aria-labelledby={peopleId}>

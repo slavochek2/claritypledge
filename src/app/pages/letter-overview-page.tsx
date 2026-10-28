@@ -8,6 +8,7 @@
  * Route: /letter/:id/overview
  */
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
@@ -46,14 +47,14 @@ function snippet(text: string, max: number): string {
 
 function OverviewSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6">
       {/* Two skeleton story blocks */}
       {[0, 1].map((i) => (
         <div key={i}>
-          <div className="h-5 bg-muted rounded w-48 mb-3" />
-          <div className="h-4 bg-muted rounded mb-2" />
-          <div className="h-4 bg-muted rounded mb-2" />
-          <div className="h-4 bg-muted rounded mb-2" />
+          <Skeleton className="h-5 w-48 mb-3" />
+          <Skeleton className="h-4 mb-2" />
+          <Skeleton className="h-4 mb-2" />
+          <Skeleton className="h-4 mb-2" />
         </div>
       ))}
     </div>

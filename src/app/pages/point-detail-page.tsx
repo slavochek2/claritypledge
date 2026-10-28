@@ -7,6 +7,7 @@
  * the view, or show a generic view if no referrer.
  */
 
+import { PointDetailSkeleton } from './point-detail-skeleton';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Pin, Loader2 } from 'lucide-react';
@@ -351,40 +352,7 @@ export function PointDetailPage() {
     setRetryKey(k => k + 1);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
-        {!isEmbed && <FocusHeader fallback={BACK_FALLBACK} />}
-        {/* Skeleton for point card */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden mb-4 animate-pulse">
-          <div className="border-l-4 border-border p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-muted rounded-full" />
-              <div className="flex-1">
-                <div className="h-5 bg-muted rounded w-3/4 mb-3" />
-                <div className="flex gap-2">
-                  <div className="h-8 bg-muted rounded w-20" />
-                  <div className="h-8 bg-muted rounded w-20" />
-                  <div className="h-8 bg-muted rounded w-20" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Skeleton for positions section */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
-          <div className="flex border-b border-gray-100">
-            <div className="flex-1 h-12 bg-gray-100" />
-          </div>
-          <div className="p-4 space-y-3">
-            <div className="h-16 bg-muted rounded" />
-            <div className="h-16 bg-muted rounded" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <PointDetailSkeleton isEmbed={isEmbed} fallback={BACK_FALLBACK} />;
 
   // P1369: offline and never read on this device — the needs-connection body, not "not found".
   if (error === 'offline') {
