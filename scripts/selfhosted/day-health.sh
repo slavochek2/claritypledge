@@ -2,9 +2,10 @@
 # scripts/selfhosted/day-health.sh — what /day's cp.selfhosted reads (P1584)
 #
 # The hourly workflow (.github/workflows/selfhosted-health.yml) is the monitor; /day only reads its
-# verdict: the latest scheduled run, and the alert issue that run opens or closes. Until the workflow
-# has a scheduled run on main (not yet pushed, or gh unavailable), it falls back to probing the server
-# from this Mac with health.sh, and says so, so /day never goes blind during the switch.
+# verdict: the latest scheduled run, and the alert issue that run opens or closes. Only while the
+# workflow is not on origin/main yet does it probe the server from this Mac with health.sh instead (and
+# says so), so /day is not blind before the push. Once it is on main, a gh failure or a missing run is
+# "unknown", never a quiet switch to the local probe.
 #
 # Same contract as health.sh: "<check>: ok|warn|unknown: <detail>" lines; exit 0 ok, 1 warn, 2 unknown.
 # Output contract (shell-safety.md): no redirect or pipe tokens in status lines.
@@ -13,13 +14,19 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WORKFLOW="selfhosted-health.yml"; TITLE="Self-hosted TEST server health failing"
 MAX_AGE_S="${SELFHOSTED_MAX_RUN_AGE_S:-10800}"   # hourly schedule; GitHub delays cron runs, so 3 h
 
-# The local probe is a real reading, so its verdict stands; the source line says where it came from.
-fallback() { echo "source: ok: local probe, because $1"; "$HERE/health.sh"; exit $?; }
+ROOT="$(cd "$HERE/../.." && pwd)"
+# SELFHOSTED_WORKFLOW_ON_MAIN=yes|no overrides the lookup (tests only).
+on_main="${SELFHOSTED_WORKFLOW_ON_MAIN:-}"
+[ -n "$on_main" ] || { git -C "$ROOT" cat-file -e "origin/main:.github/workflows/$WORKFLOW" 2>/dev/null && on_main=yes || on_main=no; }
+if [ "$on_main" != yes ]; then
+  # The local probe is a real reading, so its verdict stands; the source line says where it came from.
+  echo "source: ok: local probe, because the workflow is not on origin/main yet"; "$HERE/health.sh"; exit $?
+fi
 
 runs="$(gh run list --workflow "$WORKFLOW" --branch main --event schedule --limit 5 \
-  --json conclusion,createdAt,status,url 2>/dev/null)" || fallback "could not list the workflow's runs"
+  --json conclusion,createdAt,status,url 2>/dev/null)" || { echo "workflow: unknown: could not list the workflow's runs (gh)"; exit 2; }
 last="$(printf '%s' "$runs" | jq -c '[.[] | select(.status=="completed")] | first // empty' 2>/dev/null)"
-[ -n "$last" ] || fallback "the workflow has no completed scheduled run yet"
+[ -n "$last" ] || { echo "workflow: unknown: the workflow has no completed scheduled run yet"; exit 2; }
 
 conclusion="$(printf '%s' "$last" | jq -r .conclusion)"; url="$(printf '%s' "$last" | jq -r .url)"
 created="$(printf '%s' "$last" | jq -r .createdAt)"

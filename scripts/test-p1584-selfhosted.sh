@@ -59,17 +59,29 @@ export PATH="$T/bin:$PATH"
 now=$(date +%s)
 
 # --- health.sh --source guest-attributes ------------------------------------------------------------
+ga() { printf 'disk,%s\nwal,%s\ndown,%s\nts,%s\n' "$1" "$2" "$3" "$4" > "$T/ga"; }
+GA=(-- "$SH/health.sh" --source guest-attributes)
+ga 18 64 none "$now"
+expect "health: fresh VM report is ok" 0 '^services: ok: every stack container' "${GA[@]}"
+expect "health: front door answer is labelled as such" 0 '^reachable: ok: front door HTTP 401' "${GA[@]}"
+ga 91 64 none "$now"
+expect "health: full disk warns" 1 '^disk: warn: 91% used' "${GA[@]}"
+ga 18 64 auth,storage "$now"
+expect "health: a down service warns, by name" 1 '^services: warn: not running or unhealthy: auth, storage' "${GA[@]}"
+ga 18 64 none "$((now - 7200))"
+expect "health: stale VM report is unknown, never ok" 2 '^disk: unknown: the VM last reported 120 min ago' "${GA[@]}"
+ga 18 64 none "$((now + 86400 * 365))"
+expect "health: a report dated in the future is unknown, never ok" 2 '^services: unknown: the VM report is dated in the future' "${GA[@]}"
+printf 'disk,18\nwal,64\ndown,none\n' > "$T/ga"
+expect "health: report without ts is unknown" 2 'no timestamp' "${GA[@]}"
 printf 'disk,18\nwal,64\nts,%s\n' "$now" > "$T/ga"
-expect "health: fresh VM report is ok" 0 '^wal: ok: 64 MB' -- "$SH/health.sh" --source guest-attributes
-printf 'disk,91\nwal,64\nts,%s\n' "$now" > "$T/ga"
-expect "health: full disk warns" 1 '^disk: warn: 91% used' -- "$SH/health.sh" --source guest-attributes
-printf 'disk,18\nwal,64\nts,%s\n' "$((now - 7200))" > "$T/ga"
-expect "health: stale VM report is unknown, never ok" 2 '^disk: unknown: the VM last reported 120 min ago' -- "$SH/health.sh" --source guest-attributes
-printf 'disk,18\nwal,64\n' > "$T/ga"
-expect "health: report without ts is unknown" 2 'no timestamp' -- "$SH/health.sh" --source guest-attributes
+expect "health: report without a service reading is unknown" 2 '^services: unknown: no service reading' "${GA[@]}"
+ga 18 64 'x;rm' "$now"
+expect "health: a malformed service list is unknown, never echoed" 2 '^services: unknown' "${GA[@]}"
 rm -f "$T/ga"
-expect "health: unreadable guest attributes are unknown" 2 '^wal: unknown: could not read guest attributes' -- "$SH/health.sh" --source guest-attributes
+expect "health: unreadable guest attributes are unknown" 2 '^wal: unknown: could not read guest attributes' "${GA[@]}"
 expect "health: --source none skips disk and WAL" 0 '^cert: ok: ' -- "$SH/health.sh" --source none
+expect "health: --source without a value refused, no hang" 2 'needs a value' -- "$SH/health.sh" --source
 expect "health: bad --source refused" 2 'unknown --source' -- "$SH/health.sh" --source bogus
 SELFHOSTED_HOST='a b' expect "health: non-hostname override refused" 2 'refusing SELFHOSTED_HOST' -- "$SH/health.sh" --source none
 
@@ -78,7 +90,7 @@ iso() { python3 -I -c 'import sys,datetime as d; print(d.datetime.fromtimestamp(
 run() { printf '[{"conclusion":"%s","createdAt":"%s","status":"completed","url":"https://x/runs/1"}]' "$1" "$(iso "$2")" > "$T/runs"; }
 BOT='[{"number":7,"title":"Self-hosted TEST server health failing","author":{"login":"app/github-actions"}}]'
 OTHER='[{"number":8,"title":"Self-hosted TEST server health failing","author":{"login":"someone"}}]'
-printf 'disk,18\nwal,64\nts,%s\n' "$now" > "$T/ssh-unused"
+export SELFHOSTED_WORKFLOW_ON_MAIN=yes
 run success "$((now - 600))"; rm -f "$T/issues"
 expect "day: fresh green run, no issue is ok" 0 '^workflow: ok: .*10 min ago' -- "$SH/day-health.sh"
 echo "$BOT" > "$T/issues"
@@ -89,10 +101,52 @@ rm -f "$T/issues"; run failure "$((now - 600))"
 expect "day: a failed run warns (alerter broken)" 1 'last run itself failed' -- "$SH/day-health.sh"
 run success "$((now - 5 * 3600))"
 expect "day: a run older than 3 h is unknown" 2 'was 5 h ago' -- "$SH/day-health.sh"
-echo '[]' > "$T/runs"; printf 'DISK:18\nWAL:64\n' > "$T/ssh"
-expect "day: no scheduled run falls back to the local probe" 0 '^source: ok: local probe' -- "$SH/day-health.sh"
+echo '[]' > "$T/runs"
+expect "day: on main with no scheduled run is unknown, no silent local probe" 2 '^workflow: unknown: .*no completed scheduled run' -- "$SH/day-health.sh"
 rm -f "$T/runs"
-expect "day: gh failure falls back to the local probe" 0 'could not list the workflow' -- "$SH/day-health.sh"
+expect "day: on main with gh failing is unknown, no silent local probe" 2 '^workflow: unknown: could not list' -- "$SH/day-health.sh"
+printf 'DISK:18\nWAL:64\n' > "$T/ssh"
+SELFHOSTED_WORKFLOW_ON_MAIN=no expect "day: before the workflow is on main, the local probe answers" 0 '^source: ok: local probe, because the workflow is not on origin/main' -- "$SH/day-health.sh"
+unset SELFHOSTED_WORKFLOW_ON_MAIN
+
+# --- the workflow's alert block, extracted verbatim from the YAML (P1567 pattern) -------------------
+WF="$ROOT/.github/workflows/selfhosted-health.yml"
+BLOCK="$T/alert-block.sh"
+sed -n '/# BEGIN alert-block/,/# END alert-block/p' "$WF" | sed 's/^ *//' > "$BLOCK"
+[ "$(grep -c 'BEGIN alert-block' "$BLOCK")" = 1 ] || { bad "alert block markers" "not found once in $WF"; }
+cat > "$T/bin/gh" <<EOF
+#!/usr/bin/env bash
+echo "gh \$*" >> "$T/gh.log"
+case "\$1 \$2" in
+  "run list") [ -f "$T/runs" ] || exit 1; cat "$T/runs" ;;
+  "issue list") [ "\${GH_LIST_FAIL:-0}" = 1 ] && exit 1; cat "$T/issues" 2>/dev/null || echo '[]' ;;
+esac
+exit 0
+EOF
+chmod +x "$T/bin/gh"
+# alert <block> <HEALTH_CODE or UNSET> <issues json or none> [drill host] -> $T/gh.log
+alert() {
+  : > "$T/gh.log"; rm -f "$T/issues"; [ "$3" = none ] || echo "$3" > "$T/issues"
+  echo "reachable: warn: no answer" > "$T/health-output.txt"
+  ( cd "$T" && env ${2:+$( [ "$2" = UNSET ] || echo HEALTH_CODE="$2")} DRILL_HOST="${4:-}" \
+      GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=42 \
+      bash -c 'set -euo pipefail; . "$1"' _ "$1" ) > "$T/alert.out" 2>&1
+}
+want() { # want <name> <grep -E on the gh log> [absent-pattern]
+  if grep -qE "$2" "$T/gh.log" && { [ -z "${3:-}" ] || ! grep -qE "$3" "$T/gh.log"; }; then ok "$1"; else bad "$1" "$(cat "$T/gh.log" "$T/alert.out")"; fi
+}
+alert "$BLOCK" 1 none;            want "alert: problem, no issue: creates" '^gh issue create --title Self-hosted TEST server health failing --body-file'
+alert "$BLOCK" 2 "$BOT";          want "alert: unknown, issue open: comments on #7" '^gh issue comment 7 ' 'issue create'
+alert "$BLOCK" 0 "$BOT";          want "alert: healthy, issue open: closes #7" '^gh issue close 7 '
+alert "$BLOCK" UNSET none;        want "alert: setup failed (no code): creates, says did not run" '^gh issue create' ; grep -q 'did not run' "$T/issue-body.md" && ok "alert: body says did not run" || bad "alert: body says did not run" "$(cat "$T/issue-body.md")"
+alert "$BLOCK" 1 "$OTHER";        want "alert: a same-title issue by another author is not reused" '^gh issue create' 'issue comment 8'
+GH_LIST_FAIL=1 alert "$BLOCK" 1 none; want "alert: a failed lookup still creates" '^gh issue create'
+alert "$BLOCK" 1 none nope.invalid; want "alert: drill opens its own (drill) issue" 'issue create --title Self-hosted TEST server health failing \(drill\)'
+alert "$BLOCK" 0 "$BOT" nope.invalid; want "alert: a healthy drill never closes the real issue" '^gh issue list' 'issue close'
+# Control: the same block with the create call removed must fail the create case.
+sed 's/gh issue create --title "\$TITLE" --body-file issue-body.md/true/' "$BLOCK" > "$T/mutant.sh"
+alert "$T/mutant.sh" 1 none
+if grep -q '^gh issue create' "$T/gh.log"; then bad "alert control: mutant without create is caught" "$(cat "$T/gh.log")"; else ok "alert control: mutant without create is caught"; fi
 
 # --- upkeep.sh --no-prod ----------------------------------------------------------------------------
 printf 'VITE_SUPABASE_URL=https://hostedref.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"
@@ -101,31 +155,42 @@ printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
 printf '201\n[{"ok":1}]' > "$T/curl-hosted"
 good_ssh() {
   cat <<'EOF'
-PIN:supabase/gotrue:v2.189.0
-PIN:caddy:2
+PIN:auth supabase/gotrue:v2.189.0
+PIN:db supabase/postgres:17.6.1.136
+PIN:caddy caddy:2
 RUN:auth supabase/gotrue:v2.189.0
+RUN:db supabase/postgres:17.6.1.136
 RUN:caddy caddy:2
-SERVICES:2
 RELEASE:2026-08-03
 APT:1;0
 UU:enabled
+APTAGE:0
+TPLURL:https://136-85-1-126.sslip.io/_cp-email-templates/magic_link.html https://136-85-1-126.sslip.io/_cp-email-templates/confirmation.html
 REBOOT:no
 END:ok
 EOF
 }
 good_ssh > "$T/ssh"
-expect "upkeep: all good except the skipped template check" 2 '^images: ok: 2 services on the pinned images \(release 2026-08-03\); floating tag: caddy:2' -- "$SH/upkeep.sh" --no-prod
+expect "upkeep: all good except the skipped template check" 2 '^images: ok: 3 services on the pinned images \(release 2026-08-03\); floating tag: caddy:2' -- "$SH/upkeep.sh" --no-prod
 expect "upkeep: hosted answering is ok" 2 '^hosted: ok' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/gotrue:v2.180.0#' > "$T/ssh"
-expect "upkeep: a hand-changed image warns" 1 'running but not pinned: supabase/gotrue:v2.180.0' -- "$SH/upkeep.sh" --no-prod
+expect "upkeep: a hand-changed image warns" 1 'running a different image than pinned: auth=supabase/gotrue:v2.180.0' -- "$SH/upkeep.sh" --no-prod
+good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/postgres:17.6.1.136#' > "$T/ssh"
+expect "upkeep: a service on ANOTHER service's pinned image warns" 1 'auth=supabase/postgres:17.6.1.136' -- "$SH/upkeep.sh" --no-prod
+good_ssh | sed '/^PIN:/d' > "$T/ssh"
+expect "upkeep: no pinned services listed is unknown" 2 'listed no pinned services' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed '/^RUN:caddy/d' > "$T/ssh"
-expect "upkeep: a stopped service warns" 1 '1 of 2 services running' -- "$SH/upkeep.sh" --no-prod
+expect "upkeep: a stopped service warns" 1 'not running: caddy' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's/^APT:1;0/APT:5;3/' > "$T/ssh"
 expect "upkeep: pending security updates warn" 1 '^os: warn: 3 security updates pending of 5' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's/^UU:enabled/UU:disabled/' > "$T/ssh"
 expect "upkeep: disabled unattended-upgrades warns" 1 'unattended-upgrades is disabled' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's/^REBOOT:no/REBOOT:yes linux-image-6.8 /' > "$T/ssh"
 expect "upkeep: pending reboot warns with its packages" 1 'reboot pending for: linux-image-6.8' -- "$SH/upkeep.sh" --no-prod
+good_ssh | sed 's/^APTAGE:0/APTAGE:9/' > "$T/ssh"
+expect "upkeep: stale package lists warn (0 pending would be meaningless)" 1 'package lists are 9 days old' -- "$SH/upkeep.sh" --no-prod
+good_ssh | sed 's/^APT:1;0/APT:5;3 foo/' > "$T/ssh"
+expect "upkeep: a garbled apt count is unknown, never ok" 2 '^os: unknown: apt-check gave no count' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed '/^END:ok/d' > "$T/ssh"
 expect "upkeep: a session cut short is unknown, never ok" 2 '^images: unknown: ssh' -- "$SH/upkeep.sh" --no-prod
 good_ssh > "$T/ssh"
@@ -134,6 +199,9 @@ expect "upkeep: upstream ahead of the pin warns with the change count" 1 'pinned
 printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
 printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"
 expect "upkeep: paused hosted TEST warns" 1 'hosted TEST is paused' -- "$SH/upkeep.sh" --no-prod
+printf '201\n[{"ok":1}]' > "$T/curl-hosted"
+printf 'VITE_SUPABASE_URL="https://hostedref.supabase.co"\nSUPABASE_TEST_WRITE_TOKEN="sbp_fake"\n' > "$T/env"
+expect "upkeep: quoted .env.local values still work" 2 '^hosted: ok' -- "$SH/upkeep.sh" --no-prod
 printf 'VITE_SUPABASE_URL=https://besjtuodziykmjidubzw.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"
 expect "upkeep: a prod ref in .env.local is refused" 2 'names the prod project; refusing' -- "$SH/upkeep.sh" --no-prod
 

@@ -4,7 +4,7 @@
 #
 # The roster below is the enrolment point: a new producer workflow is bound to this
 # canary by being listed here, and a producer that is NOT listed is silently exempt
-# from every check in this file. P1283 added cron-health as the ninth (after P890 added edge-smoke as the eighth).
+# from every check in this file. P1283 added cron-health as the ninth (after P890 added edge-smoke as the eighth); P1584 added selfhosted-health as the tenth.
 #
 # Gate 7c: this suite tests the ACCEPT case as well as the REJECT case. A filter that
 # rejects everything looks identical to a quiet system, which is the exact defect P1155
@@ -18,17 +18,21 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 PRODUCERS=(auth-canary csp-smoke db-backup prod-health-smoke stranded-signups
-           check-deploy-drift backup-staleness edge-smoke cron-health)
+           check-deploy-drift backup-staleness edge-smoke cron-health selfhosted-health)
 BOT="app/github-actions"
 fails=0
 sites=0
 
-# One canonical filter is expected across all producers; extract and de-duplicate.
+# One canonical filter is expected across all producers; extract and de-duplicate. Only the roster's
+# files: supply-chain-audit.yml (P1567) binds the author with `gh --author` and its own filter, and
+# globbing every workflow made this canary fail on main for a workflow it does not enrol (P1584).
 # bash 3.2 (macOS default) has no mapfile — read into an array portably.
 FILTERS=()
+PRODUCER_FILES=()
+for p in "${PRODUCERS[@]}"; do PRODUCER_FILES+=(".github/workflows/$p.yml"); done
 while IFS= read -r line; do
   [ -n "$line" ] && FILTERS+=("$line")
-done < <(grep -ho "jq -r --arg t \"\$TITLE\" '.*'" .github/workflows/*.yml \
+done < <(grep -ho "jq -r --arg t \"\$TITLE\" '.*'" "${PRODUCER_FILES[@]}" \
          | sed -E "s/^jq -r --arg t \"\\\$TITLE\" '//; s/'\$//" | sort -u)
 
 if [ "${#FILTERS[@]}" -ne 1 ]; then

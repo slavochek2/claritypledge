@@ -11,6 +11,8 @@ byte for byte, so any other difference, on either side, is drift.
 
 Prints "templates: ok|warn|unknown: <detail>". Exit 0 ok, 1 drift, 2 could not compare.
 """
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

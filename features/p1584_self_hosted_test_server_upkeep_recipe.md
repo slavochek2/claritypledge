@@ -70,6 +70,49 @@ Decision density: low; one founder call below.
 - Do NOT put GCP credentials in CI without the founder decision above.
 - Do NOT auto-upgrade the stack; the weekly report proposes, a human approves.
 
+## Cost Budget
+
+Every metered surface this adds, per run of the hourly workflow (runs per month = 24 x 30 = 720) and per
+weekly upkeep run (4 per month). Nothing here is per user or per test run.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Compute API reads (`getGuestAttributes`) | n/a | 1 per run = 720/month | n/a |
+| IAM credential exchanges (STS + access token) | n/a | 2 per run = 1,440/month | n/a |
+| Guest-attribute writes (in-VM metadata server, not an API call) | n/a | 4 per report x 6 reports = 24/hour | n/a |
+| GitHub API (issue list, plus a create/comment/close on change) | n/a | 1 to 2 per run = up to 1,440/month | n/a |
+| Supabase Management API (weekly: one hosted `select 1`, one prod auth-config read) | n/a | 2 per week = 8/month | n/a |
+| Actions minutes (public repo) | n/a | about 1.5 min per run = 1,080 min/month | n/a |
+| Egress | n/a | under 10 KB per run; weekly upstream `versions.md` about 7 KB | n/a |
+| Log lines | n/a | one 5-line run log per run; failures add one issue comment per hourly run while the alert stays open | n/a |
+
+1. **Fits today?** Fits. Compute API and IAM credential calls are not billed (Compute Engine row: billing is
+   per VM resource, not per API call), and 720 reads a month sits far under the per-minute read quota.
+   GitHub-hosted runners are free for a public repo. The Management API calls are 8 a month. The VM-side
+   reporter is one `df` and one `psql` every 10 minutes on a VM that is already paid for.
+2. **Fits at 10x?** Fits: 10x is a run every 6 minutes, still no billed unit, and the reporter's 10-minute
+   cadence is the floor anyway.
+3. **No upgrade needed.**
+
+**Rule 2 (polling needs a reason):** push is not available. The point is to notice the VM going silent,
+and a dead VM cannot push. Hourly is the interval: reachability and disk change on the scale of hours,
+and /day reads the result once a day. The VM reporter is local (no network beyond the metadata server),
+so its 10-minute cadence costs no metered unit.
+
+## Known limitations
+
+- **The Workload Identity binding is repo-wide, not per workflow.** Any workflow on `main` that asks for
+  an ID token can impersonate both `cp-test-health-reader` and the existing `db-backup-writer`. The new
+  account can only read this VM's guest attributes, so it adds little exposure. Narrowing both to their
+  own workflow needs an `attribute.workflow_ref` mapping on the shared provider, which the backups also
+  use. [FOUNDER DECISION: narrow the shared provider's bindings per workflow, or accept repo-wide.]
+- **Issue lookup reads the newest 100 open issues** (the repo-wide P1155 pattern; P1567 rejected
+  paginating as exotic).
+- **The template check covers the two templates TEST customises** (magic link and confirmation) and
+  confirms the auth service fetches them. Subjects and the other templates are GoTrue defaults on
+  purpose (decisions.md 2026-10-28, P1557).
+- **A planned VM stop adds an issue comment every hour** until it starts again (ACCEPT, above).
+
 ## Done-When
 
 - [ ] A scheduled workflow checks reachability and certificate, and an issue opens when the check is

@@ -85,9 +85,16 @@
       "escalate_at_days": [2, 7, 30]
     },
     {
+      "id": "selfhosted-health",
+      "kind": "github-issue-age",
+      "produced_by": "selfhosted-health.yml",
+      "match_title": "Self-hosted TEST server health failing",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
       "id": "producer-freshness",
       "kind": "workflow-last-run",
-      "_note": "A producer that stopped running makes silence read as health. Tolerance is per-workflow because the schedules differ: 6-hourly jobs get 8h, daily jobs get 25h.",
+      "_note": "A producer that stopped running makes silence read as health. Tolerance is per-workflow because the schedules differ: 6-hourly jobs get 8h, daily jobs get 25h, the hourly selfhosted-health gets 3h.",
       "workflows": [
         { "file": "check-deploy-drift.yml",  "max_age_hours": 25 },
         { "file": "backup-staleness.yml",    "max_age_hours": 25 },
@@ -97,7 +104,8 @@
         { "file": "csp-smoke.yml",           "max_age_hours": 8 },
         { "file": "prod-health-smoke.yml",   "max_age_hours": 8 },
         { "file": "edge-smoke.yml",         "max_age_hours": 8 },
-        { "file": "cron-health.yml",         "max_age_hours": 8 }
+        { "file": "cron-health.yml",         "max_age_hours": 8 },
+        { "file": "selfhosted-health.yml",   "max_age_hours": 3 }
       ]
     }
   ]

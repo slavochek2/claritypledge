@@ -7,12 +7,15 @@
 # main only, no key file). Its only permission is compute.instances.getGuestAttributes on this one
 # VM, so it can read health and nothing else: no SSH, no metadata writes, no other instance.
 #
-# ALERT-ONLY (P866 pattern, same as backup-staleness.yml): the check step is continue-on-error, so a
-# failing server opens/appends a GitHub issue instead of a failure email. The alerting steps are NOT
-# continue-on-error: a broken alerter must fail loudly, and /day reads a failed run as a problem.
+# ALERT-ONLY (P866 pattern): an unhealthy server opens/appends a GitHub issue and the job stays green,
+# so there is no hourly failure email. The alert step follows decisions.md 2026-10-26 [technical]
+# (P1567): it runs always(), so a failed checkout, WIF login or SDK setup is itself an alert ("did not
+# run"); gh reads the repo from GH_REPO, not the checkout; a failed issue lookup falls through to
+# create. Only a broken alert step turns the job red, and /day reads a red run as a broken alerter.
 #
 # Failure drill: run it by hand with `host` set to an unreachable name. The issue it opens carries
-# "(drill)" in the title, and only a run against the real host closes the real issue.
+# "(drill)" in the title and is closed by hand; only a healthy run against the real host closes the
+# real issue. Tested verbatim: scripts/test-p1584-selfhosted.sh extracts the alert block.
 
 name: Self-hosted TEST health
 
@@ -39,9 +42,11 @@ concurrency:
 jobs:
   selfhosted-health:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          ref: main # a dispatch from another branch must not report on (or close the alert about) main
           persist-credentials: false
 
       - name: Authenticate to GCP
@@ -53,64 +58,73 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
 
-      # The host input reaches the script through env only; health.sh refuses anything that is not
-      # a plain hostname. pipefail is required: without it tee's exit 0 masks the script's failure
-      # and the outcome below never reads 'failure'.
+      # Records the exit code to a step output; if this step never runs (a setup step failed) or is
+      # killed, no code is recorded and the alert step reports "did not run". The host input reaches the
+      # script through env only; health.sh refuses anything that is not a plain hostname.
       - name: Check health
         id: health
-        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
         env:
           SELFHOSTED_HOST: ${{ github.event.inputs.host }}
         run: |
-          set -o pipefail
+          set +e
           [ -n "$SELFHOSTED_HOST" ] || unset SELFHOSTED_HOST
-          ./scripts/selfhosted/health.sh --source guest-attributes | tee health-output.txt
+          ./scripts/selfhosted/health.sh --source guest-attributes > health-output.txt 2>&1
+          code=$?
+          cat health-output.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
 
-      - name: Open a GitHub issue on failure
-        if: steps.health.outcome == 'failure'
+      - name: Open, update or close the alert issue
+        if: always()
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }} # gh must not depend on the checkout, which may have failed
+          HEALTH_CODE: ${{ steps.health.outputs.code }}
           DRILL_HOST: ${{ github.event.inputs.host }}
         run: |
           set -euo pipefail
+          # BEGIN alert-block
           TITLE="Self-hosted TEST server health failing"
-          [ -z "$DRILL_HOST" ] || TITLE="$TITLE (drill)"
+          [ -z "${DRILL_HOST:-}" ] || TITLE+=" (drill)"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          {
-            echo "The hourly health check of the self-hosted TEST server failed. warn = the server has a problem; unknown = the check could not read it (a stopped reporter on the VM, or the VM itself is down)."
-            echo ""
-            echo '```'
-            cat health-output.txt
-            echo '```'
-            echo ""
-            echo "If the VM was stopped on purpose, close this issue; the next healthy run after it starts would close it anyway."
-            echo ""
-            echo "Run: $RUN_URL"
-          } > issue-body.md
+          case "${HEALTH_CODE:-}" in
+            0) STATUS="healthy" ;;
+            1) STATUS="warn: the server has a problem" ;;
+            2) STATUS="unknown: the check could not read the server (stopped VM report, or the VM is down)" ;;
+            *) STATUS="did not run: a setup step (checkout, GCP login, SDK) failed or the check was killed" ;;
+          esac
           # Author-bound exact-title match (P1155): exact title, not `gh --search` (token match could
           # swallow the comment into another issue); author == the Actions bot, so this workflow cannot
           # be induced to append to an issue it did not create; explicit --limit, so an ageing alarm is
-          # never past the first page.
+          # never past the first page. A failed lookup must not stop the alert (P1567).
           existing=$(gh issue list --state open --limit 100 --json number,title,author \
-            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body-file issue-body.md
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty') \
+            || existing=""
+          if [ "$STATUS" = healthy ]; then
+            # Self-healing: a healthy run against the real host closes the real issue. A drill never does.
+            if [ -n "$existing" ] && [ -z "${DRILL_HOST:-}" ]; then
+              gh issue close "$existing" --comment "Healthy again. Run: $RUN_URL"
+            fi
           else
-            gh issue create --title "$TITLE" --body-file issue-body.md
+            {
+              echo "Self-hosted TEST health: $STATUS."
+              echo ""
+              echo '```'
+              cat health-output.txt 2>/dev/null || echo "(no output: the check did not run)"
+              echo '```'
+              echo ""
+              if [ -n "${DRILL_HOST:-}" ]; then echo "Failure drill against $DRILL_HOST. Close this issue by hand; drills never auto-close."
+              else echo "If the VM was stopped on purpose, close this issue; the first healthy run after it starts closes it anyway."; fi
+              echo ""
+              echo "Run: $RUN_URL"
+            } > issue-body.md
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body-file issue-body.md
+            else
+              gh issue create --title "$TITLE" --body-file issue-body.md
+            fi
           fi
-
-      # Self-healing signal: a healthy run against the real host closes the open issue, so /day never
-      # flags a resolved outage. A drill run never closes anything.
-      - name: Close the issue on recovery
-        if: steps.health.outcome == 'success' && github.event.inputs.host == ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TITLE="Self-hosted TEST server health failing"
-          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          existing=$(gh issue list --state open --limit 100 --json number,title,author \
-            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
-          if [ -n "$existing" ]; then
-            gh issue close "$existing" --comment "Healthy again. Run: $RUN_URL"
-          fi
+          # END alert-block

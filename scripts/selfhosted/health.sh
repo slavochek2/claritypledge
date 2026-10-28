@@ -12,6 +12,7 @@
 #   guest-attributes  the VM's own report (scripts/selfhosted/vm/cp-health-report.sh, every 10 min),
 #                     read with compute.instances.getGuestAttributes only. Used by the scheduled
 #                     workflow (.github/workflows/selfhosted-health.yml), whose account cannot SSH.
+#                     Adds a services check: compose services stopped, restarting or unhealthy.
 #   none              skip disk and WAL.
 # SELFHOSTED_HOST overrides the public host, for the workflow's failure drill only.
 set -uo pipefail
@@ -24,7 +25,7 @@ REPORT_MAX_AGE_S=1800   # the reporter runs every 10 min; three missed runs is a
 SOURCE=ssh
 while [ $# -gt 0 ]; do
   case "$1" in
-    --source) SOURCE="${2:-}"; shift 2 ;;
+    --source) [ $# -ge 2 ] || { echo "--source needs a value" >&2; exit 2; }; SOURCE="$2"; shift 2 ;;
     *) echo "usage: health.sh [--source ssh|guest-attributes|none]" >&2; exit 2 ;;
   esac
 done
@@ -35,15 +36,19 @@ case "$HOST" in ""|*[!a-z0-9.-]*|-*) echo "refusing SELFHOSTED_HOST: not a plain
 WARN=0; UNKNOWN=0
 report() { echo "$1: $2: $3"; [ "$2" = warn ] && WARN=1; [ "$2" = unknown ] && UNKNOWN=1; return 0; }
 
-# 1. Reachable over HTTPS (any HTTP answer from the auth service counts; 000 is no answer).
+# 1. The front door answers over HTTPS. Any HTTP answer counts and 000 is none. Kong answers 401 to a
+# keyless request before it reaches the auth service, so this proves the proxy and gateway only; the
+# services behind them are the services check (guest-attributes source).
 code="$(curl -s -o /dev/null -m 10 -w '%{http_code}' "https://$HOST/auth/v1/health")"; rc=$?
 case "$code" in [1-9][0-9][0-9]|000) ;; *) code="" ;; esac
 if [ -z "$code" ]; then report reachable unknown "curl could not run (exit $rc)"; else
-case "$code" in 000) report reachable warn "no answer from https://$HOST" ;; 5*) report reachable warn "HTTP $code" ;; *) report reachable ok "HTTP $code" ;; esac
+case "$code" in 000) report reachable warn "no answer from https://$HOST" ;; 5*) report reachable warn "HTTP $code" ;; *) report reachable ok "front door HTTP $code" ;; esac
 fi
 
 # 2. Certificate days left. BSD date on the Mac, GNU date on the workflow runner.
-end="$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
+# perl's alarm is the deadline on both the Mac and the runner (macOS has no timeout(1)): a host that
+# accepts TCP and stalls TLS must not hold the run past the point where it can still alert.
+end="$(echo | perl -e 'alarm shift; exec @ARGV' 15 openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
 if [ -z "$end" ]; then report cert unknown "could not read the certificate"
 else
   end_ts="$(date -j -f '%b %e %T %Y %Z' "$end" +%s 2>/dev/null || date -d "$end" +%s 2>/dev/null || true)"
@@ -56,7 +61,7 @@ fi
 # 3-4. Disk and WAL.
 [ "$SOURCE" = none ] && { [ "$WARN" = 1 ] && exit 1; [ "$UNKNOWN" = 1 ] && exit 2; exit 0; }
 command -v gcloud >/dev/null 2>&1 || PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
-pct=""; wal=""; why=""
+pct=""; wal=""; down=""; why=""
 if ! command -v gcloud >/dev/null 2>&1 || ! gcloud auth print-access-token >/dev/null 2>&1; then
   why="gcloud not logged in"
 elif [ "$SOURCE" = ssh ]; then
@@ -75,14 +80,22 @@ else
   if [ -n "$out" ] && [ -z "$ts" ]; then why="the VM report has no timestamp"
   elif [ -n "$ts" ]; then
     age=$(( $(date +%s) - ts ))
-    if [ "$age" -gt "$REPORT_MAX_AGE_S" ]; then why="the VM last reported $(( age / 60 )) min ago"
-    else pct="$(attr disk)"; wal="$(attr wal)"; fi
+    # A ts in the future would read as fresh forever; allow only small clock skew.
+    if [ "$age" -lt -300 ]; then why="the VM report is dated in the future"
+    elif [ "$age" -gt "$REPORT_MAX_AGE_S" ]; then why="the VM last reported $(( age / 60 )) min ago"
+    else pct="$(attr disk)"; wal="$(attr wal)"
+      down="$(sed -n '/^down,[a-z0-9_,-]*$/{s/^down,//p;q;}' <<< "$out")"; fi
   fi
 fi
 if [ -z "$pct" ]; then report disk unknown "${why:-no disk reading}"
 elif [ "$pct" -ge "$DISK_WARN_PCT" ]; then report disk warn "${pct}% used"; else report disk ok "${pct}% used"; fi
 if [ -z "$wal" ]; then report wal unknown "${why:-could not read WAL size}"
 elif [ "$wal" -ge "$WAL_WARN_MB" ]; then report wal warn "${wal} MB"; else report wal ok "${wal} MB"; fi
+if [ "$SOURCE" = guest-attributes ]; then
+  if [ -z "$down" ]; then report services unknown "${why:-no service reading}"
+  elif [ "$down" = none ]; then report services ok "every stack container running and healthy"
+  else report services warn "not running or unhealthy: ${down//,/, }"; fi
+fi
 
 [ "$WARN" = 1 ] && exit 1
 [ "$UNKNOWN" = 1 ] && exit 2

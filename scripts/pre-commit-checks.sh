@@ -378,7 +378,7 @@ echo ""
 # the alarm is diverted silently. Hermetic (jq against fixtures, no network).
 # The canary extracts the jq filter FROM the workflows rather than restating it,
 # so a drift between test and code fails rather than passing quietly.
-ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|edge-smoke|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs|test-escalator-exit-codes\.sh)|\.github/alert-registry\.json)$' || true)
+ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|edge-smoke|selfhosted-health|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs|test-escalator-exit-codes\.sh)|\.github/alert-registry\.json)$' || true)
 if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     if ! run_quiet "Alert-producer author-bind canary (P1155)" bash scripts/test-producer-author-bind.sh; then
         ERRORS=$((ERRORS + 1))
