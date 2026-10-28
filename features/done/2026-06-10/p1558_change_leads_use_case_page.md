@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 68
 workstream: gtm
 created_date: '2026-10-23'
 tags: [landing, use-case, change-management, outreach]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-28
 ---
 
 # P1558: Use-case page for people leading a change that stalled
@@ -124,7 +124,7 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 
 ## Related
 
-- [P1506](done/2026-06-10/p1506_hospitals_use_case_page.md): template page.
-- [P1559](p1559_follow_through_record.md): Clarity Ledger counts (what this page says about follow-through).
-- [P1457](p1457_clarity_chat_data_import.md), [P1437](p1437_conversation_groups_agents_check_understanding.md), [P1431](p1431_mirror_agent_letter_chat.md): import and agent drafting.
+- [P1506](p1506_hospitals_use_case_page.md): template page.
+- [P1559](../../p1559_follow_through_record.md): Clarity Ledger counts (what this page says about follow-through).
+- [P1457](../../p1457_clarity_chat_data_import.md), [P1437](../../p1437_conversation_groups_agents_check_understanding.md), [P1431](../../p1431_mirror_agent_letter_chat.md): import and agent drafting.
 - hypotheses.md H-ChatFollowThrough; decisions.md 2026-10-23 [product], 2026-10-17 [product] (P1506), 2026-09-21 [product].
