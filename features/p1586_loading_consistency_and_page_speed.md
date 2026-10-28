@@ -164,15 +164,19 @@ Applies because the continuity e2e (`e2e/p1586-loading-continuity.spec.ts`) crea
 
 Visual items: screenshots at 1440, 375 and 320, plus the frame evidence named in the item.
 
-- [ ] Cold loads of `/feed`, `/groups/cm`, `/events`, `/groups/cm/join`, `/events/:slug`, `/events/:slug/room`, `/settings`, `/letters`, `/compare/:slug`, `/artifacts` and `/transcribe` (or their current paths), each with its data requests held for 1.5s so the loader is certain to be visible. Frames are sampled every animation frame (a `requestAnimationFrame` probe recording the mark's centre and any loading text, not 100ms screenshots), from navigation until the main-content marker for that route appears. The pasted per-route output shows:
+- [x] Cold loads of `/feed`, `/groups/cm`, `/events`, `/groups/cm/join`, `/events/:slug`, `/events/:slug/room`, `/settings`, `/letters`, `/compare/:slug`, `/artifacts` and `/transcribe` (or their current paths), each with its data requests held for 1.5s so the loader is certain to be visible. Frames are sampled every animation frame (a `requestAnimationFrame` probe recording the mark's centre and any loading text, not 100ms screenshots), from navigation until the main-content marker for that route appears. The pasted per-route output shows:
   - the mark was visible (so the next checks are not vacuous);
   - its centre moved at most 8px while visible;
   - no frame had "Loading" text;
   - no blank content frame after the mark showed and before content;
   - at most one mark episode per navigation.
-- [ ] Every §2 member renders its class's state, each with a focused test that fails on the old code (pasted non-zero exit) and passes on the new.
-- [ ] The §5 guard passes on the new tree. Each of its five categories fails when one real migrated site is reverted and passes for an allowlisted operation label (pasted exit codes, 10 runs).
-- [ ] Events list:
+
+  Evidence: `e2e/p1586-loading-continuity.spec.ts`, full run 2026-10-29 `--workers=1 --retries=0`: 30 passed, 14 skipped by design (narrow widths for routes measured at 1440 only), 2 failed on a TEST outage (`/groups/cm` org read threw, then `/settings` made 0 requests); both re-run 2 of 2 passing (4 passed). Every measured route logged `episodes: 1`, `centreRangeY: 0`, `blankFrames: []`, no Loading-text frames, `lateMarkFrames: 0`; `centreRangeX` 7.5px at 1440 (the 15px classic-scrollbar gutter, within 8px), 0 at 375/320. Deviations: `/events/:slug/room` and `/compare/:slug` hold 500ms per request (their 27- and 37-63-request chains at 1.5s each would legitimately trip the 15s slow notice); `/artifacts` is measured through `/letters`, which redirects there. The run found and the branch fixed two defects: the signed-out boot loader 80px below the splash, and blank frames at bare `<Navigate>` redirects.
+- [x] Every §2 member renders its class's state, each with a focused test that fails on the old code (pasted non-zero exit) and passes on the new.
+  Evidence: `src/tests/p1586-page-loader-members*.test.tsx` (22 tests, 22 failing against `git archive HEAD` before batch 2), `p1586-section-skeletons`, `p1586-section-deadline-*`, `p1586-room-ready-frozen`, `p1586-live-checking-session`, `p1586-prep-banner-skeleton`, `p1586-topic-list-skeleton`, `p1586-redirect-loaders` (each shown failing on the previous file). The live page's auth branch and the host page's text loader are covered by the guard's `loading-text` category instead of a render test (revert proven, exit 1).
+- [x] The §5 guard passes on the new tree. Each of its five categories fails when one real migrated site is reverted and passes for an allowlisted operation label (pasted exit codes, 10 runs).
+  Evidence: batch 6 (5 categories x fail on a mutated real file, exit 1, and pass, restored byte-for-byte), plus the orchestrator's own re-run of category 1 on `org-page.tsx` (exit 0 clean, exit 1 mutated, file restored with no diff); round-1/2 fixes added category 6 and revert controls for EventRoomGate, EventRoomReady, EventDetail, CreateEvent, the live page and EventArrivingPage `return (null)`, each exit 1. 27+ guard tests passing.
+- [x] Events list:
   - skeleton cards while loading;
   - with RSVP reads delayed, the list renders before the marks;
   - zero per-event RSVP requests (pasted request log);
@@ -180,9 +184,13 @@ Visual items: screenshots at 1440, 375 and 320, plus the frame evidence named in
   - switching account or group while both the events and RSVP responses are pending never shows the previous account's or group's marks;
   - a rejected events read and a stalled one (no answer past the deadline) both end in the readable line with Retry, and Retry recovers;
   - an empty success shows the empty state.
-- [ ] Room roster: skeleton rows while pending; the readable line on a failed first read; the last rows on a failed later poll; `p1114-roster-reload-ordering` and the p1114/p1337 room suites unchanged and green.
+
+  Evidence: `src/tests/p1586-events-list-contract.test.tsx` (each case written first and shown failing), `p1586-events-list-reads.test.ts`; zero per-event requests asserted as zero `isUserRsvpd` calls with one batched `getViewerRsvps`; identity from the session (P1560) with profile-A/session-B and null-to-user cases; signed-in late-auth no-flicker also proven in the e2e (0 skeleton and 0 mark frames after the list in 6 of 6 runs).
+- [x] Room roster: skeleton rows while pending; the readable line on a failed first read; the last rows on a failed later poll; `p1114-roster-reload-ordering` and the p1114/p1337 room suites unchanged and green.
+  Evidence: `src/tests/p1586-room-roster-status.test.ts`, `p1586-room-roster-states.test.tsx` (failed first: 4 of 5 and 5 of 5); p1114/p1337 files 21 of 21, 162 tests; full suite green at every commit.
 - [ ] All existing skeletons render on the shared primitive, with before/after screenshots showing the same shapes.
-- [ ] `docs/ux-patterns.md` has the Loading section.
+  OPEN: every skeleton is on the primitive (guard category 5: no `animate-pulse` outside it) and shapes were compared in code review, but no BEFORE screenshots were taken. Production still runs the pre-P1586 skeletons, so `/verify p1586` can capture the before/after pairs.
+- [x] `docs/ux-patterns.md` has the Loading section.
 
 ## Known limitations
 
@@ -191,7 +199,8 @@ Recorded under the review stopping rule (decisions.md 2026-10-14 [process]): sha
 - **Guard blind spots** (`src/tests/p1586-loading-states-guard.test.ts`, documented in its header): a `const` message rendered later, `return;`/`undefined` as a blank render, namespace tags (`<UI.ClarityLoader />`), nested ternaries or `&&` chains that evaluate to null, `{false}`/`{null}` beside a page loader inside a fragment (a false positive), and `<Fragment>`-wrapped `Navigate` (a false positive). The allowlist counts per file and kind, not per element.
 - **Service reads that turn an error into "nothing"** (predate P1586; need a service contract change): the transcript readers in `api.ts` resolve `null` on a database error, so a failed read shows "No speech detected"; `getVerifiedProfilesPage` returns an empty page on an RPC error, so a failed first read still shows an empty grid. The page-level `failed` path in this spec catches thrown errors only.
 - **Doc story picker** (predates P1586): it reads twice on first open (`hasAnyStories` is a dependency of `fetchStories`), and its `error` state renders a blank results area with no Retry.
-- **Continuity e2e**: the skipped routes and the widths covered are listed in the e2e file header.
+- **Continuity e2e**: the skipped routes and the widths covered are listed in the e2e file header. The late-auth window equals the profile hold (11s each), so a very fast marker leaves less post-profile sampling than intended; the window is timed from the first 2xx read even when an earlier read failed. Cleanup runs sequentially, so one failed delete can leave a test user (and its temporary `cm` organizer row) until the next run's ledger sweep deletes it.
+- **Group header** (predates P1586): the member count and participant row draw after the header, so the page below shifts about 64px when they arrive. Reserving their height needs the page to tell a pending read from a failed one for two reads (P1060 rules that an unknown count renders as absence); left for a founder call.
 
 ## Related
 
