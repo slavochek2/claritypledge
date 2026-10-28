@@ -8,6 +8,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-28 [product]: Change managers get a use-case page built from the hospitals sections; job titles allowed on use-case pages (P1558). Founder decision, UNTESTED
+
+**Context:** P1558 asked for a public page to structure the "we agreed on the change and then nothing happened" use case before discovery outreach. Three drafts were built and reviewed. The first two wrote custom sections (cause cards, a four-step how-it-works, an offer-card workflow) and read as long and foreign next to the other use-case pages. The founder asked why existing sections were not reused and pointed at /hospitals as the stronger model.
+**Decision:**
+- Route `/change-managers`, menu label "For change managers", first in Use cases. Nobody's title is "change lead"; Change Manager is the common one. `/change-leads` redirects. `noIndex`, as /hospitals.
+- The page follows /hospitals section for section and shares its sections rather than copying them: hero, a "they-withheld" chat (problem), stat, Why almost nobody verifies, Reveal a gap then close it (office cast), Group Terms, How revealing gaps becomes a team norm, founder, closing "Reveal gaps in understanding before your rollout stalls".
+- The stat is the change manager's own outcome metric in the source's words: IBM, Making Change Work (2008, n=1,532): 59% of change projects missed at least one objective or failed entirely; top obstacle changing mindsets and attitudes (58%), technology barriers 8%. No bridge line under it (founder deleted it).
+- Job titles may appear in use-case page copy. This supersedes, for use-case pages, the August ruling "No job titles in page copy" (search "No job titles in page copy").
+- Who sees skipped check-backs stays open: the private offer draft makes skipping visible, the P1558 spec said recognition only. The page says nothing either way until the founder decides, after the first mastermind session.
+**Alternatives rejected:** a strategy-alignment stat (Sull et al. 2018, 28% could list three priorities: measures knowing priorities, not gaps between people; founder: "how is this a gap in understanding?"); BCG 2024 AI survey (74% "yet to show tangible value" is BCG's maturity grouping, 70% people-and-process leans on its 10-20-70 rule); the shared "How the platform works" section on this page (overlaps, and its "agents flag high-stakes matters" is not built); offer cards with Built/Being built badges (founder: "a weird thing" next to the sibling pages).
+**Falsifier:** after ~5 discovery calls with change managers, none recognises the stalled-yes problem in their own words, or none books from the page.
+**Consequences:** /builders, /hiring and /coach still render "How the platform works" with the unbuilt "agents flag" claim, and the "Book a call" CTA colours (blue-500 on white text) are below 4.5:1 contrast on every use-case page; both are site-wide follow-ups, not P1558. The IBM figure is from 2008 and self-rated by practitioners.
+**References:** [p1558](../features/done/2026-06-10/p1558_change_leads_use_case_page.md) · [p1506](../features/done/2026-06-10/p1506_hospitals_use_case_page.md) · decisions.md 2026-10-27 [product] (outreach parked until a package exists)
+
+---
+
+## 2026-10-28 [technical]: Use-case landing sections are shared components with a per-page cast; landing routes and redirects live in lists outside App.tsx (P1558)
+
+**Context:** P1558 reused /hospitals' sections for /change-managers. The gap-exchange demo carried hospital names, doctor and nurse avatars, its own analytics event and Sentry tag, so reuse leaked hospital wording, pictures and analytics into the new page until each was parameterised. Separately, App.tsx is over the quality ratchet's 400-line limit and a ship gate refuses any branch that grows it.
+**Decision:** The why / Group Terms / team-norm sections, Reveal, RefSup, ReferencesList and CountUpPercent live in `src/app/components/landing/`. Page-specific wording is a prop with the hospital text as default (`NEUTRAL_*` constants for teams). The gap exchange takes an `ExchangeCast` that carries names, copy, avatars, `viewEvent` and the Sentry `surface`, so each page reports itself. Use-case landing routes are `USE_CASE_LANDINGS` (`src/app/routes/use-case-landings.ts`) and old-path redirects are `LANDING_REDIRECTS` (`landing-redirects.ts`), both mapped in App.tsx, which made the branch shrink App.tsx instead of growing it.
+**Alternatives rejected:** copying the sections into the new page (the duplication the founder asked to remove); one generic page component for all use cases (pages differ in order and in which sections they carry).
+**Consequences:** A new use-case page adds a cast and an entry in `USE_CASE_LANDINGS`, not new routes in App.tsx. program-page.tsx and build-right-thing-landing.tsx still carry their own Reveal, RefSup and CountUpPercent copies. `scripts/check-nav-route-consistency.sh` never scanned the Use cases links (they live in nav-links.ts), so route tests are what cover them.
+**References:** [p1558](../features/done/2026-06-10/p1558_change_leads_use_case_page.md) · `src/app/content/exchange-casts.ts`
+
+---
+
 ## 2026-10-28 [product]: Active channel → community organisers who spread fallibilism first; change leads become customers reached through their groups. Reverses 2026-10-27 "umbrella, not the lead". Founder decision, UNTESTED
 
 **Context:** An outreach session (2026-10-27→28) began as a LinkedIn people-search list of change leads and ended with the founder choosing organisers first (option A), change leads second (option B). Yesterday's entry kept "community organizers spread fallibilism" as a `[FALLBACK]` umbrella with change leads as its first instance. Today the founder made organisers the first outreach target in their own right.
